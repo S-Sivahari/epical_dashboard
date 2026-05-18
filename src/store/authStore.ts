@@ -19,10 +19,22 @@ interface AuthState {
   logout: () => void
 }
 
+const storedToken = localStorage.getItem('hrms_token')
+
 export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  token: null,
-  isAuthenticated: false,
+  user: storedToken
+    ? {
+        id: 'ADM-1',
+        name: 'Priya Nair',
+        email: 'admin@epical.com',
+        role: 'Admin',
+        department: 'People',
+        designation: 'HR Director',
+        joinedAt: '2019-04-01',
+      }
+    : null,
+  token: storedToken,
+  isAuthenticated: !!storedToken,
   login: async (email, _password) => {
     const token = `demo-token-${Date.now()}`
     localStorage.setItem('hrms_token', token)

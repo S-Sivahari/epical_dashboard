@@ -101,10 +101,12 @@ export function AppRoutes() {
         <Route element={<ProtectedRoute />}>
           <Route path="dashboard" element={<DashboardLayout />}>
             <Route index element={<DashboardHome />} />
-            <Route path="employees" element={<EmployeeList />} />
-            <Route path="employees/add" element={<AddEmployee />} />
-            <Route path="employees/:id" element={<EmployeeProfile />} />
-            <Route path="employees/:id/edit" element={<EditEmployee />} />
+            <Route path="employees">
+              <Route index element={<EmployeeList />} />
+              <Route path="add" element={<AddEmployee />} />
+              <Route path=":id" element={<EmployeeProfile />} />
+              <Route path=":id/edit" element={<EditEmployee />} />
+            </Route>
             <Route path="leaves" element={<LeaveShell />}>
               <Route index element={<LeavesIndexRedirect />} />
               <Route path="pending" element={<PendingLeaves />} />

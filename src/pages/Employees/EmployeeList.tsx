@@ -112,8 +112,11 @@ export function EmployeeList() {
         subtitle="Directory, filters, and quick actions."
         breadcrumb={<Breadcrumb items={[{ label: 'Employees', to: '/dashboard/employees' }]} />}
         actions={
-          <Button icon={<Plus className="h-4 w-4" />} asChild>
-            <Link to="/dashboard/employees/add">Add Employee</Link>
+          <Button asChild>
+            <Link to="/dashboard/employees/add">
+              <Plus className="h-4 w-4" />
+              Add Employee
+            </Link>
           </Button>
         }
       />

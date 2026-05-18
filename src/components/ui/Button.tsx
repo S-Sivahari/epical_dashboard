@@ -71,8 +71,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         aria-disabled={asChild ? disabled || loading : undefined}
         {...props}
       >
-        {loading && !asChild ? <Spinner size="sm" /> : icon}
-        {children}
+        {asChild ? (
+          children
+        ) : (
+          <>
+            {loading ? <Spinner size="sm" /> : icon}
+            {children}
+          </>
+        )}
       </Comp>
     )
   },
