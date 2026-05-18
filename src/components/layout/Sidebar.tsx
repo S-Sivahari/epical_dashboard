@@ -17,43 +17,47 @@ import {
 } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { cn } from '@/utils/cn'
+import { ROUTES } from '@constants/routes'
 import { useAuthStore } from '@store/authStore'
 import { useUiStore } from '@store/uiStore'
 import { useMediaQuery } from '@hooks/useMediaQuery'
 
-const groups: { label: string; items: { to: string; label: string; icon: typeof LayoutGrid }[] }[] = [
+const groups: {
+  label: string
+  items: { to: string; label: string; icon: typeof LayoutGrid; end?: boolean }[]
+}[] = [
   {
     label: 'Main',
-    items: [{ to: '/dashboard', label: 'Dashboard', icon: LayoutGrid }],
+    items: [{ to: ROUTES.DASHBOARD, label: 'Dashboard', icon: LayoutGrid, end: true }],
   },
   {
     label: 'People',
     items: [
-      { to: '/dashboard/employees', label: 'Employees', icon: Users },
-      { to: '/dashboard/leaves', label: 'Leave Management', icon: CalendarCheck },
+      { to: ROUTES.EMPLOYEES, label: 'Employees', icon: Users, end: true },
+      { to: ROUTES.LEAVES, label: 'Leave Management', icon: CalendarCheck },
     ],
   },
   {
     label: 'Work',
     items: [
-      { to: '/dashboard/projects', label: 'Projects / Timesheet', icon: Briefcase },
-      { to: '/dashboard/calendar', label: 'Company Calendar', icon: CalendarDays },
+      { to: ROUTES.PROJECTS, label: 'Projects / Timesheet', icon: Briefcase },
+      { to: ROUTES.CALENDAR, label: 'Company Calendar', icon: CalendarDays },
     ],
   },
   {
     label: 'Company',
     items: [
-      { to: '/dashboard/training', label: 'Training & Courses', icon: BookOpen },
-      { to: '/dashboard/achievements', label: 'Achievements', icon: Trophy },
-      { to: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
-      { to: '/dashboard/documents', label: 'Documents', icon: FileText },
-      { to: '/dashboard/news', label: 'Company News', icon: Newspaper },
-      { to: '/dashboard/tickets', label: 'Tickets', icon: Ticket },
+      { to: ROUTES.TRAINING, label: 'Training & Courses', icon: BookOpen },
+      { to: ROUTES.ACHIEVEMENTS, label: 'Achievements', icon: Trophy },
+      { to: ROUTES.ANALYTICS, label: 'Analytics', icon: BarChart3 },
+      { to: ROUTES.DOCUMENTS, label: 'Documents', icon: FileText },
+      { to: ROUTES.NEWS, label: 'Company News', icon: Newspaper },
+      { to: ROUTES.TICKETS, label: 'Tickets', icon: Ticket },
     ],
   },
   {
     label: 'System',
-    items: [{ to: '/dashboard/settings', label: 'Settings', icon: Settings }],
+    items: [{ to: ROUTES.SETTINGS, label: 'Settings', icon: Settings }],
   },
 ]
 
@@ -110,7 +114,7 @@ export function Sidebar() {
                   <NavLink
                     key={item.to}
                     to={item.to}
-                    end={item.to === '/dashboard'}
+                    end={item.end ?? false}
                     onClick={() => !isLg && setSidebarOpen(false)}
                     className={({ isActive }) =>
                       cn(
