@@ -36,7 +36,7 @@ export function EmployeeProfile() {
   if (!employee) {
     return (
       <PageWrapper>
-        <PageHeader title="Employee" breadcrumb={<Breadcrumb items={[{ label: 'Employees', to: '/dashboard/employees' }, { label: 'Profile' }]} />} />
+        <PageHeader title="Employee" breadcrumb={<Breadcrumb items={[{ label: 'Employees', to: '/admin/employees' }, { label: 'Profile' }]} />} />
         <p className="text-sm text-muted">Loading profile…</p>
       </PageWrapper>
     )
@@ -52,14 +52,14 @@ export function EmployeeProfile() {
         breadcrumb={
           <Breadcrumb
             items={[
-              { label: 'Employees', to: '/dashboard/employees' },
+              { label: 'Employees', to: '/admin/employees' },
               { label: name },
             ]}
           />
         }
         actions={
           <Button asChild>
-            <Link to={`/dashboard/employees/${employee.id}/edit`}>Edit</Link>
+            <Link to={`/admin/employees/${employee.id}/edit`}>Edit</Link>
           </Button>
         }
       />

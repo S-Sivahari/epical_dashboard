@@ -20,7 +20,7 @@ export function Navbar() {
   const isLg = useMediaQuery('(min-width: 1024px)')
 
   const title = useMemo(() => {
-    if (pathname === '/dashboard') return 'Dashboard'
+    if (pathname === '/admin') return 'Dashboard'
     const parts = pathname.split('/').filter(Boolean)
     const last = parts[parts.length - 1] ?? 'dashboard'
     if (last.match(/^[a-z0-9-]+$/i) && last.length < 24) return titleCase(last)
@@ -63,7 +63,9 @@ export function Navbar() {
               className="flex items-center gap-2 rounded-lg border border-border bg-white px-2 py-1.5 text-left text-sm transition-ui hover:bg-surface"
             >
               <Avatar name={user?.name ?? 'Admin'} size="sm" />
-              <span className="hidden max-w-[120px] truncate font-medium text-ink sm:inline">{user?.name}</span>
+              <span className="hidden max-w-[120px] truncate font-medium text-ink sm:inline">
+                {user?.name}
+              </span>
               <ChevronDown className="h-4 w-4 text-muted" />
             </button>
           </DropdownMenu.Trigger>
@@ -75,7 +77,7 @@ export function Navbar() {
             >
               <DropdownMenu.Item
                 className="cursor-pointer rounded-lg px-3 py-2 text-sm text-ink outline-none hover:bg-surface"
-                onSelect={() => navigate('/dashboard/settings')}
+                onSelect={() => navigate('/admin/settings')}
               >
                 Settings
               </DropdownMenu.Item>
@@ -84,7 +86,7 @@ export function Navbar() {
                 className="cursor-pointer rounded-lg px-3 py-2 text-sm text-danger outline-none hover:bg-red-50"
                 onSelect={() => {
                   logout()
-                  navigate('/')
+                  navigate('/auth/login')
                 }}
               >
                 Log out

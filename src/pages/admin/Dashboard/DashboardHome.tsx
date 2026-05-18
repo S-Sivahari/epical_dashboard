@@ -80,16 +80,16 @@ export function DashboardHome() {
             </div>
           </div>
           <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <Link to="/dashboard/employees/add" className={quickActionClass}>
+            <Link to="/admin/employees/add" className={quickActionClass}>
               Add Employee
             </Link>
-            <Link to="/dashboard/leaves/pending" className={quickActionClass}>
+            <Link to="/admin/leaves/pending" className={quickActionClass}>
               Review Leaves
             </Link>
-            <Link to="/dashboard/documents" className={quickActionClass}>
+            <Link to="/admin/documents" className={quickActionClass}>
               Approve Documents
             </Link>
-            <Link to="/dashboard/news" className={quickActionClass}>
+            <Link to="/admin/news" className={quickActionClass}>
               Manage News
             </Link>
           </div>

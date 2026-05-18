@@ -7,6 +7,7 @@ export interface Employee {
   lastName: string
   department: string
   designation: string
+  role: string
   employmentType: EmploymentType
   joinedAt: string
   status: EmployeeStatus

@@ -24,18 +24,18 @@ const step1 = z.object({
 })
 
 const step2 = z.object({
-  bankName: z.string().min(2, 'Required'),
-  accountNumber: z.string().min(6, 'Required'),
-  ifsc: z.string().min(4, 'Required'),
-  salaryGrade: z.string().min(1, 'Required'),
-  uan: z.string().min(4, 'Required'),
+  bankName: z.string().optional(),
+  accountNumber: z.string().optional(),
+  ifsc: z.string().optional(),
+  salaryGrade: z.string().optional(),
+  uan: z.string().optional(),
   pfEsi: z.enum(['on', 'off']),
 })
 
 const step3 = z.object({
   joinedAt: z.string().min(1, 'Required'),
   employmentType: z.enum(['Full-time', 'Contract', 'Intern']),
-  designation: z.string().min(2, 'Required'),
+
   department: z.string().min(2, 'Required'),
   reportingManager: z.string().min(1, 'Required'),
   role: z.string().min(2, 'Required'),
@@ -51,13 +51,17 @@ const step4 = z.object({
 const fullSchema = step1.merge(step2).merge(step3).merge(step4)
 type FullValues = z.infer<typeof fullSchema>
 
-const steps = ['Personal', 'Payment', 'Joining', 'ID Proof']
-
+const steps = ['Personal details', 'Account Details', 'boarding details', 'ID Proof']
 const defaultValues: Partial<FullValues> = {
   gender: 'Female',
   employmentType: 'Full-time',
   pfEsi: 'on',
   passport: '',
+  bankName: '',
+  accountNumber: '',
+  ifsc: '',
+  salaryGrade: '',
+  uan: '',
   ctc: 1200000,
 }
 
@@ -77,7 +81,7 @@ export function AddEmployee() {
     const keys: (keyof FullValues)[][] = [
       ['firstName', 'lastName', 'dob', 'gender', 'phone', 'personalEmail', 'companyEmail'],
       ['bankName', 'accountNumber', 'ifsc', 'salaryGrade', 'uan', 'pfEsi'],
-      ['joinedAt', 'employmentType', 'designation', 'department', 'reportingManager', 'role', 'ctc'],
+      ['joinedAt', 'employmentType', 'department', 'reportingManager', 'role', 'ctc'],
       ['aadhaar', 'pan', 'passport'],
     ]
     const parsed = schemas[step].safeParse(pick(keys[step]))
@@ -101,7 +105,8 @@ export function AddEmployee() {
       firstName: v.firstName,
       lastName: v.lastName,
       department: v.department,
-      designation: v.designation,
+      designation: v.role,
+      role: v.role,
       employmentType: v.employmentType,
       joinedAt: v.joinedAt,
       status: 'Active',
@@ -114,7 +119,7 @@ export function AddEmployee() {
       try {
         await addEmployee(payload)
         toast.success('Employee created')
-        navigate('/dashboard/employees')
+        navigate('/admin/employees')
       } catch {
         toast.error('Could not create employee')
       }
@@ -127,12 +132,7 @@ export function AddEmployee() {
         title="Add Employee"
         subtitle="Four-step onboarding with validation at each step."
         breadcrumb={
-          <Breadcrumb
-            items={[
-              { label: 'Employees', to: '/dashboard/employees' },
-              { label: 'Add' },
-            ]}
-          />
+          <Breadcrumb items={[{ label: 'Employees', to: '/admin/employees' }, { label: 'Add' }]} />
         }
       />
 
@@ -156,18 +156,28 @@ export function AddEmployee() {
                 {...form.register('gender')}
               />
               <Input label="Phone" required {...form.register('phone')} />
-              <Input label="Personal email" type="email" required {...form.register('personalEmail')} />
-              <Input label="Company email" type="email" required {...form.register('companyEmail')} />
+              <Input
+                label="Personal email"
+                type="email"
+                required
+                {...form.register('personalEmail')}
+              />
+              <Input
+                label="Company email"
+                type="email"
+                required
+                {...form.register('companyEmail')}
+              />
             </div>
           ) : null}
 
           {step === 1 ? (
             <div className="grid gap-4 md:grid-cols-2">
-              <Input label="Bank name" required {...form.register('bankName')} />
-              <Input label="Account number" required {...form.register('accountNumber')} />
-              <Input label="IFSC" required {...form.register('ifsc')} />
-              <Input label="Salary grade" required {...form.register('salaryGrade')} />
-              <Input label="UAN" required {...form.register('uan')} />
+              <Input label="Bank name" {...form.register('bankName')} />
+              <Input label="Account number" {...form.register('accountNumber')} />
+              <Input label="IFSC" {...form.register('ifsc')} />
+              <Input label="Salary grade" {...form.register('salaryGrade')} />
+              <Input label="UAN" {...form.register('uan')} />
               <SelectField
                 label="PF / ESI"
                 required
@@ -193,11 +203,16 @@ export function AddEmployee() {
                 ]}
                 {...form.register('employmentType')}
               />
-              <Input label="Designation" required {...form.register('designation')} />
+
               <Input label="Department" required {...form.register('department')} />
               <Input label="Reporting manager" required {...form.register('reportingManager')} />
               <Input label="Role" required {...form.register('role')} />
-              <Input label="CTC (annual)" type="number" required {...form.register('ctc', { valueAsNumber: true })} />
+              <Input
+                label="CTC (annual)"
+                type="number"
+                required
+                {...form.register('ctc', { valueAsNumber: true })}
+              />
             </div>
           ) : null}
 
@@ -213,11 +228,16 @@ export function AddEmployee() {
           ) : null}
 
           <div className="flex flex-wrap justify-between gap-2">
-            <Button type="button" variant="secondary" onClick={() => setStep((s) => Math.max(s - 1, 0))} disabled={step === 0}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setStep((s) => Math.max(s - 1, 0))}
+              disabled={step === 0}
+            >
               Back
             </Button>
             <div className="flex gap-2">
-              <Button type="button" variant="ghost" onClick={() => navigate('/dashboard/employees')}>
+              <Button type="button" variant="ghost" onClick={() => navigate('/admin/employees')}>
                 Cancel
               </Button>
               {step < 3 ? (

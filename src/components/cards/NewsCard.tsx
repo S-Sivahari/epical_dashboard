@@ -24,7 +24,7 @@ export function NewsCard({ item, featured }: { item: NewsItem; featured?: boolea
         </p>
         <h3 className="mt-2 font-display text-lg font-semibold text-ink group-hover:text-primary">{item.title}</h3>
         <p className="mt-2 line-clamp-3 text-sm text-muted">{item.excerpt}</p>
-        <Link to={`/dashboard/news`} className="mt-4 inline-flex text-sm font-semibold text-primary">
+        <Link to={`/admin/news`} className="mt-4 inline-flex text-sm font-semibold text-primary">
           Read more
         </Link>
       </div>

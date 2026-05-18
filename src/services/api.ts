@@ -20,10 +20,11 @@ api.interceptors.response.use(
     const status = err.response?.status
     if (status === 401) {
       localStorage.removeItem('hrms_token')
-      if (!window.location.pathname.startsWith('/dashboard')) {
+      localStorage.removeItem('hrms_role')
+      if (!window.location.pathname.startsWith('/admin')) {
         return Promise.reject(err)
       }
-      window.location.assign('/')
+      window.location.assign('/auth/login')
       toast.error('Session expired. Please sign in again.')
     } else if (status && status >= 500) {
       toast.error('Server error. Please try again later.')

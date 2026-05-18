@@ -3,6 +3,9 @@
 @tailwind utilities;
 
 @layer base {
+  * {
+    @apply border-border;
+  }
   html {
     @apply antialiased;
   }

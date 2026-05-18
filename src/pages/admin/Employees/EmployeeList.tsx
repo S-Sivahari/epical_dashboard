@@ -87,10 +87,10 @@ export function EmployeeList() {
       render: (e) => (
         <div className="flex gap-2">
           <Button variant="ghost" size="sm" asChild>
-            <Link to={`/dashboard/employees/${e.id}`}>View</Link>
+            <Link to={`/admin/employees/${e.id}`}>View</Link>
           </Button>
           <Button variant="ghost" size="sm" asChild>
-            <Link to={`/dashboard/employees/${e.id}/edit`}>Edit</Link>
+            <Link to={`/admin/employees/${e.id}/edit`}>Edit</Link>
           </Button>
           <Button
             variant="ghost"
@@ -110,10 +110,10 @@ export function EmployeeList() {
       <PageHeader
         title="Employees"
         subtitle="Directory, filters, and quick actions."
-        breadcrumb={<Breadcrumb items={[{ label: 'Employees', to: '/dashboard/employees' }]} />}
+        breadcrumb={<Breadcrumb items={[{ label: 'Employees', to: '/admin/employees' }]} />}
         actions={
           <Button asChild>
-            <Link to="/dashboard/employees/add">
+            <Link to="/admin/employees/add">
               <Plus className="h-4 w-4" />
               Add Employee
             </Link>

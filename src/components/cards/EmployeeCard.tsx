@@ -9,14 +9,14 @@ export function EmployeeCard({ employee }: { employee: Employee }) {
   const color = stringToHueColor(employee.id)
   return (
     <Link
-      to={`/dashboard/employees/${employee.id}`}
+      to={`/admin/employees/${employee.id}`}
       className="flex items-center gap-3 rounded-xl border border-border bg-white p-4 shadow-sm transition-ui hover:border-primary/40"
     >
       <Avatar name={name} color={color} />
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium text-ink">{name}</p>
         <p className="truncate text-sm text-muted">
-          {employee.designation} · {employee.department}
+          {employee.role} · {employee.department}
         </p>
       </div>
       <Badge
@@ -25,9 +25,7 @@ export function EmployeeCard({ employee }: { employee: Employee }) {
             ? 'success'
             : employee.status === 'On Leave'
               ? 'warning'
-              : employee.status === 'Probation'
-                ? 'info'
-                : 'neutral'
+              : 'neutral'
         }
       >
         {employee.status}

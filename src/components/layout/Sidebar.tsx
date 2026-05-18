@@ -108,7 +108,9 @@ export function Sidebar() {
         <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
           {groups.map((g) => (
             <div key={g.label}>
-              <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted">{g.label}</p>
+              <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                {g.label}
+              </p>
               <div className="space-y-1">
                 {g.items.map((item) => (
                   <NavLink
@@ -140,7 +142,7 @@ export function Sidebar() {
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted transition-ui hover:bg-surface hover:text-danger"
             onClick={() => {
               logout()
-              navigate('/')
+              navigate('/auth/login')
             }}
           >
             <LogOut className="h-4 w-4" />

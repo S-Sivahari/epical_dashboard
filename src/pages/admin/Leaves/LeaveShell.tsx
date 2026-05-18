@@ -16,7 +16,7 @@ export function LeaveShell() {
       <PageHeader
         title="Leave management"
         subtitle="Pending approvals, compensation credits, and holidays."
-        breadcrumb={<Breadcrumb items={[{ label: 'Leaves', to: '/dashboard/leaves' }]} />}
+        breadcrumb={<Breadcrumb items={[{ label: 'Leaves', to: '/admin/leaves' }]} />}
       />
       <div className="mb-4 flex flex-wrap gap-2 border-b border-border pb-3">
         <NavLink to="pending" className={tabClass}>

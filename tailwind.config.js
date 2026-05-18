@@ -5,6 +5,9 @@ export default {
     extend: {
       colors: {
         primary: '#16a34a',
+        background: '#f8fafc',
+        card: '#ffffff',
+        foreground: '#0f172a',
         surface: '#f8fafc',
         border: '#e2e8f0',
         ink: '#0f172a',

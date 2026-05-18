@@ -19,22 +19,28 @@ type FormValues = z.infer<typeof schema>
 export function LoginPage() {
   const login = useAuthStore((s) => s.login)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const role = useAuthStore((s) => s.role)
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (isAuthenticated) navigate('/dashboard', { replace: true })
-  }, [isAuthenticated, navigate])
+    if (isAuthenticated) {
+      navigate(role === 'admin' ? '/admin' : '/employee', { replace: true })
+    }
+  }, [isAuthenticated, navigate, role])
+
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { email: '', password: '' } })
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: { email: '', password: '' },
+  })
 
   const onSubmit = handleSubmit(async (values) => {
     try {
       await login(values.email, values.password)
       toast.success('Welcome back')
-      navigate('/dashboard', { replace: true })
     } catch {
       toast.error('Unable to sign in')
     }
@@ -46,11 +52,14 @@ export function LoginPage() {
         <div>
           <p className="font-display text-2xl font-bold">HRMS</p>
           <p className="mt-3 max-w-md text-sm text-emerald-50">
-            A modern admin experience for people operations — leaves, documents, analytics, and more in one place.
+            A modern admin experience for people operations — leaves, documents, analytics, and more
+            in one place.
           </p>
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur">
-          <p className="text-sm text-emerald-50">“Clarity for HR teams, confidence for employees.”</p>
+          <p className="text-sm text-emerald-50">
+            “Clarity for HR teams, confidence for employees.”
+          </p>
         </div>
       </div>
       <div className="flex items-center justify-center px-4 py-10">
@@ -65,10 +74,16 @@ export function LoginPage() {
               H
             </div>
             <h1 className="font-display text-2xl font-semibold text-ink">Welcome back</h1>
-            <p className="mt-1 text-sm text-muted">Sign in to the admin console</p>
+            <p className="mt-1 text-sm text-muted">Sign in to the enterprise portal</p>
           </div>
           <form className="space-y-4" onSubmit={onSubmit} noValidate>
-            <Input label="Email" type="email" autoComplete="email" error={errors.email?.message} {...register('email')} />
+            <Input
+              label="Email"
+              type="email"
+              autoComplete="email"
+              error={errors.email?.message}
+              {...register('email')}
+            />
             <Input
               label="Password"
               type="password"

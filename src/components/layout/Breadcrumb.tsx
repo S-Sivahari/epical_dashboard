@@ -10,7 +10,7 @@ export interface Crumb {
 export function Breadcrumb({ items, className }: { items: Crumb[]; className?: string }) {
   return (
     <nav aria-label="Breadcrumb" className={cn('flex flex-wrap items-center gap-1 text-sm text-muted', className)}>
-      <Link to="/dashboard" className="inline-flex items-center gap-1 hover:text-ink">
+      <Link to="/admin" className="inline-flex items-center gap-1 hover:text-ink">
         <Home className="h-4 w-4" />
         Home
       </Link>

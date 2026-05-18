@@ -14,7 +14,15 @@ import type { Employee } from '@/types'
 
 type FormValues = Pick<
   Employee,
-  'firstName' | 'lastName' | 'department' | 'designation' | 'employmentType' | 'joinedAt' | 'status' | 'email'
+  | 'firstName'
+  | 'lastName'
+  | 'department'
+  | 'designation'
+  | 'role'
+  | 'employmentType'
+  | 'joinedAt'
+  | 'status'
+  | 'email'
 >
 
 export function EditEmployee() {
@@ -35,6 +43,7 @@ export function EditEmployee() {
           lastName: e.lastName,
           department: e.department,
           designation: e.designation,
+          role: e.role,
           employmentType: e.employmentType,
           joinedAt: e.joinedAt,
           status: e.status,
@@ -42,7 +51,7 @@ export function EditEmployee() {
         })
       } catch {
         toast.error('Employee not found')
-        navigate('/dashboard/employees')
+        navigate('/admin/employees')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -56,7 +65,7 @@ export function EditEmployee() {
     try {
       await updateEmployee(id, values)
       toast.success('Employee updated')
-      navigate(`/dashboard/employees/${id}`)
+      navigate(`/admin/employees/${id}`)
     } catch {
       toast.error('Update failed')
     }
@@ -77,8 +86,8 @@ export function EditEmployee() {
         breadcrumb={
           <Breadcrumb
             items={[
-              { label: 'Employees', to: '/dashboard/employees' },
-              { label: id, to: `/dashboard/employees/${id}` },
+              { label: 'Employees', to: '/admin/employees' },
+              { label: id, to: `/admin/employees/${id}` },
               { label: 'Edit' },
             ]}
           />
@@ -89,7 +98,9 @@ export function EditEmployee() {
         <Input label="Last name" required {...form.register('lastName')} />
         <Input label="Company email" type="email" required {...form.register('email')} />
         <Input label="Department" required {...form.register('department')} />
+
         <Input label="Designation" required {...form.register('designation')} />
+        <Input label="Role" required {...form.register('role')} />
         <Input label="Joining date" type="date" required {...form.register('joinedAt')} />
         <SelectField
           label="Employment type"
