@@ -1,6 +1,13 @@
 import { Slot } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
-import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
+import {
+  Children,
+  cloneElement,
+  forwardRef,
+  isValidElement,
+  type ButtonHTMLAttributes,
+  type ReactNode,
+} from 'react'
 import { cn } from '@/utils/cn'
 import { Spinner } from '@components/ui/Spinner'
 
@@ -10,8 +17,7 @@ const variants = cva(
     variants: {
       variant: {
         primary: 'bg-primary text-white hover:bg-green-700',
-        secondary:
-          'border border-border bg-white text-ink hover:bg-surface',
+        secondary: 'border border-border bg-white text-ink hover:bg-surface',
         danger: 'bg-danger text-white hover:bg-red-600',
         ghost: 'text-ink hover:bg-surface',
       },
@@ -26,8 +32,7 @@ const variants = cva(
 )
 
 export interface ButtonProps
-  extends ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof variants> {
+  extends ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof variants> {
   loading?: boolean
   icon?: ReactNode
   asChild?: boolean
@@ -36,6 +41,28 @@ export interface ButtonProps
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, loading, icon, children, disabled, asChild, ...props }, ref) => {
     const Comp = asChild ? Slot : 'button'
+    if (asChild) {
+      const child = Children.only(children)
+      if (isValidElement(child)) {
+        return (
+          <Comp
+            ref={ref as never}
+            className={cn(variants({ variant, size }), className)}
+            aria-disabled={disabled || loading}
+            {...props}
+          >
+            {cloneElement(child, {
+              children: (
+                <>
+                  {icon}
+                  {child.props.children}
+                </>
+              ),
+            })}
+          </Comp>
+        )
+      }
+    }
     return (
       <Comp
         ref={ref as never}

@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import { Breadcrumb } from '@components/layout/Breadcrumb'
 import { PageHeader } from '@components/layout/PageHeader'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
+import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { Input } from '@components/ui/Input'
 import { Badge } from '@components/ui/Badge'
 import { Avatar } from '@components/ui/Avatar'
@@ -27,8 +28,10 @@ export function EmployeeList() {
     pagination,
     setPage,
     setPageSize,
+    deleteEmployee,
   } = useEmployees()
   const [q, setQ] = useState(filters.q)
+  const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null)
   const dq = useDebounce(q, 300)
   useEffect(() => {
     setFilters({ q: dq })
@@ -65,7 +68,13 @@ export function EmployeeList() {
       render: (e) => (
         <Badge
           variant={
-            e.status === 'Active' ? 'success' : e.status === 'On Leave' ? 'warning' : e.status === 'Probation' ? 'info' : 'neutral'
+            e.status === 'Active'
+              ? 'success'
+              : e.status === 'On Leave'
+                ? 'warning'
+                : e.status === 'Probation'
+                  ? 'info'
+                  : 'neutral'
           }
         >
           {e.status}
@@ -82,6 +91,14 @@ export function EmployeeList() {
           </Button>
           <Button variant="ghost" size="sm" asChild>
             <Link to={`/dashboard/employees/${e.id}/edit`}>Edit</Link>
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setDeleteTarget(e)}
+            aria-label={`Delete ${e.firstName} ${e.lastName}`}
+          >
+            <Trash2 className="h-4 w-4" />
           </Button>
         </div>
       ),
@@ -103,7 +120,12 @@ export function EmployeeList() {
 
       <FilterBar>
         <div className="grid w-full gap-3 md:grid-cols-4">
-          <Input label="Search" placeholder="Name, email, ID" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Input
+            label="Search"
+            placeholder="Name, email, ID"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
           <SelectField
             label="Department"
             value={filters.department}
@@ -153,6 +175,24 @@ export function EmployeeList() {
         pageSize={pagination.pageSize}
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
+      />
+
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        title="Delete employee"
+        description={
+          deleteTarget
+            ? `Are you sure you want to delete ${deleteTarget.firstName} ${deleteTarget.lastName}? This action cannot be undone.`
+            : 'Are you sure you want to delete this employee? This action cannot be undone.'
+        }
+        confirmLabel="Delete"
+        danger
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={async () => {
+          if (!deleteTarget) return
+          await deleteEmployee(deleteTarget.id)
+          setDeleteTarget(null)
+        }}
       />
     </PageWrapper>
   )
