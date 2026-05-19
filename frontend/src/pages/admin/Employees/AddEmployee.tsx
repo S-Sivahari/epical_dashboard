@@ -1,5 +1,5 @@
-import { useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { z } from 'zod'
@@ -9,7 +9,6 @@ import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
 import { SelectField } from '@components/forms/SelectField'
-import { StepIndicator } from '@components/forms/StepIndicator'
 import { useEmployeeStore } from '@store/employeeStore'
 import type { Employee } from '@/types'
 
@@ -29,7 +28,7 @@ const step1 = z.object({
   gender: z.string().min(1, 'Required'),
   phone: z.string().min(10, 'Invalid phone'),
   personalEmail: z.string().email(),
-  companyEmail: z.string().email(),
+  companyEmail: z.string().email().optional().or(z.literal('')),
 })
 
 const step2 = z.object({
@@ -60,7 +59,6 @@ const step4 = z.object({
 const fullSchema = step1.merge(step2).merge(step3).merge(step4)
 type FullValues = z.infer<typeof fullSchema>
 
-const steps = ['Personal details', 'Account Details', 'boarding details', 'ID Proof']
 const defaultValues: Partial<FullValues> = {
   employeeId: '',
   gender: 'Female',
@@ -78,203 +76,169 @@ const defaultValues: Partial<FullValues> = {
 export function AddEmployee() {
   const navigate = useNavigate()
   const addEmployee = useEmployeeStore((s) => s.addEmployee)
-  const [step, setStep] = useState(0)
-  const form = useForm<FullValues>({ defaultValues: defaultValues as FullValues, mode: 'onSubmit' })
+  const form = useForm<FullValues>({ 
+    resolver: zodResolver(fullSchema),
+    defaultValues: defaultValues as FullValues, 
+    mode: 'onTouched' 
+  })
 
-  const pick = (keys: (keyof FullValues)[]) => {
-    const v = form.getValues()
-    return Object.fromEntries(keys.map((k) => [k, v[k]])) as Record<string, unknown>
-  }
-
-  const next = () => {
-    const schemas = [step1, step2, step3, step4]
-    const keys: (keyof FullValues)[][] = [
-      [
-        'employeeId',
-        'firstName',
-        'lastName',
-        'dob',
-        'gender',
-        'phone',
-        'personalEmail',
-        'companyEmail',
-      ],
-      ['bankName', 'accountNumber', 'ifsc', 'salaryGrade', 'uan', 'pfEsi'],
-      ['joinedAt', 'employmentType', 'department', 'reportingManager', 'role', 'ctc'],
-      ['aadhaar', 'pan', 'passport'],
-    ]
-    const parsed = schemas[step].safeParse(pick(keys[step]))
-    if (!parsed.success) {
-      const first = parsed.error.flatten().fieldErrors
-      const msg = Object.values(first).flat()[0] ?? 'Please fix the highlighted fields'
-      toast.error(msg)
-      return
-    }
-    setStep((s) => Math.min(s + 1, 3))
-  }
-
-  const onSubmit = form.handleSubmit((values) => {
-    const parsed = fullSchema.safeParse(values)
-    if (!parsed.success) {
-      toast.error('Please review the form')
-      return
-    }
-    const v = parsed.data
+  const onSubmit = form.handleSubmit(async (values) => {
     const payload: Omit<Employee, 'id'> = {
-      employeeId: v.employeeId?.trim() ?? '',
-      firstName: v.firstName,
-      lastName: v.lastName,
-      department: v.department,
-      designation: v.role,
-      role: v.role,
-      employmentType: v.employmentType,
-      joinedAt: v.joinedAt,
+      employeeId: values.employeeId?.trim() ?? '',
+      firstName: values.firstName,
+      lastName: values.lastName,
+      department: values.department,
+      designation: values.role,
+      role: values.role,
+      employmentType: values.employmentType,
+      joinedAt: values.joinedAt,
       status: 'Active',
-      email: v.companyEmail,
-      phone: v.phone,
-      salaryGrade: v.salaryGrade,
-      ctc: v.ctc,
+      email: values.companyEmail || '',
+      phone: values.phone,
+      salaryGrade: values.salaryGrade,
+      ctc: values.ctc,
     }
-    void (async () => {
-      try {
-        await addEmployee(payload)
-        toast.success('Employee created')
-        navigate('/admin/employees')
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Could not create employee'
-        toast.error(msg)
-      }
-    })()
+    
+    try {
+      await addEmployee(payload)
+      toast.success('Employee created successfully')
+      navigate('/admin/employees')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not create employee'
+      toast.error(msg)
+    }
   })
 
   return (
     <PageWrapper>
       <PageHeader
         title="Add Employee"
-        subtitle="Four-step onboarding with validation at each step."
+        subtitle="Complete the form below to register a new employee in the system."
         breadcrumb={
           <Breadcrumb items={[{ label: 'Employees', to: '/admin/employees' }, { label: 'Add' }]} />
         }
       />
 
-      <div className="space-y-6">
-        <StepIndicator steps={steps} currentStep={step} />
-
-        <form className="space-y-6" onSubmit={step === 3 ? onSubmit : (e) => e.preventDefault()}>
-          {step === 0 ? (
-            <div className="grid gap-4 md:grid-cols-2">
-              <Input label="Employee ID" placeholder=" " {...form.register('employeeId')} />
-              <Input label="First name" required {...form.register('firstName')} />
-              <Input label="Last name" required {...form.register('lastName')} />
-              <Input label="Date of birth" type="date" required {...form.register('dob')} />
-              <SelectField
-                label="Gender"
-                required
-                options={[
-                  { value: 'Female', label: 'Female' },
-                  { value: 'Male', label: 'Male' },
-                  { value: 'Non-binary', label: 'Non-binary' },
-                ]}
-                {...form.register('gender')}
-              />
-              <Input label="Phone" required {...form.register('phone')} />
-              <Input
-                label="Personal email"
-                type="email"
-                required
-                {...form.register('personalEmail')}
-              />
-              <Input
-                label="Company email"
-                type="email"
-                required
-                {...form.register('companyEmail')}
-              />
-            </div>
-          ) : null}
-
-          {step === 1 ? (
-            <div className="grid gap-4 md:grid-cols-2">
-              <Input label="Bank name" {...form.register('bankName')} />
-              <Input label="Account number" {...form.register('accountNumber')} />
-              <Input label="IFSC" {...form.register('ifsc')} />
-              <Input label="Salary grade" {...form.register('salaryGrade')} />
-              <Input label="UAN" {...form.register('uan')} />
-              <SelectField
-                label="PF / ESI"
-                required
-                options={[
-                  { value: 'on', label: 'Enabled' },
-                  { value: 'off', label: 'Disabled' },
-                ]}
-                {...form.register('pfEsi')}
-              />
-            </div>
-          ) : null}
-
-          {step === 2 ? (
-            <div className="grid gap-4 md:grid-cols-2">
-              <Input label="Joining date" type="date" required {...form.register('joinedAt')} />
-              <SelectField
-                label="Employment type"
-                required
-                options={[
-                  { value: 'Full-time', label: 'Full-time' },
-                  { value: 'Contract', label: 'Contract' },
-                  { value: 'Intern', label: 'Intern' },
-                ]}
-                {...form.register('employmentType')}
-              />
-
-              <Input label="Department" required {...form.register('department')} />
-              <Input label="Reporting manager" required {...form.register('reportingManager')} />
-              <Input label="Role" required {...form.register('role')} />
-              <Input
-                label="CTC (annual)"
-                type="number"
-                required
-                {...form.register('ctc', { valueAsNumber: true })}
-              />
-            </div>
-          ) : null}
-
-          {step === 3 ? (
-            <div className="grid gap-4 md:grid-cols-2">
-              <Input label="Aadhaar number" required {...form.register('aadhaar')} />
-              <Input label="PAN" required {...form.register('pan')} />
-              <Input label="Passport number" {...form.register('passport')} />
-              <div className="md:col-span-2 rounded-xl border border-border bg-surface/60 p-4 text-sm text-muted">
-                Review details before submitting. All required fields must be valid.
-              </div>
-            </div>
-          ) : null}
-
-          <div className="flex flex-wrap justify-between gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setStep((s) => Math.max(s - 1, 0))}
-              disabled={step === 0}
-            >
-              Back
-            </Button>
-            <div className="flex gap-2">
-              <Button type="button" variant="ghost" onClick={() => navigate('/admin/employees')}>
-                Cancel
-              </Button>
-              {step < 3 ? (
-                <Button type="button" onClick={next}>
-                  Continue
-                </Button>
-              ) : (
-                <Button type="submit" loading={form.formState.isSubmitting}>
-                  Submit
-                </Button>
-              )}
-            </div>
+      <form className="mx-auto max-w-4xl space-y-8 pb-12" onSubmit={onSubmit}>
+        {/* Section 1: Personal Details */}
+        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+          <div className="mb-6">
+            <h3 className="font-display text-lg font-semibold text-ink">Personal Details</h3>
+            <p className="text-sm text-muted">Basic identity and contact information.</p>
           </div>
-        </form>
-      </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input label="Employee ID" placeholder="e.g. EPL12345678" error={form.formState.errors.employeeId?.message} {...form.register('employeeId')} />
+            <Input label="First name" required error={form.formState.errors.firstName?.message} {...form.register('firstName')} />
+            <Input label="Last name" required error={form.formState.errors.lastName?.message} {...form.register('lastName')} />
+            <Input label="Date of birth" type="date" required error={form.formState.errors.dob?.message} {...form.register('dob')} />
+            <SelectField
+              label="Gender"
+              required
+              error={form.formState.errors.gender?.message}
+              options={[
+                { value: 'Female', label: 'Female' },
+                { value: 'Male', label: 'Male' },
+                { value: 'Non-binary', label: 'Non-binary' },
+              ]}
+              {...form.register('gender')}
+            />
+            <Input label="Phone" required error={form.formState.errors.phone?.message} {...form.register('phone')} />
+            <Input
+              label="Personal email"
+              type="email"
+              required
+              error={form.formState.errors.personalEmail?.message}
+              {...form.register('personalEmail')}
+            />
+            <Input
+              label="Company email"
+              type="email"
+              error={form.formState.errors.companyEmail?.message}
+              {...form.register('companyEmail')}
+            />
+          </div>
+        </div>
+
+        {/* Section 2: Account Details */}
+        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+          <div className="mb-6">
+            <h3 className="font-display text-lg font-semibold text-ink">Account Details</h3>
+            <p className="text-sm text-muted">Banking and financial information.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input label="Bank name" error={form.formState.errors.bankName?.message} {...form.register('bankName')} />
+            <Input label="Account number" error={form.formState.errors.accountNumber?.message} {...form.register('accountNumber')} />
+            <Input label="IFSC" error={form.formState.errors.ifsc?.message} {...form.register('ifsc')} />
+            <Input label="Salary grade" error={form.formState.errors.salaryGrade?.message} {...form.register('salaryGrade')} />
+            <Input label="UAN" error={form.formState.errors.uan?.message} {...form.register('uan')} />
+            <SelectField
+              label="PF / ESI"
+              required
+              error={form.formState.errors.pfEsi?.message}
+              options={[
+                { value: 'on', label: 'Enabled' },
+                { value: 'off', label: 'Disabled' },
+              ]}
+              {...form.register('pfEsi')}
+            />
+          </div>
+        </div>
+
+        {/* Section 3: Boarding Details */}
+        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+          <div className="mb-6">
+            <h3 className="font-display text-lg font-semibold text-ink">Boarding Details</h3>
+            <p className="text-sm text-muted">Employment terms and organizational role.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input label="Joining date" type="date" required error={form.formState.errors.joinedAt?.message} {...form.register('joinedAt')} />
+            <SelectField
+              label="Employment type"
+              required
+              error={form.formState.errors.employmentType?.message}
+              options={[
+                { value: 'Full-time', label: 'Full-time' },
+                { value: 'Contract', label: 'Contract' },
+                { value: 'Intern', label: 'Intern' },
+              ]}
+              {...form.register('employmentType')}
+            />
+
+            <Input label="Department" required error={form.formState.errors.department?.message} {...form.register('department')} />
+            <Input label="Reporting manager" required error={form.formState.errors.reportingManager?.message} {...form.register('reportingManager')} />
+            <Input label="Role" required error={form.formState.errors.role?.message} {...form.register('role')} />
+            <Input
+              label="CTC (annual)"
+              type="number"
+              required
+              error={form.formState.errors.ctc?.message}
+              {...form.register('ctc', { valueAsNumber: true })}
+            />
+          </div>
+        </div>
+
+        {/* Section 4: ID Proof */}
+        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+          <div className="mb-6">
+            <h3 className="font-display text-lg font-semibold text-ink">ID Proof</h3>
+            <p className="text-sm text-muted">Government identification documents.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input label="Aadhaar number" required error={form.formState.errors.aadhaar?.message} {...form.register('aadhaar')} />
+            <Input label="PAN" required error={form.formState.errors.pan?.message} {...form.register('pan')} />
+            <Input label="Passport number" error={form.formState.errors.passport?.message} {...form.register('passport')} />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 rounded-2xl border border-border bg-white p-6 shadow-sm">
+          <Button type="button" variant="ghost" onClick={() => navigate('/admin/employees')}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={form.formState.isSubmitting}>
+            Create Employee
+          </Button>
+        </div>
+      </form>
     </PageWrapper>
   )
 }
