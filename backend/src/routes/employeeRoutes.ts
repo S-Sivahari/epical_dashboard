@@ -21,7 +21,11 @@ router.post('/', employeeController.createEmployee);
 // Update employee
 router.put('/:id', employeeController.updateEmployee);
 
+// Update employee status (Deactivate/Archive)
+router.patch('/:id/status', employeeController.updateStatus);
+
 // Delete employee
 router.delete('/:id', employeeController.deleteEmployee);
+
 
 export const employeeRoutes = router;

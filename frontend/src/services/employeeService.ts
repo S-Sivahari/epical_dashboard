@@ -54,7 +54,11 @@ export async function getEmployees(params?: {
   }
   if (params?.status && params.status !== 'all') {
     list = list.filter((e) => e.status === params.status)
+  } else if (!params?.status || params.status === 'all') {
+    // Default: show everything except deactivated/archived
+    list = list.filter((e) => e.status !== 'Deactivated' && e.status !== 'Archived')
   }
+
   const page = params?.page ?? 1
   const pageSize = params?.pageSize ?? 10
   const start = (page - 1) * pageSize
@@ -95,3 +99,10 @@ export async function deleteEmployee(id: string) {
   await delay()
   employees = employees.filter((e) => e.id !== id)
 }
+
+export async function updateEmployeeStatus(id: string, status: Employee['status']) {
+  await delay()
+  employees = employees.map((e) => (e.id === id ? { ...e, status } : e))
+}
+
+
