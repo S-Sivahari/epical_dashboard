@@ -86,6 +86,16 @@ export function EmployeeList() {
     setFilters({ name: dqName, employeeId: dqId })
   }, [dqName, dqId, setFilters])
 
+  const statusVariant = (s: string) => {
+    switch (s) {
+      case 'Active': return 'success'
+      case 'Notice Period': return 'warning'
+      case 'Inactive': return 'neutral'
+      case 'Deactivated': return 'danger'
+      default: return 'neutral'
+    }
+  }
+
   const commonColumns: Column<Employee>[] = [
     {
       key: 'firstName',
@@ -94,13 +104,13 @@ export function EmployeeList() {
       render: (e) => {
         const name = `${e.firstName} ${e.lastName}`
         return (
-          <div className="flex items-center gap-3">
+          <Link to={`/admin/employees/${e.id}`} className="flex items-center gap-3 group">
             <Avatar name={name} color={stringToHueColor(e.id)} />
             <div>
-              <p className="font-medium text-ink">{name}</p>
+              <p className="font-medium text-ink group-hover:text-primary transition-ui">{name}</p>
               <p className="text-xs text-muted">{e.email}</p>
             </div>
-          </div>
+          </Link>
         )
       },
     },
@@ -125,57 +135,44 @@ export function EmployeeList() {
       header: 'Status',
       sortable: true,
       render: (e) => (
-        <Badge variant={e.status === 'Active' ? 'success' : 'neutral'}>{e.status}</Badge>
+        <Badge variant={statusVariant(e.status)}>{e.status}</Badge>
       ),
     },
   ]
 
   const columns: Column<Employee>[] = [
     ...commonColumns,
-    {
-      key: 'id',
-      header: 'EDIT',
-      render: (e) => (
-        <Button variant="ghost" size="sm" asChild>
-          <Link to={`/admin/employees/${e.id}/edit`}>Edit</Link>
-        </Button>
-      ),
-    },
+
     {
       key: 'ops',
       header: 'ACCOUNT',
-
       className: 'w-24',
       render: (e) => (
         <div className="flex items-center gap-2 -ml-4">
           {e.status === 'Active' ? (
             <>
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" title="Active" />
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setStatusTarget({ e, status: 'Inactive' })}
-                title="Mark inactive"
+                onClick={() => setStatusTarget({ e, status: 'Deactivated' })}
+                title="Deactivate account"
               >
                 <UserMinus className="h-4 w-4 text-warning" />
               </Button>
+            </>
+          ) : (
+            <>
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-gray-400" title={e.status} />
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setStatusTarget({ e, status: 'Resigned' })}
-                title="Mark resigned"
+                onClick={() => setStatusTarget({ e, status: 'Active' })}
+                title="Reactivate"
               >
-                <UserMinus className="h-4 w-4 text-muted" />
+                <UserCheck className="h-4 w-4 text-success" />
               </Button>
             </>
-          ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setStatusTarget({ e, status: 'Active' })}
-              title="Reactivate"
-            >
-              <UserCheck className="h-4 w-4 text-success" />
-            </Button>
           )}
         </div>
       ),
@@ -235,7 +232,7 @@ export function EmployeeList() {
             onChange={(e) => setFilters({ employmentType: e.target.value })}
             options={[
               { value: 'all', label: 'All types' },
-              { value: 'Active', label: 'Active' },
+              { value: 'Full-time', label: 'Full-time' },
               { value: 'Contract', label: 'Contract' },
               { value: 'Intern', label: 'Intern' },
               { value: 'Notice Period', label: 'Notice Period' },
@@ -248,8 +245,9 @@ export function EmployeeList() {
             options={[
               { value: 'all', label: 'All statuses' },
               { value: 'Active', label: 'Active' },
+              { value: 'Notice Period', label: 'Notice Period' },
               { value: 'Inactive', label: 'Inactive' },
-              { value: 'Resigned', label: 'Resigned' },
+              { value: 'Deactivated', label: 'Deactivated' },
             ]}
           />
         </div>

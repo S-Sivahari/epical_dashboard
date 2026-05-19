@@ -3,6 +3,10 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    font-size: 110%;
+  }
+
   * {
     @apply border-border;
   }
@@ -49,4 +53,14 @@
 .fc-theme-standard td,
 .fc-theme-standard th {
   border-color: #e2e8f0;
+}
+
+/* Hide number input spinners (CTC field etc.) */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
 }

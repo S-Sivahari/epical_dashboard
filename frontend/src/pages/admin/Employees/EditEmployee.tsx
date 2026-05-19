@@ -60,7 +60,7 @@ const editSchema = z.object({
     (v) => (v === '' || v === null || v === undefined ? undefined : Number(v)),
     z.number().positive('CTC must be positive').optional(),
   ),
-  status: z.enum(['Active', 'Inactive', 'Resigned', 'On Leave', 'Probation', 'Deactivated', 'Archived']),
+  status: z.enum(['Active', 'Inactive', 'Notice Period', 'Deactivated', 'Archived']),
   // ID proof
   aadhaar: z.string().optional(),
   pan: z.string().optional(),
@@ -292,194 +292,195 @@ export function EditEmployee() {
         }
       />
 
-      <form className="mx-auto max-w-4xl space-y-8 pb-12" onSubmit={onSubmit}>
-        {/* ── Section 1: Personal Details ─────────────────────────────── */}
-        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
-          <h3 className="mb-6 font-display text-lg font-semibold text-ink">Personal Details</h3>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Input
-              label="Employee ID"
-              placeholder="e.g. EPL12345678"
-              error={form.formState.errors.employeeId?.message}
-              {...form.register('employeeId')}
-            />
-            <Input
-              label="First name"
-              required
-              error={form.formState.errors.firstName?.message}
-              {...form.register('firstName')}
-            />
-            <Input
-              label="Last name"
-              error={form.formState.errors.lastName?.message}
-              {...form.register('lastName')}
-            />
-            <Input
-              label="Address"
-              error={form.formState.errors.address?.message}
-              {...form.register('address')}
-            />
-            <Input
-              label="Date of birth"
-              type="date"
-              error={form.formState.errors.dob?.message}
-              {...form.register('dob')}
-            />
-            <SelectField
-              label="Gender"
-              error={form.formState.errors.gender?.message}
-              options={[
-                { value: 'Female', label: 'Female' },
-                { value: 'Male', label: 'Male' },
-                { value: 'Non-binary', label: 'Non-binary' },
-              ]}
-              {...form.register('gender')}
-            />
-            <Input
-              label="Phone"
-              error={form.formState.errors.phone?.message}
-              {...form.register('phone')}
-            />
-            <Input
-              label="Personal email"
-              type="email"
-              error={form.formState.errors.personalEmail?.message}
-              {...form.register('personalEmail')}
-            />
-            <Input
-              label="Company email"
-              type="email"
-              required
-              error={form.formState.errors.companyEmail?.message}
-              {...form.register('companyEmail')}
-            />
+      <form className="mx-auto max-w-6xl space-y-8 pb-12" onSubmit={onSubmit}>
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* ── Section 1: Personal Details ─────────────────────────────── */}
+          <div className="rounded-2xl border border-border bg-white p-6 shadow-sm lg:col-span-2">
+            <h3 className="mb-6 font-display text-lg font-semibold text-ink">Personal Details</h3>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <Input
+                label="Employee ID"
+                placeholder="e.g. EPL12345678"
+                error={form.formState.errors.employeeId?.message}
+                {...form.register('employeeId')}
+              />
+              <Input
+                label="First name"
+                required
+                error={form.formState.errors.firstName?.message}
+                {...form.register('firstName')}
+              />
+              <Input
+                label="Last name"
+                error={form.formState.errors.lastName?.message}
+                {...form.register('lastName')}
+              />
+              <Input
+                label="Address"
+                error={form.formState.errors.address?.message}
+                {...form.register('address')}
+              />
+              <Input
+                label="Date of birth"
+                type="date"
+                error={form.formState.errors.dob?.message}
+                {...form.register('dob')}
+              />
+              <SelectField
+                label="Gender"
+                error={form.formState.errors.gender?.message}
+                options={[
+                  { value: 'Female', label: 'Female' },
+                  { value: 'Male', label: 'Male' },
+                  { value: 'Non-binary', label: 'Non-binary' },
+                ]}
+                {...form.register('gender')}
+              />
+              <Input
+                label="Phone"
+                error={form.formState.errors.phone?.message}
+                {...form.register('phone')}
+              />
+              <Input
+                label="Personal email"
+                type="email"
+                error={form.formState.errors.personalEmail?.message}
+                {...form.register('personalEmail')}
+              />
+              <Input
+                label="Company email"
+                type="email"
+                required
+                error={form.formState.errors.companyEmail?.message}
+                {...form.register('companyEmail')}
+              />
+            </div>
           </div>
-        </div>
 
-        {/* ── Section 2: Account Details ──────────────────────────────── */}
-        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
-          <h3 className="mb-6 font-display text-lg font-semibold text-ink">Account Details</h3>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Input
-              label="Bank name"
-              error={form.formState.errors.bankName?.message}
-              {...form.register('bankName')}
-            />
-            <Input
-              label="Account number"
-              error={form.formState.errors.accountNumber?.message}
-              {...form.register('accountNumber')}
-            />
-            <Input
-              label="IFSC code"
-              error={form.formState.errors.ifsc?.message}
-              {...form.register('ifsc')}
-            />
-            <Input
-              label="UAN number"
-              error={form.formState.errors.uan?.message}
-              {...form.register('uan')}
-            />
-            <SelectField
-              label="PF / ESI status"
-              error={form.formState.errors.pfEsi?.message}
-              options={[
-                { value: 'on', label: 'Enabled' },
-                { value: 'off', label: 'Disabled' },
-              ]}
-              {...form.register('pfEsi')}
-            />
+          {/* ── Section 2: Account Details ──────────────────────────────── */}
+          <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+            <h3 className="mb-6 font-display text-lg font-semibold text-ink">Account Details</h3>
+            <div className="grid gap-4">
+              <Input
+                label="Bank name"
+                error={form.formState.errors.bankName?.message}
+                {...form.register('bankName')}
+              />
+              <Input
+                label="Account number"
+                error={form.formState.errors.accountNumber?.message}
+                {...form.register('accountNumber')}
+              />
+              <Input
+                label="IFSC code"
+                error={form.formState.errors.ifsc?.message}
+                {...form.register('ifsc')}
+              />
+              <Input
+                label="UAN number"
+                error={form.formState.errors.uan?.message}
+                {...form.register('uan')}
+              />
+              <SelectField
+                label="PF / ESI status"
+                error={form.formState.errors.pfEsi?.message}
+                options={[
+                  { value: 'on', label: 'Enabled' },
+                  { value: 'off', label: 'Disabled' },
+                ]}
+                {...form.register('pfEsi')}
+              />
+            </div>
           </div>
-        </div>
 
-        {/* ── Section 3: Joining Details ──────────────────────────────── */}
-        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
-          <h3 className="mb-6 font-display text-lg font-semibold text-ink">Joining Details</h3>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Input
-              label="Joining date"
-              type="date"
-              required
-              error={form.formState.errors.joinedAt?.message}
-              {...form.register('joinedAt')}
-            />
-            <SelectField
-              label="Employment type"
-              required
-              error={form.formState.errors.employmentType?.message}
-              options={[
-                { value: 'Full-time', label: 'Full-time' },
-                { value: 'Contract', label: 'Contract' },
-                { value: 'Intern', label: 'Intern' },
-                { value: 'Notice Period', label: 'Notice Period' },
-              ]}
-              {...form.register('employmentType')}
-            />
-            <Input
-              label="Department"
-              required
-              error={form.formState.errors.department?.message}
-              {...form.register('department')}
-            />
-            <Input
-              label="Reporting manager"
-              error={form.formState.errors.reportingManager?.message}
-              {...form.register('reportingManager')}
-            />
-            <Input
-              label="Role"
-              required
-              error={form.formState.errors.role?.message}
-              {...form.register('role')}
-            />
-            <Input
-              label="Designation"
-              error={form.formState.errors.designation?.message}
-              {...form.register('designation')}
-            />
-            <Input
-              label="CTC (annual)"
-              type="number"
-              error={form.formState.errors.ctc?.message}
-              {...form.register('ctc', {
-                setValueAs: (v) => (v === '' ? undefined : Number(v)),
-              })}
-            />
-            <SelectField
-              label="Status"
-              required
-              error={form.formState.errors.status?.message}
-              options={[
-                { value: 'Active', label: 'Active' },
-                { value: 'On Leave', label: 'On Leave' },
-                { value: 'Probation', label: 'Probation' },
-                { value: 'Inactive', label: 'Inactive' },
-                { value: 'Resigned', label: 'Resigned' },
-              ]}
-              {...form.register('status')}
-            />
+          {/* ── Section 3: Joining Details ──────────────────────────────── */}
+          <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+            <h3 className="mb-6 font-display text-lg font-semibold text-ink">Joining Details</h3>
+            <div className="grid gap-4">
+              <Input
+                label="Joining date"
+                type="date"
+                required
+                error={form.formState.errors.joinedAt?.message}
+                {...form.register('joinedAt')}
+              />
+              <SelectField
+                label="Employment type"
+                required
+                error={form.formState.errors.employmentType?.message}
+                options={[
+                  { value: 'Full-time', label: 'Full-time' },
+                  { value: 'Contract', label: 'Contract' },
+                  { value: 'Intern', label: 'Intern' },
+                  { value: 'Notice Period', label: 'Notice Period' },
+                ]}
+                {...form.register('employmentType')}
+              />
+              <Input
+                label="Department"
+                required
+                error={form.formState.errors.department?.message}
+                {...form.register('department')}
+              />
+              <Input
+                label="Reporting manager"
+                error={form.formState.errors.reportingManager?.message}
+                {...form.register('reportingManager')}
+              />
+              <Input
+                label="Role"
+                required
+                error={form.formState.errors.role?.message}
+                {...form.register('role')}
+              />
+              <Input
+                label="Designation"
+                error={form.formState.errors.designation?.message}
+                {...form.register('designation')}
+              />
+              <Input
+                label="CTC (annual)"
+                type="number"
+                error={form.formState.errors.ctc?.message}
+                {...form.register('ctc', {
+                  setValueAs: (v) => (v === '' ? undefined : Number(v)),
+                })}
+              />
+              <SelectField
+                label="Status"
+                required
+                error={form.formState.errors.status?.message}
+                options={[
+                  { value: 'Active', label: 'Active' },
+                  { value: 'Notice Period', label: 'Notice Period' },
+                  { value: 'Inactive', label: 'Inactive' },
+                  { value: 'Deactivated', label: 'Deactivated' },
+                ]}
+                {...form.register('status')}
+              />
+            </div>
           </div>
-        </div>
 
-        {/* ── Section 4: ID Proof ─────────────────────────────────────── */}
-        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
-          <h3 className="mb-6 font-display text-lg font-semibold text-ink">ID Proof</h3>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Input
-              label="Aadhaar number"
-              error={form.formState.errors.aadhaar?.message}
-              {...form.register('aadhaar')}
-            />
-            <Input
-              label="PAN"
-              error={form.formState.errors.pan?.message}
-              {...form.register('pan')}
-            />
-            <Input
-              label="Passport number"
-              error={form.formState.errors.passport?.message}
-              {...form.register('passport')}
-            />
+          {/* ── Section 4: ID Proof ─────────────────────────────────────── */}
+          <div className="rounded-2xl border border-border bg-white p-6 shadow-sm lg:col-span-2">
+            <h3 className="mb-6 font-display text-lg font-semibold text-ink">ID Proof</h3>
+            <div className="grid gap-4 md:grid-cols-3">
+              <Input
+                label="Aadhaar number"
+                error={form.formState.errors.aadhaar?.message}
+                {...form.register('aadhaar')}
+              />
+              <Input
+                label="PAN"
+                error={form.formState.errors.pan?.message}
+                {...form.register('pan')}
+              />
+              <Input
+                label="Passport number"
+                error={form.formState.errors.passport?.message}
+                {...form.register('passport')}
+              />
+            </div>
           </div>
         </div>
 

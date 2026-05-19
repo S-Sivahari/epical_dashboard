@@ -1,5 +1,5 @@
-import { ChevronRight, Home } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { cn } from '@/utils/cn'
 
 export interface Crumb {
@@ -7,25 +7,19 @@ export interface Crumb {
   to?: string
 }
 
-export function Breadcrumb({ items, className }: { items: Crumb[]; className?: string }) {
+export function Breadcrumb({ className }: { items?: Crumb[]; className?: string }) {
+  const navigate = useNavigate()
+  
   return (
-    <nav aria-label="Breadcrumb" className={cn('flex flex-wrap items-center gap-1 text-sm text-muted', className)}>
-      <Link to="/admin" className="inline-flex items-center gap-1 hover:text-ink">
-        <Home className="h-4 w-4" />
-        Home
-      </Link>
-      {items.map((c) => (
-        <span key={c.label} className="inline-flex items-center gap-1">
-          <ChevronRight className="h-4 w-4 text-border" />
-          {c.to ? (
-            <Link to={c.to} className="hover:text-ink">
-              {c.label}
-            </Link>
-          ) : (
-            <span className="font-medium text-ink">{c.label}</span>
-          )}
-        </span>
-      ))}
+    <nav aria-label="Breadcrumb" className={cn('flex items-center text-sm text-muted', className)}>
+      <button 
+        type="button"
+        onClick={() => navigate(-1)}
+        className="inline-flex items-center gap-2 hover:text-ink transition-ui bg-surface/50 px-3 py-1.5 rounded-lg border border-border"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back
+      </button>
     </nav>
   )
 }

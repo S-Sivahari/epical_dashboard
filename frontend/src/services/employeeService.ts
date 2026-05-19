@@ -52,3 +52,13 @@ export async function updateEmployeeStatus(id: string, status: Employee['status'
   const response = await api.put(`/employees/${id}`, { status })
   return response.data as Employee
 }
+
+export async function getEmployeeDocuments(id: string) {
+  try {
+    const response = await api.get(`/employees/${id}/documents`)
+    return response.data as { key: string; name: string; url: string }[]
+  } catch {
+    // If endpoint doesn't exist yet, return empty array
+    return []
+  }
+}
