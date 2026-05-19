@@ -20,9 +20,9 @@ const isValidDate = (value: string) => !Number.isNaN(Date.parse(value))
 const step1 = z.object({
   employeeId: z
     .string()
-    .optional()
+    .min(1, 'Employee ID is required')
     .refine(
-      (value) => !value || employeeIdPattern.test(value.trim().toUpperCase()),
+      (value) => employeeIdPattern.test(value.trim().toUpperCase()),
       'Use EPL or INT plus 8 digits',
     ),
   firstName: z.string().min(1, 'First name is required'),
@@ -74,7 +74,7 @@ type FullValues = z.infer<typeof fullSchema>
 const defaultValues: Partial<FullValues> = {
   employeeId: '',
   address: '',
-  gender: 'Female',
+  gender: '',
   employmentType: 'Full-time',
   pfEsi: 'on',
   passport: '',
@@ -182,7 +182,7 @@ export function AddEmployee() {
 
   const onSubmit = form.handleSubmit(async (values) => {
     const payload: Omit<Employee, 'id'> = {
-      employeeId: values.employeeId?.trim() ?? '',
+      employeeId: values.employeeId.trim(),
       firstName: values.firstName,
       lastName: values.lastName ?? '',
       address: values.address ?? '',
@@ -226,6 +226,7 @@ export function AddEmployee() {
           <div className="grid gap-4 md:grid-cols-2">
             <Input
               label="Employee ID"
+              required
               placeholder="e.g. EPL12345678"
               error={form.formState.errors.employeeId?.message}
               {...form.register('employeeId')}
@@ -258,9 +259,9 @@ export function AddEmployee() {
               required
               error={form.formState.errors.gender?.message}
               options={[
-                { value: 'Female', label: 'Female' },
                 { value: 'Male', label: 'Male' },
-                { value: 'Non-binary', label: 'Non-binary' },
+                { value: 'Female', label: 'Female' },
+                { value: 'Not prefer to say', label: 'Not prefer to say' },
               ]}
               {...form.register('gender')}
             />
@@ -420,7 +421,9 @@ export function AddEmployee() {
               return (
                 <div key={key} className="rounded-xl border border-border bg-surface p-4">
                   <p className="font-medium text-ink">{label}</p>
-                  <p className="text-xs text-muted mb-3">Allowed: .pdf, .jpg, .jpeg, .png. Max 5MB.</p>
+                  <p className="text-xs text-muted mb-3">
+                    Allowed: .pdf, .jpg, .jpeg, .png. Max 5MB.
+                  </p>
                   <FileUpload
                     accept=".pdf,.jpg,.jpeg,.png"
                     onUpload={(files) => handleDocumentUpload(docKey, files)}
@@ -449,9 +452,7 @@ export function AddEmployee() {
               {photoFile ? (
                 <p className="mt-2 text-sm text-ink">Selected: {photoFile.name}</p>
               ) : null}
-              {photoError ? (
-                <p className="text-xs text-danger mt-2">{photoError}</p>
-              ) : null}
+              {photoError ? <p className="text-xs text-danger mt-2">{photoError}</p> : null}
             </div>
             <div className="rounded-xl border border-border bg-surface p-4 text-center">
               {photoPreview ? (
@@ -461,7 +462,9 @@ export function AddEmployee() {
                   className="mx-auto h-40 w-40 rounded-xl object-cover"
                 />
               ) : (
-                <p className="text-sm text-muted">Image preview will appear here after selecting a file.</p>
+                <p className="text-sm text-muted">
+                  Image preview will appear here after selecting a file.
+                </p>
               )}
             </div>
           </div>

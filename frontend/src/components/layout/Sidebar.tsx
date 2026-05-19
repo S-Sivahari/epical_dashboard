@@ -6,19 +6,16 @@ import {
   CalendarDays,
   FileText,
   LayoutGrid,
-  LogOut,
   Menu,
   Newspaper,
-  Settings,
   Ticket,
   Trophy,
   Users,
   X,
 } from 'lucide-react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import { cn } from '@/utils/cn'
 import { ROUTES } from '@constants/routes'
-import { useAuthStore } from '@store/authStore'
 import { useUiStore } from '@store/uiStore'
 import { useMediaQuery } from '@hooks/useMediaQuery'
 
@@ -55,17 +52,11 @@ const groups: {
       { to: ROUTES.TICKETS, label: 'Tickets', icon: Ticket },
     ],
   },
-  {
-    label: 'System',
-    items: [{ to: ROUTES.SETTINGS, label: 'Settings', icon: Settings }],
-  },
 ]
 
 export function Sidebar() {
   const isLg = useMediaQuery('(min-width: 1024px)')
   const { sidebarOpen, setSidebarOpen, toggleSidebar } = useUiStore()
-  const logout = useAuthStore((s) => s.logout)
-  const navigate = useNavigate()
   const showDrawer = !isLg && sidebarOpen
 
   return (
@@ -136,19 +127,6 @@ export function Sidebar() {
             </div>
           ))}
         </nav>
-        <div className="border-t border-border p-3">
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted transition-ui hover:bg-surface hover:text-danger"
-            onClick={() => {
-              logout()
-              navigate('/auth/login')
-            }}
-          >
-            <LogOut className="h-4 w-4" />
-            Sign out
-          </button>
-        </div>
       </aside>
     </>
   )

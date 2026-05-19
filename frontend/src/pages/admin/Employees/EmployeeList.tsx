@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { Plus, Archive, UserMinus, UserCheck, ShieldAlert, Download } from 'lucide-react'
+import { Plus, UserMinus, UserCheck, Download } from 'lucide-react'
 import { Breadcrumb } from '@components/layout/Breadcrumb'
 import { PageHeader } from '@components/layout/PageHeader'
 import { PageWrapper } from '@components/layout/PageWrapper'
@@ -18,8 +18,8 @@ import { useDebounce } from '@hooks/useDebounce'
 import type { Employee } from '@/types'
 import { stringToHueColor } from '@/utils/stringColor'
 import * as employeeService from '@services/employeeService'
-import { exportToCSV } from '@/utils/exportCSV'
 import { exportToExcel } from '@/utils/exportExcel'
+import { exportToPDF } from '@/utils/exportPDF'
 import { formatDate } from '@/utils/formatDate'
 
 export function EmployeeList() {
@@ -36,34 +36,21 @@ export function EmployeeList() {
 
   const [nameQuery, setNameQuery] = useState(filters.name)
   const [idQuery, setIdQuery] = useState(filters.employeeId)
-  const [statusTarget, setStatusTarget] = useState<{ e: Employee; status: Employee['status'] } | null>(null)
-  const [deactivatedList, setDeactivatedList] = useState<Employee[]>([])
-  const [archivedList, setArchivedList] = useState<Employee[]>([])
-  const [loadingExtras, setLoadingExtras] = useState(false)
-  const [exporting, setExporting] = useState<'csv' | 'excel' | null>(null)
+  const [statusTarget, setStatusTarget] = useState<{
+    e: Employee
+    status: Employee['status']
+  } | null>(null)
+  const [exporting, setExporting] = useState<'excel' | 'pdf' | null>(null)
 
   const dqName = useDebounce(nameQuery, 300)
   const dqId = useDebounce(idQuery, 300)
 
-  const fetchExtras = async () => {
-    setLoadingExtras(true)
-    try {
-      const [dRes, aRes] = await Promise.all([
-        employeeService.getEmployees({ status: 'Deactivated', pageSize: 100 }),
-        employeeService.getEmployees({ status: 'Archived', pageSize: 100 }),
-      ])
-      setDeactivatedList(dRes.data)
-      setArchivedList(aRes.data)
-    } finally {
-      setLoadingExtras(false)
-    }
-  }
-
-  const handleExport = async (format: 'csv' | 'excel') => {
+  const handleExport = async (format: 'excel' | 'pdf') => {
     setExporting(format)
     try {
       const res = await employeeService.getEmployees({
-        q: filters.q || undefined,
+        name: filters.name || undefined,
+        employeeId: filters.employeeId || undefined,
         department: filters.department,
         employmentType: filters.employmentType,
         status: filters.status,
@@ -83,30 +70,25 @@ export function EmployeeList() {
         { key: 'joinedAt', label: 'Joined At' },
       ]
 
-      if (format === 'csv') {
-        exportToCSV(res.data, filename, headers)
-      } else {
-        exportToExcel(res.data, filename, headers)
+      if (format === 'pdf') {
+        await exportToPDF(res.data, filename, headers)
+        return
       }
+
+      exportToExcel(res.data, filename, headers)
     } finally {
       setExporting(null)
     }
   }
 
-
-
   useEffect(() => {
     setFilters({ name: dqName, employeeId: dqId })
   }, [dqName, dqId, setFilters])
 
-  useEffect(() => {
-    fetchExtras()
-  }, [employees]) // Refresh extras when main list changes (e.g. after a status update)
-
   const commonColumns: Column<Employee>[] = [
     {
       key: 'firstName',
-      header: 'Employee',
+      header: 'Employee name',
       render: (e) => {
         const name = `${e.firstName} ${e.lastName}`
         return (
@@ -123,7 +105,9 @@ export function EmployeeList() {
     {
       key: 'employeeId',
       header: 'Employee ID',
-      render: (e) => <span className="font-mono text-xs font-medium text-primary">{e.employeeId}</span>,
+      render: (e) => (
+        <span className="font-mono text-xs font-medium text-primary">{e.employeeId}</span>
+      ),
     },
     { key: 'designation', header: 'Designation' },
     { key: 'department', header: 'Dept' },
@@ -137,11 +121,7 @@ export function EmployeeList() {
       key: 'status',
       header: 'Status',
       render: (e) => (
-        <Badge
-          variant={e.status === 'Active' ? 'success' : 'neutral'}
-        >
-          {e.status}
-        </Badge>
+        <Badge variant={e.status === 'Active' ? 'success' : 'neutral'}>{e.status}</Badge>
       ),
     },
   ]
@@ -150,16 +130,11 @@ export function EmployeeList() {
     ...commonColumns,
     {
       key: 'id',
-      header: 'VIEW',
+      header: 'EDIT',
       render: (e) => (
-        <div className="flex gap-1">
-          <Button variant="ghost" size="sm" asChild>
-            <Link to={`/admin/employees/${e.id}`}>View</Link>
-          </Button>
-          <Button variant="ghost" size="sm" asChild>
-            <Link to={`/admin/employees/${e.id}/edit`}>Edit</Link>
-          </Button>
-        </div>
+        <Button variant="ghost" size="sm" asChild>
+          <Link to={`/admin/employees/${e.id}/edit`}>Edit</Link>
+        </Button>
       ),
     },
     {
@@ -169,26 +144,23 @@ export function EmployeeList() {
       className: 'w-24',
       render: (e) => (
         <div className="flex items-center gap-2 -ml-4">
-
-
-
           {e.status === 'Active' ? (
             <>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setStatusTarget({ e, status: 'Deactivated' })}
-                title="Deactivate"
+                onClick={() => setStatusTarget({ e, status: 'Inactive' })}
+                title="Mark inactive"
               >
                 <UserMinus className="h-4 w-4 text-warning" />
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setStatusTarget({ e, status: 'Archived' })}
-                title="Archive"
+                onClick={() => setStatusTarget({ e, status: 'Resigned' })}
+                title="Mark resigned"
               >
-                <Archive className="h-4 w-4 text-muted" />
+                <UserMinus className="h-4 w-4 text-muted" />
               </Button>
             </>
           ) : (
@@ -206,7 +178,6 @@ export function EmployeeList() {
     },
   ]
 
-
   return (
     <PageWrapper>
       <PageHeader
@@ -215,11 +186,19 @@ export function EmployeeList() {
         breadcrumb={<Breadcrumb items={[{ label: 'Employees', to: '/admin/employees' }]} />}
         actions={
           <div className="flex gap-3">
-            <Button variant="secondary" onClick={() => handleExport('csv')} loading={exporting === 'csv'}>
+            <Button
+              variant="secondary"
+              onClick={() => handleExport('pdf')}
+              loading={exporting === 'pdf'}
+            >
               <Download className="h-4 w-4" />
-              CSV
+              PDF
             </Button>
-            <Button variant="secondary" onClick={() => handleExport('excel')} loading={exporting === 'excel'}>
+            <Button
+              variant="secondary"
+              onClick={() => handleExport('excel')}
+              loading={exporting === 'excel'}
+            >
               <Download className="h-4 w-4" />
               Excel
             </Button>
@@ -231,9 +210,7 @@ export function EmployeeList() {
             </Button>
           </div>
         }
-
       />
-
 
       <FilterBar>
         <div className="grid w-full gap-3 md:grid-cols-4">
@@ -265,10 +242,10 @@ export function EmployeeList() {
             value={filters.status}
             onChange={(e) => setFilters({ status: e.target.value })}
             options={[
-              { value: 'all', label: 'All Active' },
+              { value: 'all', label: 'All statuses' },
               { value: 'Active', label: 'Active' },
-              { value: 'On Leave', label: 'On Leave' },
-              { value: 'Probation', label: 'Probation' },
+              { value: 'Inactive', label: 'Inactive' },
+              { value: 'Resigned', label: 'Resigned' },
             ]}
           />
         </div>
@@ -290,32 +267,6 @@ export function EmployeeList() {
             onPageSizeChange={setPageSize}
           />
         </section>
-
-        {(deactivatedList.length > 0 || loadingExtras) && (
-          <section className="rounded-2xl border border-border bg-surface/50 p-6">
-            <div className="mb-6">
-              <div className="flex items-center gap-2 text-warning">
-                <ShieldAlert className="h-5 w-5" />
-                <h3 className="font-display text-lg font-semibold">Deactivated Employees</h3>
-              </div>
-              <p className="text-sm text-muted">Accounts that are currently disabled and cannot access the system.</p>
-            </div>
-            <DataTable columns={columns} data={deactivatedList} loading={loadingExtras} />
-          </section>
-        )}
-
-        {(archivedList.length > 0 || loadingExtras) && (
-          <section className="rounded-2xl border border-border bg-surface/30 p-6">
-            <div className="mb-6">
-              <div className="flex items-center gap-2 text-muted">
-                <Archive className="h-5 w-5" />
-                <h3 className="font-display text-lg font-semibold">Archived Records</h3>
-              </div>
-              <p className="text-sm text-muted">Historical employee records preserved for compliance and reference.</p>
-            </div>
-            <DataTable columns={columns} data={archivedList} loading={loadingExtras} />
-          </section>
-        )}
       </div>
 
       <ConfirmModal
@@ -324,10 +275,10 @@ export function EmployeeList() {
         description={
           statusTarget
             ? `Are you sure you want to set ${statusTarget.e.firstName} ${statusTarget.e.lastName} to ${statusTarget.status}?`
-            : 'Are you sure you want to change this employee\'s status?'
+            : "Are you sure you want to change this employee's status?"
         }
         confirmLabel={statusTarget?.status || 'Confirm'}
-        danger={statusTarget?.status === 'Deactivated'}
+        danger={statusTarget?.status !== 'Active'}
         onClose={() => setStatusTarget(null)}
         onConfirm={async () => {
           if (!statusTarget) return
@@ -338,4 +289,3 @@ export function EmployeeList() {
     </PageWrapper>
   )
 }
-

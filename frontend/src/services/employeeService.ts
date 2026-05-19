@@ -20,20 +20,6 @@ const isCompanyEmailUnique = (email: string, excludeId?: string) =>
 const isPersonalEmailUnique = (email: string, excludeId?: string) =>
   !employees.some((e) => normalizeEmail(e.personalEmail) === email && e.id !== excludeId)
 
-const generateEmployeeId = () => {
-  const prefixes = ['EPL', 'INT']
-  for (let i = 0; i < 20; i += 1) {
-    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)]
-    const digits = Math.floor(Math.random() * 1_0000_0000)
-      .toString()
-      .padStart(8, '0')
-    const candidate = `${prefix}${digits}`
-    if (isEmployeeIdUnique(candidate)) return candidate
-  }
-  const fallback = `${prefixes[0]}${Date.now().toString().slice(-8)}`
-  return isEmployeeIdUnique(fallback) ? fallback : `${fallback}${employees.length}`
-}
-
 export async function getEmployees(params?: {
   name?: string
   employeeId?: string
@@ -61,9 +47,6 @@ export async function getEmployees(params?: {
   }
   if (params?.status && params.status !== 'all') {
     list = list.filter((e) => e.status === params.status)
-  } else if (!params?.status || params.status === 'all') {
-    // Default: show everything except deactivated/archived
-    list = list.filter((e) => e.status !== 'Deactivated' && e.status !== 'Archived')
   }
 
   const page = params?.page ?? 1
@@ -80,13 +63,16 @@ export async function getEmployee(id: string) {
   return e
 }
 
-export async function createEmployee(payload: Omit<Employee, 'id'> & { employeeId?: string }) {
+export async function createEmployee(payload: Omit<Employee, 'id'> & { employeeId: string }) {
   await delay()
   const id = `E-${1000 + employees.length + 1}`
   const requestedId = normalizeEmployeeId(payload.employeeId)
-  const employeeId = requestedId || generateEmployeeId()
+  const employeeId = requestedId
   const companyEmail = normalizeEmail(payload.email)
   const personalEmail = normalizeEmail(payload.personalEmail)
+  if (!employeeId) {
+    throw new Error('Employee ID is required.')
+  }
   if (!EMPLOYEE_ID_PATTERN.test(employeeId)) {
     throw new Error('Employee ID must be EPL or INT plus 8 digits.')
   }
@@ -146,5 +132,3 @@ export async function updateEmployeeStatus(id: string, status: Employee['status'
   await delay()
   employees = employees.map((e) => (e.id === id ? { ...e, status } : e))
 }
-
-

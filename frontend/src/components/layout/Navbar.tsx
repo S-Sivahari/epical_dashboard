@@ -1,10 +1,9 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { Bell, ChevronDown, MessageSquare } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Avatar } from '@components/ui/Avatar'
 import { useAuthStore } from '@store/authStore'
-import { useUiStore } from '@store/uiStore'
 import { useMediaQuery } from '@hooks/useMediaQuery'
 
 function titleCase(slug: string) {
@@ -15,7 +14,6 @@ export function Navbar() {
   const { pathname } = useLocation()
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
-  const notifications = useUiStore((s) => s.notifications)
   const navigate = useNavigate()
   const isLg = useMediaQuery('(min-width: 1024px)')
 
@@ -37,25 +35,6 @@ export function Navbar() {
         <p className="truncate text-xs text-muted">Signed in as {user?.email}</p>
       </div>
       <div className="flex items-center gap-2 sm:gap-3">
-        <button
-          type="button"
-          className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-white text-muted transition-ui hover:bg-surface hover:text-ink"
-          aria-label="Notifications"
-        >
-          <Bell className="h-5 w-5" />
-          {notifications > 0 ? (
-            <span className="absolute -right-1 -top-1 inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-white">
-              {notifications}
-            </span>
-          ) : null}
-        </button>
-        <button
-          type="button"
-          className="hidden h-10 w-10 items-center justify-center rounded-lg border border-border bg-white text-muted transition-ui hover:bg-surface hover:text-ink sm:inline-flex"
-          aria-label="Messages"
-        >
-          <MessageSquare className="h-5 w-5" />
-        </button>
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
             <button

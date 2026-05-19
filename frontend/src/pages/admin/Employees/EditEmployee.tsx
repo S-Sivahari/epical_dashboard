@@ -35,7 +35,7 @@ const editSchema = z.object({
     .string()
     .min(1, 'Joining date is required')
     .refine(isValidDate, 'Enter a valid joining date'),
-  status: z.enum(['Active', 'Inactive']),
+  status: z.enum(['Active', 'Inactive', 'Resigned']),
   email: z.string().email('Enter a valid company email'),
   personalEmail: z.string().email('Enter a valid personal email'),
 })
@@ -60,20 +60,10 @@ export function EditEmployee() {
   const navigate = useNavigate()
   const updateEmployee = useEmployeeStore((s) => s.updateEmployee)
   const [loading, setLoading] = useState(true)
-  const [employeeIdPlaceholder, setEmployeeIdPlaceholder] = useState('')
   const form = useForm<FormValues>({
     resolver: zodResolver(editSchema),
     mode: 'onTouched',
   })
-
-  const generateEmployeeId = () => {
-    const prefixes = ['EPL', 'INT']
-    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)]
-    const digits = Math.floor(Math.random() * 1_0000_0000)
-      .toString()
-      .padStart(8, '0')
-    return `${prefix}${digits}`
-  }
 
   useEffect(() => {
     let cancelled = false
@@ -141,16 +131,9 @@ export function EditEmployee() {
       <form className="grid max-w-3xl gap-4 md:grid-cols-2" onSubmit={onSubmit}>
         <Input
           label="Employee ID"
-          placeholder={employeeIdPlaceholder}
+          placeholder=""
           error={form.formState.errors.employeeId?.message}
-          {...form.register('employeeId', {
-            onChange: () => {
-              if (!employeeIdPlaceholder) setEmployeeIdPlaceholder(generateEmployeeId())
-            },
-          })}
-          onFocus={() => {
-            if (!employeeIdPlaceholder) setEmployeeIdPlaceholder(generateEmployeeId())
-          }}
+          {...form.register('employeeId')}
         />
         <Input
           label="First name"
@@ -222,6 +205,7 @@ export function EditEmployee() {
           options={[
             { value: 'Active', label: 'Active' },
             { value: 'Inactive', label: 'Inactive' },
+            { value: 'Resigned', label: 'Resigned' },
           ]}
           {...form.register('status')}
         />
