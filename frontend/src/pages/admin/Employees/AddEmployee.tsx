@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate } from 'react-router-dom'
@@ -9,6 +10,7 @@ import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
 import { SelectField } from '@components/forms/SelectField'
+import { FileUpload } from '@components/forms/FileUpload'
 import { useEmployeeStore } from '@store/employeeStore'
 import type { Employee } from '@/types'
 
@@ -82,6 +84,30 @@ const defaultValues: Partial<FullValues> = {
   uan: '',
 }
 
+type DocKey = 'aadhaarPan' | 'offerLetter' | 'certificates' | 'agreement'
+
+const DOCUMENT_TYPES = {
+  aadhaarPan: 'Aadhaar/PAN',
+  offerLetter: 'Offer Letter',
+  certificates: 'Certificates',
+  agreement: 'Agreement',
+} as const
+
+const ALLOWED_DOC_TYPES = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png']
+const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/jpg', 'image/png']
+const MAX_DOC_SIZE = 5 * 1024 * 1024
+const MAX_PHOTO_SIZE = 2 * 1024 * 1024
+
+function validateFile(file: File, allowedTypes: string[], maxSize: number) {
+  if (!allowedTypes.includes(file.type)) {
+    return 'Invalid file type. Allowed: .pdf, .jpg, .jpeg, .png'
+  }
+  if (file.size > maxSize) {
+    return `File is too large. Maximum size is ${maxSize / 1024 / 1024}MB.`
+  }
+  return null
+}
+
 export function AddEmployee() {
   const navigate = useNavigate()
   const addEmployee = useEmployeeStore((s) => s.addEmployee)
@@ -90,6 +116,69 @@ export function AddEmployee() {
     defaultValues: defaultValues as FullValues,
     mode: 'onTouched',
   })
+
+  const [documentFiles, setDocumentFiles] = useState<Record<DocKey, File | null>>({
+    aadhaarPan: null,
+    offerLetter: null,
+    certificates: null,
+    agreement: null,
+  })
+  const [documentErrors, setDocumentErrors] = useState<Record<DocKey, string | null>>({
+    aadhaarPan: null,
+    offerLetter: null,
+    certificates: null,
+    agreement: null,
+  })
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [photoError, setPhotoError] = useState<string | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (photoPreview) {
+        URL.revokeObjectURL(photoPreview)
+      }
+    }
+  }, [photoPreview])
+
+  const handleDocumentUpload = (key: DocKey, files: FileList | null) => {
+    const file = files?.[0] ?? null
+    if (!file) {
+      setDocumentFiles((prev) => ({ ...prev, [key]: null }))
+      setDocumentErrors((prev) => ({ ...prev, [key]: null }))
+      return
+    }
+
+    const error = validateFile(file, ALLOWED_DOC_TYPES, MAX_DOC_SIZE)
+    setDocumentErrors((prev) => ({ ...prev, [key]: error }))
+    if (error) {
+      setDocumentFiles((prev) => ({ ...prev, [key]: null }))
+      return
+    }
+
+    setDocumentFiles((prev) => ({ ...prev, [key]: file }))
+  }
+
+  const handlePhotoUpload = (files: FileList | null) => {
+    const file = files?.[0] ?? null
+    if (!file) {
+      setPhotoFile(null)
+      setPhotoPreview(null)
+      setPhotoError(null)
+      return
+    }
+
+    const error = validateFile(file, ALLOWED_PHOTO_TYPES, MAX_PHOTO_SIZE)
+    setPhotoError(error)
+    if (error) {
+      setPhotoFile(null)
+      setPhotoPreview(null)
+      return
+    }
+
+    setPhotoFile(file)
+    setPhotoPreview(URL.createObjectURL(file))
+  }
 
   const onSubmit = form.handleSubmit(async (values) => {
     const payload: Omit<Employee, 'id'> = {
@@ -317,6 +406,64 @@ export function AddEmployee() {
               error={form.formState.errors.passport?.message}
               {...form.register('passport')}
             />
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+          <div className="mb-6">
+            <h3 className="font-display text-lg font-semibold text-ink">Employee Documents</h3>
+            <p className="text-sm text-muted">Upload required employee documents.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {Object.entries(DOCUMENT_TYPES).map(([key, label]) => {
+              const docKey = key as DocKey
+              return (
+                <div key={key} className="rounded-xl border border-border bg-surface p-4">
+                  <p className="font-medium text-ink">{label}</p>
+                  <p className="text-xs text-muted mb-3">Allowed: .pdf, .jpg, .jpeg, .png. Max 5MB.</p>
+                  <FileUpload
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onUpload={(files) => handleDocumentUpload(docKey, files)}
+                  />
+                  {documentFiles[docKey] ? (
+                    <p className="mt-2 text-sm text-ink">Selected: {documentFiles[docKey]?.name}</p>
+                  ) : null}
+                  {documentErrors[docKey] ? (
+                    <p className="text-xs text-danger mt-2">{documentErrors[docKey]}</p>
+                  ) : null}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+          <div className="mb-6">
+            <h3 className="font-display text-lg font-semibold text-ink">Profile Photo Upload</h3>
+            <p className="text-sm text-muted">Upload a profile photo for the employee.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 items-start">
+            <div>
+              <p className="text-xs text-muted mb-3">Allowed: .jpg, .jpeg, .png. Max 2MB.</p>
+              <FileUpload accept=".jpg,.jpeg,.png" onUpload={handlePhotoUpload} />
+              {photoFile ? (
+                <p className="mt-2 text-sm text-ink">Selected: {photoFile.name}</p>
+              ) : null}
+              {photoError ? (
+                <p className="text-xs text-danger mt-2">{photoError}</p>
+              ) : null}
+            </div>
+            <div className="rounded-xl border border-border bg-surface p-4 text-center">
+              {photoPreview ? (
+                <img
+                  src={photoPreview}
+                  alt="Profile preview"
+                  className="mx-auto h-40 w-40 rounded-xl object-cover"
+                />
+              ) : (
+                <p className="text-sm text-muted">Image preview will appear here after selecting a file.</p>
+              )}
+            </div>
           </div>
         </div>
 
