@@ -35,7 +35,6 @@ const step2 = z.object({
   bankName: z.string().optional(),
   accountNumber: z.string().optional(),
   ifsc: z.string().optional(),
-  salaryGrade: z.string().optional(),
   uan: z.string().optional(),
   pfEsi: z.enum(['on', 'off']),
 })
@@ -68,7 +67,6 @@ const defaultValues: Partial<FullValues> = {
   bankName: '',
   accountNumber: '',
   ifsc: '',
-  salaryGrade: '',
   uan: '',
   ctc: 1200000,
 }
@@ -95,7 +93,6 @@ export function AddEmployee() {
       status: 'Active',
       email: values.companyEmail || '',
       phone: values.phone,
-      salaryGrade: values.salaryGrade,
       ctc: values.ctc,
     }
     
@@ -169,7 +166,7 @@ export function AddEmployee() {
             <Input label="Bank name" error={form.formState.errors.bankName?.message} {...form.register('bankName')} />
             <Input label="Account number" error={form.formState.errors.accountNumber?.message} {...form.register('accountNumber')} />
             <Input label="IFSC" error={form.formState.errors.ifsc?.message} {...form.register('ifsc')} />
-            <Input label="Salary grade" error={form.formState.errors.salaryGrade?.message} {...form.register('salaryGrade')} />
+            
             <Input label="UAN" error={form.formState.errors.uan?.message} {...form.register('uan')} />
             <SelectField
               label="PF / ESI"
