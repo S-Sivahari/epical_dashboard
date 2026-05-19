@@ -1,15 +1,35 @@
 @echo off
-echo Starting Frontend and Backend...
+echo ========================================
+echo   F.L.O.W - HRMS Application Launcher
+echo ========================================
 
-REM Start Backend in a new window
-echo Starting Backend...
-start cmd /k "cd backend && npm run dev"
+REM Kill any processes on port 3000 (backend)
+echo [1/4] Freeing port 3000...
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3000 " 2^>nul') do (
+    taskkill /PID %%a /F >nul 2>&1
+)
 
-REM Start Frontend in a new window
-echo Starting Frontend...
-start cmd /k "cd frontend && npm run dev"
+REM Kill any processes on port 5173 (frontend)
+echo [2/4] Freeing port 5173...
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":5173 " 2^>nul') do (
+    taskkill /PID %%a /F >nul 2>&1
+)
 
-echo Both services are starting...
-echo Frontend will run on http://localhost:5173/
-echo Backend will run on http://localhost:3000/
-pause
+REM Start Backend
+echo [3/4] Starting Backend on http://localhost:3000 ...
+start cmd /k "cd /d "%~dp0backend" && npm run dev"
+
+REM Wait a moment for backend to connect to DB
+timeout /t 3 /nobreak >nul
+
+REM Start Frontend
+echo [4/4] Starting Frontend on http://localhost:5173 ...
+start cmd /k "cd /d "%~dp0frontend" && npm run dev"
+
+echo.
+echo ========================================
+echo   Both services are starting up...
+echo   Backend  -> http://localhost:3000
+echo   Frontend -> http://localhost:5173
+echo   API Seed -> POST http://localhost:3000/api/seed
+echo ========================================
