@@ -181,30 +181,48 @@ export function AddEmployee() {
   }
 
   const onSubmit = form.handleSubmit(async (values) => {
-    const payload: Omit<Employee, 'id'> = {
-      employeeId: values.employeeId?.trim() ?? '',
+    const payload: Omit<Employee, 'id'> & { employeeId?: string } = {
+      employeeId: values.employeeId?.trim().toUpperCase() ?? '',
       firstName: values.firstName,
       lastName: values.lastName ?? '',
       address: values.address ?? '',
+      dob: values.dob,
+      gender: values.gender,
       department: values.department,
       designation: values.role,
       role: values.role,
       employmentType: values.employmentType,
       joinedAt: values.joinedAt,
       status: 'Active',
-      email: values.companyEmail || '',
+      email: values.companyEmail,
       personalEmail: values.personalEmail,
       phone: values.phone,
       ctc: values.ctc,
+      // Account details
+      bankName: values.bankName,
+      accountNumber: values.accountNumber,
+      ifsc: values.ifsc,
+      uan: values.uan,
+      pfEsi: values.pfEsi,
+      // ID proof
+      aadhaar: values.aadhaar,
+      pan: values.pan,
+      passport: values.passport,
     }
 
     try {
       await addEmployee(payload)
       toast.success('Employee created successfully')
       navigate('/admin/employees')
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Could not create employee'
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.error ??
+        (err instanceof Error ? err.message : 'Could not create employee')
       toast.error(msg)
+      // Highlight email field and jump back to personal details if duplicate email
+      if (err?.response?.status === 409 && msg.toLowerCase().includes('email')) {
+        form.setError('companyEmail', { message: 'This email is already in use' })
+      }
     }
   })
 

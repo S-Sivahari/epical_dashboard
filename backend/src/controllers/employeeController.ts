@@ -55,16 +55,29 @@ export const employeeController = {
     try {
       const payload: CreateEmployeePayload = req.body;
 
-      if (!payload.firstName || !payload.lastName || !payload.email || !payload.department) {
-        res.status(400).json({ error: 'Missing required fields' });
+      if (!payload.firstName || !payload.email || !payload.department) {
+        res.status(400).json({ error: 'Missing required fields: firstName, email, department' });
         return;
       }
 
       const employee = await employeeService.createEmployee(payload);
       res.status(201).json(employee);
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.code === 'DUPLICATE_EMAIL') {
+        res.status(409).json({ error: error.message });
+        return;
+      }
+      if (error?.code === 'DUPLICATE_EMPLOYEE_ID') {
+        res.status(409).json({ error: error.message });
+        return;
+      }
+      // MongoDB native duplicate key fallback
+      if (error?.code === 11000 || error?.message?.includes('E11000')) {
+        res.status(409).json({ error: 'A duplicate entry already exists.' });
+        return;
+      }
       console.error('Error creating employee:', error);
-      res.status(500).json({ error: 'Failed to create employee' });
+      res.status(500).json({ error: error?.message ?? 'Failed to create employee' });
     }
   },
 

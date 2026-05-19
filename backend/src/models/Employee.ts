@@ -6,10 +6,15 @@ export type EmployeeStatus = 'Active' | 'On Leave' | 'Probation' | 'Inactive';
 export interface Employee {
   _id?: ObjectId;
   id: string;
+  employeeId?: string;
   firstName: string;
-  lastName: string;
+  lastName?: string;
   email: string;
+  personalEmail?: string;
   phone?: string;
+  address?: string;
+  dob?: string;
+  gender?: string;
   department: string;
   designation: string;
   role: string;
@@ -18,16 +23,16 @@ export interface Employee {
   status: EmployeeStatus;
   avatarUrl?: string;
   reportingManagerId?: string;
+  reportingManager?: string;
   salaryGrade?: string;
   ctc?: number;
-  dob?: string;
-  gender?: string;
-  personalEmail?: string;
+  // Account details
   bankName?: string;
   accountNumber?: string;
   ifsc?: string;
   uan?: string;
   pfEsi?: 'on' | 'off';
+  // ID proof
   aadhaar?: string;
   pan?: string;
   passport?: string;

@@ -90,22 +90,43 @@ export async function getEmployeeById(id: string): Promise<Employee | null> {
 export async function createEmployee(payload: CreateEmployeePayload): Promise<Employee> {
   const collection = getEmployeeCollection();
 
-  // Generate unique ID if not provided
-  const id = payload.id || `E-${Date.now()}`;
+  // Check for duplicate company email
+  if (payload.email) {
+    const existing = await collection.findOne({ email: payload.email.trim().toLowerCase() });
+    if (existing) {
+      const err: any = new Error('An employee with this company email already exists.');
+      err.code = 'DUPLICATE_EMAIL';
+      throw err;
+    }
+  }
 
+  // Check for duplicate employeeId
+  if (payload.employeeId) {
+    const existing = await collection.findOne({
+      employeeId: payload.employeeId.trim().toUpperCase(),
+    });
+    if (existing) {
+      const err: any = new Error('An employee with this Employee ID already exists.');
+      err.code = 'DUPLICATE_EMPLOYEE_ID';
+      throw err;
+    }
+  }
+
+  // Normalise fields
+  const id = `E-${Date.now()}`;
   const employee: any = {
     ...payload,
     id,
+    email: payload.email?.trim().toLowerCase(),
+    employeeId: payload.employeeId?.trim().toUpperCase() ?? id,
+    status: payload.status ?? 'Active',
     createdAt: new Date(),
     updatedAt: new Date(),
   };
 
   const result = await collection.insertOne(employee);
 
-  return {
-    ...employee,
-    _id: result.insertedId,
-  };
+  return { ...employee, _id: result.insertedId };
 }
 
 export async function updateEmployee(

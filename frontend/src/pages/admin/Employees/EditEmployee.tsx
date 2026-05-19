@@ -3,120 +3,238 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { Breadcrumb } from '@components/layout/Breadcrumb'
 import { PageHeader } from '@components/layout/PageHeader'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
 import { SelectField } from '@components/forms/SelectField'
+import { FileUpload } from '@components/forms/FileUpload'
 import * as employeeService from '@services/employeeService'
 import { useEmployeeStore } from '@store/employeeStore'
-import type { Employee } from '@/types'
-import { z } from 'zod'
+
+// ── Validation ────────────────────────────────────────────────────────────────
 
 const employeeIdPattern = /^(EPL|INT)\d{8}$/
-const isValidDate = (value: string) => !Number.isNaN(Date.parse(value))
+const isValidDate = (v: string) => !Number.isNaN(Date.parse(v))
 
 const editSchema = z.object({
+  // Personal
   employeeId: z
     .string()
-    .min(1, 'Employee ID is required')
+    .optional()
     .refine(
-      (value) => employeeIdPattern.test(value.trim().toUpperCase()),
+      (v) => !v || employeeIdPattern.test(v.trim().toUpperCase()),
       'Use EPL or INT plus 8 digits',
     ),
   firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
-  department: z.string().min(2, 'Department is required'),
-  designation: z.string().min(2, 'Designation is required'),
-  role: z.string().min(2, 'Role is required'),
-  employmentType: z.enum(['Full-time', 'Contract', 'Intern']),
+  lastName: z.string().optional().or(z.literal('')),
+  address: z.string().optional().or(z.literal('')),
+  dob: z.string().optional().refine((v) => !v || isValidDate(v), 'Enter a valid date'),
+  gender: z.string().optional(),
+  phone: z.string().optional(),
+  personalEmail: z
+    .string()
+    .optional()
+    .refine((v) => !v || z.string().email().safeParse(v).success, 'Enter a valid personal email'),
+  companyEmail: z.string().min(1, 'Company email is required').email('Enter a valid company email'),
+  // Account
+  bankName: z.string().optional(),
+  accountNumber: z.string().optional(),
+  ifsc: z.string().optional(),
+  uan: z.string().optional(),
+  pfEsi: z.enum(['on', 'off']).optional(),
+  // Joining
   joinedAt: z
     .string()
     .min(1, 'Joining date is required')
     .refine(isValidDate, 'Enter a valid joining date'),
-  status: z.enum(['Active', 'Inactive']),
-  email: z.string().email('Enter a valid company email'),
-  personalEmail: z.string().email('Enter a valid personal email'),
+  employmentType: z.enum(['Full-time', 'Contract', 'Intern']),
+  department: z.string().min(2, 'Department is required'),
+  reportingManager: z.string().optional(),
+  role: z.string().min(1, 'Role is required'),
+  designation: z.string().optional(),
+  ctc: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? undefined : Number(v)),
+    z.number().positive('CTC must be positive').optional(),
+  ),
+  status: z.enum(['Active', 'On Leave', 'Probation', 'Inactive']),
+  // ID proof
+  aadhaar: z.string().optional(),
+  pan: z.string().optional(),
+  passport: z.string().optional(),
 })
 
-type FormValues = Pick<
-  Employee,
-  | 'employeeId'
-  | 'firstName'
-  | 'lastName'
-  | 'department'
-  | 'designation'
-  | 'role'
-  | 'employmentType'
-  | 'joinedAt'
-  | 'status'
-  | 'email'
-  | 'personalEmail'
->
+type FormValues = z.infer<typeof editSchema>
+
+// ── Document types ────────────────────────────────────────────────────────────
+
+type DocKey = 'aadhaarPan' | 'offerLetter' | 'certificates' | 'agreement'
+
+const DOCUMENT_TYPES: Record<DocKey, string> = {
+  aadhaarPan: 'Aadhaar / PAN',
+  offerLetter: 'Offer Letter',
+  certificates: 'Certificates',
+  agreement: 'Agreement',
+}
+
+const ALLOWED_DOC_TYPES = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png']
+const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/jpg', 'image/png']
+const MAX_DOC_SIZE = 5 * 1024 * 1024
+const MAX_PHOTO_SIZE = 2 * 1024 * 1024
+
+function validateFile(file: File, allowedTypes: string[], maxSize: number): string | null {
+  if (!allowedTypes.includes(file.type)) return 'Invalid file type. Allowed: .pdf, .jpg, .jpeg, .png'
+  if (file.size > maxSize) return `File too large. Max ${maxSize / 1024 / 1024}MB.`
+  return null
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export function EditEmployee() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const updateEmployee = useEmployeeStore((s) => s.updateEmployee)
-  const [loading, setLoading] = useState(true)
-  const [employeeIdPlaceholder, setEmployeeIdPlaceholder] = useState('')
+
+  const [pageLoading, setPageLoading] = useState(true)
+  const [employeeName, setEmployeeName] = useState('')
+
+  const [documentFiles, setDocumentFiles] = useState<Record<DocKey, File | null>>({
+    aadhaarPan: null,
+    offerLetter: null,
+    certificates: null,
+    agreement: null,
+  })
+  const [documentErrors, setDocumentErrors] = useState<Record<DocKey, string | null>>({
+    aadhaarPan: null,
+    offerLetter: null,
+    certificates: null,
+    agreement: null,
+  })
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [photoError, setPhotoError] = useState<string | null>(null)
+
   const form = useForm<FormValues>({
     resolver: zodResolver(editSchema),
     mode: 'onTouched',
   })
 
-  const generateEmployeeId = () => {
-    const prefixes = ['EPL', 'INT']
-    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)]
-    const digits = Math.floor(Math.random() * 1_0000_0000)
-      .toString()
-      .padStart(8, '0')
-    return `${prefix}${digits}`
-  }
-
+  // Load existing employee data
   useEffect(() => {
     let cancelled = false
     void (async () => {
       try {
         const e = await employeeService.getEmployee(id)
         if (cancelled) return
+        setEmployeeName(`${e.firstName} ${e.lastName ?? ''}`.trim())
         form.reset({
-          employeeId: e.employeeId,
+          employeeId: e.employeeId ?? '',
           firstName: e.firstName,
-          lastName: e.lastName,
-          department: e.department,
-          designation: e.designation,
-          role: e.role,
-          employmentType: e.employmentType,
-          joinedAt: e.joinedAt,
-          status: e.status,
-          email: e.email,
+          lastName: e.lastName ?? '',
+          address: e.address ?? '',
+          dob: e.dob ?? '',
+          gender: e.gender ?? 'Female',
+          phone: e.phone ?? '',
           personalEmail: e.personalEmail ?? '',
+          companyEmail: e.email,
+          bankName: e.bankName ?? '',
+          accountNumber: e.accountNumber ?? '',
+          ifsc: e.ifsc ?? '',
+          uan: e.uan ?? '',
+          pfEsi: e.pfEsi ?? 'on',
+          joinedAt: e.joinedAt ?? '',
+          employmentType: e.employmentType ?? 'Full-time',
+          department: e.department,
+          reportingManager: e.reportingManager ?? '',
+          role: e.role,
+          designation: e.designation ?? '',
+          ctc: e.ctc,
+          status: e.status ?? 'Active',
+          aadhaar: e.aadhaar ?? '',
+          pan: e.pan ?? '',
+          passport: e.passport ?? '',
         })
       } catch {
-        toast.error('Employee not found')
-        navigate('/admin/employees')
+        if (!cancelled) {
+          toast.error('Employee not found')
+          navigate('/admin/employees')
+        }
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setPageLoading(false)
       }
     })()
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [form, id, navigate])
+
+  // Cleanup photo preview URL
+  useEffect(() => {
+    return () => { if (photoPreview) URL.revokeObjectURL(photoPreview) }
+  }, [photoPreview])
+
+  const handleDocumentUpload = (key: DocKey, files: FileList | null) => {
+    const file = files?.[0] ?? null
+    if (!file) {
+      setDocumentFiles((p) => ({ ...p, [key]: null }))
+      setDocumentErrors((p) => ({ ...p, [key]: null }))
+      return
+    }
+    const error = validateFile(file, ALLOWED_DOC_TYPES, MAX_DOC_SIZE)
+    setDocumentErrors((p) => ({ ...p, [key]: error }))
+    setDocumentFiles((p) => ({ ...p, [key]: error ? null : file }))
+  }
+
+  const handlePhotoUpload = (files: FileList | null) => {
+    const file = files?.[0] ?? null
+    if (!file) { setPhotoFile(null); setPhotoPreview(null); setPhotoError(null); return }
+    const error = validateFile(file, ALLOWED_PHOTO_TYPES, MAX_PHOTO_SIZE)
+    setPhotoError(error)
+    if (error) { setPhotoFile(null); setPhotoPreview(null); return }
+    setPhotoFile(file)
+    setPhotoPreview(URL.createObjectURL(file))
+  }
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
-      await updateEmployee(id, values)
-      toast.success('Employee updated')
+      await updateEmployee(id, {
+        employeeId: values.employeeId?.trim().toUpperCase() ?? '',
+        firstName: values.firstName,
+        lastName: values.lastName ?? '',
+        address: values.address ?? '',
+        dob: values.dob ?? '',
+        gender: values.gender ?? '',
+        phone: values.phone ?? '',
+        personalEmail: values.personalEmail ?? '',
+        email: values.companyEmail,
+        bankName: values.bankName ?? '',
+        accountNumber: values.accountNumber ?? '',
+        ifsc: values.ifsc ?? '',
+        uan: values.uan ?? '',
+        pfEsi: values.pfEsi,
+        joinedAt: values.joinedAt,
+        employmentType: values.employmentType,
+        department: values.department,
+        reportingManager: values.reportingManager ?? '',
+        role: values.role,
+        designation: values.designation ?? values.role,
+        ctc: values.ctc,
+        status: values.status,
+        aadhaar: values.aadhaar ?? '',
+        pan: values.pan ?? '',
+        passport: values.passport ?? '',
+      })
+      toast.success('Employee updated successfully')
       navigate(`/admin/employees/${id}`)
-    } catch {
-      toast.error('Update failed')
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.error ??
+        (err instanceof Error ? err.message : 'Update failed')
+      toast.error(msg)
     }
   })
 
-  if (loading) {
+  if (pageLoading) {
     return (
       <PageWrapper>
         <p className="text-sm text-muted">Loading…</p>
@@ -127,112 +245,281 @@ export function EditEmployee() {
   return (
     <PageWrapper>
       <PageHeader
-        title="Edit employee"
+        title={`Edit — ${employeeName}`}
         breadcrumb={
           <Breadcrumb
             items={[
               { label: 'Employees', to: '/admin/employees' },
-              { label: id, to: `/admin/employees/${id}` },
+              { label: employeeName, to: `/admin/employees/${id}` },
               { label: 'Edit' },
             ]}
           />
         }
       />
-      <form className="grid max-w-3xl gap-4 md:grid-cols-2" onSubmit={onSubmit}>
-        <Input
-          label="Employee ID"
-          placeholder={employeeIdPlaceholder}
-          error={form.formState.errors.employeeId?.message}
-          {...form.register('employeeId', {
-            onChange: () => {
-              if (!employeeIdPlaceholder) setEmployeeIdPlaceholder(generateEmployeeId())
-            },
-          })}
-          onFocus={() => {
-            if (!employeeIdPlaceholder) setEmployeeIdPlaceholder(generateEmployeeId())
-          }}
-        />
-        <Input
-          label="First name"
-          required
-          error={form.formState.errors.firstName?.message}
-          {...form.register('firstName')}
-        />
-        <Input
-          label="Last name"
-          required
-          error={form.formState.errors.lastName?.message}
-          {...form.register('lastName')}
-        />
-        <Input
-          label="Company email"
-          type="email"
-          required
-          error={form.formState.errors.email?.message}
-          {...form.register('email')}
-        />
-        <Input
-          label="Personal email"
-          type="email"
-          required
-          error={form.formState.errors.personalEmail?.message}
-          {...form.register('personalEmail')}
-        />
-        <Input
-          label="Department"
-          required
-          error={form.formState.errors.department?.message}
-          {...form.register('department')}
-        />
 
-        <Input
-          label="Designation"
-          required
-          error={form.formState.errors.designation?.message}
-          {...form.register('designation')}
-        />
-        <Input
-          label="Role"
-          required
-          error={form.formState.errors.role?.message}
-          {...form.register('role')}
-        />
-        <Input
-          label="Joining date"
-          type="date"
-          required
-          error={form.formState.errors.joinedAt?.message}
-          {...form.register('joinedAt')}
-        />
-        <SelectField
-          label="Employment type"
-          required
-          error={form.formState.errors.employmentType?.message}
-          options={[
-            { value: 'Full-time', label: 'Full-time' },
-            { value: 'Contract', label: 'Contract' },
-            { value: 'Intern', label: 'Intern' },
-          ]}
-          {...form.register('employmentType')}
-        />
-        <SelectField
-          label="Status"
-          required
-          error={form.formState.errors.status?.message}
-          options={[
-            { value: 'Active', label: 'Active' },
-            { value: 'Inactive', label: 'Inactive' },
-          ]}
-          {...form.register('status')}
-        />
-        <div className="md:col-span-2 flex gap-2">
+      <form className="mx-auto max-w-4xl space-y-8 pb-12" onSubmit={onSubmit}>
+
+        {/* ── Section 1: Personal Details ─────────────────────────────── */}
+        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+          <h3 className="mb-6 font-display text-lg font-semibold text-ink">Personal Details</h3>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input
+              label="Employee ID"
+              placeholder="e.g. EPL12345678"
+              error={form.formState.errors.employeeId?.message}
+              {...form.register('employeeId')}
+            />
+            <Input
+              label="First name"
+              required
+              error={form.formState.errors.firstName?.message}
+              {...form.register('firstName')}
+            />
+            <Input
+              label="Last name"
+              error={form.formState.errors.lastName?.message}
+              {...form.register('lastName')}
+            />
+            <Input
+              label="Address"
+              error={form.formState.errors.address?.message}
+              {...form.register('address')}
+            />
+            <Input
+              label="Date of birth"
+              type="date"
+              error={form.formState.errors.dob?.message}
+              {...form.register('dob')}
+            />
+            <SelectField
+              label="Gender"
+              error={form.formState.errors.gender?.message}
+              options={[
+                { value: 'Female', label: 'Female' },
+                { value: 'Male', label: 'Male' },
+                { value: 'Non-binary', label: 'Non-binary' },
+              ]}
+              {...form.register('gender')}
+            />
+            <Input
+              label="Phone"
+              error={form.formState.errors.phone?.message}
+              {...form.register('phone')}
+            />
+            <Input
+              label="Personal email"
+              type="email"
+              error={form.formState.errors.personalEmail?.message}
+              {...form.register('personalEmail')}
+            />
+            <Input
+              label="Company email"
+              type="email"
+              required
+              error={form.formState.errors.companyEmail?.message}
+              {...form.register('companyEmail')}
+            />
+          </div>
+        </div>
+
+        {/* ── Section 2: Account Details ──────────────────────────────── */}
+        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+          <h3 className="mb-6 font-display text-lg font-semibold text-ink">Account Details</h3>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input
+              label="Bank name"
+              error={form.formState.errors.bankName?.message}
+              {...form.register('bankName')}
+            />
+            <Input
+              label="Account number"
+              error={form.formState.errors.accountNumber?.message}
+              {...form.register('accountNumber')}
+            />
+            <Input
+              label="IFSC code"
+              error={form.formState.errors.ifsc?.message}
+              {...form.register('ifsc')}
+            />
+            <Input
+              label="UAN number"
+              error={form.formState.errors.uan?.message}
+              {...form.register('uan')}
+            />
+            <SelectField
+              label="PF / ESI status"
+              error={form.formState.errors.pfEsi?.message}
+              options={[
+                { value: 'on', label: 'Enabled' },
+                { value: 'off', label: 'Disabled' },
+              ]}
+              {...form.register('pfEsi')}
+            />
+          </div>
+        </div>
+
+        {/* ── Section 3: Joining Details ──────────────────────────────── */}
+        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+          <h3 className="mb-6 font-display text-lg font-semibold text-ink">Joining Details</h3>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input
+              label="Joining date"
+              type="date"
+              required
+              error={form.formState.errors.joinedAt?.message}
+              {...form.register('joinedAt')}
+            />
+            <SelectField
+              label="Employment type"
+              required
+              error={form.formState.errors.employmentType?.message}
+              options={[
+                { value: 'Full-time', label: 'Full-time' },
+                { value: 'Contract', label: 'Contract' },
+                { value: 'Intern', label: 'Intern' },
+              ]}
+              {...form.register('employmentType')}
+            />
+            <Input
+              label="Department"
+              required
+              error={form.formState.errors.department?.message}
+              {...form.register('department')}
+            />
+            <Input
+              label="Reporting manager"
+              error={form.formState.errors.reportingManager?.message}
+              {...form.register('reportingManager')}
+            />
+            <Input
+              label="Role"
+              required
+              error={form.formState.errors.role?.message}
+              {...form.register('role')}
+            />
+            <Input
+              label="Designation"
+              error={form.formState.errors.designation?.message}
+              {...form.register('designation')}
+            />
+            <Input
+              label="CTC (annual)"
+              type="number"
+              error={form.formState.errors.ctc?.message}
+              {...form.register('ctc', {
+                setValueAs: (v) => (v === '' ? undefined : Number(v)),
+              })}
+            />
+            <SelectField
+              label="Status"
+              required
+              error={form.formState.errors.status?.message}
+              options={[
+                { value: 'Active', label: 'Active' },
+                { value: 'On Leave', label: 'On Leave' },
+                { value: 'Probation', label: 'Probation' },
+                { value: 'Inactive', label: 'Inactive' },
+              ]}
+              {...form.register('status')}
+            />
+          </div>
+        </div>
+
+        {/* ── Section 4: ID Proof ─────────────────────────────────────── */}
+        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+          <h3 className="mb-6 font-display text-lg font-semibold text-ink">ID Proof</h3>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input
+              label="Aadhaar number"
+              error={form.formState.errors.aadhaar?.message}
+              {...form.register('aadhaar')}
+            />
+            <Input
+              label="PAN"
+              error={form.formState.errors.pan?.message}
+              {...form.register('pan')}
+            />
+            <Input
+              label="Passport number"
+              error={form.formState.errors.passport?.message}
+              {...form.register('passport')}
+            />
+          </div>
+        </div>
+
+        {/* ── Section 5: Documents ────────────────────────────────────── */}
+        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+          <h3 className="mb-1 font-display text-lg font-semibold text-ink">Employee Documents</h3>
+          <p className="mb-6 text-sm text-muted">
+            Upload or replace documents. Allowed: .pdf, .jpg, .jpeg, .png · Max 5 MB each.
+          </p>
+          <div className="grid gap-4 md:grid-cols-2">
+            {(Object.entries(DOCUMENT_TYPES) as [DocKey, string][]).map(([key, label]) => (
+              <div key={key} className="rounded-xl border border-border bg-surface p-4">
+                <p className="mb-1 font-medium text-ink">{label}</p>
+                <FileUpload
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onUpload={(files) => handleDocumentUpload(key, files)}
+                />
+                {documentFiles[key] ? (
+                  <p className="mt-2 text-sm text-ink">
+                    Selected: {documentFiles[key]?.name}
+                  </p>
+                ) : null}
+                {documentErrors[key] ? (
+                  <p className="mt-1 text-xs text-danger">{documentErrors[key]}</p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Section 6: Profile Photo ─────────────────────────────────── */}
+        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+          <h3 className="mb-1 font-display text-lg font-semibold text-ink">Profile Photo</h3>
+          <p className="mb-6 text-sm text-muted">
+            Upload a new photo to replace the current one. Allowed: .jpg, .jpeg, .png · Max 2 MB.
+          </p>
+          <div className="grid gap-4 md:grid-cols-2 items-start">
+            <div>
+              <FileUpload accept=".jpg,.jpeg,.png" onUpload={handlePhotoUpload} />
+              {photoFile ? (
+                <p className="mt-2 text-sm text-ink">Selected: {photoFile.name}</p>
+              ) : null}
+              {photoError ? (
+                <p className="mt-1 text-xs text-danger">{photoError}</p>
+              ) : null}
+            </div>
+            <div className="rounded-xl border border-border bg-surface p-4 text-center">
+              {photoPreview ? (
+                <img
+                  src={photoPreview}
+                  alt="Profile preview"
+                  className="mx-auto h-40 w-40 rounded-xl object-cover"
+                />
+              ) : (
+                <p className="text-sm text-muted">
+                  Preview will appear here after selecting a photo.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Actions ──────────────────────────────────────────────────── */}
+        <div className="flex justify-end gap-3 rounded-2xl border border-border bg-white p-6 shadow-sm">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => navigate(`/admin/employees/${id}`)}
+          >
+            Cancel
+          </Button>
           <Button type="submit" loading={form.formState.isSubmitting}>
             Save changes
           </Button>
-          <Button type="button" variant="secondary" onClick={() => navigate(-1)}>
-            Cancel
-          </Button>
         </div>
+
       </form>
     </PageWrapper>
   )
