@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate } from 'react-router-dom'
@@ -11,7 +10,6 @@ import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
 import { SelectField } from '@components/forms/SelectField'
-import { FileUpload } from '@components/forms/FileUpload'
 import { FileUpload } from '@components/forms/FileUpload'
 import { useEmployeeStore } from '@store/employeeStore'
 import type { Employee } from '@/types'
@@ -91,9 +89,19 @@ type DocKey = 'aadhaarPan' | 'offerLetter' | 'certificates' | 'agreement'
 const DOCUMENT_TYPES = {
   aadhaarPan: 'Aadhaar/PAN',
   offerLetter: 'Offer Letter',
-  certificates: 'Certificates',
   agreement: 'Agreement',
 } as const
+
+const CERTIFICATE_CATEGORIES = [
+  'Degree Certificate',
+  'Diploma Certificate',
+  'School (10th)',
+  'School (12th)',
+  'PAN Certificate',
+  'Other Certificates',
+] as const
+
+type CertificateCategory = (typeof CERTIFICATE_CATEGORIES)[number]
 
 const ALLOWED_DOC_TYPES = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png']
 const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/jpg', 'image/png']
@@ -131,6 +139,26 @@ export function AddEmployee() {
     certificates: null,
     agreement: null,
   })
+  const [certificateFiles, setCertificateFiles] = useState<Record<CertificateCategory, File[]>>({
+    'Degree Certificate': [],
+    'Diploma Certificate': [],
+    'School (10th)': [],
+    'School (12th)': [],
+    'PAN Certificate': [],
+    'Other Certificates': [],
+  })
+  const [certificateErrors, setCertificateErrors] = useState<
+    Record<CertificateCategory, string | null>
+  >({
+    'Degree Certificate': null,
+    'Diploma Certificate': null,
+    'School (10th)': null,
+    'School (12th)': null,
+    'PAN Certificate': null,
+    'Other Certificates': null,
+  })
+  const [selectedCertificateCategory, setSelectedCertificateCategory] =
+    useState<CertificateCategory>('Degree Certificate')
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [photoError, setPhotoError] = useState<string | null>(null)
@@ -159,6 +187,46 @@ export function AddEmployee() {
     }
 
     setDocumentFiles((prev) => ({ ...prev, [key]: file }))
+  }
+
+  const handleCertificateUpload = (category: CertificateCategory, files: FileList | null) => {
+    const fileList = files ? Array.from(files) : []
+
+    if (category !== 'Other Certificates') {
+      const file = fileList[0] ?? null
+      if (!file) {
+        setCertificateFiles((prev) => ({ ...prev, [category]: [] }))
+        setCertificateErrors((prev) => ({ ...prev, [category]: null }))
+        return
+      }
+
+      const error = validateFile(file, ALLOWED_DOC_TYPES, MAX_DOC_SIZE)
+      setCertificateErrors((prev) => ({ ...prev, [category]: error }))
+      if (error) {
+        setCertificateFiles((prev) => ({ ...prev, [category]: [] }))
+        return
+      }
+
+      setCertificateFiles((prev) => ({ ...prev, [category]: [file] }))
+      return
+    }
+
+    const errors = fileList
+      .map((file) => validateFile(file, ALLOWED_DOC_TYPES, MAX_DOC_SIZE))
+      .filter(Boolean)
+    const error = errors.length > 0 ? (errors[0] as string) : null
+
+    setCertificateErrors((prev) => ({ ...prev, [category]: error }))
+    if (error) return
+
+    setCertificateFiles((prev) => ({ ...prev, [category]: [...prev[category], ...fileList] }))
+  }
+
+  const removeCertificateFile = (category: CertificateCategory, fileName: string) => {
+    setCertificateFiles((prev) => ({
+      ...prev,
+      [category]: prev[category].filter((file) => file.name !== fileName),
+    }))
   }
 
   const handlePhotoUpload = (files: FileList | null) => {
@@ -439,6 +507,58 @@ export function AddEmployee() {
                 </div>
               )
             })}
+            <div className="rounded-xl border border-border bg-surface p-4">
+              <p className="font-medium text-ink">Certificates</p>
+              <p className="text-xs text-muted mb-3">
+                Select a category and upload the relevant certificate.
+              </p>
+              <SelectField
+                label="Certificate category"
+                value={selectedCertificateCategory}
+                onChange={(event) =>
+                  setSelectedCertificateCategory(event.target.value as CertificateCategory)
+                }
+                options={CERTIFICATE_CATEGORIES.map((category) => ({
+                  value: category,
+                  label: category,
+                }))}
+              />
+              <div className="mt-3 rounded-lg border border-border bg-white p-3">
+                <p className="text-sm font-medium text-ink">{selectedCertificateCategory}</p>
+                <FileUpload
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  multiple={selectedCertificateCategory === 'Other Certificates'}
+                  onUpload={(files) => handleCertificateUpload(selectedCertificateCategory, files)}
+                  className="mt-2"
+                />
+                {certificateFiles[selectedCertificateCategory].length > 0 ? (
+                  <div className="mt-2 space-y-2 text-sm text-ink">
+                    {certificateFiles[selectedCertificateCategory].map((file) => (
+                      <div
+                        key={file.name}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-border bg-white px-3 py-2"
+                      >
+                        <span className="truncate">{file.name}</span>
+                        <button
+                          type="button"
+                          className="text-xs font-medium text-danger hover:underline"
+                          onClick={() =>
+                            removeCertificateFile(selectedCertificateCategory, file.name)
+                          }
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {certificateErrors[selectedCertificateCategory] ? (
+                  <p className="text-xs text-danger mt-2">
+                    {certificateErrors[selectedCertificateCategory]}
+                  </p>
+                ) : null}
+              </div>
+            </div>
           </div>
         </div>
 
