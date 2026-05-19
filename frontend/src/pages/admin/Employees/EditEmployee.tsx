@@ -13,6 +13,7 @@ import { SelectField } from '@components/forms/SelectField'
 import { FileUpload } from '@components/forms/FileUpload'
 import * as employeeService from '@services/employeeService'
 import { useEmployeeStore } from '@store/employeeStore'
+import { uploadDocuments, uploadPhoto } from '@services/uploadService'
 
 // ── Validation ────────────────────────────────────────────────────────────────
 
@@ -59,7 +60,7 @@ const editSchema = z.object({
     (v) => (v === '' || v === null || v === undefined ? undefined : Number(v)),
     z.number().positive('CTC must be positive').optional(),
   ),
-  status: z.enum(['Active', 'On Leave', 'Probation', 'Inactive']),
+  status: z.enum(['Active', 'On Leave', 'Probation', 'Inactive', 'Resigned']),
   // ID proof
   aadhaar: z.string().optional(),
   pan: z.string().optional(),
@@ -165,12 +166,16 @@ export function EditEmployee() {
         if (!cancelled) setPageLoading(false)
       }
     })()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [form, id, navigate])
 
   // Cleanup photo preview URL
   useEffect(() => {
-    return () => { if (photoPreview) URL.revokeObjectURL(photoPreview) }
+    return () => {
+      if (photoPreview) URL.revokeObjectURL(photoPreview)
+    }
   }, [photoPreview])
 
   const handleDocumentUpload = (key: DocKey, files: FileList | null) => {
@@ -187,10 +192,19 @@ export function EditEmployee() {
 
   const handlePhotoUpload = (files: FileList | null) => {
     const file = files?.[0] ?? null
-    if (!file) { setPhotoFile(null); setPhotoPreview(null); setPhotoError(null); return }
+    if (!file) {
+      setPhotoFile(null)
+      setPhotoPreview(null)
+      setPhotoError(null)
+      return
+    }
     const error = validateFile(file, ALLOWED_PHOTO_TYPES, MAX_PHOTO_SIZE)
     setPhotoError(error)
-    if (error) { setPhotoFile(null); setPhotoPreview(null); return }
+    if (error) {
+      setPhotoFile(null)
+      setPhotoPreview(null)
+      return
+    }
     setPhotoFile(file)
     setPhotoPreview(URL.createObjectURL(file))
   }
@@ -224,12 +238,33 @@ export function EditEmployee() {
         pan: values.pan ?? '',
         passport: values.passport ?? '',
       })
+
+      // Upload documents if any
+      const hasDocuments = Object.values(documentFiles).some((f) => f !== null)
+      if (hasDocuments) {
+        try {
+          await uploadDocuments(id, documentFiles)
+        } catch (err) {
+          console.error('Failed to upload documents:', err)
+          toast.warning('Employee updated but some documents failed to upload')
+        }
+      }
+
+      // Upload photo if provided
+      if (photoFile) {
+        try {
+          await uploadPhoto(id, photoFile)
+        } catch (err) {
+          console.error('Failed to upload photo:', err)
+          toast.warning('Employee updated but photo failed to upload')
+        }
+      }
+
       toast.success('Employee updated successfully')
-      navigate(`/admin/employees/${id}`)
+      navigate('/admin/employees')
     } catch (err: any) {
       const msg =
-        err?.response?.data?.error ??
-        (err instanceof Error ? err.message : 'Update failed')
+        err?.response?.data?.error ?? (err instanceof Error ? err.message : 'Update failed')
       toast.error(msg)
     }
   })
@@ -250,7 +285,7 @@ export function EditEmployee() {
           <Breadcrumb
             items={[
               { label: 'Employees', to: '/admin/employees' },
-              { label: employeeName, to: `/admin/employees/${id}` },
+              { label: employeeName },
               { label: 'Edit' },
             ]}
           />
@@ -258,7 +293,6 @@ export function EditEmployee() {
       />
 
       <form className="mx-auto max-w-4xl space-y-8 pb-12" onSubmit={onSubmit}>
-
         {/* ── Section 1: Personal Details ─────────────────────────────── */}
         <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
           <h3 className="mb-6 font-display text-lg font-semibold text-ink">Personal Details</h3>
@@ -419,6 +453,7 @@ export function EditEmployee() {
                 { value: 'On Leave', label: 'On Leave' },
                 { value: 'Probation', label: 'Probation' },
                 { value: 'Inactive', label: 'Inactive' },
+                { value: 'Resigned', label: 'Resigned' },
               ]}
               {...form.register('status')}
             />
@@ -462,9 +497,7 @@ export function EditEmployee() {
                   onUpload={(files) => handleDocumentUpload(key, files)}
                 />
                 {documentFiles[key] ? (
-                  <p className="mt-2 text-sm text-ink">
-                    Selected: {documentFiles[key]?.name}
-                  </p>
+                  <p className="mt-2 text-sm text-ink">Selected: {documentFiles[key]?.name}</p>
                 ) : null}
                 {documentErrors[key] ? (
                   <p className="mt-1 text-xs text-danger">{documentErrors[key]}</p>
@@ -486,9 +519,7 @@ export function EditEmployee() {
               {photoFile ? (
                 <p className="mt-2 text-sm text-ink">Selected: {photoFile.name}</p>
               ) : null}
-              {photoError ? (
-                <p className="mt-1 text-xs text-danger">{photoError}</p>
-              ) : null}
+              {photoError ? <p className="mt-1 text-xs text-danger">{photoError}</p> : null}
             </div>
             <div className="rounded-xl border border-border bg-surface p-4 text-center">
               {photoPreview ? (
@@ -508,18 +539,13 @@ export function EditEmployee() {
 
         {/* ── Actions ──────────────────────────────────────────────────── */}
         <div className="flex justify-end gap-3 rounded-2xl border border-border bg-white p-6 shadow-sm">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => navigate(`/admin/employees/${id}`)}
-          >
+          <Button type="button" variant="ghost" onClick={() => navigate('/admin/employees')}>
             Cancel
           </Button>
           <Button type="submit" loading={form.formState.isSubmitting}>
             Save changes
           </Button>
         </div>
-
       </form>
     </PageWrapper>
   )

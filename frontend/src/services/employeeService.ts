@@ -34,3 +34,8 @@ export async function updateEmployee(id: string, payload: Partial<Employee>) {
 export async function deleteEmployee(id: string) {
   await api.delete(`/employees/${id}`)
 }
+
+export async function updateEmployeeStatus(id: string, status: Employee['status']) {
+  const response = await api.put(`/employees/${id}`, { status })
+  return response.data as Employee
+}

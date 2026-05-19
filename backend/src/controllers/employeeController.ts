@@ -101,7 +101,7 @@ export const employeeController = {
     }
   },
 
-  // Delete employee
+  // Delete employee (hard delete)
   deleteEmployee: async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
@@ -118,6 +118,32 @@ export const employeeController = {
       res.status(500).json({ error: 'Failed to delete employee' });
     }
   },
+
+  // Update employee status (Deactivate/Archive)
+  updateStatus: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+
+      if (!status) {
+        res.status(400).json({ error: 'Status is required' });
+        return;
+      }
+
+      const employee = await employeeService.updateEmployeeStatus(id, status);
+
+      if (!employee) {
+        res.status(404).json({ error: 'Employee not found' });
+        return;
+      }
+
+      res.json(employee);
+    } catch (error) {
+      console.error('Error updating employee status:', error);
+      res.status(500).json({ error: 'Failed to update employee status' });
+    }
+  },
+
 
   // Search employees
   searchEmployees: async (req: Request, res: Response): Promise<void> => {

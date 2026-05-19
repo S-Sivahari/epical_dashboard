@@ -11,6 +11,7 @@ import { leaveRoutes } from './routes/leaveRoutes';
 import { holidayRoutes } from './routes/holidayRoutes';
 import { ticketRoutes } from './routes/ticketRoutes';
 import { timesheetRoutes } from './routes/timesheetRoutes';
+import { uploadRoutes } from './routes/uploadRoutes';
 
 // Seed helpers
 import { seedDefaultUsers } from './services/authService';
@@ -37,6 +38,7 @@ app.use('/api/leaves', leaveRoutes);
 app.use('/api/holidays', holidayRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/timesheets', timesheetRoutes);
+app.use('/api', uploadRoutes);
 
 // ── Stats endpoint (admin dashboard) ─────────────────────────
 app.get('/api/stats', async (_req, res) => {

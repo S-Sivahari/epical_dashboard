@@ -1,7 +1,7 @@
 import { ObjectId } from 'mongodb';
 
 export type EmploymentType = 'Full-time' | 'Contract' | 'Intern';
-export type EmployeeStatus = 'Active' | 'On Leave' | 'Probation' | 'Inactive';
+export type EmployeeStatus = 'Active' | 'On Leave' | 'Probation' | 'Inactive' | 'Deactivated' | 'Archived';
 
 export interface Employee {
   _id?: ObjectId;
@@ -36,6 +36,15 @@ export interface Employee {
   aadhaar?: string;
   pan?: string;
   passport?: string;
+  // Documents (stored as Base64 or file metadata)
+  documents?: {
+    aadhaarPan?: { filename: string; data: string; contentType: string; uploadedAt: Date };
+    offerLetter?: { filename: string; data: string; contentType: string; uploadedAt: Date };
+    certificates?: { filename: string; data: string; contentType: string; uploadedAt: Date };
+    agreement?: { filename: string; data: string; contentType: string; uploadedAt: Date };
+  };
+  // Profile photo
+  photo?: { filename: string; data: string; contentType: string; uploadedAt: Date };
   createdAt?: Date;
   updatedAt?: Date;
 }

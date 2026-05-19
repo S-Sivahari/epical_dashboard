@@ -1,5 +1,5 @@
 export type EmploymentType = 'Full-time' | 'Contract' | 'Intern'
-export type EmployeeStatus = 'Active' | 'On Leave' | 'Probation' | 'Inactive'
+export type EmployeeStatus = 'Active' | 'Inactive' | 'Resigned'
 
 export interface Employee {
   id: string
@@ -7,8 +7,6 @@ export interface Employee {
   firstName: string
   lastName: string
   address?: string
-  dob?: string
-  gender?: string
   department: string
   designation: string
   role: string
@@ -20,17 +18,8 @@ export interface Employee {
   phone?: string
   avatarUrl?: string
   reportingManagerId?: string
-  reportingManager?: string
   salaryGrade?: string
   ctc?: number
-  bankName?: string
-  accountNumber?: string
-  ifsc?: string
-  uan?: string
-  pfEsi?: 'on' | 'off'
-  aadhaar?: string
-  pan?: string
-  passport?: string
 }
 
 export type LeaveStatus = 'Pending' | 'Approved' | 'Rejected'

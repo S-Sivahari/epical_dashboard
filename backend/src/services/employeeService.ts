@@ -51,7 +51,11 @@ export async function getAllEmployees(
   // Filter by status
   if (filters.status && filters.status !== 'all') {
     query.status = filters.status;
+  } else {
+    // Default: exclude Deactivated and Archived
+    query.status = { $nin: ['Deactivated', 'Archived'] };
   }
+
 
   // Get total count
   const total = await collection.countDocuments(query);
@@ -177,6 +181,11 @@ export async function deleteEmployee(id: string): Promise<boolean> {
 
   return false;
 }
+
+export async function updateEmployeeStatus(id: string, status: Employee['status']): Promise<Employee | null> {
+  return updateEmployee(id, { status } as any);
+}
+
 
 export async function searchEmployees(query: string): Promise<Employee[]> {
   const collection = getEmployeeCollection();

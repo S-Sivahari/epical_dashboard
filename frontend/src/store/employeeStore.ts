@@ -21,9 +21,10 @@ interface EmployeeState {
   setPageSize: (n: number) => void
   fetchEmployees: () => Promise<void>
   setSelected: (e: Employee | null) => void
-  addEmployee: (payload: Omit<Employee, 'id'> & { employeeId?: string }) => Promise<void>
+  addEmployee: (payload: Omit<Employee, 'id'> & { employeeId: string }) => Promise<Employee>
   updateEmployee: (id: string, payload: Partial<Employee>) => Promise<void>
   deleteEmployee: (id: string) => Promise<void>
+  updateEmployeeStatus: (id: string, status: Employee['status']) => Promise<void>
 }
 
 export const useEmployeeStore = create<EmployeeState>((set, get) => ({
@@ -60,8 +61,9 @@ export const useEmployeeStore = create<EmployeeState>((set, get) => ({
   },
   setSelected: (selectedEmployee) => set({ selectedEmployee }),
   addEmployee: async (payload) => {
-    await employeeService.createEmployee(payload)
+    const employee = await employeeService.createEmployee(payload)
     await get().fetchEmployees()
+    return employee
   },
   updateEmployee: async (id, payload) => {
     await employeeService.updateEmployee(id, payload)
@@ -69,6 +71,10 @@ export const useEmployeeStore = create<EmployeeState>((set, get) => ({
   },
   deleteEmployee: async (id) => {
     await employeeService.deleteEmployee(id)
+    await get().fetchEmployees()
+  },
+  updateEmployeeStatus: async (id, status) => {
+    await employeeService.updateEmployeeStatus(id, status)
     await get().fetchEmployees()
   },
 }))

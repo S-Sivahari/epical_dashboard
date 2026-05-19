@@ -13,6 +13,7 @@ import { SelectField } from '@components/forms/SelectField'
 import { FileUpload } from '@components/forms/FileUpload'
 import { useEmployeeStore } from '@store/employeeStore'
 import type { Employee } from '@/types'
+import { uploadDocuments, uploadPhoto } from '@services/uploadService'
 
 const employeeIdPattern = /^(EPL|INT)\d{8}$/
 const isValidDate = (value: string) => !Number.isNaN(Date.parse(value))
@@ -20,9 +21,9 @@ const isValidDate = (value: string) => !Number.isNaN(Date.parse(value))
 const step1 = z.object({
   employeeId: z
     .string()
-    .optional()
+    .min(1, 'Employee ID is required')
     .refine(
-      (value) => !value || employeeIdPattern.test(value.trim().toUpperCase()),
+      (value) => employeeIdPattern.test(value.trim().toUpperCase()),
       'Use EPL or INT plus 8 digits',
     ),
   firstName: z.string().min(1, 'First name is required'),
@@ -74,7 +75,7 @@ type FullValues = z.infer<typeof fullSchema>
 const defaultValues: Partial<FullValues> = {
   employeeId: '',
   address: '',
-  gender: 'Female',
+  gender: '',
   employmentType: 'Full-time',
   pfEsi: 'on',
   passport: '',
@@ -181,48 +182,52 @@ export function AddEmployee() {
   }
 
   const onSubmit = form.handleSubmit(async (values) => {
-    const payload: Omit<Employee, 'id'> & { employeeId?: string } = {
-      employeeId: values.employeeId?.trim().toUpperCase() ?? '',
+    const payload: Omit<Employee, 'id'> = {
+      employeeId: values.employeeId.trim(),
       firstName: values.firstName,
       lastName: values.lastName ?? '',
       address: values.address ?? '',
-      dob: values.dob,
-      gender: values.gender,
       department: values.department,
       designation: values.role,
       role: values.role,
       employmentType: values.employmentType,
       joinedAt: values.joinedAt,
       status: 'Active',
-      email: values.companyEmail,
+      email: values.companyEmail || '',
       personalEmail: values.personalEmail,
       phone: values.phone,
       ctc: values.ctc,
-      // Account details
-      bankName: values.bankName,
-      accountNumber: values.accountNumber,
-      ifsc: values.ifsc,
-      uan: values.uan,
-      pfEsi: values.pfEsi,
-      // ID proof
-      aadhaar: values.aadhaar,
-      pan: values.pan,
-      passport: values.passport,
     }
 
     try {
-      await addEmployee(payload)
+      const createdEmployee = await addEmployee(payload)
+      
+      // Upload documents if any
+      const hasDocuments = Object.values(documentFiles).some((f) => f !== null)
+      if (hasDocuments) {
+        try {
+          await uploadDocuments(createdEmployee.id, documentFiles)
+        } catch (err) {
+          console.error('Failed to upload documents:', err)
+          toast.warning('Employee created but some documents failed to upload')
+        }
+      }
+
+      // Upload photo if provided
+      if (photoFile) {
+        try {
+          await uploadPhoto(createdEmployee.id, photoFile)
+        } catch (err) {
+          console.error('Failed to upload photo:', err)
+          toast.warning('Employee created but photo failed to upload')
+        }
+      }
+
       toast.success('Employee created successfully')
       navigate('/admin/employees')
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.error ??
-        (err instanceof Error ? err.message : 'Could not create employee')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not create employee'
       toast.error(msg)
-      // Highlight email field and jump back to personal details if duplicate email
-      if (err?.response?.status === 409 && msg.toLowerCase().includes('email')) {
-        form.setError('companyEmail', { message: 'This email is already in use' })
-      }
     }
   })
 
@@ -244,6 +249,7 @@ export function AddEmployee() {
           <div className="grid gap-4 md:grid-cols-2">
             <Input
               label="Employee ID"
+              required
               placeholder="e.g. EPL12345678"
               error={form.formState.errors.employeeId?.message}
               {...form.register('employeeId')}
@@ -276,9 +282,9 @@ export function AddEmployee() {
               required
               error={form.formState.errors.gender?.message}
               options={[
-                { value: 'Female', label: 'Female' },
                 { value: 'Male', label: 'Male' },
-                { value: 'Non-binary', label: 'Non-binary' },
+                { value: 'Female', label: 'Female' },
+                { value: 'Not prefer to say', label: 'Not prefer to say' },
               ]}
               {...form.register('gender')}
             />
@@ -438,7 +444,9 @@ export function AddEmployee() {
               return (
                 <div key={key} className="rounded-xl border border-border bg-surface p-4">
                   <p className="font-medium text-ink">{label}</p>
-                  <p className="text-xs text-muted mb-3">Allowed: .pdf, .jpg, .jpeg, .png. Max 5MB.</p>
+                  <p className="text-xs text-muted mb-3">
+                    Allowed: .pdf, .jpg, .jpeg, .png. Max 5MB.
+                  </p>
                   <FileUpload
                     accept=".pdf,.jpg,.jpeg,.png"
                     onUpload={(files) => handleDocumentUpload(docKey, files)}
@@ -467,9 +475,7 @@ export function AddEmployee() {
               {photoFile ? (
                 <p className="mt-2 text-sm text-ink">Selected: {photoFile.name}</p>
               ) : null}
-              {photoError ? (
-                <p className="text-xs text-danger mt-2">{photoError}</p>
-              ) : null}
+              {photoError ? <p className="text-xs text-danger mt-2">{photoError}</p> : null}
             </div>
             <div className="rounded-xl border border-border bg-surface p-4 text-center">
               {photoPreview ? (
@@ -479,7 +485,9 @@ export function AddEmployee() {
                   className="mx-auto h-40 w-40 rounded-xl object-cover"
                 />
               ) : (
-                <p className="text-sm text-muted">Image preview will appear here after selecting a file.</p>
+                <p className="text-sm text-muted">
+                  Image preview will appear here after selecting a file.
+                </p>
               )}
             </div>
           </div>
