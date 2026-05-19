@@ -20,13 +20,7 @@ export function EmployeeCard({ employee }: { employee: Employee }) {
         </p>
       </div>
       <Badge
-        variant={
-          employee.status === 'Active'
-            ? 'success'
-            : employee.status === 'On Leave'
-              ? 'warning'
-              : 'neutral'
-        }
+        variant={employee.status === 'Active' ? 'success' : 'neutral'}
       >
         {employee.status}
       </Badge>

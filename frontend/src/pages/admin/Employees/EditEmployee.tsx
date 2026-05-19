@@ -141,8 +141,6 @@ export function EditEmployee() {
           required
           options={[
             { value: 'Active', label: 'Active' },
-            { value: 'On Leave', label: 'On Leave' },
-
             { value: 'Inactive', label: 'Inactive' },
           ]}
           {...form.register('status')}

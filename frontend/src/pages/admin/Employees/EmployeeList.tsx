@@ -72,15 +72,7 @@ export function EmployeeList() {
       header: 'Status',
       render: (e) => (
         <Badge
-          variant={
-            e.status === 'Active'
-              ? 'success'
-              : e.status === 'On Leave'
-                ? 'warning'
-                : e.status === 'Probation'
-                  ? 'info'
-                  : 'neutral'
-          }
+          variant={e.status === 'Active' ? 'success' : 'neutral'}
         >
           {e.status}
         </Badge>
@@ -158,8 +150,6 @@ export function EmployeeList() {
             options={[
               { value: 'all', label: 'All statuses' },
               { value: 'Active', label: 'Active' },
-              { value: 'On Leave', label: 'On Leave' },
-              { value: 'Probation', label: 'Probation' },
               { value: 'Inactive', label: 'Inactive' },
             ]}
           />
