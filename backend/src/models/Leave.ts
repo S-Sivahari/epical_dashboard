@@ -1,2 +1,28 @@
-// Placeholder model.
-export type Leave = {};
+import { ObjectId } from 'mongodb';
+
+export type LeaveStatus = 'Pending' | 'Approved' | 'Rejected';
+
+export interface LeaveRequest {
+  _id?: ObjectId;
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  type: string;
+  from: string;
+  to: string;
+  days: number;
+  reason: string;
+  status: LeaveStatus;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface CreateLeavePayload {
+  employeeId: string;
+  employeeName: string;
+  type: string;
+  from: string;
+  to: string;
+  days: number;
+  reason: string;
+}

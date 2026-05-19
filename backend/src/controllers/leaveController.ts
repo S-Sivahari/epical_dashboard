@@ -1,2 +1,109 @@
-// Placeholder controller.
-export const leaveController = {};
+import { Request, Response } from 'express';
+import * as leaveService from '../services/leaveService';
+import { AuthRequest } from '../middleware/authMiddleware';
+
+export const leaveController = {
+  // GET /api/leaves
+  getAll: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      // Admins see all; employees see only their own
+      const employeeId =
+        req.user?.role === 'Employee'
+          ? (req.query.employeeId as string) || req.user.id
+          : (req.query.employeeId as string) || undefined;
+      const leaves = await leaveService.getAllLeaves(employeeId);
+      res.json(leaves);
+    } catch {
+      res.status(500).json({ error: 'Failed to fetch leaves' });
+    }
+  },
+
+  // POST /api/leaves
+  create: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { employeeId, employeeName, type, from, to, days, reason } = req.body;
+      if (!employeeId || !type || !from || !to || !days || !reason) {
+        res.status(400).json({ error: 'Missing required fields' });
+        return;
+      }
+      const leave = await leaveService.createLeave({
+        employeeId,
+        employeeName: employeeName || 'Unknown',
+        type,
+        from,
+        to,
+        days: Number(days),
+        reason,
+      });
+      res.status(201).json(leave);
+    } catch {
+      res.status(500).json({ error: 'Failed to create leave request' });
+    }
+  },
+
+  // PATCH /api/leaves/:id/approve
+  approve: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const leave = await leaveService.updateLeaveStatus(req.params.id, 'Approved');
+      if (!leave) { res.status(404).json({ error: 'Leave not found' }); return; }
+      res.json(leave);
+    } catch {
+      res.status(500).json({ error: 'Failed to approve leave' });
+    }
+  },
+
+  // PATCH /api/leaves/:id/reject
+  reject: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const leave = await leaveService.updateLeaveStatus(req.params.id, 'Rejected');
+      if (!leave) { res.status(404).json({ error: 'Leave not found' }); return; }
+      res.json(leave);
+    } catch {
+      res.status(500).json({ error: 'Failed to reject leave' });
+    }
+  },
+
+  // DELETE /api/leaves/:id
+  delete: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const ok = await leaveService.deleteLeave(req.params.id);
+      if (!ok) { res.status(404).json({ error: 'Leave not found' }); return; }
+      res.json({ message: 'Deleted successfully' });
+    } catch {
+      res.status(500).json({ error: 'Failed to delete leave' });
+    }
+  },
+
+  // GET /api/holidays
+  getHolidays: async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const holidays = await leaveService.getAllHolidays();
+      res.json(holidays);
+    } catch {
+      res.status(500).json({ error: 'Failed to fetch holidays' });
+    }
+  },
+
+  // POST /api/holidays
+  createHoliday: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { title, date } = req.body;
+      if (!title || !date) { res.status(400).json({ error: 'title and date required' }); return; }
+      const holiday = await leaveService.createHoliday({ title, date });
+      res.status(201).json(holiday);
+    } catch {
+      res.status(500).json({ error: 'Failed to create holiday' });
+    }
+  },
+
+  // DELETE /api/holidays/:id
+  deleteHoliday: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const ok = await leaveService.deleteHoliday(req.params.id);
+      if (!ok) { res.status(404).json({ error: 'Holiday not found' }); return; }
+      res.json({ message: 'Deleted successfully' });
+    } catch {
+      res.status(500).json({ error: 'Failed to delete holiday' });
+    }
+  },
+};
