@@ -26,6 +26,8 @@ export async function getEmployees(params?: {
   department?: string
   employmentType?: string
   status?: string
+  sortColumn?: string
+  sortDirection?: 'asc' | 'desc'
   page?: number
   pageSize?: number
 }) {
@@ -47,6 +49,22 @@ export async function getEmployees(params?: {
   }
   if (params?.status && params.status !== 'all') {
     list = list.filter((e) => e.status === params.status)
+  }
+
+  if (params?.sortColumn) {
+    const col = params.sortColumn as keyof Employee
+    const dir = params.sortDirection === 'desc' ? -1 : 1
+    list.sort((a, b) => {
+      let valA = a[col]
+      let valB = b[col]
+      
+      if (typeof valA === 'string' && typeof valB === 'string') {
+        return valA.localeCompare(valB) * dir
+      }
+      if (valA < valB) return -1 * dir
+      if (valA > valB) return 1 * dir
+      return 0
+    })
   }
 
   const page = params?.page ?? 1

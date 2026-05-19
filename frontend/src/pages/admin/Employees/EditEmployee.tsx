@@ -30,7 +30,7 @@ const editSchema = z.object({
   department: z.string().min(2, 'Department is required'),
   designation: z.string().min(2, 'Designation is required'),
   role: z.string().min(2, 'Role is required'),
-  employmentType: z.enum(['Full-time', 'Contract', 'Intern']),
+  employmentType: z.enum(['Active', 'Contract', 'Intern', 'Notice Period']),
   joinedAt: z
     .string()
     .min(1, 'Joining date is required')
@@ -192,9 +192,10 @@ export function EditEmployee() {
           required
           error={form.formState.errors.employmentType?.message}
           options={[
-            { value: 'Full-time', label: 'Full-time' },
+            { value: 'Active', label: 'Active' },
             { value: 'Contract', label: 'Contract' },
             { value: 'Intern', label: 'Intern' },
+            { value: 'Notice Period', label: 'Notice Period' },
           ]}
           {...form.register('employmentType')}
         />

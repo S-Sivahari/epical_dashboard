@@ -6,6 +6,7 @@ export interface Column<T> {
   key: keyof T | string
   header: string
   className?: string
+  sortable?: boolean
   render?: (row: T) => ReactNode
 }
 
@@ -14,11 +15,17 @@ export function DataTable<T extends { id?: string }>({
   data,
   loading,
   empty,
+  sortColumn,
+  sortDirection,
+  onSort,
 }: {
   columns: Column<T>[]
   data: T[]
   loading?: boolean
   empty?: ReactNode
+  sortColumn?: string
+  sortDirection?: 'asc' | 'desc'
+  onSort?: (key: string) => void
 }) {
   if (loading) {
     return (
@@ -43,9 +50,26 @@ export function DataTable<T extends { id?: string }>({
               <th
                 key={String(c.key)}
                 scope="col"
-                className={cn('px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted', c.className)}
+                className={cn(
+                  'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted',
+                  c.className,
+                  c.sortable && 'cursor-pointer hover:bg-surface/80'
+                )}
+                onClick={() => c.sortable && onSort?.(String(c.key))}
               >
-                {c.header}
+                <div className="flex items-center gap-1.5">
+                  {c.header}
+                  {c.sortable && (
+                    <div className="flex flex-col -space-y-[2px]">
+                      <svg width="8" height="6" viewBox="0 0 8 6" fill="none" className={cn(sortColumn === c.key && sortDirection === 'asc' ? 'text-primary' : 'text-muted/30')}>
+                        <path d="M4 0L8 6H0L4 0Z" fill="currentColor"/>
+                      </svg>
+                      <svg width="8" height="6" viewBox="0 0 8 6" fill="none" className={cn(sortColumn === c.key && sortDirection === 'desc' ? 'text-primary' : 'text-muted/30')}>
+                        <path d="M4 6L0 0H8L4 6Z" fill="currentColor"/>
+                      </svg>
+                    </div>
+                  )}
+                </div>
               </th>
             ))}
           </tr>

@@ -31,6 +31,8 @@ export function EmployeeList() {
     pagination,
     setPage,
     setPageSize,
+    sort,
+    setSort,
     updateEmployeeStatus,
   } = useEmployees()
 
@@ -64,7 +66,6 @@ export function EmployeeList() {
         { key: 'lastName', label: 'Last Name' },
         { key: 'email', label: 'Email' },
         { key: 'department', label: 'Department' },
-        { key: 'designation', label: 'Designation' },
         { key: 'employmentType', label: 'Type' },
         { key: 'status', label: 'Status' },
         { key: 'joinedAt', label: 'Joined At' },
@@ -89,6 +90,7 @@ export function EmployeeList() {
     {
       key: 'firstName',
       header: 'Employee name',
+      sortable: true,
       render: (e) => {
         const name = `${e.firstName} ${e.lastName}`
         return (
@@ -105,21 +107,23 @@ export function EmployeeList() {
     {
       key: 'employeeId',
       header: 'Employee ID',
+      sortable: true,
       render: (e) => (
         <span className="font-mono text-xs font-medium text-primary">{e.employeeId}</span>
       ),
     },
-    { key: 'designation', header: 'Designation' },
-    { key: 'department', header: 'Dept' },
-    { key: 'employmentType', header: 'Type' },
+    { key: 'department', header: 'Dept', sortable: true },
+    { key: 'employmentType', header: 'Type', sortable: true },
     {
       key: 'joinedAt',
       header: 'Joined',
+      sortable: true,
       render: (e) => <span className="text-muted">{formatDate(e.joinedAt)}</span>,
     },
     {
       key: 'status',
       header: 'Status',
+      sortable: true,
       render: (e) => (
         <Badge variant={e.status === 'Active' ? 'success' : 'neutral'}>{e.status}</Badge>
       ),
@@ -182,7 +186,6 @@ export function EmployeeList() {
     <PageWrapper>
       <PageHeader
         title="Employees"
-        subtitle="Manage your workforce status and directory."
         breadcrumb={<Breadcrumb items={[{ label: 'Employees', to: '/admin/employees' }]} />}
         actions={
           <div className="flex gap-3">
@@ -232,9 +235,10 @@ export function EmployeeList() {
             onChange={(e) => setFilters({ employmentType: e.target.value })}
             options={[
               { value: 'all', label: 'All types' },
-              { value: 'Full-time', label: 'Full-time' },
+              { value: 'Active', label: 'Active' },
               { value: 'Contract', label: 'Contract' },
               { value: 'Intern', label: 'Intern' },
+              { value: 'Notice Period', label: 'Notice Period' },
             ]}
           />
           <SelectField
@@ -257,7 +261,20 @@ export function EmployeeList() {
             <h3 className="font-display text-lg font-semibold text-ink">Active Directory</h3>
             <span className="text-sm text-muted">{pagination.total} total</span>
           </div>
-          <DataTable columns={columns} data={employees} loading={loading} />
+          <DataTable
+            columns={columns}
+            data={employees}
+            loading={loading}
+            sortColumn={sort.column}
+            sortDirection={sort.direction}
+            onSort={(key) => {
+              if (sort.column === key) {
+                setSort(key, sort.direction === 'asc' ? 'desc' : 'asc')
+              } else {
+                setSort(key, 'asc')
+              }
+            }}
+          />
           <PaginationBar
             className="mt-4"
             total={pagination.total}

@@ -51,7 +51,7 @@ const step3 = z.object({
     .string()
     .min(1, 'Joining date is required')
     .refine(isValidDate, 'Enter a valid joining date'),
-  employmentType: z.enum(['Full-time', 'Contract', 'Intern']),
+  employmentType: z.enum(['Active', 'Contract', 'Intern', 'Notice Period']),
 
   department: z.string().min(2, 'Department is required'),
   reportingManager: z.string().min(1, 'Reporting manager is required'),
@@ -75,7 +75,7 @@ const defaultValues: Partial<FullValues> = {
   employeeId: '',
   address: '',
   gender: '',
-  employmentType: 'Full-time',
+  employmentType: 'Active',
   pfEsi: 'on',
   passport: '',
   bankName: '',
@@ -84,14 +84,24 @@ const defaultValues: Partial<FullValues> = {
   uan: '',
 }
 
-type DocKey = 'aadhaarPan' | 'offerLetter' | 'certificates' | 'agreement'
+type DocKey = 'aadhaar' | 'pan' | 'offerLetter' | 'agreement'
 
 const DOCUMENT_TYPES = {
-  aadhaarPan: 'Aadhaar/PAN',
+  aadhaar: 'Aadhaar',
+  pan: 'PAN',
   offerLetter: 'Offer Letter',
-  certificates: 'Certificates',
   agreement: 'Agreement',
 } as const
+
+const CERTIFICATE_CATEGORIES = [
+  'Degree',
+  'Diploma',
+  '10th',
+  '12th',
+  'Other Options',
+] as const
+
+type CertificateCategory = (typeof CERTIFICATE_CATEGORIES)[number]
 
 const ALLOWED_DOC_TYPES = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png']
 const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/jpg', 'image/png']
@@ -118,17 +128,35 @@ export function AddEmployee() {
   })
 
   const [documentFiles, setDocumentFiles] = useState<Record<DocKey, File | null>>({
-    aadhaarPan: null,
+    aadhaar: null,
+    pan: null,
     offerLetter: null,
-    certificates: null,
     agreement: null,
   })
   const [documentErrors, setDocumentErrors] = useState<Record<DocKey, string | null>>({
-    aadhaarPan: null,
+    aadhaar: null,
+    pan: null,
     offerLetter: null,
-    certificates: null,
     agreement: null,
   })
+  const [certificateFiles, setCertificateFiles] = useState<Record<CertificateCategory, File[]>>({
+    'Degree': [],
+    'Diploma': [],
+    '10th': [],
+    '12th': [],
+    'Other Options': [],
+  })
+  const [certificateErrors, setCertificateErrors] = useState<
+    Record<CertificateCategory, string | null>
+  >({
+    'Degree': null,
+    'Diploma': null,
+    '10th': null,
+    '12th': null,
+    'Other Options': null,
+  })
+  const [selectedCertificateCategory, setSelectedCertificateCategory] =
+    useState<CertificateCategory>('Degree')
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [photoError, setPhotoError] = useState<string | null>(null)
@@ -157,6 +185,43 @@ export function AddEmployee() {
     }
 
     setDocumentFiles((prev) => ({ ...prev, [key]: file }))
+  }
+
+  const handleCertificateUpload = (category: CertificateCategory, files: FileList | null) => {
+    const fileList = files ? Array.from(files) : []
+
+    if (category !== 'Other Options') {
+      const file = fileList[0] ?? null
+      if (!file) {
+        return
+      }
+
+      const error = validateFile(file, ALLOWED_DOC_TYPES, MAX_DOC_SIZE)
+      setCertificateErrors((prev) => ({ ...prev, [category]: error }))
+      if (error) {
+        return
+      }
+
+      setCertificateFiles((prev) => ({ ...prev, [category]: [...prev[category], file] }))
+      return
+    }
+
+    const errors = fileList
+      .map((file) => validateFile(file, ALLOWED_DOC_TYPES, MAX_DOC_SIZE))
+      .filter(Boolean)
+    const error = errors.length > 0 ? (errors[0] as string) : null
+
+    setCertificateErrors((prev) => ({ ...prev, [category]: error }))
+    if (error) return
+
+    setCertificateFiles((prev) => ({ ...prev, [category]: [...prev[category], ...fileList] }))
+  }
+
+  const removeCertificateFile = (category: CertificateCategory, fileName: string) => {
+    setCertificateFiles((prev) => ({
+      ...prev,
+      [category]: prev[category].filter((file) => file.name !== fileName),
+    }))
   }
 
   const handlePhotoUpload = (files: FileList | null) => {
@@ -344,9 +409,10 @@ export function AddEmployee() {
               required
               error={form.formState.errors.employmentType?.message}
               options={[
-                { value: 'Full-time', label: 'Full-time' },
+                { value: 'Active', label: 'Active' },
                 { value: 'Contract', label: 'Contract' },
                 { value: 'Intern', label: 'Intern' },
+                { value: 'Notice Period', label: 'Notice Period' },
               ]}
               {...form.register('employmentType')}
             />
@@ -413,23 +479,38 @@ export function AddEmployee() {
         <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
           <div className="mb-6">
             <h3 className="font-display text-lg font-semibold text-ink">Employee Documents</h3>
-            <p className="text-sm text-muted">Upload required employee documents.</p>
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            {Object.entries(DOCUMENT_TYPES).map(([key, label]) => {
+          
+          {/* Row 1: Aadhaar, PAN, Offer Letter */}
+          <div className="grid gap-4 md:grid-cols-3 items-start">
+            {['aadhaar', 'pan', 'offerLetter'].map((key) => {
               const docKey = key as DocKey
+              const label = DOCUMENT_TYPES[docKey]
               return (
                 <div key={key} className="rounded-xl border border-border bg-surface p-4">
-                  <p className="font-medium text-ink">{label}</p>
-                  <p className="text-xs text-muted mb-3">
-                    Allowed: .pdf, .jpg, .jpeg, .png. Max 5MB.
-                  </p>
+                  <div className="flex items-start justify-between mb-3">
+                    <p className="font-medium text-ink">{label}</p>
+                    <p className="text-xs text-muted">5MB</p>
+                  </div>
                   <FileUpload
                     accept=".pdf,.jpg,.jpeg,.png"
                     onUpload={(files) => handleDocumentUpload(docKey, files)}
                   />
+                  
                   {documentFiles[docKey] ? (
-                    <p className="mt-2 text-sm text-ink">Selected: {documentFiles[docKey]?.name}</p>
+                    <div className="mt-4 pt-4 border-t border-border">
+                      <p className="text-xs font-medium text-muted mb-2 uppercase">Uploaded</p>
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-white px-3 py-2">
+                        <span className="truncate text-xs text-ink">{documentFiles[docKey]?.name}</span>
+                        <button
+                          type="button"
+                          className="text-xs font-medium text-danger hover:underline shrink-0"
+                          onClick={() => handleDocumentUpload(docKey, null)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
                   ) : null}
                   {documentErrors[docKey] ? (
                     <p className="text-xs text-danger mt-2">{documentErrors[docKey]}</p>
@@ -438,34 +519,132 @@ export function AddEmployee() {
               )
             })}
           </div>
-        </div>
 
-        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
-          <div className="mb-6">
-            <h3 className="font-display text-lg font-semibold text-ink">Profile Photo Upload</h3>
-            <p className="text-sm text-muted">Upload a profile photo for the employee.</p>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2 items-start">
-            <div>
-              <p className="text-xs text-muted mb-3">Allowed: .jpg, .jpeg, .png. Max 2MB.</p>
+          {/* Row 2: Agreement, Certificates, Profile Photo */}
+          <div className="mt-6 grid gap-4 md:grid-cols-3 items-start">
+            {/* Agreement */}
+            <div className="rounded-xl border border-border bg-surface p-4">
+              <div className="flex items-start justify-between mb-3">
+                <p className="font-medium text-ink">{DOCUMENT_TYPES.agreement}</p>
+                <p className="text-xs text-muted">5MB</p>
+              </div>
+              <FileUpload
+                accept=".pdf,.jpg,.jpeg,.png"
+                onUpload={(files) => handleDocumentUpload('agreement', files)}
+              />
+              
+              {documentFiles.agreement ? (
+                <div className="mt-4 pt-4 border-t border-border">
+                  <p className="text-xs font-medium text-muted mb-2 uppercase">Uploaded</p>
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-white px-3 py-2">
+                    <span className="truncate text-xs text-ink">{documentFiles.agreement?.name}</span>
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-danger hover:underline shrink-0"
+                      onClick={() => handleDocumentUpload('agreement', null)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+              {documentErrors.agreement ? (
+                <p className="text-xs text-danger mt-2">{documentErrors.agreement}</p>
+              ) : null}
+            </div>
+
+            {/* Certificates */}
+            <div className="rounded-xl border border-border bg-surface p-4">
+              <div className="flex items-start justify-between mb-3">
+                <p className="font-medium text-ink">Certificates</p>
+                <p className="text-xs text-muted">5MB</p>
+              </div>
+              <SelectField
+                value={selectedCertificateCategory}
+                onChange={(event) =>
+                  setSelectedCertificateCategory(event.target.value as CertificateCategory)
+                }
+                options={CERTIFICATE_CATEGORIES.map((category) => ({
+                  value: category,
+                  label: category,
+                }))}
+              />
+              <div className="mt-3">
+                <FileUpload
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  multiple={selectedCertificateCategory === 'Other Options'}
+                  onUpload={(files) => handleCertificateUpload(selectedCertificateCategory, files)}
+                />
+                {certificateErrors[selectedCertificateCategory] ? (
+                  <p className="text-xs text-danger mt-2">
+                    {certificateErrors[selectedCertificateCategory]}
+                  </p>
+                ) : null}
+              </div>
+              
+              {Object.entries(certificateFiles).some(([_, files]) => files.length > 0) ? (
+                <div className="mt-4 pt-4 border-t border-border max-h-64 overflow-y-auto">
+                  <p className="text-xs font-medium text-muted mb-3 uppercase">Uploaded Certificates</p>
+                  <div className="space-y-2">
+                    {Object.entries(certificateFiles).map(([category, files]) =>
+                      files.map((file) => (
+                        <div
+                          key={`${category}-${file.name}`}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-border bg-white px-3 py-2"
+                        >
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <span className="truncate text-xs text-ink">{file.name}</span>
+                            <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded whitespace-nowrap">
+                              {category}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            className="text-xs font-medium text-danger hover:underline shrink-0"
+                            onClick={() =>
+                              removeCertificateFile(category as CertificateCategory, file.name)
+                            }
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Profile Photo */}
+            <div className="rounded-xl border border-border bg-surface p-4">
+              <div className="flex items-start justify-between mb-3">
+                <p className="font-medium text-ink">Profile Photo</p>
+                <p className="text-xs text-muted">5MB</p>
+              </div>
               <FileUpload accept=".jpg,.jpeg,.png" onUpload={handlePhotoUpload} />
               {photoFile ? (
-                <p className="mt-2 text-sm text-ink">Selected: {photoFile.name}</p>
+                <div className="mt-4 pt-4 border-t border-border text-center">
+                  {photoPreview ? (
+                    <img
+                      src={photoPreview}
+                      alt="Profile preview"
+                      className="mx-auto h-20 w-20 rounded-full object-cover border border-border"
+                    />
+                  ) : null}
+                  <p className="mt-2 text-xs text-ink truncate">Selected: {photoFile.name}</p>
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-danger hover:underline mt-2"
+                    onClick={() => {
+                      setPhotoFile(null)
+                      setPhotoPreview(null)
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
               ) : null}
               {photoError ? <p className="text-xs text-danger mt-2">{photoError}</p> : null}
-            </div>
-            <div className="rounded-xl border border-border bg-surface p-4 text-center">
-              {photoPreview ? (
-                <img
-                  src={photoPreview}
-                  alt="Profile preview"
-                  className="mx-auto h-40 w-40 rounded-xl object-cover"
-                />
-              ) : (
-                <p className="text-sm text-muted">
-                  Image preview will appear here after selecting a file.
-                </p>
-              )}
             </div>
           </div>
         </div>

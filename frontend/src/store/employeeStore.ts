@@ -15,8 +15,10 @@ interface EmployeeState {
   selectedEmployee: Employee | null
   filters: EmployeeFilters
   pagination: { page: number; pageSize: number; total: number }
+  sort: { column: string; direction: 'asc' | 'desc' }
   loading: boolean
   setFilters: (f: Partial<EmployeeFilters>) => void
+  setSort: (column: string, direction: 'asc' | 'desc') => void
   setPage: (page: number) => void
   setPageSize: (n: number) => void
   fetchEmployees: () => Promise<void>
@@ -32,9 +34,11 @@ export const useEmployeeStore = create<EmployeeState>((set, get) => ({
   selectedEmployee: null,
   filters: { name: '', employeeId: '', department: 'all', employmentType: 'all', status: 'all' },
   pagination: { page: 1, pageSize: 10, total: 0 },
+  sort: { column: 'joinedAt', direction: 'desc' },
   loading: false,
   setFilters: (f) =>
     set({ filters: { ...get().filters, ...f }, pagination: { ...get().pagination, page: 1 } }),
+  setSort: (column, direction) => set({ sort: { column, direction } }),
   setPage: (page) => set({ pagination: { ...get().pagination, page } }),
   setPageSize: (pageSize) => set({ pagination: { ...get().pagination, pageSize, page: 1 } }),
   fetchEmployees: async () => {
@@ -47,6 +51,8 @@ export const useEmployeeStore = create<EmployeeState>((set, get) => ({
         department: filters.department,
         employmentType: filters.employmentType,
         status: filters.status,
+        sortColumn: get().sort.column,
+        sortDirection: get().sort.direction,
         page: pagination.page,
         pageSize: pagination.pageSize,
       })
