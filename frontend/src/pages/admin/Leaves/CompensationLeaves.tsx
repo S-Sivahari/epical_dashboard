@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
 import { SelectField } from '@components/forms/SelectField'
 import { DataTable, type Column } from '@components/tables/DataTable'
-import { MOCK_EMPLOYEES } from '@services/mockData'
+import { useEmployeeStore } from '@store/employeeStore'
 
 interface Row {
   id: string
@@ -14,11 +14,20 @@ interface Row {
 }
 
 export function CompensationLeaves() {
-  const [rows, setRows] = useState<Row[]>([
-    { id: 'C-1', employeeId: 'E-1001', employeeName: 'Asha Menon', days: 2 },
-  ])
-  const [employeeId, setEmployeeId] = useState(MOCK_EMPLOYEES[0]?.id ?? '')
+  const { employees, fetchEmployees } = useEmployeeStore()
+  const [rows, setRows] = useState<Row[]>([])
+  const [employeeId, setEmployeeId] = useState('')
   const [days, setDays] = useState(1)
+
+  useEffect(() => {
+    fetchEmployees()
+  }, [fetchEmployees])
+
+  useEffect(() => {
+    if (employees.length > 0 && !employeeId) {
+      setEmployeeId(employees[0].id)
+    }
+  }, [employees, employeeId])
 
   const columns: Column<Row>[] = [
     { key: 'employeeId', header: 'Employee ID' },
@@ -32,9 +41,9 @@ export function CompensationLeaves() {
         <SelectField
           label="Employee"
           id="comp-employee"
-          options={MOCK_EMPLOYEES.map((e) => ({
+          options={employees.map((e) => ({
             value: e.id,
-            label: `${e.firstName} ${e.lastName} (${e.id})`,
+            label: `${e.firstName} ${e.lastName || ''} (${e.id})`,
           }))}
           value={employeeId}
           onChange={(e) => setEmployeeId(e.target.value)}
@@ -42,13 +51,13 @@ export function CompensationLeaves() {
         <Input label="Number of leaves" type="number" min={1} value={days} onChange={(e) => setDays(Number(e.target.value))} />
         <Button
           onClick={() => {
-            const emp = MOCK_EMPLOYEES.find((e) => e.id === employeeId)
+            const emp = employees.find((e) => e.id === employeeId)
             if (!emp) return
             setRows((r) => [
               {
                 id: `C-${r.length + 1}`,
                 employeeId: emp.id,
-                employeeName: `${emp.firstName} ${emp.lastName}`,
+                employeeName: `${emp.firstName} ${emp.lastName || ''}`.trim(),
                 days,
               },
               ...r,

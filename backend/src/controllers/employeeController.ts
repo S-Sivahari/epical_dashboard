@@ -12,12 +12,16 @@ export const employeeController = {
       const department = req.query.department as string | undefined;
       const employmentType = req.query.employmentType as string | undefined;
       const status = req.query.status as string | undefined;
+      const sortColumn = req.query.sortColumn as string | undefined;
+      const sortDirection = req.query.sortDirection as 'asc' | 'desc' | undefined;
 
       const result = await employeeService.getAllEmployees(page, pageSize, {
         q,
         department,
         employmentType,
         status,
+        sortColumn,
+        sortDirection,
       });
 
       res.json({

@@ -25,11 +25,3 @@ timeout /t 3 /nobreak >nul
 REM Start Frontend
 echo [4/4] Starting Frontend on http://localhost:5173 ...
 start cmd /k "cd /d "%~dp0frontend" && npm run dev"
-
-echo.
-echo ========================================
-echo   Both services are starting up...
-echo   Backend  -> http://localhost:3000
-echo   Frontend -> http://localhost:5173
-echo   API Seed -> POST http://localhost:3000/api/seed
-echo ========================================

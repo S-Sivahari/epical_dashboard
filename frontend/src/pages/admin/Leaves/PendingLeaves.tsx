@@ -14,6 +14,14 @@ export function PendingLeaves() {
     { key: 'employeeName', header: 'Employee' },
     { key: 'type', header: 'Leave type' },
     {
+      key: 'leaveDuration',
+      header: 'Duration',
+      render: (l) =>
+        l.leaveDuration === 'Half Day'
+          ? `${l.leaveDuration} (${l.halfDaySession ?? 'Session'})`
+          : 'Full Day',
+    },
+    {
       key: 'from',
       header: 'From',
       render: (l) => formatDate(l.from),
@@ -75,6 +83,14 @@ export function PendingLeaves() {
                 { key: 'from', header: 'Date', render: () => '—' },
                 { key: 'employeeName', header: 'Employee' },
                 { key: 'type', header: 'Type' },
+                {
+                  key: 'leaveDuration',
+                  header: 'Duration',
+                  render: (l) =>
+                    l.leaveDuration === 'Half Day'
+                      ? `${l.leaveDuration} (${l.halfDaySession ?? 'Session'})`
+                      : 'Full Day',
+                },
                 {
                   key: 'from',
                   header: 'From',

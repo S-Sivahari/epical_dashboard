@@ -58,6 +58,16 @@ export async function updateLeaveStatus(
   return result as LeaveRequest | null;
 }
 
+export async function cancelLeave(id: string): Promise<LeaveRequest | null> {
+  const col = getLeaveCol();
+  const result = await col.findOneAndUpdate(
+    { id, status: 'Approved' },
+    { $set: { status: 'Cancelled', updatedAt: new Date() } },
+    { returnDocument: 'after' }
+  );
+  return result as LeaveRequest | null;
+}
+
 export async function deleteLeave(id: string): Promise<boolean> {
   const col = getLeaveCol();
   const result = await col.deleteOne({ id });

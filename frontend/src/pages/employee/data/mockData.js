@@ -51,10 +51,10 @@ export const calendarEvents = [
 ]
 
 export const leaveHistory = [
-  { id: 1, type: 'Casual Leave', startDate: '2026-04-10', endDate: '2026-04-11', days: 2, reason: 'Personal errands', status: 'Approved' },
-  { id: 2, type: 'Sick Leave', startDate: '2026-03-05', endDate: '2026-03-05', days: 1, reason: 'Medical appointment', status: 'Approved' },
-  { id: 3, type: 'Earned Leave', startDate: '2026-02-14', endDate: '2026-02-18', days: 5, reason: 'Family vacation', status: 'Approved' },
-  { id: 4, type: 'Casual Leave', startDate: '2026-05-25', endDate: '2026-05-26', days: 2, reason: 'Wedding ceremony', status: 'Pending' },
+  { id: 1, type: 'Casual Leave', leaveDuration: 'Full Day', startDate: '2026-04-10', endDate: '2026-04-11', days: 2, totalLeaveDays: 2, reason: 'Personal errands', status: 'Approved' },
+  { id: 2, type: 'Sick Leave', leaveDuration: 'Full Day', startDate: '2026-03-05', endDate: '2026-03-05', days: 1, totalLeaveDays: 1, reason: 'Medical appointment', status: 'Approved' },
+  { id: 3, type: 'Earned Leave', leaveDuration: 'Full Day', startDate: '2026-02-14', endDate: '2026-02-18', days: 5, totalLeaveDays: 5, reason: 'Family vacation', status: 'Approved' },
+  { id: 4, type: 'Casual Leave', leaveDuration: 'Half Day', halfDaySession: 'First Half', startDate: '2026-05-25', endDate: '2026-05-25', days: 0.5, totalLeaveDays: 0.5, reason: 'Personal appointment', status: 'Pending' },
 ]
 
 export const timesheetProjects = ['Epical HRMS', 'Design System', 'Mobile App', 'Internal Tools']

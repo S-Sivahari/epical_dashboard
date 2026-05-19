@@ -20,6 +20,8 @@ export async function getAllEmployees(
     department?: string;
     employmentType?: string;
     status?: string;
+    sortColumn?: string;
+    sortDirection?: 'asc' | 'desc';
   } = {}
 ): Promise<{ data: Employee[]; total: number }> {
   const collection = getEmployeeCollection();
@@ -60,13 +62,19 @@ export async function getAllEmployees(
   // Get total count
   const total = await collection.countDocuments(query);
 
+  const sortDirectionVal = filters.sortDirection === 'desc' ? -1 : 1;
+  let sortObj: any = { createdAt: -1 };
+  if (filters.sortColumn) {
+    sortObj = { [filters.sortColumn]: sortDirectionVal };
+  }
+
   // Get paginated results
   const skip = (page - 1) * pageSize;
   const data = await collection
     .find(query)
     .skip(skip)
     .limit(pageSize)
-    .sort({ createdAt: -1 })
+    .sort(sortObj)
     .toArray();
 
   return {

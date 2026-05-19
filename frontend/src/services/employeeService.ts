@@ -7,10 +7,23 @@ export async function getEmployees(params?: {
   department?: string
   employmentType?: string
   status?: string
+  sortColumn?: string
+  sortDirection?: 'asc' | 'desc'
   page?: number
   pageSize?: number
 }) {
-  const response = await api.get('/employees', { params })
+  const response = await api.get('/employees', {
+    params: {
+      q: params?.name || params?.employeeId || undefined,
+      department: params?.department,
+      employmentType: params?.employmentType,
+      status: params?.status,
+      sortColumn: params?.sortColumn,
+      sortDirection: params?.sortDirection,
+      page: params?.page,
+      pageSize: params?.pageSize,
+    },
+  })
   return response.data as { data: Employee[]; total: number; page: number; pageSize: number }
 }
 
@@ -20,7 +33,7 @@ export async function getEmployee(id: string) {
 }
 
 export async function createEmployee(
-  payload: Omit<Employee, 'id'> & { employeeId?: string },
+  payload: Omit<Employee, 'id'>,
 ) {
   const response = await api.post('/employees', payload)
   return response.data as Employee

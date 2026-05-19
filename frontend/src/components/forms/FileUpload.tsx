@@ -1,4 +1,4 @@
-import { useCallback, useState, type DragEvent, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import { UploadCloud } from 'lucide-react'
 import { cn } from '@/utils/cn'
 
@@ -13,39 +13,19 @@ export function FileUpload({
   multiple?: boolean
   className?: string
 }) {
-  const [over, setOver] = useState(false)
-  const onDrop = useCallback(
-    (e: DragEvent<HTMLDivElement>) => {
-      e.preventDefault()
-      setOver(false)
-      onUpload(e.dataTransfer.files)
-    },
-    [onUpload],
-  )
   return (
-    <div
-      className={cn(
-        'flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-border bg-white p-8 text-center transition-ui hover:border-primary/50 hover:bg-surface',
-        over && 'border-primary bg-emerald-50/40',
-        className,
-      )}
-      onDragOver={(e) => {
-        e.preventDefault()
-        setOver(true)
-      }}
-      onDragLeave={() => setOver(false)}
-      onDrop={onDrop}
-    >
-      <UploadCloud className="mb-2 h-8 w-8 text-primary" />
-      <p className="text-sm font-medium text-ink">Drag & drop files here</p>
-      <p className="mt-1 text-xs text-muted">or click to browse</p>
-      <input
-        type="file"
-        accept={accept}
-        multiple={multiple}
-        className="mt-4 block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
-        onChange={(e) => onUpload(e.target.files)}
-      />
+    <div className={cn('flex items-center justify-center', className)}>
+      <label className="flex cursor-pointer items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-ui hover:bg-primary/90">
+        <UploadCloud className="mr-2 h-4 w-4" />
+        Choose File
+        <input
+          type="file"
+          accept={accept}
+          multiple={multiple}
+          className="hidden"
+          onChange={(e) => onUpload(e.target.files)}
+        />
+      </label>
     </div>
   )
 }

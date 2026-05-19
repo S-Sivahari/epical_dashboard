@@ -63,6 +63,29 @@ export const leaveController = {
     }
   },
 
+  // PATCH /api/leaves/:id/cancel
+  cancel: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const leave = await leaveService.getLeaveById(req.params.id);
+      if (!leave) {
+        res.status(404).json({ error: 'Leave not found' });
+        return;
+      }
+      if (leave.status !== 'Approved') {
+        res.status(400).json({ error: 'Only approved leaves can be cancelled' });
+        return;
+      }
+      const cancelledLeave = await leaveService.cancelLeave(req.params.id);
+      if (!cancelledLeave) {
+        res.status(500).json({ error: 'Failed to cancel leave' });
+        return;
+      }
+      res.json(cancelledLeave);
+    } catch {
+      res.status(500).json({ error: 'Failed to cancel leave' });
+    }
+  },
+
   // DELETE /api/leaves/:id
   delete: async (req: Request, res: Response): Promise<void> => {
     try {

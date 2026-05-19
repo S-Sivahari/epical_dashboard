@@ -1,38 +1,31 @@
 import type { Holiday, LeaveRequest } from '@/types'
-import { MOCK_HOLIDAYS, MOCK_LEAVES } from '@services/mockData'
-
-const delay = (ms = 280) => new Promise((r) => setTimeout(r, ms))
-
-let leaves = [...MOCK_LEAVES]
-let holidays = [...MOCK_HOLIDAYS]
+import api from '@services/api'
 
 export async function getLeaves() {
-  await delay()
-  return [...leaves]
+  const response = await api.get('/leaves')
+  return response.data as LeaveRequest[]
 }
 
 export async function approveLeave(id: string) {
-  await delay()
-  leaves = leaves.map((l) => (l.id === id ? { ...l, status: 'Approved' as const } : l))
+  await api.patch(`/leaves/${id}/approve`)
 }
 
 export async function rejectLeave(id: string) {
-  await delay()
-  leaves = leaves.map((l) => (l.id === id ? { ...l, status: 'Rejected' as const } : l))
+  await api.patch(`/leaves/${id}/reject`)
 }
 
 export async function addHoliday(payload: Omit<Holiday, 'id'>) {
-  await delay()
-  const h: Holiday = { ...payload, id: `H-${holidays.length + 1}` }
-  holidays = [...holidays, h]
-  return h
+  const response = await api.post('/holidays', payload)
+  return response.data as Holiday
 }
 
 export async function getHolidays() {
-  await delay()
-  return [...holidays]
+  const response = await api.get('/holidays')
+  return response.data as Holiday[]
 }
 
 export function seedPendingLeaves(): LeaveRequest[] {
-  return leaves.filter((l) => l.status === 'Pending')
+  // No longer using mock data — this is a no-op kept for compatibility.
+  // The dashboard should call getLeaves() and filter by status instead.
+  return []
 }

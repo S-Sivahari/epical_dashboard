@@ -1,12 +1,14 @@
-export type EmploymentType = 'Full-time' | 'Contract' | 'Intern'
-export type EmployeeStatus = 'Active' | 'Inactive' | 'Resigned'
+export type EmploymentType = 'Full-time' | 'Contract' | 'Intern' | 'Notice Period'
+export type EmployeeStatus = 'Active' | 'Inactive' | 'Resigned' | 'On Leave' | 'Probation' | 'Deactivated' | 'Archived'
 
 export interface Employee {
   id: string
   employeeId: string
   firstName: string
-  lastName: string
+  lastName?: string
   address?: string
+  dob?: string
+  gender?: string
   department: string
   designation: string
   role: string
@@ -18,8 +20,18 @@ export interface Employee {
   phone?: string
   avatarUrl?: string
   reportingManagerId?: string
+  reportingManager?: string
   salaryGrade?: string
   ctc?: number
+  bankName?: string
+  accountNumber?: string
+  ifsc?: string
+  uan?: string
+  pfEsi?: 'on' | 'off'
+  aadhaar?: string
+  pan?: string
+  passport?: string
+  [key: string]: unknown
 }
 
 export type LeaveStatus = 'Pending' | 'Approved' | 'Rejected'
@@ -29,9 +41,12 @@ export interface LeaveRequest {
   employeeId: string
   employeeName: string
   type: string
+  leaveDuration: 'Full Day' | 'Half Day'
+  halfDaySession?: 'First Half' | 'Second Half'
   from: string
   to: string
   days: number
+  totalLeaveDays?: number
   reason: string
   status: LeaveStatus
 }

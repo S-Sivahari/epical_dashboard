@@ -51,7 +51,7 @@ const editSchema = z.object({
     .string()
     .min(1, 'Joining date is required')
     .refine(isValidDate, 'Enter a valid joining date'),
-  employmentType: z.enum(['Full-time', 'Contract', 'Intern']),
+  employmentType: z.enum(['Full-time', 'Contract', 'Intern', 'Notice Period']),
   department: z.string().min(2, 'Department is required'),
   reportingManager: z.string().optional(),
   role: z.string().min(1, 'Role is required'),
@@ -60,7 +60,7 @@ const editSchema = z.object({
     (v) => (v === '' || v === null || v === undefined ? undefined : Number(v)),
     z.number().positive('CTC must be positive').optional(),
   ),
-  status: z.enum(['Active', 'On Leave', 'Probation', 'Inactive', 'Resigned']),
+  status: z.enum(['Active', 'Inactive', 'Resigned', 'On Leave', 'Probation', 'Deactivated', 'Archived']),
   // ID proof
   aadhaar: z.string().optional(),
   pan: z.string().optional(),
@@ -411,6 +411,7 @@ export function EditEmployee() {
                 { value: 'Full-time', label: 'Full-time' },
                 { value: 'Contract', label: 'Contract' },
                 { value: 'Intern', label: 'Intern' },
+                { value: 'Notice Period', label: 'Notice Period' },
               ]}
               {...form.register('employmentType')}
             />
