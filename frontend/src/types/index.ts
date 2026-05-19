@@ -13,6 +13,7 @@ export interface Employee {
   joinedAt: string
   status: EmployeeStatus
   email: string
+  personalEmail?: string
   phone?: string
   avatarUrl?: string
   reportingManagerId?: string

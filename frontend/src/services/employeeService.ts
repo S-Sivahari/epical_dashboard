@@ -9,8 +9,16 @@ const EMPLOYEE_ID_PATTERN = /^(EPL|INT)\d{8}$/
 
 const normalizeEmployeeId = (value?: string) => (value ?? '').trim().toUpperCase()
 
+const normalizeEmail = (value?: string) => (value ?? '').trim().toLowerCase()
+
 const isEmployeeIdUnique = (employeeId: string) =>
   !employees.some((e) => e.employeeId.toUpperCase() === employeeId)
+
+const isCompanyEmailUnique = (email: string, excludeId?: string) =>
+  !employees.some((e) => normalizeEmail(e.email) === email && e.id !== excludeId)
+
+const isPersonalEmailUnique = (email: string, excludeId?: string) =>
+  !employees.some((e) => normalizeEmail(e.personalEmail) === email && e.id !== excludeId)
 
 const generateEmployeeId = () => {
   const prefixes = ['EPL', 'INT']
@@ -27,7 +35,8 @@ const generateEmployeeId = () => {
 }
 
 export async function getEmployees(params?: {
-  q?: string
+  name?: string
+  employeeId?: string
   department?: string
   employmentType?: string
   status?: string
@@ -36,15 +45,13 @@ export async function getEmployees(params?: {
 }) {
   await delay()
   let list = [...employees]
-  if (params?.q) {
-    const q = params.q.toLowerCase()
-    list = list.filter(
-      (e) =>
-        `${e.firstName} ${e.lastName}`.toLowerCase().includes(q) ||
-        e.email.toLowerCase().includes(q) ||
-        e.id.toLowerCase().includes(q) ||
-        e.employeeId.toLowerCase().includes(q),
-    )
+  if (params?.name) {
+    const q = params.name.toLowerCase()
+    list = list.filter((e) => `${e.firstName} ${e.lastName}`.toLowerCase().includes(q))
+  }
+  if (params?.employeeId) {
+    const q = params.employeeId.toLowerCase()
+    list = list.filter((e) => e.employeeId.toLowerCase().includes(q))
   }
   if (params?.department && params.department !== 'all') {
     list = list.filter((e) => e.department === params.department)
@@ -74,11 +81,19 @@ export async function createEmployee(payload: Omit<Employee, 'id'> & { employeeI
   const id = `E-${1000 + employees.length + 1}`
   const requestedId = normalizeEmployeeId(payload.employeeId)
   const employeeId = requestedId || generateEmployeeId()
+  const companyEmail = normalizeEmail(payload.email)
+  const personalEmail = normalizeEmail(payload.personalEmail)
   if (!EMPLOYEE_ID_PATTERN.test(employeeId)) {
     throw new Error('Employee ID must be EPL or INT plus 8 digits.')
   }
   if (!isEmployeeIdUnique(employeeId)) {
     throw new Error('Employee ID already exists.')
+  }
+  if (companyEmail && !isCompanyEmailUnique(companyEmail)) {
+    throw new Error('Company email already exists.')
+  }
+  if (personalEmail && !isPersonalEmailUnique(personalEmail)) {
+    throw new Error('Personal email already exists.')
   }
   const row: Employee = { ...payload, employeeId, id }
   employees = [row, ...employees]
@@ -87,6 +102,33 @@ export async function createEmployee(payload: Omit<Employee, 'id'> & { employeeI
 
 export async function updateEmployee(id: string, payload: Partial<Employee>) {
   await delay()
+  const current = employees.find((e) => e.id === id)
+  if (!current) throw new Error('Not found')
+  if (payload.employeeId !== undefined) {
+    const requestedId = normalizeEmployeeId(payload.employeeId)
+    if (!requestedId) {
+      throw new Error('Employee ID is required.')
+    }
+    if (!EMPLOYEE_ID_PATTERN.test(requestedId)) {
+      throw new Error('Employee ID must be EPL or INT plus 8 digits.')
+    }
+    if (!isEmployeeIdUnique(requestedId) && current.employeeId !== requestedId) {
+      throw new Error('Employee ID already exists.')
+    }
+    payload = { ...payload, employeeId: requestedId }
+  }
+  if (payload.email !== undefined) {
+    const companyEmail = normalizeEmail(payload.email)
+    if (companyEmail && !isCompanyEmailUnique(companyEmail, id)) {
+      throw new Error('Company email already exists.')
+    }
+  }
+  if (payload.personalEmail !== undefined) {
+    const personalEmail = normalizeEmail(payload.personalEmail)
+    if (personalEmail && !isPersonalEmailUnique(personalEmail, id)) {
+      throw new Error('Personal email already exists.')
+    }
+  }
   employees = employees.map((e) => (e.id === id ? { ...e, ...payload } : e))
   return getEmployee(id)
 }

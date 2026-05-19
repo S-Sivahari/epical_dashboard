@@ -9,7 +9,8 @@ export function useEmployees() {
     void fetchEmployees()
   }, [
     fetchEmployees,
-    filters.q,
+    filters.name,
+    filters.employeeId,
     filters.department,
     filters.employmentType,
     filters.status,

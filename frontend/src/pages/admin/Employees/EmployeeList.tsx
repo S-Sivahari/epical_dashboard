@@ -30,12 +30,14 @@ export function EmployeeList() {
     setPageSize,
     deleteEmployee,
   } = useEmployees()
-  const [q, setQ] = useState(filters.q)
+  const [nameQuery, setNameQuery] = useState(filters.name)
+  const [idQuery, setIdQuery] = useState(filters.employeeId)
   const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null)
-  const dq = useDebounce(q, 300)
+  const dqName = useDebounce(nameQuery, 300)
+  const dqId = useDebounce(idQuery, 300)
   useEffect(() => {
-    setFilters({ q: dq })
-  }, [dq, setFilters])
+    setFilters({ name: dqName, employeeId: dqId })
+  }, [dqName, dqId, setFilters])
 
   const columns: Column<Employee>[] = [
     {
@@ -71,11 +73,7 @@ export function EmployeeList() {
       key: 'status',
       header: 'Status',
       render: (e) => (
-        <Badge
-          variant={e.status === 'Active' ? 'success' : 'neutral'}
-        >
-          {e.status}
-        </Badge>
+        <Badge variant={e.status === 'Active' ? 'success' : 'neutral'}>{e.status}</Badge>
       ),
     },
     {
@@ -121,16 +119,16 @@ export function EmployeeList() {
       <FilterBar>
         <div className="grid w-full gap-3 md:grid-cols-4">
           <Input
-            label="Search"
-            placeholder="Name, email, ID"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
+            label="Employee name"
+            placeholder="Search by name"
+            value={nameQuery}
+            onChange={(e) => setNameQuery(e.target.value)}
           />
           <Input
-            label="Department"
-            placeholder="Type department"
-            value={filters.department === 'all' ? '' : filters.department}
-            onChange={(e) => setFilters({ department: e.target.value || 'all' })}
+            label="Employee ID"
+            placeholder="Search by employee ID"
+            value={idQuery}
+            onChange={(e) => setIdQuery(e.target.value)}
           />
           <SelectField
             label="Employment type"

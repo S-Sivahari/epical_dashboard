@@ -90,7 +90,15 @@ export function PendingLeaves() {
                   key: 'status',
                   header: 'Status',
                   render: (l) => (
-                    <Badge variant={l.status === 'Approved' ? 'success' : l.status === 'Rejected' ? 'danger' : 'warning'}>
+                    <Badge
+                      variant={
+                        l.status === 'Approved'
+                          ? 'success'
+                          : l.status === 'Rejected'
+                            ? 'danger'
+                            : 'warning'
+                      }
+                    >
                       {l.status}
                     </Badge>
                   ),
@@ -103,7 +111,6 @@ export function PendingLeaves() {
           />
         </div>
       </section>
-
     </div>
   )
 }
