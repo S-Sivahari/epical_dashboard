@@ -54,6 +54,11 @@ export function EmployeeList() {
         )
       },
     },
+    {
+      key: 'employeeId',
+      header: 'Employee ID',
+      render: (e) => <span className="font-mono text-xs text-muted">{e.employeeId}</span>,
+    },
     { key: 'department', header: 'Department' },
     { key: 'designation', header: 'Designation' },
     { key: 'employmentType', header: 'Type' },
@@ -129,19 +134,11 @@ export function EmployeeList() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
-          <SelectField
+          <Input
             label="Department"
-            value={filters.department}
-            onChange={(e) => setFilters({ department: e.target.value })}
-            options={[
-              { value: 'all', label: 'All departments' },
-              { value: 'Engineering', label: 'Engineering' },
-              { value: 'People', label: 'People' },
-              { value: 'Finance', label: 'Finance' },
-              { value: 'Operations', label: 'Operations' },
-              { value: 'Sales', label: 'Sales' },
-              { value: 'Marketing', label: 'Marketing' },
-            ]}
+            placeholder="Type department"
+            value={filters.department === 'all' ? '' : filters.department}
+            onChange={(e) => setFilters({ department: e.target.value || 'all' })}
           />
           <SelectField
             label="Employment type"

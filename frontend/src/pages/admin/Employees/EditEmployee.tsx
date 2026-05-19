@@ -14,6 +14,7 @@ import type { Employee } from '@/types'
 
 type FormValues = Pick<
   Employee,
+  | 'employeeId'
   | 'firstName'
   | 'lastName'
   | 'department'
@@ -30,7 +31,17 @@ export function EditEmployee() {
   const navigate = useNavigate()
   const updateEmployee = useEmployeeStore((s) => s.updateEmployee)
   const [loading, setLoading] = useState(true)
+  const [employeeIdPlaceholder, setEmployeeIdPlaceholder] = useState('')
   const form = useForm<FormValues>()
+
+  const generateEmployeeId = () => {
+    const prefixes = ['EPL', 'INT']
+    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)]
+    const digits = Math.floor(Math.random() * 1_0000_0000)
+      .toString()
+      .padStart(8, '0')
+    return `${prefix}${digits}`
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -39,6 +50,7 @@ export function EditEmployee() {
         const e = await employeeService.getEmployee(id)
         if (cancelled) return
         form.reset({
+          employeeId: e.employeeId,
           firstName: e.firstName,
           lastName: e.lastName,
           department: e.department,
@@ -94,6 +106,18 @@ export function EditEmployee() {
         }
       />
       <form className="grid max-w-3xl gap-4 md:grid-cols-2" onSubmit={onSubmit}>
+        <Input
+          label="Employee ID"
+          placeholder={employeeIdPlaceholder}
+          {...form.register('employeeId', {
+            onChange: () => {
+              if (!employeeIdPlaceholder) setEmployeeIdPlaceholder(generateEmployeeId())
+            },
+          })}
+          onFocus={() => {
+            if (!employeeIdPlaceholder) setEmployeeIdPlaceholder(generateEmployeeId())
+          }}
+        />
         <Input label="First name" required {...form.register('firstName')} />
         <Input label="Last name" required {...form.register('lastName')} />
         <Input label="Company email" type="email" required {...form.register('email')} />
@@ -118,7 +142,7 @@ export function EditEmployee() {
           options={[
             { value: 'Active', label: 'Active' },
             { value: 'On Leave', label: 'On Leave' },
-          
+
             { value: 'Inactive', label: 'Inactive' },
           ]}
           {...form.register('status')}

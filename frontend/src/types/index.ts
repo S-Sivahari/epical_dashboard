@@ -3,6 +3,7 @@ export type EmployeeStatus = 'Active' | 'On Leave' | 'Probation' | 'Inactive'
 
 export interface Employee {
   id: string
+  employeeId: string
   firstName: string
   lastName: string
   department: string

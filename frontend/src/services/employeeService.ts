@@ -5,6 +5,27 @@ const delay = (ms = 280) => new Promise((r) => setTimeout(r, ms))
 
 let employees = [...MOCK_EMPLOYEES]
 
+const EMPLOYEE_ID_PATTERN = /^(EPL|INT)\d{8}$/
+
+const normalizeEmployeeId = (value?: string) => (value ?? '').trim().toUpperCase()
+
+const isEmployeeIdUnique = (employeeId: string) =>
+  !employees.some((e) => e.employeeId.toUpperCase() === employeeId)
+
+const generateEmployeeId = () => {
+  const prefixes = ['EPL', 'INT']
+  for (let i = 0; i < 20; i += 1) {
+    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)]
+    const digits = Math.floor(Math.random() * 1_0000_0000)
+      .toString()
+      .padStart(8, '0')
+    const candidate = `${prefix}${digits}`
+    if (isEmployeeIdUnique(candidate)) return candidate
+  }
+  const fallback = `${prefixes[0]}${Date.now().toString().slice(-8)}`
+  return isEmployeeIdUnique(fallback) ? fallback : `${fallback}${employees.length}`
+}
+
 export async function getEmployees(params?: {
   q?: string
   department?: string
@@ -21,7 +42,8 @@ export async function getEmployees(params?: {
       (e) =>
         `${e.firstName} ${e.lastName}`.toLowerCase().includes(q) ||
         e.email.toLowerCase().includes(q) ||
-        e.id.toLowerCase().includes(q),
+        e.id.toLowerCase().includes(q) ||
+        e.employeeId.toLowerCase().includes(q),
     )
   }
   if (params?.department && params.department !== 'all') {
@@ -47,10 +69,18 @@ export async function getEmployee(id: string) {
   return e
 }
 
-export async function createEmployee(payload: Omit<Employee, 'id'>) {
+export async function createEmployee(payload: Omit<Employee, 'id'> & { employeeId?: string }) {
   await delay()
   const id = `E-${1000 + employees.length + 1}`
-  const row: Employee = { ...payload, id }
+  const requestedId = normalizeEmployeeId(payload.employeeId)
+  const employeeId = requestedId || generateEmployeeId()
+  if (!EMPLOYEE_ID_PATTERN.test(employeeId)) {
+    throw new Error('Employee ID must be EPL or INT plus 8 digits.')
+  }
+  if (!isEmployeeIdUnique(employeeId)) {
+    throw new Error('Employee ID already exists.')
+  }
+  const row: Employee = { ...payload, employeeId, id }
   employees = [row, ...employees]
   return row
 }

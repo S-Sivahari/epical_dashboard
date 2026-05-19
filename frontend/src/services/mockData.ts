@@ -3,6 +3,7 @@ import type { Employee, LeaveRequest, Holiday } from '@/types'
 export const MOCK_EMPLOYEES: Employee[] = [
   {
     id: 'E-1001',
+    employeeId: 'EPL48291736',
     firstName: 'Asha',
     lastName: 'Menon',
     department: 'Engineering',
@@ -17,6 +18,7 @@ export const MOCK_EMPLOYEES: Employee[] = [
   },
   {
     id: 'E-1002',
+    employeeId: 'INT10485729',
     firstName: 'Rahul',
     lastName: 'Verma',
     department: 'People',
@@ -30,6 +32,7 @@ export const MOCK_EMPLOYEES: Employee[] = [
   },
   {
     id: 'E-1003',
+    employeeId: 'EPL30918475',
     firstName: 'Meera',
     lastName: 'Iyer',
     department: 'Finance',
@@ -42,6 +45,7 @@ export const MOCK_EMPLOYEES: Employee[] = [
   },
   {
     id: 'E-1004',
+    employeeId: 'INT87234015',
     firstName: 'Dev',
     lastName: 'Patel',
     department: 'Operations',

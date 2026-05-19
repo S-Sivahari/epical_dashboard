@@ -36,7 +36,14 @@ export function EmployeeProfile() {
   if (!employee) {
     return (
       <PageWrapper>
-        <PageHeader title="Employee" breadcrumb={<Breadcrumb items={[{ label: 'Employees', to: '/admin/employees' }, { label: 'Profile' }]} />} />
+        <PageHeader
+          title="Employee"
+          breadcrumb={
+            <Breadcrumb
+              items={[{ label: 'Employees', to: '/admin/employees' }, { label: 'Profile' }]}
+            />
+          }
+        />
         <p className="text-sm text-muted">Loading profile…</p>
       </PageWrapper>
     )
@@ -48,14 +55,9 @@ export function EmployeeProfile() {
     <PageWrapper>
       <PageHeader
         title={name}
-        subtitle={`${employee.designation} · ${employee.department}`}
+        subtitle={`${employee.designation} · ${employee.department} · ${employee.employeeId}`}
         breadcrumb={
-          <Breadcrumb
-            items={[
-              { label: 'Employees', to: '/admin/employees' },
-              { label: name },
-            ]}
-          />
+          <Breadcrumb items={[{ label: 'Employees', to: '/admin/employees' }, { label: name }]} />
         }
         actions={
           <Button asChild>
@@ -71,9 +73,14 @@ export function EmployeeProfile() {
             <p className="mt-3 font-display text-lg font-semibold text-ink">{name}</p>
             <p className="font-mono text-xs text-muted">{employee.id}</p>
             <div className="mt-3">
-              <Badge variant={employee.status === 'Active' ? 'success' : 'warning'}>{employee.status}</Badge>
+              <Badge variant={employee.status === 'Active' ? 'success' : 'warning'}>
+                {employee.status}
+              </Badge>
             </div>
             <div className="mt-4 w-full space-y-2 text-sm text-muted">
+              <p>
+                <span className="font-medium text-ink">Employee ID:</span> {employee.employeeId}
+              </p>
               <p>{employee.email}</p>
               {employee.phone ? <p>{employee.phone}</p> : null}
             </div>
@@ -87,7 +94,9 @@ export function EmployeeProfile() {
                 type="button"
                 onClick={() => setTab(t)}
                 className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-ui ${
-                  tab === t ? 'bg-emerald-50 text-emerald-900 ring-1 ring-primary/30' : 'text-muted hover:bg-surface'
+                  tab === t
+                    ? 'bg-emerald-50 text-emerald-900 ring-1 ring-primary/30'
+                    : 'text-muted hover:bg-surface'
                 }`}
               >
                 {t}
@@ -98,10 +107,12 @@ export function EmployeeProfile() {
             {tab === 'Personal' && (
               <div className="grid gap-3 md:grid-cols-2">
                 <p>
-                  <span className="font-semibold text-ink">Joined:</span> {formatDate(employee.joinedAt)}
+                  <span className="font-semibold text-ink">Joined:</span>{' '}
+                  {formatDate(employee.joinedAt)}
                 </p>
                 <p>
-                  <span className="font-semibold text-ink">Employment:</span> {employee.employmentType}
+                  <span className="font-semibold text-ink">Employment:</span>{' '}
+                  {employee.employmentType}
                 </p>
               </div>
             )}
@@ -112,7 +123,8 @@ export function EmployeeProfile() {
             )}
             {tab === 'Payment' && (
               <p>
-                <span className="font-semibold text-ink">CTC:</span> {employee.ctc ? `₹${employee.ctc.toLocaleString('en-IN')}` : '—'}
+                <span className="font-semibold text-ink">CTC:</span>{' '}
+                {employee.ctc ? `₹${employee.ctc.toLocaleString('en-IN')}` : '—'}
               </p>
             )}
             {tab === 'ID Proof' && <p>Government IDs are masked in the admin view.</p>}

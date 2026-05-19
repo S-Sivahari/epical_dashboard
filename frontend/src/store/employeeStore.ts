@@ -20,7 +20,7 @@ interface EmployeeState {
   setPageSize: (n: number) => void
   fetchEmployees: () => Promise<void>
   setSelected: (e: Employee | null) => void
-  addEmployee: (payload: Omit<Employee, 'id'>) => Promise<void>
+  addEmployee: (payload: Omit<Employee, 'id'> & { employeeId?: string }) => Promise<void>
   updateEmployee: (id: string, payload: Partial<Employee>) => Promise<void>
   deleteEmployee: (id: string) => Promise<void>
 }

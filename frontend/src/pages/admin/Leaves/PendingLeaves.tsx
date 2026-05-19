@@ -2,12 +2,9 @@ import { toast } from 'sonner'
 import { Badge } from '@components/ui/Badge'
 import { Button } from '@components/ui/Button'
 import { DataTable, type Column } from '@components/tables/DataTable'
-import { DepartmentPieChart } from '@components/charts/PieChart'
-import { KPICard } from '@components/charts/KPICard'
 import { useLeaves } from '@hooks/useLeaves'
 import type { LeaveRequest } from '@/types'
 import { formatDate } from '@/utils/formatDate'
-import { BarChart3, ClipboardList, PieChart as PieIcon } from 'lucide-react'
 
 export function PendingLeaves() {
   const { leaves, loading, approveLeave, rejectLeave, fetchLeaves } = useLeaves()
@@ -64,13 +61,6 @@ export function PendingLeaves() {
     },
   ]
 
-  const distribution = [
-    { name: 'Annual', value: 40 },
-    { name: 'Sick', value: 25 },
-    { name: 'Casual', value: 20 },
-    { name: 'Other', value: 15 },
-  ]
-
   return (
     <div className="space-y-6">
       <DataTable columns={columns} data={pending} loading={loading} />
@@ -114,15 +104,6 @@ export function PendingLeaves() {
         </div>
       </section>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <KPICard title="Total leaves taken" value={128} icon={ClipboardList} />
-        <KPICard title="Pending count" value={pending.length} icon={BarChart3} color="#f59e0b" />
-        <KPICard title="Approval rate" value="92%" icon={PieIcon} color="#3b82f6" />
-      </div>
-      <div className="rounded-xl border border-border bg-white p-4 shadow-sm">
-        <p className="mb-2 font-display text-sm font-semibold text-ink">Leave type distribution</p>
-        <DepartmentPieChart data={distribution} />
-      </div>
     </div>
   )
 }

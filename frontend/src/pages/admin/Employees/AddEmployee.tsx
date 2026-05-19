@@ -13,7 +13,16 @@ import { StepIndicator } from '@components/forms/StepIndicator'
 import { useEmployeeStore } from '@store/employeeStore'
 import type { Employee } from '@/types'
 
+const employeeIdPattern = /^(EPL|INT)\d{8}$/
+
 const step1 = z.object({
+  employeeId: z
+    .string()
+    .optional()
+    .refine(
+      (value) => !value || employeeIdPattern.test(value.trim().toUpperCase()),
+      'Use EPL or INT plus 8 digits',
+    ),
   firstName: z.string().min(1, 'Required'),
   lastName: z.string().min(1, 'Required'),
   dob: z.string().min(1, 'Required'),
@@ -53,6 +62,7 @@ type FullValues = z.infer<typeof fullSchema>
 
 const steps = ['Personal details', 'Account Details', 'boarding details', 'ID Proof']
 const defaultValues: Partial<FullValues> = {
+  employeeId: '',
   gender: 'Female',
   employmentType: 'Full-time',
   pfEsi: 'on',
@@ -79,7 +89,16 @@ export function AddEmployee() {
   const next = () => {
     const schemas = [step1, step2, step3, step4]
     const keys: (keyof FullValues)[][] = [
-      ['firstName', 'lastName', 'dob', 'gender', 'phone', 'personalEmail', 'companyEmail'],
+      [
+        'employeeId',
+        'firstName',
+        'lastName',
+        'dob',
+        'gender',
+        'phone',
+        'personalEmail',
+        'companyEmail',
+      ],
       ['bankName', 'accountNumber', 'ifsc', 'salaryGrade', 'uan', 'pfEsi'],
       ['joinedAt', 'employmentType', 'department', 'reportingManager', 'role', 'ctc'],
       ['aadhaar', 'pan', 'passport'],
@@ -102,6 +121,7 @@ export function AddEmployee() {
     }
     const v = parsed.data
     const payload: Omit<Employee, 'id'> = {
+      employeeId: v.employeeId?.trim() ?? '',
       firstName: v.firstName,
       lastName: v.lastName,
       department: v.department,
@@ -120,8 +140,9 @@ export function AddEmployee() {
         await addEmployee(payload)
         toast.success('Employee created')
         navigate('/admin/employees')
-      } catch {
-        toast.error('Could not create employee')
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Could not create employee'
+        toast.error(msg)
       }
     })()
   })
@@ -142,6 +163,7 @@ export function AddEmployee() {
         <form className="space-y-6" onSubmit={step === 3 ? onSubmit : (e) => e.preventDefault()}>
           {step === 0 ? (
             <div className="grid gap-4 md:grid-cols-2">
+              <Input label="Employee ID" placeholder=" " {...form.register('employeeId')} />
               <Input label="First name" required {...form.register('firstName')} />
               <Input label="Last name" required {...form.register('lastName')} />
               <Input label="Date of birth" type="date" required {...form.register('dob')} />
