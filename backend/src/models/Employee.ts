@@ -1,7 +1,7 @@
 import { ObjectId } from 'mongodb';
 
 export type EmploymentType = 'Full-time' | 'Contract' | 'Intern';
-export type EmployeeStatus = 'Active' | 'On Leave' | 'Probation' | 'Inactive';
+export type EmployeeStatus = 'Active' | 'On Leave' | 'Probation' | 'Inactive' | 'Deactivated' | 'Archived';
 
 export interface Employee {
   _id?: ObjectId;

@@ -51,7 +51,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             aria-disabled={disabled || loading}
             {...props}
           >
-            {cloneElement(child, {
+            {cloneElement(child as any, {
               children: (
                 <>
                   {icon}
@@ -59,6 +59,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
                 </>
               ),
             })}
+
           </Comp>
         )
       }
