@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -17,16 +17,32 @@ import { useLeaveStore } from '@store/employee/leaveStore'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { leaveBalances, holidays } from '@pages/employee/data/mockData'
 
-const leaveSchema = z.object({
-  type: z.string().min(1, 'Select leave type'),
-  fromDate: z.string().min(1, 'From date required'),
-  toDate: z.string().min(1, 'To date required'),
-  reason: z.string().min(5, 'Reason must be at least 5 characters'),
-})
+const leaveSchema = z
+  .object({
+    type: z.string().min(1, 'Select leave type'),
+    leaveDuration: z.enum(['Full Day', 'Half Day']),
+    halfDaySession: z.string().optional(),
+    fromDate: z.string().min(1, 'From date required'),
+    toDate: z.string().min(1, 'To date required'),
+    reason: z.string().min(5, 'Reason must be at least 5 characters'),
+  })
+  .superRefine((data, ctx) => {
+    if (data.leaveDuration === 'Half Day') {
+      if (!data.halfDaySession) {
+        ctx.addIssue({ path: ['halfDaySession'], code: 'custom', message: 'Select First Half or Second Half' })
+      }
+      if (data.fromDate && data.toDate && data.fromDate !== data.toDate) {
+        ctx.addIssue({ path: ['toDate'], code: 'custom', message: 'From and To date must match for half-day leave' })
+      }
+    }
+  })
 
 const leaveTypes = ['Sick Leave', 'Casual Leave', 'Earned Leave', 'Compensation Leave']
+const leaveDurations = ['Full Day', 'Half Day']
+const halfDaySessions = ['First Half', 'Second Half']
 const columns = [
   { key: 'type', label: 'Leave Type' },
+  { key: 'leaveDuration', label: 'Duration' },
   { key: 'startDate', label: 'Start Date' },
   { key: 'endDate', label: 'End Date' },
   { key: 'days', label: 'Days' },
@@ -42,7 +58,20 @@ export default function LeaveRequest() {
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(leaveSchema),
+    defaultValues: {
+      leaveDuration: 'Full Day',
+    },
   })
+
+  const leaveDuration = watch('leaveDuration')
+  const fromDate = watch('fromDate')
+  const toDate = watch('toDate')
+
+  useEffect(() => {
+    if (leaveDuration === 'Half Day' && fromDate) {
+      setValue('toDate', fromDate, { shouldValidate: true, shouldDirty: true })
+    }
+  }, [leaveDuration, fromDate, setValue])
 
   const filtered = requests.filter((r) => {
     const matchSearch = !search || r.type.toLowerCase().includes(search.toLowerCase()) || r.reason.toLowerCase().includes(search.toLowerCase())
@@ -53,10 +82,18 @@ export default function LeaveRequest() {
   const onSubmit = async (data) => {
     const from = new Date(data.fromDate)
     const to = new Date(data.toDate)
-    const days = Math.ceil((to - from) / (1000 * 60 * 60 * 24)) + 1
-    addRequest({ ...data, type: data.type, startDate: data.fromDate, endDate: data.toDate, days, reason: data.reason })
+    const days = data.leaveDuration === 'Half Day' ? 0.5 : Math.ceil((to - from) / (1000 * 60 * 60 * 24)) + 1
+    addRequest({
+      ...data,
+      type: data.type,
+      startDate: data.fromDate,
+      endDate: data.toDate,
+      days,
+      totalLeaveDays: days,
+      reason: data.reason,
+    })
     toast({ title: 'Leave submitted', description: 'Your request is pending approval.' })
-    reset()
+    reset({ leaveDuration: 'Full Day' })
   }
 
   return (
@@ -82,6 +119,30 @@ export default function LeaveRequest() {
                 </Select>
                 {errors.type && <p className="mt-1 text-xs text-danger">{errors.type.message}</p>}
               </div>
+              <div>
+                <Label>Leave Duration *</Label>
+                <Select value={watch('leaveDuration')} onValueChange={(v) => setValue('leaveDuration', v)}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select duration" /></SelectTrigger>
+                  <SelectContent>
+                    {leaveDurations.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {errors.leaveDuration && <p className="mt-1 text-xs text-danger">{errors.leaveDuration.message}</p>}
+              </div>
+              {leaveDuration === 'Half Day' && (
+                <div>
+                  <Label>Half-day Session *</Label>
+                  <Select value={watch('halfDaySession')} onValueChange={(v) => setValue('halfDaySession', v)}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select session" /></SelectTrigger>
+                    <SelectContent>
+                      {halfDaySessions.map((session) => (
+                        <SelectItem key={session} value={session}>{session}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.halfDaySession && <p className="mt-1 text-xs text-danger">{errors.halfDaySession.message}</p>}
+                </div>
+              )}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <Label>From Date *</Label>
@@ -90,7 +151,15 @@ export default function LeaveRequest() {
                 </div>
                 <div>
                   <Label>To Date *</Label>
-                  <Input type="date" className="mt-1" {...register('toDate')} />
+                  <Input
+                    type="date"
+                    className="mt-1"
+                    {...register('toDate')}
+                    disabled={leaveDuration === 'Half Day'}
+                  />
+                  {leaveDuration === 'Half Day' && (
+                    <p className="mt-1 text-xs text-muted">Half-day leave must have the same start and end date.</p>
+                  )}
                   {errors.toDate && <p className="mt-1 text-xs text-danger">{errors.toDate.message}</p>}
                 </div>
               </div>
