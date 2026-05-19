@@ -11,12 +11,12 @@ export interface Column<T> {
 
 export function DataTable<T extends { id?: string }>({
   columns,
-  data,
+  data = [],
   loading,
   empty,
 }: {
   columns: Column<T>[]
-  data: T[]
+  data?: T[]
   loading?: boolean
   empty?: ReactNode
 }) {
