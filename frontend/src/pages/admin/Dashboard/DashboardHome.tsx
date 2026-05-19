@@ -7,8 +7,6 @@ import {
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { HoursBarChart } from '@components/charts/BarChart'
-import { LeaveLineChart } from '@components/charts/LineChart'
-import { DepartmentPieChart } from '@components/charts/PieChart'
 import { KPICard } from '@components/charts/KPICard'
 import { Breadcrumb } from '@components/layout/Breadcrumb'
 import { PageHeader } from '@components/layout/PageHeader'
@@ -27,22 +25,6 @@ const weeklyHours = [
   { name: 'Wed', hours: 8.1 },
   { name: 'Thu', hours: 7.4 },
   { name: 'Fri', hours: 6.0 },
-]
-
-const deptDist = [
-  { name: 'Engineering', value: 42 },
-  { name: 'People', value: 12 },
-  { name: 'Finance', value: 18 },
-  { name: 'Operations', value: 16 },
-  { name: 'Other', value: 12 },
-]
-
-const leaveTrend = [
-  { month: 'Jan', leaves: 18 },
-  { month: 'Feb', leaves: 22 },
-  { month: 'Mar', leaves: 16 },
-  { month: 'Apr', leaves: 25 },
-  { month: 'May', leaves: 20 },
 ]
 
 const activity = [
@@ -116,14 +98,6 @@ export function DashboardHome() {
         <div className="rounded-xl border border-border bg-white p-4 shadow-sm lg:col-span-2">
           <p className="font-display text-sm font-semibold text-ink">Weekly project hours</p>
           <HoursBarChart data={weeklyHours} />
-        </div>
-        <div className="rounded-xl border border-border bg-white p-4 shadow-sm">
-          <p className="font-display text-sm font-semibold text-ink">Department distribution</p>
-          <DepartmentPieChart data={deptDist} />
-        </div>
-        <div className="rounded-xl border border-border bg-white p-4 shadow-sm lg:col-span-3">
-          <p className="font-display text-sm font-semibold text-ink">Leave trend</p>
-          <LeaveLineChart data={leaveTrend} />
         </div>
       </div>
 
