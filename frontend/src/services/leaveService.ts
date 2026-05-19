@@ -6,6 +6,11 @@ export async function getLeaves() {
   return response.data as LeaveRequest[]
 }
 
+export async function getBalances() {
+  const response = await api.get('/leaves/balances')
+  return response.data as Record<string, { total: number; used: number; remaining: number }>
+}
+
 export async function createLeave(payload: {
   employeeId: string
   employeeName: string

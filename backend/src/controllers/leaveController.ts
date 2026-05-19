@@ -21,8 +21,8 @@ export const leaveController = {
   // POST /api/leaves
   create: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { employeeId, employeeName, type, from, to, days, reason } = req.body;
-      if (!employeeId || !type || !from || !to || !days || !reason) {
+      const { employeeId, employeeName, type, from, to, reason } = req.body;
+      if (!employeeId || !type || !from || !to || !reason) {
         res.status(400).json({ error: 'Missing required fields' });
         return;
       }
@@ -32,12 +32,31 @@ export const leaveController = {
         type,
         from,
         to,
-        days: Number(days),
+        days: 0, // days will be overridden by backend calculation
         reason,
       });
       res.status(201).json(leave);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || 'Failed to create leave request' });
+    }
+  },
+
+  // GET /api/leaves/balances
+  getBalances: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const employeeId = req.user?.role === 'Employee'
+        ? req.user.id
+        : (req.query.employeeId as string);
+        
+      if (!employeeId) {
+        res.status(400).json({ error: 'employeeId is required' });
+        return;
+      }
+      
+      const balances = await leaveService.getLeaveBalances(employeeId);
+      res.json(balances);
     } catch {
-      res.status(500).json({ error: 'Failed to create leave request' });
+      res.status(500).json({ error: 'Failed to fetch leave balances' });
     }
   },
 
