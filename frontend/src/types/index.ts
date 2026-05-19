@@ -6,6 +6,7 @@ export interface Employee {
   employeeId: string
   firstName: string
   lastName: string
+  address?: string
   department: string
   designation: string
   role: string
@@ -13,6 +14,7 @@ export interface Employee {
   joinedAt: string
   status: EmployeeStatus
   email: string
+  personalEmail?: string
   phone?: string
   avatarUrl?: string
   reportingManagerId?: string

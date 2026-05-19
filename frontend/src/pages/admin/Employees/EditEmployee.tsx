@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Breadcrumb } from '@components/layout/Breadcrumb'
 import { PageHeader } from '@components/layout/PageHeader'
 import { PageWrapper } from '@components/layout/PageWrapper'
@@ -11,6 +12,33 @@ import { SelectField } from '@components/forms/SelectField'
 import * as employeeService from '@services/employeeService'
 import { useEmployeeStore } from '@store/employeeStore'
 import type { Employee } from '@/types'
+import { z } from 'zod'
+
+const employeeIdPattern = /^(EPL|INT)\d{8}$/
+const isValidDate = (value: string) => !Number.isNaN(Date.parse(value))
+
+const editSchema = z.object({
+  employeeId: z
+    .string()
+    .min(1, 'Employee ID is required')
+    .refine(
+      (value) => employeeIdPattern.test(value.trim().toUpperCase()),
+      'Use EPL or INT plus 8 digits',
+    ),
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
+  department: z.string().min(2, 'Department is required'),
+  designation: z.string().min(2, 'Designation is required'),
+  role: z.string().min(2, 'Role is required'),
+  employmentType: z.enum(['Full-time', 'Contract', 'Intern']),
+  joinedAt: z
+    .string()
+    .min(1, 'Joining date is required')
+    .refine(isValidDate, 'Enter a valid joining date'),
+  status: z.enum(['Active', 'Inactive']),
+  email: z.string().email('Enter a valid company email'),
+  personalEmail: z.string().email('Enter a valid personal email'),
+})
 
 type FormValues = Pick<
   Employee,
@@ -24,6 +52,7 @@ type FormValues = Pick<
   | 'joinedAt'
   | 'status'
   | 'email'
+  | 'personalEmail'
 >
 
 export function EditEmployee() {
@@ -32,7 +61,10 @@ export function EditEmployee() {
   const updateEmployee = useEmployeeStore((s) => s.updateEmployee)
   const [loading, setLoading] = useState(true)
   const [employeeIdPlaceholder, setEmployeeIdPlaceholder] = useState('')
-  const form = useForm<FormValues>()
+  const form = useForm<FormValues>({
+    resolver: zodResolver(editSchema),
+    mode: 'onTouched',
+  })
 
   const generateEmployeeId = () => {
     const prefixes = ['EPL', 'INT']
@@ -60,6 +92,7 @@ export function EditEmployee() {
           joinedAt: e.joinedAt,
           status: e.status,
           email: e.email,
+          personalEmail: e.personalEmail ?? '',
         })
       } catch {
         toast.error('Employee not found')
@@ -109,6 +142,7 @@ export function EditEmployee() {
         <Input
           label="Employee ID"
           placeholder={employeeIdPlaceholder}
+          error={form.formState.errors.employeeId?.message}
           {...form.register('employeeId', {
             onChange: () => {
               if (!employeeIdPlaceholder) setEmployeeIdPlaceholder(generateEmployeeId())
@@ -118,17 +152,62 @@ export function EditEmployee() {
             if (!employeeIdPlaceholder) setEmployeeIdPlaceholder(generateEmployeeId())
           }}
         />
-        <Input label="First name" required {...form.register('firstName')} />
-        <Input label="Last name" required {...form.register('lastName')} />
-        <Input label="Company email" type="email" required {...form.register('email')} />
-        <Input label="Department" required {...form.register('department')} />
+        <Input
+          label="First name"
+          required
+          error={form.formState.errors.firstName?.message}
+          {...form.register('firstName')}
+        />
+        <Input
+          label="Last name"
+          required
+          error={form.formState.errors.lastName?.message}
+          {...form.register('lastName')}
+        />
+        <Input
+          label="Company email"
+          type="email"
+          required
+          error={form.formState.errors.email?.message}
+          {...form.register('email')}
+        />
+        <Input
+          label="Personal email"
+          type="email"
+          required
+          error={form.formState.errors.personalEmail?.message}
+          {...form.register('personalEmail')}
+        />
+        <Input
+          label="Department"
+          required
+          error={form.formState.errors.department?.message}
+          {...form.register('department')}
+        />
 
-        <Input label="Designation" required {...form.register('designation')} />
-        <Input label="Role" required {...form.register('role')} />
-        <Input label="Joining date" type="date" required {...form.register('joinedAt')} />
+        <Input
+          label="Designation"
+          required
+          error={form.formState.errors.designation?.message}
+          {...form.register('designation')}
+        />
+        <Input
+          label="Role"
+          required
+          error={form.formState.errors.role?.message}
+          {...form.register('role')}
+        />
+        <Input
+          label="Joining date"
+          type="date"
+          required
+          error={form.formState.errors.joinedAt?.message}
+          {...form.register('joinedAt')}
+        />
         <SelectField
           label="Employment type"
           required
+          error={form.formState.errors.employmentType?.message}
           options={[
             { value: 'Full-time', label: 'Full-time' },
             { value: 'Contract', label: 'Contract' },
@@ -139,6 +218,7 @@ export function EditEmployee() {
         <SelectField
           label="Status"
           required
+          error={form.formState.errors.status?.message}
           options={[
             { value: 'Active', label: 'Active' },
             { value: 'Inactive', label: 'Inactive' },

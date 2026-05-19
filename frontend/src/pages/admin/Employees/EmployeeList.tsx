@@ -33,16 +33,18 @@ export function EmployeeList() {
     setPageSize,
     updateEmployeeStatus,
   } = useEmployees()
-  
-  const [q, setQ] = useState(filters.q)
+
+  const [nameQuery, setNameQuery] = useState(filters.name)
+  const [idQuery, setIdQuery] = useState(filters.employeeId)
   const [statusTarget, setStatusTarget] = useState<{ e: Employee; status: Employee['status'] } | null>(null)
   const [deactivatedList, setDeactivatedList] = useState<Employee[]>([])
   const [archivedList, setArchivedList] = useState<Employee[]>([])
   const [loadingExtras, setLoadingExtras] = useState(false)
   const [exporting, setExporting] = useState<'csv' | 'excel' | null>(null)
 
-  const dq = useDebounce(q, 300)
-  
+  const dqName = useDebounce(nameQuery, 300)
+  const dqId = useDebounce(idQuery, 300)
+
   const fetchExtras = async () => {
     setLoadingExtras(true)
     try {
@@ -94,8 +96,8 @@ export function EmployeeList() {
 
 
   useEffect(() => {
-    setFilters({ q: dq })
-  }, [dq, setFilters])
+    setFilters({ name: dqName, employeeId: dqId })
+  }, [dqName, dqId, setFilters])
 
   useEffect(() => {
     fetchExtras()
@@ -136,11 +138,7 @@ export function EmployeeList() {
       header: 'Status',
       render: (e) => (
         <Badge
-          variant={
-            e.status === 'Active' ? 'success' : 
-            e.status === 'Deactivated' ? 'danger' : 
-            e.status === 'Archived' ? 'neutral' : 'neutral'
-          }
+          variant={e.status === 'Active' ? 'success' : 'neutral'}
         >
           {e.status}
         </Badge>
@@ -240,16 +238,16 @@ export function EmployeeList() {
       <FilterBar>
         <div className="grid w-full gap-3 md:grid-cols-4">
           <Input
-            label="Search"
-            placeholder="Name, email, ID"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
+            label="Employee name"
+            placeholder="Search by name"
+            value={nameQuery}
+            onChange={(e) => setNameQuery(e.target.value)}
           />
           <Input
-            label="Department"
-            placeholder="Type department"
-            value={filters.department === 'all' ? '' : filters.department}
-            onChange={(e) => setFilters({ department: e.target.value || 'all' })}
+            label="Employee ID"
+            placeholder="Search by employee ID"
+            value={idQuery}
+            onChange={(e) => setIdQuery(e.target.value)}
           />
           <SelectField
             label="Employment type"

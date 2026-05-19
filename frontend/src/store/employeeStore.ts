@@ -3,7 +3,8 @@ import type { Employee } from '@/types'
 import * as employeeService from '@services/employeeService'
 
 interface EmployeeFilters {
-  q: string
+  name: string
+  employeeId: string
   department: string
   employmentType: string
   status: string
@@ -30,7 +31,7 @@ interface EmployeeState {
 export const useEmployeeStore = create<EmployeeState>((set, get) => ({
   employees: [],
   selectedEmployee: null,
-  filters: { q: '', department: 'all', employmentType: 'all', status: 'Active' },
+  filters: { name: '', employeeId: '', department: 'all', employmentType: 'all', status: 'all' },
   pagination: { page: 1, pageSize: 10, total: 0 },
   loading: false,
   setFilters: (f) =>
@@ -42,7 +43,8 @@ export const useEmployeeStore = create<EmployeeState>((set, get) => ({
     const { filters, pagination } = get()
     try {
       const res = await employeeService.getEmployees({
-        q: filters.q || undefined,
+        name: filters.name || undefined,
+        employeeId: filters.employeeId || undefined,
         department: filters.department,
         employmentType: filters.employmentType,
         status: filters.status,
