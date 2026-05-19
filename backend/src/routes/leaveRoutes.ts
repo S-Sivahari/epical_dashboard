@@ -12,6 +12,7 @@ router.get('/', leaveController.getAll);
 router.post('/', leaveController.create);
 router.patch('/:id/approve', leaveController.approve);
 router.patch('/:id/reject', leaveController.reject);
+router.patch('/:id/cancel', leaveController.cancel);
 router.delete('/:id', leaveController.delete);
 
 export const leaveRoutes = router;

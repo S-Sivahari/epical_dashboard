@@ -1,6 +1,6 @@
 import { ObjectId } from 'mongodb';
 
-export type LeaveStatus = 'Pending' | 'Approved' | 'Rejected';
+export type LeaveStatus = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
 
 export interface LeaveRequest {
   _id?: ObjectId;
