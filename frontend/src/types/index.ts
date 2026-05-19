@@ -6,6 +6,7 @@ export interface Employee {
   employeeId: string
   firstName: string
   lastName: string
+  address?: string
   department: string
   designation: string
   role: string

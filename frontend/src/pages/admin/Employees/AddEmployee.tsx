@@ -24,7 +24,8 @@ const step1 = z.object({
       'Use EPL or INT plus 8 digits',
     ),
   firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
+  lastName: z.string().optional().or(z.literal('')),
+  address: z.string().optional().or(z.literal('')),
   dob: z
     .string()
     .min(1, 'Date of birth is required')
@@ -39,7 +40,6 @@ const step2 = z.object({
   bankName: z.string().optional(),
   accountNumber: z.string().optional(),
   ifsc: z.string().optional(),
-  salaryGrade: z.string().optional(),
   uan: z.string().optional(),
   pfEsi: z.enum(['on', 'off']),
 })
@@ -53,8 +53,11 @@ const step3 = z.object({
 
   department: z.string().min(2, 'Department is required'),
   reportingManager: z.string().min(1, 'Reporting manager is required'),
-  role: z.string().min(2, 'Role is required'),
-  ctc: z.coerce.number().positive('CTC must be a positive number'),
+  role: z.enum(['Employee', 'Admin'], { required_error: 'Role is required' }),
+  ctc: z.preprocess(
+    (value) => (value === '' || value === null || value === undefined ? undefined : Number(value)),
+    z.number().positive('CTC must be a positive number').optional(),
+  ),
 })
 
 const step4 = z.object({
@@ -68,6 +71,7 @@ type FullValues = z.infer<typeof fullSchema>
 
 const defaultValues: Partial<FullValues> = {
   employeeId: '',
+  address: '',
   gender: 'Female',
   employmentType: 'Full-time',
   pfEsi: 'on',
@@ -75,9 +79,7 @@ const defaultValues: Partial<FullValues> = {
   bankName: '',
   accountNumber: '',
   ifsc: '',
-  salaryGrade: '',
   uan: '',
-  ctc: 1200000,
 }
 
 export function AddEmployee() {
@@ -93,7 +95,8 @@ export function AddEmployee() {
     const payload: Omit<Employee, 'id'> = {
       employeeId: values.employeeId?.trim() ?? '',
       firstName: values.firstName,
-      lastName: values.lastName,
+      lastName: values.lastName ?? '',
+      address: values.address ?? '',
       department: values.department,
       designation: values.role,
       role: values.role,
@@ -103,7 +106,6 @@ export function AddEmployee() {
       email: values.companyEmail || '',
       personalEmail: values.personalEmail,
       phone: values.phone,
-      salaryGrade: values.salaryGrade,
       ctc: values.ctc,
     }
 
@@ -121,7 +123,6 @@ export function AddEmployee() {
     <PageWrapper>
       <PageHeader
         title="Add Employee"
-        subtitle="Complete the form below to register a new employee in the system."
         breadcrumb={
           <Breadcrumb items={[{ label: 'Employees', to: '/admin/employees' }, { label: 'Add' }]} />
         }
@@ -132,7 +133,6 @@ export function AddEmployee() {
         <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
           <div className="mb-6">
             <h3 className="font-display text-lg font-semibold text-ink">Personal Details</h3>
-            <p className="text-sm text-muted">Basic identity and contact information.</p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <Input
@@ -149,9 +149,13 @@ export function AddEmployee() {
             />
             <Input
               label="Last name"
-              required
               error={form.formState.errors.lastName?.message}
               {...form.register('lastName')}
+            />
+            <Input
+              label="Address"
+              error={form.formState.errors.address?.message}
+              {...form.register('address')}
             />
             <Input
               label="Date of birth"
@@ -197,7 +201,6 @@ export function AddEmployee() {
         <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
           <div className="mb-6">
             <h3 className="font-display text-lg font-semibold text-ink">Account Details</h3>
-            <p className="text-sm text-muted">Banking and financial information.</p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <Input
@@ -211,22 +214,17 @@ export function AddEmployee() {
               {...form.register('accountNumber')}
             />
             <Input
-              label="IFSC"
+              label="IFSC Code"
               error={form.formState.errors.ifsc?.message}
               {...form.register('ifsc')}
             />
             <Input
-              label="Salary grade"
-              error={form.formState.errors.salaryGrade?.message}
-              {...form.register('salaryGrade')}
-            />
-            <Input
-              label="UAN"
+              label="UAN Number"
               error={form.formState.errors.uan?.message}
               {...form.register('uan')}
             />
             <SelectField
-              label="PF / ESI"
+              label="PF/ESI Status"
               required
               error={form.formState.errors.pfEsi?.message}
               options={[
@@ -238,11 +236,10 @@ export function AddEmployee() {
           </div>
         </div>
 
-        {/* Section 3: Boarding Details */}
+        {/* Section 3: Joining Details */}
         <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
           <div className="mb-6">
-            <h3 className="font-display text-lg font-semibold text-ink">Boarding Details</h3>
-            <p className="text-sm text-muted">Employment terms and organizational role.</p>
+            <h3 className="font-display text-lg font-semibold text-ink">Joining Details</h3>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <Input
@@ -276,18 +273,23 @@ export function AddEmployee() {
               error={form.formState.errors.reportingManager?.message}
               {...form.register('reportingManager')}
             />
-            <Input
+            <SelectField
               label="Role"
               required
               error={form.formState.errors.role?.message}
+              options={[
+                { value: 'Employee', label: 'Employee' },
+                { value: 'Admin', label: 'Admin' },
+              ]}
               {...form.register('role')}
             />
             <Input
               label="CTC (annual)"
               type="number"
-              required
               error={form.formState.errors.ctc?.message}
-              {...form.register('ctc', { valueAsNumber: true })}
+              {...form.register('ctc', {
+                setValueAs: (value) => (value === '' ? undefined : Number(value)),
+              })}
             />
           </div>
         </div>
@@ -296,7 +298,6 @@ export function AddEmployee() {
         <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
           <div className="mb-6">
             <h3 className="font-display text-lg font-semibold text-ink">ID Proof</h3>
-            <p className="text-sm text-muted">Government identification documents.</p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <Input
