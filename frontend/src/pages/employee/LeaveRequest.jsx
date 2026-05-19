@@ -15,6 +15,8 @@ import { CalendarWidget } from '@components/employee/shared/CalendarWidget'
 import { LeaveCard } from '@components/employee/shared/LeaveCard'
 import { useLeaveStore } from '@store/employee/leaveStore'
 import { useToast } from '@components/employee/shared/ToastProvider'
+import { useAuthStore } from '@store/authStore'
+import * as leaveService from '@services/leaveService'
 import { leaveBalances, holidays } from '@pages/employee/data/mockData'
 
 const leaveSchema = z
@@ -53,6 +55,7 @@ const columns = [
 export default function LeaveRequest() {
   const { requests, addRequest } = useLeaveStore()
   const { toast } = useToast()
+  const user = useAuthStore((s) => s.user)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
 
@@ -80,20 +83,33 @@ export default function LeaveRequest() {
   })
 
   const onSubmit = async (data) => {
-    const from = new Date(data.fromDate)
-    const to = new Date(data.toDate)
-    const days = data.leaveDuration === 'Half Day' ? 0.5 : Math.ceil((to - from) / (1000 * 60 * 60 * 24)) + 1
-    addRequest({
-      ...data,
-      type: data.type,
-      startDate: data.fromDate,
-      endDate: data.toDate,
-      days,
-      totalLeaveDays: days,
-      reason: data.reason,
-    })
-    toast({ title: 'Leave submitted', description: 'Your request is pending approval.' })
-    reset({ leaveDuration: 'Full Day' })
+    if (!user) {
+      toast({ title: 'Error', description: 'User not authenticated' })
+      return
+    }
+
+    try {
+      const from = new Date(data.fromDate)
+      const to = new Date(data.toDate)
+      const days = data.leaveDuration === 'Half Day' ? 0.5 : Math.ceil((to - from) / (1000 * 60 * 60 * 24)) + 1
+
+      // Send to backend API
+      await leaveService.createLeave({
+        employeeId: user.id,
+        employeeName: user.name,
+        type: data.type,
+        from: data.fromDate,
+        to: data.toDate,
+        days,
+        reason: data.reason,
+      })
+
+      toast({ title: 'Success', description: 'Leave request submitted successfully!' })
+      reset({ leaveDuration: 'Full Day' })
+    } catch (error) {
+      console.error('Failed to submit leave request:', error)
+      toast({ title: 'Error', description: 'Failed to submit leave request' })
+    }
   }
 
   return (

@@ -6,6 +6,19 @@ export async function getLeaves() {
   return response.data as LeaveRequest[]
 }
 
+export async function createLeave(payload: {
+  employeeId: string
+  employeeName: string
+  type: string
+  from: string
+  to: string
+  days: number
+  reason: string
+}) {
+  const response = await api.post('/leaves', payload)
+  return response.data as LeaveRequest
+}
+
 export async function approveLeave(id: string) {
   await api.patch(`/leaves/${id}/approve`)
 }
