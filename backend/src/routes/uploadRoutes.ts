@@ -48,6 +48,9 @@ router.get('/employees/:id/documents', uploadController.listDocuments);
 // Get a specific document
 router.get('/employees/:id/documents/:docType', uploadController.getDocument);
 
+// Delete a specific document
+router.delete('/employees/:id/documents/:docType', uploadController.deleteDocument);
+
 // Get profile photo
 router.get('/employees/:id/photo', uploadController.getPhoto);
 

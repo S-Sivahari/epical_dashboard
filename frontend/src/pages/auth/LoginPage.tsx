@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
 import { useAuthStore } from '@store/authStore'
+import { APP_NAME, APP_SHORT_NAME } from '@/utils/constants'
 
 const schema = z.object({
   email: z.string().email(),
@@ -50,11 +51,8 @@ export function LoginPage() {
     <div className="grid min-h-screen lg:grid-cols-2">
       <div className="relative hidden flex-col justify-between bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-900 p-10 text-white lg:flex">
         <div>
-          <p className="font-display text-2xl font-bold">HRMS</p>
-          <p className="mt-3 max-w-md text-sm text-emerald-50">
-            A modern admin experience for people operations — leaves, documents, analytics, and more
-            in one place.
-          </p>
+          <p className="font-display text-2xl font-bold">{APP_SHORT_NAME}</p>
+          <p className="mt-3 max-w-md text-sm text-emerald-50">{APP_NAME}</p>
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur">
           <p className="text-sm text-emerald-50">
@@ -71,7 +69,7 @@ export function LoginPage() {
         >
           <div className="mb-6 text-center">
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-lg font-bold text-white">
-              H
+              E
             </div>
             <h1 className="font-display text-2xl font-semibold text-ink">Welcome back</h1>
             <p className="mt-1 text-sm text-muted">Sign in to the enterprise portal</p>

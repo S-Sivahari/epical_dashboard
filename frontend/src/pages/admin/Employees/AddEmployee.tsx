@@ -540,7 +540,7 @@ export function AddEmployee() {
                           className="text-xs font-medium text-danger hover:underline shrink-0"
                           onClick={() => handleDocumentUpload(docKey, null)}
                         >
-                          Remove
+                          Delete
                         </button>
                       </div>
                     </div>
@@ -576,7 +576,7 @@ export function AddEmployee() {
                       className="text-xs font-medium text-danger hover:underline shrink-0"
                       onClick={() => handleDocumentUpload('agreement', null)}
                     >
-                      Remove
+                      Delete
                     </button>
                   </div>
                 </div>
@@ -638,7 +638,7 @@ export function AddEmployee() {
                               removeCertificateFile(category as CertificateCategory, file.name)
                             }
                           >
-                            Remove
+                            Delete
                           </button>
                         </div>
                       ))
@@ -671,9 +671,10 @@ export function AddEmployee() {
                     onClick={() => {
                       setPhotoFile(null)
                       setPhotoPreview(null)
+                      setPhotoError(null)
                     }}
                   >
-                    Remove
+                    Delete
                   </button>
                 </div>
               ) : null}

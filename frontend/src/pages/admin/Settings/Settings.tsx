@@ -6,6 +6,7 @@ import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { toast } from 'sonner'
+import { APP_NAME, APP_SHORT_NAME } from '@/utils/constants'
 
 export function Settings() {
   const [restoreOpen, setRestoreOpen] = useState(false)
@@ -51,11 +52,13 @@ export function Settings() {
 
         <section className="rounded-xl border border-border bg-white p-5 shadow-sm">
           <h2 className="font-display text-lg font-semibold text-ink">Help & support</h2>
-          <p className="mt-2 text-sm text-muted">HRMS Admin v0.1.0 · Internal use only</p>
+          <p className="mt-2 text-sm text-muted">
+            {APP_SHORT_NAME} v0.1.0 · {APP_NAME} · Internal use only
+          </p>
           <div className="mt-4 rounded-lg border border-border bg-surface/60 p-4 text-sm text-muted">
             <p>Email: support@company.com</p>
             <p className="mt-2">
-              Docs: <span className="text-primary">https://intranet.company.com/hrms</span>
+              Docs: <span className="text-primary">https://intranet.company.com/empwr</span>
             </p>
           </div>
         </section>

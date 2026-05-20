@@ -18,6 +18,7 @@ import { cn } from '@/utils/cn'
 import { ROUTES } from '@constants/routes'
 import { useUiStore } from '@store/uiStore'
 import { useMediaQuery } from '@hooks/useMediaQuery'
+import { APP_SHORT_NAME } from '@/utils/constants'
 
 const groups: {
   label: string
@@ -89,10 +90,10 @@ export function Sidebar() {
       >
         <div className="flex h-16 items-center gap-2 border-b border-border px-5">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-sm font-bold text-white">
-            H
+            E
           </div>
           <div>
-            <p className="font-display text-sm font-semibold text-ink">HRMS Admin</p>
+            <p className="font-display text-sm font-semibold text-ink">{APP_SHORT_NAME}</p>
             <p className="text-xs text-muted">Enterprise</p>
           </div>
         </div>
