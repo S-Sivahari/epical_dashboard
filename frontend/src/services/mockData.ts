@@ -53,7 +53,7 @@ export const MOCK_EMPLOYEES: Employee[] = [
     role: 'Operations Lead',
     employmentType: 'Contract',
     joinedAt: '2020-11-20',
-    status: 'Resigned',
+    status: 'Inactive',
     email: 'dev.patel@company.com',
   },
 ]
