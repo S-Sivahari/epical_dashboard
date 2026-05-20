@@ -7,7 +7,6 @@ import { Input } from '@components/employee/ui/input'
 import { Label } from '@components/employee/ui/label'
 import { Textarea } from '@components/employee/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/employee/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/employee/ui/tabs'
 import { DataTable } from '@components/employee/shared/DataTable'
 import { SearchBar } from '@components/employee/shared/SearchBar'
 import { FilterDropdown } from '@components/employee/shared/FilterDropdown'
@@ -49,6 +48,7 @@ const columns = [
   { key: 'days', label: 'Days' },
   { key: 'reason', label: 'Reason' },
   { key: 'status', label: 'Status' },
+  { key: 'rejectionReason', label: 'Rejection Reason' },
 ]
 
 export default function LeaveRequest() {
@@ -60,6 +60,7 @@ export default function LeaveRequest() {
 
   const [leaveBalances, setLeaveBalances] = useState([])
   const [holidays, setHolidays] = useState([])
+  const [currentCalendarMonth, setCurrentCalendarMonth] = useState(new Date())
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(leaveSchema),
@@ -102,6 +103,21 @@ export default function LeaveRequest() {
     const matchSearch = !search || r.type.toLowerCase().includes(search.toLowerCase()) || r.reason.toLowerCase().includes(search.toLowerCase())
     const matchStatus = statusFilter === 'all' || r.status.toLowerCase() === statusFilter
     return matchSearch && matchStatus
+  })
+
+  const pendingLeaves = requests.filter((r) => r.status === 'Pending')
+  
+  const historyLeaves = filtered.filter((r) => r.status !== 'Pending')
+
+  const getMonthYear = (date) => {
+    const d = new Date(date)
+    return { month: d.getMonth(), year: d.getFullYear() }
+  }
+
+  const currentMonthHolidays = holidays.filter((h) => {
+    const hDate = getMonthYear(h.date)
+    const cDate = getMonthYear(currentCalendarMonth)
+    return hDate.month === cDate.month && hDate.year === cDate.year
   })
 
   const onSubmit = async (data) => {
@@ -148,121 +164,141 @@ export default function LeaveRequest() {
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="apply">
-        <TabsList>
-          <TabsTrigger value="apply">Apply Leave</TabsTrigger>
-          <TabsTrigger value="history">Leave History</TabsTrigger>
-          <TabsTrigger value="calendar">Calendar</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="apply">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <form onSubmit={handleSubmit(onSubmit)} className="rounded-xl border border-border bg-card p-6 shadow-card space-y-4">
-              <h3 className="font-heading text-lg font-semibold">Apply for Leave</h3>
-              <div>
-                <Label>Leave Type *</Label>
-                <Select value={watch('type')} onValueChange={(v) => setValue('type', v)}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select type" /></SelectTrigger>
-                  <SelectContent>
-                    {leaveTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                {errors.type && <p className="mt-1 text-xs text-danger">{errors.type.message}</p>}
-              </div>
-              <div>
-                <Label>Leave Duration *</Label>
-                <Select value={watch('leaveDuration')} onValueChange={(v) => setValue('leaveDuration', v)}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select duration" /></SelectTrigger>
-                  <SelectContent>
-                    {leaveDurations.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                {errors.leaveDuration && <p className="mt-1 text-xs text-danger">{errors.leaveDuration.message}</p>}
-              </div>
+      {/* Apply Leave Form & Leave Balances & Status */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <form onSubmit={handleSubmit(onSubmit)} className="rounded-xl border border-border bg-card p-6 shadow-card space-y-4">
+          <h3 className="font-heading text-lg font-semibold">Apply for Leave</h3>
+          <div>
+            <Label>Leave Type *</Label>
+            <Select value={watch('type')} onValueChange={(v) => setValue('type', v)}>
+              <SelectTrigger className="mt-1"><SelectValue placeholder="Select type" /></SelectTrigger>
+              <SelectContent>
+                {leaveTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {errors.type && <p className="mt-1 text-xs text-danger">{errors.type.message}</p>}
+          </div>
+          <div>
+            <Label>Leave Duration *</Label>
+            <Select value={watch('leaveDuration')} onValueChange={(v) => setValue('leaveDuration', v)}>
+              <SelectTrigger className="mt-1"><SelectValue placeholder="Select duration" /></SelectTrigger>
+              <SelectContent>
+                {leaveDurations.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {errors.leaveDuration && <p className="mt-1 text-xs text-danger">{errors.leaveDuration.message}</p>}
+          </div>
+          {leaveDuration === 'Half Day' && (
+            <div>
+              <Label>Half-day Session *</Label>
+              <Select value={watch('halfDaySession')} onValueChange={(v) => setValue('halfDaySession', v)}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select session" /></SelectTrigger>
+                <SelectContent>
+                  {halfDaySessions.map((session) => (
+                    <SelectItem key={session} value={session}>{session}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.halfDaySession && <p className="mt-1 text-xs text-danger">{errors.halfDaySession.message}</p>}
+            </div>
+          )}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label>From Date *</Label>
+              <Input type="date" className="mt-1" {...register('fromDate')} />
+              {errors.fromDate && <p className="mt-1 text-xs text-danger">{errors.fromDate.message}</p>}
+            </div>
+            <div>
+              <Label>To Date *</Label>
+              <Input
+                type="date"
+                className="mt-1"
+                {...register('toDate')}
+                disabled={leaveDuration === 'Half Day'}
+              />
               {leaveDuration === 'Half Day' && (
-                <div>
-                  <Label>Half-day Session *</Label>
-                  <Select value={watch('halfDaySession')} onValueChange={(v) => setValue('halfDaySession', v)}>
-                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select session" /></SelectTrigger>
-                    <SelectContent>
-                      {halfDaySessions.map((session) => (
-                        <SelectItem key={session} value={session}>{session}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {errors.halfDaySession && <p className="mt-1 text-xs text-danger">{errors.halfDaySession.message}</p>}
-                </div>
+                <p className="mt-1 text-xs text-muted">Half-day leave must have the same start and end date.</p>
               )}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label>From Date *</Label>
-                  <Input type="date" className="mt-1" {...register('fromDate')} />
-                  {errors.fromDate && <p className="mt-1 text-xs text-danger">{errors.fromDate.message}</p>}
-                </div>
-                <div>
-                  <Label>To Date *</Label>
-                  <Input
-                    type="date"
-                    className="mt-1"
-                    {...register('toDate')}
-                    disabled={leaveDuration === 'Half Day'}
-                  />
-                  {leaveDuration === 'Half Day' && (
-                    <p className="mt-1 text-xs text-muted">Half-day leave must have the same start and end date.</p>
-                  )}
-                  {errors.toDate && <p className="mt-1 text-xs text-danger">{errors.toDate.message}</p>}
-                </div>
-              </div>
-              <div>
-                <Label>Reason *</Label>
-                <Textarea className="mt-1" {...register('reason')} placeholder="Reason for leave" />
-                {errors.reason && <p className="mt-1 text-xs text-danger">{errors.reason.message}</p>}
-              </div>
-              <Button type="submit" disabled={isSubmitting} className="w-full">Submit Request</Button>
-            </form>
-            <div className="space-y-3">
-              <h3 className="font-heading text-lg font-semibold">Leave Balance</h3>
-              {leaveBalances.map((lb) => (
-                <LeaveCard key={lb.key} type={lb.type} used={lb.used} total={lb.total} color={lb.color} />
-              ))}
+              {errors.toDate && <p className="mt-1 text-xs text-danger">{errors.toDate.message}</p>}
             </div>
           </div>
-        </TabsContent>
-
-        <TabsContent value="history">
-          <div className="mb-4 flex flex-wrap gap-3">
-            <SearchBar value={search} onChange={setSearch} placeholder="Search leave history..." className="max-w-xs" />
-            <FilterDropdown
-              value={statusFilter}
-              onChange={setStatusFilter}
-              options={[
-                { value: 'all', label: 'All Status' },
-                { value: 'approved', label: 'Approved' },
-                { value: 'pending', label: 'Pending' },
-                { value: 'rejected', label: 'Rejected' },
-              ]}
-            />
+          <div>
+            <Label>Reason *</Label>
+            <Textarea className="mt-1" {...register('reason')} placeholder="Reason for leave" />
+            {errors.reason && <p className="mt-1 text-xs text-danger">{errors.reason.message}</p>}
           </div>
-          <DataTable columns={columns} data={filtered} statusKey="status" />
-        </TabsContent>
+          <Button type="submit" disabled={isSubmitting} className="w-full">Submit Request</Button>
+        </form>
+        <div className="space-y-3">
+          <h3 className="font-heading text-lg font-semibold">Leave Balance</h3>
+          {leaveBalances.map((lb) => (
+            <LeaveCard key={lb.key} type={lb.type} used={lb.used} total={lb.total} color={lb.color} />
+          ))}
+        </div>
+      </div>
 
-        <TabsContent value="calendar">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <CalendarWidget holidays={holidays} highlightDates={leaveDates} />
-            <div className="rounded-xl border border-border bg-card p-6 shadow-card">
-              <h3 className="font-heading font-semibold">Company Holidays</h3>
-              <ul className="mt-4 space-y-2">
-                {holidays.map((h) => (
-                  <li key={h.date} className="flex justify-between rounded-lg border border-border px-3 py-2 text-sm">
-                    <span>{h.name}</span>
-                    <span className="text-muted">{h.date}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+      {/* Leave History Table */}
+      <div className="rounded-xl border border-border bg-card p-6 shadow-card">
+        <h3 className="font-heading text-lg font-semibold mb-4">Pending Requests</h3>
+        {pendingLeaves.length === 0 ? (
+          <p className="text-sm text-muted">No pending leave requests</p>
+        ) : (
+          <div className="space-y-3">
+            {pendingLeaves.map((req) => (
+              <div key={req.id} className="rounded-lg border border-yellow-300 bg-yellow-50 p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1">
+                    <p className="font-medium">{req.type}</p>
+                    <p className="text-xs text-muted mt-1">{req.from} to {req.to} ({req.days} days)</p>
+                    <p className="text-xs text-muted mt-1">{req.reason}</p>
+                  </div>
+                  <span className="px-2 py-1 rounded text-xs font-medium whitespace-nowrap text-yellow-700 bg-yellow-200">
+                    Pending
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
-        </TabsContent>
-      </Tabs>
+        )}
+      </div>
+
+      {/* Leave History Table */}
+      <div className="rounded-xl border border-border bg-card p-6 shadow-card">
+        <h3 className="font-heading text-lg font-semibold mb-4">Leave History</h3>
+        <div className="mb-4 flex flex-wrap gap-3">
+          <SearchBar value={search} onChange={setSearch} placeholder="Search leave history..." className="max-w-xs" />
+          <FilterDropdown
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[
+              { value: 'all', label: 'All Status' },
+              { value: 'approved', label: 'Approved' },
+              { value: 'rejected', label: 'Rejected' },
+            ]}
+          />
+        </div>
+        <DataTable columns={columns} data={historyLeaves} statusKey="status" />
+      </div>
+
+      {/* Calendar & Holidays */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <CalendarWidget holidays={holidays} highlightDates={leaveDates} onMonthChange={setCurrentCalendarMonth} />
+        <div className="rounded-xl border border-border bg-card p-6 shadow-card">
+          <h3 className="font-heading font-semibold">Holidays This Month</h3>
+          <ul className="mt-4 space-y-2">
+            {currentMonthHolidays.length === 0 ? (
+              <p className="text-sm text-muted">No holidays this month</p>
+            ) : (
+              currentMonthHolidays.map((h) => (
+                <li key={h.date} className="flex justify-between rounded-lg border border-border px-3 py-2 text-sm">
+                  <span>{h.name}</span>
+                  <span className="text-muted">{h.date}</span>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+      </div>
     </div>
   )
 }

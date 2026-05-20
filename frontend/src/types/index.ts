@@ -49,6 +49,7 @@ export interface LeaveRequest {
   totalLeaveDays?: number
   reason: string
   status: LeaveStatus
+  rejectionReason?: string
 }
 
 export interface Holiday {
