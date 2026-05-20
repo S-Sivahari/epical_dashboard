@@ -54,9 +54,14 @@ app.use(
   })
 );
 
-initializePassport();
-app.use(passport.initialize());
-app.use(passport.session());
+// Initialize OAuth only if credentials are available
+if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
+  initializePassport();
+  app.use(passport.initialize());
+  app.use(passport.session());
+} else {
+  console.log('⚠ Google OAuth disabled (missing credentials)');
+}
 
 // ── Health check ──────────────────────────────────────────────
 app.get('/health', (_req, res) => {
