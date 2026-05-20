@@ -45,15 +45,9 @@ export function LoginPage() {
     try {
       await login(values.email, values.password)
       toast.success('Welcome back')
-<<<<<<< HEAD:src/pages/Auth/LoginPage.tsx
-      navigate('/dashboard', { replace: true })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to sign in'
       toast.error(message)
-=======
-    } catch {
-      toast.error('Unable to sign in')
->>>>>>> c33d8b1228989e05306f2bc8cb3cc482cfaa3a10:frontend/src/pages/auth/LoginPage.tsx
     }
   })
 
