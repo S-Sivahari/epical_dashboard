@@ -1,11 +1,10 @@
 import { Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { Plus, UserMinus, UserCheck, Download } from 'lucide-react'
+import { Plus, Download } from 'lucide-react'
 import { Breadcrumb } from '@components/layout/Breadcrumb'
 import { PageHeader } from '@components/layout/PageHeader'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
-import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { Input } from '@components/ui/Input'
 import { Badge } from '@components/ui/Badge'
 import { Avatar } from '@components/ui/Avatar'
@@ -21,6 +20,14 @@ import * as employeeService from '@services/employeeService'
 import { exportToExcel } from '@/utils/exportExcel'
 import { exportToPDF } from '@/utils/exportPDF'
 import { formatDate } from '@/utils/formatDate'
+import { toast } from 'sonner'
+
+const STATUS_OPTIONS: { value: Employee['status']; label: string }[] = [
+  { value: 'Inactive', label: 'Inactive' },
+  { value: 'Active', label: 'Active' },
+  { value: 'Deactivated', label: 'Deactivated' },
+  { value: 'Notice Period', label: 'Notice Period' },
+]
 
 export function EmployeeList() {
   const {
@@ -38,10 +45,7 @@ export function EmployeeList() {
 
   const [nameQuery, setNameQuery] = useState(filters.name)
   const [idQuery, setIdQuery] = useState(filters.employeeId)
-  const [statusTarget, setStatusTarget] = useState<{
-    e: Employee
-    status: Employee['status']
-  } | null>(null)
+  const [savingStatusId, setSavingStatusId] = useState<string | null>(null)
   const [exporting, setExporting] = useState<'excel' | 'pdf' | null>(null)
 
   const dqName = useDebounce(nameQuery, 300)
@@ -96,6 +100,20 @@ export function EmployeeList() {
     }
   }
 
+  const handleAccountStatusChange = async (employee: Employee, status: Employee['status']) => {
+    if (employee.status === status) return
+
+    setSavingStatusId(employee.id)
+    try {
+      await updateEmployeeStatus(employee.id, status)
+      toast.success(`${employee.firstName} ${employee.lastName ?? ''}`.trim() + ` set to ${status}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not update status')
+    } finally {
+      setSavingStatusId(null)
+    }
+  }
+
   const commonColumns: Column<Employee>[] = [
     {
       key: 'firstName',
@@ -146,34 +164,31 @@ export function EmployeeList() {
     {
       key: 'ops',
       header: 'ACCOUNT',
-      className: 'w-24',
+      className: 'w-44',
       render: (e) => (
-        <div className="flex items-center gap-2 -ml-4">
-          {e.status === 'Active' ? (
-            <>
-              <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" title="Active" />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setStatusTarget({ e, status: 'Deactivated' })}
-                title="Deactivate account"
-              >
-                <UserMinus className="h-4 w-4 text-warning" />
-              </Button>
-            </>
-          ) : (
-            <>
-              <span className="inline-block h-2.5 w-2.5 rounded-full bg-gray-400" title={e.status} />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setStatusTarget({ e, status: 'Active' })}
-                title="Reactivate"
-              >
-                <UserCheck className="h-4 w-4 text-success" />
-              </Button>
-            </>
-          )}
+        <div className="flex items-center gap-2">
+          <span
+            className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${
+              e.status === 'Active'
+                ? 'bg-emerald-500'
+                : e.status === 'Notice Period'
+                  ? 'bg-amber-500'
+                  : e.status === 'Deactivated'
+                    ? 'bg-red-500'
+                    : 'bg-gray-400'
+            }`}
+            title={e.status}
+          />
+          <SelectField
+            aria-label={`Change status for ${e.firstName} ${e.lastName ?? ''}`.trim()}
+            value={e.status}
+            disabled={savingStatusId === e.id}
+            onChange={(event) =>
+              void handleAccountStatusChange(e, event.target.value as Employee['status'])
+            }
+            className="h-8 min-w-[132px] px-2 text-xs"
+            options={STATUS_OPTIONS}
+          />
         </div>
       ),
     },
@@ -244,10 +259,7 @@ export function EmployeeList() {
             onChange={(e) => setFilters({ status: e.target.value })}
             options={[
               { value: 'all', label: 'All statuses' },
-              { value: 'Active', label: 'Active' },
-              { value: 'Notice Period', label: 'Notice Period' },
-              { value: 'Inactive', label: 'Inactive' },
-              { value: 'Deactivated', label: 'Deactivated' },
+              ...STATUS_OPTIONS,
             ]}
           />
         </div>
@@ -284,23 +296,6 @@ export function EmployeeList() {
         </section>
       </div>
 
-      <ConfirmModal
-        isOpen={!!statusTarget}
-        title={`${statusTarget?.status} Employee`}
-        description={
-          statusTarget
-            ? `Are you sure you want to set ${statusTarget.e.firstName} ${statusTarget.e.lastName} to ${statusTarget.status}?`
-            : "Are you sure you want to change this employee's status?"
-        }
-        confirmLabel={statusTarget?.status || 'Confirm'}
-        danger={statusTarget?.status !== 'Active'}
-        onClose={() => setStatusTarget(null)}
-        onConfirm={async () => {
-          if (!statusTarget) return
-          await updateEmployeeStatus(statusTarget.e.id, statusTarget.status)
-          setStatusTarget(null)
-        }}
-      />
     </PageWrapper>
   )
 }

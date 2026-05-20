@@ -689,10 +689,12 @@ export function EditEmployee() {
                     <p className="text-xs text-muted">No file uploaded yet.</p>
                   </div>
                 )}
-                <FileUpload
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onUpload={(files) => handleDocumentUpload(key, files)}
-                />
+                {!existingDocuments[key] ? (
+                  <FileUpload
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onUpload={(files) => handleDocumentUpload(key, files)}
+                  />
+                ) : null}
                 {documentFiles[key] ? (
                   <div className="mt-2 flex items-center justify-between gap-3">
                     <p className="truncate text-sm text-ink">Selected: {documentFiles[key]?.name}</p>
@@ -726,12 +728,14 @@ export function EditEmployee() {
                   label: option.label,
                 }))}
               />
-              <div className="mt-4">
-                <FileUpload
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onUpload={(files) => handleDocumentUpload(selectedCertificateKey, files)}
-                />
-              </div>
+              {!selectedCertificate ? (
+                <div className="mt-4">
+                  <FileUpload
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onUpload={(files) => handleDocumentUpload(selectedCertificateKey, files)}
+                  />
+                </div>
+              ) : null}
               {selectedCertificateFile || selectedCertificate ? (
                 <div className="mt-4 rounded-lg border border-border bg-white px-3 py-2">
                   <div className="flex items-start gap-3">
