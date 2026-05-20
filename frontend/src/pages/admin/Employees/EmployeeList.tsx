@@ -76,7 +76,8 @@ export function EmployeeList() {
         }),
       )
 
-      const filename = `employees_${new Date().toISOString().split('T')[0]}`
+      const exportDate = new Date().toISOString().split('T')[0]
+      const filename = `employeedetails_${exportDate}`
       const headers: { key: keyof Employee; label: string }[] = [
         { key: 'employeeId', label: 'Employee ID' },
         { key: 'firstName', label: 'First Name' },

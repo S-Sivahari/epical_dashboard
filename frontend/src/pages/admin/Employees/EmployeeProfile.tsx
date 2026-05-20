@@ -106,7 +106,8 @@ export function EmployeeProfile() {
   }
 
   const name = `${employee.firstName} ${employee.lastName ?? ''}`.trim()
-  const fileName = `Employee_${employee.employeeId}_${employee.firstName}`
+  const exportDate = new Date().toISOString().split('T')[0]
+  const fileName = `employeedetails_${exportDate}`
 
   return (
     <PageWrapper>
