@@ -15,9 +15,10 @@ export async function createLeave(payload: {
   employeeId: string
   employeeName: string
   type: string
+  leaveDuration: 'Full Day' | 'Half Day'
+  halfDaySession?: 'First Half' | 'Second Half'
   from: string
   to: string
-  days: number
   reason: string
 }) {
   const response = await api.post('/leaves', payload)

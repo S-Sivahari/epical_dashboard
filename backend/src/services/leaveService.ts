@@ -32,6 +32,10 @@ export async function getLeaveById(id: string): Promise<LeaveRequest | null> {
   return leave as LeaveRequest | null;
 }
 
+function normalizeDate(date: string) {
+  return new Date(date).toISOString().slice(0, 10);
+}
+
 export async function createLeave(payload: CreateLeavePayload): Promise<LeaveRequest> {
   const col = getLeaveCol();
   
@@ -39,25 +43,36 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
   const holidays = await getAllHolidays();
   
   // 2. Calculate true business days (skip weekends & holidays)
-  const actualDays = getBusinessDays(payload.from, payload.to, holidays);
+  const actualBusinessDays = getBusinessDays(payload.from, payload.to, holidays);
   
-  if (actualDays <= 0) {
-    throw new Error('Leave request spans across weekends/holidays with 0 effective business days.');
+  if (payload.leaveDuration === 'Half Day') {
+    if (normalizeDate(payload.from) !== normalizeDate(payload.to)) {
+      throw new Error('Half-day leave must be for a single date');
+    }
+    if (actualBusinessDays !== 1) {
+      throw new Error('Half-day leave request must fall on a working day');
+    }
+  } else {
+    if (actualBusinessDays <= 0) {
+      throw new Error('Leave request spans across weekends/holidays with 0 effective business days.');
+    }
   }
+
+  const requestedDays = payload.leaveDuration === 'Half Day' ? 0.5 : actualBusinessDays;
 
   // 3. Fetch employee balances to validate
   const employeeLeaves = await getAllLeaves(payload.employeeId);
   const balances = calculateBalances(employeeLeaves);
   
   const leaveBalance = balances[payload.type];
-  if (leaveBalance && leaveBalance.remaining < actualDays) {
-    throw new Error(`Insufficient ${payload.type} balance. Remaining: ${leaveBalance.remaining}, Requested: ${actualDays}`);
+  if (leaveBalance && leaveBalance.remaining < requestedDays) {
+    throw new Error(`Insufficient ${payload.type} balance. Remaining: ${leaveBalance.remaining}, Requested: ${requestedDays}`);
   }
 
   const id = `L-${Date.now()}`;
   const leave: any = {
     ...payload,
-    days: actualDays, // Override days with the true calculated days
+    days: requestedDays,
     id,
     status: 'Pending',
     createdAt: new Date(),

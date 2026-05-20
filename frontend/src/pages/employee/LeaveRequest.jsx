@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Button } from '@components/employee/ui/button'
@@ -61,16 +61,91 @@ export default function LeaveRequest() {
   const [leaveBalances, setLeaveBalances] = useState([])
   const [holidays, setHolidays] = useState([])
 
-  const { register, handleSubmit, setValue, watch, reset, formState: { errors, isSubmitting } } = useForm({
+  const { control, register, handleSubmit, setValue, watch, reset, setError, clearErrors, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(leaveSchema),
     defaultValues: {
       leaveDuration: 'Full Day',
+      type: '',
+      halfDaySession: '',
     },
   })
 
   const leaveDuration = watch('leaveDuration')
   const fromDate = watch('fromDate')
   const toDate = watch('toDate')
+  const halfDaySession = watch('halfDaySession')
+
+  const [conflictMessage, setConflictMessage] = useState('')
+
+  const normalizeDate = (date) => {
+    if (!date) return ''
+    const d = new Date(date)
+    return d.toISOString().slice(0, 10)
+  }
+
+  const getDateRange = (start, end) => {
+    const startDate = new Date(start)
+    const endDate = new Date(end)
+    const dates = []
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      dates.push(d.toISOString().slice(0, 10))
+    }
+    return dates
+  }
+
+  const getRequestDates = (request) => {
+    const start = normalizeDate(request.from)
+    const end = normalizeDate(request.to)
+    if (request.leaveDuration === 'Half Day') {
+      return [{ date: start, session: request.halfDaySession }]
+    }
+    return getDateRange(start, end).map((date) => ({ date, session: 'Full Day' }))
+  }
+
+  const validateLeaveConflict = () => {
+    if (!user || !fromDate || !toDate || !leaveDuration) {
+      return { message: '', fields: [] }
+    }
+
+    const selectedFrom = normalizeDate(fromDate)
+    const selectedTo = normalizeDate(toDate)
+    if (!selectedFrom || !selectedTo) {
+      return { message: '', fields: [] }
+    }
+
+    const selectedDates = getDateRange(selectedFrom, selectedTo)
+    const selectedEntries = selectedDates.map((date) => ({ date, session: leaveDuration === 'Half Day' ? halfDaySession : 'Full Day' }))
+    const existing = requests.filter(
+      (r) => r.employeeId === user.id && ['Approved', 'Pending'].includes(r.status)
+    )
+
+    for (const request of existing) {
+      const requestEntries = getRequestDates(request)
+      for (const selectedEntry of selectedEntries) {
+        for (const requestEntry of requestEntries) {
+          const sameDate = selectedEntry.date === requestEntry.date
+          if (!sameDate) continue
+
+          if (selectedEntry.session === 'Full Day' || requestEntry.session === 'Full Day') {
+            return {
+              message: 'Selected dates overlap with an existing full-day or half-day leave request.',
+              fields: ['fromDate', 'toDate', 'halfDaySession'],
+            }
+          }
+
+          if (selectedEntry.session === requestEntry.session) {
+            const sessionLabel = selectedEntry.session === 'First Half' ? 'Morning' : 'Evening'
+            return {
+              message: `${sessionLabel} half-day leave already exists for the selected date.`,
+              fields: ['fromDate', 'toDate', 'halfDaySession'],
+            }
+          }
+        }
+      }
+    }
+
+    return { message: '', fields: [] }
+  }
 
   useEffect(() => {
     fetchRequests()
@@ -98,29 +173,74 @@ export default function LeaveRequest() {
     }
   }, [leaveDuration, fromDate, setValue])
 
+  useEffect(() => {
+    if (errors.fromDate?.type === 'manual' || errors.toDate?.type === 'manual') {
+      clearErrors(['fromDate', 'toDate'])
+    }
+  }, [fromDate, toDate, errors.fromDate, errors.toDate, clearErrors])
+
+  useEffect(() => {
+    const conflict = validateLeaveConflict()
+    setConflictMessage(conflict.message)
+
+    clearErrors(['fromDate', 'toDate', 'halfDaySession'])
+    if (conflict.message) {
+      conflict.fields.forEach((field) => {
+        setError(field, { type: 'manual', message: conflict.message })
+      })
+    }
+  }, [fromDate, toDate, leaveDuration, halfDaySession, requests, user, setError, clearErrors])
+
   const filtered = requests.filter((r) => {
     const matchSearch = !search || r.type.toLowerCase().includes(search.toLowerCase()) || r.reason.toLowerCase().includes(search.toLowerCase())
     const matchStatus = statusFilter === 'all' || r.status.toLowerCase() === statusFilter
     return matchSearch && matchStatus
   })
 
+  const onError = (errors) => {
+    console.log('Leave request validation failed', errors)
+    toast({ title: 'Validation error', description: 'Please complete all required fields before submitting.' })
+  }
+
   const onSubmit = async (data) => {
+    console.log('Leave request submitted', data)
     if (!user) {
       toast({ title: 'Error', description: 'User not authenticated' })
       return
     }
+
+    const currentFrom = new Date(data.fromDate)
+    const currentTo = new Date(data.toDate)
+
+    if (currentTo < currentFrom) {
+      setError('toDate', { type: 'manual', message: 'End date must be the same or after the start date' })
+      return
+    }
+
+    const conflict = validateLeaveConflict()
+    if (conflict.message) {
+      conflict.fields.forEach((field) => {
+        setError(field, { type: 'manual', message: conflict.message })
+      })
+      toast({ title: 'Validation error', description: conflict.message })
+      return
+    }
+
+    clearErrors(['fromDate', 'toDate', 'halfDaySession'])
 
     try {
       await addRequest({
         employeeId: user.id,
         employeeName: user.name,
         type: data.type,
+        leaveDuration: data.leaveDuration,
+        halfDaySession: data.leaveDuration === 'Half Day' ? data.halfDaySession : undefined,
         from: data.fromDate,
         to: data.toDate,
         reason: data.reason,
       })
       toast({ title: 'Success', description: 'Leave request submitted successfully!' })
-      reset({ leaveDuration: 'Full Day' })
+      reset({ leaveDuration: 'Full Day', type: '', halfDaySession: '', fromDate: '', toDate: '', reason: '' })
       
       // Refresh balances after submission
       const newBalances = await leaveService.getBalances()
@@ -157,39 +277,61 @@ export default function LeaveRequest() {
 
         <TabsContent value="apply">
           <div className="grid gap-6 lg:grid-cols-2">
-            <form onSubmit={handleSubmit(onSubmit)} className="rounded-xl border border-border bg-card p-6 shadow-card space-y-4">
+            <form onSubmit={handleSubmit(onSubmit, onError)} className="rounded-xl border border-border bg-card p-6 shadow-card space-y-4">
               <h3 className="font-heading text-lg font-semibold">Apply for Leave</h3>
               <div>
                 <Label>Leave Type *</Label>
-                <Select value={watch('type')} onValueChange={(v) => setValue('type', v)}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select type" /></SelectTrigger>
-                  <SelectContent>
-                    {leaveTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Controller
+                  control={control}
+                  name="type"
+                  render={({ field }) => (
+                    <Select name={field.name} value={field.value || ''} onValueChange={(value) => field.onChange(value)}>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select type" /></SelectTrigger>
+                      <SelectContent>
+                        {leaveTypes.map((t) => (
+                          <SelectItem key={t} value={t}>{t}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
                 {errors.type && <p className="mt-1 text-xs text-danger">{errors.type.message}</p>}
               </div>
               <div>
                 <Label>Leave Duration *</Label>
-                <Select value={watch('leaveDuration')} onValueChange={(v) => setValue('leaveDuration', v)}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select duration" /></SelectTrigger>
-                  <SelectContent>
-                    {leaveDurations.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Controller
+                  control={control}
+                  name="leaveDuration"
+                  render={({ field }) => (
+                    <Select name={field.name} value={field.value} onValueChange={(value) => field.onChange(value)}>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select duration" /></SelectTrigger>
+                      <SelectContent>
+                        {leaveDurations.map((d) => (
+                          <SelectItem key={d} value={d}>{d}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
                 {errors.leaveDuration && <p className="mt-1 text-xs text-danger">{errors.leaveDuration.message}</p>}
               </div>
               {leaveDuration === 'Half Day' && (
                 <div>
                   <Label>Half-day Session *</Label>
-                  <Select value={watch('halfDaySession')} onValueChange={(v) => setValue('halfDaySession', v)}>
-                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select session" /></SelectTrigger>
-                    <SelectContent>
-                      {halfDaySessions.map((session) => (
-                        <SelectItem key={session} value={session}>{session}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Controller
+                    control={control}
+                    name="halfDaySession"
+                    render={({ field }) => (
+                      <Select name={field.name} value={field.value || ''} onValueChange={(value) => field.onChange(value)}>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select session" /></SelectTrigger>
+                        <SelectContent>
+                          {halfDaySessions.map((session) => (
+                            <SelectItem key={session} value={session}>{session}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
                   {errors.halfDaySession && <p className="mt-1 text-xs text-danger">{errors.halfDaySession.message}</p>}
                 </div>
               )}
@@ -213,12 +355,17 @@ export default function LeaveRequest() {
                   {errors.toDate && <p className="mt-1 text-xs text-danger">{errors.toDate.message}</p>}
                 </div>
               </div>
+              {conflictMessage && (
+                <div className="rounded-lg border border-danger/20 bg-danger/10 p-3 text-sm text-danger">
+                  {conflictMessage}
+                </div>
+              )}
               <div>
                 <Label>Reason *</Label>
                 <Textarea className="mt-1" {...register('reason')} placeholder="Reason for leave" />
                 {errors.reason && <p className="mt-1 text-xs text-danger">{errors.reason.message}</p>}
               </div>
-              <Button type="submit" disabled={isSubmitting} className="w-full">Submit Request</Button>
+              <Button type="submit" disabled={isSubmitting || !!conflictMessage} className="w-full">Submit Request</Button>
             </form>
             <div className="space-y-3">
               <h3 className="font-heading text-lg font-semibold">Leave Balance</h3>

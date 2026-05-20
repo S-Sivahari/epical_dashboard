@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { Badge } from '@components/ui/Badge'
 import { Button } from '@components/ui/Button'
@@ -9,6 +10,14 @@ import { formatDate } from '@/utils/formatDate'
 export function PendingLeaves() {
   const { leaves, loading, approveLeave, rejectLeave, fetchLeaves } = useLeaves()
   const pending = leaves.filter((l) => l.status === 'Pending')
+  const previousLeaveCount = useRef(leaves.length)
+
+  useEffect(() => {
+    if (leaves.length > previousLeaveCount.current) {
+      toast.success('New leave request received')
+    }
+    previousLeaveCount.current = leaves.length
+  }, [leaves.length])
 
   const columns: Column<LeaveRequest>[] = [
     { key: 'employeeName', header: 'Employee' },

@@ -21,15 +21,21 @@ export const leaveController = {
   // POST /api/leaves
   create: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { employeeId, employeeName, type, from, to, reason } = req.body;
-      if (!employeeId || !type || !from || !to || !reason) {
+      const { employeeId, employeeName, type, leaveDuration, halfDaySession, from, to, reason } = req.body;
+      if (!employeeId || !type || !leaveDuration || !from || !to || !reason) {
         res.status(400).json({ error: 'Missing required fields' });
+        return;
+      }
+      if (leaveDuration === 'Half Day' && !halfDaySession) {
+        res.status(400).json({ error: 'Half-day session is required' });
         return;
       }
       const leave = await leaveService.createLeave({
         employeeId,
         employeeName: employeeName || 'Unknown',
         type,
+        leaveDuration,
+        halfDaySession,
         from,
         to,
         days: 0, // days will be overridden by backend calculation
