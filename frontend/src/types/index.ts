@@ -51,6 +51,8 @@ export interface LeaveRequest {
   status: LeaveStatus
   approvalDate?: string
   approvedBy?: string
+  department?: string
+  reportingManager?: string
 }
 
 export interface Holiday {

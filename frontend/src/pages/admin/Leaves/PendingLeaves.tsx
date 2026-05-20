@@ -5,10 +5,15 @@ import { DataTable, type Column } from '@components/tables/DataTable'
 import { useLeaves } from '@hooks/useLeaves'
 import type { LeaveRequest } from '@/types'
 import { formatDate } from '@/utils/formatDate'
+import { filterLeaves, type LeaveFilters } from '@/utils/leaveFilters'
+import { useMemo } from 'react'
 
-export function PendingLeaves() {
+export function PendingLeaves({ filters }: { filters: LeaveFilters }) {
   const { leaves, loading, approveLeave, rejectLeave, fetchLeaves } = useLeaves()
-  const pending = leaves.filter((l) => l.status === 'Pending')
+  
+  const pending = useMemo(() => {
+    return filterLeaves(leaves.filter(l => l.status === 'Pending'), filters)
+  }, [leaves, filters])
 
 
 

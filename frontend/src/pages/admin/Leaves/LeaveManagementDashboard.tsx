@@ -1,12 +1,21 @@
+import { useState } from 'react'
 import { Breadcrumb } from '@components/layout/Breadcrumb'
 import { PageHeader } from '@components/layout/PageHeader'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { PendingLeaves } from './PendingLeaves'
 import { ApprovedLeaves } from './ApprovedLeaves'
+import { RejectedLeaves } from './RejectedLeaves'
 import { CompensationLeaves } from './CompensationLeaves'
 import { HolidayManagement } from './HolidayManagement'
+import { Input } from '@components/ui/Input'
+import { Button } from '@components/ui/Button'
+import { Search, X } from 'lucide-react'
+import { defaultLeaveFilters, type LeaveFilters } from '@/utils/leaveFilters'
 
 export function LeaveManagementDashboard() {
+  const [filters, setFilters] = useState<LeaveFilters>(defaultLeaveFilters)
+
+  const clearFilters = () => setFilters(defaultLeaveFilters)
 
   return (
     <PageWrapper>
@@ -16,6 +25,70 @@ export function LeaveManagementDashboard() {
         breadcrumb={<Breadcrumb items={[{ label: 'Leaves', to: '/admin/leaves' }]} />}
       />
 
+      <div className="rounded-xl border border-border bg-white p-5 shadow-sm mb-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="font-display text-base font-semibold text-ink">Advanced Filters</h3>
+          <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted hover:text-ink">
+            <X className="mr-2 h-4 w-4" /> Clear Filters
+          </Button>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted">Employee Name</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
+              <Input 
+                placeholder="Search name..." 
+                className="pl-9 h-9 text-sm"
+                value={filters.employeeName} 
+                onChange={e => setFilters({...filters, employeeName: e.target.value})} 
+              />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted">Employee ID</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
+              <Input 
+                placeholder="Search ID..." 
+                className="pl-9 h-9 text-sm"
+                value={filters.employeeId} 
+                onChange={e => setFilters({...filters, employeeId: e.target.value})} 
+              />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted">Department</label>
+            <select 
+              className="w-full h-9 rounded-lg border border-border px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              value={filters.department} 
+              onChange={e => setFilters({...filters, department: e.target.value})}
+            >
+              <option value="All">All Departments</option>
+              <option value="Engineering">Engineering</option>
+              <option value="Finance">Finance</option>
+              <option value="People">People</option>
+              <option value="Operations">Operations</option>
+              <option value="Design">Design</option>
+              <option value="Marketing">Marketing</option>
+              <option value="Sales">Sales</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted">Reporting Manager</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
+              <Input 
+                placeholder="Search manager..." 
+                className="pl-9 h-9 text-sm"
+                value={filters.reportingManager} 
+                onChange={e => setFilters({...filters, reportingManager: e.target.value})} 
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Content Sections - Unified View */}
       <div className="flex flex-col gap-8">
         {/* Pending Leaves Section */}
@@ -24,7 +97,7 @@ export function LeaveManagementDashboard() {
             <span className="text-xl">⏳</span>
             <h2 className="font-display text-lg font-semibold text-ink">Pending Leave Approvals</h2>
           </div>
-          <PendingLeaves />
+          <PendingLeaves filters={filters} />
         </section>
 
         {/* Approved Leaves Section */}
@@ -33,7 +106,16 @@ export function LeaveManagementDashboard() {
             <span className="text-xl">✅</span>
             <h2 className="font-display text-lg font-semibold text-ink">Approved Leave Requests & Status</h2>
           </div>
-          <ApprovedLeaves />
+          <ApprovedLeaves filters={filters} />
+        </section>
+
+        {/* Rejected Leaves Section */}
+        <section className="rounded-xl border border-border bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center gap-2 border-b border-border pb-3">
+            <span className="text-xl">❌</span>
+            <h2 className="font-display text-lg font-semibold text-ink">Rejected Leave Requests</h2>
+          </div>
+          <RejectedLeaves filters={filters} />
         </section>
 
         {/* Compensation Section */}

@@ -1,18 +1,16 @@
 import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
-import { Search } from 'lucide-react'
 import { Badge } from '@components/ui/Badge'
 import { Button } from '@components/ui/Button'
-import { Input } from '@components/ui/Input'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { DataTable, type Column } from '@components/tables/DataTable'
 import { useLeaves } from '@hooks/useLeaves'
 import type { LeaveRequest } from '@/types'
 import { formatDate } from '@/utils/formatDate'
+import { filterLeaves, type LeaveFilters } from '@/utils/leaveFilters'
 
-export function ApprovedLeaves() {
+export function ApprovedLeaves({ filters }: { filters: LeaveFilters }) {
   const { leaves, loading, cancelLeave } = useLeaves()
-  const [searchQuery, setSearchQuery] = useState('')
   const [cancelModalOpen, setCancelModalOpen] = useState(false)
   const [leaveToCancel, setLeaveToCancel] = useState<LeaveRequest | null>(null)
 
@@ -54,12 +52,11 @@ export function ApprovedLeaves() {
   }
 
   const filteredLeaves = useMemo(() => {
-    return leaves
-      .filter((l) => l.status === 'Approved' || l.status === 'Cancelled')
-      .filter((l) =>
-        l.employeeName.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-  }, [leaves, searchQuery])
+    return filterLeaves(
+      leaves.filter((l) => l.status === 'Approved' || l.status === 'Cancelled'),
+      filters
+    )
+  }, [leaves, filters])
 
   const columns: Column<LeaveRequest>[] = [
     { key: 'employeeName', header: 'Employee' },
@@ -113,18 +110,6 @@ export function ApprovedLeaves() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <div className="relative max-w-sm flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-          <Input
-            placeholder="Search by employee name..."
-            className="pl-9"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-      </div>
-
       <DataTable columns={columns} data={filteredLeaves} loading={loading} empty="No approved leaves found." />
 
       <ConfirmModal
