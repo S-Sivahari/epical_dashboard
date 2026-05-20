@@ -5,6 +5,7 @@ import { PageWrapper } from '@components/layout/PageWrapper'
 import { PendingLeaves } from './PendingLeaves'
 import { ApprovedLeaves } from './ApprovedLeaves'
 import { RejectedLeaves } from './RejectedLeaves'
+import { TeamLeaveCalendar } from './TeamLeaveCalendar'
 import { CompensationLeaves } from './CompensationLeaves'
 import { HolidayManagement } from './HolidayManagement'
 import { Input } from '@components/ui/Input'
@@ -97,6 +98,17 @@ export function LeaveManagementDashboard() {
               <h2 className="font-display text-lg font-semibold text-ink">Approved Leave Requests & Status</h2>
             </div>
             <ApprovedLeaves filters={filters} />
+          </section>
+        )}
+
+        {/* Team Leave Calendar Section */}
+        {(filters.status === 'All' || filters.status === 'Approved') && (
+          <section className="rounded-xl border border-border bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center gap-2 border-b border-border pb-3">
+              <span className="text-xl">📅</span>
+              <h2 className="font-display text-lg font-semibold text-ink">Team Leave Calendar</h2>
+            </div>
+            <TeamLeaveCalendar />
           </section>
         )}
 
