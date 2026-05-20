@@ -32,7 +32,7 @@ export function LeaveManagementDashboard() {
             <X className="mr-2 h-4 w-4" /> Clear Filters
           </Button>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="mb-1 block text-xs font-medium text-muted">Employee Name</label>
             <div className="relative">
@@ -54,35 +54,6 @@ export function LeaveManagementDashboard() {
                 className="pl-9 h-9 text-sm"
                 value={filters.employeeId} 
                 onChange={e => setFilters({...filters, employeeId: e.target.value})} 
-              />
-            </div>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-muted">Department</label>
-            <select 
-              className="w-full h-9 rounded-lg border border-border px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-              value={filters.department} 
-              onChange={e => setFilters({...filters, department: e.target.value})}
-            >
-              <option value="All">All Departments</option>
-              <option value="Engineering">Engineering</option>
-              <option value="Finance">Finance</option>
-              <option value="People">People</option>
-              <option value="Operations">Operations</option>
-              <option value="Design">Design</option>
-              <option value="Marketing">Marketing</option>
-              <option value="Sales">Sales</option>
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-muted">Reporting Manager</label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
-              <Input 
-                placeholder="Search manager..." 
-                className="pl-9 h-9 text-sm"
-                value={filters.reportingManager} 
-                onChange={e => setFilters({...filters, reportingManager: e.target.value})} 
               />
             </div>
           </div>
