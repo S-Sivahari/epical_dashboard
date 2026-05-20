@@ -17,11 +17,10 @@ export function LeaveManagementDashboard() {
 
       {/* Content Sections - Unified View */}
       <div className="flex flex-col gap-8">
-        {/* Pending Leaves Section */}
         <section className="rounded-xl border border-border bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center gap-2 border-b border-border pb-3">
             <span className="text-xl">⏳</span>
-            <h2 className="font-display text-lg font-semibold text-ink">Pending Leave Approvals</h2>
+            <h2 className="font-display text-lg font-semibold text-ink">Leave Requests</h2>
           </div>
           <PendingLeaves />
         </section>

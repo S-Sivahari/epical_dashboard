@@ -32,6 +32,10 @@ export async function rejectLeave(id: string) {
   await api.patch(`/leaves/${id}/reject`)
 }
 
+export async function cancelLeave(id: string) {
+  await api.patch(`/leaves/${id}/cancel`)
+}
+
 export async function addHoliday(payload: Omit<Holiday, 'id'>) {
   const response = await api.post('/holidays', payload)
   return response.data as Holiday

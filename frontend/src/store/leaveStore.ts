@@ -10,6 +10,7 @@ interface LeaveState {
   fetchHolidays: () => Promise<void>
   approveLeave: (id: string) => Promise<void>
   rejectLeave: (id: string) => Promise<void>
+  cancelLeave: (id: string) => Promise<void>
   addHoliday: (h: Omit<Holiday, 'id'>) => Promise<void>
   updateHoliday: (id: string, h: Partial<Omit<Holiday, 'id'>>) => Promise<void>
   deleteHoliday: (id: string) => Promise<void>
@@ -42,6 +43,10 @@ export const useLeaveStore = create<LeaveState>((set, get) => ({
   },
   rejectLeave: async (id) => {
     await leaveService.rejectLeave(id)
+    await get().fetchLeaves()
+  },
+  cancelLeave: async (id) => {
+    await leaveService.cancelLeave(id)
     await get().fetchLeaves()
   },
   addHoliday: async (h) => {
