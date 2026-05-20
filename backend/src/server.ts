@@ -1,8 +1,12 @@
 import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
+import session from 'express-session';
+import cookieParser from 'cookie-parser';
+import passport from 'passport';
 import { connectDB, closeDB } from './config/db';
 import { env } from './config/env';
+import { initializePassport } from './config/oauth';
 
 // Routes
 import { authRoutes } from './routes/authRoutes';
@@ -12,6 +16,7 @@ import { holidayRoutes } from './routes/holidayRoutes';
 import { ticketRoutes } from './routes/ticketRoutes';
 import { timesheetRoutes } from './routes/timesheetRoutes';
 import { uploadRoutes } from './routes/uploadRoutes';
+import { oauthRoutes } from './routes/oauthRoutes';
 
 // Seed helpers
 import { seedDefaultUsers } from './services/authService';
@@ -21,10 +26,37 @@ import { getDB } from './config/db';
 
 const app = express();
 
+// ── CORS Configuration ────────────────────────────────────────
+const allowedOrigins = env.CORS_ORIGIN.split(',')
+  .map((origin) => origin.trim())
+  .filter((origin) => origin.length > 0);
+
 // ── Middleware ────────────────────────────────────────────────
-app.use(cors({ origin: '*', credentials: true }));
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+// ── Session & Passport ────────────────────────────────────────
+app.use(
+  session({
+    secret: env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: process.env.NODE_ENV === 'production', httpOnly: true, sameSite: 'lax' },
+  })
+);
+
+initializePassport();
+app.use(passport.initialize());
+app.use(passport.session());
 
 // ── Health check ──────────────────────────────────────────────
 app.get('/health', (_req, res) => {
@@ -33,6 +65,7 @@ app.get('/health', (_req, res) => {
 
 // ── API Routes ────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
+app.use('/api/auth', oauthRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/leaves', leaveRoutes);
 app.use('/api/holidays', holidayRoutes);
