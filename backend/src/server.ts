@@ -17,6 +17,7 @@ import { ticketRoutes } from './routes/ticketRoutes';
 import { timesheetRoutes } from './routes/timesheetRoutes';
 import { uploadRoutes } from './routes/uploadRoutes';
 import { oauthRoutes } from './routes/oauthRoutes';
+import { notificationRoutes } from './routes/notificationRoutes';
 
 // Seed helpers
 import { seedDefaultUsers } from './services/authService';
@@ -73,6 +74,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/auth', oauthRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/leaves', leaveRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/api/holidays', holidayRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/timesheets', timesheetRoutes);

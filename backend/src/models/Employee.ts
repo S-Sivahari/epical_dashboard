@@ -18,6 +18,7 @@ export interface Employee {
   department: string;
   designation: string;
   role: string;
+  managerId?: string; // ID of the employee's manager
   employmentType: EmploymentType;
   joinedAt: string;
   status: EmployeeStatus;

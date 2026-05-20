@@ -49,6 +49,7 @@ const step3 = z.object({
   employmentType: z.enum(['Active', 'Contract', 'Intern']),
   department: z.string().optional(),
   role: z.enum(['Employee', 'Admin'], { required_error: 'Role is required' }),
+  managerId: z.string().optional(),
   ctc: z.preprocess(
     (value) => (value === '' || value === null || value === undefined ? undefined : Number(value)),
     z.number().positive('CTC must be a positive number').optional(),
@@ -303,8 +304,7 @@ export function AddEmployee() {
       address: values.address ?? '',
       department: values.department,
       designation: values.role,
-      role: values.role,
-      employmentType: values.employmentType,
+      role: values.role,      managerId: values.managerId || undefined,      employmentType: values.employmentType,
       joinedAt: values.joinedAt,
       status: 'Active',
       email: values.companyEmail || '',
