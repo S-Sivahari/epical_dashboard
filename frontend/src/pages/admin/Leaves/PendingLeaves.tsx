@@ -1,31 +1,16 @@
 import { toast } from 'sonner'
-import { useState } from 'react'
 import { Badge } from '@components/ui/Badge'
 import { Button } from '@components/ui/Button'
-import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { DataTable, type Column } from '@components/tables/DataTable'
 import { useLeaves } from '@hooks/useLeaves'
 import type { LeaveRequest } from '@/types'
 import { formatDate } from '@/utils/formatDate'
 
 export function PendingLeaves() {
-  const { leaves, loading, approveLeave, rejectLeave, cancelLeave, fetchLeaves } = useLeaves()
+  const { leaves, loading, approveLeave, rejectLeave, fetchLeaves } = useLeaves()
+  const pending = leaves.filter((l) => l.status === 'Pending')
 
-  const [cancelModalOpen, setCancelModalOpen] = useState(false)
-  const [leaveToCancel, setLeaveToCancel] = useState<LeaveRequest | null>(null)
 
-  const handleConfirmCancel = async () => {
-    if (!leaveToCancel) return
-    try {
-      await cancelLeave(leaveToCancel.id)
-      toast.success('Leave cancelled successfully')
-    } catch {
-      toast.error('Failed to cancel leave')
-    } finally {
-      setCancelModalOpen(false)
-      setLeaveToCancel(null)
-    }
-  }
 
   const columns: Column<LeaveRequest>[] = [
     { key: 'employeeName', header: 'Employee' },
@@ -53,62 +38,34 @@ export function PendingLeaves() {
     {
       key: 'status',
       header: 'Status',
-      render: (l) => (
-        <Badge
-          variant={
-            l.status === 'Approved'
-              ? 'success'
-              : l.status === 'Rejected'
-                ? 'danger'
-                : 'warning'
-          }
-        >
-          {l.status}
-        </Badge>
-      ),
+      render: (l) => <Badge variant="warning">{l.status}</Badge>,
     },
     {
       key: 'id',
       header: 'Actions',
       render: (l) => (
         <div className="flex gap-2">
-          {l.status === 'Pending' && (
-            <>
-              <Button
-                size="sm"
-                onClick={async () => {
-                  await approveLeave(l.id)
-                  toast.success('Leave approved')
-                  await fetchLeaves()
-                }}
-              >
-                Approve
-              </Button>
-              <Button
-                size="sm"
-                variant="danger"
-                onClick={async () => {
-                  await rejectLeave(l.id)
-                  toast.success('Leave rejected')
-                  await fetchLeaves()
-                }}
-              >
-                Reject
-              </Button>
-            </>
-          )}
-          {l.status === 'Approved' && (
-            <Button
-              size="sm"
-              variant="danger"
-              onClick={() => {
-                setLeaveToCancel(l)
-                setCancelModalOpen(true)
-              }}
-            >
-              Cancel Leave
-            </Button>
-          )}
+          <Button
+            size="sm"
+            onClick={async () => {
+              await approveLeave(l.id)
+              toast.success('Leave approved')
+              await fetchLeaves()
+            }}
+          >
+            Approve
+          </Button>
+          <Button
+            size="sm"
+            variant="danger"
+            onClick={async () => {
+              await rejectLeave(l.id)
+              toast.success('Leave rejected')
+              await fetchLeaves()
+            }}
+          >
+            Reject
+          </Button>
         </div>
       ),
     },
@@ -116,20 +73,7 @@ export function PendingLeaves() {
 
   return (
     <div className="space-y-6">
-      <DataTable columns={columns} data={leaves} loading={loading} />
-
-      <ConfirmModal
-        isOpen={cancelModalOpen}
-        title="Cancel Approved Leave"
-        description="Are you sure you want to cancel this approved leave?"
-        confirmLabel="Cancel Leave"
-        danger
-        onClose={() => {
-          setCancelModalOpen(false)
-          setLeaveToCancel(null)
-        }}
-        onConfirm={handleConfirmCancel}
-      />
+      <DataTable columns={columns} data={pending} loading={loading} empty="No pending leave requests." />
     </div>
   )
 }
