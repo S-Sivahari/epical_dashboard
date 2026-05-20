@@ -1,5 +1,5 @@
 export type EmploymentType = 'Full-time' | 'Contract' | 'Intern' | 'Notice Period'
-export type EmployeeStatus = 'Active' | 'Inactive' | 'Resigned' | 'On Leave' | 'Probation' | 'Deactivated' | 'Archived'
+export type EmployeeStatus = 'Active' | 'Inactive' | 'Notice Period' | 'Deactivated' | 'Archived'
 
 export interface Employee {
   id: string

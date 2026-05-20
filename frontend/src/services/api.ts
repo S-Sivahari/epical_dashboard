@@ -14,18 +14,29 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+let isRedirecting = false
+
 api.interceptors.response.use(
   (res) => res,
-  (err: { response?: { status?: number } }) => {
+  (err: { response?: { status?: number }; config?: { url?: string } }) => {
     const status = err.response?.status
     if (status === 401) {
-      localStorage.removeItem('hrms_token')
-      localStorage.removeItem('hrms_role')
-      if (!window.location.pathname.startsWith('/admin')) {
+      // Don't redirect if this is a login request itself
+      const url = err.config?.url ?? ''
+      if (url.includes('/auth/login')) {
         return Promise.reject(err)
       }
-      window.location.assign('/auth/login')
-      toast.error('Session expired. Please sign in again.')
+
+      localStorage.removeItem('hrms_token')
+      localStorage.removeItem('hrms_role')
+      localStorage.removeItem('hrms_user')
+
+      // Only redirect once to avoid multiple redirects from parallel API calls
+      if (!isRedirecting && window.location.pathname.startsWith('/admin')) {
+        isRedirecting = true
+        toast.error('Session expired. Please sign in again.')
+        window.location.assign('/auth/login')
+      }
     } else if (status && status >= 500) {
       toast.error('Server error. Please try again later.')
     }

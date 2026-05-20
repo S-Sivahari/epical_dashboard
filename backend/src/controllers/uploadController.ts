@@ -2,6 +2,33 @@ import { Request, Response } from 'express';
 import * as employeeService from '../services/employeeService';
 
 export const uploadController = {
+  // List uploaded documents for an employee
+  listDocuments: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const employee = await employeeService.getEmployeeById(id);
+
+      if (!employee) {
+        res.status(404).json({ error: 'Employee not found' });
+        return;
+      }
+
+      const documents = Object.entries(employee.documents ?? {})
+        .filter(([, doc]) => Boolean(doc))
+        .map(([key, doc]: [string, any]) => ({
+          key,
+          name: doc.filename,
+          uploadedAt: doc.uploadedAt,
+          url: `/api/employees/${id}/documents/${key}`,
+        }));
+
+      res.json(documents);
+    } catch (error: any) {
+      console.error('Error listing documents:', error);
+      res.status(500).json({ error: error?.message ?? 'Failed to list documents' });
+    }
+  },
+
   // Upload documents for an employee
   uploadDocuments: async (req: Request, res: Response): Promise<void> => {
     try {
@@ -28,7 +55,19 @@ export const uploadController = {
         }
       }
 
-      const employee = await employeeService.updateEmployee(id, { documents });
+      const existingEmployee = await employeeService.getEmployeeById(id);
+
+      if (!existingEmployee) {
+        res.status(404).json({ error: 'Employee not found' });
+        return;
+      }
+
+      const employee = await employeeService.updateEmployee(id, {
+        documents: {
+          ...(existingEmployee.documents ?? {}),
+          ...documents,
+        },
+      });
 
       if (!employee) {
         res.status(404).json({ error: 'Employee not found' });

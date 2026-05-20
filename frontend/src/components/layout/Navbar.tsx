@@ -1,5 +1,5 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, ArrowLeft } from 'lucide-react'
 import { useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Avatar } from '@components/ui/Avatar'
@@ -18,11 +18,16 @@ export function Navbar() {
   const isLg = useMediaQuery('(min-width: 1024px)')
 
   const title = useMemo(() => {
-    if (pathname === '/admin') return 'Dashboard'
+    if (pathname === '/admin' || pathname === '/employee') return 'Dashboard'
     const parts = pathname.split('/').filter(Boolean)
     const last = parts[parts.length - 1] ?? 'dashboard'
     if (last.match(/^[a-z0-9-]+$/i) && last.length < 24) return titleCase(last)
     return 'HRMS'
+  }, [pathname])
+
+  const showBack = useMemo(() => {
+    const parts = pathname.split('/').filter(Boolean)
+    return parts.length > 2
   }, [pathname])
 
   return (
@@ -30,9 +35,18 @@ export function Navbar() {
       className="fixed right-0 top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-white/90 px-4 backdrop-blur lg:left-[260px]"
       style={{ paddingLeft: isLg ? undefined : '3.25rem' }}
     >
-      <div className="min-w-0">
+      <div className="flex items-center gap-3 min-w-0">
+        {showBack && (
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="flex shrink-0 items-center justify-center rounded-lg border border-border bg-surface p-1.5 text-muted hover:text-ink transition-ui"
+            title="Go back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+        )}
         <p className="truncate font-display text-lg font-semibold text-ink">{title}</p>
-        <p className="truncate text-xs text-muted">Signed in as {user?.email}</p>
       </div>
       <div className="flex items-center gap-2 sm:gap-3">
         <DropdownMenu.Root>

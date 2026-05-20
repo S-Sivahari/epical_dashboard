@@ -21,12 +21,20 @@ export const useLeaveStore = create<LeaveState>((set, get) => ({
   loading: false,
   fetchLeaves: async () => {
     set({ loading: true })
-    const leaves = await leaveService.getLeaves()
-    set({ leaves, loading: false })
+    try {
+      const leaves = await leaveService.getLeaves()
+      set({ leaves, loading: false })
+    } catch {
+      set({ loading: false })
+    }
   },
   fetchHolidays: async () => {
-    const holidays = await leaveService.getHolidays()
-    set({ holidays })
+    try {
+      const holidays = await leaveService.getHolidays()
+      set({ holidays })
+    } catch {
+      // silently fail — interceptor handles 401 redirect
+    }
   },
   approveLeave: async (id) => {
     await leaveService.approveLeave(id)

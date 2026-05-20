@@ -26,8 +26,14 @@ router.post(
   '/employees/:id/documents',
   upload.fields([
     { name: 'aadhaarPan', maxCount: 1 },
+    { name: 'aadhaar', maxCount: 1 },
+    { name: 'pan', maxCount: 1 },
     { name: 'offerLetter', maxCount: 1 },
     { name: 'certificates', maxCount: 1 },
+    { name: 'certificate10th', maxCount: 1 },
+    { name: 'certificate12th', maxCount: 1 },
+    { name: 'certificateDiploma', maxCount: 1 },
+    { name: 'certificateDegree', maxCount: 1 },
     { name: 'agreement', maxCount: 1 },
   ]),
   uploadController.uploadDocuments
@@ -35,6 +41,9 @@ router.post(
 
 // Upload profile photo for an employee
 router.post('/employees/:id/photo', upload.single('photo'), uploadController.uploadPhoto);
+
+// List uploaded documents for an employee
+router.get('/employees/:id/documents', uploadController.listDocuments);
 
 // Get a specific document
 router.get('/employees/:id/documents/:docType', uploadController.getDocument);

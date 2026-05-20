@@ -17,7 +17,6 @@ import { useLeaveStore } from '@store/employee/leaveStore'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { useAuthStore } from '@store/authStore'
 import * as leaveService from '@services/leaveService'
-import { leaveBalances, holidays } from '@pages/employee/data/mockData'
 
 const leaveSchema = z
   .object({
@@ -39,25 +38,28 @@ const leaveSchema = z
     }
   })
 
-const leaveTypes = ['Sick Leave', 'Casual Leave', 'Earned Leave', 'Compensation Leave']
+const leaveTypes = ['Sick Leave', 'Casual Leave', 'Earned Leave']
 const leaveDurations = ['Full Day', 'Half Day']
 const halfDaySessions = ['First Half', 'Second Half']
 const columns = [
   { key: 'type', label: 'Leave Type' },
   { key: 'leaveDuration', label: 'Duration' },
-  { key: 'startDate', label: 'Start Date' },
-  { key: 'endDate', label: 'End Date' },
+  { key: 'from', label: 'Start Date' },
+  { key: 'to', label: 'End Date' },
   { key: 'days', label: 'Days' },
   { key: 'reason', label: 'Reason' },
   { key: 'status', label: 'Status' },
 ]
 
 export default function LeaveRequest() {
-  const { requests, addRequest } = useLeaveStore()
+  const { requests, fetchRequests, addRequest } = useLeaveStore()
   const { toast } = useToast()
   const user = useAuthStore((s) => s.user)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+
+  const [leaveBalances, setLeaveBalances] = useState([])
+  const [holidays, setHolidays] = useState([])
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(leaveSchema),
@@ -69,6 +71,26 @@ export default function LeaveRequest() {
   const leaveDuration = watch('leaveDuration')
   const fromDate = watch('fromDate')
   const toDate = watch('toDate')
+
+  useEffect(() => {
+    fetchRequests()
+    
+    // Fetch Balances
+    leaveService.getBalances().then((data) => {
+      const formatted = [
+        { key: 'casual', type: 'Casual Leave', used: data['Casual Leave']?.used || 0, total: data['Casual Leave']?.total || 12, color: '#16a34a' },
+        { key: 'sick', type: 'Sick Leave', used: data['Sick Leave']?.used || 0, total: data['Sick Leave']?.total || 12, color: '#3b82f6' },
+        { key: 'earned', type: 'Earned Leave', used: data['Earned Leave']?.used || 0, total: data['Earned Leave']?.total || 0, color: '#8b5cf6' },
+      ]
+      setLeaveBalances(formatted)
+    }).catch(console.error)
+
+    // Fetch Holidays
+    leaveService.getHolidays().then((data) => {
+      const formatted = data.map(h => ({ date: h.date, name: h.title }))
+      setHolidays(formatted)
+    }).catch(console.error)
+  }, [fetchRequests])
 
   useEffect(() => {
     if (leaveDuration === 'Half Day' && fromDate) {
@@ -89,28 +111,40 @@ export default function LeaveRequest() {
     }
 
     try {
-      const from = new Date(data.fromDate)
-      const to = new Date(data.toDate)
-      const days = data.leaveDuration === 'Half Day' ? 0.5 : Math.ceil((to - from) / (1000 * 60 * 60 * 24)) + 1
-
-      // Send to backend API
-      await leaveService.createLeave({
+      await addRequest({
         employeeId: user.id,
         employeeName: user.name,
         type: data.type,
         from: data.fromDate,
         to: data.toDate,
-        days,
         reason: data.reason,
       })
-
       toast({ title: 'Success', description: 'Leave request submitted successfully!' })
       reset({ leaveDuration: 'Full Day' })
+      
+      // Refresh balances after submission
+      const newBalances = await leaveService.getBalances()
+      setLeaveBalances([
+        { key: 'casual', type: 'Casual Leave', used: newBalances['Casual Leave']?.used || 0, total: newBalances['Casual Leave']?.total || 12, color: '#16a34a' },
+        { key: 'sick', type: 'Sick Leave', used: newBalances['Sick Leave']?.used || 0, total: newBalances['Sick Leave']?.total || 12, color: '#3b82f6' },
+        { key: 'earned', type: 'Earned Leave', used: newBalances['Earned Leave']?.used || 0, total: newBalances['Earned Leave']?.total || 0, color: '#8b5cf6' },
+      ])
     } catch (error) {
-      console.error('Failed to submit leave request:', error)
-      toast({ title: 'Error', description: 'Failed to submit leave request' })
+      toast({ title: 'Error', description: error.response?.data?.error || 'Failed to submit leave request' })
     }
   }
+
+  const leaveDates = requests
+    .filter((r) => r.status === 'Approved' || r.status === 'Pending')
+    .flatMap((r) => {
+      const dates = []
+      const start = new Date(r.from)
+      const end = new Date(r.to)
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        dates.push(d.toISOString().split('T')[0])
+      }
+      return dates
+    })
 
   return (
     <div className="space-y-6">
@@ -205,6 +239,7 @@ export default function LeaveRequest() {
                 { value: 'all', label: 'All Status' },
                 { value: 'approved', label: 'Approved' },
                 { value: 'pending', label: 'Pending' },
+                { value: 'rejected', label: 'Rejected' },
               ]}
             />
           </div>
@@ -213,7 +248,7 @@ export default function LeaveRequest() {
 
         <TabsContent value="calendar">
           <div className="grid gap-6 lg:grid-cols-2">
-            <CalendarWidget holidays={holidays} />
+            <CalendarWidget holidays={holidays} highlightDates={leaveDates} />
             <div className="rounded-xl border border-border bg-card p-6 shadow-card">
               <h3 className="font-heading font-semibold">Company Holidays</h3>
               <ul className="mt-4 space-y-2">

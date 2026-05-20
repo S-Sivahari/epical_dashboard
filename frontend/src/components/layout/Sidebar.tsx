@@ -30,8 +30,8 @@ const groups: {
   {
     label: 'People',
     items: [
-      { to: ROUTES.EMPLOYEES, label: 'Employees', icon: Users, end: true },
-      { to: ROUTES.LEAVES, label: 'Leave Management', icon: CalendarCheck },
+      { to: ROUTES.EMPLOYEES, label: 'Manage Employees', icon: Users, end: true },
+      { to: ROUTES.LEAVES, label: 'Manage Leaves', icon: CalendarCheck },
     ],
   },
   {

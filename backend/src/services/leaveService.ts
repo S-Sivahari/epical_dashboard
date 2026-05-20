@@ -2,6 +2,7 @@ import { Collection } from 'mongodb';
 import { getDB } from '../config/db';
 import { LeaveRequest, CreateLeavePayload } from '../models/Leave';
 import { Holiday } from '../models/Holiday';
+import { getBusinessDays, calculateBalances } from '../utils/leaveCalculator';
 
 let leaveCollection: Collection<any> | null = null;
 let holidayCollection: Collection<any> | null = null;
@@ -33,9 +34,30 @@ export async function getLeaveById(id: string): Promise<LeaveRequest | null> {
 
 export async function createLeave(payload: CreateLeavePayload): Promise<LeaveRequest> {
   const col = getLeaveCol();
+  
+  // 1. Fetch holidays
+  const holidays = await getAllHolidays();
+  
+  // 2. Calculate true business days (skip weekends & holidays)
+  const actualDays = getBusinessDays(payload.from, payload.to, holidays);
+  
+  if (actualDays <= 0) {
+    throw new Error('Leave request spans across weekends/holidays with 0 effective business days.');
+  }
+
+  // 3. Fetch employee balances to validate
+  const employeeLeaves = await getAllLeaves(payload.employeeId);
+  const balances = calculateBalances(employeeLeaves);
+  
+  const leaveBalance = balances[payload.type];
+  if (leaveBalance && leaveBalance.remaining < actualDays) {
+    throw new Error(`Insufficient ${payload.type} balance. Remaining: ${leaveBalance.remaining}, Requested: ${actualDays}`);
+  }
+
   const id = `L-${Date.now()}`;
   const leave: any = {
     ...payload,
+    days: actualDays, // Override days with the true calculated days
     id,
     status: 'Pending',
     createdAt: new Date(),
@@ -43,6 +65,11 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
   };
   await col.insertOne(leave);
   return leave as LeaveRequest;
+}
+
+export async function getLeaveBalances(employeeId: string) {
+  const leaves = await getAllLeaves(employeeId);
+  return calculateBalances(leaves);
 }
 
 export async function updateLeaveStatus(
