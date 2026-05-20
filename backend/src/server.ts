@@ -1,0 +1,146 @@
+import express from 'express';
+import cors from 'cors';
+import bodyParser from 'body-parser';
+import { connectDB, closeDB } from './config/db';
+import { env } from './config/env';
+
+// Routes
+import { authRoutes } from './routes/authRoutes';
+import { employeeRoutes } from './routes/employeeRoutes';
+import { leaveRoutes } from './routes/leaveRoutes';
+import { holidayRoutes } from './routes/holidayRoutes';
+import { ticketRoutes } from './routes/ticketRoutes';
+import { timesheetRoutes } from './routes/timesheetRoutes';
+import { uploadRoutes } from './routes/uploadRoutes';
+
+// Seed helpers
+import { seedDefaultUsers } from './services/authService';
+import { seedLeaves, seedHolidays } from './services/leaveService';
+import { seedTickets } from './services/ticketService';
+import { getDB } from './config/db';
+
+const app = express();
+
+// ── Middleware ────────────────────────────────────────────────
+app.use(cors({ origin: '*', credentials: true }));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+
+// ── Health check ──────────────────────────────────────────────
+app.get('/health', (_req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// ── API Routes ────────────────────────────────────────────────
+app.use('/api/auth', authRoutes);
+app.use('/api/employees', employeeRoutes);
+app.use('/api/leaves', leaveRoutes);
+app.use('/api/holidays', holidayRoutes);
+app.use('/api/tickets', ticketRoutes);
+app.use('/api/timesheets', timesheetRoutes);
+app.use('/api', uploadRoutes);
+
+// ── Stats endpoint (admin dashboard) ─────────────────────────
+app.get('/api/stats', async (_req, res) => {
+  try {
+    const db = getDB();
+    const [totalEmployees, activeEmployees, pendingLeaves, openTickets] = await Promise.all([
+      db.collection('employees').countDocuments(),
+      db.collection('employees').countDocuments({ status: 'Active' }),
+      db.collection('leaves').countDocuments({ status: 'Pending' }),
+      db.collection('tickets').countDocuments({ status: { $in: ['Pending', 'In Progress'] } }),
+    ]);
+    res.json({ totalEmployees, activeEmployees, pendingLeaves, openTickets });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
+
+// ── Full seed endpoint ────────────────────────────────────────
+app.post('/api/seed', async (_req, res) => {
+  try {
+    const users = await seedDefaultUsers();
+    await seedLeaves();
+    await seedHolidays();
+    await seedTickets();
+
+    // Seed sample employees if collection is empty
+    const db = getDB();
+    const empCount = await db.collection('employees').countDocuments();
+    if (empCount === 0) {
+      await db.collection('employees').insertMany([
+        {
+          id: 'E-1001', firstName: 'Asha', lastName: 'Menon',
+          department: 'Engineering', designation: 'Engineering Manager',
+          role: 'Engineering Manager', employmentType: 'Full-time',
+          joinedAt: '2021-03-15', status: 'Active',
+          email: 'asha.menon@company.com', phone: '+91 90000 10001',
+          ctc: 2400000, createdAt: new Date(), updatedAt: new Date(),
+        },
+        {
+          id: 'E-1002', firstName: 'Rahul', lastName: 'Verma',
+          department: 'People', designation: 'HR Business Partner',
+          role: 'HR Business Partner', employmentType: 'Full-time',
+          joinedAt: '2022-07-01', status: 'Active',
+          email: 'rahul.verma@company.com', phone: '+91 90000 10002',
+          createdAt: new Date(), updatedAt: new Date(),
+        },
+        {
+          id: 'E-1003', firstName: 'Meera', lastName: 'Iyer',
+          department: 'Finance', designation: 'Analyst',
+          role: 'Financial Analyst', employmentType: 'Full-time',
+          joinedAt: '2023-01-10', status: 'Probation',
+          email: 'meera.iyer@company.com',
+          createdAt: new Date(), updatedAt: new Date(),
+        },
+        {
+          id: 'E-1004', firstName: 'Dev', lastName: 'Patel',
+          department: 'Operations', designation: 'Ops Lead',
+          role: 'Operations Lead', employmentType: 'Contract',
+          joinedAt: '2020-11-20', status: 'On Leave',
+          email: 'dev.patel@company.com',
+          createdAt: new Date(), updatedAt: new Date(),
+        },
+      ]);
+    }
+
+    res.json({ message: 'Database seeded successfully', users });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Seeding failed' });
+  }
+});
+
+// ── 404 handler ───────────────────────────────────────────────
+app.use((_req, res) => {
+  res.status(404).json({ error: 'Route not found' });
+});
+
+// ── Error handler ─────────────────────────────────────────────
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('Unhandled error:', err);
+  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
+});
+
+// ── Start server ──────────────────────────────────────────────
+export async function startServer() {
+  try {
+    await connectDB();
+    app.listen(env.port, () => {
+      console.log(`✓ Server running on http://localhost:${env.port}`);
+      console.log(`✓ API base:    http://localhost:${env.port}/api`);
+      console.log(`✓ Seed data:   POST http://localhost:${env.port}/api/seed`);
+    });
+  } catch (error) {
+    console.error('✗ Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+process.on('SIGINT', async () => {
+  console.log('\nShutting down gracefully...');
+  await closeDB();
+  process.exit(0);
+});
+
+// Start server if this is the main module
+startServer();
