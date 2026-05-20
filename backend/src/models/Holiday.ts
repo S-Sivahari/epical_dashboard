@@ -5,5 +5,8 @@ export interface Holiday {
   id: string;
   title: string;
   date: string;
+  description?: string;
+  type: 'National' | 'Company' | 'Optional';
   createdAt?: Date;
+  updatedAt?: Date;
 }

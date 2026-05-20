@@ -32,7 +32,7 @@ export interface Employee {
   [key: string]: unknown
 }
 
-export type LeaveStatus = 'Pending' | 'Approved' | 'Rejected'
+export type LeaveStatus = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled'
 
 export interface LeaveRequest {
   id: string
@@ -54,6 +54,8 @@ export interface Holiday {
   id: string
   title: string
   date: string
+  description?: string
+  type: 'National' | 'Company' | 'Optional'
 }
 
 export interface CompensationLeave {

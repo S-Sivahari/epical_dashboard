@@ -132,12 +132,38 @@ export async function getAllHolidays(): Promise<Holiday[]> {
   return holidays as Holiday[];
 }
 
-export async function createHoliday(payload: { title: string; date: string }): Promise<Holiday> {
+export async function getHolidayById(id: string): Promise<Holiday | null> {
+  const col = getHolidayCol();
+  const holiday = await col.findOne({ id });
+  return holiday as Holiday | null;
+}
+
+export async function checkDuplicateHoliday(date: string, excludeId?: string): Promise<boolean> {
+  const col = getHolidayCol();
+  const query: any = { date };
+  if (excludeId) {
+    query.id = { $ne: excludeId };
+  }
+  const existing = await col.findOne(query);
+  return !!existing;
+}
+
+export async function createHoliday(payload: { title: string; date: string; description?: string; type: 'National' | 'Company' | 'Optional' }): Promise<Holiday> {
   const col = getHolidayCol();
   const id = `H-${Date.now()}`;
-  const holiday: any = { ...payload, id, createdAt: new Date() };
+  const holiday: any = { ...payload, id, createdAt: new Date(), updatedAt: new Date() };
   await col.insertOne(holiday);
   return holiday as Holiday;
+}
+
+export async function updateHoliday(id: string, payload: { title?: string; date?: string; description?: string; type?: 'National' | 'Company' | 'Optional' }): Promise<Holiday | null> {
+  const col = getHolidayCol();
+  const result = await col.findOneAndUpdate(
+    { id },
+    { $set: { ...payload, updatedAt: new Date() } },
+    { returnDocument: 'after' }
+  );
+  return result as Holiday | null;
 }
 
 export async function deleteHoliday(id: string): Promise<boolean> {

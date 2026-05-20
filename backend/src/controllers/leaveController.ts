@@ -134,12 +134,39 @@ export const leaveController = {
   // POST /api/holidays
   createHoliday: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { title, date } = req.body;
+      const { title, date, description, type } = req.body;
       if (!title || !date) { res.status(400).json({ error: 'title and date required' }); return; }
-      const holiday = await leaveService.createHoliday({ title, date });
+      
+      // Check for duplicate holiday on the same date
+      const isDuplicate = await leaveService.checkDuplicateHoliday(date);
+      if (isDuplicate) { res.status(409).json({ error: 'Holiday already exists on this date' }); return; }
+      
+      const holiday = await leaveService.createHoliday({ title, date, description, type: type || 'National' });
       res.status(201).json(holiday);
     } catch {
       res.status(500).json({ error: 'Failed to create holiday' });
+    }
+  },
+
+  // PUT /api/holidays/:id
+  updateHoliday: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { title, date, description, type } = req.body;
+      const id = req.params.id;
+      
+      const existing = await leaveService.getHolidayById(id);
+      if (!existing) { res.status(404).json({ error: 'Holiday not found' }); return; }
+      
+      // Check for duplicate holiday on the same date (if date changed)
+      if (date && date !== existing.date) {
+        const isDuplicate = await leaveService.checkDuplicateHoliday(date, id);
+        if (isDuplicate) { res.status(409).json({ error: 'Holiday already exists on this date' }); return; }
+      }
+      
+      const holiday = await leaveService.updateHoliday(id, { title, date, description, type });
+      res.json(holiday);
+    } catch {
+      res.status(500).json({ error: 'Failed to update holiday' });
     }
   },
 
