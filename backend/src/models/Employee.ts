@@ -22,8 +22,6 @@ export interface Employee {
   joinedAt: string;
   status: EmployeeStatus;
   avatarUrl?: string;
-  reportingManagerId?: string;
-  reportingManager?: string;
   salaryGrade?: string;
   ctc?: number;
   // Account details

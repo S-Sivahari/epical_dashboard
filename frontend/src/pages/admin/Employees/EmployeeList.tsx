@@ -17,6 +17,7 @@ import { useDebounce } from '@hooks/useDebounce'
 import type { Employee } from '@/types'
 import { stringToHueColor } from '@/utils/stringColor'
 import * as employeeService from '@services/employeeService'
+import { getPhotoUrl } from '@/services/uploadService'
 import { exportToExcel } from '@/utils/exportExcel'
 import { exportToPDF } from '@/utils/exportPDF'
 import { formatDate } from '@/utils/formatDate'
@@ -123,7 +124,7 @@ export function EmployeeList() {
         const name = `${e.firstName} ${e.lastName}`
         return (
           <Link to={`/admin/employees/${e.id}`} className="flex items-center gap-3 group">
-            <Avatar name={name} color={stringToHueColor(e.id)} />
+            <Avatar src={getPhotoUrl(e.id)} name={name} color={stringToHueColor(e.id)} />
             <div>
               <p className="font-medium text-ink group-hover:text-primary transition-ui">{name}</p>
               <p className="text-xs text-muted">{e.email}</p>
@@ -250,7 +251,6 @@ export function EmployeeList() {
               { value: 'Full-time', label: 'Full-time' },
               { value: 'Contract', label: 'Contract' },
               { value: 'Intern', label: 'Intern' },
-              { value: 'Notice Period', label: 'Notice Period' },
             ]}
           />
           <SelectField
