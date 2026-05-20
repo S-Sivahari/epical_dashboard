@@ -89,6 +89,6 @@ export const MOCK_LEAVES: LeaveRequest[] = [
 ]
 
 export const MOCK_HOLIDAYS: Holiday[] = [
-  { id: 'H-1', title: 'Independence Day', date: '2026-08-15' },
-  { id: 'H-2', title: 'Diwali', date: '2026-11-08' },
+  { id: 'H-1', title: 'Independence Day', date: '2026-08-15', type: 'National', description: 'National holiday celebrating independence' },
+  { id: 'H-2', title: 'Diwali', date: '2026-11-08', type: 'National', description: 'Festival of lights' },
 ]

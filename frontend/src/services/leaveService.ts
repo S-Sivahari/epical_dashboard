@@ -32,6 +32,15 @@ export async function addHoliday(payload: Omit<Holiday, 'id'>) {
   return response.data as Holiday
 }
 
+export async function updateHoliday(id: string, payload: Partial<Omit<Holiday, 'id'>>) {
+  const response = await api.put(`/holidays/${id}`, payload)
+  return response.data as Holiday
+}
+
+export async function deleteHoliday(id: string) {
+  await api.delete(`/holidays/${id}`)
+}
+
 export async function getHolidays() {
   const response = await api.get('/holidays')
   return response.data as Holiday[]
