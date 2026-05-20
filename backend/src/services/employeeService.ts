@@ -54,8 +54,8 @@ export async function getAllEmployees(
   if (filters.status && filters.status !== 'all') {
     query.status = filters.status;
   } else {
-    // Default: exclude Deactivated and Archived
-    query.status = { $nin: ['Deactivated', 'Archived'] };
+    // Default: keep deactivated accounts visible so they can be reactivated.
+    query.status = { $ne: 'Archived' };
   }
 
 

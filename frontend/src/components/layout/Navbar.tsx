@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { Avatar } from '@components/ui/Avatar'
 import { useAuthStore } from '@store/authStore'
 import { useMediaQuery } from '@hooks/useMediaQuery'
+import { APP_SHORT_NAME } from '@/utils/constants'
 
 function titleCase(slug: string) {
   return slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
@@ -22,7 +23,7 @@ export function Navbar() {
     const parts = pathname.split('/').filter(Boolean)
     const last = parts[parts.length - 1] ?? 'dashboard'
     if (last.match(/^[a-z0-9-]+$/i) && last.length < 24) return titleCase(last)
-    return 'HRMS'
+    return APP_SHORT_NAME
   }, [pathname])
 
   const showBack = useMemo(() => {

@@ -28,6 +28,11 @@ export async function uploadPhoto(employeeId: string, photo: File) {
   return response.data
 }
 
+export async function deleteDocument(employeeId: string, docType: string) {
+  const response = await api.delete(`/employees/${employeeId}/documents/${docType}`)
+  return response.data
+}
+
 export function getDocumentUrl(employeeId: string, docType: string) {
   return `${api.defaults.baseURL}/employees/${employeeId}/documents/${docType}`
 }

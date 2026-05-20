@@ -13,8 +13,8 @@ import { SelectField } from '@components/forms/SelectField'
 import { FileUpload } from '@components/forms/FileUpload'
 import * as employeeService from '@services/employeeService'
 import { useEmployeeStore } from '@store/employeeStore'
-import { uploadDocuments, uploadPhoto } from '@services/uploadService'
-import { ExternalLink, FileText } from 'lucide-react'
+import { deleteDocument, uploadDocuments, uploadPhoto } from '@services/uploadService'
+import { ExternalLink, FileText, Trash2 } from 'lucide-react'
 
 // ── Validation ────────────────────────────────────────────────────────────────
 
@@ -175,7 +175,11 @@ function buildExistingDocuments(employee: any, fallbackDocs: ExistingDocument[])
 
       acc[key] = filename
         ? {
-            key,
+            key:
+              fallbackDoc?.key ??
+              legacyAadhaarFallback?.key ??
+              legacyFallback?.key ??
+              key,
             name: filename,
             uploadedAt:
               directDoc?.uploadedAt ??
@@ -317,6 +321,25 @@ export function EditEmployee() {
       if (p[key]) URL.revokeObjectURL(p[key])
       return { ...p, [key]: error ? null : URL.createObjectURL(file) }
     })
+  }
+
+  const removeSelectedDocument = (key: DocKey) => {
+    handleDocumentUpload(key, null)
+  }
+
+  const deleteExistingDocument = async (key: DocKey) => {
+    const doc = existingDocuments[key]
+    if (!doc) return
+
+    try {
+      await deleteDocument(id, doc.key)
+      setExistingDocuments((prev) => ({ ...prev, [key]: null }))
+      toast.success('Document deleted')
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.error ?? (err instanceof Error ? err.message : 'Could not delete document')
+      toast.error(msg)
+    }
   }
 
   const handlePhotoUpload = (files: FileList | null) => {
@@ -651,6 +674,14 @@ export function EditEmployee() {
                           <ExternalLink className="h-4 w-4" />
                         </a>
                       ) : null}
+                      <button
+                        type="button"
+                        className="shrink-0 rounded-md p-1.5 text-danger transition-ui hover:bg-danger/10"
+                        title="Delete document"
+                        onClick={() => void deleteExistingDocument(key)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
                 ) : (
@@ -658,12 +689,23 @@ export function EditEmployee() {
                     <p className="text-xs text-muted">No file uploaded yet.</p>
                   </div>
                 )}
-                <FileUpload
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onUpload={(files) => handleDocumentUpload(key, files)}
-                />
+                {!existingDocuments[key] ? (
+                  <FileUpload
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onUpload={(files) => handleDocumentUpload(key, files)}
+                  />
+                ) : null}
                 {documentFiles[key] ? (
-                  <p className="mt-2 text-sm text-ink">Selected: {documentFiles[key]?.name}</p>
+                  <div className="mt-2 flex items-center justify-between gap-3">
+                    <p className="truncate text-sm text-ink">Selected: {documentFiles[key]?.name}</p>
+                    <button
+                      type="button"
+                      className="shrink-0 text-xs font-medium text-danger hover:underline"
+                      onClick={() => removeSelectedDocument(key)}
+                    >
+                      Remove
+                    </button>
+                  </div>
                 ) : null}
                 {documentErrors[key] ? (
                   <p className="mt-1 text-xs text-danger">{documentErrors[key]}</p>
@@ -686,12 +728,14 @@ export function EditEmployee() {
                   label: option.label,
                 }))}
               />
-              <div className="mt-4">
-                <FileUpload
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onUpload={(files) => handleDocumentUpload(selectedCertificateKey, files)}
-                />
-              </div>
+              {!selectedCertificate ? (
+                <div className="mt-4">
+                  <FileUpload
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onUpload={(files) => handleDocumentUpload(selectedCertificateKey, files)}
+                  />
+                </div>
+              ) : null}
               {selectedCertificateFile || selectedCertificate ? (
                 <div className="mt-4 rounded-lg border border-border bg-white px-3 py-2">
                   <div className="flex items-start gap-3">
@@ -717,6 +761,25 @@ export function EditEmployee() {
                         <ExternalLink className="h-4 w-4" />
                       </a>
                     ) : null}
+                    {selectedCertificateFile ? (
+                      <button
+                        type="button"
+                        className="shrink-0 rounded-md p-1.5 text-danger transition-ui hover:bg-danger/10"
+                        title="Remove selected certificate"
+                        onClick={() => removeSelectedDocument(selectedCertificateKey)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    ) : selectedCertificate ? (
+                      <button
+                        type="button"
+                        className="shrink-0 rounded-md p-1.5 text-danger transition-ui hover:bg-danger/10"
+                        title="Delete certificate"
+                        onClick={() => void deleteExistingDocument(selectedCertificateKey)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               ) : null}
@@ -739,6 +802,17 @@ export function EditEmployee() {
                     className="mx-auto h-20 w-20 rounded-full border border-border object-cover"
                   />
                   <p className="mt-2 truncate text-xs text-ink">{photoFile?.name}</p>
+                  <button
+                    type="button"
+                    className="mt-2 text-xs font-medium text-danger hover:underline"
+                    onClick={() => {
+                      setPhotoFile(null)
+                      setPhotoPreview(null)
+                      setPhotoError(null)
+                    }}
+                  >
+                    Remove
+                  </button>
                 </div>
               ) : null}
               {photoError ? <p className="mt-2 text-xs text-danger">{photoError}</p> : null}
