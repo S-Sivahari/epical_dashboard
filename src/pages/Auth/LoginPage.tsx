@@ -35,8 +35,9 @@ export function LoginPage() {
       await login(values.email, values.password)
       toast.success('Welcome back')
       navigate('/dashboard', { replace: true })
-    } catch {
-      toast.error('Unable to sign in')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to sign in'
+      toast.error(message)
     }
   })
 

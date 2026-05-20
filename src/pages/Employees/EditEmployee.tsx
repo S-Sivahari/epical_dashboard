@@ -14,7 +14,7 @@ import type { Employee } from '@/types'
 
 type FormValues = Pick<
   Employee,
-  'firstName' | 'lastName' | 'department' | 'designation' | 'employmentType' | 'joinedAt' | 'status' | 'email'
+  'firstName' | 'lastName' | 'department' | 'designation' | 'employmentType' | 'employmentStatus' | 'joinedAt' | 'status' | 'email'
 >
 
 export function EditEmployee() {
@@ -36,6 +36,7 @@ export function EditEmployee() {
           department: e.department,
           designation: e.designation,
           employmentType: e.employmentType,
+          employmentStatus: e.employmentStatus || 'Active',
           joinedAt: e.joinedAt,
           status: e.status,
           email: e.email,
@@ -100,6 +101,16 @@ export function EditEmployee() {
             { value: 'Intern', label: 'Intern' },
           ]}
           {...form.register('employmentType')}
+        />
+        <SelectField
+          label="Employment status"
+          required
+          options={[
+            { value: 'Active', label: 'Active' },
+            { value: 'Notice Period', label: 'Notice Period' },
+            { value: 'Inactive', label: 'Inactive' },
+          ]}
+          {...form.register('employmentStatus')}
         />
         <SelectField
           label="Status"

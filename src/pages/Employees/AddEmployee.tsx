@@ -35,6 +35,7 @@ const step2 = z.object({
 const step3 = z.object({
   joinedAt: z.string().min(1, 'Required'),
   employmentType: z.enum(['Full-time', 'Contract', 'Intern']),
+  employmentStatus: z.enum(['Active', 'Notice Period', 'Inactive']),
   designation: z.string().min(2, 'Required'),
   department: z.string().min(2, 'Required'),
   reportingManager: z.string().min(1, 'Required'),
@@ -56,6 +57,7 @@ const steps = ['Personal', 'Payment', 'Joining', 'ID Proof']
 const defaultValues: Partial<FullValues> = {
   gender: 'Female',
   employmentType: 'Full-time',
+  employmentStatus: 'Active',
   pfEsi: 'on',
   passport: '',
   ctc: 1200000,
@@ -77,7 +79,7 @@ export function AddEmployee() {
     const keys: (keyof FullValues)[][] = [
       ['firstName', 'lastName', 'dob', 'gender', 'phone', 'personalEmail', 'companyEmail'],
       ['bankName', 'accountNumber', 'ifsc', 'salaryGrade', 'uan', 'pfEsi'],
-      ['joinedAt', 'employmentType', 'designation', 'department', 'reportingManager', 'role', 'ctc'],
+      ['joinedAt', 'employmentType', 'employmentStatus', 'designation', 'department', 'reportingManager', 'role', 'ctc'],
       ['aadhaar', 'pan', 'passport'],
     ]
     const parsed = schemas[step].safeParse(pick(keys[step]))
@@ -192,6 +194,16 @@ export function AddEmployee() {
                   { value: 'Intern', label: 'Intern' },
                 ]}
                 {...form.register('employmentType')}
+              />
+              <SelectField
+                label="Employment status"
+                required
+                options={[
+                  { value: 'Active', label: 'Active' },
+                  { value: 'Notice Period', label: 'Notice Period' },
+                  { value: 'Inactive', label: 'Inactive' },
+                ]}
+                {...form.register('employmentStatus')}
               />
               <Input label="Designation" required {...form.register('designation')} />
               <Input label="Department" required {...form.register('department')} />

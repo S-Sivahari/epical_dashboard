@@ -1,9 +1,10 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import { PageLoading } from '@components/layout/PageLoading'
 import { AuthLayout } from '@layouts/AuthLayout'
 import { DashboardLayout } from '@layouts/DashboardLayout'
 import { ProtectedRoute } from '@routes/ProtectedRoute'
+import { useAuthStore } from '@store/authStore'
 
 const LoginPage = lazy(async () => {
   const m = await import('@pages/Auth/LoginPage')
@@ -91,6 +92,12 @@ const NotFound = lazy(async () => {
 })
 
 export function AppRoutes() {
+  const hydrate = useAuthStore((s) => s.hydrate)
+
+  useEffect(() => {
+    hydrate()
+  }, [hydrate])
+
   return (
     <Suspense fallback={<PageLoading />}>
       <Routes>

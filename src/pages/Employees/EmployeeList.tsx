@@ -53,7 +53,16 @@ export function EmployeeList() {
     },
     { key: 'department', header: 'Department' },
     { key: 'designation', header: 'Designation' },
-    { key: 'employmentType', header: 'Type' },
+    {
+      key: 'employmentType',
+      header: 'Employment',
+      render: (e) => (
+        <div>
+          <p className="font-medium text-ink">{e.employmentType}</p>
+          <p className="text-xs text-muted">{e.employmentStatus || 'Active'}</p>
+        </div>
+      ),
+    },
     {
       key: 'joinedAt',
       header: 'Joined',
@@ -127,6 +136,17 @@ export function EmployeeList() {
               { value: 'Full-time', label: 'Full-time' },
               { value: 'Contract', label: 'Contract' },
               { value: 'Intern', label: 'Intern' },
+            ]}
+          />
+          <SelectField
+            label="Employment status"
+            value={filters.employmentStatus}
+            onChange={(e) => setFilters({ employmentStatus: e.target.value })}
+            options={[
+              { value: 'all', label: 'All statuses' },
+              { value: 'Active', label: 'Active' },
+              { value: 'Notice Period', label: 'Notice Period' },
+              { value: 'Inactive', label: 'Inactive' },
             ]}
           />
           <SelectField

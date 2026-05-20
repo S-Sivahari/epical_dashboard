@@ -9,6 +9,7 @@ export async function getEmployees(params?: {
   q?: string
   department?: string
   employmentType?: string
+  employmentStatus?: string
   status?: string
   page?: number
   pageSize?: number
@@ -29,6 +30,9 @@ export async function getEmployees(params?: {
   }
   if (params?.employmentType && params.employmentType !== 'all') {
     list = list.filter((e) => e.employmentType === params.employmentType)
+  }
+  if (params?.employmentStatus && params.employmentStatus !== 'all') {
+    list = list.filter((e) => (e.employmentStatus || 'Active') === params.employmentStatus)
   }
   if (params?.status && params.status !== 'all') {
     list = list.filter((e) => e.status === params.status)

@@ -6,6 +6,7 @@ interface EmployeeFilters {
   q: string
   department: string
   employmentType: string
+  employmentStatus: string
   status: string
 }
 
@@ -27,7 +28,7 @@ interface EmployeeState {
 export const useEmployeeStore = create<EmployeeState>((set, get) => ({
   employees: [],
   selectedEmployee: null,
-  filters: { q: '', department: 'all', employmentType: 'all', status: 'all' },
+  filters: { q: '', department: 'all', employmentType: 'all', employmentStatus: 'all', status: 'all' },
   pagination: { page: 1, pageSize: 10, total: 0 },
   loading: false,
   setFilters: (f) => set({ filters: { ...get().filters, ...f }, pagination: { ...get().pagination, page: 1 } }),
@@ -42,6 +43,7 @@ export const useEmployeeStore = create<EmployeeState>((set, get) => ({
         q: filters.q || undefined,
         department: filters.department,
         employmentType: filters.employmentType,
+        employmentStatus: filters.employmentStatus,
         status: filters.status,
         page: pagination.page,
         pageSize: pagination.pageSize,
