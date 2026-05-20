@@ -2,19 +2,13 @@ import api from '@services/api'
 
 export async function uploadDocuments(
   employeeId: string,
-  documents: {
-    aadhaarPan?: File | null
-    offerLetter?: File | null
-    certificates?: File | null
-    agreement?: File | null
-  }
+  documents: Record<string, File | null | undefined>
 ) {
   const formData = new FormData()
 
-  if (documents.aadhaarPan) formData.append('aadhaarPan', documents.aadhaarPan)
-  if (documents.offerLetter) formData.append('offerLetter', documents.offerLetter)
-  if (documents.certificates) formData.append('certificates', documents.certificates)
-  if (documents.agreement) formData.append('agreement', documents.agreement)
+  Object.entries(documents).forEach(([key, file]) => {
+    if (file) formData.append(key, file)
+  })
 
   const response = await api.post(`/employees/${employeeId}/documents`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },

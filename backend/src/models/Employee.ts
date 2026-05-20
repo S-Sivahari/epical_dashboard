@@ -39,8 +39,14 @@ export interface Employee {
   // Documents (stored as Base64 or file metadata)
   documents?: {
     aadhaarPan?: { filename: string; data: string; contentType: string; uploadedAt: Date };
+    aadhaar?: { filename: string; data: string; contentType: string; uploadedAt: Date };
+    pan?: { filename: string; data: string; contentType: string; uploadedAt: Date };
     offerLetter?: { filename: string; data: string; contentType: string; uploadedAt: Date };
     certificates?: { filename: string; data: string; contentType: string; uploadedAt: Date };
+    certificate10th?: { filename: string; data: string; contentType: string; uploadedAt: Date };
+    certificate12th?: { filename: string; data: string; contentType: string; uploadedAt: Date };
+    certificateDiploma?: { filename: string; data: string; contentType: string; uploadedAt: Date };
+    certificateDegree?: { filename: string; data: string; contentType: string; uploadedAt: Date };
     agreement?: { filename: string; data: string; contentType: string; uploadedAt: Date };
   };
   // Profile photo

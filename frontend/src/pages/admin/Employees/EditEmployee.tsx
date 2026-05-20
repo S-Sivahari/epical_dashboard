@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useForm } from 'react-hook-form'
@@ -14,6 +14,7 @@ import { FileUpload } from '@components/forms/FileUpload'
 import * as employeeService from '@services/employeeService'
 import { useEmployeeStore } from '@store/employeeStore'
 import { uploadDocuments, uploadPhoto } from '@services/uploadService'
+import { ExternalLink, FileText } from 'lucide-react'
 
 // ── Validation ────────────────────────────────────────────────────────────────
 
@@ -71,13 +72,65 @@ type FormValues = z.infer<typeof editSchema>
 
 // ── Document types ────────────────────────────────────────────────────────────
 
-type DocKey = 'aadhaarPan' | 'offerLetter' | 'certificates' | 'agreement'
+type DocKey =
+  | 'aadhaar'
+  | 'pan'
+  | 'offerLetter'
+  | 'certificate10th'
+  | 'certificate12th'
+  | 'certificateDiploma'
+  | 'certificateDegree'
+  | 'agreement'
+type StandardDocKey = 'aadhaar' | 'pan' | 'offerLetter' | 'agreement'
+type CertificateDocKey =
+  | 'certificate10th'
+  | 'certificate12th'
+  | 'certificateDiploma'
+  | 'certificateDegree'
+type ExistingDocument = { key: string; name: string; url: string; uploadedAt?: string }
+type EmployeeDocuments = Partial<Record<DocKey, { filename?: string; uploadedAt?: string }>>
 
-const DOCUMENT_TYPES: Record<DocKey, string> = {
-  aadhaarPan: 'Aadhaar / PAN',
+const DOCUMENT_TYPES: Record<StandardDocKey, string> = {
+  aadhaar: 'Aadhaar',
+  pan: 'PAN',
   offerLetter: 'Offer Letter',
-  certificates: 'Certificates',
   agreement: 'Agreement',
+}
+
+const CERTIFICATE_TYPES: Record<CertificateDocKey, string> = {
+  certificate10th: '10th Certificate',
+  certificate12th: '12th Certificate',
+  certificateDiploma: 'Diploma Certificate',
+  certificateDegree: 'Degree Certificate',
+}
+
+const CERTIFICATE_OPTIONS: { key: CertificateDocKey; label: string }[] = [
+  { key: 'certificateDegree', label: 'Degree' },
+  { key: 'certificateDiploma', label: 'Diploma' },
+  { key: 'certificate10th', label: '10th' },
+  { key: 'certificate12th', label: '12th' },
+]
+
+const ALL_DOCUMENT_KEYS: DocKey[] = [
+  'aadhaar',
+  'pan',
+  'offerLetter',
+  'agreement',
+  'certificate10th',
+  'certificate12th',
+  'certificateDiploma',
+  'certificateDegree',
+]
+
+const EMPTY_DOCUMENTS: Record<DocKey, null> = {
+  aadhaar: null,
+  pan: null,
+  offerLetter: null,
+  agreement: null,
+  certificate10th: null,
+  certificate12th: null,
+  certificateDiploma: null,
+  certificateDegree: null,
 }
 
 const ALLOWED_DOC_TYPES = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png']
@@ -91,6 +144,60 @@ function validateFile(file: File, allowedTypes: string[], maxSize: number): stri
   return null
 }
 
+function buildExistingDocuments(employee: any, fallbackDocs: ExistingDocument[]) {
+  const directDocuments = employee?.documents as EmployeeDocuments | undefined
+  const fallbackMap = fallbackDocs.reduce<Record<string, ExistingDocument>>((acc, doc) => {
+    acc[doc.key] = doc
+    return acc
+  }, {})
+
+  return ALL_DOCUMENT_KEYS.reduce<Record<DocKey, ExistingDocument | null>>(
+    (acc, key) => {
+      const directDoc = directDocuments?.[key]
+      const fallbackDoc = fallbackMap[key]
+      const legacyAadhaarPan =
+        key === 'aadhaar'
+          ? ((employee?.documents as any)?.aadhaarPan as { filename?: string; uploadedAt?: string } | undefined)
+          : undefined
+      const legacyAadhaarFallback = key === 'aadhaar' ? fallbackMap.aadhaarPan : undefined
+      const legacyCertificate =
+        key === 'certificateDegree'
+          ? ((employee?.documents as any)?.certificates as { filename?: string; uploadedAt?: string } | undefined)
+          : undefined
+      const legacyFallback = key === 'certificateDegree' ? fallbackMap.certificates : undefined
+      const filename =
+        directDoc?.filename ??
+        fallbackDoc?.name ??
+        legacyAadhaarPan?.filename ??
+        legacyAadhaarFallback?.name ??
+        legacyCertificate?.filename ??
+        legacyFallback?.name
+
+      acc[key] = filename
+        ? {
+            key,
+            name: filename,
+            uploadedAt:
+              directDoc?.uploadedAt ??
+              fallbackDoc?.uploadedAt ??
+              legacyAadhaarPan?.uploadedAt ??
+              legacyAadhaarFallback?.uploadedAt ??
+              legacyCertificate?.uploadedAt ??
+              legacyFallback?.uploadedAt,
+            url:
+              fallbackDoc?.url ??
+              legacyAadhaarFallback?.url ??
+              legacyFallback?.url ??
+              `/api/employees/${employee?.id}/documents/${key}`,
+          }
+        : null
+
+      return acc
+    },
+    { ...EMPTY_DOCUMENTS },
+  )
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function EditEmployee() {
@@ -100,19 +207,19 @@ export function EditEmployee() {
 
   const [pageLoading, setPageLoading] = useState(true)
   const [employeeName, setEmployeeName] = useState('')
+  const [existingDocuments, setExistingDocuments] =
+    useState<Record<DocKey, ExistingDocument | null>>({ ...EMPTY_DOCUMENTS })
 
   const [documentFiles, setDocumentFiles] = useState<Record<DocKey, File | null>>({
-    aadhaarPan: null,
-    offerLetter: null,
-    certificates: null,
-    agreement: null,
+    ...EMPTY_DOCUMENTS,
   })
-  const [documentErrors, setDocumentErrors] = useState<Record<DocKey, string | null>>({
-    aadhaarPan: null,
-    offerLetter: null,
-    certificates: null,
-    agreement: null,
-  })
+  const [documentErrors, setDocumentErrors] =
+    useState<Record<DocKey, string | null>>({ ...EMPTY_DOCUMENTS })
+  const [documentPreviews, setDocumentPreviews] =
+    useState<Record<DocKey, string | null>>({ ...EMPTY_DOCUMENTS })
+  const documentPreviewsRef = useRef<Record<DocKey, string | null>>({ ...EMPTY_DOCUMENTS })
+  const [selectedCertificateKey, setSelectedCertificateKey] =
+    useState<CertificateDocKey>('certificateDegree')
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [photoError, setPhotoError] = useState<string | null>(null)
@@ -128,8 +235,10 @@ export function EditEmployee() {
     void (async () => {
       try {
         const e = await employeeService.getEmployee(id)
+        const docs = await employeeService.getEmployeeDocuments(id)
         if (cancelled) return
         setEmployeeName(`${e.firstName} ${e.lastName ?? ''}`.trim())
+        setExistingDocuments(buildExistingDocuments(e, docs))
         form.reset({
           employeeId: e.employeeId ?? '',
           firstName: e.firstName,
@@ -178,16 +287,36 @@ export function EditEmployee() {
     }
   }, [photoPreview])
 
+  useEffect(() => {
+    documentPreviewsRef.current = documentPreviews
+  }, [documentPreviews])
+
+  useEffect(() => {
+    return () => {
+      Object.values(documentPreviewsRef.current).forEach((url) => {
+        if (url) URL.revokeObjectURL(url)
+      })
+    }
+  }, [])
+
   const handleDocumentUpload = (key: DocKey, files: FileList | null) => {
     const file = files?.[0] ?? null
     if (!file) {
       setDocumentFiles((p) => ({ ...p, [key]: null }))
       setDocumentErrors((p) => ({ ...p, [key]: null }))
+      setDocumentPreviews((p) => {
+        if (p[key]) URL.revokeObjectURL(p[key])
+        return { ...p, [key]: null }
+      })
       return
     }
     const error = validateFile(file, ALLOWED_DOC_TYPES, MAX_DOC_SIZE)
     setDocumentErrors((p) => ({ ...p, [key]: error }))
     setDocumentFiles((p) => ({ ...p, [key]: error ? null : file }))
+    setDocumentPreviews((p) => {
+      if (p[key]) URL.revokeObjectURL(p[key])
+      return { ...p, [key]: error ? null : URL.createObjectURL(file) }
+    })
   }
 
   const handlePhotoUpload = (files: FileList | null) => {
@@ -276,6 +405,10 @@ export function EditEmployee() {
       </PageWrapper>
     )
   }
+
+  const selectedCertificate = existingDocuments[selectedCertificateKey]
+  const selectedCertificateFile = documentFiles[selectedCertificateKey]
+  const selectedCertificatePreview = documentPreviews[selectedCertificateKey]
 
   return (
     <PageWrapper>
@@ -486,14 +619,45 @@ export function EditEmployee() {
 
         {/* ── Section 5: Documents ────────────────────────────────────── */}
         <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
-          <h3 className="mb-1 font-display text-lg font-semibold text-ink">Employee Documents</h3>
+          <h3 className="mb-8 font-display text-lg font-semibold text-ink">Employee Documents</h3>
           <p className="mb-6 text-sm text-muted">
             Upload or replace documents. Allowed: .pdf, .jpg, .jpeg, .png · Max 5 MB each.
           </p>
-          <div className="grid gap-4 md:grid-cols-2">
-            {(Object.entries(DOCUMENT_TYPES) as [DocKey, string][]).map(([key, label]) => (
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {(Object.entries(DOCUMENT_TYPES) as [StandardDocKey, string][]).map(([key, label]) => (
               <div key={key} className="rounded-xl border border-border bg-surface p-4">
                 <p className="mb-1 font-medium text-ink">{label}</p>
+                {existingDocuments[key] ? (
+                  <div className="mb-3 rounded-lg border border-border bg-white px-3 py-2">
+                    <div className="flex items-start gap-3">
+                      <FileText className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-ink">
+                          {existingDocuments[key]?.name}
+                        </p>
+                        <p className="text-xs text-muted">
+                          Already uploaded
+                          {existingDocuments[key]?.uploadedAt ? ` · ${existingDocuments[key]?.uploadedAt}` : ''}
+                        </p>
+                      </div>
+                      {existingDocuments[key]?.url ? (
+                        <a
+                          href={existingDocuments[key]?.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0 rounded-md p-1.5 text-primary transition-ui hover:bg-primary/10"
+                          title="View document"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mb-3 rounded-lg border border-dashed border-border bg-white/70 px-3 py-2">
+                    <p className="text-xs text-muted">No file uploaded yet.</p>
+                  </div>
+                )}
                 <FileUpload
                   accept=".pdf,.jpg,.jpeg,.png"
                   onUpload={(files) => handleDocumentUpload(key, files)}
@@ -506,11 +670,84 @@ export function EditEmployee() {
                 ) : null}
               </div>
             ))}
+
+            <div className="rounded-xl border border-border bg-surface p-4">
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <p className="font-medium text-ink">Certificates</p>
+                <p className="text-xs text-muted">5MB</p>
+              </div>
+              <SelectField
+                value={selectedCertificateKey}
+                onChange={(event) =>
+                  setSelectedCertificateKey(event.target.value as CertificateDocKey)
+                }
+                options={CERTIFICATE_OPTIONS.map((option) => ({
+                  value: option.key,
+                  label: option.label,
+                }))}
+              />
+              <div className="mt-4">
+                <FileUpload
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onUpload={(files) => handleDocumentUpload(selectedCertificateKey, files)}
+                />
+              </div>
+              {selectedCertificateFile || selectedCertificate ? (
+                <div className="mt-4 rounded-lg border border-border bg-white px-3 py-2">
+                  <div className="flex items-start gap-3">
+                    <FileText className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-ink">
+                        {selectedCertificateFile?.name ?? selectedCertificate?.name}
+                      </p>
+                      <p className="text-xs text-muted">
+                        {selectedCertificateFile
+                          ? `${CERTIFICATE_TYPES[selectedCertificateKey]} selected`
+                          : `${CERTIFICATE_TYPES[selectedCertificateKey]} uploaded`}
+                      </p>
+                    </div>
+                    {selectedCertificatePreview || selectedCertificate?.url ? (
+                      <a
+                        href={selectedCertificatePreview ?? selectedCertificate?.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0 rounded-md p-1.5 text-primary transition-ui hover:bg-primary/10"
+                        title="Preview certificate"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+              {documentErrors[selectedCertificateKey] ? (
+                <p className="mt-1 text-xs text-danger">{documentErrors[selectedCertificateKey]}</p>
+              ) : null}
+            </div>
+
+            <div className="rounded-xl border border-border bg-surface p-4">
+              <div className="mb-5 flex items-start justify-between gap-3">
+                <p className="font-medium text-ink">Profile Photo</p>
+                <p className="text-xs text-muted">2MB</p>
+              </div>
+              <FileUpload accept=".jpg,.jpeg,.png" onUpload={handlePhotoUpload} />
+              {photoPreview ? (
+                <div className="mt-4 rounded-lg border border-border bg-white p-3 text-center">
+                  <img
+                    src={photoPreview}
+                    alt="Profile preview"
+                    className="mx-auto h-20 w-20 rounded-full border border-border object-cover"
+                  />
+                  <p className="mt-2 truncate text-xs text-ink">{photoFile?.name}</p>
+                </div>
+              ) : null}
+              {photoError ? <p className="mt-2 text-xs text-danger">{photoError}</p> : null}
+            </div>
           </div>
         </div>
 
         {/* ── Section 6: Profile Photo ─────────────────────────────────── */}
-        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+        <div className="hidden">
           <h3 className="mb-1 font-display text-lg font-semibold text-ink">Profile Photo</h3>
           <p className="mb-6 text-sm text-muted">
             Upload a new photo to replace the current one. Allowed: .jpg, .jpeg, .png · Max 2 MB.

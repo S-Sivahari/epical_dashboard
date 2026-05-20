@@ -266,12 +266,20 @@ export function AddEmployee() {
 
     try {
       const createdEmployee = await addEmployee(payload)
+
+      const certificateDocuments = {
+        certificateDegree: certificateFiles.Degree[0] ?? null,
+        certificateDiploma: certificateFiles.Diploma[0] ?? null,
+        certificate10th: certificateFiles['10th'][0] ?? null,
+        certificate12th: certificateFiles['12th'][0] ?? null,
+      }
       
       // Upload documents if any
-      const hasDocuments = Object.values(documentFiles).some((f) => f !== null)
+      const uploadableDocuments = { ...documentFiles, ...certificateDocuments }
+      const hasDocuments = Object.values(uploadableDocuments).some((f) => f !== null)
       if (hasDocuments) {
         try {
-          await uploadDocuments(createdEmployee.id, documentFiles)
+          await uploadDocuments(createdEmployee.id, uploadableDocuments)
         } catch (err) {
           console.error('Failed to upload documents:', err)
           toast.warning('Employee created but some documents failed to upload')
