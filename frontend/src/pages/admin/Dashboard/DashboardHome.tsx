@@ -65,6 +65,9 @@ export function DashboardHome() {
             <Link to="/admin/employees/add" className={quickActionClass}>
               Add Employee
             </Link>
+            <Link to="/admin/leaves" className={quickActionClass}>
+              Review Leaves
+            </Link>
             <Link to="/admin/documents" className={quickActionClass}>
               Approve Documents
             </Link>

@@ -36,7 +36,9 @@ export function HolidayManagement() {
   const [type, setType] = useState<'National' | 'Company' | 'Optional'>('National')
 
   // Calendar state
-  const [calendarOpen, setCalendarOpen] = useState(false)
+  const [calendarOpen, setCalendarOpen] = useState(true)
+  const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth())
+  const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear())
 
   // Loading state
   const [isLoading, setIsLoading] = useState(false)
@@ -57,6 +59,13 @@ export function HolidayManagement() {
       })),
     [holidays],
   )
+
+  const filteredHolidays = useMemo(() => {
+    return holidays.filter((h) => {
+      const d = new Date(h.date)
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear
+    })
+  }, [holidays, currentMonth, currentYear])
 
   const resetForm = () => {
     setTitle('')
@@ -228,6 +237,10 @@ export function HolidayManagement() {
             headerToolbar={{ left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' }}
             height="auto"
             events={events}
+            datesSet={(arg) => {
+              setCurrentMonth(arg.view.currentStart.getMonth())
+              setCurrentYear(arg.view.currentStart.getFullYear())
+            }}
           />
         )}
       </div>
@@ -236,9 +249,9 @@ export function HolidayManagement() {
       <div className="rounded-xl border border-border bg-white p-4 shadow-sm">
         <h3 className="mb-4 font-semibold text-ink">Holidays List</h3>
         <DataTable
-          data={holidays}
+          data={filteredHolidays}
           columns={columns}
-          empty="No holidays found. Add one to get started."
+          empty="No holidays this month."
         />
       </div>
 
