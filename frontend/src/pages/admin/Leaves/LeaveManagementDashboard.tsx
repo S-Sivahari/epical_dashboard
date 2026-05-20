@@ -60,34 +60,56 @@ export function LeaveManagementDashboard() {
         </div>
       </div>
 
+      <div className="mb-6 flex space-x-6 border-b border-border">
+        {['All', 'Pending', 'Approved', 'Rejected', 'Cancelled'].map(status => (
+          <button
+            key={status}
+            onClick={() => setFilters({...filters, status})}
+            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+              filters.status === status
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted hover:text-ink hover:border-border'
+            }`}
+          >
+            {status}
+          </button>
+        ))}
+      </div>
+
       {/* Content Sections - Unified View */}
       <div className="flex flex-col gap-8">
         {/* Pending Leaves Section */}
-        <section className="rounded-xl border border-border bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center gap-2 border-b border-border pb-3">
-            <span className="text-xl">⏳</span>
-            <h2 className="font-display text-lg font-semibold text-ink">Pending Leave Approvals</h2>
-          </div>
-          <PendingLeaves filters={filters} />
-        </section>
+        {(filters.status === 'All' || filters.status === 'Pending') && (
+          <section className="rounded-xl border border-border bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center gap-2 border-b border-border pb-3">
+              <span className="text-xl">⏳</span>
+              <h2 className="font-display text-lg font-semibold text-ink">Pending Leave Approvals</h2>
+            </div>
+            <PendingLeaves filters={filters} />
+          </section>
+        )}
 
         {/* Approved Leaves Section */}
-        <section className="rounded-xl border border-border bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center gap-2 border-b border-border pb-3">
-            <span className="text-xl">✅</span>
-            <h2 className="font-display text-lg font-semibold text-ink">Approved Leave Requests & Status</h2>
-          </div>
-          <ApprovedLeaves filters={filters} />
-        </section>
+        {(filters.status === 'All' || filters.status === 'Approved' || filters.status === 'Cancelled') && (
+          <section className="rounded-xl border border-border bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center gap-2 border-b border-border pb-3">
+              <span className="text-xl">✅</span>
+              <h2 className="font-display text-lg font-semibold text-ink">Approved Leave Requests & Status</h2>
+            </div>
+            <ApprovedLeaves filters={filters} />
+          </section>
+        )}
 
         {/* Rejected Leaves Section */}
-        <section className="rounded-xl border border-border bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center gap-2 border-b border-border pb-3">
-            <span className="text-xl">❌</span>
-            <h2 className="font-display text-lg font-semibold text-ink">Rejected Leave Requests</h2>
-          </div>
-          <RejectedLeaves filters={filters} />
-        </section>
+        {(filters.status === 'All' || filters.status === 'Rejected') && (
+          <section className="rounded-xl border border-border bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center gap-2 border-b border-border pb-3">
+              <span className="text-xl">❌</span>
+              <h2 className="font-display text-lg font-semibold text-ink">Rejected Leave Requests</h2>
+            </div>
+            <RejectedLeaves filters={filters} />
+          </section>
+        )}
 
         {/* Compensation Section */}
         <section className="rounded-xl border border-border bg-white p-6 shadow-sm">
