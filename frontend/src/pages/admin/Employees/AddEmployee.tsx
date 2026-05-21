@@ -19,10 +19,12 @@ import { uploadDocuments, uploadPhoto } from '@services/uploadService'
 const isValidDate = (value: string) => !Number.isNaN(Date.parse(value))
 
 const step1 = z.object({
-  employeeId: z.string().optional(),
+  employeeId: z.string().min(1, 'Employee ID is required'),
   firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().optional().or(z.literal('')),
-  address: z.string().optional().or(z.literal('')),
+  middleName: z.string().optional().or(z.literal('')),
+  lastName: z.string().min(1, 'Last name is required'),
+  permanentAddress: z.string().min(1, 'Permanent address is required'),
+  communicationAddress: z.string().min(1, 'Communication address is required'),
   dob: z
     .string()
     .min(1, 'Date of birth is required')
@@ -46,7 +48,7 @@ const step3 = z.object({
     .string()
     .min(1, 'Joining date is required')
     .refine(isValidDate, 'Enter a valid joining date'),
-  employmentType: z.enum(['Active', 'Contract', 'Intern']),
+  employmentType: z.enum(['Full-time', 'Contract', 'Intern']),
   department: z.string().optional(),
   role: z.enum(['Employee', 'Admin'], { required_error: 'Role is required' }),
   ctc: z.preprocess(
@@ -57,8 +59,13 @@ const step3 = z.object({
 
 const step4 = z.object({
   aadhaar: z.string().optional(),
-  pan: z.string().optional(),
+  pan: z.string().min(1, 'PAN is required'),
   passport: z.string().optional(),
+  emergencyContactName: z.string().optional().or(z.literal('')),
+  emergencyContactPhone: z.string().optional().or(z.literal('')),
+  emergencyContactEmail: z.string().optional().or(z.literal('')),
+  emergencyContactRelation: z.string().optional().or(z.literal('')),
+  emergencyContactAddress: z.string().optional().or(z.literal('')),
 })
 
 const fullSchema = step1.merge(step2).merge(step3).merge(step4)
@@ -66,15 +73,25 @@ type FullValues = z.infer<typeof fullSchema>
 
 const defaultValues: Partial<FullValues> = {
   employeeId: '',
-  address: '',
+  firstName: '',
+  middleName: '',
+  lastName: '',
+  permanentAddress: '',
+  communicationAddress: '',
   gender: '',
-  employmentType: 'Active',
+  employmentType: 'Full-time',
   pfEsi: 'on',
   passport: '',
   bankName: '',
   accountNumber: '',
   ifsc: '',
   uan: '',
+  pan: '',
+  emergencyContactName: '',
+  emergencyContactPhone: '',
+  emergencyContactEmail: '',
+  emergencyContactRelation: '',
+  emergencyContactAddress: '',
 }
 
 type DocKey = 'aadhaar' | 'pan' | 'offerLetter' | 'agreement'
@@ -170,6 +187,7 @@ export function AddEmployee() {
   const [showPreview, setShowPreview] = useState(false)
   const [previewData, setPreviewData] = useState<FullValues | null>(null)
   const [showFileHelp, setShowFileHelp] = useState(false)
+  const [copyAddressChecked, setCopyAddressChecked] = useState(false)
 
   useEffect(() => {
     return () => {
@@ -299,8 +317,10 @@ export function AddEmployee() {
     const payload: Omit<Employee, 'id'> = {
       employeeId: values.employeeId.trim(),
       firstName: values.firstName,
-      lastName: values.lastName ?? '',
-      address: values.address ?? '',
+      middleName: values.middleName ? values.middleName.trim() : undefined,
+      lastName: values.lastName.trim(),
+      permanentAddress: values.permanentAddress,
+      communicationAddress: values.communicationAddress,
       department: values.department,
       designation: values.role,
       role: values.role,
@@ -311,6 +331,16 @@ export function AddEmployee() {
       personalEmail: values.personalEmail,
       phone: values.phone,
       ctc: values.ctc,
+      pan: values.pan,
+      aadhaar: values.aadhaar,
+      passport: values.passport,
+      emergencyContact: {
+        name: values.emergencyContactName || '',
+        phone: values.emergencyContactPhone || '',
+        email: values.emergencyContactEmail || '',
+        relation: values.emergencyContactRelation || '',
+        address: values.emergencyContactAddress || '',
+      },
     }
 
     try {
@@ -374,6 +404,7 @@ export function AddEmployee() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               <Input
                 label="Employee ID"
+                required
                 error={form.formState.errors.employeeId?.message}
                 {...form.register('employeeId')}
               />
@@ -384,14 +415,15 @@ export function AddEmployee() {
                 {...form.register('firstName')}
               />
               <Input
-                label="Last name"
-                error={form.formState.errors.lastName?.message}
-                {...form.register('lastName')}
+                label="Middle name"
+                error={form.formState.errors.middleName?.message}
+                {...form.register('middleName')}
               />
               <Input
-                label="Address"
-                error={form.formState.errors.address?.message}
-                {...form.register('address')}
+                label="Last name"
+                required
+                error={form.formState.errors.lastName?.message}
+                {...form.register('lastName')}
               />
               <Input
                 label="Date of birth"
@@ -430,6 +462,48 @@ export function AddEmployee() {
                 error={form.formState.errors.companyEmail?.message}
                 {...form.register('companyEmail')}
               />
+            </div>
+
+            {/* Address Section */}
+            <div className="mt-8 border-t border-border pt-6">
+              <h3 className="font-display text-lg font-semibold text-ink mb-4">Address Details</h3>
+              <div className="space-y-4">
+                <Input
+                  label="Permanent Address"
+                  required
+                  error={form.formState.errors.permanentAddress?.message}
+                  {...form.register('permanentAddress')}
+                />
+                <div className="flex items-end gap-3">
+                  <div className="flex-1">
+                    <Input
+                      label="Communication Address"
+                      required
+                      error={form.formState.errors.communicationAddress?.message}
+                      {...form.register('communicationAddress')}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 pb-2">
+                    <input
+                      type="checkbox"
+                      id="copyAddress"
+                      checked={copyAddressChecked}
+                      onChange={(e) => {
+                        const checked = e.target.checked
+                        setCopyAddressChecked(checked)
+                        if (checked) {
+                          const permanentAddr = form.getValues('permanentAddress')
+                          form.setValue('communicationAddress', permanentAddr)
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-border cursor-pointer"
+                    />
+                    <label htmlFor="copyAddress" className="text-sm text-muted cursor-pointer whitespace-nowrap">
+                      Copy permanent
+                    </label>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -489,7 +563,7 @@ export function AddEmployee() {
                 required
                 error={form.formState.errors.employmentType?.message}
                 options={[
-                  { value: 'Active', label: 'Active' },
+                  { value: 'Full-time', label: 'Full-time' },
                   { value: 'Contract', label: 'Contract' },
                   { value: 'Intern', label: 'Intern' },
                 ]}
@@ -534,6 +608,7 @@ export function AddEmployee() {
               />
               <Input
                 label="PAN"
+                required
                 error={form.formState.errors.pan?.message}
                 {...form.register('pan')}
               />
@@ -541,6 +616,43 @@ export function AddEmployee() {
                 label="Passport number"
                 error={form.formState.errors.passport?.message}
                 {...form.register('passport')}
+              />
+            </div>
+          </div>
+
+          {/* Section 5: Emergency Contact */}
+          <div className="rounded-2xl border border-border bg-white p-6 shadow-sm lg:col-span-2">
+            <div className="mb-6">
+              <h3 className="font-display text-lg font-semibold text-ink">Emergency Contact Details</h3>
+              <p className="text-sm text-muted mt-1">Optional - Add contact details for emergencies</p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <Input
+                label="Name"
+                error={form.formState.errors.emergencyContactName?.message}
+                {...form.register('emergencyContactName')}
+              />
+              <Input
+                label="Phone"
+                error={form.formState.errors.emergencyContactPhone?.message}
+                {...form.register('emergencyContactPhone')}
+              />
+              <Input
+                label="Email"
+                type="email"
+                error={form.formState.errors.emergencyContactEmail?.message}
+                {...form.register('emergencyContactEmail')}
+              />
+              <Input
+                label="Relation"
+                error={form.formState.errors.emergencyContactRelation?.message}
+                {...form.register('emergencyContactRelation')}
+              />
+              <Input
+                label="Address"
+                className="lg:col-span-2"
+                error={form.formState.errors.emergencyContactAddress?.message}
+                {...form.register('emergencyContactAddress')}
               />
             </div>
           </div>
@@ -803,7 +915,7 @@ export function AddEmployee() {
                   </div>
                   <div>
                     <p className="text-xs text-muted">Full Name</p>
-                    <p className="font-medium text-ink">{previewData.firstName} {previewData.lastName || ''}</p>
+                    <p className="font-medium text-ink">{previewData.firstName} {previewData.middleName ? previewData.middleName + ' ' : ''}{previewData.lastName || ''}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted">Email</p>
@@ -831,6 +943,45 @@ export function AddEmployee() {
                   </div>
                 </div>
               </div>
+
+              {/* Address Section */}
+              <div>
+                <h3 className="mb-3 font-semibold text-ink">Address Information</h3>
+                <div className="grid gap-3 bg-surface p-4 rounded-lg">
+                  <div>
+                    <p className="text-xs text-muted">Permanent Address</p>
+                    <p className="font-medium text-ink text-sm">{previewData.permanentAddress}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted">Communication Address</p>
+                    <p className="font-medium text-ink text-sm">{previewData.communicationAddress}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ID Proof Section */}
+              <div>
+                <h3 className="mb-3 font-semibold text-ink">ID & Document Proof</h3>
+                <div className="grid gap-2 bg-surface p-4 rounded-lg text-sm">
+                  <p><span className="text-muted">PAN:</span> {previewData.pan || '—'}</p>
+                  <p><span className="text-muted">Aadhaar:</span> {previewData.aadhaar || '—'}</p>
+                  <p><span className="text-muted">Passport:</span> {previewData.passport || '—'}</p>
+                </div>
+              </div>
+
+              {/* Emergency Contact Section */}
+              {(previewData.emergencyContactName || previewData.emergencyContactPhone || previewData.emergencyContactEmail) && (
+                <div>
+                  <h3 className="mb-3 font-semibold text-ink">Emergency Contact</h3>
+                  <div className="grid gap-2 bg-surface p-4 rounded-lg text-sm">
+                    <p><span className="text-muted">Name:</span> {previewData.emergencyContactName || '—'}</p>
+                    <p><span className="text-muted">Phone:</span> {previewData.emergencyContactPhone || '—'}</p>
+                    <p><span className="text-muted">Email:</span> {previewData.emergencyContactEmail || '—'}</p>
+                    <p><span className="text-muted">Relation:</span> {previewData.emergencyContactRelation || '—'}</p>
+                    <p><span className="text-muted">Address:</span> {previewData.emergencyContactAddress || '—'}</p>
+                  </div>
+                </div>
+              )}
 
               {/* Documents Section */}
               <div>

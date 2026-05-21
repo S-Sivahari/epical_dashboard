@@ -6,13 +6,15 @@ export type EmployeeStatus = 'Active' | 'On Leave' | 'Probation' | 'Inactive' | 
 export interface Employee {
   _id?: ObjectId;
   id: string;
-  employeeId?: string;
+  employeeId: string;
   firstName: string;
-  lastName?: string;
+  middleName?: string;
+  lastName: string;
   email: string;
   personalEmail?: string;
   phone?: string;
-  address?: string;
+  permanentAddress: string;
+  communicationAddress: string;
   dob?: string;
   gender?: string;
   department: string;
@@ -32,8 +34,16 @@ export interface Employee {
   pfEsi?: 'on' | 'off';
   // ID proof
   aadhaar?: string;
-  pan?: string;
+  pan: string;
   passport?: string;
+  // Emergency Contact
+  emergencyContact?: {
+    name: string;
+    phone: string;
+    email: string;
+    relation: string;
+    address: string;
+  };
   // Documents (stored as Base64 or file metadata)
   documents?: {
     aadhaarPan?: { filename: string; data: string; contentType: string; uploadedAt: Date };

@@ -13,6 +13,7 @@ export function exportAnalyticsPdf(filename: string) {
 export interface ExportPdfOptions {
   generatedBy?: string
   filters?: Record<string, string | undefined>
+  compactMode?: boolean
 }
 
 // Simple date formatter inside the utility to prevent external dependencies
@@ -27,7 +28,7 @@ function formatDateStr(d: string | Date | undefined | null): string {
 export function exportToPDF<T extends Record<string, any>>(
   data: T[],
   filename: string,
-  _headers: { key: keyof T; label: string }[],
+  headers: { key: keyof T; label: string }[],
   options?: ExportPdfOptions,
 ) {
   if (!data.length) return
@@ -123,6 +124,74 @@ export function exportToPDF<T extends Record<string, any>>(
     doc.line(40, 148, pageWidth - 40, 148)
   }
 
+  // Compact mode: header, table, and footer
+  if (options?.compactMode) {
+    drawHeaderBlock()
+
+    const tableData = [
+      headers.map((h) => h.label),
+      ...data.map((row) =>
+        headers.map((h) => {
+          let value = row[h.key]
+          if (h.key === 'joinedAt' || h.key === 'dob') {
+            value = formatDateStr(value)
+          } else if (h.key === 'pfEsi') {
+            value = value === 'on' ? 'Enabled' : value === 'off' ? 'Disabled' : '—'
+          } else if (h.key === 'ctc' && typeof value === 'number') {
+            value = `₹${value.toLocaleString('en-IN')}`
+          }
+          return value === null || value === undefined ? '—' : String(value)
+        }),
+      ),
+    ]
+
+    autoTable(doc, {
+      head: [tableData[0]],
+      body: tableData.slice(1),
+      startY: 160,
+      styles: { fontSize: 8, cellPadding: 4, valign: 'middle', overflow: 'linebreak' },
+      theme: 'grid',
+      margin: { left: 10, right: 10, top: 160, bottom: 50 },
+      columnStyles: headers.reduce(
+        (acc, _, idx) => {
+          acc[idx] = { cellWidth: (pageWidth - 20) / headers.length }
+          return acc
+        },
+        {} as Record<number, any>,
+      ),
+    })
+
+    // Add footer
+    const totalPages = doc.getNumberOfPages()
+    const footerY = pageHeight - 30
+
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i)
+      
+      // Draw footer divider line
+      doc.setDrawColor(226, 232, 240)
+      doc.setLineWidth(1)
+      doc.line(40, footerY - 12, pageWidth - 40, footerY - 12)
+      
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8)
+      doc.setTextColor(100, 116, 139)
+      
+      // Left confidentiality statement
+      doc.text('EPICAL LAYOUTS PVT LTD – Confidential Document', 40, footerY)
+      
+      // Center generated timestamp
+      doc.text(`System Generated Report | Generated on ${genDate} ${genTime}`, pageWidth / 2, footerY, { align: 'center' })
+      
+      // Right page numbering
+      doc.text(`Page ${i} of ${totalPages}`, pageWidth - 40, footerY, { align: 'right' })
+    }
+
+    doc.save(`${filename}.pdf`)
+    return
+  }
+
+  // Original detailed mode with individual employee dossiers
   // Iterate over each employee and generate a beautiful profile dossier page
   data.forEach((e, index) => {
     if (index > 0) {

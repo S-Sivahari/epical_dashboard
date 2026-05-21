@@ -77,45 +77,74 @@ export function EmployeeList() {
       )
 
       const exportDate = new Date().toISOString().split('T')[0]
-      const filename = `employeedetails_${exportDate}`
+      // Check if this is an active directory export (only Active status filter applied)
+      const isActiveDirectoryExport = filters.status === 'Active' && !filters.name && !filters.employeeId && !filters.department && !filters.employmentType
+      
+      let filename = `EpicalLayouts_EmployeeDetails_${exportDate}`
+      if (isActiveDirectoryExport) {
+        filename = `EpicalLayouts_EmployeeDetails_${exportDate}`
+      }
+
+      // Define headers based on whether this is active directory export or full details export
       const headers: { key: keyof Employee; label: string }[] = [
         { key: 'employeeId', label: 'Employee ID' },
         { key: 'firstName', label: 'First Name' },
         { key: 'lastName', label: 'Last Name' },
         { key: 'email', label: 'Email' },
         { key: 'department', label: 'Department' },
-        { key: 'employmentType', label: 'Type' },
+        { key: 'designation', label: 'Designation' },
+        { key: 'employmentType', label: 'Employment Type' },
         { key: 'status', label: 'Status' },
         { key: 'joinedAt', label: 'Joined At' },
       ]
 
-      const excelHeaders: { key: keyof Employee; label: string }[] = [
-        { key: 'employeeId', label: 'Employee ID' },
-        { key: 'firstName', label: 'First Name' },
-        { key: 'lastName', label: 'Last Name' },
-        { key: 'email', label: 'Work Email' },
-        { key: 'personalEmail', label: 'Personal Email' },
-        { key: 'phone', label: 'Phone Number' },
-        { key: 'dob', label: 'Date of Birth' },
-        { key: 'gender', label: 'Gender' },
-        { key: 'department', label: 'Department' },
-        { key: 'designation', label: 'Designation' },
-        { key: 'role', label: 'Role' },
-        { key: 'employmentType', label: 'Employment Type' },
-        { key: 'joinedAt', label: 'Joined At' },
-        { key: 'reportingManager', label: 'Reporting Manager' },
-        { key: 'status', label: 'Account Status' },
-        { key: 'ctc', label: 'CTC (Annual)' },
-        { key: 'bankName', label: 'Bank Name' },
-        { key: 'accountNumber', label: 'Account Number' },
-        { key: 'ifsc', label: 'IFSC Code' },
-        { key: 'uan', label: 'UAN' },
-        { key: 'pfEsi', label: 'PF / ESI' },
-        { key: 'aadhaar', label: 'Aadhaar Number' },
-        { key: 'pan', label: 'PAN' },
-        { key: 'passport', label: 'Passport Number' },
-        { key: 'address', label: 'Address' },
-      ]
+      let excelHeaders: { key: keyof Employee; label: string }[] = []
+      
+      if (isActiveDirectoryExport) {
+        // Active Directory - Only basic information
+        excelHeaders = [
+          { key: 'employeeId', label: 'Employee ID' },
+          { key: 'firstName', label: 'First Name' },
+          { key: 'lastName', label: 'Last Name' },
+          { key: 'email', label: 'Work Email' },
+          { key: 'phone', label: 'Phone Number' },
+          { key: 'department', label: 'Department' },
+          { key: 'designation', label: 'Designation' },
+          { key: 'employmentType', label: 'Employment Type' },
+          { key: 'joinedAt', label: 'Joined At' },
+          { key: 'status', label: 'Account Status' },
+        ]
+      } else {
+        // Full Details Export
+        excelHeaders = [
+          { key: 'employeeId', label: 'Employee ID' },
+          { key: 'firstName', label: 'First Name' },
+          { key: 'middleName', label: 'Middle Name' },
+          { key: 'lastName', label: 'Last Name' },
+          { key: 'email', label: 'Work Email' },
+          { key: 'personalEmail', label: 'Personal Email' },
+          { key: 'phone', label: 'Phone Number' },
+          { key: 'dob', label: 'Date of Birth' },
+          { key: 'gender', label: 'Gender' },
+          { key: 'permanentAddress', label: 'Permanent Address' },
+          { key: 'communicationAddress', label: 'Communication Address' },
+          { key: 'department', label: 'Department' },
+          { key: 'designation', label: 'Designation' },
+          { key: 'role', label: 'Role' },
+          { key: 'employmentType', label: 'Employment Type' },
+          { key: 'joinedAt', label: 'Joined At' },
+          { key: 'status', label: 'Account Status' },
+          { key: 'ctc', label: 'CTC (Annual)' },
+          { key: 'bankName', label: 'Bank Name' },
+          { key: 'accountNumber', label: 'Account Number' },
+          { key: 'ifsc', label: 'IFSC Code' },
+          { key: 'uan', label: 'UAN' },
+          { key: 'pfEsi', label: 'PF / ESI' },
+          { key: 'aadhaar', label: 'Aadhaar Number' },
+          { key: 'pan', label: 'PAN' },
+          { key: 'passport', label: 'Passport Number' },
+        ]
+      }
 
       const exportOptions = {
         generatedBy: user?.name || 'Admin',
@@ -126,6 +155,7 @@ export function EmployeeList() {
           employmentType: filters.employmentType,
           status: filters.status,
         },
+        compactMode: format === 'pdf', // Enable compact mode for PDF
       }
 
       if (format === 'pdf') {

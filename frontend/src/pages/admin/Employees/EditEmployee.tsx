@@ -22,10 +22,12 @@ const isValidDate = (v: string) => !Number.isNaN(Date.parse(v))
 
 const editSchema = z.object({
   // Personal
-  employeeId: z.string().optional(),
+  employeeId: z.string().min(1, 'Employee ID is required'),
   firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().optional().or(z.literal('')),
-  address: z.string().optional().or(z.literal('')),
+  middleName: z.string().optional().or(z.literal('')),
+  lastName: z.string().min(1, 'Last name is required'),
+  permanentAddress: z.string().min(1, 'Permanent address is required'),
+  communicationAddress: z.string().min(1, 'Communication address is required'),
   dob: z.string().optional().refine((v) => !v || isValidDate(v), 'Enter a valid date'),
   gender: z.string().optional(),
   phone: z.string().optional(),
@@ -45,7 +47,7 @@ const editSchema = z.object({
     .string()
     .min(1, 'Joining date is required')
     .refine(isValidDate, 'Enter a valid joining date'),
-  employmentType: z.enum(['Active', 'Contract', 'Intern']),
+  employmentType: z.enum(['Full-time', 'Contract', 'Intern']),
   department: z.string().optional(),
   role: z.string().min(1, 'Role is required'),
   ctc: z.preprocess(
@@ -54,8 +56,14 @@ const editSchema = z.object({
   ),
   // ID proof
   aadhaar: z.string().optional(),
-  pan: z.string().optional(),
+  pan: z.string().min(1, 'PAN is required'),
   passport: z.string().optional(),
+  // Emergency Contact
+  emergencyContactName: z.string().optional().or(z.literal('')),
+  emergencyContactPhone: z.string().optional().or(z.literal('')),
+  emergencyContactEmail: z.string().optional().or(z.literal('')),
+  emergencyContactRelation: z.string().optional().or(z.literal('')),
+  emergencyContactAddress: z.string().optional().or(z.literal('')),
 })
 
 type FormValues = z.infer<typeof editSchema>
@@ -267,10 +275,12 @@ export function EditEmployee() {
         form.reset({
           employeeId: e.employeeId ?? '',
           firstName: e.firstName,
+          middleName: e.middleName ?? '',
           lastName: e.lastName ?? '',
-          address: e.address ?? '',
+          permanentAddress: e.permanentAddress ?? '',
+          communicationAddress: e.communicationAddress ?? '',
           dob: e.dob ?? '',
-          gender: e.gender ?? 'Female',
+          gender: e.gender ?? 'Male',
           phone: e.phone ?? '',
           personalEmail: e.personalEmail ?? '',
           companyEmail: e.email,
@@ -280,13 +290,18 @@ export function EditEmployee() {
           uan: e.uan ?? '',
           pfEsi: e.pfEsi ?? 'on',
           joinedAt: e.joinedAt ?? '',
-          employmentType: e.employmentType ?? 'Active',
+          employmentType: e.employmentType ?? 'Full-time',
           department: e.department,
           role: e.role,
           ctc: e.ctc,
           aadhaar: e.aadhaar ?? '',
           pan: e.pan ?? '',
           passport: e.passport ?? '',
+          emergencyContactName: e.emergencyContact?.name ?? '',
+          emergencyContactPhone: e.emergencyContact?.phone ?? '',
+          emergencyContactEmail: e.emergencyContact?.email ?? '',
+          emergencyContactRelation: e.emergencyContact?.relation ?? '',
+          emergencyContactAddress: e.emergencyContact?.address ?? '',
         })
       } catch {
         if (!cancelled) {
@@ -428,8 +443,10 @@ export function EditEmployee() {
       await updateEmployee(id, {
         employeeId: values.employeeId?.trim().toUpperCase() ?? '',
         firstName: values.firstName,
+        middleName: values.middleName ? values.middleName.trim() : undefined,
         lastName: values.lastName ?? '',
-        address: values.address ?? '',
+        permanentAddress: values.permanentAddress ?? '',
+        communicationAddress: values.communicationAddress ?? '',
         dob: values.dob ?? '',
         gender: values.gender ?? '',
         phone: values.phone ?? '',
@@ -448,6 +465,13 @@ export function EditEmployee() {
         aadhaar: values.aadhaar ?? '',
         pan: values.pan ?? '',
         passport: values.passport ?? '',
+        emergencyContact: {
+          name: values.emergencyContactName || '',
+          phone: values.emergencyContactPhone || '',
+          email: values.emergencyContactEmail || '',
+          relation: values.emergencyContactRelation || '',
+          address: values.emergencyContactAddress || '',
+        },
       })
 
       // Upload documents if any
@@ -524,6 +548,7 @@ export function EditEmployee() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               <Input
                 label="Employee ID"
+                required
                 error={form.formState.errors.employeeId?.message}
                 {...form.register('employeeId')}
               />
@@ -534,14 +559,15 @@ export function EditEmployee() {
                 {...form.register('firstName')}
               />
               <Input
-                label="Last name"
-                error={form.formState.errors.lastName?.message}
-                {...form.register('lastName')}
+                label="Middle name"
+                error={form.formState.errors.middleName?.message}
+                {...form.register('middleName')}
               />
               <Input
-                label="Address"
-                error={form.formState.errors.address?.message}
-                {...form.register('address')}
+                label="Last name"
+                required
+                error={form.formState.errors.lastName?.message}
+                {...form.register('lastName')}
               />
               <Input
                 label="Date of birth"
@@ -553,9 +579,9 @@ export function EditEmployee() {
                 label="Gender"
                 error={form.formState.errors.gender?.message}
                 options={[
-                  { value: 'Female', label: 'Female' },
                   { value: 'Male', label: 'Male' },
-                  { value: 'Non-binary', label: 'Non-binary' },
+                  { value: 'Female', label: 'Female' },
+                  { value: 'Not prefer to say', label: 'Not prefer to say' },
                 ]}
                 {...form.register('gender')}
               />
@@ -577,6 +603,25 @@ export function EditEmployee() {
                 error={form.formState.errors.companyEmail?.message}
                 {...form.register('companyEmail')}
               />
+            </div>
+
+            {/* Address Section */}
+            <div className="mt-8 border-t border-border pt-6">
+              <h3 className="font-display text-lg font-semibold text-ink mb-4">Address Details</h3>
+              <div className="space-y-4">
+                <Input
+                  label="Permanent Address"
+                  required
+                  error={form.formState.errors.permanentAddress?.message}
+                  {...form.register('permanentAddress')}
+                />
+                <Input
+                  label="Communication Address"
+                  required
+                  error={form.formState.errors.communicationAddress?.message}
+                  {...form.register('communicationAddress')}
+                />
+              </div>
             </div>
           </div>
 
@@ -632,7 +677,7 @@ export function EditEmployee() {
                 required
                 error={form.formState.errors.employmentType?.message}
                 options={[
-                  { value: 'Active', label: 'Active' },
+                  { value: 'Full-time', label: 'Full-time' },
                   { value: 'Contract', label: 'Contract' },
                   { value: 'Intern', label: 'Intern' },
                 ]}
@@ -671,6 +716,7 @@ export function EditEmployee() {
               />
               <Input
                 label="PAN"
+                required
                 error={form.formState.errors.pan?.message}
                 {...form.register('pan')}
               />
@@ -678,6 +724,41 @@ export function EditEmployee() {
                 label="Passport number"
                 error={form.formState.errors.passport?.message}
                 {...form.register('passport')}
+              />
+            </div>
+          </div>
+
+          {/* ── Section 5: Emergency Contact ────────────────────────────── */}
+          <div className="rounded-2xl border border-border bg-white p-6 shadow-sm lg:col-span-2">
+            <h3 className="mb-6 font-display text-lg font-semibold text-ink">Emergency Contact Details</h3>
+            <p className="text-sm text-muted mb-4">Optional - Add contact details for emergencies</p>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <Input
+                label="Name"
+                error={form.formState.errors.emergencyContactName?.message}
+                {...form.register('emergencyContactName')}
+              />
+              <Input
+                label="Phone"
+                error={form.formState.errors.emergencyContactPhone?.message}
+                {...form.register('emergencyContactPhone')}
+              />
+              <Input
+                label="Email"
+                type="email"
+                error={form.formState.errors.emergencyContactEmail?.message}
+                {...form.register('emergencyContactEmail')}
+              />
+              <Input
+                label="Relation"
+                error={form.formState.errors.emergencyContactRelation?.message}
+                {...form.register('emergencyContactRelation')}
+              />
+              <Input
+                label="Address"
+                className="lg:col-span-2"
+                error={form.formState.errors.emergencyContactAddress?.message}
+                {...form.register('emergencyContactAddress')}
               />
             </div>
           </div>
