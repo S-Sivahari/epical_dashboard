@@ -1,4 +1,4 @@
-export type EmploymentType = 'Full-time' | 'Contract' | 'Intern' | 'Notice Period'
+export type EmploymentType = 'Full-time' | 'Contract' | 'Intern'
 export type EmployeeStatus = 'Active' | 'Inactive' | 'Notice Period' | 'Deactivated' | 'Archived'
 
 export interface Employee {
@@ -19,8 +19,6 @@ export interface Employee {
   personalEmail?: string
   phone?: string
   avatarUrl?: string
-  reportingManagerId?: string
-  reportingManager?: string
   salaryGrade?: string
   ctc?: number
   bankName?: string
@@ -49,6 +47,7 @@ export interface LeaveRequest {
   totalLeaveDays?: number
   reason: string
   status: LeaveStatus
+  rejectionReason?: string
   approvalDate?: string
   approvedBy?: string
 }

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import api from '@services/api'
+import { verifyGoogleOAuthLogin } from '@services/googleOAuthService'
 
 export type UserRole = 'admin' | 'employee'
 
@@ -20,6 +21,7 @@ interface AuthState {
   isAuthenticated: boolean
   role: UserRole | null
   login: (email: string, password: string) => Promise<void>
+  loginWithOAuth: (email: string, name: string, googleId: string) => Promise<void>
   logout: () => void
 }
 
@@ -44,6 +46,21 @@ export const useAuthStore = create<AuthState>((set) => ({
   login: async (email, password) => {
     const response = await api.post('/auth/login', { email, password })
     const { token, user, role } = response.data as {
+      token: string
+      user: AuthUser
+      role: string
+    }
+
+    const mappedRole: UserRole = role === 'admin' ? 'admin' : 'employee'
+
+    localStorage.setItem('hrms_token', token)
+    localStorage.setItem('hrms_role', mappedRole)
+    localStorage.setItem('hrms_user', JSON.stringify(user))
+    set({ token, isAuthenticated: true, user, role: mappedRole })
+  },
+  loginWithOAuth: async (email, name, googleId) => {
+    const response = await verifyGoogleOAuthLogin({ email, name, googleId })
+    const { token, user, role } = response as {
       token: string
       user: AuthUser
       role: string

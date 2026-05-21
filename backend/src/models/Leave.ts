@@ -7,6 +7,7 @@ export interface LeaveRequest {
   id: string;
   employeeId: string;
   employeeName: string;
+  managerId?: string;
   type: string;
   leaveDuration: 'Full Day' | 'Half Day';
   halfDaySession?: 'First Half' | 'Second Half';
@@ -15,6 +16,7 @@ export interface LeaveRequest {
   days: number;
   reason: string;
   status: LeaveStatus;
+  rejectionReason?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -22,6 +24,7 @@ export interface LeaveRequest {
 export interface CreateLeavePayload {
   employeeId: string;
   employeeName: string;
+  managerId?: string;
   type: string;
   leaveDuration: 'Full Day' | 'Half Day';
   halfDaySession?: 'First Half' | 'Second Half';

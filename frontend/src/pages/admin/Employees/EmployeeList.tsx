@@ -17,10 +17,12 @@ import { useDebounce } from '@hooks/useDebounce'
 import type { Employee } from '@/types'
 import { stringToHueColor } from '@/utils/stringColor'
 import * as employeeService from '@services/employeeService'
+import { getPhotoUrl } from '@/services/uploadService'
 import { exportToExcel } from '@/utils/exportExcel'
 import { exportToPDF } from '@/utils/exportPDF'
 import { formatDate } from '@/utils/formatDate'
 import { toast } from 'sonner'
+import { useAuthStore } from '@store/authStore'
 
 const STATUS_OPTIONS: { value: Employee['status']; label: string }[] = [
   { value: 'Inactive', label: 'Inactive' },
@@ -43,6 +45,8 @@ export function EmployeeList() {
     updateEmployeeStatus,
   } = useEmployees()
 
+  const user = useAuthStore((s) => s.user)
+
   const [nameQuery, setNameQuery] = useState(filters.name)
   const [idQuery, setIdQuery] = useState(filters.employeeId)
   const [savingStatusId, setSavingStatusId] = useState<string | null>(null)
@@ -62,25 +66,104 @@ export function EmployeeList() {
         status: filters.status,
         pageSize: 1000,
       })
+      const fullEmployeeData = await Promise.all(
+        res.data.map(async (employee) => {
+          try {
+            return await employeeService.getEmployee(employee.id)
+          } catch {
+            return employee
+          }
+        }),
+      )
 
-      const filename = `employees_${new Date().toISOString().split('T')[0]}`
+      const exportDate = new Date().toISOString().split('T')[0]
+      // Check if this is an active directory export (only Active status filter applied)
+      const isActiveDirectoryExport = filters.status === 'Active' && !filters.name && !filters.employeeId && !filters.department && !filters.employmentType
+      
+      let filename = `EpicalLayouts_EmployeeDetails_${exportDate}`
+      if (isActiveDirectoryExport) {
+        filename = `EpicalLayouts_EmployeeDetails_${exportDate}`
+      }
+
+      // Define headers based on whether this is active directory export or full details export
       const headers: { key: keyof Employee; label: string }[] = [
         { key: 'employeeId', label: 'Employee ID' },
         { key: 'firstName', label: 'First Name' },
         { key: 'lastName', label: 'Last Name' },
         { key: 'email', label: 'Email' },
         { key: 'department', label: 'Department' },
-        { key: 'employmentType', label: 'Type' },
+        { key: 'designation', label: 'Designation' },
+        { key: 'employmentType', label: 'Employment Type' },
         { key: 'status', label: 'Status' },
         { key: 'joinedAt', label: 'Joined At' },
       ]
 
+      let excelHeaders: { key: keyof Employee; label: string }[] = []
+      
+      if (isActiveDirectoryExport) {
+        // Active Directory - Only basic information
+        excelHeaders = [
+          { key: 'employeeId', label: 'Employee ID' },
+          { key: 'firstName', label: 'First Name' },
+          { key: 'lastName', label: 'Last Name' },
+          { key: 'email', label: 'Work Email' },
+          { key: 'phone', label: 'Phone Number' },
+          { key: 'department', label: 'Department' },
+          { key: 'designation', label: 'Designation' },
+          { key: 'employmentType', label: 'Employment Type' },
+          { key: 'joinedAt', label: 'Joined At' },
+          { key: 'status', label: 'Account Status' },
+        ]
+      } else {
+        // Full Details Export
+        excelHeaders = [
+          { key: 'employeeId', label: 'Employee ID' },
+          { key: 'firstName', label: 'First Name' },
+          { key: 'middleName', label: 'Middle Name' },
+          { key: 'lastName', label: 'Last Name' },
+          { key: 'email', label: 'Work Email' },
+          { key: 'personalEmail', label: 'Personal Email' },
+          { key: 'phone', label: 'Phone Number' },
+          { key: 'dob', label: 'Date of Birth' },
+          { key: 'gender', label: 'Gender' },
+          { key: 'permanentAddress', label: 'Permanent Address' },
+          { key: 'communicationAddress', label: 'Communication Address' },
+          { key: 'department', label: 'Department' },
+          { key: 'designation', label: 'Designation' },
+          { key: 'role', label: 'Role' },
+          { key: 'employmentType', label: 'Employment Type' },
+          { key: 'joinedAt', label: 'Joined At' },
+          { key: 'status', label: 'Account Status' },
+          { key: 'ctc', label: 'CTC (Annual)' },
+          { key: 'bankName', label: 'Bank Name' },
+          { key: 'accountNumber', label: 'Account Number' },
+          { key: 'ifsc', label: 'IFSC Code' },
+          { key: 'uan', label: 'UAN' },
+          { key: 'pfEsi', label: 'PF / ESI' },
+          { key: 'aadhaar', label: 'Aadhaar Number' },
+          { key: 'pan', label: 'PAN' },
+          { key: 'passport', label: 'Passport Number' },
+        ]
+      }
+
+      const exportOptions = {
+        generatedBy: user?.name || 'Admin',
+        filters: {
+          name: filters.name,
+          employeeId: filters.employeeId,
+          department: filters.department,
+          employmentType: filters.employmentType,
+          status: filters.status,
+        },
+        compactMode: format === 'pdf', // Enable compact mode for PDF
+      }
+
       if (format === 'pdf') {
-        await exportToPDF(res.data, filename, headers)
+        await exportToPDF(fullEmployeeData, filename, headers, exportOptions)
         return
       }
 
-      exportToExcel(res.data, filename, headers)
+      exportToExcel(fullEmployeeData, filename, excelHeaders, exportOptions)
     } finally {
       setExporting(null)
     }
@@ -123,7 +206,7 @@ export function EmployeeList() {
         const name = `${e.firstName} ${e.lastName}`
         return (
           <Link to={`/admin/employees/${e.id}`} className="flex items-center gap-3 group">
-            <Avatar name={name} color={stringToHueColor(e.id)} />
+            <Avatar src={getPhotoUrl(e.id)} name={name} color={stringToHueColor(e.id)} />
             <div>
               <p className="font-medium text-ink group-hover:text-primary transition-ui">{name}</p>
               <p className="text-xs text-muted">{e.email}</p>
@@ -250,7 +333,6 @@ export function EmployeeList() {
               { value: 'Full-time', label: 'Full-time' },
               { value: 'Contract', label: 'Contract' },
               { value: 'Intern', label: 'Intern' },
-              { value: 'Notice Period', label: 'Notice Period' },
             ]}
           />
           <SelectField

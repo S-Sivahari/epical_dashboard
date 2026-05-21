@@ -14,6 +14,7 @@ import { PageWrapper } from '@components/layout/PageWrapper'
 import { Badge } from '@components/ui/Badge'
 import { Avatar } from '@components/ui/Avatar'
 import { useAuthStore } from '@store/authStore'
+import { useLeaves } from '@hooks/useLeaves'
 import { formatDateTime } from '@/utils/formatDate'
 
 const quickActionClass =
@@ -35,6 +36,11 @@ const activity = [
 
 export function DashboardHome() {
   const user = useAuthStore((s) => s.user)
+  const { leaves } = useLeaves()
+  
+  // Calculate real-time statistics
+  const pendingLeavesCount = leaves.filter((l) => l.status === 'Pending').length
+  const approvedLeavesCount = leaves.filter((l) => l.status === 'Approved').length
 
   return (
     <PageWrapper>
@@ -89,7 +95,7 @@ export function DashboardHome() {
 
       <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <KPICard title="Total Employees" value={128} trend={{ direction: 'up', label: '4.2% vs last month' }} icon={Users} />
-        <KPICard title="Pending Leaves" value={9} trend={{ direction: 'down', label: '1.1% vs last month' }} icon={ClipboardList} color="#f59e0b" />
+        <KPICard title="Pending Leaves" value={pendingLeavesCount} trend={{ direction: pendingLeavesCount > 3 ? 'up' : 'down', label: 'Real-time updates' }} icon={ClipboardList} color="#f59e0b" />
         <KPICard title="Active Projects" value={14} trend={{ direction: 'up', label: '2 new' }} icon={Briefcase} color="#3b82f6" />
         <KPICard title="Pending Documents" value={6} icon={FileText} color="#64748b" />
       </div>

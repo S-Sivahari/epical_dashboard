@@ -5,6 +5,8 @@ import { useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { toast } from 'sonner'
 import { z } from 'zod'
+import { GoogleLogin } from '@react-oauth/google'
+import { jwtDecode } from 'jwt-decode'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
 import { useAuthStore } from '@store/authStore'
@@ -19,6 +21,7 @@ type FormValues = z.infer<typeof schema>
 
 export function LoginPage() {
   const login = useAuthStore((s) => s.login)
+  const loginWithOAuth = useAuthStore((s) => s.loginWithOAuth)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const role = useAuthStore((s) => s.role)
   const navigate = useNavigate()
@@ -42,14 +45,29 @@ export function LoginPage() {
     try {
       await login(values.email, values.password)
       toast.success('Welcome back')
+<<<<<<< HEAD
 
       navigate('/dashboard', { replace: true })
+=======
+>>>>>>> d58e55571b5c14feaa8762cccd77842ca127b466
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to sign in'
       toast.error(message)
     }
 
   })
+
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    try {
+      const decoded: any = jwtDecode(credentialResponse.credential)
+      await loginWithOAuth(decoded.email, decoded.name, decoded.sub)
+      toast.success('Welcome back')
+    } catch (error) {
+      console.error('Google login error:', error)
+      const message = error instanceof Error ? error.message : 'Unable to sign in with Google'
+      toast.error(message)
+    }
+  }
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
@@ -97,6 +115,25 @@ export function LoginPage() {
               Login
             </Button>
           </form>
+
+          <div className="relative mt-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-border"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="bg-white px-2 text-muted">Or continue with</span>
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-center">
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => toast.error('Google login failed')}
+              text="signin_with"
+              size="large"
+              theme="outline"
+            />
+          </div>
         </motion.div>
       </div>
     </div>

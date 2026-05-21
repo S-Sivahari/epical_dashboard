@@ -13,8 +13,16 @@ import {
 } from 'date-fns'
 import { cn } from '@pages/employee/lib/utils'
 
-export function CalendarWidget({ holidays = [], highlightDates = [] }) {
+export function CalendarWidget({ holidays = [], highlightDates = [], onMonthChange }) {
   const [current, setCurrent] = useState(new Date())
+  
+  const handleMonthChange = (newDate) => {
+    setCurrent(newDate)
+    if (onMonthChange) {
+      onMonthChange(newDate)
+    }
+  }
+  
   const monthStart = startOfMonth(current)
   const monthEnd = endOfMonth(current)
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd })
@@ -29,10 +37,10 @@ export function CalendarWidget({ holidays = [], highlightDates = [] }) {
       <div className="mb-4 flex items-center justify-between">
         <h3 className="font-heading font-semibold">{format(current, 'MMMM yyyy')}</h3>
         <div className="flex gap-1">
-          <button type="button" onClick={() => setCurrent(subMonths(current, 1))} className="rounded-lg p-1.5 hover:bg-slate-100">
+          <button type="button" onClick={() => handleMonthChange(subMonths(current, 1))} className="rounded-lg p-1.5 hover:bg-slate-100">
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <button type="button" onClick={() => setCurrent(addMonths(current, 1))} className="rounded-lg p-1.5 hover:bg-slate-100">
+          <button type="button" onClick={() => handleMonthChange(addMonths(current, 1))} className="rounded-lg p-1.5 hover:bg-slate-100">
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
