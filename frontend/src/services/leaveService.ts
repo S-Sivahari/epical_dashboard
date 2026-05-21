@@ -28,8 +28,8 @@ export async function approveLeave(id: string) {
   await api.patch(`/leaves/${id}/approve`)
 }
 
-export async function rejectLeave(id: string) {
-  await api.patch(`/leaves/${id}/reject`)
+export async function rejectLeave(id: string, reason: string) {
+  await api.patch(`/leaves/${id}/reject`, { reason })
 }
 
 export async function cancelLeave(id: string) {

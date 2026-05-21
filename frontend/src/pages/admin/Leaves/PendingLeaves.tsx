@@ -64,7 +64,7 @@ export function PendingLeaves({ filters }: { filters: LeaveFilters }) {
             size="sm"
             variant="danger"
             onClick={async () => {
-              await rejectLeave(l.id)
+              await rejectLeave(l.id, '')
               toast.success('Leave rejected')
               await fetchLeaves()
             }}
