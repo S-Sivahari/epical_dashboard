@@ -22,7 +22,9 @@ interface NotificationState {
   unreadCount: number
   loading: boolean
   fetchNotifications: () => Promise<void>
+  fetchNotificationsSilent: () => Promise<void>
   fetchUnreadCount: () => Promise<void>
+  fetchUnreadCountSilent: () => Promise<void>
   markAsRead: (notificationId: string) => Promise<void>
   markAllAsRead: () => Promise<void>
   deleteNotification: (notificationId: string) => Promise<void>
@@ -45,7 +47,25 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     }
   },
 
+  fetchNotificationsSilent: async () => {
+    try {
+      const response = await api.get('/notifications')
+      set({ notifications: response.data })
+    } catch (error) {
+      console.error('Error fetching notifications:', error)
+    }
+  },
+
   fetchUnreadCount: async () => {
+    try {
+      const response = await api.get('/notifications/count/unread')
+      set({ unreadCount: response.data.count })
+    } catch (error) {
+      console.error('Error fetching unread count:', error)
+    }
+  },
+
+  fetchUnreadCountSilent: async () => {
     try {
       const response = await api.get('/notifications/count/unread')
       set({ unreadCount: response.data.count })
@@ -80,8 +100,14 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   deleteNotification: async (notificationId: string) => {
     try {
       await api.delete(`/notifications/${notificationId}`)
+      const deletedNotification = get().notifications.find((n) => n.id === notificationId)
       const notifications = get().notifications.filter((n) => n.id !== notificationId)
-      set({ notifications })
+      // Update unreadCount if deleted notification was unread
+      let unreadCount = get().unreadCount
+      if (deletedNotification && !deletedNotification.isRead) {
+        unreadCount = Math.max(0, unreadCount - 1)
+      }
+      set({ notifications, unreadCount })
     } catch (error) {
       console.error('Error deleting notification:', error)
     }

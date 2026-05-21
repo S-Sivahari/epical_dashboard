@@ -6,18 +6,20 @@ import { cn } from '@pages/employee/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
 
 export function NotificationDropdown() {
-  const { notifications, unreadCount, fetchNotifications, fetchUnreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotificationStore()
+  const { notifications, unreadCount, fetchNotifications, fetchNotificationsSilent, fetchUnreadCount, fetchUnreadCountSilent, markAsRead, markAllAsRead, deleteNotification } = useNotificationStore()
 
   useEffect(() => {
+    // Initial fetch with loading indicator
     fetchUnreadCount()
     fetchNotifications()
-    // Refresh every 30 seconds
+    
+    // Poll for updates every 5 seconds WITHOUT loading indicator
     const interval = setInterval(() => {
-      fetchUnreadCount()
-      fetchNotifications()
-    }, 30000)
+      fetchUnreadCountSilent()
+      fetchNotificationsSilent()
+    }, 5000)
     return () => clearInterval(interval)
-  }, [fetchNotifications, fetchUnreadCount])
+  }, [fetchNotifications, fetchNotificationsSilent, fetchUnreadCount, fetchUnreadCountSilent])
 
   return (
     <DropdownMenu>

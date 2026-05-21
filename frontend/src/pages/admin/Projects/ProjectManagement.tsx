@@ -36,6 +36,7 @@ import {
   TrendingUp,
   Sliders,
   AlertCircle,
+  FileText,
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -50,6 +51,7 @@ import { formatDate } from '@/utils/formatDate'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
+import api from '@/services/api'
 
 /* ================================================================
    TYPE DEFINITIONS
@@ -80,10 +82,14 @@ interface TimesheetLog {
     requestedLogin: string
     requestedLogout: string
     reason: string
+    message: string
   }
+  requestStatus: 'No Request' | 'Pending Review' | 'Corrected' | 'Approved'
   status: 'Approved' | 'Pending' | 'Rejected'
   billable: boolean
   task: string
+  adminNotes?: string
+  overriddenHours?: number
 }
 
 /* ================================================================
@@ -108,250 +114,6 @@ const MOCK_TEAMS = [
   'Operations Team',
 ]
 
-const SEED_PROJECTS: Project[] = [
-  {
-    id: 'P-1001',
-    name: 'Project Atlas',
-    client: 'Acme Corp',
-    technologyNode: '14nm FinFET',
-    accessType: 'private',
-    status: 'Active',
-    description:
-      'Next-generation low-power microprocessor layout design and verification pipeline for mobile SoC applications.',
-    visibleUsers: ['Asha Menon', 'Rahul Verma', 'Kiran Rao'],
-    assignedTeamName: 'Design Team',
-  },
-  {
-    id: 'P-1002',
-    name: 'Project Beacon',
-    client: 'Globex Electronics',
-    technologyNode: '28nm',
-    accessType: 'public',
-    status: 'Active',
-    description:
-      'High-speed analog-to-digital converter interface and clock distribution tree for automotive radar systems.',
-    visibleUsers: [],
-  },
-  {
-    id: 'P-1003',
-    name: 'Project Phoenix',
-    client: 'Initech Systems',
-    technologyNode: '65nm',
-    accessType: 'private',
-    status: 'Active',
-    description:
-      'Legacy chip retrofit and radiation hardening for aerospace telemetry sensors with full MIL-STD compliance.',
-    visibleUsers: ['Amit Patel', 'Vikram Singh'],
-    assignedTeamName: 'R&D Team',
-  },
-  {
-    id: 'P-1004',
-    name: 'Project Apollo',
-    client: 'Internal',
-    technologyNode: '180nm',
-    accessType: 'public',
-    status: 'Completed',
-    description:
-      'Standard cell library characterization and physical design rule verification for internal PDK release.',
-    visibleUsers: [],
-  },
-  {
-    id: 'P-1005',
-    name: 'Project Horizon',
-    client: 'Umbrella Corp',
-    technologyNode: '28nm',
-    accessType: 'private',
-    status: 'Active',
-    description:
-      'Low-latency packet routing engine for high-performance memory interfaces supporting DDR5 bandwidth targets.',
-    visibleUsers: ['Priya Das', 'Asha Menon', 'Meera Nair'],
-    assignedTeamName: 'Hardware Team',
-  },
-  {
-    id: 'P-1006',
-    name: 'Project Titan',
-    client: 'Acme Corp',
-    technologyNode: '7nm',
-    accessType: 'private',
-    status: 'Active',
-    description:
-      'Server-class GPU compute tile with advanced power delivery network and thermal-aware floorplanning.',
-    visibleUsers: ['Asha Menon', 'Sneha Iyer', 'Vikram Singh', 'Kiran Rao', 'Rahul Verma', 'Amit Patel'],
-    assignedTeamName: 'Design Team',
-  },
-  {
-    id: 'P-1007',
-    name: 'Project Orion',
-    client: 'Globex Electronics',
-    technologyNode: '14nm FinFET',
-    accessType: 'public',
-    status: 'Completed',
-    description:
-      'Multi-channel SerDes transceiver IP qualification and silicon bring-up validation suite.',
-    visibleUsers: [],
-  },
-]
-
-const SEED_TIMESHEETS: TimesheetLog[] = [
-  {
-    id: 'T-1',
-    employeeId: 'E-1001',
-    employeeName: 'Asha Menon',
-    project: 'Project Atlas',
-    client: 'Acme Corp',
-    technologyNode: '14nm FinFET',
-    date: '2026-05-21',
-    loginTime: '2026-05-21T09:00:00',
-    logoutTime: '2026-05-21T17:00:00',
-    status: 'Approved',
-    billable: true,
-    task: 'Critical path routing design and simulation checks.',
-  },
-  {
-    id: 'T-2',
-    employeeId: 'E-1002',
-    employeeName: 'Rahul Verma',
-    project: 'Project Beacon',
-    client: 'Globex Electronics',
-    technologyNode: '28nm',
-    date: '2026-05-21',
-    loginTime: '2026-05-21T08:30:00',
-    status: 'Pending',
-    billable: true,
-    task: 'Physical DRC check execution and report compiling.',
-  },
-  {
-    id: 'T-3',
-    employeeId: 'E-1003',
-    employeeName: 'Meera Nair',
-    project: 'Project Horizon',
-    client: 'Umbrella Corp',
-    technologyNode: '28nm',
-    date: '2026-05-20',
-    loginTime: '2026-05-20T09:00:00',
-    logoutTime: '2026-05-20T18:30:00',
-    status: 'Pending',
-    billable: true,
-    task: 'Clock tree floorplanning and pin connection verification.',
-    correctionRequest: {
-      requestedLogin: '2026-05-20T09:00:00',
-      requestedLogout: '2026-05-20T17:00:00',
-      reason: 'Logged extra 1.5 hours by mistake after team sync.',
-    },
-  },
-  {
-    id: 'T-4',
-    employeeId: 'E-1004',
-    employeeName: 'Amit Patel',
-    project: 'Project Phoenix',
-    client: 'Initech Systems',
-    technologyNode: '65nm',
-    date: '2026-05-19',
-    loginTime: '2026-05-19T08:00:00',
-    logoutTime: '2026-05-19T18:00:00',
-    status: 'Pending',
-    billable: true,
-    task: 'Pre-simulation reviews for radiation hardened cell placement.',
-  },
-  {
-    id: 'T-5',
-    employeeId: 'E-1005',
-    employeeName: 'Priya Das',
-    project: 'Project Horizon',
-    client: 'Umbrella Corp',
-    technologyNode: '28nm',
-    date: '2026-05-18',
-    loginTime: '2026-05-18T09:30:00',
-    logoutTime: '2026-05-18T18:00:00',
-    status: 'Approved',
-    billable: false,
-    task: 'Weekly cross-team hardware architecture sync meeting.',
-  },
-  {
-    id: 'T-6',
-    employeeId: 'E-1001',
-    employeeName: 'Asha Menon',
-    project: 'Project Atlas',
-    client: 'Acme Corp',
-    technologyNode: '14nm FinFET',
-    date: '2026-05-15',
-    loginTime: '2026-05-15T09:00:00',
-    logoutTime: '2026-05-15T17:00:00',
-    status: 'Approved',
-    billable: true,
-    task: 'LVS rule violation diagnostics and cell resizing.',
-  },
-  {
-    id: 'T-7',
-    employeeId: 'E-1002',
-    employeeName: 'Rahul Verma',
-    project: 'Project Beacon',
-    client: 'Globex Electronics',
-    technologyNode: '28nm',
-    date: '2026-05-12',
-    loginTime: '2026-05-12T09:00:00',
-    logoutTime: '2026-05-12T16:00:00',
-    status: 'Approved',
-    billable: true,
-    task: 'Block level logical synthesis runs and area report logs.',
-  },
-  {
-    id: 'T-8',
-    employeeId: 'E-1006',
-    employeeName: 'Kiran Rao',
-    project: 'Project Titan',
-    client: 'Acme Corp',
-    technologyNode: '7nm',
-    date: '2026-05-21',
-    loginTime: '2026-05-21T08:00:00',
-    logoutTime: '2026-05-21T18:00:00',
-    status: 'Approved',
-    billable: true,
-    task: 'Power delivery network IR drop simulation and grid analysis.',
-  },
-  {
-    id: 'T-9',
-    employeeId: 'E-1007',
-    employeeName: 'Sneha Iyer',
-    project: 'Project Titan',
-    client: 'Acme Corp',
-    technologyNode: '7nm',
-    date: '2026-05-20',
-    loginTime: '2026-05-20T09:00:00',
-    logoutTime: '2026-05-20T15:30:00',
-    status: 'Pending',
-    billable: true,
-    task: 'Formal equivalence checking on resynthesized netlist.',
-  },
-  {
-    id: 'T-10',
-    employeeId: 'E-1004',
-    employeeName: 'Amit Patel',
-    project: 'Project Phoenix',
-    client: 'Initech Systems',
-    technologyNode: '65nm',
-    date: '2026-05-05',
-    loginTime: '2026-05-05T09:00:00',
-    logoutTime: '2026-05-05T13:00:00',
-    status: 'Rejected',
-    billable: false,
-    task: 'Database script recoveries and structural verification checks.',
-  },
-  {
-    id: 'T-11',
-    employeeId: 'E-1001',
-    employeeName: 'Asha Menon',
-    project: 'Project Apollo',
-    client: 'Internal',
-    technologyNode: '180nm',
-    date: '2026-04-25',
-    loginTime: '2026-04-25T09:00:00',
-    logoutTime: '2026-04-25T17:00:00',
-    status: 'Approved',
-    billable: true,
-    task: 'Library characterization modeling configuration.',
-  },
-]
 
 /* ================================================================
    HELPER – Click-outside hook
@@ -372,9 +134,10 @@ function useClickOutside(ref: React.RefObject<HTMLElement | null>, handler: () =
 }
 
 /* ================================================================
-   HELPER – Hours Calculation
+   HELPER – Hours Calculation (with Overridden Hours respect)
    ================================================================ */
-const calculateHours = (login: string, logout?: string): number | null => {
+const calculateHours = (login: string, logout?: string, overriddenHours?: number): number | null => {
+  if (overriddenHours !== undefined && overriddenHours !== null) return overriddenHours
   if (!logout) return null
   const loginDate = new Date(login)
   const logoutDate = new Date(logout)
@@ -393,6 +156,17 @@ const formatDateTime = (isoString?: string): string => {
   const dateStr = d.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })
   const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
   return `${dateStr}, ${timeStr}`
+}
+
+/* ================================================================
+   HELPER – toDatetimeLocal for date inputs
+   ================================================================ */
+const toDatetimeLocal = (isoString?: string): string => {
+  if (!isoString) return ''
+  const d = new Date(isoString)
+  if (isNaN(d.getTime())) return ''
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 /* ================================================================
@@ -514,7 +288,6 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
     setTempEnd(endDate)
   })
 
-  // Synchronize temp state with parent properties when open toggles
   useEffect(() => {
     if (open) {
       setTempStart(startDate)
@@ -538,7 +311,6 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
         const day = today.getDay()
         const diffToMon = day === 0 ? -6 : 1 - day
         start.setDate(today.getDate() + diffToMon)
-        // Set end to sunday of this week
         end.setDate(start.getDate() + 6)
         break
       }
@@ -604,7 +376,6 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
     }
   }
 
-  // Calendar cells generation
   const calendarCells = useMemo(() => {
     const year = currentMonth.getFullYear()
     const month = currentMonth.getMonth()
@@ -614,7 +385,6 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
 
     const cells: { day: number; dateString: string; isCurrentMonth: boolean }[] = []
 
-    // Previous month filler days
     for (let i = firstDayIndex - 1; i >= 0; i--) {
       const day = prevDaysInMonth - i
       const prevM = month === 0 ? 11 : month - 1
@@ -623,13 +393,11 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
       cells.push({ day, dateString, isCurrentMonth: false })
     }
 
-    // Current month days
     for (let i = 1; i <= daysInMonth; i++) {
       const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`
       cells.push({ day: i, dateString, isCurrentMonth: true })
     }
 
-    // Next month filler days (fill to 42 cells)
     const remaining = 42 - cells.length
     for (let i = 1; i <= remaining; i++) {
       const nextM = month === 11 ? 0 : month + 1
@@ -647,7 +415,7 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
         onClick={() => setOpen(!open)}
         className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors"
       >
-        <CalendarIcon className="h-4 w-4 text-emerald-600" />
+        <CalendarIcon className="h-4 w-4 text-emerald-650" />
         {preset === 'Custom'
           ? `${formatDate(startDate)} – ${formatDate(endDate)}`
           : `${preset} (${formatDate(startDate)} – ${formatDate(endDate)})`}
@@ -655,7 +423,7 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-2 flex flex-col md:flex-row gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl animate-fadeIn min-w-[500px]">
+        <div className="absolute left-0 top-full z-50 mt-2 flex flex-col md:flex-row gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl animate-fadeIn w-[92vw] sm:w-auto sm:min-w-[500px]">
           {/* Calendar Grid */}
           <div className="flex-1 select-none">
             <div className="flex items-center justify-between mb-4">
@@ -693,7 +461,7 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
                     onClick={() => isCurrentMonth && handleDayClick(cell.dateString)}
                     className={`
                       h-7 w-7 rounded-lg flex items-center justify-center font-semibold transition-all
-                      ${!isCurrentMonth ? 'text-slate-300 pointer-events-none' : 'text-slate-700 hover:bg-emerald-50 hover:text-emerald-700'}
+                      ${!isCurrentMonth ? 'text-slate-350 pointer-events-none' : 'text-slate-705 hover:bg-emerald-50 hover:text-emerald-700'}
                       ${isSelectedStart ? 'bg-emerald-600 text-white hover:bg-emerald-600 hover:text-white shadow-sm' : ''}
                       ${isSelectedEnd ? 'bg-emerald-600 text-white hover:bg-emerald-600 hover:text-white shadow-sm' : ''}
                       ${isWithinRange ? 'bg-emerald-50 text-emerald-800 rounded-none' : ''}
@@ -738,6 +506,50 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
               </button>
             ))}
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ================================================================
+   COMPONENT – Overlapping Avatar Group (Jira / Linear style)
+   ================================================================ */
+function AvatarGroup({ users, max = 3 }: { users: string[]; max?: number }) {
+  if (!users || users.length === 0) return null
+
+  const visible = users.slice(0, max)
+  const remaining = users.length - max
+
+  return (
+    <div className="flex -space-x-2.5 overflow-hidden">
+      {visible.map((username) => {
+        const emp = MOCK_EMPLOYEES.find((e) => e.name === username)
+        const hue = emp ? emp.hue : 120
+        const initials = username
+          .split(' ')
+          .map((n) => n[0])
+          .join('')
+          .slice(0, 2)
+          .toUpperCase()
+
+        return (
+          <div
+            key={username}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-slate-100 text-[10px] font-bold shadow-sm ring-1 ring-slate-200/30"
+            style={{
+              background: `linear-gradient(135deg, hsl(${hue}, 80%, 96%) 0%, hsl(${hue}, 55%, 85%) 100%)`,
+              color: `hsl(${hue}, 85%, 28%)`,
+            }}
+            title={username}
+          >
+            {initials}
+          </div>
+        )
+      })}
+      {remaining > 0 && (
+        <div className="inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-slate-200 text-[9px] font-black text-slate-750 shadow-sm ring-1 ring-slate-200/30">
+          +{remaining}
         </div>
       )}
     </div>
@@ -842,16 +654,27 @@ function ProjectCard({
         <p className="mt-3.5 text-xs text-slate-500 line-clamp-3 leading-relaxed">
           {project.description}
         </p>
+        <p className="mt-2 text-[10px] font-semibold text-slate-400">
+          Visibility Scope: {visibilitySummary}
+        </p>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          <span className="inline-flex items-center gap-1 rounded-lg bg-slate-50 border border-slate-150 px-2 py-0.5 text-[10px] font-bold text-slate-500 font-mono">
-            <Cpu className="h-2.5 w-2.5 text-slate-400" />
-            {project.technologyNode}
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-lg bg-slate-50 border border-slate-150 px-2 py-0.5 text-[10px] font-bold text-slate-500">
-            <Users className="h-2.5 w-2.5 text-slate-400" />
-            {visibilitySummary}
-          </span>
+        {/* Access controls & Team Layout Redesign */}
+        <div className="mt-4 flex items-center justify-between gap-2 border-t border-slate-50 pt-3">
+          <div className="flex flex-wrap gap-1.5 items-center">
+            <span className="inline-flex items-center gap-1 rounded-lg bg-slate-50 border border-slate-150 px-2 py-0.5 text-[10px] font-bold text-slate-500 font-mono">
+              <Cpu className="h-2.5 w-2.5 text-slate-400" />
+              {project.technologyNode}
+            </span>
+            {project.accessType === 'private' && project.assignedTeamName && (
+              <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50/50 border border-emerald-100/50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                <Users className="h-2.5 w-2.5 text-emerald-500" />
+                {project.assignedTeamName}
+              </span>
+            )}
+          </div>
+          {project.accessType === 'private' && project.visibleUsers.length > 0 && (
+            <AvatarGroup users={project.visibleUsers} max={3} />
+          )}
         </div>
       </div>
 
@@ -887,7 +710,7 @@ function ProjectCard({
           {!isCompleted && (
             <button
               onClick={onComplete}
-              className="ml-1 rounded-xl border border-slate-200 px-2.5 py-1 text-[10px] font-bold text-slate-500 hover:border-emerald-600 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
+              className="ml-1 rounded-xl border border-slate-205 px-2.5 py-1 text-[10px] font-bold text-slate-500 hover:border-emerald-600 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
             >
               Mark Completed
             </button>
@@ -913,11 +736,6 @@ function ProjectListRow({
   onComplete: () => void
 }) {
   const isCompleted = project.status === 'Completed'
-
-  const visibilitySummary =
-    project.accessType === 'private'
-      ? `Private · ${project.visibleUsers.length} Users · ${project.assignedTeamName || 'No Team'}`
-      : 'Public · All Members'
 
   return (
     <tr className="group transition-colors hover:bg-slate-50/50">
@@ -952,7 +770,20 @@ function ProjectListRow({
           </Badge>
         )}
       </td>
-      <td className="px-5 py-3.5 text-slate-500 font-semibold">{visibilitySummary}</td>
+      <td className="px-5 py-3.5">
+        {project.accessType === 'private' ? (
+          <div className="flex items-center gap-2">
+            {project.assignedTeamName && (
+              <span className="inline-flex items-center gap-1 rounded bg-emerald-50 text-emerald-700 px-2 py-0.5 text-[10px] font-bold border border-emerald-100">
+                {project.assignedTeamName}
+              </span>
+            )}
+            <AvatarGroup users={project.visibleUsers} max={3} />
+          </div>
+        ) : (
+          <span className="text-[11px] text-slate-400 italic">All Members (Public)</span>
+        )}
+      </td>
       <td className="px-5 py-3.5">
         {isCompleted ? (
           <Badge variant="neutral" className="bg-slate-100 text-slate-600 border border-slate-200 py-0.5 px-2">
@@ -1030,7 +861,7 @@ function EmployeeLeaderboard({
               </div>
               <div className="mt-1 w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-emerald-400 to-emerald-600 h-full rounded-full transition-all duration-500"
+                  className="bg-gradient-to-r from-emerald-400 to-emerald-650 h-full rounded-full transition-all duration-500"
                   style={{ width: `${percent}%` }}
                 />
               </div>
@@ -1051,8 +882,13 @@ function EmployeeLeaderboard({
 export function ProjectManagement() {
   // ── Core State ──────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<'projects' | 'timesheets'>('projects')
-  const [projects, setProjects] = useState<Project[]>(SEED_PROJECTS)
-  const [timesheets, setTimesheets] = useState<TimesheetLog[]>(SEED_TIMESHEETS)
+  const [allProjects, setAllProjects] = useState<Project[]>([])
+  const [timesheets, setTimesheets] = useState<TimesheetLog[]>([])
+  const [chartHoursByProject, setChartHoursByProject] = useState<{ name: string; hours: number }[]>([])
+  const [leaderboardData, setLeaderboardData] = useState<{ name: string; dept: string; hours: number; hue: number }[]>([])
+  const [, setLoading] = useState(false)
+
+  const projects = allProjects
 
   // ── Projects Filter & Layout States ─────────────────────────
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
@@ -1096,19 +932,66 @@ export function ProjectManagement() {
 
   // ── Timesheet Modal States (Admin Override / Edit) ──────────
   const [tsModalOpen, setTsModalOpen] = useState(false)
-  const [tsModalMode, setTsModalMode] = useState<'create' | 'edit'>('create')
   const [editingTsId, setEditingTsId] = useState<string | null>(null)
 
   const [tsForm, setTsForm] = useState({
-    employeeId: 'E-1001',
-    projectName: '',
-    loginTime: '2026-05-21T09:00',
-    logoutTime: '2026-05-21T17:00',
+    loginTime: '',
+    logoutTime: '',
     hasLogoutTime: true,
-    billable: true,
+    overriddenHours: '' as string | number,
+    isOverridden: false,
+    adminNotes: '',
     status: 'Pending' as 'Approved' | 'Pending' | 'Rejected',
-    task: '',
   })
+
+  // ── View Correction Request Modal States ────────────────────
+  const [viewRequestModalOpen, setViewRequestModalOpen] = useState(false)
+  const [selectedLogForRequest, setSelectedLogForRequest] = useState<TimesheetLog | null>(null)
+
+  // ── API Fetch Functions ─────────────────────────────────────
+  const fetchProjects = useCallback(async () => {
+    try {
+      const res = await api.get('/projects')
+      setAllProjects(res.data)
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to load projects.')
+    }
+  }, [])
+
+  const fetchTimesheetsData = useCallback(async () => {
+    const params: any = {
+      from: tsStartDate,
+      to: tsEndDate,
+    }
+    if (tsEmployeeFilter !== 'all') params.employee = tsEmployeeFilter
+    if (tsProjectFilter !== 'all') params.project = tsProjectFilter
+    if (tsTeamFilter !== 'all') params.team = tsTeamFilter
+    if (tsStatusFilter !== 'all') params.status = tsStatusFilter
+    if (tsSearch.trim()) params.search = tsSearch.trim()
+
+    try {
+      const [logsRes, chartRes, leaderboardRes] = await Promise.all([
+        api.get('/timesheets', { params }),
+        api.get('/timesheets/hours-by-project', { params }),
+        api.get('/timesheets/employee-hours', { params }),
+      ])
+      setTimesheets(logsRes.data)
+      setChartHoursByProject(chartRes.data)
+      setLeaderboardData(leaderboardRes.data)
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to load timesheet data.')
+    }
+  }, [tsStartDate, tsEndDate, tsEmployeeFilter, tsProjectFilter, tsTeamFilter, tsStatusFilter, tsSearch])
+
+  useEffect(() => {
+    fetchProjects()
+  }, [fetchProjects])
+
+  useEffect(() => {
+    fetchTimesheetsData()
+  }, [fetchTimesheetsData])
 
   // ── Derived Client / Project Lists for Filter Options ──────────
   const uniqueClients = useMemo(() => {
@@ -1177,7 +1060,10 @@ export function ProjectManagement() {
   // ── Projects State Handlers ──────────────────────────────────
   const openCreateProject = useCallback(() => {
     setModalMode('create')
-    setForm(emptyForm)
+    setForm({
+      ...emptyForm,
+      status: 'Active', // automatically Active on creation
+    })
     setEditingId(null)
     setModalOpen(true)
   }, [])
@@ -1199,64 +1085,89 @@ export function ProjectManagement() {
   }, [])
 
   const handleSaveProject = useCallback(
-    (e: React.FormEvent) => {
+    async (e: React.FormEvent) => {
       e.preventDefault()
       if (!form.name.trim() || !form.client.trim() || !form.technologyNode.trim()) {
         toast.error('Please specify Project Name, Client, and Technology Node.')
         return
       }
 
-      if (modalMode === 'create') {
-        const newProj: Project = {
-          id: `P-${Date.now()}`,
-          name: form.name.trim(),
-          client: form.client.trim(),
-          technologyNode: form.technologyNode.trim(),
-          accessType: form.accessType,
-          status: form.status,
-          description: form.description.trim(),
-          visibleUsers: form.accessType === 'private' ? form.visibleUsers : [],
-          assignedTeamName: form.accessType === 'private' ? form.assignedTeamName.trim() : undefined,
-        }
-        setProjects((prev) => [newProj, ...prev])
-        toast.success(`Project "${newProj.name}" created successfully.`)
-      } else {
-        setProjects((prev) =>
-          prev.map((p) =>
-            p.id === editingId
-              ? {
-                  ...p,
-                  name: form.name.trim(),
-                  client: form.client.trim(),
-                  technologyNode: form.technologyNode.trim(),
-                  accessType: form.accessType,
-                  status: form.status,
-                  description: form.description.trim(),
-                  visibleUsers: form.accessType === 'private' ? form.visibleUsers : [],
-                  assignedTeamName: form.accessType === 'private' ? form.assignedTeamName.trim() : undefined,
-                }
-              : p
+      setLoading(true)
+      try {
+        if (modalMode === 'create') {
+          const res = await api.post('/projects', {
+            name: form.name.trim(),
+            client: form.client.trim(),
+            technologyNode: form.technologyNode.trim(),
+            accessType: form.accessType,
+            description: form.description.trim(),
+            visibleUsers: form.accessType === 'private' ? form.visibleUsers : [],
+            assignedTeamName: form.accessType === 'private' ? form.assignedTeamName.trim() : undefined,
+          })
+          setAllProjects((prev: Project[]) => [res.data, ...prev])
+          toast.success(`Project "${res.data.name}" created successfully.`)
+        } else {
+          const res = await api.put(`/projects/${editingId}`, {
+            name: form.name.trim(),
+            client: form.client.trim(),
+            technologyNode: form.technologyNode.trim(),
+            accessType: form.accessType,
+            status: form.status,
+            description: form.description.trim(),
+            visibleUsers: form.accessType === 'private' ? form.visibleUsers : [],
+            assignedTeamName: form.accessType === 'private' ? form.assignedTeamName.trim() : undefined,
+          })
+          setAllProjects((prev: Project[]) =>
+            prev.map((p) => (p.id === editingId ? res.data : p))
           )
-        )
-        toast.success('Project details updated successfully.')
+          toast.success('Project details updated successfully.')
+          fetchTimesheetsData()
+        }
+        setModalOpen(false)
+      } catch (err: any) {
+        console.error(err)
+        toast.error(err.response?.data?.error || 'Failed to save project.')
+      } finally {
+        setLoading(false)
       }
-      setModalOpen(false)
     },
-    [form, modalMode, editingId]
+    [form, modalMode, editingId, fetchTimesheetsData]
   )
 
-  const handleDeleteProject = useCallback((p: Project) => {
-    if (!window.confirm(`Are you sure you want to delete project "${p.name}"?`)) return
-    setProjects((prev) => prev.filter((x) => x.id !== p.id))
-    setTimesheets((prev) => prev.filter((t) => t.project !== p.name))
-    toast.success(`Project "${p.name}" and its associated logs have been deleted.`)
-  }, [])
+  const handleDeleteProject = useCallback(
+    async (p: Project) => {
+      if (!window.confirm(`Are you sure you want to delete project "${p.name}"?`)) return
+      setLoading(true)
+      try {
+        await api.delete(`/projects/${p.id}`)
+        setAllProjects((prev: Project[]) => prev.filter((x) => x.id !== p.id))
+        setTimesheets((prev: TimesheetLog[]) => prev.filter((t) => t.project !== p.name))
+        fetchTimesheetsData()
+        toast.success(`Project "${p.name}" and its associated logs have been deleted.`)
+      } catch (err: any) {
+        console.error(err)
+        toast.error(err.response?.data?.error || 'Failed to delete project.')
+      } finally {
+        setLoading(false)
+      }
+    },
+    [fetchTimesheetsData]
+  )
 
-  const handleMarkProjectCompleted = useCallback((p: Project) => {
-    setProjects((prev) =>
-      prev.map((x) => (x.id === p.id ? { ...x, status: 'Completed' as const } : x))
-    )
-    toast.success(`Project "${p.name}" is now marked as Completed.`)
+  const handleMarkProjectCompleted = useCallback(async (p: Project) => {
+    setLoading(true)
+    try {
+      const res = await api.patch(`/projects/${p.id}/complete`)
+      setAllProjects((prev: Project[]) =>
+        prev.map((x) => (x.id === p.id ? res.data : x))
+      )
+      toast.success(`Project "${p.name}" is now marked as Completed.`)
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.response?.data?.error || 'Failed to complete project.')
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   const clearProjectsFilters = useCallback(() => {
@@ -1286,7 +1197,6 @@ export function ProjectManagement() {
   // ── Timesheets Filtering Implementation ──────────────────────
   const filteredTimesheets = useMemo(() => {
     return timesheets.filter((t) => {
-      // Date verification range
       const logDate = new Date(t.date)
       const startDate = new Date(tsStartDate)
       startDate.setHours(0, 0, 0, 0)
@@ -1315,18 +1225,12 @@ export function ProjectManagement() {
   const timesheetMetrics = useMemo(() => {
     let totalHours = 0
     let overtimeHours = 0
-    let pendingHours = 0
 
-    // Daily hours tracking per employee for overtime calculation
     const dailyAccumulator: Record<string, number> = {}
 
     filteredTimesheets.forEach((t) => {
-      const hours = calculateHours(t.loginTime, t.logoutTime) || 0
+      const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours) || 0
       totalHours += hours
-
-      if (t.status === 'Pending') {
-        pendingHours += hours
-      }
 
       if (t.logoutTime) {
         const key = `${t.employeeId}_${t.date}`
@@ -1338,46 +1242,21 @@ export function ProjectManagement() {
       overtimeHours += Math.max(0, dailySum - 8)
     })
 
+    const pendingApprovalsCount = timesheets.filter(
+      (t) => t.status === 'Pending' || t.requestStatus === 'Pending Review'
+    ).length
+
     const uniqueEmployeesCount = new Set(filteredTimesheets.map((t) => t.employeeId)).size
 
     return {
       total: Math.round(totalHours * 10) / 10,
       overtime: Math.round(overtimeHours * 10) / 10,
-      pending: Math.round(pendingHours * 10) / 10,
+      pending: pendingApprovalsCount,
       activeEmployees: uniqueEmployeesCount,
     }
-  }, [filteredTimesheets])
+  }, [filteredTimesheets, timesheets])
 
-  // ── Recharts Chart Data Processing ──────────────────────────
-  const chartHoursByProject = useMemo(() => {
-    const mapping: Record<string, number> = {}
-    filteredTimesheets.forEach((t) => {
-      const hours = calculateHours(t.loginTime, t.logoutTime) || 0
-      mapping[t.project] = (mapping[t.project] || 0) + hours
-    })
-    return Object.entries(mapping)
-      .map(([name, hours]) => ({ name, hours: Math.round(hours * 10) / 10 }))
-      .sort((a, b) => b.hours - a.hours)
-  }, [filteredTimesheets])
-
-  const leaderboardData = useMemo(() => {
-    const mapping: Record<string, number> = {}
-    filteredTimesheets.forEach((t) => {
-      const hours = calculateHours(t.loginTime, t.logoutTime) || 0
-      mapping[t.employeeName] = (mapping[t.employeeName] || 0) + hours
-    })
-    return Object.entries(mapping)
-      .map(([name, hours]) => {
-        const emp = MOCK_EMPLOYEES.find((e) => e.name === name)
-        return {
-          name,
-          dept: emp?.department || 'R&D',
-          hours: Math.round(hours * 10) / 10,
-          hue: emp?.hue || 200,
-        }
-      })
-      .sort((a, b) => b.hours - a.hours)
-  }, [filteredTimesheets])
+  // ── Recharts Chart Data and Leaderboard are managed via server-side aggregation state ──
 
   // ── Export Implementations (Excel / PDF) ─────────────────────
   const handleExportExcel = useCallback(() => {
@@ -1399,7 +1278,7 @@ export function ProjectManagement() {
     aoa.push(['ANALYTICS SUMMARY'])
     aoa.push(['Total Hours Logged', `${timesheetMetrics.total} hrs`])
     aoa.push(['Overtime Hours (Daily > 8.0)', `${timesheetMetrics.overtime} hrs`])
-    aoa.push(['Pending Approvals Hours', `${timesheetMetrics.pending} hrs`])
+    aoa.push(['Pending Approvals Count', timesheetMetrics.pending])
     aoa.push(['Active Employees Count', timesheetMetrics.activeEmployees])
     aoa.push([])
 
@@ -1415,16 +1294,15 @@ export function ProjectManagement() {
       'Total Hours',
       'Billable Status',
       'Approval Status',
-      'Correction Requested',
+      'Request Status',
+      'Admin Notes',
       'Task Details',
     ])
 
     // Table Data Rows
     filteredTimesheets.forEach((t) => {
-      const hours = calculateHours(t.loginTime, t.logoutTime)
-      const correctionDesc = t.correctionRequest
-        ? `Req Login: ${formatDateTime(t.correctionRequest.requestedLogin)}, Req Logout: ${formatDateTime(t.correctionRequest.requestedLogout)}. Reason: "${t.correctionRequest.reason}"`
-        : 'None'
+      const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours)
+      const notes = t.adminNotes || 'None'
 
       aoa.push([
         t.employeeName,
@@ -1437,7 +1315,8 @@ export function ProjectManagement() {
         hours !== null ? hours : 'Session Incomplete',
         t.billable ? 'Billable' : 'Non-Billable',
         t.status,
-        correctionDesc,
+        t.requestStatus,
+        notes,
         t.task,
       ])
     })
@@ -1456,12 +1335,13 @@ export function ProjectManagement() {
       { wch: 15 }, // Total Hours
       { wch: 15 }, // Billable Status
       { wch: 15 }, // Approval Status
-      { wch: 35 }, // Correction Requested
+      { wch: 15 }, // Request Status
+      { wch: 20 }, // Admin Notes
       { wch: 40 }, // Task Details
     ]
 
     const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Timesheets')
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Timesheet Logs')
 
     XLSX.writeFile(workbook, `Timesheet_Audit_Report_${tsStartDate}_to_${tsEndDate}.xlsx`)
     toast.success('Excel spreadsheet generated and downloaded successfully.')
@@ -1498,6 +1378,33 @@ export function ProjectManagement() {
     doc.setDrawColor(226, 232, 240)
     doc.line(40, 90, pageWidth - 40, 90)
 
+    // Summary block (Total Hours, Pending Reviews, Employee Count, Project Count)
+    const pendingCount = timesheets.filter(
+      (t) => t.status === 'Pending' || t.requestStatus === 'Pending Review'
+    ).length
+
+    doc.setFillColor(248, 250, 252) // slate-50
+    doc.setDrawColor(226, 232, 240) // slate-200
+    doc.roundedRect(40, 95, 762, 50, 6, 6, 'FD')
+
+    // Columns of metrics inside summary box
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(8)
+    doc.setTextColor(148, 163, 184) // slate-400
+    doc.text('TOTAL HOURS LOGGED', 60, 115)
+    doc.text('PENDING REVIEWS', 250, 115)
+    doc.text('ACTIVE EMPLOYEES', 440, 115)
+    doc.text('TOTAL PROJECTS', 630, 115)
+
+    doc.setFontSize(13)
+    doc.setTextColor(16, 185, 129) // emerald-500
+    doc.text(`${timesheetMetrics.total.toFixed(1)} hrs`, 60, 133)
+    doc.setTextColor(245, 158, 11) // amber-500
+    doc.text(`${pendingCount} Logs`, 250, 133)
+    doc.setTextColor(30, 41, 59) // slate-800
+    doc.text(`${timesheetMetrics.activeEmployees}`, 440, 133)
+    doc.text(`${projects.length}`, 630, 133)
+
     const tableHeaders = [
       'Employee',
       'Project',
@@ -1505,32 +1412,29 @@ export function ProjectManagement() {
       'Logout Time',
       'Total Hours',
       'Status',
-      'Corrections',
+      'Date',
     ]
 
     const tableRows = filteredTimesheets.map((t) => {
-      const hours = calculateHours(t.loginTime, t.logoutTime)
-      const correctionSummary = t.correctionRequest
-        ? `Requested Login: ${formatDateTime(t.correctionRequest.requestedLogin)}\nRequested Logout: ${formatDateTime(t.correctionRequest.requestedLogout)}\nReason: "${t.correctionRequest.reason}"`
-        : 'No request pending'
-
+      const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours)
       return [
         `${t.employeeName} (${t.employeeId})`,
-        `${t.project} (${t.client} - ${t.technologyNode})`,
+        `${t.project}\n(${t.client} · ${t.technologyNode})`,
         formatDateTime(t.loginTime),
         t.logoutTime ? formatDateTime(t.logoutTime) : 'Session Incomplete',
         hours !== null ? `${hours.toFixed(1)} hrs` : 'Session Incomplete',
         t.status,
-        correctionSummary,
+        t.date,
       ]
     })
 
     autoTable(doc, {
       head: [tableHeaders],
       body: tableRows,
-      startY: 105,
+      startY: 160,
       styles: { fontSize: 8, cellPadding: 5, overflow: 'linebreak' },
-      headStyles: { fillColor: [16, 185, 129], fontStyle: 'bold' },
+      headStyles: { fillColor: [16, 185, 129], fontStyle: 'bold', textColor: [255, 255, 255] },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
       theme: 'grid',
       margin: { left: 40, right: 40, bottom: 40 },
     })
@@ -1547,169 +1451,138 @@ export function ProjectManagement() {
 
     doc.save(`Timesheet_Audit_Report_${tsStartDate}_to_${tsEndDate}.pdf`)
     toast.success('PDF report exported successfully.')
-  }, [filteredTimesheets, tsStartDate, tsEndDate])
+  }, [filteredTimesheets, tsStartDate, tsEndDate, timesheetMetrics, projects, timesheets])
 
   // ── Timesheets CRUD Handlers ────────────────────────────────
-  const openCreateTimesheet = useCallback(() => {
-    setTsModalMode('create')
-    setEditingTsId(null)
-    const activeProjects = projects.filter((p) => p.status === 'Active')
-
-    setTsForm({
-      employeeId: MOCK_EMPLOYEES[0].id,
-      projectName: activeProjects[0]?.name || projects[0]?.name || '',
-      loginTime: '2026-05-21T09:00',
-      logoutTime: '2026-05-21T17:00',
-      hasLogoutTime: true,
-      billable: true,
-      status: 'Pending',
-      task: '',
-    })
-    setTsModalOpen(true)
-  }, [projects])
-
   const openEditTimesheet = useCallback((log: TimesheetLog) => {
-    setTsModalMode('edit')
     setEditingTsId(log.id)
-    const emp = MOCK_EMPLOYEES.find((e) => e.name === log.employeeName)
-
-    const toDatetimeLocal = (isoString?: string) => {
-      if (!isoString) return ''
-      const d = new Date(isoString)
-      if (isNaN(d.getTime())) return ''
-      const pad = (n: number) => String(n).padStart(2, '0')
-      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-    }
-
     setTsForm({
-      employeeId: emp?.id || 'E-1001',
-      projectName: log.project,
       loginTime: toDatetimeLocal(log.loginTime),
-      logoutTime: toDatetimeLocal(log.logoutTime),
+      logoutTime: log.logoutTime ? toDatetimeLocal(log.logoutTime) : '',
       hasLogoutTime: !!log.logoutTime,
-      billable: log.billable,
+      overriddenHours: log.overriddenHours !== undefined ? log.overriddenHours : '',
+      isOverridden: log.overriddenHours !== undefined,
+      adminNotes: log.adminNotes || '',
       status: log.status,
-      task: log.task,
     })
     setTsModalOpen(true)
   }, [])
 
+  const selectedLogForEdit = useMemo(() => {
+    return timesheets.find((t) => t.id === editingTsId)
+  }, [timesheets, editingTsId])
+
   const handleSaveTimesheet = useCallback(
-    (e: React.FormEvent) => {
+    async (e: React.FormEvent) => {
       e.preventDefault()
-
-      if (!tsForm.projectName || !tsForm.task.trim()) {
-        toast.error('Please select a project and provide a task description.')
-        return
-      }
-
-      const emp = MOCK_EMPLOYEES.find((x) => x.id === tsForm.employeeId)
-      const proj = projects.find((x) => x.name === tsForm.projectName)
-
-      if (!emp || !proj) {
-        toast.error('Internal mapping error: could not resolve selected employee or project.')
-        return
-      }
+      if (!editingTsId) return
 
       const loginISO = new Date(tsForm.loginTime).toISOString()
-      const logoutISO = tsForm.hasLogoutTime ? new Date(tsForm.logoutTime).toISOString() : undefined
+      const logoutISO = tsForm.hasLogoutTime && tsForm.logoutTime ? new Date(tsForm.logoutTime).toISOString() : null
 
       if (logoutISO && logoutISO < loginISO) {
         toast.error('Logout time cannot be earlier than login time.')
         return
       }
 
-      if (tsModalMode === 'create') {
-        const newLog: TimesheetLog = {
-          id: `T-${Date.now()}`,
-          employeeId: emp.id,
-          employeeName: emp.name,
-          project: proj.name,
-          client: proj.client,
-          technologyNode: proj.technologyNode,
-          date: tsForm.loginTime.split('T')[0],
+      setLoading(true)
+      try {
+        const nextRequestStatus = selectedLogForEdit?.correctionRequest ? 'Corrected' : selectedLogForEdit?.requestStatus
+        const res = await api.put(`/timesheets/${editingTsId}`, {
           loginTime: loginISO,
           logoutTime: logoutISO,
-          status: 'Pending',
-          billable: tsForm.billable,
-          task: tsForm.task.trim(),
-        }
-        setTimesheets((prev) => [newLog, ...prev])
-        toast.success(`Session logged successfully for ${emp.name}.`)
-      } else {
-        setTimesheets((prev) =>
-          prev.map((t) =>
-            t.id === editingTsId
-              ? {
-                  ...t,
-                  employeeId: emp.id,
-                  employeeName: emp.name,
-                  project: proj.name,
-                  client: proj.client,
-                  technologyNode: proj.technologyNode,
-                  date: tsForm.loginTime.split('T')[0],
-                  loginTime: loginISO,
-                  logoutTime: logoutISO,
-                  billable: tsForm.billable,
-                  status: tsForm.status,
-                  task: tsForm.task.trim(),
-                }
-              : t
-          )
-        )
-        toast.success('Timesheet log override details updated.')
-      }
+          overriddenHours: tsForm.isOverridden ? Number(tsForm.overriddenHours) : null,
+          adminNotes: tsForm.adminNotes.trim() || null,
+          status: tsForm.status,
+          requestStatus: nextRequestStatus,
+        })
 
-      setTsModalOpen(false)
+        setTimesheets((prev: TimesheetLog[]) =>
+          prev.map((t) => (t.id === editingTsId ? res.data : t))
+        )
+        fetchTimesheetsData()
+        toast.success('Timesheet log override details updated.')
+        setTsModalOpen(false)
+      } catch (err: any) {
+        console.error(err)
+        toast.error(err.response?.data?.error || 'Failed to update timesheet log.')
+      } finally {
+        setLoading(false)
+      }
     },
-    [tsForm, tsModalMode, editingTsId, projects]
+    [tsForm, editingTsId, selectedLogForEdit, fetchTimesheetsData]
   )
 
-  const handleApproveCorrection = useCallback((logId: string) => {
-    setTimesheets((prev) =>
-      prev.map((t) => {
-        if (t.id === logId && t.correctionRequest) {
-          return {
-            ...t,
-            loginTime: t.correctionRequest.requestedLogin,
-            logoutTime: t.correctionRequest.requestedLogout,
-            status: 'Approved' as const,
-            correctionRequest: undefined,
-          }
+  const handleQuickSaveLog = useCallback(
+    async (logId: string) => {
+      const log = timesheets.find((t) => t.id === logId)
+      if (!log) return
+      setLoading(true)
+      try {
+        const payload: any = {}
+        if (log.correctionRequest) {
+          payload.applyCorrection = true
+        } else {
+          payload.status = 'Approved'
+          payload.requestStatus = 'Approved'
         }
-        return t
-      })
-    )
-    toast.success('Correction request approved and hours recalculated.')
-  }, [])
+        const res = await api.put(`/timesheets/${logId}`, payload)
+        setTimesheets((prev: TimesheetLog[]) =>
+          prev.map((t) => (t.id === logId ? res.data : t))
+        )
+        fetchTimesheetsData()
+        toast.success('Timesheet log approved and saved.')
+      } catch (err: any) {
+        console.error(err)
+        toast.error(err.response?.data?.error || 'Failed to approve timesheet log.')
+      } finally {
+        setLoading(false)
+      }
+    },
+    [timesheets, fetchTimesheetsData]
+  )
 
-  const handleRejectCorrection = useCallback((logId: string) => {
-    setTimesheets((prev) =>
-      prev.map((t) => {
-        if (t.id === logId) {
-          return {
-            ...t,
-            correctionRequest: undefined,
-          }
-        }
-        return t
-      })
-    )
-    toast.error('Correction request has been rejected.')
-  }, [])
+  const handleQuickApproveCorrection = useCallback(
+    async (logId: string) => {
+      setLoading(true)
+      try {
+        const res = await api.put(`/timesheets/${logId}`, {
+          applyCorrection: true,
+        })
+        setTimesheets((prev: TimesheetLog[]) =>
+          prev.map((t) => (t.id === logId ? res.data : t))
+        )
+        fetchTimesheetsData()
+        toast.success('Correction request approved and applied.')
+        setViewRequestModalOpen(false)
+      } catch (err: any) {
+        console.error(err)
+        toast.error(err.response?.data?.error || 'Failed to approve correction request.')
+      } finally {
+        setLoading(false)
+      }
+    },
+    [fetchTimesheetsData]
+  )
 
-  const handleApproveLogStatus = useCallback((logId: string) => {
-    setTimesheets((prev) =>
-      prev.map((t) => (t.id === logId ? { ...t, status: 'Approved' as const } : t))
-    )
-    toast.success('Timesheet log approved.')
-  }, [])
-
-  const handleDeleteTimesheet = useCallback((logId: string) => {
-    if (!window.confirm('Are you sure you want to delete this timesheet log?')) return
-    setTimesheets((prev) => prev.filter((t) => t.id !== logId))
-    toast.success('Timesheet log deleted successfully.')
-  }, [])
+  const handleDeleteTimesheet = useCallback(
+    async (logId: string) => {
+      if (!window.confirm('Are you sure you want to delete this timesheet log?')) return
+      setLoading(true)
+      try {
+        await api.delete(`/timesheets/${logId}`)
+        setTimesheets((prev: TimesheetLog[]) => prev.filter((t) => t.id !== logId))
+        fetchTimesheetsData()
+        toast.success('Timesheet log deleted successfully.')
+      } catch (err: any) {
+        console.error(err)
+        toast.error(err.response?.data?.error || 'Failed to delete timesheet log.')
+      } finally {
+        setLoading(false)
+      }
+    },
+    [fetchTimesheetsData]
+  )
 
   const clearTimesheetFilters = useCallback(() => {
     setTsSearch('')
@@ -1718,6 +1591,7 @@ export function ProjectManagement() {
     setTsTeamFilter('all')
     setTsStatusFilter('all')
   }, [])
+
 
   return (
     <PageWrapper>
@@ -1735,19 +1609,12 @@ export function ProjectManagement() {
 
         {/* Header CTA Trigger */}
         <div className="flex items-center gap-3">
-          {activeTab === 'projects' ? (
+          {activeTab === 'projects' && (
             <Button
               onClick={openCreateProject}
               className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-all shadow-sm rounded-xl py-2 px-4 flex items-center gap-1.5 focus:ring-4 focus:ring-emerald-500/10 border-0"
             >
               <Plus className="h-4 w-4" /> Create Project
-            </Button>
-          ) : (
-            <Button
-              onClick={openCreateTimesheet}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-all shadow-sm rounded-xl py-2 px-4 flex items-center gap-1.5 focus:ring-4 focus:ring-emerald-500/10 border-0"
-            >
-              <Plus className="h-4 w-4" /> Add Manual Override
             </Button>
           )}
         </div>
@@ -1807,7 +1674,7 @@ export function ProjectManagement() {
               label="Completed Projects"
               value={projectMetrics.completed}
               icon={CheckCircle2}
-              accentClass="bg-teal-500"
+              accentClass="bg-teal-505 bg-teal-500"
               secondaryText="Archived cleanly"
             />
             <MetricCard
@@ -2062,7 +1929,7 @@ export function ProjectManagement() {
       )}
 
       {/* ================================================================
-           TAB 2 – TIMESHEETS
+           TAB 2 – TIMESHEETS (Manage Timesheets / Review Time Logs)
            ================================================================ */}
       {activeTab === 'timesheets' && (
         <div className="space-y-6 animate-fadeIn">
@@ -2110,16 +1977,16 @@ export function ProjectManagement() {
             />
             <MetricCard
               label="Pending Approvals"
-              value={`${timesheetMetrics.pending}h`}
+              value={timesheetMetrics.pending}
               icon={UserCheck}
               accentClass="bg-amber-500"
-              secondaryText="Needs review"
+              secondaryText="Requires action"
             />
             <MetricCard
               label="Active Employees"
               value={timesheetMetrics.activeEmployees}
               icon={Users}
-              accentClass="bg-sky-500"
+              accentClass="bg-sky-505 bg-sky-500"
               secondaryText="Working on projects"
             />
           </div>
@@ -2191,7 +2058,7 @@ export function ProjectManagement() {
               <select
                 value={tsEmployeeFilter}
                 onChange={(e) => setTsEmployeeFilter(e.target.value)}
-                className="h-10 rounded-xl border border-slate-250 bg-white px-3 text-xs font-bold text-slate-600 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all"
+                className="h-10 rounded-xl border border-slate-250 bg-white px-3 text-xs font-bold text-slate-650 text-slate-600 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all"
               >
                 <option value="all">All Employees</option>
                 {MOCK_EMPLOYEES.map((e) => (
@@ -2204,7 +2071,7 @@ export function ProjectManagement() {
               <select
                 value={tsProjectFilter}
                 onChange={(e) => setTsProjectFilter(e.target.value)}
-                className="h-10 rounded-xl border border-slate-250 bg-white px-3 text-xs font-bold text-slate-600 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all"
+                className="h-10 rounded-xl border border-slate-250 bg-white px-3 text-xs font-bold text-slate-650 text-slate-600 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all"
               >
                 <option value="all">All Projects</option>
                 {projects.map((p) => (
@@ -2217,7 +2084,7 @@ export function ProjectManagement() {
               <select
                 value={tsTeamFilter}
                 onChange={(e) => setTsTeamFilter(e.target.value)}
-                className="h-10 rounded-xl border border-slate-250 bg-white px-3 text-xs font-bold text-slate-600 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all"
+                className="h-10 rounded-xl border border-slate-250 bg-white px-3 text-xs font-bold text-slate-650 text-slate-600 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all"
               >
                 <option value="all">All Teams</option>
                 {MOCK_TEAMS.map((t) => (
@@ -2230,7 +2097,7 @@ export function ProjectManagement() {
               <select
                 value={tsStatusFilter}
                 onChange={(e) => setTsStatusFilter(e.target.value)}
-                className="h-10 rounded-xl border border-slate-250 bg-white px-3 text-xs font-bold text-slate-600 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all"
+                className="h-10 rounded-xl border border-slate-250 bg-white px-3 text-xs font-bold text-slate-650 text-slate-600 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all"
               >
                 <option value="all">All Statuses</option>
                 <option value="Approved">Approved</option>
@@ -2258,11 +2125,11 @@ export function ProjectManagement() {
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/60 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     <th className="px-5 py-3.5">Employee</th>
-                    <th className="px-5 py-3.5">Project Details</th>
+                    <th className="px-5 py-3.5">Project</th>
                     <th className="px-5 py-3.5">Login Time</th>
                     <th className="px-5 py-3.5">Logout Time</th>
                     <th className="px-5 py-3.5">Total Hours</th>
-                    <th className="px-5 py-3.5 min-w-[260px]">Correction / Task Details</th>
+                    <th className="px-5 py-3.5">Request Status</th>
                     <th className="px-5 py-3.5">Status</th>
                     <th className="px-5 py-3.5 text-right">Actions</th>
                   </tr>
@@ -2271,10 +2138,12 @@ export function ProjectManagement() {
                   {filteredTimesheets.map((t) => {
                     const empInfo = MOCK_EMPLOYEES.find((e) => e.id === t.employeeId)
                     const isPending = t.status === 'Pending'
-                    const hours = calculateHours(t.loginTime, t.logoutTime)
+                    const isRequestPending = t.requestStatus === 'Pending Review'
+                    const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours)
 
                     return (
                       <tr key={t.id} className="group hover:bg-slate-50/40 transition-colors">
+                        {/* Employee Column */}
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-2">
                             <Avatar
@@ -2288,28 +2157,44 @@ export function ProjectManagement() {
                             </div>
                           </div>
                         </td>
+
+                        {/* Project Details Column */}
                         <td className="px-5 py-3.5">
                           <p className="font-bold text-slate-700 leading-tight">{t.project}</p>
-                          <p className="text-[10px] text-slate-400 font-semibold">{t.client}</p>
+                          <p className="text-[10px] text-slate-400 font-semibold">{t.client} · {t.technologyNode}</p>
+                          <p className="text-[10px] text-slate-500 font-medium mt-1 truncate max-w-[200px]" title={t.task}>
+                            Task: {t.task}
+                          </p>
                         </td>
-                        <td className="px-5 py-3.5 font-bold text-slate-600 whitespace-nowrap">
+
+                        {/* Login Time Column */}
+                        <td className="px-5 py-3.5 font-semibold text-slate-600 whitespace-nowrap">
                           {formatDateTime(t.loginTime)}
                         </td>
-                        <td className="px-5 py-3.5 font-bold text-slate-600 whitespace-nowrap">
+
+                        {/* Logout Time Column */}
+                        <td className="px-5 py-3.5 font-semibold text-slate-600 whitespace-nowrap">
                           {t.logoutTime ? (
                             formatDateTime(t.logoutTime)
                           ) : (
                             <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200">
-                              <AlertCircle className="h-3 w-3" /> Incomplete
+                              <AlertCircle className="h-3 w-3" /> Session Incomplete
                             </span>
                           )}
                         </td>
+
+                        {/* Total Hours Column */}
                         <td className="px-5 py-3.5">
                           {hours !== null ? (
                             <div>
                               <span className="font-black text-slate-700 tracking-tight tabular-nums">
                                 {hours.toFixed(1)}h
                               </span>
+                              {t.overriddenHours !== undefined && (
+                                <span className="ml-1 text-[9px] font-extrabold text-blue-600 uppercase">
+                                  (Overridden)
+                                </span>
+                              )}
                               <p className="text-[9px] font-extrabold uppercase mt-0.5 text-slate-400">
                                 {t.billable ? 'Billable' : 'Non-Bill'}
                               </p>
@@ -2320,45 +2205,30 @@ export function ProjectManagement() {
                             </span>
                           )}
                         </td>
-                        <td className="px-5 py-3.5 max-w-[280px]">
-                          <p className="text-slate-500 font-medium line-clamp-1" title={t.task}>
-                            {t.task}
-                          </p>
-                          {t.correctionRequest && (
-                            <div className="mt-1.5 p-2 rounded-xl bg-amber-50 border border-amber-100 text-[10px] text-slate-700 shadow-sm animate-fadeIn">
-                              <p className="font-black text-amber-800 uppercase tracking-wider text-[9px] mb-1">
-                                Correction Requested:
-                              </p>
-                              <p>
-                                <span className="font-semibold text-slate-500">Login:</span>{' '}
-                                {formatDateTime(t.correctionRequest.requestedLogin)}
-                              </p>
-                              <p>
-                                <span className="font-semibold text-slate-500">Logout:</span>{' '}
-                                {formatDateTime(t.correctionRequest.requestedLogout)}
-                              </p>
-                              <p className="italic text-slate-500 mt-1 border-t border-amber-200/50 pt-1">
-                                "{t.correctionRequest.reason}"
-                              </p>
-                              <div className="flex gap-1.5 mt-2">
-                                <button
-                                  type="button"
-                                  onClick={() => handleApproveCorrection(t.id)}
-                                  className="flex items-center gap-1 px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[9px] font-bold transition-colors"
-                                >
-                                  <Check className="h-2.5 w-2.5" /> Approve
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRejectCorrection(t.id)}
-                                  className="flex items-center gap-1 px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[9px] font-bold transition-colors"
-                                >
-                                  <X className="h-2.5 w-2.5" /> Reject
-                                </button>
-                              </div>
-                            </div>
+
+                        {/* Request Status Column */}
+                        <td className="px-5 py-3.5">
+                          {t.requestStatus === 'No Request' && (
+                            <span className="text-slate-400 text-xs font-semibold">—</span>
+                          )}
+                          {t.requestStatus === 'Pending Review' && (
+                            <Badge variant="warning" className="py-0.5 px-2 bg-amber-50 text-amber-700 border border-amber-100 animate-pulse text-[10px]">
+                              Pending Review
+                            </Badge>
+                          )}
+                          {t.requestStatus === 'Corrected' && (
+                            <Badge variant="info" className="py-0.5 px-2 bg-sky-50 text-sky-700 border border-sky-100 text-[10px]">
+                              Corrected
+                            </Badge>
+                          )}
+                          {t.requestStatus === 'Approved' && (
+                            <Badge variant="success" className="py-0.5 px-2 bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px]">
+                              Approved
+                            </Badge>
                           )}
                         </td>
+
+                        {/* Status Column */}
                         <td className="px-5 py-3.5">
                           {t.status === 'Approved' && (
                             <Badge variant="success" className="py-0.5 px-2 bg-emerald-50 text-emerald-700 border border-emerald-100">
@@ -2376,32 +2246,52 @@ export function ProjectManagement() {
                             </Badge>
                           )}
                         </td>
+
+                        {/* Actions Column */}
                         <td className="px-5 py-3.5 text-right">
                           <div className="flex justify-end items-center gap-1.5">
-                            {/* Edit Button */}
+                            {/* View Request Button */}
+                            {t.correctionRequest && (
+                              <button
+                                onClick={() => {
+                                  setSelectedLogForRequest(t)
+                                  setViewRequestModalOpen(true)
+                                }}
+                                className={`rounded-lg p-1.5 transition-colors ${
+                                  isRequestPending
+                                    ? 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+                                }`}
+                                title="View Request Details"
+                              >
+                                <FileText className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+
+                            {/* Override Log Button */}
                             <button
                               onClick={() => openEditTimesheet(t)}
-                              className="rounded-lg p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-                              title="Edit Log"
+                              className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                              title="Override Log Details"
                             >
-                              <Edit2 className="h-3.5 w-3.5" />
+                              <Sliders className="h-3.5 w-3.5" />
                             </button>
 
-                            {/* Approve Log Button */}
-                            {isPending && !t.correctionRequest ? (
+                            {/* Save Changes Button (Quick Approve) */}
+                            {(isPending || isRequestPending) && (
                               <button
-                                onClick={() => handleApproveLogStatus(t.id)}
-                                className="rounded-lg bg-emerald-50 p-1 text-emerald-700 hover:bg-emerald-100 transition-colors"
-                                title="Approve Log"
+                                onClick={() => handleQuickSaveLog(t.id)}
+                                className="rounded-lg bg-emerald-50 p-1.5 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                                title="Save & Approve Log"
                               >
                                 <Check className="h-3.5 w-3.5" />
                               </button>
-                            ) : null}
+                            )}
 
-                            {/* Delete Button */}
+                            {/* Delete Log Button */}
                             <button
                               onClick={() => handleDeleteTimesheet(t.id)}
-                              className="rounded-lg p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                              className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                               title="Delete Log"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -2454,7 +2344,8 @@ export function ProjectManagement() {
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          {/* Conditional Layout for Technology Node & Project Status */}
+          <div className={modalMode === 'edit' ? "grid gap-4 sm:grid-cols-2" : "w-full"}>
             <Input
               label="Technology Node"
               placeholder="e.g. 7nm FinFET, 28nm FD-SOI"
@@ -2463,16 +2354,18 @@ export function ProjectManagement() {
               required
             />
 
-            <SelectField
-              label="Project Status"
-              id="m-proj-status"
-              value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value as 'Active' | 'Completed' })}
-              options={[
-                { value: 'Active', label: 'Active (Ongoing Development)' },
-                { value: 'Completed', label: 'Completed (Archived)' },
-              ]}
-            />
+            {modalMode === 'edit' && (
+              <SelectField
+                label="Project Status"
+                id="m-proj-status"
+                value={form.status}
+                onChange={(e) => setForm({ ...form, status: e.target.value as 'Active' | 'Completed' })}
+                options={[
+                  { value: 'Active', label: 'Active (Ongoing Development)' },
+                  { value: 'Completed', label: 'Completed (Archived)' },
+                ]}
+              />
+            )}
           </div>
 
           <SelectField
@@ -2507,7 +2400,7 @@ export function ProjectManagement() {
           )}
 
           <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-505 text-slate-500">
               Project Description scope
             </label>
             <textarea
@@ -2539,30 +2432,161 @@ export function ProjectManagement() {
         </form>
       </Modal>
 
-      {/* ── CREATE / EDIT TIMESHEET OVERRIDE MODAL ──────────────────── */}
+      {/* ── VIEW CORRECTION REQUEST MODAL ────────────────────────── */}
+      <Modal
+        isOpen={viewRequestModalOpen}
+        title="Review Correction Request"
+        onClose={() => setViewRequestModalOpen(false)}
+        size="md"
+      >
+        {selectedLogForRequest && (
+          <div className="space-y-4 pt-1 text-xs">
+            {/* Context Info */}
+            <div className="rounded-2xl border border-[#e2e8f0] bg-[#f8fafc] p-5 space-y-3.5">
+              <div className="flex">
+                <span className="w-32 shrink-0 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Employee:</span>
+                <span className="text-sm text-slate-700 font-medium">{selectedLogForRequest.employeeName} ({selectedLogForRequest.employeeId})</span>
+              </div>
+              <div className="flex">
+                <span className="w-32 shrink-0 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Project:</span>
+                <span className="text-sm text-slate-700 font-medium">{selectedLogForRequest.project}</span>
+              </div>
+              <div className="flex items-start">
+                <span className="w-32 shrink-0 text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Task Description:</span>
+                <span className="text-sm text-slate-700 font-medium leading-relaxed">{selectedLogForRequest.task}</span>
+              </div>
+            </div>
+
+            {/* Requested Changes Box */}
+            {selectedLogForRequest.correctionRequest && (
+              <div className="rounded-2xl border border-[#f5e6d3] bg-[#fdfbf7] p-5 space-y-4 animate-fadeIn">
+                <div className="flex items-center gap-2 text-[#9a3412] font-extrabold uppercase tracking-wider text-[11px]">
+                  <AlertCircle className="h-4 w-4 stroke-[2.5]" />
+                  <span>Requested Changes</span>
+                </div>
+                <div className="grid grid-cols-2 gap-6 text-slate-700">
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Current Timestamps</p>
+                    <p className="mt-1.5 text-sm font-semibold text-slate-700">Login: {formatDateTime(selectedLogForRequest.loginTime)}</p>
+                    <p className="text-sm font-semibold text-slate-700">Logout: {selectedLogForRequest.logoutTime ? formatDateTime(selectedLogForRequest.logoutTime) : 'Session Incomplete'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-[#9a3412] uppercase tracking-wider">Requested Timestamps</p>
+                    <p className="mt-1.5 text-sm font-bold text-[#7c2d12]">Login: {formatDateTime(selectedLogForRequest.correctionRequest.requestedLogin)}</p>
+                    <p className="text-sm font-bold text-[#7c2d12]">Logout: {formatDateTime(selectedLogForRequest.correctionRequest.requestedLogout)}</p>
+                  </div>
+                </div>
+                <div className="border-t border-[#f5e6d3] my-3"></div>
+                <div className="space-y-2 pt-1 text-sm text-slate-700">
+                  <p>
+                    <span className="font-bold text-[#9a3412] text-[10px] uppercase tracking-wider mr-2">Message:</span>
+                    <span className="font-medium">"{selectedLogForRequest.correctionRequest.message}"</span>
+                  </p>
+                  <p>
+                    <span className="font-bold text-[#9a3412] text-[10px] uppercase tracking-wider mr-2">Reason:</span>
+                    <span className="italic font-medium">"{selectedLogForRequest.correctionRequest.reason}"</span>
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-between border-t border-slate-100 pt-5 mt-6">
+              <button
+                type="button"
+                onClick={() => setViewRequestModalOpen(false)}
+                className="border border-slate-200 text-slate-700 font-bold rounded-2xl px-6 py-2.5 text-sm bg-white hover:bg-slate-50 transition-colors shadow-sm"
+              >
+                Close
+              </button>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedLogForRequest.correctionRequest) {
+                      setEditingTsId(selectedLogForRequest.id)
+                      setTsForm({
+                        loginTime: toDatetimeLocal(selectedLogForRequest.correctionRequest.requestedLogin),
+                        logoutTime: toDatetimeLocal(selectedLogForRequest.correctionRequest.requestedLogout),
+                        hasLogoutTime: true,
+                        overriddenHours: selectedLogForRequest.overriddenHours !== undefined ? selectedLogForRequest.overriddenHours : '',
+                        isOverridden: selectedLogForRequest.overriddenHours !== undefined,
+                        adminNotes: selectedLogForRequest.adminNotes || '',
+                        status: selectedLogForRequest.status,
+                      })
+                      setViewRequestModalOpen(false)
+                      setTsModalOpen(true)
+                    }
+                  }}
+                  className="bg-[#2563eb] hover:bg-blue-700 text-white font-bold rounded-2xl px-6 py-2 text-xs text-center border-0 cursor-pointer shadow-sm transition-colors min-w-[120px] leading-tight flex flex-col justify-center items-center"
+                >
+                  <span>Override</span>
+                  <span>Manually</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickApproveCorrection(selectedLogForRequest.id)}
+                  className="bg-[#059669] hover:bg-emerald-700 text-white font-bold rounded-2xl px-6 py-2 text-xs text-center border-0 cursor-pointer shadow-sm transition-colors min-w-[120px] leading-tight flex flex-col justify-center items-center"
+                >
+                  <span>Approve</span>
+                  <span>Request</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ── ADMIN OVERRIDE / EDIT TIMESHEET LOG MODAL ──────────────── */}
       <Modal
         isOpen={tsModalOpen}
-        title={tsModalMode === 'create' ? 'Add Timesheet Manual Override' : 'Edit Timesheet Log'}
+        title="Admin Override Time Log Details"
         onClose={() => setTsModalOpen(false)}
         size="md"
       >
         <form onSubmit={handleSaveTimesheet} className="space-y-4 pt-1">
-          <SelectField
-            label="Log Employee"
-            id="m-ts-emp"
-            value={tsForm.employeeId}
-            onChange={(e) => setTsForm({ ...tsForm, employeeId: e.target.value })}
-            options={MOCK_EMPLOYEES.map((e) => ({ value: e.id, label: `${e.name} (${e.department})` }))}
-          />
+          {/* Read-Only Context Info */}
+          {selectedLogForEdit && (
+            <div className="rounded-xl bg-slate-50 p-3 border border-slate-150 text-xs text-slate-700 space-y-1">
+              <p><span className="font-bold text-slate-400 uppercase tracking-wider text-[9px] mr-1">Employee:</span> {selectedLogForEdit.employeeName} ({selectedLogForEdit.employeeId})</p>
+              <p><span className="font-bold text-slate-400 uppercase tracking-wider text-[9px] mr-1">Project:</span> {selectedLogForEdit.project}</p>
+              <p><span className="font-bold text-slate-400 uppercase tracking-wider text-[9px] mr-1">Task description:</span> {selectedLogForEdit.task}</p>
+            </div>
+          )}
 
-          <SelectField
-            label="Assigned Project"
-            id="m-ts-proj"
-            value={tsForm.projectName}
-            onChange={(e) => setTsForm({ ...tsForm, projectName: e.target.value })}
-            options={projects.map((p) => ({ value: p.name, label: `${p.name} (${p.client} - ${p.technologyNode})` }))}
-          />
+          {/* If editing a log with correction request, show review section first */}
+          {selectedLogForEdit?.correctionRequest && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3 text-[11px] text-slate-700 space-y-1.5 animate-fadeIn">
+              <p className="font-bold text-amber-800 uppercase tracking-wider text-[9px] flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" /> Engineer Correction Request
+              </p>
+              <p><span className="font-semibold text-slate-500">Requested Login:</span> {formatDateTime(selectedLogForEdit.correctionRequest.requestedLogin)}</p>
+              <p><span className="font-semibold text-slate-500">Requested Logout:</span> {formatDateTime(selectedLogForEdit.correctionRequest.requestedLogout)}</p>
+              <p><span className="font-semibold text-slate-500">Message:</span> "{selectedLogForEdit.correctionRequest.message}"</p>
+              <p><span className="font-semibold text-slate-500">Reason:</span> "{selectedLogForEdit.correctionRequest.reason}"</p>
+              <div className="mt-2.5 pt-1.5 border-t border-amber-200/50">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedLogForEdit.correctionRequest) {
+                      setTsForm((prev) => ({
+                        ...prev,
+                        loginTime: toDatetimeLocal(selectedLogForEdit.correctionRequest!.requestedLogin),
+                        logoutTime: toDatetimeLocal(selectedLogForEdit.correctionRequest!.requestedLogout),
+                        hasLogoutTime: true,
+                      }))
+                      toast.info('Applied engineer requested times to form inputs.')
+                    }
+                  }}
+                  className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-850 rounded-lg font-bold transition-all text-[10px]"
+                >
+                  Use Requested Times
+                </button>
+              </div>
+            </div>
+          )}
 
+          {/* Editable Timestamps */}
           <div className="grid gap-4 sm:grid-cols-2">
             <Input
               type="datetime-local"
@@ -2574,7 +2598,7 @@ export function ProjectManagement() {
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-505 text-slate-500">
                   Logout Time
                 </label>
                 <div className="flex items-center gap-1">
@@ -2601,46 +2625,58 @@ export function ProjectManagement() {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 items-center pt-1">
+          {/* Hours Override Control */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 space-y-2.5">
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
-                id="m-ts-bill"
-                checked={tsForm.billable}
-                onChange={(e) => setTsForm({ ...tsForm, billable: e.target.checked })}
-                className="h-4 w-4 rounded border-slate-350 text-emerald-600 focus:ring-emerald-500/20"
+                id="hours-override-chk"
+                checked={tsForm.isOverridden}
+                onChange={(e) => setTsForm({ ...tsForm, isOverridden: e.target.checked })}
+                className="h-3.5 w-3.5 rounded border-slate-350 text-emerald-650 text-emerald-600 focus:ring-emerald-500/20"
               />
-              <label htmlFor="m-ts-bill" className="text-xs font-bold text-slate-600 cursor-pointer uppercase tracking-wider select-none">
-                Billable to Client
+              <label htmlFor="hours-override-chk" className="text-xs font-bold text-slate-700 select-none uppercase tracking-wider">
+                Manually Override Total Hours
               </label>
             </div>
-
-            {tsModalMode === 'edit' && (
-              <SelectField
-                label="Approval Status"
-                id="m-ts-status"
-                value={tsForm.status}
-                onChange={(e) => setTsForm({ ...tsForm, status: e.target.value as 'Approved' | 'Pending' | 'Rejected' })}
-                options={[
-                  { value: 'Pending', label: 'Pending Approval' },
-                  { value: 'Approved', label: 'Approved' },
-                  { value: 'Rejected', label: 'Rejected' },
-                ]}
+            {tsForm.isOverridden && (
+              <Input
+                type="number"
+                step="0.1"
+                label="Custom Hours Value"
+                placeholder="e.g. 8.5"
+                value={tsForm.overriddenHours}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTsForm({ ...tsForm, overriddenHours: e.target.value })}
+                required
               />
             )}
           </div>
 
+          {/* Approval Status & Notes */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <SelectField
+              label="Log Approval Status"
+              id="m-ts-status"
+              value={tsForm.status}
+              onChange={(e) => setTsForm({ ...tsForm, status: e.target.value as any })}
+              options={[
+                { value: 'Pending', label: 'Pending Approval' },
+                { value: 'Approved', label: 'Approved' },
+                { value: 'Rejected', label: 'Rejected' },
+              ]}
+            />
+          </div>
+
           <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
-              Task Work Description / override notes
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-505 text-slate-500">
+              Admin Review / Override Notes
             </label>
             <textarea
-              placeholder="Describe tasks and details logged by override..."
-              value={tsForm.task}
-              onChange={(e) => setTsForm({ ...tsForm, task: e.target.value })}
-              rows={3}
+              placeholder="Provide context or explanation for this override log..."
+              value={tsForm.adminNotes}
+              onChange={(e) => setTsForm({ ...tsForm, adminNotes: e.target.value })}
+              rows={2}
               className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
-              required
             />
           </div>
 
@@ -2657,7 +2693,7 @@ export function ProjectManagement() {
               type="submit"
               className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl py-2 px-4 border-0"
             >
-              {tsModalMode === 'create' ? 'Log Override' : 'Save Changes'}
+              Save Changes
             </Button>
           </div>
         </form>

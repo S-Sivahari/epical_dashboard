@@ -9,22 +9,26 @@ export function NotificationBell() {
     notifications,
     unreadCount,
     fetchNotifications,
+    fetchNotificationsSilent,
     fetchUnreadCount,
+    fetchUnreadCountSilent,
     markAsRead,
     markAllAsRead,
     deleteNotification,
   } = useNotificationStore()
 
   useEffect(() => {
+    // Initial fetch with loading indicator
     fetchUnreadCount()
     fetchNotifications()
-    // Refresh every 30 seconds
+    
+    // Poll for updates every 5 seconds WITHOUT loading indicator
     const interval = setInterval(() => {
-      fetchUnreadCount()
-      fetchNotifications()
-    }, 30000)
+      fetchUnreadCountSilent()
+      fetchNotificationsSilent()
+    }, 5000)
     return () => clearInterval(interval)
-  }, [fetchNotifications, fetchUnreadCount])
+  }, [fetchNotifications, fetchNotificationsSilent, fetchUnreadCount, fetchUnreadCountSilent])
 
   const unreadNotifications = notifications.filter((n) => !n.isRead)
   const displayNotifications = notifications.slice(0, 5)

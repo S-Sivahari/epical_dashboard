@@ -7,13 +7,18 @@ export interface GoogleOAuthCredentials {
 }
 
 export async function verifyGoogleOAuthLogin(credentials: GoogleOAuthCredentials) {
-  const response = await api.post('/auth/oauth/login', {
-    email: credentials.email,
-    name: credentials.name,
-    googleId: credentials.googleId,
-  });
-
-  return response.data;
+  try {
+    const response = await api.post('/auth/oauth/login', {
+      email: credentials.email,
+      name: credentials.name,
+      googleId: credentials.googleId,
+    });
+    return response.data;
+  } catch (error: any) {
+    // Extract error message from response
+    const message = error.response?.data?.message || error.message || 'Authentication failed';
+    throw new Error(message);
+  }
 }
 
 export function getGoogleClientId(): string {

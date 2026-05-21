@@ -58,7 +58,8 @@ export function LoginPage() {
       toast.success('Welcome back')
     } catch (error) {
       console.error('Google login error:', error)
-      toast.error('Unable to sign in with Google')
+      const message = error instanceof Error ? error.message : 'Unable to sign in with Google'
+      toast.error(message)
     }
   }
 

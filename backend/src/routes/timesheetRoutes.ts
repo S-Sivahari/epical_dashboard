@@ -7,6 +7,8 @@ const router = Router();
 router.use(authMiddleware);
 
 router.get('/', timesheetController.getAll);
+router.get('/hours-by-project', timesheetController.getHoursByProject);
+router.get('/employee-hours', timesheetController.getEmployeeHours);
 router.get('/:id', timesheetController.getById);
 router.post('/', timesheetController.create);
 router.put('/:id', timesheetController.update);

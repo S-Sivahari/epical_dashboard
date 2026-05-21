@@ -3,20 +3,20 @@ import { useEffect } from 'react'
 import { useNotificationStore } from '@store/notificationStore'
 
 export function NotificationAlerts() {
-  const { notifications, fetchNotifications } = useNotificationStore()
+  const { notifications, fetchNotifications, fetchNotificationsSilent } = useNotificationStore()
 
   useEffect(() => {
     // Fetch notifications immediately on mount
     fetchNotifications()
 
-    // Set up auto-refresh every 30 seconds
+    // Set up auto-refresh every 5 seconds for real-time updates WITHOUT loading indicator
     const interval = setInterval(() => {
-      fetchNotifications()
-    }, 30000)
+      fetchNotificationsSilent()
+    }, 5000)
 
     // Cleanup interval on unmount
     return () => clearInterval(interval)
-  }, [fetchNotifications])
+  }, [fetchNotifications, fetchNotificationsSilent])
 
   const leaveNotifications = notifications.filter((n) =>
     ['LeaveApproved', 'LeaveRejected', 'LeaveSubmitted'].includes(n.type)

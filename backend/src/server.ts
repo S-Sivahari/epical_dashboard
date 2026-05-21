@@ -15,6 +15,7 @@ import { leaveRoutes } from './routes/leaveRoutes';
 import { holidayRoutes } from './routes/holidayRoutes';
 import { ticketRoutes } from './routes/ticketRoutes';
 import { timesheetRoutes } from './routes/timesheetRoutes';
+import { projectRoutes } from './routes/projectRoutes';
 import { uploadRoutes } from './routes/uploadRoutes';
 import { oauthRoutes } from './routes/oauthRoutes';
 import { notificationRoutes } from './routes/notificationRoutes';
@@ -23,6 +24,7 @@ import { notificationRoutes } from './routes/notificationRoutes';
 import { seedDefaultUsers } from './services/authService';
 import { seedLeaves, seedHolidays } from './services/leaveService';
 import { seedTickets } from './services/ticketService';
+import { seedProjectsAndTimesheets } from './scripts/seedTimesheets';
 import { getDB } from './config/db';
 
 const app = express();
@@ -78,6 +80,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/holidays', holidayRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/timesheets', timesheetRoutes);
+app.use('/api/projects', projectRoutes);
 app.use('/api', uploadRoutes);
 
 // ── Stats endpoint (admin dashboard) ─────────────────────────
@@ -103,6 +106,7 @@ app.post('/api/seed', async (_req, res) => {
     await seedLeaves();
     await seedHolidays();
     await seedTickets();
+    await seedProjectsAndTimesheets();
 
     // Note: Employee seeding removed - add employees manually through the admin panel
     res.json({ message: 'Database seeded successfully', users });

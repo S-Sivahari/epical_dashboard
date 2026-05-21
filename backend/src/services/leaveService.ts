@@ -165,6 +165,28 @@ export async function cancelLeave(id: string): Promise<LeaveRequest | null> {
     { $set: { status: 'Cancelled', updatedAt: new Date() } },
     { returnDocument: 'after' }
   );
+
+  if (result) {
+    // Create notification for employee on cancellation
+    try {
+      await notificationService.createNotification({
+        recipientId: result.employeeId,
+        recipientType: 'Employee',
+        type: 'LeaveCancelled',
+        title: 'Leave Cancelled',
+        message: `Your ${result.type} leave request from ${result.from} to ${result.to} has been cancelled.`,
+        relatedData: {
+          leaveId: id,
+          employeeId: result.employeeId,
+          employeeName: result.employeeName,
+        },
+      });
+    } catch (error) {
+      console.error('Error creating cancellation notification:', error);
+      // Don't throw - notification failure shouldn't break status update
+    }
+  }
+
   return result as LeaveRequest | null;
 }
 
@@ -175,6 +197,32 @@ export async function rejectLeaveWithReason(id: string, rejectionReason: string)
     { $set: { status: 'Rejected', rejectionReason, updatedAt: new Date() } },
     { returnDocument: 'after' }
   );
+
+  if (result) {
+    // Create notification for employee on rejection
+    try {
+      const message = rejectionReason
+        ? `Your ${result.type} leave request from ${result.from} to ${result.to} has been rejected. Reason: ${rejectionReason}`
+        : `Your ${result.type} leave request from ${result.from} to ${result.to} has been rejected.`;
+
+      await notificationService.createNotification({
+        recipientId: result.employeeId,
+        recipientType: 'Employee',
+        type: 'LeaveRejected',
+        title: 'Leave Rejected',
+        message,
+        relatedData: {
+          leaveId: id,
+          employeeId: result.employeeId,
+          employeeName: result.employeeName,
+        },
+      });
+    } catch (error) {
+      console.error('Error creating rejection notification:', error);
+      // Don't throw - notification failure shouldn't break status update
+    }
+  }
+
   return result as LeaveRequest | null;
 }
 
