@@ -38,29 +38,40 @@ export async function loginWithOAuth(req: Request, res: Response) {
     }
 
     const userCollection = getDB().collection('users');
+    const employeeCollection = getDB().collection('employees');
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Try to find existing user
+    // Check if email is registered as an employee by admin
+    const registeredEmployee = await employeeCollection.findOne({ email: normalizedEmail });
+    
+    if (!registeredEmployee) {
+      // Email not registered as employee - reject login
+      return res.status(401).json({ 
+        message: 'This email is not registered as an employee. Please contact your administrator.' 
+      });
+    }
+
+    // Try to find existing user with this email
     let user = await userCollection.findOne({ email: normalizedEmail });
 
     if (!user) {
-      // Auto-create user from Google profile
+      // Create user ONLY for registered employees (first-time Google login)
       const newUser = {
-        id: `EMP-${Date.now()}`,
+        id: registeredEmployee.id || `EMP-${Date.now()}`, // Use employee's ID if available
         email: normalizedEmail,
-        name: name || email.split('@')[0],
+        name: registeredEmployee.firstName + (registeredEmployee.lastName ? ' ' + registeredEmployee.lastName : '') || name || email.split('@')[0],
         googleId,
         passwordHash: await bcrypt.hash('', 10), // Empty password hash for OAuth users
-        role: 'Employee',
-        department: 'General',
-        designation: 'Employee',
-        joinedAt: new Date().toISOString().split('T')[0],
+        role: registeredEmployee.role || 'Employee',
+        department: registeredEmployee.department || 'General',
+        designation: registeredEmployee.designation || 'Employee',
+        joinedAt: registeredEmployee.joinedAt || new Date().toISOString().split('T')[0],
         createdAt: new Date(),
         updatedAt: new Date(),
       };
       const result = await userCollection.insertOne(newUser);
       user = { ...newUser, _id: result.insertedId };
-      console.log(`[OAuth] Created new user: ${normalizedEmail}`);
+      console.log(`[OAuth] Created new user for registered employee: ${normalizedEmail}`);
     } else if (!user.googleId) {
       // Link Google ID to existing user
       await userCollection.updateOne(
