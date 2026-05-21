@@ -21,6 +21,7 @@ export interface Timesheet extends Document {
   billable?: boolean;
   task?: string;
   overriddenHours?: number;
+  taskStatus?: 'Pending' | 'In Progress' | 'Completed';
   createdAt: Date;
 }
 
@@ -54,6 +55,11 @@ const TimesheetSchema = new Schema<Timesheet>(
     billable: { type: Boolean, default: true },
     task: { type: String },
     overriddenHours: { type: Number },
+    taskStatus: {
+      type: String,
+      enum: ['Pending', 'In Progress', 'Completed'],
+      default: 'Pending',
+    },
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );

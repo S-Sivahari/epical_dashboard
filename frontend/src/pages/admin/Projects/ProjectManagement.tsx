@@ -608,12 +608,10 @@ function ProjectCard({
   project,
   onEdit,
   onDelete,
-  onComplete,
 }: {
   project: Project
   onEdit: () => void
   onDelete: () => void
-  onComplete: () => void
 }) {
   const isCompleted = project.status === 'Completed'
 
@@ -707,14 +705,6 @@ function ProjectCard({
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
-          {!isCompleted && (
-            <button
-              onClick={onComplete}
-              className="ml-1 rounded-xl border border-slate-205 px-2.5 py-1 text-[10px] font-bold text-slate-500 hover:border-emerald-600 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
-            >
-              Mark Completed
-            </button>
-          )}
         </div>
       </div>
     </div>
@@ -728,12 +718,10 @@ function ProjectListRow({
   project,
   onEdit,
   onDelete,
-  onComplete,
 }: {
   project: Project
   onEdit: () => void
   onDelete: () => void
-  onComplete: () => void
 }) {
   const isCompleted = project.status === 'Completed'
 
@@ -812,14 +800,6 @@ function ProjectListRow({
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
-          {!isCompleted && (
-            <button
-              onClick={onComplete}
-              className="ml-1 rounded-xl border border-slate-200 px-2.5 py-1 text-[10px] font-bold text-slate-500 hover:border-emerald-600 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
-            >
-              Mark Completed
-            </button>
-          )}
         </div>
       </td>
     </tr>
@@ -886,7 +866,7 @@ export function ProjectManagement() {
   const [timesheets, setTimesheets] = useState<TimesheetLog[]>([])
   const [chartHoursByProject, setChartHoursByProject] = useState<{ name: string; hours: number }[]>([])
   const [leaderboardData, setLeaderboardData] = useState<{ name: string; dept: string; hours: number; hue: number }[]>([])
-  const [, setLoading] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   const projects = allProjects
 
@@ -959,13 +939,16 @@ export function ProjectManagement() {
     }
   }, [])
 
-  const fetchTimesheetsData = useCallback(async () => {
+  const fetchTimesheetsData = useCallback(async (projectFilterOverride?: string) => {
     const params: any = {
       from: tsStartDate,
       to: tsEndDate,
     }
     if (tsEmployeeFilter !== 'all') params.employee = tsEmployeeFilter
-    if (tsProjectFilter !== 'all') params.project = tsProjectFilter
+    
+    const activeProjectFilter = projectFilterOverride !== undefined ? projectFilterOverride : tsProjectFilter
+    if (activeProjectFilter !== 'all') params.project = activeProjectFilter
+    
     if (tsTeamFilter !== 'all') params.team = tsTeamFilter
     if (tsStatusFilter !== 'all') params.status = tsStatusFilter
     if (tsSearch.trim()) params.search = tsSearch.trim()
@@ -984,6 +967,10 @@ export function ProjectManagement() {
       toast.error('Failed to load timesheet data.')
     }
   }, [tsStartDate, tsEndDate, tsEmployeeFilter, tsProjectFilter, tsTeamFilter, tsStatusFilter, tsSearch])
+
+  const refreshAllData = useCallback(async (projectFilterOverride?: string) => {
+    await Promise.all([fetchProjects(), fetchTimesheetsData(projectFilterOverride)])
+  }, [fetchProjects, fetchTimesheetsData])
 
   useEffect(() => {
     fetchProjects()
@@ -1106,9 +1093,14 @@ export function ProjectManagement() {
           })
           setAllProjects((prev: Project[]) => [res.data, ...prev])
           toast.success(`Project "${res.data.name}" created successfully.`)
+          await refreshAllData()
         } else {
+          const oldProject = allProjects.find((p) => p.id === editingId)
+          const oldProjectName = oldProject ? oldProject.name : ''
+          const newProjectName = form.name.trim()
+
           const res = await api.put(`/projects/${editingId}`, {
-            name: form.name.trim(),
+            name: newProjectName,
             client: form.client.trim(),
             technologyNode: form.technologyNode.trim(),
             accessType: form.accessType,
@@ -1121,7 +1113,18 @@ export function ProjectManagement() {
             prev.map((p) => (p.id === editingId ? res.data : p))
           )
           toast.success('Project details updated successfully.')
-          fetchTimesheetsData()
+
+          let nextFilter = tsProjectFilter
+          if (oldProjectName && oldProjectName !== newProjectName) {
+            if (tsProjectFilter === oldProjectName) {
+              setTsProjectFilter(newProjectName)
+              nextFilter = newProjectName
+            }
+            if (filterProjectName === oldProjectName) {
+              setFilterProjectName(newProjectName)
+            }
+          }
+          await refreshAllData(nextFilter)
         }
         setModalOpen(false)
       } catch (err: any) {
@@ -1131,7 +1134,7 @@ export function ProjectManagement() {
         setLoading(false)
       }
     },
-    [form, modalMode, editingId, fetchTimesheetsData]
+    [form, modalMode, editingId, refreshAllData, allProjects, tsProjectFilter, filterProjectName]
   )
 
   const handleDeleteProject = useCallback(
@@ -1142,7 +1145,17 @@ export function ProjectManagement() {
         await api.delete(`/projects/${p.id}`)
         setAllProjects((prev: Project[]) => prev.filter((x) => x.id !== p.id))
         setTimesheets((prev: TimesheetLog[]) => prev.filter((t) => t.project !== p.name))
-        fetchTimesheetsData()
+        
+        let nextFilter = tsProjectFilter
+        if (tsProjectFilter === p.name) {
+          setTsProjectFilter('all')
+          nextFilter = 'all'
+        }
+        if (filterProjectName === p.name) {
+          setFilterProjectName('all')
+        }
+        
+        await refreshAllData(nextFilter)
         toast.success(`Project "${p.name}" and its associated logs have been deleted.`)
       } catch (err: any) {
         console.error(err)
@@ -1151,24 +1164,9 @@ export function ProjectManagement() {
         setLoading(false)
       }
     },
-    [fetchTimesheetsData]
+    [refreshAllData, tsProjectFilter, filterProjectName]
   )
 
-  const handleMarkProjectCompleted = useCallback(async (p: Project) => {
-    setLoading(true)
-    try {
-      const res = await api.patch(`/projects/${p.id}/complete`)
-      setAllProjects((prev: Project[]) =>
-        prev.map((x) => (x.id === p.id ? res.data : x))
-      )
-      toast.success(`Project "${p.name}" is now marked as Completed.`)
-    } catch (err: any) {
-      console.error(err)
-      toast.error(err.response?.data?.error || 'Failed to complete project.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
 
   const clearProjectsFilters = useCallback(() => {
     setSearchQuery('')
@@ -1488,7 +1486,7 @@ export function ProjectManagement() {
       setLoading(true)
       try {
         const nextRequestStatus = selectedLogForEdit?.correctionRequest ? 'Corrected' : selectedLogForEdit?.requestStatus
-        const res = await api.put(`/timesheets/${editingTsId}`, {
+        const res = await api.patch(`/timesheets/${editingTsId}/override`, {
           loginTime: loginISO,
           logoutTime: logoutISO,
           overriddenHours: tsForm.isOverridden ? Number(tsForm.overriddenHours) : null,
@@ -1500,7 +1498,7 @@ export function ProjectManagement() {
         setTimesheets((prev: TimesheetLog[]) =>
           prev.map((t) => (t.id === editingTsId ? res.data : t))
         )
-        fetchTimesheetsData()
+        await refreshAllData()
         toast.success('Timesheet log override details updated.')
         setTsModalOpen(false)
       } catch (err: any) {
@@ -1510,7 +1508,7 @@ export function ProjectManagement() {
         setLoading(false)
       }
     },
-    [tsForm, editingTsId, selectedLogForEdit, fetchTimesheetsData]
+    [tsForm, editingTsId, selectedLogForEdit, refreshAllData]
   )
 
   const handleQuickSaveLog = useCallback(
@@ -1530,7 +1528,7 @@ export function ProjectManagement() {
         setTimesheets((prev: TimesheetLog[]) =>
           prev.map((t) => (t.id === logId ? res.data : t))
         )
-        fetchTimesheetsData()
+        await refreshAllData()
         toast.success('Timesheet log approved and saved.')
       } catch (err: any) {
         console.error(err)
@@ -1539,7 +1537,33 @@ export function ProjectManagement() {
         setLoading(false)
       }
     },
-    [timesheets, fetchTimesheetsData]
+    [timesheets, refreshAllData]
+  )
+
+  const handleQuickRejectLog = useCallback(
+    async (logId: string) => {
+      const log = timesheets.find((t) => t.id === logId)
+      if (!log) return
+      setLoading(true)
+      try {
+        const payload: any = {
+          status: 'Rejected',
+          requestStatus: 'Rejected'
+        }
+        const res = await api.put(`/timesheets/${logId}`, payload)
+        setTimesheets((prev: TimesheetLog[]) =>
+          prev.map((t) => (t.id === logId ? res.data : t))
+        )
+        await refreshAllData()
+        toast.success('Timesheet log rejected.')
+      } catch (err: any) {
+        console.error(err)
+        toast.error(err.response?.data?.error || 'Failed to reject timesheet log.')
+      } finally {
+        setLoading(false)
+      }
+    },
+    [timesheets, refreshAllData]
   )
 
   const handleQuickApproveCorrection = useCallback(
@@ -1552,7 +1576,7 @@ export function ProjectManagement() {
         setTimesheets((prev: TimesheetLog[]) =>
           prev.map((t) => (t.id === logId ? res.data : t))
         )
-        fetchTimesheetsData()
+        await refreshAllData()
         toast.success('Correction request approved and applied.')
         setViewRequestModalOpen(false)
       } catch (err: any) {
@@ -1562,7 +1586,7 @@ export function ProjectManagement() {
         setLoading(false)
       }
     },
-    [fetchTimesheetsData]
+    [refreshAllData]
   )
 
   const handleDeleteTimesheet = useCallback(
@@ -1572,7 +1596,7 @@ export function ProjectManagement() {
       try {
         await api.delete(`/timesheets/${logId}`)
         setTimesheets((prev: TimesheetLog[]) => prev.filter((t) => t.id !== logId))
-        fetchTimesheetsData()
+        await refreshAllData()
         toast.success('Timesheet log deleted successfully.')
       } catch (err: any) {
         console.error(err)
@@ -1581,7 +1605,7 @@ export function ProjectManagement() {
         setLoading(false)
       }
     },
-    [fetchTimesheetsData]
+    [refreshAllData]
   )
 
   const clearTimesheetFilters = useCallback(() => {
@@ -1783,7 +1807,11 @@ export function ProjectManagement() {
                     onChange={(e) => setFilterProjectName(e.target.value)}
                     options={[
                       { value: 'all', label: 'All Projects' },
-                      ...uniqueProjectNames.map((n) => ({ value: n, label: n })),
+                      ...uniqueProjectNames.map((n) => {
+                        const proj = projects.find((p) => p.name === n)
+                        const label = proj && proj.status === 'Completed' ? `${n} (Completed)` : n
+                        return { value: n, label }
+                      }),
                     ]}
                   />
 
@@ -1862,7 +1890,6 @@ export function ProjectManagement() {
                       project={p}
                       onEdit={() => openEditProject(p)}
                       onDelete={() => handleDeleteProject(p)}
-                      onComplete={() => handleMarkProjectCompleted(p)}
                     />
                   ))}
                 </div>
@@ -1910,7 +1937,6 @@ export function ProjectManagement() {
                         project={p}
                         onEdit={() => openEditProject(p)}
                         onDelete={() => handleDeleteProject(p)}
-                        onComplete={() => handleMarkProjectCompleted(p)}
                       />
                     ))}
                     {filteredProjects.length === 0 && (
@@ -2076,7 +2102,7 @@ export function ProjectManagement() {
                 <option value="all">All Projects</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.name}>
-                    {p.name}
+                    {p.name}{p.status === 'Completed' ? ' (Completed)' : ''}
                   </option>
                 ))}
               </select>
@@ -2100,7 +2126,7 @@ export function ProjectManagement() {
                 className="h-10 rounded-xl border border-slate-250 bg-white px-3 text-xs font-bold text-slate-650 text-slate-600 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all"
               >
                 <option value="all">All Statuses</option>
-                <option value="Approved">Approved</option>
+                <option value="Approved">Completed</option>
                 <option value="Pending">Pending</option>
                 <option value="Rejected">Rejected</option>
               </select>
@@ -2160,7 +2186,14 @@ export function ProjectManagement() {
 
                         {/* Project Details Column */}
                         <td className="px-5 py-3.5">
-                          <p className="font-bold text-slate-700 leading-tight">{t.project}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-bold text-slate-700 leading-tight">{t.project}</p>
+                            {projects.find((p) => p.name === t.project)?.status === 'Completed' && (
+                              <span className="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 border border-emerald-250 uppercase tracking-wider scale-95 origin-left">
+                                Completed
+                              </span>
+                            )}
+                          </div>
                           <p className="text-[10px] text-slate-400 font-semibold">{t.client} · {t.technologyNode}</p>
                           <p className="text-[10px] text-slate-500 font-medium mt-1 truncate max-w-[200px]" title={t.task}>
                             Task: {t.task}
@@ -2232,7 +2265,7 @@ export function ProjectManagement() {
                         <td className="px-5 py-3.5">
                           {t.status === 'Approved' && (
                             <Badge variant="success" className="py-0.5 px-2 bg-emerald-50 text-emerald-700 border border-emerald-100">
-                              Approved
+                              Completed
                             </Badge>
                           )}
                           {t.status === 'Pending' && (
@@ -2246,6 +2279,7 @@ export function ProjectManagement() {
                             </Badge>
                           )}
                         </td>
+
 
                         {/* Actions Column */}
                         <td className="px-5 py-3.5 text-right">
@@ -2268,6 +2302,7 @@ export function ProjectManagement() {
                               </button>
                             )}
 
+
                             {/* Override Log Button */}
                             <button
                               onClick={() => openEditTimesheet(t)}
@@ -2285,6 +2320,17 @@ export function ProjectManagement() {
                                 title="Save & Approve Log"
                               >
                                 <Check className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+
+                            {/* Reject Log Button */}
+                            {(isPending || isRequestPending) && (
+                              <button
+                                onClick={() => handleQuickRejectLog(t.id)}
+                                className="rounded-lg bg-rose-50 p-1.5 text-rose-700 hover:bg-rose-100 transition-colors"
+                                title="Reject Log"
+                              >
+                                <X className="h-3.5 w-3.5" />
                               </button>
                             )}
 
@@ -2418,12 +2464,15 @@ export function ProjectManagement() {
               type="button"
               variant="secondary"
               onClick={() => setModalOpen(false)}
+              disabled={loading}
               className="rounded-xl font-bold py-2 px-4"
             >
               Cancel
             </Button>
             <Button
               type="submit"
+              loading={loading}
+              disabled={loading}
               className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl py-2 px-4 border-0"
             >
               {modalMode === 'create' ? 'Create Project' : 'Save Changes'}
@@ -2492,16 +2541,20 @@ export function ProjectManagement() {
 
             {/* Modal Actions */}
             <div className="flex items-center justify-between border-t border-slate-100 pt-5 mt-6">
-              <button
+              <Button
                 type="button"
+                variant="secondary"
+                disabled={loading}
                 onClick={() => setViewRequestModalOpen(false)}
-                className="border border-slate-200 text-slate-700 font-bold rounded-2xl px-6 py-2.5 text-sm bg-white hover:bg-slate-50 transition-colors shadow-sm"
+                className="border border-slate-200 text-slate-700 font-bold rounded-2xl px-6 py-2.5 text-sm bg-white hover:bg-slate-50 transition-colors shadow-sm h-auto"
               >
                 Close
-              </button>
+              </Button>
               <div className="flex gap-3">
-                <button
+                <Button
                   type="button"
+                  variant="primary"
+                  disabled={loading}
                   onClick={() => {
                     if (selectedLogForRequest.correctionRequest) {
                       setEditingTsId(selectedLogForRequest.id)
@@ -2518,19 +2571,22 @@ export function ProjectManagement() {
                       setTsModalOpen(true)
                     }
                   }}
-                  className="bg-[#2563eb] hover:bg-blue-700 text-white font-bold rounded-2xl px-6 py-2 text-xs text-center border-0 cursor-pointer shadow-sm transition-colors min-w-[120px] leading-tight flex flex-col justify-center items-center"
+                  className="bg-[#2563eb] hover:bg-blue-700 text-white font-bold rounded-2xl px-6 py-2 text-xs text-center border-0 cursor-pointer shadow-sm transition-colors min-w-[120px] leading-tight flex flex-col justify-center items-center h-auto"
                 >
                   <span>Override</span>
                   <span>Manually</span>
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="primary"
+                  loading={loading}
+                  disabled={loading}
                   onClick={() => handleQuickApproveCorrection(selectedLogForRequest.id)}
-                  className="bg-[#059669] hover:bg-emerald-700 text-white font-bold rounded-2xl px-6 py-2 text-xs text-center border-0 cursor-pointer shadow-sm transition-colors min-w-[120px] leading-tight flex flex-col justify-center items-center"
+                  className="bg-[#059669] hover:bg-emerald-700 text-white font-bold rounded-2xl px-6 py-2 text-xs text-center border-0 cursor-pointer shadow-sm transition-colors min-w-[120px] leading-tight flex flex-col justify-center items-center h-auto"
                 >
                   <span>Approve</span>
                   <span>Request</span>
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -2655,13 +2711,13 @@ export function ProjectManagement() {
           {/* Approval Status & Notes */}
           <div className="grid gap-4 sm:grid-cols-2">
             <SelectField
-              label="Log Approval Status"
+              label="Task / Log Status"
               id="m-ts-status"
               value={tsForm.status}
               onChange={(e) => setTsForm({ ...tsForm, status: e.target.value as any })}
               options={[
                 { value: 'Pending', label: 'Pending Approval' },
-                { value: 'Approved', label: 'Approved' },
+                { value: 'Approved', label: 'Completed' },
                 { value: 'Rejected', label: 'Rejected' },
               ]}
             />
@@ -2685,12 +2741,15 @@ export function ProjectManagement() {
               type="button"
               variant="secondary"
               onClick={() => setTsModalOpen(false)}
+              disabled={loading}
               className="rounded-xl font-bold py-2 px-4"
             >
               Cancel
             </Button>
             <Button
               type="submit"
+              loading={loading}
+              disabled={loading}
               className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl py-2 px-4 border-0"
             >
               Save Changes

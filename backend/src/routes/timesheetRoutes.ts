@@ -12,6 +12,7 @@ router.get('/employee-hours', timesheetController.getEmployeeHours);
 router.get('/:id', timesheetController.getById);
 router.post('/', timesheetController.create);
 router.put('/:id', timesheetController.update);
+router.patch('/:id/override', timesheetController.override);
 router.delete('/:id', timesheetController.delete);
 
 export const timesheetRoutes = router;

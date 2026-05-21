@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { TimesheetModel } from '../models/Timesheet';
+import { ProjectModel } from '../models/Project';
 
 const MOCK_EMPLOYEES = [
   { id: 'E-1001', name: 'Asha Menon', department: 'Design', hue: 155 },
@@ -49,7 +50,21 @@ function toFrontendTimesheet(t: any) {
     task: t.task || '',
     adminNotes: t.adminNotes,
     overriddenHours: t.overriddenHours,
+    taskStatus: t.taskStatus || 'Pending',
   };
+}
+
+// Helper to update project completion status based on task logs
+async function syncProjectStatus(projectName: string): Promise<void> {
+  if (!projectName) return;
+  const timesheets = await TimesheetModel.find({ project: projectName });
+  if (timesheets.length === 0) {
+    await ProjectModel.findOneAndUpdate({ projectName }, { status: 'Active' });
+    return;
+  }
+  const allCompleted = timesheets.every(t => t.status === 'Approved');
+  const targetStatus = allCompleted ? 'Completed' : 'Active';
+  await ProjectModel.findOneAndUpdate({ projectName }, { status: targetStatus });
 }
 
 // Helper to build matches for query filters
@@ -83,6 +98,7 @@ async function buildMatchStage(req: Request) {
     match.status = status;
   }
 
+
   if (search) {
     const searchRegex = new RegExp(search as string, 'i');
     match.$or = [
@@ -94,7 +110,11 @@ async function buildMatchStage(req: Request) {
 
   if (team && team !== 'all') {
     const dept = (team as string).replace(' Team', '');
-    const employeesInDept = await mongoose.connection.db.collection('employees').find({ department: dept }).toArray();
+    const db = mongoose.connection.db;
+    if (!db) {
+      throw new Error('Database connection is not active');
+    }
+    const employeesInDept = await db.collection('employees').find({ department: dept }).toArray();
     const employeeNames = employeesInDept.map(e => `${e.firstName} ${e.lastName}`);
     const mockNames = MOCK_EMPLOYEES.filter(e => e.department === dept).map(e => e.name);
     const allNames = Array.from(new Set([...employeeNames, ...mockNames]));
@@ -128,7 +148,14 @@ export const timesheetController = {
             project: 1,
             hours: {
               $cond: {
-                if: { $ne: [{ $type: "$overriddenHours" }, "missing"] },
+                if: {
+                  $and: [
+                    { $ne: [{ $type: "$overriddenHours" }, "missing"] },
+                    { $ne: [{ $type: "$overriddenHours" }, "null"] },
+                    { $ne: ["$overriddenHours", null] },
+                    { $ne: ["$overriddenHours", "null"] }
+                  ]
+                },
                 then: "$overriddenHours",
                 else: {
                   $cond: {
@@ -159,7 +186,7 @@ export const timesheetController = {
             hours: { $round: ["$totalHours", 1] }
           }
         },
-        { $sort: { hours: -1 } }
+        { $sort: { hours: -1 as const } }
       ];
 
       const results = await TimesheetModel.aggregate(agg);
@@ -181,7 +208,14 @@ export const timesheetController = {
             employee: 1,
             hours: {
               $cond: {
-                if: { $ne: [{ $type: "$overriddenHours" }, "missing"] },
+                if: {
+                  $and: [
+                    { $ne: [{ $type: "$overriddenHours" }, "missing"] },
+                    { $ne: [{ $type: "$overriddenHours" }, "null"] },
+                    { $ne: ["$overriddenHours", null] },
+                    { $ne: ["$overriddenHours", "null"] }
+                  ]
+                },
                 then: "$overriddenHours",
                 else: {
                   $cond: {
@@ -212,7 +246,7 @@ export const timesheetController = {
             hours: { $round: ["$totalHours", 1] }
           }
         },
-        { $sort: { hours: -1 } }
+        { $sort: { hours: -1 as const } }
       ];
 
       const results = await TimesheetModel.aggregate(agg);
@@ -226,12 +260,15 @@ export const timesheetController = {
           hue = emp.hue;
         } else {
           const [firstName, lastName] = item.name.split(' ');
-          const dbEmp = await mongoose.connection.db.collection('employees').findOne({
-            firstName,
-            lastName
-          });
-          if (dbEmp) {
-            dept = dbEmp.department;
+          const db = mongoose.connection.db;
+          if (db) {
+            const dbEmp = await db.collection('employees').findOne({
+              firstName,
+              lastName
+            });
+            if (dbEmp) {
+              dept = dbEmp.department;
+            }
           }
         }
         return {
@@ -290,6 +327,7 @@ export const timesheetController = {
       timesheet.totalHours = computeTotalHours(timesheet.loginTime, timesheet.logoutTime);
 
       await timesheet.save();
+      await syncProjectStatus(timesheet.project);
       res.status(201).json(toFrontendTimesheet(timesheet));
     } catch (error) {
       console.error('Error creating timesheet entry:', error);
@@ -341,6 +379,7 @@ export const timesheetController = {
       timesheet.totalHours = computeTotalHours(timesheet.loginTime, timesheet.logoutTime, timesheet.overriddenHours);
 
       await timesheet.save();
+      await syncProjectStatus(timesheet.project);
       res.json(toFrontendTimesheet(timesheet));
     } catch (error) {
       console.error('Error updating timesheet entry:', error);
@@ -348,14 +387,61 @@ export const timesheetController = {
     }
   },
 
-  // DELETE /api/timesheets/:id
-  delete: async (req: Request, res: Response): Promise<void> => {
+  // PATCH /api/timesheets/:id/override
+  override: async (req: Request, res: Response): Promise<void> => {
     try {
-      const result = await TimesheetModel.findByIdAndDelete(req.params.id);
-      if (!result) {
+      const {
+        loginTime,
+        logoutTime,
+        overriddenHours,
+        adminNotes,
+        status,
+        requestStatus,
+      } = req.body;
+
+      const timesheet = await TimesheetModel.findById(req.params.id);
+      if (!timesheet) {
         res.status(404).json({ error: 'Timesheet entry not found' });
         return;
       }
+
+      if (loginTime) timesheet.loginTime = new Date(loginTime);
+      if (logoutTime !== undefined) {
+        timesheet.logoutTime = logoutTime ? new Date(logoutTime) : undefined;
+      }
+      
+      // Handle overridden hours clean deletion or set
+      if (overriddenHours !== undefined) {
+        timesheet.overriddenHours = (overriddenHours === '' || overriddenHours === null) ? undefined : Number(overriddenHours);
+      }
+      
+      if (adminNotes !== undefined) timesheet.adminNotes = adminNotes;
+      if (status) timesheet.status = status;
+      if (requestStatus) timesheet.requestStatus = requestStatus;
+
+      // Re-compute total hours using helper
+      timesheet.totalHours = computeTotalHours(timesheet.loginTime, timesheet.logoutTime, timesheet.overriddenHours);
+
+      await timesheet.save();
+      await syncProjectStatus(timesheet.project);
+      res.json(toFrontendTimesheet(timesheet));
+    } catch (error) {
+      console.error('Error overriding timesheet entry:', error);
+      res.status(500).json({ error: 'Failed to override timesheet entry' });
+    }
+  },
+
+  // DELETE /api/timesheets/:id
+  delete: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const timesheet = await TimesheetModel.findById(req.params.id);
+      if (!timesheet) {
+        res.status(404).json({ error: 'Timesheet entry not found' });
+        return;
+      }
+      const projectName = timesheet.project;
+      await TimesheetModel.findByIdAndDelete(req.params.id);
+      await syncProjectStatus(projectName);
       res.json({ message: 'Deleted successfully' });
     } catch (error) {
       console.error('Error deleting timesheet entry:', error);
