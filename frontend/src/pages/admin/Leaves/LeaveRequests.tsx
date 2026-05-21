@@ -8,7 +8,7 @@ import { useLeaves } from '@hooks/useLeaves'
 // import type removed
 import { formatDate } from '@/utils/formatDate'
 import { filterLeaves, type LeaveFilters } from '@/utils/leaveFilters'
-import { Search, X, ChevronLeft, ChevronRight, Check, Eye } from 'lucide-react'
+import { Search, X, ChevronLeft, ChevronRight, Check, Eye, Ban } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'
 
 type StatusType = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled'
@@ -20,7 +20,7 @@ interface StatusPagination {
 }
 
 export function LeaveRequests() {
-  const { leaves, loading, approveLeave, rejectLeave } = useLeaves()
+  const { leaves, loading, approveLeave, rejectLeave, cancelLeave } = useLeaves()
   
   const [filters, setFilters] = useState<LeaveFilters>({ employeeName: '', employeeId: '', status: 'Pending' })
   const [statusPagination, setStatusPagination] = useState<StatusPagination>({
@@ -40,6 +40,13 @@ export function LeaveRequests() {
   // View Reason Modal State
   const [isReasonModalOpen, setIsReasonModalOpen] = useState(false)
   const [viewingReason, setViewingReason] = useState('')
+
+  // Cancel Modal State
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false)
+  const [leaveToCancel, setLeaveToCancel] = useState<string | null>(null)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelError, setCancelError] = useState('')
+  const cancelInputRef = useRef<HTMLTextAreaElement>(null)
 
   const handleViewReason = (reason: string) => {
     setViewingReason(reason)
@@ -108,6 +115,36 @@ export function LeaveRequests() {
       setIsRejectModalOpen(false)
     } catch {
       toast.error('Failed to reject leave')
+    }
+  }
+
+  // Auto-focus textarea when cancel modal opens
+  useEffect(() => {
+    if (isCancelModalOpen && cancelInputRef.current) {
+      setTimeout(() => cancelInputRef.current?.focus(), 50)
+    }
+  }, [isCancelModalOpen])
+
+  const openCancelModal = (id: string) => {
+    setLeaveToCancel(id)
+    setCancelReason('')
+    setCancelError('')
+    setIsCancelModalOpen(true)
+  }
+
+  const handleCancelConfirm = async () => {
+    const trimmedReason = cancelReason.trim()
+    if (!trimmedReason) {
+      setCancelError('Cancellation reason is required.')
+      return
+    }
+    
+    try {
+      await cancelLeave(leaveToCancel!, trimmedReason)
+      toast.success('Leave cancelled successfully')
+      setIsCancelModalOpen(false)
+    } catch {
+      toast.error('Failed to cancel leave')
     }
   }
 
@@ -307,6 +344,27 @@ export function LeaveRequests() {
                         </Tooltip.Root>
                       )}
                       
+                      {l.status === 'Approved' && (
+                        <Tooltip.Root>
+                          <Tooltip.Trigger asChild>
+                            <Button
+                              size="sm"
+                              variant="danger"
+                              className="h-8 w-8 rounded-full p-0 flex items-center justify-center shadow-sm transition-transform hover:scale-105"
+                              onClick={() => openCancelModal(l.id)}
+                            >
+                              <Ban className="h-4 w-4" />
+                            </Button>
+                          </Tooltip.Trigger>
+                          <Tooltip.Portal>
+                            <Tooltip.Content className="z-[100] rounded-md bg-ink px-2 py-1 text-xs text-white shadow-md">
+                              Cancel Request
+                              <Tooltip.Arrow className="fill-ink" />
+                            </Tooltip.Content>
+                          </Tooltip.Portal>
+                        </Tooltip.Root>
+                      )}
+                      
                       {(l.status === 'Cancelled' || (l.status === 'Rejected' && !l.rejectionReason)) && (
                         <span className="text-[10px] text-muted italic">No actions</span>
                       )}
@@ -432,6 +490,57 @@ export function LeaveRequests() {
               onClick={() => setIsReasonModalOpen(false)}
             >
               Close
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Cancel Modal */}
+      <Modal
+        isOpen={isCancelModalOpen}
+        onClose={() => setIsCancelModalOpen(false)}
+        title="Cancel Approved Leave"
+        size="md"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted">
+            Are you sure you want to cancel this approved leave? This will update the status immediately.
+          </p>
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-ink">
+              Cancellation Reason <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              ref={cancelInputRef}
+              value={cancelReason}
+              onChange={(e) => {
+                setCancelReason(e.target.value)
+                if (cancelError) setCancelError('')
+              }}
+              placeholder="Please provide a reason..."
+              className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 resize-none transition-shadow ${
+                cancelError ? 'border-red-500 focus:ring-red-200' : 'border-border focus:ring-primary/30'
+              }`}
+              rows={4}
+            />
+            {cancelError && (
+              <div className="text-xs font-medium text-red-500 mt-1">{cancelError}</div>
+            )}
+          </div>
+          
+          <div className="flex justify-end gap-3 pt-2 border-t border-border">
+            <Button
+              variant="secondary"
+              onClick={() => setIsCancelModalOpen(false)}
+            >
+              Close
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleCancelConfirm}
+              disabled={!cancelReason.trim()}
+            >
+              Cancel Leave
             </Button>
           </div>
         </div>

@@ -48,6 +48,7 @@ export interface LeaveRequest {
   reason: string
   status: LeaveStatus
   rejectionReason?: string
+  cancellationReason?: string
   approvalDate?: string
   approvedBy?: string
 }
