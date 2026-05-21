@@ -64,10 +64,14 @@ export const leaveController = {
   approve: async (req: Request, res: Response): Promise<void> => {
     try {
       const leave = await leaveService.updateLeaveStatus(req.params.id, 'Approved');
-      if (!leave) { res.status(404).json({ error: 'Leave not found' }); return; }
+      if (!leave) {
+        res.status(404).json({ error: 'Leave not found' });
+        return;
+      }
       res.json(leave);
-    } catch {
-      res.status(500).json({ error: 'Failed to approve leave' });
+    } catch (error: any) {
+      console.error('Error approving leave:', error);
+      res.status(400).json({ error: error.message || 'Failed to approve leave' });
     }
   },
 
@@ -80,10 +84,14 @@ export const leaveController = {
         return;
       }
       const leave = await leaveService.updateLeaveStatus(req.params.id, 'Rejected', reason.trim());
-      if (!leave) { res.status(404).json({ error: 'Leave not found' }); return; }
+      if (!leave) {
+        res.status(404).json({ error: 'Leave not found' });
+        return;
+      }
       res.json(leave);
-    } catch {
-      res.status(500).json({ error: 'Failed to reject leave' });
+    } catch (error: any) {
+      console.error('Error rejecting leave:', error);
+      res.status(400).json({ error: error.message || 'Failed to reject leave' });
     }
   },
 
@@ -105,8 +113,9 @@ export const leaveController = {
         return;
       }
       res.json(cancelledLeave);
-    } catch {
-      res.status(500).json({ error: 'Failed to cancel leave' });
+    } catch (error: any) {
+      console.error('Error cancelling leave:', error);
+      res.status(500).json({ error: error.message || 'Failed to cancel leave' });
     }
   },
 
@@ -114,10 +123,14 @@ export const leaveController = {
   delete: async (req: Request, res: Response): Promise<void> => {
     try {
       const ok = await leaveService.deleteLeave(req.params.id);
-      if (!ok) { res.status(404).json({ error: 'Leave not found' }); return; }
+      if (!ok) {
+        res.status(404).json({ error: 'Leave not found' });
+        return;
+      }
       res.json({ message: 'Deleted successfully' });
-    } catch {
-      res.status(500).json({ error: 'Failed to delete leave' });
+    } catch (error: any) {
+      console.error('Error deleting leave:', error);
+      res.status(500).json({ error: error.message || 'Failed to delete leave' });
     }
   },
 

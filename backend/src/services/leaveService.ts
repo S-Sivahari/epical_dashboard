@@ -122,6 +122,17 @@ export async function updateLeaveStatus(
     }
   }
 
+  // Build update document
+  const updateDoc: any = {
+    status,
+    updatedAt: new Date(),
+  };
+
+  // Add rejection reason if rejecting
+  if (status === 'Rejected' && rejectionReason) {
+    updateDoc.rejectionReason = rejectionReason;
+  }
+
   const result = await col.findOneAndUpdate(
     { id },
     { $set: updateDoc },
