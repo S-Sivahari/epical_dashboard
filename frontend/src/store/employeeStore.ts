@@ -23,6 +23,7 @@ interface EmployeeState {
   setPage: (page: number) => void
   setPageSize: (n: number) => void
   fetchEmployees: () => Promise<void>
+  fetchEmployeesSilent: () => Promise<void>
   setSelected: (e: Employee | null) => void
   addEmployee: (payload: Omit<Employee, 'id'>) => Promise<Employee>
   updateEmployee: (id: string, payload: Partial<Employee>) => Promise<void>
@@ -65,6 +66,29 @@ export const useEmployeeStore = create<EmployeeState>((set, get) => ({
       })
     } catch {
       set({ loading: false })
+    }
+  },
+  fetchEmployeesSilent: async () => {
+    const { filters, pagination } = get()
+    try {
+      const res = await employeeService.getEmployees({
+        name: filters.name || undefined,
+        employeeId: filters.employeeId || undefined,
+        department: filters.department,
+        employmentType: filters.employmentType,
+        employmentStatus: filters.employmentStatus,
+        status: filters.status,
+        sortColumn: get().sort.column,
+        sortDirection: get().sort.direction,
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+      })
+      set({
+        employees: res.data,
+        pagination: { ...pagination, total: res.total },
+      })
+    } catch {
+      // silently fail on background polling
     }
   },
   setSelected: (selectedEmployee) => set({ selectedEmployee }),

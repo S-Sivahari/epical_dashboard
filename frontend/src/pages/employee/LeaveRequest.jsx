@@ -76,6 +76,7 @@ export default function LeaveRequest() {
   const toDate = watch('toDate')
 
   useEffect(() => {
+    // Initial fetch
     fetchRequests()
     
     // Fetch Balances
@@ -93,6 +94,27 @@ export default function LeaveRequest() {
       const formatted = data.map(h => ({ date: h.date, name: h.title }))
       setHolidays(formatted)
     }).catch(console.error)
+
+    // Poll for updates every 5 seconds WITHOUT loading indicator
+    const leaveInterval = setInterval(() => {
+      fetchRequests()
+    }, 5000)
+
+    const balanceInterval = setInterval(() => {
+      leaveService.getBalances().then((data) => {
+        const formatted = [
+          { key: 'casual', type: 'Casual Leave', used: data['Casual Leave']?.used || 0, total: data['Casual Leave']?.total || 12, color: '#16a34a' },
+          { key: 'sick', type: 'Sick Leave', used: data['Sick Leave']?.used || 0, total: data['Sick Leave']?.total || 12, color: '#3b82f6' },
+          { key: 'earned', type: 'Earned Leave', used: data['Earned Leave']?.used || 0, total: data['Earned Leave']?.total || 0, color: '#8b5cf6' },
+        ]
+        setLeaveBalances(formatted)
+      }).catch(console.error)
+    }, 5000)
+
+    return () => {
+      clearInterval(leaveInterval)
+      clearInterval(balanceInterval)
+    }
   }, [fetchRequests])
 
   useEffect(() => {

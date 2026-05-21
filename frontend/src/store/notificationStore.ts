@@ -22,7 +22,9 @@ interface NotificationState {
   unreadCount: number
   loading: boolean
   fetchNotifications: () => Promise<void>
+  fetchNotificationsSilent: () => Promise<void>
   fetchUnreadCount: () => Promise<void>
+  fetchUnreadCountSilent: () => Promise<void>
   markAsRead: (notificationId: string) => Promise<void>
   markAllAsRead: () => Promise<void>
   deleteNotification: (notificationId: string) => Promise<void>
@@ -45,7 +47,25 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     }
   },
 
+  fetchNotificationsSilent: async () => {
+    try {
+      const response = await api.get('/notifications')
+      set({ notifications: response.data })
+    } catch (error) {
+      console.error('Error fetching notifications:', error)
+    }
+  },
+
   fetchUnreadCount: async () => {
+    try {
+      const response = await api.get('/notifications/count/unread')
+      set({ unreadCount: response.data.count })
+    } catch (error) {
+      console.error('Error fetching unread count:', error)
+    }
+  },
+
+  fetchUnreadCountSilent: async () => {
     try {
       const response = await api.get('/notifications/count/unread')
       set({ unreadCount: response.data.count })
