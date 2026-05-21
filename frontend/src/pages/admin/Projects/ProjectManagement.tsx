@@ -7,14 +7,13 @@ import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
 import { SelectField } from '@components/forms/SelectField'
 import { Modal } from '@components/ui/Modal'
+import { ProjectTasksModal } from '@components/modals/ProjectTasksModal'
 import { toast } from 'sonner'
 import {
   Clock,
   Users,
   Search,
-  Check,
   X,
-  Edit2,
   Trash2,
   FileDown,
   Calendar as CalendarIcon,
@@ -35,8 +34,8 @@ import {
   UserCheck,
   TrendingUp,
   Sliders,
-  AlertCircle,
   FileText,
+  Edit2,
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -62,10 +61,13 @@ interface Project {
   client: string
   technologyNode: string
   accessType: 'public' | 'private'
-  status: 'Active' | 'Completed'
+  status: 'Active' | 'Completed' | 'Rejected'
   description: string
   visibleUsers: string[]
-  assignedTeamName?: string
+  teamLead?: string
+  completedTasks?: number
+  totalTasks?: number
+  completionPercentage?: number
 }
 
 interface TimesheetLog {
@@ -84,12 +86,13 @@ interface TimesheetLog {
     reason: string
     message: string
   }
-  requestStatus: 'No Request' | 'Pending Review' | 'Corrected' | 'Approved'
+  requestStatus: 'No Request' | 'Pending Review' | 'Corrected' | 'Approved' | 'Rejected'
   status: 'Approved' | 'Pending' | 'Rejected'
   billable: boolean
   task: string
   adminNotes?: string
   overriddenHours?: number
+  taskStatus?: 'Pending' | 'In Progress' | 'Completed' | 'Session Incomplete'
 }
 
 /* ================================================================
@@ -146,6 +149,52 @@ const calculateHours = (login: string, logout?: string, overriddenHours?: number
   return Math.round((diffMs / (1000 * 60 * 60)) * 10) / 10
 }
 
+/** Hours-by-project and employee leaderboard from filtered logs (export/PDF). */
+function buildTimesheetExportAnalytics(logs: TimesheetLog[]) {
+  const byProject: Record<string, number> = {}
+  const byEmployee: Record<string, { name: string; dept: string; hours: number }> = {}
+
+  logs.forEach((t) => {
+    const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours) || 0
+    byProject[t.project] = (byProject[t.project] || 0) + hours
+
+    const emp = MOCK_EMPLOYEES.find((e) => e.id === t.employeeId)
+    const existing = byEmployee[t.employeeId]
+    if (existing) {
+      existing.hours += hours
+    } else {
+      byEmployee[t.employeeId] = {
+        name: t.employeeName,
+        dept: emp?.department ?? '—',
+        hours,
+      }
+    }
+  })
+
+  const hoursByProject = Object.entries(byProject)
+    .map(([name, hours]) => ({ name, hours: Math.round(hours * 10) / 10 }))
+    .sort((a, b) => b.hours - a.hours)
+
+  const leaderboard = Object.values(byEmployee)
+    .map((e) => ({ ...e, hours: Math.round(e.hours * 10) / 10 }))
+    .sort((a, b) => b.hours - a.hours)
+
+  return { hoursByProject, leaderboard }
+}
+
+/** Simplified operational status for the Timesheets log view (read-only). */
+const getTimesheetWorkflowStatus = (
+  t: Pick<TimesheetLog, 'logoutTime' | 'taskStatus' | 'status' | 'requestStatus'>
+): 'Completed' | 'In Progress' => {
+  const isCompleted =
+    !!t.logoutTime &&
+    t.taskStatus === 'Completed' &&
+    t.status === 'Approved' &&
+    t.requestStatus !== 'Pending Review' &&
+    t.requestStatus !== 'Rejected'
+  return isCompleted ? 'Completed' : 'In Progress'
+}
+
 /* ================================================================
    HELPER – Format Date-Time
    ================================================================ */
@@ -156,17 +205,6 @@ const formatDateTime = (isoString?: string): string => {
   const dateStr = d.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })
   const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
   return `${dateStr}, ${timeStr}`
-}
-
-/* ================================================================
-   HELPER – toDatetimeLocal for date inputs
-   ================================================================ */
-const toDatetimeLocal = (isoString?: string): string => {
-  if (!isoString) return ''
-  const d = new Date(isoString)
-  if (isNaN(d.getTime())) return ''
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 /* ================================================================
@@ -209,63 +247,6 @@ function MetricCard({
 }
 
 /* ================================================================
-   COMPONENT – Searchable Team Input Suggestions
-   ================================================================ */
-function SearchableTeamInput({
-  value,
-  onChange,
-  teams,
-}: {
-  value: string
-  onChange: (val: string) => void
-  teams: string[]
-}) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  useClickOutside(ref, () => setOpen(false))
-
-  const filtered = teams.filter((t) =>
-    t.toLowerCase().includes(value.toLowerCase())
-  )
-
-  return (
-    <div ref={ref} className="relative">
-      <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
-        Assigned Team Name
-      </label>
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => {
-          onChange(e.target.value)
-          setOpen(true)
-        }}
-        onFocus={() => setOpen(true)}
-        placeholder="Type or select team..."
-        className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
-      />
-      {open && filtered.length > 0 && (
-        <div className="absolute left-0 right-0 z-50 mt-1 max-h-40 overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
-          {filtered.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => {
-                onChange(t)
-                setOpen(false)
-              }}
-              className="w-full px-3 py-2 text-left text-xs text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors"
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-/* ================================================================
    COMPONENT – Custom Date Range Picker (Linear/SaaS Style)
    ================================================================ */
 interface DateRangePickerProps {
@@ -277,10 +258,24 @@ interface DateRangePickerProps {
 
 function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRangePickerProps) {
   const [open, setOpen] = useState(false)
-  const [currentMonth, setCurrentMonth] = useState<Date>(new Date('2026-05-01'))
+  const [currentMonth, setCurrentMonth] = useState<Date>(new Date(startDate || '2026-05-01'))
   const [tempStart, setTempStart] = useState<string | null>(startDate)
   const [tempEnd, setTempEnd] = useState<string | null>(endDate)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  const applySingleDay = (dateStr: string) => {
+    setTempStart(dateStr)
+    setTempEnd(dateStr)
+    onChange(dateStr, dateStr, 'Custom')
+    setOpen(false)
+  }
+
+  const applyRange = (start: string, end: string) => {
+    setTempStart(start)
+    setTempEnd(end)
+    onChange(start, end, 'Custom')
+    setOpen(false)
+  }
 
   useClickOutside(containerRef, () => {
     setOpen(false)
@@ -292,6 +287,7 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
     if (open) {
       setTempStart(startDate)
       setTempEnd(endDate)
+      setCurrentMonth(new Date(startDate || '2026-05-01'))
     }
   }, [open, startDate, endDate])
 
@@ -361,19 +357,19 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))
   }
 
-  const handleDayClick = (dateStr: string) => {
-    if (!tempStart || (tempStart && tempEnd)) {
-      setTempStart(dateStr)
-      setTempEnd(null)
-    } else {
-      if (dateStr < tempStart) {
+  const handleDayClick = (dateStr: string, e: React.MouseEvent) => {
+    if (e.shiftKey) {
+      if (!tempStart || (tempStart && tempEnd)) {
         setTempStart(dateStr)
-      } else {
-        setTempEnd(dateStr)
-        onChange(tempStart, dateStr, 'Custom')
-        setOpen(false)
+        setTempEnd(null)
+        return
       }
+      const start = dateStr < tempStart ? dateStr : tempStart
+      const end = dateStr < tempStart ? tempStart : dateStr
+      applyRange(start, end)
+      return
     }
+    applySingleDay(dateStr)
   }
 
   const calendarCells = useMemo(() => {
@@ -416,9 +412,11 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
         className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors"
       >
         <CalendarIcon className="h-4 w-4 text-emerald-650" />
-        {preset === 'Custom'
-          ? `${formatDate(startDate)} – ${formatDate(endDate)}`
-          : `${preset} (${formatDate(startDate)} – ${formatDate(endDate)})`}
+        {preset === 'Custom' && startDate === endDate
+          ? formatDate(startDate)
+          : preset === 'Custom'
+            ? `${formatDate(startDate)} – ${formatDate(endDate)}`
+            : `${preset} (${formatDate(startDate)} – ${formatDate(endDate)})`}
         <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
       </button>
 
@@ -450,20 +448,20 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
               {calendarCells.map((cell, idx) => {
                 const isSelectedStart = tempStart && cell.dateString === tempStart
                 const isSelectedEnd = tempEnd && cell.dateString === tempEnd
+                const isSingleDay = tempStart && tempEnd && tempStart === tempEnd && cell.dateString === tempStart
                 const isWithinRange =
-                  tempStart && tempEnd && cell.dateString > tempStart && cell.dateString < tempEnd
-                const isCurrentMonth = cell.isCurrentMonth
+                  tempStart && tempEnd && tempStart !== tempEnd && cell.dateString > tempStart && cell.dateString < tempEnd
 
                 return (
                   <button
                     key={idx}
                     type="button"
-                    onClick={() => isCurrentMonth && handleDayClick(cell.dateString)}
+                    onClick={(e) => handleDayClick(cell.dateString, e)}
+                    title={`Filter logs for ${cell.dateString}. Shift+click a second date for a range.`}
                     className={`
                       h-7 w-7 rounded-lg flex items-center justify-center font-semibold transition-all
-                      ${!isCurrentMonth ? 'text-slate-350 pointer-events-none' : 'text-slate-705 hover:bg-emerald-50 hover:text-emerald-700'}
-                      ${isSelectedStart ? 'bg-emerald-600 text-white hover:bg-emerald-600 hover:text-white shadow-sm' : ''}
-                      ${isSelectedEnd ? 'bg-emerald-600 text-white hover:bg-emerald-600 hover:text-white shadow-sm' : ''}
+                      ${cell.isCurrentMonth ? 'text-slate-700 hover:bg-emerald-50 hover:text-emerald-700' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}
+                      ${isSingleDay || isSelectedStart || isSelectedEnd ? 'bg-emerald-600 text-white hover:bg-emerald-600 hover:text-white shadow-sm' : ''}
                       ${isWithinRange ? 'bg-emerald-50 text-emerald-800 rounded-none' : ''}
                     `}
                   >
@@ -472,6 +470,9 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
                 )
               })}
             </div>
+            <p className="mt-3 text-[10px] text-slate-400 font-medium">
+              Click any date to filter that day. Hold Shift, click a start date, then another date for a custom range.
+            </p>
           </div>
 
           {/* Divider */}
@@ -556,6 +557,134 @@ function AvatarGroup({ users, max = 3 }: { users: string[]; max?: number }) {
   )
 }
 
+/** Empty selection = no restriction. Non-empty = value must be in the list. */
+function matchesMultiFilter(selected: string[], value: string): boolean {
+  if (selected.length === 0) return true
+  return selected.includes(value)
+}
+
+/* ================================================================
+   COMPONENT – Multi-select filter dropdown (Projects / Timesheets)
+   ================================================================ */
+function FilterCheckboxGroup({
+  label,
+  placeholder,
+  options,
+  selected,
+  onChange,
+  compact = false,
+}: {
+  label: string
+  placeholder: string
+  options: { value: string; label: string }[]
+  selected: string[]
+  onChange: (next: string[]) => void
+  compact?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDocClick = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [open])
+
+  const toggle = (value: string) => {
+    onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value])
+  }
+
+  const summary = useMemo(() => {
+    if (selected.length === 0) return placeholder
+    if (selected.length === 1) {
+      const opt = options.find((o) => o.value === selected[0])
+      return opt?.label ?? selected[0]
+    }
+    return `${selected.length} selected`
+  }, [selected, options, placeholder])
+
+  return (
+    <div ref={rootRef} className="relative">
+      {!compact && (
+        <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+          {label}
+        </span>
+      )}
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        onClick={() => setOpen((v) => !v)}
+        className={`flex h-10 w-full items-center justify-between gap-2 rounded-xl border bg-white px-3 text-left text-xs font-bold outline-none transition-all ${
+          open || selected.length > 0
+            ? 'border-emerald-500 text-slate-700 ring-4 ring-emerald-500/10'
+            : 'border-slate-250 text-slate-600 hover:border-slate-300'
+        }`}
+      >
+        <span className="truncate">{summary}</span>
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          aria-label={label}
+          className="absolute left-0 right-0 z-50 mt-1 rounded-xl border border-slate-200 bg-white p-2 shadow-lg"
+        >
+          <div className="mb-2 flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</span>
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="button"
+                onClick={() => onChange(options.map((o) => o.value))}
+                className="text-[10px] font-bold text-emerald-600 hover:text-emerald-800"
+              >
+                All
+              </button>
+              <button
+                type="button"
+                onClick={() => onChange([])}
+                className="text-[10px] font-bold text-slate-500 hover:text-slate-700"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+          <div className="max-h-48 space-y-0.5 overflow-y-auto pr-0.5">
+            {options.length === 0 ? (
+              <p className="px-2 py-2 text-xs font-semibold text-slate-400">No options</p>
+            ) : (
+              options.map((opt) => (
+                <label
+                  key={opt.value}
+                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-slate-700 transition-colors hover:bg-slate-50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(opt.value)}
+                    onChange={() => toggle(opt.value)}
+                    className="h-3.5 w-3.5 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500/20"
+                  />
+                  <span className="truncate font-semibold" title={opt.label}>
+                    {opt.label}
+                  </span>
+                </label>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ================================================================
    COMPONENT – Checkbox List (for Modal Allowed Users)
    ================================================================ */
@@ -608,17 +737,20 @@ function ProjectCard({
   project,
   onEdit,
   onDelete,
+  onTasks,
 }: {
   project: Project
   onEdit: () => void
   onDelete: () => void
+  onTasks: () => void
 }) {
   const isCompleted = project.status === 'Completed'
+  const isRejected = project.status === 'Rejected'
 
   // Visibility/scope summary
   const visibilitySummary =
     project.accessType === 'private'
-      ? `${project.visibleUsers.length} Users · ${project.assignedTeamName || 'No Team'}`
+      ? `${project.visibleUsers.length} Users · Lead: ${project.teamLead || 'Not assigned'}`
       : 'All Members'
 
   return (
@@ -663,10 +795,10 @@ function ProjectCard({
               <Cpu className="h-2.5 w-2.5 text-slate-400" />
               {project.technologyNode}
             </span>
-            {project.accessType === 'private' && project.assignedTeamName && (
+            {project.accessType === 'private' && project.teamLead && (
               <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50/50 border border-emerald-100/50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-                <Users className="h-2.5 w-2.5 text-emerald-500" />
-                {project.assignedTeamName}
+                <UserCheck className="h-2.5 w-2.5 text-emerald-500" />
+                Lead: {project.teamLead}
               </span>
             )}
           </div>
@@ -678,19 +810,30 @@ function ProjectCard({
 
       <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-3.5">
         <div>
-          {isCompleted ? (
+          {isRejected ? (
+            <Badge variant="danger" className="py-0.5 px-2 bg-rose-50 text-rose-700 border border-rose-100 text-[10px]">
+              <X className="mr-1 h-3 w-3" /> Rejected
+            </Badge>
+          ) : isCompleted ? (
             <Badge variant="neutral" className="bg-slate-100 text-slate-600 border border-slate-200 py-0.5 px-2 text-[10px]">
               <CheckCircle2 className="mr-1 h-3 w-3" /> Completed
             </Badge>
           ) : (
-            <Badge variant="success" className="py-0.5 px-2 bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px]">
-              <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              Active
+            <Badge variant="info" className="py-0.5 px-2 bg-blue-50 text-blue-700 border border-blue-100 text-[10px]">
+              <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-blue-500" />
+              In Progress
             </Badge>
           )}
         </div>
 
         <div className="flex items-center gap-1">
+          <button
+            onClick={onTasks}
+            className="rounded-lg p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+            title="View Tasks"
+          >
+            <FileText className="h-3.5 w-3.5" />
+          </button>
           <button
             onClick={onEdit}
             className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
@@ -718,12 +861,15 @@ function ProjectListRow({
   project,
   onEdit,
   onDelete,
+  onTasks,
 }: {
   project: Project
   onEdit: () => void
   onDelete: () => void
+  onTasks: () => void
 }) {
   const isCompleted = project.status === 'Completed'
+  const isRejected = project.status === 'Rejected'
 
   return (
     <tr className="group transition-colors hover:bg-slate-50/50">
@@ -761,9 +907,9 @@ function ProjectListRow({
       <td className="px-5 py-3.5">
         {project.accessType === 'private' ? (
           <div className="flex items-center gap-2">
-            {project.assignedTeamName && (
+            {project.teamLead && (
               <span className="inline-flex items-center gap-1 rounded bg-emerald-50 text-emerald-700 px-2 py-0.5 text-[10px] font-bold border border-emerald-100">
-                {project.assignedTeamName}
+                Lead: {project.teamLead}
               </span>
             )}
             <AvatarGroup users={project.visibleUsers} max={3} />
@@ -773,19 +919,30 @@ function ProjectListRow({
         )}
       </td>
       <td className="px-5 py-3.5">
-        {isCompleted ? (
+        {isRejected ? (
+          <Badge variant="danger" className="py-0.5 px-2 bg-rose-50 text-rose-700 border border-rose-100">
+            <X className="mr-1 h-3 w-3" /> Rejected
+          </Badge>
+        ) : isCompleted ? (
           <Badge variant="neutral" className="bg-slate-100 text-slate-600 border border-slate-200 py-0.5 px-2">
             <CheckCircle2 className="mr-1 h-3 w-3" /> Completed
           </Badge>
         ) : (
-          <Badge variant="success" className="py-0.5 px-2 bg-emerald-50 text-emerald-700 border border-emerald-100">
-            <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            Active
+          <Badge variant="info" className="py-0.5 px-2 bg-blue-50 text-blue-700 border border-blue-100">
+            <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-blue-500" />
+            In Progress
           </Badge>
         )}
       </td>
       <td className="px-5 py-3.5 text-right">
         <div className="flex items-center justify-end gap-1.5">
+          <button
+            onClick={onTasks}
+            className="rounded-lg p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+            title="View Tasks"
+          >
+            <FileText className="h-3.5 w-3.5" />
+          </button>
           <button
             onClick={onEdit}
             className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
@@ -874,17 +1031,22 @@ export function ProjectManagement() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [showFilters, setShowFilters] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [filterClient, setFilterClient] = useState('all')
-  const [filterProjectName, setFilterProjectName] = useState('all')
-  const [filterTeam, setFilterTeam] = useState('all')
-  const [filterStatus, setFilterStatus] = useState('all')
-  const [filterAccess, setFilterAccess] = useState('all')
-  const [filterTechNode, setFilterTechNode] = useState('all')
+  const [filterClients, setFilterClients] = useState<string[]>([])
+  const [filterProjectNames, setFilterProjectNames] = useState<string[]>([])
+  const [filterTeams, setFilterTeams] = useState<string[]>([])
+  const [filterStatuses, setFilterStatuses] = useState<string[]>([])
+  const [filterAccessTypes, setFilterAccessTypes] = useState<string[]>([])
+  const [filterTechNodes, setFilterTechNodes] = useState<string[]>([])
 
   // ── Project Modal States ────────────────────────────────────
   const [modalOpen, setModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
   const [editingId, setEditingId] = useState<string | null>(null)
+
+  // ── Project Tasks Modal States ───────────────────────────────
+  const [tasksModalOpen, setTasksModalOpen] = useState(false)
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
+  const [selectedProjectName, setSelectedProjectName] = useState<string>('')
 
   const emptyForm = {
     name: '',
@@ -892,9 +1054,8 @@ export function ProjectManagement() {
     technologyNode: '',
     accessType: 'public' as 'public' | 'private',
     description: '',
-    status: 'Active' as 'Active' | 'Completed',
     visibleUsers: [] as string[],
-    assignedTeamName: '',
+    teamLead: '',
   }
   const [form, setForm] = useState(emptyForm)
 
@@ -905,28 +1066,10 @@ export function ProjectManagement() {
 
   // ── Timesheets Filters States ───────────────────────────────
   const [tsSearch, setTsSearch] = useState('')
-  const [tsEmployeeFilter, setTsEmployeeFilter] = useState('all')
-  const [tsProjectFilter, setTsProjectFilter] = useState('all')
-  const [tsTeamFilter, setTsTeamFilter] = useState('all')
-  const [tsStatusFilter, setTsStatusFilter] = useState('all')
-
-  // ── Timesheet Modal States (Admin Override / Edit) ──────────
-  const [tsModalOpen, setTsModalOpen] = useState(false)
-  const [editingTsId, setEditingTsId] = useState<string | null>(null)
-
-  const [tsForm, setTsForm] = useState({
-    loginTime: '',
-    logoutTime: '',
-    hasLogoutTime: true,
-    overriddenHours: '' as string | number,
-    isOverridden: false,
-    adminNotes: '',
-    status: 'Pending' as 'Approved' | 'Pending' | 'Rejected',
-  })
-
-  // ── View Correction Request Modal States ────────────────────
-  const [viewRequestModalOpen, setViewRequestModalOpen] = useState(false)
-  const [selectedLogForRequest, setSelectedLogForRequest] = useState<TimesheetLog | null>(null)
+  const [tsEmployeeFilters, setTsEmployeeFilters] = useState<string[]>([])
+  const [tsProjectFilters, setTsProjectFilters] = useState<string[]>([])
+  const [tsTeamFilters, setTsTeamFilters] = useState<string[]>([])
+  const [tsStatusFilters, setTsStatusFilters] = useState<string[]>([])
 
   // ── API Fetch Functions ─────────────────────────────────────
   const fetchProjects = useCallback(async () => {
@@ -939,18 +1082,11 @@ export function ProjectManagement() {
     }
   }, [])
 
-  const fetchTimesheetsData = useCallback(async (projectFilterOverride?: string) => {
-    const params: any = {
+  const fetchTimesheetsData = useCallback(async () => {
+    const params: Record<string, string> = {
       from: tsStartDate,
       to: tsEndDate,
     }
-    if (tsEmployeeFilter !== 'all') params.employee = tsEmployeeFilter
-    
-    const activeProjectFilter = projectFilterOverride !== undefined ? projectFilterOverride : tsProjectFilter
-    if (activeProjectFilter !== 'all') params.project = activeProjectFilter
-    
-    if (tsTeamFilter !== 'all') params.team = tsTeamFilter
-    if (tsStatusFilter !== 'all') params.status = tsStatusFilter
     if (tsSearch.trim()) params.search = tsSearch.trim()
 
     try {
@@ -966,11 +1102,37 @@ export function ProjectManagement() {
       console.error(err)
       toast.error('Failed to load timesheet data.')
     }
-  }, [tsStartDate, tsEndDate, tsEmployeeFilter, tsProjectFilter, tsTeamFilter, tsStatusFilter, tsSearch])
+  }, [tsStartDate, tsEndDate, tsSearch])
 
-  const refreshAllData = useCallback(async (projectFilterOverride?: string) => {
-    await Promise.all([fetchProjects(), fetchTimesheetsData(projectFilterOverride)])
+  const refreshAllData = useCallback(async () => {
+    await Promise.all([fetchProjects(), fetchTimesheetsData()])
   }, [fetchProjects, fetchTimesheetsData])
+
+  const handleProjectSynced = useCallback(
+    (synced: {
+      id: string
+      status: Project['status']
+      completedTasks?: number
+      totalTasks?: number
+      completionPercentage?: number
+    } | null) => {
+      if (!synced) return
+      setAllProjects((prev) =>
+        prev.map((p) =>
+          p.id === synced.id
+            ? {
+                ...p,
+                status: synced.status,
+                completedTasks: synced.completedTasks,
+                totalTasks: synced.totalTasks,
+                completionPercentage: synced.completionPercentage,
+              }
+            : p
+        )
+      )
+    },
+    []
+  )
 
   useEffect(() => {
     fetchProjects()
@@ -993,25 +1155,25 @@ export function ProjectManagement() {
     return [...new Set(projects.map((p) => p.technologyNode))].sort()
   }, [projects])
 
-  const uniqueTeams = useMemo(() => {
-    const set = new Set<string>()
-    projects.forEach((p) => {
-      if (p.assignedTeamName) set.add(p.assignedTeamName)
-    })
-    return [...set].sort()
-  }, [projects])
+  const getTeamLeadDepartment = useCallback((teamLeadName?: string) => {
+    if (!teamLeadName) return undefined
+    const emp = MOCK_EMPLOYEES.find((e) => e.name === teamLeadName)
+    return emp ? `${emp.department} Team` : undefined
+  }, [])
+
+  const teamFilterOptions = useMemo(() => [...MOCK_TEAMS], [])
 
   // ── Projects Tab Filter Implementation ──────────────────────
   const activeFiltersCount = useMemo(() => {
     let count = 0
-    if (filterClient !== 'all') count++
-    if (filterProjectName !== 'all') count++
-    if (filterTeam !== 'all') count++
-    if (filterStatus !== 'all') count++
-    if (filterAccess !== 'all') count++
-    if (filterTechNode !== 'all') count++
+    if (filterClients.length > 0) count++
+    if (filterProjectNames.length > 0) count++
+    if (filterTeams.length > 0) count++
+    if (filterStatuses.length > 0) count++
+    if (filterAccessTypes.length > 0) count++
+    if (filterTechNodes.length > 0) count++
     return count
-  }, [filterClient, filterProjectName, filterTeam, filterStatus, filterAccess, filterTechNode])
+  }, [filterClients, filterProjectNames, filterTeams, filterStatuses, filterAccessTypes, filterTechNodes])
 
   const filteredProjects = useMemo(() => {
     return projects.filter((p) => {
@@ -1023,24 +1185,35 @@ export function ProjectManagement() {
         p.technologyNode.toLowerCase().includes(query) ||
         p.description.toLowerCase().includes(query)
 
-      const matchClient = filterClient === 'all' || p.client === filterClient
-      const matchProjectName = filterProjectName === 'all' || p.name === filterProjectName
-      const matchStatus = filterStatus === 'all' || p.status === filterStatus
-      const matchAccess = filterAccess === 'all' || p.accessType === filterAccess
-      const matchTechNode = filterTechNode === 'all' || p.technologyNode === filterTechNode
-      const matchTeam = filterTeam === 'all' || p.assignedTeamName === filterTeam
+      const matchClient = matchesMultiFilter(filterClients, p.client)
+      const matchProjectName = matchesMultiFilter(filterProjectNames, p.name)
+      const matchStatus = matchesMultiFilter(filterStatuses, p.status)
+      const matchAccess = matchesMultiFilter(filterAccessTypes, p.accessType)
+      const matchTechNode = matchesMultiFilter(filterTechNodes, p.technologyNode)
+      const teamDept = getTeamLeadDepartment(p.teamLead)
+      const matchTeam =
+        filterTeams.length === 0 || (teamDept !== undefined && filterTeams.includes(teamDept))
 
       return matchSearch && matchClient && matchProjectName && matchStatus && matchAccess && matchTechNode && matchTeam
     })
-  }, [projects, searchQuery, filterClient, filterProjectName, filterStatus, filterAccess, filterTechNode, filterTeam])
+  }, [
+    projects,
+    searchQuery,
+    filterClients,
+    filterProjectNames,
+    filterStatuses,
+    filterAccessTypes,
+    filterTechNodes,
+    filterTeams,
+    getTeamLeadDepartment,
+  ])
 
   // ── Projects Tab Metrics Calculation ─────────────────────────
   const projectMetrics = useMemo(() => {
     return {
       total: projects.length,
-      active: projects.filter((p) => p.status === 'Active').length,
+      inProgress: projects.filter((p) => p.status === 'Active').length,
       completed: projects.filter((p) => p.status === 'Completed').length,
-      private: projects.filter((p) => p.accessType === 'private').length,
     }
   }, [projects])
 
@@ -1049,7 +1222,6 @@ export function ProjectManagement() {
     setModalMode('create')
     setForm({
       ...emptyForm,
-      status: 'Active', // automatically Active on creation
     })
     setEditingId(null)
     setModalOpen(true)
@@ -1064,11 +1236,16 @@ export function ProjectManagement() {
       technologyNode: p.technologyNode,
       accessType: p.accessType,
       description: p.description,
-      status: p.status,
       visibleUsers: [...p.visibleUsers],
-      assignedTeamName: p.assignedTeamName || '',
+      teamLead: p.teamLead || '',
     })
     setModalOpen(true)
+  }, [])
+
+  const openProjectTasks = useCallback((p: Project) => {
+    setSelectedProjectId(p.id)
+    setSelectedProjectName(p.name)
+    setTasksModalOpen(true)
   }, [])
 
   const handleSaveProject = useCallback(
@@ -1076,6 +1253,10 @@ export function ProjectManagement() {
       e.preventDefault()
       if (!form.name.trim() || !form.client.trim() || !form.technologyNode.trim()) {
         toast.error('Please specify Project Name, Client, and Technology Node.')
+        return
+      }
+      if (form.accessType === 'private' && !form.teamLead.trim()) {
+        toast.error('Please select a team lead for private projects.')
         return
       }
 
@@ -1089,9 +1270,8 @@ export function ProjectManagement() {
             accessType: form.accessType,
             description: form.description.trim(),
             visibleUsers: form.accessType === 'private' ? form.visibleUsers : [],
-            assignedTeamName: form.accessType === 'private' ? form.assignedTeamName.trim() : undefined,
+            teamLead: form.accessType === 'private' ? form.teamLead.trim() : undefined,
           })
-          setAllProjects((prev: Project[]) => [res.data, ...prev])
           toast.success(`Project "${res.data.name}" created successfully.`)
           await refreshAllData()
         } else {
@@ -1099,32 +1279,26 @@ export function ProjectManagement() {
           const oldProjectName = oldProject ? oldProject.name : ''
           const newProjectName = form.name.trim()
 
-          const res = await api.put(`/projects/${editingId}`, {
+          await api.put(`/projects/${editingId}`, {
             name: newProjectName,
             client: form.client.trim(),
             technologyNode: form.technologyNode.trim(),
             accessType: form.accessType,
-            status: form.status,
             description: form.description.trim(),
             visibleUsers: form.accessType === 'private' ? form.visibleUsers : [],
-            assignedTeamName: form.accessType === 'private' ? form.assignedTeamName.trim() : undefined,
+            teamLead: form.accessType === 'private' ? form.teamLead.trim() : undefined,
           })
-          setAllProjects((prev: Project[]) =>
-            prev.map((p) => (p.id === editingId ? res.data : p))
-          )
           toast.success('Project details updated successfully.')
 
-          let nextFilter = tsProjectFilter
           if (oldProjectName && oldProjectName !== newProjectName) {
-            if (tsProjectFilter === oldProjectName) {
-              setTsProjectFilter(newProjectName)
-              nextFilter = newProjectName
-            }
-            if (filterProjectName === oldProjectName) {
-              setFilterProjectName(newProjectName)
-            }
+            setTsProjectFilters((prev) =>
+              prev.map((n) => (n === oldProjectName ? newProjectName : n))
+            )
+            setFilterProjectNames((prev) =>
+              prev.map((n) => (n === oldProjectName ? newProjectName : n))
+            )
           }
-          await refreshAllData(nextFilter)
+          await refreshAllData()
         }
         setModalOpen(false)
       } catch (err: any) {
@@ -1134,7 +1308,7 @@ export function ProjectManagement() {
         setLoading(false)
       }
     },
-    [form, modalMode, editingId, refreshAllData, allProjects, tsProjectFilter, filterProjectName]
+    [form, modalMode, editingId, refreshAllData, allProjects]
   )
 
   const handleDeleteProject = useCallback(
@@ -1143,19 +1317,11 @@ export function ProjectManagement() {
       setLoading(true)
       try {
         await api.delete(`/projects/${p.id}`)
-        setAllProjects((prev: Project[]) => prev.filter((x) => x.id !== p.id))
-        setTimesheets((prev: TimesheetLog[]) => prev.filter((t) => t.project !== p.name))
         
-        let nextFilter = tsProjectFilter
-        if (tsProjectFilter === p.name) {
-          setTsProjectFilter('all')
-          nextFilter = 'all'
-        }
-        if (filterProjectName === p.name) {
-          setFilterProjectName('all')
-        }
-        
-        await refreshAllData(nextFilter)
+        setTsProjectFilters((prev) => prev.filter((n) => n !== p.name))
+        setFilterProjectNames((prev) => prev.filter((n) => n !== p.name))
+
+        await refreshAllData()
         toast.success(`Project "${p.name}" and its associated logs have been deleted.`)
       } catch (err: any) {
         console.error(err)
@@ -1164,18 +1330,18 @@ export function ProjectManagement() {
         setLoading(false)
       }
     },
-    [refreshAllData, tsProjectFilter, filterProjectName]
+    [refreshAllData]
   )
 
 
   const clearProjectsFilters = useCallback(() => {
     setSearchQuery('')
-    setFilterClient('all')
-    setFilterProjectName('all')
-    setFilterTeam('all')
-    setFilterStatus('all')
-    setFilterAccess('all')
-    setFilterTechNode('all')
+    setFilterClients([])
+    setFilterProjectNames([])
+    setFilterTeams([])
+    setFilterStatuses([])
+    setFilterAccessTypes([])
+    setFilterTechNodes([])
   }, [])
 
   // ── Timesheets Date Range Change Handler ─────────────────────
@@ -1210,14 +1376,25 @@ export function ProjectManagement() {
         t.project.toLowerCase().includes(query) ||
         t.task.toLowerCase().includes(query)
 
-      const matchEmployee = tsEmployeeFilter === 'all' || t.employeeName === tsEmployeeFilter
-      const matchProject = tsProjectFilter === 'all' || t.project === tsProjectFilter
-      const matchStatus = tsStatusFilter === 'all' || t.status === tsStatusFilter
-      const matchTeam = tsTeamFilter === 'all' || getEmployeeTeam(t.employeeName) === tsTeamFilter
+      const matchEmployee = matchesMultiFilter(tsEmployeeFilters, t.employeeName)
+      const matchProject = matchesMultiFilter(tsProjectFilters, t.project)
+      const workflowStatus = getTimesheetWorkflowStatus(t)
+      const matchStatus = matchesMultiFilter(tsStatusFilters, workflowStatus)
+      const matchTeam = matchesMultiFilter(tsTeamFilters, getEmployeeTeam(t.employeeName))
 
       return matchSearch && matchEmployee && matchProject && matchStatus && matchTeam
     })
-  }, [timesheets, tsStartDate, tsEndDate, tsSearch, tsEmployeeFilter, tsProjectFilter, tsStatusFilter, tsTeamFilter, getEmployeeTeam])
+  }, [
+    timesheets,
+    tsStartDate,
+    tsEndDate,
+    tsSearch,
+    tsEmployeeFilters,
+    tsProjectFilters,
+    tsStatusFilters,
+    tsTeamFilters,
+    getEmployeeTeam,
+  ])
 
   // ── Timesheets Tab Metrics Calculation ──────────────────────
   const timesheetMetrics = useMemo(() => {
@@ -1290,9 +1467,7 @@ export function ProjectManagement() {
       'Login Date Time',
       'Logout Date Time',
       'Total Hours',
-      'Billable Status',
-      'Approval Status',
-      'Request Status',
+      'Status',
       'Admin Notes',
       'Task Details',
     ])
@@ -1309,11 +1484,9 @@ export function ProjectManagement() {
         t.client,
         t.technologyNode,
         formatDateTime(t.loginTime),
-        t.logoutTime ? formatDateTime(t.logoutTime) : 'Session Incomplete',
-        hours !== null ? hours : 'Session Incomplete',
-        t.billable ? 'Billable' : 'Non-Billable',
-        t.status,
-        t.requestStatus,
+        t.logoutTime ? formatDateTime(t.logoutTime) : '—',
+        hours !== null ? hours : '—',
+        getTimesheetWorkflowStatus(t),
         notes,
         t.task,
       ])
@@ -1331,9 +1504,7 @@ export function ProjectManagement() {
       { wch: 24 }, // Login Date Time
       { wch: 24 }, // Logout Date Time
       { wch: 15 }, // Total Hours
-      { wch: 15 }, // Billable Status
-      { wch: 15 }, // Approval Status
-      { wch: 15 }, // Request Status
+      { wch: 14 }, // Status
       { wch: 20 }, // Admin Notes
       { wch: 40 }, // Task Details
     ]
@@ -1351,57 +1522,133 @@ export function ProjectManagement() {
       return
     }
 
+    const { hoursByProject, leaderboard } = buildTimesheetExportAnalytics(filteredTimesheets)
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt' })
     const pageWidth = doc.internal.pageSize.width || 842
     const pageHeight = doc.internal.pageSize.height || 595
+    const marginX = 40
+    const contentWidth = pageWidth - marginX * 2
+
+    const tableTheme = {
+      styles: { fontSize: 8, cellPadding: 4, overflow: 'linebreak' as const },
+      headStyles: { fillColor: [16, 185, 129] as [number, number, number], fontStyle: 'bold' as const, textColor: [255, 255, 255] as [number, number, number] },
+      alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
+      theme: 'grid' as const,
+      margin: { left: marginX, right: marginX, bottom: 36 },
+    }
+
+    const getTableEndY = () => {
+      const last = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable
+      return last?.finalY ?? marginX
+    }
+
+    const addSectionTitle = (title: string, y: number) => {
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(10)
+      doc.setTextColor(30, 41, 59)
+      doc.text(title, marginX, y)
+      return y + 14
+    }
 
     // Document header title
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(18)
-    doc.setTextColor(16, 185, 129) // emerald-500
+    doc.setTextColor(16, 185, 129)
     doc.text('EPICAL LAYOUTS PVT LTD', pageWidth / 2, 40, { align: 'center' })
 
     doc.setFontSize(12)
-    doc.setTextColor(30, 41, 59) // slate-800
+    doc.setTextColor(30, 41, 59)
     doc.text('Timesheet System Administration Audit Report', pageWidth / 2, 60, { align: 'center' })
 
-    // Date/Time metadata
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
-    doc.setTextColor(100, 116, 139) // slate-500
-    doc.text(`Period Range: ${tsStartDate} to ${tsEndDate}`, 40, 80)
-    doc.text(`Generated Timestamp: ${new Date().toLocaleString()}`, pageWidth - 40, 80, { align: 'right' })
+    doc.setTextColor(100, 116, 139)
+    doc.text(`Period Range: ${tsStartDate} to ${tsEndDate}`, marginX, 80)
+    doc.text(`Generated Timestamp: ${new Date().toLocaleString()}`, pageWidth - marginX, 80, { align: 'right' })
+    doc.text(`Filtered Records: ${filteredTimesheets.length}`, pageWidth / 2, 80, { align: 'center' })
 
-    // Header divider line
     doc.setDrawColor(226, 232, 240)
-    doc.line(40, 90, pageWidth - 40, 90)
+    doc.line(marginX, 90, pageWidth - marginX, 90)
 
-    // Summary block (Total Hours, Pending Reviews, Employee Count, Project Count)
-    const pendingCount = timesheets.filter(
-      (t) => t.status === 'Pending' || t.requestStatus === 'Pending Review'
-    ).length
+    // Summary metrics (matches dashboard cards)
+    doc.setFillColor(248, 250, 252)
+    doc.setDrawColor(226, 232, 240)
+    doc.roundedRect(marginX, 95, contentWidth, 52, 6, 6, 'FD')
 
-    doc.setFillColor(248, 250, 252) // slate-50
-    doc.setDrawColor(226, 232, 240) // slate-200
-    doc.roundedRect(40, 95, 762, 50, 6, 6, 'FD')
+    const metricCols = [marginX + 12, marginX + contentWidth * 0.27, marginX + contentWidth * 0.52, marginX + contentWidth * 0.77]
+    const metricLabels = ['TOTAL HOURS', 'OVERTIME HOURS', 'PENDING APPROVALS', 'ACTIVE EMPLOYEES']
+    const metricValues = [
+      `${timesheetMetrics.total.toFixed(1)} hrs`,
+      `${timesheetMetrics.overtime.toFixed(1)} hrs`,
+      String(timesheetMetrics.pending),
+      String(timesheetMetrics.activeEmployees),
+    ]
+    const metricColors: [number, number, number][] = [
+      [16, 185, 129],
+      [16, 185, 129],
+      [245, 158, 11],
+      [30, 41, 59],
+    ]
 
-    // Columns of metrics inside summary box
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(8)
-    doc.setTextColor(148, 163, 184) // slate-400
-    doc.text('TOTAL HOURS LOGGED', 60, 115)
-    doc.text('PENDING REVIEWS', 250, 115)
-    doc.text('ACTIVE EMPLOYEES', 440, 115)
-    doc.text('TOTAL PROJECTS', 630, 115)
+    doc.setTextColor(148, 163, 184)
+    metricLabels.forEach((label, i) => doc.text(label, metricCols[i], 114))
 
     doc.setFontSize(13)
-    doc.setTextColor(16, 185, 129) // emerald-500
-    doc.text(`${timesheetMetrics.total.toFixed(1)} hrs`, 60, 133)
-    doc.setTextColor(245, 158, 11) // amber-500
-    doc.text(`${pendingCount} Logs`, 250, 133)
-    doc.setTextColor(30, 41, 59) // slate-800
-    doc.text(`${timesheetMetrics.activeEmployees}`, 440, 133)
-    doc.text(`${projects.length}`, 630, 133)
+    metricValues.forEach((val, i) => {
+      doc.setTextColor(...metricColors[i])
+      doc.text(val, metricCols[i], 134)
+    })
+
+    let cursorY = addSectionTitle('Analytics Overview', 158)
+
+    // Hours by project
+    cursorY = addSectionTitle('Aggregated Hours by Project', cursorY)
+    autoTable(doc, {
+      ...tableTheme,
+      head: [['Project', 'Total Hours', '% of Total']],
+      body:
+        hoursByProject.length > 0
+          ? hoursByProject.map((p) => {
+              const pct =
+                timesheetMetrics.total > 0
+                  ? `${((p.hours / timesheetMetrics.total) * 100).toFixed(1)}%`
+                  : '—'
+              return [p.name, `${p.hours.toFixed(1)} hrs`, pct]
+            })
+          : [['No project hours in selected range', '—', '—']],
+      startY: cursorY,
+      columnStyles: { 0: { cellWidth: 280 }, 1: { cellWidth: 90, halign: 'right' }, 2: { cellWidth: 70, halign: 'right' } },
+    })
+    cursorY = getTableEndY() + 20
+
+    // Employee leaderboard
+    cursorY = addSectionTitle('Employee-wise Hours Leaderboard', cursorY)
+    const topHours = leaderboard[0]?.hours ?? 0
+    autoTable(doc, {
+      ...tableTheme,
+      head: [['Rank', 'Employee', 'Department', 'Total Hours', '% of Top']],
+      body:
+        leaderboard.length > 0
+          ? leaderboard.map((e, idx) => {
+              const pctTop = topHours > 0 ? `${((e.hours / topHours) * 100).toFixed(0)}%` : '—'
+              return [String(idx + 1), e.name, e.dept, `${e.hours.toFixed(1)} hrs`, pctTop]
+            })
+          : [['—', 'No employee hours in selected range', '—', '—', '—']],
+      startY: cursorY,
+      columnStyles: {
+        0: { cellWidth: 36, halign: 'center' },
+        1: { cellWidth: 160 },
+        2: { cellWidth: 100 },
+        3: { cellWidth: 80, halign: 'right' },
+        4: { cellWidth: 60, halign: 'right' },
+      },
+    })
+    cursorY = getTableEndY() + 24
+
+    // Detailed time logs
+    cursorY = addSectionTitle('Detailed Time Logs', cursorY)
 
     const tableHeaders = [
       'Employee',
@@ -1419,202 +1666,62 @@ export function ProjectManagement() {
         `${t.employeeName} (${t.employeeId})`,
         `${t.project}\n(${t.client} · ${t.technologyNode})`,
         formatDateTime(t.loginTime),
-        t.logoutTime ? formatDateTime(t.logoutTime) : 'Session Incomplete',
-        hours !== null ? `${hours.toFixed(1)} hrs` : 'Session Incomplete',
-        t.status,
+        t.logoutTime ? formatDateTime(t.logoutTime) : '—',
+        hours !== null ? `${hours.toFixed(1)} hrs` : '—',
+        getTimesheetWorkflowStatus(t),
         t.date,
       ]
     })
 
     autoTable(doc, {
+      ...tableTheme,
       head: [tableHeaders],
       body: tableRows,
-      startY: 160,
-      styles: { fontSize: 8, cellPadding: 5, overflow: 'linebreak' },
-      headStyles: { fillColor: [16, 185, 129], fontStyle: 'bold', textColor: [255, 255, 255] },
-      alternateRowStyles: { fillColor: [248, 250, 252] },
-      theme: 'grid',
-      margin: { left: 40, right: 40, bottom: 40 },
+      startY: cursorY,
+      styles: { ...tableTheme.styles, cellPadding: 5 },
     })
 
-    // Double-pass page number footer
     const totalPages = doc.getNumberOfPages()
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i)
       doc.setFontSize(8)
       doc.setTextColor(148, 163, 184)
-      doc.text(`Page ${i} of ${totalPages}`, pageWidth - 40, pageHeight - 20, { align: 'right' })
-      doc.text('Confidential - Internal Administrative Records', 40, pageHeight - 20)
+      doc.text(`Page ${i} of ${totalPages}`, pageWidth - marginX, pageHeight - 20, { align: 'right' })
+      doc.text('Confidential - Internal Administrative Records', marginX, pageHeight - 20)
     }
 
     doc.save(`Timesheet_Audit_Report_${tsStartDate}_to_${tsEndDate}.pdf`)
     toast.success('PDF report exported successfully.')
-  }, [filteredTimesheets, tsStartDate, tsEndDate, timesheetMetrics, projects, timesheets])
-
-  // ── Timesheets CRUD Handlers ────────────────────────────────
-  const openEditTimesheet = useCallback((log: TimesheetLog) => {
-    setEditingTsId(log.id)
-    setTsForm({
-      loginTime: toDatetimeLocal(log.loginTime),
-      logoutTime: log.logoutTime ? toDatetimeLocal(log.logoutTime) : '',
-      hasLogoutTime: !!log.logoutTime,
-      overriddenHours: log.overriddenHours !== undefined ? log.overriddenHours : '',
-      isOverridden: log.overriddenHours !== undefined,
-      adminNotes: log.adminNotes || '',
-      status: log.status,
-    })
-    setTsModalOpen(true)
-  }, [])
-
-  const selectedLogForEdit = useMemo(() => {
-    return timesheets.find((t) => t.id === editingTsId)
-  }, [timesheets, editingTsId])
-
-  const handleSaveTimesheet = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault()
-      if (!editingTsId) return
-
-      const loginISO = new Date(tsForm.loginTime).toISOString()
-      const logoutISO = tsForm.hasLogoutTime && tsForm.logoutTime ? new Date(tsForm.logoutTime).toISOString() : null
-
-      if (logoutISO && logoutISO < loginISO) {
-        toast.error('Logout time cannot be earlier than login time.')
-        return
-      }
-
-      setLoading(true)
-      try {
-        const nextRequestStatus = selectedLogForEdit?.correctionRequest ? 'Corrected' : selectedLogForEdit?.requestStatus
-        const res = await api.patch(`/timesheets/${editingTsId}/override`, {
-          loginTime: loginISO,
-          logoutTime: logoutISO,
-          overriddenHours: tsForm.isOverridden ? Number(tsForm.overriddenHours) : null,
-          adminNotes: tsForm.adminNotes.trim() || null,
-          status: tsForm.status,
-          requestStatus: nextRequestStatus,
-        })
-
-        setTimesheets((prev: TimesheetLog[]) =>
-          prev.map((t) => (t.id === editingTsId ? res.data : t))
-        )
-        await refreshAllData()
-        toast.success('Timesheet log override details updated.')
-        setTsModalOpen(false)
-      } catch (err: any) {
-        console.error(err)
-        toast.error(err.response?.data?.error || 'Failed to update timesheet log.')
-      } finally {
-        setLoading(false)
-      }
-    },
-    [tsForm, editingTsId, selectedLogForEdit, refreshAllData]
-  )
-
-  const handleQuickSaveLog = useCallback(
-    async (logId: string) => {
-      const log = timesheets.find((t) => t.id === logId)
-      if (!log) return
-      setLoading(true)
-      try {
-        const payload: any = {}
-        if (log.correctionRequest) {
-          payload.applyCorrection = true
-        } else {
-          payload.status = 'Approved'
-          payload.requestStatus = 'Approved'
-        }
-        const res = await api.put(`/timesheets/${logId}`, payload)
-        setTimesheets((prev: TimesheetLog[]) =>
-          prev.map((t) => (t.id === logId ? res.data : t))
-        )
-        await refreshAllData()
-        toast.success('Timesheet log approved and saved.')
-      } catch (err: any) {
-        console.error(err)
-        toast.error(err.response?.data?.error || 'Failed to approve timesheet log.')
-      } finally {
-        setLoading(false)
-      }
-    },
-    [timesheets, refreshAllData]
-  )
-
-  const handleQuickRejectLog = useCallback(
-    async (logId: string) => {
-      const log = timesheets.find((t) => t.id === logId)
-      if (!log) return
-      setLoading(true)
-      try {
-        const payload: any = {
-          status: 'Rejected',
-          requestStatus: 'Rejected'
-        }
-        const res = await api.put(`/timesheets/${logId}`, payload)
-        setTimesheets((prev: TimesheetLog[]) =>
-          prev.map((t) => (t.id === logId ? res.data : t))
-        )
-        await refreshAllData()
-        toast.success('Timesheet log rejected.')
-      } catch (err: any) {
-        console.error(err)
-        toast.error(err.response?.data?.error || 'Failed to reject timesheet log.')
-      } finally {
-        setLoading(false)
-      }
-    },
-    [timesheets, refreshAllData]
-  )
-
-  const handleQuickApproveCorrection = useCallback(
-    async (logId: string) => {
-      setLoading(true)
-      try {
-        const res = await api.put(`/timesheets/${logId}`, {
-          applyCorrection: true,
-        })
-        setTimesheets((prev: TimesheetLog[]) =>
-          prev.map((t) => (t.id === logId ? res.data : t))
-        )
-        await refreshAllData()
-        toast.success('Correction request approved and applied.')
-        setViewRequestModalOpen(false)
-      } catch (err: any) {
-        console.error(err)
-        toast.error(err.response?.data?.error || 'Failed to approve correction request.')
-      } finally {
-        setLoading(false)
-      }
-    },
-    [refreshAllData]
-  )
-
-  const handleDeleteTimesheet = useCallback(
-    async (logId: string) => {
-      if (!window.confirm('Are you sure you want to delete this timesheet log?')) return
-      setLoading(true)
-      try {
-        await api.delete(`/timesheets/${logId}`)
-        setTimesheets((prev: TimesheetLog[]) => prev.filter((t) => t.id !== logId))
-        await refreshAllData()
-        toast.success('Timesheet log deleted successfully.')
-      } catch (err: any) {
-        console.error(err)
-        toast.error(err.response?.data?.error || 'Failed to delete timesheet log.')
-      } finally {
-        setLoading(false)
-      }
-    },
-    [refreshAllData]
-  )
+  }, [filteredTimesheets, tsStartDate, tsEndDate, timesheetMetrics])
 
   const clearTimesheetFilters = useCallback(() => {
     setTsSearch('')
-    setTsEmployeeFilter('all')
-    setTsProjectFilter('all')
-    setTsTeamFilter('all')
-    setTsStatusFilter('all')
+    setTsEmployeeFilters([])
+    setTsProjectFilters([])
+    setTsTeamFilters([])
+    setTsStatusFilters([])
   }, [])
+
+  const tsProjectFilterOptions = useMemo(
+    () =>
+      projects.map((p) => ({
+        value: p.name,
+        label:
+          p.status === 'Completed'
+            ? `${p.name} (Completed)`
+            : p.status === 'Rejected'
+              ? `${p.name} (Rejected)`
+              : p.name,
+      })),
+    [projects]
+  )
+
+  const hasActiveTimesheetFilters =
+    tsSearch.trim().length > 0 ||
+    tsEmployeeFilters.length > 0 ||
+    tsProjectFilters.length > 0 ||
+    tsTeamFilters.length > 0 ||
+    tsStatusFilters.length > 0
 
 
   return (
@@ -1680,7 +1787,7 @@ export function ProjectManagement() {
       {activeTab === 'projects' && (
         <div className="space-y-6 animate-fadeIn">
           {/* Analytics Cards */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <MetricCard
               label="Total Projects"
               value={projectMetrics.total}
@@ -1688,25 +1795,16 @@ export function ProjectManagement() {
               accentClass="bg-slate-500"
             />
             <MetricCard
-              label="Active Projects"
-              value={projectMetrics.active}
+              label="In Progress Projects"
+              value={projectMetrics.inProgress}
               icon={ArrowUpRight}
               accentClass="bg-emerald-600"
-              secondaryText="Ongoing developments"
             />
             <MetricCard
               label="Completed Projects"
               value={projectMetrics.completed}
               icon={CheckCircle2}
-              accentClass="bg-teal-505 bg-teal-500"
-              secondaryText="Archived cleanly"
-            />
-            <MetricCard
-              label="Private Projects"
-              value={projectMetrics.private}
-              icon={Lock}
-              accentClass="bg-amber-500"
-              secondaryText="Restricted scopes"
+              accentClass="bg-teal-500"
             />
           </div>
 
@@ -1735,6 +1833,7 @@ export function ProjectManagement() {
                 </div>
 
                 <button
+                  type="button"
                   onClick={() => setShowFilters(!showFilters)}
                   className={`inline-flex items-center gap-1.5 rounded-xl border h-10 px-3.5 text-xs font-bold transition-all ${
                     showFilters || activeFiltersCount > 0
@@ -1789,76 +1888,74 @@ export function ProjectManagement() {
             {showFilters && (
               <div className="mt-4 border-t border-slate-100 pt-4 animate-fadeIn">
                 <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
-                  <SelectField
+                  <FilterCheckboxGroup
                     label="Client Name"
-                    id="pf-client"
-                    value={filterClient}
-                    onChange={(e) => setFilterClient(e.target.value)}
-                    options={[
-                      { value: 'all', label: 'All Clients' },
-                      ...uniqueClients.map((c) => ({ value: c, label: c })),
-                    ]}
+                    placeholder="All Clients"
+                    compact
+                    options={uniqueClients.map((c) => ({ value: c, label: c }))}
+                    selected={filterClients}
+                    onChange={setFilterClients}
                   />
 
-                  <SelectField
+                  <FilterCheckboxGroup
                     label="Project Name"
-                    id="pf-proj-name"
-                    value={filterProjectName}
-                    onChange={(e) => setFilterProjectName(e.target.value)}
-                    options={[
-                      { value: 'all', label: 'All Projects' },
-                      ...uniqueProjectNames.map((n) => {
-                        const proj = projects.find((p) => p.name === n)
-                        const label = proj && proj.status === 'Completed' ? `${n} (Completed)` : n
-                        return { value: n, label }
-                      }),
-                    ]}
+                    placeholder="All Projects"
+                    compact
+                    options={uniqueProjectNames.map((n) => {
+                      const proj = projects.find((p) => p.name === n)
+                      const label =
+                        proj && proj.status === 'Completed'
+                          ? `${n} (Completed)`
+                          : proj && proj.status === 'Rejected'
+                            ? `${n} (Rejected)`
+                            : n
+                      return { value: n, label }
+                    })}
+                    selected={filterProjectNames}
+                    onChange={setFilterProjectNames}
                   />
 
-                  <SelectField
-                    label="Assigned Team"
-                    id="pf-team"
-                    value={filterTeam}
-                    onChange={(e) => setFilterTeam(e.target.value)}
-                    options={[
-                      { value: 'all', label: 'All Teams' },
-                      ...uniqueTeams.map((t) => ({ value: t, label: t })),
-                    ]}
+                  <FilterCheckboxGroup
+                    label="Team (by lead)"
+                    placeholder="All Teams"
+                    compact
+                    options={teamFilterOptions.map((t) => ({ value: t, label: t }))}
+                    selected={filterTeams}
+                    onChange={setFilterTeams}
                   />
 
-                  <SelectField
+                  <FilterCheckboxGroup
                     label="Project Status"
-                    id="pf-status"
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
+                    placeholder="All Statuses"
+                    compact
                     options={[
-                      { value: 'all', label: 'All Statuses' },
-                      { value: 'Active', label: 'Active' },
+                      { value: 'Active', label: 'In Progress' },
                       { value: 'Completed', label: 'Completed' },
+                      { value: 'Rejected', label: 'Rejected' },
                     ]}
+                    selected={filterStatuses}
+                    onChange={setFilterStatuses}
                   />
 
-                  <SelectField
+                  <FilterCheckboxGroup
                     label="Access Control"
-                    id="pf-access"
-                    value={filterAccess}
-                    onChange={(e) => setFilterAccess(e.target.value)}
+                    placeholder="All Access"
+                    compact
                     options={[
-                      { value: 'all', label: 'All Access' },
                       { value: 'public', label: 'Public' },
                       { value: 'private', label: 'Private' },
                     ]}
+                    selected={filterAccessTypes}
+                    onChange={setFilterAccessTypes}
                   />
 
-                  <SelectField
+                  <FilterCheckboxGroup
                     label="Tech Node"
-                    id="pf-node"
-                    value={filterTechNode}
-                    onChange={(e) => setFilterTechNode(e.target.value)}
-                    options={[
-                      { value: 'all', label: 'All Nodes' },
-                      ...uniqueTechNodes.map((n) => ({ value: n, label: n })),
-                    ]}
+                    placeholder="All Nodes"
+                    compact
+                    options={uniqueTechNodes.map((n) => ({ value: n, label: n }))}
+                    selected={filterTechNodes}
+                    onChange={setFilterTechNodes}
                   />
                 </div>
 
@@ -1890,6 +1987,7 @@ export function ProjectManagement() {
                       project={p}
                       onEdit={() => openEditProject(p)}
                       onDelete={() => handleDeleteProject(p)}
+                      onTasks={() => openProjectTasks(p)}
                     />
                   ))}
                 </div>
@@ -1937,6 +2035,7 @@ export function ProjectManagement() {
                         project={p}
                         onEdit={() => openEditProject(p)}
                         onDelete={() => handleDeleteProject(p)}
+                        onTasks={() => openProjectTasks(p)}
                       />
                     ))}
                     {filteredProjects.length === 0 && (
@@ -2069,7 +2168,7 @@ export function ProjectManagement() {
               <Sliders className="h-4 w-4 text-emerald-600" /> Review Time Logs Filters
             </h3>
 
-            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5">
+            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 <input
@@ -2081,58 +2180,47 @@ export function ProjectManagement() {
                 />
               </div>
 
-              <select
-                value={tsEmployeeFilter}
-                onChange={(e) => setTsEmployeeFilter(e.target.value)}
-                className="h-10 rounded-xl border border-slate-250 bg-white px-3 text-xs font-bold text-slate-650 text-slate-600 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all"
-              >
-                <option value="all">All Employees</option>
-                {MOCK_EMPLOYEES.map((e) => (
-                  <option key={e.id} value={e.name}>
-                    {e.name}
-                  </option>
-                ))}
-              </select>
+              <FilterCheckboxGroup
+                label="Employee"
+                placeholder="All Employees"
+                compact
+                options={MOCK_EMPLOYEES.map((e) => ({ value: e.name, label: e.name }))}
+                selected={tsEmployeeFilters}
+                onChange={setTsEmployeeFilters}
+              />
 
-              <select
-                value={tsProjectFilter}
-                onChange={(e) => setTsProjectFilter(e.target.value)}
-                className="h-10 rounded-xl border border-slate-250 bg-white px-3 text-xs font-bold text-slate-650 text-slate-600 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all"
-              >
-                <option value="all">All Projects</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.name}>
-                    {p.name}{p.status === 'Completed' ? ' (Completed)' : ''}
-                  </option>
-                ))}
-              </select>
+              <FilterCheckboxGroup
+                label="Project"
+                placeholder="All Projects"
+                compact
+                options={tsProjectFilterOptions}
+                selected={tsProjectFilters}
+                onChange={setTsProjectFilters}
+              />
 
-              <select
-                value={tsTeamFilter}
-                onChange={(e) => setTsTeamFilter(e.target.value)}
-                className="h-10 rounded-xl border border-slate-250 bg-white px-3 text-xs font-bold text-slate-650 text-slate-600 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all"
-              >
-                <option value="all">All Teams</option>
-                {MOCK_TEAMS.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+              <FilterCheckboxGroup
+                label="Team"
+                placeholder="All Teams"
+                compact
+                options={MOCK_TEAMS.map((t) => ({ value: t, label: t }))}
+                selected={tsTeamFilters}
+                onChange={setTsTeamFilters}
+              />
 
-              <select
-                value={tsStatusFilter}
-                onChange={(e) => setTsStatusFilter(e.target.value)}
-                className="h-10 rounded-xl border border-slate-250 bg-white px-3 text-xs font-bold text-slate-650 text-slate-600 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all"
-              >
-                <option value="all">All Statuses</option>
-                <option value="Approved">Completed</option>
-                <option value="Pending">Pending</option>
-                <option value="Rejected">Rejected</option>
-              </select>
+              <FilterCheckboxGroup
+                label="Status"
+                placeholder="All Statuses"
+                compact
+                options={[
+                  { value: 'Completed', label: 'Completed' },
+                  { value: 'In Progress', label: 'In Progress' },
+                ]}
+                selected={tsStatusFilters}
+                onChange={setTsStatusFilters}
+              />
             </div>
 
-            {(tsSearch || tsEmployeeFilter !== 'all' || tsProjectFilter !== 'all' || tsTeamFilter !== 'all' || tsStatusFilter !== 'all') && (
+            {hasActiveTimesheetFilters && (
               <div className="mt-3 flex justify-end">
                 <button
                   onClick={clearTimesheetFilters}
@@ -2155,16 +2243,12 @@ export function ProjectManagement() {
                     <th className="px-5 py-3.5">Login Time</th>
                     <th className="px-5 py-3.5">Logout Time</th>
                     <th className="px-5 py-3.5">Total Hours</th>
-                    <th className="px-5 py-3.5">Request Status</th>
                     <th className="px-5 py-3.5">Status</th>
-                    <th className="px-5 py-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
                   {filteredTimesheets.map((t) => {
                     const empInfo = MOCK_EMPLOYEES.find((e) => e.id === t.employeeId)
-                    const isPending = t.status === 'Pending'
-                    const isRequestPending = t.requestStatus === 'Pending Review'
                     const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours)
 
                     return (
@@ -2186,16 +2270,9 @@ export function ProjectManagement() {
 
                         {/* Project Details Column */}
                         <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <p className="font-bold text-slate-700 leading-tight">{t.project}</p>
-                            {projects.find((p) => p.name === t.project)?.status === 'Completed' && (
-                              <span className="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 border border-emerald-250 uppercase tracking-wider scale-95 origin-left">
-                                Completed
-                              </span>
-                            )}
-                          </div>
+                          <p className="font-bold text-slate-700 leading-tight">{t.project}</p>
                           <p className="text-[10px] text-slate-400 font-semibold">{t.client} · {t.technologyNode}</p>
-                          <p className="text-[10px] text-slate-500 font-medium mt-1 truncate max-w-[200px]" title={t.task}>
+                          <p className="mt-1 text-[10px] text-slate-500 font-medium truncate max-w-[220px]" title={t.task}>
                             Task: {t.task}
                           </p>
                         </td>
@@ -2207,149 +2284,32 @@ export function ProjectManagement() {
 
                         {/* Logout Time Column */}
                         <td className="px-5 py-3.5 font-semibold text-slate-600 whitespace-nowrap">
-                          {t.logoutTime ? (
-                            formatDateTime(t.logoutTime)
-                          ) : (
-                            <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200">
-                              <AlertCircle className="h-3 w-3" /> Session Incomplete
-                            </span>
-                          )}
+                          {t.logoutTime ? formatDateTime(t.logoutTime) : '—'}
                         </td>
 
                         {/* Total Hours Column */}
-                        <td className="px-5 py-3.5">
-                          {hours !== null ? (
-                            <div>
-                              <span className="font-black text-slate-700 tracking-tight tabular-nums">
-                                {hours.toFixed(1)}h
-                              </span>
-                              {t.overriddenHours !== undefined && (
-                                <span className="ml-1 text-[9px] font-extrabold text-blue-600 uppercase">
-                                  (Overridden)
-                                </span>
-                              )}
-                              <p className="text-[9px] font-extrabold uppercase mt-0.5 text-slate-400">
-                                {t.billable ? 'Billable' : 'Non-Bill'}
-                              </p>
-                            </div>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200">
-                              Session Incomplete
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Request Status Column */}
-                        <td className="px-5 py-3.5">
-                          {t.requestStatus === 'No Request' && (
-                            <span className="text-slate-400 text-xs font-semibold">—</span>
-                          )}
-                          {t.requestStatus === 'Pending Review' && (
-                            <Badge variant="warning" className="py-0.5 px-2 bg-amber-50 text-amber-700 border border-amber-100 animate-pulse text-[10px]">
-                              Pending Review
-                            </Badge>
-                          )}
-                          {t.requestStatus === 'Corrected' && (
-                            <Badge variant="info" className="py-0.5 px-2 bg-sky-50 text-sky-700 border border-sky-100 text-[10px]">
-                              Corrected
-                            </Badge>
-                          )}
-                          {t.requestStatus === 'Approved' && (
-                            <Badge variant="success" className="py-0.5 px-2 bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px]">
-                              Approved
-                            </Badge>
-                          )}
+                        <td className="px-5 py-3.5 font-black text-slate-700 tracking-tight tabular-nums">
+                          {hours !== null ? `${hours.toFixed(1)}h` : '—'}
                         </td>
 
                         {/* Status Column */}
                         <td className="px-5 py-3.5">
-                          {t.status === 'Approved' && (
-                            <Badge variant="success" className="py-0.5 px-2 bg-emerald-50 text-emerald-700 border border-emerald-100">
-                              Completed
+                          {getTimesheetWorkflowStatus(t) === 'Completed' ? (
+                            <Badge variant="success" className="py-0.5 px-2.5 bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-bold">
+                              <CheckCircle2 className="mr-1 h-3 w-3" /> Completed
+                            </Badge>
+                          ) : (
+                            <Badge variant="info" className="py-0.5 px-2.5 bg-blue-50 text-blue-700 border border-blue-100 text-[10px] font-bold">
+                              In Progress
                             </Badge>
                           )}
-                          {t.status === 'Pending' && (
-                            <Badge variant="warning" className="py-0.5 px-2 bg-amber-50 text-amber-700 border border-amber-100">
-                              Pending
-                            </Badge>
-                          )}
-                          {t.status === 'Rejected' && (
-                            <Badge variant="danger" className="py-0.5 px-2 bg-rose-50 text-rose-700 border border-rose-100">
-                              Rejected
-                            </Badge>
-                          )}
-                        </td>
-
-
-                        {/* Actions Column */}
-                        <td className="px-5 py-3.5 text-right">
-                          <div className="flex justify-end items-center gap-1.5">
-                            {/* View Request Button */}
-                            {t.correctionRequest && (
-                              <button
-                                onClick={() => {
-                                  setSelectedLogForRequest(t)
-                                  setViewRequestModalOpen(true)
-                                }}
-                                className={`rounded-lg p-1.5 transition-colors ${
-                                  isRequestPending
-                                    ? 'bg-amber-50 text-amber-700 hover:bg-amber-100'
-                                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
-                                }`}
-                                title="View Request Details"
-                              >
-                                <FileText className="h-3.5 w-3.5" />
-                              </button>
-                            )}
-
-
-                            {/* Override Log Button */}
-                            <button
-                              onClick={() => openEditTimesheet(t)}
-                              className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-                              title="Override Log Details"
-                            >
-                              <Sliders className="h-3.5 w-3.5" />
-                            </button>
-
-                            {/* Save Changes Button (Quick Approve) */}
-                            {(isPending || isRequestPending) && (
-                              <button
-                                onClick={() => handleQuickSaveLog(t.id)}
-                                className="rounded-lg bg-emerald-50 p-1.5 text-emerald-700 hover:bg-emerald-100 transition-colors"
-                                title="Save & Approve Log"
-                              >
-                                <Check className="h-3.5 w-3.5" />
-                              </button>
-                            )}
-
-                            {/* Reject Log Button */}
-                            {(isPending || isRequestPending) && (
-                              <button
-                                onClick={() => handleQuickRejectLog(t.id)}
-                                className="rounded-lg bg-rose-50 p-1.5 text-rose-700 hover:bg-rose-100 transition-colors"
-                                title="Reject Log"
-                              >
-                                <X className="h-3.5 w-3.5" />
-                              </button>
-                            )}
-
-                            {/* Delete Log Button */}
-                            <button
-                              onClick={() => handleDeleteTimesheet(t.id)}
-                              className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                              title="Delete Log"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
                         </td>
                       </tr>
                     )
                   })}
                   {filteredTimesheets.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="py-16 text-center text-slate-400 font-medium">
+                      <td colSpan={6} className="py-16 text-center text-slate-400 font-medium">
                         No individual logs correspond to selected range and filters.
                       </td>
                     </tr>
@@ -2390,8 +2350,7 @@ export function ProjectManagement() {
             />
           </div>
 
-          {/* Conditional Layout for Technology Node & Project Status */}
-          <div className={modalMode === 'edit' ? "grid gap-4 sm:grid-cols-2" : "w-full"}>
+          <div className="w-full">
             <Input
               label="Technology Node"
               placeholder="e.g. 7nm FinFET, 28nm FD-SOI"
@@ -2399,28 +2358,21 @@ export function ProjectManagement() {
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, technologyNode: e.target.value })}
               required
             />
-
-            {modalMode === 'edit' && (
-              <SelectField
-                label="Project Status"
-                id="m-proj-status"
-                value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value as 'Active' | 'Completed' })}
-                options={[
-                  { value: 'Active', label: 'Active (Ongoing Development)' },
-                  { value: 'Completed', label: 'Completed (Archived)' },
-                ]}
-              />
-            )}
           </div>
 
           <SelectField
             label="Access Control Configuration"
             id="m-proj-access"
             value={form.accessType}
-            onChange={(e) =>
-              setForm({ ...form, accessType: e.target.value as 'public' | 'private' })
-            }
+            onChange={(e) => {
+              const accessType = e.target.value as 'public' | 'private'
+              setForm({
+                ...form,
+                accessType,
+                teamLead: accessType === 'private' ? form.teamLead : '',
+                visibleUsers: accessType === 'private' ? form.visibleUsers : [],
+              })
+            }}
             options={[
               { value: 'public', label: 'Public — Visible system-wide to all employees' },
               { value: 'private', label: 'Private — Access restricted specifically by user/team' },
@@ -2437,10 +2389,19 @@ export function ProjectManagement() {
                 onChange={(next) => setForm({ ...form, visibleUsers: next })}
               />
 
-              <SearchableTeamInput
-                value={form.assignedTeamName}
-                onChange={(val) => setForm({ ...form, assignedTeamName: val })}
-                teams={MOCK_TEAMS}
+              <SelectField
+                label="Team Lead"
+                id="m-proj-team-lead"
+                value={form.teamLead}
+                onChange={(e) => setForm({ ...form, teamLead: e.target.value })}
+                required
+                options={[
+                  { value: '', label: 'Select team lead...' },
+                  ...MOCK_EMPLOYEES.map((e) => ({
+                    value: e.name,
+                    label: `${e.name} (${e.department})`,
+                  })),
+                ]}
               />
             </div>
           )}
@@ -2481,282 +2442,21 @@ export function ProjectManagement() {
         </form>
       </Modal>
 
-      {/* ── VIEW CORRECTION REQUEST MODAL ────────────────────────── */}
-      <Modal
-        isOpen={viewRequestModalOpen}
-        title="Review Correction Request"
-        onClose={() => setViewRequestModalOpen(false)}
-        size="md"
-      >
-        {selectedLogForRequest && (
-          <div className="space-y-4 pt-1 text-xs">
-            {/* Context Info */}
-            <div className="rounded-2xl border border-[#e2e8f0] bg-[#f8fafc] p-5 space-y-3.5">
-              <div className="flex">
-                <span className="w-32 shrink-0 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Employee:</span>
-                <span className="text-sm text-slate-700 font-medium">{selectedLogForRequest.employeeName} ({selectedLogForRequest.employeeId})</span>
-              </div>
-              <div className="flex">
-                <span className="w-32 shrink-0 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Project:</span>
-                <span className="text-sm text-slate-700 font-medium">{selectedLogForRequest.project}</span>
-              </div>
-              <div className="flex items-start">
-                <span className="w-32 shrink-0 text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Task Description:</span>
-                <span className="text-sm text-slate-700 font-medium leading-relaxed">{selectedLogForRequest.task}</span>
-              </div>
-            </div>
-
-            {/* Requested Changes Box */}
-            {selectedLogForRequest.correctionRequest && (
-              <div className="rounded-2xl border border-[#f5e6d3] bg-[#fdfbf7] p-5 space-y-4 animate-fadeIn">
-                <div className="flex items-center gap-2 text-[#9a3412] font-extrabold uppercase tracking-wider text-[11px]">
-                  <AlertCircle className="h-4 w-4 stroke-[2.5]" />
-                  <span>Requested Changes</span>
-                </div>
-                <div className="grid grid-cols-2 gap-6 text-slate-700">
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Current Timestamps</p>
-                    <p className="mt-1.5 text-sm font-semibold text-slate-700">Login: {formatDateTime(selectedLogForRequest.loginTime)}</p>
-                    <p className="text-sm font-semibold text-slate-700">Logout: {selectedLogForRequest.logoutTime ? formatDateTime(selectedLogForRequest.logoutTime) : 'Session Incomplete'}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-[#9a3412] uppercase tracking-wider">Requested Timestamps</p>
-                    <p className="mt-1.5 text-sm font-bold text-[#7c2d12]">Login: {formatDateTime(selectedLogForRequest.correctionRequest.requestedLogin)}</p>
-                    <p className="text-sm font-bold text-[#7c2d12]">Logout: {formatDateTime(selectedLogForRequest.correctionRequest.requestedLogout)}</p>
-                  </div>
-                </div>
-                <div className="border-t border-[#f5e6d3] my-3"></div>
-                <div className="space-y-2 pt-1 text-sm text-slate-700">
-                  <p>
-                    <span className="font-bold text-[#9a3412] text-[10px] uppercase tracking-wider mr-2">Message:</span>
-                    <span className="font-medium">"{selectedLogForRequest.correctionRequest.message}"</span>
-                  </p>
-                  <p>
-                    <span className="font-bold text-[#9a3412] text-[10px] uppercase tracking-wider mr-2">Reason:</span>
-                    <span className="italic font-medium">"{selectedLogForRequest.correctionRequest.reason}"</span>
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Modal Actions */}
-            <div className="flex items-center justify-between border-t border-slate-100 pt-5 mt-6">
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={loading}
-                onClick={() => setViewRequestModalOpen(false)}
-                className="border border-slate-200 text-slate-700 font-bold rounded-2xl px-6 py-2.5 text-sm bg-white hover:bg-slate-50 transition-colors shadow-sm h-auto"
-              >
-                Close
-              </Button>
-              <div className="flex gap-3">
-                <Button
-                  type="button"
-                  variant="primary"
-                  disabled={loading}
-                  onClick={() => {
-                    if (selectedLogForRequest.correctionRequest) {
-                      setEditingTsId(selectedLogForRequest.id)
-                      setTsForm({
-                        loginTime: toDatetimeLocal(selectedLogForRequest.correctionRequest.requestedLogin),
-                        logoutTime: toDatetimeLocal(selectedLogForRequest.correctionRequest.requestedLogout),
-                        hasLogoutTime: true,
-                        overriddenHours: selectedLogForRequest.overriddenHours !== undefined ? selectedLogForRequest.overriddenHours : '',
-                        isOverridden: selectedLogForRequest.overriddenHours !== undefined,
-                        adminNotes: selectedLogForRequest.adminNotes || '',
-                        status: selectedLogForRequest.status,
-                      })
-                      setViewRequestModalOpen(false)
-                      setTsModalOpen(true)
-                    }
-                  }}
-                  className="bg-[#2563eb] hover:bg-blue-700 text-white font-bold rounded-2xl px-6 py-2 text-xs text-center border-0 cursor-pointer shadow-sm transition-colors min-w-[120px] leading-tight flex flex-col justify-center items-center h-auto"
-                >
-                  <span>Override</span>
-                  <span>Manually</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant="primary"
-                  loading={loading}
-                  disabled={loading}
-                  onClick={() => handleQuickApproveCorrection(selectedLogForRequest.id)}
-                  className="bg-[#059669] hover:bg-emerald-700 text-white font-bold rounded-2xl px-6 py-2 text-xs text-center border-0 cursor-pointer shadow-sm transition-colors min-w-[120px] leading-tight flex flex-col justify-center items-center h-auto"
-                >
-                  <span>Approve</span>
-                  <span>Request</span>
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* ── ADMIN OVERRIDE / EDIT TIMESHEET LOG MODAL ──────────────── */}
-      <Modal
-        isOpen={tsModalOpen}
-        title="Admin Override Time Log Details"
-        onClose={() => setTsModalOpen(false)}
-        size="md"
-      >
-        <form onSubmit={handleSaveTimesheet} className="space-y-4 pt-1">
-          {/* Read-Only Context Info */}
-          {selectedLogForEdit && (
-            <div className="rounded-xl bg-slate-50 p-3 border border-slate-150 text-xs text-slate-700 space-y-1">
-              <p><span className="font-bold text-slate-400 uppercase tracking-wider text-[9px] mr-1">Employee:</span> {selectedLogForEdit.employeeName} ({selectedLogForEdit.employeeId})</p>
-              <p><span className="font-bold text-slate-400 uppercase tracking-wider text-[9px] mr-1">Project:</span> {selectedLogForEdit.project}</p>
-              <p><span className="font-bold text-slate-400 uppercase tracking-wider text-[9px] mr-1">Task description:</span> {selectedLogForEdit.task}</p>
-            </div>
-          )}
-
-          {/* If editing a log with correction request, show review section first */}
-          {selectedLogForEdit?.correctionRequest && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3 text-[11px] text-slate-700 space-y-1.5 animate-fadeIn">
-              <p className="font-bold text-amber-800 uppercase tracking-wider text-[9px] flex items-center gap-1">
-                <AlertCircle className="h-3 w-3" /> Engineer Correction Request
-              </p>
-              <p><span className="font-semibold text-slate-500">Requested Login:</span> {formatDateTime(selectedLogForEdit.correctionRequest.requestedLogin)}</p>
-              <p><span className="font-semibold text-slate-500">Requested Logout:</span> {formatDateTime(selectedLogForEdit.correctionRequest.requestedLogout)}</p>
-              <p><span className="font-semibold text-slate-500">Message:</span> "{selectedLogForEdit.correctionRequest.message}"</p>
-              <p><span className="font-semibold text-slate-500">Reason:</span> "{selectedLogForEdit.correctionRequest.reason}"</p>
-              <div className="mt-2.5 pt-1.5 border-t border-amber-200/50">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (selectedLogForEdit.correctionRequest) {
-                      setTsForm((prev) => ({
-                        ...prev,
-                        loginTime: toDatetimeLocal(selectedLogForEdit.correctionRequest!.requestedLogin),
-                        logoutTime: toDatetimeLocal(selectedLogForEdit.correctionRequest!.requestedLogout),
-                        hasLogoutTime: true,
-                      }))
-                      toast.info('Applied engineer requested times to form inputs.')
-                    }
-                  }}
-                  className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-850 rounded-lg font-bold transition-all text-[10px]"
-                >
-                  Use Requested Times
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Editable Timestamps */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Input
-              type="datetime-local"
-              label="Login Time"
-              value={tsForm.loginTime}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTsForm({ ...tsForm, loginTime: e.target.value })}
-              required
-            />
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-505 text-slate-500">
-                  Logout Time
-                </label>
-                <div className="flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    id="has-logout-chk"
-                    checked={tsForm.hasLogoutTime}
-                    onChange={(e) => setTsForm({ ...tsForm, hasLogoutTime: e.target.checked })}
-                    className="h-3 w-3 rounded text-emerald-600 focus:ring-emerald-500/20"
-                  />
-                  <label htmlFor="has-logout-chk" className="text-[10px] font-bold text-slate-400 cursor-pointer uppercase select-none">
-                    Complete Session
-                  </label>
-                </div>
-              </div>
-              <input
-                type="datetime-local"
-                value={tsForm.logoutTime}
-                disabled={!tsForm.hasLogoutTime}
-                onChange={(e) => setTsForm({ ...tsForm, logoutTime: e.target.value })}
-                className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 disabled:opacity-50 disabled:bg-slate-50"
-                required={tsForm.hasLogoutTime}
-              />
-            </div>
-          </div>
-
-          {/* Hours Override Control */}
-          <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 space-y-2.5">
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="hours-override-chk"
-                checked={tsForm.isOverridden}
-                onChange={(e) => setTsForm({ ...tsForm, isOverridden: e.target.checked })}
-                className="h-3.5 w-3.5 rounded border-slate-350 text-emerald-650 text-emerald-600 focus:ring-emerald-500/20"
-              />
-              <label htmlFor="hours-override-chk" className="text-xs font-bold text-slate-700 select-none uppercase tracking-wider">
-                Manually Override Total Hours
-              </label>
-            </div>
-            {tsForm.isOverridden && (
-              <Input
-                type="number"
-                step="0.1"
-                label="Custom Hours Value"
-                placeholder="e.g. 8.5"
-                value={tsForm.overriddenHours}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTsForm({ ...tsForm, overriddenHours: e.target.value })}
-                required
-              />
-            )}
-          </div>
-
-          {/* Approval Status & Notes */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <SelectField
-              label="Task / Log Status"
-              id="m-ts-status"
-              value={tsForm.status}
-              onChange={(e) => setTsForm({ ...tsForm, status: e.target.value as any })}
-              options={[
-                { value: 'Pending', label: 'Pending Approval' },
-                { value: 'Approved', label: 'Completed' },
-                { value: 'Rejected', label: 'Rejected' },
-              ]}
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-505 text-slate-500">
-              Admin Review / Override Notes
-            </label>
-            <textarea
-              placeholder="Provide context or explanation for this override log..."
-              value={tsForm.adminNotes}
-              onChange={(e) => setTsForm({ ...tsForm, adminNotes: e.target.value })}
-              rows={2}
-              className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 border-t border-slate-100 pt-4 mt-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setTsModalOpen(false)}
-              disabled={loading}
-              className="rounded-xl font-bold py-2 px-4"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              loading={loading}
-              disabled={loading}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl py-2 px-4 border-0"
-            >
-              Save Changes
-            </Button>
-          </div>
-        </form>
-      </Modal>
+      {/* Project Tasks Modal */}
+      {selectedProjectId && (
+        <ProjectTasksModal
+          isOpen={tasksModalOpen}
+          onClose={() => {
+            setTasksModalOpen(false)
+            setSelectedProjectId(null)
+            setSelectedProjectName('')
+          }}
+          projectId={selectedProjectId}
+          projectName={selectedProjectName}
+          onRefresh={refreshAllData}
+          onProjectSynced={handleProjectSynced}
+        />
+      )}
     </PageWrapper>
   )
 }

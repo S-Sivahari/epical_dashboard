@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
-import mongoose from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 import { TimesheetModel } from '../models/Timesheet';
 import { ProjectModel } from '../models/Project';
+import { syncProjectForTimesheet } from '../utils/syncProject';
 
 const MOCK_EMPLOYEES = [
   { id: 'E-1001', name: 'Asha Menon', department: 'Design', hue: 155 },
@@ -32,6 +33,7 @@ function toFrontendTimesheet(t: any) {
     id: t._id.toString(),
     employeeId: t.employeeId,
     employeeName: t.employee,
+    projectId: t.projectId ? t.projectId.toString() : '',
     project: t.project,
     client: t.client || '',
     technologyNode: t.technologyNode || '',
@@ -50,26 +52,36 @@ function toFrontendTimesheet(t: any) {
     task: t.task || '',
     adminNotes: t.adminNotes,
     overriddenHours: t.overriddenHours,
-    taskStatus: t.taskStatus || 'Pending',
+    totalHours: t.totalHours,
+    taskStatus: t.taskStatus || (t.logoutTime ? 'Pending' : 'Session Incomplete'),
   };
 }
 
-// Helper to update project completion status based on task logs
-async function syncProjectStatus(projectName: string): Promise<void> {
-  if (!projectName) return;
-  const timesheets = await TimesheetModel.find({ project: projectName });
-  if (timesheets.length === 0) {
-    await ProjectModel.findOneAndUpdate({ projectName }, { status: 'Active' });
-    return;
+/**
+ * Resolves a project by ID or name and returns its ObjectId.
+ * Returns null if the project cannot be found.
+ */
+async function resolveProjectId(projectId?: string, projectName?: string): Promise<{ _id: Types.ObjectId; projectName: string; clientName: string; technologyNode: string } | null> {
+  if (projectId) {
+    try {
+      const byId = await ProjectModel.findById(projectId);
+      if (byId) return { _id: byId._id as Types.ObjectId, projectName: byId.projectName, clientName: byId.clientName, technologyNode: byId.technologyNode };
+    } catch {
+      // Invalid ObjectId format — fall through to name lookup
+    }
   }
-  const allCompleted = timesheets.every(t => t.status === 'Approved');
-  const targetStatus = allCompleted ? 'Completed' : 'Active';
-  await ProjectModel.findOneAndUpdate({ projectName }, { status: targetStatus });
+
+  if (projectName) {
+    const byName = await ProjectModel.findOne({ projectName });
+    if (byName) return { _id: byName._id as Types.ObjectId, projectName: byName.projectName, clientName: byName.clientName, technologyNode: byName.technologyNode };
+  }
+
+  return null;
 }
 
 // Helper to build matches for query filters
 async function buildMatchStage(req: Request) {
-  const { from, to, employee, project, team, status, search } = req.query;
+  const { from, to, employee, project, projectId, team, status, search } = req.query;
   const match: any = {};
 
   if (from || to) {
@@ -91,11 +103,35 @@ async function buildMatchStage(req: Request) {
   }
 
   if (project && project !== 'all') {
-    match.project = project;
+    // Also resolve by ObjectId if possible
+    const resolved = await resolveProjectId(undefined, project as string);
+    if (resolved) {
+      match.$or = [...(match.$or || []), { projectId: resolved._id }, { project }];
+    } else {
+      match.$or = [...(match.$or || []), { project }];
+    }
+  }
+
+  if (projectId && projectId !== 'all') {
+    try {
+      const objId = new Types.ObjectId(projectId as string);
+      match.$or = [...(match.$or || []), { projectId: objId }];
+    } catch {
+      match.$or = [...(match.$or || []), { project: projectId }];
+    }
   }
 
   if (status && status !== 'all') {
-    match.status = status;
+    if (status === 'Session Incomplete') {
+      match.$or = [
+        ...(match.$or || []),
+        { logoutTime: { $exists: false } },
+        { logoutTime: null },
+        { taskStatus: 'Session Incomplete' },
+      ];
+    } else {
+      match.status = status;
+    }
   }
 
 
@@ -304,30 +340,39 @@ export const timesheetController = {
   // POST /api/timesheets
   create: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { employeeId, employeeName, project, client, technologyNode, loginTime, logoutTime, task, billable } = req.body;
+      const { employeeId, employeeName, projectId, project, client, technologyNode, loginTime, logoutTime, task, billable, taskStatus } = req.body;
       if (!employeeId || !project || !loginTime) {
         res.status(400).json({ error: 'Missing required fields' });
+        return;
+      }
+
+      // Resolve project to a valid ObjectId — fail if not found
+      const resolvedProject = await resolveProjectId(projectId, project);
+      if (!resolvedProject) {
+        res.status(400).json({ error: 'Could not resolve project. Please provide a valid project name or ID.' });
         return;
       }
 
       const timesheet = new TimesheetModel({
         employee: employeeName || 'Unknown',
         employeeId,
-        project,
-        client: client || '',
-        technologyNode: technologyNode || '',
+        projectId: resolvedProject._id,
+        project: resolvedProject.projectName,
+        client: client || resolvedProject.clientName || '',
+        technologyNode: technologyNode || resolvedProject.technologyNode || '',
         loginTime: new Date(loginTime),
         logoutTime: logoutTime ? new Date(logoutTime) : undefined,
         task: task || '',
         billable: billable !== undefined ? billable : true,
         status: 'Pending',
         requestStatus: 'No Request',
+        taskStatus: taskStatus || (logoutTime ? 'Pending' : 'Session Incomplete'),
       });
 
       timesheet.totalHours = computeTotalHours(timesheet.loginTime, timesheet.logoutTime);
 
       await timesheet.save();
-      await syncProjectStatus(timesheet.project);
+      await syncProjectForTimesheet(timesheet);
       res.status(201).json(toFrontendTimesheet(timesheet));
     } catch (error) {
       console.error('Error creating timesheet entry:', error);
@@ -335,7 +380,7 @@ export const timesheetController = {
     }
   },
 
-  // PUT /api/timesheets/:id
+  // PUT /api/timesheets/:id — operational log updates only (no workflow approval)
   update: async (req: Request, res: Response): Promise<void> => {
     try {
       const {
@@ -343,9 +388,8 @@ export const timesheetController = {
         logoutTime,
         overriddenHours,
         adminNotes,
-        status,
-        requestStatus,
-        applyCorrection,
+        task,
+        billable,
       } = req.body;
 
       const timesheet = await TimesheetModel.findById(req.params.id);
@@ -354,32 +398,26 @@ export const timesheetController = {
         return;
       }
 
-      if (applyCorrection && timesheet.correctionRequest) {
-        timesheet.loginTime = timesheet.correctionRequest.requestedLogin;
-        timesheet.logoutTime = timesheet.correctionRequest.requestedLogout;
-        timesheet.status = 'Approved';
-        timesheet.requestStatus = 'Approved';
-      } else {
-        if (loginTime) timesheet.loginTime = new Date(loginTime);
-        if (logoutTime !== undefined) {
-          timesheet.logoutTime = logoutTime ? new Date(logoutTime) : undefined;
-        }
-        
-        // Handle overridden hours clean deletion or set
-        if (overriddenHours !== undefined) {
-          timesheet.overriddenHours = (overriddenHours === '' || overriddenHours === null) ? undefined : Number(overriddenHours);
-        }
-        
-        if (adminNotes !== undefined) timesheet.adminNotes = adminNotes;
-        if (status) timesheet.status = status;
-        if (requestStatus) timesheet.requestStatus = requestStatus;
+      if (loginTime) timesheet.loginTime = new Date(loginTime);
+      if (logoutTime !== undefined) {
+        timesheet.logoutTime = logoutTime ? new Date(logoutTime) : undefined;
+      }
+      if (overriddenHours !== undefined) {
+        timesheet.overriddenHours = (overriddenHours === '' || overriddenHours === null) ? undefined : Number(overriddenHours);
+      }
+      if (adminNotes !== undefined) timesheet.adminNotes = adminNotes;
+      if (task !== undefined) timesheet.task = task;
+      if (billable !== undefined) timesheet.billable = billable;
+      if (!timesheet.logoutTime) {
+        timesheet.taskStatus = 'Session Incomplete';
+      } else if (timesheet.taskStatus === 'Session Incomplete') {
+        timesheet.taskStatus = 'Pending';
       }
 
-      // Re-compute total hours using helper
       timesheet.totalHours = computeTotalHours(timesheet.loginTime, timesheet.logoutTime, timesheet.overriddenHours);
 
       await timesheet.save();
-      await syncProjectStatus(timesheet.project);
+      await syncProjectForTimesheet(timesheet);
       res.json(toFrontendTimesheet(timesheet));
     } catch (error) {
       console.error('Error updating timesheet entry:', error);
@@ -395,8 +433,8 @@ export const timesheetController = {
         logoutTime,
         overriddenHours,
         adminNotes,
-        status,
-        requestStatus,
+        task,
+        billable,
       } = req.body;
 
       const timesheet = await TimesheetModel.findById(req.params.id);
@@ -416,14 +454,18 @@ export const timesheetController = {
       }
       
       if (adminNotes !== undefined) timesheet.adminNotes = adminNotes;
-      if (status) timesheet.status = status;
-      if (requestStatus) timesheet.requestStatus = requestStatus;
+      if (task !== undefined) timesheet.task = task;
+      if (billable !== undefined) timesheet.billable = billable;
+      if (!timesheet.logoutTime) {
+        timesheet.taskStatus = 'Session Incomplete';
+      } else if (timesheet.taskStatus === 'Session Incomplete') {
+        timesheet.taskStatus = 'Pending';
+      }
 
-      // Re-compute total hours using helper
       timesheet.totalHours = computeTotalHours(timesheet.loginTime, timesheet.logoutTime, timesheet.overriddenHours);
 
       await timesheet.save();
-      await syncProjectStatus(timesheet.project);
+      await syncProjectForTimesheet(timesheet);
       res.json(toFrontendTimesheet(timesheet));
     } catch (error) {
       console.error('Error overriding timesheet entry:', error);
@@ -439,13 +481,13 @@ export const timesheetController = {
         res.status(404).json({ error: 'Timesheet entry not found' });
         return;
       }
-      const projectName = timesheet.project;
       await TimesheetModel.findByIdAndDelete(req.params.id);
-      await syncProjectStatus(projectName);
+      await syncProjectForTimesheet(timesheet);
       res.json({ message: 'Deleted successfully' });
     } catch (error) {
       console.error('Error deleting timesheet entry:', error);
       res.status(500).json({ error: 'Failed to delete timesheet entry' });
     }
   },
+
 };

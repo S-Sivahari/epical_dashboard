@@ -1,9 +1,10 @@
-import { Schema, model, Document } from 'mongoose';
+import { Schema, model, Document, Types } from 'mongoose';
 
 export interface Timesheet extends Document {
   employee: string; // Employee Name
   employeeId?: string; // Employee ID
-  project: string;
+  projectId: Types.ObjectId; // ObjectId ref → Project
+  project: string; // Denormalized project name for display
   client?: string;
   technologyNode?: string;
   loginTime: Date;
@@ -15,13 +16,13 @@ export interface Timesheet extends Document {
     reason: string;
     message: string;
   };
-  requestStatus: 'No Request' | 'Pending Review' | 'Corrected' | 'Approved';
+  requestStatus: 'No Request' | 'Pending Review' | 'Corrected' | 'Approved' | 'Rejected';
   adminNotes?: string;
   status: 'Approved' | 'Pending' | 'Rejected';
   billable?: boolean;
   task?: string;
   overriddenHours?: number;
-  taskStatus?: 'Pending' | 'In Progress' | 'Completed';
+  taskStatus?: 'Pending' | 'In Progress' | 'Completed' | 'Session Incomplete';
   createdAt: Date;
 }
 
@@ -29,6 +30,7 @@ const TimesheetSchema = new Schema<Timesheet>(
   {
     employee: { type: String, required: true },
     employeeId: { type: String },
+    projectId: { type: Schema.Types.ObjectId, ref: 'Project', required: true },
     project: { type: String, required: true },
     client: { type: String },
     technologyNode: { type: String },
@@ -43,7 +45,7 @@ const TimesheetSchema = new Schema<Timesheet>(
     },
     requestStatus: {
       type: String,
-      enum: ['No Request', 'Pending Review', 'Corrected', 'Approved'],
+      enum: ['No Request', 'Pending Review', 'Corrected', 'Approved', 'Rejected'],
       default: 'No Request',
     },
     adminNotes: { type: String },
@@ -57,7 +59,7 @@ const TimesheetSchema = new Schema<Timesheet>(
     overriddenHours: { type: Number },
     taskStatus: {
       type: String,
-      enum: ['Pending', 'In Progress', 'Completed'],
+      enum: ['Pending', 'In Progress', 'Completed', 'Session Incomplete'],
       default: 'Pending',
     },
   },
@@ -65,4 +67,3 @@ const TimesheetSchema = new Schema<Timesheet>(
 );
 
 export const TimesheetModel = model<Timesheet>('Timesheet', TimesheetSchema);
-

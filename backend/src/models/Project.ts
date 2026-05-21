@@ -6,9 +6,12 @@ export interface Project extends Document {
   technologyNode: string;
   accessType: 'public' | 'private';
   allowedUsers: string[];
-  assignedTeamName?: string;
+  teamLead?: string;
   description: string;
-  status: 'Active' | 'Completed';
+  status: 'Active' | 'Completed' | 'Rejected';
+  completedTasks: number;
+  totalTasks: number;
+  completionPercentage: number;
   createdBy?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -21,9 +24,12 @@ const ProjectSchema = new Schema<Project>(
     technologyNode: { type: String, required: true },
     accessType: { type: String, enum: ['public', 'private'], required: true },
     allowedUsers: { type: [String], default: [] },
-    assignedTeamName: { type: String },
+    teamLead: { type: String },
     description: { type: String, required: true },
-    status: { type: String, enum: ['Active', 'Completed'], default: 'Active' },
+    status: { type: String, enum: ['Active', 'Completed', 'Rejected'], default: 'Active' },
+    completedTasks: { type: Number, default: 0 },
+    totalTasks: { type: Number, default: 0 },
+    completionPercentage: { type: Number, default: 0 },
     createdBy: { type: String },
   },
   { timestamps: true }

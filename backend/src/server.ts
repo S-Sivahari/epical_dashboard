@@ -24,7 +24,7 @@ import { notificationRoutes } from './routes/notificationRoutes';
 import { seedDefaultUsers } from './services/authService';
 import { seedLeaves, seedHolidays } from './services/leaveService';
 import { seedTickets } from './services/ticketService';
-import { seedProjectsAndTimesheets } from './scripts/seedTimesheets';
+import { seedProjectsAndTimesheets, seedAssignedTasksOnly } from './scripts/seedTimesheets';
 import { getDB } from './config/db';
 
 const app = express();
@@ -110,6 +110,15 @@ app.post('/api/seed', async (_req, res) => {
 
     // Note: Employee seeding removed - add employees manually through the admin panel
     res.json({ message: 'Database seeded successfully', users });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Seeding failed' });
+  }
+});
+
+app.post('/api/seed-assigned-tasks', async (_req, res) => {
+  try {
+    const result = await seedAssignedTasksOnly();
+    res.json({ message: 'Assigned tasks seed complete', ...result });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Seeding failed' });
   }

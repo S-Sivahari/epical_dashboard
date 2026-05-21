@@ -63,7 +63,8 @@ export const leaveController = {
   // PATCH /api/leaves/:id/approve
   approve: async (req: Request, res: Response): Promise<void> => {
     try {
-      const leave = await leaveService.updateLeaveStatus(req.params.id, 'Approved');
+      const { id } = req.params as { id: string };
+      const leave = await leaveService.updateLeaveStatus(id, 'Approved');
       if (!leave) { res.status(404).json({ error: 'Leave not found' }); return; }
       res.json(leave);
     } catch {
@@ -74,12 +75,13 @@ export const leaveController = {
   // PATCH /api/leaves/:id/reject
   reject: async (req: Request, res: Response): Promise<void> => {
     try {
+      const { id } = req.params as { id: string };
       const { rejectionReason } = req.body;
       if (!rejectionReason) {
         res.status(400).json({ error: 'Rejection reason is required' });
         return;
       }
-      const leave = await leaveService.rejectLeaveWithReason(req.params.id, rejectionReason);
+      const leave = await leaveService.rejectLeaveWithReason(id, rejectionReason);
       if (!leave) { res.status(404).json({ error: 'Leave not found' }); return; }
       res.json(leave);
     } catch {
@@ -90,7 +92,8 @@ export const leaveController = {
   // PATCH /api/leaves/:id/cancel
   cancel: async (req: Request, res: Response): Promise<void> => {
     try {
-      const leave = await leaveService.getLeaveById(req.params.id);
+      const { id } = req.params as { id: string };
+      const leave = await leaveService.getLeaveById(id);
       if (!leave) {
         res.status(404).json({ error: 'Leave not found' });
         return;
@@ -99,7 +102,7 @@ export const leaveController = {
         res.status(400).json({ error: 'Only approved leaves can be cancelled' });
         return;
       }
-      const cancelledLeave = await leaveService.cancelLeave(req.params.id);
+      const cancelledLeave = await leaveService.cancelLeave(id);
       if (!cancelledLeave) {
         res.status(500).json({ error: 'Failed to cancel leave' });
         return;
@@ -113,7 +116,8 @@ export const leaveController = {
   // DELETE /api/leaves/:id
   delete: async (req: Request, res: Response): Promise<void> => {
     try {
-      const ok = await leaveService.deleteLeave(req.params.id);
+      const { id } = req.params as { id: string };
+      const ok = await leaveService.deleteLeave(id);
       if (!ok) { res.status(404).json({ error: 'Leave not found' }); return; }
       res.json({ message: 'Deleted successfully' });
     } catch {
@@ -152,7 +156,7 @@ export const leaveController = {
   updateHoliday: async (req: Request, res: Response): Promise<void> => {
     try {
       const { title, date, description, type } = req.body;
-      const id = req.params.id;
+      const { id } = req.params as { id: string };
       
       const existing = await leaveService.getHolidayById(id);
       if (!existing) { res.status(404).json({ error: 'Holiday not found' }); return; }
@@ -173,7 +177,8 @@ export const leaveController = {
   // DELETE /api/holidays/:id
   deleteHoliday: async (req: Request, res: Response): Promise<void> => {
     try {
-      const ok = await leaveService.deleteHoliday(req.params.id);
+      const { id } = req.params as { id: string };
+      const ok = await leaveService.deleteHoliday(id);
       if (!ok) { res.status(404).json({ error: 'Holiday not found' }); return; }
       res.json({ message: 'Deleted successfully' });
     } catch {

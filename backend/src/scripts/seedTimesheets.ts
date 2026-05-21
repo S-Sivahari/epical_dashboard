@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import { ProjectModel } from '../models/Project';
 import { TimesheetModel } from '../models/Timesheet';
+import { AssignedTaskModel } from '../models/AssignedTask';
 import { env } from '../config/env';
 
 dotenv.config();
@@ -15,7 +16,7 @@ const SEED_PROJECTS = [
     status: 'Active',
     description: 'Next-generation low-power microprocessor layout design and verification pipeline for mobile SoC applications.',
     allowedUsers: ['Asha Menon', 'Rahul Verma', 'Kiran Rao'],
-    assignedTeamName: 'Design Team',
+    teamLead: 'Asha Menon',
     createdBy: 'Admin User'
   },
   {
@@ -29,6 +30,17 @@ const SEED_PROJECTS = [
     createdBy: 'Admin User'
   },
   {
+    projectName: 'Design System',
+    clientName: 'Epical Technologies',
+    technologyNode: 'Internal',
+    accessType: 'private',
+    status: 'Active',
+    description: 'Company-wide design system tokens, components, and documentation for product teams.',
+    allowedUsers: ['Sarah Mitchell'],
+    teamLead: 'Sarah Mitchell',
+    createdBy: 'Admin User'
+  },
+  {
     projectName: 'Project Phoenix',
     clientName: 'Initech Systems',
     technologyNode: '65nm',
@@ -36,7 +48,7 @@ const SEED_PROJECTS = [
     status: 'Active',
     description: 'Legacy chip retrofit and radiation hardening for aerospace telemetry sensors with full MIL-STD compliance.',
     allowedUsers: ['Amit Patel', 'Vikram Singh'],
-    assignedTeamName: 'R&D Team',
+    teamLead: 'Amit Patel',
     createdBy: 'Admin User'
   },
   {
@@ -56,8 +68,8 @@ const SEED_PROJECTS = [
     accessType: 'private',
     status: 'Active',
     description: 'Low-latency packet routing engine for high-performance memory interfaces supporting DDR5 bandwidth targets.',
-    allowedUsers: ['Priya Das', 'Asha Menon', 'Meera Nair'],
-    assignedTeamName: 'Hardware Team',
+    allowedUsers: ['Priya Das', 'Asha Menon', 'Meera Nair', 'Sarah Mitchell'],
+    teamLead: 'Meera Nair',
     createdBy: 'Admin User'
   },
   {
@@ -68,7 +80,7 @@ const SEED_PROJECTS = [
     status: 'Active',
     description: 'Server-class GPU compute tile with advanced power delivery network and thermal-aware floorplanning.',
     allowedUsers: ['Asha Menon', 'Sneha Iyer', 'Vikram Singh', 'Kiran Rao', 'Rahul Verma', 'Amit Patel'],
-    assignedTeamName: 'Design Team',
+    teamLead: 'Asha Menon',
     createdBy: 'Admin User'
   },
   {
@@ -245,20 +257,129 @@ const SEED_TIMESHEETS = [
   }
 ];
 
+const SEED_ASSIGNED_TASKS = [
+  {
+    employeeId: 'EMP-2024-0847',
+    employeeName: 'Sarah Mitchell',
+    projectName: 'Design System',
+    title: 'Component library audit',
+    description: 'Review shared UI components for token consistency and accessibility.',
+  },
+  {
+    employeeId: 'EMP-2024-0847',
+    employeeName: 'Sarah Mitchell',
+    projectName: 'Design System',
+    title: 'Design tokens documentation',
+    description: 'Document color, spacing, and typography tokens for product teams.',
+  },
+  {
+    employeeId: 'EMP-2024-0847',
+    employeeName: 'Sarah Mitchell',
+    projectName: 'Project Horizon',
+    title: 'Dashboard wireframes',
+    description: 'Low-fidelity wireframes for the routing engine admin views.',
+  },
+  {
+    employeeId: 'E-1001',
+    employeeName: 'Asha Menon',
+    projectName: 'Project Atlas',
+    title: 'Critical path routing design',
+    description: 'Complete routing design and simulation checks for Atlas block.',
+  },
+  {
+    employeeId: 'E-1002',
+    employeeName: 'Rahul Verma',
+    projectName: 'Project Beacon',
+    title: 'Physical DRC check execution',
+    description: 'Run DRC checks and compile verification reports.',
+  },
+];
+
 export async function seedProjectsAndTimesheets() {
   console.log('Clearing Projects collection...');
   await ProjectModel.deleteMany({});
   
   console.log('Clearing Timesheets collection...');
   await TimesheetModel.deleteMany({});
+
+  console.log('Clearing Assigned Tasks collection...');
+  await AssignedTaskModel.deleteMany({});
   
   console.log(`Seeding ${SEED_PROJECTS.length} Projects...`);
-  await ProjectModel.insertMany(SEED_PROJECTS);
-  
+  const insertedProjects = await ProjectModel.insertMany(SEED_PROJECTS);
+  const projectIdByName = new Map(
+    insertedProjects.map((p) => [p.projectName, p._id])
+  );
+
   console.log(`Seeding ${SEED_TIMESHEETS.length} Timesheets...`);
-  await TimesheetModel.insertMany(SEED_TIMESHEETS);
+  const timesheetsWithProjectIds = SEED_TIMESHEETS.map((entry) => ({
+    ...entry,
+    projectId: projectIdByName.get(entry.project),
+    taskStatus: entry.logoutTime ? 'Pending' : 'Session Incomplete',
+  }));
+  await TimesheetModel.insertMany(timesheetsWithProjectIds);
+
+  const assignedPayload = SEED_ASSIGNED_TASKS.map((entry) => {
+    const projectId = projectIdByName.get(entry.projectName);
+    const project = insertedProjects.find((p) => p.projectName === entry.projectName);
+    if (!projectId || !project) return null;
+    return {
+      projectId,
+      projectName: entry.projectName,
+      clientName: project.clientName,
+      technologyNode: project.technologyNode,
+      employeeId: entry.employeeId,
+      employeeName: entry.employeeName,
+      title: entry.title,
+      description: entry.description,
+      status: 'assigned',
+    };
+  }).filter(Boolean);
+
+  if (assignedPayload.length > 0) {
+    console.log(`Seeding ${assignedPayload.length} Assigned Tasks...`);
+    await AssignedTaskModel.insertMany(assignedPayload);
+  }
   
-  console.log('✓ Projects & Timesheets seeded successfully!');
+  console.log('✓ Projects, Timesheets & Assigned Tasks seeded successfully!');
+}
+
+/** Seed assigned tasks only (does not wipe projects/timesheets). */
+export async function seedAssignedTasksOnly() {
+  const existing = await AssignedTaskModel.countDocuments();
+  if (existing > 0) {
+    console.log(`Assigned tasks already exist (${existing}); skipping.`);
+    return { inserted: 0, skipped: true };
+  }
+
+  const projects = await ProjectModel.find({});
+  const projectIdByName = new Map(projects.map((p) => [p.projectName, p._id]));
+
+  const payload = SEED_ASSIGNED_TASKS.map((entry) => {
+    const projectId = projectIdByName.get(entry.projectName);
+    const project = projects.find((p) => p.projectName === entry.projectName);
+    if (!projectId || !project) return null;
+    return {
+      projectId,
+      projectName: entry.projectName,
+      clientName: project.clientName,
+      technologyNode: project.technologyNode,
+      employeeId: entry.employeeId,
+      employeeName: entry.employeeName,
+      title: entry.title,
+      description: entry.description,
+      status: 'assigned',
+    };
+  }).filter(Boolean);
+
+  if (payload.length === 0) {
+    console.log('No projects found for assigned task seed.');
+    return { inserted: 0, skipped: false };
+  }
+
+  await AssignedTaskModel.insertMany(payload);
+  console.log(`✓ Seeded ${payload.length} assigned tasks.`);
+  return { inserted: payload.length, skipped: false };
 }
 
 async function runStandalone() {
