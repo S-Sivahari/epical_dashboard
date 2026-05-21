@@ -10,9 +10,7 @@ export const notificationController = {
         res.status(401).json({ error: 'Unauthorized' });
         return;
       }
-      console.log('🔔 Fetching notifications for user:', req.user.id);
       const notifications = await notificationService.getNotificationsByRecipient(req.user.id);
-      console.log('🔔 Found notifications:', notifications.length, notifications.map((n: any) => ({ type: n.type, id: n.id })));
       res.json(notifications);
     } catch (error) {
       console.error('Get notifications error:', error);
