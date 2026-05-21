@@ -165,7 +165,7 @@ export function CompensationManagement() {
     <div className="space-y-6">
       {/* Info Card */}
       <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 shadow-sm">
-        <h3 className="font-semibold text-blue-900 text-sm">ℹ️ Compensation Leave Management</h3>
+        <h3 className="font-semibold text-blue-900 text-sm">Compensation Leave Management</h3>
         <p className="text-xs text-blue-800 mt-2">
           Grant additional leave days to employees as compensation. These entries help track make-up time and additional benefits.
         </p>

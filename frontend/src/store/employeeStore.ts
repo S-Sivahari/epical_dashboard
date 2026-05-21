@@ -18,6 +18,7 @@ interface EmployeeState {
   pagination: { page: number; pageSize: number; total: number }
   sort: { column: string; direction: 'asc' | 'desc' }
   loading: boolean
+  lastFetchEmployees: number
   setFilters: (f: Partial<EmployeeFilters>) => void
   setSort: (column: string, direction: 'asc' | 'desc') => void
   setPage: (page: number) => void
@@ -31,6 +32,9 @@ interface EmployeeState {
   updateEmployeeStatus: (id: string, status: Employee['status']) => Promise<void>
 }
 
+// Cache expiry time in milliseconds (30 seconds)
+const CACHE_EXPIRY = 30000
+
 export const useEmployeeStore = create<EmployeeState>((set, get) => ({
   employees: [],
   selectedEmployee: null,
@@ -38,6 +42,7 @@ export const useEmployeeStore = create<EmployeeState>((set, get) => ({
   pagination: { page: 1, pageSize: 10, total: 0 },
   sort: { column: 'joinedAt', direction: 'desc' },
   loading: false,
+  lastFetchEmployees: 0,
   setFilters: (f) =>
     set({ filters: { ...get().filters, ...f }, pagination: { ...get().pagination, page: 1 } }),
   setSort: (column, direction) => set({ sort: { column, direction } }),
@@ -63,12 +68,18 @@ export const useEmployeeStore = create<EmployeeState>((set, get) => ({
         employees: res.data,
         pagination: { ...pagination, total: res.total },
         loading: false,
+        lastFetchEmployees: Date.now(),
       })
     } catch {
       set({ loading: false })
     }
   },
   fetchEmployeesSilent: async () => {
+    // Only fetch if cache is stale (older than CACHE_EXPIRY)
+    const now = Date.now()
+    if (now - get().lastFetchEmployees < CACHE_EXPIRY) {
+      return
+    }
     const { filters, pagination } = get()
     try {
       const res = await employeeService.getEmployees({
@@ -86,6 +97,7 @@ export const useEmployeeStore = create<EmployeeState>((set, get) => ({
       set({
         employees: res.data,
         pagination: { ...pagination, total: res.total },
+        lastFetchEmployees: now,
       })
     } catch {
       // silently fail on background polling

@@ -12,10 +12,10 @@ export function useEmployees() {
     // Initial fetch with loading indicator
     void fetchEmployees()
     
-    // Poll for updates every 5 seconds WITHOUT loading indicator
+    // Poll for updates every 10 seconds (smart polling with cache validation)
     const interval = setInterval(() => {
       void fetchEmployeesSilent()
-    }, 5000)
+    }, 10000)
     
     return () => clearInterval(interval)
   }, [

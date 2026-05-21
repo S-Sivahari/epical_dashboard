@@ -8,7 +8,7 @@ import { useLeaves } from '@hooks/useLeaves'
 // import type removed
 import { formatDate } from '@/utils/formatDate'
 import { filterLeaves, type LeaveFilters } from '@/utils/leaveFilters'
-import { Search, X, ChevronLeft, ChevronRight, Check, Eye } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, Check, Eye } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'
 
 type StatusType = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled'
@@ -135,36 +135,51 @@ export function LeaveRequests() {
     }
   }
 
+  // Get unique employee names and IDs
+  const uniqueEmployeeNames = useMemo(() => {
+    return Array.from(new Set(leaves.map((l) => l.employeeName))).sort()
+  }, [leaves])
+
+  const uniqueEmployeeIds = useMemo(() => {
+    return Array.from(new Set(leaves.map((l) => l.employeeId))).sort()
+  }, [leaves])
+
   return (
     <Tooltip.Provider delayDuration={300}>
       <div className="space-y-5">
         {/* Compact Filters Toolbar */}
         <div className="rounded-xl border border-border bg-white p-4 shadow-sm flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            <div className="relative w-full sm:w-56">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-              <Input
-                placeholder="Search Employee Name..."
-                className="pl-9 h-9 text-sm rounded-lg"
-                value={filters.employeeName}
-                onChange={(e) => {
-                  setFilters({ ...filters, employeeName: e.target.value })
-                  setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
-                }}
-              />
-            </div>
-            <div className="relative w-full sm:w-56">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-              <Input
-                placeholder="Search Employee ID..."
-                className="pl-9 h-9 text-sm rounded-lg"
-                value={filters.employeeId}
-                onChange={(e) => {
-                  setFilters({ ...filters, employeeId: e.target.value })
-                  setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
-                }}
-              />
-            </div>
+            <select
+              value={filters.employeeName}
+              onChange={(e) => {
+                setFilters({ ...filters, employeeName: e.target.value })
+                setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
+              }}
+              className="h-9 w-full sm:w-56 rounded-lg border border-border px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            >
+              <option value="">All Employee Names</option>
+              {uniqueEmployeeNames.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+            <select
+              value={filters.employeeId}
+              onChange={(e) => {
+                setFilters({ ...filters, employeeId: e.target.value })
+                setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
+              }}
+              className="h-9 w-full sm:w-56 rounded-lg border border-border px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            >
+              <option value="">All Employee IDs</option>
+              {uniqueEmployeeIds.map((id) => (
+                <option key={id} value={id}>
+                  {id}
+                </option>
+              ))}
+            </select>
           </div>
           <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted hover:text-ink shrink-0 h-9">
             <X className="mr-1.5 h-4 w-4" /> Clear Filters
@@ -206,7 +221,6 @@ export function LeaveRequests() {
             </div>
           ) : paginatedLeaves.length === 0 ? (
             <div className="flex flex-col h-64 items-center justify-center rounded-xl border border-dashed border-border bg-white shadow-sm">
-              <span className="text-3xl mb-3 opacity-40">📭</span>
               <span className="text-sm text-muted font-medium">No {currentStatus.toLowerCase()} leave requests found.</span>
             </div>
           ) : (

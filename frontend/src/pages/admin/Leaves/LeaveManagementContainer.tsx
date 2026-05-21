@@ -1,17 +1,16 @@
 import { useState } from 'react'
-import { Breadcrumb } from '@components/layout/Breadcrumb'
-import { PageHeader } from '@components/layout/PageHeader'
 import { PageWrapper } from '@components/layout/PageWrapper'
+import { Button } from '@components/ui/Button'
 import { LeaveRequests } from './LeaveRequests'
-import { CompanyCalendar } from './CompanyCalendar'
+import { CompanyCalendar } from '@pages/admin/Calendar/CompanyCalendar_merged'
 import { CompensationManagement } from './CompensationManagement'
 
 type TabType = 'requests' | 'calendar' | 'compensation'
 
-const tabs: Array<{ id: TabType; label: string; icon: string }> = [
-  { id: 'requests', label: 'Leave Requests', icon: '📋' },
-  { id: 'calendar', label: 'Company Calendar', icon: '📅' },
-  { id: 'compensation', label: 'Compensation Management', icon: '🎯' },
+const tabs: Array<{ id: TabType; label: string }> = [
+  { id: 'requests', label: 'Leave Requests' },
+  { id: 'calendar', label: 'Company Calendar' },
+  { id: 'compensation', label: 'Compensation Management' },
 ]
 
 export function LeaveManagementContainer() {
@@ -19,27 +18,22 @@ export function LeaveManagementContainer() {
 
   return (
     <PageWrapper>
-      <PageHeader
-        title="Leave Management"
-        breadcrumb={<Breadcrumb items={[{ label: 'Leaves', to: '/admin/leaves' }]} />}
-      />
-
-      {/* Tab Navigation */}
-      <div className="mb-6 border-b border-border">
-        <div className="flex space-x-1">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-ink">Manage Leaves</h1>
+          <p className="text-sm text-muted">Leaves</p>
+        </div>
+        <div className="flex gap-2 sm:flex-col lg:flex-row">
           {tabs.map((tab) => (
-            <button
+            <Button
               key={tab.id}
+              variant={activeTab === tab.id ? 'primary' : 'secondary'}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab.id
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted hover:text-ink hover:border-border'
-              }`}
+              size="sm"
+              className="whitespace-nowrap"
             >
-              <span className="text-lg">{tab.icon}</span>
               {tab.label}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
