@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import api from '@services/api'
+import { playNotificationSound } from '@utils/notificationSound'
 
 export interface NotificationData {
   id: string
@@ -21,6 +22,9 @@ interface NotificationState {
   notifications: NotificationData[]
   unreadCount: number
   loading: boolean
+  lastNotificationCount: number
+  lastUnreadCount: number
+  isInitialized: boolean
   fetchNotifications: () => Promise<void>
   fetchNotificationsSilent: () => Promise<void>
   fetchUnreadCount: () => Promise<void>
@@ -35,14 +39,37 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   notifications: [],
   unreadCount: 0,
   loading: false,
+  lastNotificationCount: 0,
+  lastUnreadCount: 0,
+  isInitialized: false,
 
   fetchNotifications: async () => {
     try {
       set({ loading: true })
       const response = await api.get('/notifications')
-      set({ notifications: response.data, loading: false })
+      const prevUnreadCount = get().lastUnreadCount
+      const isInitialized = get().isInitialized
+      const unreadCount = response.data.filter((n: NotificationData) => !n.isRead).length
+      const newCount = response.data.length
+      
+      console.log(`[Notifications] Initial fetch: unreadCount=${unreadCount}, isInitialized=${isInitialized}`)
+      
+      // Play sound only if initialized AND unread count increased
+      if (isInitialized && unreadCount > prevUnreadCount) {
+        console.log(`[Notifications] New notification received, playing sound`)
+        playNotificationSound()
+      }
+      
+      set({ 
+        notifications: response.data, 
+        loading: false, 
+        lastNotificationCount: newCount, 
+        lastUnreadCount: unreadCount, 
+        unreadCount,
+        isInitialized: true
+      })
     } catch (error) {
-      console.error('Error fetching notifications:', error)
+      console.error('[Notifications] Error fetching notifications:', error)
       set({ loading: false })
     }
   },
@@ -50,27 +77,68 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   fetchNotificationsSilent: async () => {
     try {
       const response = await api.get('/notifications')
-      set({ notifications: response.data })
+      const prevUnreadCount = get().lastUnreadCount
+      const isInitialized = get().isInitialized
+      const newCount = response.data.length
+      const unreadCount = response.data.filter((n: NotificationData) => !n.isRead).length
+      
+      console.log(`[Notifications] Silent fetch: prevUnread=${prevUnreadCount}, newUnread=${unreadCount}, isInitialized=${isInitialized}`)
+      
+      // Play sound only if initialized AND unread count increased
+      if (isInitialized && unreadCount > prevUnreadCount) {
+        console.log(`[Notifications] New notification detected, playing sound`)
+        playNotificationSound()
+      }
+      
+      set({ 
+        notifications: response.data, 
+        lastNotificationCount: newCount, 
+        lastUnreadCount: unreadCount, 
+        unreadCount,
+        isInitialized: true
+      })
     } catch (error) {
-      console.error('Error fetching notifications:', error)
+      console.error('[Notifications] Error fetching notifications:', error)
     }
   },
 
   fetchUnreadCount: async () => {
     try {
       const response = await api.get('/notifications/count/unread')
-      set({ unreadCount: response.data.count })
+      const prevCount = get().lastUnreadCount
+      const isInitialized = get().isInitialized
+      const newCount = response.data.count
+      
+      // Play sound only if initialized AND unread count increased
+      if (isInitialized && newCount > prevCount) {
+        console.log(`[Notifications] Unread count increased from ${prevCount} to ${newCount}, playing sound`)
+        playNotificationSound()
+      }
+      
+      set({ unreadCount: newCount, lastUnreadCount: newCount, isInitialized: true })
     } catch (error) {
-      console.error('Error fetching unread count:', error)
+      console.error('[Notifications] Error fetching unread count:', error)
     }
   },
 
   fetchUnreadCountSilent: async () => {
     try {
       const response = await api.get('/notifications/count/unread')
-      set({ unreadCount: response.data.count })
+      const prevCount = get().lastUnreadCount
+      const isInitialized = get().isInitialized
+      const newCount = response.data.count
+      
+      console.log(`[Notifications] Unread count: prev=${prevCount}, new=${newCount}, isInitialized=${isInitialized}`)
+      
+      // Play sound only if initialized AND unread count increased
+      if (isInitialized && newCount > prevCount) {
+        console.log(`[Notifications] Unread count increased, playing sound`)
+        playNotificationSound()
+      }
+      
+      set({ unreadCount: newCount, lastUnreadCount: newCount, isInitialized: true })
     } catch (error) {
-      console.error('Error fetching unread count:', error)
+      console.error('[Notifications] Error fetching unread count:', error)
     }
   },
 
