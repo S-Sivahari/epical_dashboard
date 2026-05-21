@@ -33,11 +33,7 @@ interface EmployeeState {
 export const useEmployeeStore = create<EmployeeState>((set, get) => ({
   employees: [],
   selectedEmployee: null,
-<<<<<<< HEAD:src/store/employeeStore.ts
-  filters: { q: '', department: 'all', employmentType: 'all', employmentStatus: 'all', status: 'all' },
-=======
-  filters: { name: '', employeeId: '', department: 'all', employmentType: 'all', status: 'all' },
->>>>>>> c33d8b1228989e05306f2bc8cb3cc482cfaa3a10:frontend/src/store/employeeStore.ts
+  filters: { name: '', employeeId: '', department: 'all', employmentType: 'all', employmentStatus: 'all', status: 'all' },
   pagination: { page: 1, pageSize: 10, total: 0 },
   sort: { column: 'joinedAt', direction: 'desc' },
   loading: false,
