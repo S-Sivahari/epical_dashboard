@@ -38,7 +38,7 @@ export interface Employee {
   pan: string;
   passport?: string;
   // Emergency Contact
-  emergencyContact?: {
+  emergencyContact: {
     name: string;
     phone: string;
     email: string;

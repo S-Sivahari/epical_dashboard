@@ -62,11 +62,11 @@ const step4 = z.object({
   aadhaar: z.string().optional(),
   pan: z.string().min(1, 'PAN is required'),
   passport: z.string().optional(),
-  emergencyContactName: z.string().optional().or(z.literal('')),
-  emergencyContactPhone: z.string().optional().or(z.literal('')),
-  emergencyContactEmail: z.string().optional().or(z.literal('')),
-  emergencyContactRelation: z.string().optional().or(z.literal('')),
-  emergencyContactAddress: z.string().optional().or(z.literal('')),
+  emergencyContactName: z.string().min(1, 'Emergency contact name is required'),
+  emergencyContactPhone: z.string().min(1, 'Emergency contact phone is required'),
+  emergencyContactEmail: z.string().email('Valid email required'),
+  emergencyContactRelation: z.string().min(1, 'Emergency contact relation is required'),
+  emergencyContactAddress: z.string().min(1, 'Emergency contact address is required'),
 })
 
 const fullSchema = step1.merge(step2).merge(step3).merge(step4)
@@ -624,33 +624,37 @@ export function AddEmployee() {
           <div className="rounded-2xl border border-border bg-white p-6 shadow-sm lg:col-span-2">
             <div className="mb-6">
               <h3 className="font-display text-lg font-semibold text-ink">Emergency Contact Details</h3>
-              <p className="text-sm text-muted mt-1">Optional - Add contact details for emergencies</p>
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               <Input
                 label="Name"
+                required
                 error={form.formState.errors.emergencyContactName?.message}
                 {...form.register('emergencyContactName')}
               />
               <Input
                 label="Phone"
+                required
                 error={form.formState.errors.emergencyContactPhone?.message}
                 {...form.register('emergencyContactPhone')}
               />
               <Input
                 label="Email"
                 type="email"
+                required
                 error={form.formState.errors.emergencyContactEmail?.message}
                 {...form.register('emergencyContactEmail')}
               />
               <Input
                 label="Relation"
+                required
                 error={form.formState.errors.emergencyContactRelation?.message}
                 {...form.register('emergencyContactRelation')}
               />
               <Input
                 label="Address"
                 className="lg:col-span-2"
+                required
                 error={form.formState.errors.emergencyContactAddress?.message}
                 {...form.register('emergencyContactAddress')}
               />

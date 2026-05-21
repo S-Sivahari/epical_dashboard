@@ -731,32 +731,36 @@ export function EditEmployee() {
           {/* ── Section 5: Emergency Contact ────────────────────────────── */}
           <div className="rounded-2xl border border-border bg-white p-6 shadow-sm lg:col-span-2">
             <h3 className="mb-6 font-display text-lg font-semibold text-ink">Emergency Contact Details</h3>
-            <p className="text-sm text-muted mb-4">Optional - Add contact details for emergencies</p>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               <Input
                 label="Name"
+                required
                 error={form.formState.errors.emergencyContactName?.message}
                 {...form.register('emergencyContactName')}
               />
               <Input
                 label="Phone"
+                required
                 error={form.formState.errors.emergencyContactPhone?.message}
                 {...form.register('emergencyContactPhone')}
               />
               <Input
                 label="Email"
                 type="email"
+                required
                 error={form.formState.errors.emergencyContactEmail?.message}
                 {...form.register('emergencyContactEmail')}
               />
               <Input
                 label="Relation"
+                required
                 error={form.formState.errors.emergencyContactRelation?.message}
                 {...form.register('emergencyContactRelation')}
               />
               <Input
                 label="Address"
                 className="lg:col-span-2"
+                required
                 error={form.formState.errors.emergencyContactAddress?.message}
                 {...form.register('emergencyContactAddress')}
               />
