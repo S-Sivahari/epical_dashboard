@@ -1702,6 +1702,15 @@ export function ProjectManagement() {
     setTsStatusFilters([])
   }, [])
 
+  const tsEmployeeFilterOptions = useMemo(() => {
+    const names = new Set<string>()
+    MOCK_EMPLOYEES.forEach((e) => names.add(e.name))
+    timesheets.forEach((t) => {
+      if (t.employeeName) names.add(t.employeeName)
+    })
+    return [...names].sort().map((name) => ({ value: name, label: name }))
+  }, [timesheets])
+
   const tsProjectFilterOptions = useMemo(
     () =>
       projects.map((p) => ({
@@ -2184,7 +2193,7 @@ export function ProjectManagement() {
                 label="Employee"
                 placeholder="All Employees"
                 compact
-                options={MOCK_EMPLOYEES.map((e) => ({ value: e.name, label: e.name }))}
+                options={tsEmployeeFilterOptions}
                 selected={tsEmployeeFilters}
                 onChange={setTsEmployeeFilters}
               />

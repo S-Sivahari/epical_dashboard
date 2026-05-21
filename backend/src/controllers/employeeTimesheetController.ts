@@ -68,13 +68,43 @@ async function resolveEmployee(req: Request) {
 }
 
 async function requireOpenAttendance(employeeId: string) {
-  const date = todayDateKey();
   const attendance = await EmployeeAttendanceModel.findOne({
     employeeId,
-    date,
     checkOutTime: { $exists: false },
-  });
+  }).sort({ checkInTime: -1 });
   return attendance;
+}
+
+async function releaseAssignedTask(timesheetId: string) {
+  const assignedTask = await AssignedTaskModel.findOne({ timesheetId });
+  if (!assignedTask) return;
+
+  assignedTask.status = 'assigned';
+  assignedTask.timesheetId = undefined;
+  await assignedTask.save();
+}
+
+function matchesEmployeeTask(employee: { id: string; name: string }, task: { employeeId?: string; employeeName?: string }) {
+  return task.employeeId === employee.id || task.employeeId === employee.name || task.employeeName === employee.name;
+}
+
+function canAccessProject(employeeName: string, project: { accessType?: string; allowedUsers?: string[]; teamLead?: string }) {
+  if (project.accessType === 'public') return true;
+  const allowedUsers = project.allowedUsers || [];
+  return project.teamLead === employeeName || allowedUsers.includes(employeeName);
+}
+
+function toFallbackWorkItem(project: any) {
+  return {
+    id: project._id.toString(),
+    projectId: project._id.toString(),
+    projectName: project.projectName,
+    clientName: project.clientName,
+    technologyNode: project.technologyNode,
+    title: 'Project work',
+    description: project.description || `Work on ${project.projectName}`,
+    status: 'assigned',
+  };
 }
 
 export const employeeTimesheetController = {
@@ -87,11 +117,23 @@ export const employeeTimesheetController = {
       }
 
       const tasks = await AssignedTaskModel.find({
-        employeeId: employee.id,
-        status: 'assigned',
+        $or: [
+          { employeeId: employee.id },
+          { employeeId: employee.name },
+          { employeeName: employee.name },
+        ],
+        status: { $in: ['assigned', 'in_progress'] },
       }).sort({ createdAt: -1 });
 
-      res.json(tasks.map(toFrontendAssignedTask));
+      if (tasks.length > 0) {
+        res.json(tasks.map(toFrontendAssignedTask));
+        return;
+      }
+
+      const fallbackProjects = await ProjectModel.find({}).sort({ createdAt: -1 });
+      const accessibleProjects = fallbackProjects.filter((project) => canAccessProject(employee.name, project));
+
+      res.json(accessibleProjects.map(toFallbackWorkItem));
     } catch (error) {
       console.error('Error fetching assigned tasks:', error);
       res.status(500).json({ error: 'Failed to fetch assigned tasks' });
@@ -107,13 +149,13 @@ export const employeeTimesheetController = {
       }
 
       const date = todayDateKey();
-      const attendance = await EmployeeAttendanceModel.findOne({ employeeId: employee.id, date });
+      const attendance = await EmployeeAttendanceModel.findOne({ employeeId: employee.id }).sort({ checkInTime: -1 });
 
       res.json({
         checkedIn: !!(attendance && !attendance.checkOutTime),
         checkInTime: attendance?.checkInTime?.toISOString() ?? null,
         checkOutTime: attendance?.checkOutTime?.toISOString() ?? null,
-        date,
+        date: attendance?.date ?? date,
       });
     } catch (error) {
       console.error('Error fetching attendance:', error);
@@ -188,13 +230,25 @@ export const employeeTimesheetController = {
       const date = todayDateKey();
       const existing = await EmployeeAttendanceModel.findOne({ employeeId: employee.id, date });
 
-      if (existing && !existing.checkOutTime) {
-        res.json({
-          checkedIn: true,
-          checkInTime: existing.checkInTime.toISOString(),
-          message: 'Already checked in for today',
-        });
-        return;
+      if (existing) {
+        if (!existing.checkOutTime) {
+          res.json({
+            checkedIn: true,
+            checkInTime: existing.checkInTime.toISOString(),
+            message: 'Already checked in',
+          });
+          return;
+        } else {
+          existing.checkOutTime = undefined;
+          existing.checkInTime = new Date();
+          await existing.save();
+          res.json({
+            checkedIn: true,
+            checkInTime: existing.checkInTime.toISOString(),
+            message: 'Resumed attendance session',
+          });
+          return;
+        }
       }
 
       const attendance = await EmployeeAttendanceModel.create({
@@ -243,6 +297,7 @@ export const employeeTimesheetController = {
         }
         await log.save();
         await syncProjectForTimesheet(log);
+        await releaseAssignedTask(log._id.toString());
       }
 
       attendance.checkOutTime = now;
@@ -289,32 +344,62 @@ export const employeeTimesheetController = {
       }
 
       const assigned = await AssignedTaskModel.findById(assignedTaskId);
-      if (!assigned || assigned.employeeId !== employee.id) {
+      const taskProject = assigned ? await ProjectModel.findById(assigned.projectId) : await ProjectModel.findById(assignedTaskId);
+
+      if (!assigned && !taskProject) {
         res.status(404).json({ error: 'Assigned task not found' });
         return;
       }
-      if (assigned.status !== 'assigned') {
-        res.status(400).json({ error: 'This task is not available to start' });
+
+      if (assigned) {
+        if (!matchesEmployeeTask(employee, assigned)) {
+          res.status(404).json({ error: 'Assigned task not found' });
+          return;
+        }
+
+        if (assigned.status !== 'assigned') {
+          const linkedTimesheetId = assigned.timesheetId ? assigned.timesheetId.toString() : null;
+          const linkedTimesheet = linkedTimesheetId ? await TimesheetModel.findById(linkedTimesheetId) : null;
+          const hasOpenLog = !!linkedTimesheet && (!linkedTimesheet.logoutTime || linkedTimesheet.logoutTime === null);
+
+          if (hasOpenLog) {
+            res.status(400).json({ error: 'Stop your current task before starting a new one' });
+            return;
+          }
+
+          assigned.status = 'assigned';
+          assigned.timesheetId = undefined;
+          await assigned.save();
+        }
+
+        if (assigned.status !== 'assigned') {
+          res.status(400).json({ error: 'This task is not available to start' });
+          return;
+        }
+      }
+
+      if (!taskProject) {
+        res.status(400).json({ error: 'Project not found for this task' });
         return;
       }
 
-      const project = await ProjectModel.findById(assigned.projectId);
-      if (!project) {
-        res.status(400).json({ error: 'Project not found for this task' });
+      if (!assigned && !canAccessProject(employee.name, taskProject)) {
+        res.status(403).json({ error: 'You do not have access to this project' });
         return;
       }
 
       const now = new Date();
       const workNote = String(description).trim();
-      const taskLabel = `${assigned.title} — ${workNote}`;
+      const taskTitle = assigned?.title || taskProject.projectName;
+      const taskLabel = `${taskTitle} — ${workNote}`;
 
       const timesheet = new TimesheetModel({
         employee: employee.name,
         employeeId: employee.id,
-        projectId: project._id,
-        project: project.projectName,
-        client: project.clientName,
-        technologyNode: project.technologyNode,
+        projectId: taskProject._id,
+        project: taskProject.projectName,
+        client: taskProject.clientName,
+        technologyNode: taskProject.technologyNode,
         loginTime: now,
         task: taskLabel,
         billable: true,
@@ -327,13 +412,15 @@ export const employeeTimesheetController = {
       await timesheet.save();
       await syncProjectForTimesheet(timesheet);
 
-      assigned.status = 'in_progress';
-      assigned.timesheetId = timesheet._id as Types.ObjectId;
-      await assigned.save();
+      if (assigned) {
+        assigned.status = 'in_progress';
+        assigned.timesheetId = timesheet._id as Types.ObjectId;
+        await assigned.save();
+      }
 
       res.status(201).json({
         timesheet: toFrontendTimesheet(timesheet),
-        assignedTask: toFrontendAssignedTask(assigned),
+        assignedTask: assigned ? toFrontendAssignedTask(assigned) : toFallbackWorkItem(taskProject),
         startedAt: now.toISOString(),
       });
     } catch (error) {
@@ -366,6 +453,7 @@ export const employeeTimesheetController = {
       openLog.taskStatus = 'Pending';
       await openLog.save();
       await syncProjectForTimesheet(openLog);
+      await releaseAssignedTask(openLog._id.toString());
 
       res.json({
         timesheet: toFrontendTimesheet(openLog),
