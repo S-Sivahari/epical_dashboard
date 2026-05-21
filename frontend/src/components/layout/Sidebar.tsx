@@ -8,6 +8,7 @@ import {
   LayoutGrid,
   Menu,
   Newspaper,
+  Receipt,
   Ticket,
   Trophy,
   Users,
@@ -47,6 +48,7 @@ const groups: {
       items: [
         { to: ROUTES.TRAINING, label: 'Training & Courses', icon: BookOpen },
         { to: ROUTES.ACHIEVEMENTS, label: 'Achievements', icon: Trophy },
+        { to: ROUTES.PAYSLIPS, label: 'Payslips', icon: Receipt },
         { to: ROUTES.ANALYTICS, label: 'Analytics', icon: BarChart3 },
         { to: ROUTES.DOCUMENTS, label: 'Documents', icon: FileText },
         { to: ROUTES.NEWS, label: 'Company News', icon: Newspaper },
