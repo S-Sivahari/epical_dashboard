@@ -48,6 +48,8 @@ export interface LeaveRequest {
   reason: string
   status: LeaveStatus
   rejectionReason?: string
+  approvalDate?: string
+  approvedBy?: string
 }
 
 export interface Holiday {

@@ -29,6 +29,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@types/express-session": "^1.19.0",
     "tsx": "^4.22.3"
   }
 }

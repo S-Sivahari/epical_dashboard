@@ -47,12 +47,12 @@ export const leaveController = {
       const employeeId = req.user?.role === 'Employee'
         ? req.user.id
         : (req.query.employeeId as string);
-        
+
       if (!employeeId) {
         res.status(400).json({ error: 'employeeId is required' });
         return;
       }
-      
+
       const balances = await leaveService.getLeaveBalances(employeeId);
       res.json(balances);
     } catch {
@@ -74,12 +74,12 @@ export const leaveController = {
   // PATCH /api/leaves/:id/reject
   reject: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { rejectionReason } = req.body;
-      if (!rejectionReason) {
+      const { reason } = req.body;
+      if (!reason || reason.trim() === '') {
         res.status(400).json({ error: 'Rejection reason is required' });
         return;
       }
-      const leave = await leaveService.rejectLeaveWithReason(req.params.id, rejectionReason);
+      const leave = await leaveService.updateLeaveStatus(req.params.id, 'Rejected', reason.trim());
       if (!leave) { res.status(404).json({ error: 'Leave not found' }); return; }
       res.json(leave);
     } catch {
@@ -136,11 +136,11 @@ export const leaveController = {
     try {
       const { title, date, description, type } = req.body;
       if (!title || !date) { res.status(400).json({ error: 'title and date required' }); return; }
-      
+
       // Check for duplicate holiday on the same date
       const isDuplicate = await leaveService.checkDuplicateHoliday(date);
       if (isDuplicate) { res.status(409).json({ error: 'Holiday already exists on this date' }); return; }
-      
+
       const holiday = await leaveService.createHoliday({ title, date, description, type: type || 'National' });
       res.status(201).json(holiday);
     } catch {
@@ -153,16 +153,16 @@ export const leaveController = {
     try {
       const { title, date, description, type } = req.body;
       const id = req.params.id;
-      
+
       const existing = await leaveService.getHolidayById(id);
       if (!existing) { res.status(404).json({ error: 'Holiday not found' }); return; }
-      
+
       // Check for duplicate holiday on the same date (if date changed)
       if (date && date !== existing.date) {
         const isDuplicate = await leaveService.checkDuplicateHoliday(date, id);
         if (isDuplicate) { res.status(409).json({ error: 'Holiday already exists on this date' }); return; }
       }
-      
+
       const holiday = await leaveService.updateHoliday(id, { title, date, description, type });
       res.json(holiday);
     } catch {
