@@ -74,7 +74,12 @@ export const leaveController = {
   // PATCH /api/leaves/:id/reject
   reject: async (req: Request, res: Response): Promise<void> => {
     try {
-      const leave = await leaveService.updateLeaveStatus(req.params.id, 'Rejected');
+      const { reason } = req.body;
+      if (!reason || reason.trim() === '') {
+        res.status(400).json({ error: 'Rejection reason is required' });
+        return;
+      }
+      const leave = await leaveService.updateLeaveStatus(req.params.id, 'Rejected', reason.trim());
       if (!leave) { res.status(404).json({ error: 'Leave not found' }); return; }
       res.json(leave);
     } catch {

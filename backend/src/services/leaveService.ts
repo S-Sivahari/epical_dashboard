@@ -74,12 +74,19 @@ export async function getLeaveBalances(employeeId: string) {
 
 export async function updateLeaveStatus(
   id: string,
-  status: 'Approved' | 'Rejected'
+  status: 'Approved' | 'Rejected',
+  rejectionReason?: string
 ): Promise<LeaveRequest | null> {
   const col = getLeaveCol();
+  
+  const updateDoc: any = { status, updatedAt: new Date() };
+  if (status === 'Rejected' && rejectionReason) {
+    updateDoc.rejectionReason = rejectionReason;
+  }
+  
   const result = await col.findOneAndUpdate(
     { id },
-    { $set: { status, updatedAt: new Date() } },
+    { $set: updateDoc },
     { returnDocument: 'after' }
   );
   return result as LeaveRequest | null;

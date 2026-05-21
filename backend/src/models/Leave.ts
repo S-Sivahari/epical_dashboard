@@ -13,6 +13,7 @@ export interface LeaveRequest {
   days: number;
   reason: string;
   status: LeaveStatus;
+  rejectionReason?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
