@@ -16,6 +16,7 @@ import { LeaveCard } from '@components/employee/shared/LeaveCard'
 import { useLeaveStore } from '@store/employee/leaveStore'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { useAuthStore } from '@store/authStore'
+
 import * as leaveService from '@services/leaveService'
 
 const leaveSchema = z
@@ -128,7 +129,7 @@ export default function LeaveRequest() {
       toast({ title: 'Success', description: 'Leave request submitted successfully!' })
       reset({ leaveDuration: 'Full Day' })
       
-      // Refresh balances after submission
+      // Refresh balances and notifications after submission
       const newBalances = await leaveService.getBalances()
       setLeaveBalances([
         { key: 'casual', type: 'Casual Leave', used: newBalances['Casual Leave']?.used || 0, total: newBalances['Casual Leave']?.total || 12, color: '#16a34a' },

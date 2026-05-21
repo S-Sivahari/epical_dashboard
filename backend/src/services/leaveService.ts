@@ -3,6 +3,7 @@ import { getDB } from '../config/db';
 import { LeaveRequest, CreateLeavePayload } from '../models/Leave';
 import { Holiday } from '../models/Holiday';
 import { getBusinessDays, calculateBalances } from '../utils/leaveCalculator';
+import * as notificationService from './notificationService';
 
 let leaveCollection: Collection<any> | null = null;
 let holidayCollection: Collection<any> | null = null;
@@ -58,6 +59,36 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
     updatedAt: new Date(),
   };
   await col.insertOne(leave);
+
+  // Create notification for manager/admin
+  try {
+    // Notify all admins
+    const userCollection = getDB().collection('users');
+    const admins = await userCollection.find({ role: 'Admin' }).toArray();
+    console.log(`[Leave Notification] Found ${admins.length} admins to notify`);
+    console.log(`[Leave Notification] Admins:`, admins.map((a) => ({ id: a.id, name: a.name })));
+    
+    for (const admin of admins) {
+      console.log(`[Leave Notification] Creating notification for admin: ${admin.id}`);
+      await notificationService.createNotification({
+        recipientId: admin.id,
+        recipientType: 'Admin',
+        type: 'LeaveSubmitted',
+        title: 'New Leave Request',
+        message: `${payload.employeeName} has submitted a ${payload.type} leave request from ${payload.from} to ${payload.to}`,
+        relatedData: {
+          leaveId: id,
+          employeeId: payload.employeeId,
+          employeeName: payload.employeeName,
+        },
+      });
+      console.log(`[Leave Notification] Notification created for admin: ${admin.id}`);
+    }
+  } catch (error) {
+    console.error('Error creating notification for leave submission:', error);
+    // Don't throw - notification failure shouldn't break leave creation
+  }
+
   return leave as LeaveRequest;
 }
 
@@ -95,6 +126,35 @@ export async function updateLeaveStatus(
     { $set: { status, updatedAt: new Date() } },
     { returnDocument: 'after' }
   );
+
+  if (result) {
+    // Create notification for employee
+    try {
+      const notificationType = status === 'Approved' ? 'LeaveApproved' : 'LeaveRejected';
+      const title = status === 'Approved' ? 'Leave Approved' : 'Leave Rejected';
+      const message =
+        status === 'Approved'
+          ? `Your ${result.type} leave request from ${result.from} to ${result.to} has been approved.`
+          : `Your ${result.type} leave request from ${result.from} to ${result.to} has been rejected.`;
+
+      await notificationService.createNotification({
+        recipientId: result.employeeId,
+        recipientType: 'Employee',
+        type: notificationType,
+        title,
+        message,
+        relatedData: {
+          leaveId: id,
+          employeeId: result.employeeId,
+          employeeName: result.employeeName,
+        },
+      });
+    } catch (error) {
+      console.error(`Error creating ${status} notification:`, error);
+      // Don't throw - notification failure shouldn't break status update
+    }
+  }
+
   return result as LeaveRequest | null;
 }
 

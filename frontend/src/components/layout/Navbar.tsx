@@ -6,6 +6,7 @@ import { Avatar } from '@components/ui/Avatar'
 import { useAuthStore } from '@store/authStore'
 import { useMediaQuery } from '@hooks/useMediaQuery'
 import { APP_SHORT_NAME } from '@/utils/constants'
+import { NotificationBell } from './NotificationBell'
 
 function titleCase(slug: string) {
   return slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
@@ -50,6 +51,7 @@ export function Navbar() {
         <p className="truncate font-display text-lg font-semibold text-ink">{title}</p>
       </div>
       <div className="flex items-center gap-2 sm:gap-3">
+        <NotificationBell />
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
             <button
