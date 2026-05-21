@@ -59,8 +59,8 @@ export function calculateBalances(employeeLeaves: LeaveRequest[]) {
     // Only count leaves taken in the current year
     if (!leave.from.startsWith(`${currentYear}`)) return;
     
-    // Both Approved and Pending leaves deduct from remaining
-    if (leave.status === 'Approved' || leave.status === 'Pending') {
+    // Only Approved leaves deduct from remaining (Pending leaves don't affect balance)
+    if (leave.status === 'Approved') {
       if (balances[leave.type]) {
         balances[leave.type].used += leave.days;
         balances[leave.type].remaining -= leave.days;

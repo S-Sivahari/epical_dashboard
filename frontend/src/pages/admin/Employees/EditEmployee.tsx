@@ -14,25 +14,20 @@ import { FileUpload } from '@components/forms/FileUpload'
 import * as employeeService from '@services/employeeService'
 import { useEmployeeStore } from '@store/employeeStore'
 import { deleteDocument, uploadDocuments, uploadPhoto } from '@services/uploadService'
-import { ExternalLink, FileText, Trash2 } from 'lucide-react'
+import { ExternalLink, FileText, Trash2, HelpCircle, X } from 'lucide-react'
 
 // ── Validation ────────────────────────────────────────────────────────────────
 
-const employeeIdPattern = /^(EPL|INT)\d{8}$/
 const isValidDate = (v: string) => !Number.isNaN(Date.parse(v))
 
 const editSchema = z.object({
   // Personal
-  employeeId: z
-    .string()
-    .optional()
-    .refine(
-      (v) => !v || employeeIdPattern.test(v.trim().toUpperCase()),
-      'Use EPL or INT plus 8 digits',
-    ),
+  employeeId: z.string().min(1, 'Employee ID is required'),
   firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().optional().or(z.literal('')),
-  address: z.string().optional().or(z.literal('')),
+  middleName: z.string().optional().or(z.literal('')),
+  lastName: z.string().min(1, 'Last name is required'),
+  permanentAddress: z.string().min(1, 'Permanent address is required'),
+  communicationAddress: z.string().min(1, 'Communication address is required'),
   dob: z.string().optional().refine((v) => !v || isValidDate(v), 'Enter a valid date'),
   gender: z.string().optional(),
   phone: z.string().optional(),
@@ -52,20 +47,23 @@ const editSchema = z.object({
     .string()
     .min(1, 'Joining date is required')
     .refine(isValidDate, 'Enter a valid joining date'),
-  employmentType: z.enum(['Full-time', 'Contract', 'Intern', 'Notice Period']),
-  department: z.string().min(2, 'Department is required'),
-  reportingManager: z.string().optional(),
+  employmentType: z.enum(['Full-time', 'Contract', 'Intern']),
+  department: z.string().optional(),
   role: z.string().min(1, 'Role is required'),
-  designation: z.string().optional(),
   ctc: z.preprocess(
     (v) => (v === '' || v === null || v === undefined ? undefined : Number(v)),
     z.number().positive('CTC must be positive').optional(),
   ),
-  status: z.enum(['Active', 'Inactive', 'Notice Period', 'Deactivated', 'Archived']),
   // ID proof
   aadhaar: z.string().optional(),
-  pan: z.string().optional(),
+  pan: z.string().min(1, 'PAN is required'),
   passport: z.string().optional(),
+  // Emergency Contact
+  emergencyContactName: z.string().optional().or(z.literal('')),
+  emergencyContactPhone: z.string().optional().or(z.literal('')),
+  emergencyContactEmail: z.string().optional().or(z.literal('')),
+  emergencyContactRelation: z.string().optional().or(z.literal('')),
+  emergencyContactAddress: z.string().optional().or(z.literal('')),
 })
 
 type FormValues = z.infer<typeof editSchema>
@@ -94,7 +92,7 @@ const DOCUMENT_TYPES: Record<StandardDocKey, string> = {
   aadhaar: 'Aadhaar',
   pan: 'PAN',
   offerLetter: 'Offer Letter',
-  agreement: 'Agreement',
+  agreement: 'Agreement Document',
 }
 
 const CERTIFICATE_TYPES: Record<CertificateDocKey, string> = {
@@ -133,10 +131,21 @@ const EMPTY_DOCUMENTS: Record<DocKey, null> = {
   certificateDegree: null,
 }
 
+const EMPTY_DOCUMENT_FILES: Record<DocKey, File[]> = {
+  aadhaar: [],
+  pan: [],
+  offerLetter: [],
+  agreement: [],
+  certificate10th: [],
+  certificate12th: [],
+  certificateDiploma: [],
+  certificateDegree: [],
+}
+
 const ALLOWED_DOC_TYPES = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png']
 const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/jpg', 'image/png']
-const MAX_DOC_SIZE = 5 * 1024 * 1024
-const MAX_PHOTO_SIZE = 2 * 1024 * 1024
+const MAX_DOC_SIZE = 2 * 1024 * 1024
+const MAX_PHOTO_SIZE = 1 * 1024 * 1024
 
 function validateFile(file: File, allowedTypes: string[], maxSize: number): string | null {
   if (!allowedTypes.includes(file.type)) return 'Invalid file type. Allowed: .pdf, .jpg, .jpeg, .png'
@@ -207,6 +216,7 @@ function buildExistingDocuments(employee: any, fallbackDocs: ExistingDocument[])
 export function EditEmployee() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
+  const formRef = useRef<HTMLFormElement>(null)
   const updateEmployee = useEmployeeStore((s) => s.updateEmployee)
 
   const [pageLoading, setPageLoading] = useState(true)
@@ -214,19 +224,38 @@ export function EditEmployee() {
   const [existingDocuments, setExistingDocuments] =
     useState<Record<DocKey, ExistingDocument | null>>({ ...EMPTY_DOCUMENTS })
 
-  const [documentFiles, setDocumentFiles] = useState<Record<DocKey, File | null>>({
-    ...EMPTY_DOCUMENTS,
+  const [documentFiles, setDocumentFiles] = useState<Record<DocKey, File[]>>({
+    ...EMPTY_DOCUMENT_FILES,
   })
   const [documentErrors, setDocumentErrors] =
     useState<Record<DocKey, string | null>>({ ...EMPTY_DOCUMENTS })
   const [documentPreviews, setDocumentPreviews] =
-    useState<Record<DocKey, string | null>>({ ...EMPTY_DOCUMENTS })
-  const documentPreviewsRef = useRef<Record<DocKey, string | null>>({ ...EMPTY_DOCUMENTS })
+    useState<Record<DocKey, Record<string, string>>>({
+      aadhaar: {},
+      pan: {},
+      offerLetter: {},
+      agreement: {},
+      certificate10th: {},
+      certificate12th: {},
+      certificateDiploma: {},
+      certificateDegree: {},
+    })
+  const documentPreviewsRef = useRef<Record<DocKey, Record<string, string>>>({
+    aadhaar: {},
+    pan: {},
+    offerLetter: {},
+    agreement: {},
+    certificate10th: {},
+    certificate12th: {},
+    certificateDiploma: {},
+    certificateDegree: {},
+  })
   const [selectedCertificateKey, setSelectedCertificateKey] =
     useState<CertificateDocKey>('certificateDegree')
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [photoError, setPhotoError] = useState<string | null>(null)
+  const [showFileHelp, setShowFileHelp] = useState(false)
 
   const form = useForm<FormValues>({
     resolver: zodResolver(editSchema),
@@ -246,10 +275,12 @@ export function EditEmployee() {
         form.reset({
           employeeId: e.employeeId ?? '',
           firstName: e.firstName,
+          middleName: e.middleName ?? '',
           lastName: e.lastName ?? '',
-          address: e.address ?? '',
+          permanentAddress: e.permanentAddress ?? '',
+          communicationAddress: e.communicationAddress ?? '',
           dob: e.dob ?? '',
-          gender: e.gender ?? 'Female',
+          gender: e.gender ?? 'Male',
           phone: e.phone ?? '',
           personalEmail: e.personalEmail ?? '',
           companyEmail: e.email,
@@ -261,14 +292,16 @@ export function EditEmployee() {
           joinedAt: e.joinedAt ?? '',
           employmentType: e.employmentType ?? 'Full-time',
           department: e.department,
-          reportingManager: e.reportingManager ?? '',
           role: e.role,
-          designation: e.designation ?? '',
           ctc: e.ctc,
-          status: e.status ?? 'Active',
           aadhaar: e.aadhaar ?? '',
           pan: e.pan ?? '',
           passport: e.passport ?? '',
+          emergencyContactName: e.emergencyContact?.name ?? '',
+          emergencyContactPhone: e.emergencyContact?.phone ?? '',
+          emergencyContactEmail: e.emergencyContact?.email ?? '',
+          emergencyContactRelation: e.emergencyContact?.relation ?? '',
+          emergencyContactAddress: e.emergencyContact?.address ?? '',
         })
       } catch {
         if (!cancelled) {
@@ -297,34 +330,78 @@ export function EditEmployee() {
 
   useEffect(() => {
     return () => {
-      Object.values(documentPreviewsRef.current).forEach((url) => {
-        if (url) URL.revokeObjectURL(url)
+      Object.values(documentPreviewsRef.current).forEach((categoryPreviews) => {
+        Object.values(categoryPreviews).forEach((url) => {
+          if (url) URL.revokeObjectURL(url)
+        })
       })
     }
   }, [])
 
   const handleDocumentUpload = (key: DocKey, files: FileList | null) => {
-    const file = files?.[0] ?? null
-    if (!file) {
-      setDocumentFiles((p) => ({ ...p, [key]: null }))
-      setDocumentErrors((p) => ({ ...p, [key]: null }))
-      setDocumentPreviews((p) => {
-        if (p[key]) URL.revokeObjectURL(p[key])
-        return { ...p, [key]: null }
-      })
+    const fileList = files ? Array.from(files) : []
+    
+    if (fileList.length === 0) {
       return
     }
-    const error = validateFile(file, ALLOWED_DOC_TYPES, MAX_DOC_SIZE)
-    setDocumentErrors((p) => ({ ...p, [key]: error }))
-    setDocumentFiles((p) => ({ ...p, [key]: error ? null : file }))
+
+    const newFiles: File[] = []
+    let hasError = false
+    
+    fileList.forEach((file) => {
+      const error = validateFile(file, ALLOWED_DOC_TYPES, MAX_DOC_SIZE)
+      if (error) {
+        setDocumentErrors((p) => ({ ...p, [key]: error }))
+        hasError = true
+      } else {
+        newFiles.push(file)
+      }
+    })
+
+    if (hasError && newFiles.length === 0) return
+
+    // Add new files to existing list
+    setDocumentFiles((p) => ({ ...p, [key]: [...p[key], ...newFiles] }))
+    
+    // Create preview URLs for new files
     setDocumentPreviews((p) => {
-      if (p[key]) URL.revokeObjectURL(p[key])
-      return { ...p, [key]: error ? null : URL.createObjectURL(file) }
+      const newPreviews = { ...p[key] }
+      newFiles.forEach((file) => {
+        newPreviews[file.name] = URL.createObjectURL(file)
+      })
+      return { ...p, [key]: newPreviews }
+    })
+
+    if (newFiles.length > 0) {
+      setDocumentErrors((p) => ({ ...p, [key]: null }))
+    }
+  }
+
+  const removeUploadedDocument = (key: DocKey, fileName: string) => {
+    setDocumentFiles((p) => ({
+      ...p,
+      [key]: p[key].filter((f) => f.name !== fileName),
+    }))
+    setDocumentPreviews((p) => {
+      const newPreviews = { ...p[key] }
+      if (newPreviews[fileName]) {
+        URL.revokeObjectURL(newPreviews[fileName])
+        delete newPreviews[fileName]
+      }
+      return { ...p, [key]: newPreviews }
     })
   }
 
   const removeSelectedDocument = (key: DocKey) => {
-    handleDocumentUpload(key, null)
+    setDocumentFiles((p) => ({ ...p, [key]: [] }))
+    setDocumentErrors((p) => ({ ...p, [key]: null }))
+    setDocumentPreviews((p) => {
+      const newPreviews = { ...p[key] }
+      Object.values(newPreviews).forEach((url) => {
+        if (url) URL.revokeObjectURL(url)
+      })
+      return { ...p, [key]: {} }
+    })
   }
 
   const deleteExistingDocument = async (key: DocKey) => {
@@ -366,8 +443,10 @@ export function EditEmployee() {
       await updateEmployee(id, {
         employeeId: values.employeeId?.trim().toUpperCase() ?? '',
         firstName: values.firstName,
+        middleName: values.middleName ? values.middleName.trim() : undefined,
         lastName: values.lastName ?? '',
-        address: values.address ?? '',
+        permanentAddress: values.permanentAddress ?? '',
+        communicationAddress: values.communicationAddress ?? '',
         dob: values.dob ?? '',
         gender: values.gender ?? '',
         phone: values.phone ?? '',
@@ -381,21 +460,36 @@ export function EditEmployee() {
         joinedAt: values.joinedAt,
         employmentType: values.employmentType,
         department: values.department,
-        reportingManager: values.reportingManager ?? '',
         role: values.role,
-        designation: values.designation ?? values.role,
         ctc: values.ctc,
-        status: values.status,
         aadhaar: values.aadhaar ?? '',
         pan: values.pan ?? '',
         passport: values.passport ?? '',
+        emergencyContact: {
+          name: values.emergencyContactName || '',
+          phone: values.emergencyContactPhone || '',
+          email: values.emergencyContactEmail || '',
+          relation: values.emergencyContactRelation || '',
+          address: values.emergencyContactAddress || '',
+        },
       })
 
       // Upload documents if any
-      const hasDocuments = Object.values(documentFiles).some((f) => f !== null)
+      const hasDocuments = Object.values(documentFiles).some((files) => files.length > 0)
       if (hasDocuments) {
         try {
-          await uploadDocuments(id, documentFiles)
+          // Convert File[] to File | null for each document type (take first file)
+          const docsToUpload: Record<DocKey, File | null> = {
+            aadhaar: documentFiles.aadhaar[0] ?? null,
+            pan: documentFiles.pan[0] ?? null,
+            offerLetter: documentFiles.offerLetter[0] ?? null,
+            agreement: documentFiles.agreement[0] ?? null,
+            certificate10th: documentFiles.certificate10th[0] ?? null,
+            certificate12th: documentFiles.certificate12th[0] ?? null,
+            certificateDiploma: documentFiles.certificateDiploma[0] ?? null,
+            certificateDegree: documentFiles.certificateDegree[0] ?? null,
+          }
+          await uploadDocuments(id, docsToUpload)
         } catch (err) {
           console.error('Failed to upload documents:', err)
           toast.warning('Employee updated but some documents failed to upload')
@@ -430,8 +524,6 @@ export function EditEmployee() {
   }
 
   const selectedCertificate = existingDocuments[selectedCertificateKey]
-  const selectedCertificateFile = documentFiles[selectedCertificateKey]
-  const selectedCertificatePreview = documentPreviews[selectedCertificateKey]
 
   return (
     <PageWrapper>
@@ -448,7 +540,7 @@ export function EditEmployee() {
         }
       />
 
-      <form className="mx-auto max-w-6xl space-y-8 pb-12" onSubmit={onSubmit}>
+      <form ref={formRef} id="edit-employee-form" className="mx-auto max-w-6xl space-y-8 pb-32" onSubmit={onSubmit}>
         <div className="grid gap-6 lg:grid-cols-2">
           {/* ── Section 1: Personal Details ─────────────────────────────── */}
           <div className="rounded-2xl border border-border bg-white p-6 shadow-sm lg:col-span-2">
@@ -456,7 +548,7 @@ export function EditEmployee() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               <Input
                 label="Employee ID"
-                placeholder="e.g. EPL12345678"
+                required
                 error={form.formState.errors.employeeId?.message}
                 {...form.register('employeeId')}
               />
@@ -467,14 +559,15 @@ export function EditEmployee() {
                 {...form.register('firstName')}
               />
               <Input
-                label="Last name"
-                error={form.formState.errors.lastName?.message}
-                {...form.register('lastName')}
+                label="Middle name"
+                error={form.formState.errors.middleName?.message}
+                {...form.register('middleName')}
               />
               <Input
-                label="Address"
-                error={form.formState.errors.address?.message}
-                {...form.register('address')}
+                label="Last name"
+                required
+                error={form.formState.errors.lastName?.message}
+                {...form.register('lastName')}
               />
               <Input
                 label="Date of birth"
@@ -486,9 +579,9 @@ export function EditEmployee() {
                 label="Gender"
                 error={form.formState.errors.gender?.message}
                 options={[
-                  { value: 'Female', label: 'Female' },
                   { value: 'Male', label: 'Male' },
-                  { value: 'Non-binary', label: 'Non-binary' },
+                  { value: 'Female', label: 'Female' },
+                  { value: 'Not prefer to say', label: 'Not prefer to say' },
                 ]}
                 {...form.register('gender')}
               />
@@ -510,6 +603,25 @@ export function EditEmployee() {
                 error={form.formState.errors.companyEmail?.message}
                 {...form.register('companyEmail')}
               />
+            </div>
+
+            {/* Address Section */}
+            <div className="mt-8 border-t border-border pt-6">
+              <h3 className="font-display text-lg font-semibold text-ink mb-4">Address Details</h3>
+              <div className="space-y-4">
+                <Input
+                  label="Permanent Address"
+                  required
+                  error={form.formState.errors.permanentAddress?.message}
+                  {...form.register('permanentAddress')}
+                />
+                <Input
+                  label="Communication Address"
+                  required
+                  error={form.formState.errors.communicationAddress?.message}
+                  {...form.register('communicationAddress')}
+                />
+              </div>
             </div>
           </div>
 
@@ -568,20 +680,13 @@ export function EditEmployee() {
                   { value: 'Full-time', label: 'Full-time' },
                   { value: 'Contract', label: 'Contract' },
                   { value: 'Intern', label: 'Intern' },
-                  { value: 'Notice Period', label: 'Notice Period' },
                 ]}
                 {...form.register('employmentType')}
               />
               <Input
                 label="Department"
-                required
                 error={form.formState.errors.department?.message}
                 {...form.register('department')}
-              />
-              <Input
-                label="Reporting manager"
-                error={form.formState.errors.reportingManager?.message}
-                {...form.register('reportingManager')}
               />
               <Input
                 label="Role"
@@ -590,29 +695,12 @@ export function EditEmployee() {
                 {...form.register('role')}
               />
               <Input
-                label="Designation"
-                error={form.formState.errors.designation?.message}
-                {...form.register('designation')}
-              />
-              <Input
                 label="CTC (annual)"
                 type="number"
                 error={form.formState.errors.ctc?.message}
                 {...form.register('ctc', {
                   setValueAs: (v) => (v === '' ? undefined : Number(v)),
                 })}
-              />
-              <SelectField
-                label="Status"
-                required
-                error={form.formState.errors.status?.message}
-                options={[
-                  { value: 'Active', label: 'Active' },
-                  { value: 'Notice Period', label: 'Notice Period' },
-                  { value: 'Inactive', label: 'Inactive' },
-                  { value: 'Deactivated', label: 'Deactivated' },
-                ]}
-                {...form.register('status')}
               />
             </div>
           </div>
@@ -628,6 +716,7 @@ export function EditEmployee() {
               />
               <Input
                 label="PAN"
+                required
                 error={form.formState.errors.pan?.message}
                 {...form.register('pan')}
               />
@@ -638,37 +727,94 @@ export function EditEmployee() {
               />
             </div>
           </div>
+
+          {/* ── Section 5: Emergency Contact ────────────────────────────── */}
+          <div className="rounded-2xl border border-border bg-white p-6 shadow-sm lg:col-span-2">
+            <h3 className="mb-6 font-display text-lg font-semibold text-ink">Emergency Contact Details</h3>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <Input
+                label="Name"
+                required
+                error={form.formState.errors.emergencyContactName?.message}
+                {...form.register('emergencyContactName')}
+              />
+              <Input
+                label="Phone"
+                required
+                error={form.formState.errors.emergencyContactPhone?.message}
+                {...form.register('emergencyContactPhone')}
+              />
+              <Input
+                label="Email"
+                type="email"
+                required
+                error={form.formState.errors.emergencyContactEmail?.message}
+                {...form.register('emergencyContactEmail')}
+              />
+              <Input
+                label="Relation"
+                required
+                error={form.formState.errors.emergencyContactRelation?.message}
+                {...form.register('emergencyContactRelation')}
+              />
+              <Input
+                label="Address"
+                className="lg:col-span-2"
+                required
+                error={form.formState.errors.emergencyContactAddress?.message}
+                {...form.register('emergencyContactAddress')}
+              />
+            </div>
+          </div>
         </div>
 
         {/* ── Section 5: Documents ────────────────────────────────────── */}
         <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
-          <h3 className="mb-8 font-display text-lg font-semibold text-ink">Employee Documents</h3>
-          <p className="mb-6 text-sm text-muted">
-            Upload or replace documents. Allowed: .pdf, .jpg, .jpeg, .png · Max 5 MB each.
-          </p>
+          <div className="mb-6 flex items-center justify-between">
+            <h3 className="font-display text-lg font-semibold text-ink">Employee Documents</h3>
+            <button
+              type="button"
+              onClick={() => setShowFileHelp(true)}
+              className="rounded p-1.5 text-muted hover:bg-surface hover:text-ink transition-ui"
+              title="Help - File size limits and configuration"
+            >
+              <HelpCircle className="h-5 w-5" />
+            </button>
+          </div>
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {(Object.entries(DOCUMENT_TYPES) as [StandardDocKey, string][]).map(([key, label]) => (
+            {(Object.entries(DOCUMENT_TYPES) as [StandardDocKey, string][])
+              .filter(([key]) => key !== 'agreement')
+              .map(([key, label]) => (
               <div key={key} className="rounded-xl border border-border bg-surface p-4">
-                <p className="mb-1 font-medium text-ink">{label}</p>
+                <p className="mb-3 font-medium text-ink">{label}</p>
+                <p className="text-xs text-muted mb-3">2MB</p>
+                
+                <FileUpload
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onUpload={(files) => handleDocumentUpload(key, files)}
+                />
+
+                {documentErrors[key] ? (
+                  <p className="mt-2 text-xs text-danger">{documentErrors[key]}</p>
+                ) : null}
+                
+                {/* Display existing documents */}
                 {existingDocuments[key] ? (
-                  <div className="mb-3 rounded-lg border border-border bg-white px-3 py-2">
+                  <div className="mt-3 rounded-lg border border-border bg-white px-3 py-2">
                     <div className="flex items-start gap-3">
                       <FileText className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-ink">
                           {existingDocuments[key]?.name}
                         </p>
-                        <p className="text-xs text-muted">
-                          Already uploaded
-                          {existingDocuments[key]?.uploadedAt ? ` · ${existingDocuments[key]?.uploadedAt}` : ''}
-                        </p>
+                        <p className="text-xs text-muted">Uploaded</p>
                       </div>
                       {existingDocuments[key]?.url ? (
                         <a
                           href={existingDocuments[key]?.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="shrink-0 rounded-md p-1.5 text-primary transition-ui hover:bg-primary/10"
+                          className="shrink-0 rounded p-1 text-primary hover:bg-primary/10 transition-ui"
                           title="View document"
                         >
                           <ExternalLink className="h-4 w-4" />
@@ -676,7 +822,7 @@ export function EditEmployee() {
                       ) : null}
                       <button
                         type="button"
-                        className="shrink-0 rounded-md p-1.5 text-danger transition-ui hover:bg-danger/10"
+                        className="shrink-0 rounded p-1 text-danger hover:bg-danger/10 transition-ui"
                         title="Delete document"
                         onClick={() => void deleteExistingDocument(key)}
                       >
@@ -684,39 +830,50 @@ export function EditEmployee() {
                       </button>
                     </div>
                   </div>
-                ) : (
-                  <div className="mb-3 rounded-lg border border-dashed border-border bg-white/70 px-3 py-2">
-                    <p className="text-xs text-muted">No file uploaded yet.</p>
-                  </div>
-                )}
-                {!existingDocuments[key] ? (
-                  <FileUpload
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onUpload={(files) => handleDocumentUpload(key, files)}
-                  />
                 ) : null}
-                {documentFiles[key] ? (
-                  <div className="mt-2 flex items-center justify-between gap-3">
-                    <p className="truncate text-sm text-ink">Selected: {documentFiles[key]?.name}</p>
-                    <button
-                      type="button"
-                      className="shrink-0 text-xs font-medium text-danger hover:underline"
-                      onClick={() => removeSelectedDocument(key)}
-                    >
-                      Remove
-                    </button>
+
+                {/* Display newly uploaded documents */}
+                {documentFiles[key].length > 0 ? (
+                  <div className="mt-3 space-y-2">
+                    {documentFiles[key].map((file) => (
+                      <div key={file.name} className="rounded-lg border border-border bg-white px-3 py-2">
+                        <div className="flex items-start gap-3">
+                          <FileText className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-ink">{file.name}</p>
+                            <p className="text-xs text-muted">New</p>
+                          </div>
+                          {documentPreviews[key]?.[file.name] ? (
+                            <a
+                              href={documentPreviews[key][file.name]}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 rounded p-1 text-primary hover:bg-primary/10 transition-ui"
+                              title="Preview document"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          ) : null}
+                          <button
+                            type="button"
+                            className="shrink-0 rounded p-1 text-danger hover:bg-danger/10 transition-ui"
+                            title="Remove document"
+                            onClick={() => removeUploadedDocument(key, file.name)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ) : null}
-                {documentErrors[key] ? (
-                  <p className="mt-1 text-xs text-danger">{documentErrors[key]}</p>
                 ) : null}
               </div>
             ))}
 
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <div className="mb-4 flex items-start justify-between gap-3">
+            <div className="rounded-xl border border-border bg-surface p-4 h-full flex flex-col">
+              <div className="mb-3 flex items-start justify-between gap-3">
                 <p className="font-medium text-ink">Certificates</p>
-                <p className="text-xs text-muted">5MB</p>
+                <p className="text-xs text-muted">2MB</p>
               </div>
               <SelectField
                 value={selectedCertificateKey}
@@ -728,70 +885,180 @@ export function EditEmployee() {
                   label: option.label,
                 }))}
               />
-              {!selectedCertificate ? (
-                <div className="mt-4">
-                  <FileUpload
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onUpload={(files) => handleDocumentUpload(selectedCertificateKey, files)}
-                  />
+              
+              <div className="mt-3">
+                <FileUpload
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onUpload={(files) => handleDocumentUpload(selectedCertificateKey, files)}
+                />
+                {documentErrors[selectedCertificateKey] ? (
+                  <p className="mt-2 text-xs text-danger">{documentErrors[selectedCertificateKey]}</p>
+                ) : null}
+              </div>
+              
+              {(existingDocuments[selectedCertificateKey] || documentFiles[selectedCertificateKey].length > 0) ? (
+                <div className="mt-3 pt-3 border-t border-border flex-1 overflow-hidden flex flex-col">
+                  <p className="text-xs font-medium text-muted mb-2 uppercase">Uploaded</p>
+                  <div className="space-y-2 overflow-y-auto flex-1">
+                    {/* Display existing certificate for selected category */}
+                    {existingDocuments[selectedCertificateKey] ? (
+                      <div className="rounded-lg border border-border bg-white px-3 py-2">
+                        <div className="flex items-start gap-3">
+                          <FileText className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-ink">
+                              {existingDocuments[selectedCertificateKey]?.name}
+                            </p>
+                            <p className="text-xs text-muted">Uploaded</p>
+                          </div>
+                          {existingDocuments[selectedCertificateKey]?.url ? (
+                            <a
+                              href={existingDocuments[selectedCertificateKey]?.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 rounded p-1 text-primary hover:bg-primary/10 transition-ui"
+                              title="View certificate"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          ) : null}
+                          <button
+                            type="button"
+                            className="shrink-0 rounded p-1 text-danger hover:bg-danger/10 transition-ui"
+                            title="Delete certificate"
+                            onClick={() => void deleteExistingDocument(selectedCertificateKey)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                    
+                    {/* Display newly uploaded certificates for selected category */}
+                    {documentFiles[selectedCertificateKey].map((file) => (
+                      <div key={file.name} className="rounded-lg border border-border bg-white px-3 py-2">
+                        <div className="flex items-start gap-3">
+                          <FileText className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-ink">{file.name}</p>
+                            <p className="text-xs text-muted">New</p>
+                          </div>
+                          {documentPreviews[selectedCertificateKey]?.[file.name] ? (
+                            <a
+                              href={documentPreviews[selectedCertificateKey][file.name]}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 rounded p-1 text-primary hover:bg-primary/10 transition-ui"
+                              title="Preview certificate"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          ) : null}
+                          <button
+                            type="button"
+                            className="shrink-0 rounded p-1 text-danger hover:bg-danger/10 transition-ui"
+                            title="Remove certificate"
+                            onClick={() => removeUploadedDocument(selectedCertificateKey, file.name)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : null}
-              {selectedCertificateFile || selectedCertificate ? (
-                <div className="mt-4 rounded-lg border border-border bg-white px-3 py-2">
+            </div>
+
+            {/* Agreement Document */}
+            <div className="rounded-xl border border-border bg-surface p-4">
+              <p className="mb-3 font-medium text-ink">{DOCUMENT_TYPES.agreement}</p>
+              <p className="text-xs text-muted mb-3">2MB</p>
+              
+              <FileUpload
+                accept=".pdf,.jpg,.jpeg,.png"
+                onUpload={(files) => handleDocumentUpload('agreement', files)}
+              />
+
+              {documentErrors.agreement ? (
+                <p className="mt-2 text-xs text-danger">{documentErrors.agreement}</p>
+              ) : null}
+              
+              {/* Display existing document */}
+              {existingDocuments.agreement ? (
+                <div className="mt-3 rounded-lg border border-border bg-white px-3 py-2">
                   <div className="flex items-start gap-3">
                     <FileText className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-ink">
-                        {selectedCertificateFile?.name ?? selectedCertificate?.name}
+                        {existingDocuments.agreement?.name}
                       </p>
-                      <p className="text-xs text-muted">
-                        {selectedCertificateFile
-                          ? `${CERTIFICATE_TYPES[selectedCertificateKey]} selected`
-                          : `${CERTIFICATE_TYPES[selectedCertificateKey]} uploaded`}
-                      </p>
+                      <p className="text-xs text-muted">Uploaded</p>
                     </div>
-                    {selectedCertificatePreview || selectedCertificate?.url ? (
+                    {existingDocuments.agreement?.url ? (
                       <a
-                        href={selectedCertificatePreview ?? selectedCertificate?.url}
+                        href={existingDocuments.agreement?.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="shrink-0 rounded-md p-1.5 text-primary transition-ui hover:bg-primary/10"
-                        title="Preview certificate"
+                        className="shrink-0 rounded p-1 text-primary hover:bg-primary/10 transition-ui"
+                        title="View document"
                       >
                         <ExternalLink className="h-4 w-4" />
                       </a>
                     ) : null}
-                    {selectedCertificateFile ? (
-                      <button
-                        type="button"
-                        className="shrink-0 rounded-md p-1.5 text-danger transition-ui hover:bg-danger/10"
-                        title="Remove selected certificate"
-                        onClick={() => removeSelectedDocument(selectedCertificateKey)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    ) : selectedCertificate ? (
-                      <button
-                        type="button"
-                        className="shrink-0 rounded-md p-1.5 text-danger transition-ui hover:bg-danger/10"
-                        title="Delete certificate"
-                        onClick={() => void deleteExistingDocument(selectedCertificateKey)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    ) : null}
+                    <button
+                      type="button"
+                      className="shrink-0 rounded p-1 text-danger hover:bg-danger/10 transition-ui"
+                      title="Delete document"
+                      onClick={() => void deleteExistingDocument('agreement')}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
               ) : null}
-              {documentErrors[selectedCertificateKey] ? (
-                <p className="mt-1 text-xs text-danger">{documentErrors[selectedCertificateKey]}</p>
+
+              {/* Display newly uploaded documents */}
+              {documentFiles.agreement.length > 0 ? (
+                <div className="mt-3 space-y-2">
+                  {documentFiles.agreement.map((file) => (
+                    <div key={file.name} className="rounded-lg border border-border bg-white px-3 py-2">
+                      <div className="flex items-start gap-3">
+                        <FileText className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-ink">{file.name}</p>
+                          <p className="text-xs text-muted">New</p>
+                        </div>
+                        {documentPreviews.agreement?.[file.name] ? (
+                          <a
+                            href={documentPreviews.agreement[file.name]}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="shrink-0 rounded p-1 text-primary hover:bg-primary/10 transition-ui"
+                            title="Preview document"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        ) : null}
+                        <button
+                          type="button"
+                          className="shrink-0 rounded p-1 text-danger hover:bg-danger/10 transition-ui"
+                          title="Remove document"
+                          onClick={() => removeUploadedDocument('agreement', file.name)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : null}
             </div>
 
             <div className="rounded-xl border border-border bg-surface p-4">
               <div className="mb-5 flex items-start justify-between gap-3">
                 <p className="font-medium text-ink">Profile Photo</p>
-                <p className="text-xs text-muted">2MB</p>
+                <p className="text-xs text-muted">1MB</p>
               </div>
               <FileUpload accept=".jpg,.jpeg,.png" onUpload={handlePhotoUpload} />
               {photoPreview ? (
@@ -849,17 +1116,75 @@ export function EditEmployee() {
             </div>
           </div>
         </div>
+      </form>
 
-        {/* ── Actions ──────────────────────────────────────────────────── */}
-        <div className="flex justify-end gap-3 rounded-2xl border border-border bg-white p-6 shadow-sm">
+      {/* ── Fixed Bottom Action Bar ────────────────────────────────────────────────── */}
+      <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-white p-4 shadow-lg">
+        <div className="mx-auto max-w-6xl flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={() => navigate('/admin/employees')}>
             Cancel
           </Button>
-          <Button type="submit" loading={form.formState.isSubmitting}>
-            Save changes
+          <Button type="submit" form="edit-employee-form" loading={form.formState.isSubmitting}>
+            Save Changes
           </Button>
         </div>
-      </form>
+      </div>
+
+      {/* ── File Size Help Modal ────────────────────────────────────────────────── */}
+      {showFileHelp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-white p-6 shadow-lg">
+            <button
+              type="button"
+              className="absolute right-4 top-4 rounded-md p-1 hover:bg-surface"
+              onClick={() => setShowFileHelp(false)}
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <h2 className="mb-4 font-display text-2xl font-semibold text-ink">File Size Limits</h2>
+
+            <div className="space-y-6">
+              <div>
+                <h3 className="mb-2 font-semibold text-ink">Current Limits</h3>
+                <div className="bg-surface p-4 rounded-lg space-y-2 text-sm">
+                  <p><span className="font-medium text-ink">Documents (PDF, JPG, PNG):</span> <span className="text-primary font-semibold">2 MB</span></p>
+                  <p><span className="font-medium text-ink">Profile Photo (JPG, PNG):</span> <span className="text-primary font-semibold">1 MB</span></p>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="mb-2 font-semibold text-ink">To Change File Size Limits</h3>
+                <p className="text-sm text-muted mb-3">Edit the following file in your backend:</p>
+                <div className="bg-surface p-3 rounded-lg mb-3 font-mono text-xs border border-border">
+                  <p className="text-ink">backend/src/pages/admin/Employees/AddEmployee.tsx</p>
+                </div>
+                <p className="text-sm text-muted mb-3">Find the constants:</p>
+                <div className="bg-surface p-4 rounded-lg font-mono text-xs space-y-2 border border-border overflow-x-auto">
+                  <p><span className="text-primary">const</span> <span className="text-ink">MAX_DOC_SIZE</span> = <span className="text-primary">2</span> * <span className="text-primary">1024</span> * <span className="text-primary">1024</span> <span className="text-muted">// 2 MB</span></p>
+                  <p><span className="text-primary">const</span> <span className="text-ink">MAX_PHOTO_SIZE</span> = <span className="text-primary">1</span> * <span className="text-primary">1024</span> * <span className="text-primary">1024</span> <span className="text-muted">// 1 MB</span></p>
+                </div>
+                <p className="text-sm text-muted mt-3">Update the numbers to your desired size in bytes. Example: For 5MB documents, use: <span className="font-mono font-semibold">5 * 1024 * 1024</span></p>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+                <p className="text-sm text-blue-900">
+                  <span className="font-semibold">Note:</span> After editing the backend constants, restart your backend server for changes to take effect.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <Button
+                type="button"
+                onClick={() => setShowFileHelp(false)}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </PageWrapper>
   )
 }

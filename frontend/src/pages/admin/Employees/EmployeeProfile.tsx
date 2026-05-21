@@ -6,6 +6,7 @@ import { Button } from '@components/ui/Button'
 import { Badge } from '@components/ui/Badge'
 import { Avatar } from '@components/ui/Avatar'
 import * as employeeService from '@services/employeeService'
+import { getPhotoUrl } from '@/services/uploadService'
 import type { Employee } from '@/types'
 import { formatDate } from '@/utils/formatDate'
 import { stringToHueColor } from '@/utils/stringColor'
@@ -105,7 +106,8 @@ export function EmployeeProfile() {
   }
 
   const name = `${employee.firstName} ${employee.lastName ?? ''}`.trim()
-  const fileName = `Employee_${employee.employeeId}_${employee.firstName}`
+  const exportDate = new Date().toISOString().split('T')[0]
+  const fileName = `employeedetails_${exportDate}`
 
   return (
     <PageWrapper>
@@ -136,7 +138,7 @@ export function EmployeeProfile() {
         {/* ── Sidebar ─────────────────────────────────────────────────── */}
         <aside className="rounded-xl border border-border bg-surface/70 p-5 shadow-sm h-max">
           <div className="flex flex-col items-center text-center">
-            <Avatar src={employee.avatarUrl} name={name} size="lg" color={stringToHueColor(employee.id)} />
+            <Avatar src={getPhotoUrl(employee.id)} name={name} size="lg" color={stringToHueColor(employee.id)} />
             <p className="mt-3 font-display text-lg font-semibold text-ink">{name}</p>
             <p className="font-mono text-xs text-muted">{employee.employeeId}</p>
             <div className="mt-3 flex items-center gap-2">
@@ -199,7 +201,6 @@ export function EmployeeProfile() {
               <InfoRow label="Role" value={employee.role} />
               <InfoRow label="Employment Type" value={employee.employmentType} />
               <InfoRow label="Joining Date" value={formatDate(employee.joinedAt)} />
-              <InfoRow label="Reporting Manager" value={employee.reportingManager} />
               <InfoRow label="Status" value={employee.status} />
             </div>
 
@@ -261,9 +262,6 @@ export function EmployeeProfile() {
                 <div className="flex flex-col items-center justify-center py-8 text-center rounded-lg border border-dashed border-border bg-surface/30">
                   <FileText className="h-10 w-10 text-muted/40" />
                   <p className="mt-3 text-sm text-muted">No documents uploaded yet.</p>
-                  <Button variant="secondary" size="sm" className="mt-4" asChild>
-                    <Link to={`/admin/employees/${employee.id}/edit`}>Upload Documents</Link>
-                  </Button>
                 </div>
               )}
             </div>

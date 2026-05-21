@@ -7,6 +7,7 @@ export interface LeaveRequest {
   id: string;
   employeeId: string;
   employeeName: string;
+  managerId?: string;
   type: string;
   from: string;
   to: string;
@@ -21,6 +22,7 @@ export interface LeaveRequest {
 export interface CreateLeavePayload {
   employeeId: string;
   employeeName: string;
+  managerId?: string;
   type: string;
   from: string;
   to: string;

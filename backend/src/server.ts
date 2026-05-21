@@ -1,8 +1,12 @@
 import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
+import session from 'express-session';
+import cookieParser from 'cookie-parser';
+import passport from 'passport';
 import { connectDB, closeDB } from './config/db';
 import { env } from './config/env';
+import { initializePassport } from './config/oauth';
 
 // Routes
 import { authRoutes } from './routes/authRoutes';
@@ -12,6 +16,8 @@ import { holidayRoutes } from './routes/holidayRoutes';
 import { ticketRoutes } from './routes/ticketRoutes';
 import { timesheetRoutes } from './routes/timesheetRoutes';
 import { uploadRoutes } from './routes/uploadRoutes';
+import { oauthRoutes } from './routes/oauthRoutes';
+import { notificationRoutes } from './routes/notificationRoutes';
 
 // Seed helpers
 import { seedDefaultUsers } from './services/authService';
@@ -21,10 +27,42 @@ import { getDB } from './config/db';
 
 const app = express();
 
+// ── CORS Configuration ────────────────────────────────────────
+const allowedOrigins = env.CORS_ORIGIN.split(',')
+  .map((origin) => origin.trim())
+  .filter((origin) => origin.length > 0);
+
 // ── Middleware ────────────────────────────────────────────────
-app.use(cors({ origin: '*', credentials: true }));
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+// ── Session & Passport ────────────────────────────────────────
+app.use(
+  session({
+    secret: env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: process.env.NODE_ENV === 'production', httpOnly: true, sameSite: 'lax' },
+  })
+);
+
+// Initialize OAuth only if credentials are available
+if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
+  initializePassport();
+  app.use(passport.initialize());
+  app.use(passport.session());
+} else {
+  console.log('⚠ Google OAuth disabled (missing credentials)');
+}
 
 // ── Health check ──────────────────────────────────────────────
 app.get('/health', (_req, res) => {
@@ -33,8 +71,10 @@ app.get('/health', (_req, res) => {
 
 // ── API Routes ────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
+app.use('/api/auth', oauthRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/leaves', leaveRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/api/holidays', holidayRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/timesheets', timesheetRoutes);
@@ -64,49 +104,21 @@ app.post('/api/seed', async (_req, res) => {
     await seedHolidays();
     await seedTickets();
 
-    // Seed sample employees if collection is empty
-    const db = getDB();
-    const empCount = await db.collection('employees').countDocuments();
-    if (empCount === 0) {
-      await db.collection('employees').insertMany([
-        {
-          id: 'E-1001', firstName: 'Asha', lastName: 'Menon',
-          department: 'Engineering', designation: 'Engineering Manager',
-          role: 'Engineering Manager', employmentType: 'Full-time',
-          joinedAt: '2021-03-15', status: 'Active',
-          email: 'asha.menon@company.com', phone: '+91 90000 10001',
-          ctc: 2400000, createdAt: new Date(), updatedAt: new Date(),
-        },
-        {
-          id: 'E-1002', firstName: 'Rahul', lastName: 'Verma',
-          department: 'People', designation: 'HR Business Partner',
-          role: 'HR Business Partner', employmentType: 'Full-time',
-          joinedAt: '2022-07-01', status: 'Active',
-          email: 'rahul.verma@company.com', phone: '+91 90000 10002',
-          createdAt: new Date(), updatedAt: new Date(),
-        },
-        {
-          id: 'E-1003', firstName: 'Meera', lastName: 'Iyer',
-          department: 'Finance', designation: 'Analyst',
-          role: 'Financial Analyst', employmentType: 'Full-time',
-          joinedAt: '2023-01-10', status: 'Probation',
-          email: 'meera.iyer@company.com',
-          createdAt: new Date(), updatedAt: new Date(),
-        },
-        {
-          id: 'E-1004', firstName: 'Dev', lastName: 'Patel',
-          department: 'Operations', designation: 'Ops Lead',
-          role: 'Operations Lead', employmentType: 'Contract',
-          joinedAt: '2020-11-20', status: 'On Leave',
-          email: 'dev.patel@company.com',
-          createdAt: new Date(), updatedAt: new Date(),
-        },
-      ]);
-    }
-
+    // Note: Employee seeding removed - add employees manually through the admin panel
     res.json({ message: 'Database seeded successfully', users });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Seeding failed' });
+  }
+});
+
+// ── Clear all employees ───────────────────────────────────────
+app.post('/api/clear-employees', async (_req, res) => {
+  try {
+    const db = getDB();
+    const result = await db.collection('employees').deleteMany({});
+    res.json({ message: 'All employees cleared', deletedCount: result.deletedCount });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to clear employees' });
   }
 });
 

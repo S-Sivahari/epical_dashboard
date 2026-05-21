@@ -59,8 +59,8 @@ export const employeeController = {
     try {
       const payload: CreateEmployeePayload = req.body;
 
-      if (!payload.firstName || !payload.email || !payload.department) {
-        res.status(400).json({ error: 'Missing required fields: firstName, email, department' });
+      if (!payload.employeeId || !payload.firstName || !payload.lastName || !payload.email || !payload.department || !payload.permanentAddress || !payload.communicationAddress || !payload.pan) {
+        res.status(400).json({ error: 'Missing required fields: employeeId, firstName, lastName, email, department, permanentAddress, communicationAddress, pan' });
         return;
       }
 

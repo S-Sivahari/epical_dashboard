@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { z } from 'zod'
+import { ExternalLink, FileText, X, HelpCircle } from 'lucide-react'
 import { Breadcrumb } from '@components/layout/Breadcrumb'
 import { PageHeader } from '@components/layout/PageHeader'
 import { PageWrapper } from '@components/layout/PageWrapper'
@@ -15,20 +16,15 @@ import { useEmployeeStore } from '@store/employeeStore'
 import type { Employee } from '@/types'
 import { uploadDocuments, uploadPhoto } from '@services/uploadService'
 
-const employeeIdPattern = /^(EPL|INT)\d{8}$/
 const isValidDate = (value: string) => !Number.isNaN(Date.parse(value))
 
 const step1 = z.object({
-  employeeId: z
-    .string()
-    .min(1, 'Employee ID is required')
-    .refine(
-      (value) => employeeIdPattern.test(value.trim().toUpperCase()),
-      'Use EPL or INT plus 8 digits',
-    ),
+  employeeId: z.string().min(1, 'Employee ID is required'),
   firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().optional().or(z.literal('')),
-  address: z.string().optional().or(z.literal('')),
+  middleName: z.string().optional().or(z.literal('')),
+  lastName: z.string().min(1, 'Last name is required'),
+  permanentAddress: z.string().min(1, 'Permanent address is required'),
+  communicationAddress: z.string().min(1, 'Communication address is required'),
   dob: z
     .string()
     .min(1, 'Date of birth is required')
@@ -44,7 +40,7 @@ const step2 = z.object({
   accountNumber: z.string().optional(),
   ifsc: z.string().optional(),
   uan: z.string().optional(),
-  pfEsi: z.enum(['on', 'off']),
+  pfEsi: z.enum(['on', 'off']).optional(),
 })
 
 const step3 = z.object({
@@ -52,11 +48,10 @@ const step3 = z.object({
     .string()
     .min(1, 'Joining date is required')
     .refine(isValidDate, 'Enter a valid joining date'),
-  employmentType: z.enum(['Full-time', 'Contract', 'Intern', 'Notice Period']),
-
-  department: z.string().min(2, 'Department is required'),
-  reportingManager: z.string().min(1, 'Reporting manager is required'),
+  employmentType: z.enum(['Full-time', 'Contract', 'Intern']),
+  department: z.string().optional(),
   role: z.enum(['Employee', 'Admin'], { required_error: 'Role is required' }),
+  managerId: z.string().optional(),
   ctc: z.preprocess(
     (value) => (value === '' || value === null || value === undefined ? undefined : Number(value)),
     z.number().positive('CTC must be a positive number').optional(),
@@ -64,9 +59,14 @@ const step3 = z.object({
 })
 
 const step4 = z.object({
-  aadhaar: z.string().length(12, 'Aadhaar must be 12 digits'),
-  pan: z.string().length(10, 'PAN must be 10 characters'),
+  aadhaar: z.string().optional(),
+  pan: z.string().min(1, 'PAN is required'),
   passport: z.string().optional(),
+  emergencyContactName: z.string().min(1, 'Emergency contact name is required'),
+  emergencyContactPhone: z.string().min(1, 'Emergency contact phone is required'),
+  emergencyContactEmail: z.string().email('Valid email required'),
+  emergencyContactRelation: z.string().min(1, 'Emergency contact relation is required'),
+  emergencyContactAddress: z.string().min(1, 'Emergency contact address is required'),
 })
 
 const fullSchema = step1.merge(step2).merge(step3).merge(step4)
@@ -74,7 +74,11 @@ type FullValues = z.infer<typeof fullSchema>
 
 const defaultValues: Partial<FullValues> = {
   employeeId: '',
-  address: '',
+  firstName: '',
+  middleName: '',
+  lastName: '',
+  permanentAddress: '',
+  communicationAddress: '',
   gender: '',
   employmentType: 'Full-time',
   pfEsi: 'on',
@@ -83,6 +87,12 @@ const defaultValues: Partial<FullValues> = {
   accountNumber: '',
   ifsc: '',
   uan: '',
+  pan: '',
+  emergencyContactName: '',
+  emergencyContactPhone: '',
+  emergencyContactEmail: '',
+  emergencyContactRelation: '',
+  emergencyContactAddress: '',
 }
 
 type DocKey = 'aadhaar' | 'pan' | 'offerLetter' | 'agreement'
@@ -91,7 +101,7 @@ const DOCUMENT_TYPES = {
   aadhaar: 'Aadhaar',
   pan: 'PAN',
   offerLetter: 'Offer Letter',
-  agreement: 'Agreement',
+  agreement: 'Agreement Document',
 } as const
 
 const CERTIFICATE_CATEGORIES = [
@@ -106,8 +116,8 @@ type CertificateCategory = (typeof CERTIFICATE_CATEGORIES)[number]
 
 const ALLOWED_DOC_TYPES = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png']
 const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/jpg', 'image/png']
-const MAX_DOC_SIZE = 5 * 1024 * 1024
-const MAX_PHOTO_SIZE = 2 * 1024 * 1024
+const MAX_DOC_SIZE = 2 * 1024 * 1024
+const MAX_PHOTO_SIZE = 1 * 1024 * 1024
 
 function validateFile(file: File, allowedTypes: string[], maxSize: number) {
   if (!allowedTypes.includes(file.type)) {
@@ -121,6 +131,7 @@ function validateFile(file: File, allowedTypes: string[], maxSize: number) {
 
 export function AddEmployee() {
   const navigate = useNavigate()
+  const formRef = useRef<HTMLFormElement>(null)
   const addEmployee = useEmployeeStore((s) => s.addEmployee)
   const form = useForm<FullValues>({
     resolver: zodResolver(fullSchema),
@@ -135,6 +146,12 @@ export function AddEmployee() {
     agreement: null,
   })
   const [documentErrors, setDocumentErrors] = useState<Record<DocKey, string | null>>({
+    aadhaar: null,
+    pan: null,
+    offerLetter: null,
+    agreement: null,
+  })
+  const [documentPreviews, setDocumentPreviews] = useState<Record<DocKey, string | null>>({
     aadhaar: null,
     pan: null,
     offerLetter: null,
@@ -158,23 +175,46 @@ export function AddEmployee() {
   })
   const [selectedCertificateCategory, setSelectedCertificateCategory] =
     useState<CertificateCategory>('Degree')
+  const [certificatePreviews, setCertificatePreviews] = useState<Record<CertificateCategory, Record<string, string>>>({  
+    'Degree': {},
+    'Diploma': {},
+    '10th': {},
+    '12th': {},
+    'Other Options': {},
+  })
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [photoError, setPhotoError] = useState<string | null>(null)
+  const [showPreview, setShowPreview] = useState(false)
+  const [previewData, setPreviewData] = useState<FullValues | null>(null)
+  const [showFileHelp, setShowFileHelp] = useState(false)
+  const [copyAddressChecked, setCopyAddressChecked] = useState(false)
 
   useEffect(() => {
     return () => {
       if (photoPreview) {
         URL.revokeObjectURL(photoPreview)
       }
+      Object.values(documentPreviews).forEach((url) => {
+        if (url) URL.revokeObjectURL(url)
+      })
+      Object.values(certificatePreviews).forEach((categoryPreviews) => {
+        Object.values(categoryPreviews).forEach((url) => {
+          if (url) URL.revokeObjectURL(url)
+        })
+      })
     }
-  }, [photoPreview])
+  }, [photoPreview, documentPreviews, certificatePreviews])
 
   const handleDocumentUpload = (key: DocKey, files: FileList | null) => {
     const file = files?.[0] ?? null
     if (!file) {
       setDocumentFiles((prev) => ({ ...prev, [key]: null }))
       setDocumentErrors((prev) => ({ ...prev, [key]: null }))
+      setDocumentPreviews((prev) => {
+        if (prev[key]) URL.revokeObjectURL(prev[key])
+        return { ...prev, [key]: null }
+      })
       return
     }
 
@@ -186,6 +226,10 @@ export function AddEmployee() {
     }
 
     setDocumentFiles((prev) => ({ ...prev, [key]: file }))
+    setDocumentPreviews((prev) => {
+      if (prev[key]) URL.revokeObjectURL(prev[key])
+      return { ...prev, [key]: URL.createObjectURL(file) }
+    })
   }
 
   const handleCertificateUpload = (category: CertificateCategory, files: FileList | null) => {
@@ -204,6 +248,10 @@ export function AddEmployee() {
       }
 
       setCertificateFiles((prev) => ({ ...prev, [category]: [...prev[category], file] }))
+      setCertificatePreviews((prev) => ({
+        ...prev,
+        [category]: { ...prev[category], [file.name]: URL.createObjectURL(file) },
+      }))
       return
     }
 
@@ -216,6 +264,13 @@ export function AddEmployee() {
     if (error) return
 
     setCertificateFiles((prev) => ({ ...prev, [category]: [...prev[category], ...fileList] }))
+    setCertificatePreviews((prev) => {
+      const newPreviews = { ...prev[category] }
+      fileList.forEach((file) => {
+        newPreviews[file.name] = URL.createObjectURL(file)
+      })
+      return { ...prev, [category]: newPreviews }
+    })
   }
 
   const removeCertificateFile = (category: CertificateCategory, fileName: string) => {
@@ -223,6 +278,14 @@ export function AddEmployee() {
       ...prev,
       [category]: prev[category].filter((file) => file.name !== fileName),
     }))
+    setCertificatePreviews((prev) => {
+      const categoryPreviews = { ...prev[category] }
+      if (categoryPreviews[fileName]) {
+        URL.revokeObjectURL(categoryPreviews[fileName])
+        delete categoryPreviews[fileName]
+      }
+      return { ...prev, [category]: categoryPreviews }
+    })
   }
 
   const handlePhotoUpload = (files: FileList | null) => {
@@ -247,21 +310,37 @@ export function AddEmployee() {
   }
 
   const onSubmit = form.handleSubmit(async (values) => {
+    setPreviewData(values)
+    setShowPreview(true)
+  })
+
+  const handleConfirmCreate = async (values: FullValues) => {
     const payload: Omit<Employee, 'id'> = {
       employeeId: values.employeeId.trim(),
       firstName: values.firstName,
-      lastName: values.lastName ?? '',
-      address: values.address ?? '',
+      middleName: values.middleName ? values.middleName.trim() : undefined,
+      lastName: values.lastName.trim(),
+      permanentAddress: values.permanentAddress,
+      communicationAddress: values.communicationAddress,
       department: values.department,
       designation: values.role,
-      role: values.role,
-      employmentType: values.employmentType,
+      role: values.role,      managerId: values.managerId || undefined,      employmentType: values.employmentType,
       joinedAt: values.joinedAt,
       status: 'Active',
       email: values.companyEmail || '',
       personalEmail: values.personalEmail,
       phone: values.phone,
       ctc: values.ctc,
+      pan: values.pan,
+      aadhaar: values.aadhaar,
+      passport: values.passport,
+      emergencyContact: {
+        name: values.emergencyContactName || '',
+        phone: values.emergencyContactPhone || '',
+        email: values.emergencyContactEmail || '',
+        relation: values.emergencyContactRelation || '',
+        address: values.emergencyContactAddress || '',
+      },
     }
 
     try {
@@ -301,8 +380,9 @@ export function AddEmployee() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Could not create employee'
       toast.error(msg)
+      setShowPreview(false)
     }
-  })
+  }
 
   return (
     <PageWrapper>
@@ -313,7 +393,7 @@ export function AddEmployee() {
         }
       />
 
-      <form className="mx-auto max-w-6xl space-y-8 pb-12" onSubmit={onSubmit}>
+      <form ref={formRef} id="add-employee-form" className="mx-auto max-w-6xl space-y-8 pb-32" onSubmit={onSubmit}>
         {/* 2-column grid for sections */}
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Section 1: Personal Details */}
@@ -325,7 +405,6 @@ export function AddEmployee() {
               <Input
                 label="Employee ID"
                 required
-                placeholder="e.g. EPL12345678"
                 error={form.formState.errors.employeeId?.message}
                 {...form.register('employeeId')}
               />
@@ -336,14 +415,15 @@ export function AddEmployee() {
                 {...form.register('firstName')}
               />
               <Input
-                label="Last name"
-                error={form.formState.errors.lastName?.message}
-                {...form.register('lastName')}
+                label="Middle name"
+                error={form.formState.errors.middleName?.message}
+                {...form.register('middleName')}
               />
               <Input
-                label="Address"
-                error={form.formState.errors.address?.message}
-                {...form.register('address')}
+                label="Last name"
+                required
+                error={form.formState.errors.lastName?.message}
+                {...form.register('lastName')}
               />
               <Input
                 label="Date of birth"
@@ -383,6 +463,48 @@ export function AddEmployee() {
                 {...form.register('companyEmail')}
               />
             </div>
+
+            {/* Address Section */}
+            <div className="mt-8 border-t border-border pt-6">
+              <h3 className="font-display text-lg font-semibold text-ink mb-4">Address Details</h3>
+              <div className="space-y-4">
+                <Input
+                  label="Permanent Address"
+                  required
+                  error={form.formState.errors.permanentAddress?.message}
+                  {...form.register('permanentAddress')}
+                />
+                <div className="flex items-end gap-3">
+                  <div className="flex-1">
+                    <Input
+                      label="Communication Address"
+                      required
+                      error={form.formState.errors.communicationAddress?.message}
+                      {...form.register('communicationAddress')}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 pb-2">
+                    <input
+                      type="checkbox"
+                      id="copyAddress"
+                      checked={copyAddressChecked}
+                      onChange={(e) => {
+                        const checked = e.target.checked
+                        setCopyAddressChecked(checked)
+                        if (checked) {
+                          const permanentAddr = form.getValues('permanentAddress')
+                          form.setValue('communicationAddress', permanentAddr)
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-border cursor-pointer"
+                    />
+                    <label htmlFor="copyAddress" className="text-sm text-muted cursor-pointer whitespace-nowrap">
+                      Copy permanent
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Section 2: Account Details */}
@@ -413,7 +535,6 @@ export function AddEmployee() {
               />
               <SelectField
                 label="PF/ESI Status"
-                required
                 error={form.formState.errors.pfEsi?.message}
                 options={[
                   { value: 'on', label: 'Enabled' },
@@ -445,21 +566,13 @@ export function AddEmployee() {
                   { value: 'Full-time', label: 'Full-time' },
                   { value: 'Contract', label: 'Contract' },
                   { value: 'Intern', label: 'Intern' },
-                  { value: 'Notice Period', label: 'Notice Period' },
                 ]}
                 {...form.register('employmentType')}
               />
               <Input
                 label="Department"
-                required
                 error={form.formState.errors.department?.message}
                 {...form.register('department')}
-              />
-              <Input
-                label="Reporting manager"
-                required
-                error={form.formState.errors.reportingManager?.message}
-                {...form.register('reportingManager')}
               />
               <SelectField
                 label="Role"
@@ -490,7 +603,6 @@ export function AddEmployee() {
             <div className="grid gap-4 md:grid-cols-3">
               <Input
                 label="Aadhaar number"
-                required
                 error={form.formState.errors.aadhaar?.message}
                 {...form.register('aadhaar')}
               />
@@ -507,11 +619,60 @@ export function AddEmployee() {
               />
             </div>
           </div>
+
+          {/* Section 5: Emergency Contact */}
+          <div className="rounded-2xl border border-border bg-white p-6 shadow-sm lg:col-span-2">
+            <div className="mb-6">
+              <h3 className="font-display text-lg font-semibold text-ink">Emergency Contact Details</h3>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <Input
+                label="Name"
+                required
+                error={form.formState.errors.emergencyContactName?.message}
+                {...form.register('emergencyContactName')}
+              />
+              <Input
+                label="Phone"
+                required
+                error={form.formState.errors.emergencyContactPhone?.message}
+                {...form.register('emergencyContactPhone')}
+              />
+              <Input
+                label="Email"
+                type="email"
+                required
+                error={form.formState.errors.emergencyContactEmail?.message}
+                {...form.register('emergencyContactEmail')}
+              />
+              <Input
+                label="Relation"
+                required
+                error={form.formState.errors.emergencyContactRelation?.message}
+                {...form.register('emergencyContactRelation')}
+              />
+              <Input
+                label="Address"
+                className="lg:col-span-2"
+                required
+                error={form.formState.errors.emergencyContactAddress?.message}
+                {...form.register('emergencyContactAddress')}
+              />
+            </div>
+          </div>
         </div>
 
         <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
-          <div className="mb-6">
+          <div className="mb-6 flex items-center justify-between">
             <h3 className="font-display text-lg font-semibold text-ink">Employee Documents</h3>
+            <button
+              type="button"
+              onClick={() => setShowFileHelp(true)}
+              className="rounded p-1.5 text-muted hover:bg-surface hover:text-ink transition-ui"
+              title="Help - File size limits and configuration"
+            >
+              <HelpCircle className="h-5 w-5" />
+            </button>
           </div>
           
           {/* Row 1: Aadhaar, PAN, Offer Letter */}
@@ -523,7 +684,7 @@ export function AddEmployee() {
                 <div key={key} className="rounded-xl border border-border bg-surface p-4">
                   <div className="flex items-start justify-between mb-3">
                     <p className="font-medium text-ink">{label}</p>
-                    <p className="text-xs text-muted">5MB</p>
+                    <p className="text-xs text-muted">2MB</p>
                   </div>
                   <FileUpload
                     accept=".pdf,.jpg,.jpeg,.png"
@@ -533,8 +694,19 @@ export function AddEmployee() {
                   {documentFiles[docKey] ? (
                     <div className="mt-4 pt-4 border-t border-border">
                       <p className="text-xs font-medium text-muted mb-2 uppercase">Uploaded</p>
-                      <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-white px-3 py-2">
-                        <span className="truncate text-xs text-ink">{documentFiles[docKey]?.name}</span>
+                      <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-white px-3 py-2">
+                        <span className="truncate text-xs text-ink flex-1">{documentFiles[docKey]?.name}</span>
+                        {documentPreviews[docKey] ? (
+                          <a
+                            href={documentPreviews[docKey]}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="shrink-0 rounded p-1 text-primary hover:bg-primary/10 transition-ui"
+                            title="Preview document"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        ) : null}
                         <button
                           type="button"
                           className="text-xs font-medium text-danger hover:underline shrink-0"
@@ -553,44 +725,13 @@ export function AddEmployee() {
             })}
           </div>
 
-          {/* Row 2: Agreement, Certificates, Profile Photo */}
+          {/* Row 2: Certificates, Agreement Document, Profile Photo */}
           <div className="mt-6 grid gap-4 md:grid-cols-3 items-start">
-            {/* Agreement */}
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <div className="flex items-start justify-between mb-3">
-                <p className="font-medium text-ink">{DOCUMENT_TYPES.agreement}</p>
-                <p className="text-xs text-muted">5MB</p>
-              </div>
-              <FileUpload
-                accept=".pdf,.jpg,.jpeg,.png"
-                onUpload={(files) => handleDocumentUpload('agreement', files)}
-              />
-              
-              {documentFiles.agreement ? (
-                <div className="mt-4 pt-4 border-t border-border">
-                  <p className="text-xs font-medium text-muted mb-2 uppercase">Uploaded</p>
-                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-white px-3 py-2">
-                    <span className="truncate text-xs text-ink">{documentFiles.agreement?.name}</span>
-                    <button
-                      type="button"
-                      className="text-xs font-medium text-danger hover:underline shrink-0"
-                      onClick={() => handleDocumentUpload('agreement', null)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-              {documentErrors.agreement ? (
-                <p className="text-xs text-danger mt-2">{documentErrors.agreement}</p>
-              ) : null}
-            </div>
-
             {/* Certificates */}
-            <div className="rounded-xl border border-border bg-surface p-4">
+            <div className="rounded-xl border border-border bg-surface p-4 h-full flex flex-col">
               <div className="flex items-start justify-between mb-3">
                 <p className="font-medium text-ink">Certificates</p>
-                <p className="text-xs text-muted">5MB</p>
+                <p className="text-xs text-muted">2MB</p>
               </div>
               <SelectField
                 value={selectedCertificateCategory}
@@ -616,30 +757,43 @@ export function AddEmployee() {
               </div>
               
               {Object.entries(certificateFiles).some(([_, files]) => files.length > 0) ? (
-                <div className="mt-4 pt-4 border-t border-border max-h-64 overflow-y-auto">
-                  <p className="text-xs font-medium text-muted mb-3 uppercase">Uploaded Certificates</p>
-                  <div className="space-y-2">
+                <div className="mt-4 pt-4 border-t border-border flex-1 overflow-hidden flex flex-col">
+                  <p className="text-xs font-medium text-muted mb-2 uppercase">Uploaded</p>
+                  <div className="space-y-2 overflow-y-auto flex-1">
                     {Object.entries(certificateFiles).map(([category, files]) =>
                       files.map((file) => (
                         <div
                           key={`${category}-${file.name}`}
-                          className="flex items-center justify-between gap-3 rounded-lg border border-border bg-white px-3 py-2"
+                          className="flex items-center justify-between gap-3 rounded-lg border border-border bg-white px-3 py-2 text-xs"
                         >
                           <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <span className="truncate text-xs text-ink">{file.name}</span>
-                            <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded whitespace-nowrap">
+                            <span className="truncate text-ink">{file.name}</span>
+                            <span className="bg-primary/10 text-primary px-2 py-1 rounded whitespace-nowrap">
                               {category}
                             </span>
                           </div>
-                          <button
-                            type="button"
-                            className="text-xs font-medium text-danger hover:underline shrink-0"
-                            onClick={() =>
-                              removeCertificateFile(category as CertificateCategory, file.name)
-                            }
-                          >
-                            Delete
-                          </button>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {certificatePreviews[category as CertificateCategory]?.[file.name] ? (
+                              <a
+                                href={certificatePreviews[category as CertificateCategory][file.name]}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="rounded p-1 text-primary hover:bg-primary/10 transition-ui"
+                                title="Preview certificate"
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </a>
+                            ) : null}
+                            <button
+                              type="button"
+                              className="font-medium text-danger hover:underline"
+                              onClick={() =>
+                                removeCertificateFile(category as CertificateCategory, file.name)
+                              }
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </div>
                       ))
                     )}
@@ -648,11 +802,55 @@ export function AddEmployee() {
               ) : null}
             </div>
 
+            {/* Agreement Document */}
+            <div className="rounded-xl border border-border bg-surface p-4">
+              <div className="flex items-start justify-between mb-3">
+                <p className="font-medium text-ink">{DOCUMENT_TYPES.agreement}</p>
+                <p className="text-xs text-muted">2MB</p>
+              </div>
+              <FileUpload
+                accept=".pdf,.jpg,.jpeg,.png"
+                onUpload={(files) => handleDocumentUpload('agreement', files)}
+              />
+              
+              {documentFiles.agreement ? (
+                <div className="mt-4 pt-4 border-t border-border">
+                  <p className="text-xs font-medium text-muted mb-2 uppercase">Uploaded</p>
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-white px-3 py-2">
+                    <span className="truncate text-xs text-ink">{documentFiles.agreement?.name}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {documentPreviews.agreement ? (
+                        <a
+                          href={documentPreviews.agreement}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded p-1 text-primary hover:bg-primary/10 transition-ui"
+                          title="Preview document"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-danger hover:underline"
+                        onClick={() => handleDocumentUpload('agreement', null)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+              {documentErrors.agreement ? (
+                <p className="text-xs text-danger mt-2">{documentErrors.agreement}</p>
+              ) : null}
+            </div>
+
             {/* Profile Photo */}
             <div className="rounded-xl border border-border bg-surface p-4">
               <div className="flex items-start justify-between mb-3">
                 <p className="font-medium text-ink">Profile Photo</p>
-                <p className="text-xs text-muted">5MB</p>
+                <p className="text-xs text-muted">1MB</p>
               </div>
               <FileUpload accept=".jpg,.jpeg,.png" onUpload={handlePhotoUpload} />
               {photoFile ? (
@@ -682,16 +880,219 @@ export function AddEmployee() {
             </div>
           </div>
         </div>
+      </form>
 
-        <div className="flex justify-end gap-3 rounded-2xl border border-border bg-white p-6 shadow-sm">
+      {/* ── Fixed Bottom Action Bar ────────────────────────────────────────────────── */}
+      <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-white p-4 shadow-lg">
+        <div className="mx-auto max-w-6xl flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={() => navigate('/admin/employees')}>
             Cancel
           </Button>
-          <Button type="submit" loading={form.formState.isSubmitting}>
+          <Button type="submit" form="add-employee-form" loading={form.formState.isSubmitting}>
             Create Employee
           </Button>
         </div>
-      </form>
+      </div>
+
+      {/* ── Preview Modal ────────────────────────────────────────────────── */}
+      {showPreview && previewData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-white p-6 shadow-lg">
+            <button
+              type="button"
+              className="absolute right-4 top-4 rounded-md p-1 hover:bg-surface"
+              onClick={() => setShowPreview(false)}
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <h2 className="mb-6 font-display text-2xl font-semibold text-ink">Verify Employee Details</h2>
+
+            <div className="space-y-6">
+              {/* Personal Section */}
+              <div>
+                <h3 className="mb-3 font-semibold text-ink">Personal Information</h3>
+                <div className="grid gap-3 sm:grid-cols-2 bg-surface p-4 rounded-lg">
+                  <div>
+                    <p className="text-xs text-muted">Employee ID</p>
+                    <p className="font-medium text-ink">{previewData.employeeId}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted">Full Name</p>
+                    <p className="font-medium text-ink">{previewData.firstName} {previewData.middleName ? previewData.middleName + ' ' : ''}{previewData.lastName || ''}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted">Email</p>
+                    <p className="font-medium text-ink text-sm">{previewData.companyEmail}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted">Phone</p>
+                    <p className="font-medium text-ink">{previewData.phone}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted">Department</p>
+                    <p className="font-medium text-ink">{previewData.department}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted">Role</p>
+                    <p className="font-medium text-ink">{previewData.role}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted">Employment Type</p>
+                    <p className="font-medium text-ink">{previewData.employmentType}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted">Joining Date</p>
+                    <p className="font-medium text-ink">{previewData.joinedAt}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Address Section */}
+              <div>
+                <h3 className="mb-3 font-semibold text-ink">Address Information</h3>
+                <div className="grid gap-3 bg-surface p-4 rounded-lg">
+                  <div>
+                    <p className="text-xs text-muted">Permanent Address</p>
+                    <p className="font-medium text-ink text-sm">{previewData.permanentAddress}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted">Communication Address</p>
+                    <p className="font-medium text-ink text-sm">{previewData.communicationAddress}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ID Proof Section */}
+              <div>
+                <h3 className="mb-3 font-semibold text-ink">ID & Document Proof</h3>
+                <div className="grid gap-2 bg-surface p-4 rounded-lg text-sm">
+                  <p><span className="text-muted">PAN:</span> {previewData.pan || '—'}</p>
+                  <p><span className="text-muted">Aadhaar:</span> {previewData.aadhaar || '—'}</p>
+                  <p><span className="text-muted">Passport:</span> {previewData.passport || '—'}</p>
+                </div>
+              </div>
+
+              {/* Emergency Contact Section */}
+              {(previewData.emergencyContactName || previewData.emergencyContactPhone || previewData.emergencyContactEmail) && (
+                <div>
+                  <h3 className="mb-3 font-semibold text-ink">Emergency Contact</h3>
+                  <div className="grid gap-2 bg-surface p-4 rounded-lg text-sm">
+                    <p><span className="text-muted">Name:</span> {previewData.emergencyContactName || '—'}</p>
+                    <p><span className="text-muted">Phone:</span> {previewData.emergencyContactPhone || '—'}</p>
+                    <p><span className="text-muted">Email:</span> {previewData.emergencyContactEmail || '—'}</p>
+                    <p><span className="text-muted">Relation:</span> {previewData.emergencyContactRelation || '—'}</p>
+                    <p><span className="text-muted">Address:</span> {previewData.emergencyContactAddress || '—'}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Documents Section */}
+              <div>
+                <h3 className="mb-3 font-semibold text-ink">Documents</h3>
+                <div className="grid gap-2 bg-surface p-4 rounded-lg text-sm">
+                  <p><span className="text-muted">Aadhaar:</span> {documentFiles.aadhaar ? '✓ Uploaded' : '—'}</p>
+                  <p><span className="text-muted">PAN:</span> {documentFiles.pan ? '✓ Uploaded' : '—'}</p>
+                  <p><span className="text-muted">Offer Letter:</span> {documentFiles.offerLetter ? '✓ Uploaded' : '—'}</p>
+                  <p><span className="text-muted">Agreement:</span> {documentFiles.agreement ? '✓ Uploaded' : '—'}</p>
+                  <p><span className="text-muted">Profile Photo:</span> {photoFile ? '✓ Uploaded' : '—'}</p>
+                </div>
+              </div>
+
+              {/* Certificates Section */}
+              {Object.entries(certificateFiles).some(([_, files]) => files.length > 0) && (
+                <div>
+                  <h3 className="mb-3 font-semibold text-ink">Certificates</h3>
+                  <div className="grid gap-2 bg-surface p-4 rounded-lg text-sm">
+                    {Object.entries(certificateFiles).map(([category, files]) =>
+                      files.length > 0 ? (
+                        <p key={category}>
+                          <span className="text-muted">{category}:</span> {files.length} file(s)
+                        </p>
+                      ) : null
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setShowPreview(false)}
+              >
+                Back to Edit
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  setShowPreview(false)
+                  handleConfirmCreate(previewData)
+                }}
+              >
+                Confirm & Create
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── File Size Help Modal ────────────────────────────────────────────────── */}
+      {showFileHelp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-white p-6 shadow-lg">
+            <button
+              type="button"
+              className="absolute right-4 top-4 rounded-md p-1 hover:bg-surface"
+              onClick={() => setShowFileHelp(false)}
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <h2 className="mb-4 font-display text-2xl font-semibold text-ink">File Size Limits</h2>
+
+            <div className="space-y-6">
+              <div>
+                <h3 className="mb-2 font-semibold text-ink">Current Limits</h3>
+                <div className="bg-surface p-4 rounded-lg space-y-2 text-sm">
+                  <p><span className="font-medium text-ink">Documents (PDF, JPG, PNG):</span> <span className="text-primary font-semibold">2 MB</span></p>
+                  <p><span className="font-medium text-ink">Profile Photo (JPG, PNG):</span> <span className="text-primary font-semibold">1 MB</span></p>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="mb-2 font-semibold text-ink">To Change File Size Limits</h3>
+                <p className="text-sm text-muted mb-3">Edit the following file in your backend:</p>
+                <div className="bg-surface p-3 rounded-lg mb-3 font-mono text-xs border border-border">
+                  <p className="text-ink">backend/src/pages/admin/Employees/AddEmployee.tsx</p>
+                </div>
+                <p className="text-sm text-muted mb-3">Find the constants:</p>
+                <div className="bg-surface p-4 rounded-lg font-mono text-xs space-y-2 border border-border overflow-x-auto">
+                  <p><span className="text-primary">const</span> <span className="text-ink">MAX_DOC_SIZE</span> = <span className="text-primary">2</span> * <span className="text-primary">1024</span> * <span className="text-primary">1024</span> <span className="text-muted">// 2 MB</span></p>
+                  <p><span className="text-primary">const</span> <span className="text-ink">MAX_PHOTO_SIZE</span> = <span className="text-primary">1</span> * <span className="text-primary">1024</span> * <span className="text-primary">1024</span> <span className="text-muted">// 1 MB</span></p>
+                </div>
+                <p className="text-sm text-muted mt-3">Update the numbers to your desired size in bytes. Example: For 5MB documents, use: <span className="font-mono font-semibold">5 * 1024 * 1024</span></p>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+                <p className="text-sm text-blue-900">
+                  <span className="font-semibold">Note:</span> After editing the backend constants, restart your backend server for changes to take effect.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <Button
+                type="button"
+                onClick={() => setShowFileHelp(false)}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </PageWrapper>
   )
 }
