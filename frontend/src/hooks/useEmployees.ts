@@ -25,7 +25,6 @@ export function useEmployees() {
     filters.employeeId,
     filters.department,
     filters.employmentType,
-    filters.employmentStatus,
     filters.status,
     pagination.page,
     pagination.pageSize,

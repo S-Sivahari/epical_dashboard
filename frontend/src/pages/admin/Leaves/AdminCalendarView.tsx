@@ -45,7 +45,7 @@ export function AdminCalendarView() {
   const fetchHolidays = useLeaveStore((s) => s.fetchHolidays)
 
   const [currentDate, setCurrentDate] = useState(new Date(2026, 4, 21))
-  const [events, setEvents] = useState<CompanyEvent[]>(seedEvents)
+  const [events] = useState<CompanyEvent[]>(seedEvents)
   const [selectedDateStr, setSelectedDateStr] = useState<string | null>(null)
   const [isDateModalOpen, setIsDateModalOpen] = useState(false)
   const [isHolidayFormOpen, setIsHolidayFormOpen] = useState(false)
@@ -57,7 +57,7 @@ export function AdminCalendarView() {
   const [title, setTitle] = useState('')
   const [date, setDate] = useState('')
   const [description, setDescription] = useState('')
-  const [type, setType] = useState<'Government' | 'Company'>('Government')
+  const [type, setType] = useState<'National' | 'Company' | 'Optional'>('National')
 
   // Calendar logic
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1))
@@ -101,7 +101,7 @@ export function AdminCalendarView() {
     setTitle('')
     setDate('')
     setDescription('')
-    setType('Government')
+    setType('National')
     setEditingId(null)
   }
 
@@ -257,12 +257,12 @@ export function AdminCalendarView() {
                             {format(day, 'd')}
                           </span>
                           <div className="flex gap-0.5">
-                            {dayHolidays.map((h, i) => (
-                              <div key={i} className={`h-1.5 w-1.5 rounded-full ${h.type === 'Government' ? 'bg-green-500' : 'bg-blue-500'}`} />
-                            ))}
-                            {dayEvents.map((e, i) => (
-                              <div key={`event-${i}`} className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                            ))}
+                             {dayHolidays.map((h, i) => (
+                               <div key={i} className={`h-1.5 w-1.5 rounded-full ${h.type === 'National' ? 'bg-green-500' : h.type === 'Company' ? 'bg-blue-500' : 'bg-orange-500'}`} />
+                             ))}
+                             {dayEvents.map((_, i) => (
+                               <div key={`event-${i}`} className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                             ))}
                           </div>
                         </div>
 
@@ -323,7 +323,7 @@ export function AdminCalendarView() {
                   <div key={holiday.id} className="group flex items-center justify-between p-2 rounded-lg border border-border hover:border-primary/40 transition-all">
                     <div className="flex-1 flex items-center gap-2 min-w-0">
                       <div className={`flex h-7 w-7 items-center justify-center rounded text-white flex-shrink-0 shadow-sm text-xs font-semibold ${
-                        holiday.type === 'Government' ? 'bg-green-500' : 'bg-blue-500'
+                        holiday.type === 'National' ? 'bg-green-500' : holiday.type === 'Company' ? 'bg-blue-500' : 'bg-orange-500'
                       }`}>
                         H
                       </div>
@@ -424,7 +424,7 @@ export function AdminCalendarView() {
                   {itemsOnSelectedDate.holidays.map((h) => (
                     <div key={h.id} className="text-sm p-2 rounded-lg bg-blue-50 border border-blue-100">
                       <span className="font-medium text-blue-900">{h.title}</span>
-                      <Badge variant={h.type === 'Government' ? 'success' : 'info'} className="ml-2 text-xs">{h.type}</Badge>
+                      <Badge variant={h.type === 'National' ? 'success' : h.type === 'Company' ? 'info' : 'neutral'} className="ml-2 text-xs">{h.type}</Badge>
                     </div>
                   ))}
                 </div>
@@ -460,9 +460,10 @@ export function AdminCalendarView() {
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-ink">Type</label>
-              <select value={type} onChange={(e) => setType(e.target.value as 'Government' | 'Company')} className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="Government">Government Holiday</option>
+              <select value={type} onChange={(e) => setType(e.target.value as 'National' | 'Company' | 'Optional')} className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <option value="National">National Holiday</option>
                 <option value="Company">Company Holiday</option>
+                <option value="Optional">Optional Holiday</option>
               </select>
             </div>
             <div className="flex gap-3 justify-end pt-2">
@@ -474,7 +475,7 @@ export function AdminCalendarView() {
       )}
 
       {deleteConfirmOpen && holidayToDelete && (
-        <ConfirmModal isOpen={deleteConfirmOpen} onConfirm={handleDeleteHoliday} onCancel={() => { setDeleteConfirmOpen(false); setHolidayToDelete(null) }} title="Delete Holiday" description={`Delete "${holidayToDelete.title}"?`} confirmLabel="Delete" cancelLabel="Cancel" danger />
+        <ConfirmModal isOpen={deleteConfirmOpen} onConfirm={handleDeleteHoliday} onClose={() => { setDeleteConfirmOpen(false); setHolidayToDelete(null) }} title="Delete Holiday" description={`Delete "${holidayToDelete.title}"?`} confirmLabel="Delete" danger />
       )}
     </Tooltip.Provider>
   )

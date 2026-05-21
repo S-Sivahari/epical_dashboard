@@ -59,7 +59,7 @@ export function CompensationManagement() {
             ? {
                 ...item,
                 employeeId: formData.employeeId,
-                employeeName: selectedEmployee.name,
+                employeeName: `${selectedEmployee.firstName} ${selectedEmployee.lastName ?? ''}`.trim(),
                 days: parseInt(formData.days),
                 reason: formData.reason,
               }
@@ -73,7 +73,7 @@ export function CompensationManagement() {
       const newEntry: CompensationEntry = {
         id: `comp-${Date.now()}`,
         employeeId: formData.employeeId,
-        employeeName: selectedEmployee.name,
+        employeeName: `${selectedEmployee.firstName} ${selectedEmployee.lastName ?? ''}`.trim(),
         days: parseInt(formData.days),
         reason: formData.reason,
         appliedDate: new Date().toISOString(),
@@ -205,7 +205,7 @@ export function CompensationManagement() {
                   <option value="">Choose an employee...</option>
                   {employees.map((emp) => (
                     <option key={emp.id} value={emp.id}>
-                      {emp.name} ({emp.id})
+                      {emp.firstName} {emp.lastName ?? ''} ({emp.id})
                     </option>
                   ))}
                 </select>

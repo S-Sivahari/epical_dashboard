@@ -5,10 +5,8 @@ import { PageHeader } from '@components/layout/PageHeader'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
-import { Badge } from '@components/ui/Badge'
 import { DataTable, type Column } from '@components/tables/DataTable'
 import { useEmployees } from '@hooks/useEmployees'
-import { useAuthStore } from '@store/authStore'
 import { Avatar } from '@components/ui/Avatar'
 import { stringToHueColor } from '@/utils/stringColor'
 import api from '@services/api'
@@ -26,7 +24,6 @@ interface PayslipRecord {
 
 export function PayslipManagement() {
   const { employees, loading } = useEmployees()
-  const user = useAuthStore((s) => s.user)
   const [generatingId, setGeneratingId] = useState<string | null>(null)
   const [excelPath, setExcelPath] = useState('')
   const [generatingAll, setGeneratingAll] = useState(false)
@@ -172,7 +169,6 @@ export function PayslipManagement() {
           columns={columns}
           data={payslipRecords}
           loading={loading}
-          rowsPerPage={10}
         />
       </div>
     </PageWrapper>

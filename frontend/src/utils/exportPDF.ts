@@ -132,7 +132,7 @@ export function exportToPDF<T extends Record<string, any>>(
       headers.map((h) => h.label),
       ...data.map((row) =>
         headers.map((h) => {
-          let value = row[h.key]
+          let value: any = row[h.key]
           if (h.key === 'joinedAt' || h.key === 'dob') {
             value = formatDateStr(value)
           } else if (h.key === 'pfEsi') {

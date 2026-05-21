@@ -51,13 +51,8 @@ export function CompanyCalendar() {
     })
   }, [holidays, currentMonthYear])
 
-  // Filter company events for current month
-  const monthEvents = useMemo(() => {
-    return events.filter((e) => {
-      const eDate = new Date(e.date)
-      return eDate.getMonth() === currentMonthYear.month && eDate.getFullYear() === currentMonthYear.year
-    })
-  }, [events, currentMonthYear])
+  // Filter company events for current month — kept for future use
+  // const monthEvents = useMemo(() => { ... }, [events, currentMonthYear])
 
   // Get today's date
   const today = new Date()
@@ -84,8 +79,8 @@ export function CompanyCalendar() {
       title: h.title,
       start: h.date,
       allDay: true,
-      backgroundColor: h.type === 'Government' ? '#16a34a' : '#0066cc',
-      borderColor: h.type === 'Government' ? '#16a34a' : '#0066cc',
+      backgroundColor: h.type === 'National' ? '#16a34a' : h.type === 'Company' ? '#0066cc' : '#f97316',
+      borderColor: h.type === 'National' ? '#16a34a' : h.type === 'Company' ? '#0066cc' : '#f97316',
     }))
 
     const companyEvents = events.map((e) => ({
@@ -141,7 +136,6 @@ export function CompanyCalendar() {
               initialView="dayGridMonth"
               headerToolbar={{ left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' }}
               height="auto"
-              minHeight={400}
               events={calendarEvents}
               eventClick={(info) => {
                 toast.message(info.event.title, { description: info.event.startStr })
@@ -193,7 +187,7 @@ export function CompanyCalendar() {
                   <div key={h.id} className="rounded-lg border border-border/50 bg-surface/50 p-2">
                     <p className="text-sm font-medium text-ink">{h.title}</p>
                     <p className="text-xs text-muted">{formatDate(h.date)}</p>
-                    <Badge variant={h.type === 'Government' ? 'success' : 'info'} className="mt-1 text-xs">
+                    <Badge variant={h.type === 'National' ? 'success' : h.type === 'Company' ? 'info' : 'neutral'} className="mt-1 text-xs">
                       {h.type}
                     </Badge>
                   </div>

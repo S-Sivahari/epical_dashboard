@@ -33,7 +33,7 @@ export function HolidayManagement() {
   const [title, setTitle] = useState('')
   const [date, setDate] = useState('')
   const [description, setDescription] = useState('')
-  const [type, setType] = useState<'Government' | 'Company'>('Government')
+  const [type, setType] = useState<'National' | 'Company' | 'Optional'>('National')
 
   // Calendar state
   const [calendarOpen, setCalendarOpen] = useState(true)
@@ -54,8 +54,8 @@ export function HolidayManagement() {
         title: h.title,
         start: h.date,
         allDay: true,
-        backgroundColor: h.type === 'Government' ? '#16a34a' : '#0066cc',
-        borderColor: h.type === 'Government' ? '#16a34a' : '#0066cc',
+        backgroundColor: h.type === 'National' ? '#16a34a' : h.type === 'Company' ? '#0066cc' : '#f97316',
+        borderColor: h.type === 'National' ? '#16a34a' : h.type === 'Company' ? '#0066cc' : '#f97316',
       })),
     [holidays],
   )
@@ -71,7 +71,7 @@ export function HolidayManagement() {
     setTitle('')
     setDate('')
     setDescription('')
-    setType('Government')
+    setType('National')
     setEditingId(null)
   }
 
@@ -156,10 +156,12 @@ export function HolidayManagement() {
 
   const typeVariant = (t: string): 'danger' | 'success' | 'warning' | 'info' | 'neutral' => {
     switch (t) {
-      case 'Government':
+      case 'National':
         return 'success'
       case 'Company':
         return 'info'
+      case 'Optional':
+        return 'warning'
       default:
         return 'neutral'
     }
@@ -288,8 +290,9 @@ export function HolidayManagement() {
               onChange={(e) => setType(e.target.value as any)}
               className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
             >
-              <option value="Government">Government Holiday</option>
+              <option value="National">National Holiday</option>
               <option value="Company">Company Holiday</option>
+              <option value="Optional">Optional Holiday</option>
             </select>
           </div>
 

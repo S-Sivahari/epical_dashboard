@@ -30,7 +30,6 @@ export function NotificationBell() {
     return () => clearInterval(interval)
   }, [fetchNotifications, fetchNotificationsSilent, fetchUnreadCount, fetchUnreadCountSilent])
 
-  const unreadNotifications = notifications.filter((n) => !n.isRead)
   const displayNotifications = notifications.slice(0, 5)
 
   return (

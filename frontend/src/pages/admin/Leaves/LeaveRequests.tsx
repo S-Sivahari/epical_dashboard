@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { Badge } from '@components/ui/Badge'
 import { Button } from '@components/ui/Button'
-import { Input } from '@components/ui/Input'
 import { Modal } from '@components/ui/Modal'
 import { useLeaves } from '@hooks/useLeaves'
 // import type removed

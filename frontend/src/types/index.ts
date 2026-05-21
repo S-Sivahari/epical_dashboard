@@ -5,13 +5,18 @@ export interface Employee {
   id: string
   employeeId: string
   firstName: string
+  middleName?: string
   lastName?: string
   address?: string
+  permanentAddress?: string
+  communicationAddress?: string
   dob?: string
   gender?: string
   department: string
   designation: string
   role: string
+  reportingManager?: string
+  managerId?: string
   employmentType: EmploymentType
   joinedAt: string
   status: EmployeeStatus
@@ -29,6 +34,13 @@ export interface Employee {
   aadhaar?: string
   pan?: string
   passport?: string
+  emergencyContact?: {
+    name?: string
+    phone?: string
+    email?: string
+    relation?: string
+    address?: string
+  }
   [key: string]: unknown
 }
 
@@ -57,7 +69,7 @@ export interface Holiday {
   title: string
   date: string
   description?: string
-  type: 'Government' | 'Company'
+  type: 'National' | 'Company' | 'Optional'
 }
 
 export interface CompensationLeave {

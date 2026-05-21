@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
 import { LeaveRequests } from './LeaveRequests'
-import { CompanyCalendar } from '@pages/admin/Calendar/CompanyCalendar_merged'
+import { CompanyCalendar } from './CompanyCalendar'
 import { CompensationManagement } from './CompensationManagement'
 
 type TabType = 'requests' | 'calendar' | 'compensation'
@@ -17,8 +17,10 @@ export function LeaveManagementContainer() {
   const [activeTab, setActiveTab] = useState<TabType>('requests')
 
   return (
-    <PageWrapper>
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <PageWrapper className={activeTab === 'calendar' ? 'max-w-none pl-0 sm:pl-0 lg:pl-0 pr-6 sm:pr-6 lg:pr-6 w-full' : ''}>
+      <div className={`mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 ${
+        activeTab === 'calendar' ? 'pl-6 sm:pl-6 lg:pl-6' : ''
+      }`}>
         <div>
           <h1 className="text-2xl font-bold text-ink">Manage Leaves</h1>
           <p className="text-sm text-muted">Leaves</p>
