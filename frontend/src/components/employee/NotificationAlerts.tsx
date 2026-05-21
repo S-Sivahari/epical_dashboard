@@ -9,10 +9,10 @@ export function NotificationAlerts() {
     // Fetch notifications immediately on mount
     fetchNotifications()
 
-    // Set up auto-refresh every 30 seconds
+    // Set up auto-refresh every 5 seconds for real-time updates
     const interval = setInterval(() => {
       fetchNotifications()
-    }, 30000)
+    }, 5000)
 
     // Cleanup interval on unmount
     return () => clearInterval(interval)

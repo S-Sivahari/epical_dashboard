@@ -11,11 +11,11 @@ export function NotificationDropdown() {
   useEffect(() => {
     fetchUnreadCount()
     fetchNotifications()
-    // Refresh every 30 seconds
+    // Refresh every 5 seconds for real-time updates
     const interval = setInterval(() => {
       fetchUnreadCount()
       fetchNotifications()
-    }, 30000)
+    }, 5000)
     return () => clearInterval(interval)
   }, [fetchNotifications, fetchUnreadCount])
 

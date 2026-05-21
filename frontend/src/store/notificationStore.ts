@@ -80,8 +80,14 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   deleteNotification: async (notificationId: string) => {
     try {
       await api.delete(`/notifications/${notificationId}`)
+      const deletedNotification = get().notifications.find((n) => n.id === notificationId)
       const notifications = get().notifications.filter((n) => n.id !== notificationId)
-      set({ notifications })
+      // Update unreadCount if deleted notification was unread
+      let unreadCount = get().unreadCount
+      if (deletedNotification && !deletedNotification.isRead) {
+        unreadCount = Math.max(0, unreadCount - 1)
+      }
+      set({ notifications, unreadCount })
     } catch (error) {
       console.error('Error deleting notification:', error)
     }
