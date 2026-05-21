@@ -6,7 +6,7 @@ import { Input } from '@components/ui/Input'
 import { Modal } from '@components/ui/Modal'
 import { useLeaves } from '@hooks/useLeaves'
 // import type removed
-import { formatDate } from '@/utils/formatDate'
+import { formatDate, formatDateTime } from '@/utils/formatDate'
 import { filterLeaves, type LeaveFilters } from '@/utils/leaveFilters'
 import { Search, X, ChevronLeft, ChevronRight, Check, Eye } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'
@@ -14,6 +14,13 @@ import * as Tooltip from '@radix-ui/react-tooltip'
 type StatusType = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled'
 
 const ITEMS_PER_PAGE = 8
+
+function toTimestamp(value: unknown): string | null {
+  if (!value) return null
+  if (typeof value === 'string') return value
+  if (value instanceof Date) return value.toISOString()
+  return null
+}
 
 interface StatusPagination {
   [key: string]: number
@@ -212,36 +219,46 @@ export function LeaveRequests() {
           ) : (
             <div className="flex flex-col gap-3">
               {paginatedLeaves.map((l) => (
-                <div key={l.id} className="group flex flex-col sm:flex-row justify-between items-start sm:items-center rounded-xl border border-border bg-white p-4 shadow-sm hover:shadow-md hover:border-primary/30 transition-all gap-4">
+                <div key={l.id} className="group flex flex-col sm:flex-row justify-between items-start sm:items-center rounded-xl border border-border bg-white p-3 shadow-sm hover:shadow-md hover:border-primary/30 transition-all gap-3">
                   
                   {/* Left Section: Name & Details */}
-                  <div className="flex flex-col gap-1 min-w-0 flex-1">
+                  <div className="flex flex-col gap-0.5 min-w-0 flex-1">
                     <div className="flex items-center gap-3">
                       <h4 className="font-semibold text-ink text-sm truncate">{l.employeeName}</h4>
                       {getStatusBadge(l.status)}
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted mt-1">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
                       <span className="font-medium bg-gray-50 px-2 py-0.5 rounded border border-gray-100 text-ink">{l.type}</span>
-                      <span className="flex items-center">
+                      <span className="flex items-center text-ink">
                         {formatDate(l.from)} <span className="opacity-50 mx-1.5">→</span> {formatDate(l.to)}
                       </span>
                       <span className="font-semibold text-ink bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
                         {l.days} {l.days === 1 ? 'day' : 'days'}
                       </span>
+                      {l.reason && (
+                        <span className="line-clamp-1 min-w-0 max-w-full sm:max-w-xs text-ink" title={l.reason}>
+                          <span className="font-medium">Reason:</span> {l.reason}
+                        </span>
+                      )}
                     </div>
-                    {l.reason && (
-                      <p className="text-xs text-muted mt-1.5 line-clamp-1" title={l.reason}>
-                        <span className="font-medium text-ink/70 mr-1">Reason:</span>
-                        {l.reason}
-                      </p>
-                    )}
                   </div>
 
                   {/* Right Section: Applied Date & Actions */}
                   <div className="flex sm:flex-col items-center sm:items-end gap-3 sm:gap-2 w-full sm:w-auto shrink-0 justify-between sm:justify-center border-t sm:border-t-0 border-border pt-3 sm:pt-0 mt-2 sm:mt-0">
-                    <span className="text-[10px] text-muted font-medium uppercase tracking-wider">
-                      Applied: {formatDate((l as any).appliedDate || (l as any).createdAt || new Date().toISOString())}
-                    </span>
+                    <div className="flex flex-col items-end gap-0.5 text-xs font-medium tracking-wider text-ink sm:text-sm">
+                      {toTimestamp(l.createdAt) && (
+                        <span>
+                          <span className="uppercase">Applied:</span>{' '}
+                          <span className="normal-case">{formatDateTime(toTimestamp(l.createdAt)!)}</span>
+                        </span>
+                      )}
+                      {l.status === 'Approved' && toTimestamp(l.approvalDate ?? l.updatedAt) && (
+                        <span>
+                          <span className="uppercase">Approved:</span>{' '}
+                          <span className="normal-case">{formatDateTime(toTimestamp(l.approvalDate ?? l.updatedAt)!)}</span>
+                        </span>
+                      )}
+                    </div>
                     
                     <div className="flex gap-1.5">
                       {l.status === 'Pending' && (
