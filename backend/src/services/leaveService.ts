@@ -3,6 +3,7 @@ import { getDB } from '../config/db';
 import { LeaveRequest, CreateLeavePayload } from '../models/Leave';
 import { Holiday } from '../models/Holiday';
 import { getBusinessDays, calculateBalances } from '../utils/leaveCalculator';
+import * as notificationService from './notificationService';
 
 let leaveCollection: Collection<any> | null = null;
 let holidayCollection: Collection<any> | null = null;
@@ -45,14 +46,8 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
     throw new Error('Leave request spans across weekends/holidays with 0 effective business days.');
   }
 
-  // 3. Fetch employee balances to validate
-  const employeeLeaves = await getAllLeaves(payload.employeeId);
-  const balances = calculateBalances(employeeLeaves);
-  
-  const leaveBalance = balances[payload.type];
-  if (leaveBalance && leaveBalance.remaining < actualDays) {
-    throw new Error(`Insufficient ${payload.type} balance. Remaining: ${leaveBalance.remaining}, Requested: ${actualDays}`);
-  }
+  // Note: No validation against balance here. Admin will validate during approval.
+  // This allows employees to request leave freely, and admin reviews it.
 
   const id = `L-${Date.now()}`;
   const leave: any = {
@@ -64,6 +59,36 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
     updatedAt: new Date(),
   };
   await col.insertOne(leave);
+
+  // Create notification for manager/admin
+  try {
+    // Notify all admins
+    const userCollection = getDB().collection('users');
+    const admins = await userCollection.find({ role: 'Admin' }).toArray();
+    console.log(`[Leave Notification] Found ${admins.length} admins to notify`);
+    console.log(`[Leave Notification] Admins:`, admins.map((a) => ({ id: a.id, name: a.name })));
+    
+    for (const admin of admins) {
+      console.log(`[Leave Notification] Creating notification for admin: ${admin.id}`);
+      await notificationService.createNotification({
+        recipientId: admin.id,
+        recipientType: 'Admin',
+        type: 'LeaveSubmitted',
+        title: 'New Leave Request',
+        message: `${payload.employeeName} has submitted a ${payload.type} leave request from ${payload.from} to ${payload.to}`,
+        relatedData: {
+          leaveId: id,
+          employeeId: payload.employeeId,
+          employeeName: payload.employeeName,
+        },
+      });
+      console.log(`[Leave Notification] Notification created for admin: ${admin.id}`);
+    }
+  } catch (error) {
+    console.error('Error creating notification for leave submission:', error);
+    // Don't throw - notification failure shouldn't break leave creation
+  }
+
   return leave as LeaveRequest;
 }
 
@@ -77,11 +102,59 @@ export async function updateLeaveStatus(
   status: 'Approved' | 'Rejected'
 ): Promise<LeaveRequest | null> {
   const col = getLeaveCol();
+  
+  // If approving, validate the employee has sufficient balance
+  if (status === 'Approved') {
+    const leave = await getLeaveById(id);
+    if (!leave) return null;
+    
+    // Fetch employee leaves to calculate current balance
+    const employeeLeaves = await getAllLeaves(leave.employeeId);
+    const balances = calculateBalances(employeeLeaves);
+    
+    const leaveBalance = balances[leave.type];
+    if (leaveBalance && leaveBalance.remaining < leave.days) {
+      throw new Error(
+        `Cannot approve: Insufficient ${leave.type} balance. ` +
+        `Remaining: ${leaveBalance.remaining}, Requested: ${leave.days}`
+      );
+    }
+  }
+  
   const result = await col.findOneAndUpdate(
     { id },
     { $set: { status, updatedAt: new Date() } },
     { returnDocument: 'after' }
   );
+
+  if (result) {
+    // Create notification for employee
+    try {
+      const notificationType = status === 'Approved' ? 'LeaveApproved' : 'LeaveRejected';
+      const title = status === 'Approved' ? 'Leave Approved' : 'Leave Rejected';
+      const message =
+        status === 'Approved'
+          ? `Your ${result.type} leave request from ${result.from} to ${result.to} has been approved.`
+          : `Your ${result.type} leave request from ${result.from} to ${result.to} has been rejected.`;
+
+      await notificationService.createNotification({
+        recipientId: result.employeeId,
+        recipientType: 'Employee',
+        type: notificationType,
+        title,
+        message,
+        relatedData: {
+          leaveId: id,
+          employeeId: result.employeeId,
+          employeeName: result.employeeName,
+        },
+      });
+    } catch (error) {
+      console.error(`Error creating ${status} notification:`, error);
+      // Don't throw - notification failure shouldn't break status update
+    }
+  }
+
   return result as LeaveRequest | null;
 }
 
@@ -90,6 +163,16 @@ export async function cancelLeave(id: string): Promise<LeaveRequest | null> {
   const result = await col.findOneAndUpdate(
     { id, status: 'Approved' },
     { $set: { status: 'Cancelled', updatedAt: new Date() } },
+    { returnDocument: 'after' }
+  );
+  return result as LeaveRequest | null;
+}
+
+export async function rejectLeaveWithReason(id: string, rejectionReason: string): Promise<LeaveRequest | null> {
+  const col = getLeaveCol();
+  const result = await col.findOneAndUpdate(
+    { id },
+    { $set: { status: 'Rejected', rejectionReason, updatedAt: new Date() } },
     { returnDocument: 'after' }
   );
   return result as LeaveRequest | null;
@@ -149,6 +232,31 @@ export async function deleteHoliday(id: string): Promise<boolean> {
   return result.deletedCount > 0;
 }
 
+// ── Fetch from External API ─────────────────────────────────────
+
+export async function fetchIndianHolidaysFromAPI(year: number): Promise<Holiday[]> {
+  try {
+    const response = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/IN`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch holidays: ${response.statusText}`);
+    }
+    const data = await response.json();
+    
+    // Map API response to Holiday format
+    const holidays: Holiday[] = data.map((h: any, index: number) => ({
+      id: `H-API-${year}-${index}`,
+      title: h.name,
+      date: h.date, // Format: YYYY-MM-DD
+      createdAt: new Date(),
+    }));
+    
+    return holidays;
+  } catch (error) {
+    console.error('Error fetching Indian holidays from API:', error);
+    throw error;
+  }
+}
+
 // ── Seed ────────────────────────────────────────────────────────
 
 export async function seedLeaves(): Promise<void> {
@@ -193,12 +301,30 @@ export async function seedHolidays(): Promise<void> {
   const count = await col.countDocuments();
   if (count > 0) return;
 
-  const holidays = [
-    { id: 'H-1', title: 'Independence Day', date: '2026-08-15', description: 'National holiday celebrating independence', type: 'National', createdAt: new Date(), updatedAt: new Date() },
-    { id: 'H-2', title: 'Diwali', date: '2026-11-08', description: 'Festival of lights', type: 'National', createdAt: new Date(), updatedAt: new Date() },
-    { id: 'H-3', title: 'Christmas', date: '2026-12-25', description: 'Company holiday', type: 'Company', createdAt: new Date(), updatedAt: new Date() },
-    { id: 'H-4', title: 'New Year', date: '2027-01-01', description: 'New Year celebration', type: 'National', createdAt: new Date(), updatedAt: new Date() },
+  try {
+    // Fetch Indian holidays from external API
+    const currentYear = new Date().getFullYear();
+    const holidays2026 = await fetchIndianHolidaysFromAPI(2026);
+    const holidays2027 = await fetchIndianHolidaysFromAPI(2027);
+    
+    const allHolidays = [...holidays2026, ...holidays2027];
+    
+    if (allHolidays.length > 0) {
+      await col.insertMany(allHolidays);
+      console.log(`Seeded ${allHolidays.length} Indian holidays from API`);
+      return;
+    }
+  } catch (error) {
+    console.warn('Could not fetch holidays from API, using fallback holidays');
+  }
+
+  // Fallback: If API fails, use default holidays
+  const fallbackHolidays = [
+    { id: 'H-1', title: 'Independence Day', date: '2026-08-15', createdAt: new Date() },
+    { id: 'H-2', title: 'Diwali', date: '2026-11-08', createdAt: new Date() },
+    { id: 'H-3', title: 'Christmas', date: '2026-12-25', createdAt: new Date() },
+    { id: 'H-4', title: 'New Year', date: '2027-01-01', createdAt: new Date() },
   ];
 
-  await col.insertMany(holidays);
+  await col.insertMany(fallbackHolidays);
 }
