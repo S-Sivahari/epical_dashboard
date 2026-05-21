@@ -42,9 +42,13 @@ export function LoginPage() {
     try {
       await login(values.email, values.password)
       toast.success('Welcome back')
-    } catch {
-      toast.error('Unable to sign in')
+
+      navigate('/dashboard', { replace: true })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to sign in'
+      toast.error(message)
     }
+
   })
 
   return (

@@ -6,11 +6,16 @@ import { DataTable, type Column } from '@components/tables/DataTable'
 import { useLeaves } from '@hooks/useLeaves'
 import type { LeaveRequest } from '@/types'
 import { formatDate } from '@/utils/formatDate'
+import { filterLeaves, type LeaveFilters } from '@/utils/leaveFilters'
+import { useMemo } from 'react'
 
-export function PendingLeaves() {
+export function PendingLeaves({ filters }: { filters: LeaveFilters }) {
   const { leaves, loading, approveLeave, rejectLeave, fetchLeaves } = useLeaves()
-  const pending = leaves.filter((l) => l.status === 'Pending')
   const previousLeaveCount = useRef(leaves.length)
+
+  const pending = useMemo(() => {
+    return filterLeaves(leaves.filter((l) => l.status === 'Pending'), filters)
+  }, [leaves, filters])
 
   useEffect(() => {
     if (leaves.length > previousLeaveCount.current) {
@@ -80,62 +85,7 @@ export function PendingLeaves() {
 
   return (
     <div className="space-y-6">
-      <DataTable columns={columns} data={pending} loading={loading} />
-
-      <section className="rounded-xl border border-border bg-white p-5 shadow-sm">
-        <h3 className="font-display text-base font-semibold text-ink">Leave history</h3>
-        <p className="mt-1 text-sm text-muted">All requests (sample)</p>
-        <div className="mt-4">
-          <DataTable
-            columns={
-              [
-                { key: 'from', header: 'Date', render: () => '—' },
-                { key: 'employeeName', header: 'Employee' },
-                { key: 'type', header: 'Type' },
-                {
-                  key: 'leaveDuration',
-                  header: 'Duration',
-                  render: (l) =>
-                    l.leaveDuration === 'Half Day'
-                      ? `${l.leaveDuration} (${l.halfDaySession ?? 'Session'})`
-                      : 'Full Day',
-                },
-                {
-                  key: 'from',
-                  header: 'From',
-                  render: (l) => formatDate(l.from),
-                },
-                {
-                  key: 'to',
-                  header: 'To',
-                  render: (l) => formatDate(l.to),
-                },
-                { key: 'days', header: 'Days' },
-                {
-                  key: 'status',
-                  header: 'Status',
-                  render: (l) => (
-                    <Badge
-                      variant={
-                        l.status === 'Approved'
-                          ? 'success'
-                          : l.status === 'Rejected'
-                            ? 'danger'
-                            : 'warning'
-                      }
-                    >
-                      {l.status}
-                    </Badge>
-                  ),
-                },
-                { key: 'reason', header: 'Reason' },
-              ] as Column<LeaveRequest>[]
-            }
-            data={leaves}
-            loading={loading}
-          />
-        </div>
-      </section>
+      <DataTable columns={columns} data={pending} loading={loading} empty="No pending leave requests." />
     </div>
   )
 }

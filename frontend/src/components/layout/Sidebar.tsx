@@ -24,36 +24,36 @@ const groups: {
   label: string
   items: { to: string; label: string; icon: typeof LayoutGrid; end?: boolean }[]
 }[] = [
-  {
-    label: 'Main',
-    items: [{ to: ROUTES.DASHBOARD, label: 'Dashboard', icon: LayoutGrid, end: true }],
-  },
-  {
-    label: 'People',
-    items: [
-      { to: ROUTES.EMPLOYEES, label: 'Manage Employees', icon: Users, end: true },
-      { to: ROUTES.LEAVES, label: 'Manage Leaves', icon: CalendarCheck },
-    ],
-  },
-  {
-    label: 'Work',
-    items: [
-      { to: ROUTES.PROJECTS, label: 'Projects / Timesheet', icon: Briefcase },
-      { to: ROUTES.CALENDAR, label: 'Company Calendar', icon: CalendarDays },
-    ],
-  },
-  {
-    label: 'Company',
-    items: [
-      { to: ROUTES.TRAINING, label: 'Training & Courses', icon: BookOpen },
-      { to: ROUTES.ACHIEVEMENTS, label: 'Achievements', icon: Trophy },
-      { to: ROUTES.ANALYTICS, label: 'Analytics', icon: BarChart3 },
-      { to: ROUTES.DOCUMENTS, label: 'Documents', icon: FileText },
-      { to: ROUTES.NEWS, label: 'Company News', icon: Newspaper },
-      { to: ROUTES.TICKETS, label: 'Tickets', icon: Ticket },
-    ],
-  },
-]
+    {
+      label: 'Main',
+      items: [{ to: ROUTES.DASHBOARD, label: 'Dashboard', icon: LayoutGrid, end: true }],
+    },
+    {
+      label: 'People',
+      items: [
+        { to: ROUTES.EMPLOYEES, label: 'Manage Employees', icon: Users, end: true },
+        { to: ROUTES.LEAVES, label: 'Manage Leaves', icon: CalendarCheck },
+      ],
+    },
+    {
+      label: 'Work',
+      items: [
+        { to: ROUTES.PROJECTS, label: 'Projects / Timesheet', icon: Briefcase },
+        { to: ROUTES.CALENDAR, label: 'Company Calendar', icon: CalendarDays },
+      ],
+    },
+    {
+      label: 'Company',
+      items: [
+        { to: ROUTES.TRAINING, label: 'Training & Courses', icon: BookOpen },
+        { to: ROUTES.ACHIEVEMENTS, label: 'Achievements', icon: Trophy },
+        { to: ROUTES.ANALYTICS, label: 'Analytics', icon: BarChart3 },
+        { to: ROUTES.DOCUMENTS, label: 'Documents', icon: FileText },
+        { to: ROUTES.NEWS, label: 'Company News', icon: Newspaper },
+        { to: ROUTES.TICKETS, label: 'Tickets', icon: Ticket },
+      ],
+    },
+  ]
 
 export function Sidebar() {
   const isLg = useMediaQuery('(min-width: 1024px)')

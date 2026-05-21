@@ -31,25 +31,9 @@ const EditEmployee = lazy(async () => {
   const m = await import('@pages/admin/Employees/EditEmployee')
   return { default: m.EditEmployee }
 })
-const LeaveShell = lazy(async () => {
-  const m = await import('@pages/admin/Leaves/LeaveShell')
-  return { default: m.LeaveShell }
-})
-const LeavesIndexRedirect = lazy(async () => {
-  const m = await import('@pages/admin/Leaves/LeaveShell')
-  return { default: m.LeavesIndexRedirect }
-})
-const PendingLeaves = lazy(async () => {
-  const m = await import('@pages/admin/Leaves/PendingLeaves')
-  return { default: m.PendingLeaves }
-})
-const CompensationLeaves = lazy(async () => {
-  const m = await import('@pages/admin/Leaves/CompensationLeaves')
-  return { default: m.CompensationLeaves }
-})
-const HolidayManagement = lazy(async () => {
-  const m = await import('@pages/admin/Leaves/HolidayManagement')
-  return { default: m.HolidayManagement }
+const LeaveManagementDashboard = lazy(async () => {
+  const m = await import('@pages/admin/Leaves/LeaveManagementDashboard')
+  return { default: m.LeaveManagementDashboard }
 })
 const ProjectManagement = lazy(async () => {
   const m = await import('@pages/admin/Projects/ProjectManagement')
@@ -130,12 +114,7 @@ export function AppRoutes() {
               <Route path=":id" element={<EmployeeProfile />} />
               <Route path=":id/edit" element={<EditEmployee />} />
             </Route>
-            <Route path="leaves" element={<LeaveShell />}>
-              <Route index element={<LeavesIndexRedirect />} />
-              <Route path="pending" element={<PendingLeaves />} />
-              <Route path="compensation" element={<CompensationLeaves />} />
-              <Route path="holidays" element={<HolidayManagement />} />
-            </Route>
+            <Route path="leaves" element={<LeaveManagementDashboard />} />
             <Route path="projects" element={<ProjectManagement />} />
             <Route path="calendar" element={<CompanyCalendar />} />
             <Route path="training" element={<TrainingCourses />} />
