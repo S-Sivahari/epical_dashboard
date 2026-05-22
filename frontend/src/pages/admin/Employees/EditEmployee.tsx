@@ -48,7 +48,7 @@ const editSchema = z.object({
     .min(1, 'Joining date is required')
     .refine(isValidDate, 'Enter a valid joining date'),
   employmentType: z.enum(['Full-time', 'Contract', 'Intern']),
-  department: z.string().optional(),
+  department: z.string().min(1, 'Department is required'),
   role: z.string().min(1, 'Role is required'),
   ctc: z.preprocess(
     (v) => (v === '' || v === null || v === undefined ? undefined : Number(v)),
@@ -432,10 +432,7 @@ export function EditEmployee() {
         gender: values.gender ?? '',
         phone: values.phone ?? '',
         personalEmail: values.personalEmail ?? '',
-        email: values.companyEmail,
-        bankName: values.bankName ?? '',
-        accountNumber: values.accountNumber ?? '',
-        ifsc: values.ifsc ?? '',
+        email: values.companyEmail ?? '',
         uan: values.uan ?? '',
         pfEsi: values.pfEsi,
         joinedAt: values.joinedAt,
@@ -668,6 +665,7 @@ export function EditEmployee() {
               />
               <Input
                 label="Department"
+                required
                 error={form.formState.errors.department?.message}
                 {...form.register('department')}
               />
