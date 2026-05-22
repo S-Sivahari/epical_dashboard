@@ -4,21 +4,70 @@ import { TimesheetModel } from '../models/Timesheet';
 import { AssignedTaskModel } from '../models/AssignedTask';
 import { EmployeeAttendanceModel } from '../models/EmployeeAttendance';
 import { ProjectModel } from '../models/Project';
+import { getDB } from '../config/db';
 import { getUserById } from '../services/authService';
 import { syncProjectForTimesheet, getTimesheetWorkflowStatus } from '../utils/syncProject';
+import { buildAssignmentIdentityTokens, ensureAssignedTasksForEmployee } from '../utils/assignedTaskSync';
+
+type ResolvedEmployee = {
+  id: string;
+  name: string;
+  email?: string;
+  employeeName: string;
+  employeeId: string;
+  identityTokens: string[];
+};
 
 function todayDateKey(): string {
   return new Date().toISOString().split('T')[0];
 }
 
-function computeTotalHours(loginTime: Date, logoutTime?: Date, overriddenHours?: number): number {
+function computeTotalHours(
+  loginTime: Date,
+  logoutTime?: Date,
+  overriddenHours?: number,
+  totalPausedMs = 0
+): number {
   if (overriddenHours !== undefined && overriddenHours !== null) {
     return Number(overriddenHours);
   }
   if (!logoutTime) return 0;
-  const diffMs = logoutTime.getTime() - loginTime.getTime();
+  const diffMs = logoutTime.getTime() - loginTime.getTime() - (totalPausedMs || 0);
   if (diffMs <= 0) return 0;
   return Math.round((diffMs / (1000 * 60 * 60)) * 10) / 10;
+}
+
+async function findOpenTimesheet(employee: ResolvedEmployee) {
+  return TimesheetModel.findOne({
+    $and: [
+      {
+        $or: [
+          { employeeId: { $in: employee.identityTokens } },
+          { employee: { $in: employee.identityTokens } },
+        ],
+      },
+      { $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }] },
+      { taskStatus: { $in: ['In Progress', 'Paused', 'Session Incomplete'] } },
+    ],
+  }).sort({ loginTime: -1 });
+}
+
+async function findAssignedTaskForEmployee(employee: ResolvedEmployee, assignedTaskId: string) {
+  if (!Types.ObjectId.isValid(assignedTaskId)) return null;
+  return AssignedTaskModel.findOne({
+    _id: assignedTaskId,
+    $or: [
+      { employeeId: { $in: employee.identityTokens } },
+      { employeeName: { $in: employee.identityTokens } },
+    ],
+  });
+}
+
+function finalizePauseAccumulation(timesheet: { pausedAt?: Date | null; totalPausedMs?: number }) {
+  if (!timesheet.pausedAt) return;
+  const pausedMs = Date.now() - new Date(timesheet.pausedAt).getTime();
+  timesheet.totalPausedMs = (timesheet.totalPausedMs || 0) + Math.max(0, pausedMs);
+  timesheet.pausedAt = null;
 }
 
 function toFrontendTimesheet(t: any) {
@@ -44,6 +93,11 @@ function toFrontendTimesheet(t: any) {
     totalHours: t.totalHours,
     taskStatus: t.taskStatus || (t.logoutTime ? 'Pending' : 'Session Incomplete'),
     workflowStatus: getTimesheetWorkflowStatus(t),
+    pausedAt: t.pausedAt ? t.pausedAt.toISOString() : undefined,
+    totalPausedMs: t.totalPausedMs || 0,
+    isPaused: t.taskStatus === 'Paused',
+    createdAt: t.createdAt ? t.createdAt.toISOString() : undefined,
+    updatedAt: t.updatedAt ? t.updatedAt.toISOString() : undefined,
   };
 }
 
@@ -58,15 +112,46 @@ function toFrontendAssignedTask(t: any) {
     description: t.description || '',
     status: t.status,
     timesheetId: t.timesheetId ? t.timesheetId.toString() : undefined,
+    createdAt: t.createdAt ? t.createdAt.toISOString() : undefined,
+    updatedAt: t.updatedAt ? t.updatedAt.toISOString() : undefined,
   };
 }
 
-async function resolveEmployee(req: Request) {
+async function resolveEmployee(req: Request): Promise<ResolvedEmployee | null> {
   const userId = req.user?.id;
   if (!userId) return null;
   const user = await getUserById(userId);
   if (!user) return null;
-  return { id: user.id, name: user.name };
+  const employeeRecord = user.email
+    ? await getDB().collection('employees').findOne({ email: user.email.toLowerCase().trim() })
+    : null;
+
+  const employeeName = employeeRecord
+    ? [employeeRecord.firstName, employeeRecord.middleName, employeeRecord.lastName]
+        .filter(Boolean)
+        .join(' ')
+        .trim() || user.name
+    : user.name;
+
+  const employeeId = String(employeeRecord?.employeeId || user.employeeId || user.id);
+  const identityTokens = buildAssignmentIdentityTokens(
+    {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      employeeId,
+    },
+    employeeRecord
+  );
+
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    employeeName,
+    employeeId,
+    identityTokens,
+  };
 }
 
 async function requireOpenAttendance(employeeId: string) {
@@ -88,29 +173,6 @@ async function releaseAssignedTask(timesheetId: string, session?: mongoose.Clien
   await assignedTask.save(session ? { session } : undefined);
 }
 
-function matchesEmployeeTask(employee: { id: string; name: string }, task: { employeeId?: string; employeeName?: string }) {
-  return task.employeeId === employee.id || task.employeeId === employee.name || task.employeeName === employee.name;
-}
-
-function canAccessProject(employeeName: string, project: { accessType?: string; allowedUsers?: string[]; teamLead?: string }) {
-  if (project.accessType === 'public') return true;
-  const allowedUsers = project.allowedUsers || [];
-  return project.teamLead === employeeName || allowedUsers.includes(employeeName);
-}
-
-function toFallbackWorkItem(project: any) {
-  return {
-    id: project._id.toString(),
-    projectId: project._id.toString(),
-    projectName: project.projectName,
-    clientName: project.clientName,
-    technologyNode: project.technologyNode,
-    title: 'Project work',
-    description: project.description || `Work on ${project.projectName}`,
-    status: 'assigned',
-  };
-}
-
 export const employeeTimesheetController = {
   getMyAssignedTasks: async (req: Request, res: Response): Promise<void> => {
     try {
@@ -120,24 +182,34 @@ export const employeeTimesheetController = {
         return;
       }
 
+      await ensureAssignedTasksForEmployee({
+        id: employee.id,
+        name: employee.name,
+        email: employee.email,
+        employeeName: employee.employeeName,
+        employeeId: employee.employeeId,
+      });
+
+      const recentApprovedCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
       const tasks = await AssignedTaskModel.find({
-        $or: [
-          { employeeId: employee.id },
-          { employeeId: employee.name },
-          { employeeName: employee.name },
+        $and: [
+          {
+            $or: [
+              { employeeId: { $in: employee.identityTokens } },
+              { employeeName: { $in: employee.identityTokens } },
+            ],
+          },
+          {
+            $or: [
+              { status: { $in: ['assigned', 'in_progress', 'pending_review'] } },
+              { status: 'completed', updatedAt: { $gte: recentApprovedCutoff } },
+            ],
+          },
         ],
-        status: { $in: ['assigned', 'in_progress'] },
-      }).sort({ createdAt: -1 });
+      }).sort({ updatedAt: -1 });
 
-      if (tasks.length > 0) {
-        res.json(tasks.map(toFrontendAssignedTask));
-        return;
-      }
-
-      const fallbackProjects = await ProjectModel.find({}).sort({ createdAt: -1 });
-      const accessibleProjects = fallbackProjects.filter((project) => canAccessProject(employee.name, project));
-
-      res.json(accessibleProjects.map(toFallbackWorkItem));
+      res.json(tasks.map(toFrontendAssignedTask));
     } catch (error) {
       console.error('Error fetching assigned tasks:', error);
       res.status(500).json({ error: 'Failed to fetch assigned tasks' });
@@ -175,11 +247,7 @@ export const employeeTimesheetController = {
         return;
       }
 
-      const openLog = await TimesheetModel.findOne({
-        employeeId: employee.id,
-        $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }],
-        taskStatus: { $in: ['In Progress', 'Session Incomplete'] },
-      }).sort({ loginTime: -1 });
+      const openLog = await findOpenTimesheet(employee);
 
       if (!openLog) {
         res.json({ active: null });
@@ -211,7 +279,10 @@ export const employeeTimesheetController = {
       }
 
       const logs = await TimesheetModel.find({
-        $or: [{ employeeId: employee.id }, { employee: employee.name }],
+        $or: [
+          { employeeId: { $in: employee.identityTokens } },
+          { employee: { $in: employee.identityTokens } },
+        ],
       })
         .sort({ loginTime: -1 })
         .limit(100);
@@ -293,16 +364,31 @@ export const employeeTimesheetController = {
         let stoppedTasks = 0;
         await session.withTransaction(async () => {
           const openLogs = await TimesheetModel.find({
-            employeeId: employee.id,
-            $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }],
+            $and: [
+              {
+                $or: [
+                  { employeeId: { $in: employee.identityTokens } },
+                  { employee: { $in: employee.identityTokens } },
+                ],
+              },
+              { $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }] },
+            ],
           }).session(session);
 
           stoppedTasks = openLogs.length;
 
           for (const log of openLogs) {
+            if (log.taskStatus === 'Paused') {
+              finalizePauseAccumulation(log);
+            }
             log.logoutTime = now;
-            log.totalHours = computeTotalHours(log.loginTime, log.logoutTime, log.overriddenHours);
-            if (log.taskStatus === 'In Progress' || log.taskStatus === 'Session Incomplete') {
+            log.totalHours = computeTotalHours(
+              log.loginTime,
+              log.logoutTime,
+              log.overriddenHours,
+              log.totalPausedMs
+            );
+            if (log.taskStatus === 'In Progress' || log.taskStatus === 'Paused' || log.taskStatus === 'Session Incomplete') {
               log.taskStatus = 'Pending';
             }
             await log.save({ session });
@@ -348,57 +434,50 @@ export const employeeTimesheetController = {
         return;
       }
 
-      const existingOpen = await TimesheetModel.findOne({
-        employeeId: employee.id,
-        $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }],
-      });
+      const existingOpen = await findOpenTimesheet(employee);
       if (existingOpen) {
-        res.status(400).json({ error: 'Stop your current task before starting a new one' });
+        res.status(400).json({
+          error:
+            existingOpen.taskStatus === 'Paused'
+              ? 'Resume or complete your paused task before starting a new one'
+              : 'Stop your current task before starting a new one',
+        });
         return;
       }
 
-      const assigned = await AssignedTaskModel.findById(assignedTaskId);
-      const taskProject = assigned ? await ProjectModel.findById(assigned.projectId) : await ProjectModel.findById(assignedTaskId);
-
-      if (!assigned && !taskProject) {
+      const assigned = await findAssignedTaskForEmployee(employee, assignedTaskId);
+      if (!assigned) {
         res.status(404).json({ error: 'Assigned task not found' });
         return;
       }
 
-      if (assigned) {
-        if (!matchesEmployeeTask(employee, assigned)) {
-          res.status(404).json({ error: 'Assigned task not found' });
+      const taskProject = await ProjectModel.findById(assigned.projectId);
+
+      if (assigned.status !== 'assigned') {
+        const linkedTimesheetId = assigned.timesheetId ? assigned.timesheetId.toString() : null;
+        const linkedTimesheet = linkedTimesheetId ? await TimesheetModel.findById(linkedTimesheetId) : null;
+        const hasOpenLog = !!linkedTimesheet && (!linkedTimesheet.logoutTime || linkedTimesheet.logoutTime === null);
+
+        if (hasOpenLog) {
+          res.status(400).json({ error: 'Stop your current task before starting a new one' });
           return;
         }
 
-        if (assigned.status !== 'assigned') {
-          const linkedTimesheetId = assigned.timesheetId ? assigned.timesheetId.toString() : null;
-          const linkedTimesheet = linkedTimesheetId ? await TimesheetModel.findById(linkedTimesheetId) : null;
-          const hasOpenLog = !!linkedTimesheet && (!linkedTimesheet.logoutTime || linkedTimesheet.logoutTime === null);
+        assigned.status = 'assigned';
+        assigned.timesheetId = undefined;
+        await assigned.save();
+      } else if (assigned.status === 'completed') {
+        res.status(400).json({ error: 'This task is already completed' });
+        return;
+      }
 
-          if (hasOpenLog) {
-            res.status(400).json({ error: 'Stop your current task before starting a new one' });
-            return;
-          }
-
-          assigned.status = 'assigned';
-          assigned.timesheetId = undefined;
-          await assigned.save();
-        }
-
-        if (assigned.status !== 'assigned') {
-          res.status(400).json({ error: 'This task is not available to start' });
-          return;
-        }
+      if (assigned.status !== 'assigned') {
+        res.status(400).json({ error: 'This task is not available to start' });
+        return;
       }
 
       if (!taskProject) {
         res.status(400).json({ error: 'Project not found for this task' });
-        return;
-      }
-
-      if (!assigned && !canAccessProject(employee.name, taskProject)) {
-        res.status(403).json({ error: 'You do not have access to this project' });
         return;
       }
 
@@ -412,8 +491,8 @@ export const employeeTimesheetController = {
         let timesheet: any;
         await session.withTransaction(async () => {
           timesheet = new TimesheetModel({
-            employee: employee.name,
-            employeeId: employee.id,
+            employee: employee.employeeName || employee.name,
+            employeeId: employee.employeeId || employee.id,
             projectId: taskProject._id,
             project: taskProject.projectName,
             client: taskProject.clientName,
@@ -440,7 +519,7 @@ export const employeeTimesheetController = {
 
         res.status(201).json({
           timesheet: toFrontendTimesheet(timesheet),
-          assignedTask: assigned ? toFrontendAssignedTask(assigned) : toFallbackWorkItem(taskProject),
+          assignedTask: toFrontendAssignedTask(assigned),
           startedAt: now.toISOString(),
         });
       } finally {
@@ -460,10 +539,7 @@ export const employeeTimesheetController = {
         return;
       }
 
-      const openLog = await TimesheetModel.findOne({
-        employeeId: employee.id,
-        $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }],
-      }).sort({ loginTime: -1 });
+      const openLog = await findOpenTimesheet(employee);
 
       if (!openLog) {
         res.status(400).json({ error: 'No active task to stop' });
@@ -475,8 +551,16 @@ export const employeeTimesheetController = {
 
       try {
         await session.withTransaction(async () => {
+          if (openLog.taskStatus === 'Paused') {
+            finalizePauseAccumulation(openLog);
+          }
           openLog.logoutTime = now;
-          openLog.totalHours = computeTotalHours(openLog.loginTime, openLog.logoutTime, openLog.overriddenHours);
+          openLog.totalHours = computeTotalHours(
+            openLog.loginTime,
+            openLog.logoutTime,
+            openLog.overriddenHours,
+            openLog.totalPausedMs
+          );
           openLog.taskStatus = 'Pending';
           await openLog.save({ session });
           await syncProjectForTimesheet(openLog, session);
@@ -493,6 +577,158 @@ export const employeeTimesheetController = {
     } catch (error) {
       console.error('Error stopping task:', error);
       res.status(500).json({ error: 'Failed to stop task' });
+    }
+  },
+
+  pauseActiveTask: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const employee = await resolveEmployee(req);
+      if (!employee) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const openLog = await findOpenTimesheet(employee);
+      if (!openLog) {
+        res.status(400).json({ error: 'No active task to pause' });
+        return;
+      }
+      if (openLog.taskStatus === 'Paused') {
+        res.status(400).json({ error: 'Task is already paused' });
+        return;
+      }
+      if (openLog.taskStatus !== 'In Progress') {
+        res.status(400).json({ error: 'Only in-progress tasks can be paused' });
+        return;
+      }
+
+      const now = new Date();
+      openLog.taskStatus = 'Paused';
+      openLog.pausedAt = now;
+      await openLog.save();
+      await syncProjectForTimesheet(openLog);
+
+      res.json({
+        timesheet: toFrontendTimesheet(openLog),
+        pausedAt: now.toISOString(),
+      });
+    } catch (error) {
+      console.error('Error pausing task:', error);
+      res.status(500).json({ error: 'Failed to pause task' });
+    }
+  },
+
+  resumeActiveTask: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const employee = await resolveEmployee(req);
+      if (!employee) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const openLog = await findOpenTimesheet(employee);
+      if (!openLog || openLog.taskStatus !== 'Paused') {
+        res.status(400).json({ error: 'No paused task to resume' });
+        return;
+      }
+
+      finalizePauseAccumulation(openLog);
+      openLog.taskStatus = 'In Progress';
+      await openLog.save();
+      await syncProjectForTimesheet(openLog);
+
+      res.json({
+        timesheet: toFrontendTimesheet(openLog),
+        resumedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('Error resuming task:', error);
+      res.status(500).json({ error: 'Failed to resume task' });
+    }
+  },
+
+  completeActiveTask: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const employee = await resolveEmployee(req);
+      if (!employee) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const openLog = await findOpenTimesheet(employee);
+      if (!openLog) {
+        res.status(400).json({ error: 'No active task to complete' });
+        return;
+      }
+
+      const now = new Date();
+      const session = await mongoose.startSession();
+
+      try {
+        await session.withTransaction(async () => {
+          if (openLog.taskStatus === 'Paused') {
+            finalizePauseAccumulation(openLog);
+          }
+
+          openLog.logoutTime = now;
+          openLog.totalHours = computeTotalHours(
+            openLog.loginTime,
+            openLog.logoutTime,
+            openLog.overriddenHours,
+            openLog.totalPausedMs
+          );
+          openLog.taskStatus = 'Completed';
+          openLog.approvalStatus = 'Pending';
+          openLog.status = 'Pending';
+          if (openLog.requestStatus !== 'Rejected') {
+            openLog.requestStatus = 'No Request';
+          }
+
+          await openLog.save({ session });
+
+          const linkedAssigned = await AssignedTaskModel.findOne({
+            projectId: openLog.projectId,
+            $or: [
+              { timesheetId: openLog._id },
+              { employeeId: { $in: employee.identityTokens } },
+              { employeeName: { $in: employee.identityTokens } },
+              { employeeId: openLog.employeeId },
+              { employeeName: openLog.employee },
+            ],
+          }).session(session);
+
+          if (linkedAssigned) {
+            linkedAssigned.status = 'pending_review';
+            linkedAssigned.timesheetId = openLog._id as Types.ObjectId;
+            await linkedAssigned.save({ session });
+          } else {
+            await AssignedTaskModel.updateMany(
+              {
+                projectId: openLog.projectId,
+                $or: [
+                  { timesheetId: openLog._id },
+                  { employeeId: { $in: employee.identityTokens } },
+                  { employeeName: { $in: employee.identityTokens } },
+                ],
+              },
+              { $set: { status: 'pending_review', timesheetId: openLog._id } },
+              { session }
+            );
+          }
+
+          await syncProjectForTimesheet(openLog, session);
+        });
+
+        res.json({
+          timesheet: toFrontendTimesheet(openLog),
+          completedAt: now.toISOString(),
+        });
+      } finally {
+        session.endSession();
+      }
+    } catch (error) {
+      console.error('Error completing task:', error);
+      res.status(500).json({ error: 'Failed to complete task' });
     }
   },
 };

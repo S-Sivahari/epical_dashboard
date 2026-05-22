@@ -43,6 +43,28 @@ export async function completeProjectTask(
   return response.data;
 }
 
+export interface AssignedTaskCompleteResponse {
+  assignedTask: {
+    id: string
+    employeeId: string
+    employeeName: string
+    title: string
+    status: string
+    timesheetId?: string
+  }
+  project: ProjectSyncPayload | null
+}
+
+export async function completeAssignedProjectTask(
+  projectId: string,
+  assignedTaskId: string
+): Promise<AssignedTaskCompleteResponse> {
+  const response = await api.patch(
+    `/projects/${projectId}/assigned-tasks/${assignedTaskId}/complete`
+  );
+  return response.data;
+}
+
 export async function overrideTimesheetLog(
   timesheetId: string,
   payload: Record<string, unknown>
@@ -52,10 +74,11 @@ export async function overrideTimesheetLog(
 }
 
 export async function fetchProjectTimesheets(
-  projectId: string
+  projectId: string,
+  projectName?: string
 ): Promise<Record<string, unknown>[]> {
-  const response = await api.get('/timesheets', {
-    params: { projectId },
-  });
+  const params: Record<string, string> = { projectId };
+  if (projectName) params.project = projectName;
+  const response = await api.get('/timesheets', { params });
   return response.data || [];
 }

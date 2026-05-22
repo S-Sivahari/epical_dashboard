@@ -1,6 +1,7 @@
 import { ClientSession, Types } from 'mongoose';
 import { ProjectModel } from '../models/Project';
 import { TimesheetModel } from '../models/Timesheet';
+import { AssignedTaskModel } from '../models/AssignedTask';
 
 /**
  * Determines whether a single timesheet entry is fully completed and approved.
@@ -21,14 +22,15 @@ function isEntryCompletedAndApproved(entry: any): boolean {
   return getApprovalStatus(entry) === 'Approved';
 }
 
-export function getTimesheetWorkflowStatus(entry: any): 'Pending' | 'In Progress' | 'Completed' | 'Rejected' | 'Session Incomplete' | 'Pending Review' {
+export function getTimesheetWorkflowStatus(entry: any): 'Pending' | 'In Progress' | 'Paused' | 'Completed' | 'Rejected' | 'Session Incomplete' | 'Pending Review' {
   const approvalStatus = getApprovalStatus(entry);
 
   if (approvalStatus === 'Rejected') return 'Rejected';
+  if (entry.taskStatus === 'Paused') return 'Paused';
   if (entry.taskStatus === 'Session Incomplete') return 'Session Incomplete';
   if (entry.requestStatus === 'Pending Review') return 'Pending Review';
   if (entry.taskStatus === 'Completed' && approvalStatus === 'Approved') return 'Completed';
-  if (entry.taskStatus === 'Completed') return 'Pending Review';
+  if (entry.taskStatus === 'Completed') return 'Waiting for approval';
   if (entry.taskStatus === 'In Progress') return 'In Progress';
   return 'Pending';
 }
@@ -75,8 +77,27 @@ export async function updateProjectCompletionStatus(
   if (session) timesheetQuery.session(session);
   const relatedEntries = await timesheetQuery;
 
-  const totalTasks = relatedEntries.length;
-  const completedTasks = relatedEntries.filter(isEntryCompletedAndApproved).length;
+  const assignedQuery = AssignedTaskModel.find({ projectId: objectId });
+  if (session) assignedQuery.session(session);
+  const assignedTasks = await assignedQuery;
+
+  const isAssignedTaskComplete = (assignment: { status: string; timesheetId?: Types.ObjectId | null }) => {
+    if (assignment.status === 'completed') return true;
+    if (!assignment.timesheetId) return false;
+    const linked = relatedEntries.find((e) => e._id.equals(assignment.timesheetId!));
+    return linked ? isEntryCompletedAndApproved(linked) : false;
+  };
+
+  let totalTasks: number;
+  let completedTasks: number;
+
+  if (assignedTasks.length > 0) {
+    totalTasks = assignedTasks.length;
+    completedTasks = assignedTasks.filter(isAssignedTaskComplete).length;
+  } else {
+    totalTasks = relatedEntries.length;
+    completedTasks = relatedEntries.filter(isEntryCompletedAndApproved).length;
+  }
   const completionPercentage = totalTasks > 0
     ? Math.round((completedTasks / totalTasks) * 100)
     : 0;

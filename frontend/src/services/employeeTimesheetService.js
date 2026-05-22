@@ -39,3 +39,18 @@ export async function stopActiveTask() {
   const res = await api.patch('/timesheets/mine/stop-task')
   return res.data
 }
+
+export async function pauseActiveTask() {
+  const res = await api.patch('/timesheets/mine/pause-task')
+  return res.data
+}
+
+export async function resumeActiveTask() {
+  const res = await api.patch('/timesheets/mine/resume-task')
+  return res.data
+}
+
+export async function completeActiveTask() {
+  const res = await api.patch('/timesheets/mine/complete-task')
+  return res.data
+}

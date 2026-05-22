@@ -19,6 +19,9 @@ router.post('/mine/check-in', employeeTimesheetController.checkIn);
 router.post('/mine/check-out', employeeTimesheetController.checkOut);
 router.post('/mine/start-task', employeeTimesheetController.startTask);
 router.patch('/mine/stop-task', employeeTimesheetController.stopActiveTask);
+router.patch('/mine/pause-task', employeeTimesheetController.pauseActiveTask);
+router.patch('/mine/resume-task', employeeTimesheetController.resumeActiveTask);
+router.patch('/mine/complete-task', employeeTimesheetController.completeActiveTask);
 
 router.get('/:id', timesheetController.getById);
 router.post('/', timesheetController.create);

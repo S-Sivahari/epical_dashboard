@@ -120,9 +120,9 @@ app.post('/api/seed', async (_req, res) => {
 app.post('/api/seed-assigned-tasks', async (_req, res) => {
   try {
     const result = await seedAssignedTasksOnly();
-    res.json({ message: 'Assigned tasks seed complete', ...result });
+    res.json({ message: 'Assigned tasks synced from project access', ...result });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Seeding failed' });
+    res.status(500).json({ error: err.message || 'Assigned task sync failed' });
   }
 });
 

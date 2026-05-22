@@ -63,82 +63,100 @@ function toFrontendTimesheet(t: any) {
  * Resolves a project by ID or name and returns its ObjectId.
  * Returns null if the project cannot be found.
  */
-async function resolveProjectId(projectId?: string): Promise<{ _id: Types.ObjectId; projectName: string; clientName: string; technologyNode: string } | null> {
-  if (projectId) {
-    try {
-      const byId = await ProjectModel.findById(projectId);
-      if (byId) return { _id: byId._id as Types.ObjectId, projectName: byId.projectName, clientName: byId.clientName, technologyNode: byId.technologyNode };
-    } catch {
-      return null;
+async function resolveProjectRef(
+  idOrName?: string
+): Promise<{ _id: Types.ObjectId; projectName: string; clientName: string; technologyNode: string } | null> {
+  if (!idOrName) return null;
+  const value = String(idOrName).trim();
+  if (Types.ObjectId.isValid(value)) {
+    const byId = await ProjectModel.findById(value);
+    if (byId) {
+      return {
+        _id: byId._id as Types.ObjectId,
+        projectName: byId.projectName,
+        clientName: byId.clientName,
+        technologyNode: byId.technologyNode,
+      };
     }
   }
+  const byName = await ProjectModel.findOne({ projectName: value });
+  if (byName) {
+    return {
+      _id: byName._id as Types.ObjectId,
+      projectName: byName.projectName,
+      clientName: byName.clientName,
+      technologyNode: byName.technologyNode,
+    };
+  }
+  return null;
+}
 
+function projectMatchClause(
+  resolved: { _id: Types.ObjectId; projectName: string } | null,
+  fallback?: string
+) {
+  if (resolved) {
+    return { $or: [{ projectId: resolved._id }, { project: resolved.projectName }] };
+  }
+  if (fallback) return { project: fallback };
   return null;
 }
 
 // Helper to build matches for query filters
 async function buildMatchStage(req: Request) {
   const { from, to, employee, project, projectId, team, status, search } = req.query;
-  const match: any = {};
+  const and: Record<string, unknown>[] = [];
 
   if (from || to) {
-    match.loginTime = {};
+    const loginTime: Record<string, Date> = {};
     if (from) {
       const startDate = new Date(from as string);
       startDate.setHours(0, 0, 0, 0);
-      match.loginTime.$gte = startDate;
+      loginTime.$gte = startDate;
     }
     if (to) {
       const endDate = new Date(to as string);
       endDate.setHours(23, 59, 59, 999);
-      match.loginTime.$lte = endDate;
+      loginTime.$lte = endDate;
     }
+    and.push({ loginTime });
   }
 
   if (employee && employee !== 'all') {
-    match.employee = employee;
+    and.push({ employee });
   }
 
   if (project && project !== 'all') {
-    // Also resolve by ObjectId if possible
-    const resolved = await resolveProjectId(project as string);
-    if (resolved) {
-      match.$or = [...(match.$or || []), { projectId: resolved._id }, { project }];
-    } else {
-      match.$or = [...(match.$or || []), { project }];
-    }
+    const resolved = await resolveProjectRef(project as string);
+    const clause = projectMatchClause(resolved, project as string);
+    if (clause) and.push(clause);
   }
 
   if (projectId && projectId !== 'all') {
-    try {
-      const objId = new Types.ObjectId(projectId as string);
-      match.$or = [...(match.$or || []), { projectId: objId }];
-    } catch {
-      match.$or = [...(match.$or || []), { project: projectId }];
-    }
+    const resolved = await resolveProjectRef(projectId as string);
+    const clause = projectMatchClause(resolved, projectId as string);
+    if (clause) and.push(clause);
   }
 
   if (status && status !== 'all') {
     if (status === 'Session Incomplete') {
-      match.$or = [
-        ...(match.$or || []),
-        { logoutTime: { $exists: false } },
-        { logoutTime: null },
-        { taskStatus: 'Session Incomplete' },
-      ];
+      and.push({
+        $or: [
+          { logoutTime: { $exists: false } },
+          { logoutTime: null },
+          { taskStatus: 'Session Incomplete' },
+        ],
+      });
     } else {
-      match.status = status;
+      and.push({ status });
     }
   }
 
-
   if (search) {
     const searchRegex = new RegExp(search as string, 'i');
-    match.$or = [
-      { employee: searchRegex },
-      { project: searchRegex },
-      { task: searchRegex }
-    ];
+    and.push({
+      $or: [{ employee: searchRegex }, { project: searchRegex }, { task: searchRegex }],
+    });
   }
 
   if (team && team !== 'all') {
@@ -148,13 +166,15 @@ async function buildMatchStage(req: Request) {
       throw new Error('Database connection is not active');
     }
     const employeesInDept = await db.collection('employees').find({ department: dept }).toArray();
-    const employeeNames = employeesInDept.map(e => `${e.firstName} ${e.lastName}`);
-    const mockNames = MOCK_EMPLOYEES.filter(e => e.department === dept).map(e => e.name);
+    const employeeNames = employeesInDept.map((e) => `${e.firstName} ${e.lastName}`);
+    const mockNames = MOCK_EMPLOYEES.filter((e) => e.department === dept).map((e) => e.name);
     const allNames = Array.from(new Set([...employeeNames, ...mockNames]));
-    match.employee = { $in: allNames };
+    and.push({ employee: { $in: allNames } });
   }
 
-  return match;
+  if (and.length === 0) return {};
+  if (and.length === 1) return and[0];
+  return { $and: and };
 }
 
 export const timesheetController = {
@@ -344,7 +364,7 @@ export const timesheetController = {
       }
 
       // Resolve project to a valid ObjectId — fail if not found
-      const resolvedProject = await resolveProjectId(projectId);
+      const resolvedProject = await resolveProjectRef(projectId);
       if (!resolvedProject) {
         res.status(400).json({ error: 'Could not resolve project. Please provide a valid project ID.' });
         return;
