@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import mongoose, { Types } from 'mongoose';
+import { getDB } from '../config/db';
 import { ProjectModel } from '../models/Project';
 import { TimesheetModel } from '../models/Timesheet';
 import { AssignedTaskModel } from '../models/AssignedTask';
@@ -68,6 +69,33 @@ function toFrontendProject(p: any) {
   };
 }
 
+function buildAssignmentIdentityTokens(user: any, employee: any) {
+  const tokens = new Set<string>();
+
+  const addToken = (value?: string | null) => {
+    const trimmed = value?.trim();
+    if (trimmed) tokens.add(trimmed);
+  };
+
+  addToken(user?.id);
+  addToken(user?.name);
+  addToken(user?.employeeId);
+  addToken(user?.email);
+
+  addToken(employee?.id);
+  addToken(employee?.employeeId);
+  addToken(employee?.email);
+
+  const fullName = [employee?.firstName, employee?.middleName, employee?.lastName]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+  addToken(fullName);
+  addToken([employee?.firstName, employee?.lastName].filter(Boolean).join(' ').trim());
+
+  return Array.from(tokens);
+}
+
 async function resolveTimesheetForProject(projectId: string, timesheetId: string) {
   if (!Types.ObjectId.isValid(projectId) || !Types.ObjectId.isValid(timesheetId)) {
     return null;
@@ -128,13 +156,24 @@ export const projectController = {
         return;
       }
 
-      const employeeName = user.name;
+      const employeeRecord = user.email
+        ? await getDB().collection('employees').findOne({ email: user.email.toLowerCase().trim() })
+        : null;
+
+      const employeeName = employeeRecord
+        ? [employeeRecord.firstName, employeeRecord.middleName, employeeRecord.lastName]
+            .filter(Boolean)
+            .join(' ')
+            .trim() || user.name
+        : user.name;
+
+      const assignmentTokens = buildAssignmentIdentityTokens(user, employeeRecord);
 
       const assignedProjects = await ProjectModel.find({
         $or: [
           { accessType: 'public' },
-          { allowedUsers: employeeName },
-          { teamLead: employeeName },
+          { allowedUsers: { $in: assignmentTokens } },
+          { teamLead: { $in: assignmentTokens } },
         ],
       }).sort({ createdAt: -1 });
 
@@ -154,9 +193,9 @@ export const projectController = {
         const base = toFrontendProject(p);
         const allowed = p.allowedUsers || [];
         let assignmentRole: 'Team Lead' | 'Member' | 'Public' = 'Public';
-        if (p.teamLead === employeeName) {
+        if (p.teamLead && assignmentTokens.includes(p.teamLead)) {
           assignmentRole = 'Team Lead';
-        } else if (p.accessType === 'private' && allowed.includes(employeeName)) {
+        } else if (p.accessType === 'private' && allowed.some((allowedUser: string) => assignmentTokens.includes(allowedUser))) {
           assignmentRole = 'Member';
         }
 
