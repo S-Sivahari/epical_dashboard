@@ -22,6 +22,9 @@
   h4 {
     @apply font-display tracking-tight text-ink;
   }
+  button {
+    cursor: pointer;
+  }
 }
 
 @layer utilities {

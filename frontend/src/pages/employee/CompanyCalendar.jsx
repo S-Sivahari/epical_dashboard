@@ -2,10 +2,25 @@ import { useMemo } from 'react'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
-import { calendarEvents, holidays } from '@pages/employee/data/mockData'
+import { calendarEvents, holidays as mockHolidays } from '@pages/employee/data/mockData'
 import { formatDate } from '@pages/employee/lib/utils'
+import { useLeaves } from '@hooks/useLeaves'
 
 export default function CompanyCalendar() {
+  const { holidays: fetchedHolidays } = useLeaves()
+  const holidaysToShow = useMemo(
+    () =>
+      fetchedHolidays.length > 0
+        ? fetchedHolidays
+        : mockHolidays.map((h, i) => ({
+            id: `mock-${i}`,
+            title: h.name,
+            date: h.date,
+            type: 'National',
+          })),
+    [fetchedHolidays]
+  )
+
   const fcEvents = useMemo(
     () => [
       ...calendarEvents.map((e) => ({
@@ -15,18 +30,25 @@ export default function CompanyCalendar() {
         backgroundColor: e.type === 'holiday' ? '#f59e0b' : e.type === 'meeting' ? '#16a34a' : '#3b82f6',
         borderColor: 'transparent',
       })),
-      ...holidays.map((h, i) => ({
-        id: `h-${i}`,
-        title: h.name,
+      ...holidaysToShow.map((h) => ({
+        id: h.id,
+        title: h.title,
         date: h.date,
-        backgroundColor: '#f59e0b',
+        backgroundColor:
+          h.type === 'National'
+            ? '#16a34a'
+            : h.type === 'Company'
+            ? '#2563eb'
+            : h.type === 'Company Event'
+            ? '#f97316'
+            : '#f59e0b',
         borderColor: 'transparent',
       })),
     ],
-    []
+    [calendarEvents, holidaysToShow]
   )
 
-  const upcoming = [...calendarEvents, ...holidays.map((h) => ({ ...h, title: h.name, type: 'holiday' }))]
+  const upcoming = [...calendarEvents, ...holidaysToShow.map((h) => ({ ...h, title: h.title, type: 'holiday' }))]
     .sort((a, b) => new Date(a.date) - new Date(b.date))
     .slice(0, 6)
 
@@ -57,9 +79,18 @@ export default function CompanyCalendar() {
         <div className="rounded-xl border border-border bg-card p-6 shadow-card">
           <h3 className="font-heading font-semibold">Monthly Holidays</h3>
           <ul className="mt-3 space-y-2">
-            {holidays.map((h) => (
-              <li key={h.date} className="flex justify-between text-sm">
-                <span>{h.name}</span>
+            {holidaysToShow.map((h) => (
+              <li key={h.id ?? h.date} className="flex justify-between text-sm">
+                <div className="flex items-center gap-2">
+                  <span>{h.title}</span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-muted">
+                    {h.type === 'Company'
+                      ? 'Company Holiday'
+                      : h.type === 'Company Event'
+                      ? 'Company Event'
+                      : 'Public Holiday'}
+                  </span>
+                </div>
                 <span className="text-muted">{formatDate(h.date)}</span>
               </li>
             ))}

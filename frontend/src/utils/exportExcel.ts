@@ -3,6 +3,9 @@ import * as XLSX from 'xlsx'
 export interface ExportExcelOptions {
   generatedBy?: string
   filters?: Record<string, string | undefined>
+  panelTitle?: string
+  reportTitle?: string
+  sheetName?: string
 }
 
 function formatDateStr(d: string | Date | undefined | null): string {
@@ -56,8 +59,8 @@ export function exportToExcel<T extends Record<string, any>>(
   // Corporate Header Block
   aoa.push(['------------------------------------------------------------'])
   aoa.push(['                    EP[IC]AL LAYOUTS PVT LTD'])
-  aoa.push(['                 Document Management Panel'])
-  aoa.push(['                    Employee Details Report'])
+  aoa.push([`                 ${options?.panelTitle ?? 'Document Management Panel'}`])
+  aoa.push([`                    ${options?.reportTitle ?? 'Employee Details Report'}`])
   aoa.push(['------------------------------------------------------------'])
   aoa.push([]) // blank line
   aoa.push([`Generated Date : ${genDate}`])
@@ -77,7 +80,7 @@ export function exportToExcel<T extends Record<string, any>>(
   data.forEach((row) => {
     aoa.push(
       headers.map((h) => {
-        let value = row[h.key]
+        let value: any = row[h.key]
         if (h.key === 'joinedAt' || h.key === 'dob') {
           value = formatDateStr(value)
         } else if (h.key === 'pfEsi') {
@@ -109,7 +112,7 @@ export function exportToExcel<T extends Record<string, any>>(
   })
 
   const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Employees')
+  XLSX.utils.book_append_sheet(workbook, worksheet, options?.sheetName ?? 'Employees')
 
   XLSX.writeFile(workbook, `${filename}.xlsx`)
 }

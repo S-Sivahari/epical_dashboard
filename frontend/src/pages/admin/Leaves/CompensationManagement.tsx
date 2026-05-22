@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { toast } from 'sonner'
 import { Badge } from '@components/ui/Badge'
 import { Button } from '@components/ui/Button'
@@ -17,7 +17,20 @@ interface CompensationEntry {
   createdBy: string
 }
 
-export function CompensationManagement() {
+export function CompensationManagement({
+  onExportDataChange,
+  onSearchChange,
+}: {
+  onExportDataChange?: (rows: Array<{
+    employeeName: string
+    employeeId: string
+    compensationDays: number
+    reason: string
+    appliedDate: string
+    createdBy: string
+  }>) => void
+  onSearchChange?: (term: string) => void
+} = {}) {
   const { employees } = useEmployees()
   const [compensationData, setCompensationData] = useState<CompensationEntry[]>([])
   const [searchTerm, setSearchTerm] = useState('')
@@ -39,6 +52,23 @@ export function CompensationManagement() {
     )
   }, [compensationData, searchTerm])
 
+  useEffect(() => {
+    onExportDataChange?.(
+      filteredData.map((item) => ({
+        employeeName: item.employeeName,
+        employeeId: item.employeeId,
+        compensationDays: item.days,
+        reason: item.reason,
+        appliedDate: new Date(item.appliedDate).toLocaleDateString(),
+        createdBy: item.createdBy,
+      })),
+    )
+  }, [filteredData, onExportDataChange])
+
+  useEffect(() => {
+    onSearchChange?.(searchTerm)
+  }, [searchTerm, onSearchChange])
+
   const handleAddEntry = () => {
     if (!formData.employeeId || !formData.days || !formData.reason) {
       toast.error('Please fill all fields')
@@ -59,7 +89,7 @@ export function CompensationManagement() {
             ? {
                 ...item,
                 employeeId: formData.employeeId,
-                employeeName: selectedEmployee.name,
+                employeeName: `${selectedEmployee.firstName} ${selectedEmployee.lastName ?? ''}`.trim(),
                 days: parseInt(formData.days),
                 reason: formData.reason,
               }
@@ -73,7 +103,7 @@ export function CompensationManagement() {
       const newEntry: CompensationEntry = {
         id: `comp-${Date.now()}`,
         employeeId: formData.employeeId,
-        employeeName: selectedEmployee.name,
+        employeeName: `${selectedEmployee.firstName} ${selectedEmployee.lastName ?? ''}`.trim(),
         days: parseInt(formData.days),
         reason: formData.reason,
         appliedDate: new Date().toISOString(),
@@ -165,7 +195,7 @@ export function CompensationManagement() {
     <div className="space-y-6">
       {/* Info Card */}
       <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 shadow-sm">
-        <h3 className="font-semibold text-blue-900 text-sm">ℹ️ Compensation Leave Management</h3>
+        <h3 className="font-semibold text-blue-900 text-sm">Compensation Leave Management</h3>
         <p className="text-xs text-blue-800 mt-2">
           Grant additional leave days to employees as compensation. These entries help track make-up time and additional benefits.
         </p>
@@ -205,7 +235,7 @@ export function CompensationManagement() {
                   <option value="">Choose an employee...</option>
                   {employees.map((emp) => (
                     <option key={emp.id} value={emp.id}>
-                      {emp.name} ({emp.id})
+                      {emp.firstName} {emp.lastName ?? ''} ({emp.id})
                     </option>
                   ))}
                 </select>
@@ -262,7 +292,10 @@ export function CompensationManagement() {
               placeholder="Search..."
               className="pl-9 h-9 text-sm"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value)
+                onSearchChange?.(e.target.value)
+              }}
             />
           </div>
         </div>

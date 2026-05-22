@@ -16,7 +16,7 @@ export async function handleGoogleCallback(req: Request, res: Response) {
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       env.JWT_SECRET,
-      { expiresIn: env.JWT_EXPIRES_IN }
+      { expiresIn: env.JWT_EXPIRES_IN as any }
     );
 
     // Return token and redirect to frontend
@@ -88,7 +88,7 @@ export async function loginWithOAuth(req: Request, res: Response) {
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       env.JWT_SECRET,
-      { expiresIn: env.JWT_EXPIRES_IN }
+      { expiresIn: env.JWT_EXPIRES_IN as any }
     );
 
     const mappedRole = user.role === 'Admin' ? 'admin' : 'employee';

@@ -1,4 +1,4 @@
-import type { Holiday, LeaveRequest } from '@/types'
+import type { EmployeeLeaveSummary, Holiday, LeaveRequest } from '@/types'
 import api from '@services/api'
 
 export async function getLeaves() {
@@ -6,18 +6,26 @@ export async function getLeaves() {
   return response.data as LeaveRequest[]
 }
 
-export async function getBalances() {
-  const response = await api.get('/leaves/balances')
+export async function getBalances(employeeId?: string) {
+  const response = await api.get('/leaves/balances', {
+    params: employeeId ? { employeeId } : undefined,
+  })
   return response.data as Record<string, { total: number; used: number; remaining: number }>
+}
+
+export async function getEmployeeLeaveSummary(employeeId: string) {
+  const response = await api.get(`/leaves/employee/${employeeId}/summary`)
+  return response.data as EmployeeLeaveSummary
 }
 
 export async function createLeave(payload: {
   employeeId: string
   employeeName: string
   type: string
+  leaveDuration: 'Full Day' | 'Half Day'
+  halfDaySession?: 'First Half' | 'Second Half'
   from: string
   to: string
-  days: number
   reason: string
 }) {
   const response = await api.post('/leaves', payload)
@@ -32,8 +40,8 @@ export async function rejectLeave(id: string, reason: string) {
   await api.patch(`/leaves/${id}/reject`, { reason })
 }
 
-export async function cancelLeave(id: string) {
-  await api.patch(`/leaves/${id}/cancel`)
+export async function cancelLeave(id: string, reason: string) {
+  await api.patch(`/leaves/${id}/cancel`, { reason })
 }
 
 export async function addHoliday(payload: Omit<Holiday, 'id'>) {

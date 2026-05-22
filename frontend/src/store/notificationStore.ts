@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import api from '@services/api'
 import { playNotificationSound } from '@utils/notificationSound'
+import { toast } from 'sonner'
 
 export interface NotificationData {
   id: string
@@ -70,6 +71,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       })
     } catch (error) {
       console.error('[Notifications] Error fetching notifications:', error)
+      toast.error('Failed to fetch notifications')
       set({ loading: false })
     }
   },
@@ -99,6 +101,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       })
     } catch (error) {
       console.error('[Notifications] Error fetching notifications:', error)
+      toast.error('Failed to fetch notifications (silent)')
     }
   },
 
@@ -118,6 +121,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       set({ unreadCount: newCount, lastUnreadCount: newCount, isInitialized: true })
     } catch (error) {
       console.error('[Notifications] Error fetching unread count:', error)
+      toast.error('Failed to fetch unread count')
     }
   },
 
@@ -139,6 +143,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       set({ unreadCount: newCount, lastUnreadCount: newCount, isInitialized: true })
     } catch (error) {
       console.error('[Notifications] Error fetching unread count:', error)
+      toast.error('Failed to fetch unread count (silent)')
     }
   },
 

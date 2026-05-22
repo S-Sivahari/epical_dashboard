@@ -131,58 +131,181 @@ export interface Employee {
   [key: string]: any
 }
 
+function findSheetName(wb: XLSX.WorkBook, candidates: string[]): string | undefined {
+  for (const name of candidates) {
+    if (wb.Sheets[name]) return name
+  }
+  const lower = candidates.map((n) => n.toLowerCase())
+  for (const sheetName of wb.SheetNames) {
+    if (lower.includes(sheetName.toLowerCase())) {
+      return sheetName
+    }
+  }
+  return undefined
+}
+
+function normalizeEmpIdKey(row: Record<string, unknown>): string | null {
+  for (const key of Object.keys(row)) {
+    const k = key.trim().toLowerCase()
+    if (k === 'emp id' || k === 'employee id' || k === 'empid' || k === 'employeeid') {
+      return key
+    }
+  }
+  return null
+}
+
+const SKIP_SHEETS = new Set(['readme', 'read me', 'how to use', 'instructions'])
+
+function isSkipSheet(name: string): boolean {
+  return SKIP_SHEETS.has(name.trim().toLowerCase())
+}
+
+function parseCompanySheet(ws: XLSX.WorkSheet): Company {
+  const company: Company = {}
+  const companyData = XLSX.utils.sheet_to_json(ws, { header: 1 }) as unknown[][]
+  const skipLabels = new Set(['company details', 'field', 'value', ''])
+
+  for (const row of companyData) {
+    if (!row || !row[0]) continue
+    const label = String(row[0]).trim()
+    if (skipLabels.has(label.toLowerCase())) continue
+    if (row[1] === undefined || row[1] === null || row[1] === '') continue
+    company[label] = row[1]
+  }
+  return company
+}
+
+function parseSalaryStructureSheet(ws: XLSX.WorkSheet): SalaryStructure {
+  const structure: SalaryStructure = {}
+  const salaryData = XLSX.utils.sheet_to_json(ws, { header: 1 }) as unknown[][]
+
+  let startRow = salaryData.findIndex(
+    (row) => row && String(row[0] || '').trim().toLowerCase() === 'component'
+  )
+  if (startRow >= 0) startRow += 1
+  else startRow = 1
+
+  for (let i = startRow; i < salaryData.length; i++) {
+    const row = salaryData[i]
+    if (!row || !row[0]) continue
+    const comp = String(row[0]).trim()
+    const sec = String(row[1] || '').trim()
+    const rawAmt = row[2]
+    let amt = 0
+    if (rawAmt !== '' && rawAmt !== null && rawAmt !== undefined) {
+      try {
+        amt = typeof rawAmt === 'number' ? rawAmt : parseFloat(String(rawAmt))
+        if (Number.isNaN(amt)) amt = 0
+      } catch {
+        amt = 0
+      }
+    }
+    structure[comp] = { section: sec, default: amt }
+  }
+  return structure
+}
+
+function parseEmployeeSheet(ws: XLSX.WorkSheet): Employee[] {
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }) as unknown[][]
+  let headerIdx = rows.findIndex(
+    (row) => String(row?.[0] ?? '').trim().toLowerCase() === 'emp id'
+  )
+  if (headerIdx < 0) headerIdx = 3
+
+  const headerRow = rows[headerIdx]
+  if (!headerRow) return []
+
+  const headers = headerRow.map((h) => String(h ?? '').trim())
+  const employees: Employee[] = []
+
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const row = rows[i]
+    if (!row || row.every((c) => c === '' || c === null || c === undefined)) continue
+
+    const emp: Employee = {}
+    headers.forEach((h, j) => {
+      if (!h) return
+      const val = row[j]
+      if (val !== '' && val !== null && val !== undefined) emp[h] = val
+    })
+
+    const idKey = normalizeEmpIdKey(emp)
+    if (!idKey || !emp[idKey]) continue
+    emp['Emp ID'] = emp[idKey]
+    employees.push(emp)
+  }
+
+  return employees
+}
+
+/** Parse workbook from template or custom Excel with matching sheet/column layout. */
+export function parseMasterWorkbook(wb: XLSX.WorkBook): {
+  company: Company
+  structure: SalaryStructure
+  employees: Employee[]
+} {
+  const companySheetName = findSheetName(wb, ['company', 'Company', 'Company Info', 'Company Details'])
+  const wsCompany = companySheetName ? wb.Sheets[companySheetName] : undefined
+  const company = wsCompany ? parseCompanySheet(wsCompany) : {}
+
+  const salarySheetName = findSheetName(wb, [
+    'salary structure',
+    'Salary Structure',
+    'SalaryStructure',
+    'Structure',
+  ])
+  const wsSalary = salarySheetName ? wb.Sheets[salarySheetName] : undefined
+  const structure = wsSalary ? parseSalaryStructureSheet(wsSalary) : {}
+
+  let employees: Employee[] = []
+  const employeeSheetName = findSheetName(wb, [
+    'employee',
+    'employees',
+    'Employee',
+    'Employees',
+    'Employee Data',
+    'Payroll',
+  ])
+  const wsEmployees = employeeSheetName ? wb.Sheets[employeeSheetName] : undefined
+
+  if (wsEmployees) {
+    employees = parseEmployeeSheet(wsEmployees)
+  }
+
+  const usedSheets = new Set(
+    [companySheetName, salarySheetName, employeeSheetName].filter(Boolean) as string[]
+  )
+
+  if (employees.length === 0) {
+    for (const sheetName of wb.SheetNames) {
+      if (isSkipSheet(sheetName) || usedSheets.has(sheetName)) continue
+      const parsed = parseEmployeeSheet(wb.Sheets[sheetName])
+      if (parsed.length) {
+        employees = parsed
+        break
+      }
+    }
+  }
+
+  return { company, structure, employees }
+}
+
+export function readMasterExcelFromBuffer(buffer: Buffer): {
+  company: Company
+  structure: SalaryStructure
+  employees: Employee[]
+} {
+  const wb = XLSX.read(buffer, { type: 'buffer' })
+  return parseMasterWorkbook(wb)
+}
+
 export function readMasterExcel(filePath: string): {
   company: Company
   structure: SalaryStructure
   employees: Employee[]
 } {
   const wb = XLSX.readFile(filePath)
-
-  // Read Company sheet
-  const company: Company = {}
-  const wsCompany = wb.Sheets['Company']
-  if (wsCompany) {
-    const companyData = XLSX.utils.sheet_to_json(wsCompany, { header: 1 })
-    for (let row of companyData) {
-      if (row && row[0] && row[1]) {
-        company[String(row[0]).trim()] = row[1]
-      }
-    }
-  }
-
-  // Read Salary Structure sheet
-  const structure: SalaryStructure = {}
-  const wsSalary = wb.Sheets['Salary Structure']
-  if (wsSalary) {
-    const salaryData = XLSX.utils.sheet_to_json(wsSalary, { header: 1 })
-    for (let i = 3; i < salaryData.length; i++) {
-      const row = salaryData[i]
-      if (!row || !row[0]) continue
-      const comp = String(row[0]).trim()
-      const sec = String(row[1] || '').trim()
-      let amt = row[2] || 0
-      try {
-        amt = typeof amt === 'number' ? amt : parseFloat(String(amt))
-      } catch {
-        amt = 0
-      }
-      structure[comp] = { section: sec, default: amt }
-    }
-  }
-
-  // Read Employees sheet
-  const employees: Employee[] = []
-  const wsEmployees = wb.Sheets['Employees']
-  if (wsEmployees) {
-    const empData = XLSX.utils.sheet_to_json(wsEmployees)
-    for (let emp of empData) {
-      if (emp && emp['Emp ID']) {
-        employees.push(emp)
-      }
-    }
-  }
-
-  return { company, structure, employees }
+  return parseMasterWorkbook(wb)
 }
 
 // ============================================================================
@@ -475,7 +598,7 @@ interface EarningItem {
   amount: number
 }
 
-function buildEarningsData(emp: Employee, structure: SalaryStructure): { earnings: EarningItem[]; gross: number } {
+export function buildEarningsData(emp: Employee, structure: SalaryStructure): { earnings: EarningItem[]; gross: number } {
   const empToStruct: { [key: string]: string } = {
     'Basic Salary': 'Basic Salary',
     HRA: 'House Rent Allowance',
@@ -508,7 +631,7 @@ function buildEarningsData(emp: Employee, structure: SalaryStructure): { earning
   return { earnings, gross }
 }
 
-function buildDeductionsData(
+export function buildDeductionsData(
   emp: Employee,
   structure: SalaryStructure
 ): { deductions: EarningItem[]; totalDed: number } {

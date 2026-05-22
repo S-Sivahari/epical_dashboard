@@ -33,6 +33,10 @@ export async function getLeaveById(id: string): Promise<LeaveRequest | null> {
   return leave as LeaveRequest | null;
 }
 
+function normalizeDate(date: string) {
+  return new Date(date).toISOString().slice(0, 10);
+}
+
 export async function createLeave(payload: CreateLeavePayload): Promise<LeaveRequest> {
   const col = getLeaveCol();
 
@@ -40,19 +44,36 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
   const holidays = await getAllHolidays();
 
   // 2. Calculate true business days (skip weekends & holidays)
-  const actualDays = getBusinessDays(payload.from, payload.to, holidays);
+  const actualBusinessDays = getBusinessDays(payload.from, payload.to, holidays);
 
-  if (actualDays <= 0) {
-    throw new Error('Leave request spans across weekends/holidays with 0 effective business days.');
+  if (payload.leaveDuration === 'Half Day') {
+    if (normalizeDate(payload.from) !== normalizeDate(payload.to)) {
+      throw new Error('Half-day leave must be for a single date');
+    }
+    if (actualBusinessDays !== 1) {
+      throw new Error('Half-day leave request must fall on a working day');
+    }
+  } else {
+    if (actualBusinessDays <= 0) {
+      throw new Error('Leave request spans across weekends/holidays with 0 effective business days.');
+    }
   }
 
-  // Note: No validation against balance here. Admin will validate during approval.
-  // This allows employees to request leave freely, and admin reviews it.
+  const requestedDays = payload.leaveDuration === 'Half Day' ? 0.5 : actualBusinessDays;
+
+  // 3. Fetch employee balances to validate
+  const employeeLeaves = await getAllLeaves(payload.employeeId);
+  const balances = calculateBalances(employeeLeaves);
+  
+  const leaveBalance = balances[payload.type];
+  if (leaveBalance && leaveBalance.remaining < requestedDays) {
+    throw new Error(`Insufficient ${payload.type} balance. Remaining: ${leaveBalance.remaining}, Requested: ${requestedDays}`);
+  }
 
   const id = `L-${Date.now()}`;
   const leave: any = {
     ...payload,
-    days: actualDays, // Override days with the true calculated days
+    days: requestedDays,
     id,
     status: 'Pending',
     createdAt: new Date(),
@@ -97,6 +118,82 @@ export async function getLeaveBalances(employeeId: string) {
   return calculateBalances(leaves);
 }
 
+export interface LeaveTypeBalanceSummary {
+  type: string;
+  total: number;
+  used: number;
+  pending: number;
+  remaining: number;
+}
+
+export interface EmployeeLeaveSummary {
+  employeeId: string;
+  employeeName: string;
+  balances: LeaveTypeBalanceSummary[];
+  currentLeaves: Array<{
+    id: string;
+    type: string;
+    from: string;
+    to: string;
+    days: number;
+    status: string;
+  }>;
+  history: LeaveRequest[];
+}
+
+function getTodayDateString(): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today.toISOString().split('T')[0];
+}
+
+function isApprovedLeaveActiveOnDate(leave: LeaveRequest, dateStr: string): boolean {
+  return leave.status === 'Approved' && leave.from <= dateStr && dateStr <= leave.to;
+}
+
+export async function getEmployeeLeaveSummary(employeeId: string): Promise<EmployeeLeaveSummary> {
+  const leaves = await getAllLeaves(employeeId);
+  const balances = calculateBalances(leaves);
+  const currentYear = new Date().getFullYear().toString();
+  const todayStr = getTodayDateString();
+
+  const pendingByType: Record<string, number> = {};
+  leaves.forEach((leave) => {
+    if (leave.status === 'Pending' && leave.from.startsWith(currentYear)) {
+      pendingByType[leave.type] = (pendingByType[leave.type] || 0) + leave.days;
+    }
+  });
+
+  const balanceList: LeaveTypeBalanceSummary[] = Object.entries(balances).map(([type, b]) => ({
+    type,
+    total: b.total,
+    used: b.used,
+    pending: pendingByType[type] || 0,
+    remaining: b.remaining,
+  }));
+
+  const currentLeaves = leaves
+    .filter((l) => isApprovedLeaveActiveOnDate(l, todayStr))
+    .map((l) => ({
+      id: l.id,
+      type: l.type,
+      from: l.from,
+      to: l.to,
+      days: l.days,
+      status: l.status,
+    }));
+
+  const employeeName = leaves[0]?.employeeName ?? 'Unknown';
+
+  return {
+    employeeId,
+    employeeName,
+    balances: balanceList,
+    currentLeaves,
+    history: leaves,
+  };
+}
+
 export async function updateLeaveStatus(
   id: string,
   status: 'Approved' | 'Rejected',
@@ -131,6 +228,10 @@ export async function updateLeaveStatus(
   // Add rejection reason if rejecting
   if (status === 'Rejected' && rejectionReason) {
     updateDoc.rejectionReason = rejectionReason;
+  }
+
+  if (status === 'Approved') {
+    updateDoc.approvalDate = new Date();
   }
 
   const result = await col.findOneAndUpdate(
@@ -268,7 +369,9 @@ export async function checkDuplicateHoliday(date: string, excludeId?: string): P
   return !!existing;
 }
 
-export async function createHoliday(payload: { title: string; date: string; description?: string; type: 'National' | 'Company' | 'Optional' }): Promise<Holiday> {
+export type HolidayType = 'National' | 'Company' | 'Optional' | 'Company Event'
+
+export async function createHoliday(payload: { title: string; date: string; description?: string; type: HolidayType }): Promise<Holiday> {
   const col = getHolidayCol();
   const id = `H-${Date.now()}`;
   const holiday: any = { ...payload, id, createdAt: new Date(), updatedAt: new Date() };
@@ -276,7 +379,7 @@ export async function createHoliday(payload: { title: string; date: string; desc
   return holiday as Holiday;
 }
 
-export async function updateHoliday(id: string, payload: { title?: string; date?: string; description?: string; type?: 'National' | 'Company' | 'Optional' }): Promise<Holiday | null> {
+export async function updateHoliday(id: string, payload: { title?: string; date?: string; description?: string; type?: HolidayType }): Promise<Holiday | null> {
   const col = getHolidayCol();
   const result = await col.findOneAndUpdate(
     { id },
@@ -307,7 +410,9 @@ export async function fetchIndianHolidaysFromAPI(year: number): Promise<Holiday[
       id: `H-API-${year}-${index}`,
       title: h.name,
       date: h.date, // Format: YYYY-MM-DD
+      type: 'National',
       createdAt: new Date(),
+      updatedAt: new Date(),
     }));
 
     return holidays;

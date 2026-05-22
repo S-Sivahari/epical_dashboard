@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle, XCircle, Bell } from 'lucide-react'
+import { CheckCircle, XCircle, Bell } from 'lucide-react'
 import { useEffect } from 'react'
 import { useNotificationStore } from '@store/notificationStore'
 
@@ -31,7 +31,6 @@ export function NotificationAlerts() {
       {leaveNotifications.slice(0, 5).map((notification) => {
         const isApproved = notification.type === 'LeaveApproved'
         const isRejected = notification.type === 'LeaveRejected'
-        const isSubmitted = notification.type === 'LeaveSubmitted'
 
         let icon = Bell
         let bgColor = 'bg-blue-50'

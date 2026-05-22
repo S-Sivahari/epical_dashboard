@@ -18,4 +18,10 @@ export const env = {
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'admin123',
   ADMIN_NAME: process.env.ADMIN_NAME || 'Admin User',
   CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  enableEmailNotifications: process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true',
+  smtpHost: process.env.SMTP_HOST || 'smtp.gmail.com',
+  smtpPort: parseInt(process.env.SMTP_PORT || '587', 10),
+  smtpUser: process.env.SMTP_USER || '',
+  smtpPass: process.env.SMTP_PASS || '',
+  smtpFrom: process.env.SMTP_FROM || 'no-reply@company.com',
 };

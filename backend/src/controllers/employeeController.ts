@@ -39,7 +39,7 @@ export const employeeController = {
   // Get employee by ID
   getEmployeeById: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const employee = await employeeService.getEmployeeById(id);
 
       if (!employee) {
@@ -59,36 +59,46 @@ export const employeeController = {
     try {
       const payload: CreateEmployeePayload = req.body;
 
-      if (!payload.employeeId || !payload.firstName || !payload.lastName || !payload.email || !payload.department || !payload.permanentAddress || !payload.communicationAddress || !payload.pan) {
-        res.status(400).json({ error: 'Missing required fields: employeeId, firstName, lastName, email, department, permanentAddress, communicationAddress, pan' });
-        return;
-      }
+        // Validate essential fields dynamically
+        const required = ['firstName', 'lastName', 'email', 'department'];
+        const missing = required.filter(f => !(payload as any)[f]);
+        if (missing.length) {
+          res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` });
+          return;
+        }
 
       const employee = await employeeService.createEmployee(payload);
       res.status(201).json(employee);
     } catch (error: any) {
-      if (error?.code === 'DUPLICATE_EMAIL') {
-        res.status(409).json({ error: error.message });
-        return;
-      }
-      if (error?.code === 'DUPLICATE_EMPLOYEE_ID') {
-        res.status(409).json({ error: error.message });
-        return;
-      }
-      // MongoDB native duplicate key fallback
-      if (error?.code === 11000 || error?.message?.includes('E11000')) {
-        res.status(409).json({ error: 'A duplicate entry already exists.' });
-        return;
-      }
-      console.error('Error creating employee:', error);
-      res.status(500).json({ error: error?.message ?? 'Failed to create employee' });
+        // Handle validation errors from service
+        if (error?.code === 'VALIDATION_ERROR') {
+          res.status(400).json({ error: error.message });
+          return;
+        }
+        // Duplicate email
+        if (error?.code === 'DUPLICATE_EMAIL') {
+          res.status(409).json({ error: error.message });
+          return;
+        }
+        // Duplicate employee ID
+        if (error?.code === 'DUPLICATE_EMPLOYEE_ID') {
+          res.status(409).json({ error: error.message });
+          return;
+        }
+        // MongoDB native duplicate key fallback
+        if (error?.code === 11000 || error?.message?.includes('E11000')) {
+          res.status(409).json({ error: 'A duplicate entry already exists.' });
+          return;
+        }
+        console.error('Error creating employee:', error);
+        res.status(500).json({ error: error?.message ?? 'Failed to create employee' });
     }
   },
 
   // Update employee
   updateEmployee: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const payload = req.body;
 
       const employee = await employeeService.updateEmployee(id, payload);
@@ -108,7 +118,7 @@ export const employeeController = {
   // Delete employee (hard delete)
   deleteEmployee: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const success = await employeeService.deleteEmployee(id);
 
       if (!success) {
@@ -126,7 +136,7 @@ export const employeeController = {
   // Update employee status (Deactivate/Archive)
   updateStatus: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const { status } = req.body;
 
       if (!status) {
@@ -170,7 +180,7 @@ export const employeeController = {
   // Get employees by department
   getEmployeesByDepartment: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { department } = req.params;
+      const { department } = req.params as { department: string };
       const employees = await employeeService.getEmployeesByDepartment(department);
       res.json(employees);
     } catch (error) {

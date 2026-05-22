@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { z } from 'zod'
-import { ExternalLink, FileText, X, HelpCircle } from 'lucide-react'
+import { ExternalLink, X, HelpCircle } from 'lucide-react'
 import { Breadcrumb } from '@components/layout/Breadcrumb'
 import { PageHeader } from '@components/layout/PageHeader'
 import { PageWrapper } from '@components/layout/PageWrapper'
@@ -387,7 +387,7 @@ export function AddEmployee() {
   return (
     <PageWrapper>
       <PageHeader
-        title="Add Employee"
+        title=""
         breadcrumb={
           <Breadcrumb items={[{ label: 'Employees', to: '/admin/employees' }, { label: 'Add' }]} />
         }
