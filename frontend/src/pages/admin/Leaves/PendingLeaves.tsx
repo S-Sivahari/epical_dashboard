@@ -12,10 +12,9 @@ import { DataTable, type Column } from '@components/tables/DataTable'
 import { useLeaves } from '@hooks/useLeaves'
 import type { LeaveRequest } from '@/types'
 import { formatDate } from '@/utils/formatDate'
-import { filterLeaves, type LeaveFilters } from '@/utils/leaveFilters'
-import { useMemo } from 'react'
+import { type LeaveFilters } from '@/utils/leaveFilters'
 
-export function PendingLeaves({ filters }: { filters: LeaveFilters }) {
+export function PendingLeaves({ filters: _filters }: { filters: LeaveFilters }) {
   const { leaves, loading, approveLeave, rejectLeave, fetchLeaves } = useLeaves()
 <<<<<<< HEAD
   const previousLeaveCount = useRef(leaves.length)
@@ -142,7 +141,7 @@ export function PendingLeaves({ filters }: { filters: LeaveFilters }) {
           </div>
           <div className="flex gap-3 justify-end">
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => {
                 setRejectModalOpen(false)
                 setRejectionReason('')

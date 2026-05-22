@@ -40,7 +40,6 @@ export function DashboardHome() {
   
   // Calculate real-time statistics
   const pendingLeavesCount = leaves.filter((l) => l.status === 'Pending').length
-  const approvedLeavesCount = leaves.filter((l) => l.status === 'Approved').length
 
   return (
     <PageWrapper>

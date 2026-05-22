@@ -12,14 +12,14 @@ export function useLeaves() {
     void fetchLeaves()
     void fetchHolidays()
     
-    // Poll for updates every 5 seconds WITHOUT loading indicator
+    // Poll for updates every 10 seconds (smart polling with cache validation)
     const leaveInterval = setInterval(() => {
       void fetchLeavesSilent()
-    }, 5000)
+    }, 10000)
     
     const holidayInterval = setInterval(() => {
       void fetchHolidaysSilent()
-    }, 5000)
+    }, 10000)
     
     return () => {
       clearInterval(leaveInterval)

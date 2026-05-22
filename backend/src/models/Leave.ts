@@ -19,6 +19,7 @@ export interface LeaveRequest {
   rejectionReason?: string;
   createdAt?: Date;
   updatedAt?: Date;
+  approvalDate?: Date;
 }
 
 export interface CreateLeavePayload {

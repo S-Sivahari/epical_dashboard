@@ -165,6 +165,10 @@ export async function updateLeaveStatus(
     updateDoc.rejectionReason = rejectionReason;
   }
 
+  if (status === 'Approved') {
+    updateDoc.approvalDate = new Date();
+  }
+
   const result = await col.findOneAndUpdate(
     { id },
     { $set: updateDoc },

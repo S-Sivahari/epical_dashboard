@@ -77,7 +77,7 @@ export function exportToExcel<T extends Record<string, any>>(
   data.forEach((row) => {
     aoa.push(
       headers.map((h) => {
-        let value = row[h.key]
+        let value: any = row[h.key]
         if (h.key === 'joinedAt' || h.key === 'dob') {
           value = formatDateStr(value)
         } else if (h.key === 'pfEsi') {

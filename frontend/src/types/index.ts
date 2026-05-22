@@ -5,13 +5,18 @@ export interface Employee {
   id: string
   employeeId: string
   firstName: string
+  middleName?: string
   lastName?: string
   address?: string
+  permanentAddress?: string
+  communicationAddress?: string
   dob?: string
   gender?: string
   department: string
   designation: string
   role: string
+  reportingManager?: string
+  managerId?: string
   employmentType: EmploymentType
   joinedAt: string
   status: EmployeeStatus
@@ -29,6 +34,13 @@ export interface Employee {
   aadhaar?: string
   pan?: string
   passport?: string
+  emergencyContact?: {
+    name?: string
+    phone?: string
+    email?: string
+    relation?: string
+    address?: string
+  }
   [key: string]: unknown
 }
 
@@ -48,6 +60,12 @@ export interface LeaveRequest {
   reason: string
   status: LeaveStatus
   rejectionReason?: string
+<<<<<<< HEAD
+  createdAt?: string
+  updatedAt?: string
+=======
+  cancellationReason?: string
+>>>>>>> 8ba3a9c662eca2d21defb36cc2879c841fc87304
   approvalDate?: string
   approvedBy?: string
 }

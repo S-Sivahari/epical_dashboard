@@ -40,7 +40,7 @@ const ProjectManagement = lazy(async () => {
   return { default: m.ProjectManagement }
 })
 const CompanyCalendar = lazy(async () => {
-  const m = await import('@pages/admin/Calendar/CompanyCalendar')
+  const m = await import('@pages/admin/Calendar/CompanyCalendar_merged')
   return { default: m.CompanyCalendar }
 })
 const TrainingCourses = lazy(async () => {
@@ -66,6 +66,10 @@ const CompanyNews = lazy(async () => {
 const TicketManagement = lazy(async () => {
   const m = await import('@pages/admin/Tickets/TicketManagement')
   return { default: m.TicketManagement }
+})
+const PayslipManagement = lazy(async () => {
+  const m = await import('@pages/admin/Payslips/PayslipManagement')
+  return { default: m.PayslipManagement }
 })
 const Settings = lazy(async () => {
   const m = await import('@pages/admin/Settings/Settings')
@@ -123,6 +127,7 @@ export function AppRoutes() {
             <Route path="documents" element={<DocumentManagement />} />
             <Route path="news" element={<CompanyNews />} />
             <Route path="tickets" element={<TicketManagement />} />
+            <Route path="payslips" element={<PayslipManagement />} />
             <Route path="settings" element={<Settings />} />
           </Route>
         </Route>
