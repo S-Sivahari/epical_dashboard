@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import * as leaveService from '../services/leaveService';
 import { AuthRequest } from '../middleware/authMiddleware';
 
+const ADMIN_ROLES = ['Admin'];
+
 export const leaveController = {
   // GET /api/leaves
   getAll: async (req: AuthRequest, res: Response): Promise<void> => {
@@ -15,6 +17,30 @@ export const leaveController = {
       res.json(leaves);
     } catch {
       res.status(500).json({ error: 'Failed to fetch leaves' });
+    }
+  },
+
+  // GET /api/leaves/employee/:employeeId/summary (Admin only)
+  getEmployeeSummary: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user || !ADMIN_ROLES.includes(req.user.role)) {
+        res.status(403).json({ error: 'Forbidden: Admin access required' });
+        return;
+      }
+
+      const employeeId = Array.isArray(req.params.employeeId)
+        ? req.params.employeeId[0]
+        : req.params.employeeId;
+
+      if (!employeeId) {
+        res.status(400).json({ error: 'employeeId is required' });
+        return;
+      }
+
+      const summary = await leaveService.getEmployeeLeaveSummary(employeeId);
+      res.json(summary);
+    } catch {
+      res.status(500).json({ error: 'Failed to fetch employee leave summary' });
     }
   },
 

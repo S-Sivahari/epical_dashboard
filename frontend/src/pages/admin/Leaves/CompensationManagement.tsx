@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { toast } from 'sonner'
 import { Badge } from '@components/ui/Badge'
 import { Button } from '@components/ui/Button'
@@ -17,7 +17,20 @@ interface CompensationEntry {
   createdBy: string
 }
 
-export function CompensationManagement() {
+export function CompensationManagement({
+  onExportDataChange,
+  onSearchChange,
+}: {
+  onExportDataChange?: (rows: Array<{
+    employeeName: string
+    employeeId: string
+    compensationDays: number
+    reason: string
+    appliedDate: string
+    createdBy: string
+  }>) => void
+  onSearchChange?: (term: string) => void
+} = {}) {
   const { employees } = useEmployees()
   const [compensationData, setCompensationData] = useState<CompensationEntry[]>([])
   const [searchTerm, setSearchTerm] = useState('')
@@ -38,6 +51,23 @@ export function CompensationManagement() {
         item.employeeId.toLowerCase().includes(searchTerm.toLowerCase())
     )
   }, [compensationData, searchTerm])
+
+  useEffect(() => {
+    onExportDataChange?.(
+      filteredData.map((item) => ({
+        employeeName: item.employeeName,
+        employeeId: item.employeeId,
+        compensationDays: item.days,
+        reason: item.reason,
+        appliedDate: new Date(item.appliedDate).toLocaleDateString(),
+        createdBy: item.createdBy,
+      })),
+    )
+  }, [filteredData, onExportDataChange])
+
+  useEffect(() => {
+    onSearchChange?.(searchTerm)
+  }, [searchTerm, onSearchChange])
 
   const handleAddEntry = () => {
     if (!formData.employeeId || !formData.days || !formData.reason) {
@@ -262,7 +292,10 @@ export function CompensationManagement() {
               placeholder="Search..."
               className="pl-9 h-9 text-sm"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value)
+                onSearchChange?.(e.target.value)
+              }}
             />
           </div>
         </div>
