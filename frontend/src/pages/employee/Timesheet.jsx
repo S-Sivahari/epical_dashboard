@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { motion } from 'framer-motion'
-import { Play, Square, LogIn, LogOut, Timer } from 'lucide-react'
+import { Play, Square, LogIn, LogOut, Timer, Loader2 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { Button } from '@components/employee/ui/button'
 import { Input } from '@components/employee/ui/input'
@@ -14,10 +14,9 @@ import { KPIStatCard } from '@components/employee/shared/KPIStatCard'
 import { DataTable } from '@components/employee/shared/DataTable'
 import { useTimesheetStore } from '@store/employee/timesheetStore'
 import { useToast } from '@components/employee/shared/ToastProvider'
-import { timesheetProjects, weeklyHours } from '@pages/employee/data/mockData'
 
 const taskSchema = z.object({
-  project: z.string().min(1, 'Select a project'),
+  assignedTaskId: z.string().min(1, 'Select an assigned task'),
   description: z.string().min(3, 'Description required'),
 })
 
@@ -30,66 +29,246 @@ const sessionColumns = [
   { key: 'date', label: 'Date' },
 ]
 
+function formatDuration(startedAt) {
+  if (!startedAt) return '0h 0m'
+  const ms = Date.now() - new Date(startedAt).getTime()
+  const hours = Math.floor(ms / 3600000)
+  const mins = Math.floor((ms % 3600000) / 60000)
+  return `${hours}h ${mins}m`
+}
+
 export default function Timesheet() {
-  const { checkedIn, checkInTime, activeTask, sessions, checkIn, checkOut, startTask, stopTask } = useTimesheetStore()
+  const {
+    checkedIn,
+    checkInTime,
+    activeTask,
+    assignedTasks,
+    sessions,
+    loading,
+    initialized,
+    hydrate,
+    checkIn,
+    checkOut,
+    startTask,
+    stopTask,
+  } = useTimesheetStore()
   const { toast } = useToast()
   const [dateFilter, setDateFilter] = useState('')
+  const [elapsed, setElapsed] = useState('0h 0m')
+  const [submitting, setSubmitting] = useState(false)
 
-  const { register, handleSubmit, setValue, watch, formState: { errors, isSubmitting } } = useForm({
+  useEffect(() => {
+    hydrate()
+  }, [hydrate])
+
+  useEffect(() => {
+    if (!activeTask?.startedAt) return undefined
+    const tick = () => setElapsed(formatDuration(activeTask.startedAt))
+    tick()
+    const id = setInterval(tick, 30000)
+    return () => clearInterval(id)
+  }, [activeTask?.startedAt])
+
+  const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm({
     resolver: zodResolver(taskSchema),
-    defaultValues: { project: '', description: '' },
+    defaultValues: { assignedTaskId: '', description: '' },
   })
 
-  const onStartTask = (data) => {
-    startTask(data)
-    toast({ title: 'Task started', description: `Working on ${data.project}` })
+  const selectedTaskId = watch('assignedTaskId')
+  const selectedTask = assignedTasks.find((t) => t.id === selectedTaskId)
+
+  const onCheckIn = async () => {
+    try {
+      setSubmitting(true)
+      await checkIn()
+      toast({ title: 'Checked in', description: 'You can now start working on assigned tasks.' })
+    } catch (err) {
+      toast({
+        title: 'Check in failed',
+        description: err.response?.data?.error || 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const onCheckOut = async () => {
+    try {
+      setSubmitting(true)
+      await checkOut()
+      reset()
+      toast({ title: 'Checked out', description: 'Any active task was stopped and logged.' })
+    } catch (err) {
+      toast({
+        title: 'Check out failed',
+        description: err.response?.data?.error || 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const onStartTask = async (data) => {
+    try {
+      setSubmitting(true)
+      await startTask({
+        assignedTaskId: data.assignedTaskId,
+        description: data.description,
+      })
+      reset({ assignedTaskId: '', description: '' })
+      toast({
+        title: 'Task started',
+        description: `Timer started for ${selectedTask?.title || 'task'}. Time is logged to the project.`,
+      })
+    } catch (err) {
+      toast({
+        title: 'Could not start task',
+        description: err.response?.data?.error || 'Please check in and select a task.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const onStopTask = async () => {
+    try {
+      setSubmitting(true)
+      await stopTask()
+      toast({ title: 'Task stopped', description: 'Hours saved and visible in the admin dashboard.' })
+    } catch (err) {
+      toast({
+        title: 'Could not stop task',
+        description: err.response?.data?.error || 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const filtered = dateFilter ? sessions.filter((s) => s.date === dateFilter) : sessions
+
+  const weeklyHours = useMemo(() => {
+    const byDay = {}
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    sessions.forEach((s) => {
+      if (!s.loginTime || typeof s.hours !== 'number') return
+      const d = new Date(s.loginTime)
+      const key = days[d.getDay()]
+      byDay[key] = (byDay[key] || 0) + s.hours
+    })
+    return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day) => ({
+      day,
+      hours: Math.round((byDay[day] || 0) * 10) / 10,
+      target: 8,
+    }))
+  }, [sessions])
+
   const totalWeekly = weeklyHours.reduce((a, b) => a + b.hours, 0)
+  const todayKey = new Date().toISOString().split('T')[0]
+  const sessionsToday = sessions.filter((s) => s.date === todayKey).length
+
+  if (!initialized && loading) {
+    return (
+      <div className="flex min-h-[320px] items-center justify-center text-muted">
+        <Loader2 className="mr-2 h-6 w-6 animate-spin text-primary" />
+        Loading timesheet…
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-3">
-        <KPIStatCard title="Weekly Hours" value={`${totalWeekly}h`} icon={Timer} trend="98% of target" />
-        <KPIStatCard title="Sessions Today" value={String(sessions.filter((s) => s.date === new Date().toISOString().split('T')[0]).length)} icon={Play} />
-        <KPIStatCard title="Productivity" value="94%" icon={Timer} trend="+2% vs last week" />
+        <KPIStatCard title="Weekly Hours" value={`${totalWeekly}h`} icon={Timer} trend="From logged tasks" />
+        <KPIStatCard title="Sessions Today" value={String(sessionsToday)} icon={Play} />
+        <KPIStatCard
+          title="Assigned Tasks"
+          value={String(assignedTasks.length)}
+          icon={Timer}
+          trend={checkedIn ? 'Ready to work' : 'Check in first'}
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-4 rounded-xl border border-border bg-card p-6 shadow-card lg:col-span-1">
           <h3 className="font-heading text-lg font-semibold">Check In / Out</h3>
           <div className="flex gap-3">
-            <Button onClick={checkIn} disabled={checkedIn} className="flex-1 gap-2">
+            <Button onClick={onCheckIn} disabled={checkedIn || submitting} className="flex-1 gap-2">
               <LogIn className="h-4 w-4" /> Check In
             </Button>
-            <Button variant="outline" onClick={checkOut} disabled={!checkedIn} className="flex-1 gap-2">
+            <Button
+              variant="outline"
+              onClick={onCheckOut}
+              disabled={!checkedIn || submitting}
+              className="flex-1 gap-2"
+            >
               <LogOut className="h-4 w-4" /> Check Out
             </Button>
           </div>
           {checkedIn && checkInTime && (
-            <p className="text-sm text-primary">Checked in at {checkInTime.toLocaleTimeString()}</p>
+            <p className="text-sm text-primary">
+              Checked in at {checkInTime.toLocaleTimeString()}
+            </p>
+          )}
+          {!checkedIn && (
+            <p className="text-xs text-muted">Check in before starting a task.</p>
           )}
 
           <hr className="my-4 border-border" />
           <h4 className="font-heading font-semibold">Start New Task</h4>
           <form onSubmit={handleSubmit(onStartTask)} className="mt-3 space-y-3">
             <div>
-              <Label>Project</Label>
-              <Select value={watch('project')} onValueChange={(v) => setValue('project', v)}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder="Select project" /></SelectTrigger>
+              <Label>Assigned Task</Label>
+              <Select
+                value={selectedTaskId}
+                onValueChange={(v) => setValue('assignedTaskId', v, { shouldValidate: true })}
+                disabled={!checkedIn || !!activeTask || assignedTasks.length === 0}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue
+                    placeholder={
+                      assignedTasks.length === 0
+                        ? 'No tasks assigned — contact admin'
+                        : 'Select assigned task'
+                    }
+                  />
+                </SelectTrigger>
                 <SelectContent>
-                  {timesheetProjects.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  {assignedTasks.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.projectName} — {t.title}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              {errors.project && <p className="mt-1 text-xs text-danger">{errors.project.message}</p>}
+              {selectedTask?.description && (
+                <p className="mt-1.5 text-xs text-muted">{selectedTask.description}</p>
+              )}
+              {errors.assignedTaskId && (
+                <p className="mt-1 text-xs text-danger">{errors.assignedTaskId.message}</p>
+              )}
             </div>
             <div>
-              <Label>Task Description</Label>
-              <Textarea className="mt-1" {...register('description')} placeholder="What are you working on?" />
-              {errors.description && <p className="mt-1 text-xs text-danger">{errors.description.message}</p>}
+              <Label>Work Description</Label>
+              <Textarea
+                className="mt-1"
+                {...register('description')}
+                placeholder="What are you working on?"
+                disabled={!checkedIn || !!activeTask}
+              />
+              {errors.description && (
+                <p className="mt-1 text-xs text-danger">{errors.description.message}</p>
+              )}
             </div>
-            <Button type="submit" disabled={isSubmitting || !!activeTask} className="w-full gap-2">
+            <Button
+              type="submit"
+              disabled={submitting || !!activeTask || !checkedIn || assignedTasks.length === 0}
+              className="w-full gap-2"
+            >
               <Play className="h-4 w-4" /> Start Task
             </Button>
           </form>
@@ -98,19 +277,25 @@ export default function Timesheet() {
         <div className="rounded-xl border border-border bg-card p-6 shadow-card lg:col-span-2">
           {activeTask ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl bg-primary/5 p-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm text-muted">Running Task</p>
                   <p className="font-heading font-semibold">{activeTask.project}</p>
-                  <p className="text-sm text-muted">{activeTask.description}</p>
+                  <p className="text-sm font-medium text-foreground">{activeTask.taskTitle}</p>
+                  <p className="mt-1 text-xs text-muted">{activeTask.description}</p>
+                  <p className="mt-2 text-sm text-primary">
+                    Started {activeTask.startedAt.toLocaleString()} · Elapsed {elapsed}
+                  </p>
                 </div>
-                <Button variant="danger" onClick={stopTask} className="gap-2">
-                  <Square className="h-4 w-4" /> Stop
+                <Button variant="danger" onClick={onStopTask} disabled={submitting} className="gap-2 shrink-0">
+                  <Square className="h-4 w-4" /> Stop Task
                 </Button>
               </div>
             </motion.div>
           ) : (
-            <p className="text-muted">No active task. Start a new task to begin tracking.</p>
+            <p className="text-muted">
+              No active task. Check in, pick an assigned task, add a description, and start tracking.
+            </p>
           )}
 
           <div className="mt-6 h-64">

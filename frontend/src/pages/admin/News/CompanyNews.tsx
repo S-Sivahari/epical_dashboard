@@ -43,7 +43,7 @@ export function CompanyNews() {
 
   return (
     <PageWrapper>
-      <PageHeader title="Company news" breadcrumb={<Breadcrumb items={[{ label: 'News' }]} />} />
+      <PageHeader title="" breadcrumb={<Breadcrumb items={[{ label: 'News' }]} />} />
       <section className="mb-8 rounded-xl border border-border bg-surface/60 p-4">
         <p className="mb-3 font-medium text-ink">Publish news</p>
         <div className="grid gap-3 md:grid-cols-2">

@@ -280,7 +280,7 @@ export function EmployeeList() {
   return (
     <PageWrapper>
       <PageHeader
-        title="Employees"
+        title=""
         breadcrumb={<Breadcrumb items={[{ label: 'Employees', to: '/admin/employees' }]} />}
         actions={
           <div className="flex gap-3">

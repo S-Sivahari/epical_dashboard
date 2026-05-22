@@ -14,6 +14,8 @@ export interface ExportPdfOptions {
   generatedBy?: string
   filters?: Record<string, string | undefined>
   compactMode?: boolean
+  panelTitle?: string
+  reportTitle?: string
 }
 
 // Simple date formatter inside the utility to prevent external dependencies
@@ -87,12 +89,12 @@ export function exportToPDF<T extends Record<string, any>>(
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(10)
     doc.setTextColor(100, 116, 139) // Slate-500
-    doc.text('Document Management Panel', pageWidth / 2, 68, { align: 'center' })
+    doc.text(options?.panelTitle ?? 'Document Management Panel', pageWidth / 2, 68, { align: 'center' })
     
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(12)
     doc.setTextColor(30, 41, 59) // Slate-800
-    doc.text('Employee Details Report', pageWidth / 2, 86, { align: 'center' })
+    doc.text(options?.reportTitle ?? 'Employee Details Report', pageWidth / 2, 86, { align: 'center' })
 
     // Top Divider Line
     doc.setDrawColor(226, 232, 240) // Slate-200

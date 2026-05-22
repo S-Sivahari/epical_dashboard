@@ -145,16 +145,25 @@ export const payslipController = {
         res.status(404).json({ error: 'Payroll batch not found' })
         return
       }
-      const buffer = readBatchExcel(req.params.batchId)
-      res.setHeader(
-        'Content-Type',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      )
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="${batch.originalFileName || 'payroll.xlsx'}"`
-      )
-      res.send(buffer)
+      
+      try {
+        const buffer = readBatchExcel(req.params.batchId)
+        res.setHeader(
+          'Content-Type',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        res.setHeader(
+          'Content-Disposition',
+          `attachment; filename="${batch.originalFileName || 'payroll.xlsx'}"`
+        )
+        res.send(buffer)
+      } catch (error: unknown) {
+        // Excel file doesn't exist (old batch), return graceful error
+        res.status(404).json({ 
+          error: 'Payroll file no longer available',
+          details: 'This batch is old and the file may have been archived or removed'
+        })
+      }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to download Excel'
       res.status(404).json({ error: message })
@@ -209,6 +218,7 @@ export const payslipController = {
       }
 
       const record = await sendPayslipToEmployee({
+      const record = await sendPayslipToEmployee({
         batchId,
         fileName,
         empId,
@@ -245,6 +255,12 @@ export const payslipController = {
 
       if (!batchId) {
         res.status(400).json({ error: 'batchId is required' })
+        return
+      }
+
+      const batch = await getPayrollBatch(batchId)
+      if (!batch) {
+        res.status(404).json({ error: 'Payroll batch not found' })
         return
       }
 

@@ -82,6 +82,29 @@ export interface CompensationLeave {
   days: number
 }
 
+export interface LeaveTypeBalanceSummary {
+  type: string
+  total: number
+  used: number
+  pending: number
+  remaining: number
+}
+
+export interface EmployeeLeaveSummary {
+  employeeId: string
+  employeeName: string
+  balances: LeaveTypeBalanceSummary[]
+  currentLeaves: Array<{
+    id: string
+    type: string
+    from: string
+    to: string
+    days: number
+    status: string
+  }>
+  history: LeaveRequest[]
+}
+
 export interface ProjectTimesheetRow {
   id: string
   employeeId: string

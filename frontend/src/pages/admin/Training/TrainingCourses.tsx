@@ -72,7 +72,7 @@ export function TrainingCourses() {
 
   return (
     <PageWrapper>
-      <PageHeader title="Training & courses" breadcrumb={<Breadcrumb items={[{ label: 'Training' }]} />} />
+      <PageHeader title="" breadcrumb={<Breadcrumb items={[{ label: 'Training' }]} />} />
       <div className="mb-4 flex flex-wrap gap-2 border-b border-border pb-3">
         {(
           [

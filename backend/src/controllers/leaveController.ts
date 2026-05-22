@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import * as leaveService from '../services/leaveService';
 import { AuthRequest } from '../middleware/authMiddleware';
 
+const ADMIN_ROLES = ['Admin'];
+
 export const leaveController = {
   // GET /api/leaves
   getAll: async (req: AuthRequest, res: Response): Promise<void> => {
@@ -15,6 +17,30 @@ export const leaveController = {
       res.json(leaves);
     } catch {
       res.status(500).json({ error: 'Failed to fetch leaves' });
+    }
+  },
+
+  // GET /api/leaves/employee/:employeeId/summary (Admin only)
+  getEmployeeSummary: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user || !ADMIN_ROLES.includes(req.user.role)) {
+        res.status(403).json({ error: 'Forbidden: Admin access required' });
+        return;
+      }
+
+      const employeeId = Array.isArray(req.params.employeeId)
+        ? req.params.employeeId[0]
+        : req.params.employeeId;
+
+      if (!employeeId) {
+        res.status(400).json({ error: 'employeeId is required' });
+        return;
+      }
+
+      const summary = await leaveService.getEmployeeLeaveSummary(employeeId);
+      res.json(summary);
+    } catch {
+      res.status(500).json({ error: 'Failed to fetch employee leave summary' });
     }
   },
 
@@ -63,7 +89,8 @@ export const leaveController = {
   // PATCH /api/leaves/:id/approve
   approve: async (req: Request, res: Response): Promise<void> => {
     try {
-      const leave = await leaveService.updateLeaveStatus(req.params.id, 'Approved');
+      const { id } = req.params as { id: string };
+      const leave = await leaveService.updateLeaveStatus(id, 'Approved');
       if (!leave) {
         res.status(404).json({ error: 'Leave not found' });
         return;
@@ -78,6 +105,7 @@ export const leaveController = {
   // PATCH /api/leaves/:id/reject
   reject: async (req: Request, res: Response): Promise<void> => {
     try {
+      const { id } = req.params as { id: string };
       const { reason } = req.body;
       if (!reason || reason.trim() === '') {
         res.status(400).json({ error: 'Rejection reason is required' });
@@ -98,7 +126,8 @@ export const leaveController = {
   // PATCH /api/leaves/:id/cancel
   cancel: async (req: Request, res: Response): Promise<void> => {
     try {
-      const leave = await leaveService.getLeaveById(req.params.id);
+      const { id } = req.params as { id: string };
+      const leave = await leaveService.getLeaveById(id);
       if (!leave) {
         res.status(404).json({ error: 'Leave not found' });
         return;
@@ -107,7 +136,7 @@ export const leaveController = {
         res.status(400).json({ error: 'Only approved leaves can be cancelled' });
         return;
       }
-      const cancelledLeave = await leaveService.cancelLeave(req.params.id);
+      const cancelledLeave = await leaveService.cancelLeave(id);
       if (!cancelledLeave) {
         res.status(500).json({ error: 'Failed to cancel leave' });
         return;
@@ -186,7 +215,8 @@ export const leaveController = {
   // DELETE /api/holidays/:id
   deleteHoliday: async (req: Request, res: Response): Promise<void> => {
     try {
-      const ok = await leaveService.deleteHoliday(req.params.id);
+      const { id } = req.params as { id: string };
+      const ok = await leaveService.deleteHoliday(id);
       if (!ok) { res.status(404).json({ error: 'Holiday not found' }); return; }
       res.json({ message: 'Deleted successfully' });
     } catch {

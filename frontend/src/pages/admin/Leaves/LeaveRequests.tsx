@@ -10,6 +10,7 @@ import { filterLeaves, type LeaveFilters } from '@/utils/leaveFilters'
 
 import {  X, ChevronLeft, ChevronRight, Check, Eye, Ban } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'
+import { EmployeeLeaveProfileModal } from './EmployeeLeaveProfileModal'
 
 type StatusType = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled'
 
@@ -26,10 +27,18 @@ interface StatusPagination {
   [key: string]: number
 }
 
-export function LeaveRequests() {
+export function LeaveRequests({
+  filters,
+  onFiltersChange,
+}: {
+  filters: LeaveFilters
+  onFiltersChange: (f: LeaveFilters) => void
+}) {
   const { leaves, loading, approveLeave, rejectLeave, cancelLeave } = useLeaves()
-  
-  const [filters, setFilters] = useState<LeaveFilters>({ employeeName: '', employeeId: '', status: 'Pending' })
+
+  const setFilters = (next: LeaveFilters | ((prev: LeaveFilters) => LeaveFilters)) => {
+    onFiltersChange(typeof next === 'function' ? next(filters) : next)
+  }
   const [statusPagination, setStatusPagination] = useState<StatusPagination>({
     Pending: 1,
     Approved: 1,
@@ -47,6 +56,23 @@ export function LeaveRequests() {
   // View Reason Modal State
   const [isReasonModalOpen, setIsReasonModalOpen] = useState(false)
   const [viewingReason, setViewingReason] = useState('')
+
+  // Employee leave profile (click name on any status tab)
+  const [profileEmployeeId, setProfileEmployeeId] = useState<string | null>(null)
+  const [profileEmployeeName, setProfileEmployeeName] = useState('')
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
+
+  const openEmployeeProfile = (employeeId: string, employeeName: string) => {
+    setProfileEmployeeId(employeeId)
+    setProfileEmployeeName(employeeName)
+    setIsProfileModalOpen(true)
+  }
+
+  const closeEmployeeProfile = () => {
+    setIsProfileModalOpen(false)
+    setProfileEmployeeId(null)
+    setProfileEmployeeName('')
+  }
 
   // Cancel Modal State
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false)
@@ -275,7 +301,14 @@ export function LeaveRequests() {
                   {/* Left Section: Name & Details */}
                   <div className="flex flex-col gap-0.5 min-w-0 flex-1">
                     <div className="flex items-center gap-3">
-                      <h4 className="font-semibold text-ink text-sm truncate">{l.employeeName}</h4>
+                      <button
+                        type="button"
+                        onClick={() => openEmployeeProfile(l.employeeId, l.employeeName)}
+                        className="font-semibold text-sm text-primary hover:underline truncate text-left"
+                        title="View leave history and balances"
+                      >
+                        {l.employeeName}
+                      </button>
                       {getStatusBadge(l.status)}
                     </div>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
@@ -525,6 +558,13 @@ export function LeaveRequests() {
           </div>
         </div>
       </Modal>
+
+      <EmployeeLeaveProfileModal
+        isOpen={isProfileModalOpen}
+        employeeId={profileEmployeeId}
+        employeeName={profileEmployeeName}
+        onClose={closeEmployeeProfile}
+      />
 
       {/* Cancel Modal */}
       <Modal

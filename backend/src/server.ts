@@ -15,6 +15,7 @@ import { leaveRoutes } from './routes/leaveRoutes';
 import { holidayRoutes } from './routes/holidayRoutes';
 import { ticketRoutes } from './routes/ticketRoutes';
 import { timesheetRoutes } from './routes/timesheetRoutes';
+import { projectRoutes } from './routes/projectRoutes';
 import { uploadRoutes } from './routes/uploadRoutes';
 import { oauthRoutes } from './routes/oauthRoutes';
 import { notificationRoutes } from './routes/notificationRoutes';
@@ -24,6 +25,7 @@ import { payslipRoutes } from './routes/payslipRoutes';
 import { seedDefaultUsers } from './services/authService';
 import { seedLeaves, seedHolidays } from './services/leaveService';
 import { seedTickets } from './services/ticketService';
+import { seedProjectsAndTimesheets, seedAssignedTasksOnly } from './scripts/seedTimesheets';
 import { getDB } from './config/db';
 
 const app = express();
@@ -79,6 +81,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/holidays', holidayRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/timesheets', timesheetRoutes);
+app.use('/api/projects', projectRoutes);
 app.use('/api/payslips', payslipRoutes);
 app.use('/api', uploadRoutes);
 
@@ -105,9 +108,19 @@ app.post('/api/seed', async (_req, res) => {
     await seedLeaves();
     await seedHolidays();
     await seedTickets();
+    await seedProjectsAndTimesheets();
 
     // Note: Employee seeding removed - add employees manually through the admin panel
     res.json({ message: 'Database seeded successfully', users });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Seeding failed' });
+  }
+});
+
+app.post('/api/seed-assigned-tasks', async (_req, res) => {
+  try {
+    const result = await seedAssignedTasksOnly();
+    res.json({ message: 'Assigned tasks seed complete', ...result });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Seeding failed' });
   }
