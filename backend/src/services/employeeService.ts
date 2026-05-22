@@ -1,6 +1,7 @@
 import { Collection, ObjectId, Filter, Document } from 'mongodb';
 import { getDB } from '../config/db';
 import { Employee, CreateEmployeePayload, UpdateEmployeePayload } from '../models/Employee';
+import * as emailService from './emailService';
 
 let employeeCollection: Collection<any> | null = null;
 
@@ -102,6 +103,27 @@ export async function getEmployeeById(id: string): Promise<Employee | null> {
 export async function createEmployee(payload: CreateEmployeePayload): Promise<Employee> {
   const collection = getEmployeeCollection();
 
+  // ==== Validation ==== //
+  // Ensure mandatory fields are present and of correct type
+  const requiredFields: (keyof CreateEmployeePayload)[] = ['firstName', 'lastName', 'email', 'department', 'designation'];
+  for (const field of requiredFields) {
+    const value = (payload as any)[field];
+    if (!value || typeof value !== 'string' || value.trim() === '') {
+      const err: any = new Error(`Missing or empty required field: ${field}`);
+      err.code = 'VALIDATION_ERROR';
+      throw err;
+    }
+  }
+
+  // Basic e‑mail format check (simple regex)
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(payload.email?.trim())) {
+    const err: any = new Error('Invalid email format');
+    err.code = 'VALIDATION_ERROR';
+    throw err;
+  }
+
+  // ==== Duplicate checks ==== //
   // Check for duplicate company email
   if (payload.email) {
     const existing = await collection.findOne({ email: payload.email.trim().toLowerCase() });
@@ -138,9 +160,23 @@ export async function createEmployee(payload: CreateEmployeePayload): Promise<Em
 
   const result = await collection.insertOne(employee);
 
+  // Send welcome email to the new employee asynchronously
+  if (employee.email) {
+    emailService.sendWelcomeEmail({
+      recipientEmail: employee.email,
+      firstName: employee.firstName || 'Team Member',
+      lastName: employee.lastName || '',
+      employeeId: employee.employeeId,
+      department: employee.department || 'N/A',
+      designation: employee.designation || 'N/A',
+      joinedAt: employee.joinedAt || new Date().toISOString().split('T')[0],
+    }).catch((err) => {
+      console.error('[Employee Service] Failed to send welcome email:', err);
+    });
+  }
+
   return { ...employee, _id: result.insertedId };
 }
-
 export async function updateEmployee(
   id: string,
   payload: UpdateEmployeePayload
