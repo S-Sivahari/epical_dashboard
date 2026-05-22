@@ -1,11 +1,22 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '../utils/generateToken';
 
-export interface AuthRequest extends Request {
-  user?: { id: string; email: string; role: string };
+declare global {
+  namespace Express {
+    interface User {
+      id: string;
+      email: string;
+      role: string;
+    }
+    interface Request {
+      user?: User;
+    }
+  }
 }
 
-export function authMiddleware(req: AuthRequest, res: Response, next: NextFunction): void {
+export type AuthRequest = Request;
+
+export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {

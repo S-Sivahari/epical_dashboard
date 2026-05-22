@@ -97,6 +97,82 @@ export async function getLeaveBalances(employeeId: string) {
   return calculateBalances(leaves);
 }
 
+export interface LeaveTypeBalanceSummary {
+  type: string;
+  total: number;
+  used: number;
+  pending: number;
+  remaining: number;
+}
+
+export interface EmployeeLeaveSummary {
+  employeeId: string;
+  employeeName: string;
+  balances: LeaveTypeBalanceSummary[];
+  currentLeaves: Array<{
+    id: string;
+    type: string;
+    from: string;
+    to: string;
+    days: number;
+    status: string;
+  }>;
+  history: LeaveRequest[];
+}
+
+function getTodayDateString(): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today.toISOString().split('T')[0];
+}
+
+function isApprovedLeaveActiveOnDate(leave: LeaveRequest, dateStr: string): boolean {
+  return leave.status === 'Approved' && leave.from <= dateStr && dateStr <= leave.to;
+}
+
+export async function getEmployeeLeaveSummary(employeeId: string): Promise<EmployeeLeaveSummary> {
+  const leaves = await getAllLeaves(employeeId);
+  const balances = calculateBalances(leaves);
+  const currentYear = new Date().getFullYear().toString();
+  const todayStr = getTodayDateString();
+
+  const pendingByType: Record<string, number> = {};
+  leaves.forEach((leave) => {
+    if (leave.status === 'Pending' && leave.from.startsWith(currentYear)) {
+      pendingByType[leave.type] = (pendingByType[leave.type] || 0) + leave.days;
+    }
+  });
+
+  const balanceList: LeaveTypeBalanceSummary[] = Object.entries(balances).map(([type, b]) => ({
+    type,
+    total: b.total,
+    used: b.used,
+    pending: pendingByType[type] || 0,
+    remaining: b.remaining,
+  }));
+
+  const currentLeaves = leaves
+    .filter((l) => isApprovedLeaveActiveOnDate(l, todayStr))
+    .map((l) => ({
+      id: l.id,
+      type: l.type,
+      from: l.from,
+      to: l.to,
+      days: l.days,
+      status: l.status,
+    }));
+
+  const employeeName = leaves[0]?.employeeName ?? 'Unknown';
+
+  return {
+    employeeId,
+    employeeName,
+    balances: balanceList,
+    currentLeaves,
+    history: leaves,
+  };
+}
+
 export async function updateLeaveStatus(
   id: string,
   status: 'Approved' | 'Rejected',

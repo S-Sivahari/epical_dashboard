@@ -5,7 +5,7 @@ export const uploadController = {
   // List uploaded documents for an employee
   listDocuments: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const employee = await employeeService.getEmployeeById(id);
 
       if (!employee) {
@@ -32,8 +32,8 @@ export const uploadController = {
   // Upload documents for an employee
   uploadDocuments: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
-      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+      const { id } = req.params as { id: string };
+      const files = (req as any).files as { [fieldname: string]: Express.Multer.File[] };
 
       if (!files || Object.keys(files).length === 0) {
         res.status(400).json({ error: 'No files uploaded' });
@@ -84,8 +84,8 @@ export const uploadController = {
   // Upload profile photo for an employee
   uploadPhoto: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
-      const file = req.file;
+      const { id } = req.params as { id: string };
+      const file = (req as any).file;
 
       if (!file) {
         res.status(400).json({ error: 'No photo uploaded' });
@@ -116,7 +116,7 @@ export const uploadController = {
   // Get a specific document
   getDocument: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id, docType } = req.params;
+      const { id, docType } = req.params as { id: string; docType: string };
 
       const employee = await employeeService.getEmployeeById(id);
 
@@ -145,7 +145,7 @@ export const uploadController = {
   // Delete a specific document
   deleteDocument: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id, docType } = req.params;
+      const { id, docType } = req.params as { id: string; docType: string };
       const employee = await employeeService.getEmployeeById(id);
 
       if (!employee) {
@@ -178,7 +178,7 @@ export const uploadController = {
   // Get profile photo
   getPhoto: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
 
       const employee = await employeeService.getEmployeeById(id);
 

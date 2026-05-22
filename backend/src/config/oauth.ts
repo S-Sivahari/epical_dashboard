@@ -1,4 +1,5 @@
 import passport from 'passport';
+import { ObjectId } from 'mongodb';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { env } from './env';
 import { getDB } from './db';
@@ -25,7 +26,7 @@ export function initializePassport() {
           const userCollection = getDB().collection('users');
 
           // Try to find existing user
-          let user = await userCollection.findOne({ email: email.toLowerCase().trim() });
+          let user: any = await userCollection.findOne({ email: email.toLowerCase().trim() });
 
           if (!user) {
             // Auto-create user if it doesn't exist
@@ -69,9 +70,8 @@ export function initializePassport() {
   passport.deserializeUser(async (id: string, done) => {
     try {
       const userCollection = getDB().collection('users');
-      const { ObjectId } = require('mongodb');
       const user = await userCollection.findOne({ _id: new ObjectId(id) });
-      done(null, user);
+      done(null, user as any);
     } catch (error) {
       done(error);
     }

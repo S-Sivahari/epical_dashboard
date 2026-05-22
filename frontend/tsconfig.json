@@ -18,11 +18,12 @@
     "allowJs": true,
     "checkJs": false,
     "strict": true,
-
+    "resolveJsonModule": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
+    "types": ["vite/client"],
     "paths": {
       "@/*": [
         "src/*"

@@ -6,12 +6,13 @@ export const ticketController = {
   // GET /api/tickets
   getAll: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { q, priority, status, employeeId } = req.query;
+      const { q, priority, status, employeeId, projectId } = req.query;
       const tickets = await ticketService.getAllTickets({
         q: q as string,
         priority: priority as string,
         status: status as string,
         employeeId: employeeId as string,
+        projectId: projectId as string,
       });
       res.json(tickets);
     } catch {
@@ -22,7 +23,8 @@ export const ticketController = {
   // GET /api/tickets/:id
   getById: async (req: Request, res: Response): Promise<void> => {
     try {
-      const ticket = await ticketService.getTicketById(req.params.id);
+      const { id } = req.params as { id: string };
+      const ticket = await ticketService.getTicketById(id);
       if (!ticket) { res.status(404).json({ error: 'Ticket not found' }); return; }
       res.json(ticket);
     } catch {
@@ -30,10 +32,21 @@ export const ticketController = {
     }
   },
 
+  // GET /api/tickets/project/:projectId
+  getByProjectId: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { projectId } = req.params as { projectId: string };
+      const tickets = await ticketService.getTicketsByProjectId(projectId);
+      res.json(tickets);
+    } catch {
+      res.status(500).json({ error: 'Failed to fetch project tickets' });
+    }
+  },
+
   // POST /api/tickets
   create: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { employeeId, employeeName, title, description, priority } = req.body;
+      const { employeeId, employeeName, title, description, priority, projectId, projectName } = req.body;
       if (!employeeId || !title || !priority) {
         res.status(400).json({ error: 'employeeId, title, and priority are required' });
         return;
@@ -44,6 +57,8 @@ export const ticketController = {
         title,
         description,
         priority,
+        projectId,
+        projectName,
       });
       res.status(201).json(ticket);
     } catch {
@@ -60,7 +75,8 @@ export const ticketController = {
         res.status(400).json({ error: 'Invalid status value' });
         return;
       }
-      const ticket = await ticketService.updateTicketStatus(req.params.id, status);
+      const { id } = req.params as { id: string };
+      const ticket = await ticketService.updateTicketStatus(id, status);
       if (!ticket) { res.status(404).json({ error: 'Ticket not found' }); return; }
       res.json(ticket);
     } catch {
@@ -71,7 +87,8 @@ export const ticketController = {
   // DELETE /api/tickets/:id
   delete: async (req: Request, res: Response): Promise<void> => {
     try {
-      const ok = await ticketService.deleteTicket(req.params.id);
+      const { id } = req.params as { id: string };
+      const ok = await ticketService.deleteTicket(id);
       if (!ok) { res.status(404).json({ error: 'Ticket not found' }); return; }
       res.json({ message: 'Deleted successfully' });
     } catch {
