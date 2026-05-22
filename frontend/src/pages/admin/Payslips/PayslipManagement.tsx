@@ -248,12 +248,7 @@ export function PayslipManagement() {
           employeeDbId: dbEmp?.id,
         }
       })
-    : employees.map((emp) => ({
-        empId: emp.employeeId,
-        name: `${emp.firstName} ${emp.lastName}`,
-        status: 'pending' as const,
-        employeeDbId: emp.id,
-      }))
+    : []
 
   const columns: Column<PayslipRow>[] = [
     {
@@ -475,6 +470,14 @@ export function PayslipManagement() {
           columns={columns}
           data={payrollRows}
           loading={employeesLoading || loadingBatch}
+          empty={
+            <div className="py-8">
+              <p className="text-muted">No payslips yet.</p>
+              <p className="mt-1 text-sm text-muted">
+                Upload a payroll Excel file to generate and send payslips.
+              </p>
+            </div>
+          }
         />
       </div>
     </PageWrapper>
