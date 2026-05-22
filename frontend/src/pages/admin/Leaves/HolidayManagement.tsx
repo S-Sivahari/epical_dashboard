@@ -160,6 +160,8 @@ export function HolidayManagement() {
         return 'success'
       case 'Company':
         return 'info'
+      case 'Company Event':
+        return 'warning'
       case 'Optional':
         return 'warning'
       default:
@@ -214,7 +216,7 @@ export function HolidayManagement() {
       <div className="flex justify-end">
         <Button onClick={handleOpenAdd} className="gap-2">
           <Plus className="h-4 w-4" />
-          Add Holiday
+          Add
         </Button>
       </div>
 
@@ -292,6 +294,7 @@ export function HolidayManagement() {
             >
               <option value="National">National Holiday</option>
               <option value="Company">Company Holiday</option>
+              <option value="Company Event">Company Event</option>
               <option value="Optional">Optional Holiday</option>
             </select>
           </div>

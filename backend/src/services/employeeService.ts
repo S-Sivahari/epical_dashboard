@@ -1,6 +1,7 @@
 import { Collection, ObjectId, Filter, Document } from 'mongodb';
 import { getDB } from '../config/db';
 import { Employee, CreateEmployeePayload, UpdateEmployeePayload } from '../models/Employee';
+import * as emailService from './emailService';
 
 let employeeCollection: Collection<any> | null = null;
 
@@ -29,15 +30,26 @@ export async function getAllEmployees(
   // Build filter query
   const query: Filter<Document> = {};
 
-  // Search query - search in firstName, lastName, email, id
+  // Search query - search in firstName, lastName, email
   if (filters.q) {
-    const searchRegex = { $regex: filters.q, $options: 'i' };
-    query.$or = [
-      { firstName: searchRegex },
-      { lastName: searchRegex },
-      { email: searchRegex },
-      { id: searchRegex },
-    ];
+    const trimmed = filters.q.trim();
+    const parts = trimmed.split(/\s+/);
+    if (parts.length > 1) {
+      const firstRegex = { $regex: parts[0], $options: 'i' };
+      const lastRegex = { $regex: parts.slice(1).join(' '), $options: 'i' };
+      query.$or = [
+        { $and: [ { firstName: firstRegex }, { lastName: lastRegex } ] },
+        { $and: [ { firstName: lastRegex }, { lastName: firstRegex } ] },
+        { email: { $regex: trimmed, $options: 'i' } }
+      ];
+    } else {
+      const searchRegex = { $regex: trimmed, $options: 'i' };
+      query.$or = [
+        { firstName: searchRegex },
+        { lastName: searchRegex },
+        { email: searchRegex },
+      ];
+    }
   }
 
   // Filter by department
@@ -102,6 +114,27 @@ export async function getEmployeeById(id: string): Promise<Employee | null> {
 export async function createEmployee(payload: CreateEmployeePayload): Promise<Employee> {
   const collection = getEmployeeCollection();
 
+  // ==== Validation ==== //
+  // Ensure mandatory fields are present and of correct type
+  const requiredFields: (keyof CreateEmployeePayload)[] = ['firstName', 'lastName', 'email', 'department', 'designation'];
+  for (const field of requiredFields) {
+    const value = (payload as any)[field];
+    if (!value || typeof value !== 'string' || value.trim() === '') {
+      const err: any = new Error(`Missing or empty required field: ${field}`);
+      err.code = 'VALIDATION_ERROR';
+      throw err;
+    }
+  }
+
+  // Basic e‑mail format check (simple regex)
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(payload.email?.trim())) {
+    const err: any = new Error('Invalid email format');
+    err.code = 'VALIDATION_ERROR';
+    throw err;
+  }
+
+  // ==== Duplicate checks ==== //
   // Check for duplicate company email
   if (payload.email) {
     const existing = await collection.findOne({ email: payload.email.trim().toLowerCase() });
@@ -138,9 +171,23 @@ export async function createEmployee(payload: CreateEmployeePayload): Promise<Em
 
   const result = await collection.insertOne(employee);
 
+  // Send welcome email to the new employee asynchronously
+  if (employee.email) {
+    emailService.sendWelcomeEmail({
+      recipientEmail: employee.email,
+      firstName: employee.firstName || 'Team Member',
+      lastName: employee.lastName || '',
+      employeeId: employee.employeeId,
+      department: employee.department || 'N/A',
+      designation: employee.designation || 'N/A',
+      joinedAt: employee.joinedAt || new Date().toISOString().split('T')[0],
+    }).catch((err) => {
+      console.error('[Employee Service] Failed to send welcome email:', err);
+    });
+  }
+
   return { ...employee, _id: result.insertedId };
 }
-
 export async function updateEmployee(
   id: string,
   payload: UpdateEmployeePayload

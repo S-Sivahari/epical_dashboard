@@ -119,7 +119,6 @@ export function exportCompensationToPDF(
     compactMode: true,
     panelTitle: 'Leave Management Panel',
     reportTitle: 'Compensation Management Report',
-    sheetName: 'Compensation',
   })
 }
 
@@ -174,7 +173,6 @@ export function exportHolidaysToPDF(
     compactMode: true,
     panelTitle: 'Leave Management Panel',
     reportTitle: 'Company Calendar — Holidays Report',
-    sheetName: 'Holidays',
   })
 }
 

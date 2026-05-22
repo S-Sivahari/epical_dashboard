@@ -72,7 +72,7 @@ export interface Holiday {
   title: string
   date: string
   description?: string
-  type: 'National' | 'Company' | 'Optional'
+  type: 'National' | 'Company' | 'Optional' | 'Company Event'
 }
 
 export interface CompensationLeave {

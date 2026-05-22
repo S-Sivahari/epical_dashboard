@@ -296,19 +296,21 @@ export function LeaveRequests({
           ) : (
             <div className="flex flex-col gap-3">
               {paginatedLeaves.map((l) => (
-                <div key={l.id} className="group flex flex-col sm:flex-row justify-between items-start sm:items-center rounded-xl border border-border bg-white p-3 shadow-sm hover:shadow-md hover:border-primary/30 transition-all gap-3">
+                <div 
+                  key={l.id} 
+                  onClick={() => openEmployeeProfile(l.employeeId, l.employeeName)}
+                  className="group cursor-pointer flex flex-col sm:flex-row justify-between items-start sm:items-center rounded-xl border border-border bg-white p-3 shadow-sm hover:shadow-md hover:border-primary/30 transition-all gap-3"
+                  title="Click to view leave history and balances"
+                >
                   
                   {/* Left Section: Name & Details */}
                   <div className="flex flex-col gap-0.5 min-w-0 flex-1">
                     <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => openEmployeeProfile(l.employeeId, l.employeeName)}
-                        className="font-semibold text-sm text-primary hover:underline truncate text-left"
-                        title="View leave history and balances"
+                      <span
+                        className="font-semibold text-sm text-primary truncate text-left"
                       >
                         {l.employeeName}
-                      </button>
+                      </span>
                       {getStatusBadge(l.status)}
                     </div>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
@@ -353,7 +355,7 @@ export function LeaveRequests({
                                 size="sm"
                                 variant="primary"
                                 className="h-8 w-8 rounded-full p-0 flex items-center justify-center bg-green-500 hover:bg-green-600 text-white shadow-sm border-none transition-transform hover:scale-105"
-                                onClick={() => handleApprove(l.id)}
+                                onClick={(e) => { e.stopPropagation(); handleApprove(l.id) }}
                               >
                                 <Check className="h-4 w-4" />
                               </Button>
@@ -372,7 +374,7 @@ export function LeaveRequests({
                                 size="sm"
                                 variant="danger"
                                 className="h-8 w-8 rounded-full p-0 flex items-center justify-center shadow-sm transition-transform hover:scale-105"
-                                onClick={() => openRejectModal(l.id)}
+                                onClick={(e) => { e.stopPropagation(); openRejectModal(l.id) }}
                               >
                                 <X className="h-4 w-4" />
                               </Button>
@@ -394,7 +396,7 @@ export function LeaveRequests({
                               size="sm"
                               variant="secondary"
                               className="h-8 w-8 rounded-full p-0 flex items-center justify-center shadow-sm transition-transform hover:scale-105"
-                              onClick={() => handleViewReason(l.rejectionReason!)}
+                              onClick={(e) => { e.stopPropagation(); handleViewReason(l.rejectionReason!) }}
                             >
                               <Eye className="h-4 w-4 text-muted" />
                             </Button>
@@ -415,7 +417,7 @@ export function LeaveRequests({
                               size="sm"
                               variant="danger"
                               className="h-8 w-8 rounded-full p-0 flex items-center justify-center shadow-sm transition-transform hover:scale-105"
-                              onClick={() => openCancelModal(l.id)}
+                              onClick={(e) => { e.stopPropagation(); openCancelModal(l.id) }}
                             >
                               <Ban className="h-4 w-4" />
                             </Button>

@@ -4,6 +4,13 @@ import { AuthRequest } from '../middleware/authMiddleware';
 
 const ADMIN_ROLES = ['Admin'];
 
+const VALID_HOLIDAY_TYPES = ['National', 'Company', 'Optional', 'Company Event'] as const;
+
+type HolidayType = (typeof VALID_HOLIDAY_TYPES)[number];
+
+const isValidHolidayType = (value: any): value is HolidayType =>
+  VALID_HOLIDAY_TYPES.includes(value);
+
 export const leaveController = {
   // GET /api/leaves
   getAll: async (req: AuthRequest, res: Response): Promise<void> => {
@@ -47,15 +54,21 @@ export const leaveController = {
   // POST /api/leaves
   create: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { employeeId, employeeName, type, from, to, reason } = req.body;
-      if (!employeeId || !type || !from || !to || !reason) {
+      const { employeeId, employeeName, type, leaveDuration, halfDaySession, from, to, reason } = req.body;
+      if (!employeeId || !type || !leaveDuration || !from || !to || !reason) {
         res.status(400).json({ error: 'Missing required fields' });
+        return;
+      }
+      if (leaveDuration === 'Half Day' && !halfDaySession) {
+        res.status(400).json({ error: 'Half-day session is required' });
         return;
       }
       const leave = await leaveService.createLeave({
         employeeId,
         employeeName: employeeName || 'Unknown',
         type,
+        leaveDuration,
+        halfDaySession,
         from,
         to,
         days: 0, // days will be overridden by backend calculation
@@ -183,7 +196,12 @@ export const leaveController = {
       const isDuplicate = await leaveService.checkDuplicateHoliday(date);
       if (isDuplicate) { res.status(409).json({ error: 'Holiday already exists on this date' }); return; }
 
-      const holiday = await leaveService.createHoliday({ title, date, description, type: type || 'National' });
+      const holidayType = type || 'National';
+      if (!isValidHolidayType(holidayType)) {
+        res.status(400).json({ error: 'Invalid holiday type' });
+        return;
+      }
+      const holiday = await leaveService.createHoliday({ title, date, description, type: holidayType });
       res.status(201).json(holiday);
     } catch {
       res.status(500).json({ error: 'Failed to create holiday' });
@@ -205,6 +223,10 @@ export const leaveController = {
         if (isDuplicate) { res.status(409).json({ error: 'Holiday already exists on this date' }); return; }
       }
 
+      if (type && !isValidHolidayType(type)) {
+        res.status(400).json({ error: 'Invalid holiday type' });
+        return;
+      }
       const holiday = await leaveService.updateHoliday(id, { title, date, description, type });
       res.json(holiday);
     } catch {
