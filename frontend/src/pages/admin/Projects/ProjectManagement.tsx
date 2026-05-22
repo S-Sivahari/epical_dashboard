@@ -51,6 +51,8 @@ import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
 import api from '@/services/api'
+import { getEmployees } from '@/services/employeeService'
+import type { Employee } from '@/types'
 
 /* ================================================================
    TYPE DEFINITIONS
@@ -1042,6 +1044,7 @@ export function ProjectManagement() {
   const [modalOpen, setModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [employees, setEmployees] = useState<Employee[]>([])
 
   // ── Project Tasks Modal States ───────────────────────────────
   const [tasksModalOpen, setTasksModalOpen] = useState(false)
@@ -1072,6 +1075,16 @@ export function ProjectManagement() {
   const [tsStatusFilters, setTsStatusFilters] = useState<string[]>([])
 
   // ── API Fetch Functions ─────────────────────────────────────
+  const fetchEmployees = useCallback(async () => {
+    try {
+      const res = await getEmployees({ pageSize: 1000 })
+      setEmployees(res.data)
+    } catch (err) {
+      console.error('Failed to fetch employees:', err)
+      // Silently fail - use empty list
+    }
+  }, [])
+
   const fetchProjects = useCallback(async () => {
     try {
       const res = await api.get('/projects')
@@ -1136,7 +1149,8 @@ export function ProjectManagement() {
 
   useEffect(() => {
     fetchProjects()
-  }, [fetchProjects])
+    fetchEmployees()
+  }, [fetchProjects, fetchEmployees])
 
   useEffect(() => {
     fetchTimesheetsData()
@@ -1157,9 +1171,12 @@ export function ProjectManagement() {
 
   const getTeamLeadDepartment = useCallback((teamLeadName?: string) => {
     if (!teamLeadName) return undefined
-    const emp = MOCK_EMPLOYEES.find((e) => e.name === teamLeadName)
+    const emp = employees.find((e) => {
+      const fullName = `${e.firstName} ${e.lastName || ''}`.trim()
+      return fullName === teamLeadName
+    })
     return emp ? `${emp.department} Team` : undefined
-  }, [])
+  }, [employees])
 
   const teamFilterOptions = useMemo(() => [...MOCK_TEAMS], [])
 
@@ -2393,7 +2410,7 @@ export function ProjectManagement() {
             <div className="grid gap-4 sm:grid-cols-2 rounded-2xl border border-slate-200 bg-slate-50/50 p-4 animate-fadeIn">
               <CheckboxList
                 label="Allowed Users"
-                items={MOCK_EMPLOYEES.map((e) => e.name)}
+                items={employees.map((e) => `${e.firstName} ${e.lastName || ''}`.trim())}
                 selected={form.visibleUsers}
                 onChange={(next) => setForm({ ...form, visibleUsers: next })}
               />
@@ -2406,9 +2423,9 @@ export function ProjectManagement() {
                 required
                 options={[
                   { value: '', label: 'Select team lead...' },
-                  ...MOCK_EMPLOYEES.map((e) => ({
-                    value: e.name,
-                    label: `${e.name} (${e.department})`,
+                  ...employees.map((e) => ({
+                    value: `${e.firstName} ${e.lastName || ''}`.trim(),
+                    label: `${e.firstName} ${e.lastName || ''}`.trim() + ` (${e.department})`,
                   })),
                 ]}
               />
