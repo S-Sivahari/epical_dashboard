@@ -39,7 +39,7 @@ export const employeeController = {
   // Get employee by ID
   getEmployeeById: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const employee = await employeeService.getEmployeeById(id);
 
       if (!employee) {
@@ -98,7 +98,7 @@ export const employeeController = {
   // Update employee
   updateEmployee: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const payload = req.body;
 
       const employee = await employeeService.updateEmployee(id, payload);
@@ -118,7 +118,7 @@ export const employeeController = {
   // Delete employee (hard delete)
   deleteEmployee: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const success = await employeeService.deleteEmployee(id);
 
       if (!success) {
@@ -136,7 +136,7 @@ export const employeeController = {
   // Update employee status (Deactivate/Archive)
   updateStatus: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const { status } = req.body;
 
       if (!status) {
@@ -180,7 +180,7 @@ export const employeeController = {
   // Get employees by department
   getEmployeesByDepartment: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { department } = req.params;
+      const { department } = req.params as { department: string };
       const employees = await employeeService.getEmployeesByDepartment(department);
       res.json(employees);
     } catch (error) {

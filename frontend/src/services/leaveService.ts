@@ -1,4 +1,4 @@
-import type { Holiday, LeaveRequest } from '@/types'
+import type { EmployeeLeaveSummary, Holiday, LeaveRequest } from '@/types'
 import api from '@services/api'
 
 export async function getLeaves() {
@@ -6,9 +6,16 @@ export async function getLeaves() {
   return response.data as LeaveRequest[]
 }
 
-export async function getBalances() {
-  const response = await api.get('/leaves/balances')
+export async function getBalances(employeeId?: string) {
+  const response = await api.get('/leaves/balances', {
+    params: employeeId ? { employeeId } : undefined,
+  })
   return response.data as Record<string, { total: number; used: number; remaining: number }>
+}
+
+export async function getEmployeeLeaveSummary(employeeId: string) {
+  const response = await api.get(`/leaves/employee/${employeeId}/summary`)
+  return response.data as EmployeeLeaveSummary
 }
 
 export async function createLeave(payload: {

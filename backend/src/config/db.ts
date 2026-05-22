@@ -1,4 +1,5 @@
 import { MongoClient, Db } from 'mongodb';
+import mongoose from 'mongoose';
 import { env } from './env';
 
 let client: MongoClient | null = null;
@@ -8,10 +9,16 @@ export async function connectDB(): Promise<Db> {
   if (db) return db;
 
   try {
+    // Connect native MongoDB driver
     client = new MongoClient(env.mongodbUri);
     await client.connect();
     db = client.db('Production');
-    console.log('✓ Connected to MongoDB');
+    console.log('✓ Connected to MongoDB via MongoClient');
+
+    // Connect Mongoose to the same database
+    await mongoose.connect(env.mongodbUri, { dbName: 'Production' });
+    console.log('✓ Connected to MongoDB via Mongoose');
+
     return db;
   } catch (error) {
     console.error('✗ MongoDB connection failed:', error);
@@ -31,4 +38,6 @@ export async function closeDB(): Promise<void> {
     await client.close();
     console.log('Database connection closed');
   }
+  await mongoose.disconnect();
+  console.log('Mongoose connection closed');
 }
