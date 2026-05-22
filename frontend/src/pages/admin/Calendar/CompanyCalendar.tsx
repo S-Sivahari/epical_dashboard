@@ -79,8 +79,22 @@ export function CompanyCalendar() {
       title: h.title,
       start: h.date,
       allDay: true,
-      backgroundColor: h.type === 'National' ? '#16a34a' : h.type === 'Company' ? '#0066cc' : '#f97316',
-      borderColor: h.type === 'National' ? '#16a34a' : h.type === 'Company' ? '#0066cc' : '#f97316',
+      backgroundColor:
+        h.type === 'National'
+          ? '#16a34a'
+          : h.type === 'Company'
+          ? '#0066cc'
+          : h.type === 'Company Event'
+          ? '#f97316'
+          : '#f97316',
+      borderColor:
+        h.type === 'National'
+          ? '#16a34a'
+          : h.type === 'Company'
+          ? '#0066cc'
+          : h.type === 'Company Event'
+          ? '#f97316'
+          : '#f97316',
     }))
 
     const companyEvents = events.map((e) => ({
