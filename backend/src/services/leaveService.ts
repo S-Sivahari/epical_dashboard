@@ -293,7 +293,9 @@ export async function checkDuplicateHoliday(date: string, excludeId?: string): P
   return !!existing;
 }
 
-export async function createHoliday(payload: { title: string; date: string; description?: string; type: 'National' | 'Company' | 'Optional' }): Promise<Holiday> {
+export type HolidayType = 'National' | 'Company' | 'Optional' | 'Company Event'
+
+export async function createHoliday(payload: { title: string; date: string; description?: string; type: HolidayType }): Promise<Holiday> {
   const col = getHolidayCol();
   const id = `H-${Date.now()}`;
   const holiday: any = { ...payload, id, createdAt: new Date(), updatedAt: new Date() };
@@ -301,7 +303,7 @@ export async function createHoliday(payload: { title: string; date: string; desc
   return holiday as Holiday;
 }
 
-export async function updateHoliday(id: string, payload: { title?: string; date?: string; description?: string; type?: 'National' | 'Company' | 'Optional' }): Promise<Holiday | null> {
+export async function updateHoliday(id: string, payload: { title?: string; date?: string; description?: string; type?: HolidayType }): Promise<Holiday | null> {
   const col = getHolidayCol();
   const result = await col.findOneAndUpdate(
     { id },
@@ -332,7 +334,9 @@ export async function fetchIndianHolidaysFromAPI(year: number): Promise<Holiday[
       id: `H-API-${year}-${index}`,
       title: h.name,
       date: h.date, // Format: YYYY-MM-DD
+      type: 'National',
       createdAt: new Date(),
+      updatedAt: new Date(),
     }));
 
     return holidays;

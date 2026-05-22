@@ -208,7 +208,7 @@ export function CompanyCalendar() {
                   </div>
                 </div>
                 <Button size="sm" className="h-8 px-3 text-xs shadow-sm" onClick={() => setIsHolidayFormOpen(true)}>
-                  <Plus className="h-4 w-4 mr-1.5" /> Add Holiday
+                  <Plus className="h-4 w-4 mr-1.5" /> Add
                 </Button>
               </div>
 
@@ -271,7 +271,13 @@ export function CompanyCalendar() {
                                   <div
                                     key={i}
                                     className={`h-2 w-2 rounded-full ${
-                                      h.type === 'Company' ? 'bg-blue-500' : 'bg-green-500'
+                                      h.type === 'National'
+                                        ? 'bg-green-500'
+                                        : h.type === 'Company'
+                                        ? 'bg-blue-500'
+                                        : h.type === 'Company Event'
+                                        ? 'bg-orange-500'
+                                        : 'bg-green-500'
                                     }`}
                                   />
                                 ))}
@@ -283,13 +289,19 @@ export function CompanyCalendar() {
 
                             {/* Events List inside cell */}
                             <div className="flex-1 overflow-hidden flex flex-col gap-1 mt-1">
-                              {dayHolidays.slice(0, 2).map((h) => (
-                                <div key={h.id} className={`text-[10px] font-semibold leading-tight truncate px-1.5 py-0.5 rounded border ${
-                                  h.type === 'Company' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-green-50 text-green-700 border-green-100'
-                                }`}>
-                                  {h.title}
-                                </div>
-                              ))}
+                                {dayHolidays.slice(0, 2).map((h) => (
+                                  <div key={h.id} className={`text-[10px] font-semibold leading-tight truncate px-1.5 py-0.5 rounded border ${
+                                    h.type === 'National'
+                                      ? 'bg-green-50 text-green-700 border-green-100'
+                                      : h.type === 'Company'
+                                      ? 'bg-blue-50 text-blue-700 border-blue-100'
+                                      : h.type === 'Company Event'
+                                      ? 'bg-orange-50 text-orange-700 border-orange-100'
+                                      : 'bg-green-50 text-green-700 border-green-100'
+                                  }`}>
+                                    {h.title}
+                                  </div>
+                                ))}
                               {dayEvents.slice(0, 1).map((e) => (
                                 <div key={e.id} className="text-[10px] font-medium leading-tight truncate px-1.5 py-0.5 rounded bg-amber-50 text-amber-700">
                                   {e.title}
@@ -326,9 +338,23 @@ export function CompanyCalendar() {
                                     <div className="space-y-1">
                                         {dayHolidays.map((h) => (
                                           <div key={h.id} className="flex items-center gap-2">
-                                            <div className={`h-1.5 w-1.5 rounded-full ${h.type === 'Company' ? 'bg-blue-500' : 'bg-green-500'}`} />
+                                            <div className={`h-1.5 w-1.5 rounded-full ${
+                                              h.type === 'National'
+                                                ? 'bg-green-500'
+                                                : h.type === 'Company'
+                                                ? 'bg-blue-500'
+                                                : h.type === 'Company Event'
+                                                ? 'bg-orange-500'
+                                                : 'bg-green-500'
+                                            }`} />
                                             <span className="text-ink text-xs font-medium">{h.title}</span>
-                                            <span className="text-muted text-[10px]">({h.type === 'Company' ? 'Company Holiday' : 'Public Holiday'})</span>
+                                            <span className="text-muted text-[10px]">(
+                                              {h.type === 'Company'
+                                                ? 'Company Holiday'
+                                                : h.type === 'Company Event'
+                                                ? 'Company Event'
+                                                : 'Public Holiday'}
+                                            )</span>
                                           </div>
                                         ))}
                                     </div>
@@ -400,6 +426,10 @@ export function CompanyCalendar() {
                   <div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
                   <span className="text-muted">Company Holiday</span>
                 </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-orange-500"></div>
+                  <span className="text-muted">Company Event</span>
+                </div>
               </div>
 
               {currentMonthHolidays.length > 0 ? (
@@ -417,7 +447,13 @@ export function CompanyCalendar() {
                         >
                           <div className="flex-1 flex items-center gap-3 min-w-0">
                             <div className={`flex h-9 w-9 items-center justify-center rounded-md text-sm font-bold text-white flex-shrink-0 shadow-sm ${
-                              holiday.type === 'Company' ? 'bg-blue-500' : 'bg-green-500'
+                              holiday.type === 'National'
+                                ? 'bg-green-500'
+                                : holiday.type === 'Company'
+                                ? 'bg-blue-500'
+                                : holiday.type === 'Company Event'
+                                ? 'bg-orange-500'
+                                : 'bg-green-500'
                             }`}>
                               🎉
                             </div>
@@ -564,11 +600,35 @@ export function CompanyCalendar() {
                 <div className="space-y-2">
                   {itemsOnSelectedDate.holidays.map((h) => (
                     <div key={h.id} className={`text-sm p-3 rounded-lg flex justify-between items-center border ${
-                      h.type === 'Company' ? 'bg-blue-55 border-blue-100' : 'bg-green-55 border-green-100'
+                      h.type === 'National'
+                        ? 'bg-green-55 border-green-100'
+                        : h.type === 'Company'
+                        ? 'bg-blue-55 border-blue-100'
+                        : h.type === 'Company Event'
+                        ? 'bg-orange-55 border-orange-100'
+                        : 'bg-green-55 border-green-100'
                     }`}>
-                      <span className={`font-semibold ${h.type === 'Company' ? 'text-blue-900' : 'text-green-900'}`}>{h.title}</span>
-                      <Badge variant={h.type === 'Company' ? 'info' : 'success'}>
-                        {h.type === 'Company' ? 'Company Holiday' : 'Public Holiday'}
+                      <span className={`font-semibold ${
+                        h.type === 'Company'
+                          ? 'text-blue-900'
+                          : h.type === 'Company Event'
+                          ? 'text-orange-900'
+                          : 'text-green-900'
+                      }`}>{h.title}</span>
+                      <Badge variant={
+                        h.type === 'National'
+                          ? 'success'
+                          : h.type === 'Company'
+                          ? 'info'
+                          : h.type === 'Company Event'
+                          ? 'warning'
+                          : 'success'
+                      }>
+                        {h.type === 'Company'
+                          ? 'Company Holiday'
+                          : h.type === 'Company Event'
+                          ? 'Company Event'
+                          : 'Public Holiday'}
                       </Badge>
                     </div>
                   ))}
@@ -644,11 +704,12 @@ export function CompanyCalendar() {
               <label className="mb-1.5 block text-sm font-medium text-ink">Type</label>
               <select
                 value={type}
-                onChange={(e) => setType(e.target.value as 'National' | 'Company' | 'Optional')}
+                onChange={(e) => setType(e.target.value as 'National' | 'Company' | 'Company Event' | 'Optional')}
                 className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
               >
                 <option value="National">Public Holiday</option>
                 <option value="Company">Company Holiday</option>
+                <option value="Company Event">Company Event</option>
               </select>
             </div>
             <div>
