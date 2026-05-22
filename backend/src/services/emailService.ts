@@ -395,3 +395,47 @@ export async function sendWelcomeEmail(
 
   return await sendEmail({ to: data.recipientEmail, subject, html, text });
 }
+
+/**
+ * Interface for payslip notification email data
+ */
+export interface PayslipNotificationData {
+  recipientEmail: string;
+  recipientName: string;
+  employeeName: string;
+  employeeId?: string;
+  payMonth: string;
+  fileName?: string;
+}
+
+/**
+ * Send payslip notification email to employee
+ */
+export async function sendPayslipEmail(
+  data: PayslipNotificationData,
+  actionUrl?: string
+): Promise<boolean> {
+  const subject = `[Epical EMS] Your Payslip for ${data.payMonth} is Ready`;
+  const message = `Your payslip for the pay period of <strong>${data.payMonth}</strong> has been published and is now available for download in your dashboard.`;
+
+  const details: DetailField[] = [
+    { label: 'Employee Name', value: data.employeeName },
+  ];
+
+  if (data.employeeId) {
+    details.push({ label: 'Employee ID', value: data.employeeId });
+  }
+
+  details.push({ label: 'Pay Period', value: data.payMonth });
+
+  if (data.fileName) {
+    details.push({ label: 'Document', value: data.fileName });
+  }
+
+  const payslipUrl = actionUrl || `${env.FRONTEND_URL || 'http://localhost:5173'}/employee/payslips`;
+  const html = buildHtmlTemplate(data.recipientName, 'Payslip Available', message, details, payslipUrl);
+
+  const text = `Hi ${data.recipientName},\n\nYour payslip for ${data.payMonth} is now available.\n\n${data.employeeId ? `Employee ID: ${data.employeeId}\n` : ''}Pay Period: ${data.payMonth}\n${data.fileName ? `Document: ${data.fileName}\n` : ''}\nPlease log in to your dashboard to download your payslip.`;
+
+  return await sendEmail({ to: data.recipientEmail, subject, html, text });
+}

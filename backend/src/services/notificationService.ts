@@ -122,6 +122,14 @@ async function triggerEmailNotification(notification: any): Promise<void> {
       }
     }
 
+    // 3. Use relatedData.employeeEmail as last resort (e.g., from payslip records)
+    if (!recipientEmail && notification.relatedData?.employeeEmail) {
+      recipientEmail = notification.relatedData.employeeEmail;
+      if (!recipientName || recipientName === 'User') {
+        recipientName = notification.relatedData.employeeName || 'Employee';
+      }
+    }
+
     if (!recipientEmail) {
       console.warn(`[Notification Service] Could not resolve email address for recipient ID: ${notification.recipientId}`);
       return;
@@ -135,7 +143,7 @@ async function triggerEmailNotification(notification: any): Promise<void> {
       leaveDetails = await db.collection('leaves').findOne({ id: related.leaveId });
     }
 
-    // 3. Dispatch based on notification type
+    // 4. Dispatch based on notification type
     if (notification.type === 'LeaveSubmitted') {
       await emailService.sendLeaveSubmittedEmail({
         recipientEmail,
@@ -167,6 +175,15 @@ async function triggerEmailNotification(notification: any): Promise<void> {
         days: leaveDetails ? leaveDetails.days : 1,
         status: leaveStatus,
         rejectionReason: leaveDetails ? leaveDetails.rejectionReason : undefined,
+      });
+    } else if (notification.type === 'PayslipSent') {
+      await emailService.sendPayslipEmail({
+        recipientEmail,
+        recipientName,
+        employeeName: related.employeeName || recipientName,
+        employeeId: related.employeeId || '',
+        payMonth: related.payMonth || 'Payslip',
+        fileName: related.fileName || '',
       });
     } else {
       // Fallback generic notification email

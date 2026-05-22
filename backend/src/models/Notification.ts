@@ -19,9 +19,11 @@ export interface Notification {
     leaveId?: string;
     employeeId?: string;
     employeeName?: string;
+    employeeEmail?: string;
     payslipId?: string;
     batchId?: string;
     payMonth?: string;
+    fileName?: string;
   };
   relatedId?: string;
   isRead: boolean;
@@ -39,9 +41,11 @@ export interface CreateNotificationPayload {
     leaveId?: string;
     employeeId?: string;
     employeeName?: string;
+    employeeEmail?: string;
     payslipId?: string;
     batchId?: string;
     payMonth?: string;
+    fileName?: string;
   };
   relatedId?: string;
 }

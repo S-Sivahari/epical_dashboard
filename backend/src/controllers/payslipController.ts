@@ -35,11 +35,13 @@ function getUserCollection() {
 async function notifyAdminsAndEmployee(params: {
   employeeDbId: string
   employeeName: string
+  employeeEmail: string
   payMonth: string
   payslipId: string
   batchId: string
+  fileName?: string
 }): Promise<void> {
-  const { employeeDbId, employeeName, payMonth, payslipId, batchId } = params
+  const { employeeDbId, employeeName, employeeEmail, payMonth, payslipId, batchId, fileName } = params
 
   // Notify the employee
   await createNotification({
@@ -48,7 +50,7 @@ async function notifyAdminsAndEmployee(params: {
     type: 'PayslipSent',
     title: 'Payslip Received',
     message: `Your payslip for ${payMonth} has been published. You can download it from the Payslips section.`,
-    relatedData: { employeeId: employeeDbId, employeeName, payslipId, batchId, payMonth },
+    relatedData: { employeeId: employeeDbId, employeeName, employeeEmail, payslipId, batchId, payMonth, fileName },
   })
 
   // Notify all admins
@@ -60,7 +62,7 @@ async function notifyAdminsAndEmployee(params: {
       type: 'PayslipSent',
       title: 'Payslip Sent',
       message: `Payslip for ${employeeName} (${payMonth}) has been sent successfully.`,
-      relatedData: { employeeId: employeeDbId, employeeName, payslipId, batchId, payMonth },
+      relatedData: { employeeId: employeeDbId, employeeName, employeeEmail, payslipId, batchId, payMonth, fileName },
     })
   }
 }
@@ -229,9 +231,11 @@ export const payslipController = {
       await notifyAdminsAndEmployee({
         employeeDbId: record.employeeDbId,
         employeeName: record.employeeName,
+        employeeEmail: record.employeeEmail,
         payMonth: record.payMonth,
         payslipId: record.id,
         batchId: record.batchId,
+        fileName: record.fileName,
       })
 
       const updated = await fetchBatch(batchId)
@@ -277,9 +281,11 @@ export const payslipController = {
         await notifyAdminsAndEmployee({
           employeeDbId: String(rec.employeeDbId),
           employeeName: String(rec.employeeName),
+          employeeEmail: String(rec.employeeEmail),
           payMonth: String(rec.payMonth),
           payslipId: String(rec.id),
           batchId: String(rec.batchId),
+          fileName: String(rec.fileName),
         })
       }
 
