@@ -122,7 +122,7 @@ export function CompanyCalendar() {
   return (
     <PageWrapper>
       <PageHeader
-        title="Company Calendar"
+        title=""
         subtitle="View holidays, events, and team leave status"
         breadcrumb={<Breadcrumb items={[{ label: 'Calendar' }]} />}
       />

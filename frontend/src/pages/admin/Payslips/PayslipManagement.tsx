@@ -353,7 +353,7 @@ export function PayslipManagement() {
   return (
     <PageWrapper>
       <PageHeader
-        title="Payslip Management"
+        title=""
         subtitle="Upload payroll data and generate PDF payslips for each employee."
         breadcrumb={<Breadcrumb items={[{ label: 'Payslips' }]} />}
       />

@@ -25,6 +25,8 @@ import {
   getPayslipByIdForEmployee,
 } from '../services/employeePayslipService'
 import { getPayrollBatch as fetchBatch } from '../services/payrollBatchService'
+import { createNotification } from '../services/notificationService'
+import { getDB } from '../config/db'
 
 export const payslipController = {
   /** Always-available demo Excel template */
@@ -106,16 +108,25 @@ export const payslipController = {
         res.status(404).json({ error: 'Payroll batch not found' })
         return
       }
-      const buffer = readBatchExcel(req.params.batchId)
-      res.setHeader(
-        'Content-Type',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      )
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="${batch.originalFileName || 'payroll.xlsx'}"`
-      )
-      res.send(buffer)
+      
+      try {
+        const buffer = readBatchExcel(req.params.batchId)
+        res.setHeader(
+          'Content-Type',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        res.setHeader(
+          'Content-Disposition',
+          `attachment; filename="${batch.originalFileName || 'payroll.xlsx'}"`
+        )
+        res.send(buffer)
+      } catch (error: unknown) {
+        // Excel file doesn't exist (old batch), return graceful error
+        res.status(404).json({ 
+          error: 'Payroll file no longer available',
+          details: 'This batch is old and the file may have been archived or removed'
+        })
+      }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to download Excel'
       res.status(404).json({ error: message })
@@ -169,12 +180,21 @@ export const payslipController = {
         return
       }
 
-      await sendPayslipToEmployee({
+      const record = await sendPayslipToEmployee({
         batchId,
         fileName,
         empId,
         payMonth: batch.payMonth,
         employeeDbId,
+      })
+
+      // Create notification for the employee
+      await createNotification({
+        recipientId: record.employeeDbId,
+        title: 'Payslip Available',
+        message: `Your payslip for ${batch.payMonth} is now available on your dashboard`,
+        type: 'payslip',
+        relatedId: record.id,
       })
 
       const updated = await fetchBatch(batchId)
@@ -200,10 +220,34 @@ export const payslipController = {
         return
       }
 
+      const batch = await getPayrollBatch(batchId)
+      if (!batch) {
+        res.status(404).json({ error: 'Payroll batch not found' })
+        return
+      }
+
       const result = await sendAllPayslipsInBatch(
         batchId,
         employeeDbIdByEmpId ?? {}
       )
+
+      // Create notifications for all successfully sent payslips
+      for (const r of result.batch.results) {
+        if (r.status === 'success' && r.fileName && r.sent) {
+          const emp = await getDB().collection('employees').findOne({
+            employeeId: r.empId.trim().toUpperCase(),
+          })
+          if (emp) {
+            await createNotification({
+              recipientId: emp.id,
+              title: 'Payslip Available',
+              message: `Your payslip for ${batch.payMonth} is now available on your dashboard`,
+              type: 'payslip',
+              relatedId: r.fileName,
+            })
+          }
+        }
+      }
 
       res.json({
         message: `Sent ${result.sent} payslip(s) to employee dashboards`,

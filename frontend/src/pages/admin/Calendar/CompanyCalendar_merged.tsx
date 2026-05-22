@@ -179,8 +179,7 @@ export function CompanyCalendar() {
   return (
     <PageWrapper className="max-w-none pl-0 sm:pl-0 lg:pl-0 pr-6 sm:pr-6 lg:pr-6 w-full">
       <div className="mb-6 pl-6 sm:pl-6 lg:pl-6">
-        <h1 className="text-2xl font-bold text-ink">Company Calendar</h1>
-        <p className="text-sm text-muted">View all company holidays and events</p>
+        <h1 className="text-2xl font-bold text-ink"></h1>
       </div>
 
       <Tooltip.Provider delayDuration={300}>

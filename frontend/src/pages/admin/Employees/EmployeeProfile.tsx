@@ -96,7 +96,7 @@ export function EmployeeProfile() {
   if (!employee) {
     return (
       <PageWrapper>
-        <PageHeader title="Employee" />
+        <PageHeader title="" />
         <div className="flex items-center justify-center py-20">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           <span className="ml-3 text-sm text-muted">Loading profile…</span>
