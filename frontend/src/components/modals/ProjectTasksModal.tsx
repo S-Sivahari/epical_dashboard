@@ -24,8 +24,10 @@ interface TimesheetEntry {
   totalHours?: number
   overriddenHours?: number
   status: 'Approved' | 'Pending' | 'Rejected'
+  approvalStatus?: 'Approved' | 'Pending' | 'Rejected'
   requestStatus: 'No Request' | 'Pending Review' | 'Corrected' | 'Approved' | 'Rejected'
   taskStatus?: 'Pending' | 'In Progress' | 'Completed' | 'Session Incomplete'
+  workflowStatus?: 'Pending' | 'In Progress' | 'Completed' | 'Rejected' | 'Session Incomplete' | 'Pending Review'
   adminNotes?: string
   correctionRequest?: {
     requestedLogin: string
@@ -41,7 +43,6 @@ interface ProjectTasksModalProps {
   projectId: string
   projectName: string
   onRefresh?: () => Promise<void> | void
-  onProjectSynced?: (project: ProjectSyncPayload | null) => void
 }
 
 const toDatetimeLocal = (isoString?: string): string => {
@@ -61,13 +62,7 @@ const formatDateTime = (isoString?: string): string => {
   return `${dateStr}, ${timeStr}`
 }
 
-/** Matches backend rules; treats admin-completed tasks as Completed in the UI. */
-const getTaskDisplayStatus = (entry: TimesheetEntry): 'In Progress' | 'Completed' => {
-  if (entry.taskStatus === 'Completed' && entry.status === 'Approved') {
-    return 'Completed'
-  }
-  return 'In Progress'
-}
+const getTaskDisplayStatus = (entry: TimesheetEntry): string => entry.workflowStatus || 'Pending'
 
 const mergeTimesheetFromApi = (prev: TimesheetEntry, updated: Record<string, unknown>): TimesheetEntry => ({
   ...prev,
@@ -95,7 +90,6 @@ export function ProjectTasksModal({
   projectId,
   projectName,
   onRefresh,
-  onProjectSynced,
 }: ProjectTasksModalProps) {
   const [entries, setEntries] = useState<TimesheetEntry[]>([])
   const [loading, setLoading] = useState(false)
@@ -114,7 +108,7 @@ export function ProjectTasksModal({
   const loadEntries = useCallback(async () => {
     setLoading(true)
     try {
-      const data = (await fetchProjectTimesheets(projectId, projectName)) as unknown as TimesheetEntry[]
+      const data = (await fetchProjectTimesheets(projectId)) as unknown as TimesheetEntry[]
       setEntries(data)
     } catch (error) {
       console.error('Failed to fetch project timesheets:', error)
@@ -122,7 +116,7 @@ export function ProjectTasksModal({
     } finally {
       setLoading(false)
     }
-  }, [projectId, projectName])
+  }, [projectId])
 
   useEffect(() => {
     if (isOpen) {
@@ -147,11 +141,11 @@ export function ProjectTasksModal({
     }
     return {
       completed: 0,
-      total: entries.length,
+      total: 0,
       percentage: 0,
       status: 'Active' as const,
     }
-  }, [projectStats, entries.length])
+  }, [projectStats])
 
   const assignedEngineers = useMemo(() => {
     const map = new Map<string, { name: string; id?: string; count: number }>()
@@ -182,7 +176,6 @@ export function ProjectTasksModal({
         ...project,
         status: project.status,
       })
-      onProjectSynced?.(project)
     }
     await loadEntries()
     await onRefresh?.()
@@ -211,11 +204,9 @@ export function ProjectTasksModal({
       toast.error('Logout time cannot be earlier than login time.')
       return
     }
-
     setSavingId(entryId)
     try {
       await overrideTimesheetLog(entryId, {
-        loginTime: loginISO,
         logoutTime: logoutISO,
         overriddenHours: overrideForm.isOverridden ? Number(overrideForm.overriddenHours) : null,
         adminNotes: overrideForm.adminNotes.trim() || null,

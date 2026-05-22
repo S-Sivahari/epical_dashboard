@@ -52,11 +52,10 @@ export async function overrideTimesheetLog(
 }
 
 export async function fetchProjectTimesheets(
-  projectId: string,
-  projectName: string
+  projectId: string
 ): Promise<Record<string, unknown>[]> {
   const response = await api.get('/timesheets', {
-    params: { projectId, project: projectName },
+    params: { projectId },
   });
   return response.data || [];
 }

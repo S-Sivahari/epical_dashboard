@@ -12,7 +12,6 @@ import {
   AlignmentType,
   convertInchesToTwip,
   HeightRule,
-  ConvertInchesToTwip,
 } from 'docx'
 import { writeFileSync } from 'fs'
 import { join } from 'path'
@@ -142,7 +141,7 @@ export function readMasterExcel(filePath: string): {
   const company: Company = {}
   const wsCompany = wb.Sheets['Company']
   if (wsCompany) {
-    const companyData = XLSX.utils.sheet_to_json(wsCompany, { header: 1 })
+    const companyData = XLSX.utils.sheet_to_json(wsCompany, { header: 1 }) as any[][]
     for (let row of companyData) {
       if (row && row[0] && row[1]) {
         company[String(row[0]).trim()] = row[1]
@@ -154,7 +153,7 @@ export function readMasterExcel(filePath: string): {
   const structure: SalaryStructure = {}
   const wsSalary = wb.Sheets['Salary Structure']
   if (wsSalary) {
-    const salaryData = XLSX.utils.sheet_to_json(wsSalary, { header: 1 })
+    const salaryData = XLSX.utils.sheet_to_json(wsSalary, { header: 1 }) as any[][]
     for (let i = 3; i < salaryData.length; i++) {
       const row = salaryData[i]
       if (!row || !row[0]) continue
@@ -174,7 +173,7 @@ export function readMasterExcel(filePath: string): {
   const employees: Employee[] = []
   const wsEmployees = wb.Sheets['Employees']
   if (wsEmployees) {
-    const empData = XLSX.utils.sheet_to_json(wsEmployees)
+    const empData = XLSX.utils.sheet_to_json(wsEmployees) as any[]
     for (let emp of empData) {
       if (emp && emp['Emp ID']) {
         employees.push(emp)
@@ -230,7 +229,7 @@ export function buildPayslip(
         bottom: { color: COLORS.PRIMARY, space: 1, style: BorderStyle.SINGLE, size: 6 },
       },
       spacing: { after: 100 },
-    })
+    } as any)
   )
 
   sections.push(
@@ -239,7 +238,7 @@ export function buildPayslip(
       size: 14,
       color: COLORS.MUTED,
       spacing: { after: 50 },
-    })
+    } as any)
   )
 
   sections.push(
@@ -249,7 +248,7 @@ export function buildPayslip(
       italic: true,
       color: COLORS.MUTED,
       spacing: { after: 200 },
-    })
+    } as any)
   )
 
   // =========================================================================
@@ -268,7 +267,7 @@ export function buildPayslip(
         top: { color: COLORS.PRIMARY, space: 1, style: BorderStyle.SINGLE, size: 6 },
         bottom: { color: COLORS.PRIMARY, space: 1, style: BorderStyle.SINGLE, size: 6 },
       },
-    })
+    } as any)
   )
 
   // =========================================================================
@@ -288,12 +287,12 @@ export function buildPayslip(
             createQuickBarCell('LOP Days', lopDays),
             createQuickBarCell('Paid Days', paidDays),
           ],
-        }),
+        } as any),
       ],
-    })
+    } as any)
   )
 
-  sections.push(new Paragraph({ text: '', spacing: { after: 200 } }))
+  sections.push(new Paragraph({ text: '', spacing: { after: 200 } } as any))
 
   // =========================================================================
   // SECTION 4 - EMPLOYEE BLOCK
@@ -306,11 +305,11 @@ export function buildPayslip(
       shading: { fill: COLORS.PRIMARY },
       color: COLORS.HEADER_TXT,
       spacing: { before: 50, after: 50 },
-    })
+    } as any)
   )
 
   sections.push(createEmployeeTable(emp, company))
-  sections.push(new Paragraph({ text: '', spacing: { after: 200 } }))
+  sections.push(new Paragraph({ text: '', spacing: { after: 200 } } as any))
 
   // =========================================================================
   // SECTION 5 - EARNINGS & DEDUCTIONS
@@ -319,7 +318,7 @@ export function buildPayslip(
   const { deductions, totalDed } = buildDeductionsData(emp, structure)
 
   sections.push(createEarningsDeductionsTable(earnings, gross, deductions, totalDed))
-  sections.push(new Paragraph({ text: '', spacing: { after: 200 } }))
+  sections.push(new Paragraph({ text: '', spacing: { after: 200 } } as any))
 
   // =========================================================================
   // SECTION 6 - NET PAY
@@ -334,7 +333,7 @@ export function buildPayslip(
       shading: { fill: COLORS.PRIMARY_LT },
       color: COLORS.PRIMARY_DK,
       spacing: { before: 100, after: 50 },
-    })
+    } as any)
   )
 
   sections.push(
@@ -344,7 +343,7 @@ export function buildPayslip(
       size: 18,
       color: COLORS.PRIMARY_DK,
       spacing: { after: 200 },
-    })
+    } as any)
   )
 
   // =========================================================================
@@ -360,7 +359,7 @@ export function buildPayslip(
       border: {
         top: { color: COLORS.PRIMARY, space: 1, style: BorderStyle.SINGLE, size: 4 },
       },
-    })
+    } as any)
   )
 
   return new Document({
@@ -368,13 +367,13 @@ export function buildPayslip(
       {
         properties: {
           page: {
-            margins: { top: 200, right: 300, bottom: 400, left: 300 },
+            margin: { top: 200, right: 300, bottom: 400, left: 300 },
           },
         },
         children: sections,
       },
     ],
-  })
+  } as any)
 }
 
 // ============================================================================
@@ -389,14 +388,14 @@ function createQuickBarCell(label: string, value: any): TableCell {
         size: 13,
         color: COLORS.MUTED,
         alignment: AlignmentType.CENTER,
-      }),
+      } as any),
       new Paragraph({
         text: safe(value),
         bold: true,
         size: 20,
         color: COLORS.PRIMARY_DK,
         alignment: AlignmentType.CENTER,
-      }),
+      } as any),
     ],
     shading: { fill: COLORS.PRIMARY_LT },
     borders: {
@@ -407,7 +406,7 @@ function createQuickBarCell(label: string, value: any): TableCell {
     },
     verticalAlign: VerticalAlign.CENTER,
     margins: { top: 50, bottom: 50, left: 50, right: 50 },
-  })
+  } as any)
 }
 
 function createEmployeeTable(emp: Employee, company: Company): Table {
@@ -420,30 +419,30 @@ function createEmployeeTable(emp: Employee, company: Company): Table {
           createEmpCell('Designation', emp['Designation']),
           createEmpCell('Location', emp['Location']),
         ],
-      }),
+      } as any),
       new TableRow({
         cells: [
           createEmpCell('Name', emp['Name']),
           createEmpCell('Department', emp['Department']),
           createEmpCell('Branch', emp['Branch']),
         ],
-      }),
+      } as any),
       new TableRow({
         cells: [
           createEmpCell('Date of Birth', emp['Date of Birth']),
           createEmpCell('Grade / Band', emp['Grade']),
           createEmpCell('Cost Centre', emp['Cost Centre']),
         ],
-      }),
+      } as any),
       new TableRow({
         cells: [
           createEmpCell('Date of Joining', emp['Date of Joining']),
           createEmpCell('Reporting To', emp['Reporting To']),
           createEmpCell('Employment Type', emp['Employment Type']),
         ],
-      }),
+      } as any),
     ],
-  })
+  } as any)
 }
 
 function createEmpCell(label: string, value: any): TableCell {
@@ -454,11 +453,11 @@ function createEmpCell(label: string, value: any): TableCell {
         bold: true,
         size: 16,
         color: COLORS.PRIMARY_DK,
-      }),
+      } as any),
       new Paragraph({
         text: safe(value),
         size: 16,
-      }),
+      } as any),
     ],
     shading: { fill: COLORS.LABEL_BG },
     borders: {
@@ -467,7 +466,7 @@ function createEmpCell(label: string, value: any): TableCell {
       left: { color: COLORS.BORDER, space: 1, style: BorderStyle.SINGLE, size: 6 },
       right: { color: COLORS.BORDER, space: 1, style: BorderStyle.SINGLE, size: 6 },
     },
-  })
+  } as any)
 }
 
 interface EarningItem {
@@ -551,7 +550,7 @@ function createEarningsDeductionsTable(
       new TableRow({
         cells: [
           new TableCell({
-            children: [new Paragraph({ text: 'EARNINGS', bold: true, size: 18, color: COLORS.HEADER_TXT })],
+            children: [new Paragraph({ text: 'EARNINGS', bold: true, size: 18, color: COLORS.HEADER_TXT } as any)],
             shading: { fill: COLORS.PRIMARY },
             borders: {
               top: { color: COLORS.BORDER, space: 1, style: BorderStyle.SINGLE, size: 6 },
@@ -559,9 +558,9 @@ function createEarningsDeductionsTable(
               left: { color: COLORS.BORDER, space: 1, style: BorderStyle.SINGLE, size: 6 },
               right: { color: COLORS.BORDER, space: 1, style: BorderStyle.SINGLE, size: 6 },
             },
-          }),
+          } as any),
           new TableCell({
-            children: [new Paragraph({ text: 'DEDUCTIONS', bold: true, size: 18, color: COLORS.HEADER_TXT })],
+            children: [new Paragraph({ text: 'DEDUCTIONS', bold: true, size: 18, color: COLORS.HEADER_TXT } as any)],
             shading: { fill: COLORS.PRIMARY },
             borders: {
               top: { color: COLORS.BORDER, space: 1, style: BorderStyle.SINGLE, size: 6 },
@@ -569,9 +568,9 @@ function createEarningsDeductionsTable(
               left: { color: COLORS.BORDER, space: 1, style: BorderStyle.SINGLE, size: 6 },
               right: { color: COLORS.BORDER, space: 1, style: BorderStyle.SINGLE, size: 6 },
             },
-          }),
+          } as any),
         ],
-      }),
+      } as any),
       ...earnings.map((e, i) =>
         new TableRow({
           cells: [
@@ -580,13 +579,13 @@ function createEarningsDeductionsTable(
                 new Paragraph({
                   text: e.name,
                   size: 16,
-                }),
+                } as any),
                 new Paragraph({
                   text: `Rs. ${formatAmount(e.amount)}`,
                   bold: true,
                   size: 16,
                   alignment: AlignmentType.RIGHT,
-                }),
+                } as any),
               ],
               shading: i % 2 === 0 ? { fill: COLORS.ROW_ALT } : undefined,
               borders: {
@@ -595,19 +594,19 @@ function createEarningsDeductionsTable(
                 left: { color: COLORS.BORDER, space: 1, style: BorderStyle.SINGLE, size: 6 },
                 right: { color: COLORS.BORDER, space: 1, style: BorderStyle.SINGLE, size: 6 },
               },
-            }),
+            } as any),
             new TableCell({
               children: [
                 new Paragraph({
                   text: deductions[i]?.name || '',
                   size: 16,
-                }),
+                } as any),
                 new Paragraph({
                   text: `Rs. ${formatAmount(deductions[i]?.amount || 0)}`,
                   bold: true,
                   size: 16,
                   alignment: AlignmentType.RIGHT,
-                }),
+                } as any),
               ],
               shading: i % 2 === 0 ? { fill: COLORS.ROW_ALT } : undefined,
               borders: {
@@ -616,9 +615,9 @@ function createEarningsDeductionsTable(
                 left: { color: COLORS.BORDER, space: 1, style: BorderStyle.SINGLE, size: 6 },
                 right: { color: COLORS.BORDER, space: 1, style: BorderStyle.SINGLE, size: 6 },
               },
-            }),
+            } as any),
           ],
-        })
+        } as any)
       ),
       new TableRow({
         cells: [
@@ -628,13 +627,13 @@ function createEarningsDeductionsTable(
                 text: 'GROSS EARNINGS',
                 bold: true,
                 size: 18,
-              }),
+              } as any),
               new Paragraph({
                 text: `Rs. ${formatAmount(gross)}`,
                 bold: true,
                 size: 18,
                 alignment: AlignmentType.RIGHT,
-              }),
+              } as any),
             ],
             shading: { fill: COLORS.PRIMARY_LT },
             borders: {
@@ -643,20 +642,20 @@ function createEarningsDeductionsTable(
               left: { color: COLORS.BORDER, space: 1, style: BorderStyle.SINGLE, size: 6 },
               right: { color: COLORS.BORDER, space: 1, style: BorderStyle.SINGLE, size: 6 },
             },
-          }),
+          } as any),
           new TableCell({
             children: [
               new Paragraph({
                 text: 'TOTAL DEDUCTIONS',
                 bold: true,
                 size: 18,
-              }),
+              } as any),
               new Paragraph({
                 text: `Rs. ${formatAmount(totalDed)}`,
                 bold: true,
                 size: 18,
                 alignment: AlignmentType.RIGHT,
-              }),
+              } as any),
             ],
             shading: { fill: COLORS.PRIMARY_LT },
             borders: {
@@ -665,11 +664,11 @@ function createEarningsDeductionsTable(
               left: { color: COLORS.BORDER, space: 1, style: BorderStyle.SINGLE, size: 6 },
               right: { color: COLORS.BORDER, space: 1, style: BorderStyle.SINGLE, size: 6 },
             },
-          }),
+          } as any),
         ],
-      }),
+      } as any),
     ],
-  })
+  } as any)
 }
 
 export async function savePayslipAsDocx(doc: Document, outputPath: string): Promise<void> {

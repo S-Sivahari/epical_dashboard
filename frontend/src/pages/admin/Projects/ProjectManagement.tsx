@@ -1121,32 +1121,6 @@ export function ProjectManagement() {
     await Promise.all([fetchProjects(), fetchTimesheetsData()])
   }, [fetchProjects, fetchTimesheetsData])
 
-  const handleProjectSynced = useCallback(
-    (synced: {
-      id: string
-      status: Project['status']
-      completedTasks?: number
-      totalTasks?: number
-      completionPercentage?: number
-    } | null) => {
-      if (!synced) return
-      setAllProjects((prev) =>
-        prev.map((p) =>
-          p.id === synced.id
-            ? {
-                ...p,
-                status: synced.status,
-                completedTasks: synced.completedTasks,
-                totalTasks: synced.totalTasks,
-                completionPercentage: synced.completionPercentage,
-              }
-            : p
-        )
-      )
-    },
-    []
-  )
-
   useEffect(() => {
     fetchProjects()
     fetchEmployees()
@@ -2480,7 +2454,6 @@ export function ProjectManagement() {
           projectId={selectedProjectId}
           projectName={selectedProjectName}
           onRefresh={refreshAllData}
-          onProjectSynced={handleProjectSynced}
         />
       )}
     </PageWrapper>

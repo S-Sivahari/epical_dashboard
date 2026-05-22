@@ -17,6 +17,7 @@ export interface Timesheet extends Document {
     message: string;
   };
   requestStatus: 'No Request' | 'Pending Review' | 'Corrected' | 'Approved' | 'Rejected';
+  approvalStatus: 'Pending' | 'Approved' | 'Rejected';
   adminNotes?: string;
   status: 'Approved' | 'Pending' | 'Rejected';
   billable?: boolean;
@@ -47,6 +48,11 @@ const TimesheetSchema = new Schema<Timesheet>(
       type: String,
       enum: ['No Request', 'Pending Review', 'Corrected', 'Approved', 'Rejected'],
       default: 'No Request',
+    },
+    approvalStatus: {
+      type: String,
+      enum: ['Pending', 'Approved', 'Rejected'],
+      default: 'Pending',
     },
     adminNotes: { type: String },
     status: {
