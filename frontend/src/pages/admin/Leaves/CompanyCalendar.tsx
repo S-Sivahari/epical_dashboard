@@ -30,6 +30,7 @@ interface CompanyEvent {
   date: string
   time?: string
   description?: string
+  holidayType?: 'Company' | 'Company Event'
 }
 
 const seedEvents: CompanyEvent[] = [
@@ -149,6 +150,18 @@ export function CompanyCalendar() {
     }
   }
 
+  const holidayEvents = useMemo(() => {
+    return holidays
+      .filter((h) => h.type === 'Company' || h.type === 'Company Event')
+      .map((h) => ({
+        id: h.id,
+        title: h.title,
+        date: h.date,
+        description: h.description,
+        holidayType: h.type,
+      }))
+  }, [holidays])
+
   const currentMonthHolidays = useMemo(() => {
     return holidays.filter((h) => {
       const holidayDate = new Date(h.date)
@@ -157,11 +170,11 @@ export function CompanyCalendar() {
   }, [holidays, currentMonthIdx, currentYear])
 
   const currentMonthEvents = useMemo(() => {
-    return events.filter((e) => {
+    return [...events, ...holidayEvents].filter((e) => {
       const eventDate = new Date(e.date)
       return eventDate.getMonth() === currentMonthIdx && eventDate.getFullYear() === currentYear
     })
-  }, [events, currentMonthIdx, currentYear])
+  }, [events, holidayEvents, currentMonthIdx, currentYear])
 
   const currentMonthLeaves = useMemo(() => {
     return approvedLeaves
