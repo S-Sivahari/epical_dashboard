@@ -1,6 +1,8 @@
 import { Collection } from 'mongodb';
 import { getDB } from '../config/db';
-import { TimesheetEntry, CreateTimesheetPayload } from '../models/Timesheet';
+import { Timesheet as TimesheetEntry } from '../models/Timesheet';
+
+export type CreateTimesheetPayload = any;
 
 let timesheetCollection: Collection<any> | null = null;
 

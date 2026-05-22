@@ -5,6 +5,7 @@ import { ProfileCard } from '@components/employee/shared/ProfileCard'
 import { KPIStatCard } from '@components/employee/shared/KPIStatCard'
 import { LeaveCard } from '@components/employee/shared/LeaveCard'
 import { AnnouncementBanner } from '@components/employee/shared/AnnouncementBanner'
+import { AssignedProjectsSection } from '@components/employee/shared/AssignedProjectsSection'
 import { CalendarWidget } from '@components/employee/shared/CalendarWidget'
 import { Progress } from '@components/employee/ui/progress'
 import { useAuthStore } from '@store/authStore'
@@ -29,6 +30,8 @@ export default function Dashboard() {
         <KPIStatCard title="Pending Leave" value="1" icon={CalendarOff} />
         <KPIStatCard title="Pending Documents" value="1" icon={FileText} />
       </div>
+
+      <AssignedProjectsSection />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="rounded-xl border border-border bg-card p-6 shadow-card lg:col-span-1">

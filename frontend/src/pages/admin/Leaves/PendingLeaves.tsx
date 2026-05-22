@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import { useEffect, useRef } from 'react'
-=======
 import { useState } from 'react'
->>>>>>> d58e55571b5c14feaa8762cccd77842ca127b466
 import { toast } from 'sonner'
 import { Badge } from '@components/ui/Badge'
 import { Button } from '@components/ui/Button'
@@ -16,20 +12,6 @@ import { type LeaveFilters } from '@/utils/leaveFilters'
 
 export function PendingLeaves({ filters: _filters }: { filters: LeaveFilters }) {
   const { leaves, loading, approveLeave, rejectLeave, fetchLeaves } = useLeaves()
-<<<<<<< HEAD
-  const previousLeaveCount = useRef(leaves.length)
-
-  const pending = useMemo(() => {
-    return filterLeaves(leaves.filter((l) => l.status === 'Pending'), filters)
-  }, [leaves, filters])
-
-  useEffect(() => {
-    if (leaves.length > previousLeaveCount.current) {
-      toast.success('New leave request received')
-    }
-    previousLeaveCount.current = leaves.length
-  }, [leaves.length])
-=======
   const pending = leaves.filter((l) => l.status === 'Pending')
   
   const [rejectModalOpen, setRejectModalOpen] = useState(false)
@@ -59,7 +41,6 @@ export function PendingLeaves({ filters: _filters }: { filters: LeaveFilters }) 
       toast.error('Failed to reject leave')
     }
   }
->>>>>>> d58e55571b5c14feaa8762cccd77842ca127b466
 
   const columns: Column<LeaveRequest>[] = [
     { key: 'employeeName', header: 'Employee' },

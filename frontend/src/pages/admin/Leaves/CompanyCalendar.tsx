@@ -203,7 +203,7 @@ export function CompanyCalendar() {
                 </div>
               </div>
               <Button size="sm" className="h-8 px-3 text-xs shadow-sm" onClick={() => setIsHolidayFormOpen(true)}>
-                <Plus className="h-4 w-4 mr-1.5" /> Add Holiday
+                <Plus className="h-4 w-4 mr-1.5" /> Add
               </Button>
             </div>
 

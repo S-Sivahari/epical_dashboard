@@ -44,9 +44,8 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
   const holidays = await getAllHolidays();
 
   // 2. Calculate true business days (skip weekends & holidays)
-<<<<<<< HEAD
   const actualBusinessDays = getBusinessDays(payload.from, payload.to, holidays);
-  
+
   if (payload.leaveDuration === 'Half Day') {
     if (normalizeDate(payload.from) !== normalizeDate(payload.to)) {
       throw new Error('Half-day leave must be for a single date');
@@ -70,16 +69,6 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
   if (leaveBalance && leaveBalance.remaining < requestedDays) {
     throw new Error(`Insufficient ${payload.type} balance. Remaining: ${leaveBalance.remaining}, Requested: ${requestedDays}`);
   }
-=======
-  const actualDays = getBusinessDays(payload.from, payload.to, holidays);
-
-  if (actualDays <= 0) {
-    throw new Error('Leave request spans across weekends/holidays with 0 effective business days.');
-  }
-
-  // Note: No validation against balance here. Admin will validate during approval.
-  // This allows employees to request leave freely, and admin reviews it.
->>>>>>> d58e55571b5c14feaa8762cccd77842ca127b466
 
   const id = `L-${Date.now()}`;
   const leave: any = {

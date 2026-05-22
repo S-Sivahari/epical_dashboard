@@ -12,6 +12,8 @@ export interface Ticket {
   description?: string;
   priority: TicketPriority;
   status: TicketStatus;
+  projectId?: string; // Project this ticket is assigned to
+  projectName?: string; // Project name for reference
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -22,4 +24,6 @@ export interface CreateTicketPayload {
   title: string;
   description?: string;
   priority: TicketPriority;
+  projectId?: string; // Project this ticket belongs to
+  projectName?: string; // Project name for reference
 }

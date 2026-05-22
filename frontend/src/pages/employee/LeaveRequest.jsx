@@ -222,16 +222,13 @@ export default function LeaveRequest() {
     return matchSearch && matchStatus
   })
 
-<<<<<<< HEAD
   const onError = (errors) => {
     console.log('Leave request validation failed', errors)
     toast({ title: 'Validation error', description: 'Please complete all required fields before submitting.' })
   }
-=======
+
   const pendingLeaves = requests.filter((r) => r.status === 'Pending')
-  
   const historyLeaves = filtered.filter((r) => r.status !== 'Pending')
->>>>>>> d58e55571b5c14feaa8762cccd77842ca127b466
 
   const onSubmit = async (data) => {
     console.log('Leave request submitted', data)
@@ -301,100 +298,7 @@ export default function LeaveRequest() {
         </button>
       </div>
 
-<<<<<<< HEAD
-        <TabsContent value="apply">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <form onSubmit={handleSubmit(onSubmit, onError)} className="rounded-xl border border-border bg-card p-6 shadow-card space-y-4">
-              <h3 className="font-heading text-lg font-semibold">Apply for Leave</h3>
-              <div>
-                <Label>Leave Type *</Label>
-                <Controller
-                  control={control}
-                  name="type"
-                  render={({ field }) => (
-                    <Select name={field.name} value={field.value || ''} onValueChange={(value) => field.onChange(value)}>
-                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select type" /></SelectTrigger>
-                      <SelectContent>
-                        {leaveTypes.map((t) => (
-                          <SelectItem key={t} value={t}>{t}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.type && <p className="mt-1 text-xs text-danger">{errors.type.message}</p>}
-              </div>
-              <div>
-                <Label>Leave Duration *</Label>
-                <Controller
-                  control={control}
-                  name="leaveDuration"
-                  render={({ field }) => (
-                    <Select name={field.name} value={field.value} onValueChange={(value) => field.onChange(value)}>
-                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select duration" /></SelectTrigger>
-                      <SelectContent>
-                        {leaveDurations.map((d) => (
-                          <SelectItem key={d} value={d}>{d}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.leaveDuration && <p className="mt-1 text-xs text-danger">{errors.leaveDuration.message}</p>}
-              </div>
-              {leaveDuration === 'Half Day' && (
-                <div>
-                  <Label>Half-day Session *</Label>
-                  <Controller
-                    control={control}
-                    name="halfDaySession"
-                    render={({ field }) => (
-                      <Select name={field.name} value={field.value || ''} onValueChange={(value) => field.onChange(value)}>
-                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select session" /></SelectTrigger>
-                        <SelectContent>
-                          {halfDaySessions.map((session) => (
-                            <SelectItem key={session} value={session}>{session}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                  {errors.halfDaySession && <p className="mt-1 text-xs text-danger">{errors.halfDaySession.message}</p>}
-                </div>
-              )}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label>From Date *</Label>
-                  <Input type="date" className="mt-1" {...register('fromDate')} />
-                  {errors.fromDate && <p className="mt-1 text-xs text-danger">{errors.fromDate.message}</p>}
-                </div>
-                <div>
-                  <Label>To Date *</Label>
-                  <Input
-                    type="date"
-                    className="mt-1"
-                    {...register('toDate')}
-                    disabled={leaveDuration === 'Half Day'}
-                  />
-                  {leaveDuration === 'Half Day' && (
-                    <p className="mt-1 text-xs text-muted">Half-day leave must have the same start and end date.</p>
-                  )}
-                  {errors.toDate && <p className="mt-1 text-xs text-danger">{errors.toDate.message}</p>}
-                </div>
-              </div>
-              {conflictMessage && (
-                <div className="rounded-lg border border-danger/20 bg-danger/10 p-3 text-sm text-danger">
-                  {conflictMessage}
-                </div>
-              )}
-              <div>
-                <Label>Reason *</Label>
-                <Textarea className="mt-1" {...register('reason')} placeholder="Reason for leave" />
-                {errors.reason && <p className="mt-1 text-xs text-danger">{errors.reason.message}</p>}
-              </div>
-              <Button type="submit" disabled={isSubmitting || !!conflictMessage} className="w-full">Submit Request</Button>
-            </form>
-=======
+
       {/* Apply Leave Form & Leave Balances & Pending Requests */}
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Left Column: Apply for Leave Form */}
@@ -469,7 +373,7 @@ export default function LeaveRequest() {
           {/* Leave Balance */}
           <div className="rounded-xl border border-border bg-card p-6 shadow-card">
             <h3 className="font-heading text-lg font-semibold mb-4">Leave Balance</h3>
->>>>>>> d58e55571b5c14feaa8762cccd77842ca127b466
+
             <div className="space-y-3">
               {leaveBalances.map((lb) => (
                 <LeaveCard key={lb.key} type={lb.type} used={lb.used} total={lb.total} color={lb.color} />
