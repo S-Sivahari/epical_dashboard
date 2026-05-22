@@ -120,10 +120,8 @@ export function LeaveManagementContainer() {
   }
 
   return (
-    <PageWrapper className={activeTab === 'calendar' ? 'max-w-none pl-0 sm:pl-0 lg:pl-0 pr-6 sm:pr-6 lg:pr-6 w-full' : ''}>
-      <div className={`mb-6 ${
-        activeTab === 'calendar' ? 'pl-6 sm:pl-6 lg:pl-6' : ''
-      }`}>
+    <PageWrapper>
+      <div className="mb-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 w-full">
           <div className="flex flex-row items-center gap-2 flex-wrap">
             {tabs.map((tab) => (
