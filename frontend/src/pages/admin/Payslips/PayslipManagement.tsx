@@ -36,6 +36,7 @@ import {
 } from '@services/payslipService'
 
 interface PayslipRow {
+  id?: string
   empId: string
   name: string
   status: 'success' | 'error' | 'pending'
@@ -354,36 +355,18 @@ export function PayslipManagement() {
     <PageWrapper>
       <PageHeader
         title="Payslip Management"
-        subtitle="Upload payroll data and generate PDF payslips for each employee."
         breadcrumb={<Breadcrumb items={[{ label: 'Payslips' }]} />}
-      />
-
-      {/* Demo template — always visible */}
-      <div className="mb-6 rounded-lg border border-primary/30 bg-primary/5 p-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h3 className="font-semibold text-ink">Payroll Excel Template</h3>
-            <p className="mt-1 text-sm text-muted">
-              Download the payroll master template with four sheets:{' '}
-              <strong>employee</strong>, <strong>company</strong>,{' '}
-              <strong>salary structure</strong>, and <strong>readme</strong>.
-              Fill it in or upload your own file using the same layout.
-            </p>
-          </div>
+        actions={
           <Button variant="secondary" onClick={handleDownloadTemplate}>
             <FileSpreadsheet className="h-4 w-4" />
-            Download Demo Template
+            Download Template
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Upload */}
       <div className="mb-6 space-y-4 rounded-lg border border-border bg-surface/50 p-4">
         <h3 className="font-semibold text-ink">Upload Payroll</h3>
-        <p className="text-sm text-muted">
-          Upload the demo template after filling it in, or your own formatted Excel (.xlsx / .xls).
-          Payslip PDFs are generated automatically for every employee in the file.
-        </p>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <input
