@@ -28,6 +28,43 @@ import { getPayrollBatch as fetchBatch } from '../services/payrollBatchService'
 import { createNotification } from '../services/notificationService'
 import { getDB } from '../config/db'
 
+function getUserCollection() {
+  return getDB().collection('users')
+}
+
+async function notifyAdminsAndEmployee(params: {
+  employeeDbId: string
+  employeeName: string
+  payMonth: string
+  payslipId: string
+  batchId: string
+}): Promise<void> {
+  const { employeeDbId, employeeName, payMonth, payslipId, batchId } = params
+
+  // Notify the employee
+  await createNotification({
+    recipientId: employeeDbId,
+    recipientType: 'Employee',
+    type: 'PayslipSent',
+    title: 'Payslip Received',
+    message: `Your payslip for ${payMonth} has been published. You can download it from the Payslips section.`,
+    relatedData: { employeeId: employeeDbId, employeeName, payslipId, batchId, payMonth },
+  })
+
+  // Notify all admins
+  const admins = await getUserCollection().find({ role: 'Admin' }).toArray()
+  for (const admin of admins) {
+    await createNotification({
+      recipientId: String(admin.id),
+      recipientType: 'Admin',
+      type: 'PayslipSent',
+      title: 'Payslip Sent',
+      message: `Payslip for ${employeeName} (${payMonth}) has been sent successfully.`,
+      relatedData: { employeeId: employeeDbId, employeeName, payslipId, batchId, payMonth },
+    })
+  }
+}
+
 export const payslipController = {
   /** Always-available demo Excel template */
   downloadTemplate: async (_req: Request, res: Response): Promise<void> => {
@@ -181,6 +218,7 @@ export const payslipController = {
       }
 
       const record = await sendPayslipToEmployee({
+      const record = await sendPayslipToEmployee({
         batchId,
         fileName,
         empId,
@@ -188,13 +226,13 @@ export const payslipController = {
         employeeDbId,
       })
 
-      // Create notification for the employee
-      await createNotification({
-        recipientId: record.employeeDbId,
-        title: 'Payslip Available',
-        message: `Your payslip for ${batch.payMonth} is now available on your dashboard`,
-        type: 'payslip',
-        relatedId: record.id,
+      // Fire notifications for employee + admins
+      await notifyAdminsAndEmployee({
+        employeeDbId: record.employeeDbId,
+        employeeName: record.employeeName,
+        payMonth: record.payMonth,
+        payslipId: record.id,
+        batchId: record.batchId,
       })
 
       const updated = await fetchBatch(batchId)
@@ -231,22 +269,19 @@ export const payslipController = {
         employeeDbIdByEmpId ?? {}
       )
 
-      // Create notifications for all successfully sent payslips
-      for (const r of result.batch.results) {
-        if (r.status === 'success' && r.fileName && r.sent) {
-          const emp = await getDB().collection('employees').findOne({
-            employeeId: r.empId.trim().toUpperCase(),
-          })
-          if (emp) {
-            await createNotification({
-              recipientId: emp.id,
-              title: 'Payslip Available',
-              message: `Your payslip for ${batch.payMonth} is now available on your dashboard`,
-              type: 'payslip',
-              relatedId: r.fileName,
-            })
-          }
-        }
+      // Fire notifications for each successfully sent payslip
+      const sentRecords = await getDB()
+        .collection('employee_payslips')
+        .find({ batchId })
+        .toArray()
+      for (const rec of sentRecords) {
+        await notifyAdminsAndEmployee({
+          employeeDbId: String(rec.employeeDbId),
+          employeeName: String(rec.employeeName),
+          payMonth: String(rec.payMonth),
+          payslipId: String(rec.id),
+          batchId: String(rec.batchId),
+        })
       }
 
       res.json({

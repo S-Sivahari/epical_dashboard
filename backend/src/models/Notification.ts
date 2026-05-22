@@ -1,6 +1,11 @@
 import { ObjectId } from 'mongodb';
 
-export type NotificationType = 'LeaveSubmitted' | 'LeaveApproved' | 'LeaveRejected' | 'LeaveCancelled' | 'payslip';
+export type NotificationType =
+  | 'LeaveSubmitted'
+  | 'LeaveApproved'
+  | 'LeaveRejected'
+  | 'LeaveCancelled'
+  | 'PayslipSent';
 
 export interface Notification {
   _id?: ObjectId;
@@ -14,6 +19,9 @@ export interface Notification {
     leaveId?: string;
     employeeId?: string;
     employeeName?: string;
+    payslipId?: string;
+    batchId?: string;
+    payMonth?: string;
   };
   relatedId?: string;
   isRead: boolean;
@@ -31,6 +39,9 @@ export interface CreateNotificationPayload {
     leaveId?: string;
     employeeId?: string;
     employeeName?: string;
+    payslipId?: string;
+    batchId?: string;
+    payMonth?: string;
   };
   relatedId?: string;
 }
