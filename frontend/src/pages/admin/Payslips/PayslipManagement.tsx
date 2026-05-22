@@ -36,6 +36,7 @@ import {
 } from '@services/payslipService'
 
 interface PayslipRow {
+  id?: string
   empId: string
   name: string
   status: 'success' | 'error' | 'pending'

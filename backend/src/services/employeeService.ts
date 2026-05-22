@@ -29,15 +29,26 @@ export async function getAllEmployees(
   // Build filter query
   const query: Filter<Document> = {};
 
-  // Search query - search in firstName, lastName, email, id
+  // Search query - search in firstName, lastName, email
   if (filters.q) {
-    const searchRegex = { $regex: filters.q, $options: 'i' };
-    query.$or = [
-      { firstName: searchRegex },
-      { lastName: searchRegex },
-      { email: searchRegex },
-      { id: searchRegex },
-    ];
+    const trimmed = filters.q.trim();
+    const parts = trimmed.split(/\s+/);
+    if (parts.length > 1) {
+      const firstRegex = { $regex: parts[0], $options: 'i' };
+      const lastRegex = { $regex: parts.slice(1).join(' '), $options: 'i' };
+      query.$or = [
+        { $and: [ { firstName: firstRegex }, { lastName: lastRegex } ] },
+        { $and: [ { firstName: lastRegex }, { lastName: firstRegex } ] },
+        { email: { $regex: trimmed, $options: 'i' } }
+      ];
+    } else {
+      const searchRegex = { $regex: trimmed, $options: 'i' };
+      query.$or = [
+        { firstName: searchRegex },
+        { lastName: searchRegex },
+        { email: searchRegex },
+      ];
+    }
   }
 
   // Filter by department

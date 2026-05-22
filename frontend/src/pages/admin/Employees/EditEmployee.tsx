@@ -28,13 +28,13 @@ const editSchema = z.object({
   lastName: z.string().min(1, 'Last name is required'),
   permanentAddress: z.string().min(1, 'Permanent address is required'),
   communicationAddress: z.string().min(1, 'Communication address is required'),
-  dob: z.string().optional().refine((v) => !v || isValidDate(v), 'Enter a valid date'),
-  gender: z.string().optional(),
-  phone: z.string().optional(),
-  personalEmail: z
+  dob: z
     .string()
-    .optional()
-    .refine((v) => !v || z.string().email().safeParse(v).success, 'Enter a valid personal email'),
+    .min(1, 'Date of birth is required')
+    .refine(isValidDate, 'Enter a valid date of birth'),
+  gender: z.string().min(1, 'Gender is required'),
+  phone: z.string().min(10, 'Enter a valid phone number'),
+  personalEmail: z.string().email('Enter a valid personal email'),
   companyEmail: z.string().min(1, 'Company email is required').email('Enter a valid company email'),
   // Account
   bankName: z.string().optional(),
@@ -52,18 +52,18 @@ const editSchema = z.object({
   role: z.string().min(1, 'Role is required'),
   ctc: z.preprocess(
     (v) => (v === '' || v === null || v === undefined ? undefined : Number(v)),
-    z.number().positive('CTC must be positive').optional(),
+    z.number().positive('CTC must be a positive number').optional(),
   ),
   // ID proof
   aadhaar: z.string().optional(),
   pan: z.string().min(1, 'PAN is required'),
   passport: z.string().optional(),
   // Emergency Contact
-  emergencyContactName: z.string().optional().or(z.literal('')),
-  emergencyContactPhone: z.string().optional().or(z.literal('')),
-  emergencyContactEmail: z.string().optional().or(z.literal('')),
-  emergencyContactRelation: z.string().optional().or(z.literal('')),
-  emergencyContactAddress: z.string().optional().or(z.literal('')),
+  emergencyContactName: z.string().min(1, 'Emergency contact name is required'),
+  emergencyContactPhone: z.string().min(1, 'Emergency contact phone is required'),
+  emergencyContactEmail: z.string().email('Valid email required'),
+  emergencyContactRelation: z.string().min(1, 'Emergency contact relation is required'),
+  emergencyContactAddress: z.string().min(1, 'Emergency contact address is required'),
 })
 
 type FormValues = z.infer<typeof editSchema>
@@ -551,11 +551,13 @@ export function EditEmployee() {
               <Input
                 label="Date of birth"
                 type="date"
+                required
                 error={form.formState.errors.dob?.message}
                 {...form.register('dob')}
               />
               <SelectField
                 label="Gender"
+                required
                 error={form.formState.errors.gender?.message}
                 options={[
                   { value: 'Male', label: 'Male' },
@@ -566,12 +568,14 @@ export function EditEmployee() {
               />
               <Input
                 label="Phone"
+                required
                 error={form.formState.errors.phone?.message}
                 {...form.register('phone')}
               />
               <Input
                 label="Personal email"
                 type="email"
+                required
                 error={form.formState.errors.personalEmail?.message}
                 {...form.register('personalEmail')}
               />

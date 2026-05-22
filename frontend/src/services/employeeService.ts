@@ -3,7 +3,6 @@ import api from '@services/api'
 
 export async function getEmployees(params?: {
   name?: string
-  employeeId?: string
   department?: string
   employmentType?: string
   status?: string
@@ -14,7 +13,7 @@ export async function getEmployees(params?: {
 }) {
   const response = await api.get('/employees', {
     params: {
-      q: params?.name || params?.employeeId || undefined,
+      q: params?.name || undefined,
       department: params?.department,
       employmentType: params?.employmentType,
       status: params?.status,

@@ -121,12 +121,22 @@ export function LeaveManagementContainer() {
 
   return (
     <PageWrapper className={activeTab === 'calendar' ? 'max-w-none pl-0 sm:pl-0 lg:pl-0 pr-6 sm:pr-6 lg:pr-6 w-full' : ''}>
-      <div className={`mb-6 flex flex-col gap-4 ${
+      <div className={`mb-6 ${
         activeTab === 'calendar' ? 'pl-6 sm:pl-6 lg:pl-6' : ''
       }`}>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-ink"></h1>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 w-full">
+          <div className="flex flex-row items-center gap-2 flex-wrap">
+            {tabs.map((tab) => (
+              <Button
+                key={tab.id}
+                variant={activeTab === tab.id ? 'primary' : 'secondary'}
+                onClick={() => setActiveTab(tab.id)}
+                size="sm"
+                className="whitespace-nowrap"
+              >
+                {tab.label}
+              </Button>
+            ))}
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -150,20 +160,6 @@ export function LeaveManagementContainer() {
               Export Excel
             </Button>
           </div>
-        </div>
-
-        <div className="flex gap-2 sm:flex-col lg:flex-row flex-wrap">
-          {tabs.map((tab) => (
-            <Button
-              key={tab.id}
-              variant={activeTab === tab.id ? 'primary' : 'secondary'}
-              onClick={() => setActiveTab(tab.id)}
-              size="sm"
-              className="whitespace-nowrap"
-            >
-              {tab.label}
-            </Button>
-          ))}
         </div>
       </div>
 
