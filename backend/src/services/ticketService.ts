@@ -1,7 +1,7 @@
 import { Collection } from 'mongodb';
 import { getDB } from '../config/db';
 import { Ticket, CreateTicketPayload, TicketStatus } from '../models/Ticket';
-import { syncProjectStatus } from '../utils/syncProject';
+import { updateProjectCompletionStatus } from '../utils/syncProject';
 
 let ticketCollection: Collection<any> | null = null;
 
@@ -70,9 +70,9 @@ export async function updateTicketStatus(
     { returnDocument: 'after' }
   );
   
-  // Trigger project status sync if ticket belongs to a project
-  if (result && ticket?.projectName) {
-    await syncProjectStatus(ticket.projectName);
+  // Recalculate project completion only when a real project reference exists.
+  if (result && ticket?.projectId) {
+    await updateProjectCompletionStatus(ticket.projectId);
   }
   
   return result as Ticket | null;
@@ -83,9 +83,9 @@ export async function deleteTicket(id: string): Promise<boolean> {
   const ticket = await col.findOne({ id });
   const result = await col.deleteOne({ id });
   
-  // Trigger project status sync if ticket belonged to a project
-  if (result.deletedCount > 0 && ticket?.projectName) {
-    await syncProjectStatus(ticket.projectName);
+  // Recalculate project completion only when a real project reference exists.
+  if (result.deletedCount > 0 && ticket?.projectId) {
+    await updateProjectCompletionStatus(ticket.projectId);
   }
   
   return result.deletedCount > 0;

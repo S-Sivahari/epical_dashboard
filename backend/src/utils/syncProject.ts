@@ -1,4 +1,4 @@
-import { Types } from 'mongoose';
+import { ClientSession, Types } from 'mongoose';
 import { ProjectModel } from '../models/Project';
 import { TimesheetModel } from '../models/Timesheet';
 
@@ -11,12 +11,26 @@ import { TimesheetModel } from '../models/Timesheet';
  *   - Approval status is 'Approved'
  *   - requestStatus is NOT 'Pending Review' or 'Rejected'
  */
+function getApprovalStatus(entry: any): 'Approved' | 'Pending' | 'Rejected' {
+  return entry.approvalStatus || entry.status || 'Pending';
+}
+
 function isEntryCompletedAndApproved(entry: any): boolean {
-  if (!entry.logoutTime) return false;
+  if (!entry.projectId) return false;
   if (entry.taskStatus !== 'Completed') return false;
-  if (entry.status !== 'Approved') return false;
-  if (entry.requestStatus === 'Pending Review' || entry.requestStatus === 'Rejected') return false;
-  return true;
+  return getApprovalStatus(entry) === 'Approved';
+}
+
+export function getTimesheetWorkflowStatus(entry: any): 'Pending' | 'In Progress' | 'Completed' | 'Rejected' | 'Session Incomplete' | 'Pending Review' {
+  const approvalStatus = getApprovalStatus(entry);
+
+  if (approvalStatus === 'Rejected') return 'Rejected';
+  if (entry.taskStatus === 'Session Incomplete') return 'Session Incomplete';
+  if (entry.requestStatus === 'Pending Review') return 'Pending Review';
+  if (entry.taskStatus === 'Completed' && approvalStatus === 'Approved') return 'Completed';
+  if (entry.taskStatus === 'Completed') return 'Pending Review';
+  if (entry.taskStatus === 'In Progress') return 'In Progress';
+  return 'Pending';
 }
 
 /**
@@ -38,40 +52,28 @@ function isEntryCompletedAndApproved(entry: any): boolean {
  * @returns The updated project document, or null if the project was not found.
  */
 export async function updateProjectCompletionStatus(
-  projectId: Types.ObjectId | string
+  projectId: Types.ObjectId | string,
+  session?: ClientSession
 ): Promise<any | null> {
   if (!projectId) return null;
 
+  if (typeof projectId === 'string' && !Types.ObjectId.isValid(projectId)) {
+    return null;
+  }
+
   const objectId = typeof projectId === 'string' ? new Types.ObjectId(projectId) : projectId;
 
-  const project = await ProjectModel.findById(objectId);
+  const projectQuery = ProjectModel.findById(objectId);
+  if (session) projectQuery.session(session);
+  const project = await projectQuery;
   if (!project) return null;
 
   // Rejected projects are manually managed — do not auto-derive their status
   if (project.status === 'Rejected') return project;
 
-  // Match by ObjectId ref and by project name (legacy rows may lack projectId)
-  const projectIdString = objectId.toString();
-  const relatedEntries = await TimesheetModel.find({
-    $or: [
-      { projectId: objectId },
-      { projectId: projectIdString },
-      { project: project.projectName },
-    ],
-  });
-
-  // Backfill projectId on name-only rows so future syncs stay consistent
-  await TimesheetModel.updateMany(
-    {
-      project: project.projectName,
-      $or: [
-        { projectId: { $exists: false } },
-        { projectId: null },
-        { projectId: projectIdString },
-      ],
-    },
-    { $set: { projectId: objectId } }
-  );
+  const timesheetQuery = TimesheetModel.find({ projectId: objectId });
+  if (session) timesheetQuery.session(session);
+  const relatedEntries = await timesheetQuery;
 
   const totalTasks = relatedEntries.length;
   const completedTasks = relatedEntries.filter(isEntryCompletedAndApproved).length;
@@ -93,7 +95,7 @@ export async function updateProjectCompletionStatus(
     project.status = nextStatus;
   }
 
-  await project.save();
+  await project.save(session ? { session } : undefined);
   return {
     project,
     totalTasks,
@@ -104,30 +106,13 @@ export async function updateProjectCompletionStatus(
 }
 
 /**
- * Resolves a project reference (either as a string projectName, or an object
- * containing projectId and/or projectName) and recalculates its status.
- * Used by controllers and services (like ticketService and projectController) to sync statuses.
+ * Resolves a project reference by ObjectId and recalculates its status.
+ * Used by controllers and services to keep project completion synchronized.
  */
 export async function syncProjectStatus(
-  arg: string | { projectId?: Types.ObjectId | string; projectName?: string }
+  arg: string | { projectId?: Types.ObjectId | string }
 ): Promise<any | null> {
-  let projectId: Types.ObjectId | string | undefined;
-
-  if (typeof arg === 'string') {
-    const project = await ProjectModel.findOne({ projectName: arg });
-    if (project) {
-      projectId = project._id as Types.ObjectId;
-    }
-  } else if (arg && typeof arg === 'object') {
-    if (arg.projectId) {
-      projectId = arg.projectId;
-    } else if (arg.projectName) {
-      const project = await ProjectModel.findOne({ projectName: arg.projectName });
-      if (project) {
-        projectId = project._id as Types.ObjectId;
-      }
-    }
-  }
+  const projectId = typeof arg === 'string' ? arg : arg?.projectId;
 
   if (projectId) {
     return await updateProjectCompletionStatus(projectId);
@@ -135,16 +120,12 @@ export async function syncProjectStatus(
   return null;
 }
 
-/** Sync project status after a timesheet change when projectId may be missing on the row. */
+/** Sync project status after a timesheet change using the relational projectId reference. */
 export async function syncProjectForTimesheet(timesheet: {
   projectId?: Types.ObjectId | string | null;
-  project?: string;
-}): Promise<any | null> {
+}, session?: ClientSession): Promise<any | null> {
   if (timesheet.projectId) {
-    return updateProjectCompletionStatus(timesheet.projectId);
-  }
-  if (timesheet.project) {
-    return syncProjectStatus({ projectName: timesheet.project });
+    return updateProjectCompletionStatus(timesheet.projectId, session);
   }
   return null;
 }

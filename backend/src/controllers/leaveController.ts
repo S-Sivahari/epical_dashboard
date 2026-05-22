@@ -47,12 +47,12 @@ export const leaveController = {
       const employeeId = req.user?.role === 'Employee'
         ? req.user.id
         : (req.query.employeeId as string);
-        
+
       if (!employeeId) {
         res.status(400).json({ error: 'employeeId is required' });
         return;
       }
-      
+
       const balances = await leaveService.getLeaveBalances(employeeId);
       res.json(balances);
     } catch {
@@ -67,25 +67,27 @@ export const leaveController = {
       const leave = await leaveService.updateLeaveStatus(id, 'Approved');
       if (!leave) { res.status(404).json({ error: 'Leave not found' }); return; }
       res.json(leave);
-    } catch {
-      res.status(500).json({ error: 'Failed to approve leave' });
+    } catch (error: any) {
+      console.error('Error approving leave:', error);
+      res.status(400).json({ error: error.message || 'Failed to approve leave' });
     }
   },
 
   // PATCH /api/leaves/:id/reject
   reject: async (req: Request, res: Response): Promise<void> => {
     try {
+      const { reason } = req.body;
       const { id } = req.params as { id: string };
-      const { rejectionReason } = req.body;
-      if (!rejectionReason) {
+      if (!reason || reason.trim() === '') {
         res.status(400).json({ error: 'Rejection reason is required' });
         return;
       }
-      const leave = await leaveService.rejectLeaveWithReason(id, rejectionReason);
+      const leave = await leaveService.updateLeaveStatus(id, 'Rejected', reason.trim());
       if (!leave) { res.status(404).json({ error: 'Leave not found' }); return; }
       res.json(leave);
-    } catch {
-      res.status(500).json({ error: 'Failed to reject leave' });
+    } catch (error: any) {
+      console.error('Error rejecting leave:', error);
+      res.status(400).json({ error: error.message || 'Failed to reject leave' });
     }
   },
 
@@ -108,8 +110,9 @@ export const leaveController = {
         return;
       }
       res.json(cancelledLeave);
-    } catch {
-      res.status(500).json({ error: 'Failed to cancel leave' });
+    } catch (error: any) {
+      console.error('Error cancelling leave:', error);
+      res.status(500).json({ error: error.message || 'Failed to cancel leave' });
     }
   },
 
@@ -120,8 +123,9 @@ export const leaveController = {
       const ok = await leaveService.deleteLeave(id);
       if (!ok) { res.status(404).json({ error: 'Leave not found' }); return; }
       res.json({ message: 'Deleted successfully' });
-    } catch {
-      res.status(500).json({ error: 'Failed to delete leave' });
+    } catch (error: any) {
+      console.error('Error deleting leave:', error);
+      res.status(500).json({ error: error.message || 'Failed to delete leave' });
     }
   },
 
@@ -140,11 +144,11 @@ export const leaveController = {
     try {
       const { title, date, description, type } = req.body;
       if (!title || !date) { res.status(400).json({ error: 'title and date required' }); return; }
-      
+
       // Check for duplicate holiday on the same date
       const isDuplicate = await leaveService.checkDuplicateHoliday(date);
       if (isDuplicate) { res.status(409).json({ error: 'Holiday already exists on this date' }); return; }
-      
+
       const holiday = await leaveService.createHoliday({ title, date, description, type: type || 'National' });
       res.status(201).json(holiday);
     } catch {
@@ -157,16 +161,15 @@ export const leaveController = {
     try {
       const { title, date, description, type } = req.body;
       const { id } = req.params as { id: string };
-      
       const existing = await leaveService.getHolidayById(id);
       if (!existing) { res.status(404).json({ error: 'Holiday not found' }); return; }
-      
+
       // Check for duplicate holiday on the same date (if date changed)
       if (date && date !== existing.date) {
         const isDuplicate = await leaveService.checkDuplicateHoliday(date, id);
         if (isDuplicate) { res.status(409).json({ error: 'Holiday already exists on this date' }); return; }
       }
-      
+
       const holiday = await leaveService.updateHoliday(id, { title, date, description, type });
       res.json(holiday);
     } catch {

@@ -95,13 +95,6 @@ const DOCUMENT_TYPES: Record<StandardDocKey, string> = {
   agreement: 'Agreement Document',
 }
 
-const CERTIFICATE_TYPES: Record<CertificateDocKey, string> = {
-  certificate10th: '10th Certificate',
-  certificate12th: '12th Certificate',
-  certificateDiploma: 'Diploma Certificate',
-  certificateDegree: 'Degree Certificate',
-}
-
 const CERTIFICATE_OPTIONS: { key: CertificateDocKey; label: string }[] = [
   { key: 'certificateDegree', label: 'Degree' },
   { key: 'certificateDiploma', label: 'Diploma' },
@@ -392,18 +385,6 @@ export function EditEmployee() {
     })
   }
 
-  const removeSelectedDocument = (key: DocKey) => {
-    setDocumentFiles((p) => ({ ...p, [key]: [] }))
-    setDocumentErrors((p) => ({ ...p, [key]: null }))
-    setDocumentPreviews((p) => {
-      const newPreviews = { ...p[key] }
-      Object.values(newPreviews).forEach((url) => {
-        if (url) URL.revokeObjectURL(url)
-      })
-      return { ...p, [key]: {} }
-    })
-  }
-
   const deleteExistingDocument = async (key: DocKey) => {
     const doc = existingDocuments[key]
     if (!doc) return
@@ -522,8 +503,6 @@ export function EditEmployee() {
       </PageWrapper>
     )
   }
-
-  const selectedCertificate = existingDocuments[selectedCertificateKey]
 
   return (
     <PageWrapper>

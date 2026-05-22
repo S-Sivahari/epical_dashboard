@@ -35,13 +35,13 @@ export async function getLeaveById(id: string): Promise<LeaveRequest | null> {
 
 export async function createLeave(payload: CreateLeavePayload): Promise<LeaveRequest> {
   const col = getLeaveCol();
-  
+
   // 1. Fetch holidays
   const holidays = await getAllHolidays();
-  
+
   // 2. Calculate true business days (skip weekends & holidays)
   const actualDays = getBusinessDays(payload.from, payload.to, holidays);
-  
+
   if (actualDays <= 0) {
     throw new Error('Leave request spans across weekends/holidays with 0 effective business days.');
   }
@@ -67,7 +67,7 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
     const admins = await userCollection.find({ role: 'Admin' }).toArray();
     console.log(`[Leave Notification] Found ${admins.length} admins to notify`);
     console.log(`[Leave Notification] Admins:`, admins.map((a) => ({ id: a.id, name: a.name })));
-    
+
     for (const admin of admins) {
       console.log(`[Leave Notification] Creating notification for admin: ${admin.id}`);
       await notificationService.createNotification({
@@ -99,19 +99,20 @@ export async function getLeaveBalances(employeeId: string) {
 
 export async function updateLeaveStatus(
   id: string,
-  status: 'Approved' | 'Rejected'
+  status: 'Approved' | 'Rejected',
+  rejectionReason?: string
 ): Promise<LeaveRequest | null> {
   const col = getLeaveCol();
-  
+
   // If approving, validate the employee has sufficient balance
   if (status === 'Approved') {
     const leave = await getLeaveById(id);
     if (!leave) return null;
-    
+
     // Fetch employee leaves to calculate current balance
     const employeeLeaves = await getAllLeaves(leave.employeeId);
     const balances = calculateBalances(employeeLeaves);
-    
+
     const leaveBalance = balances[leave.type];
     if (leaveBalance && leaveBalance.remaining < leave.days) {
       throw new Error(
@@ -120,10 +121,25 @@ export async function updateLeaveStatus(
       );
     }
   }
-  
+
+  // Build update document
+  const updateDoc: any = {
+    status,
+    updatedAt: new Date(),
+  };
+
+  // Add rejection reason if rejecting
+  if (status === 'Rejected' && rejectionReason) {
+    updateDoc.rejectionReason = rejectionReason;
+  }
+
+  if (status === 'Approved') {
+    updateDoc.approvalDate = new Date();
+  }
+
   const result = await col.findOneAndUpdate(
     { id },
-    { $set: { status, updatedAt: new Date() } },
+    { $set: updateDoc },
     { returnDocument: 'after' }
   );
 
@@ -289,7 +305,7 @@ export async function fetchIndianHolidaysFromAPI(year: number): Promise<Holiday[
       throw new Error(`Failed to fetch holidays: ${response.statusText}`);
     }
     const data = await response.json();
-    
+
     // Map API response to Holiday format
     const holidays: Holiday[] = data.map((h: any, index: number) => ({
       id: `H-API-${year}-${index}`,
@@ -297,7 +313,7 @@ export async function fetchIndianHolidaysFromAPI(year: number): Promise<Holiday[
       date: h.date, // Format: YYYY-MM-DD
       createdAt: new Date(),
     }));
-    
+
     return holidays;
   } catch (error) {
     console.error('Error fetching Indian holidays from API:', error);
@@ -354,9 +370,9 @@ export async function seedHolidays(): Promise<void> {
     const currentYear = new Date().getFullYear();
     const holidays2026 = await fetchIndianHolidaysFromAPI(2026);
     const holidays2027 = await fetchIndianHolidaysFromAPI(2027);
-    
+
     const allHolidays = [...holidays2026, ...holidays2027];
-    
+
     if (allHolidays.length > 0) {
       await col.insertMany(allHolidays);
       console.log(`Seeded ${allHolidays.length} Indian holidays from API`);

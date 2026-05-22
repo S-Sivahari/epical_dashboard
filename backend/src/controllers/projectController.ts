@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
-import { Types } from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 import { ProjectModel } from '../models/Project';
 import { TimesheetModel } from '../models/Timesheet';
 import { AssignedTaskModel } from '../models/AssignedTask';
-import { syncProjectStatus, updateProjectCompletionStatus } from '../utils/syncProject';
+import { updateProjectCompletionStatus, getTimesheetWorkflowStatus } from '../utils/syncProject';
 import { getUserById } from '../services/authService';
 
 function computeTotalHours(loginTime: Date, logoutTime?: Date, overriddenHours?: number): number {
@@ -36,13 +36,15 @@ function toFrontendTimesheet(t: any) {
       message: t.correctionRequest.message || '',
     } : undefined,
     requestStatus: t.requestStatus || 'No Request',
-    status: t.status || 'Pending',
+    status: t.approvalStatus || t.status || 'Pending',
+    approvalStatus: t.approvalStatus || t.status || 'Pending',
     billable: t.billable !== undefined ? t.billable : true,
     task: t.task || '',
     adminNotes: t.adminNotes,
     overriddenHours: t.overriddenHours,
     totalHours: t.totalHours,
     taskStatus: t.taskStatus || (t.logoutTime ? 'Pending' : 'Session Incomplete'),
+    workflowStatus: getTimesheetWorkflowStatus(t),
   };
 }
 
@@ -103,8 +105,6 @@ export const projectController = {
         ];
       }
 
-      const allProjects = await ProjectModel.find({}).sort({ createdAt: -1 });
-      await Promise.all(allProjects.map((project) => syncProjectStatus({ projectId: project._id.toString(), projectName: project.projectName })));
       const refreshedProjects = await ProjectModel.find(query).sort({ createdAt: -1 });
       res.json(refreshedProjects.map(toFrontendProject));
     } catch (error) {
@@ -129,13 +129,6 @@ export const projectController = {
       }
 
       const employeeName = user.name;
-
-      const allProjects = await ProjectModel.find({}).sort({ createdAt: -1 });
-      await Promise.all(
-        allProjects.map((project) =>
-          syncProjectStatus({ projectId: project._id.toString(), projectName: project.projectName })
-        )
-      );
 
       const assignedProjects = await ProjectModel.find({
         $or: [
@@ -190,7 +183,6 @@ export const projectController = {
         return;
       }
 
-      await syncProjectStatus({ projectId: project._id.toString(), projectName: project.projectName });
       const refreshedProject = await ProjectModel.findById(project._id);
       res.json(toFrontendProject(refreshedProject || project));
     } catch (error) {
@@ -247,8 +239,6 @@ export const projectController = {
         return;
       }
 
-      // If project name changes, we need to update related timesheets project name too
-      const oldProjectName = project.projectName;
       const newProjectName = name.trim();
 
       project.projectName = newProjectName;
@@ -259,27 +249,26 @@ export const projectController = {
       project.allowedUsers = accessType === 'private' ? (visibleUsers || []) : [];
       project.teamLead = accessType === 'private' && teamLead ? String(teamLead).trim() : undefined;
 
-      await project.save();
+      const session = await mongoose.startSession();
+      try {
+        let updatedProject = project;
+        await session.withTransaction(async () => {
+          await project.save({ session });
 
-      const projectObjectId = project._id as Types.ObjectId;
-      if (oldProjectName !== newProjectName) {
-        await TimesheetModel.updateMany(
-          { $or: [{ project: oldProjectName }, { projectId: projectObjectId }, { projectId: projectObjectId.toString() }] },
-          { $set: { projectId: projectObjectId, project: newProjectName, client: client.trim(), technologyNode: technologyNode.trim() } }
-        );
-      } else {
-        await TimesheetModel.updateMany(
-          { $or: [{ project: oldProjectName }, { projectId: projectObjectId }, { projectId: projectObjectId.toString() }] },
-          { $set: { projectId: projectObjectId, client: client.trim(), technologyNode: technologyNode.trim() } }
-        );
+          await TimesheetModel.updateMany(
+            { projectId: project._id },
+            { $set: { project: newProjectName, client: client.trim(), technologyNode: technologyNode.trim() } },
+            { session }
+          );
+
+          const syncResult = await updateProjectCompletionStatus(project._id, session);
+          updatedProject = syncResult?.project ?? project;
+        });
+
+        res.json(toFrontendProject(updatedProject));
+      } finally {
+        session.endSession();
       }
-
-      // Sync project status dynamically from related timesheets
-      await syncProjectStatus({ projectId: project._id.toString(), projectName: newProjectName });
-
-      // Re-fetch project to return updated status
-      const updatedProject = await ProjectModel.findById(project._id);
-      res.json(toFrontendProject(updatedProject || project));
     } catch (error) {
       console.error('Error updating project:', error);
       res.status(500).json({ error: 'Failed to update project' });
@@ -295,15 +284,15 @@ export const projectController = {
         return;
       }
 
-      // Cascade delete timesheet logs for this project
-      await TimesheetModel.deleteMany({
-        $or: [
-          { project: project.projectName },
-          { projectId: project._id },
-          { projectId: project._id.toString() },
-        ],
-      });
-      await ProjectModel.findByIdAndDelete(req.params.id);
+      const session = await mongoose.startSession();
+      try {
+        await session.withTransaction(async () => {
+          await TimesheetModel.deleteMany({ projectId: project._id }, { session });
+          await ProjectModel.findByIdAndDelete(req.params.id, { session });
+        });
+      } finally {
+        session.endSession();
+      }
 
       res.json({ message: 'Project and associated logs deleted successfully' });
     } catch (error) {
@@ -321,12 +310,8 @@ export const projectController = {
         return;
       }
 
-      // Recalculate and update project status based on task completion
-      await syncProjectStatus({ projectId: project._id.toString(), projectName: project.projectName });
-
-      // Re-fetch project to return updated status
-      const updatedProject = await ProjectModel.findById(project._id);
-      res.json(toFrontendProject(updatedProject || project));
+      const synced = await updateProjectCompletionStatus(project._id);
+      res.json(toFrontendProject(synced?.project || project));
     } catch (error) {
       console.error('Error syncing project status:', error);
       res.status(500).json({ error: 'Failed to sync project status' });
@@ -357,31 +342,40 @@ export const projectController = {
       }
 
       const { timesheet, projectObjectId } = resolved;
+      const session = await mongoose.startSession();
 
-      if (applyCorrection && timesheet.correctionRequest) {
-        timesheet.loginTime = timesheet.correctionRequest.requestedLogin;
-        timesheet.logoutTime = timesheet.correctionRequest.requestedLogout;
-        timesheet.requestStatus = 'Approved';
-      } else if (timesheet.requestStatus === 'Pending Review') {
-        timesheet.requestStatus = 'Approved';
+      try {
+        let project = await ProjectModel.findById(projectObjectId);
+        await session.withTransaction(async () => {
+          if (applyCorrection && timesheet.correctionRequest) {
+            timesheet.loginTime = timesheet.correctionRequest.requestedLogin;
+            timesheet.logoutTime = timesheet.correctionRequest.requestedLogout;
+            timesheet.requestStatus = 'Approved';
+          } else if (timesheet.requestStatus === 'Pending Review') {
+            timesheet.requestStatus = 'Approved';
+          }
+
+          timesheet.approvalStatus = 'Approved';
+          timesheet.status = 'Approved';
+          timesheet.taskStatus = 'Completed';
+          timesheet.totalHours = computeTotalHours(
+            timesheet.loginTime,
+            timesheet.logoutTime,
+            timesheet.overriddenHours
+          );
+
+          await timesheet.save({ session });
+          const syncResult = await updateProjectCompletionStatus(projectObjectId, session);
+          project = syncResult?.project ?? project;
+        });
+
+        res.json({
+          timesheet: toFrontendTimesheet(timesheet),
+          project: project ? toFrontendProject(project) : null,
+        });
+      } finally {
+        session.endSession();
       }
-
-      timesheet.status = 'Approved';
-      timesheet.taskStatus = 'Completed';
-      timesheet.totalHours = computeTotalHours(
-        timesheet.loginTime,
-        timesheet.logoutTime,
-        timesheet.overriddenHours
-      );
-
-      await timesheet.save();
-      const syncResult = await updateProjectCompletionStatus(projectObjectId);
-      const project = syncResult?.project ?? (await ProjectModel.findById(projectObjectId));
-
-      res.json({
-        timesheet: toFrontendTimesheet(timesheet),
-        project: project ? toFrontendProject(project) : null,
-      });
     } catch (error) {
       console.error('Error approving project task:', error);
       res.status(500).json({ error: 'Failed to approve task' });
@@ -406,44 +400,56 @@ export const projectController = {
 
       const { timesheet, projectObjectId } = resolved;
       const { applyCorrection } = req.body;
+      const session = await mongoose.startSession();
 
-      if (applyCorrection && timesheet.correctionRequest) {
-        timesheet.loginTime = timesheet.correctionRequest.requestedLogin;
-        timesheet.logoutTime = timesheet.correctionRequest.requestedLogout;
+      try {
+        let project = await ProjectModel.findById(projectObjectId);
+        await session.withTransaction(async () => {
+          if (applyCorrection && timesheet.correctionRequest) {
+            timesheet.loginTime = timesheet.correctionRequest.requestedLogin;
+            timesheet.logoutTime = timesheet.correctionRequest.requestedLogout;
+          }
+
+          if (!timesheet.logoutTime) {
+            timesheet.taskStatus = 'Session Incomplete';
+            timesheet.approvalStatus = 'Pending';
+            timesheet.status = 'Pending';
+          } else {
+            timesheet.taskStatus = 'Completed';
+            timesheet.approvalStatus = 'Approved';
+            timesheet.status = 'Approved';
+            if (timesheet.requestStatus !== 'Rejected') {
+              timesheet.requestStatus = 'Approved';
+            }
+          }
+
+          timesheet.totalHours = computeTotalHours(
+            timesheet.loginTime,
+            timesheet.logoutTime,
+            timesheet.overriddenHours
+          );
+
+          await timesheet.save({ session });
+
+          if (timesheet.taskStatus === 'Completed') {
+            await AssignedTaskModel.updateOne(
+              { timesheetId: timesheet._id },
+              { $set: { status: 'completed' } },
+              { session }
+            );
+          }
+
+          const syncResult = await updateProjectCompletionStatus(projectObjectId, session);
+          project = syncResult?.project ?? project;
+        });
+
+        res.json({
+          timesheet: toFrontendTimesheet(timesheet),
+          project: project ? toFrontendProject(project) : null,
+        });
+      } finally {
+        session.endSession();
       }
-
-      if (!timesheet.logoutTime) {
-        timesheet.taskStatus = 'Session Incomplete';
-      } else {
-        timesheet.taskStatus = 'Completed';
-        timesheet.status = 'Approved';
-        if (timesheet.requestStatus !== 'Rejected') {
-          timesheet.requestStatus = 'Approved';
-        }
-      }
-
-      timesheet.totalHours = computeTotalHours(
-        timesheet.loginTime,
-        timesheet.logoutTime,
-        timesheet.overriddenHours
-      );
-
-      await timesheet.save();
-
-      if (timesheet.taskStatus === 'Completed') {
-        await AssignedTaskModel.updateOne(
-          { timesheetId: timesheet._id },
-          { $set: { status: 'completed' } }
-        );
-      }
-
-      const syncResult = await updateProjectCompletionStatus(projectObjectId);
-      const project = syncResult?.project ?? (await ProjectModel.findById(projectObjectId));
-
-      res.json({
-        timesheet: toFrontendTimesheet(timesheet),
-        project: project ? toFrontendProject(project) : null,
-      });
     } catch (error) {
       console.error('Error completing project task:', error);
       res.status(500).json({ error: 'Failed to mark task completed' });

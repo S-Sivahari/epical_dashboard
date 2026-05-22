@@ -28,12 +28,12 @@ export async function approveLeave(id: string) {
   await api.patch(`/leaves/${id}/approve`)
 }
 
-export async function rejectLeave(id: string, rejectionReason: string) {
-  await api.patch(`/leaves/${id}/reject`, { rejectionReason })
+export async function rejectLeave(id: string, reason: string) {
+  await api.patch(`/leaves/${id}/reject`, { reason })
 }
 
-export async function cancelLeave(id: string) {
-  await api.patch(`/leaves/${id}/cancel`)
+export async function cancelLeave(id: string, reason: string) {
+  await api.patch(`/leaves/${id}/cancel`, { reason })
 }
 
 export async function addHoliday(payload: Omit<Holiday, 'id'>) {

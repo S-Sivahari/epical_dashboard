@@ -14,5 +14,6 @@ export const ROUTES = {
   DOCUMENTS: '/admin/documents',
   NEWS: '/admin/news',
   TICKETS: '/admin/tickets',
+  PAYSLIPS: '/admin/payslips',
   SETTINGS: '/admin/settings',
 } as const

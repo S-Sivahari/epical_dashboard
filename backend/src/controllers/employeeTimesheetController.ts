@@ -1,11 +1,11 @@
 import { Request, Response } from 'express';
-import { Types } from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 import { TimesheetModel } from '../models/Timesheet';
 import { AssignedTaskModel } from '../models/AssignedTask';
 import { EmployeeAttendanceModel } from '../models/EmployeeAttendance';
 import { ProjectModel } from '../models/Project';
 import { getUserById } from '../services/authService';
-import { syncProjectForTimesheet } from '../utils/syncProject';
+import { syncProjectForTimesheet, getTimesheetWorkflowStatus } from '../utils/syncProject';
 
 function todayDateKey(): string {
   return new Date().toISOString().split('T')[0];
@@ -35,13 +35,15 @@ function toFrontendTimesheet(t: any) {
     loginTime: t.loginTime ? t.loginTime.toISOString() : '',
     logoutTime: t.logoutTime ? t.logoutTime.toISOString() : undefined,
     requestStatus: t.requestStatus || 'No Request',
-    status: t.status || 'Pending',
+    status: t.approvalStatus || t.status || 'Pending',
+    approvalStatus: t.approvalStatus || t.status || 'Pending',
     billable: t.billable !== undefined ? t.billable : true,
     task: t.task || '',
     adminNotes: t.adminNotes,
     overriddenHours: t.overriddenHours,
     totalHours: t.totalHours,
     taskStatus: t.taskStatus || (t.logoutTime ? 'Pending' : 'Session Incomplete'),
+    workflowStatus: getTimesheetWorkflowStatus(t),
   };
 }
 
@@ -75,13 +77,15 @@ async function requireOpenAttendance(employeeId: string) {
   return attendance;
 }
 
-async function releaseAssignedTask(timesheetId: string) {
-  const assignedTask = await AssignedTaskModel.findOne({ timesheetId });
+async function releaseAssignedTask(timesheetId: string, session?: mongoose.ClientSession) {
+  const assignedQuery = AssignedTaskModel.findOne({ timesheetId });
+  if (session) assignedQuery.session(session);
+  const assignedTask = await assignedQuery;
   if (!assignedTask) return;
 
   assignedTask.status = 'assigned';
   assignedTask.timesheetId = undefined;
-  await assignedTask.save();
+  await assignedTask.save(session ? { session } : undefined);
 }
 
 function matchesEmployeeTask(employee: { id: string; name: string }, task: { employeeId?: string; employeeName?: string }) {
@@ -283,31 +287,41 @@ export const employeeTimesheetController = {
       }
 
       const now = new Date();
+      const session = await mongoose.startSession();
 
-      const openLogs = await TimesheetModel.find({
-        employeeId: employee.id,
-        $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }],
-      });
+      try {
+        let stoppedTasks = 0;
+        await session.withTransaction(async () => {
+          const openLogs = await TimesheetModel.find({
+            employeeId: employee.id,
+            $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }],
+          }).session(session);
 
-      for (const log of openLogs) {
-        log.logoutTime = now;
-        log.totalHours = computeTotalHours(log.loginTime, log.logoutTime, log.overriddenHours);
-        if (log.taskStatus === 'In Progress' || log.taskStatus === 'Session Incomplete') {
-          log.taskStatus = 'Pending';
-        }
-        await log.save();
-        await syncProjectForTimesheet(log);
-        await releaseAssignedTask(log._id.toString());
+          stoppedTasks = openLogs.length;
+
+          for (const log of openLogs) {
+            log.logoutTime = now;
+            log.totalHours = computeTotalHours(log.loginTime, log.logoutTime, log.overriddenHours);
+            if (log.taskStatus === 'In Progress' || log.taskStatus === 'Session Incomplete') {
+              log.taskStatus = 'Pending';
+            }
+            await log.save({ session });
+            await syncProjectForTimesheet(log, session);
+            await releaseAssignedTask(log._id.toString(), session);
+          }
+
+          attendance.checkOutTime = now;
+          await attendance.save({ session });
+        });
+
+        res.json({
+          checkedIn: false,
+          checkOutTime: now.toISOString(),
+          stoppedTasks,
+        });
+      } finally {
+        session.endSession();
       }
-
-      attendance.checkOutTime = now;
-      await attendance.save();
-
-      res.json({
-        checkedIn: false,
-        checkOutTime: now.toISOString(),
-        stoppedTasks: openLogs.length,
-      });
     } catch (error) {
       console.error('Error checking out:', error);
       res.status(500).json({ error: 'Failed to check out' });
@@ -392,37 +406,46 @@ export const employeeTimesheetController = {
       const workNote = String(description).trim();
       const taskTitle = assigned?.title || taskProject.projectName;
       const taskLabel = `${taskTitle} — ${workNote}`;
+      const session = await mongoose.startSession();
 
-      const timesheet = new TimesheetModel({
-        employee: employee.name,
-        employeeId: employee.id,
-        projectId: taskProject._id,
-        project: taskProject.projectName,
-        client: taskProject.clientName,
-        technologyNode: taskProject.technologyNode,
-        loginTime: now,
-        task: taskLabel,
-        billable: true,
-        status: 'Pending',
-        requestStatus: 'No Request',
-        taskStatus: 'In Progress',
-      });
+      try {
+        let timesheet: any;
+        await session.withTransaction(async () => {
+          timesheet = new TimesheetModel({
+            employee: employee.name,
+            employeeId: employee.id,
+            projectId: taskProject._id,
+            project: taskProject.projectName,
+            client: taskProject.clientName,
+            technologyNode: taskProject.technologyNode,
+            loginTime: now,
+            task: taskLabel,
+            billable: true,
+            status: 'Pending',
+            approvalStatus: 'Pending',
+            requestStatus: 'No Request',
+            taskStatus: 'In Progress',
+          });
 
-      timesheet.totalHours = 0;
-      await timesheet.save();
-      await syncProjectForTimesheet(timesheet);
+          timesheet.totalHours = 0;
+          await timesheet.save({ session });
+          await syncProjectForTimesheet(timesheet, session);
 
-      if (assigned) {
-        assigned.status = 'in_progress';
-        assigned.timesheetId = timesheet._id as Types.ObjectId;
-        await assigned.save();
+          if (assigned) {
+            assigned.status = 'in_progress';
+            assigned.timesheetId = timesheet._id as Types.ObjectId;
+            await assigned.save({ session });
+          }
+        });
+
+        res.status(201).json({
+          timesheet: toFrontendTimesheet(timesheet),
+          assignedTask: assigned ? toFrontendAssignedTask(assigned) : toFallbackWorkItem(taskProject),
+          startedAt: now.toISOString(),
+        });
+      } finally {
+        session.endSession();
       }
-
-      res.status(201).json({
-        timesheet: toFrontendTimesheet(timesheet),
-        assignedTask: assigned ? toFrontendAssignedTask(assigned) : toFallbackWorkItem(taskProject),
-        startedAt: now.toISOString(),
-      });
     } catch (error) {
       console.error('Error starting task:', error);
       res.status(500).json({ error: 'Failed to start task' });
@@ -448,17 +471,25 @@ export const employeeTimesheetController = {
       }
 
       const now = new Date();
-      openLog.logoutTime = now;
-      openLog.totalHours = computeTotalHours(openLog.loginTime, openLog.logoutTime, openLog.overriddenHours);
-      openLog.taskStatus = 'Pending';
-      await openLog.save();
-      await syncProjectForTimesheet(openLog);
-      await releaseAssignedTask(openLog._id.toString());
+      const session = await mongoose.startSession();
 
-      res.json({
-        timesheet: toFrontendTimesheet(openLog),
-        stoppedAt: now.toISOString(),
-      });
+      try {
+        await session.withTransaction(async () => {
+          openLog.logoutTime = now;
+          openLog.totalHours = computeTotalHours(openLog.loginTime, openLog.logoutTime, openLog.overriddenHours);
+          openLog.taskStatus = 'Pending';
+          await openLog.save({ session });
+          await syncProjectForTimesheet(openLog, session);
+          await releaseAssignedTask(openLog._id.toString(), session);
+        });
+
+        res.json({
+          timesheet: toFrontendTimesheet(openLog),
+          stoppedAt: now.toISOString(),
+        });
+      } finally {
+        session.endSession();
+      }
     } catch (error) {
       console.error('Error stopping task:', error);
       res.status(500).json({ error: 'Failed to stop task' });

@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
+import { Ban } from 'lucide-react'
 import { Badge } from '@components/ui/Badge'
 import { Button } from '@components/ui/Button'
-import { ConfirmModal } from '@components/modals/ConfirmModal'
+import { Modal } from '@components/ui/Modal'
 import { DataTable, type Column } from '@components/tables/DataTable'
 import { useLeaves } from '@hooks/useLeaves'
 import type { LeaveRequest } from '@/types'
@@ -13,17 +14,23 @@ export function ApprovedLeaves({ filters }: { filters: LeaveFilters }) {
   const { leaves, loading, cancelLeave } = useLeaves()
   const [cancelModalOpen, setCancelModalOpen] = useState(false)
   const [leaveToCancel, setLeaveToCancel] = useState<LeaveRequest | null>(null)
+  const [cancelReason, setCancelReason] = useState('')
 
   const handleConfirmCancel = async () => {
     if (!leaveToCancel) return
+    if (!cancelReason.trim()) {
+      toast.error('Cancellation reason is required')
+      return
+    }
     try {
-      await cancelLeave(leaveToCancel.id)
+      await cancelLeave(leaveToCancel.id, cancelReason)
       toast.success('Leave cancelled successfully')
     } catch {
       toast.error('Failed to cancel leave')
     } finally {
       setCancelModalOpen(false)
       setLeaveToCancel(null)
+      setCancelReason('')
     }
   }
 
@@ -94,16 +101,17 @@ export function ApprovedLeaves({ filters }: { filters: LeaveFilters }) {
       header: 'Actions',
       render: (l) =>
         l.status === 'Approved' && getComplexStatus(l) !== 'Completed' ? (
-          <Button
-            size="sm"
-            variant="danger"
+          <button
+            title="Cancel Leave"
+            className="p-2 text-danger hover:bg-danger/10 rounded-full transition-colors"
             onClick={() => {
               setLeaveToCancel(l)
+              setCancelReason('')
               setCancelModalOpen(true)
             }}
           >
-            Cancel Leave
-          </Button>
+            <Ban className="w-4 h-4" />
+          </button>
         ) : null,
     },
   ]
@@ -112,18 +120,53 @@ export function ApprovedLeaves({ filters }: { filters: LeaveFilters }) {
     <div className="space-y-6">
       <DataTable columns={columns} data={filteredLeaves} loading={loading} empty="No approved leaves found." />
 
-      <ConfirmModal
+      <Modal
         isOpen={cancelModalOpen}
         title="Cancel Approved Leave"
-        description="Are you sure you want to cancel this approved leave? This will update the status immediately."
-        confirmLabel="Cancel Leave"
-        danger
+        size="sm"
         onClose={() => {
           setCancelModalOpen(false)
           setLeaveToCancel(null)
+          setCancelReason('')
         }}
-        onConfirm={handleConfirmCancel}
-      />
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted">
+            Are you sure you want to cancel this approved leave? This will update the status immediately.
+          </p>
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Cancellation Reason <span className="text-danger">*</span>
+            </label>
+            <textarea
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+              rows={3}
+              placeholder="Enter reason for cancellation..."
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setCancelModalOpen(false)
+                setLeaveToCancel(null)
+                setCancelReason('')
+              }}
+            >
+              Close
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleConfirmCancel}
+              disabled={!cancelReason.trim()}
+            >
+              Cancel Leave
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

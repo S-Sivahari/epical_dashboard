@@ -1,5 +1,15 @@
 {
+  "scripts": {
+    "preinstall": "echo Installing root dependencies...",
+    "setup": "npm install && npm install --prefix backend && npm install --prefix frontend",
+    "dev": "npm install --prefix backend --no-save && npm install --prefix frontend --no-save && concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "start": "npm run dev",
+    "install-deps": "npm install && npm install --prefix backend && npm install --prefix frontend"
+  },
   "dependencies": {
     "multer": "^2.1.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
   }
 }
