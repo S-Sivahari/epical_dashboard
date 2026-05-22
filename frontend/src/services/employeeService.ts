@@ -35,13 +35,38 @@ export async function getEmployee(id: string) {
 export async function createEmployee(
   payload: Omit<Employee, 'id'>,
 ) {
-  const response = await api.post('/employees', payload)
+  const backendPayload: any = { ...payload }
+  // Map companyEmail to email if email is not present on the payload
+  if (!backendPayload.email && backendPayload.companyEmail) {
+    backendPayload.email = backendPayload.companyEmail
+  }
+  // Ensure email is set if either was passed
+  if (!backendPayload.email) {
+    backendPayload.email = (payload as any).email || (payload as any).companyEmail || ''
+  }
+  // Remove the frontend‑only field to avoid sending duplicate/unused data
+  delete backendPayload.companyEmail
+
+  const response = await api.post('/employees', backendPayload)
   return response.data as Employee
 }
 
 export async function updateEmployee(id: string, payload: Partial<Employee>) {
-  const response = await api.put(`/employees/${id}`, payload)
-  return response.data as Employee
+  // Create a copy of payload to avoid mutating the original
+  const backendPayload: any = { ...payload };
+  // Map companyEmail to email if email is not present on the payload
+  if (!backendPayload.email && backendPayload.companyEmail) {
+    backendPayload.email = backendPayload.companyEmail;
+  }
+  // Ensure email is set if either was passed
+  if (!backendPayload.email && ((payload as any).email || (payload as any).companyEmail)) {
+    backendPayload.email = (payload as any).email || (payload as any).companyEmail;
+  }
+  // Remove the frontend‑only field before sending to backend
+  delete backendPayload.companyEmail;
+
+  const response = await api.put(`/employees/${id}`, backendPayload);
+  return response.data as Employee;
 }
 
 export async function deleteEmployee(id: string) {
