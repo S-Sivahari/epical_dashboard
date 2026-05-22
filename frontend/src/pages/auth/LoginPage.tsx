@@ -45,12 +45,12 @@ export function LoginPage() {
     try {
       await login(values.email, values.password)
       toast.success('Welcome back')
-      navigate('/dashboard', { replace: true })
+      const userRole = useAuthStore.getState().role
+      navigate(userRole === 'admin' ? '/admin' : '/employee', { replace: true })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to sign in'
       toast.error(message)
     }
-
   })
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
@@ -58,6 +58,8 @@ export function LoginPage() {
       const decoded: any = jwtDecode(credentialResponse.credential)
       await loginWithOAuth(decoded.email, decoded.name, decoded.sub)
       toast.success('Welcome back')
+      const userRole = useAuthStore.getState().role
+      navigate(userRole === 'admin' ? '/admin' : '/employee', { replace: true })
     } catch (error) {
       console.error('Google login error:', error)
       const message = error instanceof Error ? error.message : 'Unable to sign in with Google'

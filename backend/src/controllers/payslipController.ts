@@ -218,7 +218,6 @@ export const payslipController = {
       }
 
       const record = await sendPayslipToEmployee({
-      const record = await sendPayslipToEmployee({
         batchId,
         fileName,
         empId,
