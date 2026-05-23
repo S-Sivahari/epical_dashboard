@@ -58,6 +58,11 @@ export async function deleteHoliday(id: string) {
   await api.delete(`/holidays/${id}`)
 }
 
+export async function skipHoliday(id: string, reason?: string) {
+  const response = await api.patch(`/holidays/${id}/skip`, { reason })
+  return response.data as Holiday
+}
+
 export async function getHolidays() {
   const response = await api.get('/holidays')
   return response.data as Holiday[]

@@ -7,13 +7,23 @@ export interface NotificationData {
   id: string
   recipientId: string
   recipientType: 'Employee' | 'Manager' | 'Admin'
-  type: 'LeaveSubmitted' | 'LeaveApproved' | 'LeaveRejected' | 'LeaveCancelled'
+  type: 'LeaveSubmitted' | 'LeaveApproved' | 'LeaveRejected' | 'LeaveCancelled' | 'PayslipSent'
+    | 'HolidayAdded' | 'HolidayUpdated' | 'HolidayDeleted' | 'HolidaySkipped'
   title: string
   message: string
   relatedData: {
     leaveId?: string
     employeeId?: string
     employeeName?: string
+    employeeEmail?: string
+    payslipId?: string
+    batchId?: string
+    payMonth?: string
+    fileName?: string
+    holidayId?: string
+    holidayTitle?: string
+    holidayDate?: string
+    skippedReason?: string
   }
   isRead: boolean
   createdAt: string

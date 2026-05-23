@@ -40,10 +40,11 @@ function normalizeDate(date: string) {
 export async function createLeave(payload: CreateLeavePayload): Promise<LeaveRequest> {
   const col = getLeaveCol();
 
-  // 1. Fetch holidays
-  const holidays = await getAllHolidays();
+  // 1. Fetch holidays (exclude skipped ones — they are working days)
+  const allHolidays = await getAllHolidays();
+  const holidays = allHolidays.filter((h) => !h.skipped);
 
-  // 2. Calculate true business days (skip weekends & holidays)
+  // 2. Calculate true business days (skip weekends & non-skipped holidays)
   const actualBusinessDays = getBusinessDays(payload.from, payload.to, holidays);
 
   if (payload.leaveDuration === 'Half Day') {
@@ -492,4 +493,67 @@ export async function seedHolidays(): Promise<void> {
   ];
 
   await col.insertMany(fallbackHolidays);
+}
+
+// ── Email Notifications ─────────────────────────────────────────
+
+import * as emailService from './emailService';
+import { env } from '../config/env';
+
+/**
+ * Notify all admins when an employee submits a leave request
+ */
+export async function notifyAdminsAboutLeaveRequest(leave: LeaveRequest): Promise<void> {
+  try {
+    const userCollection = getDB().collection('users');
+    const admins = await userCollection.find({ role: 'Admin' }).toArray();
+    
+    for (const admin of admins) {
+      await emailService.sendLeaveSubmittedEmail({
+        recipientEmail: admin.email,
+        recipientName: admin.name,
+        employeeName: leave.employeeName,
+        type: leave.type,
+        from: leave.from,
+        to: leave.to,
+        days: leave.days,
+        reason: leave.reason,
+      }, `${env.FRONTEND_URL}/admin/leaves`);
+    }
+    
+    console.log(`[Leave Email] Sent leave request notification to ${admins.length} admin(s)`);
+  } catch (error) {
+    console.error('[Leave Email] Error sending admin notification:', error);
+  }
+}
+
+/**
+ * Notify employee when their leave status changes (approved/rejected)
+ */
+export async function notifyEmployeeAboutLeaveStatus(leave: LeaveRequest): Promise<void> {
+  try {
+    const employeeCollection = getDB().collection('employees');
+    const employee = await employeeCollection.findOne({ employeeId: leave.employeeId });
+    
+    if (!employee || !employee.email) {
+      console.warn(`[Leave Email] No email found for employee ${leave.employeeId}`);
+      return;
+    }
+    
+    await emailService.sendLeaveStatusEmail({
+      recipientEmail: employee.email,
+      recipientName: `${employee.firstName} ${employee.lastName}`,
+      employeeName: leave.employeeName,
+      type: leave.type,
+      from: leave.from,
+      to: leave.to,
+      days: leave.days,
+      status: leave.status,
+      rejectionReason: leave.rejectionReason,
+    }, `${env.FRONTEND_URL}/employee/leaves`);
+    
+    console.log(`[Leave Email] Sent ${leave.status} notification to ${employee.email}`);
+  } catch (error) {
+    console.error('[Leave Email] Error sending employee notification:', error);
+  }
 }

@@ -397,6 +397,67 @@ export async function sendWelcomeEmail(
 }
 
 /**
+ * Interface for holiday notification email data
+ */
+export interface HolidayNotificationData {
+  recipientEmail: string;
+  recipientName: string;
+  holidayTitle: string;
+  holidayDate: string;
+  eventType: 'added' | 'updated' | 'deleted' | 'skipped' | 'restored';
+  skippedReason?: string;
+}
+
+/**
+ * Send holiday change notification email to an employee
+ */
+export async function sendHolidayNotificationEmail(
+  data: HolidayNotificationData,
+  actionUrl?: string
+): Promise<boolean> {
+  let subject = '';
+  let message = '';
+
+  switch (data.eventType) {
+    case 'added':
+      subject = `[Epical EMS] New Holiday: ${data.holidayTitle}`;
+      message = `A new holiday <strong>${data.holidayTitle}</strong> has been added to the company calendar on <strong>${data.holidayDate}</strong>.`;
+      break;
+    case 'updated':
+      subject = `[Epical EMS] Holiday Updated: ${data.holidayTitle}`;
+      message = `The holiday <strong>${data.holidayTitle}</strong> on <strong>${data.holidayDate}</strong> has been updated in the company calendar.`;
+      break;
+    case 'deleted':
+      subject = `[Epical EMS] Holiday Removed: ${data.holidayTitle}`;
+      message = `The holiday <strong>${data.holidayTitle}</strong> on <strong>${data.holidayDate}</strong> has been removed from the company calendar.`;
+      break;
+    case 'skipped':
+      subject = `[Epical EMS] Working Day Notice: ${data.holidayTitle}`;
+      message = `<strong>${data.holidayTitle}</strong> on <strong>${data.holidayDate}</strong> has been designated as a working day. The company will be operational on this date.`;
+      break;
+    case 'restored':
+      subject = `[Epical EMS] Holiday Restored: ${data.holidayTitle}`;
+      message = `<strong>${data.holidayTitle}</strong> on <strong>${data.holidayDate}</strong> has been restored as a holiday. Enjoy your day off!`;
+      break;
+  }
+
+  const details: DetailField[] = [
+    { label: 'Holiday', value: data.holidayTitle },
+    { label: 'Date', value: data.holidayDate },
+  ];
+
+  if (data.eventType === 'skipped' && data.skippedReason) {
+    details.push({ label: 'Reason', value: data.skippedReason });
+  }
+
+  const url = actionUrl || `${env.FRONTEND_URL || 'http://localhost:5173'}/employee/calendar`;
+  const html = buildHtmlTemplate(data.recipientName, subject.replace('[Epical EMS] ', ''), message, details, url);
+  const text = `Hi ${data.recipientName},\n\n${message.replace(/<[^>]+>/g, '')}\n\nPlease check the company calendar for details.`;
+
+  return await sendEmail({ to: data.recipientEmail, subject, html, text });
+}
+
+/**
  * Interface for payslip notification email data
  */
 export interface PayslipNotificationData {

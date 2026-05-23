@@ -284,7 +284,7 @@ export function EmployeeList() {
                 const fullName = `${emp.firstName} ${emp.lastName ?? ''}`.trim()
                 return (
                   <option key={emp.id} value={fullName}>
-                    {fullName}
+                    {emp.employeeId ? `${emp.employeeId} — ${fullName}` : fullName}
                   </option>
                 )
               })}

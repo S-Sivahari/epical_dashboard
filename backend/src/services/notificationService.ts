@@ -84,9 +84,15 @@ export async function getUnreadCount(recipientId: string): Promise<number> {
 
 /**
  * Resolves the recipient's email address and triggers the appropriate email template from emailService.
+ * Admins and Managers only receive in-app notifications — emails are skipped for them.
  */
 async function triggerEmailNotification(notification: any): Promise<void> {
   try {
+    // Admins and Managers get in-app notifications only, not emails
+    if (notification.recipientType === 'Admin' || notification.recipientType === 'Manager') {
+      return;
+    }
+
     const db = getDB();
     let recipientEmail = '';
     let recipientName = 'User';
@@ -184,6 +190,26 @@ async function triggerEmailNotification(notification: any): Promise<void> {
         employeeId: related.employeeId || '',
         payMonth: related.payMonth || 'Payslip',
         fileName: related.fileName || '',
+      });
+    } else if (
+      notification.type === 'HolidayAdded' ||
+      notification.type === 'HolidayUpdated' ||
+      notification.type === 'HolidayDeleted' ||
+      notification.type === 'HolidaySkipped'
+    ) {
+      const eventTypeMap: Record<string, 'added' | 'updated' | 'deleted' | 'skipped' | 'restored'> = {
+        HolidayAdded: 'added',
+        HolidayUpdated: 'updated',
+        HolidayDeleted: 'deleted',
+        HolidaySkipped: 'skipped',
+      };
+      await emailService.sendHolidayNotificationEmail({
+        recipientEmail,
+        recipientName,
+        holidayTitle: related.holidayTitle || 'Holiday',
+        holidayDate: related.holidayDate || '',
+        eventType: eventTypeMap[notification.type] || 'updated',
+        skippedReason: related.skippedReason,
       });
     } else {
       // Fallback generic notification email

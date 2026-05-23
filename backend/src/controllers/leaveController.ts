@@ -1,6 +1,46 @@
 import { Request, Response } from 'express';
 import * as leaveService from '../services/leaveService';
+import * as notificationService from '../services/notificationService';
+import { getDB } from '../config/db';
 import { AuthRequest } from '../middleware/authMiddleware';
+import type { NotificationType } from '../models/Notification';
+
+/**
+ * Sends an in-app notification (+ email via notificationService) to every active employee.
+ */
+async function notifyAllEmployees(params: {
+  type: NotificationType;
+  title: string;
+  message: string;
+  holidayId: string;
+  holidayTitle: string;
+  holidayDate: string;
+  skippedReason?: string;
+}): Promise<void> {
+  try {
+    const employees = await getDB().collection('employees').find({ status: 'Active' }).toArray();
+    const relatedData = {
+      holidayId: params.holidayId,
+      holidayTitle: params.holidayTitle,
+      holidayDate: params.holidayDate,
+      skippedReason: params.skippedReason,
+    };
+    await Promise.all(
+      employees.map((emp) =>
+        notificationService.createNotification({
+          recipientId: String(emp.id),
+          recipientType: 'Employee',
+          type: params.type,
+          title: params.title,
+          message: params.message,
+          relatedData,
+        })
+      )
+    );
+  } catch (error) {
+    console.error('[Holiday Notification] Failed to notify employees:', error);
+  }
+}
 
 const ADMIN_ROLES = ['Admin'];
 
@@ -74,6 +114,7 @@ export const leaveController = {
         days: 0, // days will be overridden by backend calculation
         reason,
       });
+      
       res.status(201).json(leave);
     } catch (error: any) {
       res.status(400).json({ error: error.message || 'Failed to create leave request' });
@@ -202,6 +243,17 @@ export const leaveController = {
         return;
       }
       const holiday = await leaveService.createHoliday({ title, date, description, type: holidayType });
+
+      // Notify all active employees
+      notifyAllEmployees({
+        type: 'HolidayAdded',
+        title: 'New Holiday Added',
+        message: `${title} on ${date} has been added to the company calendar as a ${holidayType} holiday.`,
+        holidayId: holiday.id,
+        holidayTitle: title,
+        holidayDate: date,
+      });
+
       res.status(201).json(holiday);
     } catch {
       res.status(500).json({ error: 'Failed to create holiday' });
@@ -228,6 +280,20 @@ export const leaveController = {
         return;
       }
       const holiday = await leaveService.updateHoliday(id, { title, date, description, type });
+
+      const updatedTitle = title || existing.title;
+      const updatedDate = date || existing.date;
+
+      // Notify all active employees
+      notifyAllEmployees({
+        type: 'HolidayUpdated',
+        title: 'Holiday Updated',
+        message: `The holiday "${updatedTitle}" on ${updatedDate} has been updated in the company calendar.`,
+        holidayId: id,
+        holidayTitle: updatedTitle,
+        holidayDate: updatedDate,
+      });
+
       res.json(holiday);
     } catch {
       res.status(500).json({ error: 'Failed to update holiday' });
@@ -238,11 +304,69 @@ export const leaveController = {
   deleteHoliday: async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params as { id: string };
+      const holiday = await leaveService.getHolidayById(id);
+      if (!holiday) { res.status(404).json({ error: 'Holiday not found' }); return; }
+
       const ok = await leaveService.deleteHoliday(id);
       if (!ok) { res.status(404).json({ error: 'Holiday not found' }); return; }
+
+      // Notify all active employees
+      notifyAllEmployees({
+        type: 'HolidayDeleted',
+        title: 'Holiday Removed',
+        message: `"${holiday.title}" on ${holiday.date} has been removed from the company calendar.`,
+        holidayId: id,
+        holidayTitle: holiday.title,
+        holidayDate: holiday.date,
+      });
+
       res.json({ message: 'Deleted successfully' });
     } catch {
       res.status(500).json({ error: 'Failed to delete holiday' });
+    }
+  },
+
+  // PATCH /api/holidays/:id/skip
+  skipHoliday: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params as { id: string };
+      const { reason } = req.body;
+
+      const holiday = await leaveService.getHolidayById(id);
+      if (!holiday) { res.status(404).json({ error: 'Holiday not found' }); return; }
+
+      const newSkipped = !holiday.skipped;
+      const updated = await leaveService.updateHoliday(id, {
+        skipped: newSkipped,
+        skippedReason: newSkipped ? (reason?.trim() || 'Marked as working day') : undefined,
+      });
+
+      const resolvedReason = newSkipped ? (reason?.trim() || 'Marked as working day') : undefined;
+
+      if (newSkipped) {
+        notifyAllEmployees({
+          type: 'HolidaySkipped',
+          title: 'Holiday Marked as Working Day',
+          message: `"${holiday.title}" on ${holiday.date} has been marked as a working day. The company will be operational on this date.`,
+          holidayId: id,
+          holidayTitle: holiday.title,
+          holidayDate: holiday.date,
+          skippedReason: resolvedReason,
+        });
+      } else {
+        notifyAllEmployees({
+          type: 'HolidayUpdated',
+          title: 'Holiday Restored',
+          message: `"${holiday.title}" on ${holiday.date} has been restored as a holiday. Enjoy your day off!`,
+          holidayId: id,
+          holidayTitle: holiday.title,
+          holidayDate: holiday.date,
+        });
+      }
+
+      res.json(updated);
+    } catch {
+      res.status(500).json({ error: 'Failed to toggle holiday skip status' });
     }
   },
 };

@@ -5,7 +5,11 @@ export type NotificationType =
   | 'LeaveApproved'
   | 'LeaveRejected'
   | 'LeaveCancelled'
-  | 'PayslipSent';
+  | 'PayslipSent'
+  | 'HolidayAdded'
+  | 'HolidayUpdated'
+  | 'HolidayDeleted'
+  | 'HolidaySkipped';
 
 export interface Notification {
   _id?: ObjectId;
@@ -24,6 +28,10 @@ export interface Notification {
     batchId?: string;
     payMonth?: string;
     fileName?: string;
+    holidayId?: string;
+    holidayTitle?: string;
+    holidayDate?: string;
+    skippedReason?: string;
   };
   relatedId?: string;
   isRead: boolean;
@@ -46,6 +54,10 @@ export interface CreateNotificationPayload {
     batchId?: string;
     payMonth?: string;
     fileName?: string;
+    holidayId?: string;
+    holidayTitle?: string;
+    holidayDate?: string;
+    skippedReason?: string;
   };
   relatedId?: string;
 }
