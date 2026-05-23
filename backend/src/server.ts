@@ -20,6 +20,7 @@ import { uploadRoutes } from './routes/uploadRoutes';
 import { oauthRoutes } from './routes/oauthRoutes';
 import { notificationRoutes } from './routes/notificationRoutes';
 import { payslipRoutes } from './routes/payslipRoutes';
+import { compensationRoutes } from './routes/compensationRoutes';
 
 // Seed helpers
 import { seedDefaultUsers } from './services/authService';
@@ -83,6 +84,7 @@ app.use('/api/tickets', ticketRoutes);
 app.use('/api/timesheets', timesheetRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/payslips', payslipRoutes);
+app.use('/api/compensation', compensationRoutes);
 app.use('/api', uploadRoutes);
 
 // ── Stats endpoint (admin dashboard) ─────────────────────────

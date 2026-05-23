@@ -62,9 +62,10 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
 
   const requestedDays = payload.leaveDuration === 'Half Day' ? 0.5 : actualBusinessDays;
 
-  // 3. Fetch employee balances to validate
+  // 3. Fetch employee balances to validate (pass joinedAt for accurate earned leave)
   const employeeLeaves = await getAllLeaves(payload.employeeId);
-  const balances = calculateBalances(employeeLeaves);
+  const employeeDoc = await getDB().collection('employees').findOne({ id: payload.employeeId });
+  const balances = calculateBalances(employeeLeaves, employeeDoc?.joinedAt as string | undefined);
   
   const leaveBalance = balances[payload.type];
   if (leaveBalance && leaveBalance.remaining < requestedDays) {
@@ -116,7 +117,8 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
 
 export async function getLeaveBalances(employeeId: string) {
   const leaves = await getAllLeaves(employeeId);
-  return calculateBalances(leaves);
+  const employee = await getDB().collection('employees').findOne({ id: employeeId });
+  return calculateBalances(leaves, employee?.joinedAt as string | undefined);
 }
 
 export interface LeaveTypeBalanceSummary {
@@ -198,7 +200,8 @@ export async function getEmployeeLeaveSummary(employeeId: string): Promise<Emplo
 export async function updateLeaveStatus(
   id: string,
   status: 'Approved' | 'Rejected',
-  rejectionReason?: string
+  rejectionReason?: string,
+  actionBy?: string
 ): Promise<LeaveRequest | null> {
   const col = getLeaveCol();
 
@@ -209,7 +212,8 @@ export async function updateLeaveStatus(
 
     // Fetch employee leaves to calculate current balance
     const employeeLeaves = await getAllLeaves(leave.employeeId);
-    const balances = calculateBalances(employeeLeaves);
+    const employeeDoc = await getDB().collection('employees').findOne({ id: leave.employeeId });
+    const balances = calculateBalances(employeeLeaves, employeeDoc?.joinedAt as string | undefined);
 
     const leaveBalance = balances[leave.type];
     if (leaveBalance && leaveBalance.remaining < leave.days) {
@@ -233,6 +237,13 @@ export async function updateLeaveStatus(
 
   if (status === 'Approved') {
     updateDoc.approvalDate = new Date();
+    updateDoc.approvedAt = new Date();
+    if (actionBy) updateDoc.approvedBy = actionBy;
+  }
+
+  if (status === 'Rejected') {
+    updateDoc.rejectedAt = new Date();
+    if (actionBy) updateDoc.rejectedBy = actionBy;
   }
 
   const result = await col.findOneAndUpdate(
@@ -272,16 +283,23 @@ export async function updateLeaveStatus(
   return result as LeaveRequest | null;
 }
 
-export async function cancelLeave(id: string): Promise<LeaveRequest | null> {
+export async function cancelLeave(id: string, cancelReason?: string, cancelledBy?: string): Promise<LeaveRequest | null> {
   const col = getLeaveCol();
+  const updateFields: any = {
+    status: 'Cancelled',
+    updatedAt: new Date(),
+    cancelledAt: new Date(),
+  };
+  if (cancelReason) updateFields.cancelReason = cancelReason;
+  if (cancelledBy) updateFields.cancelledBy = cancelledBy;
+
   const result = await col.findOneAndUpdate(
-    { id, status: 'Approved' },
-    { $set: { status: 'Cancelled', updatedAt: new Date() } },
+    { id, status: { $in: ['Approved', 'Pending'] } },
+    { $set: updateFields },
     { returnDocument: 'after' }
   );
 
   if (result) {
-    // Create notification for employee on cancellation
     try {
       await notificationService.createNotification({
         recipientId: result.employeeId,
@@ -297,7 +315,6 @@ export async function cancelLeave(id: string): Promise<LeaveRequest | null> {
       });
     } catch (error) {
       console.error('Error creating cancellation notification:', error);
-      // Don't throw - notification failure shouldn't break status update
     }
   }
 

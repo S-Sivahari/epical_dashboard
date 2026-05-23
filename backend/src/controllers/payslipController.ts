@@ -1,5 +1,6 @@
 import { Request, Response } from 'express'
-import { existsSync } from 'fs'
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs'
+import { join } from 'path'
 import { savePayslipAsPdf } from '../services/payslipPdfGenerator'
 import {
   generatePayrollTemplateBuffer,
@@ -17,12 +18,12 @@ import {
   deletePayslipFromBatch,
   sendAllPayslipsInBatch,
 } from '../services/payrollBatchService'
-import { join } from 'path'
 import { AuthRequest } from '../middleware/authMiddleware'
 import {
   sendPayslipToEmployee,
   getPayslipsForEmployeeEmail,
   getPayslipByIdForEmployee,
+  getAllSentPayslips,
 } from '../services/employeePayslipService'
 import { getPayrollBatch as fetchBatch } from '../services/payrollBatchService'
 import { createNotification } from '../services/notificationService'
@@ -30,6 +31,13 @@ import { getDB } from '../config/db'
 
 function getUserCollection() {
   return getDB().collection('users')
+}
+
+const TEMPLATE_DIR = join(process.cwd(), 'uploads', 'payroll', 'template')
+const TEMPLATE_PATH = join(TEMPLATE_DIR, 'active_template.xlsx')
+
+function templateMetaCollection() {
+  return getDB().collection<{ name: string; uploadedAt: Date; size: number }>('payroll_template_meta')
 }
 
 async function notifyAdminsAndEmployee(params: {
@@ -68,15 +76,57 @@ async function notifyAdminsAndEmployee(params: {
 }
 
 export const payslipController = {
-  /** Always-available demo Excel template */
+  /** Download active template — custom if uploaded, else built-in demo */
   downloadTemplate: async (_req: Request, res: Response): Promise<void> => {
-    const buffer = await generatePayrollTemplateBuffer()
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    res.setHeader('Content-Disposition', `attachment; filename="${PAYROLL_TEMPLATE_FILENAME}"`)
-    res.send(buffer)
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    if (existsSync(TEMPLATE_PATH)) {
+      const meta = await templateMetaCollection().findOne({}, { sort: { uploadedAt: -1 } })
+      const name = meta?.name ?? PAYROLL_TEMPLATE_FILENAME
+      res.setHeader('Content-Disposition', `attachment; filename="${name}"`)
+      const buffer = readFileSync(TEMPLATE_PATH)
+      res.send(buffer)
+    } else {
+      const buffer = await generatePayrollTemplateBuffer()
+      res.setHeader('Content-Disposition', `attachment; filename="${PAYROLL_TEMPLATE_FILENAME}"`)
+      res.send(buffer)
+    }
+  },
+
+  /** Upload a custom payroll Excel template */
+  uploadCustomTemplate: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const file = req.file
+      if (!file) {
+        res.status(400).json({ error: 'No Excel file uploaded' })
+        return
+      }
+      if (!existsSync(TEMPLATE_DIR)) {
+        mkdirSync(TEMPLATE_DIR, { recursive: true })
+      }
+      writeFileSync(TEMPLATE_PATH, file.buffer)
+      await templateMetaCollection().deleteMany({})
+      const meta = { name: file.originalname, uploadedAt: new Date(), size: file.size }
+      await templateMetaCollection().insertOne(meta)
+      res.json({ message: 'Template uploaded successfully', ...meta })
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to upload template'
+      res.status(500).json({ error: message })
+    }
+  },
+
+  /** Get active template metadata */
+  getTemplateMeta: async (_req: Request, res: Response): Promise<void> => {
+    try {
+      if (existsSync(TEMPLATE_PATH)) {
+        const meta = await templateMetaCollection().findOne({}, { sort: { uploadedAt: -1 } })
+        res.json({ hasCustom: true, name: meta?.name, uploadedAt: meta?.uploadedAt, size: meta?.size })
+      } else {
+        res.json({ hasCustom: false, name: PAYROLL_TEMPLATE_FILENAME })
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to get template info'
+      res.status(500).json({ error: message })
+    }
   },
 
   /** Upload payroll Excel (template or custom format), generate PDF payslips */
@@ -88,7 +138,8 @@ export const payslipController = {
         return
       }
 
-      const batch = await processPayrollUpload(file.buffer, file.originalname)
+      const templateId = (req.body?.templateId as string) || 'classic'
+      const batch = await processPayrollUpload(file.buffer, file.originalname, templateId as 'classic' | 'corporate' | 'minimal')
 
       res.json({
         message: 'Payroll processed successfully',
@@ -410,6 +461,40 @@ export const payslipController = {
       const message = error instanceof Error ? error.message : 'Failed to delete payslip'
       const status = message.includes('not found') || message.includes('Invalid') ? 404 : 500
       res.status(status).json({ error: message })
+    }
+  },
+
+  /** Admin: full send history across all batches */
+  getSendHistory: async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const records = await getAllSentPayslips(200)
+      res.json(records)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to load send history'
+      res.status(500).json({ error: message })
+    }
+  },
+
+  /** Download payslip PDF as attachment (saves file instead of opening inline) */
+  downloadPayslipPdfAttachment: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { batchId, fileName } = req.params
+      const batch = await getPayrollBatch(batchId)
+      if (!batch) {
+        res.status(404).json({ error: 'Payroll batch not found' })
+        return
+      }
+      const filePath = getPayslipFilePath(batchId, fileName)
+      if (!existsSync(filePath)) {
+        res.status(404).json({ error: 'Payslip file not found' })
+        return
+      }
+      res.setHeader('Content-Type', 'application/pdf')
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`)
+      res.sendFile(filePath)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to download payslip'
+      res.status(500).json({ error: message })
     }
   },
 

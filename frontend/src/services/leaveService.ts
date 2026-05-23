@@ -68,6 +68,20 @@ export async function getHolidays() {
   return response.data as Holiday[]
 }
 
+export interface TeamLeaveEntry {
+  id: string
+  employeeName: string
+  type: string
+  from: string
+  to: string
+  days: number
+}
+
+export async function getTeamLeaves(): Promise<TeamLeaveEntry[]> {
+  const response = await api.get('/leaves/team')
+  return response.data as TeamLeaveEntry[]
+}
+
 export function seedPendingLeaves(): LeaveRequest[] {
   // No longer using mock data — this is a no-op kept for compatibility.
   // The dashboard should call getLeaves() and filter by status instead.

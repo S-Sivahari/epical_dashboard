@@ -3,7 +3,7 @@ import { join } from 'path'
 import { randomUUID } from 'crypto'
 import { getDB } from '../config/db'
 import { readMasterExcelFromBuffer } from './payslipGenerator'
-import { savePayslipAsPdf } from './payslipPdfGenerator'
+import { savePayslipAsPdf, type TemplateId } from './payslipPdfGenerator'
 import {
   listSentFlagsForBatch,
   removeSentPayslip,
@@ -25,9 +25,11 @@ export interface PayrollBatch {
   originalFileName: string
   uploadedAt: Date
   payMonth?: string
+  templateId?: string
   employeeCount: number
   totalGenerated: number
   totalFailed: number
+  totalSent?: number
   results: PayslipResult[]
 }
 
@@ -59,7 +61,8 @@ export function ensureBatchDirs(batchId: string): void {
 /** Upload Excel, generate per-employee PDF payslips, persist batch metadata. */
 export async function processPayrollUpload(
   buffer: Buffer,
-  originalFileName: string
+  originalFileName: string,
+  templateId: TemplateId = 'classic'
 ): Promise<PayrollBatch> {
   const { company, structure, employees } = readMasterExcelFromBuffer(buffer)
 
@@ -81,7 +84,7 @@ export async function processPayrollUpload(
     const name = String(emp['Name'] || '')
     try {
       const fileName = `Payslip_${empId.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`
-      await savePayslipAsPdf(company, structure, emp, join(payslipsDir, fileName))
+      await savePayslipAsPdf(company, structure, emp, join(payslipsDir, fileName), templateId)
       results.push({ empId, name, status: 'success', fileName })
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Generation failed'
@@ -94,6 +97,7 @@ export async function processPayrollUpload(
     originalFileName,
     uploadedAt: new Date(),
     payMonth: String(company['Pay Month'] || ''),
+    templateId,
     employeeCount: employees.length,
     totalGenerated: results.filter((r) => r.status === 'success').length,
     totalFailed: results.filter((r) => r.status === 'error').length,
@@ -106,13 +110,12 @@ export async function processPayrollUpload(
 
 export async function enrichBatchWithSentStatus(batch: PayrollBatch): Promise<PayrollBatch> {
   const flags = await listSentFlagsForBatch(batch.id)
-  return {
-    ...batch,
-    results: batch.results.map((r) => ({
-      ...r,
-      sent: r.fileName ? !!flags[r.fileName] : false,
-    })),
-  }
+  const results = batch.results.map((r) => ({
+    ...r,
+    sent: r.fileName ? !!flags[r.fileName] : false,
+  }))
+  const totalSent = results.filter((r) => r.sent).length
+  return { ...batch, results, totalSent }
 }
 
 export async function getPayrollBatch(batchId: string): Promise<PayrollBatch | null> {
@@ -133,7 +136,8 @@ export async function getLatestPayrollBatch(): Promise<PayrollBatch | null> {
 }
 
 export async function listPayrollBatches(limit = 20): Promise<PayrollBatch[]> {
-  return batchesCollection().find({}).sort({ uploadedAt: -1 }).limit(limit).toArray()
+  const raw = await batchesCollection().find({}).sort({ uploadedAt: -1 }).limit(limit).toArray()
+  return Promise.all(raw.map((b) => enrichBatchWithSentStatus(b)))
 }
 
 export function readBatchExcel(batchId: string): Buffer {

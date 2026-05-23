@@ -4,13 +4,15 @@ import { Badge } from '@components/ui/Badge'
 import { Button } from '@components/ui/Button'
 import { Modal } from '@components/ui/Modal'
 import { useLeaves } from '@hooks/useLeaves'
-// import type removed
 import { formatDate, formatDateTime } from '@/utils/formatDate'
 import { filterLeaves, type LeaveFilters } from '@/utils/leaveFilters'
+import * as leaveService from '@services/leaveService'
 
-import {  X, ChevronLeft, ChevronRight, Check, Eye, Ban } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, Check, Eye, Ban, ChevronDown, Search, AlertTriangle, ShieldCheck, UserCheck } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { EmployeeLeaveProfileModal } from './EmployeeLeaveProfileModal'
+
+const LEAVE_TYPES = ['Sick Leave', 'Casual Leave', 'Earned Leave']
 
 type StatusType = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled'
 
@@ -45,6 +47,12 @@ export function LeaveRequests({
     Rejected: 1,
     Cancelled: 1,
   })
+
+  // Approve Confirmation Modal State (shows balance before confirming)
+  const [isApproveModalOpen, setIsApproveModalOpen] = useState(false)
+  const [leaveToApprove, setLeaveToApprove] = useState<any | null>(null)
+  const [approveBalance, setApproveBalance] = useState<{ total: number; used: number; remaining: number } | null>(null)
+  const [loadingBalance, setLoadingBalance] = useState(false)
 
   // Rejection Modal State
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false)
@@ -86,7 +94,7 @@ export function LeaveRequests({
     setIsReasonModalOpen(true)
   }
 
-  const clearFilters = () => setFilters({ employeeName: '', employeeId: '', status: 'Pending' })
+  const clearFilters = () => setFilters({ selectedEmployees: [], employeeId: '', status: 'Pending', leaveType: '', dateFrom: '', dateTo: '' })
 
   const currentStatus = (filters.status as StatusType) || 'Pending'
 
@@ -181,12 +189,30 @@ export function LeaveRequests({
     }
   }
 
-  const handleApprove = async (id: string) => {
+  const openApproveModal = async (leave: any) => {
+    setLeaveToApprove(leave)
+    setApproveBalance(null)
+    setIsApproveModalOpen(true)
+    setLoadingBalance(true)
     try {
-      await approveLeave(id)
-      toast.success('Leave approved successfully')
+      const balances = await leaveService.getBalances(leave.employeeId)
+      setApproveBalance(balances[leave.type] ?? null)
     } catch {
-      toast.error('Failed to approve leave')
+      // Non-critical — approval can still proceed
+    } finally {
+      setLoadingBalance(false)
+    }
+  }
+
+  const handleApproveConfirm = async () => {
+    if (!leaveToApprove) return
+    try {
+      await approveLeave(leaveToApprove.id)
+      toast.success('Leave approved successfully')
+      setIsApproveModalOpen(false)
+      setLeaveToApprove(null)
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Failed to approve leave')
     }
   }
 
@@ -205,55 +231,219 @@ export function LeaveRequests({
     }
   }
 
-  // Get unique employee names and IDs
+  // Multi-select dropdown state
+  const [empDropOpen, setEmpDropOpen] = useState(false)
+  const [empSearch, setEmpSearch] = useState('')
+  const empDropRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (empDropRef.current && !empDropRef.current.contains(e.target as Node)) {
+        setEmpDropOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Get unique employee names
   const uniqueEmployeeNames = useMemo(() => {
     return Array.from(new Set(leaves.map((l) => l.employeeName))).sort()
   }, [leaves])
 
-  const uniqueEmployeeIds = useMemo(() => {
-    return Array.from(new Set(leaves.map((l) => l.employeeId))).sort()
-  }, [leaves])
+  const filteredEmpNames = useMemo(() => {
+    if (!empSearch.trim()) return uniqueEmployeeNames
+    return uniqueEmployeeNames.filter((n) =>
+      n.toLowerCase().includes(empSearch.toLowerCase())
+    )
+  }, [uniqueEmployeeNames, empSearch])
+
+  const toggleEmployee = (name: string) => {
+    const current = filters.selectedEmployees || []
+    const next = current.includes(name)
+      ? current.filter((n) => n !== name)
+      : [...current, name]
+    setFilters({ ...filters, selectedEmployees: next })
+    setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
+  }
 
   return (
     <Tooltip.Provider delayDuration={300}>
       <div className="space-y-5">
-        {/* Compact Filters Toolbar */}
-        <div className="rounded-xl border border-border bg-white p-4 shadow-sm flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            <select
-              value={filters.employeeName}
-              onChange={(e) => {
-                setFilters({ ...filters, employeeName: e.target.value })
-                setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
-              }}
-              className="h-9 w-full sm:w-56 rounded-lg border border-border px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-            >
-              <option value="">All Employee Names</option>
-              {uniqueEmployeeNames.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-            <select
+        {/* Filters Toolbar */}
+        <div className="rounded-xl border border-border bg-white p-4 shadow-sm space-y-3">
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+            {/* Multi-select Employee Filter */}
+            <div className="relative flex-1 min-w-0" ref={empDropRef}>
+              <button
+                type="button"
+                onClick={() => setEmpDropOpen((v) => !v)}
+                className="h-9 w-full flex items-center justify-between gap-2 rounded-lg border border-border bg-white px-3 text-sm text-ink shadow-sm hover:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+              >
+                <span className="truncate text-left">
+                  {(filters.selectedEmployees?.length ?? 0) === 0
+                    ? 'All Employees'
+                    : `${filters.selectedEmployees.length} employee${filters.selectedEmployees.length > 1 ? 's' : ''} selected`}
+                </span>
+                <ChevronDown className={`h-4 w-4 text-muted shrink-0 transition-transform ${empDropOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {empDropOpen && (
+                <div className="absolute z-50 mt-1 w-full min-w-[220px] rounded-xl border border-border bg-white shadow-lg">
+                  {/* Search */}
+                  <div className="p-2 border-b border-border">
+                    <div className="flex items-center gap-2 rounded-lg border border-border px-2 py-1.5">
+                      <Search className="h-3.5 w-3.5 text-muted shrink-0" />
+                      <input
+                        type="text"
+                        placeholder="Search employees..."
+                        value={empSearch}
+                        onChange={(e) => setEmpSearch(e.target.value)}
+                        className="flex-1 text-sm outline-none bg-transparent"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  </div>
+                  {/* Select All / Clear */}
+                  <div className="flex items-center justify-between px-3 py-1.5 border-b border-border/50">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFilters({ ...filters, selectedEmployees: [...uniqueEmployeeNames] })
+                        setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
+                      }}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFilters({ ...filters, selectedEmployees: [] })
+                        setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
+                      }}
+                      className="text-xs text-muted hover:text-ink"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  {/* Employee list */}
+                  <div className="max-h-52 overflow-y-auto py-1">
+                    {filteredEmpNames.length === 0 ? (
+                      <p className="px-3 py-2 text-sm text-muted">No employees found</p>
+                    ) : (
+                      filteredEmpNames.map((name) => {
+                        const checked = (filters.selectedEmployees || []).includes(name)
+                        return (
+                          <button
+                            key={name}
+                            type="button"
+                            onClick={() => toggleEmployee(name)}
+                            className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left hover:bg-surface transition-colors ${checked ? 'bg-primary/5' : ''}`}
+                          >
+                            <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${checked ? 'bg-primary border-primary' : 'border-border'}`}>
+                              {checked && <Check className="h-3 w-3 text-white" />}
+                            </span>
+                            <span className={`truncate ${checked ? 'font-medium text-primary' : 'text-ink'}`}>{name}</span>
+                          </button>
+                        )
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Employee ID filter */}
+            <input
+              type="text"
               value={filters.employeeId}
               onChange={(e) => {
                 setFilters({ ...filters, employeeId: e.target.value })
                 setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
               }}
-              className="h-9 w-full sm:w-56 rounded-lg border border-border px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              placeholder="Filter by Employee ID"
+              className="h-9 w-full sm:w-44 rounded-lg border border-border px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-sm"
+            />
+
+            {/* Leave Type filter */}
+            <select
+              value={filters.leaveType || ''}
+              onChange={(e) => {
+                setFilters({ ...filters, leaveType: e.target.value })
+                setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
+              }}
+              className="h-9 w-full sm:w-40 rounded-lg border border-border bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-sm"
             >
-              <option value="">All Employee IDs</option>
-              {uniqueEmployeeIds.map((id) => (
-                <option key={id} value={id}>
-                  {id}
-                </option>
+              <option value="">All Types</option>
+              {LEAVE_TYPES.map((t) => (
+                <option key={t} value={t}>{t}</option>
               ))}
             </select>
+
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted hover:text-ink shrink-0 h-9">
+              <X className="mr-1.5 h-4 w-4" /> Clear
+            </Button>
           </div>
-          <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted hover:text-ink shrink-0 h-9">
-            <X className="mr-1.5 h-4 w-4" /> Clear Filters
-          </Button>
+
+          {/* Date range filters */}
+          <div className="flex flex-wrap gap-3 items-center">
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-muted font-medium whitespace-nowrap">From</label>
+              <input
+                type="date"
+                value={filters.dateFrom || ''}
+                onChange={(e) => {
+                  setFilters({ ...filters, dateFrom: e.target.value })
+                  setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
+                }}
+                className="h-8 rounded-lg border border-border px-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-sm"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-muted font-medium whitespace-nowrap">To</label>
+              <input
+                type="date"
+                value={filters.dateTo || ''}
+                onChange={(e) => {
+                  setFilters({ ...filters, dateTo: e.target.value })
+                  setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
+                }}
+                className="h-8 rounded-lg border border-border px-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-sm"
+              />
+            </div>
+            {(filters.dateFrom || filters.dateTo) && (
+              <button
+                type="button"
+                onClick={() => setFilters({ ...filters, dateFrom: '', dateTo: '' })}
+                className="text-xs text-muted hover:text-ink flex items-center gap-1"
+              >
+                <X className="h-3 w-3" /> Clear dates
+              </button>
+            )}
+          </div>
+
+          {/* Selected employees chips */}
+          {(filters.selectedEmployees?.length ?? 0) > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {filters.selectedEmployees.map((name) => (
+                <span
+                  key={name}
+                  className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary"
+                >
+                  {name}
+                  <button
+                    type="button"
+                    onClick={() => toggleEmployee(name)}
+                    className="ml-0.5 hover:text-primary/70"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Status Tabs */}
@@ -338,10 +528,37 @@ export function LeaveRequests({
                           <span className="normal-case">{formatDateTime(toTimestamp(l.createdAt)!)}</span>
                         </span>
                       )}
-                      {l.status === 'Approved' && toTimestamp(l.approvalDate ?? l.updatedAt) && (
-                        <span>
-                          <span className="uppercase">Approved:</span>{' '}
-                          <span className="normal-case">{formatDateTime(toTimestamp(l.approvalDate ?? l.updatedAt)!)}</span>
+                      {l.status === 'Approved' && (
+                        <>
+                          {toTimestamp(l.approvalDate ?? l.updatedAt) && (
+                            <span>
+                              <span className="uppercase">Approved:</span>{' '}
+                              <span className="normal-case">{formatDateTime(toTimestamp(l.approvalDate ?? l.updatedAt)!)}</span>
+                            </span>
+                          )}
+                          {(l as any).approvedBy && (
+                            <span className="inline-flex items-center gap-1">
+                              <UserCheck className="h-3 w-3 text-green-500" />
+                              <span className="normal-case">{(l as any).approvedBy}</span>
+                            </span>
+                          )}
+                        </>
+                      )}
+                      {l.status === 'Rejected' && (l as any).rejectedBy && (
+                        <span className="inline-flex items-center gap-1">
+                          <UserCheck className="h-3 w-3 text-red-500" />
+                          <span className="normal-case">{(l as any).rejectedBy}</span>
+                        </span>
+                      )}
+                      {l.status === 'Cancelled' && (l as any).cancelledBy && (
+                        <span className="inline-flex items-center gap-1">
+                          <UserCheck className="h-3 w-3 text-gray-500" />
+                          <span className="normal-case">By {(l as any).cancelledBy}</span>
+                        </span>
+                      )}
+                      {l.status === 'Cancelled' && (l as any).cancelReason && (
+                        <span className="normal-case">
+                          <span className="uppercase">Reason:</span> {(l as any).cancelReason}
                         </span>
                       )}
                     </div>
@@ -355,7 +572,7 @@ export function LeaveRequests({
                                 size="sm"
                                 variant="primary"
                                 className="h-8 w-8 rounded-full p-0 flex items-center justify-center bg-green-500 hover:bg-green-600 text-white shadow-sm border-none transition-transform hover:scale-105"
-                                onClick={(e) => { e.stopPropagation(); handleApprove(l.id) }}
+                                onClick={(e) => { e.stopPropagation(); void openApproveModal(l) }}
                               >
                                 <Check className="h-4 w-4" />
                               </Button>
@@ -481,6 +698,92 @@ export function LeaveRequests({
           </div>
         )}
       </div>
+
+      {/* Approve Confirmation Modal with Balance Check */}
+      <Modal
+        isOpen={isApproveModalOpen}
+        onClose={() => { setIsApproveModalOpen(false); setLeaveToApprove(null) }}
+        title="Confirm Leave Approval"
+        size="md"
+      >
+        {leaveToApprove && (
+          <div className="space-y-4">
+            <div className="rounded-lg bg-surface p-3 border border-border space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted">Employee</span>
+                <span className="font-medium text-ink">{leaveToApprove.employeeName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted">Leave Type</span>
+                <span className="font-medium text-ink">{leaveToApprove.type}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted">Period</span>
+                <span className="font-medium text-ink">{formatDate(leaveToApprove.from)} → {formatDate(leaveToApprove.to)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted">Days Requested</span>
+                <span className="font-semibold text-ink">{leaveToApprove.days}</span>
+              </div>
+            </div>
+
+            {loadingBalance ? (
+              <div className="flex items-center gap-2 text-sm text-muted py-2">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                Checking leave balance...
+              </div>
+            ) : approveBalance ? (
+              <div className={`rounded-lg p-3 border text-sm space-y-1 ${
+                approveBalance.remaining >= leaveToApprove.days
+                  ? 'bg-green-50 border-green-200'
+                  : 'bg-red-50 border-red-200'
+              }`}>
+                <div className="flex items-center gap-2 font-medium mb-2">
+                  {approveBalance.remaining >= leaveToApprove.days
+                    ? <ShieldCheck className="h-4 w-4 text-green-600" />
+                    : <AlertTriangle className="h-4 w-4 text-red-600" />}
+                  <span className={approveBalance.remaining >= leaveToApprove.days ? 'text-green-800' : 'text-red-800'}>
+                    {approveBalance.remaining >= leaveToApprove.days ? 'Sufficient Balance' : 'Insufficient Balance'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted">Total Allocation</span>
+                  <span className="font-medium">{approveBalance.total} days</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted">Already Used</span>
+                  <span className="font-medium">{approveBalance.used} days</span>
+                </div>
+                <div className="flex justify-between font-semibold">
+                  <span>Remaining</span>
+                  <span className={approveBalance.remaining >= leaveToApprove.days ? 'text-green-700' : 'text-red-700'}>
+                    {approveBalance.remaining} days
+                  </span>
+                </div>
+                <div className="flex justify-between font-semibold border-t border-current/20 pt-1 mt-1">
+                  <span>After Approval</span>
+                  <span className={approveBalance.remaining - leaveToApprove.days >= 0 ? 'text-green-700' : 'text-red-700'}>
+                    {(approveBalance.remaining - leaveToApprove.days).toFixed(1)} days
+                  </span>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="flex justify-end gap-3 pt-2 border-t border-border">
+              <Button variant="secondary" onClick={() => { setIsApproveModalOpen(false); setLeaveToApprove(null) }}>
+                Cancel
+              </Button>
+              <Button
+                className="bg-green-600 hover:bg-green-700 text-white border-none"
+                onClick={() => void handleApproveConfirm()}
+              >
+                <Check className="h-4 w-4 mr-1.5" />
+                Confirm Approval
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Reject Modal */}
       <Modal

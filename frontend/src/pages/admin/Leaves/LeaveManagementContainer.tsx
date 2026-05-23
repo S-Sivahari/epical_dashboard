@@ -33,9 +33,12 @@ function buildExportFilename(tab: TabType) {
 export function LeaveManagementContainer() {
   const [activeTab, setActiveTab] = useState<TabType>('requests')
   const [leaveFilters, setLeaveFilters] = useState<LeaveFilters>({
-    employeeName: '',
+    selectedEmployees: [],
     employeeId: '',
     status: 'Pending',
+    leaveType: '',
+    dateFrom: '',
+    dateTo: '',
   })
   const [compensationExportRows, setCompensationExportRows] = useState<CompensationExportRow[]>([])
   const [compensationSearch, setCompensationSearch] = useState('')
@@ -58,8 +61,14 @@ export function LeaveManagementContainer() {
       return {
         ...base,
         status: leaveFilters.status,
-        name: leaveFilters.employeeName || undefined,
+        name: leaveFilters.selectedEmployees.length > 0
+          ? leaveFilters.selectedEmployees.join(', ')
+          : undefined,
         employeeId: leaveFilters.employeeId || undefined,
+        leaveType: leaveFilters.leaveType || undefined,
+        dateRange: (leaveFilters.dateFrom || leaveFilters.dateTo)
+          ? `${leaveFilters.dateFrom || 'Any'} → ${leaveFilters.dateTo || 'Any'}`
+          : undefined,
       }
     }
     if (activeTab === 'calendar') {

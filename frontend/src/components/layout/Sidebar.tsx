@@ -46,9 +46,9 @@ const groups: {
     {
       label: 'Company',
       items: [
+        { to: ROUTES.PAYSLIPS, label: 'Payslips', icon: Receipt },
         { to: ROUTES.TRAINING, label: 'Training & Courses', icon: BookOpen },
         { to: ROUTES.ACHIEVEMENTS, label: 'Achievements', icon: Trophy },
-        { to: ROUTES.PAYSLIPS, label: 'Payslips', icon: Receipt },
         { to: ROUTES.ANALYTICS, label: 'Analytics', icon: BarChart3 },
         { to: ROUTES.DOCUMENTS, label: 'Documents', icon: FileText },
         { to: ROUTES.NEWS, label: 'Company News', icon: Newspaper },

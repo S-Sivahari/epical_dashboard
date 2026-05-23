@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Plus, Download } from 'lucide-react'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
 import { Badge } from '@components/ui/Badge'
 import { Avatar } from '@components/ui/Avatar'
+import { Modal } from '@components/ui/Modal'
 import { DataTable, type Column } from '@components/tables/DataTable'
 import { PaginationBar } from '@components/tables/Pagination'
 import { SelectField } from '@components/forms/SelectField'
@@ -45,6 +46,13 @@ export function EmployeeList() {
   const [allEmployees, setAllEmployees] = useState<Employee[]>([])
   const [savingStatusId, setSavingStatusId] = useState<string | null>(null)
   const [exporting, setExporting] = useState<'excel' | 'pdf' | null>(null)
+
+  // Status change confirmation modal
+  const [statusModalOpen, setStatusModalOpen] = useState(false)
+  const [pendingStatusChange, setPendingStatusChange] = useState<{ employee: Employee; newStatus: Employee['status'] } | null>(null)
+  const [statusChangeReason, setStatusChangeReason] = useState('')
+  const [statusReasonError, setStatusReasonError] = useState('')
+  const reasonInputRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     employeeService.getEmployees({ pageSize: 1000 })
@@ -175,17 +183,34 @@ export function EmployeeList() {
     }
   }
 
-  const handleAccountStatusChange = async (employee: Employee, status: Employee['status']) => {
+  const requestStatusChange = (employee: Employee, status: Employee['status']) => {
     if (employee.status === status) return
+    setPendingStatusChange({ employee, newStatus: status })
+    setStatusChangeReason('')
+    setStatusReasonError('')
+    setStatusModalOpen(true)
+    setTimeout(() => reasonInputRef.current?.focus(), 50)
+  }
 
+  const confirmStatusChange = async () => {
+    if (!pendingStatusChange) return
+    const reason = statusChangeReason.trim()
+    if (!reason) {
+      setStatusReasonError('Please provide a reason for the status change.')
+      return
+    }
+    const { employee, newStatus } = pendingStatusChange
+    setStatusModalOpen(false)
     setSavingStatusId(employee.id)
     try {
-      await updateEmployeeStatus(employee.id, status)
-      toast.success(`${employee.firstName} ${employee.lastName ?? ''}`.trim() + ` set to ${status}`)
+      await updateEmployeeStatus(employee.id, newStatus)
+      toast.success(`${employee.firstName} ${employee.lastName ?? ''}`.trim() + ` set to ${newStatus}`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not update status')
     } finally {
       setSavingStatusId(null)
+      setPendingStatusChange(null)
+      setStatusChangeReason('')
     }
   }
 
@@ -259,7 +284,7 @@ export function EmployeeList() {
             value={e.status}
             disabled={savingStatusId === e.id}
             onChange={(event) =>
-              void handleAccountStatusChange(e, event.target.value as Employee['status'])
+              requestStatusChange(e, event.target.value as Employee['status'])
             }
             className="h-8 min-w-[132px] px-2 text-xs"
             options={STATUS_OPTIONS}
@@ -372,6 +397,57 @@ export function EmployeeList() {
         </section>
       </div>
 
+      {/* Status Change Confirmation Modal */}
+      <Modal
+        isOpen={statusModalOpen}
+        onClose={() => setStatusModalOpen(false)}
+        title="Confirm Status Change"
+        size="sm"
+      >
+        {pendingStatusChange && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted">
+              You are about to change{' '}
+              <span className="font-semibold text-ink">
+                {pendingStatusChange.employee.firstName} {pendingStatusChange.employee.lastName}
+              </span>
+              's status from{' '}
+              <span className="font-semibold text-ink">{pendingStatusChange.employee.status}</span>
+              {' '}to{' '}
+              <span className="font-semibold text-ink">{pendingStatusChange.newStatus}</span>.
+            </p>
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-ink">
+                Reason <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                ref={reasonInputRef}
+                value={statusChangeReason}
+                onChange={(e) => {
+                  setStatusChangeReason(e.target.value)
+                  if (statusReasonError) setStatusReasonError('')
+                }}
+                placeholder="Provide a reason for this status change..."
+                className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 resize-none transition-shadow ${
+                  statusReasonError ? 'border-red-500 focus:ring-red-200' : 'border-border focus:ring-primary/30'
+                }`}
+                rows={3}
+              />
+              {statusReasonError && (
+                <p className="text-xs text-red-500 font-medium">{statusReasonError}</p>
+              )}
+            </div>
+            <div className="flex justify-end gap-3 pt-2 border-t border-border">
+              <Button variant="secondary" onClick={() => setStatusModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => void confirmStatusChange()}>
+                Confirm Change
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </PageWrapper>
   )
 }

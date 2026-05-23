@@ -116,3 +116,20 @@ export async function getPayslipByIdForEmployee(
     employeeEmail: email.toLowerCase().trim(),
   })
 }
+
+export async function getAllSentPayslips(limit = 100): Promise<EmployeePayslipRecord[]> {
+  return payslipsCollection()
+    .find({})
+    .sort({ sentAt: -1 })
+    .limit(limit)
+    .toArray()
+}
+
+export async function getSentCountsByBatch(): Promise<Record<string, number>> {
+  const docs = await payslipsCollection().find({}).toArray()
+  const counts: Record<string, number> = {}
+  for (const d of docs) {
+    counts[d.batchId] = (counts[d.batchId] || 0) + 1
+  }
+  return counts
+}

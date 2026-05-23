@@ -17,6 +17,14 @@ export interface LeaveRequest {
   reason: string;
   status: LeaveStatus;
   rejectionReason?: string;
+  // Audit trail
+  approvedBy?: string;
+  approvedAt?: Date;
+  rejectedBy?: string;
+  rejectedAt?: Date;
+  cancelledBy?: string;
+  cancelReason?: string;
+  cancelledAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
   approvalDate?: Date;

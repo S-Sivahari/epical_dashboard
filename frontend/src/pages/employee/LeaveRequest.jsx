@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { useEffect, useState, useRef } from 'react'
+import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useNavigate } from 'react-router-dom'
-import { Calendar } from 'lucide-react'
+import { Calendar, AlertTriangle, X } from 'lucide-react'
 import { Button } from '@components/employee/ui/button'
 import { Input } from '@components/employee/ui/input'
 import { Label } from '@components/employee/ui/label'
@@ -79,6 +79,15 @@ export default function LeaveRequest() {
   const halfDaySession = watch('halfDaySession')
 
   const [conflictMessage, setConflictMessage] = useState('')
+  const [holidayWarning, setHolidayWarning] = useState('')
+
+  // Cancel pending leave modal
+  const [cancelModalOpen, setCancelModalOpen] = useState(false)
+  const [leaveToCancel, setLeaveToCancel] = useState(null)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelError, setCancelError] = useState('')
+  const [cancelling, setCancelling] = useState(false)
+  const cancelReasonRef = useRef(null)
 
   const normalizeDate = (date) => {
     if (!date) return ''
@@ -216,6 +225,41 @@ export default function LeaveRequest() {
     }
   }, [fromDate, toDate, leaveDuration, halfDaySession, requests, user, setError, clearErrors])
 
+  // Holiday guidance: check if selected date range contains holidays/weekends
+  useEffect(() => {
+    if (!fromDate || !toDate) { setHolidayWarning(''); return }
+    const start = new Date(fromDate)
+    const end = new Date(toDate)
+    if (end < start) { setHolidayWarning(''); return }
+
+    const holidayHits = []
+    let weekendCount = 0
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const iso = d.toISOString().slice(0, 10)
+      const dow = d.getDay()
+      if (dow === 0 || dow === 6) {
+        weekendCount++
+      } else {
+        const hol = holidays.find((h) => h.date === iso)
+        if (hol) holidayHits.push(hol.name)
+      }
+    }
+
+    const parts = []
+    if (holidayHits.length > 0) {
+      parts.push(`${holidayHits.length} holiday${holidayHits.length > 1 ? 's' : ''} (${holidayHits.join(', ')})`)
+    }
+    if (weekendCount > 0) {
+      parts.push(`${weekendCount} weekend day${weekendCount > 1 ? 's' : ''}`)
+    }
+
+    if (parts.length > 0) {
+      setHolidayWarning(`Your selection includes ${parts.join(' and ')} which will not count as leave days.`)
+    } else {
+      setHolidayWarning('')
+    }
+  }, [fromDate, toDate, holidays])
+
   const filtered = requests.filter((r) => {
     const matchSearch = !search || r.type.toLowerCase().includes(search.toLowerCase()) || r.reason.toLowerCase().includes(search.toLowerCase())
     const matchStatus = statusFilter === 'all' || r.status.toLowerCase() === statusFilter
@@ -225,6 +269,31 @@ export default function LeaveRequest() {
   const onError = (errors) => {
     console.log('Leave request validation failed', errors)
     toast({ title: 'Validation error', description: 'Please complete all required fields before submitting.' })
+  }
+
+  const openCancelModal = (leave) => {
+    setLeaveToCancel(leave)
+    setCancelReason('')
+    setCancelError('')
+    setCancelModalOpen(true)
+    setTimeout(() => cancelReasonRef.current?.focus(), 50)
+  }
+
+  const handleCancelConfirm = async () => {
+    const reason = cancelReason.trim()
+    if (!reason) { setCancelError('Please provide a reason for withdrawing.'); return }
+    setCancelling(true)
+    try {
+      await leaveService.cancelLeave(leaveToCancel.id, reason)
+      toast({ title: 'Withdrawn', description: 'Your leave request has been withdrawn.' })
+      setCancelModalOpen(false)
+      setLeaveToCancel(null)
+      fetchRequests()
+    } catch (err) {
+      toast({ title: 'Error', description: err?.response?.data?.error || 'Failed to withdraw leave request' })
+    } finally {
+      setCancelling(false)
+    }
   }
 
   const pendingLeaves = requests.filter((r) => r.status === 'Pending')
@@ -359,6 +428,12 @@ export default function LeaveRequest() {
                 {errors.toDate && <p className="mt-1 text-xs text-danger">{errors.toDate.message}</p>}
               </div>
             </div>
+            {holidayWarning && (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-600" />
+                <span>{holidayWarning}</span>
+              </div>
+            )}
             <div>
               <Label>Reason *</Label>
               <Textarea className="mt-1" {...register('reason')} placeholder="Reason for leave" />
@@ -396,9 +471,20 @@ export default function LeaveRequest() {
                         <p className="text-xs text-muted mt-1">{req.from} to {req.to} ({req.days} days)</p>
                         <p className="text-xs text-muted mt-1">{req.reason}</p>
                       </div>
-                      <span className="px-2 py-1 rounded text-xs font-medium whitespace-nowrap text-yellow-700 bg-yellow-200">
-                        Pending
-                      </span>
+                      <div className="flex flex-col items-end gap-2">
+                        <span className="px-2 py-1 rounded text-xs font-medium whitespace-nowrap text-yellow-700 bg-yellow-200">
+                          Pending
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => openCancelModal(req)}
+                          className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 border border-red-200 transition-colors"
+                          title="Withdraw this request"
+                        >
+                          <X className="h-3 w-3" />
+                          Withdraw
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -420,11 +506,59 @@ export default function LeaveRequest() {
               { value: 'all', label: 'All Status' },
               { value: 'approved', label: 'Approved' },
               { value: 'rejected', label: 'Rejected' },
+              { value: 'cancelled', label: 'Cancelled' },
             ]}
           />
         </div>
         <DataTable columns={columns} data={historyLeaves} statusKey="status" />
       </div>
+
+      {/* Withdraw Pending Leave Modal */}
+      {cancelModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl space-y-4">
+            <h2 className="font-heading text-lg font-semibold">Withdraw Leave Request</h2>
+            <p className="text-sm text-muted">
+              Are you sure you want to withdraw your{' '}
+              <span className="font-medium text-ink">{leaveToCancel?.type}</span> request
+              ({leaveToCancel?.from} → {leaveToCancel?.to})?
+            </p>
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-ink">
+                Reason <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                ref={cancelReasonRef}
+                value={cancelReason}
+                onChange={(e) => { setCancelReason(e.target.value); if (cancelError) setCancelError('') }}
+                placeholder="Why are you withdrawing this request?"
+                className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 resize-none ${
+                  cancelError ? 'border-red-400 focus:ring-red-200' : 'border-border focus:ring-primary/30'
+                }`}
+                rows={3}
+              />
+              {cancelError && <p className="text-xs text-red-500">{cancelError}</p>}
+            </div>
+            <div className="flex justify-end gap-3 pt-1 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setCancelModalOpen(false)}
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-ink hover:bg-surface transition-colors"
+              >
+                Keep Request
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelConfirm}
+                disabled={cancelling}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {cancelling ? 'Withdrawing...' : 'Withdraw Request'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

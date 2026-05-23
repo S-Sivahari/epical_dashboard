@@ -141,10 +141,11 @@ export const leaveController = {
   },
 
   // PATCH /api/leaves/:id/approve
-  approve: async (req: Request, res: Response): Promise<void> => {
+  approve: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params as { id: string };
-      const leave = await leaveService.updateLeaveStatus(id, 'Approved');
+      const actionBy = (req.user as any)?.name || (req.user as any)?.email || 'Admin';
+      const leave = await leaveService.updateLeaveStatus(id, 'Approved', undefined, actionBy);
       if (!leave) {
         res.status(404).json({ error: 'Leave not found' });
         return;
@@ -157,7 +158,7 @@ export const leaveController = {
   },
 
   // PATCH /api/leaves/:id/reject
-  reject: async (req: Request, res: Response): Promise<void> => {
+  reject: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params as { id: string };
       const { reason } = req.body;
@@ -165,7 +166,8 @@ export const leaveController = {
         res.status(400).json({ error: 'Rejection reason is required' });
         return;
       }
-      const leave = await leaveService.updateLeaveStatus(req.params.id, 'Rejected', reason.trim());
+      const actionBy = (req.user as any)?.name || (req.user as any)?.email || 'Admin';
+      const leave = await leaveService.updateLeaveStatus(req.params.id, 'Rejected', reason.trim(), actionBy);
       if (!leave) {
         res.status(404).json({ error: 'Leave not found' });
         return;
@@ -178,19 +180,21 @@ export const leaveController = {
   },
 
   // PATCH /api/leaves/:id/cancel
-  cancel: async (req: Request, res: Response): Promise<void> => {
+  cancel: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params as { id: string };
+      const { reason } = req.body;
       const leave = await leaveService.getLeaveById(id);
       if (!leave) {
         res.status(404).json({ error: 'Leave not found' });
         return;
       }
-      if (leave.status !== 'Approved') {
-        res.status(400).json({ error: 'Only approved leaves can be cancelled' });
+      if (!['Approved', 'Pending'].includes(leave.status)) {
+        res.status(400).json({ error: 'Only pending or approved leaves can be cancelled' });
         return;
       }
-      const cancelledLeave = await leaveService.cancelLeave(id);
+      const cancelledBy = (req.user as any)?.name || (req.user as any)?.email || undefined;
+      const cancelledLeave = await leaveService.cancelLeave(id, reason?.trim(), cancelledBy);
       if (!cancelledLeave) {
         res.status(500).json({ error: 'Failed to cancel leave' });
         return;
@@ -214,6 +218,32 @@ export const leaveController = {
     } catch (error: any) {
       console.error('Error deleting leave:', error);
       res.status(500).json({ error: error.message || 'Failed to delete leave' });
+    }
+  },
+
+  // GET /api/leaves/team — returns current-month approved leaves for team visibility
+  getTeamLeaves: async (_req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const allLeaves = await leaveService.getAllLeaves();
+      const now = new Date();
+      const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const teamLeaves = allLeaves
+        .filter(
+          (l) =>
+            l.status === 'Approved' &&
+            (l.from.startsWith(yearMonth) || l.to.startsWith(yearMonth))
+        )
+        .map((l) => ({
+          id: l.id,
+          employeeName: l.employeeName,
+          type: l.type,
+          from: l.from,
+          to: l.to,
+          days: l.days,
+        }));
+      res.json(teamLeaves);
+    } catch {
+      res.status(500).json({ error: 'Failed to fetch team leaves' });
     }
   },
 

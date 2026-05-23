@@ -1,5 +1,7 @@
 import api from '@services/api'
 
+export type TemplateId = 'classic' | 'corporate' | 'minimal'
+
 export interface PayslipResult {
   empId: string
   name: string
@@ -22,10 +24,24 @@ export interface PayrollBatch {
   originalFileName: string
   uploadedAt: string
   payMonth?: string
+  templateId?: TemplateId
   employeeCount: number
   totalGenerated: number
   totalFailed: number
+  totalSent?: number
   results: PayslipResult[]
+}
+
+export interface SendHistoryEntry {
+  id: string
+  employeeId: string
+  employeeName: string
+  employeeEmail: string
+  employeeDbId: string
+  batchId: string
+  fileName: string
+  payMonth: string
+  sentAt: string
 }
 
 const base = '/payslips'
@@ -42,9 +58,10 @@ export async function downloadPayrollTemplate(): Promise<void> {
   window.URL.revokeObjectURL(url)
 }
 
-export async function uploadPayroll(file: File): Promise<PayrollBatch> {
+export async function uploadPayroll(file: File, templateId: TemplateId = 'classic'): Promise<PayrollBatch> {
   const formData = new FormData()
   formData.append('payroll', file)
+  formData.append('templateId', templateId)
   const response = await api.post<{ batch: PayrollBatch }>(`${base}/upload`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 120000,
@@ -68,12 +85,31 @@ export async function getPayrollBatch(batchId: string): Promise<PayrollBatch> {
   return response.data
 }
 
-export async function openPayslipPdf(batchId: string, fileName: string): Promise<void> {
+export async function listBatches(): Promise<PayrollBatch[]> {
+  const response = await api.get<PayrollBatch[]>(`${base}/batches`)
+  return response.data
+}
+
+export async function openPayslipPdf(batchId: string, fileName: string): Promise<string> {
   const response = await api.get(`${base}/batches/${batchId}/payslips/${encodeURIComponent(fileName)}`, {
     responseType: 'blob',
   })
+  return window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
+}
+
+export async function downloadPayslipPdf(batchId: string, fileName: string, downloadName?: string): Promise<void> {
+  const response = await api.get(
+    `${base}/batches/${batchId}/payslips/${encodeURIComponent(fileName)}/download`,
+    { responseType: 'blob' }
+  )
   const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
-  window.open(url, '_blank', 'noopener,noreferrer')
+  const link = document.createElement('a')
+  link.href = url
+  link.setAttribute('download', downloadName || fileName)
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
 }
 
 export async function downloadUploadedExcel(batchId: string, fileName: string): Promise<void> {
@@ -147,4 +183,49 @@ export async function deletePayslip(batchId: string, fileName: string): Promise<
     `${base}/batches/${batchId}/payslips/${encodeURIComponent(fileName)}`
   )
   return response.data.batch
+}
+
+export async function getSendHistory(): Promise<SendHistoryEntry[]> {
+  const response = await api.get<SendHistoryEntry[]>(`${base}/send-history`)
+  return response.data
+}
+
+// ── Template management ───────────────────────────────────────────────────
+
+export interface TemplateMeta {
+  hasCustom: boolean
+  name?: string
+  uploadedAt?: string
+  size?: number
+}
+
+export async function getTemplateMeta(): Promise<TemplateMeta> {
+  const response = await api.get<TemplateMeta>(`${base}/template/meta`)
+  return response.data
+}
+
+export async function uploadCustomTemplate(file: File): Promise<TemplateMeta> {
+  const formData = new FormData()
+  formData.append('template', file)
+  const response = await api.post<TemplateMeta & { message: string }>(
+    `${base}/template/upload`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  )
+  return response.data
+}
+
+export async function previewTemplate(): Promise<void> {
+  const response = await api.get(`${base}/template`, { responseType: 'blob' })
+  const blob = new Blob([response.data], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.setAttribute('download', 'payroll_template.xlsx')
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
 }

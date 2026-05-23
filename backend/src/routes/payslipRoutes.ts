@@ -35,8 +35,13 @@ payslipRoutes.get(
   payslipController.downloadMyPayslip
 )
 
-// Demo template (always available)
+// Admin: payslip send history
+payslipRoutes.get('/send-history', authMiddleware, payslipController.getSendHistory)
+
+// Template management
 payslipRoutes.get('/template', payslipController.downloadTemplate)
+payslipRoutes.get('/template/meta', payslipController.getTemplateMeta)
+payslipRoutes.post('/template/upload', excelUpload.single('template'), payslipController.uploadCustomTemplate)
 
 // Upload payroll Excel and auto-generate PDF payslips
 payslipRoutes.post('/upload', excelUpload.single('payroll'), payslipController.uploadAndProcess)
@@ -47,6 +52,7 @@ payslipRoutes.get('/batches/latest', payslipController.getLatestBatch)
 payslipRoutes.get('/batches/:batchId', payslipController.getBatch)
 payslipRoutes.get('/batches/:batchId/excel', payslipController.downloadUploadedExcel)
 payslipRoutes.get('/batches/:batchId/payslips/:fileName', payslipController.downloadPayslipPdf)
+payslipRoutes.get('/batches/:batchId/payslips/:fileName/download', payslipController.downloadPayslipPdfAttachment)
 payslipRoutes.delete('/batches/:batchId', payslipController.deleteBatch)
 payslipRoutes.delete(
   '/batches/:batchId/payslips/:fileName',

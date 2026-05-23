@@ -11,6 +11,7 @@ import { Progress } from '@components/employee/ui/progress'
 import { useAuthStore } from '@store/authStore'
 import { announcements, leaveBalances, leaveChartData, holidays } from '@pages/employee/data/mockData'
 import { formatDate } from '@pages/employee/lib/utils'
+import { NotificationAlerts } from '@components/employee/NotificationAlerts'
 
 const weeklyTarget = 40
 const weeklyCompleted = 39.5
@@ -21,6 +22,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      <NotificationAlerts />
       <AnnouncementBanner announcements={announcements} />
       <ProfileCard employee={employee} />
 
