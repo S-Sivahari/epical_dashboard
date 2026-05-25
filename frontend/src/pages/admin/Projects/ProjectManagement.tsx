@@ -786,9 +786,6 @@ function ProjectCard({
           </div>
         </div>
 
-        <p className="mt-3.5 text-xs text-slate-500 line-clamp-3 leading-relaxed">
-          {project.description}
-        </p>
         <p className="mt-2 text-[10px] font-semibold text-slate-400">
           Visibility Scope: {visibilitySummary}
         </p>
@@ -885,9 +882,6 @@ function ProjectListRow({
           </span>
           <div className="min-w-0">
             <p className="font-bold text-slate-700 truncate">{project.name}</p>
-            <p className="text-[11px] text-slate-400 truncate max-w-[240px]" title={project.description}>
-              {project.description}
-            </p>
           </div>
         </div>
       </td>
@@ -2345,10 +2339,7 @@ export function ProjectManagement() {
                               <ArrowUpRight className="h-3 w-3 opacity-0 group-hover/btn:opacity-100 transition-all transform translate-y-0.5 group-hover/btn:translate-y-0 group-hover/btn:translate-x-0.5 text-emerald-500 shrink-0" />
                             </p>
                           </button>
-                          <p className="text-[10px] text-slate-400 font-semibold mt-0.5">{t.client} · {t.technologyNode}</p>
-                          <p className="mt-1 text-[10px] text-slate-500 font-medium truncate max-w-[220px]" title={t.task}>
-                            Task: {t.task}
-                          </p>
+                          {/* Only project name is rendered */}
                         </td>
 
                         {/* Login Time Column */}
