@@ -130,6 +130,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<boolean> {
   } catch (error) {
     console.error(`[Email Service] [ERROR] Failed to send email to ${to}:`, error);
     return false;
+  }
 }
 
 interface AutoCheckoutEmailParams {
