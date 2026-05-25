@@ -306,7 +306,7 @@ export const projectController = {
   // PUT /api/projects/:id
   update: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { name, client, technologyNode, accessType, description, visibleUsers, teamLead } = req.body;
+      const { name, client, technologyNode, accessType, description, visibleUsers, teamLead, status } = req.body;
 
       if (!name || !client || !technologyNode) {
         res.status(400).json({ error: 'Project Name, Client, and Technology Node are required' });
@@ -329,6 +329,11 @@ export const projectController = {
       project.allowedUsers = accessType === 'private' ? (visibleUsers || []) : [];
       project.teamLead = accessType === 'private' && teamLead ? String(teamLead).trim() : undefined;
 
+      const manualStatus = status && ['Completed', 'Cancelled'].includes(status);
+      if (manualStatus) {
+        project.status = status;
+      }
+
       const session = await mongoose.startSession();
       try {
         let updatedProject = project;
@@ -341,8 +346,10 @@ export const projectController = {
             { session }
           );
 
-          const syncResult = await updateProjectCompletionStatus(project._id, session);
-          updatedProject = syncResult?.project ?? project;
+          if (!manualStatus) {
+            const syncResult = await updateProjectCompletionStatus(project._id, session);
+            updatedProject = syncResult?.project ?? project;
+          }
         });
 
         await syncAssignedTasksForProject(updatedProject);
