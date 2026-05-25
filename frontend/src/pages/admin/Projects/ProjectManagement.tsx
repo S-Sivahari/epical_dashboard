@@ -16,7 +16,6 @@ import {
   Users,
   Search,
   X,
-  Trash2,
   Archive,
   FileDown,
   Calendar as CalendarIcon,
@@ -849,10 +848,10 @@ function ProjectCard({
           </button>
           <button
             onClick={onDelete}
-            className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-            title="Delete Project"
+            className="rounded-lg p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+            title="Archive Project"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Archive className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
@@ -958,10 +957,10 @@ function ProjectListRow({
           </button>
           <button
             onClick={onDelete}
-            className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-            title="Delete Project"
+            className="rounded-lg p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+            title="Archive Project"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Archive className="h-3.5 w-3.5" />
           </button>
         </div>
       </td>
@@ -1375,25 +1374,7 @@ export function ProjectManagement() {
     }
   }, [projectToDelete, refreshAllData])
 
-  const handleConfirmPermanentDelete = useCallback(async () => {
-    if (!projectToDelete) return
-    setDeleteConfirmOpen(false)
-    setLoading(true)
-    const pName = projectToDelete.name
-    try {
-      await api.delete(`/projects/${projectToDelete.id}`)
-      setTsProjectFilters((prev) => prev.filter((n) => n !== pName))
-      setFilterProjectNames((prev) => prev.filter((n) => n !== pName))
-      await refreshAllData()
-      toast.success(`Project "${pName}" and its associated logs have been permanently deleted.`)
-    } catch (err: any) {
-      console.error(err)
-      toast.error(err.response?.data?.error || 'Failed to permanently delete project.')
-    } finally {
-      setLoading(false)
-      setProjectToDelete(null)
-    }
-  }, [projectToDelete, refreshAllData])
+
   const clearProjectsFilters = useCallback(() => {
     setSearchQuery('')
     setFilterClients([])
@@ -2568,17 +2549,16 @@ export function ProjectManagement() {
         />
       )}
 
-      {/* Project Delete & Archive Choice Modal */}
+      {/* Project Archive Confirmation Modal */}
       {projectToDelete && (
-        <ProjectDeleteConfirmModal
+        <ProjectArchiveConfirmModal
           isOpen={deleteConfirmOpen}
           onClose={() => {
             setDeleteConfirmOpen(false)
             setProjectToDelete(null)
           }}
           projectName={projectToDelete.name}
-          onArchive={handleConfirmArchive}
-          onPermanentDelete={handleConfirmPermanentDelete}
+          onConfirm={handleConfirmArchive}
         />
       )}
 
@@ -2621,87 +2601,54 @@ function EmptyState({
 }
 
 /* ================================================================
-   COMPONENT – ProjectDeleteConfirmModal
+   COMPONENT – ProjectArchiveConfirmModal
    ================================================================ */
-interface ProjectDeleteConfirmModalProps {
+interface ProjectArchiveConfirmModalProps {
   isOpen: boolean
   onClose: () => void
   projectName: string
-  onArchive: () => void
-  onPermanentDelete: () => void
+  onConfirm: () => void
 }
 
-function ProjectDeleteConfirmModal({
+function ProjectArchiveConfirmModal({
   isOpen,
   onClose,
   projectName,
-  onArchive,
-  onPermanentDelete,
-}: ProjectDeleteConfirmModalProps) {
+  onConfirm,
+}: ProjectArchiveConfirmModalProps) {
   return (
     <Modal isOpen={isOpen} title="" onClose={onClose} size="md">
       {/* Sleek icon header */}
       <div className="-mt-10 mb-4 flex items-center gap-2">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-rose-700 shadow-md">
-          <Trash2 className="h-4 w-4 text-white" />
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 shadow-md">
+          <Archive className="h-4 w-4 text-white" />
         </div>
-        <h3 className="text-sm font-black text-slate-800 leading-tight">Delete or Archive Project?</h3>
+        <h3 className="text-sm font-black text-slate-800 leading-tight">Archive Project</h3>
       </div>
 
       <div className="space-y-4">
-        <p className="text-xs text-slate-500 font-bold leading-relaxed">
-          How would you like to handle the deletion of project <strong className="text-slate-800 font-extrabold">"{projectName}"</strong>?
+        <p className="text-xs text-slate-550 text-slate-500 font-bold leading-relaxed">
+          Are you sure you want to archive project <strong className="text-slate-800 font-extrabold">"{projectName}"</strong>?
+        </p>
+        <p className="text-xs text-slate-400 font-semibold leading-relaxed">
+          This will safely move the project and its complete history (assigned tasks and timesheet logs) to separate archived storage. Active dashboards stay clean. You can restore the project at any time.
         </p>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          {/* Archive option */}
-          <button
+        <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+          <Button
             type="button"
-            onClick={onArchive}
-            className="flex flex-col items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/20 p-4 text-center hover:bg-emerald-50/30 hover:border-emerald-300 transition-all duration-300 group focus:outline-none"
+            variant="secondary"
+            onClick={onClose}
+            className="rounded-xl font-bold py-2 px-4 text-xs h-9"
           >
-            <div className="rounded-xl bg-slate-100 p-2.5 text-slate-500 transition-transform group-hover:scale-110 group-hover:bg-emerald-100 group-hover:text-emerald-600">
-              <Archive className="h-5 w-5" />
-            </div>
-            <div className="mt-2.5 flex-1 flex flex-col justify-between">
-              <div>
-                <h4 className="text-xs font-bold text-slate-700 group-hover:text-emerald-700 transition-colors">Archive Project</h4>
-                <p className="mt-1 text-[10px] text-slate-400 font-semibold leading-normal">
-                  Safely moves the project and its complete history (assigned tasks and timesheet logs) to separate archived storage. Dashboards stay clean.
-                </p>
-              </div>
-              <span className="mt-3.5 inline-flex items-center justify-center rounded-xl bg-slate-100 px-3 py-1 text-[10px] font-bold text-slate-600 transition-all group-hover:bg-emerald-600 group-hover:text-white">
-                Archive Safe
-              </span>
-            </div>
-          </button>
-
-          {/* Permanent delete option */}
-          <button
-            type="button"
-            onClick={onPermanentDelete}
-            className="flex flex-col items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/20 p-4 text-center hover:bg-rose-50/30 hover:border-rose-300 transition-all duration-300 group focus:outline-none"
-          >
-            <div className="rounded-xl bg-slate-100 p-2.5 text-slate-500 transition-transform group-hover:scale-110 group-hover:bg-rose-100 group-hover:text-rose-600">
-              <Trash2 className="h-5 w-5" />
-            </div>
-            <div className="mt-2.5 flex-1 flex flex-col justify-between">
-              <div>
-                <h4 className="text-xs font-bold text-slate-700 group-hover:text-rose-700 transition-colors">Permanently Delete</h4>
-                <p className="mt-1 text-[10px] text-slate-400 font-semibold leading-normal">
-                  Irreversibly deletes the project, assigned tasks, and timesheet logs from the active database. This action is final and cannot be undone.
-                </p>
-              </div>
-              <span className="mt-3.5 inline-flex items-center justify-center rounded-xl bg-slate-100 px-3 py-1 text-[10px] font-bold text-slate-600 transition-all group-hover:bg-rose-600 group-hover:text-white">
-                Delete Forever
-              </span>
-            </div>
-          </button>
-        </div>
-
-        <div className="flex justify-end pt-2 border-t border-slate-100">
-          <Button variant="secondary" onClick={onClose} className="rounded-xl font-bold py-2 px-4 text-xs h-9">
             Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={onConfirm}
+            className="bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl py-2 px-4 text-xs h-9 border-0 shadow-sm"
+          >
+            Archive Project
           </Button>
         </div>
       </div>
