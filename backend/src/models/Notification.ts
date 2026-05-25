@@ -1,20 +1,39 @@
 import { ObjectId } from 'mongodb';
 
-export type NotificationType = 'LeaveSubmitted' | 'LeaveApproved' | 'LeaveRejected' | 'LeaveCancelled';
+export type NotificationType =
+  | 'LeaveSubmitted'
+  | 'LeaveApproved'
+  | 'LeaveRejected'
+  | 'LeaveCancelled'
+  | 'PayslipSent'
+  | 'HolidayAdded'
+  | 'HolidayUpdated'
+  | 'HolidayDeleted'
+  | 'HolidaySkipped';
 
 export interface Notification {
   _id?: ObjectId;
   id: string;
   recipientId: string;
-  recipientType: 'Employee' | 'Manager' | 'Admin';
+  recipientType?: 'Employee' | 'Manager' | 'Admin';
   type: NotificationType;
   title: string;
   message: string;
-  relatedData: {
+  relatedData?: {
     leaveId?: string;
     employeeId?: string;
     employeeName?: string;
+    employeeEmail?: string;
+    payslipId?: string;
+    batchId?: string;
+    payMonth?: string;
+    fileName?: string;
+    holidayId?: string;
+    holidayTitle?: string;
+    holidayDate?: string;
+    skippedReason?: string;
   };
+  relatedId?: string;
   isRead: boolean;
   createdAt?: Date;
   updatedAt?: Date;
@@ -22,13 +41,23 @@ export interface Notification {
 
 export interface CreateNotificationPayload {
   recipientId: string;
-  recipientType: 'Employee' | 'Manager' | 'Admin';
+  recipientType?: 'Employee' | 'Manager' | 'Admin';
   type: NotificationType;
   title: string;
   message: string;
-  relatedData: {
+  relatedData?: {
     leaveId?: string;
     employeeId?: string;
     employeeName?: string;
+    employeeEmail?: string;
+    payslipId?: string;
+    batchId?: string;
+    payMonth?: string;
+    fileName?: string;
+    holidayId?: string;
+    holidayTitle?: string;
+    holidayDate?: string;
+    skippedReason?: string;
   };
+  relatedId?: string;
 }

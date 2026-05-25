@@ -199,7 +199,7 @@ export function AdminCalendarView() {
               </div>
             </div>
             <Button size="sm" className="h-7 px-2.5 text-xs shadow-sm" onClick={() => setIsHolidayFormOpen(true)}>
-              <Plus className="h-3 w-3 mr-1" /> Add Holiday
+              <Plus className="h-3 w-3 mr-1" /> Add
             </Button>
           </div>
 
@@ -424,7 +424,15 @@ export function AdminCalendarView() {
                   {itemsOnSelectedDate.holidays.map((h) => (
                     <div key={h.id} className="text-sm p-2 rounded-lg bg-blue-50 border border-blue-100">
                       <span className="font-medium text-blue-900">{h.title}</span>
-                      <Badge variant={h.type === 'National' ? 'success' : h.type === 'Company' ? 'info' : 'neutral'} className="ml-2 text-xs">{h.type}</Badge>
+                      <Badge variant={
+                        h.type === 'National'
+                          ? 'success'
+                          : h.type === 'Company'
+                          ? 'info'
+                          : h.type === 'Company Event'
+                          ? 'warning'
+                          : 'neutral'
+                      } className="ml-2 text-xs">{h.type}</Badge>
                     </div>
                   ))}
                 </div>
@@ -460,9 +468,10 @@ export function AdminCalendarView() {
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-ink">Type</label>
-              <select value={type} onChange={(e) => setType(e.target.value as 'National' | 'Company' | 'Optional')} className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+              <select value={type} onChange={(e) => setType(e.target.value as 'National' | 'Company' | 'Company Event' | 'Optional')} className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
                 <option value="National">National Holiday</option>
                 <option value="Company">Company Holiday</option>
+                <option value="Company Event">Company Event</option>
                 <option value="Optional">Optional Holiday</option>
               </select>
             </div>

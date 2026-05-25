@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import * as leaveService from '@services/leaveService'
+import { useLeaveStore as useGlobalLeaveStore } from '@store/leaveStore'
 
 export const useLeaveStore = create((set) => ({
   requests: [],
@@ -19,5 +20,12 @@ export const useLeaveStore = create((set) => ({
     set((s) => ({
       requests: [res, ...s.requests],
     }))
+
+    const globalFetch = useGlobalLeaveStore.getState().fetchLeaves
+    if (typeof globalFetch === 'function') {
+      await globalFetch()
+    }
+
+    return res
   },
 }))

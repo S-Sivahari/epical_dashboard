@@ -1781,11 +1781,7 @@ export function ProjectManagement() {
         <div>
           <Breadcrumb items={[{ label: 'Admin Dashboard' }, { label: 'Projects & Timesheets' }]} />
           <h1 className="mt-2 font-display text-2xl font-black tracking-tight text-slate-800">
-            Projects &amp; Timesheets Manager
           </h1>
-          <p className="text-sm font-medium text-slate-400">
-            Enterprise dashboard to review system projects, access visibility lists, and track employee hours.
-          </p>
         </div>
 
         {/* Header CTA Trigger */}

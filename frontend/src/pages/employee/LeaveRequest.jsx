@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useNavigate } from 'react-router-dom'
-import { Calendar } from 'lucide-react'
+import { Calendar, AlertTriangle, X } from 'lucide-react'
 import { Button } from '@components/employee/ui/button'
 import { Input } from '@components/employee/ui/input'
 import { Label } from '@components/employee/ui/label'
@@ -64,16 +64,100 @@ export default function LeaveRequest() {
   const [leaveBalances, setLeaveBalances] = useState([])
   const [holidays, setHolidays] = useState([])
 
-  const { register, handleSubmit, setValue, watch, reset, formState: { errors, isSubmitting } } = useForm({
+  const { control, register, handleSubmit, setValue, watch, reset, setError, clearErrors, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(leaveSchema),
     defaultValues: {
       leaveDuration: 'Full Day',
+      type: '',
+      halfDaySession: '',
     },
   })
 
   const leaveDuration = watch('leaveDuration')
   const fromDate = watch('fromDate')
   const toDate = watch('toDate')
+  const halfDaySession = watch('halfDaySession')
+
+  const [conflictMessage, setConflictMessage] = useState('')
+  const [holidayWarning, setHolidayWarning] = useState('')
+
+  // Cancel pending leave modal
+  const [cancelModalOpen, setCancelModalOpen] = useState(false)
+  const [leaveToCancel, setLeaveToCancel] = useState(null)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelError, setCancelError] = useState('')
+  const [cancelling, setCancelling] = useState(false)
+  const cancelReasonRef = useRef(null)
+
+  const normalizeDate = (date) => {
+    if (!date) return ''
+    const d = new Date(date)
+    return d.toISOString().slice(0, 10)
+  }
+
+  const getDateRange = (start, end) => {
+    const startDate = new Date(start)
+    const endDate = new Date(end)
+    const dates = []
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      dates.push(d.toISOString().slice(0, 10))
+    }
+    return dates
+  }
+
+  const getRequestDates = (request) => {
+    const start = normalizeDate(request.from)
+    const end = normalizeDate(request.to)
+    if (request.leaveDuration === 'Half Day') {
+      return [{ date: start, session: request.halfDaySession }]
+    }
+    return getDateRange(start, end).map((date) => ({ date, session: 'Full Day' }))
+  }
+
+  const validateLeaveConflict = () => {
+    if (!user || !fromDate || !toDate || !leaveDuration) {
+      return { message: '', fields: [] }
+    }
+
+    const selectedFrom = normalizeDate(fromDate)
+    const selectedTo = normalizeDate(toDate)
+    if (!selectedFrom || !selectedTo) {
+      return { message: '', fields: [] }
+    }
+
+    const selectedDates = getDateRange(selectedFrom, selectedTo)
+    const selectedEntries = selectedDates.map((date) => ({ date, session: leaveDuration === 'Half Day' ? halfDaySession : 'Full Day' }))
+    const existing = requests.filter(
+      (r) => r.employeeId === user.id && ['Approved', 'Pending'].includes(r.status)
+    )
+
+    for (const request of existing) {
+      const requestEntries = getRequestDates(request)
+      for (const selectedEntry of selectedEntries) {
+        for (const requestEntry of requestEntries) {
+          const sameDate = selectedEntry.date === requestEntry.date
+          if (!sameDate) continue
+
+          if (selectedEntry.session === 'Full Day' || requestEntry.session === 'Full Day') {
+            return {
+              message: 'Selected dates overlap with an existing full-day or half-day leave request.',
+              fields: ['fromDate', 'toDate', 'halfDaySession'],
+            }
+          }
+
+          if (selectedEntry.session === requestEntry.session) {
+            const sessionLabel = selectedEntry.session === 'First Half' ? 'Morning' : 'Evening'
+            return {
+              message: `${sessionLabel} half-day leave already exists for the selected date.`,
+              fields: ['fromDate', 'toDate', 'halfDaySession'],
+            }
+          }
+        }
+      }
+    }
+
+    return { message: '', fields: [] }
+  }
 
   useEffect(() => {
     // Initial fetch
@@ -123,33 +207,137 @@ export default function LeaveRequest() {
     }
   }, [leaveDuration, fromDate, setValue])
 
+  useEffect(() => {
+    if (errors.fromDate?.type === 'manual' || errors.toDate?.type === 'manual') {
+      clearErrors(['fromDate', 'toDate'])
+    }
+  }, [fromDate, toDate, errors.fromDate, errors.toDate, clearErrors])
+
+  useEffect(() => {
+    const conflict = validateLeaveConflict()
+    setConflictMessage(conflict.message)
+
+    clearErrors(['fromDate', 'toDate', 'halfDaySession'])
+    if (conflict.message) {
+      conflict.fields.forEach((field) => {
+        setError(field, { type: 'manual', message: conflict.message })
+      })
+    }
+  }, [fromDate, toDate, leaveDuration, halfDaySession, requests, user, setError, clearErrors])
+
+  // Holiday guidance: check if selected date range contains holidays/weekends
+  useEffect(() => {
+    if (!fromDate || !toDate) { setHolidayWarning(''); return }
+    const start = new Date(fromDate)
+    const end = new Date(toDate)
+    if (end < start) { setHolidayWarning(''); return }
+
+    const holidayHits = []
+    let weekendCount = 0
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const iso = d.toISOString().slice(0, 10)
+      const dow = d.getDay()
+      if (dow === 0 || dow === 6) {
+        weekendCount++
+      } else {
+        const hol = holidays.find((h) => h.date === iso)
+        if (hol) holidayHits.push(hol.name)
+      }
+    }
+
+    const parts = []
+    if (holidayHits.length > 0) {
+      parts.push(`${holidayHits.length} holiday${holidayHits.length > 1 ? 's' : ''} (${holidayHits.join(', ')})`)
+    }
+    if (weekendCount > 0) {
+      parts.push(`${weekendCount} weekend day${weekendCount > 1 ? 's' : ''}`)
+    }
+
+    if (parts.length > 0) {
+      setHolidayWarning(`Your selection includes ${parts.join(' and ')} which will not count as leave days.`)
+    } else {
+      setHolidayWarning('')
+    }
+  }, [fromDate, toDate, holidays])
+
   const filtered = requests.filter((r) => {
     const matchSearch = !search || r.type.toLowerCase().includes(search.toLowerCase()) || r.reason.toLowerCase().includes(search.toLowerCase())
     const matchStatus = statusFilter === 'all' || r.status.toLowerCase() === statusFilter
     return matchSearch && matchStatus
   })
 
+  const onError = (errors) => {
+    console.log('Leave request validation failed', errors)
+    toast({ title: 'Validation error', description: 'Please complete all required fields before submitting.' })
+  }
+
+  const openCancelModal = (leave) => {
+    setLeaveToCancel(leave)
+    setCancelReason('')
+    setCancelError('')
+    setCancelModalOpen(true)
+    setTimeout(() => cancelReasonRef.current?.focus(), 50)
+  }
+
+  const handleCancelConfirm = async () => {
+    const reason = cancelReason.trim()
+    if (!reason) { setCancelError('Please provide a reason for withdrawing.'); return }
+    setCancelling(true)
+    try {
+      await leaveService.cancelLeave(leaveToCancel.id, reason)
+      toast({ title: 'Withdrawn', description: 'Your leave request has been withdrawn.' })
+      setCancelModalOpen(false)
+      setLeaveToCancel(null)
+      fetchRequests()
+    } catch (err) {
+      toast({ title: 'Error', description: err?.response?.data?.error || 'Failed to withdraw leave request' })
+    } finally {
+      setCancelling(false)
+    }
+  }
+
   const pendingLeaves = requests.filter((r) => r.status === 'Pending')
-  
   const historyLeaves = filtered.filter((r) => r.status !== 'Pending')
 
   const onSubmit = async (data) => {
+    console.log('Leave request submitted', data)
     if (!user) {
       toast({ title: 'Error', description: 'User not authenticated' })
       return
     }
+
+    const currentFrom = new Date(data.fromDate)
+    const currentTo = new Date(data.toDate)
+
+    if (currentTo < currentFrom) {
+      setError('toDate', { type: 'manual', message: 'End date must be the same or after the start date' })
+      return
+    }
+
+    const conflict = validateLeaveConflict()
+    if (conflict.message) {
+      conflict.fields.forEach((field) => {
+        setError(field, { type: 'manual', message: conflict.message })
+      })
+      toast({ title: 'Validation error', description: conflict.message })
+      return
+    }
+
+    clearErrors(['fromDate', 'toDate', 'halfDaySession'])
 
     try {
       await addRequest({
         employeeId: user.id,
         employeeName: user.name,
         type: data.type,
+        leaveDuration: data.leaveDuration,
+        halfDaySession: data.leaveDuration === 'Half Day' ? data.halfDaySession : undefined,
         from: data.fromDate,
         to: data.toDate,
         reason: data.reason,
       })
       toast({ title: 'Success', description: 'Leave request submitted successfully!' })
-      reset({ leaveDuration: 'Full Day' })
+      reset({ leaveDuration: 'Full Day', type: '', halfDaySession: '', fromDate: '', toDate: '', reason: '' })
       
       // Refresh balances and notifications after submission
       const newBalances = await leaveService.getBalances()
@@ -178,6 +366,7 @@ export default function LeaveRequest() {
           Calendar
         </button>
       </div>
+
 
       {/* Apply Leave Form & Leave Balances & Pending Requests */}
       <div className="grid gap-6 lg:grid-cols-3">
@@ -239,6 +428,12 @@ export default function LeaveRequest() {
                 {errors.toDate && <p className="mt-1 text-xs text-danger">{errors.toDate.message}</p>}
               </div>
             </div>
+            {holidayWarning && (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-600" />
+                <span>{holidayWarning}</span>
+              </div>
+            )}
             <div>
               <Label>Reason *</Label>
               <Textarea className="mt-1" {...register('reason')} placeholder="Reason for leave" />
@@ -253,6 +448,7 @@ export default function LeaveRequest() {
           {/* Leave Balance */}
           <div className="rounded-xl border border-border bg-card p-6 shadow-card">
             <h3 className="font-heading text-lg font-semibold mb-4">Leave Balance</h3>
+
             <div className="space-y-3">
               {leaveBalances.map((lb) => (
                 <LeaveCard key={lb.key} type={lb.type} used={lb.used} total={lb.total} color={lb.color} />
@@ -275,9 +471,20 @@ export default function LeaveRequest() {
                         <p className="text-xs text-muted mt-1">{req.from} to {req.to} ({req.days} days)</p>
                         <p className="text-xs text-muted mt-1">{req.reason}</p>
                       </div>
-                      <span className="px-2 py-1 rounded text-xs font-medium whitespace-nowrap text-yellow-700 bg-yellow-200">
-                        Pending
-                      </span>
+                      <div className="flex flex-col items-end gap-2">
+                        <span className="px-2 py-1 rounded text-xs font-medium whitespace-nowrap text-yellow-700 bg-yellow-200">
+                          Pending
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => openCancelModal(req)}
+                          className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 border border-red-200 transition-colors"
+                          title="Withdraw this request"
+                        >
+                          <X className="h-3 w-3" />
+                          Withdraw
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -299,11 +506,59 @@ export default function LeaveRequest() {
               { value: 'all', label: 'All Status' },
               { value: 'approved', label: 'Approved' },
               { value: 'rejected', label: 'Rejected' },
+              { value: 'cancelled', label: 'Cancelled' },
             ]}
           />
         </div>
         <DataTable columns={columns} data={historyLeaves} statusKey="status" />
       </div>
+
+      {/* Withdraw Pending Leave Modal */}
+      {cancelModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl space-y-4">
+            <h2 className="font-heading text-lg font-semibold">Withdraw Leave Request</h2>
+            <p className="text-sm text-muted">
+              Are you sure you want to withdraw your{' '}
+              <span className="font-medium text-ink">{leaveToCancel?.type}</span> request
+              ({leaveToCancel?.from} → {leaveToCancel?.to})?
+            </p>
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-ink">
+                Reason <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                ref={cancelReasonRef}
+                value={cancelReason}
+                onChange={(e) => { setCancelReason(e.target.value); if (cancelError) setCancelError('') }}
+                placeholder="Why are you withdrawing this request?"
+                className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 resize-none ${
+                  cancelError ? 'border-red-400 focus:ring-red-200' : 'border-border focus:ring-primary/30'
+                }`}
+                rows={3}
+              />
+              {cancelError && <p className="text-xs text-red-500">{cancelError}</p>}
+            </div>
+            <div className="flex justify-end gap-3 pt-1 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setCancelModalOpen(false)}
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-ink hover:bg-surface transition-colors"
+              >
+                Keep Request
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelConfirm}
+                disabled={cancelling}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {cancelling ? 'Withdrawing...' : 'Withdraw Request'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

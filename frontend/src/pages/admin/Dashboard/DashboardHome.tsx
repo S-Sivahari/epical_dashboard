@@ -138,7 +138,7 @@ export function DashboardHome() {
   return (
     <PageWrapper>
       <PageHeader
-        title="Dashboard"
+        title=""
         subtitle="Operational snapshot across people, leaves, and work."
         breadcrumb={<Breadcrumb items={[{ label: 'Dashboard' }]} />}
       />

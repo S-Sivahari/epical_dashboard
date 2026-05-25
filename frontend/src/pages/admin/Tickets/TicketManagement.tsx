@@ -66,7 +66,7 @@ export function TicketManagement() {
 
   return (
     <PageWrapper>
-      <PageHeader title="Tickets" breadcrumb={<Breadcrumb items={[{ label: 'Tickets' }]} />} />
+      <PageHeader title="" breadcrumb={<Breadcrumb items={[{ label: 'Tickets' }]} />} />
       <div className="mb-4 flex flex-wrap gap-3 rounded-xl border border-border bg-surface/60 p-4">
         <Input label="Search" value={q} onChange={(e) => setQ(e.target.value)} />
         <SelectField

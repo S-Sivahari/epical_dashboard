@@ -12,6 +12,27 @@ function titleCase(slug: string) {
   return slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
+// Map routes to their display titles
+const routeTitles: Record<string, string> = {
+  '/admin': 'Dashboard',
+  '/admin/dashboard': 'Dashboard',
+  '/employee': 'Dashboard',
+  '/admin/employees': 'Manage Employees',
+  '/admin/leaves': 'Manage Leaves',
+  '/admin/holidays': 'Company Holidays',
+  '/admin/projects': 'Manage Projects',
+  '/admin/tickets': 'Manage Tickets',
+  '/admin/timesheets': 'Manage Timesheets',
+  '/admin/payslips': 'Manage Payslips',
+  '/admin/calendar': 'Company Calendar',
+  '/admin/news': 'Company News',
+  '/admin/documents': 'Manage Documents',
+  '/admin/settings': 'Settings',
+  '/admin/analytics': 'Analytics',
+  '/admin/achievements': 'Achievements',
+  '/admin/training': 'Training & Courses',
+}
+
 export function Navbar() {
   const { pathname } = useLocation()
   const user = useAuthStore((s) => s.user)
@@ -20,8 +41,18 @@ export function Navbar() {
   const isLg = useMediaQuery('(min-width: 1024px)')
 
   const title = useMemo(() => {
-    if (pathname === '/admin' || pathname === '/employee') return 'Dashboard'
+    // Check if there's a direct route mapping
+    if (routeTitles[pathname]) return routeTitles[pathname]
+    
+    // For sub-routes (like /admin/employees/1), use parent route
     const parts = pathname.split('/').filter(Boolean)
+    if (parts.length > 2) {
+      const parentPath = `/${parts[0]}/${parts[1]}`
+      if (routeTitles[parentPath]) return routeTitles[parentPath]
+    }
+
+    // Fallback to title case
+    if (pathname === '/admin' || pathname === '/employee') return 'Dashboard'
     const last = parts[parts.length - 1] ?? 'dashboard'
     if (last.match(/^[a-z0-9-]+$/i) && last.length < 24) return titleCase(last)
     return APP_SHORT_NAME

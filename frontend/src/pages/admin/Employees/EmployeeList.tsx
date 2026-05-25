@@ -1,19 +1,15 @@
 import { Link } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Plus, Download } from 'lucide-react'
-import { Breadcrumb } from '@components/layout/Breadcrumb'
-import { PageHeader } from '@components/layout/PageHeader'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
-import { Input } from '@components/ui/Input'
 import { Badge } from '@components/ui/Badge'
 import { Avatar } from '@components/ui/Avatar'
+import { Modal } from '@components/ui/Modal'
 import { DataTable, type Column } from '@components/tables/DataTable'
-import { FilterBar } from '@components/tables/FilterBar'
 import { PaginationBar } from '@components/tables/Pagination'
 import { SelectField } from '@components/forms/SelectField'
 import { useEmployees } from '@hooks/useEmployees'
-import { useDebounce } from '@hooks/useDebounce'
 import type { Employee } from '@/types'
 import { stringToHueColor } from '@/utils/stringColor'
 import * as employeeService from '@services/employeeService'
@@ -47,20 +43,28 @@ export function EmployeeList() {
 
   const user = useAuthStore((s) => s.user)
 
-  const [nameQuery, setNameQuery] = useState(filters.name)
-  const [idQuery, setIdQuery] = useState(filters.employeeId)
+  const [allEmployees, setAllEmployees] = useState<Employee[]>([])
   const [savingStatusId, setSavingStatusId] = useState<string | null>(null)
   const [exporting, setExporting] = useState<'excel' | 'pdf' | null>(null)
 
-  const dqName = useDebounce(nameQuery, 300)
-  const dqId = useDebounce(idQuery, 300)
+  // Status change confirmation modal
+  const [statusModalOpen, setStatusModalOpen] = useState(false)
+  const [pendingStatusChange, setPendingStatusChange] = useState<{ employee: Employee; newStatus: Employee['status'] } | null>(null)
+  const [statusChangeReason, setStatusChangeReason] = useState('')
+  const [statusReasonError, setStatusReasonError] = useState('')
+  const reasonInputRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    employeeService.getEmployees({ pageSize: 1000 })
+      .then((res) => setAllEmployees(res.data))
+      .catch(() => {})
+  }, [])
 
   const handleExport = async (format: 'excel' | 'pdf') => {
     setExporting(format)
     try {
       const res = await employeeService.getEmployees({
         name: filters.name || undefined,
-        employeeId: filters.employeeId || undefined,
         department: filters.department,
         employmentType: filters.employmentType,
         status: filters.status,
@@ -78,7 +82,7 @@ export function EmployeeList() {
 
       const exportDate = new Date().toISOString().split('T')[0]
       // Check if this is an active directory export (only Active status filter applied)
-      const isActiveDirectoryExport = filters.status === 'Active' && !filters.name && !filters.employeeId && !filters.department && !filters.employmentType
+      const isActiveDirectoryExport = filters.status === 'Active' && !filters.name && !filters.department && !filters.employmentType
       
       let filename = `EpicalLayouts_EmployeeDetails_${exportDate}`
       if (isActiveDirectoryExport) {
@@ -150,7 +154,6 @@ export function EmployeeList() {
         generatedBy: user?.name || 'Admin',
         filters: {
           name: filters.name,
-          employeeId: filters.employeeId,
           department: filters.department,
           employmentType: filters.employmentType,
           status: filters.status,
@@ -169,9 +172,6 @@ export function EmployeeList() {
     }
   }
 
-  useEffect(() => {
-    setFilters({ name: dqName, employeeId: dqId })
-  }, [dqName, dqId, setFilters])
 
   const statusVariant = (s: string) => {
     switch (s) {
@@ -183,17 +183,34 @@ export function EmployeeList() {
     }
   }
 
-  const handleAccountStatusChange = async (employee: Employee, status: Employee['status']) => {
+  const requestStatusChange = (employee: Employee, status: Employee['status']) => {
     if (employee.status === status) return
+    setPendingStatusChange({ employee, newStatus: status })
+    setStatusChangeReason('')
+    setStatusReasonError('')
+    setStatusModalOpen(true)
+    setTimeout(() => reasonInputRef.current?.focus(), 50)
+  }
 
+  const confirmStatusChange = async () => {
+    if (!pendingStatusChange) return
+    const reason = statusChangeReason.trim()
+    if (!reason) {
+      setStatusReasonError('Please provide a reason for the status change.')
+      return
+    }
+    const { employee, newStatus } = pendingStatusChange
+    setStatusModalOpen(false)
     setSavingStatusId(employee.id)
     try {
-      await updateEmployeeStatus(employee.id, status)
-      toast.success(`${employee.firstName} ${employee.lastName ?? ''}`.trim() + ` set to ${status}`)
+      await updateEmployeeStatus(employee.id, newStatus)
+      toast.success(`${employee.firstName} ${employee.lastName ?? ''}`.trim() + ` set to ${newStatus}`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not update status')
     } finally {
       setSavingStatusId(null)
+      setPendingStatusChange(null)
+      setStatusChangeReason('')
     }
   }
 
@@ -267,7 +284,7 @@ export function EmployeeList() {
             value={e.status}
             disabled={savingStatusId === e.id}
             onChange={(event) =>
-              void handleAccountStatusChange(e, event.target.value as Employee['status'])
+              requestStatusChange(e, event.target.value as Employee['status'])
             }
             className="h-8 min-w-[132px] px-2 text-xs"
             options={STATUS_OPTIONS}
@@ -279,73 +296,75 @@ export function EmployeeList() {
 
   return (
     <PageWrapper>
-      <PageHeader
-        title="Employees"
-        breadcrumb={<Breadcrumb items={[{ label: 'Employees', to: '/admin/employees' }]} />}
-        actions={
-          <div className="flex gap-3">
-            <Button
-              variant="secondary"
-              onClick={() => handleExport('pdf')}
-              loading={exporting === 'pdf'}
+      <div className="mb-4 flex flex-col gap-3 rounded-xl border border-border bg-surface/50 p-4 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+        <div className="flex w-full flex-nowrap gap-3 items-center flex-1">
+          <div className="flex-1 min-w-0">
+            <select
+              value={filters.name}
+              onChange={(e) => setFilters({ name: e.target.value === 'all' ? '' : e.target.value })}
+              className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-ink shadow-sm outline-none transition-ui focus:border-primary focus:ring-2 focus:ring-primary/20"
             >
-              <Download className="h-4 w-4" />
-              PDF
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => handleExport('excel')}
-              loading={exporting === 'excel'}
-            >
-              <Download className="h-4 w-4" />
-              Excel
-            </Button>
-            <Button asChild>
-              <Link to="/admin/employees/add">
-                <Plus className="h-4 w-4" />
-                Add Employee
-              </Link>
-            </Button>
+              <option value="all">All employees</option>
+              {allEmployees.map((emp) => {
+                const fullName = `${emp.firstName} ${emp.lastName ?? ''}`.trim()
+                return (
+                  <option key={emp.id} value={fullName}>
+                    {emp.employeeId ? `${emp.employeeId} — ${fullName}` : fullName}
+                  </option>
+                )
+              })}
+            </select>
           </div>
-        }
-      />
-
-      <FilterBar>
-        <div className="grid w-full gap-3 md:grid-cols-4">
-          <Input
-            label="Employee name"
-            placeholder="Search by name"
-            value={nameQuery}
-            onChange={(e) => setNameQuery(e.target.value)}
-          />
-          <Input
-            label="Employee ID"
-            placeholder="Search by employee ID"
-            value={idQuery}
-            onChange={(e) => setIdQuery(e.target.value)}
-          />
-          <SelectField
-            label="Employment type"
-            value={filters.employmentType}
-            onChange={(e) => setFilters({ employmentType: e.target.value })}
-            options={[
-              { value: 'all', label: 'All types' },
-              { value: 'Full-time', label: 'Full-time' },
-              { value: 'Contract', label: 'Contract' },
-              { value: 'Intern', label: 'Intern' },
-            ]}
-          />
-          <SelectField
-            label="Status"
-            value={filters.status}
-            onChange={(e) => setFilters({ status: e.target.value })}
-            options={[
-              { value: 'all', label: 'All statuses' },
-              ...STATUS_OPTIONS,
-            ]}
-          />
+          <div className="flex-1 min-w-0">
+            <select
+              value={filters.employmentType}
+              onChange={(e) => setFilters({ employmentType: e.target.value })}
+              className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-ink shadow-sm outline-none transition-ui focus:border-primary focus:ring-2 focus:ring-primary/20"
+            >
+              <option value="all">All types</option>
+              <option value="Full-time">Full-time</option>
+              <option value="Contract">Contract</option>
+              <option value="Intern">Intern</option>
+            </select>
+          </div>
+          <div className="flex-1 min-w-0">
+            <select
+              value={filters.status}
+              onChange={(e) => setFilters({ status: e.target.value })}
+              className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-ink shadow-sm outline-none transition-ui focus:border-primary focus:ring-2 focus:ring-primary/20"
+            >
+              <option value="all">All statuses</option>
+              {STATUS_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
         </div>
-      </FilterBar>
+        <div className="flex gap-3">
+          <Button
+            variant="secondary"
+            onClick={() => handleExport('pdf')}
+            loading={exporting === 'pdf'}
+          >
+            <Download className="h-4 w-4" />
+            PDF
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => handleExport('excel')}
+            loading={exporting === 'excel'}
+          >
+            <Download className="h-4 w-4" />
+            Excel
+          </Button>
+          <Button asChild>
+            <Link to="/admin/employees/add">
+              <Plus className="h-4 w-4" />
+              Add Employee
+            </Link>
+          </Button>
+        </div>
+      </div>
 
       <div className="space-y-12 pb-12">
         <section>
@@ -378,6 +397,57 @@ export function EmployeeList() {
         </section>
       </div>
 
+      {/* Status Change Confirmation Modal */}
+      <Modal
+        isOpen={statusModalOpen}
+        onClose={() => setStatusModalOpen(false)}
+        title="Confirm Status Change"
+        size="sm"
+      >
+        {pendingStatusChange && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted">
+              You are about to change{' '}
+              <span className="font-semibold text-ink">
+                {pendingStatusChange.employee.firstName} {pendingStatusChange.employee.lastName}
+              </span>
+              's status from{' '}
+              <span className="font-semibold text-ink">{pendingStatusChange.employee.status}</span>
+              {' '}to{' '}
+              <span className="font-semibold text-ink">{pendingStatusChange.newStatus}</span>.
+            </p>
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-ink">
+                Reason <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                ref={reasonInputRef}
+                value={statusChangeReason}
+                onChange={(e) => {
+                  setStatusChangeReason(e.target.value)
+                  if (statusReasonError) setStatusReasonError('')
+                }}
+                placeholder="Provide a reason for this status change..."
+                className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 resize-none transition-shadow ${
+                  statusReasonError ? 'border-red-500 focus:ring-red-200' : 'border-border focus:ring-primary/30'
+                }`}
+                rows={3}
+              />
+              {statusReasonError && (
+                <p className="text-xs text-red-500 font-medium">{statusReasonError}</p>
+              )}
+            </div>
+            <div className="flex justify-end gap-3 pt-2 border-t border-border">
+              <Button variant="secondary" onClick={() => setStatusModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => void confirmStatusChange()}>
+                Confirm Change
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </PageWrapper>
   )
 }

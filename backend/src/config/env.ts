@@ -19,7 +19,7 @@ export const env = {
   ADMIN_NAME: process.env.ADMIN_NAME || 'Admin User',
   CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:5173',
 
-  // SMTP / Email
+  // SMTP / Email (Uppercase & Camelcase options for compatibility)
   SMTP_HOST: process.env.SMTP_HOST || 'smtp.gmail.com',
   SMTP_PORT: parseInt(process.env.SMTP_PORT || '587', 10),
   SMTP_SECURE: process.env.SMTP_SECURE === 'true',
@@ -30,4 +30,11 @@ export const env = {
   // Auto-Checkout defaults (HH:mm 24-hour format)
   DEFAULT_REMINDER_TIME: process.env.DEFAULT_REMINDER_TIME || '21:00',
   DEFAULT_AUTO_CHECKOUT_TIME: process.env.DEFAULT_AUTO_CHECKOUT_TIME || '00:00',
+
+  enableEmailNotifications: process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true',
+  smtpHost: process.env.SMTP_HOST || 'smtp.gmail.com',
+  smtpPort: parseInt(process.env.SMTP_PORT || '587', 10),
+  smtpUser: process.env.SMTP_USER || '',
+  smtpPass: process.env.SMTP_PASS || '',
+  smtpFrom: process.env.SMTP_FROM || 'no-reply@company.com',
 };

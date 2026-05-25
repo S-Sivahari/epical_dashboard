@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Download, FileText } from 'lucide-react'
+import { Download, FileText, ExternalLink, Loader } from 'lucide-react'
+import { getMyPayslips, openMyPayslipPdf } from '@services/payslipService'
 import { Button } from '@components/employee/ui/button'
 import { Input } from '@components/employee/ui/input'
 import { Label } from '@components/employee/ui/label'
@@ -23,7 +24,6 @@ import {
   documentTypes,
   documentRequests,
   approvedDocuments,
-  payslips,
 } from '@pages/employee/data/mockData'
 
 const schema = z.object({
@@ -44,6 +44,26 @@ export default function DocumentRequest() {
   const { toast } = useToast()
   const [requests, setRequests] = useState(documentRequests)
   const [search, setSearch] = useState('')
+  const [payslips, setPayslips] = useState([])
+  const [payslipsLoading, setPayslipsLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    setPayslipsLoading(true)
+    getMyPayslips()
+      .then((data) => {
+        if (!cancelled) setPayslips(data)
+      })
+      .catch(() => {
+        if (!cancelled) setPayslips([])
+      })
+      .finally(() => {
+        if (!cancelled) setPayslipsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const {
     register,
@@ -150,22 +170,42 @@ export default function DocumentRequest() {
       <div className="rounded-xl border border-border bg-card p-6 shadow-card">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="font-heading text-lg font-semibold">Payslips</h3>
-          <p className="text-sm text-muted">Employee ID: {employee?.id}</p>
+          <p className="text-sm text-muted">Sent by HR to your dashboard</p>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {payslips.map((p) => (
-            <div
-              key={p.id}
-              className="rounded-xl border border-border p-4 hover:shadow-card-hover transition-shadow"
-            >
-              <p className="font-medium">{p.month}</p>
-              <p className="text-lg font-bold text-primary">{p.amount}</p>
-              <Button size="sm" variant="outline" className="mt-3 w-full gap-1">
-                <Download className="h-3.5 w-3.5" /> Download
-              </Button>
-            </div>
-          ))}
-        </div>
+        {payslipsLoading ? (
+          <div className="flex items-center justify-center gap-2 py-8 text-muted">
+            <Loader className="h-5 w-5 animate-spin" />
+            Loading payslips…
+          </div>
+        ) : payslips.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted">
+            No payslips yet. They will appear here after HR sends them from Payslip Management.
+          </p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-3">
+            {payslips.map((p) => (
+              <div
+                key={p.id}
+                className="rounded-xl border border-border p-4 hover:shadow-card-hover transition-shadow"
+              >
+                <p className="font-medium">{p.payMonth}</p>
+                <p className="text-xs text-muted">
+                  Sent {new Date(p.sentAt).toLocaleDateString()}
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 gap-1"
+                    onClick={() => openMyPayslipPdf(p.id)}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" /> View PDF
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div>
