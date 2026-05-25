@@ -157,12 +157,12 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 export async function startServer() {
   try {
     await connectDB();
-    await initScheduler();
     app.listen(env.port, () => {
       console.log(`✓ Server running on http://localhost:${env.port}`);
       console.log(`✓ API base:    http://localhost:${env.port}/api`);
       console.log(`✓ Seed data:   POST http://localhost:${env.port}/api/seed`);
     });
+    initScheduler().catch((err) => console.error('⚠ Scheduler init failed (non-fatal):', err));
   } catch (error) {
     console.error('✗ Failed to start server:', error);
     process.exit(1);

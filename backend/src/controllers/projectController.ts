@@ -329,9 +329,11 @@ export const projectController = {
       project.allowedUsers = accessType === 'private' ? (visibleUsers || []) : [];
       project.teamLead = accessType === 'private' && teamLead ? String(teamLead).trim() : undefined;
 
-      const manualStatus = status && ['Completed', 'Cancelled'].includes(status);
-      if (manualStatus) {
+      const isTerminalStatus = status && ['Completed', 'Cancelled'].includes(status);
+      if (isTerminalStatus) {
         project.status = status;
+      } else if (status === 'Active' && (project.status === 'Cancelled' || project.status === 'Rejected' || project.status === 'Completed')) {
+        project.status = 'Active';
       }
 
       const session = await mongoose.startSession();
@@ -346,7 +348,7 @@ export const projectController = {
             { session }
           );
 
-          if (!manualStatus) {
+          if (!isTerminalStatus) {
             const syncResult = await updateProjectCompletionStatus(project._id, session);
             updatedProject = syncResult?.project ?? project;
           }
@@ -865,6 +867,7 @@ export const projectController = {
   },
 
   // POST /api/projects/:id/archive
+  // Archives a project regardless of its status (Active, Completed, Cancelled, etc.)
   archiveProject: async (req: Request, res: Response): Promise<void> => {
     try {
       const projectId = String(req.params.id);
@@ -878,6 +881,8 @@ export const projectController = {
         res.status(404).json({ error: 'Project not found' });
         return;
       }
+      
+      // Archive is allowed for all project statuses
 
       // Fetch history (timesheets and assigned tasks)
       const timesheets = await TimesheetModel.find({
