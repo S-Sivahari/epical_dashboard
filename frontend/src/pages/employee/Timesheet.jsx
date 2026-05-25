@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { motion } from 'framer-motion'
-import { Play, Square, LogIn, LogOut, Timer, Loader2, History, Circle, Pause, CheckCircle2 } from 'lucide-react'
+import { Play, Square, LogIn, LogOut, Timer, Loader2, History, Circle, Pause, CheckCircle2, AlertTriangle, Clock, Bell } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { Button } from '@components/employee/ui/button'
 import { Input } from '@components/employee/ui/input'
@@ -92,6 +92,7 @@ function getTimelineBadgeClass(status) {
   if (status === 'Completed' || status === 'Approved' || status === 'Approved by admin') {
     return 'bg-emerald-100 text-emerald-700'
   }
+  if (status === 'Auto Checked-Out') return 'bg-amber-100 text-amber-700'
   if (status === 'Rejected') return 'bg-rose-100 text-rose-700'
   if (status === 'Paused') return 'bg-violet-100 text-violet-700'
   if (status === 'Waiting for approval') return 'bg-sky-100 text-sky-700'
@@ -118,15 +119,43 @@ export default function Timesheet() {
     pauseTask,
     resumeTask,
     completeTask,
+    sessionStatus,
+    autoCheckoutInfo,
+    autoCheckoutSettings,
   } = useTimesheetStore()
   const { toast } = useToast()
   const [dateFilter, setDateFilter] = useState('')
   const [elapsed, setElapsed] = useState('0h 0m')
   const [submitting, setSubmitting] = useState(false)
+  const [autoCheckoutCountdown, setAutoCheckoutCountdown] = useState(null)
 
   useEffect(() => {
     hydrate()
   }, [hydrate])
+
+  useEffect(() => {
+    if (!checkedIn || !autoCheckoutInfo?.autoCheckoutTime) {
+      setAutoCheckoutCountdown(null)
+      return undefined
+    }
+    const tick = () => {
+      const target = new Date(autoCheckoutInfo.autoCheckoutTime).getTime()
+      const diff = target - Date.now()
+      if (diff <= 0) {
+        setAutoCheckoutCountdown('00:00:00')
+        return
+      }
+      const h = Math.floor(diff / 3600000)
+      const m = Math.floor((diff % 3600000) / 60000)
+      const s = Math.floor((diff % 60000) / 1000)
+      setAutoCheckoutCountdown(
+        `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+      )
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [checkedIn, autoCheckoutInfo?.autoCheckoutTime])
 
   useEffect(() => {
     const onFocus = () => {
@@ -416,14 +445,17 @@ export default function Timesheet() {
     }
 
     if (attendance?.checkOutTime) {
+      const wasAutoCheckedOut = attendance.autoCheckedOut || attendance.sessionStatus === 'Auto Checked-Out'
       entries.push({
         id: 'attendance-check-out',
-        kind: 'attendance-out',
+        kind: wasAutoCheckedOut ? 'auto-checkout' : 'attendance-out',
         project: 'Attendance',
-        title: 'Check out',
-        status: 'Completed',
+        title: wasAutoCheckedOut ? 'Auto Check-out' : 'Check out',
+        status: wasAutoCheckedOut ? 'Auto Checked-Out' : 'Completed',
         timestamp: attendance.checkOutTime,
-        detail: 'Workday ended.',
+        detail: wasAutoCheckedOut
+          ? 'System automatically checked you out because the session was not closed manually.'
+          : 'Workday ended.',
       })
     }
 
@@ -463,7 +495,7 @@ export default function Timesheet() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-4">
         <KPIStatCard title="Weekly Hours" value={`${totalWeekly}h`} icon={Timer} trend="From logged tasks" />
         <KPIStatCard title="Sessions Today" value={String(sessionsToday)} icon={Play} />
         <KPIStatCard
@@ -471,6 +503,20 @@ export default function Timesheet() {
           value={String(assignedTasks.length)}
           icon={Timer}
           trend={checkedIn ? 'Ready to work' : 'Check in first'}
+        />
+        <KPIStatCard
+          title="Session Status"
+          value={checkedIn ? (sessionStatus || 'Active') : 'Inactive'}
+          icon={Clock}
+          trend={
+            checkedIn && autoCheckoutInfo?.reminderSent
+              ? 'Reminder sent'
+              : checkedIn
+                ? 'Auto-checkout enabled'
+                : attendance?.autoCheckedOut
+                  ? 'Last: Auto checked-out'
+                  : 'Not checked in'
+          }
         />
       </div>
 
@@ -495,8 +541,56 @@ export default function Timesheet() {
               Checked in at {checkInTime.toLocaleTimeString()}
             </p>
           )}
-          {!checkedIn && (
+          {!checkedIn && !attendance?.autoCheckedOut && (
             <p className="text-xs text-muted">Check in before starting a task.</p>
+          )}
+          {!checkedIn && attendance?.autoCheckedOut && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 mt-2">
+              <div className="flex items-center gap-2 text-amber-700 text-sm font-medium">
+                <AlertTriangle className="h-4 w-4" />
+                Auto Checked-Out
+              </div>
+              <p className="text-xs text-amber-600 mt-1">
+                Your previous session was automatically closed by the system.
+              </p>
+            </div>
+          )}
+
+          {checkedIn && autoCheckoutInfo && (
+            <div className="mt-3 space-y-2">
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                <div className="flex items-center gap-2 text-emerald-700 text-xs font-semibold uppercase tracking-wide">
+                  <Clock className="h-3.5 w-3.5" />
+                  Session Status
+                </div>
+                <div className="mt-2 space-y-1.5 text-sm">
+                  {autoCheckoutInfo.expectedCheckoutTime && (
+                    <div className="flex justify-between text-emerald-800">
+                      <span className="text-muted text-xs">Reminder at</span>
+                      <span className="font-medium text-xs">{new Date(autoCheckoutInfo.expectedCheckoutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                  )}
+                  {autoCheckoutInfo.autoCheckoutTime && (
+                    <div className="flex justify-between text-emerald-800">
+                      <span className="text-muted text-xs">Auto checkout at</span>
+                      <span className="font-medium text-xs">{new Date(autoCheckoutInfo.autoCheckoutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                  )}
+                  {autoCheckoutCountdown && (
+                    <div className="flex justify-between text-emerald-800">
+                      <span className="text-muted text-xs">Time remaining</span>
+                      <span className="font-mono font-semibold text-xs">{autoCheckoutCountdown}</span>
+                    </div>
+                  )}
+                </div>
+                {autoCheckoutInfo.reminderSent && (
+                  <div className="mt-2 flex items-center gap-1.5 text-amber-600 text-xs font-medium">
+                    <Bell className="h-3 w-3" />
+                    Reminder email sent
+                  </div>
+                )}
+              </div>
+            </div>
           )}
 
           <hr className="my-4 border-border" />

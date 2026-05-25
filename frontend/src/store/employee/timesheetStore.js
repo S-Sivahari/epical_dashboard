@@ -4,6 +4,9 @@ import {
   fetchMyAttendance,
   fetchMyActiveTask,
   fetchMySessions,
+  fetchSessionStatus,
+  fetchAutoCheckoutSettings,
+  updateAutoCheckoutSettings as apiUpdateAutoCheckoutSettings,
   checkIn as apiCheckIn,
   checkOut as apiCheckOut,
   startTask as apiStartTask,
@@ -75,15 +78,20 @@ export const useTimesheetStore = create((set, get) => ({
   loading: false,
   initialized: false,
   attendance: null,
+  sessionStatus: null,
+  autoCheckoutInfo: null,
+  autoCheckoutSettings: null,
 
   hydrate: async () => {
     set({ loading: true })
     try {
-      const [attendance, activeRes, tasks, sessions] = await Promise.all([
+      const [attendance, activeRes, tasks, sessions, sessionStatusRes, settingsRes] = await Promise.all([
         fetchMyAttendance(),
         fetchMyActiveTask(),
         fetchMyAssignedTasks(),
         fetchMySessions(),
+        fetchSessionStatus().catch(() => null),
+        fetchAutoCheckoutSettings().catch(() => null),
       ])
 
       const checkInTime = attendance.checkInTime ? new Date(attendance.checkInTime) : null
@@ -103,6 +111,15 @@ export const useTimesheetStore = create((set, get) => ({
         assignedTasks: tasks,
         sessions: sessions.map(mapSessionFromApi),
         initialized: true,
+        sessionStatus: attendance.sessionStatus || null,
+        autoCheckoutInfo: sessionStatusRes || {
+          reminderSent: attendance.reminderSent || false,
+          autoCheckedOut: attendance.autoCheckedOut || false,
+          expectedCheckoutTime: attendance.expectedCheckoutTime || null,
+          autoCheckoutTime: attendance.autoCheckoutTime || null,
+          autoCheckoutEnabled: attendance.autoCheckoutEnabled ?? true,
+        },
+        autoCheckoutSettings: settingsRes || null,
       })
     } catch (err) {
       console.error('Failed to load timesheet state', err)
@@ -148,10 +165,22 @@ export const useTimesheetStore = create((set, get) => ({
     set({
       checkedIn: true,
       checkInTime: data.checkInTime ? new Date(data.checkInTime) : new Date(),
+      sessionStatus: data.sessionStatus || 'Active',
       attendance: {
         checkedIn: true,
         checkInTime: data.checkInTime || new Date().toISOString(),
         checkOutTime: null,
+        sessionStatus: data.sessionStatus || 'Active',
+        expectedCheckoutTime: data.expectedCheckoutTime || null,
+        autoCheckoutTime: data.autoCheckoutTime || null,
+      },
+      autoCheckoutInfo: {
+        active: true,
+        reminderSent: false,
+        autoCheckedOut: false,
+        expectedCheckoutTime: data.expectedCheckoutTime || null,
+        autoCheckoutTime: data.autoCheckoutTime || null,
+        autoCheckoutEnabled: true,
       },
     })
     return data
@@ -159,14 +188,16 @@ export const useTimesheetStore = create((set, get) => ({
 
   checkOut: async () => {
     const data = await apiCheckOut()
-    set({ checkedIn: false, checkInTime: null, activeTask: null, pausedTasks: [] })
+    set({ checkedIn: false, checkInTime: null, activeTask: null, pausedTasks: [], sessionStatus: 'Completed' })
     if (data?.checkOutTime) {
       set((state) => ({
         attendance: {
           ...(state.attendance || {}),
           checkedIn: false,
           checkOutTime: data.checkOutTime,
+          sessionStatus: 'Completed',
         },
+        autoCheckoutInfo: null,
       }))
     }
     await get().refreshSessions()
@@ -208,5 +239,20 @@ export const useTimesheetStore = create((set, get) => ({
     await get().refreshSessions()
     await get().refreshAssignedTasks()
     return data
+  },
+
+  refreshSessionStatus: async () => {
+    try {
+      const status = await fetchSessionStatus()
+      set({ autoCheckoutInfo: status, sessionStatus: status?.sessionStatus || null })
+    } catch (err) {
+      console.error(err)
+    }
+  },
+
+  updateAutoCheckoutSettings: async (data) => {
+    const result = await apiUpdateAutoCheckoutSettings(data)
+    set({ autoCheckoutSettings: result })
+    return result
   },
 }))

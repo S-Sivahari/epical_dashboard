@@ -8,6 +8,8 @@ import { getDB } from '../config/db';
 import { getUserById } from '../services/authService';
 import { syncProjectForTimesheet, getTimesheetWorkflowStatus } from '../utils/syncProject';
 import { buildAssignmentIdentityTokens, ensureAssignedTasksForEmployee } from '../utils/assignedTaskSync';
+import { getAutoCheckoutSettings, updateAutoCheckoutSettings } from '../services/autoCheckoutService';
+import { restartScheduler } from '../services/timesheetScheduler';
 
 type ResolvedEmployee = {
   id: string;
@@ -248,6 +250,12 @@ export const employeeTimesheetController = {
         checkInTime: attendance?.checkInTime?.toISOString() ?? null,
         checkOutTime: attendance?.checkOutTime?.toISOString() ?? null,
         date: attendance?.date ?? date,
+        sessionStatus: attendance?.sessionStatus ?? null,
+        reminderSent: attendance?.reminderSent ?? false,
+        autoCheckedOut: attendance?.autoCheckedOut ?? false,
+        expectedCheckoutTime: attendance?.expectedCheckoutTime?.toISOString() ?? null,
+        autoCheckoutTime: attendance?.autoCheckoutTime?.toISOString() ?? null,
+        autoCheckoutEnabled: attendance?.autoCheckoutEnabled ?? true,
       });
     } catch (error) {
       console.error('Error fetching attendance:', error);
@@ -345,22 +353,55 @@ export const employeeTimesheetController = {
       const date = todayDateKey();
       const existing = await EmployeeAttendanceModel.findOne({ employeeId: employee.id, date });
 
+      const settings = await getAutoCheckoutSettings();
+      const now = new Date();
+
+      const buildExpectedCheckout = () => {
+        const [rh, rm] = settings.reminderTime.split(':').map(Number);
+        const d = new Date(now);
+        d.setHours(rh, rm, 0, 0);
+        if (d <= now) d.setDate(d.getDate() + 1);
+        return d;
+      };
+      const buildAutoCheckout = () => {
+        const [ah, am] = settings.autoCheckoutTime.split(':').map(Number);
+        const d = new Date(now);
+        d.setHours(ah, am, 0, 0);
+        if (d <= now) d.setDate(d.getDate() + 1);
+        return d;
+      };
+
       if (existing) {
         if (!existing.checkOutTime) {
           res.json({
             checkedIn: true,
             checkInTime: existing.checkInTime.toISOString(),
             message: 'Already checked in',
+            sessionStatus: existing.sessionStatus,
+            reminderSent: existing.reminderSent,
+            autoCheckedOut: existing.autoCheckedOut,
+            expectedCheckoutTime: existing.expectedCheckoutTime?.toISOString() ?? null,
+            autoCheckoutTime: existing.autoCheckoutTime?.toISOString() ?? null,
           });
           return;
         } else {
           existing.checkOutTime = undefined;
-          existing.checkInTime = new Date();
+          existing.checkInTime = now;
+          existing.sessionStatus = 'Active';
+          existing.reminderSent = false;
+          existing.autoCheckedOut = false;
+          existing.autoCheckoutEnabled = true;
+          existing.employeeEmail = employee.email;
+          existing.expectedCheckoutTime = buildExpectedCheckout();
+          existing.autoCheckoutTime = buildAutoCheckout();
           await existing.save();
           res.json({
             checkedIn: true,
             checkInTime: existing.checkInTime.toISOString(),
             message: 'Resumed attendance session',
+            sessionStatus: existing.sessionStatus,
+            expectedCheckoutTime: existing.expectedCheckoutTime?.toISOString() ?? null,
+            autoCheckoutTime: existing.autoCheckoutTime?.toISOString() ?? null,
           });
           return;
         }
@@ -369,13 +410,23 @@ export const employeeTimesheetController = {
       const attendance = await EmployeeAttendanceModel.create({
         employeeId: employee.id,
         employeeName: employee.name,
+        employeeEmail: employee.email,
         date,
-        checkInTime: new Date(),
+        checkInTime: now,
+        expectedCheckoutTime: buildExpectedCheckout(),
+        autoCheckoutTime: buildAutoCheckout(),
+        autoCheckoutEnabled: true,
+        reminderSent: false,
+        autoCheckedOut: false,
+        sessionStatus: 'Active',
       });
 
       res.status(201).json({
         checkedIn: true,
         checkInTime: attendance.checkInTime.toISOString(),
+        sessionStatus: attendance.sessionStatus,
+        expectedCheckoutTime: attendance.expectedCheckoutTime?.toISOString() ?? null,
+        autoCheckoutTime: attendance.autoCheckoutTime?.toISOString() ?? null,
       });
     } catch (error) {
       console.error('Error checking in:', error);
@@ -437,6 +488,7 @@ export const employeeTimesheetController = {
           }
 
           attendance.checkOutTime = now;
+          attendance.sessionStatus = 'Completed';
           await attendance.save({ session });
         });
 
@@ -444,6 +496,7 @@ export const employeeTimesheetController = {
           checkedIn: false,
           checkOutTime: now.toISOString(),
           stoppedTasks,
+          sessionStatus: 'Completed',
         });
       } finally {
         session.endSession();
@@ -837,6 +890,88 @@ export const employeeTimesheetController = {
     } catch (error) {
       console.error('Error completing task:', error);
       res.status(500).json({ error: 'Failed to complete task' });
+    }
+  },
+
+  getAutoCheckoutSettings: async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const settings = await getAutoCheckoutSettings();
+      res.json({
+        reminderTime: settings.reminderTime,
+        autoCheckoutTime: settings.autoCheckoutTime,
+        enabled: settings.enabled,
+      });
+    } catch (error) {
+      console.error('Error fetching auto-checkout settings:', error);
+      res.status(500).json({ error: 'Failed to fetch settings' });
+    }
+  },
+
+  updateAutoCheckoutSettings: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { reminderTime, autoCheckoutTime, enabled } = req.body;
+
+      if (reminderTime && !/^\d{2}:\d{2}$/.test(reminderTime)) {
+        res.status(400).json({ error: 'reminderTime must be in HH:mm format' });
+        return;
+      }
+      if (autoCheckoutTime && !/^\d{2}:\d{2}$/.test(autoCheckoutTime)) {
+        res.status(400).json({ error: 'autoCheckoutTime must be in HH:mm format' });
+        return;
+      }
+
+      const settings = await updateAutoCheckoutSettings({ reminderTime, autoCheckoutTime, enabled });
+      await restartScheduler();
+
+      res.json({
+        reminderTime: settings.reminderTime,
+        autoCheckoutTime: settings.autoCheckoutTime,
+        enabled: settings.enabled,
+      });
+    } catch (error) {
+      console.error('Error updating auto-checkout settings:', error);
+      res.status(500).json({ error: 'Failed to update settings' });
+    }
+  },
+
+  getMySessionStatus: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const employee = await resolveEmployee(req);
+      if (!employee) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const attendance = await EmployeeAttendanceModel.findOne({
+        employeeId: employee.id,
+        checkOutTime: { $exists: false },
+      }).sort({ checkInTime: -1 });
+
+      if (!attendance) {
+        res.json({ active: false });
+        return;
+      }
+
+      const settings = await getAutoCheckoutSettings();
+
+      res.json({
+        active: true,
+        sessionStatus: attendance.sessionStatus,
+        checkInTime: attendance.checkInTime.toISOString(),
+        expectedCheckoutTime: attendance.expectedCheckoutTime?.toISOString() ?? null,
+        autoCheckoutTime: attendance.autoCheckoutTime?.toISOString() ?? null,
+        reminderSent: attendance.reminderSent,
+        autoCheckedOut: attendance.autoCheckedOut,
+        autoCheckoutEnabled: attendance.autoCheckoutEnabled,
+        settings: {
+          reminderTime: settings.reminderTime,
+          autoCheckoutTime: settings.autoCheckoutTime,
+          enabled: settings.enabled,
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching session status:', error);
+      res.status(500).json({ error: 'Failed to fetch session status' });
     }
   },
 };

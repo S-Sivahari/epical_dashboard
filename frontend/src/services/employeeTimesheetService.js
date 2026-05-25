@@ -54,3 +54,18 @@ export async function completeActiveTask(timesheetId) {
   const res = await api.patch('/timesheets/mine/complete-task', { timesheetId })
   return res.data
 }
+
+export async function fetchSessionStatus() {
+  const res = await api.get('/timesheets/mine/session-status')
+  return res.data
+}
+
+export async function fetchAutoCheckoutSettings() {
+  const res = await api.get('/timesheets/auto-checkout-settings')
+  return res.data
+}
+
+export async function updateAutoCheckoutSettings(data) {
+  const res = await api.put('/timesheets/auto-checkout-settings', data)
+  return res.data
+}

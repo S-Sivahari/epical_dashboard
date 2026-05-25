@@ -28,6 +28,9 @@ import { seedTickets } from './services/ticketService';
 import { seedProjectsAndTimesheets, seedAssignedTasksOnly } from './scripts/seedTimesheets';
 import { getDB } from './config/db';
 
+// Scheduler
+import { initScheduler, stopScheduler } from './services/timesheetScheduler';
+
 const app = express();
 
 // ── CORS Configuration ────────────────────────────────────────
@@ -152,6 +155,7 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 export async function startServer() {
   try {
     await connectDB();
+    await initScheduler();
     app.listen(env.port, () => {
       console.log(`✓ Server running on http://localhost:${env.port}`);
       console.log(`✓ API base:    http://localhost:${env.port}/api`);
@@ -165,6 +169,7 @@ export async function startServer() {
 
 process.on('SIGINT', async () => {
   console.log('\nShutting down gracefully...');
+  stopScheduler();
   await closeDB();
   process.exit(0);
 });
