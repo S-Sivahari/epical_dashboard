@@ -19,7 +19,7 @@ export const uploadController = {
           key,
           name: doc.filename,
           uploadedAt: doc.uploadedAt,
-          url: `/api/employees/${id}/documents/${key}`,
+          url: `/employees/${id}/documents/${key}`,
         }));
 
       res.json(documents);

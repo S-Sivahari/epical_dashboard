@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { hasRole } from '../utils/generateToken';
 import { AuthRequest } from './authMiddleware';
 
 export function roleMiddleware(...roles: string[]) {
@@ -7,7 +8,7 @@ export function roleMiddleware(...roles: string[]) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
-    if (!roles.includes(req.user.role)) {
+    if (!hasRole(req.user.role, ...roles)) {
       res.status(403).json({ error: 'Forbidden: Insufficient permissions' });
       return;
     }

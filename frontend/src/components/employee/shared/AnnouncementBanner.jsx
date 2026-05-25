@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Megaphone } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '@pages/employee/lib/utils'
 import { listNews } from '@services/newsService'
+import { NewsImage } from '@components/NewsImage'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@components/employee/ui/dialog'
 import { Button } from '@components/employee/ui/button'
 
@@ -150,8 +151,8 @@ export function AnnouncementBanner() {
             ) : null}
           </DialogHeader>
           <div className="space-y-3 text-sm text-ink">
-            {active?.imageUrl ? (
-              <img src={active.imageUrl} alt="" className="w-full rounded-lg object-cover" />
+            {(active?.imageUrl || active?.hasImage) ? (
+              <NewsImage item={active} alt="" className="w-full rounded-lg object-cover" />
             ) : null}
             <p className="leading-relaxed whitespace-pre-line">{active?.content}</p>
             {active?.link && (

@@ -7,13 +7,12 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 import { GoogleLogin } from '@react-oauth/google'
 import { jwtDecode } from 'jwt-decode'
-import { Button } from '@components/ui/Button'
-import { Input } from '@components/ui/Input'
+import { Cpu, Mail, Lock } from 'lucide-react'
 import { useAuthStore } from '@store/authStore'
-import { APP_NAME, APP_SHORT_NAME } from '@/utils/constants'
+import { APP_SHORT_NAME } from '@/utils/constants'
 
 const schema = z.object({
-  email: z.string().email(),
+  email: z.string().email('Enter a valid email'),
   password: z.string().min(6, 'Enter your password'),
 })
 
@@ -53,9 +52,10 @@ export function LoginPage() {
     }
   })
 
-  const handleGoogleSuccess = async (credentialResponse: any) => {
+  const handleGoogleSuccess = async (credentialResponse: { credential?: string }) => {
     try {
-      const decoded: any = jwtDecode(credentialResponse.credential)
+      if (!credentialResponse.credential) throw new Error('Missing Google credential')
+      const decoded = jwtDecode<{ email: string; name: string; sub: string }>(credentialResponse.credential)
       await loginWithOAuth(decoded.email, decoded.name, decoded.sub)
       toast.success('Welcome back')
       const userRole = useAuthStore.getState().role
@@ -68,72 +68,95 @@ export function LoginPage() {
   }
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
-      <div className="relative hidden flex-col justify-between bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-900 p-10 text-white lg:flex">
-        <div>
-          <p className="font-display text-2xl font-bold">{APP_SHORT_NAME}</p>
-          <p className="mt-3 max-w-md text-sm text-emerald-50">{APP_NAME}</p>
-        </div>
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur">
-          <p className="text-sm text-emerald-50">
-            “Clarity for HR teams, confidence for employees.”
-          </p>
-        </div>
-      </div>
-      <div className="flex items-center justify-center px-4 py-10">
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2 }}
-          className="w-full max-w-md rounded-2xl border border-border bg-white p-8 shadow-sm"
-        >
-          <div className="mb-6 text-center">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-lg font-bold text-white">
-              E
-            </div>
-            <h1 className="font-display text-2xl font-semibold text-ink">Welcome back</h1>
-            <p className="mt-1 text-sm text-muted">Sign in to the enterprise portal</p>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#eef1f0] px-4 py-10">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25 }}
+        className="w-full max-w-md rounded-2xl border border-border/60 bg-white p-8 shadow-[0_18px_50px_-20px_rgba(16,24,20,0.25)]"
+      >
+        <div className="mb-8 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-md">
+            <Cpu className="h-7 w-7" strokeWidth={1.75} />
           </div>
-          <form className="space-y-4" onSubmit={onSubmit} noValidate>
-            <Input
-              label="Email"
-              type="email"
-              autoComplete="email"
-              error={errors.email?.message}
-              {...register('email')}
-            />
-            <Input
-              label="Password"
-              type="password"
-              autoComplete="current-password"
-              error={errors.password?.message}
-              {...register('password')}
-            />
-            <Button type="submit" className="w-full" loading={isSubmitting}>
-              Login
-            </Button>
-          </form>
+          <h1 className="font-display text-2xl font-bold tracking-wide text-emerald-800">{APP_SHORT_NAME}</h1>
+        </div>
 
-          <div className="relative mt-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-border"></div>
+        <form className="space-y-4" onSubmit={onSubmit} noValidate>
+          <div className="space-y-1.5">
+            <label htmlFor="email" className="sr-only">
+              Email
+            </label>
+            <div className="relative">
+              <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                placeholder="Email"
+                className={`h-11 w-full rounded-xl border bg-white pl-10 pr-3 text-sm text-ink outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 ${
+                  errors.email ? 'border-red-400' : 'border-border'
+                }`}
+                {...register('email')}
+              />
             </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="bg-white px-2 text-muted">Or continue with</span>
-            </div>
+            {errors.email && <p className="text-xs text-red-600">{errors.email.message}</p>}
           </div>
 
-          <div className="mt-6 flex justify-center">
-            <GoogleLogin
-              onSuccess={handleGoogleSuccess}
-              onError={() => toast.error('Google login failed')}
-              text="signin_with"
-              size="large"
-              theme="outline"
-            />
+          <div className="space-y-1.5">
+            <label htmlFor="password" className="sr-only">
+              Password
+            </label>
+            <div className="relative">
+              <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+              <input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                placeholder="Password"
+                className={`h-11 w-full rounded-xl border bg-white pl-10 pr-3 text-sm text-ink outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 ${
+                  errors.password ? 'border-red-400' : 'border-border'
+                }`}
+                {...register('password')}
+              />
+            </div>
+            {errors.password && <p className="text-xs text-red-600">{errors.password.message}</p>}
           </div>
-        </motion.div>
-      </div>
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="flex h-11 w-full items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-700 text-sm font-semibold text-white shadow-sm transition hover:from-emerald-600 hover:to-emerald-800 disabled:opacity-60"
+          >
+            {isSubmitting ? 'Signing in…' : 'Sign In with Email'}
+          </button>
+        </form>
+
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-border" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase tracking-wider">
+            <span className="bg-white px-3 text-muted">Or</span>
+          </div>
+        </div>
+
+        <div className="flex justify-center [&>div]:w-full">
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => toast.error('Google login failed')}
+            text="continue_with"
+            size="large"
+            theme="outline"
+            shape="rectangular"
+            width="100%"
+          />
+        </div>
+      </motion.div>
+
+      <p className="mt-8 text-center text-xs text-muted">
+        © Epical Layouts™ {new Date().getFullYear()} — All rights reserved
+      </p>
     </div>
   )
 }

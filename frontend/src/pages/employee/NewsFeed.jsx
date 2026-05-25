@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { listNews } from '@services/newsService'
+import { NewsImage } from '@components/NewsImage'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@components/employee/ui/dialog'
 import { Button } from '@components/employee/ui/button'
 import { format } from 'date-fns'
@@ -70,8 +71,8 @@ export default function NewsFeed() {
             ) : null}
           </DialogHeader>
           <div className="space-y-3 text-sm text-ink">
-            {active?.imageUrl ? (
-              <img src={active.imageUrl} alt="" className="w-full rounded-lg object-cover" />
+            {(active?.imageUrl || active?.hasImage) ? (
+              <NewsImage item={active} alt="" className="w-full rounded-lg object-cover" />
             ) : null}
             <p className="leading-relaxed whitespace-pre-line">{active?.content}</p>
             {active?.link && (

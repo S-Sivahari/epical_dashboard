@@ -8,8 +8,9 @@ import { Input } from '@components/ui/Input'
 import { Modal } from '@components/ui/Modal'
 import { NewsCard } from '@components/cards/NewsCard'
 import { toast } from 'sonner'
+import { NewsImage } from '@components/NewsImage'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
-import { createNews, deleteNews, listNews, updateNews, type NewsItem } from '@services/newsService'
+import { createNews, deleteNews, listNews, resolveNewsImageSrc, updateNews, type NewsItem } from '@services/newsService'
 import { formatDate } from '@/utils/formatDate'
 
 export function CompanyNews() {
@@ -17,6 +18,8 @@ export function CompanyNews() {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [imageUrl, setImageUrl] = useState('')
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [link, setLink] = useState('')
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -25,6 +28,9 @@ export function CompanyNews() {
   const [editTitle, setEditTitle] = useState('')
   const [editContent, setEditContent] = useState('')
   const [editImageUrl, setEditImageUrl] = useState('')
+  const [editImageFile, setEditImageFile] = useState<File | null>(null)
+  const [editImagePreview, setEditImagePreview] = useState<string | null>(null)
+  const [editClearImage, setEditClearImage] = useState(false)
   const [editLink, setEditLink] = useState('')
   const [updating, setUpdating] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
@@ -47,6 +53,17 @@ export function CompanyNews() {
     void loadNews()
   }, [])
 
+  const handleImageFileChange = (file: File | null, forEdit = false) => {
+    if (forEdit) {
+      setEditImageFile(file)
+      setEditClearImage(false)
+      setEditImagePreview(file ? URL.createObjectURL(file) : null)
+      return
+    }
+    setImageFile(file)
+    setImagePreview(file ? URL.createObjectURL(file) : null)
+  }
+
   const handleAdd = async () => {
     if (!title || !content) {
       toast.error('Title and content are required')
@@ -54,12 +71,9 @@ export function CompanyNews() {
     }
     setSaving(true)
     try {
-      const item = await createNews({ title, content, imageUrl, link })
+      const item = await createNews({ title, content, imageUrl, link, imageFile })
       setItems((prev) => [item, ...prev])
-      setTitle('')
-      setContent('')
-      setImageUrl('')
-      setLink('')
+      resetForm()
       toast.success('News published')
     } catch (e: unknown) {
       const message = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
@@ -91,12 +105,22 @@ export function CompanyNews() {
     setDeleteConfirmOpen(true)
   }
 
-  const openEdit = (item: NewsItem) => {
+  const openEdit = async (item: NewsItem) => {
     setEditing(item)
     setEditTitle(item.title)
     setEditContent(item.content)
     setEditImageUrl(item.imageUrl || '')
     setEditLink(item.link || '')
+    setEditImageFile(null)
+    setEditClearImage(false)
+    if (item.imageUrl?.trim()) {
+      setEditImagePreview(item.imageUrl)
+    } else if (item.hasImage) {
+      const src = await resolveNewsImageSrc(item)
+      setEditImagePreview(src)
+    } else {
+      setEditImagePreview(null)
+    }
   }
 
   const handleUpdate = async () => {
@@ -112,6 +136,8 @@ export function CompanyNews() {
         content: editContent,
         imageUrl: editImageUrl,
         link: editLink,
+        imageFile: editImageFile,
+        clearImage: editClearImage,
       })
       setItems((prev) => prev.map((n) => (n.id === updated.id ? updated : n)))
       setEditing(null)
@@ -128,8 +154,12 @@ export function CompanyNews() {
     setTitle('')
     setContent('')
     setImageUrl('')
+    setImageFile(null)
+    setImagePreview(null)
     setLink('')
   }
+
+  const previewImageSrc = imagePreview || imageUrl.trim() || null
 
   const contentPreview = content.trim() || 'Your announcement content will appear here...'
 
@@ -176,12 +206,32 @@ export function CompanyNews() {
             </label>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Input
-                label="Image URL"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="https://example.com/image.jpg"
-              />
+              <div className="space-y-2">
+                <Input
+                  label="Image URL (optional)"
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="https://example.com/image.jpg"
+                />
+                <label className="block space-y-1.5">
+                  <span className="text-sm font-medium text-ink">Upload image (optional)</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary"
+                    onChange={(e) => handleImageFileChange(e.target.files?.[0] ?? null)}
+                  />
+                  {imageFile && (
+                    <button
+                      type="button"
+                      className="text-xs text-muted hover:text-ink"
+                      onClick={() => handleImageFileChange(null)}
+                    >
+                      Remove selected file
+                    </button>
+                  )}
+                </label>
+              </div>
               <Input
                 label="Reference Link"
                 value={link}
@@ -207,10 +257,10 @@ export function CompanyNews() {
           <div className="lg:col-span-2">
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Live Preview</p>
             <div className="overflow-hidden rounded-xl border border-border bg-surface/40">
-              {imageUrl.trim() ? (
+              {previewImageSrc ? (
                 <div className="aspect-[16/9] bg-surface">
                   <img
-                    src={imageUrl}
+                    src={previewImageSrc}
                     alt=""
                     className="h-full w-full object-cover"
                     onError={(e) => {
@@ -271,8 +321,8 @@ export function CompanyNews() {
         {preview && (
           <div className="space-y-4">
             <p className="text-sm text-muted">Published {formatDate(preview.publishedAt)}</p>
-            {preview.imageUrl && (
-              <img src={preview.imageUrl} alt="" className="max-h-64 w-full rounded-lg object-cover" />
+            {(preview.imageUrl || preview.hasImage) && (
+              <NewsImage item={preview} alt="" className="max-h-64 w-full rounded-lg object-cover" />
             )}
             <p className="whitespace-pre-line text-sm leading-relaxed text-ink">{preview.content}</p>
             {preview.link && (
@@ -307,6 +357,33 @@ export function CompanyNews() {
             value={editImageUrl}
             onChange={(e) => setEditImageUrl(e.target.value)}
           />
+          <label className="block space-y-1.5">
+            <span className="text-sm font-medium text-ink">Upload image (optional)</span>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary"
+              onChange={(e) => handleImageFileChange(e.target.files?.[0] ?? null, true)}
+            />
+            {(editImagePreview || editing?.hasImage) && (
+              <div className="flex items-center gap-3 pt-1">
+                {editImagePreview && (
+                  <img src={editImagePreview} alt="" className="h-16 w-24 rounded-lg object-cover ring-1 ring-border" />
+                )}
+                <button
+                  type="button"
+                  className="text-xs text-danger hover:underline"
+                  onClick={() => {
+                    setEditImageFile(null)
+                    setEditImagePreview(null)
+                    setEditClearImage(true)
+                  }}
+                >
+                  Remove image
+                </button>
+              </div>
+            )}
+          </label>
           <Input label="Link (optional)" value={editLink} onChange={(e) => setEditLink(e.target.value)} />
           <label className="block text-sm font-medium text-ink">
             News Content

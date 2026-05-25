@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyToken } from '../utils/generateToken';
+import { hasRole, verifyToken } from '../utils/generateToken';
 
 declare global {
   namespace Express {
@@ -41,7 +41,7 @@ export function requireRole(...roles: string[]) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
-    if (!roles.includes(req.user.role)) {
+    if (!hasRole(req.user.role, ...roles)) {
       res.status(403).json({ error: 'Forbidden: Insufficient permissions' });
       return;
     }

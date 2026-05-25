@@ -4,7 +4,6 @@ import { Plus, Download, Search, X, CheckSquare } from 'lucide-react'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
 import { Badge } from '@components/ui/Badge'
-import { Avatar } from '@components/ui/Avatar'
 import { Modal } from '@components/ui/Modal'
 import { DataTable, type Column } from '@components/tables/DataTable'
 import { PaginationBar } from '@components/tables/Pagination'
@@ -13,7 +12,7 @@ import { useEmployees } from '@hooks/useEmployees'
 import type { Employee } from '@/types'
 import { stringToHueColor } from '@/utils/stringColor'
 import * as employeeService from '@services/employeeService'
-import { getPhotoUrl } from '@/services/uploadService'
+import { EmployeeAvatar } from '@components/ui/EmployeeAvatar'
 import { exportToExcel } from '@/utils/exportExcel'
 import { exportToPDF } from '@/utils/exportPDF'
 import { formatDate } from '@/utils/formatDate'
@@ -242,7 +241,7 @@ export function EmployeeList() {
         const name = `${e.firstName} ${e.lastName}`
         return (
           <Link to={`/admin/employees/${e.id}`} className="flex items-center gap-3 group">
-            <Avatar src={getPhotoUrl(e.id)} name={name} color={stringToHueColor(e.id)} />
+            <EmployeeAvatar employeeId={e.id} name={name} color={stringToHueColor(e.id)} />
             <div>
               <p className="font-medium text-ink group-hover:text-primary transition-ui">{name}</p>
               <p className="text-xs text-muted font-mono">{e.employeeId}</p>
@@ -289,11 +288,11 @@ export function EmployeeList() {
     {
       key: 'ops' as any,
       header: 'Account',
-      className: 'w-44',
+      className: 'w-32',
       render: (e) => (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <span
-            className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${
+            className={`inline-block h-2 w-2 shrink-0 rounded-full ${
               e.status === 'Active'
                 ? 'bg-emerald-500'
                 : e.status === 'Notice Period'
@@ -311,7 +310,7 @@ export function EmployeeList() {
             onChange={(event) =>
               requestStatusChange(e, event.target.value as Employee['status'])
             }
-            className="h-8 min-w-[132px] px-2 text-xs"
+            className="h-7 min-w-0 max-w-[96px] flex-1 px-1.5 text-[11px]"
             options={STATUS_OPTIONS}
           />
         </div>
@@ -419,7 +418,7 @@ export function EmployeeList() {
             <select
               value={bulkStatus}
               onChange={(e) => setBulkStatus(e.target.value as Employee['status'])}
-              className="h-8 rounded-lg border border-border bg-white px-2 text-sm text-ink"
+              className="h-7 max-w-[108px] rounded-lg border border-border bg-white px-1.5 text-[11px] text-ink"
             >
               {STATUS_OPTIONS.map(opt => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>

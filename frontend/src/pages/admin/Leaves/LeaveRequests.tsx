@@ -94,7 +94,7 @@ export function LeaveRequests({
     setIsReasonModalOpen(true)
   }
 
-  const clearFilters = () => setFilters({ selectedEmployees: [], employeeId: '', status: 'Pending', leaveType: '', dateFrom: '', dateTo: '' })
+  const clearFilters = () => setFilters({ selectedEmployees: [], status: 'Pending', leaveType: '', dateFrom: '', dateTo: '' })
 
   const currentStatus = (filters.status as StatusType) || 'Pending'
 
@@ -351,17 +351,6 @@ export function LeaveRequests({
               )}
             </div>
 
-            <input
-              type="text"
-              value={filters.employeeId}
-              onChange={(e) => {
-                setFilters({ ...filters, employeeId: e.target.value })
-                setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
-              }}
-              placeholder="Employee ID"
-              className="h-10 w-full rounded-lg bg-surface/50 px-3 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 sm:w-36"
-            />
-
             <select
               value={filters.leaveType || ''}
               onChange={(e) => {
@@ -384,7 +373,8 @@ export function LeaveRequests({
                 setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
               }}
               className="h-10 rounded-lg bg-surface/50 px-3 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-primary/20"
-              title="From date"
+              title="Leave period from"
+              aria-label="Leave period from"
             />
             <input
               type="date"
@@ -394,7 +384,8 @@ export function LeaveRequests({
                 setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
               }}
               className="h-10 rounded-lg bg-surface/50 px-3 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-primary/20"
-              title="To date"
+              title="Leave period to"
+              aria-label="Leave period to"
             />
 
             <Button variant="ghost" size="sm" onClick={clearFilters} className="h-10 shrink-0 text-muted">

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { listNews, type NewsItem } from '@services/newsService'
 import { Modal } from '@components/ui/Modal'
 import { Button } from '@components/ui/Button'
+import { NewsImage } from '@components/NewsImage'
 import { formatDate } from '@/utils/formatDate'
 
 export function AdminNewsTicker() {
@@ -60,8 +61,8 @@ export function AdminNewsTicker() {
         {active && (
           <div className="space-y-4">
             <p className="text-sm text-muted">{formatDate(active.publishedAt)}</p>
-            {active.imageUrl && (
-              <img src={active.imageUrl} alt="" className="w-full rounded-lg object-cover max-h-64" />
+            {(active.imageUrl || active.hasImage) && (
+              <NewsImage item={active} alt="" className="w-full rounded-lg object-cover max-h-64" />
             )}
             <p className="whitespace-pre-line text-sm leading-relaxed text-ink">{active.content}</p>
             {active.link && (

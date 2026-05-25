@@ -4,6 +4,7 @@ import * as notificationService from '../services/notificationService';
 import { getDB } from '../config/db';
 import { AuthRequest } from '../middleware/authMiddleware';
 import type { NotificationType } from '../models/Notification';
+import { isAdminRole, isEmployeeRole } from '../utils/generateToken';
 
 /**
  * Sends an in-app notification (+ email via notificationService) to every active employee.
@@ -42,8 +43,6 @@ async function notifyAllEmployees(params: {
   }
 }
 
-const ADMIN_ROLES = ['Admin'];
-
 const VALID_HOLIDAY_TYPES = ['National', 'Company', 'Optional', 'Company Event'] as const;
 
 type HolidayType = (typeof VALID_HOLIDAY_TYPES)[number];
@@ -56,9 +55,8 @@ export const leaveController = {
   getAll: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       // Admins see all; employees see only their own
-      const employeeId =
-        req.user?.role === 'Employee'
-          ? (req.query.employeeId as string) || req.user.id
+      const employeeId = isEmployeeRole(req.user?.role ?? '')
+          ? (req.query.employeeId as string) || req.user!.id
           : (req.query.employeeId as string) || undefined;
       const leaves = await leaveService.getAllLeaves(employeeId);
       res.json(leaves);
@@ -70,7 +68,7 @@ export const leaveController = {
   // GET /api/leaves/employee/:employeeId/summary (Admin only)
   getEmployeeSummary: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      if (!req.user || !ADMIN_ROLES.includes(req.user.role)) {
+      if (!req.user || !isAdminRole(req.user.role)) {
         res.status(403).json({ error: 'Forbidden: Admin access required' });
         return;
       }
@@ -124,8 +122,8 @@ export const leaveController = {
   // GET /api/leaves/balances
   getBalances: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const employeeId = req.user?.role === 'Employee'
-        ? req.user.id
+      const employeeId = isEmployeeRole(req.user?.role ?? '')
+        ? req.user!.id
         : (req.query.employeeId as string);
 
       if (!employeeId) {

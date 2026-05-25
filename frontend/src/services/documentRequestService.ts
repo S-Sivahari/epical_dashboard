@@ -57,6 +57,11 @@ export async function rejectDocumentRequest(
 export async function downloadDocumentPdf(id: string, suggestedName?: string): Promise<void> {
   const res = await api.get(`/document-requests/${id}/download`, { responseType: 'blob' })
   const blob = res.data as Blob
+  if (blob.type?.includes('application/json')) {
+    const text = await blob.text()
+    const parsed = JSON.parse(text) as { error?: string }
+    throw new Error(parsed.error || 'Download failed')
+  }
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url

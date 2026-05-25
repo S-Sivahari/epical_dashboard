@@ -1,8 +1,11 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { uploadController } from '../controllers/uploadController';
+import { authMiddleware } from '../middleware/authMiddleware';
 
 const router = Router();
+
+router.use(authMiddleware);
 
 // Configure multer to store files in memory as buffers
 const storage = multer.memoryStorage();

@@ -285,7 +285,9 @@ export default function LeaveRequest() {
   }
 
   const pendingLeaves = requests.filter((r) => r.status === 'Pending')
-  const historyLeaves = filtered.filter((r) => r.status !== 'Pending')
+  const historyLeaves = filtered.filter(
+    (r) => r.status !== 'Pending' && r.status !== 'Cancelled',
+  )
   const totalPages = Math.max(1, Math.ceil(historyLeaves.length / pageSize))
   const currentPage = Math.min(page, totalPages)
   const pagedHistory = historyLeaves.slice((currentPage - 1) * pageSize, currentPage * pageSize)
@@ -502,7 +504,6 @@ export default function LeaveRequest() {
               { value: 'all', label: 'All Status' },
               { value: 'approved', label: 'Approved' },
               { value: 'rejected', label: 'Rejected' },
-              { value: 'cancelled', label: 'Cancelled' },
             ]}
           />
           <div className="ml-auto flex items-center gap-2">

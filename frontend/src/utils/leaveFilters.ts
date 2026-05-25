@@ -2,20 +2,30 @@ import type { LeaveRequest } from '@/types'
 
 export interface LeaveFilters {
   selectedEmployees: string[]  // multi-select by employee name
-  employeeId: string
   status: string
   leaveType?: string           // filter by leave type (Sick Leave, Casual Leave, Earned Leave)
-  dateFrom?: string            // filter by leave start date (YYYY-MM-DD)
-  dateTo?: string              // filter by leave end date (YYYY-MM-DD)
+  dateFrom?: string            // filter by leave period start (YYYY-MM-DD)
+  dateTo?: string              // filter by leave period end (YYYY-MM-DD)
 }
 
 export const defaultLeaveFilters: LeaveFilters = {
   selectedEmployees: [],
-  employeeId: '',
   status: 'All',
   leaveType: '',
   dateFrom: '',
   dateTo: '',
+}
+
+/** True when leave period [from, to] overlaps filter range [dateFrom, dateTo]. */
+function leavePeriodOverlapsRange(
+  from: string,
+  to: string,
+  dateFrom?: string,
+  dateTo?: string,
+): boolean {
+  if (dateFrom && to < dateFrom) return false
+  if (dateTo && from > dateTo) return false
+  return true
 }
 
 export function filterLeaves(leaves: LeaveRequest[], filters: LeaveFilters): LeaveRequest[] {
@@ -23,16 +33,11 @@ export function filterLeaves(leaves: LeaveRequest[], filters: LeaveFilters): Lea
     const matchName =
       filters.selectedEmployees.length === 0 ||
       filters.selectedEmployees.includes(l.employeeName)
-    const matchId =
-      !filters.employeeId ||
-      (l.employeeId || '').toLowerCase().includes(filters.employeeId.toLowerCase())
     const matchStatus = filters.status === 'All' || l.status === filters.status
     const matchType =
       !filters.leaveType ||
       l.type === filters.leaveType
-    // Date range: leave must overlap with [dateFrom, dateTo]
-    const matchDateFrom = !filters.dateFrom || l.to >= filters.dateFrom
-    const matchDateTo = !filters.dateTo || l.from <= filters.dateTo
-    return matchName && matchId && matchStatus && matchType && matchDateFrom && matchDateTo
+    const matchDate = leavePeriodOverlapsRange(l.from, l.to, filters.dateFrom, filters.dateTo)
+    return matchName && matchStatus && matchType && matchDate
   })
 }

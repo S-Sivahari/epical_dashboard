@@ -4,13 +4,14 @@ import { PageHeader } from '@components/layout/PageHeader'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
 import { Badge } from '@components/ui/Badge'
-import { Avatar } from '@components/ui/Avatar'
+import { EmployeeAvatar } from '@components/ui/EmployeeAvatar'
 import * as employeeService from '@services/employeeService'
-import { getPhotoUrl } from '@/services/uploadService'
+import { openEmployeeDocument } from '@/services/uploadService'
 import type { Employee } from '@/types'
 import { formatDate } from '@/utils/formatDate'
 import { stringToHueColor } from '@/utils/stringColor'
 import { Pencil, FileText, ExternalLink, Download } from 'lucide-react'
+import { toast } from 'sonner'
 import { exportToExcel } from '@/utils/exportExcel'
 import { exportToPDF } from '@/utils/exportPDF'
 
@@ -57,7 +58,7 @@ export function EmployeeProfile() {
   const [employee, setEmployee] = useState<Employee | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [documents, setDocuments] = useState<{ key: string; name: string; url: string }[]>([])
+  const [documents, setDocuments] = useState<{ key: string; name: string }[]>([])
   const [docsLoading, setDocsLoading] = useState(false)
 
   useEffect(() => {
@@ -170,7 +171,7 @@ export function EmployeeProfile() {
         {/* ── Sidebar ─────────────────────────────────────────────────── */}
         <aside className="rounded-xl border border-border bg-surface/70 p-5 shadow-sm h-max">
           <div className="flex flex-col items-center text-center">
-            <Avatar src={getPhotoUrl(employee.id)} name={name} size="lg" color={stringToHueColor(employee.id)} />
+            <EmployeeAvatar employeeId={employee.id} name={name} size="lg" color={stringToHueColor(employee.id)} />
             <p className="mt-3 font-display text-lg font-semibold text-ink">{name}</p>
             <p className="font-mono text-xs text-muted">{employee.employeeId}</p>
             <div className="mt-3 flex items-center gap-2">
@@ -274,15 +275,18 @@ export function EmployeeProfile() {
                         <p className="truncate text-sm font-medium text-ink">{doc.name}</p>
                         <p className="text-xs text-muted capitalize">{doc.key.replace(/([A-Z])/g, ' $1').trim()}</p>
                       </div>
-                      <a
-                        href={doc.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void openEmployeeDocument(id, doc.key, doc.name).catch(() =>
+                            toast.error('Could not open document'),
+                          )
+                        }
                         className="shrink-0 rounded-md p-1.5 text-primary hover:bg-primary/10 transition-ui"
                         title="View document"
                       >
                         <ExternalLink className="h-4 w-4" />
-                      </a>
+                      </button>
                     </div>
                   ))}
                 </div>

@@ -2,6 +2,7 @@ import { Response } from 'express';
 import * as ticketService from '../services/ticketService';
 import { TicketStatus, TicketPriority } from '../models/Ticket';
 import { AuthRequest } from '../middleware/authMiddleware';
+import { isAdminRole, isEmployeeRole } from '../utils/generateToken';
 
 const VALID_STATUSES: TicketStatus[] = ['Pending', 'In Progress', 'Completed'];
 const VALID_PRIORITIES: TicketPriority[] = ['Low', 'Medium', 'High', 'Critical'];
@@ -15,8 +16,8 @@ function getAdminFromRequest(req: AuthRequest) {
 
 function canAccessTicket(req: AuthRequest, ticket: { employeeId: string }): boolean {
   if (!req.user) return false;
-  if (req.user.role === 'Admin') return true;
-  return req.user.role === 'Employee' && req.user.id === ticket.employeeId;
+  if (isAdminRole(req.user.role)) return true;
+  return isEmployeeRole(req.user.role) && req.user.id === ticket.employeeId;
 }
 
 function sanitizeTicketForList(ticket: any) {
@@ -40,8 +41,8 @@ export const ticketController = {
         projectId: projectId as string,
       };
 
-      if (req.user?.role === 'Employee') {
-        filters.employeeId = req.user.id;
+      if (isEmployeeRole(req.user?.role ?? '')) {
+        filters.employeeId = req.user!.id;
       } else if (employeeId) {
         filters.employeeId = employeeId as string;
       }
@@ -73,7 +74,7 @@ export const ticketController = {
 
   getByProjectId: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      if (req.user?.role !== 'Admin') {
+      if (!isAdminRole(req.user?.role ?? '')) {
         res.status(403).json({ error: 'Forbidden' });
         return;
       }
@@ -100,7 +101,7 @@ export const ticketController = {
         return;
       }
 
-      if (req.user?.role === 'Employee' && req.user.id !== employeeId) {
+      if (isEmployeeRole(req.user?.role ?? '') && req.user!.id !== employeeId) {
         res.status(403).json({ error: 'Employees can only create tickets for themselves' });
         return;
       }
@@ -195,7 +196,7 @@ export const ticketController = {
         return;
       }
 
-      if (req.user?.role === 'Employee' && ticket.status !== 'Pending') {
+      if (isEmployeeRole(req.user?.role ?? '') && ticket.status !== 'Pending') {
         res.status(400).json({ error: 'Attachments can only be added to pending tickets' });
         return;
       }
