@@ -302,10 +302,6 @@ export default function Timesheet() {
       setCompletionError('Enter at least 3 characters summarizing what you completed.')
       return
     }
-    if (summary === original) {
-      setCompletionError('Update the description — it must reflect what you finished, not the original plan.')
-      return
-    }
 
     try {
       setSubmitting(true)
@@ -338,8 +334,30 @@ export default function Timesheet() {
 
   const weekRange = useMemo(() => getWeekRange(), [liveNow])
 
-  const checkInElapsed =
-    checkedIn && checkInTime ? formatCheckInElapsed(checkInTime, liveNow) : null
+  const currentTaskPausedMs = useMemo(() => {
+    if (!checkedIn) return 0
+    let pausedMs = 0
+    if (pausedTasks && pausedTasks[0]) {
+      const task = pausedTasks[0]
+      pausedMs += task.totalPausedMs
+      if (task.pausedAt) {
+        pausedMs += Math.max(0, liveNow - new Date(task.pausedAt).getTime())
+      }
+    } else if (activeTask) {
+      pausedMs += activeTask.totalPausedMs
+    }
+    return pausedMs
+  }, [checkedIn, activeTask, pausedTasks, liveNow])
+
+  const checkInElapsed = useMemo(() => {
+    if (!checkedIn || !checkInTime) return null
+    const totalMs = Math.max(0, liveNow - checkInTime.getTime() - currentTaskPausedMs)
+    const totalSeconds = Math.floor(totalMs / 1000)
+    const h = Math.floor(totalSeconds / 3600)
+    const m = Math.floor((totalSeconds % 3600) / 60)
+    const s = totalSeconds % 60
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  }, [checkedIn, checkInTime, liveNow, currentTaskPausedMs])
 
   const weeklyHours = useMemo(() => {
     const byDay = {}
@@ -362,28 +380,29 @@ export default function Timesheet() {
   const todayKey = formatDateKey(new Date())
   const checkInsToday = attendanceHistory.filter((s) => s.date === todayKey).length
 
+  const todayHoursMs = useMemo(() => {
+    let totalMs = 0
+    attendanceHistory.forEach((seg) => {
+      if (seg.date === todayKey) {
+        const startMs = new Date(seg.checkInTime).getTime()
+        const isOpen = !seg.checkOutTime
+        const endMs = seg.checkOutTime ? new Date(seg.checkOutTime).getTime() : isOpen ? liveNow : startMs
+        totalMs += Math.max(0, endMs - startMs)
+      }
+    })
+    return Math.max(0, totalMs - currentTaskPausedMs)
+  }, [attendanceHistory, checkedIn, liveNow, todayKey, currentTaskPausedMs])
+
+  const formatMsToHMS = (ms) => {
+    if (ms < 0) return '0h 0m 0s'
+    const hours = Math.floor(ms / 3600000)
+    const minutes = Math.floor((ms % 3600000) / 60000)
+    const seconds = Math.floor((ms % 60000) / 1000)
+    return `${hours}h ${minutes}m ${seconds}s`
+  }
+
   const unifiedHistory = useMemo(() => {
     const entries = []
-
-    attendanceHistory
-      .filter((seg) => isDateInRange(seg.date, historyRange.start, historyRange.end))
-      .forEach((seg) => {
-        const hours = segmentHours(seg, checkedIn, liveNow)
-        entries.push({
-          id: `att-${seg.id}`,
-          sortAt: new Date(seg.checkInTime).getTime(),
-          date: seg.date,
-          project: 'Attendance',
-          start: formatTimeLabel(seg.checkInTime),
-          end: seg.checkOutTime
-            ? formatTimeLabel(seg.checkOutTime)
-            : checkedIn && !seg.checkOutTime
-              ? 'In progress'
-              : '—',
-          hours,
-          status: seg.autoCheckedOut ? 'Auto Checked-Out' : seg.sessionStatus || 'Completed',
-        })
-      })
 
     sessions
       .filter((s) => isDateInRange(s.date, historyRange.start, historyRange.end))
@@ -408,7 +427,7 @@ export default function Timesheet() {
       })
 
     return entries.sort((a, b) => b.sortAt - a.sortAt)
-  }, [attendanceHistory, sessions, historyRange, checkedIn, liveNow])
+  }, [sessions, historyRange, checkedIn, liveNow])
 
   if (!initialized && loading) {
     return (
@@ -421,8 +440,9 @@ export default function Timesheet() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <KPIStatCard title="Weekly Hours" value={`${totalWeekly}h`} />
+      <div className="grid gap-4 sm:grid-cols-3">
+        <KPIStatCard title="Daily Hours Today" value={formatMsToHMS(todayHoursMs)} />
+        <KPIStatCard title="Weekly Hours" value={`${totalWeekly.toFixed(1)}h`} />
         <KPIStatCard title="Check-ins Today" value={String(checkInsToday)} />
       </div>
 
@@ -630,7 +650,7 @@ export default function Timesheet() {
           <DialogHeader>
             <DialogTitle>Complete project work</DialogTitle>
             <DialogDescription>
-              Update the work description to summarize what you completed. It cannot stay the same as when you started.
+              Review or update the work description to summarize what you completed.
             </DialogDescription>
           </DialogHeader>
           {completeTarget && (

@@ -629,7 +629,7 @@ export const projectController = {
           timestamp: task.createdAt,
           employee: task.employeeName,
           employeeId: task.employeeId,
-          details: `Task "${task.title}" assigned to ${task.employeeName}`,
+          details: `Project "${task.title}" assigned to ${task.employeeName}`,
           metadata: {
             taskId: task._id.toString(),
             taskTitle: task.title,
@@ -645,7 +645,7 @@ export const projectController = {
             timestamp: task.updatedAt,
             employee: task.employeeName,
             employeeId: task.employeeId,
-            details: `Task "${task.title}" marked as completed`,
+            details: `Project "${task.title}" marked as completed`,
             metadata: {
               taskId: task._id.toString(),
               taskTitle: task.title,

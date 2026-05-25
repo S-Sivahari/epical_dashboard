@@ -59,13 +59,13 @@ interface AuditTrailData {
    ================================================================ */
 const EVENT_CONFIG: Record<string, { icon: typeof Clock; color: string; bg: string; label: string; border: string }> = {
   project_created:     { icon: Rocket,        color: 'text-emerald-600', bg: 'bg-emerald-50',  border: 'border-emerald-200', label: 'Project Created' },
-  task_assigned:       { icon: ClipboardList,  color: 'text-blue-600',    bg: 'bg-blue-50',     border: 'border-blue-200',    label: 'Task Assigned' },
+  task_assigned:       { icon: ClipboardList,  color: 'text-blue-600',    bg: 'bg-blue-50',     border: 'border-blue-200',    label: 'Project Assigned' },
   work_started:        { icon: PlayCircle,     color: 'text-green-600',   bg: 'bg-green-50',    border: 'border-green-200',   label: 'Work Started' },
   work_paused:         { icon: PauseCircle,    color: 'text-amber-600',   bg: 'bg-amber-50',    border: 'border-amber-200',   label: 'Work Paused' },
   work_completed:      { icon: CheckCircle2,   color: 'text-emerald-600', bg: 'bg-emerald-50',  border: 'border-emerald-200', label: 'Work Completed' },
   work_stopped:        { icon: StopCircle,     color: 'text-slate-500',   bg: 'bg-slate-50',    border: 'border-slate-200',   label: 'Work Ended' },
-  task_completed:      { icon: CheckCircle2,   color: 'text-emerald-600', bg: 'bg-emerald-50',  border: 'border-emerald-200', label: 'Task Completed' },
-  task_approved:       { icon: ThumbsUp,       color: 'text-purple-600',  bg: 'bg-purple-50',   border: 'border-purple-200',  label: 'Task Approved' },
+  task_completed:      { icon: CheckCircle2,   color: 'text-emerald-600', bg: 'bg-emerald-50',  border: 'border-emerald-200', label: 'Project Completed' },
+  task_approved:       { icon: ThumbsUp,       color: 'text-purple-600',  bg: 'bg-purple-50',   border: 'border-purple-200',  label: 'Project Approved' },
   correction_requested:{ icon: FileEdit,       color: 'text-orange-600',  bg: 'bg-orange-50',   border: 'border-orange-200',  label: 'Correction Requested' },
   hours_overridden:    { icon: Timer,          color: 'text-indigo-600',  bg: 'bg-indigo-50',   border: 'border-indigo-200',  label: 'Hours Overridden' },
 }
@@ -415,7 +415,7 @@ export function ProjectAuditTrailModal({
       {data && !loading && !error && (
         <div className="space-y-5 animate-fadeIn">
           {/* Summary Cards */}
-          <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 grid-cols-2">
             <SummaryCard
               label="Total Hours"
               value={`${data.summary.totalHours}h`}
@@ -423,61 +423,29 @@ export function ProjectAuditTrailModal({
               accentColor="bg-slate-600"
             />
             <SummaryCard
-              label="Work Sessions"
-              value={data.summary.totalSessions}
-              icon={BarChart3}
-              accentColor="bg-emerald-600"
-            />
-            <SummaryCard
               label="Team Members"
               value={data.summary.employees}
               icon={Users}
               accentColor="bg-blue-600"
             />
-            <SummaryCard
-              label="Tasks"
-              value={`${data.summary.completedTasks}/${data.summary.totalTasks}`}
-              icon={CheckCircle2}
-              accentColor="bg-purple-600"
-            />
           </div>
 
-          {/* Filter Bar */}
-          <div className="flex flex-wrap items-center gap-2">
-            <EventTypeFilter
-              options={eventTypeOptions}
-              selected={typeFilter}
-              onChange={setTypeFilter}
-            />
-            {uniqueEmployees.length > 1 && (
-              <EmployeeFilter
-                employees={uniqueEmployees}
-                selected={employeeFilter}
-                onChange={setEmployeeFilter}
-              />
-            )}
-            {hasActiveFilters && (
-              <button
-                onClick={() => { setTypeFilter([]); setEmployeeFilter('') }}
-                className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-500 hover:text-red-500 transition-colors"
-              >
-                <X className="h-3 w-3" /> Clear filters
-              </button>
-            )}
-            <span className="ml-auto text-[10px] font-bold text-slate-400 tabular-nums">
-              {filteredEvents.length} event{filteredEvents.length !== 1 ? 's' : ''}
+          {/* Events Count */}
+          <div className="flex justify-end">
+            <span className="text-[10px] font-bold text-slate-400 tabular-nums">
+              {data.events.length} event{data.events.length !== 1 ? 's' : ''}
             </span>
           </div>
 
           {/* Timeline */}
           <div className="max-h-[50vh] overflow-y-auto pr-1 -mr-1">
-            {filteredEvents.length > 0 ? (
+            {data.events.length > 0 ? (
               <div className="pt-1">
-                {filteredEvents.map((event, i) => (
+                {data.events.map((event, i) => (
                   <TimelineEvent
                     key={`${event.type}-${event.timestamp}-${event.employee}-${i}`}
                     event={event}
-                    isLast={i === filteredEvents.length - 1}
+                    isLast={i === data.events.length - 1}
                   />
                 ))}
               </div>

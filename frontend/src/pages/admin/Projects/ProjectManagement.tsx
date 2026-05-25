@@ -48,6 +48,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Cell,
 } from 'recharts'
 import { formatDate } from '@/utils/formatDate'
 import { jsPDF } from 'jspdf'
@@ -1026,15 +1027,14 @@ function EmployeeLeaderboard({
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between text-xs font-bold text-slate-700">
                 <span className="truncate">
-                  {item.name}{' '}
-                  <span className="text-[10px] text-slate-400 font-normal">({item.dept})</span>
+                  {item.name}
                 </span>
                 <span className="tabular-nums font-extrabold text-slate-800">{item.hours.toFixed(1)} hrs</span>
               </div>
               <div className="mt-1 w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-emerald-400 to-emerald-650 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${percent}%` }}
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${percent}%`, backgroundColor: `hsla(${item.hue}, 85%, 50%, 0.45)` }}
                 />
               </div>
             </div>
@@ -1047,6 +1047,19 @@ function EmployeeLeaderboard({
     </div>
   )
 }
+
+const PROJECT_COLORS = [
+  '#3b82f6', // Blue
+  '#ef4444', // Red
+  '#f59e0b', // Amber
+  '#10b981', // Emerald
+  '#8b5cf6', // Purple
+  '#ec4899', // Pink
+  '#14b8a6', // Teal
+  '#6366f1', // Indigo
+  '#06b6d4', // Cyan
+  '#f97316', // Orange
+]
 
 /* ================================================================
    MAIN DASHBOARD COMPONENT
@@ -1070,6 +1083,10 @@ export function ProjectManagement() {
   const [filterEmployees, setFilterEmployees] = useState<string[]>([])
   const [filterStatuses, setFilterStatuses] = useState<string[]>([])
   const [filterAccessTypes, setFilterAccessTypes] = useState<string[]>([])
+
+  // ── Projects Pagination States ──────────────────────────────
+  const [projectsCurrentPage, setProjectsCurrentPage] = useState(1)
+  const projectsPerPage = 9
 
   // ── Project Modal States ────────────────────────────────────
   const [modalOpen, setModalOpen] = useState(false)
@@ -1267,6 +1284,17 @@ export function ProjectManagement() {
     filterStatuses,
     filterAccessTypes,
   ])
+
+  // ── Projects Pagination derived values ──────────────────────
+  const totalProjectsPages = Math.ceil(filteredProjects.length / projectsPerPage)
+  const indexOfLastProject = projectsCurrentPage * projectsPerPage
+  const indexOfFirstProject = indexOfLastProject - projectsPerPage
+  const currentProjects = filteredProjects.slice(indexOfFirstProject, indexOfLastProject)
+
+  // Reset projects page to 1 when filters or search query change
+  useEffect(() => {
+    setProjectsCurrentPage(1)
+  }, [searchQuery, filterClients, filterEmployees, filterStatuses, filterAccessTypes])
 
   // ── Projects Tab Metrics Calculation ─────────────────────────
   const projectMetrics = useMemo(() => {
@@ -1581,7 +1609,7 @@ export function ProjectManagement() {
       'Total Hours',
       'Status',
       'Admin Notes',
-      'Task Details',
+      'Project Details',
     ])
 
     // Table Data Rows
@@ -1643,7 +1671,7 @@ export function ProjectManagement() {
 
     const tableTheme = {
       styles: { fontSize: 8, cellPadding: 4, overflow: 'linebreak' as const },
-      headStyles: { fillColor: [16, 185, 129] as [number, number, number], fontStyle: 'bold' as const, textColor: [255, 255, 255] as [number, number, number] },
+      headStyles: { fillColor: [30, 41, 59] as [number, number, number], fontStyle: 'bold' as const, textColor: [255, 255, 255] as [number, number, number] },
       alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
       theme: 'grid' as const,
       margin: { left: marginX, right: marginX, bottom: 36 },
@@ -1665,7 +1693,7 @@ export function ProjectManagement() {
     // Document header title
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(18)
-    doc.setTextColor(16, 185, 129)
+    doc.setTextColor(30, 41, 59)
     doc.text('EPICAL LAYOUTS PVT LTD', pageWidth / 2, 40, { align: 'center' })
 
     doc.setFontSize(12)
@@ -1677,7 +1705,6 @@ export function ProjectManagement() {
     doc.setTextColor(100, 116, 139)
     doc.text(`Period Range: ${tsStartDate} to ${tsEndDate}`, marginX, 80)
     doc.text(`Generated Timestamp: ${new Date().toLocaleString()}`, pageWidth - marginX, 80, { align: 'right' })
-    doc.text(`Filtered Records: ${filteredTimesheets.length}`, pageWidth / 2, 80, { align: 'center' })
 
     doc.setDrawColor(226, 232, 240)
     doc.line(marginX, 90, pageWidth - marginX, 90)
@@ -1732,22 +1759,37 @@ export function ProjectManagement() {
     const colGap = 42
     const col2X = marginX + colWidth + colGap
 
-    const chartColors = [
-      [99, 102, 241],  // Indigo
-      [16, 185, 129],  // Emerald
-      [245, 158, 11],  // Amber
-      [236, 72, 153],  // Pink
+    const brightColors = [
       [59, 130, 246],  // Blue
-      [139, 92, 246],  // Purple
-      [20, 184, 166],  // Teal
       [239, 68, 68],   // Red
+      [245, 158, 11],  // Amber
+      [16, 185, 129],  // Emerald
+      [139, 92, 246],  // Purple
+      [236, 72, 153],  // Pink
+      [20, 184, 166],  // Teal
+      [99, 102, 241],  // Indigo
+      [6, 182, 212],   // Cyan
+      [249, 115, 22],   // Orange
+    ]
+
+    const chartColors = [
+      [168, 199, 248], // Subtle Blue
+      [240, 174, 176], // Subtle Red
+      [242, 210, 153], // Subtle Amber
+      [151, 221, 201], // Subtle Emerald
+      [200, 183, 247], // Subtle Purple
+      [239, 175, 210], // Subtle Pink
+      [152, 220, 215], // Subtle Teal
+      [184, 187, 245], // Subtle Indigo
+      [147, 219, 234], // Subtle Cyan
+      [244, 193, 158], // Subtle Orange
     ]
 
     // 1. LEFT COLUMN: Aggregated Hours by Project
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(9)
-    doc.setTextColor(16, 185, 129)
-    doc.setFillColor(16, 185, 129)
+    doc.setTextColor(71, 85, 105)
+    doc.setFillColor(71, 85, 105)
     doc.rect(marginX, cursorY, 3, 10, 'F')
     doc.text('AGGREGATED HOURS BY PROJECT', marginX + 8, cursorY + 8)
     
@@ -1762,8 +1804,8 @@ export function ProjectManagement() {
       doc.text(p.name, marginX, leftY)
       
       // Value text
-      doc.setFont('helvetica', 'normal')
-      doc.setTextColor(148, 163, 184)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(30, 41, 59)
       doc.text(`${p.hours.toFixed(1)} hrs`, marginX + colWidth, leftY, { align: 'right' })
       
       // Track background
@@ -1773,9 +1815,13 @@ export function ProjectManagement() {
       // Colored bar
       const barWidth = (p.hours / maxProjectHours) * colWidth
       if (barWidth > 0) {
+        const adjustedWidth = Math.max(6, barWidth)
         const color = chartColors[idx % chartColors.length]
+        const borderColor = brightColors[idx % brightColors.length]
         doc.setFillColor(color[0], color[1], color[2])
-        doc.roundedRect(marginX, leftY + 4, barWidth, 6, 3, 3, 'F')
+        doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2])
+        doc.setLineWidth(0.5)
+        doc.roundedRect(marginX, leftY + 4, adjustedWidth, 6, 3, 3, 'FD')
       }
       
       leftY += 24
@@ -1784,8 +1830,8 @@ export function ProjectManagement() {
     // 2. RIGHT COLUMN: Employee-wise Hours Leaderboard
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(9)
-    doc.setTextColor(16, 185, 129)
-    doc.setFillColor(16, 185, 129)
+    doc.setTextColor(71, 85, 105)
+    doc.setFillColor(71, 85, 105)
     doc.rect(col2X, cursorY, 3, 10, 'F')
     doc.text('EMPLOYEE-WISE HOURS LEADERBOARD', col2X + 8, cursorY + 8)
     
@@ -1794,22 +1840,18 @@ export function ProjectManagement() {
     
     leaderboard.slice(0, 7).forEach((e, idx) => {
       const color = chartColors[idx % chartColors.length]
+      const borderColor = brightColors[idx % brightColors.length]
       
       // Rank badge indicator
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(8)
-      doc.setTextColor(color[0], color[1], color[2])
+      doc.setTextColor(borderColor[0], borderColor[1], borderColor[2])
       doc.text(`#${idx + 1}`, col2X, rightY)
       
       // Employee name
       doc.setFont('helvetica', 'bold')
       doc.setTextColor(71, 85, 105)
       doc.text(e.name, col2X + 20, rightY)
-      
-      // Department
-      doc.setFont('helvetica', 'normal')
-      doc.setTextColor(148, 163, 184)
-      doc.text(`(${e.dept})`, col2X + 20 + doc.getTextWidth(e.name) + 4, rightY)
       
       // Hours value
       doc.setFont('helvetica', 'bold')
@@ -1823,8 +1865,11 @@ export function ProjectManagement() {
       // Progress bar colored
       const barWidth = (e.hours / maxEmployeeHours) * (colWidth - 20)
       if (barWidth > 0) {
+        const adjustedWidth = Math.max(6, barWidth)
         doc.setFillColor(color[0], color[1], color[2])
-        doc.roundedRect(col2X + 20, rightY + 4, barWidth, 6, 3, 3, 'F')
+        doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2])
+        doc.setLineWidth(0.5)
+        doc.roundedRect(col2X + 20, rightY + 4, adjustedWidth, 6, 3, 3, 'FD')
       }
       
       rightY += 24
@@ -1843,7 +1888,6 @@ export function ProjectManagement() {
       'Logout Time',
       'Total Hours',
       'Status',
-      'Date',
     ]
 
     const tableRows = filteredTimesheets.map((t) => {
@@ -1855,7 +1899,6 @@ export function ProjectManagement() {
         t.logoutTime ? formatDateTime(t.logoutTime) : '—',
         hours !== null ? `${hours.toFixed(1)} hrs` : '—',
         getTimesheetWorkflowStatus(t),
-        t.date,
       ]
     })
 
@@ -1866,13 +1909,12 @@ export function ProjectManagement() {
       startY: cursorY,
       styles: { ...tableTheme.styles, cellPadding: 5 },
       columnStyles: {
-        0: { cellWidth: 140 },
-        1: { cellWidth: 130 },
-        2: { cellWidth: 120 },
-        3: { cellWidth: 120 },
-        4: { cellWidth: 80, halign: 'right' },
-        5: { cellWidth: 100, halign: 'center' },
-        6: { cellWidth: 72, halign: 'right' },
+        0: { cellWidth: 160 },
+        1: { cellWidth: 150 },
+        2: { cellWidth: 130 },
+        3: { cellWidth: 130 },
+        4: { cellWidth: 90, halign: 'right' },
+        5: { cellWidth: 102, halign: 'center' },
       }
     })
 
@@ -2162,7 +2204,7 @@ export function ProjectManagement() {
             <>
               {filteredProjects.length > 0 ? (
                 <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                  {filteredProjects.map((p) => (
+                  {currentProjects.map((p) => (
                     <ProjectCard
                       key={p.id}
                       project={p}
@@ -2211,7 +2253,7 @@ export function ProjectManagement() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs">
-                    {filteredProjects.map((p) => (
+                    {currentProjects.map((p) => (
                       <ProjectListRow
                         key={p.id}
                         project={p}
@@ -2230,6 +2272,47 @@ export function ProjectManagement() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+
+          {/* Projects Pagination Controls */}
+          {totalProjectsPages > 1 && (
+            <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4">
+              <span className="text-xs font-semibold text-slate-500">
+                Showing {indexOfFirstProject + 1}–{Math.min(indexOfLastProject, filteredProjects.length)} of {filteredProjects.length} projects
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={projectsCurrentPage === 1}
+                  onClick={() => setProjectsCurrentPage((p) => Math.max(1, p - 1))}
+                  className="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-white"
+                >
+                  Previous
+                </button>
+                {Array.from({ length: totalProjectsPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setProjectsCurrentPage(page)}
+                    className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-xs font-black transition-all ${
+                      projectsCurrentPage === page
+                        ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-500/10'
+                        : 'border border-slate-250 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  disabled={projectsCurrentPage === totalProjectsPages}
+                  onClick={() => setProjectsCurrentPage((p) => Math.min(totalProjectsPages, p + 1))}
+                  className="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-white"
+                >
+                  Next
+                </button>
               </div>
             </div>
           )}
@@ -2266,7 +2349,7 @@ export function ProjectManagement() {
                       type="text"
                       value={tsSearch}
                       onChange={(e) => setTsSearch(e.target.value)}
-                      placeholder="Search task details..."
+                      placeholder="Search project details..."
                       className="h-10 w-full rounded-xl border border-slate-250 bg-white pl-9 pr-3 text-xs font-semibold text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
                     />
                   </div>
@@ -2386,7 +2469,21 @@ export function ProjectManagement() {
                         contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, fontSize: 11, fontWeight: 600 }}
                         cursor={{ fill: '#f8fafc' }}
                       />
-                      <Bar dataKey="hours" radius={[6, 6, 0, 0]} maxBarSize={38} fill="url(#emeraldGrad)" className="cursor-pointer" onClick={handleBarClick} />
+                      <Bar dataKey="hours" radius={[6, 6, 0, 0]} maxBarSize={38} className="cursor-pointer" onClick={handleBarClick}>
+                        {chartHoursByProject.map((entry, index) => {
+                          const baseColor = PROJECT_COLORS[index % PROJECT_COLORS.length]
+                          return (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={baseColor}
+                              fillOpacity={0.4}
+                              stroke={baseColor}
+                              strokeWidth={1.5}
+                              strokeOpacity={0.8}
+                            />
+                          )
+                        })}
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

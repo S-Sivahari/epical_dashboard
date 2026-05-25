@@ -885,13 +885,7 @@ export const employeeTimesheetController = {
         return;
       }
 
-      const originalDescription = (openLog.task || '').trim();
-      if (completionSummary === originalDescription) {
-        res.status(400).json({
-          error: 'Update the work description to summarize what you completed before submitting',
-        });
-        return;
-      }
+
 
       const now = new Date();
       const session = await mongoose.startSession();

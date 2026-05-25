@@ -359,7 +359,7 @@ export function ProjectTasksModal({
 
   return (
     <>
-    <Modal isOpen={isOpen} onClose={onClose} title={`Project Tasks — ${projectName}`} size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title={`Project Details — ${projectName}`} size="lg">
       <div className="space-y-4">
         {assignedEngineers.length > 0 && (
           <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3">
@@ -401,7 +401,7 @@ export function ProjectTasksModal({
             </div>
             <p className="mt-2 text-xs text-slate-600">
               Project status: <span className="font-bold">{projectStatusLabel}</span>
-              {allCompleted && ' — all tasks completed.'}
+              {allCompleted && ' — all items completed.'}
             </p>
           </div>
         )}
@@ -446,7 +446,7 @@ export function ProjectTasksModal({
                         </span>
                       </div>
                       <p className="text-[11px] text-blue-800">
-                        Employee marked this task complete. Review and approve below.
+                        Employee marked this project complete. Review and approve below.
                       </p>
                       {assignment.timesheetId && (
                         <div className="mt-3 flex justify-end border-t border-blue-100 pt-3">
@@ -506,8 +506,8 @@ export function ProjectTasksModal({
                           <span className="font-semibold text-slate-400">Status:</span> Awaiting start
                         </p>
                       </div>
-                      <p className="text-[11px] text-slate-500">
-                        Employee can start this from Timesheet → Check In → select task → Start Task.
+                      <p className="text-[11px] text-slate-505">
+                        Employee can start this from Timesheet → Check In → select project → Start Project.
                       </p>
                     </div>
                   </div>
