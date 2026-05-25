@@ -52,6 +52,22 @@ async function findOpenTimesheet(employee: ResolvedEmployee) {
   }).sort({ loginTime: -1 });
 }
 
+async function findTimesheetByIdAndEmployee(timesheetId: string, employee: ResolvedEmployee) {
+  if (!mongoose.Types.ObjectId.isValid(timesheetId)) return null;
+  return TimesheetModel.findOne({
+    _id: timesheetId,
+    $and: [
+      {
+        $or: [
+          { employeeId: { $in: employee.identityTokens } },
+          { employee: { $in: employee.identityTokens } },
+        ],
+      },
+      { $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }] },
+    ],
+  });
+}
+
 async function findAssignedTaskForEmployee(employee: ResolvedEmployee, assignedTaskId: string) {
   if (!Types.ObjectId.isValid(assignedTaskId)) return null;
   return AssignedTaskModel.findOne({
@@ -141,7 +157,7 @@ async function resolveEmployee(req: Request): Promise<ResolvedEmployee | null> {
       email: user.email,
       employeeId,
     },
-    employeeRecord
+    employeeRecord as any
   );
 
   return {
@@ -247,22 +263,46 @@ export const employeeTimesheetController = {
         return;
       }
 
-      const openLog = await findOpenTimesheet(employee);
+      const openLogs = await TimesheetModel.find({
+        $and: [
+          {
+            $or: [
+              { employeeId: { $in: employee.identityTokens } },
+              { employee: { $in: employee.identityTokens } },
+            ],
+          },
+          { $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }] },
+          { taskStatus: { $in: ['In Progress', 'Paused', 'Session Incomplete'] } },
+        ],
+      }).sort({ loginTime: -1 });
 
-      if (!openLog) {
-        res.json({ active: null });
-        return;
-      }
+      const runningLog = openLogs.find(
+        (log) => log.taskStatus === 'In Progress' || log.taskStatus === 'Session Incomplete'
+      );
+      const pausedLogs = openLogs.filter((log) => log.taskStatus === 'Paused');
 
-      const assigned = await AssignedTaskModel.findOne({
-        timesheetId: openLog._id,
-      });
+      const runningAssigned = runningLog
+        ? await AssignedTaskModel.findOne({ timesheetId: runningLog._id })
+        : null;
+
+      const pausedTasks = await Promise.all(
+        pausedLogs.map(async (log) => {
+          const assigned = await AssignedTaskModel.findOne({ timesheetId: log._id });
+          return {
+            timesheet: toFrontendTimesheet(log),
+            assignedTask: assigned ? toFrontendAssignedTask(assigned) : null,
+          };
+        })
+      );
 
       res.json({
-        active: {
-          timesheet: toFrontendTimesheet(openLog),
-          assignedTask: assigned ? toFrontendAssignedTask(assigned) : null,
-        },
+        active: runningLog
+          ? {
+              timesheet: toFrontendTimesheet(runningLog),
+              assignedTask: runningAssigned ? toFrontendAssignedTask(runningAssigned) : null,
+            }
+          : null,
+        pausedTasks,
       });
     } catch (error) {
       console.error('Error fetching active task:', error);
@@ -434,15 +474,25 @@ export const employeeTimesheetController = {
         return;
       }
 
-      const existingOpen = await findOpenTimesheet(employee);
-      if (existingOpen) {
-        res.status(400).json({
-          error:
-            existingOpen.taskStatus === 'Paused'
-              ? 'Resume or complete your paused task before starting a new one'
-              : 'Stop your current task before starting a new one',
-        });
-        return;
+      const runningLog = await TimesheetModel.findOne({
+        $and: [
+          {
+            $or: [
+              { employeeId: { $in: employee.identityTokens } },
+              { employee: { $in: employee.identityTokens } },
+            ],
+          },
+          { $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }] },
+          { taskStatus: { $in: ['In Progress', 'Session Incomplete'] } },
+        ],
+      });
+
+      if (runningLog) {
+        const now = new Date();
+        runningLog.taskStatus = 'Paused';
+        runningLog.pausedAt = now;
+        await runningLog.save();
+        await syncProjectForTimesheet(runningLog);
       }
 
       const assigned = await findAssignedTaskForEmployee(employee, assignedTaskId);
@@ -452,6 +502,11 @@ export const employeeTimesheetController = {
       }
 
       const taskProject = await ProjectModel.findById(assigned.projectId);
+
+      if (assigned.status === 'completed') {
+        res.status(400).json({ error: 'This task is already completed' });
+        return;
+      }
 
       if (assigned.status !== 'assigned') {
         const linkedTimesheetId = assigned.timesheetId ? assigned.timesheetId.toString() : null;
@@ -466,9 +521,6 @@ export const employeeTimesheetController = {
         assigned.status = 'assigned';
         assigned.timesheetId = undefined;
         await assigned.save();
-      } else if (assigned.status === 'completed') {
-        res.status(400).json({ error: 'This task is already completed' });
-        return;
       }
 
       if (assigned.status !== 'assigned') {
@@ -539,7 +591,10 @@ export const employeeTimesheetController = {
         return;
       }
 
-      const openLog = await findOpenTimesheet(employee);
+      const { timesheetId } = req.body;
+      const openLog = timesheetId
+        ? await findTimesheetByIdAndEmployee(timesheetId, employee)
+        : await findOpenTimesheet(employee);
 
       if (!openLog) {
         res.status(400).json({ error: 'No active task to stop' });
@@ -588,17 +643,28 @@ export const employeeTimesheetController = {
         return;
       }
 
-      const openLog = await findOpenTimesheet(employee);
+      const { timesheetId } = req.body;
+      const openLog = timesheetId
+        ? await findTimesheetByIdAndEmployee(timesheetId, employee)
+        : await TimesheetModel.findOne({
+            $and: [
+              {
+                $or: [
+                  { employeeId: { $in: employee.identityTokens } },
+                  { employee: { $in: employee.identityTokens } },
+                ],
+              },
+              { $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }] },
+              { taskStatus: { $in: ['In Progress', 'Session Incomplete'] } },
+            ],
+          });
+
       if (!openLog) {
         res.status(400).json({ error: 'No active task to pause' });
         return;
       }
       if (openLog.taskStatus === 'Paused') {
         res.status(400).json({ error: 'Task is already paused' });
-        return;
-      }
-      if (openLog.taskStatus !== 'In Progress') {
-        res.status(400).json({ error: 'Only in-progress tasks can be paused' });
         return;
       }
 
@@ -626,10 +692,48 @@ export const employeeTimesheetController = {
         return;
       }
 
-      const openLog = await findOpenTimesheet(employee);
+      const { timesheetId } = req.body;
+      const openLog = timesheetId
+        ? await findTimesheetByIdAndEmployee(timesheetId, employee)
+        : await TimesheetModel.findOne({
+            $and: [
+              {
+                $or: [
+                  { employeeId: { $in: employee.identityTokens } },
+                  { employee: { $in: employee.identityTokens } },
+                ],
+              },
+              { $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }] },
+              { taskStatus: 'Paused' },
+            ],
+          }).sort({ updatedAt: -1 });
+
       if (!openLog || openLog.taskStatus !== 'Paused') {
         res.status(400).json({ error: 'No paused task to resume' });
         return;
+      }
+
+      // Automatically pause any running task
+      const runningLog = await TimesheetModel.findOne({
+        $and: [
+          {
+            $or: [
+              { employeeId: { $in: employee.identityTokens } },
+              { employee: { $in: employee.identityTokens } },
+            ],
+          },
+          { _id: { $ne: openLog._id } },
+          { $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }] },
+          { taskStatus: { $in: ['In Progress', 'Session Incomplete'] } },
+        ],
+      });
+
+      if (runningLog) {
+        const now = new Date();
+        runningLog.taskStatus = 'Paused';
+        runningLog.pausedAt = now;
+        await runningLog.save();
+        await syncProjectForTimesheet(runningLog);
       }
 
       finalizePauseAccumulation(openLog);
@@ -655,7 +759,11 @@ export const employeeTimesheetController = {
         return;
       }
 
-      const openLog = await findOpenTimesheet(employee);
+      const { timesheetId } = req.body;
+      const openLog = timesheetId
+        ? await findTimesheetByIdAndEmployee(timesheetId, employee)
+        : await findOpenTimesheet(employee);
+
       if (!openLog) {
         res.status(400).json({ error: 'No active task to complete' });
         return;

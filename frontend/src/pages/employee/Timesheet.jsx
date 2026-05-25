@@ -105,6 +105,7 @@ export default function Timesheet() {
     checkInTime,
     attendance,
     activeTask,
+    pausedTasks,
     assignedTasks,
     sessions,
     loading,
@@ -129,9 +130,10 @@ export default function Timesheet() {
 
   useEffect(() => {
     const onFocus = () => {
-      const { refreshAssignedTasks, refreshSessions } = useTimesheetStore.getState()
+      const { refreshAssignedTasks, refreshSessions, refreshActiveTask } = useTimesheetStore.getState()
       void refreshAssignedTasks()
       void refreshSessions()
+      void refreshActiveTask()
     }
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
@@ -148,9 +150,10 @@ export default function Timesheet() {
   useEffect(() => {
     if (!initialized || !hasAwaitingApproval) return undefined
     const refresh = () => {
-      const { refreshAssignedTasks, refreshSessions } = useTimesheetStore.getState()
+      const { refreshAssignedTasks, refreshSessions, refreshActiveTask } = useTimesheetStore.getState()
       void refreshAssignedTasks()
       void refreshSessions()
+      void refreshActiveTask()
     }
     const id = setInterval(refresh, 12000)
     return () => clearInterval(id)
@@ -174,7 +177,7 @@ export default function Timesheet() {
 
   const selectedTaskId = watch('assignedTaskId')
   const startableTasks = useMemo(
-    () => assignedTasks.filter((t) => t.status === 'assigned' || t.status === 'in_progress'),
+    () => assignedTasks.filter((t) => t.status === 'assigned'),
     [assignedTasks]
   )
   const selectedTask = startableTasks.find((t) => t.id === selectedTaskId)
@@ -235,10 +238,10 @@ export default function Timesheet() {
     }
   }
 
-  const onStopTask = async () => {
+  const onStopTask = async (timesheetId) => {
     try {
       setSubmitting(true)
-      await stopTask()
+      await stopTask(timesheetId)
       toast({ title: 'Task stopped', description: 'Hours saved and visible in the admin dashboard.' })
     } catch (err) {
       toast({
@@ -251,10 +254,10 @@ export default function Timesheet() {
     }
   }
 
-  const onPauseTask = async () => {
+  const onPauseTask = async (timesheetId) => {
     try {
       setSubmitting(true)
-      await pauseTask()
+      await pauseTask(timesheetId)
       toast({ title: 'Task paused', description: 'Timer paused. Status updated on the admin dashboard.' })
     } catch (err) {
       toast({
@@ -267,10 +270,10 @@ export default function Timesheet() {
     }
   }
 
-  const onResumeTask = async () => {
+  const onResumeTask = async (timesheetId) => {
     try {
       setSubmitting(true)
-      await resumeTask()
+      await resumeTask(timesheetId)
       toast({ title: 'Task resumed', description: 'Timer running again.' })
     } catch (err) {
       toast({
@@ -283,10 +286,10 @@ export default function Timesheet() {
     }
   }
 
-  const onCompleteTask = async () => {
+  const onCompleteTask = async (timesheetId) => {
     try {
       setSubmitting(true)
-      await completeTask()
+      await completeTask(timesheetId)
       toast({
         title: 'Submitted for approval',
         description: 'Your task is waiting for admin approval.',
@@ -557,15 +560,12 @@ export default function Timesheet() {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl bg-primary/5 p-4">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <p className="text-sm text-muted">
-                    {activeTask.paused ? 'Paused Task' : 'Running Task'}
-                  </p>
+                  <p className="text-sm text-muted">Running Task</p>
                   <p className="font-heading font-semibold">{activeTask.project}</p>
                   <p className="text-sm font-medium text-foreground">{activeTask.taskTitle}</p>
                   <p className="mt-1 text-xs text-muted">{activeTask.description}</p>
                   <p className="mt-2 text-sm text-primary">
                     Started {activeTask.startedAt.toLocaleString()} · Elapsed {elapsed}
-                    {activeTask.paused ? ' · Paused' : ''}
                   </p>
                   {activeTask.workflowStatus && (
                     <p className="mt-1 text-xs font-medium text-amber-700">
@@ -574,23 +574,17 @@ export default function Timesheet() {
                   )}
                 </div>
                 <div className="flex flex-wrap gap-2 shrink-0">
-                  {activeTask.paused ? (
-                    <Button onClick={onResumeTask} disabled={submitting} className="gap-2">
-                      <Play className="h-4 w-4" /> Resume
-                    </Button>
-                  ) : (
-                    <Button variant="outline" onClick={onPauseTask} disabled={submitting} className="gap-2">
-                      <Pause className="h-4 w-4" /> Pause
-                    </Button>
-                  )}
+                  <Button variant="outline" onClick={() => onPauseTask(activeTask.timesheetId)} disabled={submitting} className="gap-2">
+                    <Pause className="h-4 w-4" /> Pause
+                  </Button>
                   <Button
-                    onClick={onCompleteTask}
+                    onClick={() => onCompleteTask(activeTask.timesheetId)}
                     disabled={submitting}
-                    className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+                    className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white hover:text-white"
                   >
                     <CheckCircle2 className="h-4 w-4" /> Complete
                   </Button>
-                  <Button variant="danger" onClick={onStopTask} disabled={submitting} className="gap-2">
+                  <Button variant="danger" onClick={() => onStopTask(activeTask.timesheetId)} disabled={submitting} className="gap-2">
                     <Square className="h-4 w-4" /> Stop
                   </Button>
                 </div>
@@ -598,8 +592,48 @@ export default function Timesheet() {
             </motion.div>
           ) : (
             <p className="text-muted">
-              No active task. Check in, pick an assigned task, add a description, and start tracking.
+              No running task. Check in, pick an assigned task from the left, add a description, and start tracking, or resume a paused task below.
             </p>
+          )}
+
+          {pausedTasks.length > 0 && (
+            <div className="mt-6 border-t border-border pt-6">
+              <h4 className="font-heading font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Pause className="h-4 w-4 text-primary" /> Paused Tasks ({pausedTasks.length})
+              </h4>
+              <div className="space-y-4">
+                {pausedTasks.map((task) => (
+                  <div key={task.timesheetId} className="rounded-xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="font-heading font-semibold text-base">{task.project}</p>
+                        <p className="text-sm font-medium text-foreground">{task.taskTitle}</p>
+                        <p className="mt-1 text-xs text-muted">{task.description}</p>
+                        <p className="mt-2 text-xs text-primary/80 font-medium">
+                          Started {task.startedAt.toLocaleString()} · Elapsed {formatDuration(task.startedAt, task.pausedAt, task.totalPausedMs)}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 shrink-0 sm:self-center">
+                        <Button onClick={() => onResumeTask(task.timesheetId)} disabled={submitting} size="sm" className="gap-1.5 h-9 px-3">
+                          <Play className="h-3.5 w-3.5" /> Resume
+                        </Button>
+                        <Button
+                          onClick={() => onCompleteTask(task.timesheetId)}
+                          disabled={submitting}
+                          size="sm"
+                          className="gap-1.5 h-9 px-3 bg-emerald-600 hover:bg-emerald-700 text-white hover:text-white"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Complete
+                        </Button>
+                        <Button variant="danger" onClick={() => onStopTask(task.timesheetId)} disabled={submitting} size="sm" className="gap-1.5 h-9 px-3">
+                          <Square className="h-3.5 w-3.5" /> Stop
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
           <div className="mt-6 h-64">

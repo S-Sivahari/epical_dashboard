@@ -22,7 +22,7 @@ function isEntryCompletedAndApproved(entry: any): boolean {
   return getApprovalStatus(entry) === 'Approved';
 }
 
-export function getTimesheetWorkflowStatus(entry: any): 'Pending' | 'In Progress' | 'Paused' | 'Completed' | 'Rejected' | 'Session Incomplete' | 'Pending Review' {
+export function getTimesheetWorkflowStatus(entry: any): 'Pending' | 'In Progress' | 'Paused' | 'Completed' | 'Rejected' | 'Session Incomplete' | 'Pending Review' | 'Waiting for approval' {
   const approvalStatus = getApprovalStatus(entry);
 
   if (approvalStatus === 'Rejected') return 'Rejected';

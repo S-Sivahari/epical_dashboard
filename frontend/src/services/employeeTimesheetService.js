@@ -35,22 +35,22 @@ export async function startTask(assignedTaskId, description) {
   return res.data
 }
 
-export async function stopActiveTask() {
-  const res = await api.patch('/timesheets/mine/stop-task')
+export async function stopActiveTask(timesheetId) {
+  const res = await api.patch('/timesheets/mine/stop-task', { timesheetId })
   return res.data
 }
 
-export async function pauseActiveTask() {
-  const res = await api.patch('/timesheets/mine/pause-task')
+export async function pauseActiveTask(timesheetId) {
+  const res = await api.patch('/timesheets/mine/pause-task', { timesheetId })
   return res.data
 }
 
-export async function resumeActiveTask() {
-  const res = await api.patch('/timesheets/mine/resume-task')
+export async function resumeActiveTask(timesheetId) {
+  const res = await api.patch('/timesheets/mine/resume-task', { timesheetId })
   return res.data
 }
 
-export async function completeActiveTask() {
-  const res = await api.patch('/timesheets/mine/complete-task')
+export async function completeActiveTask(timesheetId) {
+  const res = await api.patch('/timesheets/mine/complete-task', { timesheetId })
   return res.data
 }

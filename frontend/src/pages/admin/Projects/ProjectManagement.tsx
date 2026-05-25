@@ -8,6 +8,8 @@ import { Input } from '@components/ui/Input'
 import { SelectField } from '@components/forms/SelectField'
 import { Modal } from '@components/ui/Modal'
 import { ProjectTasksModal } from '@components/modals/ProjectTasksModal'
+import { ProjectAuditTrailModal } from '@components/modals/ProjectAuditTrailModal'
+import { ArchivedProjectsModal } from '@components/modals/ArchivedProjectsModal'
 import { toast } from 'sonner'
 import {
   Clock,
@@ -15,6 +17,7 @@ import {
   Search,
   X,
   Trash2,
+  Archive,
   FileDown,
   Calendar as CalendarIcon,
   LayoutGrid,
@@ -76,6 +79,7 @@ interface TimesheetLog {
   id: string
   employeeId: string
   employeeName: string
+  projectId?: string
   project: string
   client: string
   technologyNode: string
@@ -1051,6 +1055,47 @@ export function ProjectManagement() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [selectedProjectName, setSelectedProjectName] = useState<string>('')
 
+  // ── Project Audit Trail Modal States ────────────────────────────
+  const [auditTrailModalOpen, setAuditTrailModalOpen] = useState(false)
+  const [selectedAuditProjectId, setSelectedAuditProjectId] = useState<string | null>(null)
+  const [selectedAuditProjectName, setSelectedAuditProjectName] = useState<string>('')
+
+  // ── Project Archiving & Delete Confirmation States ──────────────
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
+  const [archivedModalOpen, setArchivedModalOpen] = useState(false)
+
+  const openAuditTrail = useCallback((id: string, name: string) => {
+    setSelectedAuditProjectId(id)
+    setSelectedAuditProjectName(name)
+    setAuditTrailModalOpen(true)
+  }, [])
+
+  const handleBarClick = useCallback((data: any) => {
+    if (!data) return
+    
+    // Check if clicked directly on Bar or through BarChart activePayload
+    let pId = data.projectId || (data.payload && data.payload.projectId)
+    let pName = data.name || (data.payload && data.payload.name)
+
+    if (!pId && data.activePayload && data.activePayload[0]) {
+      const payload = data.activePayload[0].payload
+      pId = payload.projectId
+      pName = payload.name
+    }
+
+    if (pId) {
+      openAuditTrail(pId, pName)
+    } else if (pName) {
+      const found = allProjects.find(p => p.name === pName)
+      if (found) {
+        openAuditTrail(found.id, found.name)
+      } else {
+        toast.error(`Could not find project: ${pName}`)
+      }
+    }
+  }, [allProjects, openAuditTrail])
+
   const emptyForm = {
     name: '',
     client: '',
@@ -1303,28 +1348,52 @@ export function ProjectManagement() {
   )
 
   const handleDeleteProject = useCallback(
-    async (p: Project) => {
-      if (!window.confirm(`Are you sure you want to delete project "${p.name}"?`)) return
-      setLoading(true)
-      try {
-        await api.delete(`/projects/${p.id}`)
-        
-        setTsProjectFilters((prev) => prev.filter((n) => n !== p.name))
-        setFilterProjectNames((prev) => prev.filter((n) => n !== p.name))
-
-        await refreshAllData()
-        toast.success(`Project "${p.name}" and its associated logs have been deleted.`)
-      } catch (err: any) {
-        console.error(err)
-        toast.error(err.response?.data?.error || 'Failed to delete project.')
-      } finally {
-        setLoading(false)
-      }
+    (p: Project) => {
+      setProjectToDelete(p)
+      setDeleteConfirmOpen(true)
     },
-    [refreshAllData]
+    []
   )
 
+  const handleConfirmArchive = useCallback(async () => {
+    if (!projectToDelete) return
+    setDeleteConfirmOpen(false)
+    setLoading(true)
+    const pName = projectToDelete.name
+    try {
+      await api.post(`/projects/${projectToDelete.id}/archive`)
+      setTsProjectFilters((prev) => prev.filter((n) => n !== pName))
+      setFilterProjectNames((prev) => prev.filter((n) => n !== pName))
+      await refreshAllData()
+      toast.success(`Project "${pName}" and all associated history have been safely archived.`)
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.response?.data?.error || 'Failed to archive project.')
+    } finally {
+      setLoading(false)
+      setProjectToDelete(null)
+    }
+  }, [projectToDelete, refreshAllData])
 
+  const handleConfirmPermanentDelete = useCallback(async () => {
+    if (!projectToDelete) return
+    setDeleteConfirmOpen(false)
+    setLoading(true)
+    const pName = projectToDelete.name
+    try {
+      await api.delete(`/projects/${projectToDelete.id}`)
+      setTsProjectFilters((prev) => prev.filter((n) => n !== pName))
+      setFilterProjectNames((prev) => prev.filter((n) => n !== pName))
+      await refreshAllData()
+      toast.success(`Project "${pName}" and its associated logs have been permanently deleted.`)
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.response?.data?.error || 'Failed to permanently delete project.')
+    } finally {
+      setLoading(false)
+      setProjectToDelete(null)
+    }
+  }, [projectToDelete, refreshAllData])
   const clearProjectsFilters = useCallback(() => {
     setSearchQuery('')
     setFilterClients([])
@@ -1739,14 +1808,22 @@ export function ProjectManagement() {
         </div>
 
         {/* Header CTA Trigger */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {activeTab === 'projects' && (
-            <Button
-              onClick={openCreateProject}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-all shadow-sm rounded-xl py-2 px-4 flex items-center gap-1.5 focus:ring-4 focus:ring-emerald-500/10 border-0"
-            >
-              <Plus className="h-4 w-4" /> Create Project
-            </Button>
+            <>
+              <Button
+                onClick={() => setArchivedModalOpen(true)}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-all shadow-sm rounded-xl py-2 px-4 flex items-center gap-1.5 border border-slate-200"
+              >
+                <Archive className="h-4 w-4 text-slate-500" /> Archived Projects
+              </Button>
+              <Button
+                onClick={openCreateProject}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-all shadow-sm rounded-xl py-2 px-4 flex items-center gap-1.5 focus:ring-4 focus:ring-emerald-500/10 border-0"
+              >
+                <Plus className="h-4 w-4" /> Create Project
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -2126,7 +2203,7 @@ export function ProjectManagement() {
               {chartHoursByProject.length > 0 ? (
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartHoursByProject} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
+                    <BarChart data={chartHoursByProject} margin={{ top: 5, right: 5, left: -25, bottom: 5 }} onClick={handleBarClick}>
                       <defs>
                         <linearGradient id="emeraldGrad" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#10b981" stopOpacity={0.85} />
@@ -2140,7 +2217,7 @@ export function ProjectManagement() {
                         contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, fontSize: 11, fontWeight: 600 }}
                         cursor={{ fill: '#f8fafc' }}
                       />
-                      <Bar dataKey="hours" radius={[6, 6, 0, 0]} maxBarSize={38} fill="url(#emeraldGrad)" />
+                      <Bar dataKey="hours" radius={[6, 6, 0, 0]} maxBarSize={38} fill="url(#emeraldGrad)" className="cursor-pointer" onClick={handleBarClick} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -2270,8 +2347,28 @@ export function ProjectManagement() {
 
                         {/* Project Details Column */}
                         <td className="px-5 py-3.5">
-                          <p className="font-bold text-slate-700 leading-tight">{t.project}</p>
-                          <p className="text-[10px] text-slate-400 font-semibold">{t.client} · {t.technologyNode}</p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (t.projectId) {
+                                openAuditTrail(t.projectId, t.project)
+                              } else {
+                                const found = allProjects.find((p) => p.name === t.project)
+                                if (found) {
+                                  openAuditTrail(found.id, found.name)
+                                } else {
+                                  toast.error(`Could not find project: ${t.project}`)
+                                }
+                              }
+                            }}
+                            className="group/btn text-left focus:outline-none block"
+                          >
+                            <p className="font-bold text-slate-700 group-hover/btn:text-emerald-600 transition-colors leading-tight flex items-center gap-1">
+                              {t.project}
+                              <ArrowUpRight className="h-3 w-3 opacity-0 group-hover/btn:opacity-100 transition-all transform translate-y-0.5 group-hover/btn:translate-y-0 group-hover/btn:translate-x-0.5 text-emerald-500 shrink-0" />
+                            </p>
+                          </button>
+                          <p className="text-[10px] text-slate-400 font-semibold mt-0.5">{t.client} · {t.technologyNode}</p>
                           <p className="mt-1 text-[10px] text-slate-500 font-medium truncate max-w-[220px]" title={t.task}>
                             Task: {t.task}
                           </p>
@@ -2456,6 +2553,41 @@ export function ProjectManagement() {
           onRefresh={refreshAllData}
         />
       )}
+
+      {/* Project Audit Trail Modal */}
+      {selectedAuditProjectId && (
+        <ProjectAuditTrailModal
+          isOpen={auditTrailModalOpen}
+          onClose={() => {
+            setAuditTrailModalOpen(false)
+            setSelectedAuditProjectId(null)
+            setSelectedAuditProjectName('')
+          }}
+          projectId={selectedAuditProjectId}
+          projectName={selectedAuditProjectName}
+        />
+      )}
+
+      {/* Project Delete & Archive Choice Modal */}
+      {projectToDelete && (
+        <ProjectDeleteConfirmModal
+          isOpen={deleteConfirmOpen}
+          onClose={() => {
+            setDeleteConfirmOpen(false)
+            setProjectToDelete(null)
+          }}
+          projectName={projectToDelete.name}
+          onArchive={handleConfirmArchive}
+          onPermanentDelete={handleConfirmPermanentDelete}
+        />
+      )}
+
+      {/* Archived Projects Browser Modal */}
+      <ArchivedProjectsModal
+        isOpen={archivedModalOpen}
+        onClose={() => setArchivedModalOpen(false)}
+        onRefreshActiveProjects={refreshAllData}
+      />
     </PageWrapper>
   )
 }
@@ -2485,5 +2617,94 @@ function EmptyState({
         </button>
       )}
     </div>
+  )
+}
+
+/* ================================================================
+   COMPONENT – ProjectDeleteConfirmModal
+   ================================================================ */
+interface ProjectDeleteConfirmModalProps {
+  isOpen: boolean
+  onClose: () => void
+  projectName: string
+  onArchive: () => void
+  onPermanentDelete: () => void
+}
+
+function ProjectDeleteConfirmModal({
+  isOpen,
+  onClose,
+  projectName,
+  onArchive,
+  onPermanentDelete,
+}: ProjectDeleteConfirmModalProps) {
+  return (
+    <Modal isOpen={isOpen} title="" onClose={onClose} size="md">
+      {/* Sleek icon header */}
+      <div className="-mt-10 mb-4 flex items-center gap-2">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-rose-700 shadow-md">
+          <Trash2 className="h-4 w-4 text-white" />
+        </div>
+        <h3 className="text-sm font-black text-slate-800 leading-tight">Delete or Archive Project?</h3>
+      </div>
+
+      <div className="space-y-4">
+        <p className="text-xs text-slate-500 font-bold leading-relaxed">
+          How would you like to handle the deletion of project <strong className="text-slate-800 font-extrabold">"{projectName}"</strong>?
+        </p>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          {/* Archive option */}
+          <button
+            type="button"
+            onClick={onArchive}
+            className="flex flex-col items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/20 p-4 text-center hover:bg-emerald-50/30 hover:border-emerald-300 transition-all duration-300 group focus:outline-none"
+          >
+            <div className="rounded-xl bg-slate-100 p-2.5 text-slate-500 transition-transform group-hover:scale-110 group-hover:bg-emerald-100 group-hover:text-emerald-600">
+              <Archive className="h-5 w-5" />
+            </div>
+            <div className="mt-2.5 flex-1 flex flex-col justify-between">
+              <div>
+                <h4 className="text-xs font-bold text-slate-700 group-hover:text-emerald-700 transition-colors">Archive Project</h4>
+                <p className="mt-1 text-[10px] text-slate-400 font-semibold leading-normal">
+                  Safely moves the project and its complete history (assigned tasks and timesheet logs) to separate archived storage. Dashboards stay clean.
+                </p>
+              </div>
+              <span className="mt-3.5 inline-flex items-center justify-center rounded-xl bg-slate-100 px-3 py-1 text-[10px] font-bold text-slate-600 transition-all group-hover:bg-emerald-600 group-hover:text-white">
+                Archive Safe
+              </span>
+            </div>
+          </button>
+
+          {/* Permanent delete option */}
+          <button
+            type="button"
+            onClick={onPermanentDelete}
+            className="flex flex-col items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/20 p-4 text-center hover:bg-rose-50/30 hover:border-rose-300 transition-all duration-300 group focus:outline-none"
+          >
+            <div className="rounded-xl bg-slate-100 p-2.5 text-slate-500 transition-transform group-hover:scale-110 group-hover:bg-rose-100 group-hover:text-rose-600">
+              <Trash2 className="h-5 w-5" />
+            </div>
+            <div className="mt-2.5 flex-1 flex flex-col justify-between">
+              <div>
+                <h4 className="text-xs font-bold text-slate-700 group-hover:text-rose-700 transition-colors">Permanently Delete</h4>
+                <p className="mt-1 text-[10px] text-slate-400 font-semibold leading-normal">
+                  Irreversibly deletes the project, assigned tasks, and timesheet logs from the active database. This action is final and cannot be undone.
+                </p>
+              </div>
+              <span className="mt-3.5 inline-flex items-center justify-center rounded-xl bg-slate-100 px-3 py-1 text-[10px] font-bold text-slate-600 transition-all group-hover:bg-rose-600 group-hover:text-white">
+                Delete Forever
+              </span>
+            </div>
+          </button>
+        </div>
+
+        <div className="flex justify-end pt-2 border-t border-slate-100">
+          <Button variant="secondary" onClick={onClose} className="rounded-xl font-bold py-2 px-4 text-xs h-9">
+            Cancel
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }

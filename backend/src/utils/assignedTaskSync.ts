@@ -122,7 +122,7 @@ export async function ensureAssignedTasksForEmployee(employee: {
     ? await db.collection('employees').findOne({ email: employee.email.toLowerCase().trim() })
     : null;
 
-  const identityTokens = buildAssignmentIdentityTokens(employee, employeeRecord);
+  const identityTokens = buildAssignmentIdentityTokens(employee, employeeRecord as any);
 
   const projects = await ProjectModel.find({
     $or: [

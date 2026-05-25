@@ -13,10 +13,10 @@ import {
   completeActiveTask as apiCompleteActiveTask,
 } from '@services/employeeTimesheetService'
 
-function mapActiveTaskFromApi(activeRes) {
-  if (!activeRes?.active?.timesheet) return null
-  const ts = activeRes.active.timesheet
-  const assigned = activeRes.active.assignedTask
+function mapTaskEntryFromApi(entry) {
+  if (!entry?.timesheet) return null
+  const ts = entry.timesheet
+  const assigned = entry.assignedTask
   return {
     timesheetId: ts.id,
     assignedTaskId: assigned?.id,
@@ -30,6 +30,11 @@ function mapActiveTaskFromApi(activeRes) {
     taskStatus: ts.taskStatus,
     workflowStatus: ts.workflowStatus,
   }
+}
+
+function mapActiveTaskFromApi(activeRes) {
+  if (!activeRes?.active) return null
+  return mapTaskEntryFromApi(activeRes.active)
 }
 
 function mapSessionFromApi(entry) {
@@ -64,6 +69,7 @@ export const useTimesheetStore = create((set, get) => ({
   checkedIn: false,
   checkInTime: null,
   activeTask: null,
+  pausedTasks: [],
   assignedTasks: [],
   sessions: [],
   loading: false,
@@ -84,12 +90,16 @@ export const useTimesheetStore = create((set, get) => ({
       let activeTask = null
 
       activeTask = mapActiveTaskFromApi(activeRes)
+      const pausedTasks = (activeRes?.pausedTasks || [])
+        .map(mapTaskEntryFromApi)
+        .filter(Boolean)
 
       set({
         checkedIn: attendance.checkedIn,
         checkInTime,
         attendance,
         activeTask,
+        pausedTasks,
         assignedTasks: tasks,
         sessions: sessions.map(mapSessionFromApi),
         initialized: true,
@@ -120,6 +130,19 @@ export const useTimesheetStore = create((set, get) => ({
     }
   },
 
+  refreshActiveTask: async () => {
+    try {
+      const activeRes = await fetchMyActiveTask()
+      const activeTask = mapActiveTaskFromApi(activeRes)
+      const pausedTasks = (activeRes?.pausedTasks || [])
+        .map(mapTaskEntryFromApi)
+        .filter(Boolean)
+      set({ activeTask, pausedTasks })
+    } catch (err) {
+      console.error(err)
+    }
+  },
+
   checkIn: async () => {
     const data = await apiCheckIn()
     set({
@@ -136,7 +159,7 @@ export const useTimesheetStore = create((set, get) => ({
 
   checkOut: async () => {
     const data = await apiCheckOut()
-    set({ checkedIn: false, checkInTime: null, activeTask: null })
+    set({ checkedIn: false, checkInTime: null, activeTask: null, pausedTasks: [] })
     if (data?.checkOutTime) {
       set((state) => ({
         attendance: {
@@ -152,75 +175,38 @@ export const useTimesheetStore = create((set, get) => ({
 
   startTask: async ({ assignedTaskId, description }) => {
     const data = await apiStartTask(assignedTaskId, description)
-    const assigned = data.assignedTask
-    const ts = data.timesheet
-    set({
-      activeTask: {
-        timesheetId: ts.id,
-        assignedTaskId: assigned?.id,
-        project: ts.project,
-        taskTitle: assigned?.title || ts.task,
-        description: ts.task,
-        startedAt: new Date(data.startedAt || ts.loginTime),
-        paused: false,
-        pausedAt: null,
-        totalPausedMs: 0,
-        taskStatus: ts.taskStatus || 'In Progress',
-        workflowStatus: ts.workflowStatus || 'In Progress',
-      },
-    })
+    await get().refreshActiveTask()
     await get().refreshAssignedTasks()
     return data
   },
 
-  stopTask: async () => {
-    await apiStopActiveTask()
-    set({ activeTask: null })
+  stopTask: async (timesheetId) => {
+    const data = await apiStopActiveTask(timesheetId)
+    await get().refreshActiveTask()
     await get().refreshSessions()
     await get().refreshAssignedTasks()
+    return data
   },
 
-  pauseTask: async () => {
-    const data = await apiPauseActiveTask()
-    const ts = data.timesheet
-    set((state) => ({
-      activeTask: state.activeTask
-        ? {
-            ...state.activeTask,
-            paused: true,
-            pausedAt: new Date(data.pausedAt || ts.pausedAt || Date.now()),
-            taskStatus: 'Paused',
-            workflowStatus: ts.workflowStatus || 'Paused',
-          }
-        : null,
-    }))
+  pauseTask: async (timesheetId) => {
+    const data = await apiPauseActiveTask(timesheetId)
+    await get().refreshActiveTask()
     await get().refreshAssignedTasks()
     return data
   },
 
-  resumeTask: async () => {
-    const data = await apiResumeActiveTask()
-    const ts = data.timesheet
-    set((state) => ({
-      activeTask: state.activeTask
-        ? {
-            ...state.activeTask,
-            paused: false,
-            pausedAt: null,
-            totalPausedMs: ts.totalPausedMs || 0,
-            taskStatus: 'In Progress',
-            workflowStatus: ts.workflowStatus || 'In Progress',
-          }
-        : null,
-    }))
+  resumeTask: async (timesheetId) => {
+    const data = await apiResumeActiveTask(timesheetId)
+    await get().refreshActiveTask()
     await get().refreshAssignedTasks()
     return data
   },
 
-  completeTask: async () => {
-    await apiCompleteActiveTask()
-    set({ activeTask: null })
+  completeTask: async (timesheetId) => {
+    const data = await apiCompleteActiveTask(timesheetId)
+    await get().refreshActiveTask()
     await get().refreshSessions()
     await get().refreshAssignedTasks()
+    return data
   },
 }))

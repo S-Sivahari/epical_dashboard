@@ -229,6 +229,7 @@ export const timesheetController = {
         {
           $group: {
             _id: "$project",
+            projectId: { $first: "$projectId" },
             totalHours: { $sum: "$hours" }
           }
         },
@@ -236,6 +237,7 @@ export const timesheetController = {
           $project: {
             _id: 0,
             name: "$_id",
+            projectId: "$projectId",
             hours: { $round: ["$totalHours", 1] }
           }
         },

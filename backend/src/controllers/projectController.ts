@@ -4,6 +4,7 @@ import { getDB } from '../config/db';
 import { ProjectModel } from '../models/Project';
 import { TimesheetModel } from '../models/Timesheet';
 import { AssignedTaskModel } from '../models/AssignedTask';
+import { ArchivedProjectModel } from '../models/ArchivedProject';
 import { updateProjectCompletionStatus, getTimesheetWorkflowStatus } from '../utils/syncProject';
 import {
   buildAssignmentIdentityTokens,
@@ -158,7 +159,7 @@ export const projectController = {
             .trim() || user.name
         : user.name;
 
-      const assignmentTokens = buildAssignmentIdentityTokens(user, employeeRecord);
+      const assignmentTokens = buildAssignmentIdentityTokens(user, employeeRecord as any);
 
       await ensureAssignedTasksForEmployee({
         id: user.id,
@@ -561,6 +562,218 @@ export const projectController = {
     }
   },
 
+  // GET /api/projects/:id/audit-trail
+  getAuditTrail: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = String(req.params.id);
+      if (!Types.ObjectId.isValid(projectId)) {
+        res.status(400).json({ error: 'Invalid project ID' });
+        return;
+      }
+
+      const project = await ProjectModel.findById(projectId);
+      if (!project) {
+        res.status(404).json({ error: 'Project not found' });
+        return;
+      }
+
+      // Fetch all timesheets for this project
+      const timesheets = await TimesheetModel.find({
+        $or: [
+          { projectId: project._id },
+          { project: project.projectName },
+        ],
+      }).sort({ loginTime: -1 });
+
+      // Fetch all assigned tasks for this project
+      const assignedTasks = await AssignedTaskModel.find({
+        projectId: project._id,
+      }).sort({ createdAt: -1 });
+
+      // Build events array
+      const events: Array<{
+        type: string;
+        timestamp: Date;
+        employee: string;
+        employeeId?: string;
+        details: string;
+        metadata?: Record<string, unknown>;
+      }> = [];
+
+      // Project creation event
+      events.push({
+        type: 'project_created',
+        timestamp: project.createdAt,
+        employee: project.createdBy || 'Admin',
+        details: `Project "${project.projectName}" was created`,
+        metadata: {
+          client: project.clientName,
+          technologyNode: project.technologyNode,
+          accessType: project.accessType,
+        },
+      });
+
+      // Task assignment events
+      for (const task of assignedTasks) {
+        events.push({
+          type: 'task_assigned',
+          timestamp: task.createdAt,
+          employee: task.employeeName,
+          employeeId: task.employeeId,
+          details: `Task "${task.title}" assigned to ${task.employeeName}`,
+          metadata: {
+            taskId: task._id.toString(),
+            taskTitle: task.title,
+            taskDescription: task.description,
+            taskStatus: task.status,
+          },
+        });
+
+        // Task completion event (if completed)
+        if (task.status === 'completed' && task.updatedAt) {
+          events.push({
+            type: 'task_completed',
+            timestamp: task.updatedAt,
+            employee: task.employeeName,
+            employeeId: task.employeeId,
+            details: `Task "${task.title}" marked as completed`,
+            metadata: {
+              taskId: task._id.toString(),
+              taskTitle: task.title,
+            },
+          });
+        }
+      }
+
+      // Timesheet events
+      for (const ts of timesheets) {
+        const taskLabel = ts.task ? ` on "${ts.task}"` : '';
+
+        // Work started event
+        events.push({
+          type: 'work_started',
+          timestamp: ts.loginTime,
+          employee: ts.employee,
+          employeeId: ts.employeeId,
+          details: `${ts.employee} started working${taskLabel}`,
+          metadata: {
+            timesheetId: ts._id.toString(),
+            task: ts.task,
+          },
+        });
+
+        // Work paused event
+        if (ts.pausedAt) {
+          events.push({
+            type: 'work_paused',
+            timestamp: ts.pausedAt,
+            employee: ts.employee,
+            employeeId: ts.employeeId,
+            details: `${ts.employee} paused work${taskLabel}`,
+            metadata: {
+              timesheetId: ts._id.toString(),
+              task: ts.task,
+            },
+          });
+        }
+
+        // Work ended / session completed
+        if (ts.logoutTime) {
+          const isCompleted = ts.taskStatus === 'Completed';
+          events.push({
+            type: isCompleted ? 'work_completed' : 'work_stopped',
+            timestamp: ts.logoutTime,
+            employee: ts.employee,
+            employeeId: ts.employeeId,
+            details: `${ts.employee} ${isCompleted ? 'completed' : 'ended'} work${taskLabel}`,
+            metadata: {
+              timesheetId: ts._id.toString(),
+              task: ts.task,
+              totalHours: computeTotalHours(ts.loginTime, ts.logoutTime, ts.overriddenHours),
+            },
+          });
+        }
+
+        // Approval event
+        if (ts.approvalStatus === 'Approved') {
+          events.push({
+            type: 'task_approved',
+            timestamp: (ts as any).updatedAt || ts.logoutTime || ts.loginTime,
+            employee: ts.employee,
+            employeeId: ts.employeeId,
+            details: `Work by ${ts.employee}${taskLabel} was approved`,
+            metadata: {
+              timesheetId: ts._id.toString(),
+              task: ts.task,
+              adminNotes: ts.adminNotes,
+            },
+          });
+        }
+
+        // Correction request event
+        if (ts.correctionRequest && ts.correctionRequest.requestedLogin) {
+          events.push({
+            type: 'correction_requested',
+            timestamp: (ts as any).updatedAt || ts.loginTime,
+            employee: ts.employee,
+            employeeId: ts.employeeId,
+            details: `Correction requested by ${ts.employee}: "${ts.correctionRequest.reason || ts.correctionRequest.message || 'Time adjustment'}"`,
+            metadata: {
+              timesheetId: ts._id.toString(),
+              requestedLogin: ts.correctionRequest.requestedLogin,
+              requestedLogout: ts.correctionRequest.requestedLogout,
+              requestStatus: ts.requestStatus,
+            },
+          });
+        }
+
+        // Hours overridden event
+        if (ts.overriddenHours !== undefined && ts.overriddenHours !== null) {
+          events.push({
+            type: 'hours_overridden',
+            timestamp: (ts as any).updatedAt || ts.logoutTime || ts.loginTime,
+            employee: ts.employee,
+            employeeId: ts.employeeId,
+            details: `Hours for ${ts.employee}${taskLabel} overridden to ${ts.overriddenHours}h`,
+            metadata: {
+              timesheetId: ts._id.toString(),
+              overriddenHours: ts.overriddenHours,
+              adminNotes: ts.adminNotes,
+            },
+          });
+        }
+      }
+
+      // Sort events by timestamp descending (newest first)
+      events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+      // Build summary
+      const uniqueEmployees = new Set<string>();
+      let totalHours = 0;
+      timesheets.forEach((ts) => {
+        if (ts.employee) uniqueEmployees.add(ts.employee);
+        totalHours += computeTotalHours(ts.loginTime, ts.logoutTime, ts.overriddenHours);
+      });
+
+      const summary = {
+        totalHours: Math.round(totalHours * 10) / 10,
+        totalSessions: timesheets.length,
+        totalTasks: assignedTasks.length,
+        completedTasks: assignedTasks.filter((t) => t.status === 'completed').length,
+        employees: uniqueEmployees.size,
+      };
+
+      res.json({
+        project: toFrontendProject(project),
+        events,
+        summary,
+      });
+    } catch (error) {
+      console.error('Error fetching project audit trail:', error);
+      res.status(500).json({ error: 'Failed to fetch audit trail' });
+    }
+  },
+
   // PATCH /api/projects/:id/task-complete
   taskComplete: async (req: Request, res: Response): Promise<void> => {
     try {
@@ -641,6 +854,272 @@ export const projectController = {
     } catch (error) {
       console.error('Error completing project task:', error);
       res.status(500).json({ error: 'Failed to mark task completed' });
+    }
+  },
+
+  // POST /api/projects/:id/archive
+  archiveProject: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = String(req.params.id);
+      if (!Types.ObjectId.isValid(projectId)) {
+        res.status(400).json({ error: 'Invalid project ID' });
+        return;
+      }
+
+      const project = await ProjectModel.findById(projectId);
+      if (!project) {
+        res.status(404).json({ error: 'Project not found' });
+        return;
+      }
+
+      // Fetch history (timesheets and assigned tasks)
+      const timesheets = await TimesheetModel.find({
+        $or: [
+          { projectId: project._id },
+          { project: project.projectName },
+        ],
+      });
+
+      const assignedTasks = await AssignedTaskModel.find({
+        projectId: project._id,
+      });
+
+      const session = await mongoose.startSession();
+      try {
+        await session.withTransaction(async () => {
+          // Create archived project
+          const archivedProject = new ArchivedProjectModel({
+            originalProjectId: project._id,
+            projectName: project.projectName,
+            clientName: project.clientName,
+            technologyNode: project.technologyNode,
+            accessType: project.accessType,
+            allowedUsers: project.allowedUsers || [],
+            teamLead: project.teamLead,
+            description: project.description,
+            status: project.status,
+            completedTasks: project.completedTasks,
+            totalTasks: project.totalTasks,
+            completionPercentage: project.completionPercentage,
+            createdBy: project.createdBy,
+            originalCreatedAt: project.createdAt,
+            originalUpdatedAt: project.updatedAt,
+            archivedAt: new Date(),
+            assignedTasks: assignedTasks,
+            timesheets: timesheets,
+          });
+
+          await archivedProject.save({ session });
+
+          // Clean up active collections
+          await TimesheetModel.deleteMany({
+            $or: [
+              { projectId: project._id },
+              { project: project.projectName },
+            ],
+          }, { session });
+
+          await AssignedTaskModel.deleteMany({ projectId: project._id }, { session });
+          await ProjectModel.findByIdAndDelete(project._id, { session });
+        });
+
+        res.json({ message: 'Project and all associated history successfully archived' });
+      } finally {
+        session.endSession();
+      }
+    } catch (error) {
+      console.error('Error archiving project:', error);
+      res.status(500).json({ error: 'Failed to archive project' });
+    }
+  },
+
+  // GET /api/projects/archived
+  getArchivedProjects: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const archived = await ArchivedProjectModel.find().sort({ archivedAt: -1 });
+      const mapped = archived.map((ap) => ({
+        id: ap._id.toString(),
+        originalProjectId: ap.originalProjectId.toString(),
+        name: ap.projectName,
+        client: ap.clientName,
+        technologyNode: ap.technologyNode,
+        accessType: ap.accessType,
+        status: ap.status,
+        description: ap.description,
+        visibleUsers: ap.allowedUsers || [],
+        teamLead: ap.teamLead || '',
+        completedTasks: ap.completedTasks ?? 0,
+        totalTasks: ap.totalTasks ?? 0,
+        completionPercentage: ap.completionPercentage ?? 0,
+        archivedAt: ap.archivedAt.toISOString(),
+        originalCreatedAt: ap.originalCreatedAt.toISOString(),
+        tasksCount: ap.assignedTasks?.length || 0,
+        timesheetsCount: ap.timesheets?.length || 0,
+      }));
+
+      res.json(mapped);
+    } catch (error) {
+      console.error('Error fetching archived projects:', error);
+      res.status(500).json({ error: 'Failed to fetch archived projects' });
+    }
+  },
+
+  // GET /api/projects/archived/:id
+  getArchivedProjectById: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const archived = await ArchivedProjectModel.findById(req.params.id);
+      if (!archived) {
+        res.status(404).json({ error: 'Archived project not found' });
+        return;
+      }
+
+      // Map embedded assignedTasks
+      const mappedTasks = (archived.assignedTasks || []).map((t: any) => ({
+        id: t._id ? t._id.toString() : '',
+        employeeId: t.employeeId,
+        employeeName: t.employeeName,
+        title: t.title,
+        description: t.description || '',
+        status: t.status,
+        timesheetId: t.timesheetId ? t.timesheetId.toString() : undefined,
+      }));
+
+      // Map embedded timesheets
+      const mappedTimesheets = (archived.timesheets || []).map((t: any) => {
+        const dateOnly = t.loginTime ? new Date(t.loginTime).toISOString().split('T')[0] : '';
+        return {
+          id: t._id ? t._id.toString() : '',
+          employeeId: t.employeeId,
+          employeeName: t.employee,
+          projectId: t.projectId ? t.projectId.toString() : '',
+          project: t.project,
+          client: t.client || '',
+          technologyNode: t.technologyNode || '',
+          date: dateOnly,
+          loginTime: t.loginTime ? new Date(t.loginTime).toISOString() : '',
+          logoutTime: t.logoutTime ? new Date(t.logoutTime).toISOString() : undefined,
+          correctionRequest: t.correctionRequest && t.correctionRequest.requestedLogin ? {
+            requestedLogin: new Date(t.correctionRequest.requestedLogin).toISOString(),
+            requestedLogout: t.correctionRequest.requestedLogout ? new Date(t.correctionRequest.requestedLogout).toISOString() : '',
+            reason: t.correctionRequest.reason || '',
+            message: t.correctionRequest.message || '',
+          } : undefined,
+          requestStatus: t.requestStatus || 'No Request',
+          status: t.approvalStatus || t.status || 'Pending',
+          approvalStatus: t.approvalStatus || t.status || 'Pending',
+          billable: t.billable !== undefined ? t.billable : true,
+          task: t.task || '',
+          adminNotes: t.adminNotes,
+          overriddenHours: t.overriddenHours,
+          totalHours: t.totalHours,
+          taskStatus: t.taskStatus || (t.logoutTime ? 'Pending' : 'Session Incomplete'),
+          workflowStatus: getTimesheetWorkflowStatus(t),
+        };
+      });
+
+      res.json({
+        project: {
+          id: archived._id.toString(),
+          originalProjectId: archived.originalProjectId.toString(),
+          name: archived.projectName,
+          client: archived.clientName,
+          technologyNode: archived.technologyNode,
+          accessType: archived.accessType,
+          status: archived.status,
+          description: archived.description,
+          visibleUsers: archived.allowedUsers || [],
+          teamLead: archived.teamLead || '',
+          completedTasks: archived.completedTasks ?? 0,
+          totalTasks: archived.totalTasks ?? 0,
+          completionPercentage: archived.completionPercentage ?? 0,
+          archivedAt: archived.archivedAt.toISOString(),
+          originalCreatedAt: archived.originalCreatedAt.toISOString(),
+        },
+        assignedTasks: mappedTasks,
+        timesheets: mappedTimesheets,
+      });
+    } catch (error) {
+      console.error('Error fetching archived project detail:', error);
+      res.status(500).json({ error: 'Failed to fetch archived project detail' });
+    }
+  },
+
+  // DELETE /api/projects/archived/:id
+  deleteArchivedProject: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const archived = await ArchivedProjectModel.findByIdAndDelete(req.params.id);
+      if (!archived) {
+        res.status(404).json({ error: 'Archived project not found' });
+        return;
+      }
+      res.json({ message: 'Archived project permanently deleted' });
+    } catch (error) {
+      console.error('Error deleting archived project:', error);
+      res.status(500).json({ error: 'Failed to delete archived project' });
+    }
+  },
+
+  // POST /api/projects/archived/:id/restore
+  restoreProject: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const archived = await ArchivedProjectModel.findById(req.params.id);
+      if (!archived) {
+        res.status(404).json({ error: 'Archived project not found' });
+        return;
+      }
+
+      // Check if project name already exists in active projects
+      const existingActive = await ProjectModel.findOne({ projectName: archived.projectName });
+      if (existingActive) {
+        res.status(400).json({ error: `Cannot restore: an active project named "${archived.projectName}" already exists.` });
+        return;
+      }
+
+      const session = await mongoose.startSession();
+      try {
+        await session.withTransaction(async () => {
+          // Restore active project
+          const restoredProject = new ProjectModel({
+            _id: archived.originalProjectId,
+            projectName: archived.projectName,
+            clientName: archived.clientName,
+            technologyNode: archived.technologyNode,
+            accessType: archived.accessType,
+            allowedUsers: archived.allowedUsers || [],
+            teamLead: archived.teamLead,
+            description: archived.description,
+            status: archived.status,
+            completedTasks: archived.completedTasks,
+            totalTasks: archived.totalTasks,
+            completionPercentage: archived.completionPercentage,
+            createdBy: archived.createdBy,
+            createdAt: archived.originalCreatedAt,
+            updatedAt: archived.originalUpdatedAt,
+          });
+
+          await restoredProject.save({ session });
+
+          // Restore assigned tasks
+          if (archived.assignedTasks && archived.assignedTasks.length > 0) {
+            await AssignedTaskModel.insertMany(archived.assignedTasks, { session });
+          }
+
+          // Restore timesheets
+          if (archived.timesheets && archived.timesheets.length > 0) {
+            await TimesheetModel.insertMany(archived.timesheets, { session });
+          }
+
+          // Delete archived project record
+          await ArchivedProjectModel.findByIdAndDelete(archived._id, { session });
+        });
+
+        res.json({ message: 'Project and all associated history successfully restored' });
+      } finally {
+        session.endSession();
+      }
+    } catch (error) {
+      console.error('Error restoring project:', error);
+      res.status(500).json({ error: 'Failed to restore project' });
     }
   },
 };
