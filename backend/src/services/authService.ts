@@ -50,7 +50,7 @@ export async function loginUser(
     throw Object.assign(new Error('Invalid email or password'), { status: 401 });
   }
 
-  const token = generateToken({ id: user.id, email: user.email, role: user.role });
+  const token = generateToken({ id: user.id, email: user.email, role: String(user.role) });
 
   const { passwordHash, _id, ...safeUser } = user;
   return {

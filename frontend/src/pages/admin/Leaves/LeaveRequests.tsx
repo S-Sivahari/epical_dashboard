@@ -270,52 +270,49 @@ export function LeaveRequests({
 
   return (
     <Tooltip.Provider delayDuration={300}>
-      <div className="space-y-5">
-        {/* Filters Toolbar */}
-        <div className="rounded-xl border border-border bg-white p-4 shadow-sm space-y-3">
-          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-            {/* Multi-select Employee Filter */}
-            <div className="relative flex-1 min-w-0" ref={empDropRef}>
+      <div className="space-y-4">
+        {/* Filters */}
+        <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-border/60">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative min-w-[200px] flex-1" ref={empDropRef}>
               <button
                 type="button"
                 onClick={() => setEmpDropOpen((v) => !v)}
-                className="h-9 w-full flex items-center justify-between gap-2 rounded-lg border border-border bg-white px-3 text-sm text-ink shadow-sm hover:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                className="flex h-10 w-full items-center justify-between gap-2 rounded-lg bg-surface/50 px-3 text-sm text-ink transition-colors hover:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
                 <span className="truncate text-left">
                   {(filters.selectedEmployees?.length ?? 0) === 0
                     ? 'All Employees'
-                    : `${filters.selectedEmployees.length} employee${filters.selectedEmployees.length > 1 ? 's' : ''} selected`}
+                    : `${filters.selectedEmployees.length} selected`}
                 </span>
-                <ChevronDown className={`h-4 w-4 text-muted shrink-0 transition-transform ${empDropOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`h-4 w-4 shrink-0 text-muted transition-transform ${empDropOpen ? 'rotate-180' : ''}`} />
               </button>
 
               {empDropOpen && (
-                <div className="absolute z-50 mt-1 w-full min-w-[220px] rounded-xl border border-border bg-white shadow-lg">
-                  {/* Search */}
-                  <div className="p-2 border-b border-border">
-                    <div className="flex items-center gap-2 rounded-lg border border-border px-2 py-1.5">
-                      <Search className="h-3.5 w-3.5 text-muted shrink-0" />
+                <div className="absolute z-50 mt-1 w-full min-w-[240px] overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-border/60">
+                  <div className="p-2">
+                    <div className="flex items-center gap-2 rounded-lg bg-surface/60 px-2.5 py-2">
+                      <Search className="h-4 w-4 shrink-0 text-muted" />
                       <input
                         type="text"
                         placeholder="Search employees..."
                         value={empSearch}
                         onChange={(e) => setEmpSearch(e.target.value)}
-                        className="flex-1 text-sm outline-none bg-transparent"
+                        className="flex-1 bg-transparent text-sm outline-none"
                         onClick={(e) => e.stopPropagation()}
                       />
                     </div>
                   </div>
-                  {/* Select All / Clear */}
-                  <div className="flex items-center justify-between px-3 py-1.5 border-b border-border/50">
+                  <div className="flex items-center justify-between px-3 py-1.5 text-xs">
                     <button
                       type="button"
                       onClick={() => {
                         setFilters({ ...filters, selectedEmployees: [...uniqueEmployeeNames] })
                         setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
                       }}
-                      className="text-xs text-primary hover:underline"
+                      className="font-medium text-primary hover:underline"
                     >
-                      Select All
+                      Select all
                     </button>
                     <button
                       type="button"
@@ -323,13 +320,12 @@ export function LeaveRequests({
                         setFilters({ ...filters, selectedEmployees: [] })
                         setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
                       }}
-                      className="text-xs text-muted hover:text-ink"
+                      className="text-muted hover:text-ink"
                     >
                       Clear
                     </button>
                   </div>
-                  {/* Employee list */}
-                  <div className="max-h-52 overflow-y-auto py-1">
+                  <div className="max-h-48 overflow-y-auto py-1">
                     {filteredEmpNames.length === 0 ? (
                       <p className="px-3 py-2 text-sm text-muted">No employees found</p>
                     ) : (
@@ -340,12 +336,12 @@ export function LeaveRequests({
                             key={name}
                             type="button"
                             onClick={() => toggleEmployee(name)}
-                            className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left hover:bg-surface transition-colors ${checked ? 'bg-primary/5' : ''}`}
+                            className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors hover:bg-surface ${checked ? 'bg-primary/5 text-primary' : 'text-ink'}`}
                           >
-                            <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${checked ? 'bg-primary border-primary' : 'border-border'}`}>
+                            <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${checked ? 'border-primary bg-primary' : 'border-border'}`}>
                               {checked && <Check className="h-3 w-3 text-white" />}
                             </span>
-                            <span className={`truncate ${checked ? 'font-medium text-primary' : 'text-ink'}`}>{name}</span>
+                            <span className="truncate">{name}</span>
                           </button>
                         )
                       })
@@ -355,7 +351,6 @@ export function LeaveRequests({
               )}
             </div>
 
-            {/* Employee ID filter */}
             <input
               type="text"
               value={filters.employeeId}
@@ -363,81 +358,60 @@ export function LeaveRequests({
                 setFilters({ ...filters, employeeId: e.target.value })
                 setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
               }}
-              placeholder="Filter by Employee ID"
-              className="h-9 w-full sm:w-44 rounded-lg border border-border px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-sm"
+              placeholder="Employee ID"
+              className="h-10 w-full rounded-lg bg-surface/50 px-3 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 sm:w-36"
             />
 
-            {/* Leave Type filter */}
             <select
               value={filters.leaveType || ''}
               onChange={(e) => {
                 setFilters({ ...filters, leaveType: e.target.value })
                 setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
               }}
-              className="h-9 w-full sm:w-40 rounded-lg border border-border bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-sm"
+              className="h-10 w-full rounded-lg bg-surface/50 px-3 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 sm:w-40"
             >
-              <option value="">All Types</option>
+              <option value="">All leave types</option>
               {LEAVE_TYPES.map((t) => (
                 <option key={t} value={t}>{t}</option>
               ))}
             </select>
 
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted hover:text-ink shrink-0 h-9">
-              <X className="mr-1.5 h-4 w-4" /> Clear
+            <input
+              type="date"
+              value={filters.dateFrom || ''}
+              onChange={(e) => {
+                setFilters({ ...filters, dateFrom: e.target.value })
+                setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
+              }}
+              className="h-10 rounded-lg bg-surface/50 px-3 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-primary/20"
+              title="From date"
+            />
+            <input
+              type="date"
+              value={filters.dateTo || ''}
+              onChange={(e) => {
+                setFilters({ ...filters, dateTo: e.target.value })
+                setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
+              }}
+              className="h-10 rounded-lg bg-surface/50 px-3 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-primary/20"
+              title="To date"
+            />
+
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-10 shrink-0 text-muted">
+              <X className="h-4 w-4" />
+              Reset
             </Button>
           </div>
 
-          {/* Date range filters */}
-          <div className="flex flex-wrap gap-3 items-center">
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-muted font-medium whitespace-nowrap">From</label>
-              <input
-                type="date"
-                value={filters.dateFrom || ''}
-                onChange={(e) => {
-                  setFilters({ ...filters, dateFrom: e.target.value })
-                  setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
-                }}
-                className="h-8 rounded-lg border border-border px-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-sm"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-muted font-medium whitespace-nowrap">To</label>
-              <input
-                type="date"
-                value={filters.dateTo || ''}
-                onChange={(e) => {
-                  setFilters({ ...filters, dateTo: e.target.value })
-                  setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
-                }}
-                className="h-8 rounded-lg border border-border px-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-sm"
-              />
-            </div>
-            {(filters.dateFrom || filters.dateTo) && (
-              <button
-                type="button"
-                onClick={() => setFilters({ ...filters, dateFrom: '', dateTo: '' })}
-                className="text-xs text-muted hover:text-ink flex items-center gap-1"
-              >
-                <X className="h-3 w-3" /> Clear dates
-              </button>
-            )}
-          </div>
-
-          {/* Selected employees chips */}
           {(filters.selectedEmployees?.length ?? 0) > 0 && (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="mt-3 flex flex-wrap gap-1.5">
               {filters.selectedEmployees.map((name) => (
                 <span
                   key={name}
-                  className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary"
+                  className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
                 >
                   {name}
-                  <button
-                    type="button"
-                    onClick={() => toggleEmployee(name)}
-                    className="ml-0.5 hover:text-primary/70"
-                  >
+                  <button type="button" onClick={() => toggleEmployee(name)} className="hover:opacity-70">
                     <X className="h-3 w-3" />
                   </button>
                 </span>
@@ -446,26 +420,24 @@ export function LeaveRequests({
           )}
         </div>
 
-        {/* Status Tabs */}
-        <div className="flex space-x-6 border-b border-border overflow-x-auto custom-scrollbar">
-          {['Pending', 'Approved', 'Rejected', 'Cancelled'].map((status) => {
-            const count = leaves.filter(l => l.status === status).length
+        {/* Status tabs */}
+        <div className="flex flex-wrap gap-2">
+          {(['Pending', 'Approved', 'Rejected', 'Cancelled'] as StatusType[]).map((status) => {
+            const count = leaves.filter((l) => l.status === status).length
+            const active = filters.status === status
             return (
               <button
                 key={status}
-                onClick={() => {
-                  setFilters({ ...filters, status })
-                }}
-                className={`pb-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
-                  filters.status === status
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted hover:text-ink hover:border-border'
+                type="button"
+                onClick={() => setFilters({ ...filters, status })}
+                className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors ${
+                  active
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'bg-white text-muted ring-1 ring-border/60 hover:text-ink'
                 }`}
               >
                 {status}
-                <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold transition-colors ${
-                  filters.status === status ? 'bg-primary/10 text-primary' : 'bg-surface text-muted'
-                }`}>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${active ? 'bg-white/20 text-white' : 'bg-surface text-muted'}`}>
                   {count}
                 </span>
               </button>
@@ -473,97 +445,82 @@ export function LeaveRequests({
           })}
         </div>
 
-        {/* Card Grid Layout */}
-        <div className="min-h-[400px]">
+        {/* Leave requests list */}
+        <div>
           {loading ? (
-            <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-border bg-white shadow-sm">
-              <span className="text-sm text-muted font-medium">Loading requests...</span>
+            <div className="flex h-52 items-center justify-center rounded-xl bg-white py-12 shadow-sm ring-1 ring-border/60">
+              <span className="text-sm text-muted">Loading requests...</span>
             </div>
           ) : paginatedLeaves.length === 0 ? (
-            <div className="flex flex-col h-64 items-center justify-center rounded-xl border border-dashed border-border bg-white shadow-sm">
-              <span className="text-sm text-muted font-medium">No {currentStatus.toLowerCase()} leave requests found.</span>
+            <div className="flex h-52 flex-col items-center justify-center rounded-xl bg-white py-12 shadow-sm ring-1 ring-border/60">
+              <span className="text-sm text-muted">No {currentStatus.toLowerCase()} leave requests found.</span>
             </div>
           ) : (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2.5">
               {paginatedLeaves.map((l) => (
-                <div 
-                  key={l.id} 
+                <div
+                  key={l.id}
                   onClick={() => openEmployeeProfile(l.employeeId, l.employeeName)}
-                  className="group cursor-pointer flex flex-col sm:flex-row justify-between items-start sm:items-center rounded-xl border border-border bg-white p-3 shadow-sm hover:shadow-md hover:border-primary/30 transition-all gap-3"
+                  className="group flex cursor-pointer flex-col gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-border/60 transition-all hover:shadow-md hover:ring-primary/30 sm:flex-row sm:items-center sm:justify-between"
                   title="Click to view leave history and balances"
                 >
-                  
-                  {/* Left Section: Name & Details */}
-                  <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-                    <div className="flex items-center gap-3">
-                      <span
-                        className="font-semibold text-sm text-primary truncate text-left"
-                      >
-                        {l.employeeName}
-                      </span>
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="truncate text-sm font-semibold text-primary">{l.employeeName}</span>
                       {getStatusBadge(l.status)}
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
-                      <span className="font-medium bg-gray-50 px-2 py-0.5 rounded border border-gray-100 text-ink">{l.type}</span>
-                      <span className="flex items-center text-ink">
-                        {formatDate(l.from)} <span className="opacity-50 mx-1.5">→</span> {formatDate(l.to)}
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
+                      <span className="font-medium text-ink">{l.type}</span>
+                      <span>
+                        {formatDate(l.from)} <span className="mx-1 opacity-40">→</span> {formatDate(l.to)}
                       </span>
-                      <span className="font-semibold text-ink bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                      <span className="font-medium text-ink">
                         {l.days} {l.days === 1 ? 'day' : 'days'}
                       </span>
                       {l.reason && (
-                        <span className="line-clamp-1 min-w-0 max-w-full sm:max-w-xs text-ink" title={l.reason}>
-                          <span className="font-medium">Reason:</span> {l.reason}
+                        <span className="line-clamp-1 min-w-0 max-w-full text-ink sm:max-w-md" title={l.reason}>
+                          {l.reason}
                         </span>
                       )}
                     </div>
                   </div>
 
-                  {/* Right Section: Applied Date & Actions */}
-                  <div className="flex sm:flex-col items-center sm:items-end gap-3 sm:gap-2 w-full sm:w-auto shrink-0 justify-between sm:justify-center border-t sm:border-t-0 border-border pt-3 sm:pt-0 mt-2 sm:mt-0">
-                    <div className="flex flex-col items-end gap-0.5 text-xs font-medium tracking-wider text-ink sm:text-sm">
+                  <div className="flex w-full shrink-0 items-center justify-between gap-3 sm:w-auto sm:flex-col sm:items-end">
+                    <div className="space-y-0.5 text-right text-xs text-muted sm:text-sm">
                       {toTimestamp(l.createdAt) && (
-                        <span>
-                          <span className="uppercase">Applied:</span>{' '}
-                          <span className="normal-case">{formatDateTime(toTimestamp(l.createdAt)!)}</span>
-                        </span>
+                        <p>Applied {formatDateTime(toTimestamp(l.createdAt)!)}</p>
                       )}
                       {l.status === 'Approved' && (
                         <>
                           {toTimestamp(l.approvalDate ?? l.updatedAt) && (
-                            <span>
-                              <span className="uppercase">Approved:</span>{' '}
-                              <span className="normal-case">{formatDateTime(toTimestamp(l.approvalDate ?? l.updatedAt)!)}</span>
-                            </span>
+                            <p>Approved {formatDateTime(toTimestamp(l.approvalDate ?? l.updatedAt)!)}</p>
                           )}
                           {(l as any).approvedBy && (
-                            <span className="inline-flex items-center gap-1">
-                              <UserCheck className="h-3 w-3 text-green-500" />
-                              <span className="normal-case">{(l as any).approvedBy}</span>
-                            </span>
+                            <p className="inline-flex items-center gap-1 text-ink">
+                              <UserCheck className="h-3.5 w-3.5 text-green-500" />
+                              {(l as any).approvedBy}
+                            </p>
                           )}
                         </>
                       )}
                       {l.status === 'Rejected' && (l as any).rejectedBy && (
-                        <span className="inline-flex items-center gap-1">
-                          <UserCheck className="h-3 w-3 text-red-500" />
-                          <span className="normal-case">{(l as any).rejectedBy}</span>
-                        </span>
+                        <p className="inline-flex items-center gap-1 text-ink">
+                          <UserCheck className="h-3.5 w-3.5 text-red-500" />
+                          {(l as any).rejectedBy}
+                        </p>
                       )}
                       {l.status === 'Cancelled' && (l as any).cancelledBy && (
-                        <span className="inline-flex items-center gap-1">
-                          <UserCheck className="h-3 w-3 text-gray-500" />
-                          <span className="normal-case">By {(l as any).cancelledBy}</span>
-                        </span>
+                        <p className="inline-flex items-center gap-1 text-ink">
+                          <UserCheck className="h-3.5 w-3.5 text-gray-500" />
+                          {(l as any).cancelledBy}
+                        </p>
                       )}
                       {l.status === 'Cancelled' && (l as any).cancelReason && (
-                        <span className="normal-case">
-                          <span className="uppercase">Reason:</span> {(l as any).cancelReason}
-                        </span>
+                        <p className="text-ink">{(l as any).cancelReason}</p>
                       )}
                     </div>
-                    
-                    <div className="flex gap-1.5">
+
+                    <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
                       {l.status === 'Pending' && (
                         <>
                           <Tooltip.Root>
@@ -571,15 +528,15 @@ export function LeaveRequests({
                               <Button
                                 size="sm"
                                 variant="primary"
-                                className="h-8 w-8 rounded-full p-0 flex items-center justify-center bg-green-500 hover:bg-green-600 text-white shadow-sm border-none transition-transform hover:scale-105"
-                                onClick={(e) => { e.stopPropagation(); void openApproveModal(l) }}
+                                className="h-9 w-9 rounded-lg p-0 bg-green-600 hover:bg-green-700"
+                                onClick={() => void openApproveModal(l)}
                               >
                                 <Check className="h-4 w-4" />
                               </Button>
                             </Tooltip.Trigger>
                             <Tooltip.Portal>
                               <Tooltip.Content className="z-[100] rounded-md bg-ink px-2 py-1 text-xs text-white shadow-md">
-                                Approve Request
+                                Approve
                                 <Tooltip.Arrow className="fill-ink" />
                               </Tooltip.Content>
                             </Tooltip.Portal>
@@ -590,66 +547,62 @@ export function LeaveRequests({
                               <Button
                                 size="sm"
                                 variant="danger"
-                                className="h-8 w-8 rounded-full p-0 flex items-center justify-center shadow-sm transition-transform hover:scale-105"
-                                onClick={(e) => { e.stopPropagation(); openRejectModal(l.id) }}
+                                className="h-9 w-9 rounded-lg p-0"
+                                onClick={() => openRejectModal(l.id)}
                               >
                                 <X className="h-4 w-4" />
                               </Button>
                             </Tooltip.Trigger>
                             <Tooltip.Portal>
                               <Tooltip.Content className="z-[100] rounded-md bg-ink px-2 py-1 text-xs text-white shadow-md">
-                                Reject Request
+                                Reject
                                 <Tooltip.Arrow className="fill-ink" />
                               </Tooltip.Content>
                             </Tooltip.Portal>
                           </Tooltip.Root>
                         </>
                       )}
-                      
+
                       {l.status === 'Rejected' && l.rejectionReason && (
                         <Tooltip.Root>
                           <Tooltip.Trigger asChild>
                             <Button
                               size="sm"
                               variant="secondary"
-                              className="h-8 w-8 rounded-full p-0 flex items-center justify-center shadow-sm transition-transform hover:scale-105"
-                              onClick={(e) => { e.stopPropagation(); handleViewReason(l.rejectionReason!) }}
+                              className="h-9 w-9 rounded-lg p-0"
+                              onClick={() => handleViewReason(l.rejectionReason!)}
                             >
                               <Eye className="h-4 w-4 text-muted" />
                             </Button>
                           </Tooltip.Trigger>
                           <Tooltip.Portal>
                             <Tooltip.Content className="z-[100] rounded-md bg-ink px-2 py-1 text-xs text-white shadow-md">
-                              View Rejection Reason
+                              View reason
                               <Tooltip.Arrow className="fill-ink" />
                             </Tooltip.Content>
                           </Tooltip.Portal>
                         </Tooltip.Root>
                       )}
-                      
+
                       {l.status === 'Approved' && (
                         <Tooltip.Root>
                           <Tooltip.Trigger asChild>
                             <Button
                               size="sm"
                               variant="danger"
-                              className="h-8 w-8 rounded-full p-0 flex items-center justify-center shadow-sm transition-transform hover:scale-105"
-                              onClick={(e) => { e.stopPropagation(); openCancelModal(l.id) }}
+                              className="h-9 w-9 rounded-lg p-0"
+                              onClick={() => openCancelModal(l.id)}
                             >
                               <Ban className="h-4 w-4" />
                             </Button>
                           </Tooltip.Trigger>
                           <Tooltip.Portal>
                             <Tooltip.Content className="z-[100] rounded-md bg-ink px-2 py-1 text-xs text-white shadow-md">
-                              Cancel Request
+                              Cancel
                               <Tooltip.Arrow className="fill-ink" />
                             </Tooltip.Content>
                           </Tooltip.Portal>
                         </Tooltip.Root>
-                      )}
-                      
-                      {(l.status === 'Cancelled' || (l.status === 'Rejected' && !l.rejectionReason)) && (
-                        <span className="text-[10px] text-muted italic">No actions</span>
                       )}
                     </div>
                   </div>
@@ -659,40 +612,33 @@ export function LeaveRequests({
           )}
         </div>
 
-        {/* Compact Pagination Controls */}
         {filteredLeaves.length > 0 && (
-          <div className="rounded-xl border border-border bg-white px-5 py-3 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="text-xs text-muted font-medium">
-              Showing <span className="font-bold text-ink">{startIdx + 1}</span> to{' '}
-              <span className="font-bold text-ink">{Math.min(startIdx + ITEMS_PER_PAGE, filteredLeaves.length)}</span> of{' '}
-              <span className="font-bold text-ink">{filteredLeaves.length}</span> requests
-            </div>
-            
+          <div className="flex flex-col items-center justify-between gap-3 pt-1 sm:flex-row">
+            <p className="text-sm text-muted">
+              Showing {startIdx + 1}–{Math.min(startIdx + ITEMS_PER_PAGE, filteredLeaves.length)} of {filteredLeaves.length}
+            </p>
+
             <div className="flex items-center gap-2">
               <Button
                 variant="secondary"
                 size="sm"
-                className="h-8 px-2 text-xs"
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
               >
-                <ChevronLeft className="h-3.5 w-3.5 mr-1" />
-                Prev
+                <ChevronLeft className="h-4 w-4" />
+                Previous
               </Button>
-              <div className="flex items-center px-2">
-                <span className="text-xs font-semibold text-ink bg-surface px-2.5 py-1 rounded-md border border-border">
-                  {currentPage} / {totalPages}
-                </span>
-              </div>
+              <span className="min-w-[4rem] text-center text-sm font-medium text-ink">
+                {currentPage} / {totalPages}
+              </span>
               <Button
                 variant="secondary"
                 size="sm"
-                className="h-8 px-2 text-xs"
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
               >
                 Next
-                <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           </div>

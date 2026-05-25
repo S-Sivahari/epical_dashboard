@@ -172,7 +172,7 @@ export function CompanyCalendar() {
     setEventToDelete(null)
   }
 
-  const holidayEvents = useMemo(() => {
+  const holidayEvents = useMemo((): CalendarSidebarEvent[] => {
     return holidays
       .filter((h) => h.type === 'Company' || h.type === 'Company Event')
       .map((h) => ({

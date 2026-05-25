@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env';
+import { normalizeApiRole } from '../utils/generateToken';
 import { getDB } from '../config/db';
 import bcrypt from 'bcryptjs';
 
@@ -13,14 +14,15 @@ export async function handleGoogleCallback(req: Request, res: Response) {
     }
 
     // Generate JWT token
+    const apiRole = normalizeApiRole(user.role);
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
+      { id: user.id, email: user.email, role: apiRole },
       env.JWT_SECRET,
       { expiresIn: env.JWT_EXPIRES_IN as any }
     );
 
     // Return token and redirect to frontend
-    const role = user.role === 'Admin' ? 'admin' : 'employee';
+    const role = apiRole;
     const redirectUrl = `${env.FRONTEND_URL}?token=${token}&role=${role}`;
     res.redirect(redirectUrl);
   } catch (error) {
@@ -98,13 +100,14 @@ export async function loginWithOAuth(req: Request, res: Response) {
     }
 
     // Generate JWT token
+    const apiRole = normalizeApiRole(user.role);
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
+      { id: user.id, email: user.email, role: apiRole },
       env.JWT_SECRET,
       { expiresIn: env.JWT_EXPIRES_IN as any }
     );
 
-    const mappedRole = user.role === 'Admin' ? 'admin' : 'employee';
+    const mappedRole = apiRole;
 
     console.log(`[OAuth] Successfully logged in: ${normalizedEmail} as ${mappedRole}`);
 

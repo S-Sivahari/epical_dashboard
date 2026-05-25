@@ -25,7 +25,7 @@ const navItems = [
   { to: `${basePath}/calendar`, label: 'Company Calendar', icon: Calendar },
   { to: `${basePath}/documents`, label: 'Document Request', icon: FileText },
   { to: `${basePath}/training`, label: 'Training & Courses', icon: GraduationCap },
-  { to: `${basePath}/achievements`, label: 'Achievements', icon: Trophy },
+  { to: `${basePath}/achievements`, label: 'Company achievements', icon: Trophy },
   { to: `${basePath}/support`, label: 'Help & Support', icon: HelpCircle },
 ]
 

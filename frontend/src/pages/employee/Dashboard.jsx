@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
-import { BookOpen, Clock, FileText, CalendarOff } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { BookOpen, Clock, FileText, CalendarOff, Trophy } from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts'
 import { ProfileCard } from '@components/employee/shared/ProfileCard'
 import { KPIStatCard } from '@components/employee/shared/KPIStatCard'
@@ -24,6 +25,23 @@ export default function Dashboard() {
     <div className="space-y-6">
       <NotificationAlerts />
       <AnnouncementBanner />
+
+      <Link to="/employee/achievements" className="group block rounded-2xl">
+        <div className="flex items-center gap-4 border border-primary/25 bg-gradient-to-r from-primary/10 via-card to-card p-5 shadow-card transition-colors hover:border-primary/40 hover:from-primary/15">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-white shadow-sm">
+            <Trophy className="h-7 w-7" />
+          </div>
+          <div className="min-w-0 text-left">
+            <p className="font-heading text-lg font-semibold text-ink group-hover:text-primary">
+              Company achievements
+            </p>
+            <p className="mt-1 text-sm text-muted">
+              See milestones and stories from across the organisation — view only, same as everyone on the team.
+            </p>
+          </div>
+        </div>
+      </Link>
+
       <ProfileCard employee={employee} />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

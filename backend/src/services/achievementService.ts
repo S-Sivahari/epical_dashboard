@@ -1,0 +1,133 @@
+import { randomUUID } from 'crypto'
+import { getDB } from '../config/db'
+import type { AchievementImageBlob, AchievementItemDoc, AchievementPageDoc } from '../models/CompanyAchievement'
+
+const PAGE_KEY = 'settings' as const
+
+function pageCol() {
+  return getDB().collection<AchievementPageDoc>('achievement_page')
+}
+
+function itemsCol() {
+  return getDB().collection<AchievementItemDoc>('achievement_items')
+}
+
+export async function getPage(): Promise<AchievementPageDoc | null> {
+  return pageCol().findOne({ key: PAGE_KEY })
+}
+
+export async function upsertPage(payload: {
+  title: string
+  subtitle: string
+  coverImage?: AchievementImageBlob
+  clearCover?: boolean
+}): Promise<AchievementPageDoc> {
+  const existing = await getPage()
+  let coverImage = existing?.coverImage
+  if (payload.clearCover) {
+    coverImage = undefined
+  } else if (payload.coverImage) {
+    coverImage = payload.coverImage
+  }
+
+  const doc: AchievementPageDoc = {
+    key: PAGE_KEY,
+    title: payload.title.trim(),
+    subtitle: payload.subtitle.trim(),
+    coverImage,
+    updatedAt: new Date(),
+  }
+  await pageCol().updateOne({ key: PAGE_KEY }, { $set: doc }, { upsert: true })
+  return doc
+}
+
+async function nextSortOrder(): Promise<number> {
+  const last = await itemsCol().findOne({}, { sort: { sortOrder: -1 } })
+  return (last?.sortOrder ?? -1) + 1
+}
+
+export async function listAchievements(): Promise<AchievementItemDoc[]> {
+  return itemsCol().find({}).sort({ sortOrder: 1, createdAt: -1 }).toArray()
+}
+
+export async function getAchievement(id: string): Promise<AchievementItemDoc | null> {
+  return itemsCol().findOne({ id })
+}
+
+export async function createAchievement(payload: {
+  title: string
+  description: string
+  image?: AchievementImageBlob
+}): Promise<AchievementItemDoc> {
+  const now = new Date()
+  const doc: AchievementItemDoc = {
+    id: randomUUID(),
+    title: payload.title.trim(),
+    description: payload.description.trim(),
+    sortOrder: await nextSortOrder(),
+    image: payload.image,
+    createdAt: now,
+    updatedAt: now,
+  }
+  await itemsCol().insertOne(doc)
+  return doc
+}
+
+export async function updateAchievement(
+  id: string,
+  payload: {
+    title: string
+    description: string
+    image?: AchievementImageBlob
+    removeImage?: boolean
+  }
+): Promise<AchievementItemDoc | null> {
+  const now = new Date()
+  if (payload.removeImage) {
+    const res = await itemsCol().findOneAndUpdate(
+      { id },
+      {
+        $set: {
+          title: payload.title.trim(),
+          description: payload.description.trim(),
+          updatedAt: now,
+        },
+        $unset: { image: '' },
+      },
+      { returnDocument: 'after' }
+    )
+    const doc = extractAfter(res)
+    return doc
+  }
+
+  const $set: Partial<AchievementItemDoc> = {
+    title: payload.title.trim(),
+    description: payload.description.trim(),
+    updatedAt: now,
+  }
+  if (payload.image) {
+    $set.image = payload.image
+  }
+
+  const res = await itemsCol().findOneAndUpdate({ id }, { $set }, { returnDocument: 'after' })
+  return extractAfter(res)
+}
+
+/** Driver return shape differs by version; normalize to the updated document */
+function extractAfter(
+  res:
+    | AchievementItemDoc
+    | null
+    | ({ value?: AchievementItemDoc | null } & Record<string, unknown>)
+): AchievementItemDoc | null {
+  if (!res) return null
+  if (typeof res === 'object' && 'value' in res && res.value !== undefined) {
+    return (res as { value: AchievementItemDoc | null }).value
+  }
+  return res as AchievementItemDoc
+}
+
+export async function deleteAchievement(id: string): Promise<boolean> {
+  const result = await itemsCol().deleteOne({ id })
+  return result.deletedCount > 0
+}

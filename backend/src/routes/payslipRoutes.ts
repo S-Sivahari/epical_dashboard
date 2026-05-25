@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import multer from 'multer'
 import { payslipController } from '../controllers/payslipController'
-import { authMiddleware } from '../middleware/authMiddleware'
+import { authMiddleware, requireRole } from '../middleware/authMiddleware'
 
 export const payslipRoutes = Router()
 
@@ -27,6 +27,8 @@ const excelUpload = multer({
   },
 })
 
+const adminOnly = [authMiddleware, requireRole('admin')] as const
+
 // Employee dashboard payslips (authenticated)
 payslipRoutes.get('/my-payslips', authMiddleware, payslipController.getMyPayslips)
 payslipRoutes.get(
@@ -36,36 +38,50 @@ payslipRoutes.get(
 )
 
 // Admin: payslip send history
-payslipRoutes.get('/send-history', authMiddleware, payslipController.getSendHistory)
+payslipRoutes.get('/send-history', ...adminOnly, payslipController.getSendHistory)
 
-// Template management
-payslipRoutes.get('/template', payslipController.downloadTemplate)
-payslipRoutes.get('/template/meta', payslipController.getTemplateMeta)
-payslipRoutes.post('/template/upload', excelUpload.single('template'), payslipController.uploadCustomTemplate)
+// Template management & payroll processing (admin)
+payslipRoutes.get('/template', ...adminOnly, payslipController.downloadTemplate)
+payslipRoutes.get('/template/meta', ...adminOnly, payslipController.getTemplateMeta)
+payslipRoutes.post(
+  '/template/upload',
+  ...adminOnly,
+  excelUpload.single('template'),
+  payslipController.uploadCustomTemplate
+)
 
 // Upload payroll Excel and auto-generate PDF payslips
-payslipRoutes.post('/upload', excelUpload.single('payroll'), payslipController.uploadAndProcess)
+payslipRoutes.post('/upload', ...adminOnly, excelUpload.single('payroll'), payslipController.uploadAndProcess)
 
 // Batch management
-payslipRoutes.get('/batches', payslipController.listBatches)
-payslipRoutes.get('/batches/latest', payslipController.getLatestBatch)
-payslipRoutes.get('/batches/:batchId', payslipController.getBatch)
-payslipRoutes.get('/batches/:batchId/excel', payslipController.downloadUploadedExcel)
-payslipRoutes.get('/batches/:batchId/payslips/download-all', payslipController.downloadAllPayslipsPdf)
-payslipRoutes.get('/batches/:batchId/payslips/:fileName', payslipController.downloadPayslipPdf)
-payslipRoutes.get('/batches/:batchId/payslips/:fileName/download', payslipController.downloadPayslipPdfAttachment)
-payslipRoutes.delete('/batches/:batchId', payslipController.deleteBatch)
+payslipRoutes.get('/batches', ...adminOnly, payslipController.listBatches)
+payslipRoutes.get('/batches/latest', ...adminOnly, payslipController.getLatestBatch)
+payslipRoutes.get('/batches/:batchId', ...adminOnly, payslipController.getBatch)
+payslipRoutes.get('/batches/:batchId/excel', ...adminOnly, payslipController.downloadUploadedExcel)
+payslipRoutes.get(
+  '/batches/:batchId/payslips/download-all',
+  ...adminOnly,
+  payslipController.downloadAllPayslipsPdf
+)
+payslipRoutes.get('/batches/:batchId/payslips/:fileName', ...adminOnly, payslipController.downloadPayslipPdf)
+payslipRoutes.get(
+  '/batches/:batchId/payslips/:fileName/download',
+  ...adminOnly,
+  payslipController.downloadPayslipPdfAttachment
+)
+payslipRoutes.delete('/batches/:batchId', ...adminOnly, payslipController.deleteBatch)
 payslipRoutes.delete(
   '/batches/:batchId/payslips/:fileName',
+  ...adminOnly,
   payslipController.deletePayslip
 )
 
 // Send payslip to employee dashboard
-payslipRoutes.post('/send', payslipController.sendPayslip)
-payslipRoutes.post('/send-all', payslipController.sendAllPayslips)
+payslipRoutes.post('/send', ...adminOnly, payslipController.sendPayslip)
+payslipRoutes.post('/send-all', ...adminOnly, payslipController.sendAllPayslips)
 
 // Regenerate single payslip from batch Excel
-payslipRoutes.post('/generate', payslipController.generatePayslip)
+payslipRoutes.post('/generate', ...adminOnly, payslipController.generatePayslip)
 
 // Legacy path-based batch (optional)
-payslipRoutes.post('/generate-all', payslipController.generatePayslips)
+payslipRoutes.post('/generate-all', ...adminOnly, payslipController.generatePayslips)
