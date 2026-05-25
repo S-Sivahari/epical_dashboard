@@ -60,6 +60,8 @@ export default function LeaveRequest() {
   const user = useAuthStore((s) => s.user)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
 
   const [leaveBalances, setLeaveBalances] = useState([])
   const [holidays, setHolidays] = useState([])
@@ -81,13 +83,8 @@ export default function LeaveRequest() {
   const [conflictMessage, setConflictMessage] = useState('')
   const [holidayWarning, setHolidayWarning] = useState('')
 
-  // Cancel pending leave modal
-  const [cancelModalOpen, setCancelModalOpen] = useState(false)
-  const [leaveToCancel, setLeaveToCancel] = useState(null)
-  const [cancelReason, setCancelReason] = useState('')
-  const [cancelError, setCancelError] = useState('')
-  const [cancelling, setCancelling] = useState(false)
-  const cancelReasonRef = useRef(null)
+  // Cancel pending leave
+  const [cancellingId, setCancellingId] = useState(null)
 
   const normalizeDate = (date) => {
     if (!date) return ''
@@ -261,7 +258,10 @@ export default function LeaveRequest() {
   }, [fromDate, toDate, holidays])
 
   const filtered = requests.filter((r) => {
-    const matchSearch = !search || r.type.toLowerCase().includes(search.toLowerCase()) || r.reason.toLowerCase().includes(search.toLowerCase())
+    const matchSearch =
+      !search ||
+      r.type.toLowerCase().includes(search.toLowerCase()) ||
+      r.reason.toLowerCase().includes(search.toLowerCase())
     const matchStatus = statusFilter === 'all' || r.status.toLowerCase() === statusFilter
     return matchSearch && matchStatus
   })
@@ -271,33 +271,28 @@ export default function LeaveRequest() {
     toast({ title: 'Validation error', description: 'Please complete all required fields before submitting.' })
   }
 
-  const openCancelModal = (leave) => {
-    setLeaveToCancel(leave)
-    setCancelReason('')
-    setCancelError('')
-    setCancelModalOpen(true)
-    setTimeout(() => cancelReasonRef.current?.focus(), 50)
-  }
-
-  const handleCancelConfirm = async () => {
-    const reason = cancelReason.trim()
-    if (!reason) { setCancelError('Please provide a reason for withdrawing.'); return }
-    setCancelling(true)
+  const handleCancel = async (leave) => {
+    setCancellingId(leave.id)
     try {
-      await leaveService.cancelLeave(leaveToCancel.id, reason)
-      toast({ title: 'Withdrawn', description: 'Your leave request has been withdrawn.' })
-      setCancelModalOpen(false)
-      setLeaveToCancel(null)
+      await leaveService.cancelLeave(leave.id)
+      toast({ title: 'Cancelled', description: 'Your leave request has been cancelled.' })
       fetchRequests()
     } catch (err) {
-      toast({ title: 'Error', description: err?.response?.data?.error || 'Failed to withdraw leave request' })
+      toast({ title: 'Error', description: err?.response?.data?.error || 'Failed to cancel leave request' })
     } finally {
-      setCancelling(false)
+      setCancellingId(null)
     }
   }
 
   const pendingLeaves = requests.filter((r) => r.status === 'Pending')
   const historyLeaves = filtered.filter((r) => r.status !== 'Pending')
+  const totalPages = Math.max(1, Math.ceil(historyLeaves.length / pageSize))
+  const currentPage = Math.min(page, totalPages)
+  const pagedHistory = historyLeaves.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
+  useEffect(() => {
+    setPage(1)
+  }, [search, statusFilter, pageSize])
 
   const onSubmit = async (data) => {
     console.log('Leave request submitted', data)
@@ -477,12 +472,13 @@ export default function LeaveRequest() {
                         </span>
                         <button
                           type="button"
-                          onClick={() => openCancelModal(req)}
-                          className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 border border-red-200 transition-colors"
-                          title="Withdraw this request"
+                          onClick={() => handleCancel(req)}
+                          disabled={cancellingId === req.id}
+                          className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-60 border border-red-200 transition-colors"
+                          title="Cancel this request"
                         >
                           <X className="h-3 w-3" />
-                          Withdraw
+                          {cancellingId === req.id ? 'Cancelling...' : 'Cancel'}
                         </button>
                       </div>
                     </div>
@@ -497,7 +493,7 @@ export default function LeaveRequest() {
       {/* Leave History Table */}
       <div className="rounded-xl border border-border bg-card p-6 shadow-card">
         <h3 className="font-heading text-lg font-semibold mb-4">Leave History</h3>
-        <div className="mb-4 flex flex-wrap gap-3">
+        <div className="mb-4 flex flex-wrap gap-3 items-end">
           <SearchBar value={search} onChange={setSearch} placeholder="Search leave history..." className="max-w-xs" />
           <FilterDropdown
             value={statusFilter}
@@ -509,56 +505,52 @@ export default function LeaveRequest() {
               { value: 'cancelled', label: 'Cancelled' },
             ]}
           />
-        </div>
-        <DataTable columns={columns} data={historyLeaves} statusKey="status" />
-      </div>
-
-      {/* Withdraw Pending Leave Modal */}
-      {cancelModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl space-y-4">
-            <h2 className="font-heading text-lg font-semibold">Withdraw Leave Request</h2>
-            <p className="text-sm text-muted">
-              Are you sure you want to withdraw your{' '}
-              <span className="font-medium text-ink">{leaveToCancel?.type}</span> request
-              ({leaveToCancel?.from} → {leaveToCancel?.to})?
-            </p>
-            <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-ink">
-                Reason <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                ref={cancelReasonRef}
-                value={cancelReason}
-                onChange={(e) => { setCancelReason(e.target.value); if (cancelError) setCancelError('') }}
-                placeholder="Why are you withdrawing this request?"
-                className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 resize-none ${
-                  cancelError ? 'border-red-400 focus:ring-red-200' : 'border-border focus:ring-primary/30'
-                }`}
-                rows={3}
-              />
-              {cancelError && <p className="text-xs text-red-500">{cancelError}</p>}
-            </div>
-            <div className="flex justify-end gap-3 pt-1 border-t border-border">
-              <button
-                type="button"
-                onClick={() => setCancelModalOpen(false)}
-                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-ink hover:bg-surface transition-colors"
-              >
-                Keep Request
-              </button>
-              <button
-                type="button"
-                onClick={handleCancelConfirm}
-                disabled={cancelling}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
-              >
-                {cancelling ? 'Withdrawing...' : 'Withdraw Request'}
-              </button>
-            </div>
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-xs text-muted">Rows per page</span>
+            <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+              <SelectTrigger className="h-9 w-[90px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[5, 10, 15, 20].map((n) => (
+                  <SelectItem key={n} value={String(n)}>
+                    {n}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
-      )}
+        <DataTable columns={columns} data={pagedHistory} statusKey="status" />
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-muted">
+          <span>
+            Showing {historyLeaves.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}-
+            {Math.min(currentPage * pageSize, historyLeaves.length)} of {historyLeaves.length} records
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={currentPage === 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              Prev
+            </Button>
+            <span className="text-xs font-medium">
+              Page {currentPage} / {totalPages}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={currentPage >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      </div>
+
     </div>
   )
 }
