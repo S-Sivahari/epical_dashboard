@@ -88,7 +88,7 @@ export const projectController = {
 
       if (client && client !== 'all') query.clientName = client;
       if (name && name !== 'all') query.projectName = name;
-      // Team filter is applied on the frontend using team lead department
+      // Team filter is applied on the frontend using team lead team
       if (status && status !== 'all') query.status = status;
       if (accessType && accessType !== 'all') query.accessType = accessType;
       if (technologyNode && technologyNode !== 'all') query.technologyNode = technologyNode;

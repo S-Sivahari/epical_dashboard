@@ -3,7 +3,6 @@ import api from '@services/api'
 
 export async function getEmployees(params?: {
   name?: string
-  department?: string
   employmentType?: string
   status?: string
   sortColumn?: string
@@ -14,7 +13,6 @@ export async function getEmployees(params?: {
   const response = await api.get('/employees', {
     params: {
       q: params?.name || undefined,
-      department: params?.department,
       employmentType: params?.employmentType,
       status: params?.status,
       sortColumn: params?.sortColumn,
@@ -75,6 +73,16 @@ export async function deleteEmployee(id: string) {
 export async function updateEmployeeStatus(id: string, status: Employee['status']) {
   const response = await api.put(`/employees/${id}`, { status })
   return response.data as Employee
+}
+
+export async function bulkUpdateStatus(ids: string[], status: string) {
+  const response = await api.patch('/employees/bulk-status', { ids, status })
+  return response.data as { updated: number }
+}
+
+export async function checkEmployeeIdExists(employeeId: string): Promise<boolean> {
+  const response = await api.get('/employees/check-id', { params: { id: employeeId } })
+  return (response.data as { exists: boolean }).exists
 }
 
 export async function getEmployeeDocuments(id: string) {

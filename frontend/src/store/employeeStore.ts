@@ -4,7 +4,6 @@ import * as employeeService from '@services/employeeService'
 
 interface EmployeeFilters {
   name: string
-  department: string
   employmentType: string
   status: string
 }
@@ -20,7 +19,6 @@ interface EmployeeState {
   setFilters: (f: Partial<EmployeeFilters>) => void
   setSort: (column: string, direction: 'asc' | 'desc') => void
   setPage: (page: number) => void
-  setPageSize: (n: number) => void
   fetchEmployees: () => Promise<void>
   fetchEmployeesSilent: () => Promise<void>
   setSelected: (e: Employee | null) => void
@@ -28,6 +26,7 @@ interface EmployeeState {
   updateEmployee: (id: string, payload: Partial<Employee>) => Promise<void>
   deleteEmployee: (id: string) => Promise<void>
   updateEmployeeStatus: (id: string, status: Employee['status']) => Promise<void>
+  bulkUpdateStatus: (ids: string[], status: Employee['status']) => Promise<void>
 }
 
 // Cache expiry time in milliseconds (30 seconds)
@@ -36,7 +35,7 @@ const CACHE_EXPIRY = 30000
 export const useEmployeeStore = create<EmployeeState>((set, get) => ({
   employees: [],
   selectedEmployee: null,
-  filters: { name: '', department: 'all', employmentType: 'all', status: 'all' },
+  filters: { name: '', employmentType: 'all', status: 'all' },
   pagination: { page: 1, pageSize: 10, total: 0 },
   sort: { column: 'joinedAt', direction: 'desc' },
   loading: false,
@@ -45,14 +44,12 @@ export const useEmployeeStore = create<EmployeeState>((set, get) => ({
     set({ filters: { ...get().filters, ...f }, pagination: { ...get().pagination, page: 1 } }),
   setSort: (column, direction) => set({ sort: { column, direction } }),
   setPage: (page) => set({ pagination: { ...get().pagination, page } }),
-  setPageSize: (pageSize) => set({ pagination: { ...get().pagination, pageSize, page: 1 } }),
   fetchEmployees: async () => {
     set({ loading: true })
     const { filters, pagination } = get()
     try {
       const res = await employeeService.getEmployees({
         name: filters.name || undefined,
-        department: filters.department,
         employmentType: filters.employmentType,
         status: filters.status,
         sortColumn: get().sort.column,
@@ -71,7 +68,6 @@ export const useEmployeeStore = create<EmployeeState>((set, get) => ({
     }
   },
   fetchEmployeesSilent: async () => {
-    // Only fetch if cache is stale (older than CACHE_EXPIRY)
     const now = Date.now()
     if (now - get().lastFetchEmployees < CACHE_EXPIRY) {
       return
@@ -80,7 +76,6 @@ export const useEmployeeStore = create<EmployeeState>((set, get) => ({
     try {
       const res = await employeeService.getEmployees({
         name: filters.name || undefined,
-        department: filters.department,
         employmentType: filters.employmentType,
         status: filters.status,
         sortColumn: get().sort.column,
@@ -113,6 +108,10 @@ export const useEmployeeStore = create<EmployeeState>((set, get) => ({
   },
   updateEmployeeStatus: async (id, status) => {
     await employeeService.updateEmployeeStatus(id, status)
+    await get().fetchEmployees()
+  },
+  bulkUpdateStatus: async (ids, status) => {
+    await employeeService.bulkUpdateStatus(ids, status)
     await get().fetchEmployees()
   },
 }))

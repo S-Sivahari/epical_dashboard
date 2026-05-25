@@ -365,8 +365,6 @@ export interface WelcomeEmailData {
   firstName: string;
   lastName: string;
   employeeId: string;
-  department: string;
-  designation: string;
   joinedAt: string;
 }
 
@@ -384,14 +382,12 @@ export async function sendWelcomeEmail(
   const details: DetailField[] = [
     { label: 'Employee ID', value: data.employeeId },
     { label: 'Full Name', value: fullName },
-    { label: 'Department', value: data.department },
-    { label: 'Designation', value: data.designation },
     { label: 'Date of Joining', value: data.joinedAt },
   ];
 
   const html = buildHtmlTemplate(data.firstName, 'Welcome to Epical! 🎉', message, details, actionUrl);
 
-  const text = `Hi ${data.firstName},\n\nWelcome to the team! Your employee profile has been successfully created.\n\nDetails:\n- Employee ID: ${data.employeeId}\n- Name: ${fullName}\n- Department: ${data.department}\n- Designation: ${data.designation}\n- Date of Joining: ${data.joinedAt}\n\nPlease log in to your dashboard to complete your profile.`;
+  const text = `Hi ${data.firstName},\n\nWelcome to the team! Your employee profile has been successfully created.\n\nDetails:\n- Employee ID: ${data.employeeId}\n- Name: ${fullName}\n- Date of Joining: ${data.joinedAt}\n\nPlease log in to your dashboard to complete your profile.`;
 
   return await sendEmail({ to: data.recipientEmail, subject, html, text });
 }

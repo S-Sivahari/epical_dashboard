@@ -19,7 +19,7 @@ export function EmployeeCard({ employee }: { employee: Employee }) {
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium text-ink">{name}</p>
         <p className="truncate text-sm text-muted">
-          {employee.role} · {employee.department}
+          {employee.role}
         </p>
       </div>
       <Badge

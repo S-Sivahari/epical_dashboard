@@ -156,7 +156,7 @@ export function DashboardHome() {
               <div>
                 <p className="font-display text-lg font-semibold text-ink">Welcome, {user?.name}</p>
                 <p className="text-sm text-muted">
-                  {user?.designation} · {user?.department} · Joined {user?.joinedAt}
+                  {user?.designation} · Joined {user?.joinedAt}
                 </p>
               </div>
             </div>

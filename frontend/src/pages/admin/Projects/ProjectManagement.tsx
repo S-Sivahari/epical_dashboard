@@ -99,14 +99,14 @@ interface TimesheetLog {
    MOCK DATA
    ================================================================ */
 const MOCK_EMPLOYEES = [
-  { id: 'E-1001', name: 'Asha Menon', department: 'Design', hue: 155 },
-  { id: 'E-1002', name: 'Rahul Verma', department: 'Verification', hue: 210 },
-  { id: 'E-1003', name: 'Meera Nair', department: 'Hardware', hue: 335 },
-  { id: 'E-1004', name: 'Amit Patel', department: 'R&D', hue: 35 },
-  { id: 'E-1005', name: 'Priya Das', department: 'Operations', hue: 270 },
-  { id: 'E-1006', name: 'Kiran Rao', department: 'Design', hue: 190 },
-  { id: 'E-1007', name: 'Sneha Iyer', department: 'Verification', hue: 10 },
-  { id: 'E-1008', name: 'Vikram Singh', department: 'R&D', hue: 60 },
+  { id: 'E-1001', name: 'Asha Menon', team: 'Design', hue: 155 },
+  { id: 'E-1002', name: 'Rahul Verma', team: 'Verification', hue: 210 },
+  { id: 'E-1003', name: 'Meera Nair', team: 'Hardware', hue: 335 },
+  { id: 'E-1004', name: 'Amit Patel', team: 'R&D', hue: 35 },
+  { id: 'E-1005', name: 'Priya Das', team: 'Operations', hue: 270 },
+  { id: 'E-1006', name: 'Kiran Rao', team: 'Design', hue: 190 },
+  { id: 'E-1007', name: 'Sneha Iyer', team: 'Verification', hue: 10 },
+  { id: 'E-1008', name: 'Vikram Singh', team: 'R&D', hue: 60 },
 ]
 
 const MOCK_TEAMS = [
@@ -165,7 +165,7 @@ function buildTimesheetExportAnalytics(logs: TimesheetLog[]) {
     } else {
       byEmployee[t.employeeId] = {
         name: t.employeeName,
-        dept: emp?.department ?? '—',
+        dept: emp?.team ?? '—',
         hours,
       }
     }
@@ -1158,7 +1158,7 @@ export function ProjectManagement() {
   const getTeamLeadDepartment = useCallback((teamLeadName?: string) => {
     if (!teamLeadName) return undefined
     const emp = MOCK_EMPLOYEES.find((e) => e.name === teamLeadName)
-    return emp ? `${emp.department} Team` : undefined
+    return emp ? `${emp.team} Team` : undefined
   }, [])
 
   const teamFilterOptions = useMemo(() => [...MOCK_TEAMS], [])
@@ -1351,11 +1351,11 @@ export function ProjectManagement() {
     setDatePreset(preset)
   }
 
-  // Mapper helper to link employee department to logical teams for filtering
+  // Mapper helper to link employee team to logical teams for filtering
   const getEmployeeTeam = useCallback((empName: string): string => {
     const emp = MOCK_EMPLOYEES.find((e) => e.name === empName)
     if (!emp) return 'Design Team'
-    return `${emp.department} Team`
+    return `${emp.team} Team`
   }, [])
 
   // ── Timesheets Filtering Implementation ──────────────────────
@@ -2404,7 +2404,7 @@ export function ProjectManagement() {
                   { value: '', label: 'Select team lead...' },
                   ...MOCK_EMPLOYEES.map((e) => ({
                     value: e.name,
-                    label: `${e.name} (${e.department})`,
+                    label: `${e.name} (${e.team})`,
                   })),
                 ]}
               />

@@ -9,7 +9,6 @@ export const employeeController = {
       const page = Math.max(1, parseInt(req.query.page as string) || 1);
       const pageSize = Math.max(1, parseInt(req.query.pageSize as string) || 10);
       const q = req.query.q as string | undefined;
-      const department = req.query.department as string | undefined;
       const employmentType = req.query.employmentType as string | undefined;
       const status = req.query.status as string | undefined;
       const sortColumn = req.query.sortColumn as string | undefined;
@@ -17,7 +16,6 @@ export const employeeController = {
 
       const result = await employeeService.getAllEmployees(page, pageSize, {
         q,
-        department,
         employmentType,
         status,
         sortColumn,
@@ -60,8 +58,8 @@ export const employeeController = {
       const payload: CreateEmployeePayload = req.body;
 
         // Validate essential fields dynamically
-        const required = ['firstName', 'lastName', 'email', 'department'];
-        const missing = required.filter(f => !(payload as any)[f]);
+        const required = ['firstName', 'lastName'];
+        const missing = required.filter(f => !(payload as any)[f]?.toString?.()?.trim?.());
         if (missing.length) {
           res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` });
           return;
@@ -109,7 +107,15 @@ export const employeeController = {
       }
 
       res.json(employee);
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.code === 'DUPLICATE_EMAIL') {
+        res.status(409).json({ error: error.message });
+        return;
+      }
+      if (error?.code === 'VALIDATION_ERROR') {
+        res.status(400).json({ error: error.message });
+        return;
+      }
       console.error('Error updating employee:', error);
       res.status(500).json({ error: 'Failed to update employee' });
     }
@@ -177,15 +183,40 @@ export const employeeController = {
     }
   },
 
-  // Get employees by department
-  getEmployeesByDepartment: async (req: Request, res: Response): Promise<void> => {
+  // Bulk update status for multiple employees
+  bulkUpdateStatus: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { department } = req.params as { department: string };
-      const employees = await employeeService.getEmployeesByDepartment(department);
-      res.json(employees);
+      const { ids, status } = req.body as { ids: string[]; status: string };
+      if (!Array.isArray(ids) || ids.length === 0) {
+        res.status(400).json({ error: 'ids must be a non-empty array' });
+        return;
+      }
+      if (!status) {
+        res.status(400).json({ error: 'status is required' });
+        return;
+      }
+      const result = await employeeService.bulkUpdateStatus(ids, status);
+      res.json(result);
     } catch (error) {
-      console.error('Error fetching employees by department:', error);
-      res.status(500).json({ error: 'Failed to fetch employees' });
+      console.error('Error bulk updating employee status:', error);
+      res.status(500).json({ error: 'Failed to bulk update status' });
+    }
+  },
+
+  // Check if an employee ID already exists
+  checkEmployeeId: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const id = (req.query.id as string) || '';
+      const excludeId = (req.query.excludeId as string) || undefined;
+      if (!id) {
+        res.json({ exists: false });
+        return;
+      }
+      const exists = await employeeService.checkEmployeeIdExists(id, excludeId);
+      res.json({ exists });
+    } catch (error) {
+      console.error('Error checking employee ID:', error);
+      res.status(500).json({ error: 'Failed to check employee ID' });
     }
   },
 };

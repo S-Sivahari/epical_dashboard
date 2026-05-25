@@ -9,7 +9,6 @@ export const employee = {
   name: 'Sarah Mitchell',
   email: 'sarah.mitchell@epical.com',
   designation: 'Senior Product Designer',
-  department: 'Design & Experience',
   joiningDate: '2021-03-15',
   avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah',
 }

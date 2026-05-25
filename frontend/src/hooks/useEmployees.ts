@@ -22,7 +22,6 @@ export function useEmployees() {
     fetchEmployees,
     fetchEmployeesSilent,
     filters.name,
-    filters.department,
     filters.employmentType,
     filters.status,
     pagination.page,

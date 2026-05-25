@@ -9,8 +9,11 @@ router.get('/', employeeController.getAllEmployees);
 // Search employees
 router.get('/search', employeeController.searchEmployees);
 
-// Get employees by department
-router.get('/department/:department', employeeController.getEmployeesByDepartment);
+// Check if employee ID exists
+router.get('/check-id', employeeController.checkEmployeeId);
+
+// Bulk update status for multiple employees
+router.patch('/bulk-status', employeeController.bulkUpdateStatus);
 
 // Get employee by ID
 router.get('/:id', employeeController.getEmployeeById);

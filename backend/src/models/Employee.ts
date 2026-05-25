@@ -1,7 +1,7 @@
 import { ObjectId } from 'mongodb';
 
 export type EmploymentType = 'Full-time' | 'Contract' | 'Intern';
-export type EmployeeStatus = 'Active' | 'On Leave' | 'Probation' | 'Inactive' | 'Deactivated' | 'Archived';
+export type EmployeeStatus = 'Active' | 'On Leave' | 'Probation' | 'Inactive' | 'Deactivated' | 'Notice Period';
 
 export interface Employee {
   _id?: ObjectId;
@@ -17,8 +17,7 @@ export interface Employee {
   communicationAddress: string;
   dob?: string;
   gender?: string;
-  department: string;
-  designation: string;
+  designation?: string;
   role: string;
   managerId?: string; // ID of the employee's manager
   employmentType: EmploymentType;

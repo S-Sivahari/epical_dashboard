@@ -7,6 +7,7 @@ import passport from 'passport';
 import { connectDB, closeDB } from './config/db';
 import { env } from './config/env';
 import { initializePassport } from './config/oauth';
+import { removeDepartmentFromDatabase } from './services/employeeService';
 
 // Routes
 import { authRoutes } from './routes/authRoutes';
@@ -154,6 +155,14 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 export async function startServer() {
   try {
     await connectDB();
+    try {
+      const removed = await removeDepartmentFromDatabase();
+      if (removed.employees > 0 || removed.users > 0) {
+        console.log(`✓ Removed department field from ${removed.employees} employees and ${removed.users} users`);
+      }
+    } catch (err) {
+      console.warn('⚠ Department field cleanup skipped:', err);
+    }
     app.listen(env.port, () => {
       console.log(`✓ Server running on http://localhost:${env.port}`);
       console.log(`✓ API base:    http://localhost:${env.port}/api`);

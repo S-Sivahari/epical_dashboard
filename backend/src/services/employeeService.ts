@@ -18,7 +18,6 @@ export async function getAllEmployees(
   pageSize: number = 10,
   filters: {
     q?: string;
-    department?: string;
     employmentType?: string;
     status?: string;
     sortColumn?: string;
@@ -50,11 +49,6 @@ export async function getAllEmployees(
         { email: searchRegex },
       ];
     }
-  }
-
-  // Filter by department
-  if (filters.department && filters.department !== 'all') {
-    query.department = filters.department;
   }
 
   // Filter by employment type
@@ -115,8 +109,7 @@ export async function createEmployee(payload: CreateEmployeePayload): Promise<Em
   const collection = getEmployeeCollection();
 
   // ==== Validation ==== //
-  // Ensure mandatory fields are present and of correct type
-  const requiredFields: (keyof CreateEmployeePayload)[] = ['firstName', 'lastName', 'email', 'department', 'designation'];
+  const requiredFields: (keyof CreateEmployeePayload)[] = ['firstName', 'lastName'];
   for (const field of requiredFields) {
     const value = (payload as any)[field];
     if (!value || typeof value !== 'string' || value.trim() === '') {
@@ -126,16 +119,28 @@ export async function createEmployee(payload: CreateEmployeePayload): Promise<Em
     }
   }
 
-  // Basic e‑mail format check (simple regex)
+  // At least one email must be provided
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(payload.email?.trim())) {
-    const err: any = new Error('Invalid email format');
+  const hasPersonalEmail = payload.personalEmail && emailRegex.test(payload.personalEmail.trim());
+  const hasCompanyEmail = payload.email && emailRegex.test(payload.email.trim());
+  if (!hasPersonalEmail && !hasCompanyEmail) {
+    const err: any = new Error('At least one valid email (personal or company) is required');
+    err.code = 'VALIDATION_ERROR';
+    throw err;
+  }
+  if (payload.email && !emailRegex.test(payload.email.trim())) {
+    const err: any = new Error('Invalid company email format');
+    err.code = 'VALIDATION_ERROR';
+    throw err;
+  }
+  if (payload.personalEmail && !emailRegex.test(payload.personalEmail.trim())) {
+    const err: any = new Error('Invalid personal email format');
     err.code = 'VALIDATION_ERROR';
     throw err;
   }
 
   // ==== Duplicate checks ==== //
-  // Check for duplicate company email
+  // Check for duplicate company email (only if company email provided)
   if (payload.email) {
     const existing = await collection.findOne({ email: payload.email.trim().toLowerCase() });
     if (existing) {
@@ -157,12 +162,14 @@ export async function createEmployee(payload: CreateEmployeePayload): Promise<Em
     }
   }
 
-  // Normalise fields
+  // Normalise fields — strip designation and department from stored data
+  const { designation: _omitDesignation, department: _omitDepartment, ...payloadWithoutDesignation } = payload as any;
   const id = `E-${Date.now()}`;
   const employee: any = {
-    ...payload,
+    ...payloadWithoutDesignation,
     id,
-    email: payload.email?.trim().toLowerCase(),
+    email: payload.email?.trim().toLowerCase() || undefined,
+    personalEmail: payload.personalEmail?.trim().toLowerCase() || undefined,
     employeeId: payload.employeeId?.trim().toUpperCase() ?? id,
     status: payload.status ?? 'Active',
     createdAt: new Date(),
@@ -171,31 +178,102 @@ export async function createEmployee(payload: CreateEmployeePayload): Promise<Em
 
   const result = await collection.insertOne(employee);
 
-  // Send welcome email to the new employee asynchronously
-  if (employee.email) {
-    emailService.sendWelcomeEmail({
-      recipientEmail: employee.email,
-      firstName: employee.firstName || 'Team Member',
-      lastName: employee.lastName || '',
-      employeeId: employee.employeeId,
-      department: employee.department || 'N/A',
-      designation: employee.designation || 'N/A',
-      joinedAt: employee.joinedAt || new Date().toISOString().split('T')[0],
-    }).catch((err) => {
+  // Send welcome email — personal email first, then company email if different
+  const welcomeBase = {
+    firstName: employee.firstName || 'Team Member',
+    lastName: employee.lastName || '',
+    employeeId: employee.employeeId,
+    joinedAt: employee.joinedAt || new Date().toISOString().split('T')[0],
+  };
+  const emailsToNotify: string[] = [];
+  if (employee.personalEmail) emailsToNotify.push(employee.personalEmail);
+  if (employee.email && employee.email !== employee.personalEmail) emailsToNotify.push(employee.email);
+  for (const recipientEmail of emailsToNotify) {
+    emailService.sendWelcomeEmail({ ...welcomeBase, recipientEmail }).catch((err) => {
       console.error('[Employee Service] Failed to send welcome email:', err);
     });
   }
 
   return { ...employee, _id: result.insertedId };
 }
+export async function checkEmployeeIdExists(
+  employeeId: string,
+  excludeId?: string
+): Promise<boolean> {
+  const collection = getEmployeeCollection();
+  const query: any = { employeeId: employeeId.trim().toUpperCase() };
+  if (excludeId) {
+    // Exclude the current employee (for edit checks)
+    const existing = await getEmployeeById(excludeId);
+    if (existing) {
+      query._id = { $ne: existing._id };
+    }
+  }
+  const found = await collection.findOne(query);
+  return !!found;
+}
+
 export async function updateEmployee(
   id: string,
   payload: UpdateEmployeePayload
 ): Promise<Employee | null> {
   const collection = getEmployeeCollection();
 
+  // Strip designation and department from update payload — not stored
+  const { designation: _omitDesignation, department: _omitDepartment, ...cleanPayload } = payload as any;
+
+  const existing = await getEmployeeById(id);
+
+  // Duplicate company email check on update
+  if (cleanPayload.email && cleanPayload.email.trim() !== '') {
+    const normalizedNewEmail = cleanPayload.email.trim().toLowerCase();
+    // Only check if email is changing
+    if (!existing || existing.email !== normalizedNewEmail) {
+      const dup = await collection.findOne({ email: normalizedNewEmail });
+      if (dup && dup.id !== id) {
+        const err: any = new Error('An employee with this company email already exists.');
+        err.code = 'DUPLICATE_EMAIL';
+        throw err;
+      }
+    }
+    cleanPayload.email = normalizedNewEmail;
+  }
+
+  // Detect newly added company email → send welcome email + migrate user record
+  if (cleanPayload.email && existing && !existing.email) {
+    const newCompanyEmail = cleanPayload.email;
+    if (newCompanyEmail !== existing.personalEmail) {
+      const welcomeBase = {
+        firstName: existing.firstName || 'Team Member',
+        lastName: existing.lastName || '',
+        employeeId: existing.employeeId,
+        joinedAt: existing.joinedAt || new Date().toISOString().split('T')[0],
+      };
+      emailService.sendWelcomeEmail({ ...welcomeBase, recipientEmail: newCompanyEmail }).catch((err) => {
+        console.error('[Employee Service] Failed to send company email welcome:', err);
+      });
+    }
+
+    // Migrate user record: update the existing user's email from personalEmail to company email
+    if (existing.personalEmail) {
+      try {
+        const userCol = getDB().collection('users');
+        const userRecord = await userCol.findOne({ email: existing.personalEmail });
+        if (userRecord) {
+          await userCol.updateOne(
+            { email: existing.personalEmail },
+            { $set: { email: newCompanyEmail, updatedAt: new Date() } }
+          );
+          console.log(`[Employee Service] Migrated user login email from ${existing.personalEmail} to ${newCompanyEmail}`);
+        }
+      } catch (err) {
+        console.error('[Employee Service] Failed to migrate user record:', err);
+      }
+    }
+  }
+
   const updateData = {
-    ...payload,
+    ...cleanPayload,
     updatedAt: new Date(),
   };
 
@@ -252,7 +330,6 @@ export async function searchEmployees(query: string): Promise<Employee[]> {
         { firstName: searchRegex },
         { lastName: searchRegex },
         { email: searchRegex },
-        { department: searchRegex },
         { role: searchRegex },
       ],
     })
@@ -261,8 +338,27 @@ export async function searchEmployees(query: string): Promise<Employee[]> {
   return employees as Employee[];
 }
 
-export async function getEmployeesByDepartment(department: string): Promise<Employee[]> {
+export async function bulkUpdateStatus(
+  ids: string[],
+  status: string
+): Promise<{ updated: number }> {
   const collection = getEmployeeCollection();
-  const employees = await collection.find({ department }).toArray();
-  return employees as Employee[];
+  const result = await collection.updateMany(
+    { id: { $in: ids } },
+    { $set: { status, updatedAt: new Date() } }
+  );
+  return { updated: result.modifiedCount };
+}
+
+/** Remove deprecated department field from all employee and user documents. */
+export async function removeDepartmentFromDatabase(): Promise<{ employees: number; users: number }> {
+  const db = getDB();
+  const [employeeResult, userResult] = await Promise.all([
+    db.collection('employees').updateMany({}, { $unset: { department: '' } }),
+    db.collection('users').updateMany({}, { $unset: { department: '' } }),
+  ]);
+  return {
+    employees: employeeResult.modifiedCount,
+    users: userResult.modifiedCount,
+  };
 }

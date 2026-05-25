@@ -37,7 +37,6 @@ export function initializePassport() {
               googleId,
               passwordHash: await bcrypt.hash('', 10), // Empty password hash for OAuth users
               role: 'Employee',
-              department: 'General',
               designation: 'Employee',
               joinedAt: new Date().toISOString().split('T')[0],
               avatarUrl: profile.photos?.[0]?.value,

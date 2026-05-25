@@ -9,7 +9,6 @@ export interface AuthUser {
   name: string
   email: string
   role: 'Admin' | 'Employee'
-  department: string
   designation: string
   joinedAt: string
   avatarUrl?: string

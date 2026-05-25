@@ -46,7 +46,6 @@ const exportHeaders: { key: keyof Employee; label: string }[] = [
   { key: 'firstName', label: 'First Name' },
   { key: 'lastName', label: 'Last Name' },
   { key: 'email', label: 'Email' },
-  { key: 'department', label: 'Department' },
   { key: 'role', label: 'Role' },
   { key: 'employmentType', label: 'Type' },
   { key: 'joinedAt', label: 'Joined' },
@@ -56,17 +55,34 @@ const exportHeaders: { key: keyof Employee; label: string }[] = [
 export function EmployeeProfile() {
   const { id = '' } = useParams()
   const [employee, setEmployee] = useState<Employee | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [documents, setDocuments] = useState<{ key: string; name: string; url: string }[]>([])
   const [docsLoading, setDocsLoading] = useState(false)
 
   useEffect(() => {
+    if (!id) {
+      setLoadError('Employee not found.')
+      setLoading(false)
+      return
+    }
     let cancelled = false
+    setLoading(true)
+    setLoadError(null)
     void (async () => {
       try {
         const e = await employeeService.getEmployee(id)
         if (!cancelled) setEmployee(e)
-      } catch {
-        if (!cancelled) setEmployee(null)
+      } catch (err) {
+        if (!cancelled) {
+          const msg =
+            (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+            (err instanceof Error ? err.message : 'Could not load employee profile.')
+          setLoadError(msg)
+          setEmployee(null)
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
       }
     })()
     return () => {
@@ -93,13 +109,29 @@ export function EmployeeProfile() {
     }
   }, [id])
 
-  if (!employee) {
+  if (loading) {
     return (
       <PageWrapper>
         <PageHeader title="" />
         <div className="flex items-center justify-center py-20">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           <span className="ml-3 text-sm text-muted">Loading profile…</span>
+        </div>
+      </PageWrapper>
+    )
+  }
+
+  if (loadError || !employee) {
+    return (
+      <PageWrapper>
+        <PageHeader title="Employee Profile" />
+        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+          <p className="text-sm font-medium text-red-700">{loadError ?? 'Employee not found.'}</p>
+          <div className="mt-4">
+            <Button asChild variant="secondary">
+              <Link to="/admin/employees">Back to Employees</Link>
+            </Button>
+          </div>
         </div>
       </PageWrapper>
     )
@@ -113,7 +145,7 @@ export function EmployeeProfile() {
     <PageWrapper>
       <PageHeader
         title={name}
-        subtitle={`${employee.department} · ${employee.employeeId}`}
+        subtitle={employee.employeeId}
         actions={
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => exportToPDF([employee], fileName, exportHeaders)}>
@@ -167,9 +199,6 @@ export function EmployeeProfile() {
                 <span className="font-medium text-ink">Type:</span> {employee.employmentType}
               </p>
               <p>
-                <span className="font-medium text-ink">Department:</span> {employee.department}
-              </p>
-              <p>
                 <span className="font-medium text-ink">Joined:</span> {formatDate(employee.joinedAt)}
               </p>
             </div>
@@ -197,7 +226,6 @@ export function EmployeeProfile() {
             <SectionHeader title="Job Details" />
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               <InfoRow label="Employee ID" value={employee.employeeId} />
-              <InfoRow label="Department" value={employee.department} />
               <InfoRow label="Role" value={employee.role} />
               <InfoRow label="Employment Type" value={employee.employmentType} />
               <InfoRow label="Joining Date" value={formatDate(employee.joinedAt)} />
