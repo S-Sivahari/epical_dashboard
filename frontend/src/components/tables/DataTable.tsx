@@ -4,7 +4,7 @@ import { Spinner } from '@components/ui/Spinner'
 
 export interface Column<T> {
   key: keyof T | string
-  header: string
+  header: ReactNode
   className?: string
   sortable?: boolean
   render?: (row: T) => ReactNode

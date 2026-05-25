@@ -1,227 +1,555 @@
 import { Request, Response } from 'express'
-import { existsSync } from 'fs'
-import { readMasterExcel, buildPayslip, savePayslipToBuffer } from '../services/payslipGenerator'
-import { EmployeePayslip } from '../models/EmployeePayslip'
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs'
+import { join } from 'path'
+import { savePayslipAsPdf } from '../services/payslipPdfGenerator'
+import {
+  generatePayrollTemplateBuffer,
+  PAYROLL_TEMPLATE_FILENAME,
+} from '../services/payrollTemplate'
+import {
+  processPayrollUpload,
+  getPayrollBatch,
+  getLatestPayrollBatch,
+  listPayrollBatches,
+  readBatchExcel,
+  getPayslipFilePath,
+  getPayslipsDir,
+  deletePayrollBatch,
+  deletePayslipFromBatch,
+  sendAllPayslipsInBatch,
+  mergeBatchPayslipPdfs,
+} from '../services/payrollBatchService'
+import { AuthRequest } from '../middleware/authMiddleware'
+import {
+  sendPayslipToEmployee,
+  getPayslipsForEmployeeEmail,
+  getPayslipByIdForEmployee,
+  getAllSentPayslips,
+} from '../services/employeePayslipService'
+import { getPayrollBatch as fetchBatch } from '../services/payrollBatchService'
+import { createNotification } from '../services/notificationService'
+import { getDB } from '../config/db'
+
+function getUserCollection() {
+  return getDB().collection('users')
+}
+
+const TEMPLATE_DIR = join(process.cwd(), 'uploads', 'payroll', 'template')
+const TEMPLATE_PATH = join(TEMPLATE_DIR, 'active_template.xlsx')
+
+function templateMetaCollection() {
+  return getDB().collection<{ name: string; uploadedAt: Date; size: number }>('payroll_template_meta')
+}
+
+async function notifyAdminsAndEmployee(params: {
+  employeeDbId: string
+  employeeName: string
+  employeeEmail: string
+  payMonth: string
+  payslipId: string
+  batchId: string
+  fileName?: string
+}): Promise<void> {
+  const { employeeDbId, employeeName, employeeEmail, payMonth, payslipId, batchId, fileName } = params
+
+  // Notify the employee
+  await createNotification({
+    recipientId: employeeDbId,
+    recipientType: 'Employee',
+    type: 'PayslipSent',
+    title: 'Payslip Received',
+    message: `Your payslip for ${payMonth} has been published. You can download it from the Payslips section.`,
+    relatedData: { employeeId: employeeDbId, employeeName, employeeEmail, payslipId, batchId, payMonth, fileName },
+  })
+
+  // Notify all admins
+  const admins = await getUserCollection().find({ role: 'Admin' }).toArray()
+  for (const admin of admins) {
+    await createNotification({
+      recipientId: String(admin.id),
+      recipientType: 'Admin',
+      type: 'PayslipSent',
+      title: 'Payslip Sent',
+      message: `Payslip for ${employeeName} (${payMonth}) has been sent successfully.`,
+      relatedData: { employeeId: employeeDbId, employeeName, employeeEmail, payslipId, batchId, payMonth, fileName },
+    })
+  }
+}
 
 export const payslipController = {
-  // Generate payslips for all employees from Excel master file → save to MongoDB
-  generatePayslips: async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { excelPath } = req.body
-
-      if (!excelPath) {
-        res.status(400).json({ error: 'Excel path is required' })
-        return
-      }
-
-      if (!existsSync(excelPath)) {
-        res.status(400).json({ error: `Excel file not found: ${excelPath}` })
-        return
-      }
-
-      const { company, structure, employees } = readMasterExcel(excelPath)
-
-      if (employees.length === 0) {
-        res.status(400).json({ error: 'No employees found in Excel file' })
-        return
-      }
-
-      const results = []
-      for (const emp of employees) {
-        try {
-          const doc = buildPayslip(company, structure, emp)
-          const empId = String(emp['Emp ID'] || 'Unknown')
-          const payMonth = String(company['Pay Month'] || '')
-          const fileName = `Payslip_${empId}_${payMonth.replace(/\s+/g, '_')}.docx`
-
-          const buffer = await savePayslipToBuffer(doc)
-          const fileData = buffer.toString('base64')
-
-          // Build earnings/deductions summaries
-          const earnings = Object.entries({
-            'Basic Salary': emp['Basic Salary'],
-            HRA: emp['HRA'],
-            Conveyance: emp['Conveyance'],
-            'Sundry Medical': emp['Sundry Medical'],
-            LTA: emp['LTA'],
-            'Variable Allowance': emp['Variable Allowance'],
-            'Personal Allowance': emp['Personal Allowance'],
-            'Special Allowance': emp['Special Allowance'],
-            Reimbursements: emp['Reimbursements'],
-          }).map(([name, amount]) => ({ name, amount: parseFloat(String(amount || 0)) }))
-
-          const deductions = Object.entries({
-            PT: emp['PT'],
-            TDS: emp['TDS'],
-            'Loan Recovery': emp['Loan Recovery'],
-            'Loss of Pay': emp['LOP Days'],
-          }).map(([name, amount]) => ({ name, amount: parseFloat(String(amount || 0)) }))
-
-          const grossEarnings = earnings.reduce((s, e) => s + e.amount, 0)
-          const totalDeductions = deductions.reduce((s, d) => s + d.amount, 0)
-          const netPay = grossEarnings - totalDeductions
-
-          // Upsert: replace if same empId + payMonth already exists
-          await EmployeePayslip.findOneAndUpdate(
-            { empId, payMonth },
-            {
-              empId,
-              name: emp['Name'],
-              payMonth,
-              payDate: String(company['Pay Date'] || ''),
-              grossEarnings,
-              totalDeductions,
-              netPay,
-              earnings,
-              deductions,
-              fileData,
-              fileName,
-              generatedAt: new Date(),
-            },
-            { upsert: true, new: true }
-          )
-
-          results.push({ empId, name: emp['Name'], status: 'success', fileName })
-        } catch (error: any) {
-          results.push({ empId: emp['Emp ID'], name: emp['Name'], status: 'error', error: error.message })
-        }
-      }
-
-      res.json({
-        message: 'Payslips generated and saved to MongoDB (employee_payslip)',
-        results,
-        totalGenerated: results.filter((r) => r.status === 'success').length,
-        totalFailed: results.filter((r) => r.status === 'error').length,
-      })
-    } catch (error: any) {
-      console.error('Error generating payslips:', error)
-      res.status(500).json({ error: error.message || 'Failed to generate payslips' })
+  /** Download active template — custom if uploaded, else built-in demo */
+  downloadTemplate: async (_req: Request, res: Response): Promise<void> => {
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    if (existsSync(TEMPLATE_PATH)) {
+      const meta = await templateMetaCollection().findOne({}, { sort: { uploadedAt: -1 } })
+      const name = meta?.name ?? PAYROLL_TEMPLATE_FILENAME
+      res.setHeader('Content-Disposition', `attachment; filename="${name}"`)
+      const buffer = readFileSync(TEMPLATE_PATH)
+      res.send(buffer)
+    } else {
+      const buffer = await generatePayrollTemplateBuffer()
+      res.setHeader('Content-Disposition', `attachment; filename="${PAYROLL_TEMPLATE_FILENAME}"`)
+      res.send(buffer)
     }
   },
 
-  // Generate single payslip for an employee → save to MongoDB
+  /** Upload a custom payroll Excel template */
+  uploadCustomTemplate: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const file = req.file
+      if (!file) {
+        res.status(400).json({ error: 'No Excel file uploaded' })
+        return
+      }
+      if (!existsSync(TEMPLATE_DIR)) {
+        mkdirSync(TEMPLATE_DIR, { recursive: true })
+      }
+      writeFileSync(TEMPLATE_PATH, file.buffer)
+      await templateMetaCollection().deleteMany({})
+      const meta = { name: file.originalname, uploadedAt: new Date(), size: file.size }
+      await templateMetaCollection().insertOne(meta)
+      res.json({ message: 'Template uploaded successfully', ...meta })
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to upload template'
+      res.status(500).json({ error: message })
+    }
+  },
+
+  /** Get active template metadata */
+  getTemplateMeta: async (_req: Request, res: Response): Promise<void> => {
+    try {
+      if (existsSync(TEMPLATE_PATH)) {
+        const meta = await templateMetaCollection().findOne({}, { sort: { uploadedAt: -1 } })
+        res.json({ hasCustom: true, name: meta?.name, uploadedAt: meta?.uploadedAt, size: meta?.size })
+      } else {
+        res.json({ hasCustom: false, name: PAYROLL_TEMPLATE_FILENAME })
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to get template info'
+      res.status(500).json({ error: message })
+    }
+  },
+
+  /** Upload payroll Excel (template or custom format), generate PDF payslips */
+  uploadAndProcess: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const file = req.file
+      if (!file) {
+        res.status(400).json({ error: 'No Excel file uploaded' })
+        return
+      }
+
+      const templateId = (req.body?.templateId as string) || 'classic'
+      const batch = await processPayrollUpload(file.buffer, file.originalname, templateId as 'classic' | 'corporate' | 'minimal')
+
+      res.json({
+        message: 'Payroll processed successfully',
+        batch,
+      })
+    } catch (error: unknown) {
+      console.error('Error processing payroll upload:', error)
+      const message = error instanceof Error ? error.message : 'Failed to process payroll'
+      res.status(400).json({ error: message })
+    }
+  },
+
+  getLatestBatch: async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const batch = await getLatestPayrollBatch()
+      if (!batch) {
+        res.status(404).json({ error: 'No payroll uploads yet' })
+        return
+      }
+      res.json(batch)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to fetch batch'
+      res.status(500).json({ error: message })
+    }
+  },
+
+  listBatches: async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const batches = await listPayrollBatches()
+      res.json(batches)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to list batches'
+      res.status(500).json({ error: message })
+    }
+  },
+
+  getBatch: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const batch = await getPayrollBatch(req.params.batchId)
+      if (!batch) {
+        res.status(404).json({ error: 'Payroll batch not found' })
+        return
+      }
+      res.json(batch)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to fetch batch'
+      res.status(500).json({ error: message })
+    }
+  },
+
+  /** Download the uploaded payroll Excel for a batch */
+  downloadUploadedExcel: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const batch = await getPayrollBatch(req.params.batchId)
+      if (!batch) {
+        res.status(404).json({ error: 'Payroll batch not found' })
+        return
+      }
+      
+      try {
+        const buffer = readBatchExcel(req.params.batchId)
+        res.setHeader(
+          'Content-Type',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        res.setHeader(
+          'Content-Disposition',
+          `attachment; filename="${batch.originalFileName || 'payroll.xlsx'}"`
+        )
+        res.send(buffer)
+      } catch (error: unknown) {
+        // Excel file doesn't exist (old batch), return graceful error
+        res.status(404).json({ 
+          error: 'Payroll file no longer available',
+          details: 'This batch is old and the file may have been archived or removed'
+        })
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to download Excel'
+      res.status(404).json({ error: message })
+    }
+  },
+
+  /** Download a generated payslip PDF */
+  downloadPayslipPdf: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { batchId, fileName } = req.params
+      const batch = await getPayrollBatch(batchId)
+      if (!batch) {
+        res.status(404).json({ error: 'Payroll batch not found' })
+        return
+      }
+
+      const filePath = getPayslipFilePath(batchId, fileName)
+      if (!existsSync(filePath)) {
+        res.status(404).json({ error: 'Payslip file not found' })
+        return
+      }
+
+      res.setHeader('Content-Type', 'application/pdf')
+      res.setHeader('Content-Disposition', `inline; filename="${fileName}"`)
+      res.sendFile(filePath)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to download payslip'
+      res.status(500).json({ error: message })
+    }
+  },
+
+  /** Publish payslip to employee documents dashboard */
+  sendPayslip: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { batchId, empId, fileName, employeeDbId } = req.body
+
+      if (!batchId || !empId || !fileName) {
+        res.status(400).json({ error: 'batchId, empId, and fileName are required' })
+        return
+      }
+
+      const batch = await fetchBatch(batchId)
+      if (!batch) {
+        res.status(404).json({ error: 'Payroll batch not found' })
+        return
+      }
+
+      const filePath = getPayslipFilePath(batchId, fileName)
+      if (!existsSync(filePath)) {
+        res.status(404).json({ error: 'Payslip PDF not found' })
+        return
+      }
+
+      const record = await sendPayslipToEmployee({
+        batchId,
+        fileName,
+        empId,
+        payMonth: batch.payMonth,
+        employeeDbId,
+      })
+
+      // Fire notifications for employee + admins
+      await notifyAdminsAndEmployee({
+        employeeDbId: record.employeeDbId,
+        employeeName: record.employeeName,
+        employeeEmail: record.employeeEmail,
+        payMonth: record.payMonth,
+        payslipId: record.id,
+        batchId: record.batchId,
+        fileName: record.fileName,
+      })
+
+      const updated = await fetchBatch(batchId)
+      res.json({
+        message: 'Payslip sent to employee dashboard',
+        batch: updated,
+      })
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to send payslip'
+      const status =
+        message.includes('not found') || message.includes('No employee') ? 404 : 500
+      res.status(status).json({ error: message })
+    }
+  },
+
+  /** Send all unsent payslips in a batch to employee dashboards */
+  sendAllPayslips: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { batchId, employeeDbIdByEmpId } = req.body
+
+      if (!batchId) {
+        res.status(400).json({ error: 'batchId is required' })
+        return
+      }
+
+      const batch = await getPayrollBatch(batchId)
+      if (!batch) {
+        res.status(404).json({ error: 'Payroll batch not found' })
+        return
+      }
+
+      const result = await sendAllPayslipsInBatch(
+        batchId,
+        employeeDbIdByEmpId ?? {}
+      )
+
+      // Fire notifications for each successfully sent payslip
+      const sentRecords = await getDB()
+        .collection('employee_payslips')
+        .find({ batchId })
+        .toArray()
+      for (const rec of sentRecords) {
+        await notifyAdminsAndEmployee({
+          employeeDbId: String(rec.employeeDbId),
+          employeeName: String(rec.employeeName),
+          employeeEmail: String(rec.employeeEmail),
+          payMonth: String(rec.payMonth),
+          payslipId: String(rec.id),
+          batchId: String(rec.batchId),
+          fileName: String(rec.fileName),
+        })
+      }
+
+      res.json({
+        message: `Sent ${result.sent} payslip(s) to employee dashboards`,
+        ...result,
+      })
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to send payslips'
+      const status = message.includes('not found') ? 404 : 500
+      res.status(status).json({ error: message })
+    }
+  },
+
+  /** Employee: list payslips sent to their dashboard */
+  getMyPayslips: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user?.email) {
+        res.status(401).json({ error: 'Unauthorized' })
+        return
+      }
+      const payslips = await getPayslipsForEmployeeEmail(req.user.email)
+      res.json(payslips)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to load payslips'
+      res.status(500).json({ error: message })
+    }
+  },
+
+  /** Employee: download a payslip PDF from dashboard */
+  downloadMyPayslip: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user?.email) {
+        res.status(401).json({ error: 'Unauthorized' })
+        return
+      }
+      const record = await getPayslipByIdForEmployee(req.params.payslipId, req.user.email)
+      if (!record) {
+        res.status(404).json({ error: 'Payslip not found' })
+        return
+      }
+      const filePath = getPayslipFilePath(record.batchId, record.fileName)
+      if (!existsSync(filePath)) {
+        res.status(404).json({ error: 'Payslip file not found' })
+        return
+      }
+      res.setHeader('Content-Type', 'application/pdf')
+      res.setHeader(
+        'Content-Disposition',
+        `inline; filename="${record.fileName}"`
+      )
+      res.sendFile(filePath)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to download payslip'
+      res.status(500).json({ error: message })
+    }
+  },
+
+  /** Regenerate payslips for one employee from an existing batch Excel */
   generatePayslip: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { excelPath, empId } = req.body
+      const { batchId, empId } = req.body
 
-      if (!excelPath || !empId) {
-        res.status(400).json({ error: 'Excel path and employee ID are required' })
+      if (!batchId || !empId) {
+        res.status(400).json({ error: 'batchId and empId are required' })
         return
       }
 
-      if (!existsSync(excelPath)) {
-        res.status(400).json({ error: `Excel file not found: ${excelPath}` })
+      const batch = await getPayrollBatch(batchId)
+      if (!batch) {
+        res.status(404).json({ error: 'Payroll batch not found' })
         return
       }
 
-      const { company, structure, employees } = readMasterExcel(excelPath)
-
+      const buffer = readBatchExcel(batchId)
+      const { readMasterExcelFromBuffer } = await import('../services/payslipGenerator')
+      const { company, structure, employees } = readMasterExcelFromBuffer(buffer)
       const emp = employees.find((e) => String(e['Emp ID']) === String(empId))
+
       if (!emp) {
-        res.status(404).json({ error: `Employee ${empId} not found` })
+        res.status(404).json({ error: `Employee ${empId} not found in payroll file` })
         return
       }
 
-      const doc = buildPayslip(company, structure, emp)
-      const payMonth = String(company['Pay Month'] || '')
-      const fileName = `Payslip_${empId}_${payMonth.replace(/\s+/g, '_')}.docx`
-
-      const buffer = await savePayslipToBuffer(doc)
-      const fileData = buffer.toString('base64')
-
-      const earnings = Object.entries({
-        'Basic Salary': emp['Basic Salary'],
-        HRA: emp['HRA'],
-        Conveyance: emp['Conveyance'],
-        'Sundry Medical': emp['Sundry Medical'],
-        LTA: emp['LTA'],
-        'Variable Allowance': emp['Variable Allowance'],
-        'Personal Allowance': emp['Personal Allowance'],
-        'Special Allowance': emp['Special Allowance'],
-        Reimbursements: emp['Reimbursements'],
-      }).map(([name, amount]) => ({ name, amount: parseFloat(String(amount || 0)) }))
-
-      const deductions = Object.entries({
-        PT: emp['PT'],
-        TDS: emp['TDS'],
-        'Loan Recovery': emp['Loan Recovery'],
-        'Loss of Pay': emp['LOP Days'],
-      }).map(([name, amount]) => ({ name, amount: parseFloat(String(amount || 0)) }))
-
-      const grossEarnings = earnings.reduce((s, e) => s + e.amount, 0)
-      const totalDeductions = deductions.reduce((s, d) => s + d.amount, 0)
-      const netPay = grossEarnings - totalDeductions
-
-      const saved = await EmployeePayslip.findOneAndUpdate(
-        { empId: String(empId), payMonth },
-        {
-          empId: String(empId),
-          name: emp['Name'],
-          payMonth,
-          payDate: String(company['Pay Date'] || ''),
-          grossEarnings,
-          totalDeductions,
-          netPay,
-          earnings,
-          deductions,
-          fileData,
-          fileName,
-          generatedAt: new Date(),
-        },
-        { upsert: true, new: true }
-      )
+      const fileName = `Payslip_${String(empId).replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`
+      const filePath = join(getPayslipsDir(batchId), fileName)
+      await savePayslipAsPdf(company, structure, emp, filePath)
 
       res.json({
         message: 'Payslip generated and saved to MongoDB (employee_payslip)',
         empId,
         name: emp['Name'],
-        payMonth,
         fileName,
-        _id: saved._id,
+        downloadUrl: `/api/payslips/batches/${batchId}/payslips/${fileName}`,
       })
-    } catch (error: any) {
-      console.error('Error generating payslip:', error)
-      res.status(500).json({ error: error.message || 'Failed to generate payslip' })
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to generate payslip'
+      res.status(500).json({ error: message })
     }
   },
 
-  // Get all payslips (optionally filter by empId)
-  getPayslips: async (req: Request, res: Response): Promise<void> => {
+  /** Delete entire batch: uploaded Excel + all generated payslips */
+  deleteBatch: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { empId, payMonth } = req.query
-      const filter: any = {}
-      if (empId) filter.empId = String(empId)
-      if (payMonth) filter.payMonth = String(payMonth)
-
-      const payslips = await EmployeePayslip.find(filter)
-        .select('-fileData') // exclude the heavy Base64 blob from list
-        .sort({ generatedAt: -1 })
-
-      res.json({ payslips, total: payslips.length })
-    } catch (error: any) {
-      console.error('Error fetching payslips:', error)
-      res.status(500).json({ error: error.message || 'Failed to fetch payslips' })
+      const { batchId } = req.params
+      await deletePayrollBatch(batchId)
+      res.json({ message: 'Payroll upload and payslips deleted successfully' })
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to delete payroll batch'
+      const status = message.includes('not found') ? 404 : 500
+      res.status(status).json({ error: message })
     }
   },
 
-  // Download a single payslip .docx by its MongoDB _id
-  downloadPayslip: async (req: Request, res: Response): Promise<void> => {
+  /** Delete a single generated payslip PDF */
+  deletePayslip: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params
-      const payslip = await EmployeePayslip.findById(id)
+      const { batchId, fileName } = req.params
+      const batch = await deletePayslipFromBatch(batchId, fileName)
+      res.json({ message: 'Payslip deleted successfully', batch })
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to delete payslip'
+      const status = message.includes('not found') || message.includes('Invalid') ? 404 : 500
+      res.status(status).json({ error: message })
+    }
+  },
 
-      if (!payslip) {
-        res.status(404).json({ error: 'Payslip not found' })
+  /** Admin: full send history across all batches */
+  getSendHistory: async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const records = await getAllSentPayslips(200)
+      res.json(records)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to load send history'
+      res.status(500).json({ error: message })
+    }
+  },
+
+  /** Download all payslip PDFs in a batch merged into one file */
+  downloadAllPayslipsPdf: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { batchId } = req.params
+      const batch = await getPayrollBatch(batchId)
+      if (!batch) {
+        res.status(404).json({ error: 'Payroll batch not found' })
         return
       }
 
-      const buffer = Buffer.from(payslip.fileData, 'base64')
-      res.setHeader('Content-Type', payslip.contentType)
-      res.setHeader('Content-Disposition', `attachment; filename="${payslip.fileName}"`)
+      const buffer = await mergeBatchPayslipPdfs(batchId)
+      const monthLabel = (batch.payMonth || 'payslips').replace(/[^a-zA-Z0-9_-]/g, '_')
+      const filename = `All_Payslips_${monthLabel}.pdf`
+
+      res.setHeader('Content-Type', 'application/pdf')
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
       res.send(buffer)
-    } catch (error: any) {
-      console.error('Error downloading payslip:', error)
-      res.status(500).json({ error: error.message || 'Failed to download payslip' })
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to merge payslips'
+      const status =
+        message.includes('not found') || message.includes('No payslip') ? 404 : 500
+      res.status(status).json({ error: message })
+    }
+  },
+
+  /** Download payslip PDF as attachment (saves file instead of opening inline) */
+  downloadPayslipPdfAttachment: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { batchId, fileName } = req.params
+      const batch = await getPayrollBatch(batchId)
+      if (!batch) {
+        res.status(404).json({ error: 'Payroll batch not found' })
+        return
+      }
+      const filePath = getPayslipFilePath(batchId, fileName)
+      if (!existsSync(filePath)) {
+        res.status(404).json({ error: 'Payslip file not found' })
+        return
+      }
+      res.setHeader('Content-Type', 'application/pdf')
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`)
+      res.sendFile(filePath)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to download payslip'
+      res.status(500).json({ error: message })
+    }
+  },
+
+  /** Legacy: generate from server file path (kept for scripts) */
+  generatePayslips: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { excelPath } = req.body
+
+      if (!excelPath) {
+        res.status(400).json({ error: 'excelPath is required, or use POST /api/payslips/upload' })
+        return
+      }
+
+      if (!existsSync(excelPath)) {
+        res.status(400).json({ error: `Excel file not found: ${excelPath}` })
+        return
+      }
+
+      const { readFileSync } = await import('fs')
+      const buffer = readFileSync(excelPath)
+      const batch = await processPayrollUpload(buffer, excelPath.split(/[/\\]/).pop() || 'payroll.xlsx')
+
+      res.json({
+        message: 'Payslips generated successfully',
+        batch,
+      })
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to generate payslips'
+      res.status(500).json({ error: message })
     }
   },
 }

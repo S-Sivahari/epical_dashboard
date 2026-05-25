@@ -15,7 +15,7 @@ createRoot(document.getElementById('root')!).render(
       <ThemeProvider>
         <BrowserRouter>
           <AppRoutes />
-          <Toaster position="top-right" richColors closeButton />
+          <Toaster position="bottom-right" richColors closeButton />
         </BrowserRouter>
       </ThemeProvider>
     </GoogleOAuthProvider>

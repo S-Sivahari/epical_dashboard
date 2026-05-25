@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import {
   Briefcase,
   ClipboardList,
-  FileText,
+
   Users,
   Clock,
 } from 'lucide-react'
@@ -139,7 +139,7 @@ export function DashboardHome() {
   return (
     <PageWrapper>
       <PageHeader
-        title="Dashboard"
+        title=""
         subtitle="Operational snapshot across people, leaves, and work."
         breadcrumb={<Breadcrumb items={[{ label: 'Dashboard' }]} />}
       />

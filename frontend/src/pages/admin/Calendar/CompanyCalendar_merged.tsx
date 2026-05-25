@@ -46,7 +46,9 @@ export function CompanyCalendar() {
   const fetchHolidays = useLeaveStore((s) => s.fetchHolidays)
 
   const [currentDate, setCurrentDate] = useState(new Date(2026, 4, 21))
-  const [events] = useState<CompanyEvent[]>(seedEvents)
+  const [events, setEvents] = useState<CompanyEvent[]>(seedEvents)
+  const [eventDeleteConfirmOpen, setEventDeleteConfirmOpen] = useState(false)
+  const [eventToDelete, setEventToDelete] = useState<CompanyEvent | null>(null)
   const [selectedDateStr, setSelectedDateStr] = useState<string | null>(null)
   const [isDateModalOpen, setIsDateModalOpen] = useState(false)
   const [isHolidayFormOpen, setIsHolidayFormOpen] = useState(false)
@@ -150,6 +152,19 @@ export function CompanyCalendar() {
     }
   }
 
+  const handleDeleteEvent = (event: CompanyEvent) => {
+    setEventToDelete(event)
+    setEventDeleteConfirmOpen(true)
+  }
+
+  const handleConfirmDeleteEvent = () => {
+    if (!eventToDelete) return
+    setEvents((prev) => prev.filter((e) => e.id !== eventToDelete.id))
+    toast.success(`"${eventToDelete.title}" removed`)
+    setEventDeleteConfirmOpen(false)
+    setEventToDelete(null)
+  }
+
   const currentMonthHolidays = useMemo(() => {
     return holidays.filter((h) => {
       const holidayDate = new Date(h.date)
@@ -179,41 +194,40 @@ export function CompanyCalendar() {
   return (
     <PageWrapper className="max-w-none pl-0 sm:pl-0 lg:pl-0 pr-6 sm:pr-6 lg:pr-6 w-full">
       <div className="mb-6 pl-6 sm:pl-6 lg:pl-6">
-        <h1 className="text-2xl font-bold text-ink">Company Calendar</h1>
-        <p className="text-sm text-muted">View all company holidays and events</p>
+        <h1 className="text-2xl font-bold text-ink"></h1>
       </div>
 
       <Tooltip.Provider delayDuration={300}>
-        <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-6 w-full pb-6 pr-6 pl-0">
+        <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full pb-4 pr-4 pl-0">
           
           {/* ── Left Column: Calendar Card ────────────────────────────── */}
           <div className="lg:col-span-2 xl:col-span-3 flex flex-col w-full">
             <div className="w-full rounded-xl border border-border bg-white shadow-sm flex flex-col overflow-hidden">
               {/* Calendar Header */}
-              <div className="p-4 border-b border-border flex items-center justify-between bg-surface/30">
-                <div className="flex items-center gap-3">
-                  <h3 className="font-display text-lg font-semibold text-ink w-36">
+              <div className="p-3 border-b border-border flex items-center justify-between bg-surface/30">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 rounded-lg border border-border bg-white p-0.5">
+                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={prevMonth}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="min-w-[7.5rem] px-2 text-center text-sm font-semibold text-ink">
                     {format(currentDate, 'MMMM yyyy')}
-                  </h3>
-                  <div className="flex gap-1">
-                    <Button size="sm" variant="secondary" className="h-8 w-8 p-0" onClick={prevMonth}>
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <Button size="sm" variant="secondary" className="h-8 px-3 text-xs" onClick={goToToday}>
-                      Today
-                    </Button>
-                    <Button size="sm" variant="secondary" className="h-8 w-8 p-0" onClick={nextMonth}>
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  </span>
+                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={nextMonth}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
                 </div>
+                <Button size="sm" variant="secondary" className="h-8 px-3 text-xs" onClick={goToToday}>
+                  Today
+                </Button>
+              </div>
                 <Button size="sm" className="h-8 px-3 text-xs shadow-sm" onClick={() => setIsHolidayFormOpen(true)}>
-                  <Plus className="h-4 w-4 mr-1.5" /> Add Holiday
+                  <Plus className="h-4 w-4 mr-1.5" /> Add
                 </Button>
               </div>
 
               {/* Legend */}
-              <div className="px-5 py-2.5 border-b border-border bg-gray-50 flex flex-wrap gap-4 text-xs font-medium">
+              <div className="px-3 py-1.5 border-b border-border bg-gray-50 flex flex-wrap gap-3 text-xs font-medium">
                 <div className="flex items-center gap-1.5">
                   <div className="w-2.5 h-2.5 rounded-full bg-lime-400 border border-lime-500"></div>
                   <span className="text-muted">Approved Leave</span>
@@ -233,11 +247,11 @@ export function CompanyCalendar() {
               </div>
 
               {/* Calendar Grid */}
-              <div className="p-4 flex-1">
-                <div className="grid grid-cols-7 gap-1.5">
+              <div className="p-2.5 flex-1">
+                <div className="grid grid-cols-7 gap-1">
                   {/* Day Headers */}
                   {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                    <div key={day} className="text-center text-xs font-semibold text-muted py-2 uppercase tracking-wider">
+                    <div key={day} className="text-center text-xs font-semibold text-muted py-1 uppercase tracking-wider">
                       {day}
                     </div>
                   ))}
@@ -256,7 +270,7 @@ export function CompanyCalendar() {
                         <Tooltip.Trigger asChild>
                           <div
                             onClick={() => handleDateClick(dateStr)}
-                            className={`min-h-[6.5rem] xl:min-h-[7.5rem] p-2 rounded-xl border transition-all cursor-pointer flex flex-col gap-1 hover:shadow-sm overflow-hidden
+                            className={`min-h-[5rem] xl:min-h-[5.5rem] p-1.5 rounded-xl border transition-all cursor-pointer flex flex-col gap-0.5 hover:shadow-sm overflow-hidden
                               ${!isCurrentMonth ? 'bg-gray-50/40 text-muted/50 border-transparent' : 'bg-white border-border hover:border-primary/50'}
                               ${isTodayDate ? 'ring-2 ring-primary/20 border-primary/40 bg-primary/5' : ''}
                             `}
@@ -271,7 +285,13 @@ export function CompanyCalendar() {
                                   <div
                                     key={i}
                                     className={`h-2 w-2 rounded-full ${
-                                      h.type === 'Company' ? 'bg-blue-500' : 'bg-green-500'
+                                      h.type === 'National'
+                                        ? 'bg-green-500'
+                                        : h.type === 'Company'
+                                        ? 'bg-blue-500'
+                                        : h.type === 'Company Event'
+                                        ? 'bg-orange-500'
+                                        : 'bg-green-500'
                                     }`}
                                   />
                                 ))}
@@ -283,13 +303,19 @@ export function CompanyCalendar() {
 
                             {/* Events List inside cell */}
                             <div className="flex-1 overflow-hidden flex flex-col gap-1 mt-1">
-                              {dayHolidays.slice(0, 2).map((h) => (
-                                <div key={h.id} className={`text-[10px] font-semibold leading-tight truncate px-1.5 py-0.5 rounded border ${
-                                  h.type === 'Company' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-green-50 text-green-700 border-green-100'
-                                }`}>
-                                  {h.title}
-                                </div>
-                              ))}
+                                {dayHolidays.slice(0, 2).map((h) => (
+                                  <div key={h.id} className={`text-[10px] font-semibold leading-tight truncate px-1.5 py-0.5 rounded border ${
+                                    h.type === 'National'
+                                      ? 'bg-green-50 text-green-700 border-green-100'
+                                      : h.type === 'Company'
+                                      ? 'bg-blue-50 text-blue-700 border-blue-100'
+                                      : h.type === 'Company Event'
+                                      ? 'bg-orange-50 text-orange-700 border-orange-100'
+                                      : 'bg-green-50 text-green-700 border-green-100'
+                                  }`}>
+                                    {h.title}
+                                  </div>
+                                ))}
                               {dayEvents.slice(0, 1).map((e) => (
                                 <div key={e.id} className="text-[10px] font-medium leading-tight truncate px-1.5 py-0.5 rounded bg-amber-50 text-amber-700">
                                   {e.title}
@@ -326,9 +352,23 @@ export function CompanyCalendar() {
                                     <div className="space-y-1">
                                         {dayHolidays.map((h) => (
                                           <div key={h.id} className="flex items-center gap-2">
-                                            <div className={`h-1.5 w-1.5 rounded-full ${h.type === 'Company' ? 'bg-blue-500' : 'bg-green-500'}`} />
+                                            <div className={`h-1.5 w-1.5 rounded-full ${
+                                              h.type === 'National'
+                                                ? 'bg-green-500'
+                                                : h.type === 'Company'
+                                                ? 'bg-blue-500'
+                                                : h.type === 'Company Event'
+                                                ? 'bg-orange-500'
+                                                : 'bg-green-500'
+                                            }`} />
                                             <span className="text-ink text-xs font-medium">{h.title}</span>
-                                            <span className="text-muted text-[10px]">({h.type === 'Company' ? 'Company Holiday' : 'Public Holiday'})</span>
+                                            <span className="text-muted text-[10px]">(
+                                              {h.type === 'Company'
+                                                ? 'Company Holiday'
+                                                : h.type === 'Company Event'
+                                                ? 'Company Event'
+                                                : 'Public Holiday'}
+                                            )</span>
                                           </div>
                                         ))}
                                     </div>
@@ -376,10 +416,10 @@ export function CompanyCalendar() {
           </div>
 
           {/* ── Right Column: Stacked Cards Column ───────────────────── */}
-          <div className="lg:col-span-1 flex flex-col gap-6">
+          <div className="lg:col-span-1 flex flex-col gap-3">
             {/* Holidays List */}
-            <div className="rounded-xl border border-border bg-white p-5 shadow-sm flex flex-col h-[280px]">
-              <div className="mb-4 flex items-center justify-between flex-shrink-0">
+            <div className="rounded-xl border border-border bg-white p-3 shadow-sm flex flex-col h-[220px]">
+              <div className="mb-2 flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <h3 className="font-display text-sm font-semibold text-ink">
                     {format(currentDate, 'MMM yyyy')} Holidays
@@ -391,7 +431,7 @@ export function CompanyCalendar() {
               </div>
 
               {/* Legend inside Holidays card */}
-              <div className="flex gap-3 text-[11px] font-medium border-b border-border pb-2.5 mb-3 flex-shrink-0">
+              <div className="flex gap-2 text-[10px] font-medium border-b border-border pb-2 mb-2 flex-shrink-0">
                 <div className="flex items-center gap-1.5">
                   <div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
                   <span className="text-muted">Public Holiday</span>
@@ -399,6 +439,10 @@ export function CompanyCalendar() {
                 <div className="flex items-center gap-1.5">
                   <div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
                   <span className="text-muted">Company Holiday</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-orange-500"></div>
+                  <span className="text-muted">Company Event</span>
                 </div>
               </div>
 
@@ -413,11 +457,17 @@ export function CompanyCalendar() {
                       return (
                         <div
                           key={holiday.id}
-                          className="group flex items-center justify-between p-3 rounded-lg border border-border hover:border-primary/40 hover:shadow-sm transition-all"
+                          className="group flex items-center justify-between p-2 rounded-lg border border-border hover:border-primary/40 hover:shadow-sm transition-all"
                         >
-                          <div className="flex-1 flex items-center gap-3 min-w-0">
-                            <div className={`flex h-9 w-9 items-center justify-center rounded-md text-sm font-bold text-white flex-shrink-0 shadow-sm ${
-                              holiday.type === 'Company' ? 'bg-blue-500' : 'bg-green-500'
+                          <div className="flex-1 flex items-center gap-2 min-w-0">
+                            <div className={`flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold text-white flex-shrink-0 shadow-sm ${
+                              holiday.type === 'National'
+                                ? 'bg-green-500'
+                                : holiday.type === 'Company'
+                                ? 'bg-blue-500'
+                                : holiday.type === 'Company Event'
+                                ? 'bg-orange-500'
+                                : 'bg-green-500'
                             }`}>
                               🎉
                             </div>
@@ -428,25 +478,25 @@ export function CompanyCalendar() {
                               </p>
                             </div>
                           </div>
-                          <div className="flex gap-1.5 flex-shrink-0 ml-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex gap-1 flex-shrink-0 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button
                               size="sm"
                               variant="secondary"
-                              className="h-7 w-7 p-0"
+                              className="h-6 w-6 p-0"
                               onClick={() => handleEditHoliday(holiday)}
                             >
-                              <Edit2 className="h-3.5 w-3.5" />
+                              <Edit2 className="h-3 w-3" />
                             </Button>
                             <Button
                               size="sm"
                               variant="danger"
-                              className="h-7 w-7 p-0"
+                              className="h-6 w-6 p-0"
                               onClick={() => {
                                 setHolidayToDelete(holiday)
                                 setDeleteConfirmOpen(true)
                               }}
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 className="h-3 w-3" />
                             </Button>
                           </div>
                         </div>
@@ -462,8 +512,8 @@ export function CompanyCalendar() {
             </div>
 
             {/* Company Events List */}
-            <div className="rounded-xl border border-border bg-white p-5 shadow-sm flex flex-col h-[280px]">
-              <div className="mb-4 flex items-center justify-between flex-shrink-0">
+            <div className="rounded-xl border border-border bg-white p-3 shadow-sm flex flex-col h-[220px]">
+              <div className="mb-2 flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <h3 className="font-display text-sm font-semibold text-ink">
                     Company Events
@@ -481,15 +531,23 @@ export function CompanyCalendar() {
                     .map((event) => (
                       <div
                         key={event.id}
-                        className="flex items-center p-3 rounded-lg border border-border hover:border-primary/40 hover:shadow-sm transition-all"
+                        className="group flex items-center p-2 rounded-lg border border-border hover:border-primary/40 hover:shadow-sm transition-all"
                       >
-                        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-gradient-to-br from-amber-100 to-amber-50 flex-shrink-0 text-base shadow-sm font-semibold text-amber-700">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-amber-100 to-amber-50 flex-shrink-0 text-sm shadow-sm font-semibold text-amber-700">
                           📢
                         </div>
-                        <div className="flex-1 ml-3 min-w-0">
-                          <h4 className="font-semibold text-ink text-sm truncate">{event.title}</h4>
+                        <div className="flex-1 ml-2 min-w-0">
+                          <h4 className="font-semibold text-ink text-xs truncate">{event.title}</h4>
                           <p className="text-[10px] text-muted mt-0.5">{event.time || 'All day'} • {formatDate(event.date)}</p>
                         </div>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          className="h-6 w-6 p-0 ml-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                          onClick={() => handleDeleteEvent(event)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
                     ))}
                 </div>
@@ -502,8 +560,8 @@ export function CompanyCalendar() {
             </div>
 
             {/* Approved Leaves List */}
-            <div className="rounded-xl border border-border bg-white p-5 shadow-sm flex flex-col h-[280px]">
-              <div className="mb-4 flex items-center justify-between flex-shrink-0">
+            <div className="rounded-xl border border-border bg-white p-3 shadow-sm flex flex-col h-[220px]">
+              <div className="mb-2 flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <h3 className="font-display text-sm font-semibold text-ink">
                     Approved Leaves
@@ -521,12 +579,12 @@ export function CompanyCalendar() {
                     .map((leave) => (
                       <div
                         key={leave.id}
-                        className="flex items-center p-3 rounded-lg border border-border hover:border-primary/40 hover:shadow-sm transition-all"
+                        className="flex items-center p-2 rounded-lg border border-border hover:border-primary/40 hover:shadow-sm transition-all"
                       >
-                        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-gradient-to-br from-lime-100 to-lime-50 flex-shrink-0 text-base shadow-sm font-semibold text-lime-700">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-lime-100 to-lime-50 flex-shrink-0 text-sm shadow-sm font-semibold text-lime-700">
                           ✈️
                         </div>
-                        <div className="flex-1 ml-3 min-w-0">
+                        <div className="flex-1 ml-2 min-w-0">
                           <h4 className="font-semibold text-ink text-sm truncate">{leave.employeeName}</h4>
                           <p className="text-[10px] text-muted mt-0.5">{leave.type} • {leave.days}d</p>
                         </div>
@@ -564,11 +622,35 @@ export function CompanyCalendar() {
                 <div className="space-y-2">
                   {itemsOnSelectedDate.holidays.map((h) => (
                     <div key={h.id} className={`text-sm p-3 rounded-lg flex justify-between items-center border ${
-                      h.type === 'Company' ? 'bg-blue-55 border-blue-100' : 'bg-green-55 border-green-100'
+                      h.type === 'National'
+                        ? 'bg-green-55 border-green-100'
+                        : h.type === 'Company'
+                        ? 'bg-blue-55 border-blue-100'
+                        : h.type === 'Company Event'
+                        ? 'bg-orange-55 border-orange-100'
+                        : 'bg-green-55 border-green-100'
                     }`}>
-                      <span className={`font-semibold ${h.type === 'Company' ? 'text-blue-900' : 'text-green-900'}`}>{h.title}</span>
-                      <Badge variant={h.type === 'Company' ? 'info' : 'success'}>
-                        {h.type === 'Company' ? 'Company Holiday' : 'Public Holiday'}
+                      <span className={`font-semibold ${
+                        h.type === 'Company'
+                          ? 'text-blue-900'
+                          : h.type === 'Company Event'
+                          ? 'text-orange-900'
+                          : 'text-green-900'
+                      }`}>{h.title}</span>
+                      <Badge variant={
+                        h.type === 'National'
+                          ? 'success'
+                          : h.type === 'Company'
+                          ? 'info'
+                          : h.type === 'Company Event'
+                          ? 'warning'
+                          : 'success'
+                      }>
+                        {h.type === 'Company'
+                          ? 'Company Holiday'
+                          : h.type === 'Company Event'
+                          ? 'Company Event'
+                          : 'Public Holiday'}
                       </Badge>
                     </div>
                   ))}
@@ -644,11 +726,12 @@ export function CompanyCalendar() {
               <label className="mb-1.5 block text-sm font-medium text-ink">Type</label>
               <select
                 value={type}
-                onChange={(e) => setType(e.target.value as 'National' | 'Company' | 'Optional')}
+                onChange={(e) => setType(e.target.value as 'National' | 'Company' | 'Company Event' | 'Optional')}
                 className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
               >
                 <option value="National">Public Holiday</option>
                 <option value="Company">Company Holiday</option>
+                <option value="Company Event">Company Event</option>
               </select>
             </div>
             <div>
@@ -694,6 +777,20 @@ export function CompanyCalendar() {
           danger
         />
       )}
+
+      {/* Delete Event Confirmation */}
+      <ConfirmModal
+        isOpen={eventDeleteConfirmOpen}
+        onConfirm={handleConfirmDeleteEvent}
+        onClose={() => {
+          setEventDeleteConfirmOpen(false)
+          setEventToDelete(null)
+        }}
+        title="Delete Event"
+        description={`Remove "${eventToDelete?.title}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        danger
+      />
         </Tooltip.Provider>
       </PageWrapper>
     )

@@ -387,7 +387,7 @@ export function AddEmployee() {
   return (
     <PageWrapper>
       <PageHeader
-        title="Add Employee"
+        title=""
         breadcrumb={
           <Breadcrumb items={[{ label: 'Employees', to: '/admin/employees' }, { label: 'Add' }]} />
         }

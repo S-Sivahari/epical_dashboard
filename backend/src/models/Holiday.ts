@@ -6,7 +6,9 @@ export interface Holiday {
   title: string;
   date: string;
   description?: string;
-  type: 'National' | 'Company' | 'Optional';
+  type: 'National' | 'Company' | 'Optional' | 'Company Event';
+  skipped?: boolean;
+  skippedReason?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }

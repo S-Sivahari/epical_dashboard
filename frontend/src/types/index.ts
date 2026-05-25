@@ -60,12 +60,9 @@ export interface LeaveRequest {
   reason: string
   status: LeaveStatus
   rejectionReason?: string
-<<<<<<< HEAD
+  cancellationReason?: string
   createdAt?: string
   updatedAt?: string
-=======
-  cancellationReason?: string
->>>>>>> 8ba3a9c662eca2d21defb36cc2879c841fc87304
   approvalDate?: string
   approvedBy?: string
 }
@@ -75,7 +72,9 @@ export interface Holiday {
   title: string
   date: string
   description?: string
-  type: 'National' | 'Company' | 'Optional'
+  type: 'National' | 'Company' | 'Optional' | 'Company Event'
+  skipped?: boolean
+  skippedReason?: string
 }
 
 export interface CompensationLeave {
@@ -83,6 +82,29 @@ export interface CompensationLeave {
   employeeId: string
   employeeName: string
   days: number
+}
+
+export interface LeaveTypeBalanceSummary {
+  type: string
+  total: number
+  used: number
+  pending: number
+  remaining: number
+}
+
+export interface EmployeeLeaveSummary {
+  employeeId: string
+  employeeName: string
+  balances: LeaveTypeBalanceSummary[]
+  currentLeaves: Array<{
+    id: string
+    type: string
+    from: string
+    to: string
+    days: number
+    status: string
+  }>
+  history: LeaveRequest[]
 }
 
 export interface ProjectTimesheetRow {

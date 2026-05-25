@@ -32,7 +32,7 @@ export function Analytics() {
   return (
     <PageWrapper>
       <PageHeader
-        title="Analytics"
+        title=""
         breadcrumb={<Breadcrumb items={[{ label: 'Analytics' }]} />}
         actions={
           <Button variant="secondary" onClick={() => void exportAnalyticsPdf(`analytics-${year}-${month}.pdf`)}>

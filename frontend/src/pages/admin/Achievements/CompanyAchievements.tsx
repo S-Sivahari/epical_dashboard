@@ -29,7 +29,7 @@ export function CompanyAchievements() {
   return (
     <PageWrapper>
       <PageHeader
-        title="Achievements"
+        title=""
         breadcrumb={<Breadcrumb items={[{ label: 'Achievements' }]} />}
         actions={
           <Button icon={<Plus className="h-4 w-4" />} onClick={() => setOpen(true)}>

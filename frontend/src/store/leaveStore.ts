@@ -18,6 +18,7 @@ interface LeaveState {
   addHoliday: (h: Omit<Holiday, 'id'>) => Promise<void>
   updateHoliday: (id: string, h: Partial<Omit<Holiday, 'id'>>) => Promise<void>
   deleteHoliday: (id: string) => Promise<void>
+  skipHoliday: (id: string, reason?: string) => Promise<void>
 }
 
 // Cache expiry time in milliseconds (30 seconds)
@@ -94,6 +95,10 @@ export const useLeaveStore = create<LeaveState>((set, get) => ({
   },
   deleteHoliday: async (id) => {
     await leaveService.deleteHoliday(id)
+    await get().fetchHolidays()
+  },
+  skipHoliday: async (id, reason) => {
+    await leaveService.skipHoliday(id, reason)
     await get().fetchHolidays()
   },
 }))
