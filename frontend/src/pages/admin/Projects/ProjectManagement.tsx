@@ -193,11 +193,11 @@ const getTimesheetWorkflowStatus = (
   t: Pick<TimesheetLog, 'logoutTime' | 'taskStatus' | 'status' | 'requestStatus'>
 ): 'Completed' | 'In Progress' => {
   const isCompleted =
-    !!t.logoutTime &&
-    t.taskStatus === 'Completed' &&
-    t.status === 'Approved' &&
-    t.requestStatus !== 'Pending Review' &&
-    t.requestStatus !== 'Rejected'
+    t.taskStatus === 'Completed' ||
+    (!!t.logoutTime &&
+      t.status === 'Approved' &&
+      t.requestStatus !== 'Pending Review' &&
+      t.requestStatus !== 'Rejected')
   return isCompleted ? 'Completed' : 'In Progress'
 }
 
@@ -1144,7 +1144,6 @@ export function ProjectManagement() {
   const [tsSearch, setTsSearch] = useState('')
   const [tsEmployeeFilters, setTsEmployeeFilters] = useState<string[]>([])
   const [tsProjectFilters, setTsProjectFilters] = useState<string[]>([])
-  const [tsTeamFilters, setTsTeamFilters] = useState<string[]>([])
   const [tsStatusFilters, setTsStatusFilters] = useState<string[]>([])
 
   // ── API Fetch Functions ─────────────────────────────────────
@@ -1495,10 +1494,9 @@ export function ProjectManagement() {
       const matchEmployee = matchesMultiFilter(tsEmployeeFilters, t.employeeName)
       const matchProject = matchesMultiFilter(tsProjectFilters, t.project)
       const workflowStatus = getTimesheetWorkflowStatus(t)
-      const matchStatus = matchesMultiFilter(tsStatusFilters, workflowStatus)
-      const matchTeam = matchesMultiFilter(tsTeamFilters, getEmployeeTeam(t.employeeName))
+          const matchStatus = matchesMultiFilter(tsStatusFilters, workflowStatus)
 
-      return matchSearch && matchEmployee && matchProject && matchStatus && matchTeam
+          return matchSearch && matchEmployee && matchProject && matchStatus
     })
   }, [
     timesheets,
@@ -1508,7 +1506,6 @@ export function ProjectManagement() {
     tsEmployeeFilters,
     tsProjectFilters,
     tsStatusFilters,
-    tsTeamFilters,
     getEmployeeTeam,
   ])
 
@@ -1685,20 +1682,27 @@ export function ProjectManagement() {
     doc.setDrawColor(226, 232, 240)
     doc.line(marginX, 90, pageWidth - marginX, 90)
 
-    // Summary metrics (matches dashboard cards)
+    // Summary metrics (matches dashboard cards - 4 columns)
     doc.setFillColor(248, 250, 252)
     doc.setDrawColor(226, 232, 240)
     doc.roundedRect(marginX, 95, contentWidth, 52, 6, 6, 'FD')
 
-    const metricCols = [marginX + 12, marginX + contentWidth * 0.35, marginX + contentWidth * 0.65]
-    const metricLabels = ['TOTAL HOURS', 'PENDING APPROVALS', 'ACTIVE EMPLOYEES']
+    const metricCols = [
+      marginX + 12,
+      marginX + contentWidth * 0.26,
+      marginX + contentWidth * 0.51,
+      marginX + contentWidth * 0.76
+    ]
+    const metricLabels = ['TOTAL HOURS', 'OVERTIME HOURS', 'PENDING APPROVALS', 'ACTIVE EMPLOYEES']
     const metricValues = [
       `${timesheetMetrics.total.toFixed(1)} hrs`,
+      `${timesheetMetrics.overtime.toFixed(1)} hrs`,
       String(timesheetMetrics.pending),
       String(timesheetMetrics.activeEmployees),
     ]
     const metricColors: [number, number, number][] = [
       [16, 185, 129],
+      [22, 163, 74],
       [245, 158, 11],
       [30, 41, 59],
     ]
@@ -1714,51 +1718,120 @@ export function ProjectManagement() {
       doc.text(val, metricCols[i], 134)
     })
 
-    let cursorY = addSectionTitle('Analytics Overview', 158)
+    let cursorY = 160
+    doc.setDrawColor(226, 232, 240)
+    
+    // Title for Analytics Overview
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.setTextColor(30, 41, 59)
+    doc.text('ANALYTICS OVERVIEW', marginX, cursorY)
+    cursorY += 16
 
-    // Hours by project
-    cursorY = addSectionTitle('Aggregated Hours by Project', cursorY)
-    autoTable(doc, {
-      ...tableTheme,
-      head: [['Project', 'Total Hours', '% of Total']],
-      body:
-        hoursByProject.length > 0
-          ? hoursByProject.map((p) => {
-              const pct =
-                timesheetMetrics.total > 0
-                  ? `${((p.hours / timesheetMetrics.total) * 100).toFixed(1)}%`
-                  : '—'
-              return [p.name, `${p.hours.toFixed(1)} hrs`, pct]
-            })
-          : [['No project hours in selected range', '—', '—']],
-      startY: cursorY,
-      columnStyles: { 0: { cellWidth: 280 }, 1: { cellWidth: 90, halign: 'right' }, 2: { cellWidth: 70, halign: 'right' } },
-    })
-    cursorY = getTableEndY() + 20
+    const colWidth = 360
+    const colGap = 42
+    const col2X = marginX + colWidth + colGap
 
-    // Employee leaderboard
-    cursorY = addSectionTitle('Employee-wise Hours Leaderboard', cursorY)
-    const topHours = leaderboard[0]?.hours ?? 0
-    autoTable(doc, {
-      ...tableTheme,
-      head: [['Rank', 'Employee', 'Department', 'Total Hours', '% of Top']],
-      body:
-        leaderboard.length > 0
-          ? leaderboard.map((e, idx) => {
-              const pctTop = topHours > 0 ? `${((e.hours / topHours) * 100).toFixed(0)}%` : '—'
-              return [String(idx + 1), e.name, e.dept, `${e.hours.toFixed(1)} hrs`, pctTop]
-            })
-          : [['—', 'No employee hours in selected range', '—', '—', '—']],
-      startY: cursorY,
-      columnStyles: {
-        0: { cellWidth: 36, halign: 'center' },
-        1: { cellWidth: 160 },
-        2: { cellWidth: 100 },
-        3: { cellWidth: 80, halign: 'right' },
-        4: { cellWidth: 60, halign: 'right' },
-      },
+    const chartColors = [
+      [99, 102, 241],  // Indigo
+      [16, 185, 129],  // Emerald
+      [245, 158, 11],  // Amber
+      [236, 72, 153],  // Pink
+      [59, 130, 246],  // Blue
+      [139, 92, 246],  // Purple
+      [20, 184, 166],  // Teal
+      [239, 68, 68],   // Red
+    ]
+
+    // 1. LEFT COLUMN: Aggregated Hours by Project
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.setTextColor(16, 185, 129)
+    doc.setFillColor(16, 185, 129)
+    doc.rect(marginX, cursorY, 3, 10, 'F')
+    doc.text('AGGREGATED HOURS BY PROJECT', marginX + 8, cursorY + 8)
+    
+    let leftY = cursorY + 24
+    const maxProjectHours = Math.max(...hoursByProject.map(p => p.hours), 1)
+    
+    hoursByProject.slice(0, 7).forEach((p, idx) => {
+      // Label
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(8)
+      doc.setTextColor(71, 85, 105)
+      doc.text(p.name, marginX, leftY)
+      
+      // Value text
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(148, 163, 184)
+      doc.text(`${p.hours.toFixed(1)} hrs`, marginX + colWidth, leftY, { align: 'right' })
+      
+      // Track background
+      doc.setFillColor(241, 245, 249)
+      doc.roundedRect(marginX, leftY + 4, colWidth, 6, 3, 3, 'F')
+      
+      // Colored bar
+      const barWidth = (p.hours / maxProjectHours) * colWidth
+      if (barWidth > 0) {
+        const color = chartColors[idx % chartColors.length]
+        doc.setFillColor(color[0], color[1], color[2])
+        doc.roundedRect(marginX, leftY + 4, barWidth, 6, 3, 3, 'F')
+      }
+      
+      leftY += 24
     })
-    cursorY = getTableEndY() + 24
+
+    // 2. RIGHT COLUMN: Employee-wise Hours Leaderboard
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.setTextColor(16, 185, 129)
+    doc.setFillColor(16, 185, 129)
+    doc.rect(col2X, cursorY, 3, 10, 'F')
+    doc.text('EMPLOYEE-WISE HOURS LEADERBOARD', col2X + 8, cursorY + 8)
+    
+    let rightY = cursorY + 24
+    const maxEmployeeHours = Math.max(...leaderboard.map(e => e.hours), 1)
+    
+    leaderboard.slice(0, 7).forEach((e, idx) => {
+      const color = chartColors[idx % chartColors.length]
+      
+      // Rank badge indicator
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(8)
+      doc.setTextColor(color[0], color[1], color[2])
+      doc.text(`#${idx + 1}`, col2X, rightY)
+      
+      // Employee name
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(71, 85, 105)
+      doc.text(e.name, col2X + 20, rightY)
+      
+      // Department
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(148, 163, 184)
+      doc.text(`(${e.dept})`, col2X + 20 + doc.getTextWidth(e.name) + 4, rightY)
+      
+      // Hours value
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(30, 41, 59)
+      doc.text(`${e.hours.toFixed(1)} hrs`, col2X + colWidth, rightY, { align: 'right' })
+      
+      // Progress Track
+      doc.setFillColor(241, 245, 249)
+      doc.roundedRect(col2X + 20, rightY + 4, colWidth - 20, 6, 3, 3, 'F')
+      
+      // Progress bar colored
+      const barWidth = (e.hours / maxEmployeeHours) * (colWidth - 20)
+      if (barWidth > 0) {
+        doc.setFillColor(color[0], color[1], color[2])
+        doc.roundedRect(col2X + 20, rightY + 4, barWidth, 6, 3, 3, 'F')
+      }
+      
+      rightY += 24
+    })
+
+    // Set cursorY to the maximum end of either column
+    cursorY = Math.max(leftY, rightY) + 24
 
     // Detailed time logs
     cursorY = addSectionTitle('Detailed Time Logs', cursorY)
@@ -1777,7 +1850,7 @@ export function ProjectManagement() {
       const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours)
       return [
         `${t.employeeName} (${t.employeeId})`,
-        `${t.project}\n(${t.client} · ${t.technologyNode})`,
+        t.project,
         formatDateTime(t.loginTime),
         t.logoutTime ? formatDateTime(t.logoutTime) : '—',
         hours !== null ? `${hours.toFixed(1)} hrs` : '—',
@@ -1792,6 +1865,15 @@ export function ProjectManagement() {
       body: tableRows,
       startY: cursorY,
       styles: { ...tableTheme.styles, cellPadding: 5 },
+      columnStyles: {
+        0: { cellWidth: 140 },
+        1: { cellWidth: 130 },
+        2: { cellWidth: 120 },
+        3: { cellWidth: 120 },
+        4: { cellWidth: 80, halign: 'right' },
+        5: { cellWidth: 100, halign: 'center' },
+        6: { cellWidth: 72, halign: 'right' },
+      }
     })
 
     const totalPages = doc.getNumberOfPages()
@@ -1811,7 +1893,6 @@ export function ProjectManagement() {
     setTsSearch('')
     setTsEmployeeFilters([])
     setTsProjectFilters([])
-    setTsTeamFilters([])
     setTsStatusFilters([])
   }, [])
 
@@ -1842,7 +1923,6 @@ export function ProjectManagement() {
     tsSearch.trim().length > 0 ||
     tsEmployeeFilters.length > 0 ||
     tsProjectFilters.length > 0 ||
-    tsTeamFilters.length > 0 ||
     tsStatusFilters.length > 0
 
 
@@ -2169,63 +2249,49 @@ export function ProjectManagement() {
 
             {/* Filters and Actions Layout */}
             <div className="flex flex-col gap-3">
-              {/* First Row: Date, Search, Employee, Project */}
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {/* Date Range Picker */}
-                <CustomDateRangePicker
-                  startDate={tsStartDate}
-                  endDate={tsEndDate}
-                  preset={datePreset}
-                  onChange={handleDateRangeChange}
-                />
-
-                {/* Search Box */}
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={tsSearch}
-                    onChange={(e) => setTsSearch(e.target.value)}
-                    placeholder="Search task details..."
-                    className="h-10 w-full rounded-xl border border-slate-250 bg-white pl-9 pr-3 text-xs font-semibold text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+              <div className="flex items-center gap-3">
+                <div className="flex-1 grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 items-center">
+                  {/* Date Range Picker */}
+                  <CustomDateRangePicker
+                    startDate={tsStartDate}
+                    endDate={tsEndDate}
+                    preset={datePreset}
+                    onChange={handleDateRangeChange}
                   />
-                </div>
 
-                {/* Employee Filter */}
-                <FilterCheckboxGroup
-                  label="Employee"
-                  placeholder="All Employees"
-                  compact
-                  options={tsEmployeeFilterOptions}
-                  selected={tsEmployeeFilters}
-                  onChange={setTsEmployeeFilters}
-                />
+                  {/* Search Box */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={tsSearch}
+                      onChange={(e) => setTsSearch(e.target.value)}
+                      placeholder="Search task details..."
+                      className="h-10 w-full rounded-xl border border-slate-250 bg-white pl-9 pr-3 text-xs font-semibold text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                    />
+                  </div>
 
-                {/* Project Filter */}
-                <FilterCheckboxGroup
-                  label="Project"
-                  placeholder="All Projects"
-                  compact
-                  options={tsProjectFilterOptions}
-                  selected={tsProjectFilters}
-                  onChange={setTsProjectFilters}
-                />
-              </div>
-
-              {/* Second Row: Team, Status, and Action Buttons */}
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between lg:items-center">
-                <div className="grid gap-3 sm:grid-cols-2 flex-1">
-                  {/* Team Filter */}
+                  {/* Employee Filter */}
                   <FilterCheckboxGroup
-                    label="Team"
-                    placeholder="All Teams"
+                    label="Employee"
+                    placeholder="All Employees"
                     compact
-                    options={MOCK_TEAMS.map((t) => ({ value: t, label: t }))}
-                    selected={tsTeamFilters}
-                    onChange={setTsTeamFilters}
+                    options={tsEmployeeFilterOptions}
+                    selected={tsEmployeeFilters}
+                    onChange={setTsEmployeeFilters}
                   />
 
-                  {/* Status Filter */}
+                  {/* Project Filter */}
+                  <FilterCheckboxGroup
+                    label="Project"
+                    placeholder="All Projects"
+                    compact
+                    options={tsProjectFilterOptions}
+                    selected={tsProjectFilters}
+                    onChange={setTsProjectFilters}
+                  />
+
+                  {/* Status Filter (moved inline) */}
                   <FilterCheckboxGroup
                     label="Status"
                     placeholder="All Statuses"
@@ -2239,30 +2305,32 @@ export function ProjectManagement() {
                   />
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center gap-3">
+                {/* Action Buttons (right-aligned, natural width) */}
+                <div className="h-10 flex items-center gap-3 justify-end">
                   {hasActiveTimesheetFilters && (
                     <button
                       onClick={clearTimesheetFilters}
-                      className="text-xs font-bold text-emerald-600 hover:text-emerald-800 transition-colors whitespace-nowrap"
+                      className="h-10 inline-flex items-center text-xs font-bold text-emerald-600 hover:text-emerald-800 transition-colors whitespace-nowrap"
                     >
                       Clear Filters
                     </button>
                   )}
-                  
+
                   {/* Document Export Buttons */}
-                  <div className="flex overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                  <div className="flex rounded-xl border border-slate-200 bg-white shadow-sm h-10">
                     <button
                       onClick={handleExportPDF}
-                      className="flex items-center gap-1.5 border-r border-slate-200 px-3.5 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
+                      className="flex h-10 items-center gap-1.5 border-r border-slate-200 px-3.5 text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
                     >
-                      <FileDown className="h-4 w-4 text-rose-500" /> PDF Report
+                      <FileDown className="h-4 w-4 text-rose-500" />
+                      <span className="ml-1 whitespace-nowrap">PDF Report</span>
                     </button>
                     <button
                       onClick={handleExportExcel}
-                      className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
+                      className="flex h-10 items-center gap-1.5 px-3.5 text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
                     >
-                      <FileSpreadsheet className="h-4 w-4 text-emerald-600" /> Excel Spreadsheet
+                      <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                      <span className="ml-1 whitespace-nowrap">Excel Spreadsheet</span>
                     </button>
                   </div>
                 </div>
