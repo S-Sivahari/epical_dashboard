@@ -1088,6 +1088,10 @@ export function ProjectManagement() {
   const [projectsCurrentPage, setProjectsCurrentPage] = useState(1)
   const projectsPerPage = 9
 
+  // ── Timesheets Pagination States ────────────────────────────
+  const [timesheetsCurrentPage, setTimesheetsCurrentPage] = useState(1)
+  const timesheetsPerPage = 10
+
   // ── Project Modal States ────────────────────────────────────
   const [modalOpen, setModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
@@ -1536,6 +1540,17 @@ export function ProjectManagement() {
     tsStatusFilters,
     getEmployeeTeam,
   ])
+
+  // ── Timesheets Pagination derived values ────────────────────
+  const totalTimesheetsPages = Math.ceil(filteredTimesheets.length / timesheetsPerPage)
+  const indexOfLastTimesheet = timesheetsCurrentPage * timesheetsPerPage
+  const indexOfFirstTimesheet = indexOfLastTimesheet - timesheetsPerPage
+  const currentTimesheets = filteredTimesheets.slice(indexOfFirstTimesheet, indexOfLastTimesheet)
+
+  // Reset timesheets page to 1 when filters or search query change
+  useEffect(() => {
+    setTimesheetsCurrentPage(1)
+  }, [tsSearch, tsStartDate, tsEndDate, tsEmployeeFilters, tsProjectFilters, tsStatusFilters])
 
   // ── Timesheets Tab Metrics Calculation ──────────────────────
   const timesheetMetrics = useMemo(() => {
@@ -2011,7 +2026,7 @@ export function ProjectManagement() {
               onClick={() => setActiveTab(tab.key)}
               className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 px-3.5 text-xs font-bold transition-all duration-300 ${
                 activeTab === tab.key
-                  ? 'bg-white text-emerald-600 shadow-md scale-102 border border-slate-200/50'
+                  ? 'bg-white text-indigo-600 shadow-md scale-102 border border-slate-200/50'
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -2019,7 +2034,7 @@ export function ProjectManagement() {
               {tab.label}
               <span
                 className={`ml-1.5 rounded-full px-2 py-0.5 text-[10px] font-black transition-colors duration-300 ${
-                  activeTab === tab.key ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-200 text-slate-500'
+                  activeTab === tab.key ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-200 text-slate-500'
                 }`}
               >
                 {tab.count}
@@ -2419,6 +2434,54 @@ export function ProjectManagement() {
                 </div>
               </div>
             </div>
+            {hasActiveTimesheetFilters && (
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1">Active Filters:</span>
+                
+                {tsSearch.trim() && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-150 px-2.5 py-1 text-xs font-semibold text-slate-650 border border-slate-200/50">
+                    Search: "{tsSearch}"
+                    <button onClick={() => setTsSearch('')} className="text-slate-400 hover:text-slate-600 transition-colors">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                )}
+                
+                {tsEmployeeFilters.map(empName => (
+                  <span key={empName} className="inline-flex items-center gap-1 rounded-full bg-slate-150 px-2.5 py-1 text-xs font-semibold text-slate-650 border border-slate-200/50">
+                    Employee: {empName}
+                    <button onClick={() => setTsEmployeeFilters(tsEmployeeFilters.filter(name => name !== empName))} className="text-slate-400 hover:text-slate-600 transition-colors">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+                
+                {tsProjectFilters.map(proj => (
+                  <span key={proj} className="inline-flex items-center gap-1 rounded-full bg-slate-150 px-2.5 py-1 text-xs font-semibold text-slate-650 border border-slate-200/50">
+                    Project: {proj}
+                    <button onClick={() => setTsProjectFilters(tsProjectFilters.filter(p => p !== proj))} className="text-slate-400 hover:text-slate-600 transition-colors">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+                
+                {tsStatusFilters.map(status => (
+                  <span key={status} className="inline-flex items-center gap-1 rounded-full bg-slate-150 px-2.5 py-1 text-xs font-semibold text-slate-650 border border-slate-200/50">
+                    Status: {status}
+                    <button onClick={() => setTsStatusFilters(tsStatusFilters.filter(s => s !== status))} className="text-slate-400 hover:text-slate-600 transition-colors">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+                
+                <button
+                  onClick={clearTimesheetFilters}
+                  className="text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors ml-auto text-[11px]"
+                >
+                  Clear All
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Timesheet Summary Metrics Cards */}
@@ -2520,7 +2583,7 @@ export function ProjectManagement() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
-                  {filteredTimesheets.map((t) => {
+                  {currentTimesheets.map((t) => {
                     const empInfo = MOCK_EMPLOYEES.find((e) => e.id === t.employeeId)
                     const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours)
 
@@ -2585,13 +2648,13 @@ export function ProjectManagement() {
                         {/* Status Column */}
                         <td className="px-5 py-3.5">
                           {getTimesheetWorkflowStatus(t) === 'Completed' ? (
-                            <Badge variant="success" className="py-0.5 px-2.5 bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-bold">
-                              <CheckCircle2 className="mr-1 h-3 w-3" /> Completed
-                            </Badge>
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 border border-emerald-100/50">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Completed
+                            </span>
                           ) : (
-                            <Badge variant="info" className="py-0.5 px-2.5 bg-blue-50 text-blue-700 border border-blue-100 text-[10px] font-bold">
-                              In Progress
-                            </Badge>
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700 border border-blue-100/50">
+                              <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" /> In Progress
+                            </span>
                           )}
                         </td>
                       </tr>
@@ -2608,6 +2671,47 @@ export function ProjectManagement() {
               </table>
             </div>
           </div>
+
+          {/* Timesheets Pagination Controls */}
+          {totalTimesheetsPages > 1 && (
+            <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4">
+              <span className="text-xs font-semibold text-slate-500">
+                Showing {indexOfFirstTimesheet + 1}–{Math.min(indexOfLastTimesheet, filteredTimesheets.length)} of {filteredTimesheets.length} logs
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={timesheetsCurrentPage === 1}
+                  onClick={() => setTimesheetsCurrentPage((p) => Math.max(1, p - 1))}
+                  className="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-white"
+                >
+                  Previous
+                </button>
+                {Array.from({ length: totalTimesheetsPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setTimesheetsCurrentPage(page)}
+                    className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-xs font-black transition-all ${
+                      timesheetsCurrentPage === page
+                        ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/10'
+                        : 'border border-slate-250 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  disabled={timesheetsCurrentPage === totalTimesheetsPages}
+                  onClick={() => setTimesheetsCurrentPage((p) => Math.min(totalTimesheetsPages, p + 1))}
+                  className="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-white"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
