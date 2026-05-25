@@ -19,6 +19,8 @@ const variants = cva(
         primary: 'bg-primary text-white hover:bg-green-700',
         secondary: 'border border-border bg-white text-ink hover:bg-surface',
         danger: 'bg-danger text-white hover:bg-red-600',
+        warning: 'bg-amber-500 text-white hover:bg-amber-600',
+        info: 'bg-blue-600 text-white hover:bg-blue-700',
         ghost: 'text-ink hover:bg-surface',
       },
       size: {

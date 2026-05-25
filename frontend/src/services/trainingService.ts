@@ -33,6 +33,14 @@ export async function createCourse(payload: { title: string; topic: string; plat
   return data
 }
 
+export async function updateCourse(
+  id: string,
+  payload: { title: string; topic: string; platform: string; link: string }
+): Promise<Course> {
+  const { data } = await api.put<Course>(`/courses/${id}`, payload)
+  return data
+}
+
 export async function deleteCourse(id: string): Promise<void> {
   await api.delete(`/courses/${id}`)
 }

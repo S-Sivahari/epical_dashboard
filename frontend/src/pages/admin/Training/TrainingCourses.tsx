@@ -8,16 +8,18 @@ import { Badge } from '@components/ui/Badge'
 import { DataTable, type Column } from '@components/tables/DataTable'
 import { formatDate } from '@/utils/formatDate'
 import { toast } from 'sonner'
+import { Modal } from '@components/ui/Modal'
 import {
   listCourses,
   createCourse,
+  updateCourse,
   deleteCourse,
   listEnrollments,
   type Course,
   type CourseEnrollment,
   markComplete,
 } from '@services/trainingService'
-import { X, Search, ExternalLink, Trash2, PlusCircle, CheckCircle2 } from 'lucide-react'
+import { X, Search, PlusCircle, CheckCircle2, Pencil } from 'lucide-react'
 
 export function TrainingCourses() {
   const [tab, setTab] = useState<'courses' | 'enrollment'>('courses')
@@ -30,6 +32,12 @@ export function TrainingCourses() {
   const [loadingCourses, setLoadingCourses] = useState(false)
   const [savingCourse, setSavingCourse] = useState(false)
   const [removingCourse, setRemovingCourse] = useState<string | null>(null)
+  const [editingCourse, setEditingCourse] = useState<Course | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editTopic, setEditTopic] = useState('')
+  const [editPlatform, setEditPlatform] = useState('')
+  const [editLink, setEditLink] = useState('')
+  const [updatingCourse, setUpdatingCourse] = useState(false)
 
   const [enrollments, setEnrollments] = useState<CourseEnrollment[]>([])
   const [loadingEnrollments, setLoadingEnrollments] = useState(false)
@@ -135,6 +143,45 @@ export function TrainingCourses() {
     }
   }
 
+  const openEditCourse = (course: Course) => {
+    setEditingCourse(course)
+    setEditTitle(course.title)
+    setEditTopic(course.topic)
+    setEditPlatform(course.platform)
+    setEditLink(course.link)
+  }
+
+  const handleUpdateCourse = async () => {
+    if (!editingCourse) return
+    if (!editTitle || !editTopic || !editPlatform || !editLink) {
+      toast.error('Fill all fields')
+      return
+    }
+    setUpdatingCourse(true)
+    try {
+      const updated = await updateCourse(editingCourse.id, {
+        title: editTitle,
+        topic: editTopic,
+        platform: editPlatform,
+        link: editLink,
+      })
+      setCourses((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
+      setEnrollments((prev) =>
+        prev.map((e) =>
+          e.courseId === updated.id
+            ? { ...e, courseTitle: updated.title, topic: updated.topic }
+            : e
+        )
+      )
+      setEditingCourse(null)
+      toast.success('Course updated')
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || 'Failed to update course')
+    } finally {
+      setUpdatingCourse(false)
+    }
+  }
+
   const handleMarkComplete = async (id: string) => {
     try {
       const updated = await markComplete(id)
@@ -153,7 +200,6 @@ export function TrainingCourses() {
           [
             ['courses', 'Courses'],
             ['enrollment', 'Enrollment'],
-            ['completion', 'Completion'],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -212,11 +258,15 @@ export function TrainingCourses() {
                     <p className="font-semibold text-ink">{c.title}</p>
                     <p className="text-sm text-muted">Platform: {c.platform}</p>
                     <p className="text-sm text-muted">Topic: {c.topic}</p>
-                    <div className="flex gap-2 pt-2">
-                      <Button size="sm" variant="primary" asChild>
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      <Button size="sm" variant="warning" asChild>
                         <a href={c.link} target="_blank" rel="noreferrer">
                           View Course
                         </a>
+                      </Button>
+                      <Button size="sm" variant="info" onClick={() => openEditCourse(c)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                        Edit
                       </Button>
                       <Button
                         size="sm"
@@ -289,6 +339,28 @@ export function TrainingCourses() {
           />
         </div>
       ) : null}
+
+      <Modal
+        isOpen={!!editingCourse}
+        onClose={() => setEditingCourse(null)}
+        title="Edit Course"
+        size="lg"
+      >
+        <div className="grid gap-3 md:grid-cols-2">
+          <Input label="Course Title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+          <Input label="Topic" value={editTopic} onChange={(e) => setEditTopic(e.target.value)} />
+          <Input label="Platform" value={editPlatform} onChange={(e) => setEditPlatform(e.target.value)} />
+          <Input label="Course Link" value={editLink} onChange={(e) => setEditLink(e.target.value)} />
+          <div className="md:col-span-2 flex justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setEditingCourse(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => void handleUpdateCourse()} disabled={updatingCourse}>
+              {updatingCourse ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </PageWrapper>
   )
 }

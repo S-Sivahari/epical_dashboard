@@ -1,32 +1,54 @@
-import { Link } from 'react-router-dom'
-import type { NewsItem } from '@/types'
+import { Trash2, Pencil } from 'lucide-react'
 import { formatDate } from '@/utils/formatDate'
+import type { NewsItem } from '@services/newsService'
+import { Button } from '@components/ui/Button'
 
-export function NewsCard({ item, featured }: { item: NewsItem; featured?: boolean }) {
+export function NewsCard({
+  item,
+  onRemove,
+  onView,
+  onEdit,
+}: {
+  item: NewsItem
+  onRemove?: () => void
+  onView?: () => void
+  onEdit?: () => void
+}) {
   return (
-    <article
-      className={
-        featured
-          ? 'group col-span-full overflow-hidden rounded-xl border border-border bg-white shadow-sm lg:grid lg:grid-cols-2'
-          : 'overflow-hidden rounded-xl border border-border bg-white shadow-sm transition-ui hover:border-primary/40'
-      }
-    >
-      <div className={featured ? 'aspect-[16/9] bg-surface lg:aspect-auto' : 'aspect-video bg-surface'}>
-        {item.imageUrl ? (
-          <img src={item.imageUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
-        ) : (
-          <div className="flex h-full items-center justify-center text-sm text-muted">No image</div>
+    <article className="flex h-full flex-col rounded-xl border border-border bg-white p-5 shadow-sm">
+      <h3 className="font-display text-base font-semibold text-emerald-900 line-clamp-2">{item.title}</h3>
+      <p className="mt-3 flex-1 text-sm leading-relaxed text-ink line-clamp-6 whitespace-pre-line">
+        {item.content}
+      </p>
+      {item.link && (
+        <a
+          className="mt-3 block truncate text-sm text-primary hover:underline"
+          href={item.link}
+          target="_blank"
+          rel="noreferrer"
+        >
+          {item.link}
+        </a>
+      )}
+      <p className="mt-2 text-xs text-muted">Published {formatDate(item.publishedAt)}</p>
+      <div className="mt-4 flex items-center justify-end gap-2">
+        {onView && (
+          <Button size="sm" variant="warning" onClick={onView}>
+            View
+          </Button>
         )}
-      </div>
-      <div className="flex flex-col justify-center p-5">
-        <p className="text-xs font-medium uppercase tracking-wide text-primary">
-          {formatDate(item.publishedAt)}
-        </p>
-        <h3 className="mt-2 font-display text-lg font-semibold text-ink group-hover:text-primary">{item.title}</h3>
-        <p className="mt-2 line-clamp-3 text-sm text-muted">{item.excerpt}</p>
-        <Link to={`/admin/news`} className="mt-4 inline-flex text-sm font-semibold text-primary">
-          Read more
-        </Link>
+        {onEdit && (
+          <Button size="sm" variant="info" onClick={onEdit}>
+            <Pencil className="h-3.5 w-3.5" />
+            Edit
+          </Button>
+        )}
+        {onRemove && (
+          <Button size="sm" variant="danger" onClick={onRemove}>
+            <Trash2 className="h-3.5 w-3.5" />
+            Remove
+          </Button>
+        )}
       </div>
     </article>
   )

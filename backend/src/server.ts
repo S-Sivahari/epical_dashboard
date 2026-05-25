@@ -22,6 +22,7 @@ import { notificationRoutes } from './routes/notificationRoutes';
 import { payslipRoutes } from './routes/payslipRoutes';
 import { compensationRoutes } from './routes/compensationRoutes';
 import { courseRoutes } from './routes/courseRoutes';
+import { newsRoutes } from './routes/newsRoutes';
 
 // Seed helpers
 import { seedDefaultUsers } from './services/authService';
@@ -87,6 +88,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/payslips', payslipRoutes);
 app.use('/api/compensation', compensationRoutes);
 app.use('/api', courseRoutes);
+app.use('/api', newsRoutes);
 app.use('/api', uploadRoutes);
 
 // ── Stats endpoint (admin dashboard) ─────────────────────────

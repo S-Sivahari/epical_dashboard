@@ -6,6 +6,7 @@ export const courseRoutes = Router()
 // Courses
 courseRoutes.get('/courses', courseController.listCourses)
 courseRoutes.post('/courses', courseController.createCourse)
+courseRoutes.put('/courses/:id', courseController.updateCourse)
 courseRoutes.delete('/courses/:id', courseController.deleteCourse)
 
 // Enrollments

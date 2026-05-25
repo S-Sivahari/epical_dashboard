@@ -26,6 +26,24 @@ export const courseController = {
     }
   },
 
+  updateCourse: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { title, topic, platform, link } = req.body
+      if (!title || !topic || !platform || !link) {
+        res.status(400).json({ error: 'All fields are required' })
+        return
+      }
+      const course = await courseService.updateCourse(req.params.id, { title, topic, platform, link })
+      if (!course) {
+        res.status(404).json({ error: 'Course not found' })
+        return
+      }
+      res.json(course)
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to update course' })
+    }
+  },
+
   deleteCourse: async (req: Request, res: Response): Promise<void> => {
     try {
       const ok = await courseService.deleteCourse(req.params.id)

@@ -51,7 +51,7 @@ const groups: {
         { to: ROUTES.ACHIEVEMENTS, label: 'Achievements', icon: Trophy },
         { to: ROUTES.ANALYTICS, label: 'Analytics', icon: BarChart3 },
         { to: ROUTES.DOCUMENTS, label: 'Documents', icon: FileText },
-        { to: ROUTES.NEWS, label: 'Company News', icon: Newspaper },
+        { to: ROUTES.NEWS, label: 'Manage News', icon: Newspaper },
         { to: ROUTES.TICKETS, label: 'Tickets', icon: Ticket },
       ],
     },

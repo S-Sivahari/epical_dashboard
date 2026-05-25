@@ -25,7 +25,7 @@ const routeTitles: Record<string, string> = {
   '/admin/timesheets': 'Manage Timesheets',
   '/admin/payslips': 'Manage Payslips',
   '/admin/calendar': 'Company Calendar',
-  '/admin/news': 'Company News',
+  '/admin/news': 'Manage News',
   '/admin/documents': 'Manage Documents',
   '/admin/settings': 'Settings',
   '/admin/analytics': 'Analytics',

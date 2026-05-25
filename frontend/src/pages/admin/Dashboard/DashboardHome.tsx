@@ -19,6 +19,7 @@ import { useAuthStore } from '@store/authStore'
 import { useLeaves } from '@hooks/useLeaves'
 import { formatDateTime } from '@/utils/formatDate'
 import api from '@/services/api'
+import { AdminNewsTicker } from '@components/admin/AdminNewsTicker'
 
 const quickActionClass =
   'inline-flex h-10 items-center justify-center rounded-lg border border-border bg-white px-3 text-center text-sm font-medium text-ink transition-ui hover:bg-surface'
@@ -144,7 +145,9 @@ export function DashboardHome() {
         breadcrumb={<Breadcrumb items={[{ label: 'Dashboard' }]} />}
       />
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <AdminNewsTicker />
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
         <motion.section
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}

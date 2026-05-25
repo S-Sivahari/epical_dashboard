@@ -9,7 +9,7 @@ import { AssignedProjectsSection } from '@components/employee/shared/AssignedPro
 import { CalendarWidget } from '@components/employee/shared/CalendarWidget'
 import { Progress } from '@components/employee/ui/progress'
 import { useAuthStore } from '@store/authStore'
-import { announcements, leaveBalances, leaveChartData, holidays } from '@pages/employee/data/mockData'
+import { leaveBalances, leaveChartData, holidays } from '@pages/employee/data/mockData'
 import { formatDate } from '@pages/employee/lib/utils'
 import { NotificationAlerts } from '@components/employee/NotificationAlerts'
 
@@ -23,7 +23,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <NotificationAlerts />
-      <AnnouncementBanner announcements={announcements} />
+      <AnnouncementBanner />
       <ProfileCard employee={employee} />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

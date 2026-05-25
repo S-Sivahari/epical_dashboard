@@ -45,6 +45,45 @@ export async function createCourse(payload: {
   return course
 }
 
+export async function updateCourse(
+  id: string,
+  payload: {
+    title: string
+    topic: string
+    platform: string
+    link: string
+  }
+): Promise<Course | null> {
+  const title = payload.title.trim()
+  const topic = payload.topic.trim()
+  const platform = payload.platform.trim()
+  const link = payload.link.trim()
+  const now = new Date()
+
+  const result = await coursesCol().findOneAndUpdate(
+    { id },
+    {
+      $set: {
+        title,
+        topic,
+        platform,
+        link,
+        updatedAt: now,
+      },
+    },
+    { returnDocument: 'after' }
+  )
+
+  if (result) {
+    await enrollmentsCol().updateMany(
+      { courseId: id },
+      { $set: { courseTitle: title, topic, updatedAt: now } }
+    )
+  }
+
+  return result
+}
+
 export async function deleteCourse(id: string): Promise<boolean> {
   const result = await coursesCol().deleteOne({ id })
   // also remove enrollments for this course

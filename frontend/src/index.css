@@ -31,6 +31,18 @@
   .transition-ui {
     @apply transition-all duration-200 ease-in-out;
   }
+  .animate-marquee {
+    animation: marquee var(--marquee-duration, 25s) linear infinite;
+  }
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
 }
 
 /* FullCalendar minimal layout */
