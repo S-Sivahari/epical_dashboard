@@ -24,6 +24,8 @@ import { payslipRoutes } from './routes/payslipRoutes';
 import { compensationRoutes } from './routes/compensationRoutes';
 import { courseRoutes } from './routes/courseRoutes';
 import { newsRoutes } from './routes/newsRoutes';
+import { documentRequestRoutes } from './routes/documentRequestRoutes';
+import { companyCalendarEventRoutes } from './routes/companyCalendarEventRoutes';
 
 // Seed helpers
 import { seedDefaultUsers } from './services/authService';
@@ -83,11 +85,13 @@ app.use('/api/employees', employeeRoutes);
 app.use('/api/leaves', leaveRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/holidays', holidayRoutes);
+app.use('/api/calendar-events', companyCalendarEventRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/timesheets', timesheetRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/payslips', payslipRoutes);
 app.use('/api/compensation', compensationRoutes);
+app.use('/api/document-requests', documentRequestRoutes);
 app.use('/api', courseRoutes);
 app.use('/api', newsRoutes);
 app.use('/api', uploadRoutes);

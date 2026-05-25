@@ -22,7 +22,7 @@ import { formatDate } from '@/utils/formatDate'
 import * as leaveService from '@services/leaveService'
 
 export default function CompanyCalendar() {
-  const { leaves, holidays } = useLeaves()
+  const { leaves, holidays, companyCalendarEvents } = useLeaves()
   const user = useAuthStore((s) => s.user)
 
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -57,10 +57,22 @@ export default function CompanyCalendar() {
     )
   }, [leaves, user])
 
-  // Company events = holidays with type 'Company Event' (admin-managed, not hardcoded)
-  const companyEvents = useMemo(() =>
-    holidays.filter((h) => !h.skipped && h.type === 'Company Event'),
-  [holidays])
+  const companyEvents = useMemo(() => {
+    const fromApi = companyCalendarEvents.map((e) => ({
+      id: e.id,
+      title: e.title,
+      date: e.date,
+      time: e.time,
+    }))
+    const fromHolidayType = holidays
+      .filter((h) => !h.skipped && h.type === 'Company Event')
+      .map((h) => ({
+        id: h.id,
+        title: h.title,
+        date: h.date,
+      }))
+    return [...fromApi, ...fromHolidayType]
+  }, [companyCalendarEvents, holidays])
 
   const getHolidaysForDay = (dateStr) =>
     holidays.filter((h) => !h.skipped && h.type !== 'Company Event' && h.date === dateStr)

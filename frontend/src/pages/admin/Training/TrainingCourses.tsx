@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { PageHeader } from '@components/layout/PageHeader'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Breadcrumb } from '@components/layout/Breadcrumb'
@@ -22,7 +22,7 @@ import {
 import { X, Search, PlusCircle, CheckCircle2, Pencil } from 'lucide-react'
 
 export function TrainingCourses() {
-  const [tab, setTab] = useState<'courses' | 'enrollment'>('courses')
+  const [tab, setTab] = useState<'courses' | 'enrollment' | 'completed'>('courses')
   const [title, setTitle] = useState('')
   const [topic, setTopic] = useState('')
   const [platform, setPlatform] = useState('')
@@ -44,14 +44,7 @@ export function TrainingCourses() {
   const [courseFilter, setCourseFilter] = useState('')
   const [employeeFilter, setEmployeeFilter] = useState('')
 
-  const enrolledRows = useMemo(
-    () => enrollments.filter((e) => e.status === 'Enrolled'),
-    [enrollments]
-  )
-  // Completed rows are still fetched but shown within enrollment filters
-  const completedRows = useMemo(() => enrollments.filter((e) => e.status === 'Completed'), [enrollments])
-
-  const columns: Column<CourseEnrollment>[] = [
+  const enrollmentColumns: Column<CourseEnrollment>[] = [
     { key: 'employeeId', header: 'Employee ID' },
     { key: 'employeeName', header: 'Name' },
     { key: 'courseTitle', header: 'Course' },
@@ -88,7 +81,7 @@ export function TrainingCourses() {
       const data = await listEnrollments({
         courseId: courseFilter || undefined,
         employee: employeeFilter || undefined,
-        status: tab === 'enrollment' ? undefined : undefined,
+        status: tab === 'enrollment' ? 'Enrolled' : tab === 'completed' ? 'Completed' : undefined,
       })
       setEnrollments(data)
     } catch {
@@ -107,6 +100,28 @@ export function TrainingCourses() {
       void loadEnrollments()
     }
   }, [tab, courseFilter, employeeFilter])
+
+  const completedColumns: Column<CourseEnrollment>[] = [
+    { key: 'employeeId', header: 'Employee ID' },
+    { key: 'employeeName', header: 'Name' },
+    { key: 'courseTitle', header: 'Course' },
+    { key: 'topic', header: 'Topic' },
+    {
+      key: 'enrolledAt',
+      header: 'Enrolled date',
+      render: (r) => formatDate(r.enrolledAt),
+    },
+    {
+      key: 'completedAt',
+      header: 'Completed date',
+      render: (r) => (r.completedAt ? formatDate(r.completedAt) : '—'),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: () => <Badge variant="success">Completed</Badge>,
+    },
+  ]
 
   const handleCreateCourse = async () => {
     if (!title || !topic || !platform || !link) {
@@ -200,6 +215,7 @@ export function TrainingCourses() {
           [
             ['courses', 'Courses'],
             ['enrollment', 'Enrollment'],
+            ['completed', 'Completed'],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -217,16 +233,6 @@ export function TrainingCourses() {
 
       {tab === 'courses' ? (
         <div className="space-y-4">
-          <div className="relative w-full">
-            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search course by name, platform or topic..."
-              className="pl-10 rounded-full shadow-sm"
-            />
-          </div>
-
           <div className="rounded-xl border border-border bg-white p-5 shadow-sm space-y-4">
             <div className="flex items-center gap-2 text-ink font-semibold">
               <PlusCircle className="h-4 w-4 text-emerald-600" />
@@ -246,6 +252,15 @@ export function TrainingCourses() {
           </div>
 
           <div className="space-y-2">
+            <div className="relative w-full max-w-xl">
+              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search added courses by name, platform or topic..."
+                className="pl-10 rounded-full shadow-sm"
+              />
+            </div>
             <p className="font-semibold text-ink">Added Courses</p>
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               {loadingCourses ? (
@@ -317,25 +332,33 @@ export function TrainingCourses() {
           </div>
 
           <DataTable
-            columns={[
-              ...columns,
-              {
-                key: 'actions',
-                header: 'Actions',
-                render: (r) => (
-                  <div className="flex gap-2">
-                    {r.status !== 'Completed' && (
-                      <Button size="sm" variant="secondary" onClick={() => void handleMarkComplete(r.id)}>
-                        <CheckCircle2 className="h-4 w-4" /> Mark complete
-                      </Button>
-                    )}
-                  </div>
-                ),
-              },
-            ]}
-            data={[...enrolledRows, ...completedRows]}
+            columns={
+              tab === 'completed'
+                ? completedColumns
+                : [
+                    ...enrollmentColumns,
+                    {
+                      key: 'actions',
+                      header: 'Actions',
+                      render: (r: CourseEnrollment) => (
+                        <div className="flex gap-2">
+                          {r.status !== 'Completed' && (
+                            <Button size="sm" variant="secondary" onClick={() => void handleMarkComplete(r.id)}>
+                              <CheckCircle2 className="h-4 w-4" /> Mark complete
+                            </Button>
+                          )}
+                        </div>
+                      ),
+                    },
+                  ]
+            }
+            data={enrollments}
             loading={loadingEnrollments}
-            empty={<p className="text-sm text-muted px-2 py-4">No enrolled employees</p>}
+            empty={
+              <p className="text-sm text-muted px-2 py-4">
+                {tab === 'completed' ? 'No completed enrollments yet.' : 'No active enrollments match your filters.'}
+              </p>
+            }
           />
         </div>
       ) : null}

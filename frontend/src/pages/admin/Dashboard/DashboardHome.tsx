@@ -172,7 +172,7 @@ export function DashboardHome() {
               Review Leaves
             </Link>
             <Link to="/admin/documents" className={quickActionClass}>
-              Approve Documents
+              Document Requests
             </Link>
             <Link to="/admin/news" className={quickActionClass}>
               Manage News

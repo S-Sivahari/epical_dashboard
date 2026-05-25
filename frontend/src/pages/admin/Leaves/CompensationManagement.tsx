@@ -420,7 +420,8 @@ export function CompensationManagement({
         <h3 className="font-display text-base font-semibold text-ink mb-4">
           {editingId ? 'Edit Compensation Entry' : 'Add Compensation'}
         </h3>
-        <div className="space-y-4 bg-gray-50 p-4 rounded-lg">
+        <div className="grid gap-6 lg:grid-cols-2 items-start bg-gray-50 p-4 rounded-lg">
+          <div className="space-y-4 min-w-0">
           {/* Employee multi-select */}
           {!editingId && (
             <div>
@@ -543,6 +544,9 @@ export function CompensationManagement({
             </div>
           )}
 
+          </div>
+
+          <div className="space-y-4 min-w-0">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-medium text-ink">
@@ -586,6 +590,7 @@ export function CompensationManagement({
                 </>
               )}
             </Button>
+          </div>
           </div>
         </div>
       </div>
@@ -655,32 +660,6 @@ export function CompensationManagement({
           }
         />
       </div>
-
-      {/* ── Summary stats ─────────────────────────────────────────────────── */}
-      {compensationData.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border border-border bg-white p-4 shadow-sm">
-            <p className="text-xs font-medium text-muted mb-1">Active Entries</p>
-            <p className="text-2xl font-bold text-ink">{activeEntries.length}</p>
-          </div>
-          <div className="rounded-xl border border-border bg-white p-4 shadow-sm">
-            <p className="text-xs font-medium text-muted mb-1">Total Days (Active)</p>
-            <p className="text-2xl font-bold text-primary">
-              {activeEntries.reduce((sum, item) => sum + item.days, 0)}
-            </p>
-          </div>
-          <div className="rounded-xl border border-border bg-white p-4 shadow-sm">
-            <p className="text-xs font-medium text-muted mb-1">Added This Month</p>
-            <p className="text-2xl font-bold text-ink">
-              {activeEntries.filter(
-                (item) =>
-                  new Date(item.appliedDate).getMonth() === new Date().getMonth() &&
-                  new Date(item.appliedDate).getFullYear() === new Date().getFullYear(),
-              ).length}
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* ── Cancel Modal ──────────────────────────────────────────────────── */}
       <Modal
