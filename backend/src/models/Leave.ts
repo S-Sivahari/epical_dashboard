@@ -9,12 +9,22 @@ export interface LeaveRequest {
   employeeName: string;
   managerId?: string;
   type: string;
+  leaveDuration: 'Full Day' | 'Half Day';
+  halfDaySession?: 'First Half' | 'Second Half';
   from: string;
   to: string;
   days: number;
   reason: string;
   status: LeaveStatus;
   rejectionReason?: string;
+  // Audit trail
+  approvedBy?: string;
+  approvedAt?: Date;
+  rejectedBy?: string;
+  rejectedAt?: Date;
+  cancelledBy?: string;
+  cancelReason?: string;
+  cancelledAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
   approvalDate?: Date;
@@ -25,6 +35,8 @@ export interface CreateLeavePayload {
   employeeName: string;
   managerId?: string;
   type: string;
+  leaveDuration: 'Full Day' | 'Half Day';
+  halfDaySession?: 'First Half' | 'Second Half';
   from: string;
   to: string;
   days: number;

@@ -9,7 +9,6 @@ import { toast } from 'sonner'
 import {
   Archive,
   RefreshCw,
-  Trash2,
   Clock,
   Calendar,
   Layers,
@@ -139,24 +138,7 @@ export function ArchivedProjectsModal({
     }
   };
 
-  // Permanent delete action handler
-  const handlePermanentDelete = async (id: string, name: string) => {
-    if (!window.confirm(`WARNING: Are you absolutely sure you want to PERMANENTLY DELETE archived project "${name}"?\nThis is completely irreversible and will destroy all archived timesheet logs and task logs forever!`)) return
-    if (!window.confirm(`FINAL CONFIRMATION: Type the project name "${name}" to confirm.`)) return // standard extra caution
-    
-    setActionLoading(true)
-    try {
-      await api.delete(`/projects/archived/${id}`)
-      toast.success(`Project "${name}" has been permanently purged from the system database.`)
-      setSelectedProject(null)
-      await fetchArchivedProjects()
-    } catch (err: any) {
-      console.error(err)
-      toast.error(err.response?.data?.error || 'Failed to delete project.')
-    } finally {
-      setActionLoading(false)
-    }
-  };
+
 
   // Date formatter helpers
   const formatDate = (isoString: string) => {
@@ -194,7 +176,7 @@ export function ArchivedProjectsModal({
               {selectedProject ? 'Archived Project Inspector' : 'Archived Project Blocks'}
             </h2>
             <p className="text-[10px] font-bold text-slate-400 mt-0.5">
-              Review, restore, or permanently purge archived project databases.
+              Review and restore archived project databases.
             </p>
           </div>
         </div>
@@ -311,14 +293,6 @@ export function ArchivedProjectsModal({
                     className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-extrabold rounded-xl py-1.5 px-3 flex items-center gap-1.5 border border-emerald-200/50"
                   >
                     <RefreshCw className={`h-3.5 w-3.5 ${actionLoading ? 'animate-spin' : ''}`} /> Restore Project
-                  </Button>
-                  <Button
-                    onClick={() => handlePermanentDelete(selectedProject.project.id, selectedProject.project.name)}
-                    disabled={actionLoading}
-                    variant="danger"
-                    className="font-extrabold rounded-xl py-1.5 px-3 flex items-center gap-1.5"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" /> Permanent Delete
                   </Button>
                 </div>
               </div>

@@ -70,8 +70,7 @@ export async function updateProjectCompletionStatus(
   const project = await projectQuery;
   if (!project) return null;
 
-  // Rejected projects are manually managed — do not auto-derive their status
-  if (project.status === 'Rejected') return project;
+  if (project.status === 'Rejected' || project.status === 'Cancelled') return project;
 
   const timesheetQuery = TimesheetModel.find({ projectId: objectId });
   if (session) timesheetQuery.session(session);

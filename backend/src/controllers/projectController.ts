@@ -306,7 +306,7 @@ export const projectController = {
   // PUT /api/projects/:id
   update: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { name, client, technologyNode, accessType, description, visibleUsers, teamLead } = req.body;
+      const { name, client, technologyNode, accessType, description, visibleUsers, teamLead, status } = req.body;
 
       if (!name || !client || !technologyNode) {
         res.status(400).json({ error: 'Project Name, Client, and Technology Node are required' });
@@ -329,6 +329,13 @@ export const projectController = {
       project.allowedUsers = accessType === 'private' ? (visibleUsers || []) : [];
       project.teamLead = accessType === 'private' && teamLead ? String(teamLead).trim() : undefined;
 
+      const isTerminalStatus = status && ['Completed', 'Cancelled'].includes(status);
+      if (isTerminalStatus) {
+        project.status = status;
+      } else if (status === 'Active' && (project.status === 'Cancelled' || project.status === 'Rejected' || project.status === 'Completed')) {
+        project.status = 'Active';
+      }
+
       const session = await mongoose.startSession();
       try {
         let updatedProject = project;
@@ -341,8 +348,10 @@ export const projectController = {
             { session }
           );
 
-          const syncResult = await updateProjectCompletionStatus(project._id, session);
-          updatedProject = syncResult?.project ?? project;
+          if (!isTerminalStatus) {
+            const syncResult = await updateProjectCompletionStatus(project._id, session);
+            updatedProject = syncResult?.project ?? project;
+          }
         });
 
         await syncAssignedTasksForProject(updatedProject);
@@ -858,6 +867,7 @@ export const projectController = {
   },
 
   // POST /api/projects/:id/archive
+  // Archives a project regardless of its status (Active, Completed, Cancelled, etc.)
   archiveProject: async (req: Request, res: Response): Promise<void> => {
     try {
       const projectId = String(req.params.id);
@@ -871,6 +881,8 @@ export const projectController = {
         res.status(404).json({ error: 'Project not found' });
         return;
       }
+      
+      // Archive is allowed for all project statuses
 
       // Fetch history (timesheets and assigned tasks)
       const timesheets = await TimesheetModel.find({

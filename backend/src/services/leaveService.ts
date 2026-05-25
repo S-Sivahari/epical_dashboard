@@ -33,26 +33,49 @@ export async function getLeaveById(id: string): Promise<LeaveRequest | null> {
   return leave as LeaveRequest | null;
 }
 
+function normalizeDate(date: string) {
+  return new Date(date).toISOString().slice(0, 10);
+}
+
 export async function createLeave(payload: CreateLeavePayload): Promise<LeaveRequest> {
   const col = getLeaveCol();
 
-  // 1. Fetch holidays
-  const holidays = await getAllHolidays();
+  // 1. Fetch holidays (exclude skipped ones — they are working days)
+  const allHolidays = await getAllHolidays();
+  const holidays = allHolidays.filter((h) => !h.skipped);
 
-  // 2. Calculate true business days (skip weekends & holidays)
-  const actualDays = getBusinessDays(payload.from, payload.to, holidays);
+  // 2. Calculate true business days (skip weekends & non-skipped holidays)
+  const actualBusinessDays = getBusinessDays(payload.from, payload.to, holidays);
 
-  if (actualDays <= 0) {
-    throw new Error('Leave request spans across weekends/holidays with 0 effective business days.');
+  if (payload.leaveDuration === 'Half Day') {
+    if (normalizeDate(payload.from) !== normalizeDate(payload.to)) {
+      throw new Error('Half-day leave must be for a single date');
+    }
+    if (actualBusinessDays !== 1) {
+      throw new Error('Half-day leave request must fall on a working day');
+    }
+  } else {
+    if (actualBusinessDays <= 0) {
+      throw new Error('Leave request spans across weekends/holidays with 0 effective business days.');
+    }
   }
 
-  // Note: No validation against balance here. Admin will validate during approval.
-  // This allows employees to request leave freely, and admin reviews it.
+  const requestedDays = payload.leaveDuration === 'Half Day' ? 0.5 : actualBusinessDays;
+
+  // 3. Fetch employee balances to validate (pass joinedAt for accurate earned leave)
+  const employeeLeaves = await getAllLeaves(payload.employeeId);
+  const employeeDoc = await getDB().collection('employees').findOne({ id: payload.employeeId });
+  const balances = calculateBalances(employeeLeaves, employeeDoc?.joinedAt as string | undefined);
+  
+  const leaveBalance = balances[payload.type];
+  if (leaveBalance && leaveBalance.remaining < requestedDays) {
+    throw new Error(`Insufficient ${payload.type} balance. Remaining: ${leaveBalance.remaining}, Requested: ${requestedDays}`);
+  }
 
   const id = `L-${Date.now()}`;
   const leave: any = {
     ...payload,
-    days: actualDays, // Override days with the true calculated days
+    days: requestedDays,
     id,
     status: 'Pending',
     createdAt: new Date(),
@@ -94,13 +117,91 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
 
 export async function getLeaveBalances(employeeId: string) {
   const leaves = await getAllLeaves(employeeId);
-  return calculateBalances(leaves);
+  const employee = await getDB().collection('employees').findOne({ id: employeeId });
+  return calculateBalances(leaves, employee?.joinedAt as string | undefined);
+}
+
+export interface LeaveTypeBalanceSummary {
+  type: string;
+  total: number;
+  used: number;
+  pending: number;
+  remaining: number;
+}
+
+export interface EmployeeLeaveSummary {
+  employeeId: string;
+  employeeName: string;
+  balances: LeaveTypeBalanceSummary[];
+  currentLeaves: Array<{
+    id: string;
+    type: string;
+    from: string;
+    to: string;
+    days: number;
+    status: string;
+  }>;
+  history: LeaveRequest[];
+}
+
+function getTodayDateString(): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today.toISOString().split('T')[0];
+}
+
+function isApprovedLeaveActiveOnDate(leave: LeaveRequest, dateStr: string): boolean {
+  return leave.status === 'Approved' && leave.from <= dateStr && dateStr <= leave.to;
+}
+
+export async function getEmployeeLeaveSummary(employeeId: string): Promise<EmployeeLeaveSummary> {
+  const leaves = await getAllLeaves(employeeId);
+  const balances = calculateBalances(leaves);
+  const currentYear = new Date().getFullYear().toString();
+  const todayStr = getTodayDateString();
+
+  const pendingByType: Record<string, number> = {};
+  leaves.forEach((leave) => {
+    if (leave.status === 'Pending' && leave.from.startsWith(currentYear)) {
+      pendingByType[leave.type] = (pendingByType[leave.type] || 0) + leave.days;
+    }
+  });
+
+  const balanceList: LeaveTypeBalanceSummary[] = Object.entries(balances).map(([type, b]) => ({
+    type,
+    total: b.total,
+    used: b.used,
+    pending: pendingByType[type] || 0,
+    remaining: b.remaining,
+  }));
+
+  const currentLeaves = leaves
+    .filter((l) => isApprovedLeaveActiveOnDate(l, todayStr))
+    .map((l) => ({
+      id: l.id,
+      type: l.type,
+      from: l.from,
+      to: l.to,
+      days: l.days,
+      status: l.status,
+    }));
+
+  const employeeName = leaves[0]?.employeeName ?? 'Unknown';
+
+  return {
+    employeeId,
+    employeeName,
+    balances: balanceList,
+    currentLeaves,
+    history: leaves,
+  };
 }
 
 export async function updateLeaveStatus(
   id: string,
   status: 'Approved' | 'Rejected',
-  rejectionReason?: string
+  rejectionReason?: string,
+  actionBy?: string
 ): Promise<LeaveRequest | null> {
   const col = getLeaveCol();
 
@@ -111,7 +212,8 @@ export async function updateLeaveStatus(
 
     // Fetch employee leaves to calculate current balance
     const employeeLeaves = await getAllLeaves(leave.employeeId);
-    const balances = calculateBalances(employeeLeaves);
+    const employeeDoc = await getDB().collection('employees').findOne({ id: leave.employeeId });
+    const balances = calculateBalances(employeeLeaves, employeeDoc?.joinedAt as string | undefined);
 
     const leaveBalance = balances[leave.type];
     if (leaveBalance && leaveBalance.remaining < leave.days) {
@@ -135,6 +237,13 @@ export async function updateLeaveStatus(
 
   if (status === 'Approved') {
     updateDoc.approvalDate = new Date();
+    updateDoc.approvedAt = new Date();
+    if (actionBy) updateDoc.approvedBy = actionBy;
+  }
+
+  if (status === 'Rejected') {
+    updateDoc.rejectedAt = new Date();
+    if (actionBy) updateDoc.rejectedBy = actionBy;
   }
 
   const result = await col.findOneAndUpdate(
@@ -174,16 +283,23 @@ export async function updateLeaveStatus(
   return result as LeaveRequest | null;
 }
 
-export async function cancelLeave(id: string): Promise<LeaveRequest | null> {
+export async function cancelLeave(id: string, cancelReason?: string, cancelledBy?: string): Promise<LeaveRequest | null> {
   const col = getLeaveCol();
+  const updateFields: any = {
+    status: 'Cancelled',
+    updatedAt: new Date(),
+    cancelledAt: new Date(),
+  };
+  if (cancelReason) updateFields.cancelReason = cancelReason;
+  if (cancelledBy) updateFields.cancelledBy = cancelledBy;
+
   const result = await col.findOneAndUpdate(
-    { id, status: 'Approved' },
-    { $set: { status: 'Cancelled', updatedAt: new Date() } },
+    { id, status: { $in: ['Approved', 'Pending'] } },
+    { $set: updateFields },
     { returnDocument: 'after' }
   );
 
   if (result) {
-    // Create notification for employee on cancellation
     try {
       await notificationService.createNotification({
         recipientId: result.employeeId,
@@ -199,7 +315,6 @@ export async function cancelLeave(id: string): Promise<LeaveRequest | null> {
       });
     } catch (error) {
       console.error('Error creating cancellation notification:', error);
-      // Don't throw - notification failure shouldn't break status update
     }
   }
 
@@ -272,7 +387,9 @@ export async function checkDuplicateHoliday(date: string, excludeId?: string): P
   return !!existing;
 }
 
-export async function createHoliday(payload: { title: string; date: string; description?: string; type: 'National' | 'Company' | 'Optional' }): Promise<Holiday> {
+export type HolidayType = 'National' | 'Company' | 'Optional' | 'Company Event'
+
+export async function createHoliday(payload: { title: string; date: string; description?: string; type: HolidayType }): Promise<Holiday> {
   const col = getHolidayCol();
   const id = `H-${Date.now()}`;
   const holiday: any = { ...payload, id, createdAt: new Date(), updatedAt: new Date() };
@@ -280,7 +397,7 @@ export async function createHoliday(payload: { title: string; date: string; desc
   return holiday as Holiday;
 }
 
-export async function updateHoliday(id: string, payload: { title?: string; date?: string; description?: string; type?: 'National' | 'Company' | 'Optional' }): Promise<Holiday | null> {
+export async function updateHoliday(id: string, payload: { title?: string; date?: string; description?: string; type?: HolidayType }): Promise<Holiday | null> {
   const col = getHolidayCol();
   const result = await col.findOneAndUpdate(
     { id },
@@ -311,7 +428,9 @@ export async function fetchIndianHolidaysFromAPI(year: number): Promise<Holiday[
       id: `H-API-${year}-${index}`,
       title: h.name,
       date: h.date, // Format: YYYY-MM-DD
+      type: 'National',
       createdAt: new Date(),
+      updatedAt: new Date(),
     }));
 
     return holidays;
@@ -391,4 +510,67 @@ export async function seedHolidays(): Promise<void> {
   ];
 
   await col.insertMany(fallbackHolidays);
+}
+
+// ── Email Notifications ─────────────────────────────────────────
+
+import * as emailService from './emailService';
+import { env } from '../config/env';
+
+/**
+ * Notify all admins when an employee submits a leave request
+ */
+export async function notifyAdminsAboutLeaveRequest(leave: LeaveRequest): Promise<void> {
+  try {
+    const userCollection = getDB().collection('users');
+    const admins = await userCollection.find({ role: 'Admin' }).toArray();
+    
+    for (const admin of admins) {
+      await emailService.sendLeaveSubmittedEmail({
+        recipientEmail: admin.email,
+        recipientName: admin.name,
+        employeeName: leave.employeeName,
+        type: leave.type,
+        from: leave.from,
+        to: leave.to,
+        days: leave.days,
+        reason: leave.reason,
+      }, `${env.FRONTEND_URL}/admin/leaves`);
+    }
+    
+    console.log(`[Leave Email] Sent leave request notification to ${admins.length} admin(s)`);
+  } catch (error) {
+    console.error('[Leave Email] Error sending admin notification:', error);
+  }
+}
+
+/**
+ * Notify employee when their leave status changes (approved/rejected)
+ */
+export async function notifyEmployeeAboutLeaveStatus(leave: LeaveRequest): Promise<void> {
+  try {
+    const employeeCollection = getDB().collection('employees');
+    const employee = await employeeCollection.findOne({ employeeId: leave.employeeId });
+    
+    if (!employee || !employee.email) {
+      console.warn(`[Leave Email] No email found for employee ${leave.employeeId}`);
+      return;
+    }
+    
+    await emailService.sendLeaveStatusEmail({
+      recipientEmail: employee.email,
+      recipientName: `${employee.firstName} ${employee.lastName}`,
+      employeeName: leave.employeeName,
+      type: leave.type,
+      from: leave.from,
+      to: leave.to,
+      days: leave.days,
+      status: leave.status,
+      rejectionReason: leave.rejectionReason,
+    }, `${env.FRONTEND_URL}/employee/leaves`);
+    
+    console.log(`[Leave Email] Sent ${leave.status} notification to ${employee.email}`);
+  } catch (error) {
+    console.error('[Leave Email] Error sending employee notification:', error);
+  }
 }

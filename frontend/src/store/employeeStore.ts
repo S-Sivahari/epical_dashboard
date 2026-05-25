@@ -4,7 +4,6 @@ import * as employeeService from '@services/employeeService'
 
 interface EmployeeFilters {
   name: string
-  employeeId: string
   department: string
   employmentType: string
   status: string
@@ -37,7 +36,7 @@ const CACHE_EXPIRY = 30000
 export const useEmployeeStore = create<EmployeeState>((set, get) => ({
   employees: [],
   selectedEmployee: null,
-  filters: { name: '', employeeId: '', department: 'all', employmentType: 'all', status: 'all' },
+  filters: { name: '', department: 'all', employmentType: 'all', status: 'all' },
   pagination: { page: 1, pageSize: 10, total: 0 },
   sort: { column: 'joinedAt', direction: 'desc' },
   loading: false,
@@ -53,7 +52,6 @@ export const useEmployeeStore = create<EmployeeState>((set, get) => ({
     try {
       const res = await employeeService.getEmployees({
         name: filters.name || undefined,
-        employeeId: filters.employeeId || undefined,
         department: filters.department,
         employmentType: filters.employmentType,
         status: filters.status,
@@ -82,7 +80,6 @@ export const useEmployeeStore = create<EmployeeState>((set, get) => ({
     try {
       const res = await employeeService.getEmployees({
         name: filters.name || undefined,
-        employeeId: filters.employeeId || undefined,
         department: filters.department,
         employmentType: filters.employmentType,
         status: filters.status,

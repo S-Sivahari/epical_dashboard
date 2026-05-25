@@ -27,25 +27,49 @@ export function getBusinessDays(from: string, to: string, holidays: Holiday[]): 
   return count;
 }
 
-// Dynamically calculates Earned Leave based on the current date
-export function calculateEarnedLeaveAllocation(): number {
+/**
+ * Dynamically calculates Earned Leave based on the current date.
+ * If joinedAt is provided, accrual starts the month after the employee joined
+ * so mid-year joiners don't receive unearned months.
+ */
+export function calculateEarnedLeaveAllocation(joinedAt?: string): number {
   const now = new Date();
+  const currentYear = now.getFullYear();
   const currentMonth = now.getMonth(); // 0-indexed (Jan = 0)
   const currentDate = now.getDate();
-  
-  // 0.5 per month passed. So in March (month index 2), Jan (0) and Feb (1) have passed -> 2 * 0.5 = 1.0
-  let accrued = currentMonth * 0.5;
-  
-  // In December (month 11), the final 0.5 is added on the 20th
-  if (currentMonth === 11 && currentDate >= 20) {
+
+  // Determine from which month accrual begins (0-indexed)
+  let accrualStartMonth = 0;
+
+  if (joinedAt) {
+    const joinDate = new Date(joinedAt);
+    const joinYear = joinDate.getFullYear();
+    // Accrual only starts for joiners in the current year or earlier
+    if (joinYear === currentYear) {
+      // First credit arrives on the 1st of the month AFTER joining
+      accrualStartMonth = joinDate.getMonth() + 1;
+    } else if (joinYear > currentYear) {
+      // Joined in the future — no allocation yet
+      return 0;
+    }
+    // joinYear < currentYear → full year allocation applies (accrualStartMonth stays 0)
+  }
+
+  // Count months that have fully passed since accrualStartMonth
+  const monthsAccrued = Math.max(0, currentMonth - accrualStartMonth);
+  let accrued = monthsAccrued * 0.5;
+
+  // In December (month 11), the final 0.5 is credited on the 1st of January (next year),
+  // but we add it on Dec 20th as an approximation if the employee started by Dec.
+  if (currentMonth === 11 && currentDate >= 20 && accrualStartMonth <= 11) {
     accrued += 0.5;
   }
-  
+
   return accrued;
 }
 
-export function calculateBalances(employeeLeaves: LeaveRequest[]) {
-  const earnedAlloc = calculateEarnedLeaveAllocation();
+export function calculateBalances(employeeLeaves: LeaveRequest[], joinedAt?: string) {
+  const earnedAlloc = calculateEarnedLeaveAllocation(joinedAt);
   
   const balances: Record<string, { total: number; used: number; remaining: number }> = {
     'Casual Leave': { total: LEAVE_ALLOCATIONS['Casual Leave'], used: 0, remaining: LEAVE_ALLOCATIONS['Casual Leave'] },

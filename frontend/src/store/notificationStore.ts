@@ -1,18 +1,29 @@
 import { create } from 'zustand'
 import api from '@services/api'
 import { playNotificationSound } from '@utils/notificationSound'
+import { toast } from 'sonner'
 
 export interface NotificationData {
   id: string
   recipientId: string
   recipientType: 'Employee' | 'Manager' | 'Admin'
-  type: 'LeaveSubmitted' | 'LeaveApproved' | 'LeaveRejected' | 'LeaveCancelled'
+  type: 'LeaveSubmitted' | 'LeaveApproved' | 'LeaveRejected' | 'LeaveCancelled' | 'PayslipSent'
+    | 'HolidayAdded' | 'HolidayUpdated' | 'HolidayDeleted' | 'HolidaySkipped'
   title: string
   message: string
   relatedData: {
     leaveId?: string
     employeeId?: string
     employeeName?: string
+    employeeEmail?: string
+    payslipId?: string
+    batchId?: string
+    payMonth?: string
+    fileName?: string
+    holidayId?: string
+    holidayTitle?: string
+    holidayDate?: string
+    skippedReason?: string
   }
   isRead: boolean
   createdAt: string
@@ -70,6 +81,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       })
     } catch (error) {
       console.error('[Notifications] Error fetching notifications:', error)
+      toast.error('Failed to fetch notifications')
       set({ loading: false })
     }
   },
@@ -99,6 +111,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       })
     } catch (error) {
       console.error('[Notifications] Error fetching notifications:', error)
+      // Silently fail - don't show toast for background fetch
     }
   },
 
@@ -118,6 +131,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       set({ unreadCount: newCount, lastUnreadCount: newCount, isInitialized: true })
     } catch (error) {
       console.error('[Notifications] Error fetching unread count:', error)
+      toast.error('Failed to fetch unread count')
     }
   },
 
@@ -139,6 +153,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       set({ unreadCount: newCount, lastUnreadCount: newCount, isInitialized: true })
     } catch (error) {
       console.error('[Notifications] Error fetching unread count:', error)
+      // Silently fail - don't show toast for background fetch
     }
   },
 

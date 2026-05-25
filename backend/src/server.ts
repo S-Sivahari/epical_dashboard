@@ -20,6 +20,7 @@ import { uploadRoutes } from './routes/uploadRoutes';
 import { oauthRoutes } from './routes/oauthRoutes';
 import { notificationRoutes } from './routes/notificationRoutes';
 import { payslipRoutes } from './routes/payslipRoutes';
+import { compensationRoutes } from './routes/compensationRoutes';
 
 // Seed helpers
 import { seedDefaultUsers } from './services/authService';
@@ -87,6 +88,7 @@ app.use('/api/tickets', ticketRoutes);
 app.use('/api/timesheets', timesheetRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/payslips', payslipRoutes);
+app.use('/api/compensation', compensationRoutes);
 app.use('/api', uploadRoutes);
 
 // ── Stats endpoint (admin dashboard) ─────────────────────────
@@ -157,12 +159,12 @@ export async function startServer() {
   try {
     await connectDB();
     await ensureAttendanceIndexes();
-    await initScheduler();
     app.listen(env.port, () => {
       console.log(`✓ Server running on http://localhost:${env.port}`);
       console.log(`✓ API base:    http://localhost:${env.port}/api`);
       console.log(`✓ Seed data:   POST http://localhost:${env.port}/api/seed`);
     });
+    initScheduler().catch((err) => console.error('⚠ Scheduler init failed (non-fatal):', err));
   } catch (error) {
     console.error('✗ Failed to start server:', error);
     process.exit(1);

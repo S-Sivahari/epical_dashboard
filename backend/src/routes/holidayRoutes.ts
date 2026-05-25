@@ -13,6 +13,7 @@ router.get('/', leaveController.getHolidays);
 // Admin-only endpoints
 router.post('/', roleMiddleware('Admin'), leaveController.createHoliday);
 router.put('/:id', roleMiddleware('Admin'), leaveController.updateHoliday);
+router.patch('/:id/skip', roleMiddleware('Admin'), leaveController.skipHoliday);
 router.delete('/:id', roleMiddleware('Admin'), leaveController.deleteHoliday);
 
 export const holidayRoutes = router;

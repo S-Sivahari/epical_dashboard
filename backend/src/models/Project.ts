@@ -8,7 +8,7 @@ export interface Project extends Document {
   allowedUsers: string[];
   teamLead?: string;
   description: string;
-  status: 'Active' | 'Completed' | 'Rejected';
+  status: 'Active' | 'Completed' | 'Rejected' | 'Cancelled';
   completedTasks: number;
   totalTasks: number;
   completionPercentage: number;
@@ -26,7 +26,7 @@ const ProjectSchema = new Schema<Project>(
     allowedUsers: { type: [String], default: [] },
     teamLead: { type: String },
     description: { type: String, required: true },
-    status: { type: String, enum: ['Active', 'Completed', 'Rejected'], default: 'Active' },
+    status: { type: String, enum: ['Active', 'Completed', 'Rejected', 'Cancelled'], default: 'Active' },
     completedTasks: { type: Number, default: 0 },
     totalTasks: { type: Number, default: 0 },
     completionPercentage: { type: Number, default: 0 },

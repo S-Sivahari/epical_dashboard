@@ -13,7 +13,7 @@ export function Settings() {
 
   return (
     <PageWrapper>
-      <PageHeader title="Settings" breadcrumb={<Breadcrumb items={[{ label: 'Settings' }]} />} />
+      <PageHeader title="" breadcrumb={<Breadcrumb items={[{ label: 'Settings' }]} />} />
 
       <div className="space-y-8">
         <section className="rounded-xl border border-border bg-white p-5 shadow-sm">

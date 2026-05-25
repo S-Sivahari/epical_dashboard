@@ -7,6 +7,7 @@ import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
 import { SelectField } from '@components/forms/SelectField'
 import { Modal } from '@components/ui/Modal'
+import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { ProjectTasksModal } from '@components/modals/ProjectTasksModal'
 import { ProjectAuditTrailModal } from '@components/modals/ProjectAuditTrailModal'
 import { ArchivedProjectsModal } from '@components/modals/ArchivedProjectsModal'
@@ -16,7 +17,6 @@ import {
   Users,
   Search,
   X,
-  Trash2,
   Archive,
   FileDown,
   Calendar as CalendarIcon,
@@ -66,7 +66,7 @@ interface Project {
   client: string
   technologyNode: string
   accessType: 'public' | 'private'
-  status: 'Active' | 'Completed' | 'Rejected'
+  status: 'Active' | 'Completed' | 'Rejected' | 'Cancelled'
   description: string
   visibleUsers: string[]
   teamLead?: string
@@ -744,14 +744,18 @@ function ProjectCard({
   onEdit,
   onDelete,
   onTasks,
+  onStatusChange,
 }: {
   project: Project
   onEdit: () => void
   onDelete: () => void
   onTasks: () => void
+  onStatusChange: (status: 'Active' | 'Completed' | 'Cancelled') => void
 }) {
   const isCompleted = project.status === 'Completed'
+  const isCancelled = project.status === 'Cancelled'
   const isRejected = project.status === 'Rejected'
+  const isActive = project.status === 'Active'
 
   // Visibility/scope summary
   const visibilitySummary =
@@ -774,7 +778,25 @@ function ProjectCard({
               <p className="text-[10px] text-slate-400 font-medium">Client: {project.client}</p>
             </div>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-col items-end gap-1.5">
+            {isCancelled ? (
+              <Badge variant="danger" className="py-0.5 px-2 bg-rose-50 text-rose-700 border border-rose-100 text-[10px]">
+                <X className="mr-1 h-3 w-3" /> Cancelled
+              </Badge>
+            ) : isRejected ? (
+              <Badge variant="danger" className="py-0.5 px-2 bg-rose-50 text-rose-700 border border-rose-100 text-[10px]">
+                <X className="mr-1 h-3 w-3" /> Rejected
+              </Badge>
+            ) : isCompleted ? (
+              <Badge variant="neutral" className="bg-slate-100 text-slate-600 border border-slate-200 py-0.5 px-2 text-[10px]">
+                <CheckCircle2 className="mr-1 h-3 w-3" /> Completed
+              </Badge>
+            ) : (
+              <Badge variant="info" className="py-0.5 px-2 bg-blue-50 text-blue-700 border border-blue-100 text-[10px]">
+                <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-blue-500" />
+                In Progress
+              </Badge>
+            )}
             {project.accessType === 'private' ? (
               <Badge variant="warning" className="py-0.5 px-2 bg-amber-50 text-amber-700 border border-amber-100 text-[10px]">
                 <Lock className="mr-1 h-3 w-3 text-amber-500" /> Private
@@ -787,9 +809,6 @@ function ProjectCard({
           </div>
         </div>
 
-        <p className="mt-3.5 text-xs text-slate-500 line-clamp-3 leading-relaxed">
-          {project.description}
-        </p>
         <p className="mt-2 text-[10px] font-semibold text-slate-400">
           Visibility Scope: {visibilitySummary}
         </p>
@@ -814,32 +833,26 @@ function ProjectCard({
         </div>
       </div>
 
-      <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-3.5">
-        <div>
-          {isRejected ? (
-            <Badge variant="danger" className="py-0.5 px-2 bg-rose-50 text-rose-700 border border-rose-100 text-[10px]">
-              <X className="mr-1 h-3 w-3" /> Rejected
-            </Badge>
-          ) : isCompleted ? (
-            <Badge variant="neutral" className="bg-slate-100 text-slate-600 border border-slate-200 py-0.5 px-2 text-[10px]">
-              <CheckCircle2 className="mr-1 h-3 w-3" /> Completed
-            </Badge>
-          ) : (
-            <Badge variant="info" className="py-0.5 px-2 bg-blue-50 text-blue-700 border border-blue-100 text-[10px]">
-              <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-blue-500" />
-              In Progress
-            </Badge>
-          )}
-        </div>
-
+      <div className="mt-5 flex items-center justify-end border-t border-slate-100 pt-3.5">
         <div className="flex items-center gap-1">
-          <button
-            onClick={onTasks}
-            className="rounded-lg p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
-            title="View Tasks"
-          >
-            <FileText className="h-3.5 w-3.5" />
-          </button>
+          {isActive && (
+            <>
+              <button
+                onClick={() => onStatusChange('Completed')}
+                className="rounded-lg p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                title="Mark as Completed"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => onStatusChange('Cancelled')}
+                className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                title="Cancel Project"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </>
+          )}
           <button
             onClick={onEdit}
             className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
@@ -849,10 +862,10 @@ function ProjectCard({
           </button>
           <button
             onClick={onDelete}
-            className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-            title="Delete Project"
+            className="rounded-lg p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+            title="Archive Project"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Archive className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
@@ -868,14 +881,18 @@ function ProjectListRow({
   onEdit,
   onDelete,
   onTasks,
+  onStatusChange,
 }: {
   project: Project
   onEdit: () => void
   onDelete: () => void
   onTasks: () => void
+  onStatusChange: (status: 'Active' | 'Completed' | 'Cancelled') => void
 }) {
   const isCompleted = project.status === 'Completed'
+  const isCancelled = project.status === 'Cancelled'
   const isRejected = project.status === 'Rejected'
+  const isActive = project.status === 'Active'
 
   return (
     <tr className="group transition-colors hover:bg-slate-50/50">
@@ -886,9 +903,6 @@ function ProjectListRow({
           </span>
           <div className="min-w-0">
             <p className="font-bold text-slate-700 truncate">{project.name}</p>
-            <p className="text-[11px] text-slate-400 truncate max-w-[240px]" title={project.description}>
-              {project.description}
-            </p>
           </div>
         </div>
       </td>
@@ -925,7 +939,11 @@ function ProjectListRow({
         )}
       </td>
       <td className="px-5 py-3.5">
-        {isRejected ? (
+        {isCancelled ? (
+          <Badge variant="danger" className="py-0.5 px-2 bg-rose-50 text-rose-700 border border-rose-100">
+            <X className="mr-1 h-3 w-3" /> Cancelled
+          </Badge>
+        ) : isRejected ? (
           <Badge variant="danger" className="py-0.5 px-2 bg-rose-50 text-rose-700 border border-rose-100">
             <X className="mr-1 h-3 w-3" /> Rejected
           </Badge>
@@ -942,13 +960,24 @@ function ProjectListRow({
       </td>
       <td className="px-5 py-3.5 text-right">
         <div className="flex items-center justify-end gap-1.5">
-          <button
-            onClick={onTasks}
-            className="rounded-lg p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
-            title="View Tasks"
-          >
-            <FileText className="h-3.5 w-3.5" />
-          </button>
+          {isActive && (
+            <>
+              <button
+                onClick={() => onStatusChange('Completed')}
+                className="rounded-lg p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                title="Mark as Completed"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => onStatusChange('Cancelled')}
+                className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                title="Cancel Project"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </>
+          )}
           <button
             onClick={onEdit}
             className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
@@ -958,10 +987,10 @@ function ProjectListRow({
           </button>
           <button
             onClick={onDelete}
-            className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-            title="Delete Project"
+            className="rounded-lg p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+            title="Archive Project"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Archive className="h-3.5 w-3.5" />
           </button>
         </div>
       </td>
@@ -1038,11 +1067,9 @@ export function ProjectManagement() {
   const [showFilters, setShowFilters] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterClients, setFilterClients] = useState<string[]>([])
-  const [filterProjectNames, setFilterProjectNames] = useState<string[]>([])
-  const [filterTeams, setFilterTeams] = useState<string[]>([])
+  const [filterEmployees, setFilterEmployees] = useState<string[]>([])
   const [filterStatuses, setFilterStatuses] = useState<string[]>([])
   const [filterAccessTypes, setFilterAccessTypes] = useState<string[]>([])
-  const [filterTechNodes, setFilterTechNodes] = useState<string[]>([])
 
   // ── Project Modal States ────────────────────────────────────
   const [modalOpen, setModalOpen] = useState(false)
@@ -1104,6 +1131,7 @@ export function ProjectManagement() {
     description: '',
     visibleUsers: [] as string[],
     teamLead: '',
+    status: 'Active' as 'Active' | 'Completed' | 'Cancelled',
   }
   const [form, setForm] = useState(emptyForm)
 
@@ -1180,12 +1208,13 @@ export function ProjectManagement() {
     return [...new Set(projects.map((p) => p.client))].sort()
   }, [projects])
 
-  const uniqueProjectNames = useMemo(() => {
-    return [...new Set(projects.map((p) => p.name))].sort()
-  }, [projects])
-
-  const uniqueTechNodes = useMemo(() => {
-    return [...new Set(projects.map((p) => p.technologyNode))].sort()
+  const uniqueEmployees = useMemo(() => {
+    const empSet = new Set<string>()
+    projects.forEach((p) => {
+      if (p.teamLead) empSet.add(p.teamLead)
+      p.visibleUsers.forEach((u) => empSet.add(u))
+    })
+    return [...empSet].sort()
   }, [projects])
 
   const getTeamLeadDepartment = useCallback((teamLeadName?: string) => {
@@ -1203,13 +1232,11 @@ export function ProjectManagement() {
   const activeFiltersCount = useMemo(() => {
     let count = 0
     if (filterClients.length > 0) count++
-    if (filterProjectNames.length > 0) count++
-    if (filterTeams.length > 0) count++
+    if (filterEmployees.length > 0) count++
     if (filterStatuses.length > 0) count++
     if (filterAccessTypes.length > 0) count++
-    if (filterTechNodes.length > 0) count++
     return count
-  }, [filterClients, filterProjectNames, filterTeams, filterStatuses, filterAccessTypes, filterTechNodes])
+  }, [filterClients, filterEmployees, filterStatuses, filterAccessTypes])
 
   const filteredProjects = useMemo(() => {
     return projects.filter((p) => {
@@ -1222,26 +1249,24 @@ export function ProjectManagement() {
         p.description.toLowerCase().includes(query)
 
       const matchClient = matchesMultiFilter(filterClients, p.client)
-      const matchProjectName = matchesMultiFilter(filterProjectNames, p.name)
       const matchStatus = matchesMultiFilter(filterStatuses, p.status)
       const matchAccess = matchesMultiFilter(filterAccessTypes, p.accessType)
-      const matchTechNode = matchesMultiFilter(filterTechNodes, p.technologyNode)
-      const teamDept = getTeamLeadDepartment(p.teamLead)
-      const matchTeam =
-        filterTeams.length === 0 || (teamDept !== undefined && filterTeams.includes(teamDept))
+      
+      // Check if any selected employee is associated with the project
+      const matchEmployee =
+        filterEmployees.length === 0 ||
+        filterEmployees.includes(p.teamLead || '') ||
+        filterEmployees.some((emp) => p.visibleUsers.includes(emp))
 
-      return matchSearch && matchClient && matchProjectName && matchStatus && matchAccess && matchTechNode && matchTeam
+      return matchSearch && matchClient && matchStatus && matchAccess && matchEmployee
     })
   }, [
     projects,
     searchQuery,
     filterClients,
-    filterProjectNames,
+    filterEmployees,
     filterStatuses,
     filterAccessTypes,
-    filterTechNodes,
-    filterTeams,
-    getTeamLeadDepartment,
   ])
 
   // ── Projects Tab Metrics Calculation ─────────────────────────
@@ -1274,6 +1299,7 @@ export function ProjectManagement() {
       description: p.description,
       visibleUsers: [...p.visibleUsers],
       teamLead: p.teamLead || '',
+      status: (p.status === 'Rejected' ? 'Cancelled' : p.status) as 'Active' | 'Completed' | 'Cancelled',
     })
     setModalOpen(true)
   }, [])
@@ -1284,6 +1310,45 @@ export function ProjectManagement() {
     setTasksModalOpen(true)
   }, [])
 
+  const handleUpdateProjectStatus = useCallback(
+    async (projectId: string, newStatus: 'Active' | 'Completed' | 'Cancelled') => {
+      try {
+        const project = allProjects.find((p) => p.id === projectId)
+        if (!project) {
+          toast.error('Project not found.')
+          return
+        }
+
+        await api.put(`/projects/${projectId}`, {
+          name: project.name,
+          client: project.client,
+          technologyNode: project.technologyNode,
+          accessType: project.accessType,
+          description: project.description,
+          status: newStatus,
+          visibleUsers: project.visibleUsers,
+          teamLead: project.teamLead,
+        })
+
+        setAllProjects((prev) =>
+          prev.map((p) =>
+            p.id === projectId ? { ...p, status: newStatus } : p
+          )
+        )
+
+        const statusText = newStatus === 'Completed' ? 'marked as completed' : newStatus === 'Cancelled' ? 'cancelled' : 'updated'
+        toast.success(`Project ${statusText} successfully.`)
+
+        await refreshAllData()
+      } catch (err: any) {
+        console.error('Status update error:', err)
+        toast.error(err.response?.data?.error || 'Failed to update project status.')
+        await refreshAllData()
+      }
+    },
+    [allProjects, refreshAllData]
+  )
+
   const handleSaveProject = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault()
@@ -1291,10 +1356,7 @@ export function ProjectManagement() {
         toast.error('Please specify Project Name, Client, and Technology Node.')
         return
       }
-      if (form.accessType === 'private' && !form.teamLead.trim()) {
-        toast.error('Please select a team lead for private projects.')
-        return
-      }
+
 
       setLoading(true)
       try {
@@ -1306,7 +1368,7 @@ export function ProjectManagement() {
             accessType: form.accessType,
             description: form.description.trim(),
             visibleUsers: form.accessType === 'private' ? form.visibleUsers : [],
-            teamLead: form.accessType === 'private' ? form.teamLead.trim() : undefined,
+            teamLead: form.teamLead.trim() || undefined,
           })
           toast.success(`Project "${res.data.name}" created successfully.`)
           await refreshAllData()
@@ -1321,16 +1383,14 @@ export function ProjectManagement() {
             technologyNode: form.technologyNode.trim(),
             accessType: form.accessType,
             description: form.description.trim(),
+            status: form.status,
             visibleUsers: form.accessType === 'private' ? form.visibleUsers : [],
-            teamLead: form.accessType === 'private' ? form.teamLead.trim() : undefined,
+            teamLead: form.teamLead.trim() || undefined,
           })
           toast.success('Project details updated successfully.')
 
           if (oldProjectName && oldProjectName !== newProjectName) {
             setTsProjectFilters((prev) =>
-              prev.map((n) => (n === oldProjectName ? newProjectName : n))
-            )
-            setFilterProjectNames((prev) =>
               prev.map((n) => (n === oldProjectName ? newProjectName : n))
             )
           }
@@ -1356,52 +1416,48 @@ export function ProjectManagement() {
   )
 
   const handleConfirmArchive = useCallback(async () => {
-    if (!projectToDelete) return
+    if (!projectToDelete || !projectToDelete.id) {
+      toast.error('Invalid project. Please try again.')
+      return
+    }
+    
     setDeleteConfirmOpen(false)
     setLoading(true)
     const pName = projectToDelete.name
+    const projectId = projectToDelete.id
+    
     try {
-      await api.post(`/projects/${projectToDelete.id}/archive`)
-      setTsProjectFilters((prev) => prev.filter((n) => n !== pName))
-      setFilterProjectNames((prev) => prev.filter((n) => n !== pName))
-      await refreshAllData()
-      toast.success(`Project "${pName}" and all associated history have been safely archived.`)
+      const response = await api.post(`/projects/${projectId}/archive`)
+      
+      if (response.status === 200) {
+        setTsProjectFilters((prev) => prev.filter((n) => n !== pName))
+        setProjectToDelete(null)
+        
+        // Small delay to ensure UI updates before refresh
+        setTimeout(() => {
+          refreshAllData()
+        }, 300)
+        
+        toast.success(`Project "${pName}" and all associated history have been safely archived.`)
+      }
     } catch (err: any) {
-      console.error(err)
-      toast.error(err.response?.data?.error || 'Failed to archive project.')
+      console.error('Archive error:', err)
+      setProjectToDelete(null)
+      
+      const errorMsg = err.response?.data?.error || err.message || 'Failed to archive project.'
+      toast.error(errorMsg)
     } finally {
       setLoading(false)
-      setProjectToDelete(null)
     }
   }, [projectToDelete, refreshAllData])
 
-  const handleConfirmPermanentDelete = useCallback(async () => {
-    if (!projectToDelete) return
-    setDeleteConfirmOpen(false)
-    setLoading(true)
-    const pName = projectToDelete.name
-    try {
-      await api.delete(`/projects/${projectToDelete.id}`)
-      setTsProjectFilters((prev) => prev.filter((n) => n !== pName))
-      setFilterProjectNames((prev) => prev.filter((n) => n !== pName))
-      await refreshAllData()
-      toast.success(`Project "${pName}" and its associated logs have been permanently deleted.`)
-    } catch (err: any) {
-      console.error(err)
-      toast.error(err.response?.data?.error || 'Failed to permanently delete project.')
-    } finally {
-      setLoading(false)
-      setProjectToDelete(null)
-    }
-  }, [projectToDelete, refreshAllData])
+
   const clearProjectsFilters = useCallback(() => {
     setSearchQuery('')
     setFilterClients([])
-    setFilterProjectNames([])
-    setFilterTeams([])
+    setFilterEmployees([])
     setFilterStatuses([])
     setFilterAccessTypes([])
-    setFilterTechNodes([])
   }, [])
 
   // ── Timesheets Date Range Change Handler ─────────────────────
@@ -1512,7 +1568,6 @@ export function ProjectManagement() {
     // Metrics Summary Card representation in Excel
     aoa.push(['ANALYTICS SUMMARY'])
     aoa.push(['Total Hours Logged', `${timesheetMetrics.total} hrs`])
-    aoa.push(['Overtime Hours (Daily > 8.0)', `${timesheetMetrics.overtime} hrs`])
     aoa.push(['Pending Approvals Count', timesheetMetrics.pending])
     aoa.push(['Active Employees Count', timesheetMetrics.activeEmployees])
     aoa.push([])
@@ -1635,16 +1690,14 @@ export function ProjectManagement() {
     doc.setDrawColor(226, 232, 240)
     doc.roundedRect(marginX, 95, contentWidth, 52, 6, 6, 'FD')
 
-    const metricCols = [marginX + 12, marginX + contentWidth * 0.27, marginX + contentWidth * 0.52, marginX + contentWidth * 0.77]
-    const metricLabels = ['TOTAL HOURS', 'OVERTIME HOURS', 'PENDING APPROVALS', 'ACTIVE EMPLOYEES']
+    const metricCols = [marginX + 12, marginX + contentWidth * 0.35, marginX + contentWidth * 0.65]
+    const metricLabels = ['TOTAL HOURS', 'PENDING APPROVALS', 'ACTIVE EMPLOYEES']
     const metricValues = [
       `${timesheetMetrics.total.toFixed(1)} hrs`,
-      `${timesheetMetrics.overtime.toFixed(1)} hrs`,
       String(timesheetMetrics.pending),
       String(timesheetMetrics.activeEmployees),
     ]
     const metricColors: [number, number, number][] = [
-      [16, 185, 129],
       [16, 185, 129],
       [245, 158, 11],
       [30, 41, 59],
@@ -1800,11 +1853,7 @@ export function ProjectManagement() {
         <div>
           <Breadcrumb items={[{ label: 'Admin Dashboard' }, { label: 'Projects & Timesheets' }]} />
           <h1 className="mt-2 font-display text-2xl font-black tracking-tight text-slate-800">
-            Projects &amp; Timesheets Manager
           </h1>
-          <p className="text-sm font-medium text-slate-400">
-            Enterprise dashboard to review system projects, access visibility lists, and track employee hours.
-          </p>
         </div>
 
         {/* Header CTA Trigger */}
@@ -1975,30 +2024,12 @@ export function ProjectManagement() {
                   />
 
                   <FilterCheckboxGroup
-                    label="Project Name"
-                    placeholder="All Projects"
+                    label="Employee"
+                    placeholder="All Employees"
                     compact
-                    options={uniqueProjectNames.map((n) => {
-                      const proj = projects.find((p) => p.name === n)
-                      const label =
-                        proj && proj.status === 'Completed'
-                          ? `${n} (Completed)`
-                          : proj && proj.status === 'Rejected'
-                            ? `${n} (Rejected)`
-                            : n
-                      return { value: n, label }
-                    })}
-                    selected={filterProjectNames}
-                    onChange={setFilterProjectNames}
-                  />
-
-                  <FilterCheckboxGroup
-                    label="Team (by lead)"
-                    placeholder="All Teams"
-                    compact
-                    options={teamFilterOptions.map((t) => ({ value: t, label: t }))}
-                    selected={filterTeams}
-                    onChange={setFilterTeams}
+                    options={uniqueEmployees.map((emp) => ({ value: emp, label: emp }))}
+                    selected={filterEmployees}
+                    onChange={setFilterEmployees}
                   />
 
                   <FilterCheckboxGroup
@@ -2008,7 +2039,7 @@ export function ProjectManagement() {
                     options={[
                       { value: 'Active', label: 'In Progress' },
                       { value: 'Completed', label: 'Completed' },
-                      { value: 'Rejected', label: 'Rejected' },
+                      { value: 'Cancelled', label: 'Cancelled' },
                     ]}
                     selected={filterStatuses}
                     onChange={setFilterStatuses}
@@ -2026,14 +2057,7 @@ export function ProjectManagement() {
                     onChange={setFilterAccessTypes}
                   />
 
-                  <FilterCheckboxGroup
-                    label="Tech Node"
-                    placeholder="All Nodes"
-                    compact
-                    options={uniqueTechNodes.map((n) => ({ value: n, label: n }))}
-                    selected={filterTechNodes}
-                    onChange={setFilterTechNodes}
-                  />
+
                 </div>
 
                 {activeFiltersCount > 0 && (
@@ -2065,6 +2089,7 @@ export function ProjectManagement() {
                       onEdit={() => openEditProject(p)}
                       onDelete={() => handleDeleteProject(p)}
                       onTasks={() => openProjectTasks(p)}
+                      onStatusChange={(status) => handleUpdateProjectStatus(p.id, status)}
                     />
                   ))}
                 </div>
@@ -2113,6 +2138,7 @@ export function ProjectManagement() {
                         onEdit={() => openEditProject(p)}
                         onDelete={() => handleDeleteProject(p)}
                         onTasks={() => openProjectTasks(p)}
+                        onStatusChange={(status) => handleUpdateProjectStatus(p.id, status)}
                       />
                     ))}
                     {filteredProjects.length === 0 && (
@@ -2135,47 +2161,122 @@ export function ProjectManagement() {
            ================================================================ */}
       {activeTab === 'timesheets' && (
         <div className="space-y-6 animate-fadeIn">
-          {/* Header Action Row (Picker & Export) */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            {/* Custom Date Range Picker */}
-            <CustomDateRangePicker
-              startDate={tsStartDate}
-              endDate={tsEndDate}
-              preset={datePreset}
-              onChange={handleDateRangeChange}
-            />
+          {/* UNIFIED FILTERS SECTION AT TOP */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="mb-4 text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
+              <Sliders className="h-4 w-4 text-emerald-600" /> Filter
+            </h3>
 
-            {/* Document Export Buttons */}
-            <div className="flex overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-              <button
-                onClick={handleExportPDF}
-                className="flex items-center gap-1.5 border-r border-slate-200 px-3.5 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
-              >
-                <FileDown className="h-4 w-4 text-rose-500" /> PDF Report
-              </button>
-              <button
-                onClick={handleExportExcel}
-                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
-              >
-                <FileSpreadsheet className="h-4 w-4 text-emerald-600" /> Excel Spreadsheet
-              </button>
+            {/* Filters and Actions Layout */}
+            <div className="flex flex-col gap-3">
+              {/* First Row: Date, Search, Employee, Project */}
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {/* Date Range Picker */}
+                <CustomDateRangePicker
+                  startDate={tsStartDate}
+                  endDate={tsEndDate}
+                  preset={datePreset}
+                  onChange={handleDateRangeChange}
+                />
+
+                {/* Search Box */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={tsSearch}
+                    onChange={(e) => setTsSearch(e.target.value)}
+                    placeholder="Search task details..."
+                    className="h-10 w-full rounded-xl border border-slate-250 bg-white pl-9 pr-3 text-xs font-semibold text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                  />
+                </div>
+
+                {/* Employee Filter */}
+                <FilterCheckboxGroup
+                  label="Employee"
+                  placeholder="All Employees"
+                  compact
+                  options={tsEmployeeFilterOptions}
+                  selected={tsEmployeeFilters}
+                  onChange={setTsEmployeeFilters}
+                />
+
+                {/* Project Filter */}
+                <FilterCheckboxGroup
+                  label="Project"
+                  placeholder="All Projects"
+                  compact
+                  options={tsProjectFilterOptions}
+                  selected={tsProjectFilters}
+                  onChange={setTsProjectFilters}
+                />
+              </div>
+
+              {/* Second Row: Team, Status, and Action Buttons */}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between lg:items-center">
+                <div className="grid gap-3 sm:grid-cols-2 flex-1">
+                  {/* Team Filter */}
+                  <FilterCheckboxGroup
+                    label="Team"
+                    placeholder="All Teams"
+                    compact
+                    options={MOCK_TEAMS.map((t) => ({ value: t, label: t }))}
+                    selected={tsTeamFilters}
+                    onChange={setTsTeamFilters}
+                  />
+
+                  {/* Status Filter */}
+                  <FilterCheckboxGroup
+                    label="Status"
+                    placeholder="All Statuses"
+                    compact
+                    options={[
+                      { value: 'Completed', label: 'Completed' },
+                      { value: 'In Progress', label: 'In Progress' },
+                    ]}
+                    selected={tsStatusFilters}
+                    onChange={setTsStatusFilters}
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center gap-3">
+                  {hasActiveTimesheetFilters && (
+                    <button
+                      onClick={clearTimesheetFilters}
+                      className="text-xs font-bold text-emerald-600 hover:text-emerald-800 transition-colors whitespace-nowrap"
+                    >
+                      Clear Filters
+                    </button>
+                  )}
+                  
+                  {/* Document Export Buttons */}
+                  <div className="flex overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <button
+                      onClick={handleExportPDF}
+                      className="flex items-center gap-1.5 border-r border-slate-200 px-3.5 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
+                    >
+                      <FileDown className="h-4 w-4 text-rose-500" /> PDF Report
+                    </button>
+                    <button
+                      onClick={handleExportExcel}
+                      className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
+                    >
+                      <FileSpreadsheet className="h-4 w-4 text-emerald-600" /> Excel Spreadsheet
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Timesheet Summary Metrics Cards */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <MetricCard
               label="Total Hours"
               value={`${timesheetMetrics.total}h`}
               icon={Clock}
               accentClass="bg-slate-500"
-            />
-            <MetricCard
-              label="Overtime Hours"
-              value={`${timesheetMetrics.overtime}h`}
-              icon={TrendingUp}
-              accentClass="bg-emerald-600"
-              secondaryText="Daily sum logged > 8.0h"
             />
             <MetricCard
               label="Pending Approvals"
@@ -2239,76 +2340,6 @@ export function ProjectManagement() {
             </div>
           </div>
 
-          {/* Advanced Filter Bar for Log Records */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h3 className="mb-3 text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
-              <Sliders className="h-4 w-4 text-emerald-600" /> Review Time Logs Filters
-            </h3>
-
-            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                <input
-                  type="text"
-                  value={tsSearch}
-                  onChange={(e) => setTsSearch(e.target.value)}
-                  placeholder="Search task details..."
-                  className="h-10 w-full rounded-xl border border-slate-250 bg-white pl-9 pr-3 text-xs font-semibold text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
-                />
-              </div>
-
-              <FilterCheckboxGroup
-                label="Employee"
-                placeholder="All Employees"
-                compact
-                options={tsEmployeeFilterOptions}
-                selected={tsEmployeeFilters}
-                onChange={setTsEmployeeFilters}
-              />
-
-              <FilterCheckboxGroup
-                label="Project"
-                placeholder="All Projects"
-                compact
-                options={tsProjectFilterOptions}
-                selected={tsProjectFilters}
-                onChange={setTsProjectFilters}
-              />
-
-              <FilterCheckboxGroup
-                label="Team"
-                placeholder="All Teams"
-                compact
-                options={MOCK_TEAMS.map((t) => ({ value: t, label: t }))}
-                selected={tsTeamFilters}
-                onChange={setTsTeamFilters}
-              />
-
-              <FilterCheckboxGroup
-                label="Status"
-                placeholder="All Statuses"
-                compact
-                options={[
-                  { value: 'Completed', label: 'Completed' },
-                  { value: 'In Progress', label: 'In Progress' },
-                ]}
-                selected={tsStatusFilters}
-                onChange={setTsStatusFilters}
-              />
-            </div>
-
-            {hasActiveTimesheetFilters && (
-              <div className="mt-3 flex justify-end">
-                <button
-                  onClick={clearTimesheetFilters}
-                  className="text-xs font-bold text-emerald-600 hover:text-emerald-800 transition-colors"
-                >
-                  Clear Timesheet Filters
-                </button>
-              </div>
-            )}
-          </div>
-
           {/* Timesheet Data Table */}
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="overflow-x-auto">
@@ -2368,10 +2399,7 @@ export function ProjectManagement() {
                               <ArrowUpRight className="h-3 w-3 opacity-0 group-hover/btn:opacity-100 transition-all transform translate-y-0.5 group-hover/btn:translate-y-0 group-hover/btn:translate-x-0.5 text-emerald-500 shrink-0" />
                             </p>
                           </button>
-                          <p className="text-[10px] text-slate-400 font-semibold mt-0.5">{t.client} · {t.technologyNode}</p>
-                          <p className="mt-1 text-[10px] text-slate-500 font-medium truncate max-w-[220px]" title={t.task}>
-                            Task: {t.task}
-                          </p>
+                          {/* Only project name is rendered */}
                         </td>
 
                         {/* Login Time Column */}
@@ -2466,13 +2494,27 @@ export function ProjectManagement() {
               setForm({
                 ...form,
                 accessType,
-                teamLead: accessType === 'private' ? form.teamLead : '',
                 visibleUsers: accessType === 'private' ? form.visibleUsers : [],
               })
             }}
             options={[
               { value: 'public', label: 'Public — Visible system-wide to all employees' },
               { value: 'private', label: 'Private — Access restricted specifically by user/team' },
+            ]}
+          />
+
+          {/* Team Lead Selection - Always Available */}
+          <SelectField
+            label="Team Lead"
+            id="m-proj-team-lead"
+            value={form.teamLead}
+            onChange={(e) => setForm({ ...form, teamLead: e.target.value })}
+            options={[
+              { value: '', label: 'Select team lead...' },
+              ...employees.map((e) => ({
+                value: `${e.firstName} ${e.lastName || ''}`.trim(),
+                label: `${e.firstName} ${e.lastName || ''}`.trim() + ` (${e.department})`,
+              })),
             ]}
           />
 
@@ -2485,26 +2527,11 @@ export function ProjectManagement() {
                 selected={form.visibleUsers}
                 onChange={(next) => setForm({ ...form, visibleUsers: next })}
               />
-
-              <SelectField
-                label="Team Lead"
-                id="m-proj-team-lead"
-                value={form.teamLead}
-                onChange={(e) => setForm({ ...form, teamLead: e.target.value })}
-                required
-                options={[
-                  { value: '', label: 'Select team lead...' },
-                  ...employees.map((e) => ({
-                    value: `${e.firstName} ${e.lastName || ''}`.trim(),
-                    label: `${e.firstName} ${e.lastName || ''}`.trim() + ` (${e.department})`,
-                  })),
-                ]}
-              />
             </div>
           )}
 
           <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-505 text-slate-500">
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
               Project Description scope
             </label>
             <textarea
@@ -2516,6 +2543,23 @@ export function ProjectManagement() {
               required
             />
           </div>
+
+          {modalMode === 'edit' && (
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
+                Project Status
+              </label>
+              <select
+                value={form.status}
+                onChange={(e) => setForm({ ...form, status: e.target.value as 'Active' | 'Completed' | 'Cancelled' })}
+                className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-700 outline-none transition-all focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+              >
+                <option value="Active">In Progress</option>
+                <option value="Completed">Completed</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 border-t border-slate-100 pt-4 mt-2">
             <Button
@@ -2568,17 +2612,19 @@ export function ProjectManagement() {
         />
       )}
 
-      {/* Project Delete & Archive Choice Modal */}
+      {/* Project Archive Confirmation Modal */}
       {projectToDelete && (
-        <ProjectDeleteConfirmModal
+        <ConfirmModal
           isOpen={deleteConfirmOpen}
+          title="Archive Project"
+          description={`Are you sure you want to archive the project "${projectToDelete.name}"? All associated history will be safely archived and this action cannot be undone.`}
+          confirmLabel="Archive Project"
+          danger
           onClose={() => {
             setDeleteConfirmOpen(false)
             setProjectToDelete(null)
           }}
-          projectName={projectToDelete.name}
-          onArchive={handleConfirmArchive}
-          onPermanentDelete={handleConfirmPermanentDelete}
+          onConfirm={handleConfirmArchive}
         />
       )}
 
@@ -2621,87 +2667,54 @@ function EmptyState({
 }
 
 /* ================================================================
-   COMPONENT – ProjectDeleteConfirmModal
+   COMPONENT – ProjectArchiveConfirmModal
    ================================================================ */
-interface ProjectDeleteConfirmModalProps {
+interface ProjectArchiveConfirmModalProps {
   isOpen: boolean
   onClose: () => void
   projectName: string
-  onArchive: () => void
-  onPermanentDelete: () => void
+  onConfirm: () => void
 }
 
-function ProjectDeleteConfirmModal({
+function ProjectArchiveConfirmModal({
   isOpen,
   onClose,
   projectName,
-  onArchive,
-  onPermanentDelete,
-}: ProjectDeleteConfirmModalProps) {
+  onConfirm,
+}: ProjectArchiveConfirmModalProps) {
   return (
     <Modal isOpen={isOpen} title="" onClose={onClose} size="md">
       {/* Sleek icon header */}
       <div className="-mt-10 mb-4 flex items-center gap-2">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-rose-700 shadow-md">
-          <Trash2 className="h-4 w-4 text-white" />
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 shadow-md">
+          <Archive className="h-4 w-4 text-white" />
         </div>
-        <h3 className="text-sm font-black text-slate-800 leading-tight">Delete or Archive Project?</h3>
+        <h3 className="text-sm font-black text-slate-800 leading-tight">Archive Project</h3>
       </div>
 
       <div className="space-y-4">
-        <p className="text-xs text-slate-500 font-bold leading-relaxed">
-          How would you like to handle the deletion of project <strong className="text-slate-800 font-extrabold">"{projectName}"</strong>?
+        <p className="text-xs text-slate-550 text-slate-500 font-bold leading-relaxed">
+          Are you sure you want to archive project <strong className="text-slate-800 font-extrabold">"{projectName}"</strong>?
+        </p>
+        <p className="text-xs text-slate-400 font-semibold leading-relaxed">
+          This will safely move the project and its complete history (assigned tasks and timesheet logs) to separate archived storage. Active dashboards stay clean. You can restore the project at any time.
         </p>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          {/* Archive option */}
-          <button
+        <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+          <Button
             type="button"
-            onClick={onArchive}
-            className="flex flex-col items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/20 p-4 text-center hover:bg-emerald-50/30 hover:border-emerald-300 transition-all duration-300 group focus:outline-none"
+            variant="secondary"
+            onClick={onClose}
+            className="rounded-xl font-bold py-2 px-4 text-xs h-9"
           >
-            <div className="rounded-xl bg-slate-100 p-2.5 text-slate-500 transition-transform group-hover:scale-110 group-hover:bg-emerald-100 group-hover:text-emerald-600">
-              <Archive className="h-5 w-5" />
-            </div>
-            <div className="mt-2.5 flex-1 flex flex-col justify-between">
-              <div>
-                <h4 className="text-xs font-bold text-slate-700 group-hover:text-emerald-700 transition-colors">Archive Project</h4>
-                <p className="mt-1 text-[10px] text-slate-400 font-semibold leading-normal">
-                  Safely moves the project and its complete history (assigned tasks and timesheet logs) to separate archived storage. Dashboards stay clean.
-                </p>
-              </div>
-              <span className="mt-3.5 inline-flex items-center justify-center rounded-xl bg-slate-100 px-3 py-1 text-[10px] font-bold text-slate-600 transition-all group-hover:bg-emerald-600 group-hover:text-white">
-                Archive Safe
-              </span>
-            </div>
-          </button>
-
-          {/* Permanent delete option */}
-          <button
-            type="button"
-            onClick={onPermanentDelete}
-            className="flex flex-col items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/20 p-4 text-center hover:bg-rose-50/30 hover:border-rose-300 transition-all duration-300 group focus:outline-none"
-          >
-            <div className="rounded-xl bg-slate-100 p-2.5 text-slate-500 transition-transform group-hover:scale-110 group-hover:bg-rose-100 group-hover:text-rose-600">
-              <Trash2 className="h-5 w-5" />
-            </div>
-            <div className="mt-2.5 flex-1 flex flex-col justify-between">
-              <div>
-                <h4 className="text-xs font-bold text-slate-700 group-hover:text-rose-700 transition-colors">Permanently Delete</h4>
-                <p className="mt-1 text-[10px] text-slate-400 font-semibold leading-normal">
-                  Irreversibly deletes the project, assigned tasks, and timesheet logs from the active database. This action is final and cannot be undone.
-                </p>
-              </div>
-              <span className="mt-3.5 inline-flex items-center justify-center rounded-xl bg-slate-100 px-3 py-1 text-[10px] font-bold text-slate-600 transition-all group-hover:bg-rose-600 group-hover:text-white">
-                Delete Forever
-              </span>
-            </div>
-          </button>
-        </div>
-
-        <div className="flex justify-end pt-2 border-t border-slate-100">
-          <Button variant="secondary" onClick={onClose} className="rounded-xl font-bold py-2 px-4 text-xs h-9">
             Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={onConfirm}
+            className="bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl py-2 px-4 text-xs h-9 border-0 shadow-sm"
+          >
+            Archive Project
           </Button>
         </div>
       </div>
