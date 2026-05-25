@@ -40,6 +40,11 @@ api.interceptors.response.use(
       }
     } else if (status && status >= 500) {
       toast.error('Server error. Please try again later.')
+    } else if (status === 409) {
+      const message =
+        (err as { response?: { data?: { error?: string } } }).response?.data?.error ||
+        'Request could not be completed.'
+      toast.error(message)
     }
     return Promise.reject(err)
   },

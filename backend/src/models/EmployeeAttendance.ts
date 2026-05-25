@@ -46,7 +46,8 @@ const EmployeeAttendanceSchema = new Schema<EmployeeAttendance>(
   { timestamps: true }
 );
 
-EmployeeAttendanceSchema.index({ employeeId: 1, date: 1 });
+EmployeeAttendanceSchema.index({ employeeId: 1, date: 1, checkInTime: -1 });
+EmployeeAttendanceSchema.index({ employeeId: 1, checkOutTime: 1 });
 EmployeeAttendanceSchema.index({ sessionStatus: 1, checkOutTime: 1 });
 
 export const EmployeeAttendanceModel = model<EmployeeAttendance>(

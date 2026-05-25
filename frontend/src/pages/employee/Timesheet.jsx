@@ -1,32 +1,39 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { motion } from 'framer-motion'
-import { Play, Square, LogIn, LogOut, Timer, Loader2, History, Circle, Pause, CheckCircle2, AlertTriangle, Clock, Bell } from 'lucide-react'
+import { Play, LogIn, LogOut, Loader2, Pause, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { Button } from '@components/employee/ui/button'
-import { Input } from '@components/employee/ui/input'
 import { Label } from '@components/employee/ui/label'
 import { Textarea } from '@components/employee/ui/textarea'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@components/employee/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/employee/ui/select'
 import { KPIStatCard } from '@components/employee/shared/KPIStatCard'
 import { DataTable } from '@components/employee/shared/DataTable'
+import { DateRangePicker } from '@components/employee/shared/DateRangePicker'
 import { useTimesheetStore } from '@store/employee/timesheetStore'
 import { useToast } from '@components/employee/shared/ToastProvider'
+import { formatDateKey, getPresetDateRange, getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
 
 const taskSchema = z.object({
-  assignedTaskId: z.string().min(1, 'Select an assigned task'),
+  assignedTaskId: z.string().min(1, 'Select an assigned project'),
   description: z.string().min(3, 'Description required'),
 })
 
-const sessionColumns = [
+const historyColumns = [
+  { key: 'date', label: 'Date' },
   { key: 'project', label: 'Project' },
-  { key: 'task', label: 'Task' },
   { key: 'start', label: 'Start' },
   { key: 'end', label: 'End' },
   { key: 'hours', label: 'Hours' },
-  { key: 'date', label: 'Date' },
+  { key: 'status', label: 'Status' },
 ]
 
 function formatDuration(startedAt, pausedAt = null, totalPausedMs = 0) {
@@ -38,66 +45,38 @@ function formatDuration(startedAt, pausedAt = null, totalPausedMs = 0) {
   return `${hours}h ${mins}m`
 }
 
-function formatTimelineTime(value) {
-  if (!value) return '—'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return String(value)
-  return date.toLocaleString()
+function hoursFromMs(ms) {
+  return Math.round((ms / 3600000) * 10) / 10
 }
 
-function getSessionApprovalStatus(session) {
-  return session.approvalStatus || session.status || 'Pending'
+/** Elapsed time since check-in as HH:MM:SS; ticks every second from 00:00:00. */
+function formatCheckInElapsed(checkInTime, nowMs) {
+  const totalSeconds = Math.max(0, Math.floor((nowMs - checkInTime.getTime()) / 1000))
+  const h = Math.floor(totalSeconds / 3600)
+  const m = Math.floor((totalSeconds % 3600) / 60)
+  const s = totalSeconds % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-/** Employee-facing label for a work session in the activity timeline. */
-function getEmployeeSessionStatus(session) {
-  const approval = getSessionApprovalStatus(session)
-  if (session.taskStatus === 'Completed' && approval === 'Approved') return 'Approved by admin'
-  if (session.taskStatus === 'Completed') return 'Waiting for approval'
-  if (session.workflowStatus === 'Completed') return 'Completed'
-  if (session.workflowStatus === 'Waiting for approval') return 'Waiting for approval'
-  if (session.workflowStatus === 'Paused' || session.taskStatus === 'Paused') return 'Paused'
-  if (!session.logoutTime) return 'In Progress'
-  return 'Stopped'
+function getDayKey(date) {
+  return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]
 }
 
-function getEmployeeSessionEndDetail(session) {
-  const hours = session.hours !== '—' ? session.hours : 0
-  const approval = getSessionApprovalStatus(session)
-  if (session.taskStatus === 'Completed' && approval === 'Approved') {
-    return `Your work has been approved by the admin (${hours}h logged).`
-  }
-  if (session.taskStatus === 'Completed') {
-    return `Submitted for admin approval (${hours}h logged).`
-  }
-  return `Stopped after logging ${hours}h.`
+function formatTimeLabel(iso) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
+function segmentHours(seg, checkedIn, liveNow) {
+  const isOpen = checkedIn && !seg.checkOutTime
+  const startMs = new Date(seg.checkInTime).getTime()
+  const endMs = seg.checkOutTime ? new Date(seg.checkOutTime).getTime() : isOpen ? liveNow : startMs
+  return hoursFromMs(Math.max(0, endMs - startMs))
 }
 
 function isSessionApprovedByAdmin(session) {
-  const approval = getSessionApprovalStatus(session)
+  const approval = session.approvalStatus || session.status || 'Pending'
   return session.taskStatus === 'Completed' && approval === 'Approved'
-}
-
-/** True when admin approved noticeably after the employee submitted (logout). */
-function shouldShowSeparateApprovalEntry(session) {
-  if (!isSessionApprovedByAdmin(session) || !session.updatedAt || !session.logoutTime) {
-    return false
-  }
-  const approvedAt = new Date(session.updatedAt).getTime()
-  const logoutAt = new Date(session.logoutTime).getTime()
-  return approvedAt > logoutAt + 2000
-}
-
-function getTimelineBadgeClass(status) {
-  if (status === 'Completed' || status === 'Approved' || status === 'Approved by admin') {
-    return 'bg-emerald-100 text-emerald-700'
-  }
-  if (status === 'Auto Checked-Out') return 'bg-amber-100 text-amber-700'
-  if (status === 'Rejected') return 'bg-rose-100 text-rose-700'
-  if (status === 'Paused') return 'bg-violet-100 text-violet-700'
-  if (status === 'Waiting for approval') return 'bg-sky-100 text-sky-700'
-  if (status === 'In Progress' || status === 'Assigned') return 'bg-amber-100 text-amber-700'
-  return 'bg-slate-100 text-slate-700'
 }
 
 export default function Timesheet() {
@@ -115,47 +94,29 @@ export default function Timesheet() {
     checkIn,
     checkOut,
     startTask,
-    stopTask,
     pauseTask,
     resumeTask,
     completeTask,
-    sessionStatus,
-    autoCheckoutInfo,
-    autoCheckoutSettings,
+    attendanceHistory,
   } = useTimesheetStore()
   const { toast } = useToast()
-  const [dateFilter, setDateFilter] = useState('')
+  const defaultHistoryRange = getPresetDateRange('This Month')
+  const [historyStart, setHistoryStart] = useState(defaultHistoryRange.start)
+  const [historyEnd, setHistoryEnd] = useState(defaultHistoryRange.end)
+  const [historyPreset, setHistoryPreset] = useState('This Month')
   const [elapsed, setElapsed] = useState('0h 0m')
   const [submitting, setSubmitting] = useState(false)
-  const [autoCheckoutCountdown, setAutoCheckoutCountdown] = useState(null)
+  const [liveNow, setLiveNow] = useState(() => Date.now())
+  const checkInPanelRef = useRef(null)
+  const [chartHeight, setChartHeight] = useState(280)
+  const [completeDialogOpen, setCompleteDialogOpen] = useState(false)
+  const [completeTarget, setCompleteTarget] = useState(null)
+  const [completionSummary, setCompletionSummary] = useState('')
+  const [completionError, setCompletionError] = useState('')
 
   useEffect(() => {
     hydrate()
   }, [hydrate])
-
-  useEffect(() => {
-    if (!checkedIn || !autoCheckoutInfo?.autoCheckoutTime) {
-      setAutoCheckoutCountdown(null)
-      return undefined
-    }
-    const tick = () => {
-      const target = new Date(autoCheckoutInfo.autoCheckoutTime).getTime()
-      const diff = target - Date.now()
-      if (diff <= 0) {
-        setAutoCheckoutCountdown('00:00:00')
-        return
-      }
-      const h = Math.floor(diff / 3600000)
-      const m = Math.floor((diff % 3600000) / 60000)
-      const s = Math.floor((diff % 60000) / 1000)
-      setAutoCheckoutCountdown(
-        `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-      )
-    }
-    tick()
-    const id = setInterval(tick, 1000)
-    return () => clearInterval(id)
-  }, [checkedIn, autoCheckoutInfo?.autoCheckoutTime])
 
   useEffect(() => {
     const onFocus = () => {
@@ -199,6 +160,14 @@ export default function Timesheet() {
     return () => clearInterval(id)
   }, [activeTask?.startedAt, activeTask?.pausedAt, activeTask?.totalPausedMs, activeTask?.paused])
 
+  useEffect(() => {
+    if (!checkedIn) return undefined
+    const tick = () => setLiveNow(Date.now())
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [checkedIn])
+
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm({
     resolver: zodResolver(taskSchema),
     defaultValues: { assignedTaskId: '', description: '' },
@@ -210,12 +179,29 @@ export default function Timesheet() {
     [assignedTasks]
   )
   const selectedTask = startableTasks.find((t) => t.id === selectedTaskId)
+  const currentWorkTask = activeTask || pausedTasks[0] || null
+  const hasOpenWorkTask = !!currentWorkTask
+
+  useEffect(() => {
+    const node = checkInPanelRef.current
+    if (!node) return undefined
+
+    const updateHeight = () => {
+      const panelHeight = node.getBoundingClientRect().height
+      setChartHeight(Math.max(280, Math.round(panelHeight - 56)))
+    }
+
+    updateHeight()
+    const observer = new ResizeObserver(updateHeight)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [checkedIn, activeTask, pausedTasks.length, attendance?.autoCheckedOut, initialized])
 
   const onCheckIn = async () => {
     try {
       setSubmitting(true)
       await checkIn()
-      toast({ title: 'Checked in', description: 'You can now start working on assigned tasks.' })
+      toast({ title: 'Checked in', description: 'You can now start working on assigned projects.' })
     } catch (err) {
       toast({
         title: 'Check in failed',
@@ -258,24 +244,8 @@ export default function Timesheet() {
       })
     } catch (err) {
       toast({
-        title: 'Could not start task',
-        description: err.response?.data?.error || 'Please check in and select a task.',
-        variant: 'destructive',
-      })
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const onStopTask = async (timesheetId) => {
-    try {
-      setSubmitting(true)
-      await stopTask(timesheetId)
-      toast({ title: 'Task stopped', description: 'Hours saved and visible in the admin dashboard.' })
-    } catch (err) {
-      toast({
-        title: 'Could not stop task',
-        description: err.response?.data?.error || 'Please try again.',
+        title: 'Could not start project',
+        description: err.response?.data?.error || 'Please check in and select a project.',
         variant: 'destructive',
       })
     } finally {
@@ -315,18 +285,45 @@ export default function Timesheet() {
     }
   }
 
-  const onCompleteTask = async (timesheetId) => {
+  const openCompleteDialog = (work) => {
+    setCompleteTarget(work)
+    setCompletionSummary(work?.description || '')
+    setCompletionError('')
+    setCompleteDialogOpen(true)
+  }
+
+  const onCompleteProject = async () => {
+    if (!completeTarget?.timesheetId) return
+
+    const original = (completeTarget.description || '').trim()
+    const summary = completionSummary.trim()
+
+    if (summary.length < 3) {
+      setCompletionError('Enter at least 3 characters summarizing what you completed.')
+      return
+    }
+    if (summary === original) {
+      setCompletionError('Update the description — it must reflect what you finished, not the original plan.')
+      return
+    }
+
     try {
       setSubmitting(true)
-      await completeTask(timesheetId)
+      setCompletionError('')
+      await completeTask(completeTarget.timesheetId, summary)
+      setCompleteDialogOpen(false)
+      setCompleteTarget(null)
+      setCompletionSummary('')
       toast({
         title: 'Submitted for approval',
-        description: 'Your task is waiting for admin approval.',
+        description: 'Your project work is waiting for admin approval.',
       })
     } catch (err) {
+      const message = err.response?.data?.error || 'Please try again.'
+      setCompletionError(message)
       toast({
-        title: 'Could not complete task',
-        description: err.response?.data?.error || 'Please try again.',
+        title: 'Could not complete project',
+        description: message,
         variant: 'destructive',
       })
     } finally {
@@ -334,155 +331,84 @@ export default function Timesheet() {
     }
   }
 
-  const filtered = dateFilter ? sessions.filter((s) => s.date === dateFilter) : sessions
+  const historyRange = useMemo(
+    () => ({ start: historyStart, end: historyEnd }),
+    [historyStart, historyEnd]
+  )
 
-  const projectTimeline = useMemo(() => {
-    const entries = []
-    const sessionsAwaitingApproval = new Set(
-      filtered
-        .filter((s) => s.taskStatus === 'Completed' && getSessionApprovalStatus(s) !== 'Approved')
-        .map((s) => s.id)
-    )
+  const weekRange = useMemo(() => getWeekRange(), [liveNow])
 
-    assignedTasks.forEach((task) => {
-      if (!task.createdAt) return
-      if (task.status === 'assigned') {
-        entries.push({
-          id: `assigned-${task.id}`,
-          kind: 'assigned',
-          project: task.projectName,
-          title: task.title,
-          status: 'Assigned',
-          timestamp: task.createdAt,
-          detail: task.description || 'Task assigned to you by admin.',
-        })
-        return
-      }
-      if (task.status === 'pending_review') {
-        if (task.timesheetId && sessionsAwaitingApproval.has(task.timesheetId)) return
-        entries.push({
-          id: `pending-${task.id}`,
-          kind: 'pending',
-          project: task.projectName,
-          title: task.title,
-          status: 'Waiting for approval',
-          timestamp: task.updatedAt || task.createdAt,
-          detail: 'Task submitted. Waiting for admin approval.',
-        })
-        return
-      }
-      if (task.status === 'completed') {
-        const linked = task.timesheetId
-          ? filtered.find((s) => s.id === task.timesheetId && isSessionApprovedByAdmin(s))
-          : null
-        if (linked && shouldShowSeparateApprovalEntry(linked)) return
-        if (linked) return
-        entries.push({
-          id: `approved-task-${task.id}`,
-          kind: 'approved',
-          project: task.projectName,
-          title: 'Work approved by admin',
-          status: 'Approved by admin',
-          timestamp: task.updatedAt || task.createdAt,
-          detail: `Your work on ${task.projectName} has been approved by the admin.`,
-        })
-      }
-    })
-
-    filtered.forEach((session) => {
-      if (session.loginTime) {
-        entries.push({
-          id: `start-${session.id}`,
-          kind: 'start',
-          project: session.project,
-          title: session.task || 'Project work',
-          status: 'In Progress',
-          timestamp: session.loginTime,
-          detail: `Started work on ${session.project}.`,
-        })
-      }
-
-      if (session.logoutTime) {
-        const approved = isSessionApprovedByAdmin(session)
-        const separateApproval = shouldShowSeparateApprovalEntry(session)
-
-        entries.push({
-          id: `end-${session.id}`,
-          kind: session.taskStatus === 'Completed' ? 'complete' : 'stop',
-          project: session.project,
-          title: session.task || 'Project work',
-          status: separateApproval ? 'Waiting for approval' : getEmployeeSessionStatus(session),
-          timestamp: session.logoutTime,
-          detail: separateApproval
-            ? `Submitted for admin approval (${session.hours !== '—' ? session.hours : 0}h logged).`
-            : getEmployeeSessionEndDetail(session),
-        })
-
-        if (separateApproval) {
-          entries.push({
-            id: `approved-${session.id}`,
-            kind: 'approved',
-            project: session.project,
-            title: 'Work approved by admin',
-            status: 'Approved by admin',
-            timestamp: session.updatedAt,
-            detail: `Your work on ${session.project} has been approved by the admin (${session.hours !== '—' ? session.hours : 0}h logged).`,
-          })
-        }
-      }
-    })
-
-    if (attendance?.checkInTime) {
-      entries.push({
-        id: 'attendance-check-in',
-        kind: 'attendance-in',
-        project: 'Attendance',
-        title: 'Check in',
-        status: checkedIn ? 'In Progress' : 'Checked In',
-        timestamp: attendance.checkInTime,
-        detail: 'Workday started.',
-      })
-    }
-
-    if (attendance?.checkOutTime) {
-      const wasAutoCheckedOut = attendance.autoCheckedOut || attendance.sessionStatus === 'Auto Checked-Out'
-      entries.push({
-        id: 'attendance-check-out',
-        kind: wasAutoCheckedOut ? 'auto-checkout' : 'attendance-out',
-        project: 'Attendance',
-        title: wasAutoCheckedOut ? 'Auto Check-out' : 'Check out',
-        status: wasAutoCheckedOut ? 'Auto Checked-Out' : 'Completed',
-        timestamp: attendance.checkOutTime,
-        detail: wasAutoCheckedOut
-          ? 'System automatically checked you out because the session was not closed manually.'
-          : 'Workday ended.',
-      })
-    }
-
-    return entries
-      .filter((entry) => entry.timestamp)
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-  }, [assignedTasks, attendance, checkedIn, filtered])
+  const checkInElapsed =
+    checkedIn && checkInTime ? formatCheckInElapsed(checkInTime, liveNow) : null
 
   const weeklyHours = useMemo(() => {
     const byDay = {}
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-    sessions.forEach((s) => {
-      if (!s.loginTime || typeof s.hours !== 'number') return
-      const d = new Date(s.loginTime)
-      const key = days[d.getDay()]
-      byDay[key] = (byDay[key] || 0) + s.hours
+    const chartDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+    attendanceHistory.forEach((seg) => {
+      if (!isDateInRange(seg.date, weekRange.start, weekRange.end)) return
+      const key = getDayKey(new Date(`${seg.date}T12:00:00`))
+      byDay[key] = (byDay[key] || 0) + segmentHours(seg, checkedIn, liveNow)
     })
-    return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day) => ({
+
+    return chartDays.map((day) => ({
       day,
       hours: Math.round((byDay[day] || 0) * 10) / 10,
       target: 8,
     }))
-  }, [sessions])
+  }, [attendanceHistory, checkedIn, liveNow, weekRange])
 
   const totalWeekly = weeklyHours.reduce((a, b) => a + b.hours, 0)
-  const todayKey = new Date().toISOString().split('T')[0]
-  const sessionsToday = sessions.filter((s) => s.date === todayKey).length
+  const todayKey = formatDateKey(new Date())
+  const checkInsToday = attendanceHistory.filter((s) => s.date === todayKey).length
+
+  const unifiedHistory = useMemo(() => {
+    const entries = []
+
+    attendanceHistory
+      .filter((seg) => isDateInRange(seg.date, historyRange.start, historyRange.end))
+      .forEach((seg) => {
+        const hours = segmentHours(seg, checkedIn, liveNow)
+        entries.push({
+          id: `att-${seg.id}`,
+          sortAt: new Date(seg.checkInTime).getTime(),
+          date: seg.date,
+          project: 'Attendance',
+          start: formatTimeLabel(seg.checkInTime),
+          end: seg.checkOutTime
+            ? formatTimeLabel(seg.checkOutTime)
+            : checkedIn && !seg.checkOutTime
+              ? 'In progress'
+              : '—',
+          hours,
+          status: seg.autoCheckedOut ? 'Auto Checked-Out' : seg.sessionStatus || 'Completed',
+        })
+      })
+
+    sessions
+      .filter((s) => isDateInRange(s.date, historyRange.start, historyRange.end))
+      .forEach((s) => {
+        const loginMs = s.loginTime ? new Date(s.loginTime).getTime() : 0
+        let hours = '—'
+        if (typeof s.hours === 'number') {
+          hours = s.hours
+        } else if (!s.logoutTime && s.loginTime) {
+          hours = hoursFromMs(liveNow - loginMs)
+        }
+        entries.push({
+          id: `task-${s.id}`,
+          sortAt: loginMs,
+          date: s.date,
+          project: s.project || '—',
+          start: s.start,
+          end: s.end,
+          hours,
+          status: s.workflowStatus || s.taskStatus || s.status || '—',
+        })
+      })
+
+    return entries.sort((a, b) => b.sortAt - a.sortAt)
+  }, [attendanceHistory, sessions, historyRange, checkedIn, liveNow])
 
   if (!initialized && loading) {
     return (
@@ -495,33 +421,16 @@ export default function Timesheet() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-4">
-        <KPIStatCard title="Weekly Hours" value={`${totalWeekly}h`} icon={Timer} trend="From logged tasks" />
-        <KPIStatCard title="Sessions Today" value={String(sessionsToday)} icon={Play} />
-        <KPIStatCard
-          title="Assigned Tasks"
-          value={String(assignedTasks.length)}
-          icon={Timer}
-          trend={checkedIn ? 'Ready to work' : 'Check in first'}
-        />
-        <KPIStatCard
-          title="Session Status"
-          value={checkedIn ? (sessionStatus || 'Active') : 'Inactive'}
-          icon={Clock}
-          trend={
-            checkedIn && autoCheckoutInfo?.reminderSent
-              ? 'Reminder sent'
-              : checkedIn
-                ? 'Auto-checkout enabled'
-                : attendance?.autoCheckedOut
-                  ? 'Last: Auto checked-out'
-                  : 'Not checked in'
-          }
-        />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <KPIStatCard title="Weekly Hours" value={`${totalWeekly}h`} />
+        <KPIStatCard title="Check-ins Today" value={String(checkInsToday)} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-4 rounded-xl border border-border bg-card p-6 shadow-card lg:col-span-1">
+      <div className="grid gap-6 lg:grid-cols-3 lg:items-start">
+        <div
+          ref={checkInPanelRef}
+          className="space-y-4 rounded-xl border border-border bg-card p-6 shadow-card lg:col-span-1"
+        >
           <h3 className="font-heading text-lg font-semibold">Check In / Out</h3>
           <div className="flex gap-3">
             <Button onClick={onCheckIn} disabled={checkedIn || submitting} className="flex-1 gap-2">
@@ -536,10 +445,14 @@ export default function Timesheet() {
               <LogOut className="h-4 w-4" /> Check Out
             </Button>
           </div>
-          {checkedIn && checkInTime && (
-            <p className="text-sm text-primary">
-              Checked in at {checkInTime.toLocaleTimeString()}
-            </p>
+          {checkedIn && checkInTime && checkInElapsed && (
+            <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-center">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted">Checked in</p>
+              <p className="mt-1 font-mono text-3xl font-bold tabular-nums text-primary">{checkInElapsed}</p>
+              <p className="mt-1 text-xs text-muted">
+                Since {checkInTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
           )}
           {!checkedIn && !attendance?.autoCheckedOut && (
             <p className="text-xs text-muted">Check in before starting a task.</p>
@@ -556,59 +469,68 @@ export default function Timesheet() {
             </div>
           )}
 
-          {checkedIn && autoCheckoutInfo && (
-            <div className="mt-3 space-y-2">
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-                <div className="flex items-center gap-2 text-emerald-700 text-xs font-semibold uppercase tracking-wide">
-                  <Clock className="h-3.5 w-3.5" />
-                  Session Status
-                </div>
-                <div className="mt-2 space-y-1.5 text-sm">
-                  {autoCheckoutInfo.expectedCheckoutTime && (
-                    <div className="flex justify-between text-emerald-800">
-                      <span className="text-muted text-xs">Reminder at</span>
-                      <span className="font-medium text-xs">{new Date(autoCheckoutInfo.expectedCheckoutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                  )}
-                  {autoCheckoutInfo.autoCheckoutTime && (
-                    <div className="flex justify-between text-emerald-800">
-                      <span className="text-muted text-xs">Auto checkout at</span>
-                      <span className="font-medium text-xs">{new Date(autoCheckoutInfo.autoCheckoutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                  )}
-                  {autoCheckoutCountdown && (
-                    <div className="flex justify-between text-emerald-800">
-                      <span className="text-muted text-xs">Time remaining</span>
-                      <span className="font-mono font-semibold text-xs">{autoCheckoutCountdown}</span>
-                    </div>
-                  )}
-                </div>
-                {autoCheckoutInfo.reminderSent && (
-                  <div className="mt-2 flex items-center gap-1.5 text-amber-600 text-xs font-medium">
-                    <Bell className="h-3 w-3" />
-                    Reminder email sent
-                  </div>
+          {checkedIn && currentWorkTask && (
+            <div className="mt-3 rounded-lg border border-border bg-slate-50 p-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted">Current project</p>
+              <p className="mt-1 font-heading text-sm font-semibold text-foreground">{currentWorkTask.project}</p>
+              <p className="text-xs text-muted">{currentWorkTask.taskTitle}</p>
+              {activeTask && (
+                <p className="mt-1 text-xs text-primary">Elapsed {elapsed}</p>
+              )}
+              {pausedTasks[0] && !activeTask && (
+                <p className="mt-1 text-xs text-amber-700 font-medium">
+                  Paused · {formatDuration(pausedTasks[0].startedAt, pausedTasks[0].pausedAt, pausedTasks[0].totalPausedMs)}
+                </p>
+              )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {activeTask ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => onPauseTask(activeTask.timesheetId)}
+                    disabled={submitting}
+                    className="flex-1 gap-2"
+                  >
+                    <Pause className="h-4 w-4" /> Pause
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={() => onResumeTask(pausedTasks[0].timesheetId)}
+                    disabled={submitting}
+                    className="flex-1 gap-2"
+                  >
+                    <Play className="h-4 w-4" /> Resume
+                  </Button>
                 )}
+                <Button
+                  type="button"
+                  onClick={() => openCompleteDialog(currentWorkTask)}
+                  disabled={submitting}
+                  className="flex-1 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white hover:text-white"
+                >
+                  <CheckCircle2 className="h-4 w-4" /> Complete
+                </Button>
               </div>
             </div>
           )}
 
           <hr className="my-4 border-border" />
-          <h4 className="font-heading font-semibold">Start New Task</h4>
+          <h4 className="font-heading font-semibold">Start New Project</h4>
           <form onSubmit={handleSubmit(onStartTask)} className="mt-3 space-y-3">
             <div>
-              <Label>Assigned Task</Label>
+              <Label>Assigned Project</Label>
               <Select
                 value={selectedTaskId}
                 onValueChange={(v) => setValue('assignedTaskId', v, { shouldValidate: true })}
-                disabled={!checkedIn || !!activeTask || startableTasks.length === 0}
+                disabled={!checkedIn || hasOpenWorkTask || startableTasks.length === 0}
               >
                 <SelectTrigger className="mt-1">
                   <SelectValue
                     placeholder={
                       startableTasks.length === 0
-                        ? 'No tasks assigned — contact admin'
-                        : 'Select assigned task'
+                        ? 'No projects assigned — contact admin'
+                        : 'Select assigned project'
                     }
                   />
                 </SelectTrigger>
@@ -633,7 +555,7 @@ export default function Timesheet() {
                 className="mt-1"
                 {...register('description')}
                 placeholder="What are you working on?"
-                disabled={!checkedIn || !!activeTask}
+                disabled={!checkedIn || hasOpenWorkTask}
               />
               {errors.description && (
                 <p className="mt-1 text-xs text-danger">{errors.description.message}</p>
@@ -641,172 +563,115 @@ export default function Timesheet() {
             </div>
             <Button
               type="submit"
-              disabled={submitting || !!activeTask || !checkedIn || startableTasks.length === 0}
+              disabled={submitting || hasOpenWorkTask || !checkedIn || startableTasks.length === 0}
               className="w-full gap-2"
             >
-              <Play className="h-4 w-4" /> Start Task
+              <Play className="h-4 w-4" /> Start Project
             </Button>
           </form>
         </div>
 
         <div className="rounded-xl border border-border bg-card p-6 shadow-card lg:col-span-2">
-          {activeTask ? (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl bg-primary/5 p-4">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="text-sm text-muted">Running Task</p>
-                  <p className="font-heading font-semibold">{activeTask.project}</p>
-                  <p className="text-sm font-medium text-foreground">{activeTask.taskTitle}</p>
-                  <p className="mt-1 text-xs text-muted">{activeTask.description}</p>
-                  <p className="mt-2 text-sm text-primary">
-                    Started {activeTask.startedAt.toLocaleString()} · Elapsed {elapsed}
-                  </p>
-                  {activeTask.workflowStatus && (
-                    <p className="mt-1 text-xs font-medium text-amber-700">
-                      Status: {activeTask.workflowStatus}
-                    </p>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-2 shrink-0">
-                  <Button variant="outline" onClick={() => onPauseTask(activeTask.timesheetId)} disabled={submitting} className="gap-2">
-                    <Pause className="h-4 w-4" /> Pause
-                  </Button>
-                  <Button
-                    onClick={() => onCompleteTask(activeTask.timesheetId)}
-                    disabled={submitting}
-                    className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white hover:text-white"
-                  >
-                    <CheckCircle2 className="h-4 w-4" /> Complete
-                  </Button>
-                  <Button variant="danger" onClick={() => onStopTask(activeTask.timesheetId)} disabled={submitting} className="gap-2">
-                    <Square className="h-4 w-4" /> Stop
-                  </Button>
-                </div>
-              </div>
-            </motion.div>
-          ) : (
-            <p className="text-muted">
-              No running task. Check in, pick an assigned task from the left, add a description, and start tracking, or resume a paused task below.
-            </p>
-          )}
-
-          {pausedTasks.length > 0 && (
-            <div className="mt-6 border-t border-border pt-6">
-              <h4 className="font-heading font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Pause className="h-4 w-4 text-primary" /> Paused Tasks ({pausedTasks.length})
-              </h4>
-              <div className="space-y-4">
-                {pausedTasks.map((task) => (
-                  <div key={task.timesheetId} className="rounded-xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <p className="font-heading font-semibold text-base">{task.project}</p>
-                        <p className="text-sm font-medium text-foreground">{task.taskTitle}</p>
-                        <p className="mt-1 text-xs text-muted">{task.description}</p>
-                        <p className="mt-2 text-xs text-primary/80 font-medium">
-                          Started {task.startedAt.toLocaleString()} · Elapsed {formatDuration(task.startedAt, task.pausedAt, task.totalPausedMs)}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2 shrink-0 sm:self-center">
-                        <Button onClick={() => onResumeTask(task.timesheetId)} disabled={submitting} size="sm" className="gap-1.5 h-9 px-3">
-                          <Play className="h-3.5 w-3.5" /> Resume
-                        </Button>
-                        <Button
-                          onClick={() => onCompleteTask(task.timesheetId)}
-                          disabled={submitting}
-                          size="sm"
-                          className="gap-1.5 h-9 px-3 bg-emerald-600 hover:bg-emerald-700 text-white hover:text-white"
-                        >
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Complete
-                        </Button>
-                        <Button variant="danger" onClick={() => onStopTask(task.timesheetId)} disabled={submitting} size="sm" className="gap-1.5 h-9 px-3">
-                          <Square className="h-3.5 w-3.5" /> Stop
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="mt-6 h-64">
-            <h4 className="mb-4 font-heading font-semibold">Weekly Hours</h4>
+          <h4 className="mb-4 font-heading text-lg font-semibold">Weekly Hours</h4>
+          <div className="w-full" style={{ height: chartHeight }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weeklyHours}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="day" />
-                <YAxis />
+              <BarChart
+                data={weeklyHours}
+                margin={{ top: 12, right: 24, left: 4, bottom: 8 }}
+                barCategoryGap="20%"
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                <XAxis dataKey="day" tick={{ fontSize: 13 }} axisLine={false} tickLine={false} />
+                <YAxis
+                  width={44}
+                  tick={{ fontSize: 13 }}
+                  axisLine={false}
+                  tickLine={false}
+                  allowDecimals={false}
+                />
                 <Tooltip />
-                <Bar dataKey="hours" fill="#16a34a" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="hours" fill="#16a34a" radius={[6, 6, 0, 0]} maxBarSize={56} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
       </div>
 
-      <div>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h3 className="font-heading text-lg font-semibold">Work Sessions</h3>
-          <Input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="w-auto" />
+      <div className="space-y-4">
+        <div className="flex flex-col items-start gap-3">
+          <h3 className="font-heading text-lg font-semibold">Work History</h3>
+          <DateRangePicker
+            startDate={historyStart}
+            endDate={historyEnd}
+            preset={historyPreset}
+            onChange={(start, end, preset) => {
+              setHistoryStart(start)
+              setHistoryEnd(end)
+              setHistoryPreset(preset)
+            }}
+          />
         </div>
-        <DataTable columns={sessionColumns} data={filtered} />
+
+        <DataTable columns={historyColumns} data={unifiedHistory} statusKey="status" />
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-6 shadow-card">
-        <div className="flex items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <History className="h-5 w-5" />
-          </div>
+      <Dialog
+        open={completeDialogOpen}
+        onOpenChange={(open) => {
+          setCompleteDialogOpen(open)
+          if (!open) {
+            setCompleteTarget(null)
+            setCompletionSummary('')
+            setCompletionError('')
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Complete project work</DialogTitle>
+            <DialogDescription>
+              Update the work description to summarize what you completed. It cannot stay the same as when you started.
+            </DialogDescription>
+          </DialogHeader>
+          {completeTarget && (
+            <p className="text-sm font-medium text-foreground">{completeTarget.project}</p>
+          )}
           <div>
-            <h3 className="font-heading text-lg font-semibold">Project Activity Timeline</h3>
-            <p className="text-sm text-muted">Real-time project, task, and attendance events with timestamps</p>
+            <Label htmlFor="completion-summary">Completion summary</Label>
+            <Textarea
+              id="completion-summary"
+              className="mt-1.5 min-h-[120px]"
+              value={completionSummary}
+              onChange={(e) => {
+                setCompletionSummary(e.target.value)
+                if (completionError) setCompletionError('')
+              }}
+              placeholder="Describe what you finished on this project…"
+            />
+            {completionError && (
+              <p className="mt-1.5 text-xs text-danger">{completionError}</p>
+            )}
           </div>
-        </div>
-
-        {projectTimeline.length === 0 ? (
-          <p className="mt-5 rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
-            No project activity yet.
-          </p>
-        ) : (
-          <div className="mt-5 space-y-3">
-            {projectTimeline.map((entry) => (
-              <div key={entry.id} className="flex gap-3 rounded-xl border border-border bg-white p-4 shadow-sm">
-                <div className="mt-1 flex flex-col items-center">
-                  <Circle
-                    className={`h-3 w-3 ${
-                      entry.kind === 'stop' ||
-                      entry.kind === 'complete' ||
-                      entry.kind === 'approved' ||
-                      entry.kind === 'attendance-out' ||
-                      entry.status === 'Completed' ||
-                      entry.status === 'Approved by admin'
-                        ? 'text-emerald-500'
-                        : entry.status === 'Waiting for approval'
-                          ? 'text-sky-500'
-                          : 'text-primary'
-                    }`}
-                  />
-                  <div className="mt-1 h-full w-px flex-1 bg-border" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <p className="font-heading text-sm font-semibold text-ink">{entry.project}</p>
-                      <p className="text-xs text-muted">{entry.title}</p>
-                    </div>
-                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${getTimelineBadgeClass(entry.status)}`}>
-                      {entry.status}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-sm text-muted">{entry.detail}</p>
-                  <p className="mt-1 text-[11px] font-medium text-muted">{formatTimelineTime(entry.timestamp)}</p>
-                </div>
-              </div>
-            ))}
+          <div className="flex gap-2 justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={submitting}
+              onClick={() => setCompleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={submitting}
+              onClick={onCompleteProject}
+              className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white hover:text-white"
+            >
+              <CheckCircle2 className="h-4 w-4" /> Submit completion
+            </Button>
           </div>
-        )}
-      </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

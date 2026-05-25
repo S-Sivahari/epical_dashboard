@@ -13,6 +13,7 @@ router.get('/employee-hours', timesheetController.getEmployeeHours);
 
 router.get('/mine/assigned-tasks', employeeTimesheetController.getMyAssignedTasks);
 router.get('/mine/attendance', employeeTimesheetController.getMyAttendance);
+router.get('/mine/attendance-history', employeeTimesheetController.getMyAttendanceHistory);
 router.get('/mine/active', employeeTimesheetController.getMyActiveTask);
 router.get('/mine/sessions', employeeTimesheetController.getMySessions);
 router.get('/mine/session-status', employeeTimesheetController.getMySessionStatus);

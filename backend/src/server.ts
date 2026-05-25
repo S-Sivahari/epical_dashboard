@@ -30,6 +30,7 @@ import { getDB } from './config/db';
 
 // Scheduler
 import { initScheduler, stopScheduler } from './services/timesheetScheduler';
+import { ensureAttendanceIndexes } from './utils/ensureAttendanceIndexes';
 
 const app = express();
 
@@ -155,6 +156,7 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 export async function startServer() {
   try {
     await connectDB();
+    await ensureAttendanceIndexes();
     await initScheduler();
     app.listen(env.port, () => {
       console.log(`✓ Server running on http://localhost:${env.port}`);

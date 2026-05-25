@@ -10,13 +10,18 @@ export async function fetchMyAttendance() {
   return res.data
 }
 
+export async function fetchMyAttendanceHistory({ from, to } = {}) {
+  const res = await api.get('/timesheets/mine/attendance-history', { params: { from, to } })
+  return res.data
+}
+
 export async function fetchMyActiveTask() {
   const res = await api.get('/timesheets/mine/active')
   return res.data
 }
 
-export async function fetchMySessions() {
-  const res = await api.get('/timesheets/mine/sessions')
+export async function fetchMySessions({ from, to } = {}) {
+  const res = await api.get('/timesheets/mine/sessions', { params: { from, to } })
   return res.data
 }
 
@@ -50,8 +55,8 @@ export async function resumeActiveTask(timesheetId) {
   return res.data
 }
 
-export async function completeActiveTask(timesheetId) {
-  const res = await api.patch('/timesheets/mine/complete-task', { timesheetId })
+export async function completeActiveTask(timesheetId, description) {
+  const res = await api.patch('/timesheets/mine/complete-task', { timesheetId, description })
   return res.data
 }
 

@@ -1,7 +1,9 @@
 import { create } from 'zustand'
+import { formatDateKey, getHistoryLoadRange } from '@pages/employee/lib/dateFilters'
 import {
   fetchMyAssignedTasks,
   fetchMyAttendance,
+  fetchMyAttendanceHistory,
   fetchMyActiveTask,
   fetchMySessions,
   fetchSessionStatus,
@@ -81,15 +83,41 @@ export const useTimesheetStore = create((set, get) => ({
   sessionStatus: null,
   autoCheckoutInfo: null,
   autoCheckoutSettings: null,
+  attendanceHistory: [],
+
+  refreshAttendanceHistory: async ({ from, to } = {}) => {
+    try {
+      const range = from && to ? { from, to } : getHistoryLoadRange(2)
+      const records = await fetchMyAttendanceHistory(range)
+      set({ attendanceHistory: records })
+      return records
+    } catch (err) {
+      console.error('Failed to load attendance history', err)
+      return []
+    }
+  },
+
+  refreshSessionsForRange: async ({ from, to } = {}) => {
+    try {
+      const range = from && to ? { from, to } : getHistoryLoadRange(2)
+      const sessions = await fetchMySessions(range)
+      set({ sessions: sessions.map(mapSessionFromApi) })
+      return sessions
+    } catch (err) {
+      console.error('Failed to load sessions for range', err)
+      return []
+    }
+  },
 
   hydrate: async () => {
     set({ loading: true })
     try {
+      const historyRange = getHistoryLoadRange(2)
       const [attendance, activeRes, tasks, sessions, sessionStatusRes, settingsRes] = await Promise.all([
         fetchMyAttendance(),
         fetchMyActiveTask(),
         fetchMyAssignedTasks(),
-        fetchMySessions(),
+        fetchMySessions(historyRange),
         fetchSessionStatus().catch(() => null),
         fetchAutoCheckoutSettings().catch(() => null),
       ])
@@ -121,6 +149,10 @@ export const useTimesheetStore = create((set, get) => ({
         },
         autoCheckoutSettings: settingsRes || null,
       })
+      await Promise.all([
+        get().refreshAttendanceHistory(),
+        get().refreshSessionsForRange(),
+      ])
     } catch (err) {
       console.error('Failed to load timesheet state', err)
       set({ initialized: true })
@@ -130,12 +162,7 @@ export const useTimesheetStore = create((set, get) => ({
   },
 
   refreshSessions: async () => {
-    try {
-      const sessions = await fetchMySessions()
-      set({ sessions: sessions.map(mapSessionFromApi) })
-    } catch (err) {
-      console.error(err)
-    }
+    await get().refreshSessionsForRange()
   },
 
   refreshAssignedTasks: async () => {
@@ -183,6 +210,7 @@ export const useTimesheetStore = create((set, get) => ({
         autoCheckoutEnabled: true,
       },
     })
+    await Promise.all([get().refreshAttendanceHistory(), get().refreshSessionsForRange()])
     return data
   },
 
@@ -200,8 +228,8 @@ export const useTimesheetStore = create((set, get) => ({
         autoCheckoutInfo: null,
       }))
     }
-    await get().refreshSessions()
     await get().refreshAssignedTasks()
+    await Promise.all([get().refreshAttendanceHistory(), get().refreshSessionsForRange()])
   },
 
   startTask: async ({ assignedTaskId, description }) => {
@@ -233,8 +261,8 @@ export const useTimesheetStore = create((set, get) => ({
     return data
   },
 
-  completeTask: async (timesheetId) => {
-    const data = await apiCompleteActiveTask(timesheetId)
+  completeTask: async (timesheetId, description) => {
+    const data = await apiCompleteActiveTask(timesheetId, description)
     await get().refreshActiveTask()
     await get().refreshSessions()
     await get().refreshAssignedTasks()

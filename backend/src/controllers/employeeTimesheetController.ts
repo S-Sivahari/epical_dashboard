@@ -24,6 +24,32 @@ function todayDateKey(): string {
   return new Date().toISOString().split('T')[0];
 }
 
+function computeAttendanceHours(checkInTime: Date, checkOutTime?: Date | null, now = new Date()): number {
+  const end = checkOutTime ?? now;
+  const diffMs = end.getTime() - checkInTime.getTime();
+  if (diffMs <= 0) return 0;
+  return Math.round((diffMs / (1000 * 60 * 60)) * 10) / 10;
+}
+
+function toFrontendAttendance(a: {
+  _id: Types.ObjectId;
+  date: string;
+  checkInTime: Date;
+  checkOutTime?: Date | null;
+  sessionStatus?: string;
+  autoCheckedOut?: boolean;
+}) {
+  return {
+    id: a._id.toString(),
+    date: a.date,
+    checkInTime: a.checkInTime.toISOString(),
+    checkOutTime: a.checkOutTime ? a.checkOutTime.toISOString() : null,
+    hours: computeAttendanceHours(a.checkInTime, a.checkOutTime ?? null),
+    sessionStatus: a.sessionStatus ?? 'Active',
+    autoCheckedOut: a.autoCheckedOut ?? false,
+  };
+}
+
 function computeTotalHours(
   loginTime: Date,
   logoutTime?: Date,
@@ -243,19 +269,23 @@ export const employeeTimesheetController = {
       }
 
       const date = todayDateKey();
-      const attendance = await EmployeeAttendanceModel.findOne({ employeeId: employee.id }).sort({ checkInTime: -1 });
+      const openAttendance = await requireOpenAttendance(employee.id);
+      const latestAttendance = await EmployeeAttendanceModel.findOne({ employeeId: employee.id }).sort({
+        checkInTime: -1,
+      });
+      const attendance = openAttendance ?? latestAttendance;
 
       res.json({
-        checkedIn: !!(attendance && !attendance.checkOutTime),
-        checkInTime: attendance?.checkInTime?.toISOString() ?? null,
+        checkedIn: !!openAttendance,
+        checkInTime: openAttendance?.checkInTime?.toISOString() ?? null,
         checkOutTime: attendance?.checkOutTime?.toISOString() ?? null,
-        date: attendance?.date ?? date,
-        sessionStatus: attendance?.sessionStatus ?? null,
-        reminderSent: attendance?.reminderSent ?? false,
+        date: openAttendance?.date ?? attendance?.date ?? date,
+        sessionStatus: openAttendance?.sessionStatus ?? attendance?.sessionStatus ?? null,
+        reminderSent: openAttendance?.reminderSent ?? attendance?.reminderSent ?? false,
         autoCheckedOut: attendance?.autoCheckedOut ?? false,
-        expectedCheckoutTime: attendance?.expectedCheckoutTime?.toISOString() ?? null,
-        autoCheckoutTime: attendance?.autoCheckoutTime?.toISOString() ?? null,
-        autoCheckoutEnabled: attendance?.autoCheckoutEnabled ?? true,
+        expectedCheckoutTime: openAttendance?.expectedCheckoutTime?.toISOString() ?? null,
+        autoCheckoutTime: openAttendance?.autoCheckoutTime?.toISOString() ?? null,
+        autoCheckoutEnabled: openAttendance?.autoCheckoutEnabled ?? attendance?.autoCheckoutEnabled ?? true,
       });
     } catch (error) {
       console.error('Error fetching attendance:', error);
@@ -318,6 +348,35 @@ export const employeeTimesheetController = {
     }
   },
 
+  getMyAttendanceHistory: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const employee = await resolveEmployee(req);
+      if (!employee) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const { from, to } = req.query;
+      const match: Record<string, unknown> = { employeeId: employee.id };
+
+      if (from || to) {
+        const dateFilter: Record<string, string> = {};
+        if (typeof from === 'string' && from) dateFilter.$gte = from;
+        if (typeof to === 'string' && to) dateFilter.$lte = to;
+        if (Object.keys(dateFilter).length > 0) {
+          match.date = dateFilter;
+        }
+      }
+
+      const records = await EmployeeAttendanceModel.find(match).sort({ checkInTime: -1 });
+
+      res.json(records.map((r) => toFrontendAttendance(r)));
+    } catch (error) {
+      console.error('Error fetching attendance history:', error);
+      res.status(500).json({ error: 'Failed to fetch attendance history' });
+    }
+  },
+
   getMySessions: async (req: Request, res: Response): Promise<void> => {
     try {
       const employee = await resolveEmployee(req);
@@ -326,14 +385,24 @@ export const employeeTimesheetController = {
         return;
       }
 
-      const logs = await TimesheetModel.find({
+      const { from, to } = req.query;
+      const match: Record<string, unknown> = {
         $or: [
           { employeeId: { $in: employee.identityTokens } },
           { employee: { $in: employee.identityTokens } },
         ],
-      })
-        .sort({ loginTime: -1 })
-        .limit(100);
+      };
+
+      if (from || to) {
+        const dateFilter: Record<string, string> = {};
+        if (typeof from === 'string' && from) dateFilter.$gte = from;
+        if (typeof to === 'string' && to) dateFilter.$lte = to;
+        if (Object.keys(dateFilter).length > 0) {
+          match.date = dateFilter;
+        }
+      }
+
+      const logs = await TimesheetModel.find(match).sort({ loginTime: -1 });
 
       res.json(logs.map(toFrontendTimesheet));
     } catch (error) {
@@ -351,7 +420,7 @@ export const employeeTimesheetController = {
       }
 
       const date = todayDateKey();
-      const existing = await EmployeeAttendanceModel.findOne({ employeeId: employee.id, date });
+      const openAttendance = await requireOpenAttendance(employee.id);
 
       const settings = await getAutoCheckoutSettings();
       const now = new Date();
@@ -371,40 +440,18 @@ export const employeeTimesheetController = {
         return d;
       };
 
-      if (existing) {
-        if (!existing.checkOutTime) {
-          res.json({
-            checkedIn: true,
-            checkInTime: existing.checkInTime.toISOString(),
-            message: 'Already checked in',
-            sessionStatus: existing.sessionStatus,
-            reminderSent: existing.reminderSent,
-            autoCheckedOut: existing.autoCheckedOut,
-            expectedCheckoutTime: existing.expectedCheckoutTime?.toISOString() ?? null,
-            autoCheckoutTime: existing.autoCheckoutTime?.toISOString() ?? null,
-          });
-          return;
-        } else {
-          existing.checkOutTime = undefined;
-          existing.checkInTime = now;
-          existing.sessionStatus = 'Active';
-          existing.reminderSent = false;
-          existing.autoCheckedOut = false;
-          existing.autoCheckoutEnabled = true;
-          existing.employeeEmail = employee.email;
-          existing.expectedCheckoutTime = buildExpectedCheckout();
-          existing.autoCheckoutTime = buildAutoCheckout();
-          await existing.save();
-          res.json({
-            checkedIn: true,
-            checkInTime: existing.checkInTime.toISOString(),
-            message: 'Resumed attendance session',
-            sessionStatus: existing.sessionStatus,
-            expectedCheckoutTime: existing.expectedCheckoutTime?.toISOString() ?? null,
-            autoCheckoutTime: existing.autoCheckoutTime?.toISOString() ?? null,
-          });
-          return;
-        }
+      if (openAttendance) {
+        res.json({
+          checkedIn: true,
+          checkInTime: openAttendance.checkInTime.toISOString(),
+          message: 'Already checked in',
+          sessionStatus: openAttendance.sessionStatus,
+          reminderSent: openAttendance.reminderSent,
+          autoCheckedOut: openAttendance.autoCheckedOut,
+          expectedCheckoutTime: openAttendance.expectedCheckoutTime?.toISOString() ?? null,
+          autoCheckoutTime: openAttendance.autoCheckoutTime?.toISOString() ?? null,
+        });
+        return;
       }
 
       const attendance = await EmployeeAttendanceModel.create({
@@ -428,8 +475,16 @@ export const employeeTimesheetController = {
         expectedCheckoutTime: attendance.expectedCheckoutTime?.toISOString() ?? null,
         autoCheckoutTime: attendance.autoCheckoutTime?.toISOString() ?? null,
       });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error checking in:', error);
+      const mongoCode = (error as { code?: number })?.code;
+      if (mongoCode === 11000) {
+        res.status(409).json({
+          error:
+            'Cannot start a new check-in yet. Ask an admin to update the attendance database index, or try again after the server restarts.',
+        });
+        return;
+      }
       res.status(500).json({ error: 'Failed to check in' });
     }
   },
@@ -812,13 +867,29 @@ export const employeeTimesheetController = {
         return;
       }
 
-      const { timesheetId } = req.body;
+      const { timesheetId, description } = req.body;
       const openLog = timesheetId
         ? await findTimesheetByIdAndEmployee(timesheetId, employee)
         : await findOpenTimesheet(employee);
 
       if (!openLog) {
         res.status(400).json({ error: 'No active task to complete' });
+        return;
+      }
+
+      const completionSummary = typeof description === 'string' ? description.trim() : '';
+      if (completionSummary.length < 3) {
+        res.status(400).json({
+          error: 'Provide a completion summary (at least 3 characters) describing what you finished',
+        });
+        return;
+      }
+
+      const originalDescription = (openLog.task || '').trim();
+      if (completionSummary === originalDescription) {
+        res.status(400).json({
+          error: 'Update the work description to summarize what you completed before submitting',
+        });
         return;
       }
 
@@ -832,6 +903,7 @@ export const employeeTimesheetController = {
           }
 
           openLog.logoutTime = now;
+          openLog.task = completionSummary;
           openLog.totalHours = computeTotalHours(
             openLog.loginTime,
             openLog.logoutTime,
