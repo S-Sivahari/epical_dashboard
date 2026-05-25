@@ -17,6 +17,41 @@ function getHolidayCol(): Collection<any> {
   if (!holidayCollection) holidayCollection = getDB().collection('holidays');
   return holidayCollection;
 }
+function compensationCol(): Collection<any> {
+  return getDB().collection('compensation_entries');
+}
+
+/** Sum active compensation entry days credited in the calendar year toward Earned Leave for this employee */
+export async function getCompensationEarnedLeaveBonusForYear(
+  employeeDbId: string,
+  calendarYear = new Date().getFullYear()
+): Promise<number> {
+  const employeeCol = getDB().collection('employees');
+  const emp =
+    (await employeeCol.findOne({ id: employeeDbId })) ||
+    (await employeeCol.findOne({ employeeId: employeeDbId.trim().toUpperCase() }));
+
+  const ids: string[] = [employeeDbId];
+  if (emp?.employeeId) ids.push(String(emp.employeeId));
+
+  const col = compensationCol();
+  const entries = await col
+    .find({
+      status: 'Active',
+      employeeId: { $in: Array.from(new Set(ids)) },
+    })
+    .toArray();
+
+  const yPrefix = `${calendarYear}`;
+  let sum = 0;
+  for (const e of entries) {
+    const applied = String(e.appliedDate || '').slice(0, 4);
+    if (applied !== yPrefix) continue;
+    const d = Number(e.days);
+    if (!Number.isNaN(d)) sum += d;
+  }
+  return sum;
+}
 
 // ── Leave Requests ──────────────────────────────────────────────
 
@@ -65,7 +100,10 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
   // 3. Fetch employee balances to validate (pass joinedAt for accurate earned leave)
   const employeeLeaves = await getAllLeaves(payload.employeeId);
   const employeeDoc = await getDB().collection('employees').findOne({ id: payload.employeeId });
-  const balances = calculateBalances(employeeLeaves, employeeDoc?.joinedAt as string | undefined);
+  const compBonus = await getCompensationEarnedLeaveBonusForYear(payload.employeeId);
+  const balances = calculateBalances(employeeLeaves, employeeDoc?.joinedAt as string | undefined, {
+    compensationEarnedBonus: compBonus,
+  });
   
   const leaveBalance = balances[payload.type];
   if (leaveBalance && leaveBalance.remaining < requestedDays) {
@@ -118,7 +156,10 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
 export async function getLeaveBalances(employeeId: string) {
   const leaves = await getAllLeaves(employeeId);
   const employee = await getDB().collection('employees').findOne({ id: employeeId });
-  return calculateBalances(leaves, employee?.joinedAt as string | undefined);
+  const compBonus = await getCompensationEarnedLeaveBonusForYear(employeeId);
+  return calculateBalances(leaves, employee?.joinedAt as string | undefined, {
+    compensationEarnedBonus: compBonus,
+  });
 }
 
 export interface LeaveTypeBalanceSummary {
@@ -156,7 +197,11 @@ function isApprovedLeaveActiveOnDate(leave: LeaveRequest, dateStr: string): bool
 
 export async function getEmployeeLeaveSummary(employeeId: string): Promise<EmployeeLeaveSummary> {
   const leaves = await getAllLeaves(employeeId);
-  const balances = calculateBalances(leaves);
+  const employee = await getDB().collection('employees').findOne({ id: employeeId });
+  const compBonus = await getCompensationEarnedLeaveBonusForYear(employeeId);
+  const balances = calculateBalances(leaves, employee?.joinedAt as string | undefined, {
+    compensationEarnedBonus: compBonus,
+  });
   const currentYear = new Date().getFullYear().toString();
   const todayStr = getTodayDateString();
 
@@ -193,7 +238,7 @@ export async function getEmployeeLeaveSummary(employeeId: string): Promise<Emplo
     employeeName,
     balances: balanceList,
     currentLeaves,
-    history: leaves,
+    history: leaves.filter((l) => l.status !== 'Cancelled'),
   };
 }
 
@@ -213,7 +258,10 @@ export async function updateLeaveStatus(
     // Fetch employee leaves to calculate current balance
     const employeeLeaves = await getAllLeaves(leave.employeeId);
     const employeeDoc = await getDB().collection('employees').findOne({ id: leave.employeeId });
-    const balances = calculateBalances(employeeLeaves, employeeDoc?.joinedAt as string | undefined);
+    const compBonus = await getCompensationEarnedLeaveBonusForYear(leave.employeeId);
+    const balances = calculateBalances(employeeLeaves, employeeDoc?.joinedAt as string | undefined, {
+      compensationEarnedBonus: compBonus,
+    });
 
     const leaveBalance = balances[leave.type];
     if (leaveBalance && leaveBalance.remaining < leave.days) {

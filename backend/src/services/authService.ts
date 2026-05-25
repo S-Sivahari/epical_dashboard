@@ -22,6 +22,19 @@ export async function loginUser(
 
   let user = await col.findOne({ email: normalizedEmail });
 
+  if (user && user.role === 'Employee') {
+    const employeeCol = getDB().collection('employees');
+    const emp = await employeeCol.findOne({ id: user.id });
+    const personal = emp?.personalEmail ? String(emp.personalEmail).toLowerCase().trim() : '';
+    const companySet = emp?.email && String(emp.email).trim() !== '';
+    if (companySet && personal && normalizedEmail === personal) {
+      throw Object.assign(
+        new Error('Your company email has been set. Please sign in using your company email.'),
+        { status: 401 }
+      );
+    }
+  }
+
   // Personal email fallback: if no user found with the given email,
   // check if an employee has this as their personalEmail.
   if (!user) {

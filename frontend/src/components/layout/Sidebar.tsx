@@ -50,7 +50,7 @@ const groups: {
         { to: ROUTES.TRAINING, label: 'Training & Courses', icon: BookOpen },
         { to: ROUTES.ACHIEVEMENTS, label: 'Company achievements', icon: Trophy },
         { to: ROUTES.ANALYTICS, label: 'Analytics', icon: BarChart3 },
-        { to: ROUTES.DOCUMENTS, label: 'Documents', icon: FileText },
+        { to: ROUTES.DOCUMENTS, label: 'Documents Request', icon: FileText },
         { to: ROUTES.NEWS, label: 'Manage News', icon: Newspaper },
         { to: ROUTES.TICKETS, label: 'Tickets', icon: Ticket },
       ],

@@ -27,7 +27,7 @@ const excelUpload = multer({
   },
 })
 
-const adminOnly = [authMiddleware, requireRole('admin')] as const
+const adminOnly = [authMiddleware, requireRole('Admin')] as const
 
 // Employee dashboard payslips (authenticated)
 payslipRoutes.get('/my-payslips', authMiddleware, payslipController.getMyPayslips)

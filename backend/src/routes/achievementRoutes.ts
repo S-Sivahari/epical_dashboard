@@ -22,7 +22,7 @@ const imageUpload = multer({
 })
 
 const authenticated = [authMiddleware]
-const adminMutate = [authMiddleware, requireRole('admin')]
+const adminMutate = [authMiddleware, requireRole('Admin')]
 
 // Readable by any logged-in user (admin or employee)
 achievementRoutes.get('/company-achievements/page', ...authenticated, achievementController.getPageMeta)

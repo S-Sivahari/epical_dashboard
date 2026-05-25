@@ -71,13 +71,11 @@ export function LeaveManagementContainer() {
           : undefined,
       }
     }
-    if (activeTab === 'calendar') {
-      return { ...base, status: 'Approved', view: 'Company Calendar' }
-    }
     return { ...base, search: compensationSearch || undefined }
   }, [activeTab, leaveFilters, compensationSearch])
 
   const handleExport = async (format: 'pdf' | 'excel') => {
+    if (activeTab === 'calendar') return
     const filename = buildExportFilename(activeTab)
     const generatedBy = user?.name || 'Admin'
 
@@ -95,21 +93,6 @@ export function LeaveManagementContainer() {
           exportLeavesToExcel(filteredLeaveRequests, filename, exportFilterMeta, generatedBy)
         }
         toast.success(`Exported ${filteredLeaveRequests.length} leave request(s)`)
-        return
-      }
-
-      if (activeTab === 'calendar') {
-        const approvedLeaves = leaves.filter((l) => l.status === 'Approved')
-        if (!approvedLeaves.length) {
-          toast.error('No approved leaves to export')
-          return
-        }
-        if (format === 'pdf') {
-          exportLeavesToPDF(approvedLeaves, filename, exportFilterMeta, generatedBy)
-        } else {
-          exportLeavesToExcel(approvedLeaves, filename, exportFilterMeta, generatedBy)
-        }
-        toast.success(`Exported ${approvedLeaves.length} approved leave(s)`)
         return
       }
 

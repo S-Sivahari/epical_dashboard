@@ -39,10 +39,7 @@ const ProjectManagement = lazy(async () => {
   const m = await import('@pages/admin/Projects/ProjectManagement')
   return { default: m.ProjectManagement }
 })
-const CompanyCalendar = lazy(async () => {
-  const m = await import('@pages/admin/Calendar/CompanyCalendar_merged')
-  return { default: m.CompanyCalendar }
-})
+const AdminCompanyCalendarPage = lazy(() => import('@pages/admin/Calendar/AdminCompanyCalendarPage'))
 const TrainingCourses = lazy(async () => {
   const m = await import('@pages/admin/Training/TrainingCourses')
   return { default: m.TrainingCourses }
@@ -120,7 +117,7 @@ export function AppRoutes() {
             </Route>
             <Route path="leaves" element={<LeaveManagementDashboard />} />
             <Route path="projects" element={<ProjectManagement />} />
-            <Route path="calendar" element={<CompanyCalendar />} />
+            <Route path="calendar" element={<AdminCompanyCalendarPage />} />
             <Route path="training" element={<TrainingCourses />} />
             <Route path="achievements" element={<CompanyAchievements />} />
             <Route path="analytics" element={<Analytics />} />

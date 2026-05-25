@@ -224,6 +224,20 @@ export async function updateEmployee(
 
   const existing = await getEmployeeById(id);
 
+  // Company email, once set on the employee profile, cannot be cleared
+  if (existing?.email && String(existing.email).trim() !== '') {
+    const cleared =
+      cleanPayload.email === '' ||
+      (typeof cleanPayload.email === 'string' && cleanPayload.email.trim() === '');
+    if (cleared) {
+      const err: any = new Error(
+        'Company email cannot be removed once it has been set. Use a valid company email address.'
+      );
+      err.code = 'COMPANY_EMAIL_REQUIRED';
+      throw err;
+    }
+  }
+
   // Duplicate company email check on update
   if (cleanPayload.email && cleanPayload.email.trim() !== '') {
     const normalizedNewEmail = cleanPayload.email.trim().toLowerCase();

@@ -112,6 +112,10 @@ export const employeeController = {
         res.status(409).json({ error: error.message });
         return;
       }
+      if (error?.code === 'COMPANY_EMAIL_REQUIRED') {
+        res.status(400).json({ error: error.message });
+        return;
+      }
       if (error?.code === 'VALIDATION_ERROR') {
         res.status(400).json({ error: error.message });
         return;
