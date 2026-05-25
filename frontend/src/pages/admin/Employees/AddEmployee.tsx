@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate } from 'react-router-dom'
-import { toast } from 'sonner'
 import { z } from 'zod'
 import { ExternalLink, X, HelpCircle } from 'lucide-react'
 import { Breadcrumb } from '@components/layout/Breadcrumb'
@@ -15,6 +14,7 @@ import { FileUpload } from '@components/forms/FileUpload'
 import { useEmployeeStore } from '@store/employeeStore'
 import type { Employee } from '@/types'
 import { uploadDocuments, uploadPhoto } from '@services/uploadService'
+import { checkEmployeeIdExists } from '@services/employeeService'
 
 const isValidDate = (value: string) => !Number.isNaN(Date.parse(value))
 
@@ -32,7 +32,7 @@ const step1 = z.object({
   gender: z.string().min(1, 'Gender is required'),
   phone: z.string().min(10, 'Enter a valid phone number'),
   personalEmail: z.string().email('Enter a valid personal email'),
-  companyEmail: z.string().min(1, 'Company email is required').email('Enter a valid company email'),
+  companyEmail: z.union([z.string().email('Enter a valid company email'), z.literal('')]).optional(),
 })
 
 const step2 = z.object({
@@ -49,7 +49,6 @@ const step3 = z.object({
     .min(1, 'Joining date is required')
     .refine(isValidDate, 'Enter a valid joining date'),
   employmentType: z.enum(['Full-time', 'Contract', 'Intern']),
-  department: z.string().optional(),
   role: z.enum(['Employee', 'Admin'], { required_error: 'Role is required' }),
   managerId: z.string().optional(),
   ctc: z.preprocess(
@@ -189,6 +188,9 @@ export function AddEmployee() {
   const [previewData, setPreviewData] = useState<FullValues | null>(null)
   const [showFileHelp, setShowFileHelp] = useState(false)
   const [copyAddressChecked, setCopyAddressChecked] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [employeeIdError, setEmployeeIdError] = useState<string | null>(null)
+  const idCheckDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     return () => {
@@ -205,6 +207,34 @@ export function AddEmployee() {
       })
     }
   }, [photoPreview, documentPreviews, certificatePreviews])
+
+  // Feature 2: Live-sync communication address when copy checkbox is checked
+  const permanentAddressValue = form.watch('permanentAddress')
+  useEffect(() => {
+    if (copyAddressChecked) {
+      form.setValue('communicationAddress', permanentAddressValue || '', { shouldValidate: true })
+    }
+  }, [permanentAddressValue, copyAddressChecked, form])
+
+  // Feature 1: Debounced employee ID uniqueness check
+  const handleEmployeeIdChange = useCallback(
+    (value: string) => {
+      setEmployeeIdError(null)
+      if (idCheckDebounceRef.current) clearTimeout(idCheckDebounceRef.current)
+      if (!value.trim()) return
+      idCheckDebounceRef.current = setTimeout(async () => {
+        try {
+          const exists = await checkEmployeeIdExists(value.trim())
+          if (exists) {
+            setEmployeeIdError('This Employee ID is already taken.')
+          }
+        } catch {
+          // ignore network errors silently
+        }
+      }, 500)
+    },
+    [],
+  )
 
   const handleDocumentUpload = (key: DocKey, files: FileList | null) => {
     const file = files?.[0] ?? null
@@ -310,6 +340,10 @@ export function AddEmployee() {
   }
 
   const onSubmit = form.handleSubmit(async (values) => {
+    if (employeeIdError) {
+      setSubmitError('Please fix the Employee ID error before continuing.')
+      return
+    }
     setPreviewData(values)
     setShowPreview(true)
   })
@@ -322,9 +356,9 @@ export function AddEmployee() {
       lastName: values.lastName.trim(),
       permanentAddress: values.permanentAddress,
       communicationAddress: values.communicationAddress,
-      department: values.department,
-      designation: values.role,
-      role: values.role,      managerId: values.managerId || undefined,      employmentType: values.employmentType,
+      role: values.role,
+      managerId: values.managerId || undefined,
+      employmentType: values.employmentType,
       joinedAt: values.joinedAt,
       status: 'Active',
       email: values.companyEmail || '',
@@ -361,7 +395,6 @@ export function AddEmployee() {
           await uploadDocuments(createdEmployee.id, uploadableDocuments)
         } catch (err) {
           console.error('Failed to upload documents:', err)
-          toast.warning('Employee created but some documents failed to upload')
         }
       }
 
@@ -371,15 +404,13 @@ export function AddEmployee() {
           await uploadPhoto(createdEmployee.id, photoFile)
         } catch (err) {
           console.error('Failed to upload photo:', err)
-          toast.warning('Employee created but photo failed to upload')
         }
       }
 
-      toast.success('Employee created successfully')
       navigate('/admin/employees')
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Could not create employee'
-      toast.error(msg)
+      setSubmitError(msg)
       setShowPreview(false)
     }
   }
@@ -405,8 +436,10 @@ export function AddEmployee() {
               <Input
                 label="Employee ID"
                 required
-                error={form.formState.errors.employeeId?.message}
-                {...form.register('employeeId')}
+                error={form.formState.errors.employeeId?.message ?? employeeIdError ?? undefined}
+                {...form.register('employeeId', {
+                  onChange: (e) => handleEmployeeIdChange(e.target.value),
+                })}
               />
               <Input
                 label="First name"
@@ -492,8 +525,7 @@ export function AddEmployee() {
                         const checked = e.target.checked
                         setCopyAddressChecked(checked)
                         if (checked) {
-                          const permanentAddr = form.getValues('permanentAddress')
-                          form.setValue('communicationAddress', permanentAddr)
+                          form.setValue('communicationAddress', form.getValues('permanentAddress') || '', { shouldValidate: true })
                         }
                       }}
                       className="h-4 w-4 rounded border-border cursor-pointer"
@@ -568,11 +600,6 @@ export function AddEmployee() {
                   { value: 'Intern', label: 'Intern' },
                 ]}
                 {...form.register('employmentType')}
-              />
-              <Input
-                label="Department"
-                error={form.formState.errors.department?.message}
-                {...form.register('department')}
               />
               <SelectField
                 label="Role"
@@ -884,11 +911,16 @@ export function AddEmployee() {
 
       {/* ── Fixed Bottom Action Bar ────────────────────────────────────────────────── */}
       <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-white p-4 shadow-lg">
-        <div className="mx-auto max-w-6xl flex justify-end gap-2">
+        <div className="mx-auto max-w-6xl flex items-center justify-end gap-2">
+          {submitError && (
+            <p className="flex-1 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5 mr-2">
+              {submitError}
+            </p>
+          )}
           <Button type="button" variant="ghost" onClick={() => navigate('/admin/employees')}>
             Cancel
           </Button>
-          <Button type="submit" form="add-employee-form" loading={form.formState.isSubmitting}>
+          <Button type="submit" form="add-employee-form" loading={form.formState.isSubmitting} onClick={() => setSubmitError(null)}>
             Create Employee
           </Button>
         </div>
@@ -928,10 +960,6 @@ export function AddEmployee() {
                   <div>
                     <p className="text-xs text-muted">Phone</p>
                     <p className="font-medium text-ink">{previewData.phone}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted">Department</p>
-                    <p className="font-medium text-ink">{previewData.department}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted">Role</p>

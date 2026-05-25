@@ -223,14 +223,14 @@ export function exportToPDF<T extends Record<string, any>>(
         `DATE OF BIRTH:\n${formatDateStr(e.dob)}`
       ],
       [
-        `DEPARTMENT:\n${e.department}`,
-        `DESIGNATION / ROLE:\n${e.designation || e.role}`,
-        `EMPLOYMENT TYPE:\n${e.employmentType}`
+        `ROLE:\n${e.role}`,
+        `EMPLOYMENT TYPE:\n${e.employmentType}`,
+        `JOINED AT:\n${formatDateStr(e.joinedAt)}`
       ],
       [
         `REPORTING MANAGER:\n${e.reportingManager || '—'}`,
-        `JOINED AT:\n${formatDateStr(e.joinedAt)}`,
-        `CTC (ANNUAL):\n${e.ctc ? `INR ${e.ctc.toLocaleString('en-IN')}` : '—'}`
+        `CTC (ANNUAL):\n${e.ctc ? `INR ${e.ctc.toLocaleString('en-IN')}` : '—'}`,
+        ''
       ],
       [
         `BANK NAME:\n${e.bankName || '—'}`,

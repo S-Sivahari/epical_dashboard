@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { toast } from 'sonner'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -35,7 +34,7 @@ const editSchema = z.object({
   gender: z.string().min(1, 'Gender is required'),
   phone: z.string().min(10, 'Enter a valid phone number'),
   personalEmail: z.string().email('Enter a valid personal email'),
-  companyEmail: z.string().min(1, 'Company email is required').email('Enter a valid company email'),
+  companyEmail: z.union([z.string().email('Enter a valid company email'), z.literal('')]).optional(),
   // Account
   bankName: z.string().optional(),
   accountNumber: z.string().optional(),
@@ -48,7 +47,6 @@ const editSchema = z.object({
     .min(1, 'Joining date is required')
     .refine(isValidDate, 'Enter a valid joining date'),
   employmentType: z.enum(['Full-time', 'Contract', 'Intern']),
-  department: z.string().min(1, 'Department is required'),
   role: z.string().min(1, 'Role is required'),
   ctc: z.preprocess(
     (v) => (v === '' || v === null || v === undefined ? undefined : Number(v)),
@@ -67,6 +65,78 @@ const editSchema = z.object({
 })
 
 type FormValues = z.infer<typeof editSchema>
+
+const emptyFormValues: FormValues = {
+  employeeId: '',
+  firstName: '',
+  middleName: '',
+  lastName: '',
+  permanentAddress: '',
+  communicationAddress: '',
+  dob: '',
+  gender: '',
+  phone: '',
+  personalEmail: '',
+  companyEmail: '',
+  bankName: '',
+  accountNumber: '',
+  ifsc: '',
+  uan: '',
+  pfEsi: 'on',
+  joinedAt: '',
+  employmentType: 'Full-time',
+  role: '',
+  aadhaar: '',
+  pan: '',
+  passport: '',
+  emergencyContactName: '',
+  emergencyContactPhone: '',
+  emergencyContactEmail: '',
+  emergencyContactRelation: '',
+  emergencyContactAddress: '',
+}
+
+function normalizePfEsi(value: unknown): 'on' | 'off' {
+  return value === 'off' ? 'off' : 'on'
+}
+
+function normalizeEmploymentType(value: unknown): FormValues['employmentType'] {
+  if (value === 'Full-time' || value === 'Contract' || value === 'Intern') return value
+  return 'Full-time'
+}
+
+function employeeToFormValues(e: Awaited<ReturnType<typeof employeeService.getEmployee>>): FormValues {
+  return {
+    employeeId: e.employeeId ?? '',
+    firstName: e.firstName ?? '',
+    middleName: e.middleName ?? '',
+    lastName: e.lastName ?? '',
+    permanentAddress: e.permanentAddress ?? e.address ?? '',
+    communicationAddress: e.communicationAddress ?? e.address ?? '',
+    dob: e.dob ?? '',
+    gender: e.gender ?? 'Male',
+    phone: e.phone ?? '',
+    personalEmail: e.personalEmail ?? '',
+    companyEmail: e.email ?? '',
+    bankName: e.bankName ?? '',
+    accountNumber: e.accountNumber ?? '',
+    ifsc: e.ifsc ?? '',
+    uan: e.uan ?? '',
+    pfEsi: normalizePfEsi(e.pfEsi),
+    joinedAt: e.joinedAt ?? '',
+    employmentType: normalizeEmploymentType(e.employmentType),
+    role: e.role ?? 'Employee',
+    ctc: e.ctc,
+    aadhaar: e.aadhaar ?? '',
+    pan: e.pan ?? '',
+    passport: e.passport ?? '',
+    emergencyContactName: e.emergencyContact?.name ?? '',
+    emergencyContactPhone: e.emergencyContact?.phone ?? '',
+    emergencyContactEmail: e.emergencyContact?.email ?? '',
+    emergencyContactRelation: e.emergencyContact?.relation ?? '',
+    emergencyContactAddress: e.emergencyContact?.address ?? '',
+  }
+}
 
 // ── Document types ────────────────────────────────────────────────────────────
 
@@ -213,6 +283,7 @@ export function EditEmployee() {
   const updateEmployee = useEmployeeStore((s) => s.updateEmployee)
 
   const [pageLoading, setPageLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [employeeName, setEmployeeName] = useState('')
   const [existingDocuments, setExistingDocuments] =
     useState<Record<DocKey, ExistingDocument | null>>({ ...EMPTY_DOCUMENTS })
@@ -249,66 +320,72 @@ export function EditEmployee() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [photoError, setPhotoError] = useState<string | null>(null)
   const [showFileHelp, setShowFileHelp] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [copyAddressChecked, setCopyAddressChecked] = useState(false)
 
   const form = useForm<FormValues>({
     resolver: zodResolver(editSchema),
+    defaultValues: emptyFormValues,
     mode: 'onTouched',
   })
+  const { reset } = form
 
   // Load existing employee data
   useEffect(() => {
+    if (!id) {
+      setLoadError('Employee not found.')
+      setPageLoading(false)
+      return
+    }
+
     let cancelled = false
+    setPageLoading(true)
+    setLoadError(null)
+
     void (async () => {
       try {
         const e = await employeeService.getEmployee(id)
-        const docs = await employeeService.getEmployeeDocuments(id)
         if (cancelled) return
+
         setEmployeeName(`${e.firstName} ${e.lastName ?? ''}`.trim())
-        setExistingDocuments(buildExistingDocuments(e, docs))
-        form.reset({
-          employeeId: e.employeeId ?? '',
-          firstName: e.firstName,
-          middleName: e.middleName ?? '',
-          lastName: e.lastName ?? '',
-          permanentAddress: e.permanentAddress ?? '',
-          communicationAddress: e.communicationAddress ?? '',
-          dob: e.dob ?? '',
-          gender: e.gender ?? 'Male',
-          phone: e.phone ?? '',
-          personalEmail: e.personalEmail ?? '',
-          companyEmail: e.email,
-          bankName: e.bankName ?? '',
-          accountNumber: e.accountNumber ?? '',
-          ifsc: e.ifsc ?? '',
-          uan: e.uan ?? '',
-          pfEsi: e.pfEsi ?? 'on',
-          joinedAt: e.joinedAt ?? '',
-          employmentType: e.employmentType ?? 'Full-time',
-          department: e.department,
-          role: e.role,
-          ctc: e.ctc,
-          aadhaar: e.aadhaar ?? '',
-          pan: e.pan ?? '',
-          passport: e.passport ?? '',
-          emergencyContactName: e.emergencyContact?.name ?? '',
-          emergencyContactPhone: e.emergencyContact?.phone ?? '',
-          emergencyContactEmail: e.emergencyContact?.email ?? '',
-          emergencyContactRelation: e.emergencyContact?.relation ?? '',
-          emergencyContactAddress: e.emergencyContact?.address ?? '',
-        })
-      } catch {
+        const formValues = employeeToFormValues(e)
+        reset(formValues)
+        setCopyAddressChecked(
+          formValues.permanentAddress.trim() !== '' &&
+            formValues.permanentAddress.trim() === formValues.communicationAddress.trim(),
+        )
+
+        // Load documents separately so a docs failure never blocks the form
+        try {
+          const docs = await employeeService.getEmployeeDocuments(id)
+          if (!cancelled) setExistingDocuments(buildExistingDocuments(e, docs))
+        } catch {
+          if (!cancelled) setExistingDocuments({ ...EMPTY_DOCUMENTS })
+        }
+      } catch (err) {
         if (!cancelled) {
-          toast.error('Employee not found')
-          navigate('/admin/employees')
+          const msg =
+            (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+            (err instanceof Error ? err.message : 'Could not load employee details.')
+          setLoadError(msg)
         }
       } finally {
         if (!cancelled) setPageLoading(false)
       }
     })()
+
     return () => {
       cancelled = true
     }
-  }, [form, id, navigate])
+  }, [id, reset])
+
+  // Live-sync communication address when copy checkbox is checked
+  const permanentAddressValue = form.watch('permanentAddress')
+  useEffect(() => {
+    if (copyAddressChecked) {
+      form.setValue('communicationAddress', permanentAddressValue || '', { shouldValidate: true })
+    }
+  }, [permanentAddressValue, copyAddressChecked, form])
 
   // Cleanup photo preview URL
   useEffect(() => {
@@ -389,15 +466,12 @@ export function EditEmployee() {
     const doc = existingDocuments[key]
     if (!doc) return
 
-    try {
-      await deleteDocument(id, doc.key)
-      setExistingDocuments((prev) => ({ ...prev, [key]: null }))
-      toast.success('Document deleted')
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.error ?? (err instanceof Error ? err.message : 'Could not delete document')
-      toast.error(msg)
-    }
+      try {
+        await deleteDocument(id, doc.key)
+        setExistingDocuments((prev) => ({ ...prev, [key]: null }))
+      } catch (err: any) {
+        console.error('Could not delete document:', err)
+      }
   }
 
   const handlePhotoUpload = (files: FileList | null) => {
@@ -435,9 +509,7 @@ export function EditEmployee() {
         email: values.companyEmail ?? '',
         uan: values.uan ?? '',
         pfEsi: values.pfEsi,
-        joinedAt: values.joinedAt,
         employmentType: values.employmentType,
-        department: values.department,
         role: values.role,
         ctc: values.ctc,
         aadhaar: values.aadhaar ?? '',
@@ -470,7 +542,6 @@ export function EditEmployee() {
           await uploadDocuments(id, docsToUpload)
         } catch (err) {
           console.error('Failed to upload documents:', err)
-          toast.warning('Employee updated but some documents failed to upload')
         }
       }
 
@@ -480,23 +551,38 @@ export function EditEmployee() {
           await uploadPhoto(id, photoFile)
         } catch (err) {
           console.error('Failed to upload photo:', err)
-          toast.warning('Employee updated but photo failed to upload')
         }
       }
 
-      toast.success('Employee updated successfully')
       navigate('/admin/employees')
     } catch (err: any) {
       const msg =
         err?.response?.data?.error ?? (err instanceof Error ? err.message : 'Update failed')
-      toast.error(msg)
+      setSubmitError(msg)
     }
   })
 
   if (pageLoading) {
     return (
       <PageWrapper>
-        <p className="text-sm text-muted">Loading…</p>
+        <p className="text-sm text-muted">Loading employee details…</p>
+      </PageWrapper>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <PageWrapper>
+        <PageHeader title="Edit Employee" />
+        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+          <p className="text-sm font-medium text-red-700">{loadError}</p>
+          <div className="mt-4 flex justify-center gap-3">
+            <Button variant="secondary" onClick={() => navigate('/admin/employees')}>
+              Back to Employees
+            </Button>
+            <Button onClick={() => window.location.reload()}>Retry</Button>
+          </div>
+        </div>
       </PageWrapper>
     )
   }
@@ -579,7 +665,6 @@ export function EditEmployee() {
               <Input
                 label="Company email"
                 type="email"
-                required
                 error={form.formState.errors.companyEmail?.message}
                 {...form.register('companyEmail')}
               />
@@ -595,12 +680,38 @@ export function EditEmployee() {
                   error={form.formState.errors.permanentAddress?.message}
                   {...form.register('permanentAddress')}
                 />
-                <Input
-                  label="Communication Address"
-                  required
-                  error={form.formState.errors.communicationAddress?.message}
-                  {...form.register('communicationAddress')}
-                />
+                <div className="flex items-end gap-3">
+                  <div className="flex-1">
+                    <Input
+                      label="Communication Address"
+                      required
+                      error={form.formState.errors.communicationAddress?.message}
+                      {...form.register('communicationAddress')}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 pb-2">
+                    <input
+                      type="checkbox"
+                      id="copyAddressEdit"
+                      checked={copyAddressChecked}
+                      onChange={(e) => {
+                        const checked = e.target.checked
+                        setCopyAddressChecked(checked)
+                        if (checked) {
+                          form.setValue(
+                            'communicationAddress',
+                            form.getValues('permanentAddress') || '',
+                            { shouldValidate: true },
+                          )
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-border cursor-pointer"
+                    />
+                    <label htmlFor="copyAddressEdit" className="text-sm text-muted cursor-pointer whitespace-nowrap">
+                      Copy permanent
+                    </label>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -649,6 +760,9 @@ export function EditEmployee() {
                 label="Joining date"
                 type="date"
                 required
+                readOnly
+                tabIndex={-1}
+                className="cursor-not-allowed bg-surface/60 text-muted"
                 error={form.formState.errors.joinedAt?.message}
                 {...form.register('joinedAt')}
               />
@@ -662,12 +776,6 @@ export function EditEmployee() {
                   { value: 'Intern', label: 'Intern' },
                 ]}
                 {...form.register('employmentType')}
-              />
-              <Input
-                label="Department"
-                required
-                error={form.formState.errors.department?.message}
-                {...form.register('department')}
               />
               <Input
                 label="Role"
@@ -1101,11 +1209,16 @@ export function EditEmployee() {
 
       {/* ── Fixed Bottom Action Bar ────────────────────────────────────────────────── */}
       <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-white p-4 shadow-lg">
-        <div className="mx-auto max-w-6xl flex justify-end gap-2">
+        <div className="mx-auto max-w-6xl flex items-center justify-end gap-2">
+          {submitError && (
+            <p className="flex-1 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5 mr-2">
+              {submitError}
+            </p>
+          )}
           <Button type="button" variant="ghost" onClick={() => navigate('/admin/employees')}>
             Cancel
           </Button>
-          <Button type="submit" form="edit-employee-form" loading={form.formState.isSubmitting}>
+          <Button type="submit" form="edit-employee-form" loading={form.formState.isSubmitting} onClick={() => setSubmitError(null)}>
             Save Changes
           </Button>
         </div>

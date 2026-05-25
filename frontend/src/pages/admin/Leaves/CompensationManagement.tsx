@@ -137,12 +137,6 @@ export function CompensationManagement({
     )
   }
 
-  const getEmpDisplayName = (emp: typeof employees[0]) => {
-    const name = `${emp.firstName} ${emp.lastName ?? ''}`.trim()
-    const id = emp.employeeId || emp.id || ''
-    return `${name} (${id})`
-  }
-
   const resetForm = () => {
     setEditingId(null)
     setSelectedEmployees([])
@@ -746,9 +740,10 @@ export function CompensationManagement({
         isOpen={deleteConfirmOpen}
         title="Delete Compensation Entry"
         description={`Permanently delete the ${entryToDelete?.days}-day compensation record for ${entryToDelete?.employeeName}? This cannot be undone.`}
-        confirmLabel="Delete"
+        confirmLabel={deleting ? 'Deleting...' : 'Delete'}
         danger
         onClose={() => {
+          if (deleting) return
           setDeleteConfirmOpen(false)
           setEntryToDelete(null)
         }}

@@ -9,7 +9,6 @@ export interface User {
   email: string;
   passwordHash: string;
   role: UserRole;
-  department: string;
   designation: string;
   joinedAt: string;
   avatarUrl?: string;
@@ -24,7 +23,6 @@ export interface CreateUserPayload {
   email: string;
   password: string;
   role: UserRole;
-  department: string;
   designation: string;
   joinedAt: string;
   avatarUrl?: string;

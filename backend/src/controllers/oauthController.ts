@@ -41,9 +41,23 @@ export async function loginWithOAuth(req: Request, res: Response) {
     const employeeCollection = getDB().collection('employees');
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Check if email is registered as an employee by admin
-    const registeredEmployee = await employeeCollection.findOne({ email: normalizedEmail });
-    
+    // Check if email matches company email OR personal email (when no company email assigned)
+    let registeredEmployee = await employeeCollection.findOne({ email: normalizedEmail });
+
+    if (!registeredEmployee) {
+      // Try personal email lookup
+      const empByPersonal = await employeeCollection.findOne({ personalEmail: normalizedEmail });
+      if (empByPersonal) {
+        if (empByPersonal.email && empByPersonal.email.trim() !== '') {
+          // Company email is assigned — must use company email
+          return res.status(401).json({
+            message: 'Your company email has been set. Please sign in using your company email.',
+          });
+        }
+        registeredEmployee = empByPersonal;
+      }
+    }
+
     if (!registeredEmployee) {
       // Email not registered as employee - reject login
       return res.status(401).json({ 
@@ -63,7 +77,6 @@ export async function loginWithOAuth(req: Request, res: Response) {
         googleId,
         passwordHash: await bcrypt.hash('', 10), // Empty password hash for OAuth users
         role: registeredEmployee.role || 'Employee',
-        department: registeredEmployee.department || 'General',
         designation: registeredEmployee.designation || 'Employee',
         joinedAt: registeredEmployee.joinedAt || new Date().toISOString().split('T')[0],
         createdAt: new Date(),
@@ -102,7 +115,6 @@ export async function loginWithOAuth(req: Request, res: Response) {
         name: user.name,
         email: user.email,
         role: user.role,
-        department: user.department,
         designation: user.designation,
         joinedAt: user.joinedAt,
       },

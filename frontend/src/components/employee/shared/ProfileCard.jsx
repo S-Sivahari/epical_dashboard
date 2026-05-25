@@ -33,7 +33,7 @@ export function ProfileCard({ employee }) {
             </div>
             <div className="flex items-center gap-2 text-sm">
               <Building2 className="h-4 w-4 shrink-0 opacity-80" />
-              <span>{employee.department}</span>
+              <span>{employee.role ?? employee.designation}</span>
             </div>
             <div className="flex items-center gap-2 text-sm">
               <Calendar className="h-4 w-4 shrink-0 opacity-80" />

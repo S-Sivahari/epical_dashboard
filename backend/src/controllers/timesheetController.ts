@@ -5,14 +5,14 @@ import { ProjectModel } from '../models/Project';
 import { syncProjectForTimesheet } from '../utils/syncProject';
 
 const MOCK_EMPLOYEES = [
-  { id: 'E-1001', name: 'Asha Menon', department: 'Design', hue: 155 },
-  { id: 'E-1002', name: 'Rahul Verma', department: 'Verification', hue: 210 },
-  { id: 'E-1003', name: 'Meera Nair', department: 'Hardware', hue: 335 },
-  { id: 'E-1004', name: 'Amit Patel', department: 'R&D', hue: 35 },
-  { id: 'E-1005', name: 'Priya Das', department: 'Operations', hue: 270 },
-  { id: 'E-1006', name: 'Kiran Rao', department: 'Design', hue: 190 },
-  { id: 'E-1007', name: 'Sneha Iyer', department: 'Verification', hue: 10 },
-  { id: 'E-1008', name: 'Vikram Singh', department: 'R&D', hue: 60 },
+  { id: 'E-1001', name: 'Asha Menon', team: 'Design', hue: 155 },
+  { id: 'E-1002', name: 'Rahul Verma', team: 'Verification', hue: 210 },
+  { id: 'E-1003', name: 'Meera Nair', team: 'Hardware', hue: 335 },
+  { id: 'E-1004', name: 'Amit Patel', team: 'R&D', hue: 35 },
+  { id: 'E-1005', name: 'Priya Das', team: 'Operations', hue: 270 },
+  { id: 'E-1006', name: 'Kiran Rao', team: 'Design', hue: 190 },
+  { id: 'E-1007', name: 'Sneha Iyer', team: 'Verification', hue: 10 },
+  { id: 'E-1008', name: 'Vikram Singh', team: 'R&D', hue: 60 },
 ];
 
 // Helper to compute total hours
@@ -146,15 +146,8 @@ async function buildMatchStage(req: Request) {
 
   if (team && team !== 'all') {
     const dept = (team as string).replace(' Team', '');
-    const db = mongoose.connection.db;
-    if (!db) {
-      throw new Error('Database connection is not active');
-    }
-    const employeesInDept = await db.collection('employees').find({ department: dept }).toArray();
-    const employeeNames = employeesInDept.map(e => `${e.firstName} ${e.lastName}`);
-    const mockNames = MOCK_EMPLOYEES.filter(e => e.department === dept).map(e => e.name);
-    const allNames = Array.from(new Set([...employeeNames, ...mockNames]));
-    match.employee = { $in: allNames };
+    const mockNames = MOCK_EMPLOYEES.filter(e => e.team === dept).map(e => e.name);
+    match.employee = { $in: mockNames };
   }
 
   return match;
@@ -292,7 +285,7 @@ export const timesheetController = {
         let hue = 200;
         const emp = MOCK_EMPLOYEES.find(e => e.name === item.name);
         if (emp) {
-          dept = emp.department;
+          dept = emp.team;
           hue = emp.hue;
         } else {
           const [firstName, lastName] = item.name.split(' ');
@@ -303,7 +296,7 @@ export const timesheetController = {
               lastName
             });
             if (dbEmp) {
-              dept = dbEmp.department;
+              dept = dbEmp.role || '—';
             }
           }
         }

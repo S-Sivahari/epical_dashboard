@@ -24,16 +24,16 @@ import { formatDate } from '@/utils/formatDate'
 import type { Holiday } from '@/types'
 import { useLeaveStore } from '@store/leaveStore'
 
-interface CompanyEvent {
+interface CalendarSidebarEvent {
   id: string
   title: string
   date: string
   time?: string
   description?: string
-  holidayType?: 'Company' | 'Company Event'
+  holidayType?: Holiday['type']
 }
 
-const seedEvents: CompanyEvent[] = [
+const seedEvents: CalendarSidebarEvent[] = [
   { id: '1', title: 'Town hall', date: '2026-05-20', time: '10:00' },
   { id: '2', title: 'Leadership sync', date: '2026-05-22', time: '15:00' },
 ]
@@ -46,9 +46,9 @@ export function CompanyCalendar() {
   const fetchHolidays = useLeaveStore((s) => s.fetchHolidays)
 
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [events, setEvents] = useState<CompanyEvent[]>(seedEvents)
+  const [events, setEvents] = useState<CalendarSidebarEvent[]>(seedEvents)
   const [eventDeleteConfirmOpen, setEventDeleteConfirmOpen] = useState(false)
-  const [eventToDelete, setEventToDelete] = useState<CompanyEvent | null>(null)
+  const [eventToDelete, setEventToDelete] = useState<CalendarSidebarEvent | null>(null)
   const [selectedDateStr, setSelectedDateStr] = useState<string | null>(null)
   const [isDateModalOpen, setIsDateModalOpen] = useState(false)
   const [isHolidayFormOpen, setIsHolidayFormOpen] = useState(false)

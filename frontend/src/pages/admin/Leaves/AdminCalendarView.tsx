@@ -57,7 +57,7 @@ export function AdminCalendarView() {
   const [title, setTitle] = useState('')
   const [date, setDate] = useState('')
   const [description, setDescription] = useState('')
-  const [type, setType] = useState<'National' | 'Company' | 'Optional'>('National')
+  const [type, setType] = useState<Holiday['type']>('National')
 
   // Calendar logic
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1))

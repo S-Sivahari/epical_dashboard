@@ -18,7 +18,28 @@ export async function loginUser(
   password: string
 ): Promise<{ token: string; user: Omit<User, 'passwordHash'>; role: string }> {
   const col = getUserCollection();
-  const user = await col.findOne({ email: email.toLowerCase().trim() });
+  const normalizedEmail = email.toLowerCase().trim();
+
+  let user = await col.findOne({ email: normalizedEmail });
+
+  // Personal email fallback: if no user found with the given email,
+  // check if an employee has this as their personalEmail.
+  if (!user) {
+    const employeeCol = getDB().collection('employees');
+    const employee = await employeeCol.findOne({ personalEmail: normalizedEmail });
+
+    if (employee) {
+      // If the employee has been assigned a company email, reject personal email login
+      if (employee.email && employee.email.trim() !== '') {
+        throw Object.assign(
+          new Error(`Your company email has been set. Please sign in using your company email.`),
+          { status: 401 }
+        );
+      }
+      // No company email assigned — allow login via personal email
+      user = await col.findOne({ email: normalizedEmail });
+    }
+  }
 
   if (!user) {
     throw Object.assign(new Error('Invalid email or password'), { status: 401 });
@@ -75,7 +96,6 @@ export async function seedDefaultUsers(): Promise<{ created: string[]; skipped: 
       email: 'admin@company.com',
       password: 'admin123',
       role: 'Admin',
-      department: 'People',
       designation: 'HR Director',
       joinedAt: '2019-04-01',
     },
@@ -85,7 +105,6 @@ export async function seedDefaultUsers(): Promise<{ created: string[]; skipped: 
       email: 'employee@company.com',
       password: 'employee123',
       role: 'Employee',
-      department: 'Design & Experience',
       designation: 'Senior Product Designer',
       joinedAt: '2021-03-15',
       avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah',

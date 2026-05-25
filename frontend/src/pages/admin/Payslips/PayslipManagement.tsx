@@ -51,6 +51,7 @@ import {
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 interface PayslipRow {
+  id: string
   empId: string
   name: string
   status: 'success' | 'error' | 'pending'
@@ -363,6 +364,7 @@ export function PayslipManagement() {
     ? batch.results.map((r: PayslipResult) => {
         const dbEmp = employees.find((e) => String(e.employeeId) === String(r.empId))
         return {
+          id: r.empId,
           empId: r.empId,
           name: r.name || (dbEmp ? `${dbEmp.firstName} ${dbEmp.lastName}`.trim() : r.empId),
           status: r.status,
