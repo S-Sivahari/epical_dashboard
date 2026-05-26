@@ -5,7 +5,7 @@ import { Button } from '@components/ui/Button'
 import { Modal } from '@components/ui/Modal'
 import { useLeaves } from '@hooks/useLeaves'
 import { formatDate, formatDateTime } from '@/utils/formatDate'
-import { filterLeaves, type LeaveFilters } from '@/utils/leaveFilters'
+import { filterLeaves, excludeCancelledLeaves, type LeaveFilters } from '@/utils/leaveFilters'
 import * as leaveService from '@services/leaveService'
 
 import { X, ChevronLeft, ChevronRight, Check, Eye, Ban, ChevronDown, Search, AlertTriangle, ShieldCheck, UserCheck } from 'lucide-react'
@@ -14,7 +14,7 @@ import { EmployeeLeaveProfileModal } from './EmployeeLeaveProfileModal'
 
 const LEAVE_TYPES = ['Sick Leave', 'Casual Leave', 'Earned Leave']
 
-type StatusType = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled'
+type StatusType = 'Pending' | 'Approved' | 'Rejected'
 
 const ITEMS_PER_PAGE = 8
 
@@ -38,6 +38,8 @@ export function LeaveRequests({
 }) {
   const { leaves, loading, approveLeave, rejectLeave, cancelLeave } = useLeaves()
 
+  const visibleLeaves = useMemo(() => excludeCancelledLeaves(leaves), [leaves])
+
   const setFilters = (next: LeaveFilters | ((prev: LeaveFilters) => LeaveFilters)) => {
     onFiltersChange(typeof next === 'function' ? next(filters) : next)
   }
@@ -45,7 +47,6 @@ export function LeaveRequests({
     Pending: 1,
     Approved: 1,
     Rejected: 1,
-    Cancelled: 1,
   })
 
   // Approve Confirmation Modal State (shows balance before confirming)
@@ -100,8 +101,8 @@ export function LeaveRequests({
 
   // Filter leaves by status (Memoized)
   const filteredByStatus = useMemo(() => {
-    return leaves.filter(l => l.status === currentStatus)
-  }, [leaves, currentStatus])
+    return visibleLeaves.filter(l => l.status === currentStatus)
+  }, [visibleLeaves, currentStatus])
 
   // Apply name and ID filters (Memoized)
   const filteredLeaves = useMemo(() => {
@@ -224,8 +225,6 @@ export function LeaveRequests({
         return <Badge variant="success">Approved</Badge>
       case 'Rejected':
         return <Badge variant="danger">Rejected</Badge>
-      case 'Cancelled':
-        return <Badge variant="neutral">Cancelled</Badge>
       default:
         return <Badge>{status}</Badge>
     }
@@ -413,8 +412,8 @@ export function LeaveRequests({
 
         {/* Status tabs */}
         <div className="flex flex-wrap gap-2">
-          {(['Pending', 'Approved', 'Rejected', 'Cancelled'] as StatusType[]).map((status) => {
-            const count = leaves.filter((l) => l.status === status).length
+          {(['Pending', 'Approved', 'Rejected'] as StatusType[]).map((status) => {
+            const count = visibleLeaves.filter((l) => l.status === status).length
             const active = filters.status === status
             return (
               <button
@@ -499,15 +498,6 @@ export function LeaveRequests({
                           <UserCheck className="h-3.5 w-3.5 text-red-500" />
                           {(l as any).rejectedBy}
                         </p>
-                      )}
-                      {l.status === 'Cancelled' && (l as any).cancelledBy && (
-                        <p className="inline-flex items-center gap-1 text-ink">
-                          <UserCheck className="h-3.5 w-3.5 text-gray-500" />
-                          {(l as any).cancelledBy}
-                        </p>
-                      )}
-                      {l.status === 'Cancelled' && (l as any).cancelReason && (
-                        <p className="text-ink">{(l as any).cancelReason}</p>
                       )}
                     </div>
 

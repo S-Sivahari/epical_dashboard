@@ -86,7 +86,10 @@ export async function checkEmployeeIdExists(employeeId: string): Promise<boolean
 }
 
 export async function getEmployeeDocuments(id: string) {
-  const response = await api.get(`/employees/${id}/documents`)
+  const response = await api.get(`/employees/${id}/documents`, {
+    validateStatus: (s) => s === 200 || s === 404,
+  })
+  if (response.status === 404) return []
   return (response.data as { key: string; name: string; uploadedAt?: string }[]).map((doc) => ({
     key: doc.key,
     name: doc.name,

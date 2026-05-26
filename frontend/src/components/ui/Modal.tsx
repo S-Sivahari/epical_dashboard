@@ -15,14 +15,18 @@ export function Modal({
   title,
   onClose,
   size = 'md',
+  elevated = false,
   children,
 }: {
   isOpen: boolean
   title: string
   onClose: () => void
   size?: 'sm' | 'md' | 'lg' | 'xl'
+  /** Stack above another open modal (e.g. override form over project tasks). */
+  elevated?: boolean
   children: ReactNode
 }) {
+  const z = elevated ? 'z-[60]' : 'z-50'
   return (
     <Dialog.Root
       open={isOpen}
@@ -31,10 +35,11 @@ export function Modal({
       }}
     >
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-slate-900/40" />
+        <Dialog.Overlay className={cn('fixed inset-0 bg-slate-900/40', z)} />
         <Dialog.Content
           className={cn(
-            'fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-h-[90vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-border bg-white p-6 shadow-md outline-none',
+            'fixed left-1/2 top-1/2 w-[calc(100%-2rem)] max-h-[90vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-border bg-white p-6 shadow-md outline-none',
+            z,
             sizes[size],
           )}
         >

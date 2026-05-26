@@ -81,7 +81,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       })
     } catch (error) {
       console.error('[Notifications] Error fetching notifications:', error)
-      toast.error('Failed to fetch notifications')
       set({ loading: false })
     }
   },
@@ -111,7 +110,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       })
     } catch (error) {
       console.error('[Notifications] Error fetching notifications:', error)
-      toast.error('Failed to fetch notifications (silent)')
+      // Silently fail - don't show toast for background fetch
     }
   },
 
@@ -131,7 +130,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       set({ unreadCount: newCount, lastUnreadCount: newCount, isInitialized: true })
     } catch (error) {
       console.error('[Notifications] Error fetching unread count:', error)
-      toast.error('Failed to fetch unread count')
     }
   },
 
@@ -153,7 +151,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       set({ unreadCount: newCount, lastUnreadCount: newCount, isInitialized: true })
     } catch (error) {
       console.error('[Notifications] Error fetching unread count:', error)
-      toast.error('Failed to fetch unread count (silent)')
+      // Silently fail - don't show toast for background fetch
     }
   },
 

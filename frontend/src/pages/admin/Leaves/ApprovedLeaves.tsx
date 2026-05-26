@@ -35,7 +35,6 @@ export function ApprovedLeaves({ filters }: { filters: LeaveFilters }) {
   }
 
   const getComplexStatus = (leave: LeaveRequest) => {
-    if (leave.status === 'Cancelled') return 'Cancelled'
     if (leave.status !== 'Approved') return leave.status
 
     const today = new Date()
@@ -53,14 +52,13 @@ export function ApprovedLeaves({ filters }: { filters: LeaveFilters }) {
       case 'Completed': return 'neutral'
       case 'In Progress': return 'info'
       case 'Approved': return 'success'
-      case 'Cancelled': return 'danger'
       default: return 'warning'
     }
   }
 
   const filteredLeaves = useMemo(() => {
     return filterLeaves(
-      leaves.filter((l) => l.status === 'Approved' || l.status === 'Cancelled'),
+      leaves.filter((l) => l.status === 'Approved'),
       filters
     )
   }, [leaves, filters])

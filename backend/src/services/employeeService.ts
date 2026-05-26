@@ -92,14 +92,23 @@ export async function getAllEmployees(
 export async function getEmployeeById(id: string): Promise<Employee | null> {
   const collection = getEmployeeCollection();
   
+  const trimmed = id.trim();
+  if (!trimmed) return null;
+
   // Try finding by custom id first
-  let employee = await collection.findOne({ id });
+  let employee = await collection.findOne({ id: trimmed });
+  if (employee) return employee as Employee;
+
+  // Try employeeId (e.g. EPL89782222W) or linked user id (e.g. EMP-2024-0847)
+  employee = await collection.findOne({
+    $or: [{ employeeId: trimmed.toUpperCase() }, { employeeId: trimmed }],
+  });
   if (employee) return employee as Employee;
 
   // Try finding by MongoDB ObjectId
-  if (ObjectId.isValid(id)) {
-    employee = await collection.findOne({ _id: new ObjectId(id) });
-    return employee as Employee;
+  if (ObjectId.isValid(trimmed)) {
+    employee = await collection.findOne({ _id: new ObjectId(trimmed) });
+    if (employee) return employee as Employee;
   }
 
   return null;

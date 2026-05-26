@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import {
   Briefcase,
   ClipboardList,
-
   Users,
   Clock,
 } from 'lucide-react'

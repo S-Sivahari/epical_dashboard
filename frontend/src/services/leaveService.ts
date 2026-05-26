@@ -26,7 +26,7 @@ export async function createLeave(payload: {
   halfDaySession?: 'First Half' | 'Second Half'
   from: string
   to: string
-  reason: string
+  reason?: string
 }) {
   const response = await api.post('/leaves', payload)
   return response.data as LeaveRequest
@@ -40,8 +40,8 @@ export async function rejectLeave(id: string, reason: string) {
   await api.patch(`/leaves/${id}/reject`, { reason })
 }
 
-export async function cancelLeave(id: string, reason: string) {
-  await api.patch(`/leaves/${id}/cancel`, { reason })
+export async function cancelLeave(id: string, reason?: string) {
+  await api.patch(`/leaves/${id}/cancel`, { reason: reason?.trim() || undefined })
 }
 
 export async function addHoliday(payload: Omit<Holiday, 'id'>) {

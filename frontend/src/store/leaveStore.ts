@@ -17,7 +17,7 @@ interface LeaveState {
   fetchHolidaysSilent: () => Promise<void>
   approveLeave: (id: string) => Promise<void>
   rejectLeave: (id: string, reason: string) => Promise<void>
-  cancelLeave: (id: string, reason: string) => Promise<void>
+  cancelLeave: (id: string, reason?: string) => Promise<void>
   addHoliday: (h: Omit<Holiday, 'id'>) => Promise<void>
   updateHoliday: (id: string, h: Partial<Omit<Holiday, 'id'>>) => Promise<void>
   deleteHoliday: (id: string) => Promise<void>

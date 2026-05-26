@@ -7,7 +7,6 @@ import { Calendar, AlertTriangle, X } from 'lucide-react'
 import { Button } from '@components/employee/ui/button'
 import { Input } from '@components/employee/ui/input'
 import { Label } from '@components/employee/ui/label'
-import { Textarea } from '@components/employee/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/employee/ui/select'
 import { DataTable } from '@components/employee/shared/DataTable'
 import { SearchBar } from '@components/employee/shared/SearchBar'
@@ -26,7 +25,6 @@ const leaveSchema = z
     halfDaySession: z.string().optional(),
     fromDate: z.string().min(1, 'From date required'),
     toDate: z.string().min(1, 'To date required'),
-    reason: z.string().min(5, 'Reason must be at least 5 characters'),
   })
   .superRefine((data, ctx) => {
     if (data.leaveDuration === 'Half Day') {
@@ -48,9 +46,7 @@ const columns = [
   { key: 'from', label: 'Start Date' },
   { key: 'to', label: 'End Date' },
   { key: 'days', label: 'Days' },
-  { key: 'reason', label: 'Reason' },
   { key: 'status', label: 'Status' },
-  { key: 'rejectionReason', label: 'Rejection Reason' },
 ]
 
 export default function LeaveRequest() {
@@ -260,8 +256,7 @@ export default function LeaveRequest() {
   const filtered = requests.filter((r) => {
     const matchSearch =
       !search ||
-      r.type.toLowerCase().includes(search.toLowerCase()) ||
-      r.reason.toLowerCase().includes(search.toLowerCase())
+      r.type.toLowerCase().includes(search.toLowerCase())
     const matchStatus = statusFilter === 'all' || r.status.toLowerCase() === statusFilter
     return matchSearch && matchStatus
   })
@@ -285,9 +280,7 @@ export default function LeaveRequest() {
   }
 
   const pendingLeaves = requests.filter((r) => r.status === 'Pending')
-  const historyLeaves = filtered.filter(
-    (r) => r.status !== 'Pending' && r.status !== 'Cancelled',
-  )
+  const historyLeaves = filtered.filter((r) => r.status !== 'Pending')
   const totalPages = Math.max(1, Math.ceil(historyLeaves.length / pageSize))
   const currentPage = Math.min(page, totalPages)
   const pagedHistory = historyLeaves.slice((currentPage - 1) * pageSize, currentPage * pageSize)
@@ -331,10 +324,10 @@ export default function LeaveRequest() {
         halfDaySession: data.leaveDuration === 'Half Day' ? data.halfDaySession : undefined,
         from: data.fromDate,
         to: data.toDate,
-        reason: data.reason,
+        reason: '',
       })
       toast({ title: 'Success', description: 'Leave request submitted successfully!' })
-      reset({ leaveDuration: 'Full Day', type: '', halfDaySession: '', fromDate: '', toDate: '', reason: '' })
+      reset({ leaveDuration: 'Full Day', type: '', halfDaySession: '', fromDate: '', toDate: '' })
       
       // Refresh balances and notifications after submission
       const newBalances = await leaveService.getBalances()
@@ -431,11 +424,6 @@ export default function LeaveRequest() {
                 <span>{holidayWarning}</span>
               </div>
             )}
-            <div>
-              <Label>Reason *</Label>
-              <Textarea className="mt-1" {...register('reason')} placeholder="Reason for leave" />
-              {errors.reason && <p className="mt-1 text-xs text-danger">{errors.reason.message}</p>}
-            </div>
             <Button type="submit" disabled={isSubmitting} className="w-full">Submit Request</Button>
           </form>
         </div>
@@ -466,7 +454,6 @@ export default function LeaveRequest() {
                       <div className="flex-1">
                         <p className="font-medium">{req.type}</p>
                         <p className="text-xs text-muted mt-1">{req.from} to {req.to} ({req.days} days)</p>
-                        <p className="text-xs text-muted mt-1">{req.reason}</p>
                       </div>
                       <div className="flex flex-col items-end gap-2">
                         <span className="px-2 py-1 rounded text-xs font-medium whitespace-nowrap text-yellow-700 bg-yellow-200">

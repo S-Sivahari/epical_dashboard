@@ -35,6 +35,10 @@ import { seedTickets } from './services/ticketService';
 import { seedProjectsAndTimesheets, seedAssignedTasksOnly } from './scripts/seedTimesheets';
 import { getDB } from './config/db';
 
+// Scheduler
+import { initScheduler, stopScheduler } from './services/timesheetScheduler';
+import { ensureAttendanceIndexes } from './utils/ensureAttendanceIndexes';
+
 const app = express();
 
 // ── CORS Configuration ────────────────────────────────────────
@@ -82,7 +86,6 @@ app.get('/health', (_req, res) => {
 // ── API Routes ────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/auth', oauthRoutes);
-app.use('/api/employees', employeeRoutes);
 app.use('/api/leaves', leaveRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/holidays', holidayRoutes);
@@ -97,6 +100,7 @@ app.use('/api', courseRoutes);
 app.use('/api', newsRoutes);
 app.use('/api', achievementRoutes);
 app.use('/api', uploadRoutes);
+app.use('/api/employees', employeeRoutes);
 
 // ── Stats endpoint (admin dashboard) ─────────────────────────
 app.get('/api/stats', async (_req, res) => {
@@ -133,9 +137,9 @@ app.post('/api/seed', async (_req, res) => {
 app.post('/api/seed-assigned-tasks', async (_req, res) => {
   try {
     const result = await seedAssignedTasksOnly();
-    res.json({ message: 'Assigned tasks seed complete', ...result });
+    res.json({ message: 'Assigned tasks synced from project access', ...result });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Seeding failed' });
+    res.status(500).json({ error: err.message || 'Assigned task sync failed' });
   }
 });
 
@@ -165,6 +169,7 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 export async function startServer() {
   try {
     await connectDB();
+    await ensureAttendanceIndexes();
     try {
       const removed = await removeDepartmentFromDatabase();
       if (removed.employees > 0 || removed.users > 0) {
@@ -178,6 +183,7 @@ export async function startServer() {
       console.log(`✓ API base:    http://localhost:${env.port}/api`);
       console.log(`✓ Seed data:   POST http://localhost:${env.port}/api/seed`);
     });
+    initScheduler().catch((err) => console.error('⚠ Scheduler init failed (non-fatal):', err));
   } catch (error) {
     console.error('✗ Failed to start server:', error);
     process.exit(1);
@@ -186,6 +192,7 @@ export async function startServer() {
 
 process.on('SIGINT', async () => {
   console.log('\nShutting down gracefully...');
+  stopScheduler();
   await closeDB();
   process.exit(0);
 });

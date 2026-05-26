@@ -1,14 +1,46 @@
 import { create } from 'zustand'
+import { formatDateKey, getHistoryLoadRange } from '@pages/employee/lib/dateFilters'
 import {
   fetchMyAssignedTasks,
   fetchMyAttendance,
+  fetchMyAttendanceHistory,
   fetchMyActiveTask,
   fetchMySessions,
+  fetchSessionStatus,
+  fetchAutoCheckoutSettings,
+  updateAutoCheckoutSettings as apiUpdateAutoCheckoutSettings,
   checkIn as apiCheckIn,
   checkOut as apiCheckOut,
   startTask as apiStartTask,
   stopActiveTask as apiStopActiveTask,
+  pauseActiveTask as apiPauseActiveTask,
+  resumeActiveTask as apiResumeActiveTask,
+  completeActiveTask as apiCompleteActiveTask,
 } from '@services/employeeTimesheetService'
+
+function mapTaskEntryFromApi(entry) {
+  if (!entry?.timesheet) return null
+  const ts = entry.timesheet
+  const assigned = entry.assignedTask
+  return {
+    timesheetId: ts.id,
+    assignedTaskId: assigned?.id,
+    project: ts.project,
+    taskTitle: assigned?.title || ts.task,
+    description: ts.task,
+    startedAt: new Date(ts.loginTime),
+    paused: ts.isPaused || ts.taskStatus === 'Paused',
+    pausedAt: ts.pausedAt ? new Date(ts.pausedAt) : null,
+    totalPausedMs: ts.totalPausedMs || 0,
+    taskStatus: ts.taskStatus,
+    workflowStatus: ts.workflowStatus,
+  }
+}
+
+function mapActiveTaskFromApi(activeRes) {
+  if (!activeRes?.active) return null
+  return mapTaskEntryFromApi(activeRes.active)
+}
 
 function mapSessionFromApi(entry) {
   const login = entry.loginTime ? new Date(entry.loginTime) : null
@@ -29,6 +61,12 @@ function mapSessionFromApi(entry) {
     loginTime: entry.loginTime,
     logoutTime: entry.logoutTime,
     taskStatus: entry.taskStatus,
+    workflowStatus: entry.workflowStatus,
+    approvalStatus: entry.approvalStatus,
+    status: entry.status,
+    requestStatus: entry.requestStatus,
+    createdAt: entry.createdAt,
+    updatedAt: entry.updatedAt,
   }
 }
 
@@ -36,45 +74,85 @@ export const useTimesheetStore = create((set, get) => ({
   checkedIn: false,
   checkInTime: null,
   activeTask: null,
+  pausedTasks: [],
   assignedTasks: [],
   sessions: [],
   loading: false,
   initialized: false,
+  attendance: null,
+  sessionStatus: null,
+  autoCheckoutInfo: null,
+  autoCheckoutSettings: null,
+  attendanceHistory: [],
+
+  refreshAttendanceHistory: async ({ from, to } = {}) => {
+    try {
+      const range = from && to ? { from, to } : getHistoryLoadRange(2)
+      const records = await fetchMyAttendanceHistory(range)
+      set({ attendanceHistory: records })
+      return records
+    } catch (err) {
+      console.error('Failed to load attendance history', err)
+      return []
+    }
+  },
+
+  refreshSessionsForRange: async ({ from, to } = {}) => {
+    try {
+      const range = from && to ? { from, to } : getHistoryLoadRange(2)
+      const sessions = await fetchMySessions(range)
+      set({ sessions: sessions.map(mapSessionFromApi) })
+      return sessions
+    } catch (err) {
+      console.error('Failed to load sessions for range', err)
+      return []
+    }
+  },
 
   hydrate: async () => {
     set({ loading: true })
     try {
-      const [attendance, activeRes, tasks, sessions] = await Promise.all([
+      const historyRange = getHistoryLoadRange(2)
+      const [attendance, activeRes, tasks, sessions, sessionStatusRes, settingsRes] = await Promise.all([
         fetchMyAttendance(),
         fetchMyActiveTask(),
         fetchMyAssignedTasks(),
-        fetchMySessions(),
+        fetchMySessions(historyRange),
+        fetchSessionStatus().catch(() => null),
+        fetchAutoCheckoutSettings().catch(() => null),
       ])
 
       const checkInTime = attendance.checkInTime ? new Date(attendance.checkInTime) : null
       let activeTask = null
 
-      if (activeRes?.active?.timesheet) {
-        const ts = activeRes.active.timesheet
-        const assigned = activeRes.active.assignedTask
-        activeTask = {
-          timesheetId: ts.id,
-          assignedTaskId: assigned?.id,
-          project: ts.project,
-          taskTitle: assigned?.title || ts.task,
-          description: ts.task,
-          startedAt: new Date(ts.loginTime),
-        }
-      }
+      activeTask = mapActiveTaskFromApi(activeRes)
+      const pausedTasks = (activeRes?.pausedTasks || [])
+        .map(mapTaskEntryFromApi)
+        .filter(Boolean)
 
       set({
         checkedIn: attendance.checkedIn,
         checkInTime,
+        attendance,
         activeTask,
+        pausedTasks,
         assignedTasks: tasks,
         sessions: sessions.map(mapSessionFromApi),
         initialized: true,
+        sessionStatus: attendance.sessionStatus || null,
+        autoCheckoutInfo: sessionStatusRes || {
+          reminderSent: attendance.reminderSent || false,
+          autoCheckedOut: attendance.autoCheckedOut || false,
+          expectedCheckoutTime: attendance.expectedCheckoutTime || null,
+          autoCheckoutTime: attendance.autoCheckoutTime || null,
+          autoCheckoutEnabled: attendance.autoCheckoutEnabled ?? true,
+        },
+        autoCheckoutSettings: settingsRes || null,
       })
+      await Promise.all([
+        get().refreshAttendanceHistory(),
+        get().refreshSessionsForRange(),
+      ])
     } catch (err) {
       console.error('Failed to load timesheet state', err)
       set({ initialized: true })
@@ -84,12 +162,7 @@ export const useTimesheetStore = create((set, get) => ({
   },
 
   refreshSessions: async () => {
-    try {
-      const sessions = await fetchMySessions()
-      set({ sessions: sessions.map(mapSessionFromApi) })
-    } catch (err) {
-      console.error(err)
-    }
+    await get().refreshSessionsForRange()
   },
 
   refreshAssignedTasks: async () => {
@@ -101,44 +174,113 @@ export const useTimesheetStore = create((set, get) => ({
     }
   },
 
+  refreshActiveTask: async () => {
+    try {
+      const activeRes = await fetchMyActiveTask()
+      const activeTask = mapActiveTaskFromApi(activeRes)
+      const pausedTasks = (activeRes?.pausedTasks || [])
+        .map(mapTaskEntryFromApi)
+        .filter(Boolean)
+      set({ activeTask, pausedTasks })
+    } catch (err) {
+      console.error(err)
+    }
+  },
+
   checkIn: async () => {
     const data = await apiCheckIn()
     set({
       checkedIn: true,
       checkInTime: data.checkInTime ? new Date(data.checkInTime) : new Date(),
+      sessionStatus: data.sessionStatus || 'Active',
+      attendance: {
+        checkedIn: true,
+        checkInTime: data.checkInTime || new Date().toISOString(),
+        checkOutTime: null,
+        sessionStatus: data.sessionStatus || 'Active',
+        expectedCheckoutTime: data.expectedCheckoutTime || null,
+        autoCheckoutTime: data.autoCheckoutTime || null,
+      },
+      autoCheckoutInfo: {
+        active: true,
+        reminderSent: false,
+        autoCheckedOut: false,
+        expectedCheckoutTime: data.expectedCheckoutTime || null,
+        autoCheckoutTime: data.autoCheckoutTime || null,
+        autoCheckoutEnabled: true,
+      },
     })
+    await Promise.all([get().refreshAttendanceHistory(), get().refreshSessionsForRange()])
     return data
   },
 
   checkOut: async () => {
-    await apiCheckOut()
-    set({ checkedIn: false, checkInTime: null, activeTask: null })
-    await get().refreshSessions()
+    const data = await apiCheckOut()
+    set({ checkedIn: false, checkInTime: null, activeTask: null, pausedTasks: [], sessionStatus: 'Completed' })
+    if (data?.checkOutTime) {
+      set((state) => ({
+        attendance: {
+          ...(state.attendance || {}),
+          checkedIn: false,
+          checkOutTime: data.checkOutTime,
+          sessionStatus: 'Completed',
+        },
+        autoCheckoutInfo: null,
+      }))
+    }
     await get().refreshAssignedTasks()
+    await Promise.all([get().refreshAttendanceHistory(), get().refreshSessionsForRange()])
   },
 
   startTask: async ({ assignedTaskId, description }) => {
     const data = await apiStartTask(assignedTaskId, description)
-    const assigned = data.assignedTask
-    const ts = data.timesheet
-    set({
-      activeTask: {
-        timesheetId: ts.id,
-        assignedTaskId: assigned?.id,
-        project: ts.project,
-        taskTitle: assigned?.title || ts.task,
-        description: ts.task,
-        startedAt: new Date(data.startedAt || ts.loginTime),
-      },
-    })
+    await get().refreshActiveTask()
     await get().refreshAssignedTasks()
     return data
   },
 
-  stopTask: async () => {
-    await apiStopActiveTask()
-    set({ activeTask: null })
+  stopTask: async (timesheetId) => {
+    const data = await apiStopActiveTask(timesheetId)
+    await get().refreshActiveTask()
     await get().refreshSessions()
     await get().refreshAssignedTasks()
+    return data
+  },
+
+  pauseTask: async (timesheetId) => {
+    const data = await apiPauseActiveTask(timesheetId)
+    await get().refreshActiveTask()
+    await get().refreshAssignedTasks()
+    return data
+  },
+
+  resumeTask: async (timesheetId) => {
+    const data = await apiResumeActiveTask(timesheetId)
+    await get().refreshActiveTask()
+    await get().refreshAssignedTasks()
+    return data
+  },
+
+  completeTask: async (timesheetId, description) => {
+    const data = await apiCompleteActiveTask(timesheetId, description)
+    await get().refreshActiveTask()
+    await get().refreshSessions()
+    await get().refreshAssignedTasks()
+    return data
+  },
+
+  refreshSessionStatus: async () => {
+    try {
+      const status = await fetchSessionStatus()
+      set({ autoCheckoutInfo: status, sessionStatus: status?.sessionStatus || null })
+    } catch (err) {
+      console.error(err)
+    }
+  },
+
+  updateAutoCheckoutSettings: async (data) => {
+    const result = await apiUpdateAutoCheckoutSettings(data)
+    set({ autoCheckoutSettings: result })
+    return result
   },
 }))

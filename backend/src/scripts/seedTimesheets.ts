@@ -344,42 +344,34 @@ export async function seedProjectsAndTimesheets() {
   console.log('✓ Projects, Timesheets & Assigned Tasks seeded successfully!');
 }
 
-/** Seed assigned tasks only (does not wipe projects/timesheets). */
+/** Sync assigned tasks from project membership (does not wipe data). */
 export async function seedAssignedTasksOnly() {
-  const existing = await AssignedTaskModel.countDocuments();
-  if (existing > 0) {
-    console.log(`Assigned tasks already exist (${existing}); skipping.`);
-    return { inserted: 0, skipped: true };
-  }
+  const { syncAssignedTasksForProject, ensureAssignedTasksForEmployee } = await import(
+    '../utils/assignedTaskSync'
+  );
+  const { getDB } = await import('../config/db');
 
   const projects = await ProjectModel.find({});
-  const projectIdByName = new Map(projects.map((p) => [p.projectName, p._id]));
-
-  const payload = SEED_ASSIGNED_TASKS.map((entry) => {
-    const projectId = projectIdByName.get(entry.projectName);
-    const project = projects.find((p) => p.projectName === entry.projectName);
-    if (!projectId || !project) return null;
-    return {
-      projectId,
-      projectName: entry.projectName,
-      clientName: project.clientName,
-      technologyNode: project.technologyNode,
-      employeeId: entry.employeeId,
-      employeeName: entry.employeeName,
-      title: entry.title,
-      description: entry.description,
-      status: 'assigned',
-    };
-  }).filter(Boolean);
-
-  if (payload.length === 0) {
-    console.log('No projects found for assigned task seed.');
-    return { inserted: 0, skipped: false };
+  for (const project of projects) {
+    await syncAssignedTasksForProject(project);
   }
 
-  await AssignedTaskModel.insertMany(payload);
-  console.log(`✓ Seeded ${payload.length} assigned tasks.`);
-  return { inserted: payload.length, skipped: false };
+  const users = await getDB()
+    .collection('users')
+    .find({ role: { $in: ['Employee', 'employee'] } })
+    .toArray();
+
+  for (const user of users) {
+    await ensureAssignedTasksForEmployee({
+      id: String(user.id),
+      name: String(user.name),
+      email: user.email,
+    });
+  }
+
+  const count = await AssignedTaskModel.countDocuments();
+  console.log(`✓ Assigned tasks synced (${count} total).`);
+  return { total: count, synced: true };
 }
 
 async function runStandalone() {

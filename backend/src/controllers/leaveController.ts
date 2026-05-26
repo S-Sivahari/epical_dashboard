@@ -59,7 +59,7 @@ export const leaveController = {
           ? (req.query.employeeId as string) || req.user!.id
           : (req.query.employeeId as string) || undefined;
       const leaves = await leaveService.getAllLeaves(employeeId);
-      res.json(leaves);
+      res.json(leaves.filter((l) => l.status !== 'Cancelled'));
     } catch {
       res.status(500).json({ error: 'Failed to fetch leaves' });
     }
@@ -93,7 +93,7 @@ export const leaveController = {
   create: async (req: Request, res: Response): Promise<void> => {
     try {
       const { employeeId, employeeName, type, leaveDuration, halfDaySession, from, to, reason } = req.body;
-      if (!employeeId || !type || !leaveDuration || !from || !to || !reason) {
+      if (!employeeId || !type || !leaveDuration || !from || !to) {
         res.status(400).json({ error: 'Missing required fields' });
         return;
       }
@@ -110,7 +110,7 @@ export const leaveController = {
         from,
         to,
         days: 0, // days will be overridden by backend calculation
-        reason,
+        reason: typeof reason === 'string' ? reason.trim() : '',
       });
       
       res.status(201).json(leave);
@@ -158,8 +158,8 @@ export const leaveController = {
   // PATCH /api/leaves/:id/reject
   reject: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const { id } = req.params as { id: string };
       const { reason } = req.body;
+      const { id } = req.params as { id: string };
       if (!reason || reason.trim() === '') {
         res.status(400).json({ error: 'Rejection reason is required' });
         return;
@@ -207,7 +207,8 @@ export const leaveController = {
   // DELETE /api/leaves/:id
   delete: async (req: Request, res: Response): Promise<void> => {
     try {
-      const ok = await leaveService.deleteLeave(req.params.id);
+    const { id } = req.params as { id: string };
+    const ok = await leaveService.deleteLeave(id);
       if (!ok) {
         res.status(404).json({ error: 'Leave not found' });
         return;
@@ -259,11 +260,6 @@ export const leaveController = {
   createHoliday: async (req: Request, res: Response): Promise<void> => {
     try {
       const { title, date, description, type } = req.body;
-      if (!title || !date) { res.status(400).json({ error: 'title and date required' }); return; }
-
-      // Check for duplicate holiday on the same date
-      const isDuplicate = await leaveService.checkDuplicateHoliday(date);
-      if (isDuplicate) { res.status(409).json({ error: 'Holiday already exists on this date' }); return; }
 
       const holidayType = type || 'National';
       if (!isValidHolidayType(holidayType)) {
@@ -292,8 +288,7 @@ export const leaveController = {
   updateHoliday: async (req: Request, res: Response): Promise<void> => {
     try {
       const { title, date, description, type } = req.body;
-      const id = req.params.id;
-
+      const { id } = req.params as { id: string };
       const existing = await leaveService.getHolidayById(id);
       if (!existing) { res.status(404).json({ error: 'Holiday not found' }); return; }
 

@@ -28,6 +28,10 @@ function leavePeriodOverlapsRange(
   return true
 }
 
+export function excludeCancelledLeaves(leaves: LeaveRequest[]): LeaveRequest[] {
+  return leaves.filter((l) => l.status !== 'Cancelled')
+}
+
 export function filterLeaves(leaves: LeaveRequest[], filters: LeaveFilters): LeaveRequest[] {
   return leaves.filter((l) => {
     const matchName =

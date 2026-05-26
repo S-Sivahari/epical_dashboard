@@ -17,12 +17,15 @@ export interface Timesheet extends Document {
     message: string;
   };
   requestStatus: 'No Request' | 'Pending Review' | 'Corrected' | 'Approved' | 'Rejected';
+  approvalStatus: 'Pending' | 'Approved' | 'Rejected';
   adminNotes?: string;
   status: 'Approved' | 'Pending' | 'Rejected';
   billable?: boolean;
   task?: string;
   overriddenHours?: number;
-  taskStatus?: 'Pending' | 'In Progress' | 'Completed' | 'Session Incomplete';
+  taskStatus?: 'Pending' | 'In Progress' | 'Paused' | 'Completed' | 'Session Incomplete';
+  pausedAt?: Date;
+  totalPausedMs?: number;
   createdAt: Date;
 }
 
@@ -48,6 +51,11 @@ const TimesheetSchema = new Schema<Timesheet>(
       enum: ['No Request', 'Pending Review', 'Corrected', 'Approved', 'Rejected'],
       default: 'No Request',
     },
+    approvalStatus: {
+      type: String,
+      enum: ['Pending', 'Approved', 'Rejected'],
+      default: 'Pending',
+    },
     adminNotes: { type: String },
     status: {
       type: String,
@@ -59,11 +67,13 @@ const TimesheetSchema = new Schema<Timesheet>(
     overriddenHours: { type: Number },
     taskStatus: {
       type: String,
-      enum: ['Pending', 'In Progress', 'Completed', 'Session Incomplete'],
+      enum: ['Pending', 'In Progress', 'Paused', 'Completed', 'Session Incomplete'],
       default: 'Pending',
     },
+    pausedAt: { type: Date },
+    totalPausedMs: { type: Number, default: 0 },
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: true }
 );
 
 export const TimesheetModel = model<Timesheet>('Timesheet', TimesheetSchema);

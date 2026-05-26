@@ -9,7 +9,7 @@ export interface AssignedTask extends Document {
   employeeName: string;
   title: string;
   description?: string;
-  status: 'assigned' | 'in_progress' | 'completed';
+  status: 'assigned' | 'in_progress' | 'pending_review' | 'completed';
   timesheetId?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -27,7 +27,7 @@ const AssignedTaskSchema = new Schema<AssignedTask>(
     description: { type: String, default: '' },
     status: {
       type: String,
-      enum: ['assigned', 'in_progress', 'completed'],
+      enum: ['assigned', 'in_progress', 'pending_review', 'completed'],
       default: 'assigned',
     },
     timesheetId: { type: Schema.Types.ObjectId, ref: 'Timesheet' },

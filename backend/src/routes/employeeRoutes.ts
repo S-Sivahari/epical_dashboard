@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import { employeeController } from '../controllers/employeeController';
+import { authMiddleware } from '../middleware/authMiddleware';
 
 const router = Router();
+
+router.use(authMiddleware);
 
 // Get all employees with filtering and pagination
 router.get('/', employeeController.getAllEmployees);

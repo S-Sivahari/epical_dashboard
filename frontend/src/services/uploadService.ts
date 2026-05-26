@@ -34,10 +34,20 @@ export async function deleteDocument(employeeId: string, docType: string) {
 }
 
 export async function fetchEmployeeDocument(employeeId: string, docType: string): Promise<Blob> {
-  const { data } = await api.get(`/employees/${employeeId}/documents/${docType}`, {
+  const res = await api.get(`/employees/${employeeId}/documents/${docType}`, {
     responseType: 'blob',
+    validateStatus: (s) => s === 200 || s === 404,
   })
-  return data
+  if (res.status === 404) {
+    throw new Error('Document not found')
+  }
+  const blob = res.data as Blob
+  if (blob.type?.includes('application/json')) {
+    const text = await blob.text()
+    const parsed = JSON.parse(text) as { error?: string }
+    throw new Error(parsed.error || 'Failed to load document')
+  }
+  return blob
 }
 
 export async function openEmployeeDocument(
@@ -55,8 +65,9 @@ export async function fetchEmployeePhoto(employeeId: string): Promise<Blob | nul
   try {
     const { data, status } = await api.get(`/employees/${employeeId}/photo`, {
       responseType: 'blob',
+      validateStatus: (s) => s === 200 || s === 404,
     })
-    if (status !== 200) return null
+    if (status === 404) return null
     return data
   } catch {
     return null

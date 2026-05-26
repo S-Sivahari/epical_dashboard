@@ -122,9 +122,10 @@ export async function updateTicketStatus(
     { $set: updateFields },
     { returnDocument: 'after' }
   );
-
-  if (result && ticket.projectName) {
-    await syncProjectStatus(ticket.projectName);
+  
+  // Recalculate project completion only when a real project reference exists.
+  if (result && ticket?.projectId) {
+    await syncProjectStatus(ticket.projectId);
   }
 
   return result as Ticket | null;
@@ -170,9 +171,10 @@ export async function deleteTicket(id: string): Promise<boolean> {
   const col = getTicketCol();
   const ticket = await col.findOne({ id });
   const result = await col.deleteOne({ id });
-
-  if (result.deletedCount > 0 && ticket?.projectName) {
-    await syncProjectStatus(ticket.projectName);
+  
+  // Recalculate project completion only when a real project reference exists.
+  if (result.deletedCount > 0 && ticket?.projectId) {
+    await syncProjectStatus(ticket.projectId);
   }
 
   return result.deletedCount > 0;

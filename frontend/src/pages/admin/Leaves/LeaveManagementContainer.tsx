@@ -8,7 +8,7 @@ import { CompanyCalendar } from './CompanyCalendar'
 import { CompensationManagement } from './CompensationManagement'
 import { useLeaves } from '@hooks/useLeaves'
 import { useAuthStore } from '@store/authStore'
-import { filterLeaves, type LeaveFilters } from '@/utils/leaveFilters'
+import { filterLeaves, excludeCancelledLeaves, type LeaveFilters } from '@/utils/leaveFilters'
 import {
   exportCompensationToExcel,
   exportCompensationToPDF,
@@ -49,7 +49,7 @@ export function LeaveManagementContainer() {
   const filteredLeaveRequests = useMemo(() => {
     const status = leaveFilters.status || 'Pending'
     return filterLeaves(
-      leaves.filter((l) => l.status === status),
+      excludeCancelledLeaves(leaves).filter((l) => l.status === status),
       { ...leaveFilters, status },
     )
   }, [leaves, leaveFilters])

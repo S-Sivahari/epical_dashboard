@@ -16,11 +16,11 @@ notificationRoutes.get('/unread', notificationController.getUnread);
 // Get unread count
 notificationRoutes.get('/count/unread', notificationController.getUnreadCount);
 
+// Mark all as read (before /:id/read so "read-all" is not captured as an id)
+notificationRoutes.patch('/read-all', notificationController.markAllAsRead);
+
 // Mark as read
 notificationRoutes.patch('/:id/read', notificationController.markAsRead);
-
-// Mark all as read
-notificationRoutes.patch('/read-all', notificationController.markAllAsRead);
 
 // Delete notification
 notificationRoutes.delete('/:id', notificationController.delete);

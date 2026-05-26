@@ -7,14 +7,22 @@ import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
 import { SelectField } from '@components/forms/SelectField'
 import { Modal } from '@components/ui/Modal'
+import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { ProjectTasksModal } from '@components/modals/ProjectTasksModal'
+import { ProjectAuditTrailModal } from '@components/modals/ProjectAuditTrailModal'
+import { ArchivedProjectsModal } from '@components/modals/ArchivedProjectsModal'
 import { toast } from 'sonner'
+import {
+  countWords,
+  enforceMaxWords,
+  MAX_PROJECT_DESCRIPTION_WORDS,
+} from '@/lib/textLimits'
 import {
   Clock,
   Users,
   Search,
   X,
-  Trash2,
+  Archive,
   FileDown,
   Calendar as CalendarIcon,
   LayoutGrid,
@@ -45,12 +53,16 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Cell,
+  LabelList,
 } from 'recharts'
 import { formatDate } from '@/utils/formatDate'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
 import api from '@/services/api'
+import { getEmployees } from '@/services/employeeService'
+import type { Employee } from '@/types'
 
 /* ================================================================
    TYPE DEFINITIONS
@@ -61,7 +73,7 @@ interface Project {
   client: string
   technologyNode: string
   accessType: 'public' | 'private'
-  status: 'Active' | 'Completed' | 'Rejected'
+  status: 'Active' | 'Completed' | 'Rejected' | 'Cancelled'
   description: string
   visibleUsers: string[]
   teamLead?: string
@@ -74,6 +86,7 @@ interface TimesheetLog {
   id: string
   employeeId: string
   employeeName: string
+  projectId?: string
   project: string
   client: string
   technologyNode: string
@@ -182,16 +195,21 @@ function buildTimesheetExportAnalytics(logs: TimesheetLog[]) {
   return { hoursByProject, leaderboard }
 }
 
+function formatExportHours(hours: number): string {
+  const n = Math.round(hours * 10) / 10
+  return Number.isInteger(n) ? `${n}h` : `${n.toFixed(1)}h`
+}
+
 /** Simplified operational status for the Timesheets log view (read-only). */
 const getTimesheetWorkflowStatus = (
   t: Pick<TimesheetLog, 'logoutTime' | 'taskStatus' | 'status' | 'requestStatus'>
 ): 'Completed' | 'In Progress' => {
   const isCompleted =
-    !!t.logoutTime &&
-    t.taskStatus === 'Completed' &&
-    t.status === 'Approved' &&
-    t.requestStatus !== 'Pending Review' &&
-    t.requestStatus !== 'Rejected'
+    t.taskStatus === 'Completed' ||
+    (!!t.logoutTime &&
+      t.status === 'Approved' &&
+      t.requestStatus !== 'Pending Review' &&
+      t.requestStatus !== 'Rejected')
   return isCompleted ? 'Completed' : 'In Progress'
 }
 
@@ -738,14 +756,18 @@ function ProjectCard({
   onEdit,
   onDelete,
   onTasks,
+  onStatusChange,
 }: {
   project: Project
   onEdit: () => void
   onDelete: () => void
   onTasks: () => void
+  onStatusChange: (status: 'Active' | 'Completed' | 'Cancelled') => void
 }) {
   const isCompleted = project.status === 'Completed'
+  const isCancelled = project.status === 'Cancelled'
   const isRejected = project.status === 'Rejected'
+  const isActive = project.status === 'Active'
 
   // Visibility/scope summary
   const visibilitySummary =
@@ -768,7 +790,25 @@ function ProjectCard({
               <p className="text-[10px] text-slate-400 font-medium">Client: {project.client}</p>
             </div>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-col items-end gap-1.5">
+            {isCancelled ? (
+              <Badge variant="danger" className="py-0.5 px-2 bg-rose-50 text-rose-700 border border-rose-100 text-[10px]">
+                <X className="mr-1 h-3 w-3" /> Cancelled
+              </Badge>
+            ) : isRejected ? (
+              <Badge variant="danger" className="py-0.5 px-2 bg-rose-50 text-rose-700 border border-rose-100 text-[10px]">
+                <X className="mr-1 h-3 w-3" /> Rejected
+              </Badge>
+            ) : isCompleted ? (
+              <Badge variant="neutral" className="bg-slate-100 text-slate-600 border border-slate-200 py-0.5 px-2 text-[10px]">
+                <CheckCircle2 className="mr-1 h-3 w-3" /> Completed
+              </Badge>
+            ) : (
+              <Badge variant="info" className="py-0.5 px-2 bg-blue-50 text-blue-700 border border-blue-100 text-[10px]">
+                <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-blue-500" />
+                In Progress
+              </Badge>
+            )}
             {project.accessType === 'private' ? (
               <Badge variant="warning" className="py-0.5 px-2 bg-amber-50 text-amber-700 border border-amber-100 text-[10px]">
                 <Lock className="mr-1 h-3 w-3 text-amber-500" /> Private
@@ -781,9 +821,6 @@ function ProjectCard({
           </div>
         </div>
 
-        <p className="mt-3.5 text-xs text-slate-500 line-clamp-3 leading-relaxed">
-          {project.description}
-        </p>
         <p className="mt-2 text-[10px] font-semibold text-slate-400">
           Visibility Scope: {visibilitySummary}
         </p>
@@ -808,32 +845,8 @@ function ProjectCard({
         </div>
       </div>
 
-      <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-3.5">
-        <div>
-          {isRejected ? (
-            <Badge variant="danger" className="py-0.5 px-2 bg-rose-50 text-rose-700 border border-rose-100 text-[10px]">
-              <X className="mr-1 h-3 w-3" /> Rejected
-            </Badge>
-          ) : isCompleted ? (
-            <Badge variant="neutral" className="bg-slate-100 text-slate-600 border border-slate-200 py-0.5 px-2 text-[10px]">
-              <CheckCircle2 className="mr-1 h-3 w-3" /> Completed
-            </Badge>
-          ) : (
-            <Badge variant="info" className="py-0.5 px-2 bg-blue-50 text-blue-700 border border-blue-100 text-[10px]">
-              <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-blue-500" />
-              In Progress
-            </Badge>
-          )}
-        </div>
-
+      <div className="mt-5 flex items-center justify-end border-t border-slate-100 pt-3.5">
         <div className="flex items-center gap-1">
-          <button
-            onClick={onTasks}
-            className="rounded-lg p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
-            title="View Tasks"
-          >
-            <FileText className="h-3.5 w-3.5" />
-          </button>
           <button
             onClick={onEdit}
             className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
@@ -843,10 +856,10 @@ function ProjectCard({
           </button>
           <button
             onClick={onDelete}
-            className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-            title="Delete Project"
+            className="rounded-lg p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+            title="Archive Project"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Archive className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
@@ -862,14 +875,18 @@ function ProjectListRow({
   onEdit,
   onDelete,
   onTasks,
+  onStatusChange,
 }: {
   project: Project
   onEdit: () => void
   onDelete: () => void
   onTasks: () => void
+  onStatusChange: (status: 'Active' | 'Completed' | 'Cancelled') => void
 }) {
   const isCompleted = project.status === 'Completed'
+  const isCancelled = project.status === 'Cancelled'
   const isRejected = project.status === 'Rejected'
+  const isActive = project.status === 'Active'
 
   return (
     <tr className="group transition-colors hover:bg-slate-50/50">
@@ -880,9 +897,6 @@ function ProjectListRow({
           </span>
           <div className="min-w-0">
             <p className="font-bold text-slate-700 truncate">{project.name}</p>
-            <p className="text-[11px] text-slate-400 truncate max-w-[240px]" title={project.description}>
-              {project.description}
-            </p>
           </div>
         </div>
       </td>
@@ -919,7 +933,11 @@ function ProjectListRow({
         )}
       </td>
       <td className="px-5 py-3.5">
-        {isRejected ? (
+        {isCancelled ? (
+          <Badge variant="danger" className="py-0.5 px-2 bg-rose-50 text-rose-700 border border-rose-100">
+            <X className="mr-1 h-3 w-3" /> Cancelled
+          </Badge>
+        ) : isRejected ? (
           <Badge variant="danger" className="py-0.5 px-2 bg-rose-50 text-rose-700 border border-rose-100">
             <X className="mr-1 h-3 w-3" /> Rejected
           </Badge>
@@ -937,13 +955,6 @@ function ProjectListRow({
       <td className="px-5 py-3.5 text-right">
         <div className="flex items-center justify-end gap-1.5">
           <button
-            onClick={onTasks}
-            className="rounded-lg p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
-            title="View Tasks"
-          >
-            <FileText className="h-3.5 w-3.5" />
-          </button>
-          <button
             onClick={onEdit}
             className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
             title="Edit Project"
@@ -952,10 +963,10 @@ function ProjectListRow({
           </button>
           <button
             onClick={onDelete}
-            className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-            title="Delete Project"
+            className="rounded-lg p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+            title="Archive Project"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Archive className="h-3.5 w-3.5" />
           </button>
         </div>
       </td>
@@ -981,9 +992,7 @@ function EmployeeLeaderboard({
         return (
           <div key={item.name} className="flex items-center gap-3">
             <span
-              className={`w-5 text-xs font-bold text-center ${
-                isTop ? 'text-emerald-600 font-extrabold' : 'text-slate-400'
-              }`}
+              className="w-5 text-xs font-bold text-center text-slate-400"
             >
               #{idx + 1}
             </span>
@@ -991,15 +1000,14 @@ function EmployeeLeaderboard({
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between text-xs font-bold text-slate-700">
                 <span className="truncate">
-                  {item.name}{' '}
-                  <span className="text-[10px] text-slate-400 font-normal">({item.dept})</span>
+                  {item.name}
                 </span>
                 <span className="tabular-nums font-extrabold text-slate-800">{item.hours.toFixed(1)} hrs</span>
               </div>
               <div className="mt-1 w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-emerald-400 to-emerald-650 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${percent}%` }}
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${percent}%`, backgroundColor: `hsla(${item.hue}, 85%, 50%, 0.45)` }}
                 />
               </div>
             </div>
@@ -1010,6 +1018,38 @@ function EmployeeLeaderboard({
         <p className="text-center text-slate-400 text-xs py-8">No hours logged in this period.</p>
       )}
     </div>
+  )
+}
+
+const PROJECT_COLORS = [
+  '#3b82f6', // Blue
+  '#ef4444', // Red
+  '#f59e0b', // Amber
+  '#10b981', // Emerald
+  '#8b5cf6', // Purple
+  '#ec4899', // Pink
+  '#14b8a6', // Teal
+  '#6366f1', // Indigo
+  '#06b6d4', // Cyan
+  '#f97316', // Orange
+]
+
+function HoursBarLabel(props: { x?: number; y?: number; width?: number; value?: number | string }) {
+  const { x = 0, y = 0, width = 0, value } = props
+  const n = Number(value)
+  if (!Number.isFinite(n)) return null
+  const text = Number.isInteger(n) ? `${n}h` : `${n.toFixed(1)}h`
+  return (
+    <text
+      x={x + width / 2}
+      y={y - 8}
+      fill="#475569"
+      fontSize={10}
+      fontWeight={600}
+      textAnchor="middle"
+    >
+      {text}
+    </text>
   )
 }
 
@@ -1032,21 +1072,69 @@ export function ProjectManagement() {
   const [showFilters, setShowFilters] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterClients, setFilterClients] = useState<string[]>([])
-  const [filterProjectNames, setFilterProjectNames] = useState<string[]>([])
-  const [filterTeams, setFilterTeams] = useState<string[]>([])
+  const [filterEmployees, setFilterEmployees] = useState<string[]>([])
   const [filterStatuses, setFilterStatuses] = useState<string[]>([])
   const [filterAccessTypes, setFilterAccessTypes] = useState<string[]>([])
-  const [filterTechNodes, setFilterTechNodes] = useState<string[]>([])
+
+  // ── Projects Pagination States ──────────────────────────────
+  const [projectsCurrentPage, setProjectsCurrentPage] = useState(1)
+  const projectsPerPage = 9
+
+  // ── Timesheets Pagination States ────────────────────────────
+  const [timesheetsCurrentPage, setTimesheetsCurrentPage] = useState(1)
+  const timesheetsPerPage = 10
 
   // ── Project Modal States ────────────────────────────────────
   const [modalOpen, setModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [employees, setEmployees] = useState<Employee[]>([])
 
   // ── Project Tasks Modal States ───────────────────────────────
   const [tasksModalOpen, setTasksModalOpen] = useState(false)
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [selectedProjectName, setSelectedProjectName] = useState<string>('')
+
+  // ── Project Audit Trail Modal States ────────────────────────────
+  const [auditTrailModalOpen, setAuditTrailModalOpen] = useState(false)
+  const [selectedAuditProjectId, setSelectedAuditProjectId] = useState<string | null>(null)
+  const [selectedAuditProjectName, setSelectedAuditProjectName] = useState<string>('')
+
+  // ── Project Archiving & Delete Confirmation States ──────────────
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
+  const [archivedModalOpen, setArchivedModalOpen] = useState(false)
+
+  const openAuditTrail = useCallback((id: string, name: string) => {
+    setSelectedAuditProjectId(id)
+    setSelectedAuditProjectName(name)
+    setAuditTrailModalOpen(true)
+  }, [])
+
+  const handleBarClick = useCallback((data: any) => {
+    if (!data) return
+    
+    // Check if clicked directly on Bar or through BarChart activePayload
+    let pId = data.projectId || (data.payload && data.payload.projectId)
+    let pName = data.name || (data.payload && data.payload.name)
+
+    if (!pId && data.activePayload && data.activePayload[0]) {
+      const payload = data.activePayload[0].payload
+      pId = payload.projectId
+      pName = payload.name
+    }
+
+    if (pId) {
+      openAuditTrail(pId, pName)
+    } else if (pName) {
+      const found = allProjects.find(p => p.name === pName)
+      if (found) {
+        openAuditTrail(found.id, found.name)
+      } else {
+        toast.error(`Could not find project: ${pName}`)
+      }
+    }
+  }, [allProjects, openAuditTrail])
 
   const emptyForm = {
     name: '',
@@ -1056,6 +1144,7 @@ export function ProjectManagement() {
     description: '',
     visibleUsers: [] as string[],
     teamLead: '',
+    status: 'Active' as 'Active' | 'Completed' | 'Cancelled',
   }
   const [form, setForm] = useState(emptyForm)
 
@@ -1068,10 +1157,19 @@ export function ProjectManagement() {
   const [tsSearch, setTsSearch] = useState('')
   const [tsEmployeeFilters, setTsEmployeeFilters] = useState<string[]>([])
   const [tsProjectFilters, setTsProjectFilters] = useState<string[]>([])
-  const [tsTeamFilters, setTsTeamFilters] = useState<string[]>([])
   const [tsStatusFilters, setTsStatusFilters] = useState<string[]>([])
 
   // ── API Fetch Functions ─────────────────────────────────────
+  const fetchEmployees = useCallback(async () => {
+    try {
+      const res = await getEmployees({ pageSize: 1000 })
+      setEmployees(res.data)
+    } catch (err) {
+      console.error('Failed to fetch employees:', err)
+      // Silently fail - use empty list
+    }
+  }, [])
+
   const fetchProjects = useCallback(async () => {
     try {
       const res = await api.get('/projects')
@@ -1108,35 +1206,10 @@ export function ProjectManagement() {
     await Promise.all([fetchProjects(), fetchTimesheetsData()])
   }, [fetchProjects, fetchTimesheetsData])
 
-  const handleProjectSynced = useCallback(
-    (synced: {
-      id: string
-      status: Project['status']
-      completedTasks?: number
-      totalTasks?: number
-      completionPercentage?: number
-    } | null) => {
-      if (!synced) return
-      setAllProjects((prev) =>
-        prev.map((p) =>
-          p.id === synced.id
-            ? {
-                ...p,
-                status: synced.status,
-                completedTasks: synced.completedTasks,
-                totalTasks: synced.totalTasks,
-                completionPercentage: synced.completionPercentage,
-              }
-            : p
-        )
-      )
-    },
-    []
-  )
-
   useEffect(() => {
     fetchProjects()
-  }, [fetchProjects])
+    fetchEmployees()
+  }, [fetchProjects, fetchEmployees])
 
   useEffect(() => {
     fetchTimesheetsData()
@@ -1147,19 +1220,23 @@ export function ProjectManagement() {
     return [...new Set(projects.map((p) => p.client))].sort()
   }, [projects])
 
-  const uniqueProjectNames = useMemo(() => {
-    return [...new Set(projects.map((p) => p.name))].sort()
-  }, [projects])
-
-  const uniqueTechNodes = useMemo(() => {
-    return [...new Set(projects.map((p) => p.technologyNode))].sort()
+  const uniqueEmployees = useMemo(() => {
+    const empSet = new Set<string>()
+    projects.forEach((p) => {
+      if (p.teamLead) empSet.add(p.teamLead)
+      p.visibleUsers.forEach((u) => empSet.add(u))
+    })
+    return [...empSet].sort()
   }, [projects])
 
   const getTeamLeadDepartment = useCallback((teamLeadName?: string) => {
     if (!teamLeadName) return undefined
-    const emp = MOCK_EMPLOYEES.find((e) => e.name === teamLeadName)
-    return emp ? `${emp.team} Team` : undefined
-  }, [])
+    const emp = employees.find((e) => {
+      const fullName = `${e.firstName} ${e.lastName || ''}`.trim()
+      return fullName === teamLeadName
+    })
+    return emp ? `${emp.department} Team` : undefined
+  }, [employees])
 
   const teamFilterOptions = useMemo(() => [...MOCK_TEAMS], [])
 
@@ -1167,13 +1244,11 @@ export function ProjectManagement() {
   const activeFiltersCount = useMemo(() => {
     let count = 0
     if (filterClients.length > 0) count++
-    if (filterProjectNames.length > 0) count++
-    if (filterTeams.length > 0) count++
+    if (filterEmployees.length > 0) count++
     if (filterStatuses.length > 0) count++
     if (filterAccessTypes.length > 0) count++
-    if (filterTechNodes.length > 0) count++
     return count
-  }, [filterClients, filterProjectNames, filterTeams, filterStatuses, filterAccessTypes, filterTechNodes])
+  }, [filterClients, filterEmployees, filterStatuses, filterAccessTypes])
 
   const filteredProjects = useMemo(() => {
     return projects.filter((p) => {
@@ -1186,27 +1261,36 @@ export function ProjectManagement() {
         p.description.toLowerCase().includes(query)
 
       const matchClient = matchesMultiFilter(filterClients, p.client)
-      const matchProjectName = matchesMultiFilter(filterProjectNames, p.name)
       const matchStatus = matchesMultiFilter(filterStatuses, p.status)
       const matchAccess = matchesMultiFilter(filterAccessTypes, p.accessType)
-      const matchTechNode = matchesMultiFilter(filterTechNodes, p.technologyNode)
-      const teamDept = getTeamLeadDepartment(p.teamLead)
-      const matchTeam =
-        filterTeams.length === 0 || (teamDept !== undefined && filterTeams.includes(teamDept))
+      
+      // Check if any selected employee is associated with the project
+      const matchEmployee =
+        filterEmployees.length === 0 ||
+        filterEmployees.includes(p.teamLead || '') ||
+        filterEmployees.some((emp) => p.visibleUsers.includes(emp))
 
-      return matchSearch && matchClient && matchProjectName && matchStatus && matchAccess && matchTechNode && matchTeam
+      return matchSearch && matchClient && matchStatus && matchAccess && matchEmployee
     })
   }, [
     projects,
     searchQuery,
     filterClients,
-    filterProjectNames,
+    filterEmployees,
     filterStatuses,
     filterAccessTypes,
-    filterTechNodes,
-    filterTeams,
-    getTeamLeadDepartment,
   ])
+
+  // ── Projects Pagination derived values ──────────────────────
+  const totalProjectsPages = Math.ceil(filteredProjects.length / projectsPerPage)
+  const indexOfLastProject = projectsCurrentPage * projectsPerPage
+  const indexOfFirstProject = indexOfLastProject - projectsPerPage
+  const currentProjects = filteredProjects.slice(indexOfFirstProject, indexOfLastProject)
+
+  // Reset projects page to 1 when filters or search query change
+  useEffect(() => {
+    setProjectsCurrentPage(1)
+  }, [searchQuery, filterClients, filterEmployees, filterStatuses, filterAccessTypes])
 
   // ── Projects Tab Metrics Calculation ─────────────────────────
   const projectMetrics = useMemo(() => {
@@ -1238,6 +1322,7 @@ export function ProjectManagement() {
       description: p.description,
       visibleUsers: [...p.visibleUsers],
       teamLead: p.teamLead || '',
+      status: (p.status === 'Rejected' ? 'Cancelled' : p.status) as 'Active' | 'Completed' | 'Cancelled',
     })
     setModalOpen(true)
   }, [])
@@ -1248,6 +1333,45 @@ export function ProjectManagement() {
     setTasksModalOpen(true)
   }, [])
 
+  const handleUpdateProjectStatus = useCallback(
+    async (projectId: string, newStatus: 'Active' | 'Completed' | 'Cancelled') => {
+      try {
+        const project = allProjects.find((p) => p.id === projectId)
+        if (!project) {
+          toast.error('Project not found.')
+          return
+        }
+
+        await api.put(`/projects/${projectId}`, {
+          name: project.name,
+          client: project.client,
+          technologyNode: project.technologyNode,
+          accessType: project.accessType,
+          description: project.description,
+          status: newStatus,
+          visibleUsers: project.visibleUsers,
+          teamLead: project.teamLead,
+        })
+
+        setAllProjects((prev) =>
+          prev.map((p) =>
+            p.id === projectId ? { ...p, status: newStatus } : p
+          )
+        )
+
+        const statusText = newStatus === 'Completed' ? 'marked as completed' : newStatus === 'Cancelled' ? 'cancelled' : 'updated'
+        toast.success(`Project ${statusText} successfully.`)
+
+        await refreshAllData()
+      } catch (err: any) {
+        console.error('Status update error:', err)
+        toast.error(err.response?.data?.error || 'Failed to update project status.')
+        await refreshAllData()
+      }
+    },
+    [allProjects, refreshAllData]
+  )
+
   const handleSaveProject = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault()
@@ -1255,8 +1379,16 @@ export function ProjectManagement() {
         toast.error('Please specify Project Name, Client, and Technology Node.')
         return
       }
-      if (form.accessType === 'private' && !form.teamLead.trim()) {
-        toast.error('Please select a team lead for private projects.')
+
+      const descriptionWords = countWords(form.description)
+      if (!form.description.trim()) {
+        toast.error('Project description is required.')
+        return
+      }
+      if (descriptionWords > MAX_PROJECT_DESCRIPTION_WORDS) {
+        toast.error(
+          `Project description must be ${MAX_PROJECT_DESCRIPTION_WORDS} words or fewer (currently ${descriptionWords}).`
+        )
         return
       }
 
@@ -1270,7 +1402,7 @@ export function ProjectManagement() {
             accessType: form.accessType,
             description: form.description.trim(),
             visibleUsers: form.accessType === 'private' ? form.visibleUsers : [],
-            teamLead: form.accessType === 'private' ? form.teamLead.trim() : undefined,
+            teamLead: form.teamLead.trim() || undefined,
           })
           toast.success(`Project "${res.data.name}" created successfully.`)
           await refreshAllData()
@@ -1285,16 +1417,14 @@ export function ProjectManagement() {
             technologyNode: form.technologyNode.trim(),
             accessType: form.accessType,
             description: form.description.trim(),
+            status: form.status,
             visibleUsers: form.accessType === 'private' ? form.visibleUsers : [],
-            teamLead: form.accessType === 'private' ? form.teamLead.trim() : undefined,
+            teamLead: form.teamLead.trim() || undefined,
           })
           toast.success('Project details updated successfully.')
 
           if (oldProjectName && oldProjectName !== newProjectName) {
             setTsProjectFilters((prev) =>
-              prev.map((n) => (n === oldProjectName ? newProjectName : n))
-            )
-            setFilterProjectNames((prev) =>
               prev.map((n) => (n === oldProjectName ? newProjectName : n))
             )
           }
@@ -1312,36 +1442,56 @@ export function ProjectManagement() {
   )
 
   const handleDeleteProject = useCallback(
-    async (p: Project) => {
-      if (!window.confirm(`Are you sure you want to delete project "${p.name}"?`)) return
-      setLoading(true)
-      try {
-        await api.delete(`/projects/${p.id}`)
-        
-        setTsProjectFilters((prev) => prev.filter((n) => n !== p.name))
-        setFilterProjectNames((prev) => prev.filter((n) => n !== p.name))
-
-        await refreshAllData()
-        toast.success(`Project "${p.name}" and its associated logs have been deleted.`)
-      } catch (err: any) {
-        console.error(err)
-        toast.error(err.response?.data?.error || 'Failed to delete project.')
-      } finally {
-        setLoading(false)
-      }
+    (p: Project) => {
+      setProjectToDelete(p)
+      setDeleteConfirmOpen(true)
     },
-    [refreshAllData]
+    []
   )
+
+  const handleConfirmArchive = useCallback(async () => {
+    if (!projectToDelete || !projectToDelete.id) {
+      toast.error('Invalid project. Please try again.')
+      return
+    }
+    
+    setDeleteConfirmOpen(false)
+    setLoading(true)
+    const pName = projectToDelete.name
+    const projectId = projectToDelete.id
+    
+    try {
+      const response = await api.post(`/projects/${projectId}/archive`)
+      
+      if (response.status === 200) {
+        setTsProjectFilters((prev) => prev.filter((n) => n !== pName))
+        setProjectToDelete(null)
+        
+        // Small delay to ensure UI updates before refresh
+        setTimeout(() => {
+          refreshAllData()
+        }, 300)
+        
+        toast.success(`Project "${pName}" and all associated history have been safely archived.`)
+      }
+    } catch (err: any) {
+      console.error('Archive error:', err)
+      setProjectToDelete(null)
+      
+      const errorMsg = err.response?.data?.error || err.message || 'Failed to archive project.'
+      toast.error(errorMsg)
+    } finally {
+      setLoading(false)
+    }
+  }, [projectToDelete, refreshAllData])
 
 
   const clearProjectsFilters = useCallback(() => {
     setSearchQuery('')
     setFilterClients([])
-    setFilterProjectNames([])
-    setFilterTeams([])
+    setFilterEmployees([])
     setFilterStatuses([])
     setFilterAccessTypes([])
-    setFilterTechNodes([])
   }, [])
 
   // ── Timesheets Date Range Change Handler ─────────────────────
@@ -1378,11 +1528,12 @@ export function ProjectManagement() {
 
       const matchEmployee = matchesMultiFilter(tsEmployeeFilters, t.employeeName)
       const matchProject = matchesMultiFilter(tsProjectFilters, t.project)
-      const workflowStatus = getTimesheetWorkflowStatus(t)
-      const matchStatus = matchesMultiFilter(tsStatusFilters, workflowStatus)
-      const matchTeam = matchesMultiFilter(tsTeamFilters, getEmployeeTeam(t.employeeName))
+      const matchStatus = matchesMultiFilter(
+        tsStatusFilters,
+        getTimesheetWorkflowStatus(t)
+      )
 
-      return matchSearch && matchEmployee && matchProject && matchStatus && matchTeam
+      return matchSearch && matchEmployee && matchProject && matchStatus
     })
   }, [
     timesheets,
@@ -1392,44 +1543,19 @@ export function ProjectManagement() {
     tsEmployeeFilters,
     tsProjectFilters,
     tsStatusFilters,
-    tsTeamFilters,
     getEmployeeTeam,
   ])
 
-  // ── Timesheets Tab Metrics Calculation ──────────────────────
-  const timesheetMetrics = useMemo(() => {
-    let totalHours = 0
-    let overtimeHours = 0
+  // ── Timesheets Pagination derived values ────────────────────
+  const totalTimesheetsPages = Math.ceil(filteredTimesheets.length / timesheetsPerPage)
+  const indexOfLastTimesheet = timesheetsCurrentPage * timesheetsPerPage
+  const indexOfFirstTimesheet = indexOfLastTimesheet - timesheetsPerPage
+  const currentTimesheets = filteredTimesheets.slice(indexOfFirstTimesheet, indexOfLastTimesheet)
 
-    const dailyAccumulator: Record<string, number> = {}
-
-    filteredTimesheets.forEach((t) => {
-      const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours) || 0
-      totalHours += hours
-
-      if (t.logoutTime) {
-        const key = `${t.employeeId}_${t.date}`
-        dailyAccumulator[key] = (dailyAccumulator[key] || 0) + hours
-      }
-    })
-
-    Object.values(dailyAccumulator).forEach((dailySum) => {
-      overtimeHours += Math.max(0, dailySum - 8)
-    })
-
-    const pendingApprovalsCount = timesheets.filter(
-      (t) => t.status === 'Pending' || t.requestStatus === 'Pending Review'
-    ).length
-
-    const uniqueEmployeesCount = new Set(filteredTimesheets.map((t) => t.employeeId)).size
-
-    return {
-      total: Math.round(totalHours * 10) / 10,
-      overtime: Math.round(overtimeHours * 10) / 10,
-      pending: pendingApprovalsCount,
-      activeEmployees: uniqueEmployeesCount,
-    }
-  }, [filteredTimesheets, timesheets])
+  // Reset timesheets page to 1 when filters or search query change
+  useEffect(() => {
+    setTimesheetsCurrentPage(1)
+  }, [tsSearch, tsStartDate, tsEndDate, tsEmployeeFilters, tsProjectFilters, tsStatusFilters])
 
   // ── Recharts Chart Data and Leaderboard are managed via server-side aggregation state ──
 
@@ -1440,81 +1566,59 @@ export function ProjectManagement() {
       return
     }
 
+    const { hoursByProject, leaderboard } = buildTimesheetExportAnalytics(filteredTimesheets)
     const aoa: any[][] = []
 
-    // Branding Title & Metadata Header
     aoa.push(['EPICAL LAYOUTS PVT LTD'])
-    aoa.push(['Enterprise Timesheet Audit & Review Report'])
-    aoa.push([`Reporting Date Range: ${tsStartDate} to ${tsEndDate}`])
-    aoa.push([`Generated On: ${new Date().toLocaleString()}`])
+    aoa.push(['Timesheet Report'])
+    aoa.push([`Date range: ${tsStartDate} to ${tsEndDate}`])
+    aoa.push([`Generated: ${new Date().toLocaleString()}`])
     aoa.push([])
 
-    // Metrics Summary Card representation in Excel
-    aoa.push(['ANALYTICS SUMMARY'])
-    aoa.push(['Total Hours Logged', `${timesheetMetrics.total} hrs`])
-    aoa.push(['Overtime Hours (Daily > 8.0)', `${timesheetMetrics.overtime} hrs`])
-    aoa.push(['Pending Approvals Count', timesheetMetrics.pending])
-    aoa.push(['Active Employees Count', timesheetMetrics.activeEmployees])
+    aoa.push(['AGGREGATED HOURS BY PROJECT'])
+    aoa.push(['Project', 'Hours'])
+    hoursByProject.forEach((p) => {
+      aoa.push([p.name, formatExportHours(p.hours)])
+    })
     aoa.push([])
 
-    // Table Data Headers
-    aoa.push([
-      'Employee Name',
-      'Employee ID',
-      'Project',
-      'Client',
-      'Technology Node',
-      'Login Date Time',
-      'Logout Date Time',
-      'Total Hours',
-      'Status',
-      'Admin Notes',
-      'Task Details',
-    ])
+    aoa.push(['AGGREGATED HOURS BY EMPLOYEE'])
+    aoa.push(['Rank', 'Employee', 'Department', 'Hours'])
+    leaderboard.forEach((e, index) => {
+      aoa.push([index + 1, e.name, e.dept, formatExportHours(e.hours)])
+    })
+    aoa.push([])
 
-    // Table Data Rows
+    aoa.push(['DETAILED TIME LOGS'])
+    aoa.push(['Employee', 'Employee ID', 'Project', 'Login Time', 'Logout Time', 'Total Hours'])
     filteredTimesheets.forEach((t) => {
       const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours)
-      const notes = t.adminNotes || 'None'
-
       aoa.push([
         t.employeeName,
         t.employeeId,
         t.project,
-        t.client,
-        t.technologyNode,
         formatDateTime(t.loginTime),
         t.logoutTime ? formatDateTime(t.logoutTime) : '—',
-        hours !== null ? hours : '—',
-        getTimesheetWorkflowStatus(t),
-        notes,
-        t.task,
+        hours !== null ? formatExportHours(hours) : '—',
       ])
     })
 
     const worksheet = XLSX.utils.aoa_to_sheet(aoa)
-
-    // Set professional column widths
     worksheet['!cols'] = [
-      { wch: 18 }, // Employee Name
-      { wch: 12 }, // Employee ID
-      { wch: 18 }, // Project
-      { wch: 18 }, // Client
-      { wch: 15 }, // Tech Node
-      { wch: 24 }, // Login Date Time
-      { wch: 24 }, // Logout Date Time
-      { wch: 15 }, // Total Hours
-      { wch: 14 }, // Status
-      { wch: 20 }, // Admin Notes
-      { wch: 40 }, // Task Details
+      { wch: 22 },
+      { wch: 14 },
+      { wch: 22 },
+      { wch: 24 },
+      { wch: 24 },
+      { wch: 12 },
     ]
 
     const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Timesheet Logs')
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Timesheet Report')
 
-    XLSX.writeFile(workbook, `Timesheet_Audit_Report_${tsStartDate}_to_${tsEndDate}.xlsx`)
+    XLSX.writeFile(workbook, `Timesheet_Report_${tsStartDate}_to_${tsEndDate}.xlsx`)
     toast.success('Excel spreadsheet generated and downloaded successfully.')
-  }, [filteredTimesheets, tsStartDate, tsEndDate, timesheetMetrics])
+  }, [filteredTimesheets, tsStartDate, tsEndDate])
 
   const handleExportPDF = useCallback(() => {
     if (!filteredTimesheets.length) {
@@ -1531,7 +1635,7 @@ export function ProjectManagement() {
 
     const tableTheme = {
       styles: { fontSize: 8, cellPadding: 4, overflow: 'linebreak' as const },
-      headStyles: { fillColor: [16, 185, 129] as [number, number, number], fontStyle: 'bold' as const, textColor: [255, 255, 255] as [number, number, number] },
+      headStyles: { fillColor: [30, 41, 59] as [number, number, number], fontStyle: 'bold' as const, textColor: [255, 255, 255] as [number, number, number] },
       alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
       theme: 'grid' as const,
       margin: { left: marginX, right: marginX, bottom: 36 },
@@ -1553,123 +1657,171 @@ export function ProjectManagement() {
     // Document header title
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(18)
-    doc.setTextColor(16, 185, 129)
+    doc.setTextColor(30, 41, 59)
     doc.text('EPICAL LAYOUTS PVT LTD', pageWidth / 2, 40, { align: 'center' })
 
     doc.setFontSize(12)
     doc.setTextColor(30, 41, 59)
-    doc.text('Timesheet System Administration Audit Report', pageWidth / 2, 60, { align: 'center' })
+    doc.text('Timesheet Report', pageWidth / 2, 60, { align: 'center' })
 
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
     doc.setTextColor(100, 116, 139)
     doc.text(`Period Range: ${tsStartDate} to ${tsEndDate}`, marginX, 80)
     doc.text(`Generated Timestamp: ${new Date().toLocaleString()}`, pageWidth - marginX, 80, { align: 'right' })
-    doc.text(`Filtered Records: ${filteredTimesheets.length}`, pageWidth / 2, 80, { align: 'center' })
 
     doc.setDrawColor(226, 232, 240)
     doc.line(marginX, 90, pageWidth - marginX, 90)
 
-    // Summary metrics (matches dashboard cards)
-    doc.setFillColor(248, 250, 252)
+    let cursorY = 108
     doc.setDrawColor(226, 232, 240)
-    doc.roundedRect(marginX, 95, contentWidth, 52, 6, 6, 'FD')
-
-    const metricCols = [marginX + 12, marginX + contentWidth * 0.27, marginX + contentWidth * 0.52, marginX + contentWidth * 0.77]
-    const metricLabels = ['TOTAL HOURS', 'OVERTIME HOURS', 'PENDING APPROVALS', 'ACTIVE EMPLOYEES']
-    const metricValues = [
-      `${timesheetMetrics.total.toFixed(1)} hrs`,
-      `${timesheetMetrics.overtime.toFixed(1)} hrs`,
-      String(timesheetMetrics.pending),
-      String(timesheetMetrics.activeEmployees),
-    ]
-    const metricColors: [number, number, number][] = [
-      [16, 185, 129],
-      [16, 185, 129],
-      [245, 158, 11],
-      [30, 41, 59],
-    ]
-
+    
+    // Title for Analytics Overview
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(8)
-    doc.setTextColor(148, 163, 184)
-    metricLabels.forEach((label, i) => doc.text(label, metricCols[i], 114))
+    doc.setFontSize(11)
+    doc.setTextColor(30, 41, 59)
+    doc.text('ANALYTICS OVERVIEW', marginX, cursorY)
+    cursorY += 16
 
-    doc.setFontSize(13)
-    metricValues.forEach((val, i) => {
-      doc.setTextColor(...metricColors[i])
-      doc.text(val, metricCols[i], 134)
+    const colWidth = 360
+    const colGap = 42
+    const col2X = marginX + colWidth + colGap
+
+    const brightColors = [
+      [59, 130, 246],  // Blue
+      [239, 68, 68],   // Red
+      [245, 158, 11],  // Amber
+      [16, 185, 129],  // Emerald
+      [139, 92, 246],  // Purple
+      [236, 72, 153],  // Pink
+      [20, 184, 166],  // Teal
+      [99, 102, 241],  // Indigo
+      [6, 182, 212],   // Cyan
+      [249, 115, 22],   // Orange
+    ]
+
+    const chartColors = [
+      [168, 199, 248], // Subtle Blue
+      [240, 174, 176], // Subtle Red
+      [242, 210, 153], // Subtle Amber
+      [151, 221, 201], // Subtle Emerald
+      [200, 183, 247], // Subtle Purple
+      [239, 175, 210], // Subtle Pink
+      [152, 220, 215], // Subtle Teal
+      [184, 187, 245], // Subtle Indigo
+      [147, 219, 234], // Subtle Cyan
+      [244, 193, 158], // Subtle Orange
+    ]
+
+    // 1. LEFT COLUMN: Aggregated Hours by Project
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.setTextColor(71, 85, 105)
+    doc.setFillColor(71, 85, 105)
+    doc.rect(marginX, cursorY, 3, 10, 'F')
+    doc.text('AGGREGATED HOURS BY PROJECT', marginX + 8, cursorY + 8)
+    
+    let leftY = cursorY + 24
+    const maxProjectHours = Math.max(...hoursByProject.map(p => p.hours), 1)
+    
+    hoursByProject.forEach((p, idx) => {
+      // Label
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(8)
+      doc.setTextColor(71, 85, 105)
+      const projectLabel = doc.getTextWidth(p.name) > colWidth - 48
+        ? `${p.name.slice(0, 42)}…`
+        : p.name
+      doc.text(projectLabel, marginX, leftY)
+      
+      // Value text (matches on-screen chart labels)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(71, 85, 105)
+      doc.text(formatExportHours(p.hours), marginX + colWidth, leftY, { align: 'right' })
+      
+      // Track background
+      doc.setFillColor(241, 245, 249)
+      doc.roundedRect(marginX, leftY + 4, colWidth, 6, 3, 3, 'F')
+      
+      // Colored bar
+      const barWidth = (p.hours / maxProjectHours) * colWidth
+      if (barWidth > 0) {
+        const adjustedWidth = Math.max(6, barWidth)
+        const color = chartColors[idx % chartColors.length]
+        const borderColor = brightColors[idx % brightColors.length]
+        doc.setFillColor(color[0], color[1], color[2])
+        doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2])
+        doc.setLineWidth(0.5)
+        doc.roundedRect(marginX, leftY + 4, adjustedWidth, 6, 3, 3, 'FD')
+      }
+      
+      leftY += 24
     })
 
-    let cursorY = addSectionTitle('Analytics Overview', 158)
-
-    // Hours by project
-    cursorY = addSectionTitle('Aggregated Hours by Project', cursorY)
-    autoTable(doc, {
-      ...tableTheme,
-      head: [['Project', 'Total Hours', '% of Total']],
-      body:
-        hoursByProject.length > 0
-          ? hoursByProject.map((p) => {
-              const pct =
-                timesheetMetrics.total > 0
-                  ? `${((p.hours / timesheetMetrics.total) * 100).toFixed(1)}%`
-                  : '—'
-              return [p.name, `${p.hours.toFixed(1)} hrs`, pct]
-            })
-          : [['No project hours in selected range', '—', '—']],
-      startY: cursorY,
-      columnStyles: { 0: { cellWidth: 280 }, 1: { cellWidth: 90, halign: 'right' }, 2: { cellWidth: 70, halign: 'right' } },
+    // 2. RIGHT COLUMN: Employee-wise Hours Leaderboard
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.setTextColor(71, 85, 105)
+    doc.setFillColor(71, 85, 105)
+    doc.rect(col2X, cursorY, 3, 10, 'F')
+    doc.text('EMPLOYEE-WISE HOURS LEADERBOARD', col2X + 8, cursorY + 8)
+    
+    let rightY = cursorY + 24
+    const maxEmployeeHours = Math.max(...leaderboard.map(e => e.hours), 1)
+    
+    leaderboard.forEach((e, idx) => {
+      const color = chartColors[idx % chartColors.length]
+      const borderColor = brightColors[idx % brightColors.length]
+      
+      // Rank badge indicator
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(8)
+      doc.setTextColor(borderColor[0], borderColor[1], borderColor[2])
+      doc.text(`#${idx + 1}`, col2X, rightY)
+      
+      // Employee name
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(71, 85, 105)
+      doc.text(e.name, col2X + 20, rightY)
+      
+      // Hours value
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(30, 41, 59)
+      doc.text(formatExportHours(e.hours), col2X + colWidth, rightY, { align: 'right' })
+      
+      // Progress Track
+      doc.setFillColor(241, 245, 249)
+      doc.roundedRect(col2X + 20, rightY + 4, colWidth - 20, 6, 3, 3, 'F')
+      
+      // Progress bar colored
+      const barWidth = (e.hours / maxEmployeeHours) * (colWidth - 20)
+      if (barWidth > 0) {
+        const adjustedWidth = Math.max(6, barWidth)
+        doc.setFillColor(color[0], color[1], color[2])
+        doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2])
+        doc.setLineWidth(0.5)
+        doc.roundedRect(col2X + 20, rightY + 4, adjustedWidth, 6, 3, 3, 'FD')
+      }
+      
+      rightY += 24
     })
-    cursorY = getTableEndY() + 20
 
-    // Employee leaderboard
-    cursorY = addSectionTitle('Employee-wise Hours Leaderboard', cursorY)
-    const topHours = leaderboard[0]?.hours ?? 0
-    autoTable(doc, {
-      ...tableTheme,
-      head: [['Rank', 'Employee', 'Department', 'Total Hours', '% of Top']],
-      body:
-        leaderboard.length > 0
-          ? leaderboard.map((e, idx) => {
-              const pctTop = topHours > 0 ? `${((e.hours / topHours) * 100).toFixed(0)}%` : '—'
-              return [String(idx + 1), e.name, e.dept, `${e.hours.toFixed(1)} hrs`, pctTop]
-            })
-          : [['—', 'No employee hours in selected range', '—', '—', '—']],
-      startY: cursorY,
-      columnStyles: {
-        0: { cellWidth: 36, halign: 'center' },
-        1: { cellWidth: 160 },
-        2: { cellWidth: 100 },
-        3: { cellWidth: 80, halign: 'right' },
-        4: { cellWidth: 60, halign: 'right' },
-      },
-    })
-    cursorY = getTableEndY() + 24
+    // Set cursorY to the maximum end of either column
+    cursorY = Math.max(leftY, rightY) + 24
 
     // Detailed time logs
     cursorY = addSectionTitle('Detailed Time Logs', cursorY)
 
-    const tableHeaders = [
-      'Employee',
-      'Project',
-      'Login Time',
-      'Logout Time',
-      'Total Hours',
-      'Status',
-      'Date',
-    ]
+    const tableHeaders = ['Employee', 'Project', 'Login Time', 'Logout Time', 'Total Hours']
 
     const tableRows = filteredTimesheets.map((t) => {
       const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours)
       return [
         `${t.employeeName} (${t.employeeId})`,
-        `${t.project}\n(${t.client} · ${t.technologyNode})`,
+        t.project,
         formatDateTime(t.loginTime),
         t.logoutTime ? formatDateTime(t.logoutTime) : '—',
-        hours !== null ? `${hours.toFixed(1)} hrs` : '—',
-        getTimesheetWorkflowStatus(t),
-        t.date,
+        hours !== null ? formatExportHours(hours) : '—',
       ]
     })
 
@@ -1679,6 +1831,13 @@ export function ProjectManagement() {
       body: tableRows,
       startY: cursorY,
       styles: { ...tableTheme.styles, cellPadding: 5 },
+      columnStyles: {
+        0: { cellWidth: 180 },
+        1: { cellWidth: 170 },
+        2: { cellWidth: 140 },
+        3: { cellWidth: 140 },
+        4: { cellWidth: 90, halign: 'right' },
+      },
     })
 
     const totalPages = doc.getNumberOfPages()
@@ -1690,15 +1849,14 @@ export function ProjectManagement() {
       doc.text('Confidential - Internal Administrative Records', marginX, pageHeight - 20)
     }
 
-    doc.save(`Timesheet_Audit_Report_${tsStartDate}_to_${tsEndDate}.pdf`)
+    doc.save(`Timesheet_Report_${tsStartDate}_to_${tsEndDate}.pdf`)
     toast.success('PDF report exported successfully.')
-  }, [filteredTimesheets, tsStartDate, tsEndDate, timesheetMetrics])
+  }, [filteredTimesheets, tsStartDate, tsEndDate])
 
   const clearTimesheetFilters = useCallback(() => {
     setTsSearch('')
     setTsEmployeeFilters([])
     setTsProjectFilters([])
-    setTsTeamFilters([])
     setTsStatusFilters([])
   }, [])
 
@@ -1725,11 +1883,18 @@ export function ProjectManagement() {
     [projects]
   )
 
+  const tsStatusFilterOptions = useMemo(
+    () => [
+      { value: 'Completed', label: 'Completed' },
+      { value: 'In Progress', label: 'In Progress' },
+    ],
+    []
+  )
+
   const hasActiveTimesheetFilters =
     tsSearch.trim().length > 0 ||
     tsEmployeeFilters.length > 0 ||
     tsProjectFilters.length > 0 ||
-    tsTeamFilters.length > 0 ||
     tsStatusFilters.length > 0
 
 
@@ -1744,14 +1909,22 @@ export function ProjectManagement() {
         </div>
 
         {/* Header CTA Trigger */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {activeTab === 'projects' && (
-            <Button
-              onClick={openCreateProject}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-all shadow-sm rounded-xl py-2 px-4 flex items-center gap-1.5 focus:ring-4 focus:ring-emerald-500/10 border-0"
-            >
-              <Plus className="h-4 w-4" /> Create Project
-            </Button>
+            <>
+              <Button
+                onClick={() => setArchivedModalOpen(true)}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-all shadow-sm rounded-xl py-2 px-4 flex items-center gap-1.5 border border-slate-200"
+              >
+                <Archive className="h-4 w-4 text-slate-500" /> Archived Projects
+              </Button>
+              <Button
+                onClick={openCreateProject}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-all shadow-sm rounded-xl py-2 px-4 flex items-center gap-1.5 focus:ring-4 focus:ring-emerald-500/10 border-0"
+              >
+                <Plus className="h-4 w-4" /> Create Project
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -1768,19 +1941,21 @@ export function ProjectManagement() {
               onClick={() => setActiveTab(tab.key)}
               className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 px-3.5 text-xs font-bold transition-all duration-300 ${
                 activeTab === tab.key
-                  ? 'bg-white text-emerald-600 shadow-md scale-102 border border-slate-200/50'
+                  ? 'bg-white text-indigo-600 shadow-md scale-102 border border-slate-200/50'
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
               <tab.icon className="h-3.5 w-3.5" />
               {tab.label}
-              <span
-                className={`ml-1.5 rounded-full px-2 py-0.5 text-[10px] font-black transition-colors duration-300 ${
-                  activeTab === tab.key ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-200 text-slate-500'
-                }`}
-              >
-                {tab.count}
-              </span>
+              {tab.key === 'projects' && (
+                <span
+                  className={`ml-1.5 rounded-full px-2 py-0.5 text-[10px] font-black transition-colors duration-300 ${
+                    activeTab === tab.key ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-200 text-slate-500'
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -1903,30 +2078,12 @@ export function ProjectManagement() {
                   />
 
                   <FilterCheckboxGroup
-                    label="Project Name"
-                    placeholder="All Projects"
+                    label="Employee"
+                    placeholder="All Employees"
                     compact
-                    options={uniqueProjectNames.map((n) => {
-                      const proj = projects.find((p) => p.name === n)
-                      const label =
-                        proj && proj.status === 'Completed'
-                          ? `${n} (Completed)`
-                          : proj && proj.status === 'Rejected'
-                            ? `${n} (Rejected)`
-                            : n
-                      return { value: n, label }
-                    })}
-                    selected={filterProjectNames}
-                    onChange={setFilterProjectNames}
-                  />
-
-                  <FilterCheckboxGroup
-                    label="Team (by lead)"
-                    placeholder="All Teams"
-                    compact
-                    options={teamFilterOptions.map((t) => ({ value: t, label: t }))}
-                    selected={filterTeams}
-                    onChange={setFilterTeams}
+                    options={uniqueEmployees.map((emp) => ({ value: emp, label: emp }))}
+                    selected={filterEmployees}
+                    onChange={setFilterEmployees}
                   />
 
                   <FilterCheckboxGroup
@@ -1936,7 +2093,7 @@ export function ProjectManagement() {
                     options={[
                       { value: 'Active', label: 'In Progress' },
                       { value: 'Completed', label: 'Completed' },
-                      { value: 'Rejected', label: 'Rejected' },
+                      { value: 'Cancelled', label: 'Cancelled' },
                     ]}
                     selected={filterStatuses}
                     onChange={setFilterStatuses}
@@ -1954,14 +2111,7 @@ export function ProjectManagement() {
                     onChange={setFilterAccessTypes}
                   />
 
-                  <FilterCheckboxGroup
-                    label="Tech Node"
-                    placeholder="All Nodes"
-                    compact
-                    options={uniqueTechNodes.map((n) => ({ value: n, label: n }))}
-                    selected={filterTechNodes}
-                    onChange={setFilterTechNodes}
-                  />
+
                 </div>
 
                 {activeFiltersCount > 0 && (
@@ -1986,13 +2136,14 @@ export function ProjectManagement() {
             <>
               {filteredProjects.length > 0 ? (
                 <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                  {filteredProjects.map((p) => (
+                  {currentProjects.map((p) => (
                     <ProjectCard
                       key={p.id}
                       project={p}
                       onEdit={() => openEditProject(p)}
                       onDelete={() => handleDeleteProject(p)}
                       onTasks={() => openProjectTasks(p)}
+                      onStatusChange={(status) => handleUpdateProjectStatus(p.id, status)}
                     />
                   ))}
                 </div>
@@ -2034,13 +2185,14 @@ export function ProjectManagement() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs">
-                    {filteredProjects.map((p) => (
+                    {currentProjects.map((p) => (
                       <ProjectListRow
                         key={p.id}
                         project={p}
                         onEdit={() => openEditProject(p)}
                         onDelete={() => handleDeleteProject(p)}
                         onTasks={() => openProjectTasks(p)}
+                        onStatusChange={(status) => handleUpdateProjectStatus(p.id, status)}
                       />
                     ))}
                     {filteredProjects.length === 0 && (
@@ -2055,6 +2207,47 @@ export function ProjectManagement() {
               </div>
             </div>
           )}
+
+          {/* Projects Pagination Controls */}
+          {totalProjectsPages > 1 && (
+            <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4">
+              <span className="text-xs font-semibold text-slate-500">
+                Showing {indexOfFirstProject + 1}–{Math.min(indexOfLastProject, filteredProjects.length)} of {filteredProjects.length} projects
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={projectsCurrentPage === 1}
+                  onClick={() => setProjectsCurrentPage((p) => Math.max(1, p - 1))}
+                  className="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-white"
+                >
+                  Previous
+                </button>
+                {Array.from({ length: totalProjectsPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setProjectsCurrentPage(page)}
+                    className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-xs font-black transition-all ${
+                      projectsCurrentPage === page
+                        ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-500/10'
+                        : 'border border-slate-250 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  disabled={projectsCurrentPage === totalProjectsPages}
+                  onClick={() => setProjectsCurrentPage((p) => Math.min(totalProjectsPages, p + 1))}
+                  className="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-white"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -2063,65 +2256,149 @@ export function ProjectManagement() {
            ================================================================ */}
       {activeTab === 'timesheets' && (
         <div className="space-y-6 animate-fadeIn">
-          {/* Header Action Row (Picker & Export) */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            {/* Custom Date Range Picker */}
-            <CustomDateRangePicker
-              startDate={tsStartDate}
-              endDate={tsEndDate}
-              preset={datePreset}
-              onChange={handleDateRangeChange}
-            />
+          {/* UNIFIED FILTERS SECTION AT TOP */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="mb-4 text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
+              <Sliders className="h-4 w-4 text-emerald-600" /> Filter
+            </h3>
 
-            {/* Document Export Buttons */}
-            <div className="flex overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-              <button
-                onClick={handleExportPDF}
-                className="flex items-center gap-1.5 border-r border-slate-200 px-3.5 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
-              >
-                <FileDown className="h-4 w-4 text-rose-500" /> PDF Report
-              </button>
-              <button
-                onClick={handleExportExcel}
-                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
-              >
-                <FileSpreadsheet className="h-4 w-4 text-emerald-600" /> Excel Spreadsheet
-              </button>
+            {/* Filters and Actions Layout */}
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 items-center">
+                  {/* Date Range Picker */}
+                  <CustomDateRangePicker
+                    startDate={tsStartDate}
+                    endDate={tsEndDate}
+                    preset={datePreset}
+                    onChange={handleDateRangeChange}
+                  />
+
+                  {/* Search Box */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={tsSearch}
+                      onChange={(e) => setTsSearch(e.target.value)}
+                      placeholder="Search project details..."
+                      className="h-10 w-full rounded-xl border border-slate-250 bg-white pl-9 pr-3 text-xs font-semibold text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                    />
+                  </div>
+
+                  {/* Employee Filter */}
+                  <FilterCheckboxGroup
+                    label="Employee"
+                    placeholder="All Employees"
+                    compact
+                    options={tsEmployeeFilterOptions}
+                    selected={tsEmployeeFilters}
+                    onChange={setTsEmployeeFilters}
+                  />
+
+                  {/* Project Filter */}
+                  <FilterCheckboxGroup
+                    label="Project"
+                    placeholder="All Projects"
+                    compact
+                    options={tsProjectFilterOptions}
+                    selected={tsProjectFilters}
+                    onChange={setTsProjectFilters}
+                  />
+
+                  {/* Status Filter */}
+                  <FilterCheckboxGroup
+                    label="Status"
+                    placeholder="All Statuses"
+                    compact
+                    options={tsStatusFilterOptions}
+                    selected={tsStatusFilters}
+                    onChange={setTsStatusFilters}
+                  />
+                </div>
+
+                {/* Action Buttons (right-aligned, natural width) */}
+                <div className="h-10 flex items-center gap-3 justify-end">
+                  {hasActiveTimesheetFilters && (
+                    <button
+                      onClick={clearTimesheetFilters}
+                      className="h-10 inline-flex items-center text-xs font-bold text-emerald-600 hover:text-emerald-800 transition-colors whitespace-nowrap"
+                    >
+                      Clear Filters
+                    </button>
+                  )}
+
+                  {/* Document Export Buttons */}
+                  <div className="flex rounded-xl border border-slate-200 bg-white shadow-sm h-10">
+                    <button
+                      onClick={handleExportPDF}
+                      className="flex h-10 items-center gap-1.5 border-r border-slate-200 px-3.5 text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
+                    >
+                      <FileDown className="h-4 w-4 text-rose-500" />
+                      <span className="ml-1 whitespace-nowrap">PDF Report</span>
+                    </button>
+                    <button
+                      onClick={handleExportExcel}
+                      className="flex h-10 items-center gap-1.5 px-3.5 text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
+                    >
+                      <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                      <span className="ml-1 whitespace-nowrap">Excel Spreadsheet</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
+            {hasActiveTimesheetFilters && (
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1">Active Filters:</span>
+                
+                {tsSearch.trim() && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-150 px-2.5 py-1 text-xs font-semibold text-slate-650 border border-slate-200/50">
+                    Search: "{tsSearch}"
+                    <button onClick={() => setTsSearch('')} className="text-slate-400 hover:text-slate-600 transition-colors">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                )}
+                
+                {tsEmployeeFilters.map(empName => (
+                  <span key={empName} className="inline-flex items-center gap-1 rounded-full bg-slate-150 px-2.5 py-1 text-xs font-semibold text-slate-650 border border-slate-200/50">
+                    Employee: {empName}
+                    <button onClick={() => setTsEmployeeFilters(tsEmployeeFilters.filter(name => name !== empName))} className="text-slate-400 hover:text-slate-600 transition-colors">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+                
+                {tsProjectFilters.map(proj => (
+                  <span key={proj} className="inline-flex items-center gap-1 rounded-full bg-slate-150 px-2.5 py-1 text-xs font-semibold text-slate-650 border border-slate-200/50">
+                    Project: {proj}
+                    <button onClick={() => setTsProjectFilters(tsProjectFilters.filter(p => p !== proj))} className="text-slate-400 hover:text-slate-600 transition-colors">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+                
+                {tsStatusFilters.map(status => (
+                  <span key={status} className="inline-flex items-center gap-1 rounded-full bg-slate-150 px-2.5 py-1 text-xs font-semibold text-slate-650 border border-slate-200/50">
+                    Status: {status}
+                    <button onClick={() => setTsStatusFilters(tsStatusFilters.filter(s => s !== status))} className="text-slate-400 hover:text-slate-600 transition-colors">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+                
+                <button
+                  onClick={clearTimesheetFilters}
+                  className="text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors ml-auto text-[11px]"
+                >
+                  Clear All
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Timesheet Summary Metrics Cards */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <MetricCard
-              label="Total Hours"
-              value={`${timesheetMetrics.total}h`}
-              icon={Clock}
-              accentClass="bg-slate-500"
-            />
-            <MetricCard
-              label="Overtime Hours"
-              value={`${timesheetMetrics.overtime}h`}
-              icon={TrendingUp}
-              accentClass="bg-emerald-600"
-              secondaryText="Daily sum logged > 8.0h"
-            />
-            <MetricCard
-              label="Pending Approvals"
-              value={timesheetMetrics.pending}
-              icon={UserCheck}
-              accentClass="bg-amber-500"
-              secondaryText="Requires action"
-            />
-            <MetricCard
-              label="Active Employees"
-              value={timesheetMetrics.activeEmployees}
-              icon={Users}
-              accentClass="bg-sky-505 bg-sky-500"
-              secondaryText="Working on projects"
-            />
-          </div>
-
-          {/* Analytics Visual Redesign Section */}
+          {/* Analytics */}
           <div className="grid gap-5 lg:grid-cols-2">
             {/* Hours by Project Recharts Bar Chart */}
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -2131,7 +2408,7 @@ export function ProjectManagement() {
               {chartHoursByProject.length > 0 ? (
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartHoursByProject} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
+                    <BarChart data={chartHoursByProject} margin={{ top: 28, right: 5, left: -25, bottom: 5 }} onClick={handleBarClick}>
                       <defs>
                         <linearGradient id="emeraldGrad" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#10b981" stopOpacity={0.85} />
@@ -2145,7 +2422,22 @@ export function ProjectManagement() {
                         contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, fontSize: 11, fontWeight: 600 }}
                         cursor={{ fill: '#f8fafc' }}
                       />
-                      <Bar dataKey="hours" radius={[6, 6, 0, 0]} maxBarSize={38} fill="url(#emeraldGrad)" />
+                      <Bar dataKey="hours" radius={[6, 6, 0, 0]} maxBarSize={38} className="cursor-pointer" onClick={handleBarClick}>
+                        <LabelList dataKey="hours" content={HoursBarLabel} />
+                        {chartHoursByProject.map((entry, index) => {
+                          const baseColor = PROJECT_COLORS[index % PROJECT_COLORS.length]
+                          return (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={baseColor}
+                              fillOpacity={0.4}
+                              stroke={baseColor}
+                              strokeWidth={1.5}
+                              strokeOpacity={0.8}
+                            />
+                          )
+                        })}
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -2159,82 +2451,12 @@ export function ProjectManagement() {
             {/* Custom SaaS Leaderboard for Employee Hours */}
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <h3 className="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-700">
-                <span className="h-3.5 w-1.5 rounded-full bg-emerald-500" /> Employee-wise Hours Leaderboard
+                <span className="h-3.5 w-1.5 rounded-full bg-emerald-500" /> Aggregated Hours by Employee
               </h3>
               <div className="h-64 overflow-y-auto pr-1">
                 <EmployeeLeaderboard data={leaderboardData} />
               </div>
             </div>
-          </div>
-
-          {/* Advanced Filter Bar for Log Records */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h3 className="mb-3 text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
-              <Sliders className="h-4 w-4 text-emerald-600" /> Review Time Logs Filters
-            </h3>
-
-            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                <input
-                  type="text"
-                  value={tsSearch}
-                  onChange={(e) => setTsSearch(e.target.value)}
-                  placeholder="Search task details..."
-                  className="h-10 w-full rounded-xl border border-slate-250 bg-white pl-9 pr-3 text-xs font-semibold text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
-                />
-              </div>
-
-              <FilterCheckboxGroup
-                label="Employee"
-                placeholder="All Employees"
-                compact
-                options={tsEmployeeFilterOptions}
-                selected={tsEmployeeFilters}
-                onChange={setTsEmployeeFilters}
-              />
-
-              <FilterCheckboxGroup
-                label="Project"
-                placeholder="All Projects"
-                compact
-                options={tsProjectFilterOptions}
-                selected={tsProjectFilters}
-                onChange={setTsProjectFilters}
-              />
-
-              <FilterCheckboxGroup
-                label="Team"
-                placeholder="All Teams"
-                compact
-                options={MOCK_TEAMS.map((t) => ({ value: t, label: t }))}
-                selected={tsTeamFilters}
-                onChange={setTsTeamFilters}
-              />
-
-              <FilterCheckboxGroup
-                label="Status"
-                placeholder="All Statuses"
-                compact
-                options={[
-                  { value: 'Completed', label: 'Completed' },
-                  { value: 'In Progress', label: 'In Progress' },
-                ]}
-                selected={tsStatusFilters}
-                onChange={setTsStatusFilters}
-              />
-            </div>
-
-            {hasActiveTimesheetFilters && (
-              <div className="mt-3 flex justify-end">
-                <button
-                  onClick={clearTimesheetFilters}
-                  className="text-xs font-bold text-emerald-600 hover:text-emerald-800 transition-colors"
-                >
-                  Clear Timesheet Filters
-                </button>
-              </div>
-            )}
           </div>
 
           {/* Timesheet Data Table */}
@@ -2248,11 +2470,10 @@ export function ProjectManagement() {
                     <th className="px-5 py-3.5">Login Time</th>
                     <th className="px-5 py-3.5">Logout Time</th>
                     <th className="px-5 py-3.5">Total Hours</th>
-                    <th className="px-5 py-3.5">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
-                  {filteredTimesheets.map((t) => {
+                  {currentTimesheets.map((t) => {
                     const empInfo = MOCK_EMPLOYEES.find((e) => e.id === t.employeeId)
                     const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours)
 
@@ -2275,11 +2496,28 @@ export function ProjectManagement() {
 
                         {/* Project Details Column */}
                         <td className="px-5 py-3.5">
-                          <p className="font-bold text-slate-700 leading-tight">{t.project}</p>
-                          <p className="text-[10px] text-slate-400 font-semibold">{t.client} · {t.technologyNode}</p>
-                          <p className="mt-1 text-[10px] text-slate-500 font-medium truncate max-w-[220px]" title={t.task}>
-                            Task: {t.task}
-                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (t.projectId) {
+                                openAuditTrail(t.projectId, t.project)
+                              } else {
+                                const found = allProjects.find((p) => p.name === t.project)
+                                if (found) {
+                                  openAuditTrail(found.id, found.name)
+                                } else {
+                                  toast.error(`Could not find project: ${t.project}`)
+                                }
+                              }
+                            }}
+                            className="group/btn text-left focus:outline-none block"
+                          >
+                            <p className="font-bold text-slate-700 group-hover/btn:text-emerald-600 transition-colors leading-tight flex items-center gap-1">
+                              {t.project}
+                              <ArrowUpRight className="h-3 w-3 opacity-0 group-hover/btn:opacity-100 transition-all transform translate-y-0.5 group-hover/btn:translate-y-0 group-hover/btn:translate-x-0.5 text-emerald-500 shrink-0" />
+                            </p>
+                          </button>
+                          {/* Only project name is rendered */}
                         </td>
 
                         {/* Login Time Column */}
@@ -2296,25 +2534,12 @@ export function ProjectManagement() {
                         <td className="px-5 py-3.5 font-black text-slate-700 tracking-tight tabular-nums">
                           {hours !== null ? `${hours.toFixed(1)}h` : '—'}
                         </td>
-
-                        {/* Status Column */}
-                        <td className="px-5 py-3.5">
-                          {getTimesheetWorkflowStatus(t) === 'Completed' ? (
-                            <Badge variant="success" className="py-0.5 px-2.5 bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-bold">
-                              <CheckCircle2 className="mr-1 h-3 w-3" /> Completed
-                            </Badge>
-                          ) : (
-                            <Badge variant="info" className="py-0.5 px-2.5 bg-blue-50 text-blue-700 border border-blue-100 text-[10px] font-bold">
-                              In Progress
-                            </Badge>
-                          )}
-                        </td>
                       </tr>
                     )
                   })}
                   {filteredTimesheets.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="py-16 text-center text-slate-400 font-medium">
+                      <td colSpan={5} className="py-16 text-center text-slate-400 font-medium">
                         No individual logs correspond to selected range and filters.
                       </td>
                     </tr>
@@ -2323,6 +2548,47 @@ export function ProjectManagement() {
               </table>
             </div>
           </div>
+
+          {/* Timesheets Pagination Controls */}
+          {totalTimesheetsPages > 1 && (
+            <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4">
+              <span className="text-xs font-semibold text-slate-500">
+                Showing {indexOfFirstTimesheet + 1}–{Math.min(indexOfLastTimesheet, filteredTimesheets.length)} of {filteredTimesheets.length} logs
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={timesheetsCurrentPage === 1}
+                  onClick={() => setTimesheetsCurrentPage((p) => Math.max(1, p - 1))}
+                  className="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-white"
+                >
+                  Previous
+                </button>
+                {Array.from({ length: totalTimesheetsPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setTimesheetsCurrentPage(page)}
+                    className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-xs font-black transition-all ${
+                      timesheetsCurrentPage === page
+                        ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/10'
+                        : 'border border-slate-250 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  disabled={timesheetsCurrentPage === totalTimesheetsPages}
+                  onClick={() => setTimesheetsCurrentPage((p) => Math.min(totalTimesheetsPages, p + 1))}
+                  className="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-white"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -2374,7 +2640,6 @@ export function ProjectManagement() {
               setForm({
                 ...form,
                 accessType,
-                teamLead: accessType === 'private' ? form.teamLead : '',
                 visibleUsers: accessType === 'private' ? form.visibleUsers : [],
               })
             }}
@@ -2384,46 +2649,74 @@ export function ProjectManagement() {
             ]}
           />
 
+          {/* Team Lead Selection - Always Available */}
+          <SelectField
+            label="Team Lead"
+            id="m-proj-team-lead"
+            value={form.teamLead}
+            onChange={(e) => setForm({ ...form, teamLead: e.target.value })}
+            options={[
+              { value: '', label: 'Select team lead...' },
+              ...employees.map((e) => ({
+                value: `${e.firstName} ${e.lastName || ''}`.trim(),
+                label: `${e.firstName} ${e.lastName || ''}`.trim() + ` (${e.department})`,
+              })),
+            ]}
+          />
+
           {/* Conditional private security rules */}
           {form.accessType === 'private' && (
             <div className="grid gap-4 sm:grid-cols-2 rounded-2xl border border-slate-200 bg-slate-50/50 p-4 animate-fadeIn">
               <CheckboxList
                 label="Allowed Users"
-                items={MOCK_EMPLOYEES.map((e) => e.name)}
+                items={employees.map((e) => `${e.firstName} ${e.lastName || ''}`.trim())}
                 selected={form.visibleUsers}
                 onChange={(next) => setForm({ ...form, visibleUsers: next })}
-              />
-
-              <SelectField
-                label="Team Lead"
-                id="m-proj-team-lead"
-                value={form.teamLead}
-                onChange={(e) => setForm({ ...form, teamLead: e.target.value })}
-                required
-                options={[
-                  { value: '', label: 'Select team lead...' },
-                  ...MOCK_EMPLOYEES.map((e) => ({
-                    value: e.name,
-                    label: `${e.name} (${e.team})`,
-                  })),
-                ]}
               />
             </div>
           )}
 
           <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-505 text-slate-500">
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
               Project Description scope
             </label>
             <textarea
               placeholder="Provide a detailed scope of this project, goals, and standard specifications..."
               value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, description: enforceMaxWords(e.target.value) })
+              }
               rows={3}
               className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
               required
             />
+            <p
+              className={`mt-1 text-right text-[11px] font-semibold ${
+                countWords(form.description) >= MAX_PROJECT_DESCRIPTION_WORDS
+                  ? 'text-amber-600'
+                  : 'text-slate-400'
+              }`}
+            >
+              {countWords(form.description)} / {MAX_PROJECT_DESCRIPTION_WORDS} words
+            </p>
           </div>
+
+          {modalMode === 'edit' && (
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
+                Project Status
+              </label>
+              <select
+                value={form.status}
+                onChange={(e) => setForm({ ...form, status: e.target.value as 'Active' | 'Completed' | 'Cancelled' })}
+                className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-700 outline-none transition-all focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+              >
+                <option value="Active">In Progress</option>
+                <option value="Completed">Completed</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 border-t border-slate-100 pt-4 mt-2">
             <Button
@@ -2459,9 +2752,45 @@ export function ProjectManagement() {
           projectId={selectedProjectId}
           projectName={selectedProjectName}
           onRefresh={refreshAllData}
-          onProjectSynced={handleProjectSynced}
         />
       )}
+
+      {/* Project Audit Trail Modal */}
+      {selectedAuditProjectId && (
+        <ProjectAuditTrailModal
+          isOpen={auditTrailModalOpen}
+          onClose={() => {
+            setAuditTrailModalOpen(false)
+            setSelectedAuditProjectId(null)
+            setSelectedAuditProjectName('')
+          }}
+          projectId={selectedAuditProjectId}
+          projectName={selectedAuditProjectName}
+        />
+      )}
+
+      {/* Project Archive Confirmation Modal */}
+      {projectToDelete && (
+        <ConfirmModal
+          isOpen={deleteConfirmOpen}
+          title="Archive Project"
+          description={`Are you sure you want to archive the project "${projectToDelete.name}"? All associated history will be safely archived and this action cannot be undone.`}
+          confirmLabel="Archive Project"
+          danger
+          onClose={() => {
+            setDeleteConfirmOpen(false)
+            setProjectToDelete(null)
+          }}
+          onConfirm={handleConfirmArchive}
+        />
+      )}
+
+      {/* Archived Projects Browser Modal */}
+      <ArchivedProjectsModal
+        isOpen={archivedModalOpen}
+        onClose={() => setArchivedModalOpen(false)}
+        onRefreshActiveProjects={refreshAllData}
+      />
     </PageWrapper>
   )
 }
@@ -2491,5 +2820,61 @@ function EmptyState({
         </button>
       )}
     </div>
+  )
+}
+
+/* ================================================================
+   COMPONENT – ProjectArchiveConfirmModal
+   ================================================================ */
+interface ProjectArchiveConfirmModalProps {
+  isOpen: boolean
+  onClose: () => void
+  projectName: string
+  onConfirm: () => void
+}
+
+function ProjectArchiveConfirmModal({
+  isOpen,
+  onClose,
+  projectName,
+  onConfirm,
+}: ProjectArchiveConfirmModalProps) {
+  return (
+    <Modal isOpen={isOpen} title="" onClose={onClose} size="md">
+      {/* Sleek icon header */}
+      <div className="-mt-10 mb-4 flex items-center gap-2">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 shadow-md">
+          <Archive className="h-4 w-4 text-white" />
+        </div>
+        <h3 className="text-sm font-black text-slate-800 leading-tight">Archive Project</h3>
+      </div>
+
+      <div className="space-y-4">
+        <p className="text-xs text-slate-550 text-slate-500 font-bold leading-relaxed">
+          Are you sure you want to archive project <strong className="text-slate-800 font-extrabold">"{projectName}"</strong>?
+        </p>
+        <p className="text-xs text-slate-400 font-semibold leading-relaxed">
+          This will safely move the project and its complete history (assigned tasks and timesheet logs) to separate archived storage. Active dashboards stay clean. You can restore the project at any time.
+        </p>
+
+        <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onClose}
+            className="rounded-xl font-bold py-2 px-4 text-xs h-9"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={onConfirm}
+            className="bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl py-2 px-4 text-xs h-9 border-0 shadow-sm"
+          >
+            Archive Project
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }

@@ -3,7 +3,7 @@ import * as svc from '../services/documentRequestService';
 import { DocumentRequestStatus } from '../models/DocumentRequest';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { getUserById } from '../services/authService';
-import { isEmployeeRole } from '../utils/generateToken';
+import { isAdminRole, isEmployeeRole } from '../utils/generateToken';
 
 /** JWT lacks name — resolve from DB for audit fields (approve/reject). */
 async function resolveAdminDisplayName(req: AuthRequest): Promise<string> {
@@ -137,7 +137,12 @@ export const documentRequestController = {
       }
 
       const isEmp = isEmployeeRole(req.user?.role ?? '');
+      const isAdmin = isAdminRole(req.user?.role ?? '');
       if (isEmp && raw.employeeUserId !== req.user?.id) {
+        res.status(403).json({ error: 'Forbidden' });
+        return;
+      }
+      if (!isEmp && !isAdmin) {
         res.status(403).json({ error: 'Forbidden' });
         return;
       }
