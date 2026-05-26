@@ -23,8 +23,24 @@ function leavePeriodOverlapsRange(
   dateFrom?: string,
   dateTo?: string,
 ): boolean {
-  if (dateFrom && to < dateFrom) return false
-  if (dateTo && from > dateTo) return false
+  // If no date filters are set, include all leaves
+  if (!dateFrom && !dateTo) return true
+  
+  // If both date filters are set, check overlap
+  if (dateFrom && dateTo) {
+    return from <= dateTo && to >= dateFrom
+  }
+  
+  // If only dateFrom is set, include leaves that start on or after dateFrom
+  if (dateFrom && !dateTo) {
+    return to >= dateFrom
+  }
+  
+  // If only dateTo is set, include leaves that end on or before dateTo
+  if (!dateFrom && dateTo) {
+    return from <= dateTo
+  }
+  
   return true
 }
 

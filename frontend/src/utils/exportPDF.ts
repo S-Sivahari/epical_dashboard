@@ -68,22 +68,16 @@ export function exportToPDF<T extends Record<string, any>>(
 
   // Helper to draw centered branded header and metadata
   function drawHeaderBlock() {
-    // Mixed styling: Centered "EP[IC]AL LAYOUTS PVT LTD"
+    // Centered "EPICAL LAYOUTS PVT LTD"
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(18)
-    const w1 = doc.getTextWidth('EP')
-    const w2 = doc.getTextWidth('IC')
-    const w3 = doc.getTextWidth('AL LAYOUTS PVT LTD')
-    const totalWidth = w1 + w2 + w3
-    const startX = (pageWidth - totalWidth) / 2
+    const companyText = 'EPICAL LAYOUTS PVT LTD'
+    const textWidth = doc.getTextWidth(companyText)
+    const startX = (pageWidth - textWidth) / 2
 
-    // Segments: EP (black), IC (green), AL LAYOUTS PVT LTD (black)
+    // Company name in black
     doc.setTextColor(0, 0, 0)
-    doc.text('EP', startX, 50)
-    doc.setTextColor(16, 185, 129) // Emerald-500
-    doc.text('IC', startX + w1, 50)
-    doc.setTextColor(0, 0, 0)
-    doc.text('AL LAYOUTS PVT LTD', startX + w1 + w2, 50)
+    doc.text(companyText, startX, 50)
 
     // Centered Subtitles
     doc.setFont('helvetica', 'normal')
