@@ -4,6 +4,11 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { env } from './env';
 import { getDB } from './db';
 import bcrypt from 'bcryptjs';
+import {
+  ensureUserAccountForEmployee,
+  normalizeLoginEmail,
+  resolveUserForOAuthLogin,
+} from '../utils/employeeAuth';
 
 export function initializePassport() {
   passport.use(
@@ -13,53 +18,69 @@ export function initializePassport() {
         clientSecret: env.GOOGLE_CLIENT_SECRET,
         callbackURL: env.GOOGLE_CALLBACK_URL,
       },
-      async (accessToken, refreshToken, profile, done) => {
+      async (_accessToken, _refreshToken, profile, done) => {
         try {
           const email = profile.emails?.[0]?.value;
-          const name = profile.displayName;
           const googleId = profile.id;
 
           if (!email) {
             return done(new Error('No email provided by Google'));
           }
 
-          const userCollection = getDB().collection('users');
+          const normalizedEmail = normalizeLoginEmail(email);
+          const { user: existingUser, employee } = await resolveUserForOAuthLogin(normalizedEmail);
 
-          // Try to find existing user
-          let user: any = await userCollection.findOne({ email: email.toLowerCase().trim() });
+          if (!employee && !existingUser) {
+            return done(null, false, {
+              message:
+                'This email is not registered. Contact HR for employee access or use admin@company.com for admin.',
+            });
+          }
+
+          let user = existingUser;
+          if (!user && employee) {
+            user = await ensureUserAccountForEmployee(employee as any, '');
+          }
 
           if (!user) {
-            // Auto-create user if it doesn't exist
-            const newUser = {
-              id: `EMP-${Date.now()}`,
-              email: email.toLowerCase().trim(),
-              name: name || email.split('@')[0],
-              googleId,
-              passwordHash: await bcrypt.hash('', 10), // Empty password hash for OAuth users
-              role: 'Employee',
-              designation: 'Employee',
-              joinedAt: new Date().toISOString().split('T')[0],
-              avatarUrl: profile.photos?.[0]?.value,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            };
-            await userCollection.insertOne(newUser);
-            user = newUser;
-          } else if (!user.googleId) {
-            // Link Google ID to existing user
+            return done(null, false, { message: 'Unable to sign in with this email.' });
+          }
+
+          const userCollection = getDB().collection('users');
+
+          if (!user.passwordHash) {
             await userCollection.updateOne(
               { _id: user._id },
-              { $set: { googleId, updatedAt: new Date() } }
+              { $set: { passwordHash: await bcrypt.hash('', 10), updatedAt: new Date() } },
+            );
+          }
+
+          if (googleId && !user.googleId) {
+            await userCollection.updateOne(
+              { _id: user._id },
+              { $set: { googleId, updatedAt: new Date() } },
             );
             user.googleId = googleId;
           }
 
-          return done(null, user);
+          const displayName =
+            employee
+              ? `${employee.firstName || ''} ${employee.lastName || ''}`.trim()
+              : user.name || profile.displayName || normalizedEmail.split('@')[0];
+
+          return done(null, {
+            ...user,
+            email: normalizedEmail,
+            name: displayName,
+            designation: user.designation || employee?.designation || 'Employee',
+            joinedAt: user.joinedAt || employee?.joinedAt,
+            avatarUrl: user.avatarUrl || profile.photos?.[0]?.value,
+          });
         } catch (error) {
-          return done(error);
+          return done(error as Error);
         }
-      }
-    )
+      },
+    ),
   );
 
   passport.serializeUser((user: any, done) => {
@@ -76,4 +97,3 @@ export function initializePassport() {
     }
   });
 }
-

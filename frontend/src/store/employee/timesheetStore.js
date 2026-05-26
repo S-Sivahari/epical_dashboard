@@ -1,6 +1,7 @@
 import { create } from 'zustand'
-import { formatDateKey, getHistoryLoadRange } from '@pages/employee/lib/dateFilters'
+import { getPresetDateRange, getWeekRange } from '@pages/employee/lib/dateFilters'
 import {
+  fetchTimesheetBootstrap,
   fetchMyAssignedTasks,
   fetchMyAttendance,
   fetchMyAttendanceHistory,
@@ -17,6 +18,14 @@ import {
   resumeActiveTask as apiResumeActiveTask,
   completeActiveTask as apiCompleteActiveTask,
 } from '@services/employeeTimesheetService'
+
+function defaultMonthRange() {
+  return getPresetDateRange('This Month')
+}
+
+function defaultWeekRange() {
+  return getWeekRange()
+}
 
 function mapTaskEntryFromApi(entry) {
   if (!entry?.timesheet) return null
@@ -87,7 +96,7 @@ export const useTimesheetStore = create((set, get) => ({
 
   refreshAttendanceHistory: async ({ from, to } = {}) => {
     try {
-      const range = from && to ? { from, to } : getHistoryLoadRange(2)
+      const range = from && to ? { from, to } : defaultWeekRange()
       const records = await fetchMyAttendanceHistory(range)
       set({ attendanceHistory: records })
       return records
@@ -99,7 +108,7 @@ export const useTimesheetStore = create((set, get) => ({
 
   refreshSessionsForRange: async ({ from, to } = {}) => {
     try {
-      const range = from && to ? { from, to } : getHistoryLoadRange(2)
+      const range = from && to ? { from, to } : defaultMonthRange()
       const sessions = await fetchMySessions(range)
       set({ sessions: sessions.map(mapSessionFromApi) })
       return sessions
@@ -110,49 +119,36 @@ export const useTimesheetStore = create((set, get) => ({
   },
 
   hydrate: async () => {
+    if (get().initialized) return
     set({ loading: true })
     try {
-      const historyRange = getHistoryLoadRange(2)
-      const [attendance, activeRes, tasks, sessions, sessionStatusRes, settingsRes] = await Promise.all([
-        fetchMyAttendance(),
-        fetchMyActiveTask(),
-        fetchMyAssignedTasks(),
-        fetchMySessions(historyRange),
-        fetchSessionStatus().catch(() => null),
-        fetchAutoCheckoutSettings().catch(() => null),
-      ])
+      const data = await fetchTimesheetBootstrap()
 
-      const checkInTime = attendance.checkInTime ? new Date(attendance.checkInTime) : null
-      let activeTask = null
-
-      activeTask = mapActiveTaskFromApi(activeRes)
-      const pausedTasks = (activeRes?.pausedTasks || [])
-        .map(mapTaskEntryFromApi)
-        .filter(Boolean)
+      const activeRes = { active: data.active, pausedTasks: data.pausedTasks ?? [] }
+      const checkInTime = data.attendance?.checkInTime ? new Date(data.attendance.checkInTime) : null
+      const activeTask = mapActiveTaskFromApi(activeRes)
+      const pausedTasks = activeRes.pausedTasks.map(mapTaskEntryFromApi).filter(Boolean)
 
       set({
-        checkedIn: attendance.checkedIn,
+        checkedIn: data.attendance?.checkedIn ?? false,
         checkInTime,
-        attendance,
+        attendance: data.attendance ?? null,
         activeTask,
         pausedTasks,
-        assignedTasks: tasks,
-        sessions: sessions.map(mapSessionFromApi),
+        assignedTasks: data.assignedTasks ?? [],
+        sessions: (data.sessions ?? []).map(mapSessionFromApi),
+        attendanceHistory: Array.isArray(data.attendanceHistory) ? data.attendanceHistory : [],
         initialized: true,
-        sessionStatus: attendance.sessionStatus || null,
-        autoCheckoutInfo: sessionStatusRes || {
-          reminderSent: attendance.reminderSent || false,
-          autoCheckedOut: attendance.autoCheckedOut || false,
-          expectedCheckoutTime: attendance.expectedCheckoutTime || null,
-          autoCheckoutTime: attendance.autoCheckoutTime || null,
-          autoCheckoutEnabled: attendance.autoCheckoutEnabled ?? true,
+        sessionStatus: data.attendance?.sessionStatus ?? null,
+        autoCheckoutInfo: {
+          reminderSent: data.attendance?.reminderSent ?? false,
+          autoCheckedOut: data.attendance?.autoCheckedOut ?? false,
+          expectedCheckoutTime: data.attendance?.expectedCheckoutTime ?? null,
+          autoCheckoutTime: data.attendance?.autoCheckoutTime ?? null,
+          autoCheckoutEnabled: data.attendance?.autoCheckoutEnabled ?? true,
         },
-        autoCheckoutSettings: settingsRes || null,
+        autoCheckoutSettings: null,
       })
-      await Promise.all([
-        get().refreshAttendanceHistory(),
-        get().refreshSessionsForRange(),
-      ])
     } catch (err) {
       console.error('Failed to load timesheet state', err)
       set({ initialized: true })

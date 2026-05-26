@@ -205,6 +205,109 @@ async function requireOpenAttendance(employeeId: string) {
   return attendance;
 }
 
+function startOfMonthISO(): string {
+  const d = new Date();
+  d.setDate(1);
+  return d.toISOString().slice(0, 10);
+}
+
+function startOfWeekISO(): string {
+  const d = new Date();
+  const day = d.getDay();
+  const diff = day === 0 ? 6 : day - 1;
+  d.setDate(d.getDate() - diff);
+  return d.toISOString().slice(0, 10);
+}
+
+async function fetchActiveTaskPayload(employee: ResolvedEmployee) {
+  const openLogs = await TimesheetModel.find({
+    $and: [
+      {
+        $or: [
+          { employeeId: { $in: employee.identityTokens } },
+          { employee: { $in: employee.identityTokens } },
+        ],
+      },
+      { $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }] },
+      { taskStatus: { $in: ['In Progress', 'Paused', 'Session Incomplete'] } },
+    ],
+  })
+    .sort({ loginTime: -1 })
+    .lean();
+
+  const runningLog = openLogs.find(
+    (log) => log.taskStatus === 'In Progress' || log.taskStatus === 'Session Incomplete',
+  );
+  const pausedLogs = openLogs.filter((log) => log.taskStatus === 'Paused');
+
+  const runningAssigned = runningLog
+    ? await AssignedTaskModel.findOne({ timesheetId: runningLog._id }).lean()
+    : null;
+
+  const pausedTasks = await Promise.all(
+    pausedLogs.map(async (log) => {
+      const assigned = await AssignedTaskModel.findOne({ timesheetId: log._id }).lean();
+      return {
+        timesheet: toFrontendTimesheet(log),
+        assignedTask: assigned ? toFrontendAssignedTask(assigned) : null,
+      };
+    }),
+  );
+
+  return {
+    active: runningLog
+      ? {
+          timesheet: toFrontendTimesheet(runningLog),
+          assignedTask: runningAssigned ? toFrontendAssignedTask(runningAssigned) : null,
+        }
+      : null,
+    pausedTasks,
+  };
+}
+
+async function fetchAssignedTasksForEmployee(employee: ResolvedEmployee) {
+  const recentApprovedCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const tasks = await AssignedTaskModel.find({
+    $and: [
+      {
+        $or: [
+          { employeeId: { $in: employee.identityTokens } },
+          { employeeName: { $in: employee.identityTokens } },
+        ],
+      },
+      {
+        $or: [
+          { status: { $in: ['assigned', 'in_progress', 'pending_review'] } },
+          { status: 'completed', updatedAt: { $gte: recentApprovedCutoff } },
+        ],
+      },
+    ],
+  })
+    .sort({ updatedAt: -1 })
+    .lean();
+  return tasks.map(toFrontendAssignedTask);
+}
+
+function buildAttendanceResponse(
+  openAttendance: Awaited<ReturnType<typeof requireOpenAttendance>>,
+  latestAttendance: Awaited<ReturnType<typeof EmployeeAttendanceModel.findOne>>,
+) {
+  const date = todayDateKey();
+  const attendance = openAttendance ?? latestAttendance;
+  return {
+    checkedIn: !!openAttendance,
+    checkInTime: openAttendance?.checkInTime?.toISOString() ?? null,
+    checkOutTime: attendance?.checkOutTime?.toISOString() ?? null,
+    date: openAttendance?.date ?? attendance?.date ?? date,
+    sessionStatus: openAttendance?.sessionStatus ?? attendance?.sessionStatus ?? null,
+    reminderSent: openAttendance?.reminderSent ?? attendance?.reminderSent ?? false,
+    autoCheckedOut: attendance?.autoCheckedOut ?? false,
+    expectedCheckoutTime: openAttendance?.expectedCheckoutTime?.toISOString() ?? null,
+    autoCheckoutTime: openAttendance?.autoCheckoutTime?.toISOString() ?? null,
+    autoCheckoutEnabled: openAttendance?.autoCheckoutEnabled ?? attendance?.autoCheckoutEnabled ?? true,
+  };
+}
+
 async function releaseAssignedTask(timesheetId: string, session?: mongoose.ClientSession) {
   const assignedQuery = AssignedTaskModel.findOne({ timesheetId });
   if (session) assignedQuery.session(session);
@@ -217,6 +320,64 @@ async function releaseAssignedTask(timesheetId: string, session?: mongoose.Clien
 }
 
 export const employeeTimesheetController = {
+  /** One round-trip for timesheet page initial load (this month + this week only). */
+  getBootstrap: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const employee = await resolveEmployee(req);
+      if (!employee) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      void ensureAssignedTasksForEmployee({
+        id: employee.id,
+        name: employee.name,
+        email: employee.email,
+        employeeName: employee.employeeName,
+        employeeId: employee.employeeId,
+      }).catch((err) => console.error('Background assigned-task sync failed:', err));
+
+      const monthFrom = startOfMonthISO();
+      const weekFrom = startOfWeekISO();
+      const today = todayDateKey();
+
+      const sessionMatch = {
+        $or: [
+          { employeeId: { $in: employee.identityTokens } },
+          { employee: { $in: employee.identityTokens } },
+        ],
+        date: { $gte: monthFrom, $lte: today },
+      };
+
+      const [openAttendance, latestAttendance, activePayload, assignedTasks, sessions, attendanceHistory] =
+        await Promise.all([
+          requireOpenAttendance(employee.id),
+          EmployeeAttendanceModel.findOne({ employeeId: employee.id }).sort({ checkInTime: -1 }).lean(),
+          fetchActiveTaskPayload(employee),
+          fetchAssignedTasksForEmployee(employee),
+          TimesheetModel.find(sessionMatch).sort({ loginTime: -1 }).lean(),
+          EmployeeAttendanceModel.find({
+            employeeId: employee.id,
+            date: { $gte: weekFrom, $lte: today },
+          })
+            .sort({ checkInTime: -1 })
+            .lean(),
+        ]);
+
+      res.json({
+        attendance: buildAttendanceResponse(openAttendance, latestAttendance),
+        active: activePayload.active,
+        pausedTasks: activePayload.pausedTasks,
+        assignedTasks,
+        sessions: sessions.map(toFrontendTimesheet),
+        attendanceHistory: attendanceHistory.map((r) => toFrontendAttendance(r as any)),
+      });
+    } catch (error) {
+      console.error('Error loading timesheet bootstrap:', error);
+      res.status(500).json({ error: 'Failed to load timesheet' });
+    }
+  },
+
   getMyAssignedTasks: async (req: Request, res: Response): Promise<void> => {
     try {
       const employee = await resolveEmployee(req);
@@ -225,34 +386,15 @@ export const employeeTimesheetController = {
         return;
       }
 
-      await ensureAssignedTasksForEmployee({
+      void ensureAssignedTasksForEmployee({
         id: employee.id,
         name: employee.name,
         email: employee.email,
         employeeName: employee.employeeName,
         employeeId: employee.employeeId,
-      });
+      }).catch((err) => console.error('Background assigned-task sync failed:', err));
 
-      const recentApprovedCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-
-      const tasks = await AssignedTaskModel.find({
-        $and: [
-          {
-            $or: [
-              { employeeId: { $in: employee.identityTokens } },
-              { employeeName: { $in: employee.identityTokens } },
-            ],
-          },
-          {
-            $or: [
-              { status: { $in: ['assigned', 'in_progress', 'pending_review'] } },
-              { status: 'completed', updatedAt: { $gte: recentApprovedCutoff } },
-            ],
-          },
-        ],
-      }).sort({ updatedAt: -1 });
-
-      res.json(tasks.map(toFrontendAssignedTask));
+      res.json(await fetchAssignedTasksForEmployee(employee));
     } catch (error) {
       console.error('Error fetching assigned tasks:', error);
       res.status(500).json({ error: 'Failed to fetch assigned tasks' });
@@ -267,25 +409,12 @@ export const employeeTimesheetController = {
         return;
       }
 
-      const date = todayDateKey();
       const openAttendance = await requireOpenAttendance(employee.id);
       const latestAttendance = await EmployeeAttendanceModel.findOne({ employeeId: employee.id }).sort({
         checkInTime: -1,
       });
-      const attendance = openAttendance ?? latestAttendance;
 
-      res.json({
-        checkedIn: !!openAttendance,
-        checkInTime: openAttendance?.checkInTime?.toISOString() ?? null,
-        checkOutTime: attendance?.checkOutTime?.toISOString() ?? null,
-        date: openAttendance?.date ?? attendance?.date ?? date,
-        sessionStatus: openAttendance?.sessionStatus ?? attendance?.sessionStatus ?? null,
-        reminderSent: openAttendance?.reminderSent ?? attendance?.reminderSent ?? false,
-        autoCheckedOut: attendance?.autoCheckedOut ?? false,
-        expectedCheckoutTime: openAttendance?.expectedCheckoutTime?.toISOString() ?? null,
-        autoCheckoutTime: openAttendance?.autoCheckoutTime?.toISOString() ?? null,
-        autoCheckoutEnabled: openAttendance?.autoCheckoutEnabled ?? attendance?.autoCheckoutEnabled ?? true,
-      });
+      res.json(buildAttendanceResponse(openAttendance, latestAttendance));
     } catch (error) {
       console.error('Error fetching attendance:', error);
       res.status(500).json({ error: 'Failed to fetch attendance' });
@@ -300,47 +429,7 @@ export const employeeTimesheetController = {
         return;
       }
 
-      const openLogs = await TimesheetModel.find({
-        $and: [
-          {
-            $or: [
-              { employeeId: { $in: employee.identityTokens } },
-              { employee: { $in: employee.identityTokens } },
-            ],
-          },
-          { $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }] },
-          { taskStatus: { $in: ['In Progress', 'Paused', 'Session Incomplete'] } },
-        ],
-      }).sort({ loginTime: -1 });
-
-      const runningLog = openLogs.find(
-        (log) => log.taskStatus === 'In Progress' || log.taskStatus === 'Session Incomplete'
-      );
-      const pausedLogs = openLogs.filter((log) => log.taskStatus === 'Paused');
-
-      const runningAssigned = runningLog
-        ? await AssignedTaskModel.findOne({ timesheetId: runningLog._id })
-        : null;
-
-      const pausedTasks = await Promise.all(
-        pausedLogs.map(async (log) => {
-          const assigned = await AssignedTaskModel.findOne({ timesheetId: log._id });
-          return {
-            timesheet: toFrontendTimesheet(log),
-            assignedTask: assigned ? toFrontendAssignedTask(assigned) : null,
-          };
-        })
-      );
-
-      res.json({
-        active: runningLog
-          ? {
-              timesheet: toFrontendTimesheet(runningLog),
-              assignedTask: runningAssigned ? toFrontendAssignedTask(runningAssigned) : null,
-            }
-          : null,
-        pausedTasks,
-      });
+      res.json(await fetchActiveTaskPayload(employee));
     } catch (error) {
       console.error('Error fetching active task:', error);
       res.status(500).json({ error: 'Failed to fetch active task' });

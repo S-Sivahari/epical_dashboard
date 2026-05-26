@@ -105,7 +105,10 @@ async function triggerEmailNotification(notification: any): Promise<void> {
         recipientName = user.name || 'Admin';
       }
     } else if (notification.recipientType === 'Employee') {
-      const employee = await db.collection('employees').findOne({ id: notification.recipientId });
+      const employee = await db.collection('employees').findOne(
+        { id: notification.recipientId },
+        { projection: { documents: 0, 'photo.data': 0 } }
+      );
       if (employee) {
         recipientEmail = employee.email;
         recipientName = `${employee.firstName} ${employee.lastName}`;

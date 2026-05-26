@@ -8,9 +8,9 @@ import { ArchivedProjectModel } from '../models/ArchivedProject';
 import { updateProjectCompletionStatus, getTimesheetWorkflowStatus } from '../utils/syncProject';
 import {
   buildAssignmentIdentityTokens,
-  ensureAssignedTasksForEmployee,
   syncAssignedTasksForProject,
 } from '../utils/assignedTaskSync';
+import { getAssignedProjectsForUser } from '../utils/assignedProjectsHelper';
 import { getUserById } from '../services/authService';
 import { resolveEmployeeForAuthUser } from '../utils/employeeAuth';
 import { normalizeProjectDescription, validateProjectDescription } from '../utils/textLimits';
@@ -151,61 +151,9 @@ export const projectController = {
       }
 
       const employeeRecord = await resolveEmployeeForAuthUser(user.id, user.email);
-
-      const employeeName = employeeRecord
-        ? [employeeRecord.firstName, employeeRecord.middleName, employeeRecord.lastName]
-            .filter(Boolean)
-            .join(' ')
-            .trim() || user.name
-        : user.name;
-
-      const assignmentTokens = buildAssignmentIdentityTokens(user, employeeRecord as any);
-
-      await ensureAssignedTasksForEmployee({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        employeeId: employeeRecord?.employeeId,
-        employeeName,
+      const payload = await getAssignedProjectsForUser(user, employeeRecord as any, {
+        syncTasks: false,
       });
-
-      const assignedProjects = await ProjectModel.find({
-        $or: [
-          { accessType: 'public' },
-          { allowedUsers: { $in: assignmentTokens } },
-          { teamLead: { $in: assignmentTokens } },
-        ],
-      }).sort({ createdAt: -1 });
-
-      const timesheets = await TimesheetModel.find({
-        $or: [{ employeeId: userId }, { employee: employeeName }],
-      });
-
-      const hoursByProjectName: Record<string, number> = {};
-      timesheets.forEach((t) => {
-        const hours = computeTotalHours(t.loginTime, t.logoutTime, t.overriddenHours);
-        const key = t.project || '';
-        if (!key) return;
-        hoursByProjectName[key] = (hoursByProjectName[key] || 0) + hours;
-      });
-
-      const payload = assignedProjects.map((p) => {
-        const base = toFrontendProject(p);
-        const allowed = p.allowedUsers || [];
-        let assignmentRole: 'Team Lead' | 'Member' | 'Public' = 'Public';
-        if (p.teamLead && assignmentTokens.includes(p.teamLead)) {
-          assignmentRole = 'Team Lead';
-        } else if (p.accessType === 'private' && allowed.some((allowedUser: string) => assignmentTokens.includes(allowedUser))) {
-          assignmentRole = 'Member';
-        }
-
-        return {
-          ...base,
-          myHours: Math.round((hoursByProjectName[p.projectName] || 0) * 10) / 10,
-          assignmentRole,
-        };
-      });
-
       res.json(payload);
     } catch (error) {
       console.error('Error fetching assigned projects:', error);

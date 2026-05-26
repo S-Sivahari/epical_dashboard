@@ -264,21 +264,26 @@ export async function getAllEmployees(
   };
 }
 
-export async function getEmployeeById(id: string): Promise<Employee | null> {
+export async function getEmployeeById(
+  id: string,
+  options?: { includeBlobs?: boolean }
+): Promise<Employee | null> {
   const collection = getEmployeeCollection();
   const trimmed = id.trim();
   if (!trimmed) return null;
 
-  let employee = await collection.findOne({ id: trimmed });
+  const findOptions = options?.includeBlobs ? {} : { projection: { documents: 0, 'photo.data': 0 } };
+
+  let employee = await collection.findOne({ id: trimmed }, findOptions);
   if (employee) return employee as Employee;
 
   employee = await collection.findOne({
     $or: [{ employeeId: trimmed.toUpperCase() }, { employeeId: trimmed }],
-  });
+  }, findOptions);
   if (employee) return employee as Employee;
 
   if (ObjectId.isValid(trimmed)) {
-    employee = await collection.findOne({ _id: new ObjectId(trimmed) });
+    employee = await collection.findOne({ _id: new ObjectId(trimmed) }, findOptions);
     if (employee) return employee as Employee;
   }
 

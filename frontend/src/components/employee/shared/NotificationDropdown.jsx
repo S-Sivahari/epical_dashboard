@@ -10,13 +10,12 @@ export function NotificationDropdown() {
 
   useEffect(() => {
     fetchUnreadCount()
-    fetchNotifications()
 
     const interval = setInterval(() => {
       fetchUnreadCountSilent()
     }, NOTIFICATION_POLL_MS)
     return () => clearInterval(interval)
-  }, [fetchNotifications, fetchUnreadCount, fetchUnreadCountSilent])
+  }, [fetchUnreadCount, fetchUnreadCountSilent])
 
   return (
     <DropdownMenu

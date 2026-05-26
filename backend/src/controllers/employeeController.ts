@@ -3,7 +3,7 @@ import * as employeeService from '../services/employeeService';
 import { CreateEmployeePayload } from '../models/Employee';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { isAdminRole, isEmployeeRole } from '../utils/generateToken';
-import { resolveEmployeeForAuthUser } from '../utils/employeeAuth';
+import { resolveEmployeeForAuthUser, employeeBelongsToAuthUser, findEmployeeByLoginEmail } from '../utils/employeeAuth';
 import { sanitizeEmployeeForDetail } from '../utils/sanitizeEmployee';
 
 export const employeeController = {
@@ -55,14 +55,11 @@ export const employeeController = {
       }
 
       if (isEmployeeRole(req.user?.role ?? '')) {
-        const own = await resolveEmployeeForAuthUser(req.user!.id, req.user!.email);
-        const allowed =
-          own &&
-          (own.id === id ||
-            own.employeeId === id ||
-            req.user!.id === id ||
-            req.user!.id === own.id ||
-            req.user!.id === own.employeeId);
+        const allowed = await employeeBelongsToAuthUser(
+          employee,
+          req.user!.id,
+          req.user!.email,
+        );
         if (!allowed) {
           res.status(403).json({ error: 'Forbidden' });
           return;
@@ -73,6 +70,36 @@ export const employeeController = {
     } catch (error) {
       console.error('Error fetching employee:', error);
       res.status(500).json({ error: 'Failed to fetch employee' });
+    }
+  },
+
+  // Logged-in employee's own profile (resolves by token + email — avoids stale user.id)
+  getMyEmployee: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      let own =
+        (await resolveEmployeeForAuthUser(req.user.id, req.user.email)) ??
+        (req.user.email ? await findEmployeeByLoginEmail(req.user.email) : null);
+
+      if (!own) {
+        res.status(404).json({ error: 'Employee profile not found for this account' });
+        return;
+      }
+
+      const employee = await employeeService.getEmployeeProfileById(own.id);
+      if (!employee) {
+        res.status(404).json({ error: 'Employee profile not found' });
+        return;
+      }
+
+      res.json(sanitizeEmployeeForDetail(employee));
+    } catch (error) {
+      console.error('Error fetching own employee profile:', error);
+      res.status(500).json({ error: 'Failed to fetch employee profile' });
     }
   },
 

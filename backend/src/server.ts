@@ -27,6 +27,7 @@ import { newsRoutes } from './routes/newsRoutes';
 import { documentRequestRoutes } from './routes/documentRequestRoutes';
 import { companyCalendarEventRoutes } from './routes/companyCalendarEventRoutes';
 import { achievementRoutes } from './routes/achievementRoutes';
+import { employeeDashboardRoutes } from './routes/employeeDashboardRoutes';
 
 // Seed helpers
 import { seedDefaultUsers } from './services/authService';
@@ -96,6 +97,7 @@ app.get('/health', (_req, res) => {
 // ── API Routes ────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/auth', oauthRoutes);
+app.use('/api/dashboard', employeeDashboardRoutes);
 app.use('/api/leaves', leaveRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/holidays', holidayRoutes);

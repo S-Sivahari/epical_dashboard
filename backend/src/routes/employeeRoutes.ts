@@ -18,6 +18,9 @@ router.get('/check-id', employeeController.checkEmployeeId);
 // Bulk update status for multiple employees
 router.patch('/bulk-status', employeeController.bulkUpdateStatus);
 
+// Logged-in employee's own profile (must be before /:id)
+router.get('/me', employeeController.getMyEmployee);
+
 // Get employee by ID
 router.get('/:id', employeeController.getEmployeeById);
 

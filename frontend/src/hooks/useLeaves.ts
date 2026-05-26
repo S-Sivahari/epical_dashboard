@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { useLeaveStore } from '@store/leaveStore'
 
+const LEAVES_POLL_MS = 60_000
+
 export function useLeaves() {
   const fetchLeaves = useLeaveStore((s) => s.fetchLeaves)
   const fetchLeavesSilent = useLeaveStore((s) => s.fetchLeavesSilent)
@@ -8,18 +10,16 @@ export function useLeaves() {
   const fetchHolidaysSilent = useLeaveStore((s) => s.fetchHolidaysSilent)
   
   useEffect(() => {
-    // Initial fetch with loading indicator
     void fetchLeaves()
     void fetchHolidays()
     
-    // Poll for updates every 10 seconds (smart polling with cache validation)
     const leaveInterval = setInterval(() => {
       void fetchLeavesSilent()
-    }, 10000)
+    }, LEAVES_POLL_MS)
     
     const holidayInterval = setInterval(() => {
       void fetchHolidaysSilent()
-    }, 10000)
+    }, LEAVES_POLL_MS)
     
     return () => {
       clearInterval(leaveInterval)

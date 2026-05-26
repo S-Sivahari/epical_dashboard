@@ -30,7 +30,7 @@ export async function findEmployeeByPayrollEmpId(empId: string) {
       { employeeId: empId.trim() },
       { id: empId.trim() },
     ],
-  })
+  }, { projection: { documents: 0, 'photo.data': 0 } })
 }
 
 export async function sendPayslipToEmployee(params: {
@@ -44,7 +44,7 @@ export async function sendPayslipToEmployee(params: {
   let employee = null
 
   if (params.employeeDbId) {
-    employee = await col.findOne({ id: params.employeeDbId })
+    employee = await col.findOne({ id: params.employeeDbId }, { projection: { documents: 0, 'photo.data': 0 } })
   }
   if (!employee) {
     employee = await findEmployeeByPayrollEmpId(params.empId)

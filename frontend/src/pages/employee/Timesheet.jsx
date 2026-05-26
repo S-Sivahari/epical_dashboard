@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Play, LogIn, LogOut, Loader2, Pause, AlertTriangle } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { Button } from '@components/employee/ui/button'
 import { Label } from '@components/employee/ui/label'
 import { Textarea } from '@components/employee/ui/textarea'
@@ -14,6 +13,10 @@ import { DateRangePicker } from '@components/employee/shared/DateRangePicker'
 import { useTimesheetStore } from '@store/employee/timesheetStore'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { formatDateKey, getPresetDateRange, getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
+
+const TimesheetWeeklyChart = lazy(() =>
+  import('@pages/employee/TimesheetWeeklyChart').then((m) => ({ default: m.TimesheetWeeklyChart })),
+)
 
 function stripTaskLabelPrefix(taskText, { taskTitle, projectName } = {}) {
   let s = String(taskText || '').trim()
@@ -641,25 +644,15 @@ export default function Timesheet() {
         <div className="rounded-xl border border-border bg-card p-6 shadow-card lg:col-span-2">
           <h4 className="mb-4 font-heading text-lg font-semibold">Weekly Hours</h4>
           <div className="w-full" style={{ height: WEEKLY_CHART_HEIGHT }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={weeklyHours}
-                margin={{ top: 12, right: 24, left: 4, bottom: 8 }}
-                barCategoryGap="20%"
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                <XAxis dataKey="day" tick={{ fontSize: 13 }} axisLine={false} tickLine={false} />
-                <YAxis
-                  width={44}
-                  tick={{ fontSize: 13 }}
-                  axisLine={false}
-                  tickLine={false}
-                  allowDecimals={false}
-                />
-                <Tooltip />
-                <Bar dataKey="hours" fill="#16a34a" radius={[6, 6, 0, 0]} maxBarSize={56} />
-              </BarChart>
-            </ResponsiveContainer>
+            <Suspense
+              fallback={
+                <div className="flex h-full items-center justify-center text-sm text-muted">
+                  Loading chart…
+                </div>
+              }
+            >
+              <TimesheetWeeklyChart data={weeklyHours} height={WEEKLY_CHART_HEIGHT} />
+            </Suspense>
           </div>
         </div>
       </div>
@@ -675,6 +668,7 @@ export default function Timesheet() {
               setHistoryStart(start)
               setHistoryEnd(end)
               setHistoryPreset(preset)
+              void useTimesheetStore.getState().refreshSessionsForRange({ from: start, to: end })
             }}
           />
         </div>

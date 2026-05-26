@@ -19,14 +19,13 @@ export function NotificationBell() {
 
   useEffect(() => {
     fetchUnreadCount()
-    fetchNotifications()
 
     // Light poll: unread count only (full list loads on bell open or when count rises)
     const interval = setInterval(() => {
       fetchUnreadCountSilent()
     }, NOTIFICATION_POLL_MS)
     return () => clearInterval(interval)
-  }, [fetchNotifications, fetchUnreadCount, fetchUnreadCountSilent])
+  }, [fetchUnreadCount, fetchUnreadCountSilent])
 
   const displayNotifications = notifications.slice(0, 5)
 

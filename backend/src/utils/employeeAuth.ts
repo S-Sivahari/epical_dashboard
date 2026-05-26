@@ -10,6 +10,112 @@ export function normalizeLoginEmail(email: string): string {
   return email.toLowerCase().trim();
 }
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const NO_BLOBS_PROJECTION = { projection: { documents: 0, 'photo.data': 0 } };
+
+/** Case-insensitive match on company or personal email. */
+export async function findEmployeeByLoginEmail(email: string): Promise<any> {
+  const normalized = normalizeLoginEmail(email);
+  if (!normalized) return null;
+
+  const col = getDB().collection('employees');
+  const exact = await col.findOne({
+    $or: [{ email: normalized }, { personalEmail: normalized }],
+  }, NO_BLOBS_PROJECTION);
+  if (exact) return exact;
+
+  const pattern = new RegExp(`^${escapeRegex(normalized)}$`, 'i');
+  return col.findOne({
+    $or: [{ email: pattern }, { personalEmail: pattern }],
+  }, NO_BLOBS_PROJECTION);
+}
+
+export function employeeEmailsInclude(
+  employee: { email?: string; personalEmail?: string },
+  loginEmail: string,
+): boolean {
+  const normalized = normalizeLoginEmail(loginEmail);
+  if (!normalized) return false;
+  return getEmployeeLoginEmails(employee).includes(normalized);
+}
+
+export async function resolveEmployeeForAuthUser(userId: string, userEmail?: string): Promise<any> {
+  const employeeCol = getDB().collection('employees');
+  const trimmed = String(userId ?? '').trim();
+
+  if (trimmed) {
+    const byId = await employeeCol.findOne({ id: trimmed }, NO_BLOBS_PROJECTION);
+    if (byId) return byId;
+
+    const byEmployeeId = await employeeCol.findOne({
+      $or: [{ employeeId: trimmed.toUpperCase() }, { employeeId: trimmed }],
+    }, NO_BLOBS_PROJECTION);
+    if (byEmployeeId) return byEmployeeId;
+  }
+
+  if (userEmail) {
+    const byLoginEmail = await findEmployeeByLoginEmail(userEmail);
+    if (byLoginEmail) return byLoginEmail;
+  }
+
+  if (userEmail) {
+    const userCol = getUserCollection();
+    const normalized = normalizeLoginEmail(userEmail);
+    const user =
+      (await userCol.findOne({ id: trimmed })) ??
+      (await userCol.findOne({ email: normalized })) ??
+      (await userCol.findOne({
+        email: { $regex: new RegExp(`^${escapeRegex(normalized)}$`, 'i') },
+      }));
+
+    if (user?.id && user.id !== trimmed) {
+      const byLinkedUserId = await employeeCol.findOne({ id: user.id }, NO_BLOBS_PROJECTION);
+      if (byLinkedUserId) return byLinkedUserId;
+    }
+  }
+
+  return null;
+}
+
+/** True when the logged-in user may view this employee record (own profile). */
+export async function employeeBelongsToAuthUser(
+  employee: { id: string; employeeId?: string; email?: string; personalEmail?: string },
+  userId: string,
+  userEmail?: string,
+): Promise<boolean> {
+  const own = await resolveEmployeeForAuthUser(userId, userEmail);
+  if (
+    own &&
+    (own.id === employee.id ||
+      (own.employeeId && own.employeeId === employee.employeeId))
+  ) {
+    return true;
+  }
+
+  const trimmed = String(userId ?? '').trim();
+  if (
+    trimmed &&
+    (employee.id === trimmed ||
+      employee.employeeId === trimmed ||
+      employee.employeeId === trimmed.toUpperCase())
+  ) {
+    return true;
+  }
+
+  if (userEmail && employeeEmailsInclude(employee, userEmail)) {
+    return true;
+  }
+
+  return false;
+}
+
+function getUserCollection(): Collection<any> {
+  return getDB().collection('users');
+}
+
 export function getEmployeeLoginEmails(employee: {
   email?: string;
   personalEmail?: string;
@@ -18,29 +124,6 @@ export function getEmployeeLoginEmails(employee: {
     .filter((value) => value && String(value).trim())
     .map((value) => normalizeLoginEmail(String(value)));
   return [...new Set(emails)];
-}
-
-export async function findEmployeeByLoginEmail(email: string) {
-  const normalized = normalizeLoginEmail(email);
-  return getDB().collection('employees').findOne({
-    $or: [{ email: normalized }, { personalEmail: normalized }],
-  });
-}
-
-export async function resolveEmployeeForAuthUser(userId: string, userEmail?: string) {
-  const employeeCol = getDB().collection('employees');
-  const byId = await employeeCol.findOne({ id: userId });
-  if (byId) return byId;
-
-  if (userEmail) {
-    return findEmployeeByLoginEmail(userEmail);
-  }
-
-  return null;
-}
-
-function getUserCollection(): Collection<any> {
-  return getDB().collection('users');
 }
 
 export async function findUserForEmployee(
@@ -58,7 +141,17 @@ export async function findUserForEmployee(
   const uniqueEmails = [...new Set(emails)];
   if (!uniqueEmails.length) return null;
 
-  const byEmail = await col.findOne({ email: { $in: uniqueEmails } });
+  let byEmail = await col.findOne({ email: { $in: uniqueEmails } });
+  if (!byEmail && loginEmail) {
+    const normalized = normalizeLoginEmail(loginEmail);
+    byEmail = await col.findOne({
+      email: { $regex: new RegExp(`^${escapeRegex(normalized)}$`, 'i') },
+    });
+  }
+  if (!byEmail) {
+    const patterns = uniqueEmails.map((e) => new RegExp(`^${escapeRegex(e)}$`, 'i'));
+    byEmail = await col.findOne({ email: { $in: patterns } });
+  }
   if (byEmail && byEmail.id !== employee.id) {
     await col.updateOne(
       { _id: byEmail._id },
@@ -131,14 +224,19 @@ export async function resolveUserForPasswordLogin(email: string) {
     return { user: adminUser, employee: null, loginEmail: normalized };
   }
 
-  let user = await col.findOne({ email: normalized });
+  let user =
+    (await col.findOne({ email: normalized })) ??
+    (await col.findOne({
+      email: { $regex: new RegExp(`^${escapeRegex(normalized)}$`, 'i') },
+    }));
+
   const employee = await findEmployeeByLoginEmail(normalized);
 
   if (employee) {
     const linkedUser = await findUserForEmployee(employee, normalized);
     if (linkedUser) {
       user = linkedUser;
-    } else {
+    } else if (!user) {
       user = await ensureUserAccountForEmployee(employee);
     }
   }

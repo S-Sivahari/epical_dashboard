@@ -1,5 +1,6 @@
 import { Collection } from 'mongodb';
 import { getDB } from '../config/db';
+import { findEmployeeByLoginEmail, findUserForEmployee, resolveEmployeeForAuthUser } from '../utils/employeeAuth';
 import { LeaveRequest, CreateLeavePayload } from '../models/Leave';
 import { Holiday } from '../models/Holiday';
 import { getBusinessDays, calculateBalances } from '../utils/leaveCalculator';
@@ -21,24 +22,68 @@ function compensationCol(): Collection<any> {
   return getDB().collection('compensation_entries');
 }
 
+/** Collect every id variant stored on leaves / employees / users for one person. */
+export async function resolveLeaveEmployeeIds(employeeId: string): Promise<string[]> {
+  const trimmed = String(employeeId ?? '').trim();
+  const ids = new Set<string>();
+  if (trimmed) ids.add(trimmed);
+
+  const employeeCol = getDB().collection('employees');
+  const NO_BLOBS_PROJECTION = { projection: { documents: 0, 'photo.data': 0 } };
+  const emp =
+    (await employeeCol.findOne({ id: trimmed }, NO_BLOBS_PROJECTION)) ||
+    (await employeeCol.findOne({ employeeId: trimmed }, NO_BLOBS_PROJECTION)) ||
+    (await employeeCol.findOne({ employeeId: trimmed.toUpperCase() }, NO_BLOBS_PROJECTION));
+
+  if (emp?.id) ids.add(String(emp.id));
+  if (emp?.employeeId) {
+    ids.add(String(emp.employeeId));
+    ids.add(String(emp.employeeId).toUpperCase());
+  }
+  if (emp) {
+    const linkedUser = await findUserForEmployee(emp as any);
+    if (linkedUser?.id) ids.add(String(linkedUser.id));
+  }
+
+  const userCol = getDB().collection('users');
+  const user =
+    (await userCol.findOne({ id: trimmed })) ||
+    (await userCol.findOne({ email: trimmed.toLowerCase() }));
+  if (user?.id) ids.add(String(user.id));
+  if (user?.email) {
+    const empByEmail = await findEmployeeByLoginEmail(String(user.email));
+    if (empByEmail?.id) ids.add(String(empByEmail.id));
+    if (empByEmail?.employeeId) {
+      ids.add(String(empByEmail.employeeId));
+      ids.add(String(empByEmail.employeeId).toUpperCase());
+    }
+  }
+
+  return Array.from(ids);
+}
+
+async function findEmployeeDoc(employeeId: string) {
+  const trimmed = String(employeeId ?? '').trim();
+  if (!trimmed) return null;
+
+  const userCol = getDB().collection('users');
+  const user = await userCol.findOne({ id: trimmed });
+
+  return resolveEmployeeForAuthUser(trimmed, user?.email ? String(user.email) : undefined);
+}
+
 /** Sum active compensation entry days credited in the calendar year toward Earned Leave for this employee */
 export async function getCompensationEarnedLeaveBonusForYear(
   employeeDbId: string,
   calendarYear = new Date().getFullYear()
 ): Promise<number> {
-  const employeeCol = getDB().collection('employees');
-  const emp =
-    (await employeeCol.findOne({ id: employeeDbId })) ||
-    (await employeeCol.findOne({ employeeId: employeeDbId.trim().toUpperCase() }));
-
-  const ids: string[] = [employeeDbId];
-  if (emp?.employeeId) ids.push(String(emp.employeeId));
+  const ids = await resolveLeaveEmployeeIds(employeeDbId);
 
   const col = compensationCol();
   const entries = await col
     .find({
       status: 'Active',
-      employeeId: { $in: Array.from(new Set(ids)) },
+      employeeId: { $in: ids },
     })
     .toArray();
 
@@ -57,8 +102,12 @@ export async function getCompensationEarnedLeaveBonusForYear(
 
 export async function getAllLeaves(employeeId?: string): Promise<LeaveRequest[]> {
   const col = getLeaveCol();
-  const query = employeeId ? { employeeId } : {};
-  const leaves = await col.find(query).sort({ createdAt: -1 }).toArray();
+  if (!employeeId) {
+    const leaves = await col.find({}).sort({ createdAt: -1 }).toArray();
+    return leaves as LeaveRequest[];
+  }
+  const ids = await resolveLeaveEmployeeIds(employeeId);
+  const leaves = await col.find({ employeeId: { $in: ids } }).sort({ createdAt: -1 }).toArray();
   return leaves as LeaveRequest[];
 }
 
@@ -99,8 +148,10 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
 
   // 3. Fetch employee balances to validate (pass joinedAt for accurate earned leave)
   const employeeLeaves = await getAllLeaves(payload.employeeId);
-  const employeeDoc = await getDB().collection('employees').findOne({ id: payload.employeeId });
-  const compBonus = await getCompensationEarnedLeaveBonusForYear(payload.employeeId);
+  const employeeDoc = await findEmployeeDoc(payload.employeeId);
+  const compBonus = await getCompensationEarnedLeaveBonusForYear(
+    employeeDoc?.id ? String(employeeDoc.id) : payload.employeeId,
+  );
   const balances = calculateBalances(employeeLeaves, employeeDoc?.joinedAt as string | undefined, {
     compensationEarnedBonus: compBonus,
   });
@@ -155,8 +206,9 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
 
 export async function getLeaveBalances(employeeId: string) {
   const leaves = await getAllLeaves(employeeId);
-  const employee = await getDB().collection('employees').findOne({ id: employeeId });
-  const compBonus = await getCompensationEarnedLeaveBonusForYear(employeeId);
+  const employee = await findEmployeeDoc(employeeId);
+  const canonicalId = employee?.id ? String(employee.id) : employeeId;
+  const compBonus = await getCompensationEarnedLeaveBonusForYear(canonicalId);
   return calculateBalances(leaves, employee?.joinedAt as string | undefined, {
     compensationEarnedBonus: compBonus,
   });
@@ -197,8 +249,9 @@ function isApprovedLeaveActiveOnDate(leave: LeaveRequest, dateStr: string): bool
 
 export async function getEmployeeLeaveSummary(employeeId: string): Promise<EmployeeLeaveSummary> {
   const leaves = await getAllLeaves(employeeId);
-  const employee = await getDB().collection('employees').findOne({ id: employeeId });
-  const compBonus = await getCompensationEarnedLeaveBonusForYear(employeeId);
+  const employee = await findEmployeeDoc(employeeId);
+  const canonicalId = employee?.id ? String(employee.id) : employeeId;
+  const compBonus = await getCompensationEarnedLeaveBonusForYear(canonicalId);
   const balances = calculateBalances(leaves, employee?.joinedAt as string | undefined, {
     compensationEarnedBonus: compBonus,
   });
@@ -231,10 +284,14 @@ export async function getEmployeeLeaveSummary(employeeId: string): Promise<Emplo
       status: l.status,
     }));
 
-  const employeeName = leaves[0]?.employeeName ?? 'Unknown';
+  const employeeName = employee
+    ? [employee.firstName, employee.middleName, employee.lastName].filter(Boolean).join(' ').trim() ||
+      leaves[0]?.employeeName ||
+      'Unknown'
+    : leaves[0]?.employeeName ?? 'Unknown';
 
   return {
-    employeeId,
+    employeeId: canonicalId,
     employeeName,
     balances: balanceList,
     currentLeaves,
@@ -257,9 +314,12 @@ export async function updateLeaveStatus(
 
     // Fetch employee leaves to calculate current balance
     const employeeLeaves = await getAllLeaves(leave.employeeId);
-    const employeeDoc = await getDB().collection('employees').findOne({ id: leave.employeeId });
+    const employeeDoc = await getDB().collection('employees').findOne(
+      { id: leave.employeeId },
+      { projection: { documents: 0, 'photo.data': 0 } }
+    );
     const compBonus = await getCompensationEarnedLeaveBonusForYear(leave.employeeId);
-    const balances = calculateBalances(employeeLeaves, employeeDoc?.joinedAt as string | undefined, {
+    const balances = calculateBalances(employeeLeaves, (employeeDoc as any)?.joinedAt as string | undefined, {
       compensationEarnedBonus: compBonus,
     });
 
@@ -607,7 +667,10 @@ export async function notifyAdminsAboutLeaveRequest(leave: LeaveRequest): Promis
 export async function notifyEmployeeAboutLeaveStatus(leave: LeaveRequest): Promise<void> {
   try {
     const employeeCollection = getDB().collection('employees');
-    const employee = await employeeCollection.findOne({ employeeId: leave.employeeId });
+    const employee = await employeeCollection.findOne(
+      { employeeId: leave.employeeId },
+      { projection: { documents: 0, 'photo.data': 0 } }
+    );
     
     if (!employee || !employee.email) {
       console.warn(`[Leave Email] No email found for employee ${leave.employeeId}`);
@@ -615,8 +678,8 @@ export async function notifyEmployeeAboutLeaveStatus(leave: LeaveRequest): Promi
     }
     
     await emailService.sendLeaveStatusEmail({
-      recipientEmail: employee.email,
-      recipientName: `${employee.firstName} ${employee.lastName}`,
+      recipientEmail: (employee as any).email,
+      recipientName: `${(employee as any).firstName} ${(employee as any).lastName}`,
       employeeName: leave.employeeName,
       type: leave.type,
       from: leave.from,

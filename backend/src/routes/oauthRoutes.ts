@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import passport from 'passport';
+import { env } from '../config/env';
 import {
   handleGoogleCallback,
   loginWithOAuth,
@@ -7,21 +8,19 @@ import {
 
 export const oauthRoutes = Router();
 
-// Initiate Google OAuth login
-oauthRoutes.get(
-  '/google',
-  passport.authenticate('google', {
-    scope: ['profile', 'email'],
-  })
-);
+const googleAuthOptions = { scope: ['profile', 'email'], session: false };
+
+// Initiate Google OAuth login (server redirect — no browser GSI iframe)
+oauthRoutes.get('/google', passport.authenticate('google', googleAuthOptions));
 
 // Google OAuth callback
 oauthRoutes.get(
   '/google/callback',
   passport.authenticate('google', {
-    failureRedirect: '/auth/failed',
+    ...googleAuthOptions,
+    failureRedirect: `${env.FRONTEND_URL}/auth/login?error=google_auth_failed`,
   }),
-  handleGoogleCallback
+  handleGoogleCallback,
 );
 
 // Login with OAuth (direct verification from frontend)

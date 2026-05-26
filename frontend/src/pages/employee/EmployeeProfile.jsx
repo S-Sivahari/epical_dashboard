@@ -62,7 +62,7 @@ export default function EmployeeProfile() {
 
     void (async () => {
       try {
-        const profile = await employeeService.getEmployee(user.id)
+        const profile = await employeeService.getMyEmployee()
         if (!cancelled) {
           setEmployee(profile)
           setDocuments(documentListFromEmployee(profile))

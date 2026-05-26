@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { jwtDecode } from 'jwt-decode'
 import api from '@services/api'
 import { verifyGoogleOAuthLogin } from '@services/googleOAuthService'
 
@@ -21,6 +22,13 @@ interface AuthState {
   role: UserRole | null
   login: (email: string, password: string) => Promise<void>
   loginWithOAuth: (email: string, name: string, googleId: string) => Promise<void>
+  completeOAuthRedirect: (payload: {
+    token: string
+    role: string
+    email: string
+    name: string
+    designation?: string
+  }) => void
   logout: () => void
 }
 
@@ -66,6 +74,30 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
 
     const mappedRole: UserRole = role === 'admin' ? 'admin' : 'employee'
+
+    localStorage.setItem('hrms_token', token)
+    localStorage.setItem('hrms_role', mappedRole)
+    localStorage.setItem('hrms_user', JSON.stringify(user))
+    set({ token, isAuthenticated: true, user, role: mappedRole })
+  },
+  completeOAuthRedirect: ({ token, role, email, name, designation }) => {
+    const mappedRole: UserRole = role === 'admin' ? 'admin' : 'employee'
+    let userId = email
+    try {
+      const decoded = jwtDecode<{ id?: string }>(token)
+      if (decoded.id) userId = decoded.id
+    } catch {
+      // keep email fallback
+    }
+
+    const user: AuthUser = {
+      id: userId,
+      name: name || email.split('@')[0],
+      email,
+      role: mappedRole === 'admin' ? 'Admin' : 'Employee',
+      designation: designation || (mappedRole === 'admin' ? 'Admin' : 'Employee'),
+      joinedAt: new Date().toISOString().slice(0, 10),
+    }
 
     localStorage.setItem('hrms_token', token)
     localStorage.setItem('hrms_role', mappedRole)

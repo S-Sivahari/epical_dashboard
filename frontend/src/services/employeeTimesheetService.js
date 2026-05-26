@@ -1,5 +1,10 @@
 import api from '@services/api'
 
+export async function fetchTimesheetBootstrap() {
+  const res = await api.get('/timesheets/mine/bootstrap')
+  return res.data
+}
+
 export async function fetchMyAssignedTasks() {
   const res = await api.get('/timesheets/mine/assigned-tasks')
   return res.data

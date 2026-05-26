@@ -1,9 +1,9 @@
-import { lazy, Suspense } from 'react'
+import { lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { PageLoading } from '@components/layout/PageLoading'
 import { AuthLayout } from '@layouts/AuthLayout'
 import { AdminLayout } from '@layouts/AdminLayout'
 import { EmployeeLayout } from '@layouts/EmployeeLayout'
+import { NotFound } from '@pages/NotFound'
 import { ProtectedRoute } from '@routes/ProtectedRoute'
 import { useAuthStore } from '@store/authStore'
 
@@ -72,12 +72,8 @@ const Settings = lazy(async () => {
   const m = await import('@pages/admin/Settings/Settings')
   return { default: m.Settings }
 })
-const NotFound = lazy(async () => {
-  const m = await import('@pages/NotFound')
-  return { default: m.NotFound }
-})
 
-const EmployeeDashboard = lazy(() => import('@pages/employee/Dashboard'))
+const EmployeeDashboardPage = lazy(() => import('@pages/employee/Dashboard'))
 const EmployeeTimesheet = lazy(() => import('@pages/employee/Timesheet'))
 const EmployeeLeaveRequest = lazy(() => import('@pages/employee/LeaveRequest'))
 const EmployeeCalendar = lazy(() => import('@pages/employee/CompanyCalendar'))
@@ -98,8 +94,7 @@ function RootRedirect() {
 
 export function AppRoutes() {
   return (
-    <Suspense fallback={<PageLoading />}>
-      <Routes>
+    <Routes>
         <Route path="/" element={<AuthLayout />}>
           <Route index element={<RootRedirect />} />
         </Route>
@@ -133,7 +128,7 @@ export function AppRoutes() {
 
         <Route element={<ProtectedRoute roles={['employee']} />}>
           <Route path="/employee" element={<EmployeeLayout />}>
-            <Route index element={<EmployeeDashboard />} />
+            <Route index element={<EmployeeDashboardPage />} />
             <Route path="timesheet" element={<EmployeeTimesheet />} />
             <Route path="leave" element={<EmployeeLeaveRequest />} />
             <Route path="calendar" element={<EmployeeCalendar />} />
@@ -148,7 +143,6 @@ export function AppRoutes() {
         </Route>
 
         <Route path="*" element={<NotFound />} />
-      </Routes>
-    </Suspense>
+    </Routes>
   )
 }

@@ -52,10 +52,11 @@ export function EmployeeLeaveProfileModal({
       try {
         const data = await leaveService.getEmployeeLeaveSummary(employeeId)
         if (!cancelled) setSummary(data)
-      } catch {
+      } catch (error) {
+        console.error('[EmployeeLeaveProfile] load failed:', error)
         if (!cancelled) {
           toast.error('Failed to load employee leave details')
-          onClose()
+          setSummary(null)
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -183,7 +184,11 @@ export function EmployeeLeaveProfileModal({
             />
           </section>
         </div>
-      ) : null}
+      ) : (
+        <div className="flex min-h-[200px] items-center justify-center">
+          <span className="text-sm text-muted">Could not load leave details for this employee.</span>
+        </div>
+      )}
     </Modal>
   )
 }

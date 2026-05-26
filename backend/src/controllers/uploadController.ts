@@ -55,7 +55,7 @@ export const uploadController = {
         }
       }
 
-      const existingEmployee = await employeeService.getEmployeeById(id);
+      const existingEmployee = await employeeService.getEmployeeById(id, { includeBlobs: true });
 
       if (!existingEmployee) {
         res.status(404).json({ error: 'Employee not found' });
@@ -158,7 +158,7 @@ export const uploadController = {
     try {
       const { id } = req.params as { id: string };
 
-      const employee = await employeeService.getEmployeeById(id);
+      const employee = await employeeService.getEmployeeById(id, { includeBlobs: true });
 
       if (!employee) {
         res.status(404).json({ error: 'Employee not found' });

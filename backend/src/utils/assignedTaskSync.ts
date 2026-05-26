@@ -47,16 +47,61 @@ function defaultTaskTitle(projectName: string): string {
 async function resolveUserIdForDisplayName(name: string): Promise<string> {
   const db = getDB();
   const trimmed = name.trim();
+  if (!trimmed) return trimmed;
+
   const user = await db.collection('users').findOne({ name: trimmed });
   if (user?.id) return String(user.id);
 
-  const employees = await db.collection('employees').find({}).toArray();
-  const emp = employees.find((e) => {
-    const full = [e.firstName, e.middleName, e.lastName].filter(Boolean).join(' ').trim();
-    const short = [e.firstName, e.lastName].filter(Boolean).join(' ').trim();
-    return full === trimmed || short === trimmed;
-  });
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+  const employeeQuery =
+    parts.length >= 2
+      ? {
+          $or: [
+            {
+              $expr: {
+                $eq: [
+                  {
+                    $trim: {
+                      input: {
+                        $concat: [
+                          { $ifNull: ['$firstName', ''] },
+                          ' ',
+                          { $ifNull: ['$middleName', ''] },
+                          ' ',
+                          { $ifNull: ['$lastName', ''] },
+                        ],
+                      },
+                    },
+                  },
+                  trimmed,
+                ],
+              },
+            },
+            {
+              $expr: {
+                $eq: [
+                  {
+                    $trim: {
+                      input: {
+                        $concat: [
+                          { $ifNull: ['$firstName', ''] },
+                          ' ',
+                          { $ifNull: ['$lastName', ''] },
+                        ],
+                      },
+                    },
+                  },
+                  trimmed,
+                ],
+              },
+            },
+          ],
+        }
+      : { firstName: trimmed };
+
+  const emp = await db.collection('employees').findOne(employeeQuery, { projection: { documents: 0, 'photo.data': 0 } });
   if (emp?.employeeId) return String(emp.employeeId);
+  if (emp?.id) return String(emp.id);
   if (emp?._id) return String(emp._id);
   return trimmed;
 }
@@ -122,7 +167,10 @@ export async function ensureAssignedTasksForEmployee(employee: {
 }): Promise<void> {
   const db = getDB();
   const employeeRecord = employee.email
-    ? await db.collection('employees').findOne({ email: employee.email.toLowerCase().trim() })
+    ? await db.collection('employees').findOne(
+        { email: employee.email.toLowerCase().trim() },
+        { projection: { documents: 0, 'photo.data': 0 } }
+      )
     : null;
 
   const identityTokens = buildAssignmentIdentityTokens(employee, employeeRecord as any);
@@ -133,11 +181,15 @@ export async function ensureAssignedTasksForEmployee(employee: {
       { allowedUsers: { $in: identityTokens } },
       { teamLead: { $in: identityTokens } },
     ],
-  });
+  }).lean();
 
-  for (const project of projects) {
-    await ensureAssignedTaskForEmployeeOnProject(project, employee, identityTokens);
-  }
+  if (projects.length === 0) return;
+
+  await Promise.all(
+    projects.map((project) =>
+      ensureAssignedTaskForEmployeeOnProject(project as any, employee, identityTokens),
+    ),
+  );
 }
 
 /** Create/update assigned tasks for everyone listed on a private project. */

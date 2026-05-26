@@ -5,6 +5,7 @@ import { getDB } from '../config/db';
 import { AuthRequest } from '../middleware/authMiddleware';
 import type { NotificationType } from '../models/Notification';
 import { isAdminRole, isEmployeeRole } from '../utils/generateToken';
+import { resolveEmployeeForAuthUser } from '../utils/employeeAuth';
 
 /**
  * Sends an in-app notification (+ email via notificationService) to every active employee.
@@ -54,10 +55,15 @@ export const leaveController = {
   // GET /api/leaves
   getAll: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      // Admins see all; employees see only their own
-      const employeeId = isEmployeeRole(req.user?.role ?? '')
-          ? (req.query.employeeId as string) || req.user!.id
-          : (req.query.employeeId as string) || undefined;
+      let employeeId: string | undefined;
+
+      if (isEmployeeRole(req.user?.role ?? '')) {
+        const employee = await resolveEmployeeForAuthUser(req.user!.id, req.user!.email);
+        employeeId = employee?.id ? String(employee.id) : req.user!.id;
+      } else {
+        employeeId = (req.query.employeeId as string) || undefined;
+      }
+
       const leaves = await leaveService.getAllLeaves(employeeId);
       res.json(leaves.filter((l) => l.status !== 'Cancelled'));
     } catch {
@@ -122,9 +128,14 @@ export const leaveController = {
   // GET /api/leaves/balances
   getBalances: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const employeeId = isEmployeeRole(req.user?.role ?? '')
-        ? req.user!.id
-        : (req.query.employeeId as string);
+      let employeeId: string | undefined;
+
+      if (isEmployeeRole(req.user?.role ?? '')) {
+        const employee = await resolveEmployeeForAuthUser(req.user!.id, req.user!.email);
+        employeeId = employee?.id ? String(employee.id) : req.user!.id;
+      } else {
+        employeeId = req.query.employeeId as string;
+      }
 
       if (!employeeId) {
         res.status(400).json({ error: 'employeeId is required' });
@@ -133,7 +144,8 @@ export const leaveController = {
 
       const balances = await leaveService.getLeaveBalances(employeeId);
       res.json(balances);
-    } catch {
+    } catch (error) {
+      console.error('Error fetching leave balances:', error);
       res.status(500).json({ error: 'Failed to fetch leave balances' });
     }
   },

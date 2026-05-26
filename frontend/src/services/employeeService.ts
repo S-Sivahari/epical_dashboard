@@ -29,6 +29,12 @@ export async function getEmployee(id: string) {
   return response.data as Employee
 }
 
+/** Current logged-in employee's profile — resolves by auth token, not cached user.id. */
+export async function getMyEmployee() {
+  const response = await api.get('/employees/me')
+  return response.data as Employee
+}
+
 export async function createEmployee(
   payload: Omit<Employee, 'id'>,
 ) {

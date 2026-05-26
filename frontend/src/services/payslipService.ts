@@ -223,6 +223,23 @@ export async function openMyPayslipPdf(payslipId: string): Promise<void> {
   window.open(url, '_blank', 'noopener,noreferrer')
 }
 
+export async function fetchMyPayslipPdfUrl(payslipId: string): Promise<string> {
+  const blob = await fetchPdfBlob(`${base}/my-payslips/${payslipId}/download`)
+  return window.URL.createObjectURL(blob)
+}
+
+export async function downloadMyPayslipPdf(payslipId: string, downloadName?: string): Promise<void> {
+  const blob = await fetchPdfBlob(`${base}/my-payslips/${payslipId}/download`)
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.setAttribute('download', downloadName || `payslip-${payslipId}.pdf`)
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
+}
+
 export async function deletePayrollBatch(batchId: string): Promise<void> {
   await api.delete(`${base}/batches/${batchId}`)
 }

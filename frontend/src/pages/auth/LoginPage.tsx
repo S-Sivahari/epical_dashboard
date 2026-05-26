@@ -5,14 +5,39 @@ import { useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { z } from 'zod'
-import { GoogleLogin } from '@react-oauth/google'
-import { jwtDecode } from 'jwt-decode'
-import { Mail, Lock, Eye, EyeOff, Shield, Users } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@components/ui/Button'
 import { useAuthStore } from '@store/authStore'
 import { APP_NAME, APP_SHORT_NAME } from '@/utils/constants'
+import { getGoogleClientId } from '@services/googleOAuthService'
+import { prefetchEmployeeDashboard } from '@/utils/prefetchEmployeeRoutes'
 
 const LOGO_URL = '/logo.png'
+const googleClientId = getGoogleClientId()
+const googleSignInEnabled = googleClientId.endsWith('.apps.googleusercontent.com')
+
+function GoogleMark() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+      />
+    </svg>
+  )
+}
 
 const schema = z.object({
   email: z.string().email('Please enter a valid email'),
@@ -28,11 +53,41 @@ function EpicalLogo({ className = 'h-12 w-12' }: { className?: string }) {
 
 export function LoginPage() {
   const login = useAuthStore((s) => s.login)
-  const loginWithOAuth = useAuthStore((s) => s.loginWithOAuth)
+  const completeOAuthRedirect = useAuthStore((s) => s.completeOAuthRedirect)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const role = useAuthStore((s) => s.role)
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get('token')
+
+    if (token) {
+      const oauthRole = params.get('role') ?? 'employee'
+      const email = params.get('email') ?? ''
+      const name = params.get('name') ?? email.split('@')[0]
+      const designation = params.get('designation') ?? undefined
+
+      completeOAuthRedirect({ token, role: oauthRole, email, name, designation })
+      prefetchEmployeeDashboard()
+      window.history.replaceState({}, '', '/auth/login')
+      toast.success('Welcome back')
+      navigate(oauthRole === 'admin' ? '/admin' : '/employee', { replace: true })
+      return
+    }
+
+    const error = params.get('error')
+    if (error) {
+      window.history.replaceState({}, '', '/auth/login')
+      toast.error(
+        error === 'google_auth_failed'
+          ? 'Google sign-in failed or this email is not registered. Contact HR or use email/password.'
+          : 'Sign-in failed. Please try again.',
+      )
+    }
+  }, [completeOAuthRedirect, navigate])
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -52,6 +107,7 @@ export function LoginPage() {
   const onSubmit = handleSubmit(async (values) => {
     try {
       await login(values.email, values.password)
+      prefetchEmployeeDashboard()
       toast.success('Welcome back')
       const userRole = useAuthStore.getState().role
       navigate(userRole === 'admin' ? '/admin' : '/employee', { replace: true })
@@ -61,19 +117,10 @@ export function LoginPage() {
     }
   })
 
-  const handleGoogleSuccess = async (credentialResponse: { credential?: string }) => {
-    try {
-      if (!credentialResponse.credential) throw new Error('Missing Google credential')
-      const decoded = jwtDecode<{ email: string; name: string; sub: string }>(credentialResponse.credential)
-      await loginWithOAuth(decoded.email, decoded.name, decoded.sub)
-      toast.success('Welcome back')
-      const userRole = useAuthStore.getState().role
-      navigate(userRole === 'admin' ? '/admin' : '/employee', { replace: true })
-    } catch (error) {
-      console.error('Google login error:', error)
-      const message = error instanceof Error ? error.message : 'Unable to sign in with Google'
-      toast.error(message)
-    }
+  const handleGoogleRedirect = () => {
+    setGoogleLoading(true)
+    const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api'
+    window.location.assign(`${apiBase}/auth/google`)
   }
 
   return (
@@ -204,28 +251,29 @@ export function LoginPage() {
             </Button>
           </form>
 
-          {/* Divider */}
-          <div className="relative my-5">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-border" />
-            </div>
-            <div className="relative flex justify-center text-xs">
-              <span className="bg-white px-3 text-muted">Or continue with</span>
-            </div>
-          </div>
-
           {/* Google sign-in */}
-          <div className="flex justify-center">
-            <GoogleLogin
-              onSuccess={handleGoogleSuccess}
-              onError={() => toast.error('Google login failed')}
-              text="signin_with"
-              size="large"
-              theme="outline"
-              shape="rectangular"
-              width={340}
-            />
-          </div>
+          {googleSignInEnabled ? (
+            <>
+              <div className="relative my-5">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-white px-3 text-muted">Or continue with</span>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-11 w-full gap-3 rounded-lg text-sm font-medium"
+                loading={googleLoading}
+                onClick={handleGoogleRedirect}
+              >
+                <GoogleMark />
+                Continue with Google
+              </Button>
+            </>
+          ) : null}
         </motion.div>
       </div>
     </div>

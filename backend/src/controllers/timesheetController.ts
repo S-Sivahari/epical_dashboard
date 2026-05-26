@@ -320,7 +320,7 @@ export const timesheetController = {
             const dbEmp = await db.collection('employees').findOne({
               firstName,
               lastName
-            });
+            }, { projection: { documents: 0, 'photo.data': 0 } });
             if (dbEmp) {
               dept = dbEmp.role || '—';
             }

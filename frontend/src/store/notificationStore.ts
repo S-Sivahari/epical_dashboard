@@ -5,6 +5,40 @@ import { playNotificationSound } from '@utils/notificationSound'
 /** Background poll interval for unread badge (ms). */
 export const NOTIFICATION_POLL_MS = 60_000
 
+let unreadCountRequest: Promise<void> | null = null
+
+async function runUnreadCountFetch(
+  set: (partial: Partial<NotificationState>) => void,
+  get: () => NotificationState,
+  silent: boolean,
+) {
+  if (unreadCountRequest) return unreadCountRequest
+
+  unreadCountRequest = (async () => {
+    try {
+      const response = await api.get('/notifications/count/unread')
+      const prevCount = get().lastUnreadCount
+      const isInitialized = get().isInitialized
+      const newCount = response.data.count
+
+      if (isInitialized && newCount > prevCount) {
+        playNotificationSound()
+        void get().fetchNotificationsSilent()
+      }
+
+      set({ unreadCount: newCount, lastUnreadCount: newCount, isInitialized: true })
+    } catch (error) {
+      if (!silent) {
+        console.error('[Notifications] Error fetching unread count:', error)
+      }
+    } finally {
+      unreadCountRequest = null
+    }
+  })()
+
+  return unreadCountRequest
+}
+
 export interface NotificationData {
   id: string
   recipientId: string
@@ -110,42 +144,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   },
 
   fetchUnreadCount: async () => {
-    try {
-      const response = await api.get('/notifications/count/unread')
-      const prevCount = get().lastUnreadCount
-      const isInitialized = get().isInitialized
-      const newCount = response.data.count
-      
-      // Play sound only if initialized AND unread count increased
-      if (isInitialized && newCount > prevCount) {
-        playNotificationSound()
-        // Refresh list when badge count goes up
-        void get().fetchNotificationsSilent()
-      }
-      
-      set({ unreadCount: newCount, lastUnreadCount: newCount, isInitialized: true })
-    } catch (error) {
-      console.error('[Notifications] Error fetching unread count:', error)
-    }
+    await runUnreadCountFetch(set, get, false)
   },
 
   fetchUnreadCountSilent: async () => {
-    try {
-      const response = await api.get('/notifications/count/unread')
-      const prevCount = get().lastUnreadCount
-      const isInitialized = get().isInitialized
-      const newCount = response.data.count
-      
-      if (isInitialized && newCount > prevCount) {
-        playNotificationSound()
-        void get().fetchNotificationsSilent()
-      }
-      
-      set({ unreadCount: newCount, lastUnreadCount: newCount, isInitialized: true })
-    } catch (error) {
-      console.error('[Notifications] Error fetching unread count:', error)
-      // Silently fail - don't show toast for background fetch
-    }
+    await runUnreadCountFetch(set, get, true)
   },
 
   markAsRead: async (notificationId: string) => {

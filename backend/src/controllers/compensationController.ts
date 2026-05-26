@@ -11,9 +11,10 @@ function getCol() {
 
 async function resolveEmployeeIds(userId: string): Promise<string[]> {
   const employeeCol = getDB().collection('employees');
+  const findOptions = { projection: { documents: 0, 'photo.data': 0 } };
   const emp =
-    (await employeeCol.findOne({ id: userId })) ||
-    (await employeeCol.findOne({ employeeId: userId.trim().toUpperCase() }));
+    (await employeeCol.findOne({ id: userId }, findOptions)) ||
+    (await employeeCol.findOne({ employeeId: userId.trim().toUpperCase() }, findOptions));
 
   const ids = new Set<string>([userId]);
   if (emp?.id) ids.add(String(emp.id));

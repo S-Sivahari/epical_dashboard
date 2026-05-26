@@ -11,6 +11,7 @@ router.get('/', timesheetController.getAll);
 router.get('/hours-by-project', timesheetController.getHoursByProject);
 router.get('/employee-hours', timesheetController.getEmployeeHours);
 
+router.get('/mine/bootstrap', employeeTimesheetController.getBootstrap);
 router.get('/mine/assigned-tasks', employeeTimesheetController.getMyAssignedTasks);
 router.get('/mine/attendance', employeeTimesheetController.getMyAttendance);
 router.get('/mine/attendance-history', employeeTimesheetController.getMyAttendanceHistory);

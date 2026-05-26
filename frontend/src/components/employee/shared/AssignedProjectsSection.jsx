@@ -91,12 +91,26 @@ function ProjectBlockCard({ project }) {
   )
 }
 
-export function AssignedProjectsSection() {
-  const [projects, setProjects] = useState([])
-  const [loading, setLoading] = useState(true)
+export function AssignedProjectsSection({ initialProjects = null, loading: loadingProp = false }) {
+  const [projects, setProjects] = useState(initialProjects ?? [])
+  const [loading, setLoading] = useState(initialProjects == null || loadingProp)
   const [error, setError] = useState(null)
 
   useEffect(() => {
+    if (initialProjects != null) {
+      setProjects(initialProjects)
+      setLoading(loadingProp)
+      setError(null)
+      return
+    }
+
+    // Parent dashboard is still loading — avoid duplicate /projects/assigned/me call
+    if (loadingProp) {
+      setLoading(true)
+      setError(null)
+      return
+    }
+
     let cancelled = false
 
     async function load() {
@@ -120,7 +134,7 @@ export function AssignedProjectsSection() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [initialProjects, loadingProp])
 
   return (
     <section className="rounded-xl border border-border bg-card p-6 shadow-card">

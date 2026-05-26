@@ -10,27 +10,37 @@ import {
   resolveUserForOAuthLogin,
 } from '../utils/employeeAuth';
 
+function oauthFailureRedirect(reason = 'auth_failed') {
+  return `${env.FRONTEND_URL}/auth/login?error=${encodeURIComponent(reason)}`;
+}
+
 export async function handleGoogleCallback(req: Request, res: Response) {
   try {
     const user = req.user as any;
 
     if (!user) {
-      return res.status(401).json({ message: 'Authentication failed' });
+      return res.redirect(oauthFailureRedirect('google_auth_failed'));
     }
 
     const apiRole = normalizeApiRole(user.role);
     const token = jwt.sign(
       { id: user.id, email: user.email, role: apiRole },
       env.JWT_SECRET,
-      { expiresIn: env.JWT_EXPIRES_IN as any }
+      { expiresIn: env.JWT_EXPIRES_IN as any },
     );
 
-    const role = apiRole;
-    const redirectUrl = `${env.FRONTEND_URL}?token=${token}&role=${role}`;
-    res.redirect(redirectUrl);
+    const params = new URLSearchParams({
+      token,
+      role: apiRole,
+      email: user.email ?? '',
+      name: user.name ?? '',
+      designation: user.designation ?? 'Employee',
+    });
+
+    res.redirect(`${env.FRONTEND_URL}/auth/login?${params.toString()}`);
   } catch (error) {
     console.error('Google callback error:', error);
-    res.redirect(`${env.FRONTEND_URL}?error=auth_failed`);
+    res.redirect(oauthFailureRedirect('auth_failed'));
   }
 }
 

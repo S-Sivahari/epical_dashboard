@@ -190,7 +190,7 @@ export function LeaveRequests({
       const balances = await leaveService.getBalances(leave.employeeId)
       setApproveBalance(balances[leave.type] ?? null)
     } catch {
-      // Non-critical — approval can still proceed
+      toast.error('Could not load leave balance for this employee')
     } finally {
       setLoadingBalance(false)
     }
@@ -669,7 +669,11 @@ export function LeaveRequests({
                   </span>
                 </div>
               </div>
-            ) : null}
+            ) : (
+              <p className="rounded-lg border border-dashed border-border bg-surface/40 px-3 py-2 text-sm text-muted">
+                Leave balance could not be loaded. You can still approve if you have verified eligibility manually.
+              </p>
+            )}
 
             <div className="flex justify-end gap-3 pt-2 border-t border-border">
               <Button variant="secondary" onClick={() => { setIsApproveModalOpen(false); setLeaveToApprove(null) }}>

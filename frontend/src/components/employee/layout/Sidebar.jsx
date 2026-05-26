@@ -17,6 +17,7 @@ import { cn } from '@pages/employee/lib/utils'
 import { useUIStore } from '@store/employee/uiStore'
 import { company } from '@pages/employee/data/mockData'
 import { employeeNavGroups } from '@constants/employeeNav'
+import { prefetchEmployeeRoute } from '@/utils/prefetchEmployeeRoutes'
 
 const SIDEBAR_WIDTH = 248
 const SIDEBAR_COLLAPSED_WIDTH = 72
@@ -43,6 +44,8 @@ function NavItem({ to, label, end, collapsed, onNavigate }) {
       end={end}
       title={collapsed ? label : undefined}
       onClick={onNavigate}
+      onMouseEnter={() => prefetchEmployeeRoute(to)}
+      onFocus={() => prefetchEmployeeRoute(to)}
       className={({ isActive }) =>
         cn(
           'group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium leading-snug transition-all duration-200',
