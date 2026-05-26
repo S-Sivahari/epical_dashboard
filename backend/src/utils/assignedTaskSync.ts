@@ -2,6 +2,7 @@ import { Types } from 'mongoose';
 import { getDB } from '../config/db';
 import { ProjectModel } from '../models/Project';
 import { AssignedTaskModel } from '../models/AssignedTask';
+import { normalizeProjectDescription } from './textLimits';
 
 export function buildAssignmentIdentityTokens(
   user: { id?: string; name?: string; email?: string; employeeId?: string },
@@ -40,7 +41,7 @@ export function buildAssignmentIdentityTokens(
 }
 
 function defaultTaskTitle(projectName: string): string {
-  return `Work on ${projectName}`;
+  return projectName;
 }
 
 async function resolveUserIdForDisplayName(name: string): Promise<string> {
@@ -105,7 +106,9 @@ export async function ensureAssignedTaskForEmployeeOnProject(
     employeeId: employee.id,
     employeeName: employee.name,
     title,
-    description: (project.description || '').trim().slice(0, 500) || `Assigned work for ${project.projectName}.`,
+    description:
+      normalizeProjectDescription(project.description || '') ||
+      `Assigned work for ${project.projectName}.`,
     status: 'assigned',
   });
 }
@@ -186,7 +189,9 @@ export async function syncAssignedTasksForProject(project: {
       employeeId,
       employeeName: name,
       title,
-      description: (project.description || '').trim().slice(0, 500) || `Assigned work for ${project.projectName}.`,
+      description:
+      normalizeProjectDescription(project.description || '') ||
+      `Assigned work for ${project.projectName}.`,
       status: 'assigned',
     });
   }

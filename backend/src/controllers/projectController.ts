@@ -12,6 +12,7 @@ import {
   syncAssignedTasksForProject,
 } from '../utils/assignedTaskSync';
 import { getUserById } from '../services/authService';
+import { normalizeProjectDescription, validateProjectDescription } from '../utils/textLimits';
 
 function computeTotalHours(loginTime: Date, logoutTime?: Date, overriddenHours?: number): number {
   if (overriddenHours !== undefined && overriddenHours !== null) {
@@ -280,6 +281,12 @@ export const projectController = {
         return;
       }
 
+      const descriptionError = validateProjectDescription(String(description || ''));
+      if (descriptionError) {
+        res.status(400).json({ error: descriptionError });
+        return;
+      }
+
       const username = (req as any).user?.username || (req as any).user?.name || 'Admin';
 
       const project = new ProjectModel({
@@ -288,7 +295,7 @@ export const projectController = {
         technologyNode: technologyNode.trim(),
         accessType: accessType || 'public',
         status: 'Active', // new projects always default to Active
-        description: (description || '').trim(),
+        description: normalizeProjectDescription(String(description || '')),
         allowedUsers: accessType === 'private' ? (visibleUsers || []) : [],
         teamLead: accessType === 'private' && teamLead ? String(teamLead).trim() : undefined,
         createdBy: username,
@@ -313,6 +320,12 @@ export const projectController = {
         return;
       }
 
+      const descriptionError = validateProjectDescription(String(description || ''));
+      if (descriptionError) {
+        res.status(400).json({ error: descriptionError });
+        return;
+      }
+
       const project = await ProjectModel.findById(req.params.id);
       if (!project) {
         res.status(404).json({ error: 'Project not found' });
@@ -325,7 +338,7 @@ export const projectController = {
       project.clientName = client.trim();
       project.technologyNode = technologyNode.trim();
       project.accessType = accessType;
-      project.description = (description || '').trim();
+      project.description = normalizeProjectDescription(String(description || ''));
       project.allowedUsers = accessType === 'private' ? (visibleUsers || []) : [];
       project.teamLead = accessType === 'private' && teamLead ? String(teamLead).trim() : undefined;
 

@@ -13,6 +13,11 @@ import { ProjectAuditTrailModal } from '@components/modals/ProjectAuditTrailModa
 import { ArchivedProjectsModal } from '@components/modals/ArchivedProjectsModal'
 import { toast } from 'sonner'
 import {
+  countWords,
+  enforceMaxWords,
+  MAX_PROJECT_DESCRIPTION_WORDS,
+} from '@/lib/textLimits'
+import {
   Clock,
   Users,
   Search,
@@ -49,6 +54,7 @@ import {
   CartesianGrid,
   Tooltip,
   Cell,
+  LabelList,
 } from 'recharts'
 import { formatDate } from '@/utils/formatDate'
 import { jsPDF } from 'jspdf'
@@ -187,6 +193,11 @@ function buildTimesheetExportAnalytics(logs: TimesheetLog[]) {
     .sort((a, b) => b.hours - a.hours)
 
   return { hoursByProject, leaderboard }
+}
+
+function formatExportHours(hours: number): string {
+  const n = Math.round(hours * 10) / 10
+  return Number.isInteger(n) ? `${n}h` : `${n.toFixed(1)}h`
 }
 
 /** Simplified operational status for the Timesheets log view (read-only). */
@@ -1023,6 +1034,25 @@ const PROJECT_COLORS = [
   '#f97316', // Orange
 ]
 
+function HoursBarLabel(props: { x?: number; y?: number; width?: number; value?: number | string }) {
+  const { x = 0, y = 0, width = 0, value } = props
+  const n = Number(value)
+  if (!Number.isFinite(n)) return null
+  const text = Number.isInteger(n) ? `${n}h` : `${n.toFixed(1)}h`
+  return (
+    <text
+      x={x + width / 2}
+      y={y - 8}
+      fill="#475569"
+      fontSize={10}
+      fontWeight={600}
+      textAnchor="middle"
+    >
+      {text}
+    </text>
+  )
+}
+
 /* ================================================================
    MAIN DASHBOARD COMPONENT
    ================================================================ */
@@ -1127,6 +1157,7 @@ export function ProjectManagement() {
   const [tsSearch, setTsSearch] = useState('')
   const [tsEmployeeFilters, setTsEmployeeFilters] = useState<string[]>([])
   const [tsProjectFilters, setTsProjectFilters] = useState<string[]>([])
+  const [tsStatusFilters, setTsStatusFilters] = useState<string[]>([])
 
   // ── API Fetch Functions ─────────────────────────────────────
   const fetchEmployees = useCallback(async () => {
@@ -1349,6 +1380,17 @@ export function ProjectManagement() {
         return
       }
 
+      const descriptionWords = countWords(form.description)
+      if (!form.description.trim()) {
+        toast.error('Project description is required.')
+        return
+      }
+      if (descriptionWords > MAX_PROJECT_DESCRIPTION_WORDS) {
+        toast.error(
+          `Project description must be ${MAX_PROJECT_DESCRIPTION_WORDS} words or fewer (currently ${descriptionWords}).`
+        )
+        return
+      }
 
       setLoading(true)
       try {
@@ -1486,8 +1528,12 @@ export function ProjectManagement() {
 
       const matchEmployee = matchesMultiFilter(tsEmployeeFilters, t.employeeName)
       const matchProject = matchesMultiFilter(tsProjectFilters, t.project)
+      const matchStatus = matchesMultiFilter(
+        tsStatusFilters,
+        getTimesheetWorkflowStatus(t)
+      )
 
-      return matchSearch && matchEmployee && matchProject
+      return matchSearch && matchEmployee && matchProject && matchStatus
     })
   }, [
     timesheets,
@@ -1496,6 +1542,7 @@ export function ProjectManagement() {
     tsSearch,
     tsEmployeeFilters,
     tsProjectFilters,
+    tsStatusFilters,
     getEmployeeTeam,
   ])
 
@@ -1510,41 +1557,6 @@ export function ProjectManagement() {
     setTimesheetsCurrentPage(1)
   }, [tsSearch, tsStartDate, tsEndDate, tsEmployeeFilters, tsProjectFilters, tsStatusFilters])
 
-  // ── Timesheets Tab Metrics Calculation ──────────────────────
-  const timesheetMetrics = useMemo(() => {
-    let totalHours = 0
-    let overtimeHours = 0
-
-    const dailyAccumulator: Record<string, number> = {}
-
-    filteredTimesheets.forEach((t) => {
-      const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours) || 0
-      totalHours += hours
-
-      if (t.logoutTime) {
-        const key = `${t.employeeId}_${t.date}`
-        dailyAccumulator[key] = (dailyAccumulator[key] || 0) + hours
-      }
-    })
-
-    Object.values(dailyAccumulator).forEach((dailySum) => {
-      overtimeHours += Math.max(0, dailySum - 8)
-    })
-
-    const pendingApprovalsCount = timesheets.filter(
-      (t) => t.status === 'Pending' || t.requestStatus === 'Pending Review'
-    ).length
-
-    const uniqueEmployeesCount = new Set(filteredTimesheets.map((t) => t.employeeId)).size
-
-    return {
-      total: Math.round(totalHours * 10) / 10,
-      overtime: Math.round(overtimeHours * 10) / 10,
-      pending: pendingApprovalsCount,
-      activeEmployees: uniqueEmployeesCount,
-    }
-  }, [filteredTimesheets, timesheets])
-
   // ── Recharts Chart Data and Leaderboard are managed via server-side aggregation state ──
 
   // ── Export Implementations (Excel / PDF) ─────────────────────
@@ -1554,80 +1566,59 @@ export function ProjectManagement() {
       return
     }
 
+    const { hoursByProject, leaderboard } = buildTimesheetExportAnalytics(filteredTimesheets)
     const aoa: any[][] = []
 
-    // Branding Title & Metadata Header
     aoa.push(['EPICAL LAYOUTS PVT LTD'])
-    aoa.push(['Enterprise Timesheet Audit & Review Report'])
-    aoa.push([`Reporting Date Range: ${tsStartDate} to ${tsEndDate}`])
-    aoa.push([`Generated On: ${new Date().toLocaleString()}`])
+    aoa.push(['Timesheet Report'])
+    aoa.push([`Date range: ${tsStartDate} to ${tsEndDate}`])
+    aoa.push([`Generated: ${new Date().toLocaleString()}`])
     aoa.push([])
 
-    // Metrics Summary Card representation in Excel
-    aoa.push(['ANALYTICS SUMMARY'])
-    aoa.push(['Total Hours Logged', `${timesheetMetrics.total} hrs`])
-    aoa.push(['Pending Approvals Count', timesheetMetrics.pending])
-    aoa.push(['Active Employees Count', timesheetMetrics.activeEmployees])
+    aoa.push(['AGGREGATED HOURS BY PROJECT'])
+    aoa.push(['Project', 'Hours'])
+    hoursByProject.forEach((p) => {
+      aoa.push([p.name, formatExportHours(p.hours)])
+    })
     aoa.push([])
 
-    // Table Data Headers
-    aoa.push([
-      'Employee Name',
-      'Employee ID',
-      'Project',
-      'Client',
-      'Technology Node',
-      'Login Date Time',
-      'Logout Date Time',
-      'Total Hours',
-      'Status',
-      'Admin Notes',
-      'Project Details',
-    ])
+    aoa.push(['AGGREGATED HOURS BY EMPLOYEE'])
+    aoa.push(['Rank', 'Employee', 'Department', 'Hours'])
+    leaderboard.forEach((e, index) => {
+      aoa.push([index + 1, e.name, e.dept, formatExportHours(e.hours)])
+    })
+    aoa.push([])
 
-    // Table Data Rows
+    aoa.push(['DETAILED TIME LOGS'])
+    aoa.push(['Employee', 'Employee ID', 'Project', 'Login Time', 'Logout Time', 'Total Hours'])
     filteredTimesheets.forEach((t) => {
       const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours)
-      const notes = t.adminNotes || 'None'
-
       aoa.push([
         t.employeeName,
         t.employeeId,
         t.project,
-        t.client,
-        t.technologyNode,
         formatDateTime(t.loginTime),
         t.logoutTime ? formatDateTime(t.logoutTime) : '—',
-        hours !== null ? hours : '—',
-        getTimesheetWorkflowStatus(t),
-        notes,
-        t.task,
+        hours !== null ? formatExportHours(hours) : '—',
       ])
     })
 
     const worksheet = XLSX.utils.aoa_to_sheet(aoa)
-
-    // Set professional column widths
     worksheet['!cols'] = [
-      { wch: 18 }, // Employee Name
-      { wch: 12 }, // Employee ID
-      { wch: 18 }, // Project
-      { wch: 18 }, // Client
-      { wch: 15 }, // Tech Node
-      { wch: 24 }, // Login Date Time
-      { wch: 24 }, // Logout Date Time
-      { wch: 15 }, // Total Hours
-      { wch: 14 }, // Status
-      { wch: 20 }, // Admin Notes
-      { wch: 40 }, // Task Details
+      { wch: 22 },
+      { wch: 14 },
+      { wch: 22 },
+      { wch: 24 },
+      { wch: 24 },
+      { wch: 12 },
     ]
 
     const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Timesheet Logs')
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Timesheet Report')
 
-    XLSX.writeFile(workbook, `Timesheet_Audit_Report_${tsStartDate}_to_${tsEndDate}.xlsx`)
+    XLSX.writeFile(workbook, `Timesheet_Report_${tsStartDate}_to_${tsEndDate}.xlsx`)
     toast.success('Excel spreadsheet generated and downloaded successfully.')
-  }, [filteredTimesheets, tsStartDate, tsEndDate, timesheetMetrics])
+  }, [filteredTimesheets, tsStartDate, tsEndDate])
 
   const handleExportPDF = useCallback(() => {
     if (!filteredTimesheets.length) {
@@ -1671,7 +1662,7 @@ export function ProjectManagement() {
 
     doc.setFontSize(12)
     doc.setTextColor(30, 41, 59)
-    doc.text('Timesheet System Administration Audit Report', pageWidth / 2, 60, { align: 'center' })
+    doc.text('Timesheet Report', pageWidth / 2, 60, { align: 'center' })
 
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
@@ -1682,43 +1673,7 @@ export function ProjectManagement() {
     doc.setDrawColor(226, 232, 240)
     doc.line(marginX, 90, pageWidth - marginX, 90)
 
-    // Summary metrics (matches dashboard cards - 4 columns)
-    doc.setFillColor(248, 250, 252)
-    doc.setDrawColor(226, 232, 240)
-    doc.roundedRect(marginX, 95, contentWidth, 52, 6, 6, 'FD')
-
-    const metricCols = [
-      marginX + 12,
-      marginX + contentWidth * 0.26,
-      marginX + contentWidth * 0.51,
-      marginX + contentWidth * 0.76
-    ]
-    const metricLabels = ['TOTAL HOURS', 'OVERTIME HOURS', 'PENDING APPROVALS', 'ACTIVE EMPLOYEES']
-    const metricValues = [
-      `${timesheetMetrics.total.toFixed(1)} hrs`,
-      `${timesheetMetrics.overtime.toFixed(1)} hrs`,
-      String(timesheetMetrics.pending),
-      String(timesheetMetrics.activeEmployees),
-    ]
-    const metricColors: [number, number, number][] = [
-      [16, 185, 129],
-      [22, 163, 74],
-      [245, 158, 11],
-      [30, 41, 59],
-    ]
-
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(8)
-    doc.setTextColor(148, 163, 184)
-    metricLabels.forEach((label, i) => doc.text(label, metricCols[i], 114))
-
-    doc.setFontSize(13)
-    metricValues.forEach((val, i) => {
-      doc.setTextColor(...metricColors[i])
-      doc.text(val, metricCols[i], 134)
-    })
-
-    let cursorY = 160
+    let cursorY = 108
     doc.setDrawColor(226, 232, 240)
     
     // Title for Analytics Overview
@@ -1769,17 +1724,20 @@ export function ProjectManagement() {
     let leftY = cursorY + 24
     const maxProjectHours = Math.max(...hoursByProject.map(p => p.hours), 1)
     
-    hoursByProject.slice(0, 7).forEach((p, idx) => {
+    hoursByProject.forEach((p, idx) => {
       // Label
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(8)
       doc.setTextColor(71, 85, 105)
-      doc.text(p.name, marginX, leftY)
+      const projectLabel = doc.getTextWidth(p.name) > colWidth - 48
+        ? `${p.name.slice(0, 42)}…`
+        : p.name
+      doc.text(projectLabel, marginX, leftY)
       
-      // Value text
+      // Value text (matches on-screen chart labels)
       doc.setFont('helvetica', 'bold')
-      doc.setTextColor(30, 41, 59)
-      doc.text(`${p.hours.toFixed(1)} hrs`, marginX + colWidth, leftY, { align: 'right' })
+      doc.setTextColor(71, 85, 105)
+      doc.text(formatExportHours(p.hours), marginX + colWidth, leftY, { align: 'right' })
       
       // Track background
       doc.setFillColor(241, 245, 249)
@@ -1811,7 +1769,7 @@ export function ProjectManagement() {
     let rightY = cursorY + 24
     const maxEmployeeHours = Math.max(...leaderboard.map(e => e.hours), 1)
     
-    leaderboard.slice(0, 7).forEach((e, idx) => {
+    leaderboard.forEach((e, idx) => {
       const color = chartColors[idx % chartColors.length]
       const borderColor = brightColors[idx % brightColors.length]
       
@@ -1829,7 +1787,7 @@ export function ProjectManagement() {
       // Hours value
       doc.setFont('helvetica', 'bold')
       doc.setTextColor(30, 41, 59)
-      doc.text(`${e.hours.toFixed(1)} hrs`, col2X + colWidth, rightY, { align: 'right' })
+      doc.text(formatExportHours(e.hours), col2X + colWidth, rightY, { align: 'right' })
       
       // Progress Track
       doc.setFillColor(241, 245, 249)
@@ -1854,14 +1812,7 @@ export function ProjectManagement() {
     // Detailed time logs
     cursorY = addSectionTitle('Detailed Time Logs', cursorY)
 
-    const tableHeaders = [
-      'Employee',
-      'Project',
-      'Login Time',
-      'Logout Time',
-      'Total Hours',
-      'Status',
-    ]
+    const tableHeaders = ['Employee', 'Project', 'Login Time', 'Logout Time', 'Total Hours']
 
     const tableRows = filteredTimesheets.map((t) => {
       const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours)
@@ -1870,8 +1821,7 @@ export function ProjectManagement() {
         t.project,
         formatDateTime(t.loginTime),
         t.logoutTime ? formatDateTime(t.logoutTime) : '—',
-        hours !== null ? `${hours.toFixed(1)} hrs` : '—',
-        getTimesheetWorkflowStatus(t),
+        hours !== null ? formatExportHours(hours) : '—',
       ]
     })
 
@@ -1882,13 +1832,12 @@ export function ProjectManagement() {
       startY: cursorY,
       styles: { ...tableTheme.styles, cellPadding: 5 },
       columnStyles: {
-        0: { cellWidth: 160 },
-        1: { cellWidth: 150 },
-        2: { cellWidth: 130 },
-        3: { cellWidth: 130 },
+        0: { cellWidth: 180 },
+        1: { cellWidth: 170 },
+        2: { cellWidth: 140 },
+        3: { cellWidth: 140 },
         4: { cellWidth: 90, halign: 'right' },
-        5: { cellWidth: 102, halign: 'center' },
-      }
+      },
     })
 
     const totalPages = doc.getNumberOfPages()
@@ -1900,14 +1849,15 @@ export function ProjectManagement() {
       doc.text('Confidential - Internal Administrative Records', marginX, pageHeight - 20)
     }
 
-    doc.save(`Timesheet_Audit_Report_${tsStartDate}_to_${tsEndDate}.pdf`)
+    doc.save(`Timesheet_Report_${tsStartDate}_to_${tsEndDate}.pdf`)
     toast.success('PDF report exported successfully.')
-  }, [filteredTimesheets, tsStartDate, tsEndDate, timesheetMetrics])
+  }, [filteredTimesheets, tsStartDate, tsEndDate])
 
   const clearTimesheetFilters = useCallback(() => {
     setTsSearch('')
     setTsEmployeeFilters([])
     setTsProjectFilters([])
+    setTsStatusFilters([])
   }, [])
 
   const tsEmployeeFilterOptions = useMemo(() => {
@@ -1933,10 +1883,19 @@ export function ProjectManagement() {
     [projects]
   )
 
+  const tsStatusFilterOptions = useMemo(
+    () => [
+      { value: 'Completed', label: 'Completed' },
+      { value: 'In Progress', label: 'In Progress' },
+    ],
+    []
+  )
+
   const hasActiveTimesheetFilters =
     tsSearch.trim().length > 0 ||
     tsEmployeeFilters.length > 0 ||
-    tsProjectFilters.length > 0
+    tsProjectFilters.length > 0 ||
+    tsStatusFilters.length > 0
 
 
   return (
@@ -1988,13 +1947,15 @@ export function ProjectManagement() {
             >
               <tab.icon className="h-3.5 w-3.5" />
               {tab.label}
-              <span
-                className={`ml-1.5 rounded-full px-2 py-0.5 text-[10px] font-black transition-colors duration-300 ${
-                  activeTab === tab.key ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-200 text-slate-500'
-                }`}
-              >
-                {tab.count}
-              </span>
+              {tab.key === 'projects' && (
+                <span
+                  className={`ml-1.5 rounded-full px-2 py-0.5 text-[10px] font-black transition-colors duration-300 ${
+                    activeTab === tab.key ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-200 text-slate-500'
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -2344,6 +2305,16 @@ export function ProjectManagement() {
                     selected={tsProjectFilters}
                     onChange={setTsProjectFilters}
                   />
+
+                  {/* Status Filter */}
+                  <FilterCheckboxGroup
+                    label="Status"
+                    placeholder="All Statuses"
+                    compact
+                    options={tsStatusFilterOptions}
+                    selected={tsStatusFilters}
+                    onChange={setTsStatusFilters}
+                  />
                 </div>
 
                 {/* Action Buttons (right-aligned, natural width) */}
@@ -2427,31 +2398,7 @@ export function ProjectManagement() {
             )}
           </div>
 
-          {/* Timesheet Summary Metrics Cards */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <MetricCard
-              label="Total Hours"
-              value={`${timesheetMetrics.total}h`}
-              icon={Clock}
-              accentClass="bg-slate-500"
-            />
-            <MetricCard
-              label="Pending Approvals"
-              value={timesheetMetrics.pending}
-              icon={UserCheck}
-              accentClass="bg-amber-500"
-              secondaryText="Requires action"
-            />
-            <MetricCard
-              label="Active Employees"
-              value={timesheetMetrics.activeEmployees}
-              icon={Users}
-              accentClass="bg-sky-505 bg-sky-500"
-              secondaryText="Working on projects"
-            />
-          </div>
-
-          {/* Analytics Visual Redesign Section */}
+          {/* Analytics */}
           <div className="grid gap-5 lg:grid-cols-2">
             {/* Hours by Project Recharts Bar Chart */}
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -2461,7 +2408,7 @@ export function ProjectManagement() {
               {chartHoursByProject.length > 0 ? (
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartHoursByProject} margin={{ top: 5, right: 5, left: -25, bottom: 5 }} onClick={handleBarClick}>
+                    <BarChart data={chartHoursByProject} margin={{ top: 28, right: 5, left: -25, bottom: 5 }} onClick={handleBarClick}>
                       <defs>
                         <linearGradient id="emeraldGrad" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#10b981" stopOpacity={0.85} />
@@ -2476,6 +2423,7 @@ export function ProjectManagement() {
                         cursor={{ fill: '#f8fafc' }}
                       />
                       <Bar dataKey="hours" radius={[6, 6, 0, 0]} maxBarSize={38} className="cursor-pointer" onClick={handleBarClick}>
+                        <LabelList dataKey="hours" content={HoursBarLabel} />
                         {chartHoursByProject.map((entry, index) => {
                           const baseColor = PROJECT_COLORS[index % PROJECT_COLORS.length]
                           return (
@@ -2735,11 +2683,22 @@ export function ProjectManagement() {
             <textarea
               placeholder="Provide a detailed scope of this project, goals, and standard specifications..."
               value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, description: enforceMaxWords(e.target.value) })
+              }
               rows={3}
               className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
               required
             />
+            <p
+              className={`mt-1 text-right text-[11px] font-semibold ${
+                countWords(form.description) >= MAX_PROJECT_DESCRIPTION_WORDS
+                  ? 'text-amber-600'
+                  : 'text-slate-400'
+              }`}
+            >
+              {countWords(form.description)} / {MAX_PROJECT_DESCRIPTION_WORDS} words
+            </p>
           </div>
 
           {modalMode === 'edit' && (

@@ -643,8 +643,6 @@ export const employeeTimesheetController = {
 
       const now = new Date();
       const workNote = String(description).trim();
-      const taskTitle = assigned?.title || taskProject.projectName;
-      const taskLabel = `${taskTitle} — ${workNote}`;
       const session = await mongoose.startSession();
 
       try {
@@ -658,7 +656,7 @@ export const employeeTimesheetController = {
             client: taskProject.clientName,
             technologyNode: taskProject.technologyNode,
             loginTime: now,
-            task: taskLabel,
+            task: workNote,
             billable: true,
             status: 'Pending',
             approvalStatus: 'Pending',
