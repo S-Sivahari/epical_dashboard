@@ -293,7 +293,7 @@ function buildAttendanceResponse(
   latestAttendance: Awaited<ReturnType<typeof EmployeeAttendanceModel.findOne>>,
 ) {
   const date = todayDateKey();
-  const attendance = openAttendance ?? latestAttendance;
+  const attendance = (openAttendance ?? latestAttendance) as any;
   return {
     checkedIn: !!openAttendance,
     checkInTime: openAttendance?.checkInTime?.toISOString() ?? null,

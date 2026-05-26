@@ -8,7 +8,7 @@ import { formatDate, formatDateTime } from '@/utils/formatDate'
 import { filterLeaves, excludeCancelledLeaves, type LeaveFilters } from '@/utils/leaveFilters'
 import * as leaveService from '@services/leaveService'
 
-import { X, ChevronLeft, ChevronRight, Check, Ban, ChevronDown, Search, AlertTriangle, ShieldCheck, UserCheck } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, Check, ChevronDown, Search, AlertTriangle, ShieldCheck, UserCheck } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { EmployeeLeaveProfileModal } from './EmployeeLeaveProfileModal'
 
@@ -36,7 +36,7 @@ export function LeaveRequests({
   filters: LeaveFilters
   onFiltersChange: (f: LeaveFilters) => void
 }) {
-  const { leaves, loading, approveLeave, rejectLeave, cancelLeave } = useLeaves()
+  const { leaves, loading, approveLeave, rejectLeave } = useLeaves()
 
   const visibleLeaves = useMemo(() => excludeCancelledLeaves(leaves), [leaves])
 
@@ -79,12 +79,7 @@ export function LeaveRequests({
     setProfileEmployeeName('')
   }
 
-  // Cancel Modal State
-  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false)
-  const [leaveToCancel, setLeaveToCancel] = useState<string | null>(null)
-  const [cancelReason, setCancelReason] = useState('')
-  const [cancelError, setCancelError] = useState('')
-  const cancelInputRef = useRef<HTMLTextAreaElement>(null)
+
 
   const clearFilters = () => setFilters({ selectedEmployees: [], status: 'Pending', leaveType: '', dateFrom: '', dateTo: '' })
 
@@ -151,35 +146,7 @@ export function LeaveRequests({
     }
   }
 
-  // Auto-focus textarea when cancel modal opens
-  useEffect(() => {
-    if (isCancelModalOpen && cancelInputRef.current) {
-      setTimeout(() => cancelInputRef.current?.focus(), 50)
-    }
-  }, [isCancelModalOpen])
 
-  const openCancelModal = (id: string) => {
-    setLeaveToCancel(id)
-    setCancelReason('')
-    setCancelError('')
-    setIsCancelModalOpen(true)
-  }
-
-  const handleCancelConfirm = async () => {
-    const trimmedReason = cancelReason.trim()
-    if (!trimmedReason) {
-      setCancelError('Cancellation reason is required.')
-      return
-    }
-    
-    try {
-      await cancelLeave(leaveToCancel!, trimmedReason)
-      toast.success('Leave cancelled successfully')
-      setIsCancelModalOpen(false)
-    } catch {
-      toast.error('Failed to cancel leave')
-    }
-  }
 
   const openApproveModal = async (leave: any) => {
     setLeaveToApprove(leave)
@@ -547,14 +514,14 @@ export function LeaveRequests({
                               size="sm"
                               variant="danger"
                               className="h-9 w-9 rounded-lg p-0"
-                              onClick={() => openCancelModal(l.id)}
+                              onClick={() => openRejectModal(l.id)}
                             >
-                              <Ban className="h-4 w-4" />
+                              <X className="h-4 w-4" />
                             </Button>
                           </Tooltip.Trigger>
                           <Tooltip.Portal>
                             <Tooltip.Content className="z-[100] rounded-md bg-ink px-2 py-1 text-xs text-white shadow-md">
-                              Cancel
+                              Reject
                               <Tooltip.Arrow className="fill-ink" />
                             </Tooltip.Content>
                           </Tooltip.Portal>
@@ -753,56 +720,7 @@ export function LeaveRequests({
         onClose={closeEmployeeProfile}
       />
 
-      {/* Cancel Modal */}
-      <Modal
-        isOpen={isCancelModalOpen}
-        onClose={() => setIsCancelModalOpen(false)}
-        title="Cancel Approved Leave"
-        size="md"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-muted">
-            Are you sure you want to cancel this approved leave? This will update the status immediately.
-          </p>
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-ink">
-              Cancellation Reason <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              ref={cancelInputRef}
-              value={cancelReason}
-              onChange={(e) => {
-                setCancelReason(e.target.value)
-                if (cancelError) setCancelError('')
-              }}
-              placeholder="Please provide a reason..."
-              className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 resize-none transition-shadow ${
-                cancelError ? 'border-red-500 focus:ring-red-200' : 'border-border focus:ring-primary/30'
-              }`}
-              rows={4}
-            />
-            {cancelError && (
-              <div className="text-xs font-medium text-red-500 mt-1">{cancelError}</div>
-            )}
-          </div>
-          
-          <div className="flex justify-end gap-3 pt-2 border-t border-border">
-            <Button
-              variant="secondary"
-              onClick={() => setIsCancelModalOpen(false)}
-            >
-              Close
-            </Button>
-            <Button
-              variant="danger"
-              onClick={handleCancelConfirm}
-              disabled={!cancelReason.trim()}
-            >
-              Cancel Leave
-            </Button>
-          </div>
-        </div>
-      </Modal>
+
     </Tooltip.Provider>
   )
 }

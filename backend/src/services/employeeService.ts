@@ -259,7 +259,7 @@ export async function getAllEmployees(
   ]);
 
   return {
-    data: data.map((row) => sanitizeEmployeeForList(row as Employee)) as Employee[],
+    data: data.map((row) => sanitizeEmployeeForList(row as any)) as unknown as Employee[],
     total,
   };
 }
@@ -642,7 +642,7 @@ export async function searchEmployees(query: string): Promise<Employee[]> {
     .limit(50)
     .toArray();
 
-  return employees.map((row) => sanitizeEmployeeForList(row as Employee)) as Employee[];
+  return employees.map((row) => sanitizeEmployeeForList(row as any)) as unknown as Employee[];
 }
 
 export async function bulkUpdateStatus(

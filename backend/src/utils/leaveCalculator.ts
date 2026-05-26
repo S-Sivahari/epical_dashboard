@@ -31,9 +31,9 @@ export function monthsWorkedInCurrentYear(joinedAt?: string, refDate = new Date(
   return Math.max(0, currentMonthIdx - startMonth + 1);
 }
 
-/** Earned Leave accrues at 0.5 days per elapsed month of employment in the current calendar year */
+/** Earned Leave is 0 by default. It only increases via compensation. */
 export function calculateEarnedLeaveAllocation(joinedAt?: string, refDate = new Date()): number {
-  return monthsWorkedInCurrentYear(joinedAt, refDate) * 0.5;
+  return 0;
 }
 
 // Calculates total business days excluding weekends and provided holidays

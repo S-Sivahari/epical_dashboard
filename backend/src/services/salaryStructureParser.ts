@@ -217,7 +217,7 @@ export function findSalaryStructureSheetInWorkbook(sheetNames: string[]): string
 /** Parse salary structure sheet with ExcelJS (peach fallback when Section is blank). */
 export async function parseSalaryStructureWithExcelJS(buffer: Buffer): Promise<SalaryStructure> {
   const wb = new ExcelJS.Workbook()
-  await wb.xlsx.load(buffer)
+  await wb.xlsx.load(buffer as any)
 
   const sheet = findSalaryStructureSheetWb(wb)
   if (!sheet) return {}

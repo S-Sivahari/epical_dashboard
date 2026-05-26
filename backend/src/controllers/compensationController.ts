@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import { CompensationEntry } from '../models/Compensation';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { isAdminRole, isEmployeeRole } from '../utils/generateToken';
+import * as leaveService from '../services/leaveService';
 
 function getCol() {
   return getDB().collection<CompensationEntry>('compensation_entries');
@@ -130,12 +131,28 @@ export async function update(req: AuthRequest, res: Response): Promise<void> {
 export async function remove(req: AuthRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
+    const entry = await getCol().findOne({ id });
+    if (!entry) {
+      res.status(404).json({ error: 'Entry not found' });
+      return;
+    }
+
+    // Check if the employee has already used Earned Leave
+    const balances = await leaveService.getLeaveBalances(entry.employeeId);
+    const earnedLeave = balances['Earned Leave'] || { total: 0, used: 0, remaining: 0 };
+
+    if (earnedLeave.used > 0) {
+      // "admin delete does nothing" - return success: true but skip deletion, and output a skipped message
+      res.json({ success: true, message: 'Delete did nothing because the employee has already used the earned leave.', skipped: true });
+      return;
+    }
+
     const result = await getCol().deleteOne({ id });
     if (result.deletedCount === 0) {
       res.status(404).json({ error: 'Entry not found' });
       return;
     }
-    res.json({ success: true });
+    res.json({ success: true, message: 'Compensation entry deleted successfully.', deleted: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to delete compensation entry' });
   }

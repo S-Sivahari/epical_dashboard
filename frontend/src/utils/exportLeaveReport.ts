@@ -75,6 +75,7 @@ export async function exportLeavesToPDF(
     generatedBy,
     filters,
     compactMode: true,
+    employeePdfStyle: true,
     ...LEAVE_REPORT_OPTIONS,
   })
 }
@@ -121,6 +122,7 @@ export async function exportCompensationToPDF(
     generatedBy,
     filters,
     compactMode: true,
+    employeePdfStyle: true,
     panelTitle: 'Leave Management Panel',
     reportTitle: 'Compensation Management Report',
   })

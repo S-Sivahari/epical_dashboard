@@ -4,12 +4,43 @@ import type { AchievementImageBlob, AchievementItemDoc, AchievementPageDoc } fro
 
 const PAGE_KEY = 'settings' as const
 
+let indexesCreated = false
+
 function pageCol() {
-  return getDB().collection<AchievementPageDoc>('achievement_page')
+  const col = getDB().collection<AchievementPageDoc>('achievement_page')
+  if (!indexesCreated) {
+    void createIndexes()
+    indexesCreated = true
+  }
+  return col
 }
 
 function itemsCol() {
-  return getDB().collection<AchievementItemDoc>('achievement_items')
+  const col = getDB().collection<AchievementItemDoc>('achievement_items')
+  if (!indexesCreated) {
+    void createIndexes()
+    indexesCreated = true
+  }
+  return col
+}
+
+async function createIndexes(): Promise<void> {
+  try {
+    const pageCollection = getDB().collection('achievement_page')
+    const itemsCollection = getDB().collection('achievement_items')
+    
+    await Promise.all([
+      // Page collection indexes
+      pageCollection.createIndex({ key: 1 }, { unique: true }),
+      
+      // Items collection indexes
+      itemsCollection.createIndex({ id: 1 }, { unique: true }),
+      itemsCollection.createIndex({ sortOrder: 1 }),
+      itemsCollection.createIndex({ createdAt: -1 }),
+    ])
+  } catch (error) {
+    console.error('Failed to create achievement indexes:', error)
+  }
 }
 
 export async function getPage(): Promise<AchievementPageDoc | null> {

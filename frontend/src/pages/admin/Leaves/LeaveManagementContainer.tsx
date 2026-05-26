@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Download, Trash2, FileText, FileSpreadsheet } from 'lucide-react'
+import { Trash2, FileText, FileSpreadsheet } from 'lucide-react'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
 import { ConfirmModal } from '@components/modals/ConfirmModal'

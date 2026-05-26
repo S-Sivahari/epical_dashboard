@@ -73,13 +73,13 @@ export function Navbar() {
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="flex shrink-0 items-center justify-center rounded-lg border border-border bg-surface p-1.5 text-muted hover:text-ink transition-ui"
+            className="flex shrink-0 items-center justify-center rounded-lg border border-border bg-surface p-1.5 text-black hover:text-ink transition-ui"
             title="Go back"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
         )}
-        <p className="truncate font-display text-lg font-semibold text-ink">{title}</p>
+        <p className="truncate font-display text-2xl font-semibold text-black">{title}</p>
       </div>
       <div className="flex items-center gap-2 sm:gap-3">
         <NotificationBell />
@@ -93,7 +93,7 @@ export function Navbar() {
               <span className="hidden max-w-[120px] truncate font-medium text-ink sm:inline">
                 {user?.name}
               </span>
-              <ChevronDown className="h-4 w-4 text-muted" />
+                <ChevronDown className="h-4 w-4 text-black" />
             </button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>

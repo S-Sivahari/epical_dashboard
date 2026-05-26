@@ -32,6 +32,10 @@ export interface Notification {
     holidayTitle?: string;
     holidayDate?: string;
     skippedReason?: string;
+    leaveType?: string;
+    from?: string;
+    to?: string;
+    days?: number;
   };
   relatedId?: string;
   isRead: boolean;
@@ -58,6 +62,10 @@ export interface CreateNotificationPayload {
     holidayTitle?: string;
     holidayDate?: string;
     skippedReason?: string;
+    leaveType?: string;
+    from?: string;
+    to?: string;
+    days?: number;
   };
   relatedId?: string;
 }

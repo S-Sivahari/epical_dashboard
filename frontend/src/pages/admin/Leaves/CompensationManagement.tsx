@@ -220,9 +220,13 @@ export function CompensationManagement({
     if (!entryToDelete) return
     setDeleting(true)
     try {
-      await deleteCompensation(entryToDelete.id)
-      setCompensationData((prev) => prev.filter((item) => item.id !== entryToDelete.id))
-      toast.success('Compensation entry deleted')
+      const res = await deleteCompensation(entryToDelete.id)
+      if (res && res.skipped) {
+        toast.warning(res.message || 'Deletion skipped because the employee has already used this earned leave.')
+      } else {
+        setCompensationData((prev) => prev.filter((item) => item.id !== entryToDelete.id))
+        toast.success('Compensation entry deleted')
+      }
       setDeleteConfirmOpen(false)
       setEntryToDelete(null)
     } catch {

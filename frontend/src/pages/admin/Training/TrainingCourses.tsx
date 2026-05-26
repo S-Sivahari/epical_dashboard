@@ -17,9 +17,8 @@ import {
   listEnrollments,
   type Course,
   type CourseEnrollment,
-  markComplete,
 } from '@services/trainingService'
-import { X, Search, PlusCircle, CheckCircle2, Pencil } from 'lucide-react'
+import { X, Search, PlusCircle, Pencil } from 'lucide-react'
 
 export function TrainingCourses() {
   const [tab, setTab] = useState<'courses' | 'enrollment' | 'completed'>('courses')
@@ -41,7 +40,6 @@ export function TrainingCourses() {
 
   const [enrollments, setEnrollments] = useState<CourseEnrollment[]>([])
   const [loadingEnrollments, setLoadingEnrollments] = useState(false)
-  const [completingEnrollmentId, setCompletingEnrollmentId] = useState<string | null>(null)
   const [courseFilter, setCourseFilter] = useState('')
   const [employeeFilter, setEmployeeFilter] = useState('')
 
@@ -198,24 +196,7 @@ export function TrainingCourses() {
     }
   }
 
-  const enrollmentId = (r: CourseEnrollment) => r.id || String((r as { _id?: string })._id ?? '')
 
-  const handleMarkComplete = async (id: string) => {
-    if (!id) {
-      toast.error('Missing enrollment id')
-      return
-    }
-    setCompletingEnrollmentId(id)
-    try {
-      await markComplete(id)
-      await loadEnrollments()
-      toast.success('Marked as completed')
-    } catch (e: any) {
-      toast.error(e?.response?.data?.error || 'Failed to update status')
-    } finally {
-      setCompletingEnrollmentId(null)
-    }
-  }
 
   return (
     <PageWrapper>
@@ -342,32 +323,7 @@ export function TrainingCourses() {
           </div>
 
           <DataTable
-            columns={
-              tab === 'completed'
-                ? completedColumns
-                : [
-                    ...enrollmentColumns,
-                    {
-                      key: 'actions',
-                      header: 'Actions',
-                      render: (r: CourseEnrollment) => (
-                        <div className="flex gap-2">
-                          {r.status !== 'Completed' && (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              disabled={completingEnrollmentId === enrollmentId(r)}
-                              onClick={() => void handleMarkComplete(enrollmentId(r))}
-                            >
-                              <CheckCircle2 className="h-4 w-4" />{' '}
-                              {completingEnrollmentId === enrollmentId(r) ? 'Saving...' : 'Mark complete'}
-                            </Button>
-                          )}
-                        </div>
-                      ),
-                    },
-                  ]
-            }
+            columns={tab === 'completed' ? completedColumns : enrollmentColumns}
             data={enrollments}
             loading={loadingEnrollments}
             empty={

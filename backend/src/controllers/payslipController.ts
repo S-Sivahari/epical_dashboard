@@ -249,7 +249,7 @@ export const payslipController = {
 
   getBatch: async (req: Request, res: Response): Promise<void> => {
     try {
-      const batch = await getPayrollBatch(req.params.batchId)
+      const batch = await getPayrollBatch(req.params.batchId as string)
       if (!batch) {
         res.status(404).json({ error: 'Payroll batch not found' })
         return
@@ -264,14 +264,14 @@ export const payslipController = {
   /** Download the uploaded payroll Excel for a batch */
   downloadUploadedExcel: async (req: Request, res: Response): Promise<void> => {
     try {
-      const batch = await getPayrollBatch(req.params.batchId)
+      const batch = await getPayrollBatch(req.params.batchId as string)
       if (!batch) {
         res.status(404).json({ error: 'Payroll batch not found' })
         return
       }
       
       try {
-        const buffer = readBatchExcel(req.params.batchId)
+        const buffer = readBatchExcel(req.params.batchId as string)
         res.setHeader(
           'Content-Type',
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -298,14 +298,14 @@ export const payslipController = {
   downloadPayslipPdf: async (req: Request, res: Response): Promise<void> => {
     try {
       const { batchId } = req.params
-      const fileName = decodeURIComponent(req.params.fileName)
-      const batch = await getPayrollBatch(batchId)
+      const fileName = decodeURIComponent(req.params.fileName as string)
+      const batch = await getPayrollBatch(batchId as string)
       if (!batch) {
         res.status(404).json({ error: 'Payroll batch not found' })
         return
       }
 
-      const filePath = await ensurePayslipPdfExists(batchId, fileName)
+      const filePath = await ensurePayslipPdfExists(batchId as string, fileName)
       const safeName = filePath.split(/[/\\]/).pop() || fileName
 
       res.setHeader('Content-Type', 'application/pdf')
@@ -440,7 +440,7 @@ export const payslipController = {
         res.status(401).json({ error: 'Unauthorized' })
         return
       }
-      const record = await getPayslipByIdForAuthUser(req.params.payslipId, req.user.id, req.user.email)
+      const record = await getPayslipByIdForAuthUser(req.params.payslipId as string, req.user.id, req.user.email)
       if (!record) {
         res.status(404).json({ error: 'Payslip not found' })
         return
@@ -508,7 +508,7 @@ export const payslipController = {
   deleteBatch: async (req: Request, res: Response): Promise<void> => {
     try {
       const { batchId } = req.params
-      await deletePayrollBatch(batchId)
+      await deletePayrollBatch(batchId as string)
       res.json({ message: 'Payroll upload and payslips deleted successfully' })
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to delete payroll batch'
@@ -521,7 +521,7 @@ export const payslipController = {
   deletePayslip: async (req: Request, res: Response): Promise<void> => {
     try {
       const { batchId, fileName } = req.params
-      const batch = await deletePayslipFromBatch(batchId, fileName)
+      const batch = await deletePayslipFromBatch(batchId as string, fileName as string)
       res.json({ message: 'Payslip deleted successfully', batch })
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to delete payslip'
@@ -545,13 +545,13 @@ export const payslipController = {
   downloadAllPayslipsPdf: async (req: Request, res: Response): Promise<void> => {
     try {
       const { batchId } = req.params
-      const batch = await getPayrollBatch(batchId)
+      const batch = await getPayrollBatch(batchId as string)
       if (!batch) {
         res.status(404).json({ error: 'Payroll batch not found' })
         return
       }
 
-      const buffer = await mergeBatchPayslipPdfs(batchId)
+      const buffer = await mergeBatchPayslipPdfs(batchId as string)
       const monthLabel = (batch.payMonth || 'payslips').replace(/[^a-zA-Z0-9_-]/g, '_')
       const filename = `All_Payslips_${monthLabel}.pdf`
 
@@ -570,13 +570,13 @@ export const payslipController = {
   downloadPayslipPdfAttachment: async (req: Request, res: Response): Promise<void> => {
     try {
       const { batchId } = req.params
-      const fileName = decodeURIComponent(req.params.fileName)
-      const batch = await getPayrollBatch(batchId)
+      const fileName = decodeURIComponent(req.params.fileName as string)
+      const batch = await getPayrollBatch(batchId as string)
       if (!batch) {
         res.status(404).json({ error: 'Payroll batch not found' })
         return
       }
-      const filePath = await ensurePayslipPdfExists(batchId, fileName)
+      const filePath = await ensurePayslipPdfExists(batchId as string, fileName)
       const safeName = filePath.split(/[/\\]/).pop() || fileName
       res.setHeader('Content-Type', 'application/pdf')
       res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`)

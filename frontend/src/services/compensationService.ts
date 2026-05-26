@@ -44,6 +44,7 @@ export async function updateCompensation(
   return data
 }
 
-export async function deleteCompensation(id: string): Promise<void> {
-  await api.delete(`/compensation/${id}`)
+export async function deleteCompensation(id: string): Promise<{ success: boolean; message?: string; skipped?: boolean; deleted?: boolean }> {
+  const { data } = await api.delete<{ success: boolean; message?: string; skipped?: boolean; deleted?: boolean }>(`/compensation/${id}`)
+  return data
 }

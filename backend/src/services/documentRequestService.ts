@@ -8,10 +8,35 @@ import {
 } from '../models/DocumentRequest';
 
 let col: Collection<DocumentRequestDoc & { _data?: unknown }> | null = null;
+let indexesCreated = false;
 
 function getCol(): Collection<any> {
-  if (!col) col = getDB().collection('documentRequests');
+  if (!col) {
+    col = getDB().collection('documentRequests');
+    // Create indexes on first access for better query performance
+    if (!indexesCreated) {
+      void createIndexes();
+      indexesCreated = true;
+    }
+  }
   return col!;
+}
+
+async function createIndexes(): Promise<void> {
+  try {
+    const collection = getDB().collection('documentRequests');
+    await Promise.all([
+      collection.createIndex({ id: 1 }, { unique: true }),
+      collection.createIndex({ employeeUserId: 1 }),
+      collection.createIndex({ status: 1 }),
+      collection.createIndex({ requestedAt: -1 }),
+      collection.createIndex({ processedAt: -1 }),
+      collection.createIndex({ status: 1, requestedAt: -1 }),
+      collection.createIndex({ status: 1, processedAt: -1 }),
+    ]);
+  } catch (error) {
+    console.error('Failed to create documentRequests indexes:', error);
+  }
 }
 
 async function resolveEmployeeDisplay(userId: string, fallbackName: string): Promise<{ employeeId: string; employeeName: string }> {
@@ -52,7 +77,7 @@ export async function uploadFulfillment(
   id: string,
   file: { originalname: string; mimetype: string; buffer: Buffer }
 ): Promise<DocumentRequestDoc | null> {
-  const existing = (await getCol().findOne({ id })) as DocumentRequestDoc | null;
+  const existing = (await getCol().findOne({ id }, { projection: { 'fulfillmentFile.data': 0 } })) as DocumentRequestDoc | null;
   if (!existing || existing.status !== 'Requested') return null;
 
   const fulfillmentFile: DocumentFulfillmentFile = {
@@ -62,14 +87,15 @@ export async function uploadFulfillment(
   };
 
   await getCol().updateOne({ id, status: 'Requested' }, { $set: { fulfillmentFile } });
-  const row = await getCol().findOne({ id });
+  const row = await getCol().findOne({ id }, { projection: { 'fulfillmentFile.data': 0 } });
   return sanitize(row as DocumentRequestDoc) as DocumentRequestDoc | null;
 }
 
 export async function approveDocumentRequest(id: string, adminName: string): Promise<DocumentRequestDoc | null> {
   const existing = (await getCol().findOne({ id })) as DocumentRequestDoc | null;
   if (!existing || existing.status !== 'Requested') return null;
-  if (!existing.fulfillmentFile?.data?.length) {
+  // Check the actual fulfillmentFile object, not the computed hasFulfillmentFile field
+  if (!existing.fulfillmentFile?.data) {
     throw new Error('Upload the generated document before approving');
   }
 
@@ -84,7 +110,7 @@ export async function approveDocumentRequest(id: string, adminName: string): Pro
       },
     }
   );
-  const row = await getCol().findOne({ id });
+  const row = await getCol().findOne({ id }, { projection: { 'fulfillmentFile.data': 0 } });
   return sanitize(row as DocumentRequestDoc) as DocumentRequestDoc | null;
 }
 
@@ -96,7 +122,7 @@ export async function rejectDocumentRequest(
   const reason = rejectionReason?.trim();
   if (!reason) throw new Error('Rejection reason is required');
 
-  const existing = (await getCol().findOne({ id })) as DocumentRequestDoc | null;
+  const existing = (await getCol().findOne({ id }, { projection: { 'fulfillmentFile.data': 0 } })) as DocumentRequestDoc | null;
   if (!existing || existing.status !== 'Requested') return null;
 
   const now = new Date();
@@ -112,14 +138,15 @@ export async function rejectDocumentRequest(
       $unset: { fulfillmentFile: '' },
     }
   );
-  const row = await getCol().findOne({ id });
+  const row = await getCol().findOne({ id }, { projection: { 'fulfillmentFile.data': 0 } });
   return sanitize(row as DocumentRequestDoc) as DocumentRequestDoc | null;
 }
 
 function sanitize(doc: DocumentRequestDoc | null | undefined): DocumentRequestDoc | null {
   if (!doc) return null;
   const rest = { ...doc } as DocumentRequestDoc & { fulfillmentFile?: DocumentFulfillmentFile };
-  const hasFile = Boolean(rest.fulfillmentFile?.data);
+  // Check if fulfillmentFile exists (even if data is projected out)
+  const hasFile = Boolean(rest.fulfillmentFile?.data || rest.fulfillmentFile?.filename);
   delete (rest as any).fulfillmentFile;
   return { ...rest, hasFulfillmentFile: hasFile } as DocumentRequestDoc;
 }
@@ -131,7 +158,10 @@ export async function getDocumentRequestRawById(id: string): Promise<DocumentReq
 }
 
 export async function listForEmployee(userId: string): Promise<DocumentRequestDoc[]> {
-  const items = await getCol().find({ employeeUserId: userId }).sort({ requestedAt: -1 }).toArray();
+  const items = await getCol()
+    .find({ employeeUserId: userId }, { projection: { 'fulfillmentFile.data': 0 } })
+    .sort({ requestedAt: -1 })
+    .toArray();
   return items.map((row) => sanitize(row)) as DocumentRequestDoc[];
 }
 
@@ -146,7 +176,7 @@ export async function listForAdmin(filters: {
   const total = await getCol().countDocuments(query);
   const skip = Math.max(0, (filters.page - 1) * filters.limit);
   const items = await getCol()
-    .find(query)
+    .find(query, { projection: { 'fulfillmentFile.data': 0 } })
     .sort({ requestedAt: -1 })
     .skip(skip)
     .limit(filters.limit)
@@ -167,7 +197,7 @@ export async function listHistory(filters: {
   const total = await getCol().countDocuments(query);
   const skip = Math.max(0, (filters.page - 1) * filters.limit);
   const items = await getCol()
-    .find(query)
+    .find(query, { projection: { 'fulfillmentFile.data': 0 } })
     .sort({ processedAt: -1, requestedAt: -1 })
     .skip(skip)
     .limit(filters.limit)

@@ -92,9 +92,16 @@ export function DocumentManagement({ embedded = false }: { embedded?: boolean })
 
     setBusyId(id)
     try {
-      await uploadFulfillmentFile(id, file)
+      const updated = await uploadFulfillmentFile(id, file)
       toast.success('File attached to request')
-      await load()
+      // Update the item in state immediately
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? { ...item, hasFulfillmentFile: updated.hasFulfillmentFile ?? true }
+            : item
+        )
+      )
     } catch (error: unknown) {
       const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error
       toast.error(message || 'Upload failed')

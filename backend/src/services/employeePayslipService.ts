@@ -13,8 +13,60 @@ export interface EmployeePayslipRecord {
   sentAt: Date
 }
 
+let indexesCreated = false;
+
 function payslipsCollection() {
-  return getDB().collection<EmployeePayslipRecord>('employee_payslips')
+  const col = getDB().collection<EmployeePayslipRecord>('employee_payslips')
+  // Create indexes on first access for better query performance
+  if (!indexesCreated) {
+    void createIndexes();
+    indexesCreated = true;
+  }
+  return col
+}
+
+async function createIndexes(): Promise<void> {
+  try {
+    const collection = getDB().collection('employee_payslips');
+    
+    // Get all existing indexes
+    const indexes = await collection.indexes();
+    
+    // Check if the problematic index exists and drop it if it's not unique
+    const existingIndex = indexes.find(idx => idx.name === 'batchId_1_fileName_1');
+    if (existingIndex && !existingIndex.unique) {
+      try {
+        await collection.dropIndex('batchId_1_fileName_1');
+      } catch (dropError) {
+        console.warn('Could not drop existing index batchId_1_fileName_1:', dropError);
+      }
+    }
+    
+    // Create indexes one by one to handle conflicts gracefully
+    const indexesToCreate = [
+      { spec: { id: 1 }, options: { unique: true, name: 'id_1' } },
+      { spec: { employeeDbId: 1 }, options: { name: 'employeeDbId_1' } },
+      { spec: { employeeEmail: 1 }, options: { name: 'employeeEmail_1' } },
+      { spec: { batchId: 1 }, options: { name: 'batchId_1' } },
+      { spec: { batchId: 1, fileName: 1 }, options: { unique: true, name: 'batchId_1_fileName_1' } },
+      { spec: { sentAt: -1 }, options: { name: 'sentAt_-1' } },
+      { spec: { employeeDbId: 1, sentAt: -1 }, options: { name: 'employeeDbId_1_sentAt_-1' } },
+      { spec: { employeeEmail: 1, sentAt: -1 }, options: { name: 'employeeEmail_1_sentAt_-1' } },
+    ];
+    
+    for (const { spec, options } of indexesToCreate) {
+      try {
+        await collection.createIndex(spec, options);
+      } catch (error: any) {
+        // Ignore if index already exists with same spec
+        if (error.code !== 85 && error.code !== 86) {
+          console.warn(`Failed to create index ${options.name}:`, error.message);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Failed to create employee_payslips indexes:', error);
+  }
 }
 
 function getEmployeeCollectionSync() {

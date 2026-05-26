@@ -433,7 +433,6 @@ export default function LeaveRequest() {
     <div className="space-y-6">
       {/* Header with Calendar Icon */}
       <div className="flex items-center justify-between">
-        <h2 className="font-heading text-2xl font-semibold">Leave Management</h2>
         <button
           type="button"
           onClick={() => navigate('/employee/calendar')}
@@ -451,7 +450,6 @@ export default function LeaveRequest() {
         {/* Left Column: Apply for Leave Form */}
         <div className="lg:col-span-1">
           <form onSubmit={handleSubmit(onSubmit)} className="rounded-xl border border-border bg-card p-6 shadow-card space-y-4">
-            <h3 className="font-heading text-lg font-semibold">Apply for Leave</h3>
             <div>
               <Label>Leave Type *</Label>
               <Select value={watch('type')} onValueChange={(v) => setValue('type', v)}>
@@ -520,7 +518,6 @@ export default function LeaveRequest() {
         <div className="lg:col-span-2 space-y-6">
           {/* Leave Balance */}
           <div className="rounded-xl border border-border bg-card p-6 shadow-card">
-            <h3 className="font-heading text-lg font-semibold mb-4">Leave Balance</h3>
 
             <div className="space-y-3">
               {leaveBalances.map((lb) => (

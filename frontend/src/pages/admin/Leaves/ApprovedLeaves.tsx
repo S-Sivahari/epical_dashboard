@@ -11,7 +11,7 @@ import { formatDate } from '@/utils/formatDate'
 import { filterLeaves, type LeaveFilters } from '@/utils/leaveFilters'
 
 export function ApprovedLeaves({ filters }: { filters: LeaveFilters }) {
-  const { leaves, loading, cancelLeave } = useLeaves()
+  const { leaves, loading, rejectLeave } = useLeaves()
   const [cancelModalOpen, setCancelModalOpen] = useState(false)
   const [leaveToCancel, setLeaveToCancel] = useState<LeaveRequest | null>(null)
   const [cancelReason, setCancelReason] = useState('')
@@ -19,14 +19,14 @@ export function ApprovedLeaves({ filters }: { filters: LeaveFilters }) {
   const handleConfirmCancel = async () => {
     if (!leaveToCancel) return
     if (!cancelReason.trim()) {
-      toast.error('Cancellation reason is required')
+      toast.error('Rejection reason is required')
       return
     }
     try {
-      await cancelLeave(leaveToCancel.id, cancelReason)
-      toast.success('Leave cancelled successfully')
+      await rejectLeave(leaveToCancel.id, cancelReason)
+      toast.success('Leave rejected successfully')
     } catch {
-      toast.error('Failed to cancel leave')
+      toast.error('Failed to reject leave')
     } finally {
       setCancelModalOpen(false)
       setLeaveToCancel(null)
@@ -100,7 +100,7 @@ export function ApprovedLeaves({ filters }: { filters: LeaveFilters }) {
       render: (l) =>
         l.status === 'Approved' && getComplexStatus(l) !== 'Completed' ? (
           <button
-            title="Cancel Leave"
+            title="Reject Leave"
             className="p-2 text-danger hover:bg-danger/10 rounded-full transition-colors"
             onClick={() => {
               setLeaveToCancel(l)
@@ -120,7 +120,7 @@ export function ApprovedLeaves({ filters }: { filters: LeaveFilters }) {
 
       <Modal
         isOpen={cancelModalOpen}
-        title="Cancel Approved Leave"
+        title="Reject Approved Leave"
         size="sm"
         onClose={() => {
           setCancelModalOpen(false)
@@ -130,16 +130,16 @@ export function ApprovedLeaves({ filters }: { filters: LeaveFilters }) {
       >
         <div className="space-y-4">
           <p className="text-sm text-muted">
-            Are you sure you want to cancel this approved leave? This will update the status immediately.
+            Are you sure you want to reject this approved leave? This will update the status immediately.
           </p>
           <div>
             <label className="block text-sm font-medium mb-1">
-              Cancellation Reason <span className="text-danger">*</span>
+              Rejection Reason <span className="text-danger">*</span>
             </label>
             <textarea
               className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
               rows={3}
-              placeholder="Enter reason for cancellation..."
+              placeholder="Enter reason for rejection..."
               value={cancelReason}
               onChange={(e) => setCancelReason(e.target.value)}
             />
@@ -160,7 +160,7 @@ export function ApprovedLeaves({ filters }: { filters: LeaveFilters }) {
               onClick={handleConfirmCancel}
               disabled={!cancelReason.trim()}
             >
-              Cancel Leave
+              Reject Leave
             </Button>
           </div>
         </div>

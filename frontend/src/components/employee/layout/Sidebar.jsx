@@ -48,31 +48,31 @@ function NavItem({ to, label, end, collapsed, onNavigate }) {
       onFocus={() => prefetchEmployeeRoute(to)}
       className={({ isActive }) =>
         cn(
-          'group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium leading-snug transition-all duration-200',
+          'group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-[15px] font-bold leading-snug transition-all duration-200',
           collapsed ? 'justify-center px-2' : '',
           isActive
-            ? 'bg-primary text-white shadow-sm shadow-primary/20'
-            : 'text-slate-600 hover:bg-slate-100/90 hover:text-slate-900',
+            ? 'bg-slate-100 text-black shadow-sm'
+            : 'text-black hover:bg-slate-100/90',
         )
       }
     >
       {({ isActive }) => (
         <>
           {!collapsed && isActive && (
-            <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-white/90" aria-hidden />
+            <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-full bg-black" aria-hidden />
           )}
           <span
             className={cn(
               'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors duration-200',
               isActive
-                ? 'bg-white/20 text-white'
-                : 'bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-primary',
+                ? 'bg-black/10 text-black'
+                : 'bg-slate-100 text-black group-hover:bg-black/10',
             )}
           >
-            <Icon className="h-[17px] w-[17px]" strokeWidth={2} />
+            <Icon className="h-[19px] w-[19px] text-black" strokeWidth={2.5} />
           </span>
           {!collapsed && (
-            <span className="min-w-0 flex-1 truncate pr-1">{label}</span>
+            <span className="min-w-0 flex-1 truncate pr-1 text-black font-semibold">{label}</span>
           )}
         </>
       )}

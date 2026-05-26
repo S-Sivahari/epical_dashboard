@@ -177,7 +177,7 @@ export const leaveController = {
         return;
       }
       const actionBy = (req.user as any)?.name || (req.user as any)?.email || 'Admin';
-      const leave = await leaveService.updateLeaveStatus(req.params.id, 'Rejected', reason.trim(), actionBy);
+      const leave = await leaveService.updateLeaveStatus(req.params.id as string, 'Rejected', reason.trim(), actionBy);
       if (!leave) {
         res.status(404).json({ error: 'Leave not found' });
         return;

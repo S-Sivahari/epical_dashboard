@@ -393,40 +393,33 @@ export async function updateLeaveStatus(
 
 export async function cancelLeave(id: string, cancelReason?: string, cancelledBy?: string): Promise<LeaveRequest | null> {
   const col = getLeaveCol();
-  const updateFields: any = {
-    status: 'Cancelled',
-    updatedAt: new Date(),
-    cancelledAt: new Date(),
-  };
-  if (cancelReason) updateFields.cancelReason = cancelReason;
-  if (cancelledBy) updateFields.cancelledBy = cancelledBy;
+  const result = await col.findOne({ id, status: { $in: ['Approved', 'Pending'] } });
+  if (!result) return null;
 
-  const result = await col.findOneAndUpdate(
-    { id, status: { $in: ['Approved', 'Pending'] } },
-    { $set: updateFields },
-    { returnDocument: 'after' }
-  );
+  await col.deleteOne({ id });
 
-  if (result) {
-    try {
-      await notificationService.createNotification({
-        recipientId: result.employeeId,
-        recipientType: 'Employee',
-        type: 'LeaveCancelled',
-        title: 'Leave Cancelled',
-        message: `Your ${result.type} leave request from ${result.from} to ${result.to} has been cancelled.`,
-        relatedData: {
-          leaveId: id,
-          employeeId: result.employeeId,
-          employeeName: result.employeeName,
-        },
-      });
-    } catch (error) {
-      console.error('Error creating cancellation notification:', error);
-    }
+  try {
+    await notificationService.createNotification({
+      recipientId: result.employeeId,
+      recipientType: 'Employee',
+      type: 'LeaveCancelled',
+      title: 'Leave Cancelled',
+      message: `Your ${result.type} leave request from ${result.from} to ${result.to} has been cancelled.`,
+      relatedData: {
+        leaveId: id,
+        employeeId: result.employeeId,
+        employeeName: result.employeeName,
+        leaveType: result.type,
+        from: result.from,
+        to: result.to,
+        days: result.days,
+      },
+    });
+  } catch (error) {
+    console.error('Error creating cancellation notification:', error);
   }
 
-  return result as LeaveRequest | null;
+  return { ...result, status: 'Cancelled' } as LeaveRequest;
 }
 
 export async function rejectLeaveWithReason(id: string, rejectionReason: string): Promise<LeaveRequest | null> {
@@ -514,7 +507,7 @@ export async function createHoliday(payload: { title: string; date: string; desc
   return holiday as Holiday;
 }
 
-export async function updateHoliday(id: string, payload: { title?: string; date?: string; description?: string; type?: HolidayType }): Promise<Holiday | null> {
+export async function updateHoliday(id: string, payload: { title?: string; date?: string; description?: string; type?: HolidayType; skipped?: boolean; skippedReason?: string }): Promise<Holiday | null> {
   const col = getHolidayCol();
   const result = await col.findOneAndUpdate(
     { id },
@@ -694,3 +687,10 @@ export async function notifyEmployeeAboutLeaveStatus(leave: LeaveRequest): Promi
     console.error('[Leave Email] Error sending employee notification:', error);
   }
 }
+
+export async function purgeCancelledLeavesFromDatabase(): Promise<number> {
+  const col = getLeaveCol();
+  const result = await col.deleteMany({ status: 'Cancelled' });
+  return result.deletedCount;
+}
+

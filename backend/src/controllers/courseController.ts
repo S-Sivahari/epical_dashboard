@@ -33,7 +33,7 @@ export const courseController = {
         res.status(400).json({ error: 'All fields are required' })
         return
       }
-      const course = await courseService.updateCourse(req.params.id, { title, topic, platform, link })
+      const course = await courseService.updateCourse(req.params.id as string, { title, topic, platform, link })
       if (!course) {
         res.status(404).json({ error: 'Course not found' })
         return
@@ -46,7 +46,7 @@ export const courseController = {
 
   deleteCourse: async (req: Request, res: Response): Promise<void> => {
     try {
-      const ok = await courseService.deleteCourse(req.params.id)
+      const ok = await courseService.deleteCourse(req.params.id as string)
       if (!ok) {
         res.status(404).json({ error: 'Course not found' })
         return
@@ -104,7 +104,7 @@ export const courseController = {
 
   deleteEnrollment: async (req: Request, res: Response): Promise<void> => {
     try {
-      const ok = await courseService.deleteEnrollment(req.params.id)
+      const ok = await courseService.deleteEnrollment(req.params.id as string)
       if (!ok) {
         res.status(404).json({ error: 'Enrollment not found' })
         return

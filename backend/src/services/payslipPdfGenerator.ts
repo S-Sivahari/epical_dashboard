@@ -1,3 +1,4 @@
+// @ts-ignore
 import PDFDocument from 'pdfkit'
 import { createWriteStream, existsSync } from 'fs'
 import { join } from 'path'

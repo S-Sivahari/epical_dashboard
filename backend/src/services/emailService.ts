@@ -432,12 +432,13 @@ export async function sendLeaveStatusEmail(
   data: LeaveNotificationData,
   actionUrl?: string
 ): Promise<boolean> {
-  const isApproved = data.status === 'Approved';
   const subject = `[Epical EMS] Leave Request ${data.status} - ${data.type}`;
   
   let message = '';
-  if (isApproved) {
+  if (data.status === 'Approved') {
     message = `Your ${data.type} leave request has been <strong>approved</strong> by the administrator.`;
+  } else if (data.status === 'Cancelled') {
+    message = `Your ${data.type} leave request has been <strong>cancelled</strong>.`;
   } else {
     message = `Your ${data.type} leave request has been <strong>rejected</strong> by the administrator.`;
   }
@@ -450,13 +451,13 @@ export async function sendLeaveStatusEmail(
     { label: 'Status', value: data.status || 'Processed' },
   ];
 
-  if (!isApproved && data.rejectionReason) {
+  if (data.status === 'Rejected' && data.rejectionReason) {
     details.push({ label: 'Rejection Reason', value: data.rejectionReason });
   }
 
   const html = buildHtmlTemplate(data.recipientName, `Leave Request ${data.status}`, message, details, actionUrl);
   
-  const text = `Hi ${data.recipientName},\n\nYour ${data.type} leave request from ${data.from} to ${data.to} has been ${data.status}.\n\n${!isApproved && data.rejectionReason ? `Reason: ${data.rejectionReason}\n` : ''}\nPlease review this on your dashboard.`;
+  const text = `Hi ${data.recipientName},\n\nYour ${data.type} leave request from ${data.from} to ${data.to} has been ${data.status}.\n\n${data.status === 'Rejected' && data.rejectionReason ? `Reason: ${data.rejectionReason}\n` : ''}\nPlease review this on your dashboard.`;
 
   return await sendEmail({ to: data.recipientEmail, subject, html, text });
 }

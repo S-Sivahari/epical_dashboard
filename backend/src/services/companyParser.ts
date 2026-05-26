@@ -130,7 +130,7 @@ export function parseCompanySheetXlsx(ws: XLSX.WorkSheet): Company {
 export async function parseCompanySheetExcelJS(buffer: Buffer): Promise<Company> {
   const company: Company = {}
   const wb = new ExcelJS.Workbook()
-  await wb.xlsx.load(buffer)
+  await wb.xlsx.load(buffer as any)
 
   let sheet =
     wb.getWorksheet('company') ??

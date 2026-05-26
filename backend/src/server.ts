@@ -31,7 +31,7 @@ import { employeeDashboardRoutes } from './routes/employeeDashboardRoutes';
 
 // Seed helpers
 import { seedDefaultUsers } from './services/authService';
-import { seedLeaves, seedHolidays } from './services/leaveService';
+import { seedLeaves, seedHolidays, purgeCancelledLeavesFromDatabase } from './services/leaveService';
 import { seedTickets } from './services/ticketService';
 import { seedProjectsAndTimesheets, seedAssignedTasksOnly } from './scripts/seedTimesheets';
 import { getDB } from './config/db';
@@ -189,6 +189,14 @@ export async function startServer() {
       }
     } catch (err) {
       console.warn('⚠ Department field cleanup skipped:', err);
+    }
+    try {
+      const purgedCount = await purgeCancelledLeavesFromDatabase();
+      if (purgedCount > 0) {
+        console.log(`✓ Purged ${purgedCount} legacy cancelled leave request(s) from database`);
+      }
+    } catch (err) {
+      console.warn('⚠ Purging cancelled leaves skipped:', err);
     }
     app.listen(env.port, () => {
       console.log(`✓ Server running on http://localhost:${env.port}`);
