@@ -11,17 +11,13 @@ const DASHBOARD_ALERT_TYPES = [
 ] as const
 
 export function NotificationAlerts() {
-  const { notifications, fetchNotifications, fetchNotificationsSilent } = useNotificationStore()
+  const { notifications, fetchNotifications } = useNotificationStore()
 
   useEffect(() => {
-    fetchNotifications()
-
-    const interval = setInterval(() => {
-      fetchNotificationsSilent()
-    }, 5000)
-
-    return () => clearInterval(interval)
-  }, [fetchNotifications, fetchNotificationsSilent])
+    if (notifications.length === 0) {
+      fetchNotifications()
+    }
+  }, [fetchNotifications, notifications.length])
 
   const alertNotifications = notifications.filter((n) =>
     DASHBOARD_ALERT_TYPES.includes(n.type as (typeof DASHBOARD_ALERT_TYPES)[number]),

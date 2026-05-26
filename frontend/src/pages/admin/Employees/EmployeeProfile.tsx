@@ -7,13 +7,21 @@ import { Badge } from '@components/ui/Badge'
 import { EmployeeAvatar } from '@components/ui/EmployeeAvatar'
 import * as employeeService from '@services/employeeService'
 import { openEmployeeDocument } from '@/services/uploadService'
-import type { Employee } from '@/types'
+import type { Employee, EmployeeActivityEntry } from '@/types'
 import { formatDate } from '@/utils/formatDate'
 import { stringToHueColor } from '@/utils/stringColor'
-import { Pencil, FileText, FileSpreadsheet, ExternalLink } from 'lucide-react'
+import { Pencil, FileText, FileSpreadsheet, ExternalLink, History } from 'lucide-react'
 import { toast } from 'sonner'
 import { exportToExcel } from '@/utils/exportExcel'
 import { exportToPDF } from '@/utils/exportPDF'
+import {
+  FULL_EMPLOYEE_EXPORT_HEADERS,
+  INDIVIDUAL_EMPLOYEE_REPORT_OPTIONS,
+  employeeToExportRow,
+  individualExportFilename,
+} from '@/constants/employeeExport'
+import { documentListFromEmployee } from '@/utils/employeeDocuments'
+import { useAuthStore } from '@store/authStore'
 
 const statusVariant = (s: string) => {
   switch (s) {
@@ -42,24 +50,16 @@ function SectionHeader({ title }: { title: string }) {
   )
 }
 
-const exportHeaders: { key: keyof Employee; label: string }[] = [
-  { key: 'employeeId', label: 'Employee ID' },
-  { key: 'firstName', label: 'First Name' },
-  { key: 'lastName', label: 'Last Name' },
-  { key: 'email', label: 'Email' },
-  { key: 'role', label: 'Role' },
-  { key: 'employmentType', label: 'Type' },
-  { key: 'joinedAt', label: 'Joined' },
-  { key: 'status', label: 'Status' },
-]
+const exportHeaders = FULL_EMPLOYEE_EXPORT_HEADERS
 
 export function EmployeeProfile() {
   const { id = '' } = useParams()
+  const user = useAuthStore((s) => s.user)
   const [employee, setEmployee] = useState<Employee | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [documents, setDocuments] = useState<{ key: string; name: string }[]>([])
-  const [docsLoading, setDocsLoading] = useState(false)
+  const [openingDocKey, setOpeningDocKey] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id) {
@@ -73,7 +73,10 @@ export function EmployeeProfile() {
     void (async () => {
       try {
         const e = await employeeService.getEmployee(id)
-        if (!cancelled) setEmployee(e)
+        if (!cancelled) {
+          setEmployee(e)
+          setDocuments(documentListFromEmployee(e as Record<string, unknown>))
+        }
       } catch (err) {
         if (!cancelled) {
           const msg =
@@ -81,28 +84,10 @@ export function EmployeeProfile() {
             (err instanceof Error ? err.message : 'Could not load employee profile.')
           setLoadError(msg)
           setEmployee(null)
+          setDocuments([])
         }
       } finally {
         if (!cancelled) setLoading(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [id])
-
-  useEffect(() => {
-    if (!id) return
-    let cancelled = false
-    void (async () => {
-      setDocsLoading(true)
-      try {
-        const docs = await employeeService.getEmployeeDocuments(id)
-        if (!cancelled) setDocuments(docs)
-      } catch {
-        if (!cancelled) setDocuments([])
-      } finally {
-        if (!cancelled) setDocsLoading(false)
       }
     })()
     return () => {
@@ -139,8 +124,51 @@ export function EmployeeProfile() {
   }
 
   const name = `${employee.firstName} ${employee.lastName ?? ''}`.trim()
-  const exportDate = new Date().toISOString().split('T')[0]
-  const fileName = `employeedetails_${exportDate}`
+  const fileName = individualExportFilename(employee.firstName, employee.lastName)
+  const exportRow = employeeToExportRow(employee)
+  const exportOptions = {
+    generatedBy: user?.name || 'Admin',
+    employeeDetailMode: true,
+    ...INDIVIDUAL_EMPLOYEE_REPORT_OPTIONS,
+  }
+
+  const activityHistory = (employee.activityHistory ?? [])
+    .slice()
+    .sort(
+      (a: EmployeeActivityEntry, b: EmployeeActivityEntry) =>
+        new Date(b.at).getTime() - new Date(a.at).getTime(),
+    )
+
+  const handleOpenDocument = async (docKey: string, docName: string) => {
+    setOpeningDocKey(docKey)
+    try {
+      await openEmployeeDocument(id, docKey, docName)
+    } catch {
+      toast.error('Could not open document')
+    } finally {
+      setOpeningDocKey(null)
+    }
+  }
+
+  const handleExportPdf = async () => {
+    try {
+      console.info('[Manage Employees] Exported employee PDF:', fileName)
+      await exportToPDF([exportRow], fileName, exportHeaders, exportOptions)
+      toast.success('PDF export ready')
+    } catch {
+      toast.error('PDF export failed')
+    }
+  }
+
+  const handleExportExcel = async () => {
+    try {
+      console.info('[Manage Employees] Exported employee Excel:', fileName)
+      await exportToExcel([exportRow], fileName, exportHeaders, exportOptions)
+      toast.success('Excel export ready')
+    } catch {
+      toast.error('Excel export failed')
+    }
+  }
 
   return (
     <PageWrapper>
@@ -149,11 +177,17 @@ export function EmployeeProfile() {
         subtitle={employee.employeeId}
         actions={
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => void exportToPDF([employee], fileName, exportHeaders)}>
+            <Button
+              variant="secondary"
+              onClick={() => void handleExportPdf()}
+            >
               <FileText className="h-4 w-4 text-red-600" />
               Export PDF
             </Button>
-            <Button variant="secondary" onClick={() => void exportToExcel([employee], fileName, exportHeaders)}>
+            <Button
+              variant="secondary"
+              onClick={() => void handleExportExcel()}
+            >
               <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
               Export Excel
             </Button>
@@ -220,7 +254,18 @@ export function EmployeeProfile() {
               <InfoRow label="Phone" value={employee.phone} />
               <InfoRow label="Personal Email" value={employee.personalEmail} />
               <InfoRow label="Company Email" value={employee.email} />
-              <InfoRow label="Address" value={employee.address} />
+              <InfoRow label="Permanent Address" value={employee.permanentAddress ?? employee.address} />
+              <InfoRow label="Communication Address" value={employee.communicationAddress} />
+            </div>
+
+            {/* ── Emergency Contact ─────────────────────────────── */}
+            <SectionHeader title="Emergency Contact" />
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              <InfoRow label="Name" value={employee.emergencyContact?.name} />
+              <InfoRow label="Phone" value={employee.emergencyContact?.phone} />
+              <InfoRow label="Email" value={employee.emergencyContact?.email} />
+              <InfoRow label="Relation" value={employee.emergencyContact?.relation} />
+              <InfoRow label="Address" value={employee.emergencyContact?.address} />
             </div>
 
             {/* ── Job ───────────────────────────────────────────── */}
@@ -258,12 +303,7 @@ export function EmployeeProfile() {
             {/* ── Documents ─────────────────────────────────────── */}
             <SectionHeader title="Documents" />
             <div>
-              {docsLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                  <span className="ml-3 text-sm text-muted">Loading documents…</span>
-                </div>
-              ) : documents.length > 0 ? (
+              {documents.length > 0 ? (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {documents.map((doc) => (
                     <div
@@ -277,15 +317,16 @@ export function EmployeeProfile() {
                       </div>
                       <button
                         type="button"
-                        onClick={() =>
-                          void openEmployeeDocument(id, doc.key, doc.name).catch(() =>
-                            toast.error('Could not open document'),
-                          )
-                        }
-                        className="shrink-0 rounded-md p-1.5 text-primary hover:bg-primary/10 transition-ui"
+                        disabled={openingDocKey === doc.key}
+                        onClick={() => void handleOpenDocument(doc.key, doc.name)}
+                        className="shrink-0 rounded-md p-1.5 text-primary hover:bg-primary/10 transition-ui disabled:opacity-50"
                         title="View document"
                       >
-                        <ExternalLink className="h-4 w-4" />
+                        {openingDocKey === doc.key ? (
+                          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                        ) : (
+                          <ExternalLink className="h-4 w-4" />
+                        )}
                       </button>
                     </div>
                   ))}
@@ -294,6 +335,44 @@ export function EmployeeProfile() {
                 <div className="flex flex-col items-center justify-center py-8 text-center rounded-lg border border-dashed border-border bg-surface/30">
                   <FileText className="h-10 w-10 text-muted/40" />
                   <p className="mt-3 text-sm text-muted">No documents uploaded yet.</p>
+                </div>
+              )}
+            </div>
+
+            {/* ── Activity History ──────────────────────────────── */}
+            <SectionHeader title="Activity History" />
+            <div>
+              {activityHistory.length > 0 ? (
+                <div className="space-y-3">
+                  {activityHistory.map((entry, index) => (
+                    <div
+                      key={`${entry.at}-${entry.type}-${index}`}
+                      className="rounded-lg border border-border bg-surface/50 px-4 py-3"
+                    >
+                      <div className="flex items-start gap-3">
+                        <History className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-medium text-ink">{entry.summary}</p>
+                            <Badge variant={entry.type === 'status_change' ? 'warning' : 'neutral'}>
+                              {entry.type === 'status_change' ? 'Status change' : 'Profile edit'}
+                            </Badge>
+                          </div>
+                          {entry.reason ? (
+                            <p className="mt-1 text-sm text-muted">Reason: {entry.reason}</p>
+                          ) : null}
+                          <p className="mt-2 text-xs text-muted">
+                            {entry.by} · {formatDate(entry.at)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-center rounded-lg border border-dashed border-border bg-surface/30">
+                  <History className="h-10 w-10 text-muted/40" />
+                  <p className="mt-3 text-sm text-muted">No activity recorded yet.</p>
                 </div>
               )}
             </div>

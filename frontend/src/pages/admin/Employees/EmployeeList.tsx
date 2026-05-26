@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Plus, Search, X, CheckSquare, FileText, FileSpreadsheet } from 'lucide-react'
+import { toast } from 'sonner'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
 import { Badge } from '@components/ui/Badge'
@@ -11,12 +12,16 @@ import { SelectField } from '@components/forms/SelectField'
 import { useEmployees } from '@hooks/useEmployees'
 import type { Employee } from '@/types'
 import { stringToHueColor } from '@/utils/stringColor'
-import * as employeeService from '@services/employeeService'
 import { EmployeeAvatar } from '@components/ui/EmployeeAvatar'
 import { exportToExcel } from '@/utils/exportExcel'
 import { exportToPDF } from '@/utils/exportPDF'
 import { formatDate } from '@/utils/formatDate'
 import { useAuthStore } from '@store/authStore'
+import {
+  ACTIVE_DIRECTORY_EXPORT_HEADERS,
+  ACTIVE_DIRECTORY_REPORT_OPTIONS,
+  activeDirectoryExportFilename,
+} from '@/constants/employeeExport'
 
 const STATUS_OPTIONS: { value: Employee['status']; label: string }[] = [
   { value: 'Active', label: 'Active' },
@@ -24,6 +29,18 @@ const STATUS_OPTIONS: { value: Employee['status']; label: string }[] = [
   { value: 'Deactivated', label: 'Deactivated' },
   { value: 'Notice Period', label: 'Notice Period' },
 ]
+
+function buildFilterSummary(
+  filters: { name: string; employmentType: string; status: string },
+  total: number,
+): string {
+  const parts: string[] = []
+  if (filters.name.trim()) parts.push(`search "${filters.name.trim()}"`)
+  if (filters.employmentType !== 'all') parts.push(`type ${filters.employmentType}`)
+  if (filters.status !== 'all') parts.push(`status ${filters.status}`)
+  if (parts.length === 0) return `${total} employee${total === 1 ? '' : 's'} (all filters)`
+  return `${total} employee${total === 1 ? '' : 's'} matching ${parts.join(', ')}`
+}
 
 export function EmployeeList() {
   const {
@@ -37,6 +54,7 @@ export function EmployeeList() {
     setSort,
     updateEmployeeStatus,
     bulkUpdateStatus,
+    getEmployeesForExport,
   } = useEmployees()
 
   const user = useAuthStore((s) => s.user)
@@ -70,6 +88,15 @@ export function EmployeeList() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkStatus, setBulkStatus] = useState<Employee['status']>('Active')
   const [bulkSaving, setBulkSaving] = useState(false)
+  const [bulkStatusModalOpen, setBulkStatusModalOpen] = useState(false)
+  const [bulkStatusReason, setBulkStatusReason] = useState('')
+  const [bulkStatusReasonError, setBulkStatusReasonError] = useState('')
+  const bulkReasonInputRef = useRef<HTMLTextAreaElement>(null)
+
+  const filterSummary = useMemo(
+    () => buildFilterSummary(filters, pagination.total),
+    [filters, pagination.total],
+  )
 
   const exitSelectionMode = () => {
     setSelectionMode(false)
@@ -101,49 +128,60 @@ export function EmployeeList() {
     })
   }
 
-  const handleBulkStatusApply = async () => {
+  const requestBulkStatusChange = () => {
     if (selectedIds.size === 0) return
+    setBulkStatusReason('')
+    setBulkStatusReasonError('')
+    setBulkStatusModalOpen(true)
+    setTimeout(() => bulkReasonInputRef.current?.focus(), 50)
+  }
+
+  const confirmBulkStatusChange = async () => {
+    const reason = bulkStatusReason.trim()
+    if (!reason) {
+      setBulkStatusReasonError('Please provide a reason for the bulk status change.')
+      return
+    }
+    if (selectedIds.size === 0) return
+
+    setBulkStatusModalOpen(false)
     setBulkSaving(true)
+    const ids = Array.from(selectedIds)
     try {
-      await bulkUpdateStatus(Array.from(selectedIds), bulkStatus)
+      const result = await bulkUpdateStatus(ids, bulkStatus, reason, user?.email || user?.name)
+      console.info(
+        '[Manage Employees] Bulk status change:',
+        bulkStatus,
+        `(${result.updated ?? ids.length} employees)`,
+        reason,
+      )
+      toast.success(
+        `Updated status to ${bulkStatus} for ${result.updated ?? ids.length} employee${(result.updated ?? ids.length) === 1 ? '' : 's'}`,
+      )
       exitSelectionMode()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not update employee statuses'
+      toast.error(message)
+      setBulkStatusModalOpen(true)
     } finally {
       setBulkSaving(false)
+      setBulkStatusReason('')
     }
   }
 
   const handleExport = async (format: 'excel' | 'pdf') => {
     setExporting(format)
     try {
-      const res = await employeeService.getEmployees({
-        name: filters.name || undefined,
-        employmentType: filters.employmentType,
-        status: filters.status,
-        pageSize: 1000,
-      })
-      const fullEmployeeData = await Promise.all(
-        res.data.map(async (employee) => {
-          try {
-            return await employeeService.getEmployee(employee.id)
-          } catch {
-            return employee
-          }
-        }),
-      )
+      const exportData = await getEmployeesForExport()
+      if (!exportData.length) {
+        toast.info('No employees match the current filters.')
+        return
+      }
+
+      toast.info(`Exporting ${exportData.length} employee${exportData.length === 1 ? '' : 's'} matching current filters…`)
 
       const exportDate = new Date().toISOString().split('T')[0]
-      const filename = `EpicalLayouts_EmployeeDetails_${exportDate}`
-
-      const headers: { key: keyof Employee; label: string }[] = [
-        { key: 'employeeId', label: 'Employee ID' },
-        { key: 'firstName', label: 'First Name' },
-        { key: 'lastName', label: 'Last Name' },
-        { key: 'email', label: 'Company Email' },
-        { key: 'personalEmail', label: 'Personal Email' },
-        { key: 'employmentType', label: 'Employment Type' },
-        { key: 'status', label: 'Status' },
-        { key: 'joinedAt', label: 'Joined At' },
-      ]
+      const filename = activeDirectoryExportFilename(new Date(exportDate))
 
       const exportOptions = {
         generatedBy: user?.name || 'Admin',
@@ -152,15 +190,23 @@ export function EmployeeList() {
           employmentType: filters.employmentType,
           status: filters.status,
         },
-        compactMode: format === 'pdf',
+        compactMode: true,
+        ...ACTIVE_DIRECTORY_REPORT_OPTIONS,
       }
 
       if (format === 'pdf') {
-        await exportToPDF(fullEmployeeData, filename, headers, exportOptions)
+        await exportToPDF(exportData, filename, ACTIVE_DIRECTORY_EXPORT_HEADERS, exportOptions)
+        console.info('[Manage Employees] Exported Active Directory PDF:', filename, `(${exportData.length} employees)`)
+        toast.success(`PDF export ready — ${exportData.length} employees`)
         return
       }
 
-      await exportToExcel(fullEmployeeData, filename, headers, exportOptions)
+      exportToExcel(exportData, filename, ACTIVE_DIRECTORY_EXPORT_HEADERS, exportOptions)
+      console.info('[Manage Employees] Exported Active Directory Excel:', filename, `(${exportData.length} employees)`)
+      toast.success(`Excel export ready — ${exportData.length} employees`)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Export failed'
+      toast.error(message)
     } finally {
       setExporting(null)
     }
@@ -196,9 +242,24 @@ export function EmployeeList() {
     setStatusModalOpen(false)
     setSavingStatusId(employee.id!)
     try {
-      await updateEmployeeStatus(employee.id!, newStatus)
+      await updateEmployeeStatus(
+        employee.id!,
+        newStatus,
+        reason,
+        user?.email || user?.name,
+      )
+      console.info(
+        '[Manage Employees] Status change:',
+        employee.employeeId,
+        `${employee.firstName} ${employee.lastName ?? ''}`.trim(),
+        `${employee.status} → ${newStatus}`,
+        reason,
+      )
+      toast.success(`${employee.firstName}'s status updated to ${newStatus}`)
     } catch (err) {
-      setStatusReasonError(err instanceof Error ? err.message : 'Could not update status')
+      const message = err instanceof Error ? err.message : 'Could not update status'
+      setStatusReasonError(message)
+      toast.error(message)
       setStatusModalOpen(true)
     } finally {
       setSavingStatusId(null)
@@ -325,8 +386,11 @@ export function EmployeeList() {
   return (
     <PageWrapper>
       {/* Active Directory heading above the filter toolbar */}
-      <div className="mb-3">
-        <h3 className="font-display text-lg font-semibold text-ink">Active Directory</h3>
+      <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h3 className="font-display text-lg font-semibold text-ink">Active Directory</h3>
+          <p className="text-sm text-muted">{filterSummary}</p>
+        </div>
       </div>
 
       {/* Filter toolbar */}
@@ -424,7 +488,7 @@ export function EmployeeList() {
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
-            <Button size="sm" onClick={handleBulkStatusApply} loading={bulkSaving}>
+            <Button size="sm" onClick={requestBulkStatusChange} loading={bulkSaving}>
               Apply
             </Button>
             <Button size="sm" variant="ghost" onClick={exitSelectionMode}>
@@ -507,6 +571,54 @@ export function EmployeeList() {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Bulk Status Change Confirmation Modal */}
+      <Modal
+        isOpen={bulkStatusModalOpen}
+        onClose={() => setBulkStatusModalOpen(false)}
+        title="Confirm Bulk Status Change"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted">
+            You are about to change the status of{' '}
+            <span className="font-semibold text-ink">
+              {selectedIds.size} employee{selectedIds.size === 1 ? '' : 's'}
+            </span>
+            {' '}to{' '}
+            <span className="font-semibold text-ink">{bulkStatus}</span>.
+          </p>
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-ink">
+              Reason <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              ref={bulkReasonInputRef}
+              value={bulkStatusReason}
+              onChange={(e) => {
+                setBulkStatusReason(e.target.value)
+                if (bulkStatusReasonError) setBulkStatusReasonError('')
+              }}
+              placeholder="Provide a reason for this bulk status change..."
+              className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 resize-none transition-shadow ${
+                bulkStatusReasonError ? 'border-red-500 focus:ring-red-200' : 'border-border focus:ring-primary/30'
+              }`}
+              rows={3}
+            />
+            {bulkStatusReasonError && (
+              <p className="text-xs text-red-500 font-medium">{bulkStatusReasonError}</p>
+            )}
+          </div>
+          <div className="flex justify-end gap-3 pt-2 border-t border-border">
+            <Button variant="secondary" onClick={() => setBulkStatusModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => void confirmBulkStatusChange()} loading={bulkSaving}>
+              Confirm Change
+            </Button>
+          </div>
+        </div>
       </Modal>
     </PageWrapper>
   )

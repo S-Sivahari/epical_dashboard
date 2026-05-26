@@ -46,10 +46,20 @@ const allowedOrigins = env.CORS_ORIGIN.split(',')
   .map((origin) => origin.trim())
   .filter((origin) => origin.length > 0);
 
+const isDev = env.nodeEnv !== 'production';
+
 // ── Middleware ────────────────────────────────────────────────
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: isDev
+      ? true
+      : (origin, callback) => {
+          if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+          } else {
+            callback(null, allowedOrigins[0] ?? true);
+          }
+        },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

@@ -7,6 +7,7 @@ import { EmployeePhotoAvatar } from '@components/employee/shared/EmployeePhotoAv
 import { Badge } from '@components/employee/ui/badge'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { formatDate } from '@pages/employee/lib/utils'
+import { documentListFromEmployee } from '@/utils/employeeDocuments'
 
 function InfoRow({ label, value }) {
   return (
@@ -45,8 +46,8 @@ export default function EmployeeProfile() {
   const [employee, setEmployee] = useState(null)
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
-  const [docsLoading, setDocsLoading] = useState(false)
   const [loadError, setLoadError] = useState(null)
+  const [openingDocKey, setOpeningDocKey] = useState(null)
 
   useEffect(() => {
     if (!user?.id) {
@@ -62,36 +63,18 @@ export default function EmployeeProfile() {
     void (async () => {
       try {
         const profile = await employeeService.getEmployee(user.id)
-        if (!cancelled) setEmployee(profile)
+        if (!cancelled) {
+          setEmployee(profile)
+          setDocuments(documentListFromEmployee(profile))
+        }
       } catch (err) {
         if (!cancelled) {
           setLoadError(err?.response?.data?.error || 'Could not load your profile.')
           setEmployee(null)
+          setDocuments([])
         }
       } finally {
         if (!cancelled) setLoading(false)
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [user?.id])
-
-  useEffect(() => {
-    if (!user?.id) return
-
-    let cancelled = false
-    setDocsLoading(true)
-
-    void (async () => {
-      try {
-        const docs = await employeeService.getEmployeeDocuments(user.id)
-        if (!cancelled) setDocuments(docs)
-      } catch {
-        if (!cancelled) setDocuments([])
-      } finally {
-        if (!cancelled) setDocsLoading(false)
       }
     })()
 
@@ -123,10 +106,15 @@ export default function EmployeeProfile() {
   )
   const otherDocuments = documents.filter((doc) => !certificates.some((c) => c.key === doc.key))
 
-  const previewDocument = (doc) => {
-    void openEmployeeDocument(user.id, doc.key, doc.name).catch(() =>
-      toast({ title: 'Error', description: 'Could not open document.' }),
-    )
+  const previewDocument = async (doc) => {
+    setOpeningDocKey(doc.key)
+    try {
+      await openEmployeeDocument(user.id, doc.key, doc.name)
+    } catch {
+      toast({ title: 'Error', description: 'Could not open document.' })
+    } finally {
+      setOpeningDocKey(null)
+    }
   }
 
   return (
@@ -149,6 +137,11 @@ export default function EmployeeProfile() {
               <p>
                 <span className="font-medium text-foreground">Email:</span> {employee.email}
               </p>
+              {employee.personalEmail ? (
+                <p>
+                  <span className="font-medium text-foreground">Personal:</span> {employee.personalEmail}
+                </p>
+              ) : null}
               {employee.phone ? (
                 <p>
                   <span className="font-medium text-foreground">Phone:</span> {employee.phone}
@@ -175,12 +168,23 @@ export default function EmployeeProfile() {
               <InfoRow label="Phone" value={employee.phone} />
               <InfoRow label="Personal Email" value={employee.personalEmail} />
               <InfoRow label="Company Email" value={employee.email} />
-              <InfoRow label="Address" value={employee.address} />
+              <InfoRow label="Permanent Address" value={employee.permanentAddress ?? employee.address} />
+              <InfoRow label="Communication Address" value={employee.communicationAddress} />
+            </div>
+
+            <SectionHeader title="Emergency Contact" />
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              <InfoRow label="Name" value={employee.emergencyContact?.name} />
+              <InfoRow label="Phone" value={employee.emergencyContact?.phone} />
+              <InfoRow label="Email" value={employee.emergencyContact?.email} />
+              <InfoRow label="Relation" value={employee.emergencyContact?.relation} />
+              <InfoRow label="Address" value={employee.emergencyContact?.address} />
             </div>
 
             <SectionHeader title="Job Details" />
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               <InfoRow label="Employee ID" value={employee.employeeId} />
+              <InfoRow label="Role" value={employee.role} />
               <InfoRow label="Department" value={employee.department} />
               <InfoRow label="Designation" value={employee.designation} />
               <InfoRow label="Employment Type" value={employee.employmentType} />
@@ -196,12 +200,7 @@ export default function EmployeeProfile() {
             </div>
 
             <SectionHeader title="Certificates & Documents" />
-            {docsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-                <span className="ml-3 text-sm text-muted">Loading documents…</span>
-              </div>
-            ) : documents.length === 0 ? (
+            {documents.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-slate-50/50 py-8 text-center">
                 <FileText className="h-10 w-10 text-muted/40" />
                 <p className="mt-3 text-sm text-muted">No documents uploaded yet.</p>
@@ -213,7 +212,12 @@ export default function EmployeeProfile() {
                     <p className="mb-3 text-sm font-medium text-foreground">Certificates</p>
                     <div className="grid gap-3 sm:grid-cols-2">
                       {certificates.map((doc) => (
-                        <DocumentPreviewCard key={doc.key} doc={doc} onPreview={() => previewDocument(doc)} />
+                        <DocumentPreviewCard
+                          key={doc.key}
+                          doc={doc}
+                          loading={openingDocKey === doc.key}
+                          onPreview={() => void previewDocument(doc)}
+                        />
                       ))}
                     </div>
                   </div>
@@ -223,7 +227,12 @@ export default function EmployeeProfile() {
                     <p className="mb-3 text-sm font-medium text-foreground">Other Documents</p>
                     <div className="grid gap-3 sm:grid-cols-2">
                       {otherDocuments.map((doc) => (
-                        <DocumentPreviewCard key={doc.key} doc={doc} onPreview={() => previewDocument(doc)} />
+                        <DocumentPreviewCard
+                          key={doc.key}
+                          doc={doc}
+                          loading={openingDocKey === doc.key}
+                          onPreview={() => void previewDocument(doc)}
+                        />
                       ))}
                     </div>
                   </div>
@@ -237,7 +246,7 @@ export default function EmployeeProfile() {
   )
 }
 
-function DocumentPreviewCard({ doc, onPreview }) {
+function DocumentPreviewCard({ doc, onPreview, loading }) {
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border bg-slate-50/80 px-4 py-3">
       <FileText className="h-5 w-5 shrink-0 text-primary" />
@@ -248,10 +257,15 @@ function DocumentPreviewCard({ doc, onPreview }) {
       <button
         type="button"
         onClick={onPreview}
-        className="shrink-0 rounded-md p-1.5 text-primary transition-colors hover:bg-primary/10"
+        disabled={loading}
+        className="shrink-0 rounded-md p-1.5 text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
         title="Preview document"
       >
-        <ExternalLink className="h-4 w-4" />
+        {loading ? (
+          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        ) : (
+          <ExternalLink className="h-4 w-4" />
+        )}
       </button>
     </div>
   )

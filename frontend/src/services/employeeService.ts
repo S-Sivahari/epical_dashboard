@@ -48,9 +48,12 @@ export async function createEmployee(
   return response.data as Employee
 }
 
-export async function updateEmployee(id: string, payload: Partial<Employee>) {
+export async function updateEmployee(id: string, payload: Partial<Employee>, changedBy?: string) {
   // Create a copy of payload to avoid mutating the original
   const backendPayload: any = { ...payload };
+  if (changedBy) {
+    backendPayload.changedBy = changedBy;
+  }
   // Map companyEmail to email if email is not present on the payload
   if (!backendPayload.email && backendPayload.companyEmail) {
     backendPayload.email = backendPayload.companyEmail;
@@ -70,13 +73,27 @@ export async function deleteEmployee(id: string) {
   await api.delete(`/employees/${id}`)
 }
 
-export async function updateEmployeeStatus(id: string, status: Employee['status']) {
-  const response = await api.put(`/employees/${id}`, { status })
+export async function updateEmployeeStatus(
+  id: string,
+  status: Employee['status'],
+  reason?: string,
+  changedBy?: string,
+) {
+  const response = await api.put(`/employees/${id}`, {
+    status,
+    statusChangeReason: reason,
+    changedBy,
+  })
   return response.data as Employee
 }
 
-export async function bulkUpdateStatus(ids: string[], status: string) {
-  const response = await api.patch('/employees/bulk-status', { ids, status })
+export async function bulkUpdateStatus(
+  ids: string[],
+  status: string,
+  reason: string,
+  changedBy?: string,
+) {
+  const response = await api.patch('/employees/bulk-status', { ids, status, reason, changedBy })
   return response.data as { updated: number }
 }
 

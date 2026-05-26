@@ -25,8 +25,8 @@ import {
 import { AuthRequest } from '../middleware/authMiddleware'
 import {
   sendPayslipToEmployee,
-  getPayslipsForEmployeeEmail,
-  getPayslipByIdForEmployee,
+  getPayslipsForAuthUser,
+  getPayslipByIdForAuthUser,
   getAllSentPayslips,
 } from '../services/employeePayslipService'
 import { getPayrollBatch as fetchBatch } from '../services/payrollBatchService'
@@ -421,11 +421,11 @@ export const payslipController = {
   /** Employee: list payslips sent to their dashboard */
   getMyPayslips: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      if (!req.user?.email) {
+      if (!req.user?.id) {
         res.status(401).json({ error: 'Unauthorized' })
         return
       }
-      const payslips = await getPayslipsForEmployeeEmail(req.user.email)
+      const payslips = await getPayslipsForAuthUser(req.user.id, req.user.email)
       res.json(payslips)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to load payslips'
@@ -436,11 +436,11 @@ export const payslipController = {
   /** Employee: download a payslip PDF from dashboard */
   downloadMyPayslip: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      if (!req.user?.email) {
+      if (!req.user?.id) {
         res.status(401).json({ error: 'Unauthorized' })
         return
       }
-      const record = await getPayslipByIdForEmployee(req.params.payslipId, req.user.email)
+      const record = await getPayslipByIdForAuthUser(req.params.payslipId, req.user.id, req.user.email)
       if (!record) {
         res.status(404).json({ error: 'Payslip not found' })
         return

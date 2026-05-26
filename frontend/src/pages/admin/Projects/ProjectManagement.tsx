@@ -62,10 +62,6 @@ import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import {
   downloadExcelBuffer,
-  drawPdfLogo,
-  EXCEL_LOGO_MAX_WIDTH,
-  fetchExportLogo,
-  scaleExportLogo,
 } from '@/utils/exportLogo'
 import api from '@/services/api'
 import { getEmployees } from '@/services/employeeService'
@@ -1574,24 +1570,9 @@ export function ProjectManagement() {
     }
 
     const { hoursByProject, leaderboard } = buildTimesheetExportAnalytics(filteredTimesheets)
-    const logo = await fetchExportLogo()
     const workbook = new ExcelJS.Workbook()
     const sheet = workbook.addWorksheet('Timesheet Report')
     let row = 1
-
-    if (logo) {
-      const imageId = workbook.addImage({ buffer: logo.buffer, extension: 'png' })
-      const { width, height } = scaleExportLogo(logo.width, logo.height, EXCEL_LOGO_MAX_WIDTH)
-      const logoRows = Math.max(3, Math.ceil(height / 18))
-      for (let i = 1; i <= logoRows; i++) {
-        sheet.getRow(i).height = 20
-      }
-      sheet.addImage(imageId, {
-        tl: { col: 0.2, row: 0.2 },
-        ext: { width, height },
-      })
-      row = logoRows + 1
-    }
 
     const addRow = (values: (string | number)[]) => {
       sheet.getRow(row).values = values
@@ -1653,7 +1634,6 @@ export function ProjectManagement() {
     }
 
     const { hoursByProject, leaderboard } = buildTimesheetExportAnalytics(filteredTimesheets)
-    const logo = await fetchExportLogo()
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt' })
     const pageWidth = doc.internal.pageSize.width || 842
     const pageHeight = doc.internal.pageSize.height || 595
@@ -1681,7 +1661,7 @@ export function ProjectManagement() {
       return y + 14
     }
 
-    let headerY = logo ? drawPdfLogo(doc, logo, pageWidth) : 28
+    let headerY = 28
     headerY += 12
 
     doc.setFont('helvetica', 'bold')

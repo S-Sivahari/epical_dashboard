@@ -3,7 +3,6 @@ import { toast } from 'sonner'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api',
-  timeout: 15000,
   withCredentials: true,
 })
 
@@ -19,7 +18,7 @@ let isRedirecting = false
 
 /** Optional endpoints — a 401 here must not wipe the whole session (e.g. missing profile photo). */
 const OPTIONAL_AUTH_PATHS = [
-  '/employees/',
+  '/employees',
   '/photo',
   '/documents/',
 ]

@@ -1,7 +1,7 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { Bell } from 'lucide-react'
 import { useEffect } from 'react'
-import { useNotificationStore } from '@store/notificationStore'
+import { useNotificationStore, NOTIFICATION_POLL_MS } from '@store/notificationStore'
 import { formatDistanceToNow } from 'date-fns'
 
 export function NotificationBell() {
@@ -18,22 +18,24 @@ export function NotificationBell() {
   } = useNotificationStore()
 
   useEffect(() => {
-    // Initial fetch with loading indicator
     fetchUnreadCount()
     fetchNotifications()
-    
-    // Poll for updates every 5 seconds WITHOUT loading indicator
+
+    // Light poll: unread count only (full list loads on bell open or when count rises)
     const interval = setInterval(() => {
       fetchUnreadCountSilent()
-      fetchNotificationsSilent()
-    }, 5000)
+    }, NOTIFICATION_POLL_MS)
     return () => clearInterval(interval)
-  }, [fetchNotifications, fetchNotificationsSilent, fetchUnreadCount, fetchUnreadCountSilent])
+  }, [fetchNotifications, fetchUnreadCount, fetchUnreadCountSilent])
 
   const displayNotifications = notifications.slice(0, 5)
 
   return (
-    <DropdownMenu.Root>
+    <DropdownMenu.Root
+      onOpenChange={(open) => {
+        if (open) fetchNotificationsSilent()
+      }}
+    >
       <DropdownMenu.Trigger asChild>
         <button
           type="button"

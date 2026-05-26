@@ -3,6 +3,12 @@ import { Collection } from 'mongodb';
 import { getDB } from '../config/db';
 import { User, CreateUserPayload } from '../models/User';
 import { generateToken } from '../utils/generateToken';
+import {
+  ADMIN_LOGIN_EMAIL,
+  ensureUserAccountForEmployee,
+  resolveUserForPasswordLogin,
+} from '../utils/employeeAuth';
+import { env } from '../config/env';
 
 let userCollection: Collection<any> | null = null;
 
@@ -17,42 +23,7 @@ export async function loginUser(
   email: string,
   password: string
 ): Promise<{ token: string; user: Omit<User, 'passwordHash'>; role: string }> {
-  const col = getUserCollection();
-  const normalizedEmail = email.toLowerCase().trim();
-
-  let user = await col.findOne({ email: normalizedEmail });
-
-  if (user && user.role === 'Employee') {
-    const employeeCol = getDB().collection('employees');
-    const emp = await employeeCol.findOne({ id: user.id });
-    const personal = emp?.personalEmail ? String(emp.personalEmail).toLowerCase().trim() : '';
-    const companySet = emp?.email && String(emp.email).trim() !== '';
-    if (companySet && personal && normalizedEmail === personal) {
-      throw Object.assign(
-        new Error('Your company email has been set. Please sign in using your company email.'),
-        { status: 401 }
-      );
-    }
-  }
-
-  // Personal email fallback: if no user found with the given email,
-  // check if an employee has this as their personalEmail.
-  if (!user) {
-    const employeeCol = getDB().collection('employees');
-    const employee = await employeeCol.findOne({ personalEmail: normalizedEmail });
-
-    if (employee) {
-      // If the employee has been assigned a company email, reject personal email login
-      if (employee.email && employee.email.trim() !== '') {
-        throw Object.assign(
-          new Error(`Your company email has been set. Please sign in using your company email.`),
-          { status: 401 }
-        );
-      }
-      // No company email assigned — allow login via personal email
-      user = await col.findOne({ email: normalizedEmail });
-    }
-  }
+  const { user, loginEmail } = await resolveUserForPasswordLogin(email);
 
   if (!user) {
     throw Object.assign(new Error('Invalid email or password'), { status: 401 });
@@ -63,12 +34,13 @@ export async function loginUser(
     throw Object.assign(new Error('Invalid email or password'), { status: 401 });
   }
 
-  const token = generateToken({ id: user.id, email: user.email, role: String(user.role) });
+  const sessionEmail = loginEmail || user.email;
+  const token = generateToken({ id: user.id, email: sessionEmail, role: String(user.role) });
 
   const { passwordHash, _id, ...safeUser } = user;
   return {
     token,
-    user: safeUser,
+    user: { ...safeUser, email: sessionEmail },
     role: user.role === 'Admin' ? 'admin' : 'employee',
   };
 }
@@ -105,9 +77,9 @@ export async function seedDefaultUsers(): Promise<{ created: string[]; skipped: 
   const defaults: CreateUserPayload[] = [
     {
       id: 'ADM-1',
-      name: 'Priya Nair',
-      email: 'admin@company.com',
-      password: 'admin123',
+      name: env.ADMIN_NAME || 'Admin User',
+      email: ADMIN_LOGIN_EMAIL,
+      password: env.ADMIN_PASSWORD || 'admin123',
       role: 'Admin',
       designation: 'HR Director',
       joinedAt: '2019-04-01',
@@ -136,3 +108,5 @@ export async function seedDefaultUsers(): Promise<{ created: string[]; skipped: 
 
   return { created, skipped };
 }
+
+export { ensureUserAccountForEmployee };

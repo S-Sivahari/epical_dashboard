@@ -12,6 +12,7 @@ import {
   syncAssignedTasksForProject,
 } from '../utils/assignedTaskSync';
 import { getUserById } from '../services/authService';
+import { resolveEmployeeForAuthUser } from '../utils/employeeAuth';
 import { normalizeProjectDescription, validateProjectDescription } from '../utils/textLimits';
 
 function computeTotalHours(loginTime: Date, logoutTime?: Date, overriddenHours?: number): number {
@@ -149,9 +150,7 @@ export const projectController = {
         return;
       }
 
-      const employeeRecord = user.email
-        ? await getDB().collection('employees').findOne({ email: user.email.toLowerCase().trim() })
-        : null;
+      const employeeRecord = await resolveEmployeeForAuthUser(user.id, user.email);
 
       const employeeName = employeeRecord
         ? [employeeRecord.firstName, employeeRecord.middleName, employeeRecord.lastName]

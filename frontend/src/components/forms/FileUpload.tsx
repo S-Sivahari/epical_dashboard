@@ -23,7 +23,10 @@ export function FileUpload({
           accept={accept}
           multiple={multiple}
           className="hidden"
-          onChange={(e) => onUpload(e.target.files)}
+          onChange={(e) => {
+            onUpload(e.target.files)
+            e.target.value = ''
+          }}
         />
       </label>
     </div>

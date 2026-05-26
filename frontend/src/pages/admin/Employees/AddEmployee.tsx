@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { ExternalLink, X, HelpCircle } from 'lucide-react'
+import { toast } from 'sonner'
 import { Breadcrumb } from '@components/layout/Breadcrumb'
 import { PageHeader } from '@components/layout/PageHeader'
 import { PageWrapper } from '@components/layout/PageWrapper'
@@ -191,22 +192,35 @@ export function AddEmployee() {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [employeeIdError, setEmployeeIdError] = useState<string | null>(null)
   const idCheckDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const documentPreviewsRef = useRef(documentPreviews)
+  const certificatePreviewsRef = useRef(certificatePreviews)
+  const photoPreviewRef = useRef(photoPreview)
+
+  useEffect(() => {
+    documentPreviewsRef.current = documentPreviews
+  }, [documentPreviews])
+
+  useEffect(() => {
+    certificatePreviewsRef.current = certificatePreviews
+  }, [certificatePreviews])
+
+  useEffect(() => {
+    photoPreviewRef.current = photoPreview
+  }, [photoPreview])
 
   useEffect(() => {
     return () => {
-      if (photoPreview) {
-        URL.revokeObjectURL(photoPreview)
-      }
-      Object.values(documentPreviews).forEach((url) => {
+      if (photoPreviewRef.current) URL.revokeObjectURL(photoPreviewRef.current)
+      Object.values(documentPreviewsRef.current).forEach((url) => {
         if (url) URL.revokeObjectURL(url)
       })
-      Object.values(certificatePreviews).forEach((categoryPreviews) => {
+      Object.values(certificatePreviewsRef.current).forEach((categoryPreviews) => {
         Object.values(categoryPreviews).forEach((url) => {
           if (url) URL.revokeObjectURL(url)
         })
       })
     }
-  }, [photoPreview, documentPreviews, certificatePreviews])
+  }, [])
 
   // Feature 2: Live-sync communication address when copy checkbox is checked
   const permanentAddressValue = form.watch('permanentAddress')
@@ -386,6 +400,11 @@ export function AddEmployee() {
 
     try {
       const createdEmployee = await addEmployee(payload)
+      console.info(
+        '[Manage Employees] Added employee:',
+        createdEmployee.employeeId,
+        `${payload.firstName} ${payload.lastName ?? ''}`.trim(),
+      )
 
       const certificateDocuments = {
         certificateDegree: certificateFiles.Degree[0] ?? null,
@@ -397,11 +416,13 @@ export function AddEmployee() {
       // Upload documents if any
       const uploadableDocuments = { ...documentFiles, ...certificateDocuments }
       const hasDocuments = Object.values(uploadableDocuments).some((f) => f !== null)
+      let uploadIssues = false
       if (hasDocuments) {
         try {
           await uploadDocuments(createdEmployee.id, uploadableDocuments)
         } catch (err) {
           console.error('Failed to upload documents:', err)
+          uploadIssues = true
         }
       }
 
@@ -411,7 +432,14 @@ export function AddEmployee() {
           await uploadPhoto(createdEmployee.id, photoFile)
         } catch (err) {
           console.error('Failed to upload photo:', err)
+          uploadIssues = true
         }
+      }
+
+      if (uploadIssues) {
+        toast.warning('Employee added, but some files failed to upload. Edit the profile to retry.')
+      } else {
+        toast.success(`Employee ${createdEmployee.employeeId} added successfully`)
       }
 
       navigate('/admin/employees')

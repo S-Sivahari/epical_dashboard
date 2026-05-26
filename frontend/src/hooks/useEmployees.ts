@@ -1,22 +1,24 @@
 import { useEffect } from 'react'
 import { useEmployeeStore } from '@store/employeeStore'
 
+const POLL_INTERVAL_MS = 60_000
+
 export function useEmployees() {
   const filters = useEmployeeStore((s) => s.filters)
   const pagination = useEmployeeStore((s) => s.pagination)
   const fetchEmployees = useEmployeeStore((s) => s.fetchEmployees)
   const fetchEmployeesSilent = useEmployeeStore((s) => s.fetchEmployeesSilent)
   const sort = useEmployeeStore((s) => s.sort)
-  
+
   useEffect(() => {
-    // Initial fetch with loading indicator
     void fetchEmployees()
-    
-    // Poll for updates every 10 seconds (smart polling with cache validation)
+
     const interval = setInterval(() => {
-      void fetchEmployeesSilent()
-    }, 10000)
-    
+      if (document.visibilityState === 'visible') {
+        void fetchEmployeesSilent()
+      }
+    }, POLL_INTERVAL_MS)
+
     return () => clearInterval(interval)
   }, [
     fetchEmployees,
@@ -29,6 +31,6 @@ export function useEmployees() {
     sort.column,
     sort.direction,
   ])
-  
+
   return useEmployeeStore()
 }

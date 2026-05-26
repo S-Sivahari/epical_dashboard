@@ -1,7 +1,9 @@
 import { create } from 'zustand'
 import api from '@services/api'
 import { playNotificationSound } from '@utils/notificationSound'
-import { toast } from 'sonner'
+
+/** Background poll interval for unread badge (ms). */
+export const NOTIFICATION_POLL_MS = 60_000
 
 export interface NotificationData {
   id: string
@@ -63,11 +65,8 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       const unreadCount = response.data.filter((n: NotificationData) => !n.isRead).length
       const newCount = response.data.length
       
-      console.log(`[Notifications] Initial fetch: unreadCount=${unreadCount}, isInitialized=${isInitialized}`)
-      
       // Play sound only if initialized AND unread count increased
       if (isInitialized && unreadCount > prevUnreadCount) {
-        console.log(`[Notifications] New notification received, playing sound`)
         playNotificationSound()
       }
       
@@ -93,11 +92,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       const newCount = response.data.length
       const unreadCount = response.data.filter((n: NotificationData) => !n.isRead).length
       
-      console.log(`[Notifications] Silent fetch: prevUnread=${prevUnreadCount}, newUnread=${unreadCount}, isInitialized=${isInitialized}`)
-      
-      // Play sound only if initialized AND unread count increased
       if (isInitialized && unreadCount > prevUnreadCount) {
-        console.log(`[Notifications] New notification detected, playing sound`)
         playNotificationSound()
       }
       
@@ -123,8 +118,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       
       // Play sound only if initialized AND unread count increased
       if (isInitialized && newCount > prevCount) {
-        console.log(`[Notifications] Unread count increased from ${prevCount} to ${newCount}, playing sound`)
         playNotificationSound()
+        // Refresh list when badge count goes up
+        void get().fetchNotificationsSilent()
       }
       
       set({ unreadCount: newCount, lastUnreadCount: newCount, isInitialized: true })
@@ -140,12 +136,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       const isInitialized = get().isInitialized
       const newCount = response.data.count
       
-      console.log(`[Notifications] Unread count: prev=${prevCount}, new=${newCount}, isInitialized=${isInitialized}`)
-      
-      // Play sound only if initialized AND unread count increased
       if (isInitialized && newCount > prevCount) {
-        console.log(`[Notifications] Unread count increased, playing sound`)
         playNotificationSound()
+        void get().fetchNotificationsSilent()
       }
       
       set({ unreadCount: newCount, lastUnreadCount: newCount, isInitialized: true })

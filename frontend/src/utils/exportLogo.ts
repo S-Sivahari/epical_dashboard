@@ -1,10 +1,8 @@
-export const EXPORT_LOGO_PATH = '/pic/logos.png'
-export const PDF_LOGO_MAX_WIDTH = 100
-export const EXCEL_LOGO_MAX_WIDTH = 140
+export const EXPORT_LOGO_PATH = '/pic/epical_layouts.jpeg'
+export const PDF_LOGO_MAX_WIDTH = 72
 
 export interface ExportLogoAsset {
   dataUrl: string
-  buffer: ArrayBuffer
   width: number
   height: number
 }
@@ -15,12 +13,15 @@ export function scaleExportLogo(width: number, height: number, maxWidth: number)
   return { width: w, height: w * ratio }
 }
 
+let logoCache: ExportLogoAsset | null = null
+
 export async function fetchExportLogo(): Promise<ExportLogoAsset | null> {
+  if (logoCache) return logoCache
   try {
     const res = await fetch(EXPORT_LOGO_PATH)
     if (!res.ok) return null
     const buffer = await res.arrayBuffer()
-    const blob = new Blob([buffer], { type: 'image/png' })
+    const blob = new Blob([buffer], { type: 'image/jpeg' })
     const dataUrl = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = () => resolve(reader.result as string)
@@ -30,25 +31,26 @@ export async function fetchExportLogo(): Promise<ExportLogoAsset | null> {
     const dims = await new Promise<{ width: number; height: number }>((resolve) => {
       const img = new Image()
       img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight })
-      img.onerror = () => resolve({ width: 200, height: 60 })
+      img.onerror = () => resolve({ width: 200, height: 200 })
       img.src = dataUrl
     })
-    return { dataUrl, buffer, ...dims }
+    logoCache = { dataUrl, ...dims }
+    return logoCache
   } catch {
     return null
   }
 }
 
-export function drawPdfLogo(
+/** Draw logo at top-left; returns Y position below logo/header row. */
+export function drawPdfLogoLeft(
   doc: { addImage: (imageData: string, format: string, x: number, y: number, w: number, h: number) => void },
   logo: ExportLogoAsset,
-  pageWidth: number,
-  topY = 12,
+  leftX = 40,
+  topY = 14,
 ): number {
   const { width, height } = scaleExportLogo(logo.width, logo.height, PDF_LOGO_MAX_WIDTH)
-  const x = (pageWidth - width) / 2
-  doc.addImage(logo.dataUrl, 'PNG', x, topY, width, height)
-  return topY + height + 12
+  doc.addImage(logo.dataUrl, 'JPEG', leftX, topY, width, height)
+  return topY + height + 10
 }
 
 export function downloadExcelBuffer(buffer: ArrayBuffer, filename: string) {

@@ -1,7 +1,7 @@
 import { Bell } from 'lucide-react'
 import { useEffect } from 'react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@components/employee/ui/dropdown-menu'
-import { useNotificationStore } from '@store/notificationStore'
+import { useNotificationStore, NOTIFICATION_POLL_MS } from '@store/notificationStore'
 import { cn } from '@pages/employee/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
 
@@ -9,20 +9,21 @@ export function NotificationDropdown() {
   const { notifications, unreadCount, fetchNotifications, fetchNotificationsSilent, fetchUnreadCount, fetchUnreadCountSilent, markAsRead, markAllAsRead, deleteNotification } = useNotificationStore()
 
   useEffect(() => {
-    // Initial fetch with loading indicator
     fetchUnreadCount()
     fetchNotifications()
-    
-    // Poll for updates every 5 seconds WITHOUT loading indicator
+
     const interval = setInterval(() => {
       fetchUnreadCountSilent()
-      fetchNotificationsSilent()
-    }, 5000)
+    }, NOTIFICATION_POLL_MS)
     return () => clearInterval(interval)
-  }, [fetchNotifications, fetchNotificationsSilent, fetchUnreadCount, fetchUnreadCountSilent])
+  }, [fetchNotifications, fetchUnreadCount, fetchUnreadCountSilent])
 
   return (
-    <DropdownMenu>
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (open) fetchNotificationsSilent()
+      }}
+    >
       <DropdownMenuTrigger asChild>
         <button type="button" className="relative rounded-xl p-2 hover:bg-slate-100" aria-label="Notifications">
           <Bell className="h-5 w-5 text-foreground" />

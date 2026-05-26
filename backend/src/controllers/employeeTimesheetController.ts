@@ -6,6 +6,7 @@ import { EmployeeAttendanceModel } from '../models/EmployeeAttendance';
 import { ProjectModel } from '../models/Project';
 import { getDB } from '../config/db';
 import { getUserById } from '../services/authService';
+import { resolveEmployeeForAuthUser } from '../utils/employeeAuth';
 import { syncProjectForTimesheet, getTimesheetWorkflowStatus } from '../utils/syncProject';
 import { buildAssignmentIdentityTokens, ensureAssignedTasksForEmployee } from '../utils/assignedTaskSync';
 import { getAutoCheckoutSettings, updateAutoCheckoutSettings } from '../services/autoCheckoutService';
@@ -166,9 +167,7 @@ async function resolveEmployee(req: Request): Promise<ResolvedEmployee | null> {
   if (!userId) return null;
   const user = await getUserById(userId);
   if (!user) return null;
-  const employeeRecord = user.email
-    ? await getDB().collection('employees').findOne({ email: user.email.toLowerCase().trim() })
-    : null;
+  const employeeRecord = await resolveEmployeeForAuthUser(user.id, user.email);
 
   const employeeName = employeeRecord
     ? [employeeRecord.firstName, employeeRecord.middleName, employeeRecord.lastName]

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { toast } from 'sonner'
 import type { Employee } from '@/types'
 import * as employeeService from '@services/employeeService'
 
@@ -16,21 +17,47 @@ interface EmployeeState {
   sort: { column: string; direction: 'asc' | 'desc' }
   loading: boolean
   lastFetchEmployees: number
+  exportSnapshot: Employee[] | null
+  exportSnapshotKey: string | null
   setFilters: (f: Partial<EmployeeFilters>) => void
   setSort: (column: string, direction: 'asc' | 'desc') => void
   setPage: (page: number) => void
   fetchEmployees: () => Promise<void>
   fetchEmployeesSilent: () => Promise<void>
+  getEmployeesForExport: () => Promise<Employee[]>
   setSelected: (e: Employee | null) => void
   addEmployee: (payload: Omit<Employee, 'id'>) => Promise<Employee>
-  updateEmployee: (id: string, payload: Partial<Employee>) => Promise<void>
+  updateEmployee: (id: string, payload: Partial<Employee>, changedBy?: string) => Promise<void>
   deleteEmployee: (id: string) => Promise<void>
-  updateEmployeeStatus: (id: string, status: Employee['status']) => Promise<void>
-  bulkUpdateStatus: (ids: string[], status: Employee['status']) => Promise<void>
+  updateEmployeeStatus: (
+    id: string,
+    status: Employee['status'],
+    reason?: string,
+    changedBy?: string,
+  ) => Promise<void>
+  bulkUpdateStatus: (
+    ids: string[],
+    status: Employee['status'],
+    reason: string,
+    changedBy?: string,
+  ) => Promise<{ updated: number }>
 }
 
 // Cache expiry time in milliseconds (30 seconds)
 const CACHE_EXPIRY = 30000
+
+function buildExportSnapshotKey(
+  filters: EmployeeFilters,
+  sort: { column: string; direction: 'asc' | 'desc' },
+): string {
+  return JSON.stringify({
+    name: filters.name,
+    employmentType: filters.employmentType,
+    status: filters.status,
+    sortColumn: sort.column,
+    sortDirection: sort.direction,
+  })
+}
 
 export const useEmployeeStore = create<EmployeeState>((set, get) => ({
   employees: [],
@@ -40,9 +67,17 @@ export const useEmployeeStore = create<EmployeeState>((set, get) => ({
   sort: { column: 'joinedAt', direction: 'desc' },
   loading: false,
   lastFetchEmployees: 0,
+  exportSnapshot: null,
+  exportSnapshotKey: null,
   setFilters: (f) =>
-    set({ filters: { ...get().filters, ...f }, pagination: { ...get().pagination, page: 1 } }),
-  setSort: (column, direction) => set({ sort: { column, direction } }),
+    set({
+      filters: { ...get().filters, ...f },
+      pagination: { ...get().pagination, page: 1 },
+      exportSnapshot: null,
+      exportSnapshotKey: null,
+    }),
+  setSort: (column, direction) =>
+    set({ sort: { column, direction }, exportSnapshot: null, exportSnapshotKey: null }),
   setPage: (page) => set({ pagination: { ...get().pagination, page } }),
   fetchEmployees: async () => {
     set({ loading: true })
@@ -63,8 +98,13 @@ export const useEmployeeStore = create<EmployeeState>((set, get) => ({
         loading: false,
         lastFetchEmployees: Date.now(),
       })
-    } catch {
+    } catch (err) {
       set({ loading: false })
+      const message =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+        (err as { message?: string })?.message ??
+        'Failed to load employees'
+      toast.error(message)
     }
   },
   fetchEmployeesSilent: async () => {
@@ -92,26 +132,62 @@ export const useEmployeeStore = create<EmployeeState>((set, get) => ({
       // silently fail on background polling
     }
   },
+  getEmployeesForExport: async () => {
+    const { filters, pagination, sort, employees, exportSnapshot, exportSnapshotKey } = get()
+    const key = buildExportSnapshotKey(filters, sort)
+
+    if (exportSnapshot && exportSnapshotKey === key) {
+      return exportSnapshot
+    }
+
+    if (pagination.total === 0) {
+      return []
+    }
+
+    if (pagination.total <= pagination.pageSize && employees.length === pagination.total) {
+      set({ exportSnapshot: employees, exportSnapshotKey: key })
+      return employees
+    }
+
+    const res = await employeeService.getEmployees({
+      name: filters.name || undefined,
+      employmentType: filters.employmentType,
+      status: filters.status,
+      sortColumn: sort.column,
+      sortDirection: sort.direction,
+      page: 1,
+      pageSize: Math.min(pagination.total, 1000),
+    })
+
+    set({ exportSnapshot: res.data, exportSnapshotKey: key })
+    return res.data
+  },
   setSelected: (selectedEmployee) => set({ selectedEmployee }),
   addEmployee: async (payload) => {
     const employee = await employeeService.createEmployee(payload)
+    set({ exportSnapshot: null, exportSnapshotKey: null })
     await get().fetchEmployees()
     return employee
   },
-  updateEmployee: async (id, payload) => {
-    await employeeService.updateEmployee(id, payload)
+  updateEmployee: async (id, payload, changedBy) => {
+    await employeeService.updateEmployee(id, payload, changedBy)
+    set({ exportSnapshot: null, exportSnapshotKey: null })
     await get().fetchEmployees()
   },
   deleteEmployee: async (id) => {
     await employeeService.deleteEmployee(id)
+    set({ exportSnapshot: null, exportSnapshotKey: null })
     await get().fetchEmployees()
   },
-  updateEmployeeStatus: async (id, status) => {
-    await employeeService.updateEmployeeStatus(id, status)
+  updateEmployeeStatus: async (id, status, reason, changedBy) => {
+    await employeeService.updateEmployeeStatus(id, status, reason, changedBy)
+    set({ exportSnapshot: null, exportSnapshotKey: null })
     await get().fetchEmployees()
   },
-  bulkUpdateStatus: async (ids, status) => {
-    await employeeService.bulkUpdateStatus(ids, status)
+  bulkUpdateStatus: async (ids, status, reason, changedBy) => {
+    const result = await employeeService.bulkUpdateStatus(ids, status, reason, changedBy)
+    set({ exportSnapshot: null, exportSnapshotKey: null })
     await get().fetchEmployees()
+    return result
   },
 }))

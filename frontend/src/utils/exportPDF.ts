@@ -1,23 +1,48 @@
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { drawPdfLogo, fetchExportLogo } from '@/utils/exportLogo'
+import { employeeToExportRow } from '@/constants/employeeExport'
+import type { Employee } from '@/types'
+import { drawPdfLogoLeft, fetchExportLogo } from '@/utils/exportLogo'
+
+const BRAND_GREEN: [number, number, number] = [16, 185, 129]
+
+/** Draw "EPICAL …" with IC in brand green; returns total rendered width. */
+function drawEpicalBrandedText(
+  doc: jsPDF,
+  parts: { before: string; after: string },
+  x: number,
+  y: number,
+  align: 'left' | 'center' = 'center',
+  pageWidth = doc.internal.pageSize.width || 842,
+  fontStyle: 'normal' | 'bold' = 'bold',
+): number {
+  doc.setFont('helvetica', fontStyle)
+  const segments = [
+    { text: parts.before, color: [0, 0, 0] as [number, number, number] },
+    { text: 'IC', color: BRAND_GREEN },
+    { text: parts.after, color: [0, 0, 0] as [number, number, number] },
+  ]
+  const totalWidth = segments.reduce((sum, seg) => sum + doc.getTextWidth(seg.text), 0)
+  let cursorX = align === 'center' ? pageWidth / 2 - totalWidth / 2 : x
+
+  for (const seg of segments) {
+    doc.setTextColor(...seg.color)
+    doc.text(seg.text, cursorX, y)
+    cursorX += doc.getTextWidth(seg.text)
+  }
+  return totalWidth
+}
 
 export async function exportAnalyticsPdf(filename: string) {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt' })
   const pageWidth = doc.internal.pageSize.width || 842
-  const logo = await fetchExportLogo()
 
-  let y = logo ? drawPdfLogo(doc, logo, pageWidth) : 40
+  let y = 40
   doc.setFontSize(16)
   doc.setTextColor(0, 0, 0)
   doc.text('Analytics Report', pageWidth / 2, y, { align: 'center' })
   y += 20
-  doc.setFontSize(8)
-  doc.setTextColor(16, 185, 129)
-  doc.text('[ PDF Document ]', pageWidth / 2, y, { align: 'center' })
-  y += 16
   doc.setFontSize(10)
-  doc.setTextColor(0, 0, 0)
   doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth / 2, y, { align: 'center' })
   doc.save(filename)
 }
@@ -26,6 +51,9 @@ export interface ExportPdfOptions {
   generatedBy?: string
   filters?: Record<string, string | undefined>
   compactMode?: boolean
+  employeeDetailMode?: boolean
+  /** Employee exports: logo top-left, omit panel subtitle / [ PDF Document ]. */
+  employeePdfStyle?: boolean
   panelTitle?: string
   reportTitle?: string
 }
@@ -38,15 +66,75 @@ function formatDateStr(d: string | Date | undefined | null): string {
   return `${String(date.getDate()).padStart(2, '0')}-${months[date.getMonth()]}-${date.getFullYear()}`
 }
 
+function buildIndividualDetailFields(e: Record<string, any>): [string, string][] {
+  const row = employeeToExportRow(e as Employee)
+  const fullName = [e.firstName, e.middleName, e.lastName].filter(Boolean).join(' ')
+  return [
+    ['FULL NAME', fullName || '—'],
+    ['EMPLOYEE ID', String(e.employeeId ?? '—')],
+    ['STATUS', String(e.status ?? '—')],
+    ['COMPANY EMAIL', String(e.email ?? '—')],
+    ['PERSONAL EMAIL', String(e.personalEmail ?? '—')],
+    ['PHONE', String(e.phone ?? '—')],
+    ['DATE OF BIRTH', formatDateStr(e.dob)],
+    ['GENDER', String(e.gender ?? '—')],
+    ['PERMANENT ADDRESS', String(row.permanentAddress ?? '—')],
+    ['COMMUNICATION ADDRESS', String(row.communicationAddress ?? '—')],
+    ['ROLE', String(e.role ?? '—')],
+    ['DEPARTMENT', String(e.department ?? '—')],
+    ['DESIGNATION', String(e.designation ?? '—')],
+    ['EMPLOYMENT TYPE', String(e.employmentType ?? '—')],
+    ['JOINED AT', formatDateStr(e.joinedAt)],
+    ['REPORTING MANAGER', String(e.reportingManager ?? '—')],
+    [
+      'CTC (ANNUAL)',
+      e.ctc ? `INR ${Number(e.ctc).toLocaleString('en-IN')}` : '—',
+    ],
+    ['BANK NAME', String(e.bankName ?? '—')],
+    ['ACCOUNT NO', String(e.accountNumber ?? '—')],
+    ['IFSC CODE', String(e.ifsc ?? '—')],
+    ['UAN NUMBER', String(e.uan ?? '—')],
+    [
+      'PF / ESI',
+      e.pfEsi === 'on' ? 'Enabled' : e.pfEsi === 'off' ? 'Disabled' : '—',
+    ],
+    ['AADHAAR NUMBER', String(e.aadhaar ?? '—')],
+    ['PAN', String(e.pan ?? '—')],
+    ['PASSPORT NUMBER', String(e.passport ?? '—')],
+    ['EMERGENCY CONTACT NAME', String(row.emergencyContactName ?? '—')],
+    ['EMERGENCY CONTACT PHONE', String(row.emergencyContactPhone ?? '—')],
+    ['EMERGENCY CONTACT EMAIL', String(row.emergencyContactEmail ?? '—')],
+    ['EMERGENCY CONTACT RELATION', String(row.emergencyContactRelation ?? '—')],
+    ['EMERGENCY CONTACT ADDRESS', String(row.emergencyContactAddress ?? '—')],
+  ]
+}
+
+function buildLabeledDetailRows(fields: [string, string][]): Record<string, unknown>[][] {
+  const rows: Record<string, unknown>[][] = []
+  for (let i = 0; i < fields.length; i += 3) {
+    const tableRow: Record<string, unknown>[] = []
+    for (let j = 0; j < 3; j++) {
+      const pair = fields[i + j]
+      if (pair) {
+        tableRow.push({ content: pair[0], styles: { fontStyle: 'bold' } }, { content: pair[1] })
+      } else {
+        tableRow.push({ content: '' }, { content: '' })
+      }
+    }
+    rows.push(tableRow)
+  }
+  return rows
+}
+
 export async function exportToPDF<T extends Record<string, any>>(
   data: T[],
   filename: string,
-  headers: { key: keyof T; label: string }[],
+  headers: { key: keyof T | string; label: string }[],
   options?: ExportPdfOptions,
 ) {
   if (!data.length) return
 
-  const logo = await fetchExportLogo()
+  const logo = options?.employeePdfStyle ? await fetchExportLogo() : null
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt' })
   const now = new Date()
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -77,37 +165,35 @@ export async function exportToPDF<T extends Record<string, any>>(
 
   const pageWidth = doc.internal.pageSize.width || 842
   const pageHeight = doc.internal.pageSize.height || 595
+  const employeeStyle = Boolean(options?.employeePdfStyle)
 
   function drawHeaderBlock(): number {
-    let y = logo ? drawPdfLogo(doc, logo, pageWidth) : 38
+    let y = employeeStyle && logo ? drawPdfLogoLeft(doc, logo, 40, 14) : 38
 
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(18)
-    const companyText = 'EPICAL LAYOUTS PVT LTD'
-    const textWidth = doc.getTextWidth(companyText)
-    const startX = (pageWidth - textWidth) / 2
-
-    doc.setTextColor(0, 0, 0)
-    doc.text(companyText, startX, y)
+    drawEpicalBrandedText(doc, { before: 'EP', after: 'AL LAYOUTS PVT LTD' }, 40, y, 'center', pageWidth)
     y += 18
 
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(10)
-    doc.setTextColor(100, 116, 139)
-    doc.text(options?.panelTitle ?? 'Document Management Panel', pageWidth / 2, y, { align: 'center' })
-    y += 18
+    if (!employeeStyle) {
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(10)
+      doc.setTextColor(100, 116, 139)
+      doc.text(options?.panelTitle ?? 'Document Management Panel', pageWidth / 2, y, { align: 'center' })
+      y += 18
+
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8)
+      doc.setTextColor(16, 185, 129)
+      doc.text('[ PDF Document ]', pageWidth / 2, y, { align: 'center' })
+      y += 12
+    }
 
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(12)
     doc.setTextColor(30, 41, 59)
     doc.text(options?.reportTitle ?? 'Employee Details Report', pageWidth / 2, y, { align: 'center' })
-    y += 12
-
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
-    doc.setTextColor(16, 185, 129)
-    doc.text('[ PDF Document ]', pageWidth / 2, y, { align: 'center' })
-    y += 8
+    y += 14
 
     doc.setDrawColor(226, 232, 240)
     doc.setLineWidth(1)
@@ -117,12 +203,9 @@ export async function exportToPDF<T extends Record<string, any>>(
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
     doc.setTextColor(71, 85, 105)
-    const metaLeft = 40
-    const metaRight = pageWidth - 40
-    const metaCenter = pageWidth / 2
-    doc.text(`Generated Date : ${genDate}`, metaLeft, y, { align: 'left' })
-    doc.text(`Generated Time : ${genTime}`, metaCenter, y, { align: 'center' })
-    doc.text(`Generated By : ${genBy}`, metaRight, y, { align: 'right' })
+    doc.text(`Generated Date : ${genDate}`, 40, y, { align: 'left' })
+    doc.text(`Generated Time : ${genTime}`, pageWidth / 2, y, { align: 'center' })
+    doc.text(`Generated By : ${genBy}`, pageWidth - 40, y, { align: 'right' })
     y += 20
 
     doc.setFont('helvetica', 'bold')
@@ -139,16 +222,44 @@ export async function exportToPDF<T extends Record<string, any>>(
     return y
   }
 
-  if (options?.compactMode) {
+  function drawFooters() {
+    const totalPages = doc.getNumberOfPages()
+    const footerY = pageHeight - 30
+
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i)
+      doc.setDrawColor(226, 232, 240)
+      doc.setLineWidth(1)
+      doc.line(40, footerY - 12, pageWidth - 40, footerY - 12)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8)
+      doc.setTextColor(100, 116, 139)
+      drawEpicalBrandedText(
+        doc,
+        { before: 'EP', after: 'AL LAYOUTS PVT LTD – Confidential Document' },
+        40,
+        footerY,
+        'left',
+        pageWidth,
+        'normal',
+      )
+      doc.text(`System Generated Report | Generated on ${genDate} ${genTime}`, pageWidth / 2, footerY, {
+        align: 'center',
+      })
+      doc.text(`Page ${i} of ${totalPages}`, pageWidth - 40, footerY, { align: 'right' })
+    }
+  }
+
+  if (!options?.employeeDetailMode) {
     const tableStartY = drawHeaderBlock() + 12
 
     const tableData = [
       headers.map((h) => h.label),
       ...data.map((row) =>
         headers.map((h) => {
-          let value: any = row[h.key]
+          let value: unknown = row[h.key as keyof T]
           if (h.key === 'joinedAt' || h.key === 'dob') {
-            value = formatDateStr(value)
+            value = formatDateStr(value as string)
           } else if (h.key === 'pfEsi') {
             value = value === 'on' ? 'Enabled' : value === 'off' ? 'Disabled' : '—'
           } else if (h.key === 'ctc' && typeof value === 'number') {
@@ -171,37 +282,17 @@ export async function exportToPDF<T extends Record<string, any>>(
           acc[idx] = { cellWidth: (pageWidth - 20) / headers.length }
           return acc
         },
-        {} as Record<number, any>,
+        {} as Record<number, unknown>,
       ),
     })
 
-    const totalPages = doc.getNumberOfPages()
-    const footerY = pageHeight - 30
-
-    for (let i = 1; i <= totalPages; i++) {
-      doc.setPage(i)
-
-      doc.setDrawColor(226, 232, 240)
-      doc.setLineWidth(1)
-      doc.line(40, footerY - 12, pageWidth - 40, footerY - 12)
-
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(8)
-      doc.setTextColor(100, 116, 139)
-
-      doc.text('EPICAL LAYOUTS PVT LTD – Confidential Document', 40, footerY)
-      doc.text(`System Generated Report | Generated on ${genDate} ${genTime}`, pageWidth / 2, footerY, { align: 'center' })
-      doc.text(`Page ${i} of ${totalPages}`, pageWidth - 40, footerY, { align: 'right' })
-    }
-
+    drawFooters()
     doc.save(`${filename}.pdf`)
     return
   }
 
   data.forEach((e, index) => {
-    if (index > 0) {
-      doc.addPage()
-    }
+    if (index > 0) doc.addPage()
 
     const headerEndY = drawHeaderBlock()
 
@@ -211,68 +302,23 @@ export async function exportToPDF<T extends Record<string, any>>(
     const empName = `${e.firstName} ${e.lastName || ''}`.trim().toUpperCase()
     doc.text(`${index + 1}. ${empName} (${e.employeeId})`, 40, headerEndY + 14)
 
-    const tableBody = [
-      [
-        { content: `FULL NAME:\n${e.firstName} ${e.lastName || ''}`, styles: { fontStyle: 'bold' as const } },
-        { content: `EMPLOYEE ID:\n${e.employeeId}`, styles: { fontStyle: 'bold' as const } },
-        { content: `STATUS:\n${e.status}`, styles: { fontStyle: 'bold' as const } },
-      ],
-      [`EMAIL:\n${e.email}`, `PHONE:\n${e.phone || '—'}`, `DATE OF BIRTH:\n${formatDateStr(e.dob)}`],
-      [`ROLE:\n${e.role}`, `EMPLOYMENT TYPE:\n${e.employmentType}`, `JOINED AT:\n${formatDateStr(e.joinedAt)}`],
-      [
-        `REPORTING MANAGER:\n${e.reportingManager || '—'}`,
-        `CTC (ANNUAL):\n${e.ctc ? `INR ${e.ctc.toLocaleString('en-IN')}` : '—'}`,
-        '',
-      ],
-      [
-        `BANK NAME:\n${e.bankName || '—'}`,
-        `ACCOUNT NO:\n${e.accountNumber || '—'}`,
-        `IFSC CODE:\n${e.ifsc || '—'}`,
-      ],
-      [
-        `AADHAAR NUMBER:\n${e.aadhaar || '—'}`,
-        `PAN:\n${e.pan || '—'}`,
-        `PASSPORT NUMBER:\n${e.passport || '—'}`,
-      ],
-      [
-        `ADDRESS:\n${e.address || '—'}`,
-        `UAN NUMBER:\n${e.uan || '—'}`,
-        `PF / ESI:\n${e.pfEsi === 'on' ? 'Enabled' : e.pfEsi === 'off' ? 'Disabled' : '—'}`,
-      ],
-    ]
-
     autoTable(doc, {
-      body: tableBody,
+      body: buildLabeledDetailRows(buildIndividualDetailFields(e)),
       startY: headerEndY + 24,
-      styles: { fontSize: 8.5, cellPadding: 6, valign: 'middle', overflow: 'linebreak' },
+      styles: { fontSize: 8.5, cellPadding: 5, valign: 'middle', overflow: 'linebreak' },
       theme: 'grid',
       columnStyles: {
-        0: { cellWidth: 250 },
-        1: { cellWidth: 250 },
-        2: { cellWidth: 262 },
+        0: { cellWidth: 88, fontStyle: 'bold' },
+        1: { cellWidth: 175 },
+        2: { cellWidth: 88, fontStyle: 'bold' },
+        3: { cellWidth: 175 },
+        4: { cellWidth: 88, fontStyle: 'bold' },
+        5: { cellWidth: 175 },
       },
       margin: { left: 40, right: 40, bottom: 60 },
     })
   })
 
-  const totalPages = doc.getNumberOfPages()
-  const footerY = pageHeight - 30
-
-  for (let i = 1; i <= totalPages; i++) {
-    doc.setPage(i)
-
-    doc.setDrawColor(226, 232, 240)
-    doc.setLineWidth(1)
-    doc.line(40, footerY - 12, pageWidth - 40, footerY - 12)
-
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
-    doc.setTextColor(100, 116, 139)
-
-    doc.text('EPICAL LAYOUTS PVT LTD – Confidential Document', 40, footerY)
-    doc.text(`System Generated Report | Generated on ${genDate} ${genTime}`, pageWidth / 2, footerY, { align: 'center' })
-    doc.text(`Page ${i} of ${totalPages}`, pageWidth - 40, footerY, { align: 'right' })
-  }
-
+  drawFooters()
   doc.save(`${filename}.pdf`)
 }

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { toast } from 'sonner'
 import { Breadcrumb } from '@components/layout/Breadcrumb'
 import { PageHeader } from '@components/layout/PageHeader'
 import { PageWrapper } from '@components/layout/PageWrapper'
@@ -11,8 +12,11 @@ import { Input } from '@components/ui/Input'
 import { SelectField } from '@components/forms/SelectField'
 import { FileUpload } from '@components/forms/FileUpload'
 import * as employeeService from '@services/employeeService'
+import { documentListFromEmployee } from '@/utils/employeeDocuments'
 import { useEmployeeStore } from '@store/employeeStore'
-import { deleteDocument, uploadDocuments, uploadPhoto } from '@services/uploadService'
+import { useAuthStore } from '@store/authStore'
+import { useUnsavedChangesGuard } from '@hooks/useUnsavedChangesGuard'
+import { deleteDocument, openEmployeeDocument, uploadDocuments, uploadPhoto } from '@services/uploadService'
 import { ExternalLink, FileText, Trash2, HelpCircle, X } from 'lucide-react'
 
 // ── Validation ────────────────────────────────────────────────────────────────
@@ -281,6 +285,7 @@ export function EditEmployee() {
   const navigate = useNavigate()
   const formRef = useRef<HTMLFormElement>(null)
   const updateEmployee = useEmployeeStore((s) => s.updateEmployee)
+  const user = useAuthStore((s) => s.user)
 
   const [pageLoading, setPageLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -322,13 +327,19 @@ export function EditEmployee() {
   const [showFileHelp, setShowFileHelp] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [copyAddressChecked, setCopyAddressChecked] = useState(false)
+  const [openingExistingDocKey, setOpeningExistingDocKey] = useState<DocKey | null>(null)
 
   const form = useForm<FormValues>({
     resolver: zodResolver(editSchema),
     defaultValues: emptyFormValues,
     mode: 'onTouched',
   })
-  const { reset } = form
+  const { reset, formState } = form
+
+  const hasPendingFiles =
+    Object.values(documentFiles).some((files) => files.length > 0) || !!photoFile
+  const isDirty = formState.isDirty || hasPendingFiles
+  const { guardedNavigate, allowNavigation } = useUnsavedChangesGuard(isDirty)
 
   // Load existing employee data
   useEffect(() => {
@@ -355,12 +366,8 @@ export function EditEmployee() {
             formValues.permanentAddress.trim() === formValues.communicationAddress.trim(),
         )
 
-        // Load documents separately so a docs failure never blocks the form
-        try {
-          const docs = await employeeService.getEmployeeDocuments(id)
-          if (!cancelled) setExistingDocuments(buildExistingDocuments(e, docs))
-        } catch {
-          if (!cancelled) setExistingDocuments({ ...EMPTY_DOCUMENTS })
+        if (!cancelled) {
+          setExistingDocuments(buildExistingDocuments(e, documentListFromEmployee(e as Record<string, unknown>)))
         }
       } catch (err) {
         if (!cancelled) {
@@ -474,6 +481,19 @@ export function EditEmployee() {
       }
   }
 
+  const handleOpenExistingDocument = async (key: DocKey) => {
+    const doc = existingDocuments[key]
+    if (!doc) return
+    setOpeningExistingDocKey(key)
+    try {
+      await openEmployeeDocument(id, doc.key, doc.name)
+    } catch (err) {
+      console.error('Could not open document:', err)
+    } finally {
+      setOpeningExistingDocKey(null)
+    }
+  }
+
   const handlePhotoUpload = (files: FileList | null) => {
     const file = files?.[0] ?? null
     if (!file) {
@@ -495,7 +515,9 @@ export function EditEmployee() {
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
-      await updateEmployee(id, {
+      await updateEmployee(
+        id,
+        {
         employeeId: values.employeeId?.trim().toUpperCase() ?? '',
         firstName: values.firstName,
         middleName: values.middleName ? values.middleName.trim() : undefined,
@@ -526,10 +548,18 @@ export function EditEmployee() {
           relation: values.emergencyContactRelation || '',
           address: values.emergencyContactAddress || '',
         },
-      })
+      },
+        user?.email || user?.name,
+      )
+      console.info(
+        '[Manage Employees] Saved employee changes:',
+        values.employeeId?.trim().toUpperCase(),
+        `${values.firstName} ${values.lastName ?? ''}`.trim(),
+      )
 
       // Upload documents if any
       const hasDocuments = Object.values(documentFiles).some((files) => files.length > 0)
+      let uploadIssues = false
       if (hasDocuments) {
         try {
           // Convert File[] to File | null for each document type (take first file)
@@ -546,6 +576,7 @@ export function EditEmployee() {
           await uploadDocuments(id, docsToUpload)
         } catch (err) {
           console.error('Failed to upload documents:', err)
+          uploadIssues = true
         }
       }
 
@@ -555,9 +586,17 @@ export function EditEmployee() {
           await uploadPhoto(id, photoFile)
         } catch (err) {
           console.error('Failed to upload photo:', err)
+          uploadIssues = true
         }
       }
 
+      if (uploadIssues) {
+        toast.warning('Changes saved, but some files failed to upload. Please try again.')
+      } else {
+        toast.success(`Changes saved for ${values.employeeId?.trim().toUpperCase()}`)
+      }
+
+      allowNavigation()
       navigate('/admin/employees')
     } catch (err: any) {
       const msg =
@@ -581,7 +620,7 @@ export function EditEmployee() {
         <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
           <p className="text-sm font-medium text-red-700">{loadError}</p>
           <div className="mt-4 flex justify-center gap-3">
-            <Button variant="secondary" onClick={() => navigate('/admin/employees')}>
+            <Button variant="secondary" onClick={() => guardedNavigate('/admin/employees')}>
               Back to Employees
             </Button>
             <Button onClick={() => window.location.reload()}>Retry</Button>
@@ -903,15 +942,19 @@ export function EditEmployee() {
                         <p className="text-xs text-muted">Uploaded</p>
                       </div>
                       {existingDocuments[key]?.url ? (
-                        <a
-                          href={existingDocuments[key]?.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="shrink-0 rounded p-1 text-primary hover:bg-primary/10 transition-ui"
+                        <button
+                          type="button"
+                          disabled={openingExistingDocKey === key}
+                          onClick={() => void handleOpenExistingDocument(key)}
+                          className="shrink-0 rounded p-1 text-primary hover:bg-primary/10 transition-ui disabled:opacity-50"
                           title="View document"
                         >
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
+                          {openingExistingDocKey === key ? (
+                            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                          ) : (
+                            <ExternalLink className="h-4 w-4" />
+                          )}
+                        </button>
                       ) : null}
                       <button
                         type="button"
@@ -1005,15 +1048,19 @@ export function EditEmployee() {
                             <p className="text-xs text-muted">Uploaded</p>
                           </div>
                           {existingDocuments[selectedCertificateKey]?.url ? (
-                            <a
-                              href={existingDocuments[selectedCertificateKey]?.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="shrink-0 rounded p-1 text-primary hover:bg-primary/10 transition-ui"
+                            <button
+                              type="button"
+                              disabled={openingExistingDocKey === selectedCertificateKey}
+                              onClick={() => void handleOpenExistingDocument(selectedCertificateKey)}
+                              className="shrink-0 rounded p-1 text-primary hover:bg-primary/10 transition-ui disabled:opacity-50"
                               title="View certificate"
                             >
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
+                              {openingExistingDocKey === selectedCertificateKey ? (
+                                <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                              ) : (
+                                <ExternalLink className="h-4 w-4" />
+                              )}
+                            </button>
                           ) : null}
                           <button
                             type="button"
@@ -1089,15 +1136,19 @@ export function EditEmployee() {
                       <p className="text-xs text-muted">Uploaded</p>
                     </div>
                     {existingDocuments.agreement?.url ? (
-                      <a
-                        href={existingDocuments.agreement?.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="shrink-0 rounded p-1 text-primary hover:bg-primary/10 transition-ui"
+                      <button
+                        type="button"
+                        disabled={openingExistingDocKey === 'agreement'}
+                        onClick={() => void handleOpenExistingDocument('agreement')}
+                        className="shrink-0 rounded p-1 text-primary hover:bg-primary/10 transition-ui disabled:opacity-50"
                         title="View document"
                       >
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
+                        {openingExistingDocKey === 'agreement' ? (
+                          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                        ) : (
+                          <ExternalLink className="h-4 w-4" />
+                        )}
+                      </button>
                     ) : null}
                     <button
                       type="button"
@@ -1219,7 +1270,7 @@ export function EditEmployee() {
               {submitError}
             </p>
           )}
-          <Button type="button" variant="ghost" onClick={() => navigate('/admin/employees')}>
+          <Button type="button" variant="ghost" onClick={() => guardedNavigate('/admin/employees')}>
             Cancel
           </Button>
           <Button type="submit" form="edit-employee-form" loading={form.formState.isSubmitting} onClick={() => setSubmitError(null)}>

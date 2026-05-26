@@ -6,7 +6,7 @@ export const uploadController = {
   listDocuments: async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params as { id: string };
-      const employee = await employeeService.getEmployeeById(id);
+      const employee = await employeeService.getEmployeeProfileById(id);
 
       if (!employee) {
         res.status(404).json({ error: 'Employee not found' });
@@ -118,14 +118,7 @@ export const uploadController = {
     try {
       const { id, docType } = req.params as { id: string; docType: string };
 
-      const employee = await employeeService.getEmployeeById(id);
-
-      if (!employee) {
-        res.status(404).json({ error: 'Employee not found' });
-        return;
-      }
-
-      const doc = employee.documents?.[docType as keyof typeof employee.documents];
+      const doc = await employeeService.getEmployeeDocumentBlob(id, docType);
 
       if (!doc) {
         res.status(404).json({ error: 'Document not found' });
@@ -146,29 +139,14 @@ export const uploadController = {
   deleteDocument: async (req: Request, res: Response): Promise<void> => {
     try {
       const { id, docType } = req.params as { id: string; docType: string };
-      const employee = await employeeService.getEmployeeById(id);
+      const deleted = await employeeService.deleteEmployeeDocument(id, docType);
 
-      if (!employee) {
-        res.status(404).json({ error: 'Employee not found' });
-        return;
-      }
-
-      if (!employee.documents?.[docType as keyof typeof employee.documents]) {
+      if (!deleted) {
         res.status(404).json({ error: 'Document not found' });
         return;
       }
 
-      const documents = { ...(employee.documents as any) };
-      delete documents[docType];
-
-      const updatedEmployee = await employeeService.updateEmployee(id, { documents } as any);
-
-      if (!updatedEmployee) {
-        res.status(404).json({ error: 'Employee not found' });
-        return;
-      }
-
-      res.json({ message: 'Document deleted successfully', documents: updatedEmployee.documents });
+      res.json({ success: true, message: 'Document deleted successfully' });
     } catch (error: any) {
       console.error('Error deleting document:', error);
       res.status(500).json({ error: error?.message ?? 'Failed to delete document' });

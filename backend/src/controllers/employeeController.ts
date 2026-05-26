@@ -3,6 +3,8 @@ import * as employeeService from '../services/employeeService';
 import { CreateEmployeePayload } from '../models/Employee';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { isAdminRole, isEmployeeRole } from '../utils/generateToken';
+import { resolveEmployeeForAuthUser } from '../utils/employeeAuth';
+import { sanitizeEmployeeForDetail } from '../utils/sanitizeEmployee';
 
 export const employeeController = {
   // Get all employees with filtering and pagination
@@ -45,7 +47,7 @@ export const employeeController = {
     try {
       const rawId = req.params.id;
       const id = String(Array.isArray(rawId) ? rawId[0] : rawId ?? '').trim();
-      const employee = await employeeService.getEmployeeById(id);
+      const employee = await employeeService.getEmployeeProfileById(id);
 
       if (!employee) {
         res.status(404).json({ error: 'Employee not found' });
@@ -53,7 +55,7 @@ export const employeeController = {
       }
 
       if (isEmployeeRole(req.user?.role ?? '')) {
-        const own = await employeeService.getEmployeeById(req.user!.id);
+        const own = await resolveEmployeeForAuthUser(req.user!.id, req.user!.email);
         const allowed =
           own &&
           (own.id === id ||
@@ -67,7 +69,7 @@ export const employeeController = {
         }
       }
 
-      res.json(employee);
+      res.json(sanitizeEmployeeForDetail(employee));
     } catch (error) {
       console.error('Error fetching employee:', error);
       res.status(500).json({ error: 'Failed to fetch employee' });
@@ -116,12 +118,11 @@ export const employeeController = {
   },
 
   // Update employee
-  updateEmployee: async (req: Request, res: Response): Promise<void> => {
+  updateEmployee: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params as { id: string };
-      const payload = req.body;
-
-      const employee = await employeeService.updateEmployee(id, payload);
+      const changedBy = req.user?.email || req.body?.changedBy || 'Admin';
+      const employee = await employeeService.updateEmployee(id, req.body, { changedBy });
 
       if (!employee) {
         res.status(404).json({ error: 'Employee not found' });
@@ -166,17 +167,20 @@ export const employeeController = {
   },
 
   // Update employee status (Deactivate/Archive)
-  updateStatus: async (req: Request, res: Response): Promise<void> => {
+  updateStatus: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params as { id: string };
-      const { status } = req.body;
+      const { status, reason } = req.body as { status?: string; reason?: string };
 
       if (!status) {
         res.status(400).json({ error: 'Status is required' });
         return;
       }
 
-      const employee = await employeeService.updateEmployeeStatus(id, status);
+      const employee = await employeeService.updateEmployeeStatus(id, status as any, {
+        reason,
+        changedBy: req.user?.email || 'Admin',
+      });
 
       if (!employee) {
         res.status(404).json({ error: 'Employee not found' });
@@ -210,9 +214,9 @@ export const employeeController = {
   },
 
   // Bulk update status for multiple employees
-  bulkUpdateStatus: async (req: Request, res: Response): Promise<void> => {
+  bulkUpdateStatus: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const { ids, status } = req.body as { ids: string[]; status: string };
+      const { ids, status, reason } = req.body as { ids: string[]; status: string; reason?: string };
       if (!Array.isArray(ids) || ids.length === 0) {
         res.status(400).json({ error: 'ids must be a non-empty array' });
         return;
@@ -221,7 +225,14 @@ export const employeeController = {
         res.status(400).json({ error: 'status is required' });
         return;
       }
-      const result = await employeeService.bulkUpdateStatus(ids, status);
+      if (!reason?.trim()) {
+        res.status(400).json({ error: 'Reason is required for bulk status change' });
+        return;
+      }
+      const result = await employeeService.bulkUpdateStatus(ids, status, {
+        reason: reason.trim(),
+        changedBy: req.user?.email || 'Admin',
+      });
       res.json(result);
     } catch (error) {
       console.error('Error bulk updating employee status:', error);

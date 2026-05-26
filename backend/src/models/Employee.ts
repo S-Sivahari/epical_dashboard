@@ -59,8 +59,22 @@ export interface Employee {
   };
   // Profile photo
   photo?: { filename: string; data: string; contentType: string; uploadedAt: Date };
+  activityHistory?: EmployeeActivityEntry[];
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+export type EmployeeActivityType = 'status_change' | 'profile_edit';
+
+export interface EmployeeActivityEntry {
+  type: EmployeeActivityType;
+  at: Date;
+  by: string;
+  summary: string;
+  reason?: string;
+  fromStatus?: EmployeeStatus;
+  toStatus?: EmployeeStatus;
+  changedFields?: string[];
 }
 
 export interface CreateEmployeePayload extends Omit<Employee, '_id' | 'id' | 'createdAt' | 'updatedAt'> {

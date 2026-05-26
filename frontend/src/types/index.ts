@@ -1,6 +1,19 @@
 export type EmploymentType = 'Full-time' | 'Contract' | 'Intern'
 export type EmployeeStatus = 'Active' | 'Inactive' | 'Notice Period' | 'Deactivated' | 'Archived'
 
+export type EmployeeActivityType = 'status_change' | 'profile_edit'
+
+export interface EmployeeActivityEntry {
+  type: EmployeeActivityType
+  at: string
+  by: string
+  summary: string
+  reason?: string
+  fromStatus?: string
+  toStatus?: string
+  changedFields?: string[]
+}
+
 export interface Employee {
   id: string
   employeeId: string
@@ -41,6 +54,7 @@ export interface Employee {
     relation?: string
     address?: string
   }
+  activityHistory?: EmployeeActivityEntry[]
   [key: string]: unknown
 }
 

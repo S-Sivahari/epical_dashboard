@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto'
 import { getDB } from '../config/db'
+import { normalizeLoginEmail, resolveEmployeeForAuthUser } from '../utils/employeeAuth'
 export interface EmployeePayslipRecord {
   id: string
   employeeId: string
@@ -54,7 +55,8 @@ export async function sendPayslipToEmployee(params: {
     )
   }
 
-  const employeeEmail = String(employee.email || '').toLowerCase()
+  const employeeEmail =
+    String(employee.email || employee.personalEmail || '').toLowerCase() || ''
   if (!employeeEmail) {
     throw new Error('Employee has no email on file — cannot deliver payslip to dashboard')
   }
@@ -97,14 +99,34 @@ export async function listSentFlagsForBatch(
 }
 
 export async function getPayslipsForEmployeeEmail(email: string): Promise<EmployeePayslipRecord[]> {
+  const normalized = normalizeLoginEmail(email)
   return payslipsCollection()
-    .find({ employeeEmail: email.toLowerCase().trim() })
+    .find({ employeeEmail: normalized })
     .sort({ sentAt: -1 })
     .toArray()
 }
 
-export async function removeSentPayslip(batchId: string, fileName: string): Promise<void> {
-  await payslipsCollection().deleteOne({ batchId, fileName })
+export async function getPayslipsForAuthUser(userId: string, userEmail?: string): Promise<EmployeePayslipRecord[]> {
+  const employee = await resolveEmployeeForAuthUser(userId, userEmail)
+  const emails = employee
+    ? [employee.email, employee.personalEmail].filter(Boolean).map((e) => normalizeLoginEmail(String(e)))
+    : userEmail
+      ? [normalizeLoginEmail(userEmail)]
+      : []
+
+  const uniqueEmails = [...new Set(emails)]
+  const query =
+    uniqueEmails.length > 0 && employee?.id
+      ? { $or: [{ employeeDbId: employee.id }, { employeeEmail: { $in: uniqueEmails } }] }
+      : employee?.id
+        ? { employeeDbId: employee.id }
+        : uniqueEmails.length > 0
+          ? { employeeEmail: { $in: uniqueEmails } }
+          : null
+
+  if (!query) return []
+
+  return payslipsCollection().find(query).sort({ sentAt: -1 }).toArray()
 }
 
 export async function getPayslipByIdForEmployee(
@@ -113,8 +135,43 @@ export async function getPayslipByIdForEmployee(
 ): Promise<EmployeePayslipRecord | null> {
   return payslipsCollection().findOne({
     id: payslipId,
-    employeeEmail: email.toLowerCase().trim(),
+    employeeEmail: normalizeLoginEmail(email),
   })
+}
+
+export async function getPayslipByIdForAuthUser(
+  payslipId: string,
+  userId: string,
+  userEmail?: string,
+): Promise<EmployeePayslipRecord | null> {
+  const employee = await resolveEmployeeForAuthUser(userId, userEmail)
+  const emails = employee
+    ? [employee.email, employee.personalEmail].filter(Boolean).map((e) => normalizeLoginEmail(String(e)))
+    : userEmail
+      ? [normalizeLoginEmail(userEmail)]
+      : []
+
+  const uniqueEmails = [...new Set(emails)]
+  const query: Record<string, unknown> = { id: payslipId }
+  if (employee?.id && uniqueEmails.length > 0) {
+    return payslipsCollection().findOne({
+      id: payslipId,
+      $or: [{ employeeDbId: employee.id }, { employeeEmail: { $in: uniqueEmails } }],
+    })
+  }
+  if (employee?.id) {
+    query.employeeDbId = employee.id
+  } else if (uniqueEmails.length > 0) {
+    query.employeeEmail = { $in: uniqueEmails }
+  } else {
+    return null
+  }
+
+  return payslipsCollection().findOne(query as any)
+}
+
+export async function removeSentPayslip(batchId: string, fileName: string): Promise<void> {
+  await payslipsCollection().deleteOne({ batchId, fileName })
 }
 
 export async function getAllSentPayslips(limit = 100): Promise<EmployeePayslipRecord[]> {
