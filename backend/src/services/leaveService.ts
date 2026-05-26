@@ -411,6 +411,15 @@ export async function deleteLeave(id: string): Promise<boolean> {
   return result.deletedCount > 0;
 }
 
+export async function deleteAllLeaves(): Promise<{ deletedCount: number }> {
+  const col = getLeaveCol();
+  const result = await col.deleteMany({});
+  await getDB().collection('notifications').deleteMany({
+    type: { $in: ['LeaveSubmitted', 'LeaveApproved', 'LeaveRejected', 'LeaveCancelled'] },
+  });
+  return { deletedCount: result.deletedCount };
+}
+
 // ── Holidays ────────────────────────────────────────────────────
 
 export async function getAllHolidays(): Promise<Holiday[]> {

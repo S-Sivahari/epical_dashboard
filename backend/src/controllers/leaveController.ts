@@ -204,6 +204,26 @@ export const leaveController = {
     }
   },
 
+  // DELETE /api/leaves/all (Admin only)
+  deleteAll: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user || !isAdminRole(req.user.role)) {
+        res.status(403).json({ error: 'Forbidden: Admin access required' });
+        return;
+      }
+      const result = await leaveService.deleteAllLeaves();
+      res.json({
+        message: 'All leave records deleted',
+        deletedCount: result.deletedCount,
+      });
+    } catch (error: unknown) {
+      console.error('Error deleting all leaves:', error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : 'Failed to delete all leaves',
+      });
+    }
+  },
+
   // DELETE /api/leaves/:id
   delete: async (req: Request, res: Response): Promise<void> => {
     try {

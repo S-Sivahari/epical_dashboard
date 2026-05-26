@@ -24,6 +24,7 @@ router.get(
 // Leave requests
 router.get('/', leaveController.getAll);
 router.post('/', leaveController.create);
+router.delete('/all', roleMiddleware('Admin'), leaveController.deleteAll);
 router.patch('/:id/approve', leaveController.approve);
 router.patch('/:id/reject', leaveController.reject);
 router.patch('/:id/cancel', leaveController.cancel);

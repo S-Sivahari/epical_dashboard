@@ -1,15 +1,22 @@
 import { mkdirSync, writeFileSync, existsSync, readFileSync, unlinkSync, rmSync } from 'fs'
-import { join } from 'path'
+import { join, resolve } from 'path'
 import { randomUUID } from 'crypto'
 import { PDFDocument } from 'pdf-lib'
 import { getDB } from '../config/db'
-import { readMasterExcelFromBuffer } from './payslipGenerator'
+import { PAYROLL_UPLOADS_ROOT } from '../config/paths'
+import {
+  readMasterExcelFromBuffer,
+  type SalaryStructure,
+  type Employee,
+  type Company,
+} from './payslipGenerator'
 import { savePayslipAsPdf, type TemplateId } from './payslipPdfGenerator'
 import {
   listSentFlagsForBatch,
   removeSentPayslip,
   sendPayslipToEmployee,
 } from './employeePayslipService'
+import { prepareEmployeeForPayslip } from './payrollYtdService'
 
 export interface PayslipResult {
   empId: string
@@ -32,9 +39,11 @@ export interface PayrollBatch {
   totalFailed: number
   totalSent?: number
   results: PayslipResult[]
+  /** Parsed from salary_structure sheet at upload — used when generating PDFs. */
+  salaryStructure?: SalaryStructure
 }
 
-const UPLOADS_ROOT = join(process.cwd(), 'uploads', 'payroll')
+const UPLOADS_ROOT = PAYROLL_UPLOADS_ROOT
 
 function batchesCollection() {
   return getDB().collection<PayrollBatch>('payroll_batches')
@@ -65,7 +74,7 @@ export async function processPayrollUpload(
   originalFileName: string,
   templateId: TemplateId = 'classic'
 ): Promise<PayrollBatch> {
-  const { company, structure, employees } = readMasterExcelFromBuffer(buffer)
+  const { company, structure, employees } = await readMasterExcelFromBuffer(buffer)
 
   if (employees.length === 0) {
     throw new Error(
@@ -84,8 +93,9 @@ export async function processPayrollUpload(
     const empId = String(emp['Emp ID'] || 'Unknown')
     const name = String(emp['Name'] || '')
     try {
-      const fileName = `Payslip_${empId.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`
-      await savePayslipAsPdf(company, structure, emp, join(payslipsDir, fileName), templateId)
+      const fileName = payslipFileNameForEmpId(empId)
+      const prepared = await prepareEmployeeForPayslip(company, structure, emp, id)
+      await savePayslipAsPdf(company, structure, prepared, join(payslipsDir, fileName), templateId)
       results.push({ empId, name, status: 'success', fileName })
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Generation failed'
@@ -103,6 +113,7 @@ export async function processPayrollUpload(
     totalGenerated: results.filter((r) => r.status === 'success').length,
     totalFailed: results.filter((r) => r.status === 'error').length,
     results,
+    salaryStructure: structure,
   }
 
   await batchesCollection().insertOne(batch)
@@ -198,6 +209,68 @@ export async function sendAllPayslipsInBatch(
 
 export function getPayslipFilePath(batchId: string, fileName: string): string {
   return join(getPayslipsDir(batchId), safePayslipFileName(fileName))
+}
+
+export function payslipFileNameForEmpId(empId: string): string {
+  return `Payslip_${String(empId).replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`
+}
+
+/** Resolve payslip path; always rebuild PDF from batch Excel so structure sheet changes apply. */
+export async function ensurePayslipPdfExists(batchId: string, fileName: string): Promise<string> {
+  const safeName = safePayslipFileName(fileName)
+  const filePath = join(getPayslipsDir(batchId), safeName)
+  if (existsSync(filePath)) {
+    try {
+      unlinkSync(filePath)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const batch = await batchesCollection().findOne({ id: batchId })
+  if (!batch) {
+    throw new Error('Payroll batch not found')
+  }
+
+  const hasRecord = batch.results.some((r) => r.status === 'success' && r.fileName === safeName)
+  if (!hasRecord) {
+    throw new Error('Payslip file not found')
+  }
+
+  let buffer: Buffer
+  try {
+    buffer = readBatchExcel(batchId)
+  } catch {
+    throw new Error(
+      'Payslip PDF is missing and the payroll Excel for this batch is no longer available. Re-upload the payroll file to regenerate payslips.'
+    )
+  }
+
+  const rawBatch = await batchesCollection().findOne({ id: batchId })
+  const parsed = await readMasterExcelFromBuffer(buffer)
+
+  let structure: SalaryStructure = parsed.structure
+  if (Object.keys(structure).length === 0 && rawBatch?.salaryStructure) {
+    structure = rawBatch.salaryStructure
+  }
+
+  const company: Company = parsed.company
+  const emp: Employee | undefined = parsed.employees.find(
+    (e) => payslipFileNameForEmpId(String(e['Emp ID'] || '')) === safeName
+  )
+
+  if (!emp) {
+    throw new Error('Employee not found in payroll file for this payslip')
+  }
+  if (!structure || Object.keys(structure).length === 0) {
+    throw new Error('Salary structure missing for this batch. Re-upload the payroll Excel file.')
+  }
+
+  const templateId = (batch.templateId as TemplateId) || 'classic'
+  ensureBatchDirs(batchId)
+  const prepared = await prepareEmployeeForPayslip(company, structure, emp, batchId)
+  await savePayslipAsPdf(company, structure, prepared, filePath, templateId)
+  return resolve(filePath)
 }
 
 /** Merge all generated payslip PDFs in a batch into a single document. */

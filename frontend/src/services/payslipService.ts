@@ -54,6 +54,32 @@ export interface SendHistoryEntry {
 
 const base = '/payslips'
 
+/** Axios blob responses still return 4xx bodies as blobs — parse errors before treating as PDF. */
+async function fetchPdfBlob(url: string, options?: { timeout?: number }): Promise<Blob> {
+  const response = await api.get(url, {
+    responseType: 'blob',
+    validateStatus: () => true,
+    ...options,
+  })
+  const contentType = String(response.headers['content-type'] ?? '')
+  if (
+    response.status >= 400 ||
+    contentType.includes('application/json') ||
+    contentType.includes('text/')
+  ) {
+    let message = 'Failed to load payslip PDF'
+    try {
+      const text = await (response.data as Blob).text()
+      const json = JSON.parse(text) as { error?: string; details?: string }
+      message = json.error ?? json.details ?? message
+    } catch {
+      /* keep default */
+    }
+    throw new Error(message)
+  }
+  return response.data as Blob
+}
+
 export async function downloadPayrollTemplate(filename?: string): Promise<void> {
   const response = await api.get(`${base}/template`, { responseType: 'blob' })
   const url = window.URL.createObjectURL(new Blob([response.data]))
@@ -99,22 +125,21 @@ export async function listBatches(): Promise<PayrollBatch[]> {
 }
 
 export async function openPayslipPdf(batchId: string, fileName: string): Promise<string> {
-  const response = await api.get(`${base}/batches/${batchId}/payslips/${encodeURIComponent(fileName)}`, {
-    responseType: 'blob',
-  })
-  return window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
+  const blob = await fetchPdfBlob(
+    `${base}/batches/${batchId}/payslips/${encodeURIComponent(fileName)}`
+  )
+  return window.URL.createObjectURL(blob)
 }
 
 export async function downloadAllPayslipPdfs(
   batchId: string,
   payMonth?: string
 ): Promise<void> {
-  const response = await api.get(`${base}/batches/${batchId}/payslips/download-all`, {
-    responseType: 'blob',
+  const blob = await fetchPdfBlob(`${base}/batches/${batchId}/payslips/download-all`, {
     timeout: 120000,
   })
   const monthLabel = (payMonth || 'payslips').replace(/[^a-zA-Z0-9_-]/g, '_')
-  const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
+  const url = window.URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
   link.setAttribute('download', `All_Payslips_${monthLabel}.pdf`)
@@ -125,11 +150,10 @@ export async function downloadAllPayslipPdfs(
 }
 
 export async function downloadPayslipPdf(batchId: string, fileName: string, downloadName?: string): Promise<void> {
-  const response = await api.get(
-    `${base}/batches/${batchId}/payslips/${encodeURIComponent(fileName)}/download`,
-    { responseType: 'blob' }
+  const blob = await fetchPdfBlob(
+    `${base}/batches/${batchId}/payslips/${encodeURIComponent(fileName)}/download`
   )
-  const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
+  const url = window.URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
   link.setAttribute('download', downloadName || fileName)
@@ -194,33 +218,9 @@ export async function getMyPayslips(): Promise<EmployeeDashboardPayslip[]> {
 }
 
 export async function openMyPayslipPdf(payslipId: string): Promise<void> {
-  const url = await fetchMyPayslipPdfUrl(payslipId)
+  const blob = await fetchPdfBlob(`${base}/my-payslips/${payslipId}/download`)
+  const url = window.URL.createObjectURL(blob)
   window.open(url, '_blank', 'noopener,noreferrer')
-}
-
-export async function fetchMyPayslipPdfUrl(payslipId: string): Promise<string> {
-  const response = await api.get(`${base}/my-payslips/${payslipId}/download`, {
-    responseType: 'blob',
-  })
-  return window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
-}
-
-export async function downloadMyPayslipPdf(
-  payslipId: string,
-  downloadName?: string,
-): Promise<void> {
-  const response = await api.get(`${base}/my-payslips/${payslipId}/download`, {
-    responseType: 'blob',
-  })
-  const fileName = downloadName || `payslip-${payslipId}.pdf`
-  const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
-  const link = document.createElement('a')
-  link.href = url
-  link.setAttribute('download', fileName)
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  window.URL.revokeObjectURL(url)
 }
 
 export async function deletePayrollBatch(batchId: string): Promise<void> {
@@ -246,6 +246,28 @@ export interface TemplateMeta {
   name?: string
   uploadedAt?: string
   size?: number
+}
+
+export interface CompanyLogoMeta {
+  hasLogo: boolean
+}
+
+export function getCompanyLogoPreviewUrl(cacheKey = Date.now()): string {
+  const baseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api'
+  return `${baseUrl}/payslips/template/logo?t=${cacheKey}`
+}
+
+export async function getCompanyLogoMeta(): Promise<CompanyLogoMeta> {
+  const response = await api.get<CompanyLogoMeta>(`${base}/template/logo/meta`)
+  return response.data
+}
+
+export async function uploadCompanyLogo(file: File): Promise<void> {
+  const formData = new FormData()
+  formData.append('logo', file)
+  await api.post(`${base}/template/logo/upload`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
 }
 
 export async function getTemplateMeta(): Promise<TemplateMeta> {

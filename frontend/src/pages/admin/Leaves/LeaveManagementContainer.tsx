@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Download } from 'lucide-react'
+import { Download, Trash2 } from 'lucide-react'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
+import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { LeaveRequests } from './LeaveRequests'
 import { CompanyCalendar } from './CompanyCalendar'
 import { CompensationManagement } from './CompensationManagement'
 import { useLeaves } from '@hooks/useLeaves'
+import { useLeaveStore } from '@store/leaveStore'
 import { useAuthStore } from '@store/authStore'
 import { filterLeaves, excludeCancelledLeaves, type LeaveFilters } from '@/utils/leaveFilters'
 import {
@@ -42,8 +44,11 @@ export function LeaveManagementContainer() {
   const [compensationExportRows, setCompensationExportRows] = useState<CompensationExportRow[]>([])
   const [compensationSearch, setCompensationSearch] = useState('')
   const [exporting, setExporting] = useState<'pdf' | 'excel' | null>(null)
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false)
+  const [deletingAll, setDeletingAll] = useState(false)
 
   const { leaves } = useLeaves()
+  const deleteAllLeaves = useLeaveStore((s) => s.deleteAllLeaves)
   const user = useAuthStore((s) => s.user)
 
   const filteredLeaveRequests = useMemo(() => {
@@ -109,6 +114,26 @@ export function LeaveManagementContainer() {
     }
   }
 
+  const handleDeleteAllLeaves = async () => {
+    setDeletingAll(true)
+    try {
+      const deletedCount = await deleteAllLeaves()
+      setDeleteAllOpen(false)
+      toast.success(
+        deletedCount > 0
+          ? `Deleted ${deletedCount} leave record${deletedCount === 1 ? '' : 's'}`
+          : 'No leave records to delete',
+      )
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+        'Failed to delete leave records'
+      toast.error(message)
+    } finally {
+      setDeletingAll(false)
+    }
+  }
+
   return (
     <PageWrapper>
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -130,6 +155,17 @@ export function LeaveManagementContainer() {
         </div>
         {activeTab !== 'calendar' && (
           <div className="flex flex-wrap gap-2">
+            {activeTab === 'requests' && (
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => setDeleteAllOpen(true)}
+                disabled={deletingAll}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete All Leaves
+              </Button>
+            )}
             <Button
               variant="secondary"
               size="sm"
@@ -164,6 +200,19 @@ export function LeaveManagementContainer() {
           />
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={deleteAllOpen}
+        title="Delete all leave records?"
+        description="This will permanently delete every leave request and all leave history from the database, including pending, approved, rejected, and cancelled records. Related leave notifications will also be removed. This action cannot be undone."
+        confirmLabel={deletingAll ? 'Deleting...' : 'Delete all'}
+        danger
+        onClose={() => {
+          if (deletingAll) return
+          setDeleteAllOpen(false)
+        }}
+        onConfirm={handleDeleteAllLeaves}
+      />
     </PageWrapper>
   )
 }

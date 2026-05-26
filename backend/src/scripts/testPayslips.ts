@@ -29,9 +29,11 @@ async function testPayslips() {
   // =========================================================================
   console.log('📖 TEST 2: Reading master data from Excel...')
   try {
-    const { company, structure, employees } = readMasterExcel(excelPath)
+    const { company, structure, employees } = await readMasterExcel(excelPath)
 
     console.log(`✓ Company: ${company['Company Name']}`)
+    console.log(`✓ Pay Month: ${company['Pay Month']}`)
+    console.log(`✓ Pay Date: ${company['Pay Date']}`)
     console.log(`✓ Salary structure components: ${Object.keys(structure).length}`)
     console.log(`✓ Total employees: ${employees.length}`)
 

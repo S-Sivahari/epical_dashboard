@@ -44,6 +44,11 @@ export async function cancelLeave(id: string, reason?: string) {
   await api.patch(`/leaves/${id}/cancel`, { reason: reason?.trim() || undefined })
 }
 
+export async function deleteAllLeaves(): Promise<{ deletedCount: number }> {
+  const response = await api.delete('/leaves/all')
+  return response.data as { deletedCount: number }
+}
+
 export async function addHoliday(payload: Omit<Holiday, 'id'>) {
   const response = await api.post('/holidays', payload)
   return response.data as Holiday
