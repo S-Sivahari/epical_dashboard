@@ -10,6 +10,7 @@ import {
 } from '../services/payrollTemplate'
 import {
   processPayrollUpload,
+  findBatchByPayPeriod,
   getPayrollBatch,
   getLatestPayrollBatch,
   listPayrollBatches,
@@ -25,8 +26,8 @@ import {
 import { AuthRequest } from '../middleware/authMiddleware'
 import {
   sendPayslipToEmployee,
-  getPayslipsForAuthUser,
-  getPayslipByIdForAuthUser,
+  getPayslipsForEmployeeEmail,
+  getPayslipByIdForEmployee,
   getAllSentPayslips,
 } from '../services/employeePayslipService'
 import { getPayrollBatch as fetchBatch } from '../services/payrollBatchService'
@@ -52,28 +53,36 @@ async function notifyAdminsAndEmployee(params: {
   payslipId: string
   batchId: string
   fileName?: string
+  regenerated?: boolean
 }): Promise<void> {
-  const { employeeDbId, employeeName, employeeEmail, payMonth, payslipId, batchId, fileName } = params
+  const { employeeDbId, employeeName, employeeEmail, payMonth, payslipId, batchId, fileName, regenerated } =
+    params
 
-  // Notify the employee
+  const employeeType = regenerated ? 'PayslipRegenerated' : 'PayslipSent'
+  const employeeTitle = regenerated ? 'Payslip Regenerated' : 'Payslip Received'
+  const employeeMessage = regenerated
+    ? `Your payslip for ${payMonth} has been regenerated with updated payroll data. Download the latest version from the Payslips section.`
+    : `Your payslip for ${payMonth} has been published. You can download it from the Payslips section.`
+
   await createNotification({
     recipientId: employeeDbId,
     recipientType: 'Employee',
-    type: 'PayslipSent',
-    title: 'Payslip Received',
-    message: `Your payslip for ${payMonth} has been published. You can download it from the Payslips section.`,
+    type: employeeType,
+    title: employeeTitle,
+    message: employeeMessage,
     relatedData: { employeeId: employeeDbId, employeeName, employeeEmail, payslipId, batchId, payMonth, fileName },
   })
 
-  // Notify all admins
   const admins = await getUserCollection().find({ role: 'Admin' }).toArray()
   for (const admin of admins) {
     await createNotification({
       recipientId: String(admin.id),
       recipientType: 'Admin',
-      type: 'PayslipSent',
-      title: 'Payslip Sent',
-      message: `Payslip for ${employeeName} (${payMonth}) has been sent successfully.`,
+      type: employeeType,
+      title: regenerated ? 'Payslip Regenerated' : 'Payslip Sent',
+      message: regenerated
+        ? `Regenerated payslip for ${employeeName} (${payMonth}) has been sent to the employee dashboard.`
+        : `Payslip for ${employeeName} (${payMonth}) has been sent successfully.`,
       relatedData: { employeeId: employeeDbId, employeeName, employeeEmail, payslipId, batchId, payMonth, fileName },
     })
   }
@@ -201,14 +210,72 @@ export const payslipController = {
       }
 
       const templateId = (req.body?.templateId as string) || 'classic'
-      const batch = await processPayrollUpload(file.buffer, file.originalname, templateId as 'classic' | 'corporate' | 'minimal')
+      const replaceBatchId = String(req.body?.replaceBatchId || '').trim() || undefined
+      const resendPayslips =
+        req.body?.resendPayslips === true ||
+        req.body?.resendPayslips === 'true' ||
+        req.body?.resendPayslips === '1'
+
+      if (!replaceBatchId) {
+        const { readMasterExcelFromBuffer } = await import('../services/payslipGenerator')
+        const { company } = await readMasterExcelFromBuffer(file.buffer)
+        const existing = await findBatchByPayPeriod(company)
+        if (existing) {
+          const enriched = await getPayrollBatch(existing.id)
+          res.status(409).json({
+            code: 'DUPLICATE_PAY_PERIOD',
+            error: `A payroll upload already exists for ${existing.payMonth || 'this pay period'}.`,
+            payMonth: existing.payMonth,
+            existingBatch: enriched,
+          })
+          return
+        }
+      }
+
+      let employeeDbIdByEmpId: Record<string, string> = {}
+      try {
+        const raw = req.body?.employeeDbIdByEmpId
+        if (typeof raw === 'string') employeeDbIdByEmpId = JSON.parse(raw) as Record<string, string>
+        else if (raw && typeof raw === 'object') employeeDbIdByEmpId = raw as Record<string, string>
+      } catch {
+        employeeDbIdByEmpId = {}
+      }
+
+      const uploadResult = await processPayrollUpload(
+        file.buffer,
+        file.originalname,
+        templateId as 'classic' | 'corporate' | 'minimal',
+        { replaceBatchId, resendPayslips, employeeDbIdByEmpId }
+      )
+      const { batch, replaced, resent } = uploadResult
       const structure = batch.salaryStructure ?? {}
       const earnings = Object.values(structure).filter((m) => m.section === 'Earnings').length
       const deductions = Object.values(structure).filter((m) => m.section === 'Deductions').length
 
+      for (const record of resent) {
+        await notifyAdminsAndEmployee({
+          employeeDbId: record.employeeDbId,
+          employeeName: record.employeeName,
+          employeeEmail: record.employeeEmail,
+          payMonth: record.payMonth,
+          payslipId: record.id,
+          batchId: record.batchId,
+          fileName: record.fileName,
+          regenerated: true,
+        })
+      }
+
+      const { countPayslipsInMongo } = await import('../services/payslipStorageService')
+      const storedInMongo = await countPayslipsInMongo(batch.id)
+
       res.json({
-        message: 'Payroll processed successfully',
+        message: replaced
+          ? `Payroll replaced for ${batch.payMonth}${resent.length ? ` — ${resent.length} payslip(s) resent` : ''}`
+          : 'Payroll processed successfully',
         batch,
+        replaced,
+        resentCount: resent.length,
+        storedInMongo,
         salaryStructureSummary: {
           totalComponents: Object.keys(structure).length,
           earnings,
@@ -249,7 +316,7 @@ export const payslipController = {
 
   getBatch: async (req: Request, res: Response): Promise<void> => {
     try {
-      const batch = await getPayrollBatch(req.params.batchId as string)
+      const batch = await getPayrollBatch(req.params.batchId)
       if (!batch) {
         res.status(404).json({ error: 'Payroll batch not found' })
         return
@@ -264,14 +331,14 @@ export const payslipController = {
   /** Download the uploaded payroll Excel for a batch */
   downloadUploadedExcel: async (req: Request, res: Response): Promise<void> => {
     try {
-      const batch = await getPayrollBatch(req.params.batchId as string)
+      const batch = await getPayrollBatch(req.params.batchId)
       if (!batch) {
         res.status(404).json({ error: 'Payroll batch not found' })
         return
       }
       
       try {
-        const buffer = readBatchExcel(req.params.batchId as string)
+        const buffer = readBatchExcel(req.params.batchId)
         res.setHeader(
           'Content-Type',
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -298,14 +365,14 @@ export const payslipController = {
   downloadPayslipPdf: async (req: Request, res: Response): Promise<void> => {
     try {
       const { batchId } = req.params
-      const fileName = decodeURIComponent(req.params.fileName as string)
-      const batch = await getPayrollBatch(batchId as string)
+      const fileName = decodeURIComponent(req.params.fileName)
+      const batch = await getPayrollBatch(batchId)
       if (!batch) {
         res.status(404).json({ error: 'Payroll batch not found' })
         return
       }
 
-      const filePath = await ensurePayslipPdfExists(batchId as string, fileName)
+      const filePath = await ensurePayslipPdfExists(batchId, fileName)
       const safeName = filePath.split(/[/\\]/).pop() || fileName
 
       res.setHeader('Content-Type', 'application/pdf')
@@ -337,11 +404,12 @@ export const payslipController = {
 
       await ensurePayslipPdfExists(batchId, fileName)
 
-      const record = await sendPayslipToEmployee({
+      const { record, replaced } = await sendPayslipToEmployee({
         batchId,
         fileName,
         empId,
         payMonth: batch.payMonth,
+        payPeriodKey: batch.payPeriodKey,
         employeeDbId,
       })
 
@@ -354,6 +422,7 @@ export const payslipController = {
         payslipId: record.id,
         batchId: record.batchId,
         fileName: record.fileName,
+        regenerated: replaced,
       })
 
       const updated = await fetchBatch(batchId)
@@ -421,11 +490,11 @@ export const payslipController = {
   /** Employee: list payslips sent to their dashboard */
   getMyPayslips: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      if (!req.user?.id) {
+      if (!req.user?.email) {
         res.status(401).json({ error: 'Unauthorized' })
         return
       }
-      const payslips = await getPayslipsForAuthUser(req.user.id, req.user.email)
+      const payslips = await getPayslipsForEmployeeEmail(req.user.email)
       res.json(payslips)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to load payslips'
@@ -436,11 +505,11 @@ export const payslipController = {
   /** Employee: download a payslip PDF from dashboard */
   downloadMyPayslip: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      if (!req.user?.id) {
+      if (!req.user?.email) {
         res.status(401).json({ error: 'Unauthorized' })
         return
       }
-      const record = await getPayslipByIdForAuthUser(req.params.payslipId as string, req.user.id, req.user.email)
+      const record = await getPayslipByIdForEmployee(req.params.payslipId, req.user.email)
       if (!record) {
         res.status(404).json({ error: 'Payslip not found' })
         return
@@ -490,9 +559,18 @@ export const payslipController = {
       const fileName = `Payslip_${String(empId).replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`
       const filePath = join(getPayslipsDir(batchId), fileName)
       await savePayslipAsPdf(company, structure, prepared, filePath)
+      const { upsertPayslipPdf } = await import('../services/payslipStorageService')
+      const { readFileSync: readPdf } = await import('fs')
+      await upsertPayslipPdf({
+        batchId,
+        fileName,
+        empId: String(empId),
+        payPeriodKey: batch.payPeriodKey,
+        pdfBuffer: readPdf(filePath),
+      })
 
       res.json({
-        message: 'Payslip generated and saved to MongoDB (employee_payslip)',
+        message: 'Payslip generated and saved to MongoDB (payslip_documents)',
         empId,
         name: emp['Name'],
         fileName,
@@ -508,7 +586,7 @@ export const payslipController = {
   deleteBatch: async (req: Request, res: Response): Promise<void> => {
     try {
       const { batchId } = req.params
-      await deletePayrollBatch(batchId as string)
+      await deletePayrollBatch(batchId)
       res.json({ message: 'Payroll upload and payslips deleted successfully' })
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to delete payroll batch'
@@ -521,7 +599,7 @@ export const payslipController = {
   deletePayslip: async (req: Request, res: Response): Promise<void> => {
     try {
       const { batchId, fileName } = req.params
-      const batch = await deletePayslipFromBatch(batchId as string, fileName as string)
+      const batch = await deletePayslipFromBatch(batchId, fileName)
       res.json({ message: 'Payslip deleted successfully', batch })
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to delete payslip'
@@ -545,13 +623,13 @@ export const payslipController = {
   downloadAllPayslipsPdf: async (req: Request, res: Response): Promise<void> => {
     try {
       const { batchId } = req.params
-      const batch = await getPayrollBatch(batchId as string)
+      const batch = await getPayrollBatch(batchId)
       if (!batch) {
         res.status(404).json({ error: 'Payroll batch not found' })
         return
       }
 
-      const buffer = await mergeBatchPayslipPdfs(batchId as string)
+      const buffer = await mergeBatchPayslipPdfs(batchId)
       const monthLabel = (batch.payMonth || 'payslips').replace(/[^a-zA-Z0-9_-]/g, '_')
       const filename = `All_Payslips_${monthLabel}.pdf`
 
@@ -570,13 +648,13 @@ export const payslipController = {
   downloadPayslipPdfAttachment: async (req: Request, res: Response): Promise<void> => {
     try {
       const { batchId } = req.params
-      const fileName = decodeURIComponent(req.params.fileName as string)
-      const batch = await getPayrollBatch(batchId as string)
+      const fileName = decodeURIComponent(req.params.fileName)
+      const batch = await getPayrollBatch(batchId)
       if (!batch) {
         res.status(404).json({ error: 'Payroll batch not found' })
         return
       }
-      const filePath = await ensurePayslipPdfExists(batchId as string, fileName)
+      const filePath = await ensurePayslipPdfExists(batchId, fileName)
       const safeName = filePath.split(/[/\\]/).pop() || fileName
       res.setHeader('Content-Type', 'application/pdf')
       res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`)
@@ -606,7 +684,10 @@ export const payslipController = {
 
       const { readFileSync } = await import('fs')
       const buffer = readFileSync(excelPath)
-      const batch = await processPayrollUpload(buffer, excelPath.split(/[/\\]/).pop() || 'payroll.xlsx')
+      const { batch } = await processPayrollUpload(
+        buffer,
+        excelPath.split(/[/\\]/).pop() || 'payroll.xlsx'
+      )
 
       res.json({
         message: 'Payslips generated successfully',

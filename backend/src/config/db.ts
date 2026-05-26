@@ -31,11 +31,37 @@ export async function connectDB(): Promise<Db> {
 
 async function createIndexes(database: Db): Promise<void> {
   try {
-    // Create index on news collection for faster sorting by publishedAt
-    await database.collection('news').createIndex({ publishedAt: -1 });
-    console.log('✓ Database indexes created');
+    // News collection
+    await database.collection('news').createIndex({ publishedAt: -1 })
+    
+    // Employees collection - Critical for performance
+    await database.collection('employees').createIndex({ status: 1 })
+    await database.collection('employees').createIndex({ email: 1 })
+    await database.collection('employees').createIndex({ id: 1 })
+    await database.collection('employees').createIndex({ department: 1 })
+    
+    // Users collection
+    await database.collection('users').createIndex({ role: 1 })
+    await database.collection('users').createIndex({ email: 1 })
+    await database.collection('users').createIndex({ id: 1 })
+    
+    // Leaves collection
+    await database.collection('leaves').createIndex({ employeeId: 1, status: 1 })
+    await database.collection('leaves').createIndex({ status: 1, from: -1 })
+    await database.collection('leaves').createIndex({ employeeId: 1 })
+    
+    // Timesheets collection
+    await database.collection('timesheets').createIndex({ employeeId: 1, loginTime: -1 })
+    await database.collection('timesheets').createIndex({ status: 1 })
+    await database.collection('timesheets').createIndex({ loginTime: -1 })
+    
+    // Projects collection
+    await database.collection('projects').createIndex({ status: 1 })
+    await database.collection('projects').createIndex({ clientName: 1 })
+    
+    console.log('✓ Database indexes created')
   } catch (error) {
-    console.warn('⚠ Failed to create indexes:', error);
+    console.warn('⚠ Some indexes may already exist:', error)
   }
 }
 

@@ -1,4 +1,3 @@
-// @ts-ignore
 import PDFDocument from 'pdfkit'
 import { createWriteStream, existsSync } from 'fs'
 import { join } from 'path'
@@ -543,10 +542,10 @@ export function resolveLogoPath(company: Company = {}): string | null {
   const candidates = [
     company['Logo Path'],
     company['Logo'],
-    rootLogo,
-    join(PAYROLL_UPLOADS_ROOT, 'template', 'company_logo.jpeg'),
-    join(PAYROLL_UPLOADS_ROOT, 'template', 'company_logo.jpg'),
     COMPANY_LOGO_PATH,
+    rootLogo,
+    join(PAYROLL_UPLOADS_ROOT, 'template', 'company_logo.jpg'),
+    join(PAYROLL_UPLOADS_ROOT, 'template', 'company_logo.png'),
     join(PAYROLL_UPLOADS_ROOT, 'template', 'company_logo.webp'),
     COMPANY_LOGO_BUNDLED,
   ]

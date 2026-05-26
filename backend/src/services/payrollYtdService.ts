@@ -33,9 +33,11 @@ export interface PayPeriod {
   year: number
   month: number
   label: string
-  /** Calendar year when FY starts (April of this year). Resets after each March. */
+  /** Calendar year of April that starts this FY (Apr–Mar). YTD resets on the first April upload. */
   fiscalYearStart: number
 }
+
+const FY_START_MONTH = 4
 
 export interface PayrollMonthlySnapshot {
   id: string
@@ -53,11 +55,32 @@ function monthlyCollection() {
   return getDB().collection<PayrollMonthlySnapshot>('payroll_monthly_snapshots')
 }
 
+/** Prefer the longest month token (e.g. "march" over "mar") to avoid mis-reading labels. */
 function detectMonthFromText(text: string): number | null {
+  let best: { month: number; len: number } | null = null
   for (const { re, month } of MONTH_PATTERNS) {
-    if (re.test(text)) return month
+    const m = re.exec(text)
+    if (!m) continue
+    const len = m[0].length
+    if (!best || len > best.len) best = { month, len }
+  }
+  return best?.month ?? null
+}
+
+function parseNumericMonthFromLabel(label: string): { year: number; month: number } | null {
+  const mFirst = label.match(/\b(0?[1-9]|1[0-2])\D{0,4}(20\d{2})\b/)
+  if (mFirst) {
+    return { month: parseInt(mFirst[1], 10), year: parseInt(mFirst[2], 10) }
+  }
+  const yFirst = label.match(/\b(20\d{2})\D{0,4}(0?[1-9]|1[0-2])\b/)
+  if (yFirst) {
+    return { month: parseInt(yFirst[2], 10), year: parseInt(yFirst[1], 10) }
   }
   return null
+}
+
+export function getFiscalYearStart(year: number, month: number): number {
+  return month >= FY_START_MONTH ? year : year - 1
 }
 
 function parseYearMonthFromDateString(text: string): { year: number; month: number } | null {
@@ -89,6 +112,13 @@ export function parsePayPeriodFromCompany(company: Company): PayPeriod {
     const yMatch = label.match(/\b(20\d{2})\b/)
     if (yMatch) year = parseInt(yMatch[1], 10)
     month = detectMonthFromText(label)
+    if (month === null) {
+      const numeric = parseNumericMonthFromLabel(label)
+      if (numeric) {
+        year = numeric.year
+        month = numeric.month
+      }
+    }
   }
 
   if (month === null && payDate) {
@@ -103,7 +133,7 @@ export function parsePayPeriodFromCompany(company: Company): PayPeriod {
     month = new Date().getMonth() + 1
   }
 
-  const fiscalYearStart = month >= 4 ? year : year - 1
+  const fiscalYearStart = getFiscalYearStart(year, month)
 
   return {
     year,
@@ -122,15 +152,17 @@ function nextCalendarMonth(year: number, month: number): { year: number; month: 
 export function fiscalMonthsThrough(period: PayPeriod): { year: number; month: number }[] {
   const out: { year: number; month: number }[] = []
   let y = period.fiscalYearStart
-  let m = 4
+  let m = FY_START_MONTH
+  const fyEndYear = period.fiscalYearStart + 1
+  const fyEndMonth = 3
 
-  for (;;) {
+  for (let guard = 0; guard < 14; guard++) {
     out.push({ year: y, month: m })
-    if (y === period.year && m === period.month) break
+    if (y === period.year && m === period.month) return out
     const n = nextCalendarMonth(y, m)
     y = n.year
     m = n.month
-    if (y === period.fiscalYearStart + 1 && m === 4) break
+    if (y > fyEndYear || (y === fyEndYear && m > fyEndMonth)) return out
   }
 
   return out
@@ -169,6 +201,19 @@ function collectComponentAmounts(
   return map
 }
 
+/** On April payroll, drop prior FY snapshots so YTD cannot carry into the new year. */
+export async function purgePriorFiscalYearSnapshots(
+  employeeId: string,
+  period: PayPeriod
+): Promise<void> {
+  if (period.month !== FY_START_MONTH) return
+  const empKey = employeeId.trim().toUpperCase()
+  await monthlyCollection().deleteMany({
+    employeeId: empKey,
+    fiscalYearStart: { $lt: period.fiscalYearStart },
+  })
+}
+
 /** Persist this month's component amounts (re-upload replaces same month). */
 export async function saveMonthlyPayrollSnapshot(params: {
   employeeId: string
@@ -199,21 +244,21 @@ export async function saveMonthlyPayrollSnapshot(params: {
   await col.updateOne(filter, { $set: doc }, { upsert: true })
 }
 
-/** Sum stored monthly amounts for current FY through pay month (Apr–Mar, resets each April). */
+/** Sum stored monthly amounts for current FY through pay month (Apr–Mar; new FY starts in April). */
 export async function computeCumulativeYtd(
   employeeId: string,
   period: PayPeriod
 ): Promise<Record<string, number>> {
   const col = monthlyCollection()
   const empKey = employeeId.trim().toUpperCase()
-  const allowed = new Set(
-    fiscalMonthsThrough(period).map((m) => monthKey(m.year, m.month))
-  )
+  const allowedMonths = fiscalMonthsThrough(period)
+  const allowed = new Set(allowedMonths.map((m) => monthKey(m.year, m.month)))
 
   const snapshots = await col
     .find({
       employeeId: empKey,
       fiscalYearStart: period.fiscalYearStart,
+      payYear: { $in: [...new Set(allowedMonths.map((m) => m.year))] },
     })
     .toArray()
 
@@ -242,9 +287,14 @@ export async function prepareEmployeeForPayslip(
   const enriched = await enrichPayrollEmployeeFromDb(emp)
   const period = parsePayPeriodFromCompany(company)
   const components = collectComponentAmounts(enriched, structure)
+  const employeeId = String(enriched['Emp ID'] || '').trim()
+
+  if (employeeId) {
+    await purgePriorFiscalYearSnapshots(employeeId, period)
+  }
 
   await saveMonthlyPayrollSnapshot({
-    employeeId: String(enriched['Emp ID'] || ''),
+    employeeId,
     batchId,
     period,
     components,

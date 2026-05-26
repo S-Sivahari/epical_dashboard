@@ -1,6 +1,8 @@
 import { randomUUID } from 'crypto'
 import { getDB } from '../config/db'
-import { normalizeLoginEmail, resolveEmployeeForAuthUser } from '../utils/employeeAuth'
+import type { Company } from './payslipGenerator'
+import { parsePayPeriodFromCompany } from './payrollYtdService'
+
 export interface EmployeePayslipRecord {
   id: string
   employeeId: string
@@ -10,63 +12,24 @@ export interface EmployeePayslipRecord {
   batchId: string
   fileName: string
   payMonth: string
+  /** Normalized period key e.g. 2026-04 — one dashboard entry per employee per period */
+  payPeriodKey?: string
+  /** Take-home pay for the period (matches payslip PDF net pay). */
+  netSalary?: number
   sentAt: Date
 }
 
-let indexesCreated = false;
-
-function payslipsCollection() {
-  const col = getDB().collection<EmployeePayslipRecord>('employee_payslips')
-  // Create indexes on first access for better query performance
-  if (!indexesCreated) {
-    void createIndexes();
-    indexesCreated = true;
-  }
-  return col
+export function resolvePayPeriodKey(payPeriodKey?: string, payMonth?: string): string | null {
+  const key = payPeriodKey?.trim()
+  if (key) return key
+  const label = payMonth?.trim()
+  if (!label) return null
+  const period = parsePayPeriodFromCompany({ 'Pay Month': label } as Company)
+  return `${period.year}-${String(period.month).padStart(2, '0')}`
 }
 
-async function createIndexes(): Promise<void> {
-  try {
-    const collection = getDB().collection('employee_payslips');
-    
-    // Get all existing indexes
-    const indexes = await collection.indexes();
-    
-    // Check if the problematic index exists and drop it if it's not unique
-    const existingIndex = indexes.find(idx => idx.name === 'batchId_1_fileName_1');
-    if (existingIndex && !existingIndex.unique) {
-      try {
-        await collection.dropIndex('batchId_1_fileName_1');
-      } catch (dropError) {
-        console.warn('Could not drop existing index batchId_1_fileName_1:', dropError);
-      }
-    }
-    
-    // Create indexes one by one to handle conflicts gracefully
-    const indexesToCreate = [
-      { spec: { id: 1 }, options: { unique: true, name: 'id_1' } },
-      { spec: { employeeDbId: 1 }, options: { name: 'employeeDbId_1' } },
-      { spec: { employeeEmail: 1 }, options: { name: 'employeeEmail_1' } },
-      { spec: { batchId: 1 }, options: { name: 'batchId_1' } },
-      { spec: { batchId: 1, fileName: 1 }, options: { unique: true, name: 'batchId_1_fileName_1' } },
-      { spec: { sentAt: -1 }, options: { name: 'sentAt_-1' } },
-      { spec: { employeeDbId: 1, sentAt: -1 }, options: { name: 'employeeDbId_1_sentAt_-1' } },
-      { spec: { employeeEmail: 1, sentAt: -1 }, options: { name: 'employeeEmail_1_sentAt_-1' } },
-    ];
-    
-    for (const { spec, options } of indexesToCreate) {
-      try {
-        await collection.createIndex(spec, options);
-      } catch (error: any) {
-        // Ignore if index already exists with same spec
-        if (error.code !== 85 && error.code !== 86) {
-          console.warn(`Failed to create index ${options.name}:`, error.message);
-        }
-      }
-    }
-  } catch (error) {
-    console.error('Failed to create employee_payslips indexes:', error);
-  }
+function payslipsCollection() {
+  return getDB().collection<EmployeePayslipRecord>('employee_payslips')
 }
 
 function getEmployeeCollectionSync() {
@@ -82,7 +45,7 @@ export async function findEmployeeByPayrollEmpId(empId: string) {
       { employeeId: empId.trim() },
       { id: empId.trim() },
     ],
-  }, { projection: { documents: 0, 'photo.data': 0 } })
+  })
 }
 
 export async function sendPayslipToEmployee(params: {
@@ -90,13 +53,15 @@ export async function sendPayslipToEmployee(params: {
   fileName: string
   empId: string
   payMonth?: string
+  payPeriodKey?: string
   employeeDbId?: string
-}): Promise<EmployeePayslipRecord> {
+  netSalary?: number
+}): Promise<{ record: EmployeePayslipRecord; replaced: boolean }> {
   const col = getEmployeeCollectionSync()
   let employee = null
 
   if (params.employeeDbId) {
-    employee = await col.findOne({ id: params.employeeDbId }, { projection: { documents: 0, 'photo.data': 0 } })
+    employee = await col.findOne({ id: params.employeeDbId })
   }
   if (!employee) {
     employee = await findEmployeeByPayrollEmpId(params.empId)
@@ -107,31 +72,76 @@ export async function sendPayslipToEmployee(params: {
     )
   }
 
-  const employeeEmail =
-    String(employee.email || employee.personalEmail || '').toLowerCase() || ''
+  const employeeEmail = String(employee.email || '').toLowerCase()
   if (!employeeEmail) {
     throw new Error('Employee has no email on file — cannot deliver payslip to dashboard')
   }
 
+  const employeeDbId = String(employee.id)
+  const payMonth = params.payMonth || 'Payslip'
+  const periodKey = resolvePayPeriodKey(params.payPeriodKey, payMonth)
+
+  let netSalary = params.netSalary
+  if (netSalary == null) {
+    try {
+      const { resolveNetPayForBatchPayslip } = await import('./payslipNetPayResolver')
+      const resolved = await resolveNetPayForBatchPayslip(params.batchId, params.empId)
+      if (resolved != null) netSalary = resolved
+    } catch {
+      /* optional */
+    }
+  }
+
+  let existing: EmployeePayslipRecord | null = null
+  if (periodKey) {
+    existing = await payslipsCollection().findOne({
+      $or: [
+        { employeeDbId, payPeriodKey: periodKey },
+        { employeeEmail, payPeriodKey: periodKey },
+      ],
+    })
+  } else {
+    existing = await payslipsCollection().findOne({
+      batchId: params.batchId,
+      fileName: params.fileName,
+    })
+  }
+
   const record: EmployeePayslipRecord = {
-    id: randomUUID(),
+    id: existing?.id ?? randomUUID(),
     employeeId: String(employee.employeeId || params.empId),
     employeeEmail,
-    employeeDbId: String(employee.id),
+    employeeDbId,
     employeeName: `${employee.firstName || ''} ${employee.lastName || ''}`.trim(),
     batchId: params.batchId,
     fileName: params.fileName,
-    payMonth: params.payMonth || 'Payslip',
+    payMonth,
+    payPeriodKey: periodKey ?? undefined,
+    netSalary,
     sentAt: new Date(),
   }
 
-  await payslipsCollection().updateOne(
-    { batchId: params.batchId, fileName: params.fileName },
-    { $set: record },
-    { upsert: true }
-  )
+  if (periodKey) {
+    await payslipsCollection().deleteMany({
+      $or: [
+        { employeeDbId, payPeriodKey: periodKey, id: { $ne: record.id } },
+        { employeeEmail, payPeriodKey: periodKey, id: { $ne: record.id } },
+      ],
+    })
+    await payslipsCollection().updateOne(
+      { employeeDbId, payPeriodKey: periodKey },
+      { $set: record },
+      { upsert: true }
+    )
+  } else {
+    await payslipsCollection().updateOne(
+      { batchId: params.batchId, fileName: params.fileName },
+      { $set: record },
+      { upsert: true }
+    )
+  }
 
-  return record
+  return { record, replaced: !!existing }
 }
 
 export async function isPayslipSent(batchId: string, fileName: string): Promise<boolean> {
@@ -150,35 +160,99 @@ export async function listSentFlagsForBatch(
   return flags
 }
 
-export async function getPayslipsForEmployeeEmail(email: string): Promise<EmployeePayslipRecord[]> {
-  const normalized = normalizeLoginEmail(email)
-  return payslipsCollection()
-    .find({ employeeEmail: normalized })
-    .sort({ sentAt: -1 })
-    .toArray()
+function payslipPeriodKey(doc: EmployeePayslipRecord): string {
+  if (doc.payPeriodKey) return doc.payPeriodKey
+  const fromLabel = resolvePayPeriodKey(undefined, doc.payMonth)
+  if (fromLabel) return fromLabel
+  return `${doc.batchId}:${doc.fileName}`
 }
 
-export async function getPayslipsForAuthUser(userId: string, userEmail?: string): Promise<EmployeePayslipRecord[]> {
-  const employee = await resolveEmployeeForAuthUser(userId, userEmail)
-  const emails = employee
-    ? [employee.email, employee.personalEmail].filter(Boolean).map((e) => normalizeLoginEmail(String(e)))
-    : userEmail
-      ? [normalizeLoginEmail(userEmail)]
-      : []
+async function enrichRecordWithNetPay(doc: EmployeePayslipRecord): Promise<EmployeePayslipRecord> {
+  if (doc.netSalary != null && !Number.isNaN(doc.netSalary)) return doc
+  try {
+    const { resolveNetPayForBatchPayslip } = await import('./payslipNetPayResolver')
+    const net = await resolveNetPayForBatchPayslip(doc.batchId, doc.employeeId)
+    if (net == null) return doc
+    return { ...doc, netSalary: net }
+  } catch {
+    return doc
+  }
+}
 
-  const uniqueEmails = [...new Set(emails)]
-  const query =
-    uniqueEmails.length > 0 && employee?.id
-      ? { $or: [{ employeeDbId: employee.id }, { employeeEmail: { $in: uniqueEmails } }] }
-      : employee?.id
-        ? { employeeDbId: employee.id }
-        : uniqueEmails.length > 0
-          ? { employeeEmail: { $in: uniqueEmails } }
-          : null
+export async function getPayslipsForEmployeeEmail(email: string): Promise<EmployeePayslipRecord[]> {
+  const all = await payslipsCollection()
+    .find({ employeeEmail: email.toLowerCase().trim() })
+    .sort({ sentAt: -1 })
+    .toArray()
 
-  if (!query) return []
+  const byPeriod = new Map<string, EmployeePayslipRecord>()
+  for (const doc of all) {
+    const key = payslipPeriodKey(doc)
+    const prev = byPeriod.get(key)
+    if (!prev || new Date(doc.sentAt).getTime() > new Date(prev.sentAt).getTime()) {
+      byPeriod.set(key, doc)
+    }
+  }
 
-  return payslipsCollection().find(query).sort({ sentAt: -1 }).toArray()
+  const deduped = [...byPeriod.values()].sort(
+    (a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime()
+  )
+
+  return Promise.all(deduped.map((doc) => enrichRecordWithNetPay(doc)))
+}
+
+/** Remove duplicate dashboard rows (keeps latest per employee + pay period). */
+export async function dedupeEmployeePayslips(): Promise<number> {
+  const all = await payslipsCollection().find({}).sort({ sentAt: -1 }).toArray()
+  const keepIds = new Set<string>()
+  const seen = new Set<string>()
+
+  for (const doc of all) {
+    const groupKey = `${doc.employeeDbId || doc.employeeEmail}|${payslipPeriodKey(doc)}`
+    if (seen.has(groupKey)) continue
+    seen.add(groupKey)
+    keepIds.add(doc.id)
+  }
+
+  if (keepIds.size === all.length) return 0
+
+  const result = await payslipsCollection().deleteMany({ id: { $nin: [...keepIds] } })
+  return result.deletedCount
+}
+
+export async function ensureEmployeePayslipIndexes(): Promise<number> {
+  const col = payslipsCollection()
+  
+  // Try to create indexes, but if they already exist with different options, skip
+  try {
+    await col.createIndex({ employeeDbId: 1, payPeriodKey: 1 })
+  } catch (err: any) {
+    if (err.code !== 86) throw err // Ignore IndexKeySpecsConflict
+  }
+  
+  try {
+    await col.createIndex({ employeeEmail: 1, payPeriodKey: 1 })
+  } catch (err: any) {
+    if (err.code !== 86) throw err
+  }
+  
+  try {
+    // Match the existing unique index
+    await col.createIndex({ batchId: 1, fileName: 1 }, { unique: true })
+  } catch (err: any) {
+    if (err.code !== 86) throw err
+  }
+  
+  return dedupeEmployeePayslips()
+}
+
+export async function removeSentPayslip(batchId: string, fileName: string): Promise<void> {
+  await payslipsCollection().deleteOne({ batchId, fileName })
+}
+
+/** After batch regenerate — admin must Send again to publish updated PDFs. */
+export async function clearSentPayslipsForBatch(batchId: string): Promise<void> {
+  await payslipsCollection().deleteMany({ batchId })
 }
 
 export async function getPayslipByIdForEmployee(
@@ -187,43 +261,8 @@ export async function getPayslipByIdForEmployee(
 ): Promise<EmployeePayslipRecord | null> {
   return payslipsCollection().findOne({
     id: payslipId,
-    employeeEmail: normalizeLoginEmail(email),
+    employeeEmail: email.toLowerCase().trim(),
   })
-}
-
-export async function getPayslipByIdForAuthUser(
-  payslipId: string,
-  userId: string,
-  userEmail?: string,
-): Promise<EmployeePayslipRecord | null> {
-  const employee = await resolveEmployeeForAuthUser(userId, userEmail)
-  const emails = employee
-    ? [employee.email, employee.personalEmail].filter(Boolean).map((e) => normalizeLoginEmail(String(e)))
-    : userEmail
-      ? [normalizeLoginEmail(userEmail)]
-      : []
-
-  const uniqueEmails = [...new Set(emails)]
-  const query: Record<string, unknown> = { id: payslipId }
-  if (employee?.id && uniqueEmails.length > 0) {
-    return payslipsCollection().findOne({
-      id: payslipId,
-      $or: [{ employeeDbId: employee.id }, { employeeEmail: { $in: uniqueEmails } }],
-    })
-  }
-  if (employee?.id) {
-    query.employeeDbId = employee.id
-  } else if (uniqueEmails.length > 0) {
-    query.employeeEmail = { $in: uniqueEmails }
-  } else {
-    return null
-  }
-
-  return payslipsCollection().findOne(query as any)
-}
-
-export async function removeSentPayslip(batchId: string, fileName: string): Promise<void> {
-  await payslipsCollection().deleteOne({ batchId, fileName })
 }
 
 export async function getAllSentPayslips(limit = 100): Promise<EmployeePayslipRecord[]> {

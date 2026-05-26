@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Download,
   FileSpreadsheet,
@@ -25,6 +25,7 @@ import { DataTable, type Column } from '@components/tables/DataTable'
 import { Modal } from '@components/ui/Modal'
 import { useEmployees } from '@hooks/useEmployees'
 import { Avatar } from '@components/ui/Avatar'
+import { SelectField } from '@components/forms/SelectField'
 import { stringToHueColor } from '@/utils/stringColor'
 import { toast } from 'sonner'
 import {
@@ -41,11 +42,6 @@ import {
   deletePayrollBatch,
   deletePayslip,
   getTemplateMeta,
-  uploadCustomTemplate,
-  previewTemplate,
-  getCompanyLogoMeta,
-  getCompanyLogoPreviewUrl,
-  uploadCompanyLogo,
   type PayrollBatch,
   type PayslipResult,
   type TemplateMeta,
@@ -66,6 +62,81 @@ interface PayslipRow {
 
 type TabId = 'upload' | 'history'
 
+const CALENDAR_MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const
+
+const MONTH_NAME_TO_NUM: Record<string, number> = {
+  january: 1,
+  february: 2,
+  march: 3,
+  april: 4,
+  may: 5,
+  june: 6,
+  july: 7,
+  august: 8,
+  september: 9,
+  october: 10,
+  november: 11,
+  december: 12,
+  jan: 1,
+  feb: 2,
+  mar: 3,
+  apr: 4,
+  jun: 6,
+  jul: 7,
+  aug: 8,
+  sep: 9,
+  oct: 10,
+  nov: 11,
+  dec: 12,
+}
+
+function parseBatchPayPeriod(batch: PayrollBatch): { year: number; month: number } | null {
+  if (batch.payYear != null && batch.payMonthNum != null) {
+    return { year: batch.payYear, month: batch.payMonthNum }
+  }
+  const key = batch.payPeriodKey?.match(/^(\d{4})-(\d{2})$/)
+  if (key) {
+    return { year: parseInt(key[1], 10), month: parseInt(key[2], 10) }
+  }
+  const label = (batch.payMonth ?? '').trim().toLowerCase()
+  if (!label) return null
+  const yearMatch = label.match(/\b(20\d{2})\b/)
+  if (!yearMatch) return null
+  const year = parseInt(yearMatch[1], 10)
+  const monthEntries = Object.entries(MONTH_NAME_TO_NUM).sort((a, b) => b[0].length - a[0].length)
+  for (const [name, num] of monthEntries) {
+    if (new RegExp(`\\b${name}\\b`, 'i').test(label)) {
+      return { year, month: num }
+    }
+  }
+  const numeric = label.match(/\b(0?[1-9]|1[0-2])\D{0,4}(20\d{2})\b/)
+  if (numeric) {
+    return { year: parseInt(numeric[2], 10), month: parseInt(numeric[1], 10) }
+  }
+  return null
+}
+
+function batchMatchesPeriod(
+  batch: PayrollBatch,
+  year: number,
+  month: number
+): boolean {
+  const period = parseBatchPayPeriod(batch)
+  return period?.year === year && period?.month === month
+}
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
@@ -88,15 +159,13 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false)
   const [payslipDeleteTarget, setPayslipDeleteTarget] = useState<{ fileName: string; name: string } | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [replaceConfirm, setReplaceConfirm] = useState<{
+    payMonth: string
+    existingBatchId: string
+    originalFileName?: string
+  } | null>(null)
 
-  // Template header actions
-  const templateFileRef = useRef<HTMLInputElement>(null)
-  const logoFileRef = useRef<HTMLInputElement>(null)
   const [templateMeta, setTemplateMeta] = useState<TemplateMeta | null>(null)
-  const [uploadingTemplate, setUploadingTemplate] = useState(false)
-  const [hasCompanyLogo, setHasCompanyLogo] = useState(false)
-  const [logoPreviewKey, setLogoPreviewKey] = useState(0)
-  const [uploadingLogo, setUploadingLogo] = useState(false)
 
   // PDF Preview modal
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -107,7 +176,8 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
   const [allBatches, setAllBatches] = useState<PayrollBatch[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null)
-  const [monthFilter, setMonthFilter] = useState('')
+  const [historyYear, setHistoryYear] = useState('')
+  const [historyMonth, setHistoryMonth] = useState('')
 
 
   // ── Loaders ────────────────────────────────────────────────────────────────
@@ -136,21 +206,10 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
     }
   }, [])
 
-  const loadCompanyLogoMeta = useCallback(async () => {
-    try {
-      const meta = await getCompanyLogoMeta()
-      setHasCompanyLogo(meta.hasLogo)
-      if (meta.hasLogo) setLogoPreviewKey(Date.now())
-    } catch {
-      setHasCompanyLogo(false)
-    }
-  }, [])
-
   useEffect(() => {
     void loadLatestBatch()
     void loadTemplateMeta()
-    void loadCompanyLogoMeta()
-  }, [loadLatestBatch, loadCompanyLogoMeta])
+  }, [loadLatestBatch])
 
   useEffect(() => {
     if (activeTab === 'history') {
@@ -158,35 +217,54 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
     }
   }, [activeTab, loadAllBatches])
 
+  useEffect(() => {
+    setExpandedBatchId(null)
+  }, [historyYear, historyMonth])
+
+  const historyYearOptions = useMemo(() => {
+    const years = new Set<number>()
+    for (const b of allBatches) {
+      const period = parseBatchPayPeriod(b)
+      if (period) years.add(period.year)
+    }
+    return [
+      { value: '', label: 'Select year' },
+      ...[...years].sort((a, b) => b - a).map((y) => ({
+        value: String(y),
+        label: String(y),
+      })),
+    ]
+  }, [allBatches])
+
+  const historyMonthOptions = useMemo(() => {
+    const year = parseInt(historyYear, 10)
+    if (!historyYear || Number.isNaN(year)) {
+      return [{ value: '', label: 'Select month' }]
+    }
+    const months = new Set<number>()
+    for (const b of allBatches) {
+      const period = parseBatchPayPeriod(b)
+      if (period?.year === year) months.add(period.month)
+    }
+    return [
+      { value: '', label: 'Select month' },
+      ...[...months]
+        .sort((a, b) => a - b)
+        .map((m) => ({
+          value: String(m),
+          label: CALENDAR_MONTHS[m - 1] ?? String(m),
+        })),
+    ]
+  }, [allBatches, historyYear])
+
+  const historyPeriodSelected = Boolean(historyYear && historyMonth)
+
   const loadTemplateMeta = async () => {
     try {
       const meta = await getTemplateMeta()
       setTemplateMeta(meta)
     } catch {
       toast.error('Failed to load template info')
-    }
-  }
-
-  const handleTemplateFileSelect = async (files: FileList | null) => {
-    const file = files?.[0]
-    if (!file) return
-    const ext = file.name.toLowerCase()
-    if (!ext.endsWith('.xlsx') && !ext.endsWith('.xls')) {
-      toast.error('Please select an Excel file (.xlsx or .xls)')
-      return
-    }
-    setUploadingTemplate(true)
-    try {
-      const meta = await uploadCustomTemplate(file)
-      setTemplateMeta(meta)
-    } catch (error: unknown) {
-      const message =
-        (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-        'Failed to upload template'
-      toast.error(message)
-    } finally {
-      setUploadingTemplate(false)
-      if (templateFileRef.current) templateFileRef.current.value = ''
     }
   }
 
@@ -245,36 +323,6 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
     }
   }
 
-  const handlePreviewTemplate = async () => {
-    try {
-      await previewTemplate(templateMeta?.name)
-    } catch {
-      toast.error('Failed to preview template')
-    }
-  }
-
-  const handleLogoFileSelect = async (files: FileList | null) => {
-    const file = files?.[0]
-    if (!file) return
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please upload a PNG or JPG image')
-      return
-    }
-    setUploadingLogo(true)
-    try {
-      await uploadCompanyLogo(file)
-      setHasCompanyLogo(true)
-      setLogoPreviewKey(Date.now())
-      toast.success('Company logo saved — new payslips will include it')
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to upload logo'
-      toast.error(message)
-    } finally {
-      setUploadingLogo(false)
-      if (logoFileRef.current) logoFileRef.current.value = ''
-    }
-  }
-
   const handleFileSelect = (files: FileList | null) => {
     const file = files?.[0]
     if (!file) return
@@ -286,31 +334,72 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
     setSelectedFile(file)
   }
 
+  const runPayrollUpload = async (
+    file: File,
+    options?: { replaceBatchId?: string; resendPayslips?: boolean }
+  ) => {
+    setUploading(true)
+    try {
+      const result = await uploadPayroll(file, {
+        replaceBatchId: options?.replaceBatchId,
+        resendPayslips: options?.resendPayslips,
+        employeeDbIdByEmpId: options?.resendPayslips ? buildEmployeeDbIdMap() : undefined,
+      })
+      const newBatch = result.batch
+      setBatch(newBatch)
+      setSelectedFile(null)
+      setReplaceConfirm(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+
+      if (result.replaced) {
+        toast.success(
+          result.resentCount && result.resentCount > 0
+            ? `Payslips for ${newBatch.payMonth} updated — ${result.resentCount} employee(s) notified (regenerated)`
+            : `Payslips for ${newBatch.payMonth} updated with the new payroll file`
+        )
+      } else {
+        toast.success(
+          `${newBatch.totalGenerated} payslip PDF(s) generated from ${newBatch.employeeCount} employee(s)`
+        )
+      }
+      if (newBatch.totalFailed > 0) {
+        toast.warning(`${newBatch.totalFailed} payslip(s) failed to generate`)
+      }
+      if (activeTab === 'history') {
+        void loadAllBatches()
+      }
+    } catch (error: unknown) {
+      const dup = (error as Error & { duplicatePayPeriod?: { payMonth?: string; existingBatch: PayrollBatch } })
+        .duplicatePayPeriod
+      if (dup?.existingBatch) {
+        setReplaceConfirm({
+          payMonth: dup.payMonth || dup.existingBatch.payMonth || 'this period',
+          existingBatchId: dup.existingBatch.id,
+          originalFileName: dup.existingBatch.originalFileName,
+        })
+        return
+      }
+      const message = error instanceof Error ? error.message : 'Failed to process payroll file'
+      toast.error(message)
+    } finally {
+      setUploading(false)
+    }
+  }
+
   const handleUploadAndProcess = async () => {
     if (!selectedFile) {
       toast.error('Choose an Excel file to upload')
       return
     }
-    setUploading(true)
-    try {
-      const newBatch = await uploadPayroll(selectedFile)
-      setBatch(newBatch)
-      setSelectedFile(null)
-      if (fileInputRef.current) fileInputRef.current.value = ''
-      toast.success(
-        `${newBatch.totalGenerated} payslip PDF(s) generated from ${newBatch.employeeCount} employee(s)`
-      )
-      if (newBatch.totalFailed > 0) {
-        toast.warning(`${newBatch.totalFailed} payslip(s) failed to generate`)
-      }
-    } catch (error: unknown) {
-      const message =
-        (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-        'Failed to process payroll file'
-      toast.error(message)
-    } finally {
-      setUploading(false)
-    }
+    await runPayrollUpload(selectedFile)
+  }
+
+  const handleConfirmReplace = async () => {
+    if (!selectedFile || !replaceConfirm) return
+    await runPayrollUpload(selectedFile, {
+      replaceBatchId: replaceConfirm.existingBatchId,
+      resendPayslips: false,
+    })
   }
 
   const handleDeleteBatch = async () => {
@@ -557,81 +646,28 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
 
   // ── History batch list ─────────────────────────────────────────────────────
 
-  const filteredBatches = monthFilter
-    ? allBatches.filter((b) =>
-        (b.payMonth || '').toLowerCase().includes(monthFilter.toLowerCase()) ||
-        new Date(b.uploadedAt).toLocaleString('default', { month: 'long', year: 'numeric' })
-          .toLowerCase().includes(monthFilter.toLowerCase())
-      )
-    : allBatches
+  const filteredBatches = useMemo(() => {
+    if (!historyPeriodSelected) return []
+    const year = parseInt(historyYear, 10)
+    const month = parseInt(historyMonth, 10)
+    if (Number.isNaN(year) || Number.isNaN(month)) return []
+    return allBatches.filter((b) => batchMatchesPeriod(b, year, month))
+  }, [allBatches, historyYear, historyMonth, historyPeriodSelected])
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
-  const content = (
-    <>
-      {!embedded && (
-        <PageHeader
-          title="Payslip Management"
-          breadcrumb={<Breadcrumb items={[{ label: 'Payslips' }]} />}
-          actions={
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                ref={logoFileRef}
-                type="file"
-                accept="image/png,image/jpeg,image/jpg,image/webp"
-                className="hidden"
-                onChange={(e) => void handleLogoFileSelect(e.target.files)}
-              />
-              <input
-                ref={templateFileRef}
-                type="file"
-                accept=".xlsx,.xls"
-                className="hidden"
-                onChange={(e) => void handleTemplateFileSelect(e.target.files)}
-              />
-              {hasCompanyLogo && (
-                <img
-                  src={getCompanyLogoPreviewUrl(logoPreviewKey)}
-                  alt="Company logo"
-                  className="h-10 w-auto max-w-[120px] rounded border border-border bg-white object-contain px-1"
-                />
-              )}
-              <Button
-                variant="secondary"
-                disabled={uploadingLogo}
-                onClick={() => logoFileRef.current?.click()}
-              >
-                {uploadingLogo ? (
-                  <Loader className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Upload className="h-4 w-4" />
-                )}
-                {hasCompanyLogo ? 'Change Logo' : 'Upload Logo'}
-              </Button>
-              <Button
-                variant="secondary"
-                disabled={uploadingTemplate}
-                onClick={() => templateFileRef.current?.click()}
-              >
-                {uploadingTemplate ? (
-                  <Loader className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Upload className="h-4 w-4" />
-                )}
-                Upload New Template
-              </Button>
-              <Button variant="secondary" onClick={() => void handlePreviewTemplate()}>
-                <Eye className="h-4 w-4" />
-                Preview
-              </Button>
-              <Button variant="secondary" onClick={() => void handleDownloadTemplate()}>
-                <FileSpreadsheet className="h-4 w-4" />
-                Download Template
-              </Button>
-            </div>
-          }
-        />
-      )}
+  return (
+    <PageWrapper>
+      <PageHeader
+        title="Payslip Management"
+        breadcrumb={<Breadcrumb items={[{ label: 'Payslips' }]} />}
+        actions={
+          <Button variant="secondary" onClick={() => void handleDownloadTemplate()}>
+            <FileSpreadsheet className="h-4 w-4" />
+            Download Template
+          </Button>
+        }
+      />
 
       {/* Tab Bar */}
       <div className="mb-5 flex gap-1 rounded-xl border border-border bg-surface/60 p-1 w-fit">
@@ -810,17 +846,37 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
       {activeTab === 'history' && (
         <div className="space-y-5">
           <div className="space-y-4">
-              {/* Month filter */}
-              <div className="flex items-center gap-3">
-                <input
-                  type="text"
-                  value={monthFilter}
-                  onChange={(e) => setMonthFilter(e.target.value)}
-                  placeholder="Filter by month (e.g. January 2026)"
-                  className="h-9 w-72 rounded-lg border border-border px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-                />
-                {monthFilter && (
-                  <Button variant="ghost" size="sm" onClick={() => setMonthFilter('')}>
+              <div className="flex flex-nowrap items-end gap-3">
+                <div className="w-36 shrink-0">
+                  <SelectField
+                    label="Year"
+                    value={historyYear}
+                    onChange={(e) => {
+                      setHistoryYear(e.target.value)
+                      setHistoryMonth('')
+                    }}
+                    options={historyYearOptions}
+                  />
+                </div>
+                <div className="w-44 shrink-0">
+                  <SelectField
+                    label="Month"
+                    value={historyMonth}
+                    onChange={(e) => setHistoryMonth(e.target.value)}
+                    disabled={!historyYear}
+                    options={historyMonthOptions}
+                  />
+                </div>
+                {historyPeriodSelected && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mb-0.5 shrink-0"
+                    onClick={() => {
+                      setHistoryYear('')
+                      setHistoryMonth('')
+                    }}
+                  >
                     <X className="h-4 w-4 mr-1" /> Clear
                   </Button>
                 )}
@@ -830,9 +886,16 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
                 <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border">
                   <Loader className="h-5 w-5 animate-spin text-muted" />
                 </div>
+              ) : !historyPeriodSelected ? (
+                <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border">
+                  <p className="text-sm text-muted">Select a year and month to view payroll history.</p>
+                </div>
               ) : filteredBatches.length === 0 ? (
                 <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border">
-                  <p className="text-sm text-muted">No payroll batches found.</p>
+                  <p className="text-sm text-muted">
+                    No payroll upload for{' '}
+                    {CALENDAR_MONTHS[parseInt(historyMonth, 10) - 1] ?? historyMonth} {historyYear}.
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -1048,7 +1111,20 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
         onClose={() => setPayslipDeleteTarget(null)}
         onConfirm={handleDeletePayslip}
       />
-    </>
+
+      <ConfirmModal
+        isOpen={!!replaceConfirm}
+        title="Payslip already exists for this month"
+        description={
+          replaceConfirm
+            ? `Payroll for ${replaceConfirm.payMonth} was already uploaded${replaceConfirm.originalFileName ? ` (${replaceConfirm.originalFileName})` : ''}. Replace it with this file? Payslips will be regenerated and Send will be available again to publish updates to employee dashboards.`
+            : ''
+        }
+        confirmLabel="Replace & regenerate"
+        onClose={() => setReplaceConfirm(null)}
+        onConfirm={handleConfirmReplace}
+      />
+    </PageWrapper>
   )
 
   if (embedded) return content

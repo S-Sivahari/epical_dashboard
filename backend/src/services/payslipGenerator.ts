@@ -745,6 +745,30 @@ export function buildDeductionsData(
   return { deductions, totalDed }
 }
 
+/** Net pay (take-home) — same formula as payslip PDF: gross − deductions including LOP. */
+export function computeNetPay(
+  emp: Employee,
+  structure: SalaryStructure,
+  company: Company
+): number {
+  const { gross } = buildEarningsData(emp, structure)
+  const { deductions } = buildDeductionsData(emp, structure)
+  const lopDays = parseAmount(emp['LOP Days'])
+  const workingDays = parseAmount(company['Working Days']) || 26
+  const paidDays = parseAmount(emp['Paid Days']) || workingDays - lopDays
+  const lopAmount =
+    parseAmount(emp['Loss of Pay']) ||
+    (lopDays > 0 && gross > 0 && paidDays > 0
+      ? Math.round((gross / paidDays) * lopDays * 100) / 100
+      : parseAmount(structure['Loss of Pay']?.default))
+  const allDeductions = deductions.filter((d) => d.name !== 'Loss of Pay')
+  if (lopAmount > 0 || lopDays > 0) {
+    allDeductions.push({ name: 'Loss of Pay', amount: lopAmount })
+  }
+  const totalDedWithLop = allDeductions.reduce((s, d) => s + d.amount, 0)
+  return Math.round((gross - totalDedWithLop) * 100) / 100
+}
+
 function createEarningsDeductionsTable(
   earnings: EarningItem[],
   gross: number,

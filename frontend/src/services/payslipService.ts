@@ -32,6 +32,10 @@ export interface PayrollBatch {
   originalFileName: string
   uploadedAt: string
   payMonth?: string
+  /** Normalized period e.g. 2026-04 */
+  payPeriodKey?: string
+  payYear?: number
+  payMonthNum?: number
   templateId?: TemplateId
   employeeCount: number
   totalGenerated: number
@@ -92,15 +96,63 @@ export async function downloadPayrollTemplate(filename?: string): Promise<void> 
   window.URL.revokeObjectURL(url)
 }
 
-export async function uploadPayroll(file: File, templateId: TemplateId = 'classic'): Promise<PayrollBatch> {
+export interface DuplicatePayPeriodError {
+  code: 'DUPLICATE_PAY_PERIOD'
+  error: string
+  payMonth?: string
+  existingBatch: PayrollBatch
+}
+
+export interface UploadPayrollOptions {
+  templateId?: TemplateId
+  replaceBatchId?: string
+  resendPayslips?: boolean
+  employeeDbIdByEmpId?: Record<string, string>
+}
+
+export interface UploadPayrollResult {
+  batch: PayrollBatch
+  replaced?: boolean
+  resentCount?: number
+}
+
+export async function uploadPayroll(
+  file: File,
+  options: UploadPayrollOptions = {}
+): Promise<UploadPayrollResult> {
   const formData = new FormData()
   formData.append('payroll', file)
-  formData.append('templateId', templateId)
-  const response = await api.post<{ batch: PayrollBatch }>(`${base}/upload`, formData, {
+  formData.append('templateId', options.templateId ?? 'classic')
+  if (options.replaceBatchId) {
+    formData.append('replaceBatchId', options.replaceBatchId)
+  }
+  if (options.resendPayslips) {
+    formData.append('resendPayslips', 'true')
+  }
+  if (options.employeeDbIdByEmpId && Object.keys(options.employeeDbIdByEmpId).length > 0) {
+    formData.append('employeeDbIdByEmpId', JSON.stringify(options.employeeDbIdByEmpId))
+  }
+  const response = await api.post<UploadPayrollResult>(`${base}/upload`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 120000,
+    validateStatus: () => true,
   })
-  return response.data.batch
+  if (response.status === 409 && response.data) {
+    const body = response.data as unknown as DuplicatePayPeriodError
+    if (body.code === 'DUPLICATE_PAY_PERIOD') {
+      const err = new Error(body.error || 'Pay period already exists') as Error & {
+        duplicatePayPeriod?: DuplicatePayPeriodError
+      }
+      err.duplicatePayPeriod = body
+      throw err
+    }
+  }
+  if (response.status >= 400) {
+    const message =
+      (response.data as { error?: string })?.error || 'Failed to process payroll file'
+    throw new Error(message)
+  }
+  return response.data
 }
 
 export async function getLatestPayrollBatch(): Promise<PayrollBatch | null> {
@@ -217,23 +269,27 @@ export async function getMyPayslips(): Promise<EmployeeDashboardPayslip[]> {
   return response.data
 }
 
-export async function openMyPayslipPdf(payslipId: string): Promise<void> {
-  const blob = await fetchPdfBlob(`${base}/my-payslips/${payslipId}/download`)
-  const url = window.URL.createObjectURL(blob)
-  window.open(url, '_blank', 'noopener,noreferrer')
+function myPayslipDownloadUrl(payslipId: string): string {
+  return `${base}/my-payslips/${encodeURIComponent(payslipId)}/download`
 }
 
+/** Blob object URL for in-app preview (caller should revoke when done). */
 export async function fetchMyPayslipPdfUrl(payslipId: string): Promise<string> {
-  const blob = await fetchPdfBlob(`${base}/my-payslips/${payslipId}/download`)
+  const blob = await fetchPdfBlob(myPayslipDownloadUrl(payslipId))
   return window.URL.createObjectURL(blob)
 }
 
-export async function downloadMyPayslipPdf(payslipId: string, downloadName?: string): Promise<void> {
-  const blob = await fetchPdfBlob(`${base}/my-payslips/${payslipId}/download`)
+export async function openMyPayslipPdf(payslipId: string): Promise<void> {
+  const url = await fetchMyPayslipPdfUrl(payslipId)
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+export async function downloadMyPayslipPdf(payslipId: string, downloadName: string): Promise<void> {
+  const blob = await fetchPdfBlob(myPayslipDownloadUrl(payslipId))
   const url = window.URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.setAttribute('download', downloadName || `payslip-${payslipId}.pdf`)
+  link.setAttribute('download', downloadName)
   document.body.appendChild(link)
   link.click()
   link.remove()

@@ -126,7 +126,7 @@ function enrichPayslip(payslip) {
     yearValue: period.yearValue,
     paymentDateLabel: formatDate(payslip.sentAt),
     status,
-    netSalaryLabel: netFormatted ?? 'See payslip',
+    netSalaryLabel: netFormatted ?? '—',
   }
 }
 
