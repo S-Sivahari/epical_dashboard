@@ -3,16 +3,14 @@ import { toast } from 'sonner'
 import { Badge } from '@components/ui/Badge'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
-import { Modal } from '@components/ui/Modal'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { DataTable, type Column } from '@components/tables/DataTable'
 import { useEmployees } from '@hooks/useEmployees'
-import { Search, Trash2, Edit2, XCircle, ChevronDown, History, Plus } from 'lucide-react'
+import { Search, Trash2, Edit2, ChevronDown, Plus } from 'lucide-react'
 import {
   listCompensation,
   createCompensation,
   updateCompensation,
-  cancelCompensation,
   deleteCompensation,
   type CompensationEntry,
 } from '@services/compensationService'
@@ -28,17 +26,16 @@ export function CompensationManagement({
     reason: string
     appliedDate: string
     createdBy: string
-    status: string
   }>) => void
   onSearchChange?: (term: string) => void
 } = {}) {
   const { employees } = useEmployees()
+  const POLL_MS = 30000
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [compensationData, setCompensationData] = useState<CompensationEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [view, setView] = useState<'active' | 'history'>('active')
 
   // Form (always visible, no toggle button)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -52,12 +49,6 @@ export function CompensationManagement({
   const [empSearch, setEmpSearch] = useState('')
   const empDropRef = useRef<HTMLDivElement>(null)
 
-  // Cancel modal
-  const [cancelModalOpen, setCancelModalOpen] = useState(false)
-  const [entryToCancel, setEntryToCancel] = useState<CompensationEntry | null>(null)
-  const [cancelReason, setCancelReason] = useState('')
-  const [cancelling, setCancelling] = useState(false)
-
   // Delete confirm
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [entryToDelete, setEntryToDelete] = useState<CompensationEntry | null>(null)
@@ -66,17 +57,21 @@ export function CompensationManagement({
   // ── Load data ──────────────────────────────────────────────────────────────
   useEffect(() => {
     void loadData()
+    const interval = setInterval(() => {
+      void loadData(true)
+    }, POLL_MS)
+    return () => clearInterval(interval)
   }, [])
 
-  const loadData = async () => {
-    setLoading(true)
+  const loadData = async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const data = await listCompensation()
       setCompensationData(data)
     } catch {
-      toast.error('Failed to load compensation entries')
+      if (!silent) toast.error('Failed to load compensation entries')
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
 
@@ -93,15 +88,12 @@ export function CompensationManagement({
 
   // ── Export callback ────────────────────────────────────────────────────────
   const filteredData = useMemo(() => {
-    const source = view === 'active'
-      ? compensationData.filter((e) => e.status === 'Active')
-      : compensationData.filter((e) => e.status === 'Cancelled')
-    return source.filter(
+    return compensationData.filter(
       (item) =>
         item.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.employeeId.toLowerCase().includes(searchTerm.toLowerCase()),
     )
-  }, [compensationData, searchTerm, view])
+  }, [compensationData, searchTerm])
 
   useEffect(() => {
     onExportDataChange?.(
@@ -112,7 +104,6 @@ export function CompensationManagement({
         reason: item.reason,
         appliedDate: new Date(item.appliedDate).toLocaleDateString(),
         createdBy: item.createdBy,
-        status: item.status,
       })),
     )
   }, [filteredData, onExportDataChange])
@@ -217,33 +208,6 @@ export function CompensationManagement({
     setSelectedEmployees(emp ? [emp.id] : [])
     setDays(String(entry.days))
     setReason(entry.reason)
-    setView('active')
-  }
-
-  // ── Cancel ─────────────────────────────────────────────────────────────────
-  const openCancelModal = (entry: CompensationEntry) => {
-    setEntryToCancel(entry)
-    setCancelReason('')
-    setCancelModalOpen(true)
-  }
-
-  const handleConfirmCancel = async () => {
-    if (!entryToCancel) return
-    setCancelling(true)
-    try {
-      const updated = await cancelCompensation(entryToCancel.id, cancelReason)
-      setCompensationData((prev) =>
-        prev.map((item) => (item.id === updated.id ? updated : item)),
-      )
-      toast.success(`Compensation for ${entryToCancel.employeeName} cancelled`)
-      setCancelModalOpen(false)
-      setEntryToCancel(null)
-      setCancelReason('')
-    } catch {
-      toast.error('Failed to cancel compensation')
-    } finally {
-      setCancelling(false)
-    }
   }
 
   // ── Delete ─────────────────────────────────────────────────────────────────
@@ -269,7 +233,7 @@ export function CompensationManagement({
   }
 
   // ── Table columns ──────────────────────────────────────────────────────────
-  const activeColumns: Column<CompensationEntry>[] = [
+  const columns: Column<CompensationEntry>[] = [
     {
       key: 'employeeName',
       header: 'Employee',
@@ -322,14 +286,6 @@ export function CompensationManagement({
           </Button>
           <Button
             size="sm"
-            variant="warning"
-            onClick={() => openCancelModal(item)}
-            title="Cancel compensation"
-          >
-            <XCircle className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            size="sm"
             variant="danger"
             onClick={() => openDeleteConfirm(item)}
             title="Delete"
@@ -340,78 +296,6 @@ export function CompensationManagement({
       ),
     },
   ]
-
-  const historyColumns: Column<CompensationEntry>[] = [
-    {
-      key: 'employeeName',
-      header: 'Employee',
-      render: (item) => (
-        <div>
-          <span className="font-medium text-ink block">{item.employeeName}</span>
-          <span className="text-xs text-muted">{item.employeeId}</span>
-        </div>
-      ),
-    },
-    {
-      key: 'days',
-      header: 'Days',
-      render: (item) => (
-        <Badge variant="neutral" className="font-semibold line-through opacity-60">
-          {item.days} {item.days === 1 ? 'day' : 'days'}
-        </Badge>
-      ),
-    },
-    {
-      key: 'reason',
-      header: 'Original Reason',
-      render: (item) => <span className="text-sm text-muted">{item.reason}</span>,
-    },
-    {
-      key: 'cancelReason',
-      header: 'Cancellation Reason',
-      render: (item) => (
-        <span className="text-sm text-muted">{item.cancelReason || '—'}</span>
-      ),
-    },
-    {
-      key: 'cancelledAt',
-      header: 'Cancelled On',
-      render: (item) =>
-        item.cancelledAt ? (
-          <span className="text-sm text-muted">
-            {new Date(item.cancelledAt).toLocaleDateString('en-IN', {
-              day: '2-digit',
-              month: 'short',
-              year: 'numeric',
-            })}
-          </span>
-        ) : (
-          <span className="text-muted">—</span>
-        ),
-    },
-    {
-      key: 'cancelledBy',
-      header: 'Cancelled By',
-      render: (item) => <span className="text-xs text-muted">{item.cancelledBy || '—'}</span>,
-    },
-    {
-      key: 'id',
-      header: 'Actions',
-      render: (item) => (
-        <Button
-          size="sm"
-          variant="danger"
-          onClick={() => openDeleteConfirm(item)}
-          title="Delete record"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
-      ),
-    },
-  ]
-
-  const activeEntries = compensationData.filter((e) => e.status === 'Active')
-  const cancelledEntries = compensationData.filter((e) => e.status === 'Cancelled')
 
   return (
     <div className="space-y-6">
@@ -595,45 +479,9 @@ export function CompensationManagement({
         </div>
       </div>
 
-      {/* ── View toggle + Search ───────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        {/* View tabs */}
-        <div className="flex gap-1 rounded-xl border border-border bg-surface/60 p-1 w-fit">
-          <button
-            onClick={() => setView('active')}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
-              view === 'active'
-                ? 'bg-white text-primary shadow-sm'
-                : 'text-muted hover:text-ink'
-            }`}
-          >
-            Active
-            {activeEntries.length > 0 && (
-              <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-primary/10 text-primary text-[10px] font-bold">
-                {activeEntries.length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setView('history')}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
-              view === 'history'
-                ? 'bg-white text-primary shadow-sm'
-                : 'text-muted hover:text-ink'
-            }`}
-          >
-            <History className="h-3.5 w-3.5" />
-            History
-            {cancelledEntries.length > 0 && (
-              <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-muted/20 text-muted text-[10px] font-bold">
-                {cancelledEntries.length}
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* Search */}
-        <div className="relative w-64">
+      {/* ── Search ─────────────────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3">
+        <div className="relative w-full sm:w-64">
           <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
           <Input
             placeholder="Search by name or ID…"
@@ -650,69 +498,12 @@ export function CompensationManagement({
       {/* ── Table ─────────────────────────────────────────────────────────── */}
       <div className="rounded-xl border border-border bg-white shadow-sm overflow-hidden">
         <DataTable
-          columns={view === 'active' ? activeColumns : historyColumns}
+          columns={columns}
           data={filteredData}
           loading={loading}
-          empty={
-            view === 'active'
-              ? 'No active compensation entries. Add one above.'
-              : 'No cancelled compensation entries.'
-          }
+          empty="No compensation entries. Add one above."
         />
       </div>
-
-      {/* ── Cancel Modal ──────────────────────────────────────────────────── */}
-      <Modal
-        isOpen={cancelModalOpen}
-        title="Cancel Compensation"
-        onClose={() => {
-          setCancelModalOpen(false)
-          setEntryToCancel(null)
-          setCancelReason('')
-        }}
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-muted">
-            You are cancelling the <strong>{entryToCancel?.days}-day</strong> compensation for{' '}
-            <strong className="text-ink">{entryToCancel?.employeeName}</strong>. The entry will be
-            moved to history and will not count towards their leave balance.
-          </p>
-          <div>
-            <label className="block text-sm font-medium text-ink mb-2">
-              Reason for Cancellation (Optional)
-            </label>
-            <textarea
-              placeholder="e.g. Employee did not work the overtime..."
-              value={cancelReason}
-              onChange={(e) => setCancelReason(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
-              rows={3}
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                setCancelModalOpen(false)
-                setEntryToCancel(null)
-                setCancelReason('')
-              }}
-              disabled={cancelling}
-            >
-              Keep Entry
-            </Button>
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={handleConfirmCancel}
-              disabled={cancelling}
-            >
-              {cancelling ? 'Cancelling…' : 'Cancel Compensation'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
 
       {/* ── Delete Confirm ────────────────────────────────────────────────── */}
       <ConfirmModal

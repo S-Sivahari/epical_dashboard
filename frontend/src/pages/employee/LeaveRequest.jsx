@@ -17,6 +17,7 @@ import { useToast } from '@components/employee/shared/ToastProvider'
 import { useAuthStore } from '@store/authStore'
 
 import * as leaveService from '@services/leaveService'
+import { listCompensation } from '@services/compensationService'
 
 const leaveSchema = z
   .object({
@@ -61,6 +62,33 @@ export default function LeaveRequest() {
 
   const [leaveBalances, setLeaveBalances] = useState([])
   const [holidays, setHolidays] = useState([])
+  const [compensationEntries, setCompensationEntries] = useState([])
+  const [compensationLoading, setCompensationLoading] = useState(true)
+
+  const formatCompensationDate = (value) => {
+    if (!value) return '—'
+    try {
+      return new Date(value).toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      })
+    } catch {
+      return String(value)
+    }
+  }
+
+  const loadCompensation = async (silent = false) => {
+    if (!silent) setCompensationLoading(true)
+    try {
+      const data = await listCompensation()
+      setCompensationEntries(data)
+    } catch {
+      if (!silent) console.error('Failed to load compensation entries')
+    } finally {
+      if (!silent) setCompensationLoading(false)
+    }
+  }
 
   const { control, register, handleSubmit, setValue, watch, reset, setError, clearErrors, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(leaveSchema),
@@ -172,6 +200,8 @@ export default function LeaveRequest() {
       setHolidays(formatted)
     }).catch(console.error)
 
+    void loadCompensation()
+
     // Poll for updates every 5 seconds WITHOUT loading indicator
     const leaveInterval = setInterval(() => {
       fetchRequests()
@@ -188,9 +218,14 @@ export default function LeaveRequest() {
       }).catch(console.error)
     }, 5000)
 
+    const compensationInterval = setInterval(() => {
+      void loadCompensation(true)
+    }, 30000)
+
     return () => {
       clearInterval(leaveInterval)
       clearInterval(balanceInterval)
+      clearInterval(compensationInterval)
     }
   }, [fetchRequests])
 
@@ -471,6 +506,45 @@ export default function LeaveRequest() {
                         </button>
                       </div>
                     </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Compensation Leave (view only) */}
+          <div className="rounded-xl border border-border bg-card p-6 shadow-card">
+            <h3 className="font-heading text-lg font-semibold mb-1">Compensation Leave</h3>
+            <p className="text-sm text-muted mb-4">
+              Extra earned leave days credited by HR. Updates automatically when admin makes changes.
+            </p>
+            {compensationLoading && compensationEntries.length === 0 ? (
+              <div className="flex justify-center py-6">
+                <div className="h-7 w-7 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              </div>
+            ) : compensationEntries.length === 0 ? (
+              <p className="text-sm text-muted">No compensation records yet.</p>
+            ) : (
+              <div className="space-y-2.5">
+                {compensationEntries.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="rounded-lg border border-primary/15 bg-primary/5 px-3 py-2.5"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-sm font-semibold text-primary">
+                        +{entry.days} {entry.days === 1 ? 'day' : 'days'}
+                      </span>
+                      <span className="text-xs text-muted">{formatCompensationDate(entry.appliedDate)}</span>
+                    </div>
+                    {entry.reason && (
+                      <p className="mt-1.5 text-xs leading-relaxed text-foreground break-words">
+                        {entry.reason}
+                      </p>
+                    )}
+                    {entry.createdBy && (
+                      <p className="mt-1 text-[11px] text-muted">Added by {entry.createdBy}</p>
+                    )}
                   </div>
                 ))}
               </div>

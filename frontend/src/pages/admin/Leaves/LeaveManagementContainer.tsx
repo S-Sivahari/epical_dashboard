@@ -128,26 +128,28 @@ export function LeaveManagementContainer() {
             </button>
           ))}
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => void handleExport('pdf')}
-            loading={exporting === 'pdf'}
-          >
-            <Download className="h-4 w-4" />
-            Export PDF
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => void handleExport('excel')}
-            loading={exporting === 'excel'}
-          >
-            <Download className="h-4 w-4" />
-            Export Excel
-          </Button>
-        </div>
+        {activeTab !== 'calendar' && (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void handleExport('pdf')}
+              loading={exporting === 'pdf'}
+            >
+              <Download className="h-4 w-4" />
+              Export PDF
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void handleExport('excel')}
+              loading={exporting === 'excel'}
+            >
+              <Download className="h-4 w-4" />
+              Export Excel
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="animate-fadeIn">

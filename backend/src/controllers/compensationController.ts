@@ -1,24 +1,51 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { getDB } from '../config/db';
 import { randomUUID } from 'crypto';
 import { CompensationEntry } from '../models/Compensation';
+import { AuthRequest } from '../middleware/authMiddleware';
+import { isAdminRole, isEmployeeRole } from '../utils/generateToken';
 
 function getCol() {
   return getDB().collection<CompensationEntry>('compensation_entries');
 }
 
-export async function list(_req: Request, res: Response): Promise<void> {
+async function resolveEmployeeIds(userId: string): Promise<string[]> {
+  const employeeCol = getDB().collection('employees');
+  const emp =
+    (await employeeCol.findOne({ id: userId })) ||
+    (await employeeCol.findOne({ employeeId: userId.trim().toUpperCase() }));
+
+  const ids = new Set<string>([userId]);
+  if (emp?.id) ids.add(String(emp.id));
+  if (emp?.employeeId) ids.add(String(emp.employeeId));
+  return Array.from(ids);
+}
+
+export async function list(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const entries = await getCol().find({}).sort({ createdAt: -1 }).toArray();
+    const query: Record<string, unknown> = { status: 'Active' };
+
+    if (isEmployeeRole(req.user?.role ?? '')) {
+      if (!req.user?.id) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+      const employeeIds = await resolveEmployeeIds(req.user.id);
+      query.employeeId = { $in: employeeIds };
+    } else if (!isAdminRole(req.user?.role ?? '')) {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
+
+    const entries = await getCol().find(query).sort({ createdAt: -1 }).toArray();
     res.json(entries);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to fetch compensation entries' });
   }
 }
 
-export async function create(req: Request, res: Response): Promise<void> {
+export async function create(req: AuthRequest, res: Response): Promise<void> {
   try {
-    // Accepts an array of entries (multiple employees at once)
     const { entries } = req.body as { entries: Array<{
       employeeId: string;
       employeeName: string;
@@ -66,7 +93,7 @@ export async function create(req: Request, res: Response): Promise<void> {
   }
 }
 
-export async function update(req: Request, res: Response): Promise<void> {
+export async function update(req: AuthRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
     const { days, reason } = req.body;
@@ -84,7 +111,7 @@ export async function update(req: Request, res: Response): Promise<void> {
     if (reason !== undefined) updates.reason = reason;
 
     const result = await getCol().findOneAndUpdate(
-      { id },
+      { id, status: 'Active' },
       { $set: updates },
       { returnDocument: 'after' },
     );
@@ -99,37 +126,7 @@ export async function update(req: Request, res: Response): Promise<void> {
   }
 }
 
-export async function cancel(req: Request, res: Response): Promise<void> {
-  try {
-    const { id } = req.params;
-    const { cancelReason } = req.body;
-    const cancelledBy = (req as any).user?.name || 'Admin';
-
-    const result = await getCol().findOneAndUpdate(
-      { id, status: 'Active' },
-      {
-        $set: {
-          status: 'Cancelled',
-          cancelledAt: new Date().toISOString(),
-          cancelledBy,
-          cancelReason: cancelReason || '',
-          updatedAt: new Date(),
-        },
-      },
-      { returnDocument: 'after' },
-    );
-
-    if (!result) {
-      res.status(404).json({ error: 'Entry not found or already cancelled' });
-      return;
-    }
-    res.json(result);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to cancel compensation entry' });
-  }
-}
-
-export async function remove(req: Request, res: Response): Promise<void> {
+export async function remove(req: AuthRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
     const result = await getCol().deleteOne({ id });

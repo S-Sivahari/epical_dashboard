@@ -8,7 +8,7 @@ import { formatDate, formatDateTime } from '@/utils/formatDate'
 import { filterLeaves, excludeCancelledLeaves, type LeaveFilters } from '@/utils/leaveFilters'
 import * as leaveService from '@services/leaveService'
 
-import { X, ChevronLeft, ChevronRight, Check, Eye, Ban, ChevronDown, Search, AlertTriangle, ShieldCheck, UserCheck } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, Check, Ban, ChevronDown, Search, AlertTriangle, ShieldCheck, UserCheck } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { EmployeeLeaveProfileModal } from './EmployeeLeaveProfileModal'
 
@@ -62,10 +62,6 @@ export function LeaveRequests({
   const [rejectionError, setRejectionError] = useState('')
   const rejectInputRef = useRef<HTMLTextAreaElement>(null)
 
-  // View Reason Modal State
-  const [isReasonModalOpen, setIsReasonModalOpen] = useState(false)
-  const [viewingReason, setViewingReason] = useState('')
-
   // Employee leave profile (click name on any status tab)
   const [profileEmployeeId, setProfileEmployeeId] = useState<string | null>(null)
   const [profileEmployeeName, setProfileEmployeeName] = useState('')
@@ -89,11 +85,6 @@ export function LeaveRequests({
   const [cancelReason, setCancelReason] = useState('')
   const [cancelError, setCancelError] = useState('')
   const cancelInputRef = useRef<HTMLTextAreaElement>(null)
-
-  const handleViewReason = (reason: string) => {
-    setViewingReason(reason)
-    setIsReasonModalOpen(true)
-  }
 
   const clearFilters = () => setFilters({ selectedEmployees: [], status: 'Pending', leaveType: '', dateFrom: '', dateTo: '' })
 
@@ -473,6 +464,14 @@ export function LeaveRequests({
                         </span>
                       )}
                     </div>
+                    {l.status === 'Rejected' && l.rejectionReason && (
+                      <div className="rounded-lg bg-red-50/90 px-3 py-2 ring-1 ring-red-100">
+                        <p className="text-xs leading-relaxed text-red-900/90 break-words">
+                          <span className="font-semibold text-red-800">Rejection Reason:</span>{' '}
+                          {l.rejectionReason}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex w-full shrink-0 items-center justify-between gap-3 sm:w-auto sm:flex-col sm:items-end">
@@ -542,27 +541,6 @@ export function LeaveRequests({
                             </Tooltip.Portal>
                           </Tooltip.Root>
                         </>
-                      )}
-
-                      {l.status === 'Rejected' && l.rejectionReason && (
-                        <Tooltip.Root>
-                          <Tooltip.Trigger asChild>
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              className="h-9 w-9 rounded-lg p-0"
-                              onClick={() => handleViewReason(l.rejectionReason!)}
-                            >
-                              <Eye className="h-4 w-4 text-muted" />
-                            </Button>
-                          </Tooltip.Trigger>
-                          <Tooltip.Portal>
-                            <Tooltip.Content className="z-[100] rounded-md bg-ink px-2 py-1 text-xs text-white shadow-md">
-                              View reason
-                              <Tooltip.Arrow className="fill-ink" />
-                            </Tooltip.Content>
-                          </Tooltip.Portal>
-                        </Tooltip.Root>
                       )}
 
                       {l.status === 'Approved' && (
@@ -762,30 +740,6 @@ export function LeaveRequests({
               onClick={handleRejectConfirm}
             >
               Confirm Rejection
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* View Reason Modal */}
-      <Modal
-        isOpen={isReasonModalOpen}
-        onClose={() => setIsReasonModalOpen(false)}
-        title="Rejection Reason"
-        size="sm"
-      >
-        <div className="space-y-4">
-          <div className="rounded-lg bg-red-50 p-4 border border-red-100">
-            <p className="text-sm text-red-900 leading-relaxed break-words">
-              {viewingReason}
-            </p>
-          </div>
-          <div className="flex justify-end pt-1">
-            <Button
-              variant="secondary"
-              onClick={() => setIsReasonModalOpen(false)}
-            >
-              Close
             </Button>
           </div>
         </div>

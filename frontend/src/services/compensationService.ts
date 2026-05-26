@@ -44,14 +44,6 @@ export async function updateCompensation(
   return data
 }
 
-export async function cancelCompensation(
-  id: string,
-  cancelReason?: string,
-): Promise<CompensationEntry> {
-  const { data } = await api.post<CompensationEntry>(`/compensation/${id}/cancel`, { cancelReason })
-  return data
-}
-
 export async function deleteCompensation(id: string): Promise<void> {
   await api.delete(`/compensation/${id}`)
 }
