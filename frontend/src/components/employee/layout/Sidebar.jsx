@@ -9,8 +9,7 @@ import {
   GraduationCap,
   Trophy,
   HelpCircle,
-  LogOut,
-  ChevronLeft,
+  User,
   X,
 } from 'lucide-react'
 import { cn } from '@pages/employee/lib/utils'
@@ -28,6 +27,7 @@ const navIcons = {
   '/employee/documents': FileText,
   '/employee/training': GraduationCap,
   '/employee/achievements': Trophy,
+  '/employee/profile': User,
   '/employee/support': HelpCircle,
 }
 
@@ -40,9 +40,7 @@ export function Sidebar() {
   const {
     sidebarCollapsed,
     sidebarMobileOpen,
-    toggleSidebar,
     setSidebarMobileOpen,
-    setLogoutModalOpen,
   } = useUIStore()
 
   const content = (
@@ -92,26 +90,6 @@ export function Sidebar() {
           </NavLink>
         ))}
       </nav>
-      <div className="border-t border-border p-3">
-        <button
-          type="button"
-          onClick={() => setLogoutModalOpen(true)}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted transition-all hover:bg-red-50 hover:text-danger"
-        >
-          <LogOut className="h-5 w-5 shrink-0" />
-          {!sidebarCollapsed && <span>Logout</span>}
-        </button>
-        <button
-          type="button"
-          onClick={toggleSidebar}
-          className="mt-2 hidden w-full items-center justify-center rounded-xl border border-border py-2 text-muted hover:bg-slate-50 lg:flex"
-          aria-label="Toggle sidebar"
-        >
-          <ChevronLeft
-            className={cn('h-4 w-4 transition-transform', sidebarCollapsed && 'rotate-180')}
-          />
-        </button>
-      </div>
     </>
   )
 

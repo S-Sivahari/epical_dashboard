@@ -1,6 +1,14 @@
-import { CheckCircle, XCircle, Bell, FileText, Calendar, CalendarOff } from 'lucide-react'
+import { CheckCircle, XCircle, Bell, FileText } from 'lucide-react'
 import { useEffect } from 'react'
 import { useNotificationStore } from '@store/notificationStore'
+
+const DASHBOARD_ALERT_TYPES = [
+  'LeaveApproved',
+  'LeaveRejected',
+  'LeaveSubmitted',
+  'LeaveCancelled',
+  'PayslipSent',
+] as const
 
 export function NotificationAlerts() {
   const { notifications, fetchNotifications, fetchNotificationsSilent } = useNotificationStore()
@@ -16,8 +24,7 @@ export function NotificationAlerts() {
   }, [fetchNotifications, fetchNotificationsSilent])
 
   const alertNotifications = notifications.filter((n) =>
-    ['LeaveApproved', 'LeaveRejected', 'LeaveSubmitted', 'LeaveCancelled', 'PayslipSent',
-      'HolidayAdded', 'HolidayUpdated', 'HolidayDeleted', 'HolidaySkipped'].includes(n.type)
+    DASHBOARD_ALERT_TYPES.includes(n.type as (typeof DASHBOARD_ALERT_TYPES)[number]),
   )
 
   if (alertNotifications.length === 0) {
@@ -31,10 +38,6 @@ export function NotificationAlerts() {
         const isRejected = notification.type === 'LeaveRejected'
         const isPayslip = notification.type === 'PayslipSent'
         const isCancelled = notification.type === 'LeaveCancelled'
-        const isHolidayAdded = notification.type === 'HolidayAdded'
-        const isHolidayDeleted = notification.type === 'HolidayDeleted'
-        const isHolidaySkipped = notification.type === 'HolidaySkipped'
-        const isHolidayUpdated = notification.type === 'HolidayUpdated'
 
         let Icon = Bell
         let bgColor = 'bg-blue-50'
@@ -66,24 +69,6 @@ export function NotificationAlerts() {
           borderColor = 'border-indigo-200'
           textColor = 'text-indigo-900'
           titleColor = 'text-indigo-700'
-        } else if (isHolidayAdded || isHolidayUpdated) {
-          Icon = Calendar
-          bgColor = 'bg-green-50'
-          borderColor = 'border-green-200'
-          textColor = 'text-green-900'
-          titleColor = 'text-green-700'
-        } else if (isHolidayDeleted) {
-          Icon = CalendarOff
-          bgColor = 'bg-red-50'
-          borderColor = 'border-red-200'
-          textColor = 'text-red-900'
-          titleColor = 'text-red-700'
-        } else if (isHolidaySkipped) {
-          Icon = CalendarOff
-          bgColor = 'bg-amber-50'
-          borderColor = 'border-amber-200'
-          textColor = 'text-amber-900'
-          titleColor = 'text-amber-700'
         }
 
         return (
@@ -98,11 +83,6 @@ export function NotificationAlerts() {
               {isPayslip && notification.relatedData?.payMonth && (
                 <p className={`text-xs ${textColor} mt-1 opacity-75`}>
                   Pay Period: {notification.relatedData.payMonth}
-                </p>
-              )}
-              {isHolidaySkipped && notification.relatedData?.skippedReason && (
-                <p className={`text-xs ${textColor} mt-1 opacity-75`}>
-                  Reason: {notification.relatedData.skippedReason}
                 </p>
               )}
               {!notification.isRead && (

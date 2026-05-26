@@ -40,10 +40,22 @@ export const employeeNavItems = [
     label: 'Raise Tickets',
     headerTitle: 'Raise Tickets',
   },
+  {
+    to: '/employee/profile',
+    label: 'My Profile',
+    headerTitle: 'My Profile',
+  },
 ]
 
 export function getEmployeePageHeader(pathname) {
   const normalized = pathname.replace(/\/+$/, '') || '/employee'
+
+  if (normalized === '/employee/profile') {
+    return {
+      title: 'My Profile',
+      showWelcomeSubtitle: false,
+    }
+  }
 
   if (normalized === '/employee') {
     return {

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -41,12 +41,38 @@ const leaveSchema = z
 const leaveTypes = ['Sick Leave', 'Casual Leave', 'Earned Leave']
 const leaveDurations = ['Full Day', 'Half Day']
 const halfDaySessions = ['First Half', 'Second Half']
+function formatAppliedDate(value) {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+  return date.toLocaleDateString()
+}
+
 const columns = [
   { key: 'type', label: 'Leave Type' },
   { key: 'leaveDuration', label: 'Duration' },
   { key: 'from', label: 'Start Date' },
   { key: 'to', label: 'End Date' },
   { key: 'days', label: 'Days' },
+  {
+    key: 'createdAt',
+    label: 'Applied',
+    render: (row) => (
+      <div className="min-w-[6.5rem]">
+        <span className="text-muted">{formatAppliedDate(row.createdAt)}</span>
+        {row.recordKind === 'compensation' && row.reason ? (
+          <div className="mt-1.5 max-w-[200px] rounded-md border border-primary/20 bg-primary/5 px-2 py-1.5 text-[11px] leading-snug text-foreground">
+            {row.reason}
+          </div>
+        ) : null}
+        {row.status === 'Rejected' && row.rejectionReason ? (
+          <div className="mt-1.5 max-w-[200px] rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-[11px] leading-snug text-red-900">
+            {row.rejectionReason}
+          </div>
+        ) : null}
+      </div>
+    ),
+  },
   { key: 'status', label: 'Status' },
 ]
 
@@ -63,30 +89,13 @@ export default function LeaveRequest() {
   const [leaveBalances, setLeaveBalances] = useState([])
   const [holidays, setHolidays] = useState([])
   const [compensationEntries, setCompensationEntries] = useState([])
-  const [compensationLoading, setCompensationLoading] = useState(true)
 
-  const formatCompensationDate = (value) => {
-    if (!value) return '—'
-    try {
-      return new Date(value).toLocaleDateString('en-IN', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      })
-    } catch {
-      return String(value)
-    }
-  }
-
-  const loadCompensation = async (silent = false) => {
-    if (!silent) setCompensationLoading(true)
+  const loadCompensation = async () => {
     try {
       const data = await listCompensation()
       setCompensationEntries(data)
     } catch {
-      if (!silent) console.error('Failed to load compensation entries')
-    } finally {
-      if (!silent) setCompensationLoading(false)
+      console.error('Failed to load compensation entries')
     }
   }
 
@@ -219,7 +228,7 @@ export default function LeaveRequest() {
     }, 5000)
 
     const compensationInterval = setInterval(() => {
-      void loadCompensation(true)
+      void loadCompensation()
     }, 30000)
 
     return () => {
@@ -291,8 +300,12 @@ export default function LeaveRequest() {
   const filtered = requests.filter((r) => {
     const matchSearch =
       !search ||
-      r.type.toLowerCase().includes(search.toLowerCase())
-    const matchStatus = statusFilter === 'all' || r.status.toLowerCase() === statusFilter
+      r.type.toLowerCase().includes(search.toLowerCase()) ||
+      (r.reason && r.reason.toLowerCase().includes(search.toLowerCase()))
+    const matchStatus =
+      statusFilter === 'all' ||
+      r.status.toLowerCase() === statusFilter ||
+      (statusFilter === 'approved' && r.status === 'Approved')
     return matchSearch && matchStatus
   })
 
@@ -315,7 +328,47 @@ export default function LeaveRequest() {
   }
 
   const pendingLeaves = requests.filter((r) => r.status === 'Pending')
-  const historyLeaves = filtered.filter((r) => r.status !== 'Pending')
+
+  const compensationHistoryRows = useMemo(
+    () =>
+      compensationEntries.map((entry) => ({
+        id: `comp-${entry.id}`,
+        recordKind: 'compensation',
+        type: 'Earned Leave (Compensation)',
+        leaveDuration: '—',
+        from: entry.appliedDate,
+        to: entry.appliedDate,
+        days: `+${entry.days}`,
+        createdAt: entry.appliedDate,
+        status: 'Credited',
+        reason: entry.reason,
+        createdBy: entry.createdBy,
+      })),
+    [compensationEntries],
+  )
+
+  const historyLeaves = useMemo(() => {
+    const leaveRows = filtered
+      .filter((r) => r.status !== 'Pending')
+      .map((r) => ({ ...r, recordKind: 'leave' }))
+
+    const term = search.trim().toLowerCase()
+    const compRows = compensationHistoryRows.filter((entry) => {
+      const matchSearch =
+        !term ||
+        entry.type.toLowerCase().includes(term) ||
+        (entry.reason && entry.reason.toLowerCase().includes(term))
+      const matchStatus = statusFilter === 'all' || statusFilter === 'credited'
+      return matchSearch && matchStatus
+    })
+
+    return [...leaveRows, ...compRows].sort((a, b) => {
+      const da = new Date(a.createdAt || a.from || 0).getTime()
+      const db = new Date(b.createdAt || b.from || 0).getTime()
+      return db - da
+    })
+  }, [filtered, compensationHistoryRows, search, statusFilter])
+
   const totalPages = Math.max(1, Math.ceil(historyLeaves.length / pageSize))
   const currentPage = Math.min(page, totalPages)
   const pagedHistory = historyLeaves.slice((currentPage - 1) * pageSize, currentPage * pageSize)
@@ -511,51 +564,15 @@ export default function LeaveRequest() {
               </div>
             )}
           </div>
-
-          {/* Compensation Leave (view only) */}
-          <div className="rounded-xl border border-border bg-card p-6 shadow-card">
-            <h3 className="font-heading text-lg font-semibold mb-1">Compensation Leave</h3>
-            <p className="text-sm text-muted mb-4">
-              Extra earned leave days credited by HR. Updates automatically when admin makes changes.
-            </p>
-            {compensationLoading && compensationEntries.length === 0 ? (
-              <div className="flex justify-center py-6">
-                <div className="h-7 w-7 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-              </div>
-            ) : compensationEntries.length === 0 ? (
-              <p className="text-sm text-muted">No compensation records yet.</p>
-            ) : (
-              <div className="space-y-2.5">
-                {compensationEntries.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="rounded-lg border border-primary/15 bg-primary/5 px-3 py-2.5"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="text-sm font-semibold text-primary">
-                        +{entry.days} {entry.days === 1 ? 'day' : 'days'}
-                      </span>
-                      <span className="text-xs text-muted">{formatCompensationDate(entry.appliedDate)}</span>
-                    </div>
-                    {entry.reason && (
-                      <p className="mt-1.5 text-xs leading-relaxed text-foreground break-words">
-                        {entry.reason}
-                      </p>
-                    )}
-                    {entry.createdBy && (
-                      <p className="mt-1 text-[11px] text-muted">Added by {entry.createdBy}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
       {/* Leave History Table */}
       <div className="rounded-xl border border-border bg-card p-6 shadow-card">
         <h3 className="font-heading text-lg font-semibold mb-4">Leave History</h3>
+        <p className="mb-4 text-sm text-muted">
+          Includes approved/rejected leave requests and compensation days credited to earned leave.
+        </p>
         <div className="mb-4 flex flex-wrap gap-3 items-end">
           <SearchBar value={search} onChange={setSearch} placeholder="Search leave history..." className="max-w-xs" />
           <FilterDropdown
@@ -565,6 +582,7 @@ export default function LeaveRequest() {
               { value: 'all', label: 'All Status' },
               { value: 'approved', label: 'Approved' },
               { value: 'rejected', label: 'Rejected' },
+              { value: 'credited', label: 'Credited' },
             ]}
           />
           <div className="ml-auto flex items-center gap-2">

@@ -85,6 +85,7 @@ const EmployeeDocuments = lazy(() => import('@pages/employee/DocumentRequest'))
 const EmployeeTraining = lazy(() => import('@pages/employee/Training'))
 const EmployeeAchievements = lazy(() => import('@pages/employee/Achievements'))
 const EmployeeSupport = lazy(() => import('@pages/employee/HelpSupport'))
+const EmployeeProfilePage = lazy(() => import('@pages/employee/EmployeeProfile'))
 
 function RootRedirect() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -138,6 +139,7 @@ export function AppRoutes() {
             <Route path="documents" element={<EmployeeDocuments />} />
             <Route path="training" element={<EmployeeTraining />} />
             <Route path="achievements" element={<EmployeeAchievements />} />
+            <Route path="profile" element={<EmployeeProfilePage />} />
             <Route path="support" element={<EmployeeSupport />} />
           </Route>
         </Route>

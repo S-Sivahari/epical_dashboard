@@ -41,6 +41,7 @@ export function TrainingCourses() {
 
   const [enrollments, setEnrollments] = useState<CourseEnrollment[]>([])
   const [loadingEnrollments, setLoadingEnrollments] = useState(false)
+  const [completingEnrollmentId, setCompletingEnrollmentId] = useState<string | null>(null)
   const [courseFilter, setCourseFilter] = useState('')
   const [employeeFilter, setEmployeeFilter] = useState('')
 
@@ -197,13 +198,22 @@ export function TrainingCourses() {
     }
   }
 
+  const enrollmentId = (r: CourseEnrollment) => r.id || String((r as { _id?: string })._id ?? '')
+
   const handleMarkComplete = async (id: string) => {
+    if (!id) {
+      toast.error('Missing enrollment id')
+      return
+    }
+    setCompletingEnrollmentId(id)
     try {
-      const updated = await markComplete(id)
-      setEnrollments((prev) => prev.map((e) => (e.id === id ? updated : e)))
+      await markComplete(id)
+      await loadEnrollments()
       toast.success('Marked as completed')
     } catch (e: any) {
       toast.error(e?.response?.data?.error || 'Failed to update status')
+    } finally {
+      setCompletingEnrollmentId(null)
     }
   }
 
@@ -343,8 +353,14 @@ export function TrainingCourses() {
                       render: (r: CourseEnrollment) => (
                         <div className="flex gap-2">
                           {r.status !== 'Completed' && (
-                            <Button size="sm" variant="secondary" onClick={() => void handleMarkComplete(r.id)}>
-                              <CheckCircle2 className="h-4 w-4" /> Mark complete
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={completingEnrollmentId === enrollmentId(r)}
+                              onClick={() => void handleMarkComplete(enrollmentId(r))}
+                            >
+                              <CheckCircle2 className="h-4 w-4" />{' '}
+                              {completingEnrollmentId === enrollmentId(r) ? 'Saving...' : 'Mark complete'}
                             </Button>
                           )}
                         </div>

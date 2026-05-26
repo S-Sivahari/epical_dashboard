@@ -2,8 +2,8 @@ import { motion } from 'framer-motion'
 import { Progress } from '@components/employee/ui/progress'
 
 export function LeaveCard({ type, used, total, color }) {
-  const remaining = total - used
-  const pct = Math.round((used / total) * 100)
+  const remaining = total > 0 ? Math.max(0, total - used) : 0
+  const pct = total > 0 ? Math.round((used / total) * 100) : 0
 
   return (
     <motion.div
@@ -13,7 +13,7 @@ export function LeaveCard({ type, used, total, color }) {
       <div className="mb-3 flex items-center justify-between">
         <span className="font-heading text-sm font-semibold">{type}</span>
         <span className="text-xs font-medium" style={{ color }}>
-          {remaining} left
+          {total > 0 ? `${remaining} left` : '—'}
         </span>
       </div>
       <Progress value={pct} indicatorClassName="bg-primary" style={{ ['--indicator']: color }} />

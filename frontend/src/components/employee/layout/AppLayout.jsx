@@ -1,7 +1,6 @@
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Navbar } from './Navbar'
-import { LogoutModal } from '@components/employee/shared/LogoutModal'
 import { useUIStore } from '@store/employee/uiStore'
 import { cn } from '@pages/employee/lib/utils'
 
@@ -17,7 +16,6 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
-      <LogoutModal />
     </div>
   )
 }

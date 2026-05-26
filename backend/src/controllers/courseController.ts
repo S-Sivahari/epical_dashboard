@@ -85,7 +85,13 @@ export const courseController = {
 
   completeEnrollment: async (req: Request, res: Response): Promise<void> => {
     try {
-      const record = await courseService.updateEnrollmentStatus(req.params.id, 'Completed')
+      const rawId = req.params.id
+      const id = String(Array.isArray(rawId) ? rawId[0] : rawId ?? '').trim()
+      if (!id) {
+        res.status(400).json({ error: 'Enrollment id is required' })
+        return
+      }
+      const record = await courseService.updateEnrollmentStatus(id, 'Completed')
       if (!record) {
         res.status(404).json({ error: 'Enrollment not found' })
         return

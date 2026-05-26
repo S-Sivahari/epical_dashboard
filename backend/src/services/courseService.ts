@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto'
+import { ObjectId } from 'mongodb'
 import { getDB } from '../config/db'
 import type { Course } from '../models/Course'
 import type { CourseEnrollment, CourseStatus } from '../models/CourseEnrollment'
@@ -9,6 +10,20 @@ function coursesCol() {
 
 function enrollmentsCol() {
   return getDB().collection<CourseEnrollment>('course_enrollments')
+}
+
+/** Driver return shape differs by version; normalize to the updated document */
+function extractAfter<T>(res: T | null | ({ value?: T | null } & Record<string, unknown>)): T | null {
+  if (!res) return null
+  if (typeof res === 'object' && 'value' in res && (res as { value?: T | null }).value !== undefined) {
+    return (res as { value: T | null }).value
+  }
+  return res as T
+}
+
+function normalizeEnrollment(doc: CourseEnrollment): CourseEnrollment {
+  const id = doc.id || (doc._id ? String(doc._id) : '')
+  return { ...doc, id }
 }
 
 // ── Courses ─────────────────────────────────────────────────────
@@ -81,7 +96,7 @@ export async function updateCourse(
     )
   }
 
-  return result
+  return extractAfter(result)
 }
 
 export async function deleteCourse(id: string): Promise<boolean> {
@@ -107,7 +122,8 @@ export async function listEnrollments(filters: {
     ]
   }
   if (filters.status) query.status = filters.status
-  return enrollmentsCol().find(query).sort({ enrolledAt: -1 }).toArray()
+  const rows = await enrollmentsCol().find(query).sort({ enrolledAt: -1 }).toArray()
+  return rows.map(normalizeEnrollment)
 }
 
 export async function enrollEmployee(payload: {
@@ -132,16 +148,34 @@ export async function enrollEmployee(payload: {
   }
 
   await enrollmentsCol().insertOne(enrollment)
-  return enrollment
+  return normalizeEnrollment(enrollment)
 }
 
 export async function updateEnrollmentStatus(id: string, status: CourseStatus): Promise<CourseEnrollment | null> {
+  const trimmed = id.trim()
+  if (!trimmed) return null
+
   const now = new Date()
-  const update: any = { status, updatedAt: now }
+  const update: Record<string, unknown> = { status, updatedAt: now }
   if (status === 'Completed') update.completedAt = now
 
-  const result = await enrollmentsCol().findOneAndUpdate({ id }, { $set: update }, { returnDocument: 'after' })
-  return result
+  let raw = await enrollmentsCol().findOneAndUpdate(
+    { id: trimmed },
+    { $set: update },
+    { returnDocument: 'after' },
+  )
+
+  let doc = extractAfter(raw)
+  if (!doc && ObjectId.isValid(trimmed)) {
+    raw = await enrollmentsCol().findOneAndUpdate(
+      { _id: new ObjectId(trimmed) },
+      { $set: update },
+      { returnDocument: 'after' },
+    )
+    doc = extractAfter(raw)
+  }
+
+  return doc ? normalizeEnrollment(doc) : null
 }
 
 export async function deleteEnrollment(id: string): Promise<boolean> {

@@ -33,7 +33,7 @@ export function statusVariant(status) {
     'In Progress': 'warning',
     Completed: 'success',
     Paid: 'success',
-    Pending: 'warning',
+    Credited: 'success',
   }
   return map[status] || 'secondary'
 }

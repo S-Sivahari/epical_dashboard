@@ -464,20 +464,17 @@ export function LeaveRequests({
                         </span>
                       )}
                     </div>
-                    {l.status === 'Rejected' && l.rejectionReason && (
-                      <div className="rounded-lg bg-red-50/90 px-3 py-2 ring-1 ring-red-100">
-                        <p className="text-xs leading-relaxed text-red-900/90 break-words">
-                          <span className="font-semibold text-red-800">Rejection Reason:</span>{' '}
-                          {l.rejectionReason}
-                        </p>
-                      </div>
-                    )}
                   </div>
 
                   <div className="flex w-full shrink-0 items-center justify-between gap-3 sm:w-auto sm:flex-col sm:items-end">
-                    <div className="space-y-0.5 text-right text-xs text-muted sm:text-sm">
+                    <div className="space-y-1.5 text-right text-xs text-muted sm:text-sm">
                       {toTimestamp(l.createdAt) && (
                         <p>Applied {formatDateTime(toTimestamp(l.createdAt)!)}</p>
+                      )}
+                      {l.status === 'Rejected' && l.rejectionReason && (
+                        <div className="max-w-[220px] rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-left text-[11px] leading-snug text-red-900">
+                          {l.rejectionReason}
+                        </div>
                       )}
                       {l.status === 'Approved' && (
                         <>

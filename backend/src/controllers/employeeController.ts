@@ -1,11 +1,17 @@
 import { Request, Response } from 'express';
 import * as employeeService from '../services/employeeService';
 import { CreateEmployeePayload } from '../models/Employee';
+import { AuthRequest } from '../middleware/authMiddleware';
+import { isAdminRole, isEmployeeRole } from '../utils/generateToken';
 
 export const employeeController = {
   // Get all employees with filtering and pagination
-  getAllEmployees: async (req: Request, res: Response): Promise<void> => {
+  getAllEmployees: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+      if (!isAdminRole(req.user?.role ?? '')) {
+        res.status(403).json({ error: 'Forbidden' });
+        return;
+      }
       const page = Math.max(1, parseInt(req.query.page as string) || 1);
       const pageSize = Math.max(1, parseInt(req.query.pageSize as string) || 10);
       const q = req.query.q as string | undefined;
@@ -35,14 +41,30 @@ export const employeeController = {
   },
 
   // Get employee by ID
-  getEmployeeById: async (req: Request, res: Response): Promise<void> => {
+  getEmployeeById: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const { id } = req.params as { id: string };
+      const rawId = req.params.id;
+      const id = String(Array.isArray(rawId) ? rawId[0] : rawId ?? '').trim();
       const employee = await employeeService.getEmployeeById(id);
 
       if (!employee) {
         res.status(404).json({ error: 'Employee not found' });
         return;
+      }
+
+      if (isEmployeeRole(req.user?.role ?? '')) {
+        const own = await employeeService.getEmployeeById(req.user!.id);
+        const allowed =
+          own &&
+          (own.id === id ||
+            own.employeeId === id ||
+            req.user!.id === id ||
+            req.user!.id === own.id ||
+            req.user!.id === own.employeeId);
+        if (!allowed) {
+          res.status(403).json({ error: 'Forbidden' });
+          return;
+        }
       }
 
       res.json(employee);

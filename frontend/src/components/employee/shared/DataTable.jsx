@@ -33,7 +33,9 @@ export function DataTable({ columns, data, statusKey }) {
                     col.key === 'description' && 'max-w-[280px] whitespace-normal break-words'
                   )}
                 >
-                  {col.key === statusKey && row[col.key] ? (
+                  {typeof col.render === 'function' ? (
+                    col.render(row)
+                  ) : col.key === statusKey && row[col.key] ? (
                     <Badge variant={statusVariant(row[col.key])}>{row[col.key]}</Badge>
                   ) : (
                     row[col.key]

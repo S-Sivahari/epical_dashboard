@@ -46,11 +46,24 @@ const schema = z.object({
 
 function buildRequestColumns(onDownload, onDownloadError) {
   return [
-    { key: 'requestedDate', label: 'Request date' },
+    {
+      key: 'requestedDate',
+      label: 'Request date',
+      render: (row) => (
+        <div className="min-w-[6.5rem]">
+          <span className="text-muted">{row.requestedDate}</span>
+          {row.status === 'Rejected' && row.rejectionReason ? (
+            <div className="mt-1.5 max-w-[200px] rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-[11px] leading-snug text-red-900">
+              {row.rejectionReason}
+            </div>
+          ) : null}
+        </div>
+      ),
+    },
     { key: 'type', label: 'Document type' },
     { key: 'name', label: 'Document name' },
     { key: 'status', label: 'Status' },
-    { key: 'responseDetails', label: 'Approval / rejection' },
+    { key: 'responseDetails', label: 'HR response' },
     {
       key: 'actions',
       label: 'Download',
@@ -102,9 +115,7 @@ function mapRequestRow(row) {
       ? `Approved on ${formatDate(row.processedAt)}${row.processedBy ? ` by ${row.processedBy}` : ''}`
       : 'Approved by HR'
   } else if (row.status === 'Rejected') {
-    responseDetails = row.rejectionReason
-      ? `Rejected: ${row.rejectionReason}`
-      : 'Rejected by HR'
+    responseDetails = 'Rejected by HR'
   }
 
   return {
@@ -113,6 +124,7 @@ function mapRequestRow(row) {
     name: row.documentName ?? '—',
     requestedDate: formatDate(row.requestedAt),
     status: row.status ?? 'Requested',
+    rejectionReason: row.rejectionReason ?? '',
     responseDetails,
   }
 }
