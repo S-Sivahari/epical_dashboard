@@ -36,14 +36,54 @@ export const employeeNavItems = [
     headerTitle: 'Company Achievements',
   },
   {
-    to: '/employee/support',
+    to: '/employee/tickets',
     label: 'Raise Tickets',
     headerTitle: 'Raise Tickets',
+  },
+  {
+    to: '/employee/help',
+    label: 'Help & Support',
+    headerTitle: 'Help & Support',
   },
   {
     to: '/employee/profile',
     label: 'My Profile',
     headerTitle: 'My Profile',
+  },
+]
+
+/** Grouped sidebar navigation (labels may differ slightly for compact display). */
+export const employeeNavGroups = [
+  {
+    label: 'Overview',
+    items: [{ to: '/employee', label: 'Dashboard', end: true }],
+  },
+  {
+    label: 'Work',
+    items: [
+      { to: '/employee/timesheet', label: 'Timesheet' },
+      { to: '/employee/leave', label: 'Leave Request' },
+      { to: '/employee/calendar', label: 'Company Calendar' },
+    ],
+  },
+  {
+    label: 'Resources',
+    items: [
+      { to: '/employee/documents', label: 'Documents' },
+      { to: '/employee/training', label: 'Training & Courses' },
+      { to: '/employee/achievements', label: 'Company Achievements' },
+    ],
+  },
+  {
+    label: 'Support',
+    items: [
+      { to: '/employee/tickets', label: 'Raise Tickets' },
+      { to: '/employee/help', label: 'Help & Support' },
+    ],
+  },
+  {
+    label: 'Account',
+    items: [{ to: '/employee/profile', label: 'My Profile' }],
   },
 ]
 

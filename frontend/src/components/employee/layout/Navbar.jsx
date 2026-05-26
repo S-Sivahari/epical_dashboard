@@ -1,5 +1,5 @@
 import { Menu, User, ChevronDown } from 'lucide-react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,17 +42,6 @@ export function Navbar() {
       </div>
       <div className="flex items-center gap-2">
         <NotificationDropdown />
-        <Link
-          to="/employee/profile"
-          className={`hidden items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors sm:flex ${
-            pathname === '/employee/profile'
-              ? 'border-primary/30 bg-primary/10 text-primary'
-              : 'border-border bg-white text-foreground hover:bg-slate-50'
-          }`}
-        >
-          <User className="h-4 w-4" />
-          Profile
-        </Link>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
