@@ -40,6 +40,7 @@ export function TicketManagement() {
   const tickets = useTicketStore((s) => s.tickets)
   const loading = useTicketStore((s) => s.loading)
   const fetchTickets = useTicketStore((s) => s.fetchTickets)
+  const fetchTicketsSilent = useTicketStore((s) => s.fetchTicketsSilent)
   const updateStatus = useTicketStore((s) => s.updateStatus)
   const addComment = useTicketStore((s) => s.addComment)
 
@@ -59,6 +60,16 @@ export function TicketManagement() {
       priority: priority === 'all' ? undefined : priority,
     }).catch(() => toast.error('Failed to load tickets'))
   }, [fetchTickets, q, priority])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      void fetchTicketsSilent({
+        q: q.trim() || undefined,
+        priority: priority === 'all' ? undefined : priority,
+      })
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [fetchTicketsSilent, q, priority])
 
   useEffect(() => {
     if (!detailOpen || !selectedId) {
