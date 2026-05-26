@@ -45,6 +45,24 @@
   }
 }
 
+/* Premium smooth infinite ticker - no gaps, seamless loop */
+@keyframes marquee-smooth {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.animate-marquee-smooth {
+  animation: marquee-smooth var(--ticker-duration, 60s) linear infinite;
+}
+
+.animate-marquee-smooth:hover {
+  animation-play-state: paused;
+}
+
 /* FullCalendar minimal layout */
 .fc {
   --fc-border-color: #e2e8f0;

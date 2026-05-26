@@ -126,9 +126,18 @@ echo.
 
 cd /d "%~dp0"
 
-call npx concurrently ^
-    "cd backend && npm run dev" ^
-    "cd frontend && npm run dev"
+start "" cmd /k "cd backend && npm run dev"
+start "" cmd /k "cd frontend && npm run dev"
+
+echo Both servers are starting in separate windows...
+echo Backend: http://localhost:3000
+echo Frontend: http://localhost:5173
+echo.
+echo Press any key to stop both servers...
+pause >nul
+
+taskkill /FI "WINDOWTITLE eq Backend*" /T /F >nul 2>&1
+taskkill /FI "WINDOWTITLE eq Frontend*" /T /F >nul 2>&1
 
 echo.
 echo ==========================================
