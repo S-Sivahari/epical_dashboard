@@ -26,7 +26,7 @@ const navItems = [
   { to: `${basePath}/documents`, label: 'Documents', icon: FileText },
   { to: `${basePath}/training`, label: 'Training & Courses', icon: GraduationCap },
   { to: `${basePath}/achievements`, label: 'Company achievements', icon: Trophy },
-  { to: `${basePath}/support`, label: 'Help & Support', icon: HelpCircle },
+  { to: `${basePath}/support`, label: 'Raise Tickets', icon: HelpCircle },
 ]
 
 export function Sidebar() {
