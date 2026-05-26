@@ -1,9 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Download, FileText, ExternalLink, Loader } from 'lucide-react'
 import { getMyPayslips, openMyPayslipPdf } from '@services/payslipService'
+import {
+  createDocumentRequest,
+  fetchMyDocumentRequests,
+  downloadMyDocumentPdf,
+} from '@services/documentRequestService'
+import { DOCUMENT_REQUEST_TYPES } from '@constants/documentTypes'
 import { Button } from '@components/employee/ui/button'
 import { Input } from '@components/employee/ui/input'
 import { Label } from '@components/employee/ui/label'
@@ -15,16 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@components/employee/ui/select'
-import { Badge, statusVariant } from '@components/employee/ui/badge'
 import { DataTable } from '@components/employee/shared/DataTable'
 import { SearchBar } from '@components/employee/shared/SearchBar'
-import { useAuthStore } from '@store/authStore'
 import { useToast } from '@components/employee/shared/ToastProvider'
-import {
-  documentTypes,
-  documentRequests,
-  approvedDocuments,
-} from '@pages/employee/data/mockData'
 
 const schema = z.object({
   type: z.string().min(1, 'Select document type'),
@@ -33,19 +32,59 @@ const schema = z.object({
 })
 
 const columns = [
-  { key: 'type', label: 'Document Type' },
+  { key: 'name', label: 'Document name' },
+  { key: 'type', label: 'Type' },
   { key: 'reason', label: 'Reason' },
-  { key: 'requestedDate', label: 'Requested Date' },
+  { key: 'requestedDate', label: 'Requested' },
   { key: 'status', label: 'Status' },
+  { key: 'rejection', label: 'Rejection reason' },
 ]
 
+function mapRow(row) {
+  const requested =
+    typeof row.requestedAt === 'string'
+      ? row.requestedAt.split('T')[0]
+      : row.requestedAt
+        ? new Date(row.requestedAt).toISOString().split('T')[0]
+        : '—'
+  return {
+    id: row.id,
+    type: row.documentType ?? '—',
+    name: row.documentName ?? '—',
+    reason: row.reason ?? '—',
+    requestedDate: requested,
+    status: row.status ?? 'Requested',
+    rejection: row.status === 'Rejected' && row.rejectionReason ? row.rejectionReason : '—',
+  }
+}
+
 export default function DocumentRequest() {
-  const employee = useAuthStore((s) => s.user)
   const { toast } = useToast()
-  const [requests, setRequests] = useState(documentRequests)
+  const [requests, setRequests] = useState([])
+  const [reqLoading, setReqLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [payslips, setPayslips] = useState([])
   const [payslipsLoading, setPayslipsLoading] = useState(true)
+
+  const loadRequests = useCallback(async () => {
+    setReqLoading(true)
+    try {
+      const data = await fetchMyDocumentRequests()
+      setRequests(Array.isArray(data) ? data : [])
+    } catch {
+      setRequests([])
+      toast({
+        title: 'Could not load requests',
+        description: 'Pull to retry or contact HR if this continues.',
+      })
+    } finally {
+      setReqLoading(false)
+    }
+  }, [toast])
+
+  useEffect(() => {
+    void loadRequests()
+  }, [loadRequests])
 
   useEffect(() => {
     let cancelled = false
@@ -79,23 +118,35 @@ export default function DocumentRequest() {
   const filtered = requests.filter(
     (r) =>
       !search ||
-      r.type.toLowerCase().includes(search.toLowerCase()) ||
-      r.reason.toLowerCase().includes(search.toLowerCase()),
+      (r.documentName && r.documentName.toLowerCase().includes(search.toLowerCase())) ||
+      (r.documentType && r.documentType.toLowerCase().includes(search.toLowerCase())) ||
+      (r.reason && r.reason.toLowerCase().includes(search.toLowerCase())),
   )
 
-  const onSubmit = (data) => {
-    setRequests((prev) => [
-      {
-        id: Date.now(),
-        type: data.type,
+  const approvedFromApi = requests.filter((r) => r.status === 'Approved')
+
+  const tableData = filtered.map(mapRow)
+
+  const onSubmit = async (data) => {
+    try {
+      await createDocumentRequest({
+        documentType: data.type,
+        documentName: data.name,
         reason: data.reason,
-        requestedDate: new Date().toISOString().split('T')[0],
-        status: 'Pending',
-      },
-      ...prev,
-    ])
-    toast({ title: 'Request submitted', description: `${data.type} request is being processed.` })
-    reset()
+      })
+      toast({
+        title: 'Request submitted',
+        description: `${data.name} is pending HR review.`,
+      })
+      reset()
+      await loadRequests()
+    } catch (err) {
+      const message = err?.response?.data?.error || 'Try again.'
+      toast({
+        title: 'Submission failed',
+        description: message,
+      })
+    }
   }
 
   return (
@@ -105,15 +156,15 @@ export default function DocumentRequest() {
           onSubmit={handleSubmit(onSubmit)}
           className="rounded-xl border border-border bg-card p-6 shadow-card space-y-4"
         >
-          <h3 className="font-heading text-lg font-semibold">Request Document</h3>
+          <h3 className="font-heading text-lg font-semibold">Request document</h3>
           <div>
-            <Label>Document Type *</Label>
+            <Label>Document type *</Label>
             <Select value={watch('type')} onValueChange={(v) => setValue('type', v)}>
               <SelectTrigger className="mt-1">
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
               <SelectContent>
-                {documentTypes.map((t) => (
+                {DOCUMENT_REQUEST_TYPES.map((t) => (
                   <SelectItem key={t} value={t}>
                     {t}
                   </SelectItem>
@@ -123,45 +174,64 @@ export default function DocumentRequest() {
             {errors.type && <p className="mt-1 text-xs text-danger">{errors.type.message}</p>}
           </div>
           <div>
-            <Label>Document Name *</Label>
+            <Label>Document name *</Label>
             <Input
               className="mt-1"
               {...register('name')}
-              placeholder="e.g. Salary Certificate 2026"
+              placeholder="e.g. Salary certificate 2026"
             />
             {errors.name && <p className="mt-1 text-xs text-danger">{errors.name.message}</p>}
           </div>
           <div>
             <Label>Reason *</Label>
-            <Textarea className="mt-1" {...register('reason')} />
+            <Textarea className="mt-1" {...register('reason')} placeholder="Explain why HR should issue this" />
             {errors.reason && <p className="mt-1 text-xs text-danger">{errors.reason.message}</p>}
           </div>
           <Button type="submit" disabled={isSubmitting} className="w-full">
-            Submit Request
+            {isSubmitting ? 'Submitting…' : 'Submit request'}
           </Button>
         </form>
 
         <div className="space-y-4">
           <div className="rounded-xl border border-border bg-card p-6 shadow-card">
-            <h3 className="font-heading font-semibold">Approved Documents</h3>
+            <h3 className="font-heading font-semibold">Approved downloads</h3>
+            <p className="mt-1 text-sm text-muted">Documents HR has finalized for you.</p>
             <div className="mt-4 space-y-3">
-              {approvedDocuments.map((doc) => (
-                <div
-                  key={doc.id}
-                  className="flex items-center justify-between rounded-xl border border-border p-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <FileText className="h-5 w-5 text-primary" />
-                    <div>
-                      <p className="text-sm font-medium">{doc.name}</p>
-                      <p className="text-xs text-muted">{doc.date}</p>
+              {approvedFromApi.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted">
+                  No approved documents yet.
+                </p>
+              ) : (
+                approvedFromApi.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-3"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <FileText className="h-5 w-5 shrink-0 text-primary" />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{doc.documentName}</p>
+                        <p className="text-xs text-muted">{doc.documentType}</p>
+                      </div>
                     </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1 shrink-0"
+                      onClick={() =>
+                        void downloadMyDocumentPdf(doc.id, `${doc.documentName}.pdf`).catch(() =>
+                          toast({
+                            title: 'Download failed',
+                            description: 'We could not open this file.',
+                          }),
+                        )
+                      }
+                    >
+                      <Download className="h-3.5 w-3.5" /> Download
+                    </Button>
                   </div>
-                  <Button size="sm" variant="outline" className="gap-1">
-                    <Download className="h-3.5 w-3.5" /> Download
-                  </Button>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -189,9 +259,7 @@ export default function DocumentRequest() {
                 className="rounded-xl border border-border p-4 hover:shadow-card-hover transition-shadow"
               >
                 <p className="font-medium">{p.payMonth}</p>
-                <p className="text-xs text-muted">
-                  Sent {new Date(p.sentAt).toLocaleDateString()}
-                </p>
+                <p className="text-xs text-muted">Sent {new Date(p.sentAt).toLocaleDateString()}</p>
                 <div className="mt-3 flex gap-2">
                   <Button
                     size="sm"
@@ -210,15 +278,22 @@ export default function DocumentRequest() {
 
       <div>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h3 className="font-heading text-lg font-semibold">All Requests</h3>
+          <h3 className="font-heading text-lg font-semibold">Your requests</h3>
           <SearchBar
             value={search}
             onChange={setSearch}
-            placeholder="Search requests..."
+            placeholder="Search by name or type…"
             className="max-w-xs"
           />
         </div>
-        <DataTable columns={columns} data={filtered} statusKey="status" />
+        {reqLoading ? (
+          <div className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-16 text-muted">
+            <Loader className="h-5 w-5 animate-spin" />
+            Loading requests…
+          </div>
+        ) : (
+          <DataTable columns={columns} data={tableData} statusKey="status" />
+        )}
       </div>
     </div>
   )

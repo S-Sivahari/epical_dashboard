@@ -71,13 +71,11 @@ export function LeaveManagementContainer() {
           : undefined,
       }
     }
-    if (activeTab === 'calendar') {
-      return { ...base, status: 'Approved', view: 'Company Calendar' }
-    }
     return { ...base, search: compensationSearch || undefined }
   }, [activeTab, leaveFilters, compensationSearch])
 
   const handleExport = async (format: 'pdf' | 'excel') => {
+    if (activeTab === 'calendar') return
     const filename = buildExportFilename(activeTab)
     const generatedBy = user?.name || 'Admin'
 
@@ -98,21 +96,6 @@ export function LeaveManagementContainer() {
         return
       }
 
-      if (activeTab === 'calendar') {
-        const approvedLeaves = leaves.filter((l) => l.status === 'Approved')
-        if (!approvedLeaves.length) {
-          toast.error('No approved leaves to export')
-          return
-        }
-        if (format === 'pdf') {
-          exportLeavesToPDF(approvedLeaves, filename, exportFilterMeta, generatedBy)
-        } else {
-          exportLeavesToExcel(approvedLeaves, filename, exportFilterMeta, generatedBy)
-        }
-        toast.success(`Exported ${approvedLeaves.length} approved leave(s)`)
-        return
-      }
-
       if (!compensationExportRows.length) {
         toast.error('No compensation entries to export')
         return
@@ -130,42 +113,45 @@ export function LeaveManagementContainer() {
 
   return (
     <PageWrapper>
-      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="inline-flex rounded-xl border border-border bg-surface/60 p-1">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                activeTab === tab.id
-                  ? 'bg-white text-primary shadow-sm'
-                  : 'text-muted hover:text-ink'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => void handleExport('pdf')}
-            loading={exporting === 'pdf'}
-          >
-            <Download className="h-4 w-4" />
-            Export PDF
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => void handleExport('excel')}
-            loading={exporting === 'excel'}
-          >
-            <Download className="h-4 w-4" />
-            Export Excel
-          </Button>
+      <div className="mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 w-full">
+          <div className="flex flex-row items-center gap-2 flex-wrap">
+            {tabs.map((tab) => (
+              <Button
+                key={tab.id}
+                variant={activeTab === tab.id ? 'primary' : 'secondary'}
+                onClick={() => setActiveTab(tab.id)}
+                size="sm"
+                className="whitespace-nowrap"
+              >
+                {tab.label}
+              </Button>
+            ))}
+          </div>
+          {activeTab !== 'calendar' && (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void handleExport('pdf')}
+                loading={exporting === 'pdf'}
+                className="whitespace-nowrap"
+              >
+                <Download className="mr-1.5 h-4 w-4" />
+                Export PDF
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void handleExport('excel')}
+                loading={exporting === 'excel'}
+                className="whitespace-nowrap"
+              >
+                <Download className="mr-1.5 h-4 w-4" />
+                Export Excel
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 

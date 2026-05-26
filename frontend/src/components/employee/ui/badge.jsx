@@ -25,11 +25,13 @@ function Badge({ className, variant, ...props }) {
 export function statusVariant(status) {
   const map = {
     Approved: 'success',
+    Requested: 'warning',
     Pending: 'warning',
     Rejected: 'danger',
     Resolved: 'success',
     Open: 'default',
     'In Progress': 'warning',
+    Completed: 'success',
   }
   return map[status] || 'secondary'
 }

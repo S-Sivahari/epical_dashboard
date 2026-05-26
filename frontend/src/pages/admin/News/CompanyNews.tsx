@@ -8,6 +8,7 @@ import { Input } from '@components/ui/Input'
 import { Modal } from '@components/ui/Modal'
 import { NewsCard } from '@components/cards/NewsCard'
 import { toast } from 'sonner'
+import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { createNews, deleteNews, listNews, updateNews, type NewsItem } from '@services/newsService'
 import { formatDate } from '@/utils/formatDate'
 
@@ -26,6 +27,9 @@ export function CompanyNews() {
   const [editImageUrl, setEditImageUrl] = useState('')
   const [editLink, setEditLink] = useState('')
   const [updating, setUpdating] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [itemToDelete, setItemToDelete] = useState<NewsItem | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const loadNews = async () => {
     setLoading(true)
@@ -65,15 +69,26 @@ export function CompanyNews() {
     }
   }
 
-  const handleRemove = async (id: string) => {
+  const handleRemove = async () => {
+    if (!itemToDelete) return
+    setDeleting(true)
     try {
-      await deleteNews(id)
-      setItems((prev) => prev.filter((n) => n.id !== id))
+      await deleteNews(itemToDelete.id)
+      setItems((prev) => prev.filter((n) => n.id !== itemToDelete.id))
       toast.success('News removed')
+      setDeleteConfirmOpen(false)
+      setItemToDelete(null)
     } catch (e: unknown) {
       const message = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
       toast.error(message || 'Failed to remove news')
+    } finally {
+      setDeleting(false)
     }
+  }
+
+  const requestRemove = (item: NewsItem) => {
+    setItemToDelete(item)
+    setDeleteConfirmOpen(true)
   }
 
   const openEdit = (item: NewsItem) => {
@@ -241,7 +256,7 @@ export function CompanyNews() {
               item={n}
               onView={() => setPreview(n)}
               onEdit={() => openEdit(n)}
-              onRemove={() => void handleRemove(n.id)}
+              onRemove={() => requestRemove(n)}
             />
           ))
         )}
@@ -311,6 +326,24 @@ export function CompanyNews() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmModal
+        isOpen={deleteConfirmOpen}
+        title="Remove news?"
+        description={
+          itemToDelete
+            ? `Are you sure you want to remove "${itemToDelete.title}"? This announcement will no longer appear on dashboards or the news ticker.`
+            : 'Are you sure you want to remove this news item?'
+        }
+        confirmLabel={deleting ? 'Removing...' : 'Remove'}
+        danger
+        onClose={() => {
+          if (deleting) return
+          setDeleteConfirmOpen(false)
+          setItemToDelete(null)
+        }}
+        onConfirm={() => void handleRemove()}
+      />
     </PageWrapper>
   )
 }

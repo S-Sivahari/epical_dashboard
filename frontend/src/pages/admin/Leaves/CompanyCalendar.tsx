@@ -33,20 +33,15 @@ interface CalendarSidebarEvent {
   holidayType?: Holiday['type']
 }
 
-const seedEvents: CalendarSidebarEvent[] = [
-  { id: '1', title: 'Town hall', date: '2026-05-20', time: '10:00' },
-  { id: '2', title: 'Leadership sync', date: '2026-05-22', time: '15:00' },
-]
-
 export function CompanyCalendar() {
-  const { holidays, leaves, loading } = useLeaves()
+  const { holidays, leaves, loading, companyCalendarEvents } = useLeaves()
   const addHoliday = useLeaveStore((s) => s.addHoliday)
   const updateHoliday = useLeaveStore((s) => s.updateHoliday)
   const deleteHoliday = useLeaveStore((s) => s.deleteHoliday)
   const fetchHolidays = useLeaveStore((s) => s.fetchHolidays)
+  const deleteCompanyCalendarEvent = useLeaveStore((s) => s.deleteCompanyCalendarEvent)
 
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [events, setEvents] = useState<CalendarSidebarEvent[]>(seedEvents)
   const [eventDeleteConfirmOpen, setEventDeleteConfirmOpen] = useState(false)
   const [eventToDelete, setEventToDelete] = useState<CalendarSidebarEvent | null>(null)
   const [selectedDateStr, setSelectedDateStr] = useState<string | null>(null)
@@ -55,6 +50,18 @@ export function CompanyCalendar() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [holidayToDelete, setHolidayToDelete] = useState<Holiday | null>(null)
+
+  const dbSidebarEvents = useMemo(
+    (): CalendarSidebarEvent[] =>
+      companyCalendarEvents.map((e) => ({
+        id: e.id,
+        title: e.title,
+        date: e.date,
+        time: e.time,
+        description: e.description,
+      })),
+    [companyCalendarEvents],
+  )
 
   // Holiday form state
   const [title, setTitle] = useState('')
@@ -84,16 +91,16 @@ export function CompanyCalendar() {
   const getHolidaysForDay = (dateStr: string) => holidays.filter((h) => h.date === dateStr)
   const getLeavesForDay = (dateStr: string) =>
     approvedLeaves.filter((l) => dateStr >= l.from && dateStr <= l.to)
-  const getEventsForDay = (dateStr: string) => events.filter((e) => e.date === dateStr)
+  const getEventsForDay = (dateStr: string) => dbSidebarEvents.filter((e) => e.date === dateStr)
 
   const itemsOnSelectedDate = useMemo(() => {
     if (!selectedDateStr) return { leaves: [], holidays: [], events: [] }
     return {
       leaves: approvedLeaves.filter((l) => selectedDateStr >= l.from && selectedDateStr <= l.to),
       holidays: holidays.filter((h) => h.date === selectedDateStr),
-      events: events.filter((e) => e.date === selectedDateStr),
+      events: dbSidebarEvents.filter((e) => e.date === selectedDateStr),
     }
-  }, [selectedDateStr, approvedLeaves, holidays, events])
+  }, [selectedDateStr, approvedLeaves, holidays, dbSidebarEvents])
 
   const handleDateClick = (dateStr: string) => {
     setSelectedDateStr(dateStr)
@@ -155,7 +162,6 @@ export function CompanyCalendar() {
   const handleDeleteEvent = async () => {
     if (!eventToDelete) return
     if (eventToDelete.holidayType) {
-      // It's a holiday entry — delete via backend
       try {
         await deleteHoliday(eventToDelete.id)
         toast.success('Event deleted')
@@ -164,9 +170,12 @@ export function CompanyCalendar() {
         toast.error('Failed to delete event')
       }
     } else {
-      // Local seed event — remove from state
-      setEvents((prev) => prev.filter((e) => e.id !== eventToDelete.id))
-      toast.success('Event removed')
+      try {
+        await deleteCompanyCalendarEvent(eventToDelete.id)
+        toast.success('Event removed')
+      } catch {
+        toast.error('Failed to remove event')
+      }
     }
     setEventDeleteConfirmOpen(false)
     setEventToDelete(null)
@@ -174,7 +183,7 @@ export function CompanyCalendar() {
 
   const holidayEvents = useMemo((): CalendarSidebarEvent[] => {
     return holidays
-      .filter((h) => h.type === 'Company' || h.type === 'Company Event')
+      .filter((h) => h.type === 'Company Event')
       .map((h) => ({
         id: h.id,
         title: h.title,
@@ -186,17 +195,18 @@ export function CompanyCalendar() {
 
   const currentMonthHolidays = useMemo(() => {
     return holidays.filter((h) => {
+      if (h.type === 'Company Event') return false
       const holidayDate = new Date(h.date)
       return holidayDate.getMonth() === currentMonthIdx && holidayDate.getFullYear() === currentYear
     })
   }, [holidays, currentMonthIdx, currentYear])
 
   const currentMonthEvents = useMemo(() => {
-    return [...events, ...holidayEvents].filter((e) => {
+    return [...dbSidebarEvents, ...holidayEvents].filter((e) => {
       const eventDate = new Date(e.date)
       return eventDate.getMonth() === currentMonthIdx && eventDate.getFullYear() === currentYear
     })
-  }, [events, holidayEvents, currentMonthIdx, currentYear])
+  }, [dbSidebarEvents, holidayEvents, currentMonthIdx, currentYear])
 
   const currentMonthLeaves = useMemo(() => {
     return approvedLeaves
@@ -450,10 +460,6 @@ export function CompanyCalendar() {
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                 <span className="text-muted">Company Holiday</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-orange-500"></div>
-                <span className="text-muted">Company Event</span>
               </div>
             </div>
 

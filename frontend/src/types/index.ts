@@ -1,5 +1,5 @@
 export type EmploymentType = 'Full-time' | 'Contract' | 'Intern'
-export type EmployeeStatus = 'Active' | 'Inactive' | 'Notice Period' | 'Deactivated'
+export type EmployeeStatus = 'Active' | 'Inactive' | 'Notice Period' | 'Deactivated' | 'Archived'
 
 export interface Employee {
   id: string
@@ -12,7 +12,8 @@ export interface Employee {
   communicationAddress?: string
   dob?: string
   gender?: string
-  designation?: string
+  department: string
+  designation: string
   role: string
   reportingManager?: string
   managerId?: string
@@ -59,11 +60,26 @@ export interface LeaveRequest {
   reason: string
   status: LeaveStatus
   rejectionReason?: string
-  cancellationReason?: string
   createdAt?: string
   updatedAt?: string
+  cancellationReason?: string
   approvalDate?: string
   approvedBy?: string
+}
+
+/** Employee leave rollup for admin profile modal (`GET /leaves/employee/:id/summary`). */
+export interface EmployeeLeaveSummary {
+  employeeId: string
+  employeeName?: string
+  balances: Array<{
+    type: string
+    total: number
+    used: number
+    pending: number
+    remaining: number
+  }>
+  currentLeaves: LeaveRequest[]
+  history: LeaveRequest[]
 }
 
 export interface Holiday {
@@ -76,34 +92,31 @@ export interface Holiday {
   skippedReason?: string
 }
 
+/** Timed / all-day company events (meetings, town halls) stored separately from holidays */
+export interface CompanyCalendarEvent {
+  id: string
+  title: string
+  date: string
+  time?: string
+  description?: string
+}
+
 export interface CompensationLeave {
   id: string
   employeeId: string
   employeeName: string
   days: number
-}
-
-export interface LeaveTypeBalanceSummary {
-  type: string
-  total: number
-  used: number
-  pending: number
-  remaining: number
-}
-
-export interface EmployeeLeaveSummary {
-  employeeId: string
-  employeeName: string
-  balances: LeaveTypeBalanceSummary[]
-  currentLeaves: Array<{
-    id: string
-    type: string
-    from: string
-    to: string
-    days: number
-    status: string
-  }>
-  history: LeaveRequest[]
+  reason: string
+  status: 'Active' | 'Cancelled' | 'Archived'
+  createdBy: string
+  createdAt: string
+  updatedAt?: string
+  cancelled?: boolean
+  cancelledBy?: string
+  cancelledAt?: string
+  cancellationReason?: string
+  archivedAt?: string
+  archivedReason?: string
 }
 
 export interface ProjectTimesheetRow {
@@ -146,22 +159,65 @@ export interface NewsItem {
 export type TicketStatus = 'Pending' | 'In Progress' | 'Completed'
 export type TicketPriority = 'Low' | 'Medium' | 'High' | 'Critical'
 
+export interface TicketComment {
+  id: string
+  authorId: string
+  authorName: string
+  authorRole: 'Admin' | 'Employee'
+  text: string
+  createdAt: string
+}
+
+export interface TicketAttachmentMeta {
+  filename: string
+  contentType: string
+  uploadedAt: string
+}
+
 export interface Ticket {
   id: string
   employeeId: string
   employeeName: string
   title: string
+  description?: string
   priority: TicketPriority
   status: TicketStatus
+  projectId?: string
+  projectName?: string
+  comments?: TicketComment[]
+  attachment?: TicketAttachmentMeta
+  hasAttachment?: boolean
   createdAt: string
+  updatedAt?: string
 }
 
+export type DocumentRequestStatus = 'Requested' | 'Approved' | 'Rejected'
+
+/** HR document request workflow (requested → approved/rejected). */
+export interface DocumentRequestRecord {
+  id: string
+  employeeUserId: string
+  employeeId: string
+  employeeName: string
+  documentType: string
+  documentName: string
+  reason: string
+  status: DocumentRequestStatus
+  requestedAt: string
+  processedAt?: string
+  processedBy?: string
+  rejectionReason?: string
+  /** Set by API after upload fulfillments (admin). */
+  hasFulfillmentFile?: boolean
+}
+
+/** @deprecated Legacy shape — prefer DocumentRequestRecord */
 export interface DocumentItem {
   id: string
   fileName: string
   employeeName: string
   uploadedAt: string
-  status: 'Approved' | 'Requested' | 'Rejected'
+  status: DocumentRequestStatus
 }
 
 export interface CalendarEvent {
