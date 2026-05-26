@@ -281,21 +281,11 @@ export default function DocumentRequest() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-4">
-        <div>
-          <h2 className="font-heading text-2xl font-semibold">Documents</h2>
-          <p className="mt-1 text-sm text-muted">
-            {activeTab === 'payslips'
-              ? 'View payslip history and salary records issued by HR'
-              : 'Submit document requests and track HR approvals'}
-          </p>
-        </div>
-
-        <div
-          className="inline-flex w-full max-w-lg rounded-xl border border-border bg-surface/60 p-1 shadow-sm sm:w-auto"
-          role="tablist"
-          aria-label="Documents sections"
-        >
+      <div
+        className="inline-flex w-full max-w-lg rounded-xl border border-border bg-surface/60 p-1 shadow-sm sm:w-auto"
+        role="tablist"
+        aria-label="Documents sections"
+      >
           {tabs.map((tab) => {
             const Icon = tab.icon
             return (
@@ -317,7 +307,6 @@ export default function DocumentRequest() {
               </button>
             )
           })}
-        </div>
       </div>
 
       <div className="transition-opacity duration-200">
