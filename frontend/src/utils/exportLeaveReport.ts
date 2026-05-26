@@ -33,8 +33,13 @@ export const LEAVE_EXPORT_HEADERS: { key: keyof LeaveExportRow; label: string }[
 
 function toExportTimestamp(value: unknown): string {
   if (!value) return '—'
-  if (typeof value === 'string') return formatDateTime(value)
-  if (value instanceof Date) return formatDateTime(value)
+  try {
+    if (typeof value === 'string') return formatDateTime(value)
+    if (value instanceof Date) return formatDateTime(value)
+  } catch {
+    // If date parsing fails, return the raw value
+    return String(value)
+  }
   return '—'
 }
 
@@ -43,8 +48,8 @@ export function mapLeaveToExportRow(leave: LeaveRequest): LeaveExportRow {
     employeeName: leave.employeeName,
     employeeId: leave.employeeId,
     leaveType: leave.type,
-    fromDate: formatDate(leave.from),
-    toDate: formatDate(leave.to),
+    fromDate: leave.from ? formatDate(leave.from) : '—',
+    toDate: leave.to ? formatDate(leave.to) : '—',
     days: leave.days,
     status: leave.status,
     reason: leave.reason || '—',

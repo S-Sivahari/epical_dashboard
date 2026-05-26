@@ -58,7 +58,7 @@ export function exportToExcel<T extends Record<string, any>>(
 
   // Corporate Header Block
   aoa.push(['------------------------------------------------------------'])
-  aoa.push(['                    EP[IC]AL LAYOUTS PVT LTD'])
+  aoa.push(['                    EPICAL LAYOUTS PVT LTD'])
   aoa.push([`                 ${options?.panelTitle ?? 'Document Management Panel'}`])
   aoa.push([`                    ${options?.reportTitle ?? 'Employee Details Report'}`])
   aoa.push(['------------------------------------------------------------'])
