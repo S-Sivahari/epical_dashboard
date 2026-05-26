@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Download, Trash2 } from 'lucide-react'
+import { Download, Trash2, FileText, FileSpreadsheet } from 'lucide-react'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
@@ -91,9 +91,9 @@ export function LeaveManagementContainer() {
           return
         }
         if (format === 'pdf') {
-          exportLeavesToPDF(filteredLeaveRequests, filename, exportFilterMeta, generatedBy)
+          await exportLeavesToPDF(filteredLeaveRequests, filename, exportFilterMeta, generatedBy)
         } else {
-          exportLeavesToExcel(filteredLeaveRequests, filename, exportFilterMeta, generatedBy)
+          await exportLeavesToExcel(filteredLeaveRequests, filename, exportFilterMeta, generatedBy)
         }
         toast.success(`Exported ${filteredLeaveRequests.length} leave request(s)`)
         return
@@ -104,9 +104,9 @@ export function LeaveManagementContainer() {
         return
       }
       if (format === 'pdf') {
-        exportCompensationToPDF(compensationExportRows, filename, exportFilterMeta, generatedBy)
+        await exportCompensationToPDF(compensationExportRows, filename, exportFilterMeta, generatedBy)
       } else {
-        exportCompensationToExcel(compensationExportRows, filename, exportFilterMeta, generatedBy)
+        await exportCompensationToExcel(compensationExportRows, filename, exportFilterMeta, generatedBy)
       }
       toast.success(`Exported ${compensationExportRows.length} compensation entr${compensationExportRows.length === 1 ? 'y' : 'ies'}`)
     } finally {
@@ -172,7 +172,7 @@ export function LeaveManagementContainer() {
               onClick={() => void handleExport('pdf')}
               loading={exporting === 'pdf'}
             >
-              <Download className="h-4 w-4" />
+              <FileText className="h-4 w-4 text-red-600" />
               Export PDF
             </Button>
             <Button
@@ -181,7 +181,7 @@ export function LeaveManagementContainer() {
               onClick={() => void handleExport('excel')}
               loading={exporting === 'excel'}
             >
-              <Download className="h-4 w-4" />
+              <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
               Export Excel
             </Button>
           </div>

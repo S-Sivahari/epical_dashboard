@@ -9,7 +9,7 @@ import { HoursBarChart } from '@components/charts/BarChart'
 import { DepartmentPieChart } from '@components/charts/PieChart'
 import { KPICard } from '@components/charts/KPICard'
 import { exportAnalyticsPdf } from '@/utils/exportPDF'
-import { BarChart3, BookOpen, Clock } from 'lucide-react'
+import { BarChart3, BookOpen, Clock, FileText } from 'lucide-react'
 
 export function Analytics() {
   const [month, setMonth] = useState('5')
@@ -36,6 +36,7 @@ export function Analytics() {
         breadcrumb={<Breadcrumb items={[{ label: 'Analytics' }]} />}
         actions={
           <Button variant="secondary" onClick={() => void exportAnalyticsPdf(`analytics-${year}-${month}.pdf`)}>
+            <FileText className="h-4 w-4 text-red-600" />
             Export PDF
           </Button>
         }

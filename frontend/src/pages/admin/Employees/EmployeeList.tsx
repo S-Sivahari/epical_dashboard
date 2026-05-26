@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Plus, Download, Search, X, CheckSquare } from 'lucide-react'
+import { Plus, Search, X, CheckSquare, FileText, FileSpreadsheet } from 'lucide-react'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
 import { Badge } from '@components/ui/Badge'
@@ -160,7 +160,7 @@ export function EmployeeList() {
         return
       }
 
-      exportToExcel(fullEmployeeData, filename, headers, exportOptions)
+      await exportToExcel(fullEmployeeData, filename, headers, exportOptions)
     } finally {
       setExporting(null)
     }
@@ -390,12 +390,12 @@ export function EmployeeList() {
             </Button>
           )}
           <Button variant="secondary" onClick={() => handleExport('pdf')} loading={exporting === 'pdf'}>
-            <Download className="h-4 w-4" />
-            PDF
+            <FileText className="h-4 w-4 text-red-600" />
+            Export PDF
           </Button>
           <Button variant="secondary" onClick={() => handleExport('excel')} loading={exporting === 'excel'}>
-            <Download className="h-4 w-4" />
-            Excel
+            <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+            Export Excel
           </Button>
           <Button asChild>
             <Link to="/admin/employees/add">

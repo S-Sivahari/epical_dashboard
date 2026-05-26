@@ -1,12 +1,24 @@
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { drawPdfLogo, fetchExportLogo } from '@/utils/exportLogo'
 
-export function exportAnalyticsPdf(filename: string) {
+export async function exportAnalyticsPdf(filename: string) {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt' })
+  const pageWidth = doc.internal.pageSize.width || 842
+  const logo = await fetchExportLogo()
+
+  let y = logo ? drawPdfLogo(doc, logo, pageWidth) : 40
   doc.setFontSize(16)
-  doc.text('Analytics Report', 40, 60)
+  doc.setTextColor(0, 0, 0)
+  doc.text('Analytics Report', pageWidth / 2, y, { align: 'center' })
+  y += 20
+  doc.setFontSize(8)
+  doc.setTextColor(16, 185, 129)
+  doc.text('[ PDF Document ]', pageWidth / 2, y, { align: 'center' })
+  y += 16
   doc.setFontSize(10)
-  doc.text(`Generated: ${new Date().toLocaleString()}`, 40, 80)
+  doc.setTextColor(0, 0, 0)
+  doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth / 2, y, { align: 'center' })
   doc.save(filename)
 }
 
@@ -18,7 +30,6 @@ export interface ExportPdfOptions {
   reportTitle?: string
 }
 
-// Simple date formatter inside the utility to prevent external dependencies
 function formatDateStr(d: string | Date | undefined | null): string {
   if (!d) return '—'
   const date = new Date(d)
@@ -27,7 +38,7 @@ function formatDateStr(d: string | Date | undefined | null): string {
   return `${String(date.getDate()).padStart(2, '0')}-${months[date.getMonth()]}-${date.getFullYear()}`
 }
 
-export function exportToPDF<T extends Record<string, any>>(
+export async function exportToPDF<T extends Record<string, any>>(
   data: T[],
   filename: string,
   headers: { key: keyof T; label: string }[],
@@ -35,11 +46,12 @@ export function exportToPDF<T extends Record<string, any>>(
 ) {
   if (!data.length) return
 
+  const logo = await fetchExportLogo()
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt' })
   const now = new Date()
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   const genDate = `${String(now.getDate()).padStart(2, '0')}-${months[now.getMonth()]}-${now.getFullYear()}`
-  
+
   let hours = now.getHours()
   const minutes = String(now.getMinutes()).padStart(2, '0')
   const ampm = hours >= 12 ? 'PM' : 'AM'
@@ -56,7 +68,7 @@ export function exportToPDF<T extends Record<string, any>>(
         if (key === 'employeeId') displayKey = 'Employee ID'
         else if (key === 'employmentType') displayKey = 'Type'
         else displayKey = key.charAt(0).toUpperCase() + key.slice(1)
-        
+
         filterParts.push(`${displayKey} = ${val}`)
       }
     })
@@ -66,63 +78,69 @@ export function exportToPDF<T extends Record<string, any>>(
   const pageWidth = doc.internal.pageSize.width || 842
   const pageHeight = doc.internal.pageSize.height || 595
 
-  // Helper to draw centered branded header and metadata
-  function drawHeaderBlock() {
-    // Centered "EPICAL LAYOUTS PVT LTD"
+  function drawHeaderBlock(): number {
+    let y = logo ? drawPdfLogo(doc, logo, pageWidth) : 38
+
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(18)
     const companyText = 'EPICAL LAYOUTS PVT LTD'
     const textWidth = doc.getTextWidth(companyText)
     const startX = (pageWidth - textWidth) / 2
 
-    // Company name in black
     doc.setTextColor(0, 0, 0)
-    doc.text(companyText, startX, 50)
+    doc.text(companyText, startX, y)
+    y += 18
 
-    // Centered Subtitles
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(10)
-    doc.setTextColor(100, 116, 139) // Slate-500
-    doc.text(options?.panelTitle ?? 'Document Management Panel', pageWidth / 2, 68, { align: 'center' })
-    
+    doc.setTextColor(100, 116, 139)
+    doc.text(options?.panelTitle ?? 'Document Management Panel', pageWidth / 2, y, { align: 'center' })
+    y += 18
+
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(12)
-    doc.setTextColor(30, 41, 59) // Slate-800
-    doc.text(options?.reportTitle ?? 'Employee Details Report', pageWidth / 2, 86, { align: 'center' })
+    doc.setTextColor(30, 41, 59)
+    doc.text(options?.reportTitle ?? 'Employee Details Report', pageWidth / 2, y, { align: 'center' })
+    y += 12
 
-    // Top Divider Line
-    doc.setDrawColor(226, 232, 240) // Slate-200
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.setTextColor(16, 185, 129)
+    doc.text('[ PDF Document ]', pageWidth / 2, y, { align: 'center' })
+    y += 8
+
+    doc.setDrawColor(226, 232, 240)
     doc.setLineWidth(1)
-    doc.line(40, 96, pageWidth - 40, 96)
+    doc.line(40, y, pageWidth - 40, y)
+    y += 19
 
-    // Horizontal Metadata Columns
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
-    doc.setTextColor(71, 85, 105) // Slate-600
+    doc.setTextColor(71, 85, 105)
     const metaLeft = 40
     const metaRight = pageWidth - 40
     const metaCenter = pageWidth / 2
-    doc.text(`Generated Date : ${genDate}`, metaLeft, 115, { align: 'left' })
-    doc.text(`Generated Time : ${genTime}`, metaCenter, 115, { align: 'center' })
-    doc.text(`Generated By : ${genBy}`, metaRight, 115, { align: 'right' })
+    doc.text(`Generated Date : ${genDate}`, metaLeft, y, { align: 'left' })
+    doc.text(`Generated Time : ${genTime}`, metaCenter, y, { align: 'center' })
+    doc.text(`Generated By : ${genBy}`, metaRight, y, { align: 'right' })
+    y += 20
 
-    // Applied Filters row
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(30, 41, 59)
-    doc.text('Applied Filters: ', 40, 135)
+    doc.text('Applied Filters: ', 40, y)
     const filterLabelWidth = doc.getTextWidth('Applied Filters: ')
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(100, 116, 139)
-    doc.text(filterString, 40 + filterLabelWidth, 135)
+    doc.text(filterString, 40 + filterLabelWidth, y)
+    y += 13
 
-    // Bottom Divider Line
     doc.setDrawColor(226, 232, 240)
-    doc.line(40, 148, pageWidth - 40, 148)
+    doc.line(40, y, pageWidth - 40, y)
+    return y
   }
 
-  // Compact mode: header, table, and footer
   if (options?.compactMode) {
-    drawHeaderBlock()
+    const tableStartY = drawHeaderBlock() + 12
 
     const tableData = [
       headers.map((h) => h.label),
@@ -144,10 +162,10 @@ export function exportToPDF<T extends Record<string, any>>(
     autoTable(doc, {
       head: [tableData[0]],
       body: tableData.slice(1),
-      startY: 160,
+      startY: tableStartY,
       styles: { fontSize: 8, cellPadding: 4, valign: 'middle', overflow: 'linebreak' },
       theme: 'grid',
-      margin: { left: 10, right: 10, top: 160, bottom: 50 },
+      margin: { left: 10, right: 10, top: tableStartY, bottom: 50 },
       columnStyles: headers.reduce(
         (acc, _, idx) => {
           acc[idx] = { cellWidth: (pageWidth - 20) / headers.length }
@@ -157,29 +175,22 @@ export function exportToPDF<T extends Record<string, any>>(
       ),
     })
 
-    // Add footer
     const totalPages = doc.getNumberOfPages()
     const footerY = pageHeight - 30
 
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i)
-      
-      // Draw footer divider line
+
       doc.setDrawColor(226, 232, 240)
       doc.setLineWidth(1)
       doc.line(40, footerY - 12, pageWidth - 40, footerY - 12)
-      
+
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(8)
       doc.setTextColor(100, 116, 139)
-      
-      // Left confidentiality statement
+
       doc.text('EPICAL LAYOUTS PVT LTD – Confidential Document', 40, footerY)
-      
-      // Center generated timestamp
       doc.text(`System Generated Report | Generated on ${genDate} ${genTime}`, pageWidth / 2, footerY, { align: 'center' })
-      
-      // Right page numbering
       doc.text(`Page ${i} of ${totalPages}`, pageWidth - 40, footerY, { align: 'right' })
     }
 
@@ -187,99 +198,79 @@ export function exportToPDF<T extends Record<string, any>>(
     return
   }
 
-  // Original detailed mode with individual employee dossiers
-  // Iterate over each employee and generate a beautiful profile dossier page
   data.forEach((e, index) => {
     if (index > 0) {
       doc.addPage()
     }
 
-    // Draw header and dividers on every page for consistent report layout
-    drawHeaderBlock()
+    const headerEndY = drawHeaderBlock()
 
-    // Employee dossier section header
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(13)
-    doc.setTextColor(16, 185, 129) // Emerald-500
+    doc.setTextColor(16, 185, 129)
     const empName = `${e.firstName} ${e.lastName || ''}`.trim().toUpperCase()
-    doc.text(`${index + 1}. ${empName} (${e.employeeId})`, 40, 172)
+    doc.text(`${index + 1}. ${empName} (${e.employeeId})`, 40, headerEndY + 14)
 
-    // Build the grid data dossier for this specific employee
     const tableBody = [
       [
         { content: `FULL NAME:\n${e.firstName} ${e.lastName || ''}`, styles: { fontStyle: 'bold' as const } },
         { content: `EMPLOYEE ID:\n${e.employeeId}`, styles: { fontStyle: 'bold' as const } },
-        { content: `STATUS:\n${e.status}`, styles: { fontStyle: 'bold' as const } }
+        { content: `STATUS:\n${e.status}`, styles: { fontStyle: 'bold' as const } },
       ],
-      [
-        `EMAIL:\n${e.email}`,
-        `PHONE:\n${e.phone || '—'}`,
-        `DATE OF BIRTH:\n${formatDateStr(e.dob)}`
-      ],
-      [
-        `ROLE:\n${e.role}`,
-        `EMPLOYMENT TYPE:\n${e.employmentType}`,
-        `JOINED AT:\n${formatDateStr(e.joinedAt)}`
-      ],
+      [`EMAIL:\n${e.email}`, `PHONE:\n${e.phone || '—'}`, `DATE OF BIRTH:\n${formatDateStr(e.dob)}`],
+      [`ROLE:\n${e.role}`, `EMPLOYMENT TYPE:\n${e.employmentType}`, `JOINED AT:\n${formatDateStr(e.joinedAt)}`],
       [
         `REPORTING MANAGER:\n${e.reportingManager || '—'}`,
         `CTC (ANNUAL):\n${e.ctc ? `INR ${e.ctc.toLocaleString('en-IN')}` : '—'}`,
-        ''
+        '',
       ],
       [
         `BANK NAME:\n${e.bankName || '—'}`,
         `ACCOUNT NO:\n${e.accountNumber || '—'}`,
-        `IFSC CODE:\n${e.ifsc || '—'}`
+        `IFSC CODE:\n${e.ifsc || '—'}`,
       ],
       [
         `AADHAAR NUMBER:\n${e.aadhaar || '—'}`,
         `PAN:\n${e.pan || '—'}`,
-        `PASSPORT NUMBER:\n${e.passport || '—'}`
+        `PASSPORT NUMBER:\n${e.passport || '—'}`,
       ],
       [
         `ADDRESS:\n${e.address || '—'}`,
         `UAN NUMBER:\n${e.uan || '—'}`,
-        `PF / ESI:\n${e.pfEsi === 'on' ? 'Enabled' : e.pfEsi === 'off' ? 'Disabled' : '—'}`
-      ]
+        `PF / ESI:\n${e.pfEsi === 'on' ? 'Enabled' : e.pfEsi === 'off' ? 'Disabled' : '—'}`,
+      ],
     ]
 
     autoTable(doc, {
       body: tableBody,
-      startY: 182,
+      startY: headerEndY + 24,
       styles: { fontSize: 8.5, cellPadding: 6, valign: 'middle', overflow: 'linebreak' },
       theme: 'grid',
       columnStyles: {
         0: { cellWidth: 250 },
         1: { cellWidth: 250 },
-        2: { cellWidth: 262 }
+        2: { cellWidth: 262 },
       },
-      margin: { left: 40, right: 40, bottom: 60 }
+      margin: { left: 40, right: 40, bottom: 60 },
     })
   })
 
-  // Double-pass page number footer rendering
   const totalPages = doc.getNumberOfPages()
   const footerY = pageHeight - 30
 
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i)
-    
-    // Draw footer divider line
+
     doc.setDrawColor(226, 232, 240)
     doc.setLineWidth(1)
     doc.line(40, footerY - 12, pageWidth - 40, footerY - 12)
-    
+
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(8)
     doc.setTextColor(100, 116, 139)
-    
-    // Left confidentiality statement
+
     doc.text('EPICAL LAYOUTS PVT LTD – Confidential Document', 40, footerY)
-    
-    // Center generated timestamp
     doc.text(`System Generated Report | Generated on ${genDate} ${genTime}`, pageWidth / 2, footerY, { align: 'center' })
-    
-    // Right page numbering
     doc.text(`Page ${i} of ${totalPages}`, pageWidth - 40, footerY, { align: 'right' })
   }
 

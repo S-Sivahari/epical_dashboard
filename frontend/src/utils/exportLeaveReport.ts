@@ -37,7 +37,6 @@ function toExportTimestamp(value: unknown): string {
     if (typeof value === 'string') return formatDateTime(value)
     if (value instanceof Date) return formatDateTime(value)
   } catch {
-    // If date parsing fails, return the raw value
     return String(value)
   }
   return '—'
@@ -65,14 +64,14 @@ const LEAVE_REPORT_OPTIONS = {
   sheetName: 'Leave Requests',
 }
 
-export function exportLeavesToPDF(
+export async function exportLeavesToPDF(
   leaves: LeaveRequest[],
   filename: string,
   filters: Record<string, string | undefined>,
   generatedBy?: string,
 ) {
   const rows = leaves.map(mapLeaveToExportRow)
-  exportToPDF(rows, filename, LEAVE_EXPORT_HEADERS, {
+  await exportToPDF(rows, filename, LEAVE_EXPORT_HEADERS, {
     generatedBy,
     filters,
     compactMode: true,
@@ -80,14 +79,14 @@ export function exportLeavesToPDF(
   })
 }
 
-export function exportLeavesToExcel(
+export async function exportLeavesToExcel(
   leaves: LeaveRequest[],
   filename: string,
   filters: Record<string, string | undefined>,
   generatedBy?: string,
 ) {
   const rows = leaves.map(mapLeaveToExportRow)
-  exportToExcel(rows, filename, LEAVE_EXPORT_HEADERS, {
+  await exportToExcel(rows, filename, LEAVE_EXPORT_HEADERS, {
     generatedBy,
     filters,
     ...LEAVE_REPORT_OPTIONS,
@@ -112,13 +111,13 @@ export const COMPENSATION_EXPORT_HEADERS: { key: keyof CompensationExportRow; la
   { key: 'createdBy', label: 'Created By' },
 ]
 
-export function exportCompensationToPDF(
+export async function exportCompensationToPDF(
   rows: CompensationExportRow[],
   filename: string,
   filters: Record<string, string | undefined>,
   generatedBy?: string,
 ) {
-  exportToPDF(rows, filename, COMPENSATION_EXPORT_HEADERS, {
+  await exportToPDF(rows, filename, COMPENSATION_EXPORT_HEADERS, {
     generatedBy,
     filters,
     compactMode: true,
@@ -127,13 +126,13 @@ export function exportCompensationToPDF(
   })
 }
 
-export function exportCompensationToExcel(
+export async function exportCompensationToExcel(
   rows: CompensationExportRow[],
   filename: string,
   filters: Record<string, string | undefined>,
   generatedBy?: string,
 ) {
-  exportToExcel(rows, filename, COMPENSATION_EXPORT_HEADERS, {
+  await exportToExcel(rows, filename, COMPENSATION_EXPORT_HEADERS, {
     generatedBy,
     filters,
     panelTitle: 'Leave Management Panel',
@@ -165,14 +164,14 @@ export function mapHolidayToExportRow(holiday: Holiday): HolidayExportRow {
   }
 }
 
-export function exportHolidaysToPDF(
+export async function exportHolidaysToPDF(
   holidays: Holiday[],
   filename: string,
   filters: Record<string, string | undefined>,
   generatedBy?: string,
 ) {
   const rows = holidays.map(mapHolidayToExportRow)
-  exportToPDF(rows, filename, HOLIDAY_EXPORT_HEADERS, {
+  await exportToPDF(rows, filename, HOLIDAY_EXPORT_HEADERS, {
     generatedBy,
     filters,
     compactMode: true,
@@ -181,14 +180,14 @@ export function exportHolidaysToPDF(
   })
 }
 
-export function exportHolidaysToExcel(
+export async function exportHolidaysToExcel(
   holidays: Holiday[],
   filename: string,
   filters: Record<string, string | undefined>,
   generatedBy?: string,
 ) {
   const rows = holidays.map(mapHolidayToExportRow)
-  exportToExcel(rows, filename, HOLIDAY_EXPORT_HEADERS, {
+  await exportToExcel(rows, filename, HOLIDAY_EXPORT_HEADERS, {
     generatedBy,
     filters,
     panelTitle: 'Leave Management Panel',

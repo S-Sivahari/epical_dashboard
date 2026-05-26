@@ -10,7 +10,7 @@ import { openEmployeeDocument } from '@/services/uploadService'
 import type { Employee } from '@/types'
 import { formatDate } from '@/utils/formatDate'
 import { stringToHueColor } from '@/utils/stringColor'
-import { Pencil, FileText, ExternalLink, Download } from 'lucide-react'
+import { Pencil, FileText, FileSpreadsheet, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 import { exportToExcel } from '@/utils/exportExcel'
 import { exportToPDF } from '@/utils/exportPDF'
@@ -149,13 +149,13 @@ export function EmployeeProfile() {
         subtitle={employee.employeeId}
         actions={
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => exportToPDF([employee], fileName, exportHeaders)}>
-              <Download className="h-4 w-4" />
-              PDF
+            <Button variant="secondary" onClick={() => void exportToPDF([employee], fileName, exportHeaders)}>
+              <FileText className="h-4 w-4 text-red-600" />
+              Export PDF
             </Button>
-            <Button variant="secondary" onClick={() => exportToExcel([employee], fileName, exportHeaders)}>
-              <Download className="h-4 w-4" />
-              Excel
+            <Button variant="secondary" onClick={() => void exportToExcel([employee], fileName, exportHeaders)}>
+              <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+              Export Excel
             </Button>
             <Button asChild>
               <Link to={`/admin/employees/${employee.id}/edit`}>

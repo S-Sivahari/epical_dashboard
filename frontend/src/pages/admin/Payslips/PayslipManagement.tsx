@@ -490,7 +490,7 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
               {downloadingAll ? (
                 <Loader className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <Download className="h-3.5 w-3.5" />
+                <FileText className="h-3.5 w-3.5 text-red-600" />
               )}
               Download All
             </Button>
@@ -520,8 +520,8 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
               onClick={() => void handleDownloadPayslip(batch.id, r.fileName!, `Payslip_${r.name}.pdf`)}
               title="Download PDF"
             >
-              <Download className="h-3.5 w-3.5" />
-              Download
+              <FileText className="h-3.5 w-3.5 text-red-600" />
+              Download PDF
             </Button>
             <Button
               size="sm"
@@ -766,7 +766,7 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
                           )
                         }
                       >
-                        <Download className="h-4 w-4" />
+                        <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
                         Download Excel
                       </Button>
   
@@ -912,7 +912,7 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
                                   {downloadingAll ? (
                                     <Loader className="h-3.5 w-3.5 animate-spin" />
                                   ) : (
-                                    <Download className="h-3.5 w-3.5" />
+                                    <FileText className="h-3.5 w-3.5 text-red-600" />
                                   )}
                                   Download All PDFs
                                 </Button>
@@ -922,7 +922,7 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
                                 variant="secondary"
                                 onClick={() => downloadUploadedExcel(b.id, b.originalFileName)}
                               >
-                                <Download className="h-3.5 w-3.5" />
+                                <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
                                 Download Excel
                               </Button>
                             </div>
@@ -970,7 +970,7 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
                                           )
                                         }
                                       >
-                                        <Download className="h-3.5 w-3.5" />
+                                        <FileText className="h-3.5 w-3.5 text-red-600" />
                                         Download PDF
                                       </Button>
                                     </div>

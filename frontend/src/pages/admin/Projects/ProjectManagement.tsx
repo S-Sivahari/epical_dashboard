@@ -57,9 +57,16 @@ import {
   LabelList,
 } from 'recharts'
 import { formatDate } from '@/utils/formatDate'
+import ExcelJS from 'exceljs'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import * as XLSX from 'xlsx'
+import {
+  downloadExcelBuffer,
+  drawPdfLogo,
+  EXCEL_LOGO_MAX_WIDTH,
+  fetchExportLogo,
+  scaleExportLogo,
+} from '@/utils/exportLogo'
 import api from '@/services/api'
 import { getEmployees } from '@/services/employeeService'
 import type { Employee } from '@/types'
@@ -1560,40 +1567,62 @@ export function ProjectManagement() {
   // ── Recharts Chart Data and Leaderboard are managed via server-side aggregation state ──
 
   // ── Export Implementations (Excel / PDF) ─────────────────────
-  const handleExportExcel = useCallback(() => {
+  const handleExportExcel = useCallback(async () => {
     if (!filteredTimesheets.length) {
       toast.error('No timesheet data available to export.')
       return
     }
 
     const { hoursByProject, leaderboard } = buildTimesheetExportAnalytics(filteredTimesheets)
-    const aoa: any[][] = []
+    const logo = await fetchExportLogo()
+    const workbook = new ExcelJS.Workbook()
+    const sheet = workbook.addWorksheet('Timesheet Report')
+    let row = 1
 
-    aoa.push(['EPICAL LAYOUTS PVT LTD'])
-    aoa.push(['Timesheet Report'])
-    aoa.push([`Date range: ${tsStartDate} to ${tsEndDate}`])
-    aoa.push([`Generated: ${new Date().toLocaleString()}`])
-    aoa.push([])
+    if (logo) {
+      const imageId = workbook.addImage({ buffer: logo.buffer, extension: 'png' })
+      const { width, height } = scaleExportLogo(logo.width, logo.height, EXCEL_LOGO_MAX_WIDTH)
+      const logoRows = Math.max(3, Math.ceil(height / 18))
+      for (let i = 1; i <= logoRows; i++) {
+        sheet.getRow(i).height = 20
+      }
+      sheet.addImage(imageId, {
+        tl: { col: 0.2, row: 0.2 },
+        ext: { width, height },
+      })
+      row = logoRows + 1
+    }
 
-    aoa.push(['AGGREGATED HOURS BY PROJECT'])
-    aoa.push(['Project', 'Hours'])
+    const addRow = (values: (string | number)[]) => {
+      sheet.getRow(row).values = values
+      row += 1
+    }
+
+    addRow(['EPICAL LAYOUTS PVT LTD'])
+    addRow(['Timesheet Report'])
+    addRow([`Date range: ${tsStartDate} to ${tsEndDate}`])
+    addRow([`Generated: ${new Date().toLocaleString()}`])
+    addRow([])
+
+    addRow(['AGGREGATED HOURS BY PROJECT'])
+    addRow(['Project', 'Hours'])
     hoursByProject.forEach((p) => {
-      aoa.push([p.name, formatExportHours(p.hours)])
+      addRow([p.name, formatExportHours(p.hours)])
     })
-    aoa.push([])
+    addRow([])
 
-    aoa.push(['AGGREGATED HOURS BY EMPLOYEE'])
-    aoa.push(['Rank', 'Employee', 'Department', 'Hours'])
+    addRow(['AGGREGATED HOURS BY EMPLOYEE'])
+    addRow(['Rank', 'Employee', 'Department', 'Hours'])
     leaderboard.forEach((e, index) => {
-      aoa.push([index + 1, e.name, e.dept, formatExportHours(e.hours)])
+      addRow([index + 1, e.name, e.dept, formatExportHours(e.hours)])
     })
-    aoa.push([])
+    addRow([])
 
-    aoa.push(['DETAILED TIME LOGS'])
-    aoa.push(['Employee', 'Employee ID', 'Project', 'Login Time', 'Logout Time', 'Total Hours'])
+    addRow(['DETAILED TIME LOGS'])
+    addRow(['Employee', 'Employee ID', 'Project', 'Login Time', 'Logout Time', 'Total Hours'])
     filteredTimesheets.forEach((t) => {
       const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours)
-      aoa.push([
+      addRow([
         t.employeeName,
         t.employeeId,
         t.project,
@@ -1603,30 +1632,28 @@ export function ProjectManagement() {
       ])
     })
 
-    const worksheet = XLSX.utils.aoa_to_sheet(aoa)
-    worksheet['!cols'] = [
-      { wch: 22 },
-      { wch: 14 },
-      { wch: 22 },
-      { wch: 24 },
-      { wch: 24 },
-      { wch: 12 },
+    sheet.columns = [
+      { width: 22 },
+      { width: 14 },
+      { width: 22 },
+      { width: 24 },
+      { width: 24 },
+      { width: 12 },
     ]
 
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Timesheet Report')
-
-    XLSX.writeFile(workbook, `Timesheet_Report_${tsStartDate}_to_${tsEndDate}.xlsx`)
+    const buffer = await workbook.xlsx.writeBuffer()
+    downloadExcelBuffer(buffer, `Timesheet_Report_${tsStartDate}_to_${tsEndDate}.xlsx`)
     toast.success('Excel spreadsheet generated and downloaded successfully.')
   }, [filteredTimesheets, tsStartDate, tsEndDate])
 
-  const handleExportPDF = useCallback(() => {
+  const handleExportPDF = useCallback(async () => {
     if (!filteredTimesheets.length) {
       toast.error('No timesheet data available to export.')
       return
     }
 
     const { hoursByProject, leaderboard } = buildTimesheetExportAnalytics(filteredTimesheets)
+    const logo = await fetchExportLogo()
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt' })
     const pageWidth = doc.internal.pageSize.width || 842
     const pageHeight = doc.internal.pageSize.height || 595
@@ -1654,26 +1681,31 @@ export function ProjectManagement() {
       return y + 14
     }
 
-    // Document header title
+    let headerY = logo ? drawPdfLogo(doc, logo, pageWidth) : 28
+    headerY += 12
+
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(18)
     doc.setTextColor(30, 41, 59)
-    doc.text('EPICAL LAYOUTS PVT LTD', pageWidth / 2, 40, { align: 'center' })
+    doc.text('EPICAL LAYOUTS PVT LTD', pageWidth / 2, headerY, { align: 'center' })
+    headerY += 20
 
     doc.setFontSize(12)
     doc.setTextColor(30, 41, 59)
-    doc.text('Timesheet Report', pageWidth / 2, 60, { align: 'center' })
+    doc.text('Timesheet Report', pageWidth / 2, headerY, { align: 'center' })
+    headerY += 20
 
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
     doc.setTextColor(100, 116, 139)
-    doc.text(`Period Range: ${tsStartDate} to ${tsEndDate}`, marginX, 80)
-    doc.text(`Generated Timestamp: ${new Date().toLocaleString()}`, pageWidth - marginX, 80, { align: 'right' })
+    doc.text(`Period Range: ${tsStartDate} to ${tsEndDate}`, marginX, headerY)
+    doc.text(`Generated Timestamp: ${new Date().toLocaleString()}`, pageWidth - marginX, headerY, { align: 'right' })
+    headerY += 10
 
     doc.setDrawColor(226, 232, 240)
-    doc.line(marginX, 90, pageWidth - marginX, 90)
+    doc.line(marginX, headerY, pageWidth - marginX, headerY)
 
-    let cursorY = 108
+    let cursorY = headerY + 18
     doc.setDrawColor(226, 232, 240)
     
     // Title for Analytics Overview
