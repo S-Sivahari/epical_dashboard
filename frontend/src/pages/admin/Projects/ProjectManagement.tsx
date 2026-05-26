@@ -836,24 +836,6 @@ function ProjectCard({
 
       <div className="mt-5 flex items-center justify-end border-t border-slate-100 pt-3.5">
         <div className="flex items-center gap-1">
-          {isActive && (
-            <>
-              <button
-                onClick={() => onStatusChange('Completed')}
-                className="rounded-lg p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
-                title="Mark as Completed"
-              >
-                <CheckCircle2 className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={() => onStatusChange('Cancelled')}
-                className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                title="Cancel Project"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </>
-          )}
           <button
             onClick={onEdit}
             className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
@@ -961,24 +943,6 @@ function ProjectListRow({
       </td>
       <td className="px-5 py-3.5 text-right">
         <div className="flex items-center justify-end gap-1.5">
-          {isActive && (
-            <>
-              <button
-                onClick={() => onStatusChange('Completed')}
-                className="rounded-lg p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
-                title="Mark as Completed"
-              >
-                <CheckCircle2 className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={() => onStatusChange('Cancelled')}
-                className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                title="Cancel Project"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </>
-          )}
           <button
             onClick={onEdit}
             className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
@@ -1017,9 +981,7 @@ function EmployeeLeaderboard({
         return (
           <div key={item.name} className="flex items-center gap-3">
             <span
-              className={`w-5 text-xs font-bold text-center ${
-                isTop ? 'text-emerald-600 font-extrabold' : 'text-slate-400'
-              }`}
+              className="w-5 text-xs font-bold text-center text-slate-400"
             >
               #{idx + 1}
             </span>
@@ -1165,7 +1127,6 @@ export function ProjectManagement() {
   const [tsSearch, setTsSearch] = useState('')
   const [tsEmployeeFilters, setTsEmployeeFilters] = useState<string[]>([])
   const [tsProjectFilters, setTsProjectFilters] = useState<string[]>([])
-  const [tsStatusFilters, setTsStatusFilters] = useState<string[]>([])
 
   // ── API Fetch Functions ─────────────────────────────────────
   const fetchEmployees = useCallback(async () => {
@@ -1525,10 +1486,8 @@ export function ProjectManagement() {
 
       const matchEmployee = matchesMultiFilter(tsEmployeeFilters, t.employeeName)
       const matchProject = matchesMultiFilter(tsProjectFilters, t.project)
-      const workflowStatus = getTimesheetWorkflowStatus(t)
-          const matchStatus = matchesMultiFilter(tsStatusFilters, workflowStatus)
 
-          return matchSearch && matchEmployee && matchProject && matchStatus
+      return matchSearch && matchEmployee && matchProject
     })
   }, [
     timesheets,
@@ -1537,7 +1496,6 @@ export function ProjectManagement() {
     tsSearch,
     tsEmployeeFilters,
     tsProjectFilters,
-    tsStatusFilters,
     getEmployeeTeam,
   ])
 
@@ -1950,7 +1908,6 @@ export function ProjectManagement() {
     setTsSearch('')
     setTsEmployeeFilters([])
     setTsProjectFilters([])
-    setTsStatusFilters([])
   }, [])
 
   const tsEmployeeFilterOptions = useMemo(() => {
@@ -1979,8 +1936,7 @@ export function ProjectManagement() {
   const hasActiveTimesheetFilters =
     tsSearch.trim().length > 0 ||
     tsEmployeeFilters.length > 0 ||
-    tsProjectFilters.length > 0 ||
-    tsStatusFilters.length > 0
+    tsProjectFilters.length > 0
 
 
   return (
@@ -2388,19 +2344,6 @@ export function ProjectManagement() {
                     selected={tsProjectFilters}
                     onChange={setTsProjectFilters}
                   />
-
-                  {/* Status Filter (moved inline) */}
-                  <FilterCheckboxGroup
-                    label="Status"
-                    placeholder="All Statuses"
-                    compact
-                    options={[
-                      { value: 'Completed', label: 'Completed' },
-                      { value: 'In Progress', label: 'In Progress' },
-                    ]}
-                    selected={tsStatusFilters}
-                    onChange={setTsStatusFilters}
-                  />
                 </div>
 
                 {/* Action Buttons (right-aligned, natural width) */}
@@ -2560,7 +2503,7 @@ export function ProjectManagement() {
             {/* Custom SaaS Leaderboard for Employee Hours */}
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <h3 className="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-700">
-                <span className="h-3.5 w-1.5 rounded-full bg-emerald-500" /> Employee-wise Hours Leaderboard
+                <span className="h-3.5 w-1.5 rounded-full bg-emerald-500" /> Aggregated Hours by Employee
               </h3>
               <div className="h-64 overflow-y-auto pr-1">
                 <EmployeeLeaderboard data={leaderboardData} />
@@ -2579,7 +2522,6 @@ export function ProjectManagement() {
                     <th className="px-5 py-3.5">Login Time</th>
                     <th className="px-5 py-3.5">Logout Time</th>
                     <th className="px-5 py-3.5">Total Hours</th>
-                    <th className="px-5 py-3.5">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
@@ -2644,25 +2586,12 @@ export function ProjectManagement() {
                         <td className="px-5 py-3.5 font-black text-slate-700 tracking-tight tabular-nums">
                           {hours !== null ? `${hours.toFixed(1)}h` : '—'}
                         </td>
-
-                        {/* Status Column */}
-                        <td className="px-5 py-3.5">
-                          {getTimesheetWorkflowStatus(t) === 'Completed' ? (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 border border-emerald-100/50">
-                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Completed
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700 border border-blue-100/50">
-                              <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" /> In Progress
-                            </span>
-                          )}
-                        </td>
                       </tr>
                     )
                   })}
                   {filteredTimesheets.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="py-16 text-center text-slate-400 font-medium">
+                      <td colSpan={5} className="py-16 text-center text-slate-400 font-medium">
                         No individual logs correspond to selected range and filters.
                       </td>
                     </tr>

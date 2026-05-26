@@ -378,7 +378,6 @@ export default function Timesheet() {
 
   const totalWeekly = weeklyHours.reduce((a, b) => a + b.hours, 0)
   const todayKey = formatDateKey(new Date())
-  const checkInsToday = attendanceHistory.filter((s) => s.date === todayKey).length
 
   const todayHoursMs = useMemo(() => {
     let totalMs = 0
@@ -440,10 +439,9 @@ export default function Timesheet() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <KPIStatCard title="Daily Hours Today" value={formatMsToHMS(todayHoursMs)} />
         <KPIStatCard title="Weekly Hours" value={`${totalWeekly.toFixed(1)}h`} />
-        <KPIStatCard title="Check-ins Today" value={String(checkInsToday)} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3 lg:items-start">
