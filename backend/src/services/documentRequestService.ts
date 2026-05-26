@@ -6,6 +6,7 @@ import {
   DocumentRequestDoc,
   DocumentRequestStatus,
 } from '../models/DocumentRequest';
+import * as notificationService from './notificationService';
 
 let col: Collection<DocumentRequestDoc & { _data?: unknown }> | null = null;
 let indexesCreated = false;
@@ -70,6 +71,28 @@ export async function createDocumentRequest(
     requestedAt: new Date(),
   };
   await getCol().insertOne(doc as any);
+  
+  // Notify all admins about the new document request
+  try {
+    const admins = await getDB().collection('users').find({ role: 'Admin' }).toArray();
+    for (const admin of admins) {
+      await notificationService.createNotification({
+        recipientId: admin.id,
+        recipientType: 'Admin',
+        type: 'DocumentRequested',
+        title: 'New Document Request',
+        message: `${ctx.employeeName} requested ${payload.documentName}`,
+        relatedData: {
+          employeeId: ctx.employeeId,
+          employeeName: ctx.employeeName,
+        },
+        relatedId: doc.id,
+      });
+    }
+  } catch (error) {
+    console.error('[Document Request] Failed to create admin notifications:', error);
+  }
+  
   return sanitize(doc as DocumentRequestDoc) as DocumentRequestDoc;
 }
 
@@ -111,6 +134,25 @@ export async function approveDocumentRequest(id: string, adminName: string): Pro
     }
   );
   const row = await getCol().findOne({ id }, { projection: { 'fulfillmentFile.data': 0 } });
+  
+  // Notify the employee about approval
+  try {
+    await notificationService.createNotification({
+      recipientId: existing.employeeUserId,
+      recipientType: 'Employee',
+      type: 'DocumentApproved',
+      title: 'Document Request Approved',
+      message: `Your request for ${existing.documentName} has been approved and is ready for download`,
+      relatedData: {
+        employeeId: existing.employeeId,
+        employeeName: existing.employeeName,
+      },
+      relatedId: id,
+    });
+  } catch (error) {
+    console.error('[Document Request] Failed to create employee notification:', error);
+  }
+  
   return sanitize(row as DocumentRequestDoc) as DocumentRequestDoc | null;
 }
 
@@ -139,6 +181,25 @@ export async function rejectDocumentRequest(
     }
   );
   const row = await getCol().findOne({ id }, { projection: { 'fulfillmentFile.data': 0 } });
+  
+  // Notify the employee about rejection
+  try {
+    await notificationService.createNotification({
+      recipientId: existing.employeeUserId,
+      recipientType: 'Employee',
+      type: 'DocumentRejected',
+      title: 'Document Request Rejected',
+      message: `Your request for ${existing.documentName} was rejected: ${reason}`,
+      relatedData: {
+        employeeId: existing.employeeId,
+        employeeName: existing.employeeName,
+      },
+      relatedId: id,
+    });
+  } catch (error) {
+    console.error('[Document Request] Failed to create employee notification:', error);
+  }
+  
   return sanitize(row as DocumentRequestDoc) as DocumentRequestDoc | null;
 }
 

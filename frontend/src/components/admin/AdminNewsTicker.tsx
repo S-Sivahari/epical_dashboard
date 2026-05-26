@@ -25,7 +25,8 @@ export function AdminNewsTicker() {
     const load = async () => {
       setLoading(true)
       try {
-        const data = await listNews()
+        // Fetch only 10 most recent news items for better performance
+        const data = await listNews(10)
         setItems(data)
         setIndex(0)
       } catch {

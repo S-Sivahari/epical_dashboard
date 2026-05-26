@@ -48,31 +48,28 @@ function NavItem({ to, label, end, collapsed, onNavigate }) {
       onFocus={() => prefetchEmployeeRoute(to)}
       className={({ isActive }) =>
         cn(
-          'group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-[15px] font-bold leading-snug transition-all duration-200',
+          'group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-[15px] font-medium leading-snug transition-all duration-200',
           collapsed ? 'justify-center px-2' : '',
           isActive
-            ? 'bg-slate-100 text-black shadow-sm'
-            : 'text-black hover:bg-slate-100/90',
+            ? 'bg-emerald-50 text-emerald-900 border-l-4 border-primary'
+            : 'text-slate-600 hover:bg-slate-50 border-l-4 border-transparent',
         )
       }
     >
       {({ isActive }) => (
         <>
-          {!collapsed && isActive && (
-            <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-full bg-black" aria-hidden />
-          )}
           <span
             className={cn(
               'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors duration-200',
               isActive
-                ? 'bg-black/10 text-black'
-                : 'bg-slate-100 text-black group-hover:bg-black/10',
+                ? 'text-emerald-900'
+                : 'text-slate-600',
             )}
           >
-            <Icon className="h-[19px] w-[19px] text-black" strokeWidth={2.5} />
+            <Icon className="h-5 w-5 opacity-90" strokeWidth={2} />
           </span>
           {!collapsed && (
-            <span className="min-w-0 flex-1 truncate pr-1 text-black font-semibold">{label}</span>
+            <span className="min-w-0 flex-1 truncate pr-1">{label}</span>
           )}
         </>
       )}
@@ -149,7 +146,7 @@ export function Sidebar() {
             {employeeNavGroups.map((group) => (
               <div key={group.label}>
                 {!sidebarCollapsed && (
-                  <p className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  <p className="mb-1.5 px-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                     {group.label}
                   </p>
                 )}

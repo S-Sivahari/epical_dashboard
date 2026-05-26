@@ -11,8 +11,9 @@ export interface NewsItem {
   publishedAt: string
 }
 
-export async function listNews(): Promise<NewsItem[]> {
-  const { data } = await api.get<NewsItem[]>('/news')
+export async function listNews(limit?: number): Promise<NewsItem[]> {
+  const params = limit ? { limit: String(limit) } : {}
+  const { data } = await api.get<NewsItem[]>('/news', { params })
   return data
 }
 
@@ -20,6 +21,7 @@ export async function fetchNewsImageBlob(id: string): Promise<Blob | null> {
   try {
     const { data, status } = await api.get<Blob>(`/news/${id}/image`, {
       responseType: 'blob',
+      timeout: 10000, // 10 second timeout for images
     })
     if (status !== 200) return null
     return data

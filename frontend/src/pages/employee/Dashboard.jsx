@@ -14,6 +14,7 @@ import { ProfileCard } from '@components/employee/shared/ProfileCard'
 import { KPIStatCard } from '@components/employee/shared/KPIStatCard'
 import { LeaveCard } from '@components/employee/shared/LeaveCard'
 import { AssignedProjectsSection } from '@components/employee/shared/AssignedProjectsSection'
+import { AnnouncementBanner } from '@components/employee/shared/AnnouncementBanner'
 import { Badge, statusVariant } from '@components/employee/ui/badge'
 import { Progress } from '@components/employee/ui/progress'
 import { useAuthStore } from '@store/authStore'
@@ -174,6 +175,8 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <ProfileCard employee={employee} profile={profile} attendance={attendance} />
+
+      <AnnouncementBanner />
 
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

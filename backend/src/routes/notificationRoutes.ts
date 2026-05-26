@@ -16,6 +16,9 @@ notificationRoutes.get('/unread', notificationController.getUnread);
 // Get unread count
 notificationRoutes.get('/count/unread', notificationController.getUnreadCount);
 
+// Get unread counts by category
+notificationRoutes.get('/counts-by-category', notificationController.getUnreadCountsByCategory);
+
 // Mark all as read (before /:id/read so "read-all" is not captured as an id)
 notificationRoutes.patch('/read-all', notificationController.markAllAsRead);
 

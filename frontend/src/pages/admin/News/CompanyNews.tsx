@@ -40,6 +40,7 @@ export function CompanyNews() {
   const loadNews = async () => {
     setLoading(true)
     try {
+      // Fetch all news items for admin management
       const data = await listNews()
       setItems(data)
     } catch {

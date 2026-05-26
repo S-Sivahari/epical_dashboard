@@ -4,12 +4,71 @@ import { Notification, CreateNotificationPayload } from '../models/Notification'
 import * as emailService from './emailService';
 
 let notificationCollection: Collection<any> | null = null;
+let indexesCreated = false;
 
 function getNotificationCol(): Collection<any> {
   if (!notificationCollection) {
     notificationCollection = getDB().collection('notifications');
+    if (!indexesCreated) {
+      void createIndexes();
+      indexesCreated = true;
+    }
   }
   return notificationCollection;
+}
+
+async function createIndexes(): Promise<void> {
+  try {
+    const collection = getDB().collection('notifications');
+    
+    // Check for duplicate IDs before creating unique index
+    const duplicates = await collection.aggregate([
+      { $group: { _id: '$id', count: { $sum: 1 } } },
+      { $match: { count: { $gt: 1 } } }
+    ]).toArray();
+    
+    if (duplicates.length > 0) {
+      console.warn(`[Notifications] Found ${duplicates.length} duplicate notification IDs. Cleaning up...`);
+      
+      // For each duplicate, keep the newest one and remove others
+      for (const dup of duplicates) {
+        const docs = await collection
+          .find({ id: dup._id })
+          .sort({ createdAt: -1 })
+          .toArray();
+        
+        // Keep the first (newest), delete the rest
+        const toDelete = docs.slice(1).map(d => d._id);
+        if (toDelete.length > 0) {
+          await collection.deleteMany({ _id: { $in: toDelete } });
+          console.log(`[Notifications] Removed ${toDelete.length} duplicate(s) for ID: ${dup._id}`);
+        }
+      }
+    }
+    
+    // Create indexes one by one to handle conflicts gracefully
+    const indexesToCreate = [
+      { spec: { id: 1 }, options: { unique: true, name: 'id_1' } },
+      { spec: { recipientId: 1 }, options: { name: 'recipientId_1' } },
+      { spec: { recipientId: 1, isRead: 1 }, options: { name: 'recipientId_1_isRead_1' } },
+      { spec: { recipientId: 1, type: 1 }, options: { name: 'recipientId_1_type_1' } },
+      { spec: { createdAt: -1 }, options: { name: 'createdAt_-1' } },
+      { spec: { recipientId: 1, createdAt: -1 }, options: { name: 'recipientId_1_createdAt_-1' } },
+    ];
+    
+    for (const { spec, options } of indexesToCreate) {
+      try {
+        await collection.createIndex(spec, options);
+      } catch (error: any) {
+        // Ignore if index already exists with same spec
+        if (error.code !== 85 && error.code !== 86) {
+          console.warn(`Failed to create index ${options.name}:`, error.message);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Failed to create notifications indexes:', error);
+  }
 }
 
 export async function createNotification(
@@ -80,6 +139,40 @@ export async function deleteNotification(notificationId: string): Promise<boolea
 export async function getUnreadCount(recipientId: string): Promise<number> {
   const col = getNotificationCol();
   return await col.countDocuments({ recipientId, isRead: false });
+}
+
+export async function getUnreadCountsByCategory(recipientId: string): Promise<{
+  leaves: number;
+  documents: number;
+  other: number;
+  total: number;
+}> {
+  const col = getNotificationCol();
+  
+  const unreadNotifications = await col
+    .find({ recipientId, isRead: false })
+    .toArray() as Notification[];
+  
+  let leaves = 0;
+  let documents = 0;
+  let other = 0;
+  
+  unreadNotifications.forEach((notif) => {
+    if (notif.type.startsWith('Leave')) {
+      leaves++;
+    } else if (notif.type.startsWith('Document')) {
+      documents++;
+    } else {
+      other++;
+    }
+  });
+  
+  return {
+    leaves,
+    documents,
+    other,
+    total: unreadNotifications.length,
+  };
 }
 
 /**

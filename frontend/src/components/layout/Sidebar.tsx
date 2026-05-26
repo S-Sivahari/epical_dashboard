@@ -19,11 +19,13 @@ import { cn } from '@/utils/cn'
 import { ROUTES } from '@constants/routes'
 import { useUiStore } from '@store/uiStore'
 import { useMediaQuery } from '@hooks/useMediaQuery'
+import { useNotificationCounts } from '@hooks/useNotificationCounts'
+import { NotificationBadge } from '@components/ui/NotificationBadge'
 import { APP_SHORT_NAME } from '@/utils/constants'
 
 const groups: {
   label: string
-  items: { to: string; label: string; icon: typeof LayoutGrid; end?: boolean }[]
+  items: { to: string; label: string; icon: typeof LayoutGrid; end?: boolean; notificationKey?: 'leaves' | 'documents' }[]
 }[] = [
     {
       label: 'Main',
@@ -33,7 +35,7 @@ const groups: {
       label: 'People',
       items: [
         { to: ROUTES.EMPLOYEES, label: 'Manage Employees', icon: Users, end: true },
-        { to: ROUTES.LEAVES, label: 'Manage Leaves', icon: CalendarCheck },
+        { to: ROUTES.LEAVES, label: 'Manage Leaves', icon: CalendarCheck, notificationKey: 'leaves' },
       ],
     },
     {
@@ -50,7 +52,7 @@ const groups: {
         { to: ROUTES.TRAINING, label: 'Training & Courses', icon: BookOpen },
         { to: ROUTES.ACHIEVEMENTS, label: 'Company achievements', icon: Trophy },
         { to: ROUTES.ANALYTICS, label: 'Analytics', icon: BarChart3 },
-        { to: ROUTES.DOCUMENTS, label: 'Documents Request', icon: FileText },
+        { to: ROUTES.DOCUMENTS, label: 'Documents Request', icon: FileText, notificationKey: 'documents' },
         { to: ROUTES.NEWS, label: 'Manage News', icon: Newspaper },
         { to: ROUTES.TICKETS, label: 'Tickets', icon: Ticket },
       ],
@@ -60,6 +62,7 @@ const groups: {
 export function Sidebar() {
   const isLg = useMediaQuery('(min-width: 1024px)')
   const { sidebarOpen, setSidebarOpen, toggleSidebar } = useUiStore()
+  const { counts: notificationCounts } = useNotificationCounts()
   const showDrawer = !isLg && sidebarOpen
 
   return (
@@ -114,7 +117,7 @@ export function Sidebar() {
                     onClick={() => !isLg && setSidebarOpen(false)}
                     className={({ isActive }) =>
                       cn(
-                        'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-ui',
+                        'relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-ui',
                         isActive
                           ? 'border-l-4 border-primary bg-emerald-50 text-emerald-900'
                           : 'border-l-4 border-transparent text-muted hover:bg-surface',
@@ -124,6 +127,13 @@ export function Sidebar() {
                   >
                     <item.icon className={cn('h-5 w-5', 'opacity-90')} />
                     <span className="truncate">{item.label}</span>
+                    {item.notificationKey && (
+                      <NotificationBadge 
+                        count={notificationCounts[item.notificationKey]} 
+                        size="sm"
+                        className="right-2"
+                      />
+                    )}
                   </NavLink>
                 ))}
               </div>

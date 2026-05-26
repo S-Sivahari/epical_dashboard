@@ -14,7 +14,8 @@ export default function NewsFeed() {
     const load = async () => {
       setLoading(true)
       try {
-        const data = await listNews()
+        // Fetch only 20 most recent news items for better performance
+        const data = await listNews(20)
         setItems(data)
       } catch {
         // swallow for now

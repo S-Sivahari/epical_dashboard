@@ -49,6 +49,21 @@ export const notificationController = {
     }
   },
 
+  // GET /api/notifications/counts-by-category - Get unread counts by category
+  getUnreadCountsByCategory: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user?.id) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+      const counts = await notificationService.getUnreadCountsByCategory(req.user.id);
+      res.json(counts);
+    } catch (error) {
+      console.error('Get unread counts by category error:', error);
+      res.status(500).json({ error: 'Failed to fetch unread counts by category' });
+    }
+  },
+
   // PATCH /api/notifications/:id/read - Mark as read
   markAsRead: async (req: Request, res: Response): Promise<void> => {
     try {

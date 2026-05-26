@@ -25,7 +25,8 @@ export function AnnouncementBanner() {
     const load = async () => {
       setLoading(true)
       try {
-        const data = await listNews()
+        // Fetch only 10 most recent news items for better performance
+        const data = await listNews(10)
         setItems(data)
         setIndex(0)
       } catch {
@@ -79,14 +80,17 @@ export function AnnouncementBanner() {
             )}
           >
             <div className="flex items-start gap-4">
+              {/* Icon */}
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/20">
                 <Megaphone className="h-6 w-6" />
               </div>
+              
+              {/* Content */}
               <div className="flex-1 pr-16">
                 <p className="text-xs font-medium uppercase tracking-wider text-white/80">
                   Company Announcement
                 </p>
-                <h3 className="mt-1 font-heading text-xl font-bold md:text-2xl">{current.title}</h3>
+                <h3 className="mt-1 font-display text-xl font-bold text-white md:text-2xl">{current.title}</h3>
                 <p className="mt-2 text-sm text-white/90 line-clamp-2">{excerpt}</p>
               </div>
             </div>

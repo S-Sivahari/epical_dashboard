@@ -14,8 +14,9 @@ function toListItem(doc: News): NewsListItem {
   }
 }
 
-export async function listNews(): Promise<NewsListItem[]> {
-  const docs = await col().find({}).sort({ publishedAt: -1 }).toArray()
+export async function listNews(limit?: number): Promise<NewsListItem[]> {
+  const query = col().find({}).sort({ publishedAt: -1 })
+  const docs = limit ? await query.limit(limit).toArray() : await query.toArray()
   return docs.map(toListItem)
 }
 

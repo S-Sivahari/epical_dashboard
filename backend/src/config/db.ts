@@ -15,6 +15,9 @@ export async function connectDB(): Promise<Db> {
     db = client.db('Production');
     console.log('✓ Connected to MongoDB via MongoClient');
 
+    // Create indexes for better performance
+    await createIndexes(db);
+
     // Connect Mongoose to the same database
     await mongoose.connect(env.mongodbUri, { dbName: 'Production' });
     console.log('✓ Connected to MongoDB via Mongoose');
@@ -23,6 +26,16 @@ export async function connectDB(): Promise<Db> {
   } catch (error) {
     console.error('✗ MongoDB connection failed:', error);
     throw error;
+  }
+}
+
+async function createIndexes(database: Db): Promise<void> {
+  try {
+    // Create index on news collection for faster sorting by publishedAt
+    await database.collection('news').createIndex({ publishedAt: -1 });
+    console.log('✓ Database indexes created');
+  } catch (error) {
+    console.warn('⚠ Failed to create indexes:', error);
   }
 }
 

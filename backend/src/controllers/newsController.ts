@@ -17,9 +17,14 @@ function fileToBlob(file?: Express.Multer.File) {
 }
 
 export const newsController = {
-  list: async (_req: Request, res: Response): Promise<void> => {
+  list: async (req: Request, res: Response): Promise<void> => {
     try {
-      const items = await newsService.listNews()
+      // Limit to recent 20 items for better performance
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 20
+      const items = await newsService.listNews(limit > 0 && limit <= 100 ? limit : 20)
+      
+      // Add cache headers for better performance
+      res.setHeader('Cache-Control', 'private, max-age=300') // 5 minutes
       res.json(items)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load news'
@@ -37,7 +42,9 @@ export const newsController = {
       }
       const buffer = Buffer.from(item.image.data, 'base64')
       res.setHeader('Content-Type', item.image.contentType || 'image/jpeg')
-      res.setHeader('Cache-Control', 'private, max-age=600')
+      // Increase cache time for images (1 hour)
+      res.setHeader('Cache-Control', 'private, max-age=3600')
+      res.setHeader('ETag', `"${id}-${item.updatedAt?.getTime() || Date.now()}"`)
       res.send(buffer)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load image'
