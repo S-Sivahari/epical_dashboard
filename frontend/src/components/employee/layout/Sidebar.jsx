@@ -23,7 +23,7 @@ const navItems = [
   { to: `${basePath}/timesheet`, label: 'Timesheet', icon: Clock },
   { to: `${basePath}/leave`, label: 'Leave Request', icon: CalendarOff },
   { to: `${basePath}/calendar`, label: 'Company Calendar', icon: Calendar },
-  { to: `${basePath}/documents`, label: 'Document Request', icon: FileText },
+  { to: `${basePath}/documents`, label: 'Documents', icon: FileText },
   { to: `${basePath}/training`, label: 'Training & Courses', icon: GraduationCap },
   { to: `${basePath}/achievements`, label: 'Company achievements', icon: Trophy },
   { to: `${basePath}/support`, label: 'Help & Support', icon: HelpCircle },

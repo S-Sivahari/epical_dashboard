@@ -27,7 +27,9 @@ export function DataTable({ columns, data, statusKey }) {
             <tr key={row.id ?? i} className="border-b border-border last:border-0 transition-colors hover:bg-slate-50/50">
               {columns.map((col) => (
                 <td key={col.key} className="px-4 py-3 text-muted">
-                  {col.key === statusKey && row[col.key] ? (
+                  {typeof col.render === 'function' ? (
+                    col.render(row)
+                  ) : col.key === statusKey && row[col.key] ? (
                     <Badge variant={statusVariant(row[col.key])}>{row[col.key]}</Badge>
                   ) : (
                     row[col.key]

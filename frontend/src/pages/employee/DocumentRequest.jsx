@@ -1,9 +1,17 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Download, FileText, ExternalLink, Loader } from 'lucide-react'
-import { getMyPayslips, openMyPayslipPdf } from '@services/payslipService'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  FileText,
+  Loader,
+  Receipt,
+  CalendarDays,
+} from 'lucide-react'
+import { getMyPayslips } from '@services/payslipService'
 import {
   createDocumentRequest,
   fetchMyDocumentRequests,
@@ -24,6 +32,11 @@ import {
 import { DataTable } from '@components/employee/shared/DataTable'
 import { SearchBar } from '@components/employee/shared/SearchBar'
 import { useToast } from '@components/employee/shared/ToastProvider'
+import { PayslipsSection } from '@components/employee/shared/PayslipsSection'
+import { cn } from '@pages/employee/lib/utils'
+
+const POLL_INTERVAL_MS = 5000
+const HISTORY_PAGE_SIZE = 10
 
 const schema = z.object({
   type: z.string().min(1, 'Select document type'),
@@ -31,78 +44,147 @@ const schema = z.object({
   reason: z.string().min(5, 'Reason required'),
 })
 
-const columns = [
-  { key: 'name', label: 'Document name' },
-  { key: 'type', label: 'Type' },
-  { key: 'reason', label: 'Reason' },
-  { key: 'requestedDate', label: 'Requested' },
-  { key: 'status', label: 'Status' },
-  { key: 'rejection', label: 'Rejection reason' },
+function buildRequestColumns(onDownload, onDownloadError) {
+  return [
+    { key: 'requestedDate', label: 'Request date' },
+    { key: 'type', label: 'Document type' },
+    { key: 'name', label: 'Document name' },
+    { key: 'status', label: 'Status' },
+    { key: 'responseDetails', label: 'Approval / rejection' },
+    {
+      key: 'actions',
+      label: 'Download',
+      render: (row) =>
+        row.status === 'Approved' ? (
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1"
+            onClick={() =>
+              void onDownload(row.id, `${row.name}.pdf`).catch(onDownloadError)
+            }
+          >
+            <Download className="h-3.5 w-3.5" />
+            Download
+          </Button>
+        ) : (
+          <span className="text-xs text-muted">—</span>
+        ),
+    },
+  ]
+}
+
+const tabs = [
+  { id: 'payslips', label: 'Payslips', icon: Receipt },
+  { id: 'requests', label: 'Document Requests', icon: FileText },
 ]
 
-function mapRow(row) {
-  const requested =
-    typeof row.requestedAt === 'string'
-      ? row.requestedAt.split('T')[0]
-      : row.requestedAt
-        ? new Date(row.requestedAt).toISOString().split('T')[0]
-        : '—'
+function getVisiblePageNumbers(current, total) {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1)
+  }
+
+  const pages = new Set([1, total, current, current - 1, current + 1])
+  return [...pages].filter((page) => page >= 1 && page <= total).sort((a, b) => a - b)
+}
+
+function formatDate(value) {
+  if (!value) return '—'
+  const date = typeof value === 'string' ? new Date(value) : value
+  if (Number.isNaN(date.getTime())) return '—'
+  return date.toLocaleDateString()
+}
+
+function mapRequestRow(row) {
+  let responseDetails = 'Pending HR review'
+  if (row.status === 'Approved') {
+    responseDetails = row.processedAt
+      ? `Approved on ${formatDate(row.processedAt)}${row.processedBy ? ` by ${row.processedBy}` : ''}`
+      : 'Approved by HR'
+  } else if (row.status === 'Rejected') {
+    responseDetails = row.rejectionReason
+      ? `Rejected: ${row.rejectionReason}`
+      : 'Rejected by HR'
+  }
+
   return {
     id: row.id,
     type: row.documentType ?? '—',
     name: row.documentName ?? '—',
-    reason: row.reason ?? '—',
-    requestedDate: requested,
+    requestedDate: formatDate(row.requestedAt),
     status: row.status ?? 'Requested',
-    rejection: row.status === 'Rejected' && row.rejectionReason ? row.rejectionReason : '—',
+    responseDetails,
   }
 }
 
 export default function DocumentRequest() {
   const { toast } = useToast()
+  const [activeTab, setActiveTab] = useState('payslips')
   const [requests, setRequests] = useState([])
   const [reqLoading, setReqLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [historyPage, setHistoryPage] = useState(1)
   const [payslips, setPayslips] = useState([])
   const [payslipsLoading, setPayslipsLoading] = useState(true)
 
-  const loadRequests = useCallback(async () => {
-    setReqLoading(true)
+  const loadRequests = useCallback(async (silent = false) => {
+    if (!silent) setReqLoading(true)
     try {
       const data = await fetchMyDocumentRequests()
       setRequests(Array.isArray(data) ? data : [])
     } catch {
-      setRequests([])
-      toast({
-        title: 'Could not load requests',
-        description: 'Pull to retry or contact HR if this continues.',
-      })
+      if (!silent) {
+        setRequests([])
+        toast({
+          title: 'Could not load requests',
+          description: 'Pull to retry or contact HR if this continues.',
+        })
+      }
     } finally {
-      setReqLoading(false)
+      if (!silent) setReqLoading(false)
     }
   }, [toast])
 
-  useEffect(() => {
-    void loadRequests()
-  }, [loadRequests])
-
-  useEffect(() => {
-    let cancelled = false
-    setPayslipsLoading(true)
-    getMyPayslips()
-      .then((data) => {
-        if (!cancelled) setPayslips(data)
-      })
-      .catch(() => {
-        if (!cancelled) setPayslips([])
-      })
-      .finally(() => {
-        if (!cancelled) setPayslipsLoading(false)
-      })
-    return () => {
-      cancelled = true
+  const loadPayslips = useCallback(async (silent = false) => {
+    if (!silent) setPayslipsLoading(true)
+    try {
+      const data = await getMyPayslips()
+      setPayslips(Array.isArray(data) ? data : [])
+    } catch {
+      if (!silent) setPayslips([])
+    } finally {
+      if (!silent) setPayslipsLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    void loadRequests()
+    void loadPayslips()
+  }, [loadRequests, loadPayslips])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      void loadRequests(true)
+      void loadPayslips(true)
+    }, POLL_INTERVAL_MS)
+    return () => clearInterval(interval)
+  }, [loadRequests, loadPayslips])
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void loadRequests(true)
+        void loadPayslips(true)
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [loadRequests, loadPayslips])
+
+  useEffect(() => {
+    if (activeTab === 'payslips') void loadPayslips(true)
+    else void loadRequests(true)
+  }, [activeTab, loadPayslips, loadRequests])
 
   const {
     register,
@@ -115,17 +197,64 @@ export default function DocumentRequest() {
     resolver: zodResolver(schema),
   })
 
-  const filtered = requests.filter(
-    (r) =>
-      !search ||
-      (r.documentName && r.documentName.toLowerCase().includes(search.toLowerCase())) ||
-      (r.documentType && r.documentType.toLowerCase().includes(search.toLowerCase())) ||
-      (r.reason && r.reason.toLowerCase().includes(search.toLowerCase())),
+  const filteredRequests = useMemo(() => {
+    const filtered = requests.filter(
+      (r) =>
+        !search ||
+        (r.documentName && r.documentName.toLowerCase().includes(search.toLowerCase())) ||
+        (r.documentType && r.documentType.toLowerCase().includes(search.toLowerCase())) ||
+        (r.reason && r.reason.toLowerCase().includes(search.toLowerCase())),
+    )
+    return filtered.sort(
+      (a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime(),
+    )
+  }, [requests, search])
+
+  const approvedFromApi = useMemo(
+    () =>
+      requests
+        .filter((r) => r.status === 'Approved')
+        .sort(
+          (a, b) =>
+            new Date(b.processedAt || b.requestedAt).getTime() -
+            new Date(a.processedAt || a.requestedAt).getTime(),
+        ),
+    [requests],
   )
 
-  const approvedFromApi = requests.filter((r) => r.status === 'Approved')
+  const historyTotalPages = Math.max(1, Math.ceil(filteredRequests.length / HISTORY_PAGE_SIZE))
+  const safeHistoryPage = Math.min(historyPage, historyTotalPages)
+  const pagedRequests = filteredRequests.slice(
+    (safeHistoryPage - 1) * HISTORY_PAGE_SIZE,
+    safeHistoryPage * HISTORY_PAGE_SIZE,
+  )
+  const tableData = pagedRequests.map(mapRequestRow)
 
-  const tableData = filtered.map(mapRow)
+  const requestColumns = useMemo(
+    () =>
+      buildRequestColumns(downloadMyDocumentPdf, () =>
+        toast({
+          title: 'Download failed',
+          description: 'We could not open this file.',
+        }),
+      ),
+    [toast],
+  )
+
+  useEffect(() => {
+    setHistoryPage(1)
+  }, [search])
+
+  useEffect(() => {
+    if (historyPage > historyTotalPages) {
+      setHistoryPage(historyTotalPages)
+    }
+  }, [historyPage, historyTotalPages])
+
+  const visiblePageNumbers = useMemo(
+    () => getVisiblePageNumbers(safeHistoryPage, historyTotalPages),
+    [safeHistoryPage, historyTotalPages],
+  )
 
   const onSubmit = async (data) => {
     try {
@@ -140,6 +269,7 @@ export default function DocumentRequest() {
       })
       reset()
       await loadRequests()
+      setHistoryPage(1)
     } catch (err) {
       const message = err?.response?.data?.error || 'Try again.'
       toast({
@@ -151,148 +281,268 @@ export default function DocumentRequest() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 lg:grid-cols-2">
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          className="rounded-xl border border-border bg-card p-6 shadow-card space-y-4"
-        >
-          <h3 className="font-heading text-lg font-semibold">Request document</h3>
-          <div>
-            <Label>Document type *</Label>
-            <Select value={watch('type')} onValueChange={(v) => setValue('type', v)}>
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                {DOCUMENT_REQUEST_TYPES.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.type && <p className="mt-1 text-xs text-danger">{errors.type.message}</p>}
-          </div>
-          <div>
-            <Label>Document name *</Label>
-            <Input
-              className="mt-1"
-              {...register('name')}
-              placeholder="e.g. Salary certificate 2026"
-            />
-            {errors.name && <p className="mt-1 text-xs text-danger">{errors.name.message}</p>}
-          </div>
-          <div>
-            <Label>Reason *</Label>
-            <Textarea className="mt-1" {...register('reason')} placeholder="Explain why HR should issue this" />
-            {errors.reason && <p className="mt-1 text-xs text-danger">{errors.reason.message}</p>}
-          </div>
-          <Button type="submit" disabled={isSubmitting} className="w-full">
-            {isSubmitting ? 'Submitting…' : 'Submit request'}
-          </Button>
-        </form>
+      <div className="space-y-4">
+        <div>
+          <h2 className="font-heading text-2xl font-semibold">Documents</h2>
+          <p className="mt-1 text-sm text-muted">
+            {activeTab === 'payslips'
+              ? 'View payslip history and salary records issued by HR'
+              : 'Submit document requests and track HR approvals'}
+          </p>
+        </div>
 
-        <div className="space-y-4">
-          <div className="rounded-xl border border-border bg-card p-6 shadow-card">
-            <h3 className="font-heading font-semibold">Approved downloads</h3>
-            <p className="mt-1 text-sm text-muted">Documents HR has finalized for you.</p>
-            <div className="mt-4 space-y-3">
-              {approvedFromApi.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted">
-                  No approved documents yet.
-                </p>
+        <div
+          className="inline-flex w-full max-w-lg rounded-xl border border-border bg-surface/60 p-1 shadow-sm sm:w-auto"
+          role="tablist"
+          aria-label="Documents sections"
+        >
+          {tabs.map((tab) => {
+            const Icon = tab.icon
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 sm:flex-none sm:min-w-[10.5rem]',
+                  activeTab === tab.id
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'text-muted hover:bg-card hover:text-foreground',
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {tab.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="transition-opacity duration-200">
+        {activeTab === 'payslips' ? (
+          <div key="payslips-panel" role="tabpanel" aria-label="Payslips">
+            <PayslipsSection payslips={payslips} loading={payslipsLoading} />
+          </div>
+        ) : (
+          <div
+            key="requests-panel"
+            role="tabpanel"
+            aria-label="Document Requests"
+            className="animate-in fade-in space-y-8 duration-200"
+          >
+            <div className="grid gap-6 lg:grid-cols-2 lg:items-stretch">
+              <form
+                onSubmit={handleSubmit(onSubmit)}
+                className="flex h-full flex-col space-y-4 rounded-xl border border-border bg-card p-6 shadow-card"
+              >
+                <div>
+                  <h3 className="font-heading text-lg font-semibold">Request document</h3>
+                  <p className="mt-1 text-sm text-muted">
+                    Submit a new request for HR-issued documents such as certificates or letters.
+                  </p>
+                </div>
+                <div>
+                  <Label>Document type *</Label>
+                  <Select value={watch('type')} onValueChange={(v) => setValue('type', v)}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DOCUMENT_REQUEST_TYPES.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {t}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.type && <p className="mt-1 text-xs text-danger">{errors.type.message}</p>}
+                </div>
+                <div>
+                  <Label>Document name *</Label>
+                  <Input
+                    className="mt-1"
+                    {...register('name')}
+                    placeholder="e.g. Salary certificate 2026"
+                  />
+                  {errors.name && <p className="mt-1 text-xs text-danger">{errors.name.message}</p>}
+                </div>
+                <div>
+                  <Label>Reason *</Label>
+                  <Textarea
+                    className="mt-1 min-h-[120px] resize-y"
+                    {...register('reason')}
+                    placeholder="Explain why HR should issue this"
+                  />
+                  {errors.reason && (
+                    <p className="mt-1 text-xs text-danger">{errors.reason.message}</p>
+                  )}
+                </div>
+                <div className="mt-auto pt-2">
+                  <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
+                    {isSubmitting ? 'Submitting…' : 'Submit request'}
+                  </Button>
+                </div>
+              </form>
+
+              <div className="flex h-full flex-col rounded-xl border border-border bg-card p-6 shadow-card">
+                <div className="mb-4 flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Download className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-heading text-lg font-semibold">Approved downloads</h3>
+                    <p className="mt-1 text-sm text-muted">Documents HR has finalized for you</p>
+                  </div>
+                </div>
+
+                <div className="flex min-h-[280px] flex-1 flex-col">
+                  {approvedFromApi.length === 0 ? (
+                    <div className="flex flex-1 flex-col items-center justify-center rounded-lg border border-dashed border-border px-4 py-10 text-center">
+                      <FileText className="mb-3 h-8 w-8 text-muted" />
+                      <p className="text-sm font-medium text-foreground">No approved documents yet</p>
+                      <p className="mt-1 max-w-xs text-xs text-muted">
+                        Approved documents from HR will appear here for download.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+                      {approvedFromApi.map((doc) => (
+                        <div
+                          key={doc.id}
+                          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface/30 p-3"
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            <FileText className="h-5 w-5 shrink-0 text-primary" />
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">{doc.documentName}</p>
+                              <p className="text-xs text-muted">
+                                {doc.documentType}
+                                {doc.processedAt ? ` · Approved ${formatDate(doc.processedAt)}` : ''}
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1 shrink-0"
+                            onClick={() =>
+                              void downloadMyDocumentPdf(doc.id, `${doc.documentName}.pdf`).catch(
+                                () =>
+                                  toast({
+                                    title: 'Download failed',
+                                    description: 'We could not open this file.',
+                                  }),
+                              )
+                            }
+                          >
+                            <Download className="h-3.5 w-3.5" /> Download
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border bg-card p-6 shadow-card">
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+                <div className="flex items-start gap-2">
+                  <CalendarDays className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                  <div>
+                    <h3 className="font-heading text-lg font-semibold">Request history</h3>
+                    <p className="text-sm text-muted">
+                      Track request dates, statuses, and HR responses
+                    </p>
+                  </div>
+                </div>
+                <SearchBar
+                  value={search}
+                  onChange={setSearch}
+                  placeholder="Search by name or type…"
+                  className="max-w-xs"
+                />
+              </div>
+
+              {reqLoading ? (
+                <div className="flex items-center justify-center gap-2 py-16 text-muted">
+                  <Loader className="h-5 w-5 animate-spin" />
+                  Loading requests…
+                </div>
               ) : (
-                approvedFromApi.map((doc) => (
-                  <div
-                    key={doc.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-3"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <FileText className="h-5 w-5 shrink-0 text-primary" />
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">{doc.documentName}</p>
-                        <p className="text-xs text-muted">{doc.documentType}</p>
+                <>
+                  <DataTable columns={requestColumns} data={tableData} statusKey="status" />
+
+                  {filteredRequests.length > 0 && (
+                    <div className="mt-4 flex flex-col gap-4 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-sm text-muted">
+                        Showing{' '}
+                        {(safeHistoryPage - 1) * HISTORY_PAGE_SIZE + 1}–
+                        {Math.min(safeHistoryPage * HISTORY_PAGE_SIZE, filteredRequests.length)} of{' '}
+                        {filteredRequests.length} records
+                      </p>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1"
+                          disabled={safeHistoryPage <= 1}
+                          onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                          Previous
+                        </Button>
+
+                        <div className="flex items-center gap-1">
+                          {visiblePageNumbers.map((pageNum, index) => {
+                            const prevPage = visiblePageNumbers[index - 1]
+                            const showEllipsis = prevPage != null && pageNum - prevPage > 1
+                            return (
+                              <span key={pageNum} className="flex items-center gap-1">
+                                {showEllipsis && (
+                                  <span className="px-1 text-sm text-muted">…</span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => setHistoryPage(pageNum)}
+                                  className={cn(
+                                    'flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-sm font-medium transition-colors',
+                                    pageNum === safeHistoryPage
+                                      ? 'bg-primary text-white shadow-sm'
+                                      : 'text-muted hover:bg-surface hover:text-foreground',
+                                  )}
+                                  aria-label={`Page ${pageNum}`}
+                                  aria-current={pageNum === safeHistoryPage ? 'page' : undefined}
+                                >
+                                  {pageNum}
+                                </button>
+                              </span>
+                            )
+                          })}
+                        </div>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1"
+                          disabled={safeHistoryPage >= historyTotalPages}
+                          onClick={() =>
+                            setHistoryPage((p) => Math.min(historyTotalPages, p + 1))
+                          }
+                        >
+                          Next
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1 shrink-0"
-                      onClick={() =>
-                        void downloadMyDocumentPdf(doc.id, `${doc.documentName}.pdf`).catch(() =>
-                          toast({
-                            title: 'Download failed',
-                            description: 'We could not open this file.',
-                          }),
-                        )
-                      }
-                    >
-                      <Download className="h-3.5 w-3.5" /> Download
-                    </Button>
-                  </div>
-                ))
+                  )}
+                </>
               )}
             </div>
           </div>
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-border bg-card p-6 shadow-card">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-heading text-lg font-semibold">Payslips</h3>
-          <p className="text-sm text-muted">Sent by HR to your dashboard</p>
-        </div>
-        {payslipsLoading ? (
-          <div className="flex items-center justify-center gap-2 py-8 text-muted">
-            <Loader className="h-5 w-5 animate-spin" />
-            Loading payslips…
-          </div>
-        ) : payslips.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted">
-            No payslips yet. They will appear here after HR sends them from Payslip Management.
-          </p>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-3">
-            {payslips.map((p) => (
-              <div
-                key={p.id}
-                className="rounded-xl border border-border p-4 hover:shadow-card-hover transition-shadow"
-              >
-                <p className="font-medium">{p.payMonth}</p>
-                <p className="text-xs text-muted">Sent {new Date(p.sentAt).toLocaleDateString()}</p>
-                <div className="mt-3 flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1 gap-1"
-                    onClick={() => openMyPayslipPdf(p.id)}
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" /> View PDF
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h3 className="font-heading text-lg font-semibold">Your requests</h3>
-          <SearchBar
-            value={search}
-            onChange={setSearch}
-            placeholder="Search by name or type…"
-            className="max-w-xs"
-          />
-        </div>
-        {reqLoading ? (
-          <div className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-16 text-muted">
-            <Loader className="h-5 w-5 animate-spin" />
-            Loading requests…
-          </div>
-        ) : (
-          <DataTable columns={columns} data={tableData} statusKey="status" />
         )}
       </div>
     </div>

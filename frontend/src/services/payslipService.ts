@@ -17,6 +17,14 @@ export interface EmployeeDashboardPayslip {
   payMonth: string
   fileName: string
   sentAt: string
+  /** Present when the API includes payroll breakdown fields */
+  status?: 'Paid' | 'Pending'
+  netSalary?: number | string
+  basicPay?: number | string
+  allowances?: number | string
+  bonuses?: number | string
+  deductions?: number | string
+  employeeName?: string
 }
 
 export interface PayrollBatch {
@@ -186,11 +194,33 @@ export async function getMyPayslips(): Promise<EmployeeDashboardPayslip[]> {
 }
 
 export async function openMyPayslipPdf(payslipId: string): Promise<void> {
+  const url = await fetchMyPayslipPdfUrl(payslipId)
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+export async function fetchMyPayslipPdfUrl(payslipId: string): Promise<string> {
   const response = await api.get(`${base}/my-payslips/${payslipId}/download`, {
     responseType: 'blob',
   })
+  return window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
+}
+
+export async function downloadMyPayslipPdf(
+  payslipId: string,
+  downloadName?: string,
+): Promise<void> {
+  const response = await api.get(`${base}/my-payslips/${payslipId}/download`, {
+    responseType: 'blob',
+  })
+  const fileName = downloadName || `payslip-${payslipId}.pdf`
   const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
-  window.open(url, '_blank', 'noopener,noreferrer')
+  const link = document.createElement('a')
+  link.href = url
+  link.setAttribute('download', fileName)
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
 }
 
 export async function deletePayrollBatch(batchId: string): Promise<void> {
