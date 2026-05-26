@@ -16,18 +16,25 @@ import {
 import { cn } from '@pages/employee/lib/utils'
 import { useUIStore } from '@store/employee/uiStore'
 import { company } from '@pages/employee/data/mockData'
+import { employeeNavItems } from '@constants/employeeNav'
 
 const basePath = '/employee'
-const navItems = [
-  { to: `${basePath}`, label: 'Employee Dashboard', icon: LayoutDashboard },
-  { to: `${basePath}/timesheet`, label: 'Timesheet', icon: Clock },
-  { to: `${basePath}/leave`, label: 'Leave Request', icon: CalendarOff },
-  { to: `${basePath}/calendar`, label: 'Company Calendar', icon: Calendar },
-  { to: `${basePath}/documents`, label: 'Documents', icon: FileText },
-  { to: `${basePath}/training`, label: 'Training & Courses', icon: GraduationCap },
-  { to: `${basePath}/achievements`, label: 'Company achievements', icon: Trophy },
-  { to: `${basePath}/support`, label: 'Raise Tickets', icon: HelpCircle },
-]
+
+const navIcons = {
+  '/employee': LayoutDashboard,
+  '/employee/timesheet': Clock,
+  '/employee/leave': CalendarOff,
+  '/employee/calendar': Calendar,
+  '/employee/documents': FileText,
+  '/employee/training': GraduationCap,
+  '/employee/achievements': Trophy,
+  '/employee/support': HelpCircle,
+}
+
+const navItems = employeeNavItems.map((item) => ({
+  ...item,
+  icon: navIcons[item.to],
+}))
 
 export function Sidebar() {
   const {

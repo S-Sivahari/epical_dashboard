@@ -1,4 +1,5 @@
 import { Menu, User, Settings, LogOut } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
 import { Avatar, AvatarFallback, AvatarImage } from '@components/employee/ui/avatar'
 import {
   DropdownMenu,
@@ -10,11 +11,14 @@ import {
 import { NotificationDropdown } from '@components/employee/shared/NotificationDropdown'
 import { useAuthStore } from '@store/authStore'
 import { useUIStore } from '@store/employee/uiStore'
-import { company } from '@pages/employee/data/mockData'
+import { getEmployeePageHeader } from '@constants/employeeNav'
 
 export function Navbar() {
   const user = useAuthStore((s) => s.user)
+  const { pathname } = useLocation()
   const { setSidebarMobileOpen, setLogoutModalOpen } = useUIStore()
+  const { title, showWelcomeSubtitle } = getEmployeePageHeader(pathname)
+  const firstName = user?.name?.split(' ')[0] ?? 'there'
   const initials =
     user?.name
       ?.split(' ')
@@ -33,8 +37,10 @@ export function Navbar() {
           <Menu className="h-5 w-5" />
         </button>
         <div className="hidden sm:block">
-          <h1 className="font-heading text-lg font-bold text-foreground">{company.portalTitle}</h1>
-          <p className="text-xs text-muted">Welcome back, {user?.name?.split(' ')[0]}</p>
+          <h1 className="font-heading text-lg font-bold text-foreground">{title}</h1>
+          {showWelcomeSubtitle && (
+            <p className="text-xs text-muted">Welcome back, {firstName}</p>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-2">
