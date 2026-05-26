@@ -265,7 +265,15 @@ export default function DocumentRequest() {
                     size="sm"
                     variant="outline"
                     className="flex-1 gap-1"
-                    onClick={() => openMyPayslipPdf(p.id)}
+                    onClick={() =>
+                      openMyPayslipPdf(p.id).catch((err) =>
+                        toast({
+                          title: 'Could not open payslip',
+                          description: err instanceof Error ? err.message : 'Please try again.',
+                          variant: 'destructive',
+                        })
+                      )
+                    }
                   >
                     <ExternalLink className="h-3.5 w-3.5" /> View PDF
                   </Button>

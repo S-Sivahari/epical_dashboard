@@ -5,6 +5,26 @@ import { authMiddleware } from '../middleware/authMiddleware'
 
 export const payslipRoutes = Router()
 
+const imageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
+    const ext = file.originalname.toLowerCase()
+    if (
+      allowed.includes(file.mimetype) ||
+      ext.endsWith('.png') ||
+      ext.endsWith('.jpg') ||
+      ext.endsWith('.jpeg') ||
+      ext.endsWith('.webp')
+    ) {
+      cb(null, true)
+    } else {
+      cb(new Error('Invalid file type. Only PNG, JPG, or WebP images are allowed.'))
+    }
+  },
+})
+
 const excelUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
@@ -42,6 +62,13 @@ payslipRoutes.get('/send-history', authMiddleware, payslipController.getSendHist
 payslipRoutes.get('/template', payslipController.downloadTemplate)
 payslipRoutes.get('/template/meta', payslipController.getTemplateMeta)
 payslipRoutes.post('/template/upload', excelUpload.single('template'), payslipController.uploadCustomTemplate)
+payslipRoutes.get('/template/logo', payslipController.getCompanyLogo)
+payslipRoutes.get('/template/logo/meta', payslipController.getCompanyLogoMeta)
+payslipRoutes.post(
+  '/template/logo/upload',
+  imageUpload.single('logo'),
+  payslipController.uploadCompanyLogo
+)
 
 // Upload payroll Excel and auto-generate PDF payslips
 payslipRoutes.post('/upload', excelUpload.single('payroll'), payslipController.uploadAndProcess)

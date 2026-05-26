@@ -1,6 +1,8 @@
 import { Request, Response } from 'express'
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs'
 import { join } from 'path'
+import { COMPANY_LOGO_PATH, PAYROLL_TEMPLATE_DIR } from '../config/paths'
+import { resolveLogoPath } from '../services/payslipPdfGenerator'
 import { savePayslipAsPdf } from '../services/payslipPdfGenerator'
 import {
   generatePayrollTemplateBuffer,
@@ -13,6 +15,7 @@ import {
   listPayrollBatches,
   readBatchExcel,
   getPayslipFilePath,
+  ensurePayslipPdfExists,
   getPayslipsDir,
   deletePayrollBatch,
   deletePayslipFromBatch,
@@ -34,7 +37,7 @@ function getUserCollection() {
   return getDB().collection('users')
 }
 
-const TEMPLATE_DIR = join(process.cwd(), 'uploads', 'payroll', 'template')
+const TEMPLATE_DIR = PAYROLL_TEMPLATE_DIR
 const TEMPLATE_PATH = join(TEMPLATE_DIR, 'active_template.xlsx')
 
 function templateMetaCollection() {
@@ -115,6 +118,64 @@ export const payslipController = {
     }
   },
 
+  /** Upload company logo used on payslip PDFs (PNG/JPG/WebP). */
+  uploadCompanyLogo: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const file = req.file
+      if (!file) {
+        res.status(400).json({ error: 'No image file uploaded' })
+        return
+      }
+      if (!existsSync(TEMPLATE_DIR)) {
+        mkdirSync(TEMPLATE_DIR, { recursive: true })
+      }
+      writeFileSync(COMPANY_LOGO_PATH, file.buffer)
+      res.json({
+        message: 'Company logo uploaded successfully',
+        path: COMPANY_LOGO_PATH,
+        hasLogo: true,
+      })
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to upload logo'
+      res.status(500).json({ error: message })
+    }
+  },
+
+  /** Serve active company logo for admin preview. */
+  getCompanyLogo: async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const logoPath = resolveLogoPath({})
+      if (!logoPath) {
+        res.status(404).json({ error: 'No company logo uploaded yet' })
+        return
+      }
+      const ext = logoPath.split('.').pop()?.toLowerCase()
+      const type =
+        ext === 'jpg' || ext === 'jpeg'
+          ? 'image/jpeg'
+          : ext === 'webp'
+            ? 'image/webp'
+            : 'image/png'
+      res.setHeader('Content-Type', type)
+      res.setHeader('Cache-Control', 'private, max-age=300')
+      res.sendFile(logoPath)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to load logo'
+      res.status(500).json({ error: message })
+    }
+  },
+
+  /** Whether a payslip logo is configured. */
+  getCompanyLogoMeta: async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const logoPath = resolveLogoPath({})
+      res.json({ hasLogo: !!logoPath, path: logoPath ?? undefined })
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to get logo info'
+      res.status(500).json({ error: message })
+    }
+  },
+
   /** Get active template metadata */
   getTemplateMeta: async (_req: Request, res: Response): Promise<void> => {
     try {
@@ -141,10 +202,19 @@ export const payslipController = {
 
       const templateId = (req.body?.templateId as string) || 'classic'
       const batch = await processPayrollUpload(file.buffer, file.originalname, templateId as 'classic' | 'corporate' | 'minimal')
+      const structure = batch.salaryStructure ?? {}
+      const earnings = Object.values(structure).filter((m) => m.section === 'Earnings').length
+      const deductions = Object.values(structure).filter((m) => m.section === 'Deductions').length
 
       res.json({
         message: 'Payroll processed successfully',
         batch,
+        salaryStructureSummary: {
+          totalComponents: Object.keys(structure).length,
+          earnings,
+          deductions,
+          sheet: 'salary structure',
+        },
       })
     } catch (error: unknown) {
       console.error('Error processing payroll upload:', error)
@@ -227,25 +297,25 @@ export const payslipController = {
   /** Download a generated payslip PDF */
   downloadPayslipPdf: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { batchId, fileName } = req.params
+      const { batchId } = req.params
+      const fileName = decodeURIComponent(req.params.fileName)
       const batch = await getPayrollBatch(batchId)
       if (!batch) {
         res.status(404).json({ error: 'Payroll batch not found' })
         return
       }
 
-      const filePath = getPayslipFilePath(batchId, fileName)
-      if (!existsSync(filePath)) {
-        res.status(404).json({ error: 'Payslip file not found' })
-        return
-      }
+      const filePath = await ensurePayslipPdfExists(batchId, fileName)
+      const safeName = filePath.split(/[/\\]/).pop() || fileName
 
       res.setHeader('Content-Type', 'application/pdf')
-      res.setHeader('Content-Disposition', `inline; filename="${fileName}"`)
+      res.setHeader('Content-Disposition', `inline; filename="${safeName}"`)
       res.sendFile(filePath)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to download payslip'
-      res.status(500).json({ error: message })
+      const status =
+        message.includes('not found') || message.includes('Invalid payslip') ? 404 : 500
+      res.status(status).json({ error: message })
     }
   },
 
@@ -265,11 +335,7 @@ export const payslipController = {
         return
       }
 
-      const filePath = getPayslipFilePath(batchId, fileName)
-      if (!existsSync(filePath)) {
-        res.status(404).json({ error: 'Payslip PDF not found' })
-        return
-      }
+      await ensurePayslipPdfExists(batchId, fileName)
 
       const record = await sendPayslipToEmployee({
         batchId,
@@ -379,11 +445,7 @@ export const payslipController = {
         res.status(404).json({ error: 'Payslip not found' })
         return
       }
-      const filePath = getPayslipFilePath(record.batchId, record.fileName)
-      if (!existsSync(filePath)) {
-        res.status(404).json({ error: 'Payslip file not found' })
-        return
-      }
+      const filePath = await ensurePayslipPdfExists(record.batchId, record.fileName)
       res.setHeader('Content-Type', 'application/pdf')
       res.setHeader(
         'Content-Disposition',
@@ -414,7 +476,7 @@ export const payslipController = {
 
       const buffer = readBatchExcel(batchId)
       const { readMasterExcelFromBuffer } = await import('../services/payslipGenerator')
-      const { company, structure, employees } = readMasterExcelFromBuffer(buffer)
+      const { company, structure, employees } = await readMasterExcelFromBuffer(buffer)
       const emp = employees.find((e) => String(e['Emp ID']) === String(empId))
 
       if (!emp) {
@@ -422,9 +484,12 @@ export const payslipController = {
         return
       }
 
+      const { prepareEmployeeForPayslip } = await import('../services/payrollYtdService')
+      const prepared = await prepareEmployeeForPayslip(company, structure, emp, batchId)
+
       const fileName = `Payslip_${String(empId).replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`
       const filePath = join(getPayslipsDir(batchId), fileName)
-      await savePayslipAsPdf(company, structure, emp, filePath)
+      await savePayslipAsPdf(company, structure, prepared, filePath)
 
       res.json({
         message: 'Payslip generated and saved to MongoDB (employee_payslip)',
@@ -504,23 +569,23 @@ export const payslipController = {
   /** Download payslip PDF as attachment (saves file instead of opening inline) */
   downloadPayslipPdfAttachment: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { batchId, fileName } = req.params
+      const { batchId } = req.params
+      const fileName = decodeURIComponent(req.params.fileName)
       const batch = await getPayrollBatch(batchId)
       if (!batch) {
         res.status(404).json({ error: 'Payroll batch not found' })
         return
       }
-      const filePath = getPayslipFilePath(batchId, fileName)
-      if (!existsSync(filePath)) {
-        res.status(404).json({ error: 'Payslip file not found' })
-        return
-      }
+      const filePath = await ensurePayslipPdfExists(batchId, fileName)
+      const safeName = filePath.split(/[/\\]/).pop() || fileName
       res.setHeader('Content-Type', 'application/pdf')
-      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`)
+      res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`)
       res.sendFile(filePath)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to download payslip'
-      res.status(500).json({ error: message })
+      const status =
+        message.includes('not found') || message.includes('Invalid payslip') ? 404 : 500
+      res.status(status).json({ error: message })
     }
   },
 

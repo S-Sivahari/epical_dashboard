@@ -1,5 +1,14 @@
 import * as XLSX from 'xlsx'
 import {
+  parseSalaryStructureWithExcelJS,
+  parseStructureMatrix,
+  parseStructureFallbackScan,
+  resolveSalaryStructureSheetName,
+  preferNamedSalaryStructure,
+  cellToString,
+} from './salaryStructureParser'
+import { parseCompanySheetXlsx, readCompanyFromWorkbookBuffer, finalizeCompany } from './companyParser'
+import {
   Document,
   Paragraph,
   Table,
@@ -123,8 +132,14 @@ export interface Company {
   [key: string]: any
 }
 
+export interface SalaryComponentMeta {
+  section: 'Earnings' | 'Deductions'
+  default: number
+  order: number
+}
+
 export interface SalaryStructure {
-  [key: string]: { section: string; default: number }
+  [key: string]: SalaryComponentMeta
 }
 
 export interface Employee {
@@ -160,49 +175,9 @@ function isSkipSheet(name: string): boolean {
   return SKIP_SHEETS.has(name.trim().toLowerCase())
 }
 
-function parseCompanySheet(ws: XLSX.WorkSheet): Company {
-  const company: Company = {}
-  const companyData = XLSX.utils.sheet_to_json(ws, { header: 1 }) as unknown[][]
-  const skipLabels = new Set(['company details', 'field', 'value', ''])
-
-  for (const row of companyData) {
-    if (!row || !row[0]) continue
-    const label = String(row[0]).trim()
-    if (skipLabels.has(label.toLowerCase())) continue
-    if (row[1] === undefined || row[1] === null || row[1] === '') continue
-    company[label] = row[1]
-  }
-  return company
-}
-
 function parseSalaryStructureSheet(ws: XLSX.WorkSheet): SalaryStructure {
-  const structure: SalaryStructure = {}
-  const salaryData = XLSX.utils.sheet_to_json(ws, { header: 1 }) as unknown[][]
-
-  let startRow = salaryData.findIndex(
-    (row) => row && String(row[0] || '').trim().toLowerCase() === 'component'
-  )
-  if (startRow >= 0) startRow += 1
-  else startRow = 1
-
-  for (let i = startRow; i < salaryData.length; i++) {
-    const row = salaryData[i]
-    if (!row || !row[0]) continue
-    const comp = String(row[0]).trim()
-    const sec = String(row[1] || '').trim()
-    const rawAmt = row[2]
-    let amt = 0
-    if (rawAmt !== '' && rawAmt !== null && rawAmt !== undefined) {
-      try {
-        amt = typeof rawAmt === 'number' ? rawAmt : parseFloat(String(rawAmt))
-        if (Number.isNaN(amt)) amt = 0
-      } catch {
-        amt = 0
-      }
-    }
-    structure[comp] = { section: sec, default: amt }
-  }
-  return structure
+  const salaryData = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }) as unknown[][]
+  return parseStructureMatrix(salaryData)
 }
 
 function parseEmployeeSheet(ws: XLSX.WorkSheet): Employee[] {
@@ -246,16 +221,58 @@ export function parseMasterWorkbook(wb: XLSX.WorkBook): {
 } {
   const companySheetName = findSheetName(wb, ['company', 'Company', 'Company Info', 'Company Details'])
   const wsCompany = companySheetName ? wb.Sheets[companySheetName] : undefined
-  const company = wsCompany ? parseCompanySheet(wsCompany) : {}
+  const company = wsCompany ? finalizeCompany(parseCompanySheetXlsx(wsCompany)) : {}
 
-  const salarySheetName = findSheetName(wb, [
-    'salary structure',
-    'Salary Structure',
-    'SalaryStructure',
-    'Structure',
-  ])
-  const wsSalary = salarySheetName ? wb.Sheets[salarySheetName] : undefined
-  const structure = wsSalary ? parseSalaryStructureSheet(wsSalary) : {}
+  let salarySheetName = resolveSalaryStructureSheetName(wb.SheetNames)
+  if (!salarySheetName) {
+    salarySheetName = findSheetName(wb, [
+      'salary_structure',
+      'salary structure',
+      'Salary Structure',
+      'SalaryStructure',
+      'Structure',
+    ])
+  }
+
+  let structure: SalaryStructure = {}
+  if (salarySheetName && wb.Sheets[salarySheetName]) {
+    structure = parseSalaryStructureSheet(wb.Sheets[salarySheetName])
+  }
+
+  if (Object.keys(structure).length === 0) {
+    for (const sheetName of wb.SheetNames) {
+      if (isSkipSheet(sheetName)) continue
+      const trial = parseSalaryStructureSheet(wb.Sheets[sheetName])
+      if (Object.keys(trial).length > 0) {
+        structure = trial
+        salarySheetName = sheetName
+        break
+      }
+    }
+  }
+
+  if (Object.keys(structure).length === 0 && salarySheetName && wb.Sheets[salarySheetName]) {
+    const matrix = XLSX.utils.sheet_to_json(wb.Sheets[salarySheetName], {
+      header: 1,
+      defval: '',
+    }) as unknown[][]
+    structure = parseStructureFallbackScan(matrix)
+  }
+
+  if (Object.keys(structure).length === 0) {
+    for (const sheetName of wb.SheetNames) {
+      if (isSkipSheet(sheetName)) continue
+      const matrix = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {
+        header: 1,
+        defval: '',
+      }) as unknown[][]
+      const trial = parseStructureFallbackScan(matrix)
+      if (Object.keys(trial).length > 0) {
+        structure = trial
+        break
+      }
+    }
+  }
 
   let employees: Employee[] = []
   const employeeSheetName = findSheetName(wb, [
@@ -290,22 +307,64 @@ export function parseMasterWorkbook(wb: XLSX.WorkBook): {
   return { company, structure, employees }
 }
 
-export function readMasterExcelFromBuffer(buffer: Buffer): {
+export async function readMasterExcelFromBuffer(buffer: Buffer): Promise<{
   company: Company
   structure: SalaryStructure
   employees: Employee[]
-} {
-  const wb = XLSX.read(buffer, { type: 'buffer' })
-  return parseMasterWorkbook(wb)
+}> {
+  const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true, cellNF: true })
+  const parsed = parseMasterWorkbook(wb)
+  parsed.company = await readCompanyFromWorkbookBuffer(buffer, wb)
+
+  let fromStyles: SalaryStructure = {}
+  try {
+    fromStyles = await parseSalaryStructureWithExcelJS(buffer)
+  } catch {
+    /* exceljs optional */
+  }
+
+  const salarySheet = resolveSalaryStructureSheetName(wb.SheetNames)
+  let fromNamedSheet: SalaryStructure = {}
+  let fallbackStructure: SalaryStructure = {}
+  if (salarySheet && wb.Sheets[salarySheet]) {
+    fromNamedSheet = parseSalaryStructureSheet(wb.Sheets[salarySheet])
+    const matrix = XLSX.utils.sheet_to_json(wb.Sheets[salarySheet], {
+      header: 1,
+      defval: '',
+    }) as unknown[][]
+    if (Object.keys(fromNamedSheet).length === 0) {
+      fromNamedSheet = parseStructureMatrix(matrix)
+    }
+    if (Object.keys(fromNamedSheet).length === 0) {
+      fromNamedSheet = parseStructureFallbackScan(matrix)
+    }
+    fallbackStructure = parseStructureFallbackScan(matrix)
+  }
+
+  parsed.structure = preferNamedSalaryStructure(
+    fromNamedSheet,
+    fromStyles,
+    parsed.structure,
+    fallbackStructure
+  )
+
+  if (Object.keys(parsed.structure).length === 0) {
+    throw new Error(
+      'No pay components found on the salary_structure sheet. Add rows with Component name and Section = Earnings or Deductions.'
+    )
+  }
+
+  return parsed
 }
 
-export function readMasterExcel(filePath: string): {
+export async function readMasterExcel(filePath: string): Promise<{
   company: Company
   structure: SalaryStructure
   employees: Employee[]
-} {
-  const wb = XLSX.readFile(filePath)
-  return parseMasterWorkbook(wb)
+}> {
+  const { readFileSync } = await import('fs')
+  const buffer = readFileSync(filePath)
+  return readMasterExcelFromBuffer(buffer)
 }
 
 // ============================================================================
@@ -598,34 +657,72 @@ interface EarningItem {
   amount: number
 }
 
-export function buildEarningsData(emp: Employee, structure: SalaryStructure): { earnings: EarningItem[]; gross: number } {
-  const empToStruct: { [key: string]: string } = {
-    'Basic Salary': 'Basic Salary',
-    HRA: 'House Rent Allowance',
-    Conveyance: 'Conveyance (Non-taxable)',
-    'Sundry Medical': 'Sundry Medical',
-    LTA: 'Leave Travel Allowance',
-    'Variable Allowance': 'Variable Allowance',
-    'Personal Allowance': 'Personal Allowance',
-    'Special Allowance': 'Special Allowance',
-    Reimbursements: 'Reimbursements',
-  }
+/** Legacy short column names on the employee sheet → salary structure component. */
+const COMPONENT_ALIASES: Record<string, string[]> = {
+  'Basic Salary': ['Basic', 'Basic Salary'],
+  'House Rent Allowance': ['HRA'],
+  'Conveyance (Non-taxable)': ['Conveyance'],
+  'Leave Travel Allowance': ['LTA'],
+  'Professional Tax': ['PT'],
+  'Income Tax (TDS)': ['TDS'],
+  'Loan / Advance Recovery': ['Loan Recovery', 'Loan / Adv. Recovery'],
+  'Loss of Pay': ['LOP', 'LOP Amount'],
+}
 
+function parseAmount(v: unknown): number {
+  try {
+    const n = parseFloat(String(v))
+    return Number.isNaN(n) ? 0 : n
+  } catch {
+    return 0
+  }
+}
+
+function resolveComponentAmount(
+  emp: Employee,
+  componentName: string,
+  meta: SalaryComponentMeta
+): number {
+  const candidates = [componentName, ...(COMPONENT_ALIASES[componentName] ?? [])]
+  for (const key of candidates) {
+    const val = emp[key]
+    if (val !== undefined && val !== null && val !== '') {
+      return parseAmount(val)
+    }
+  }
+  const lower = componentName.toLowerCase()
+  for (const key of Object.keys(emp)) {
+    if (cellToString(key).toLowerCase() === lower) {
+      return parseAmount(emp[key])
+    }
+  }
+  const amt = meta.default ?? 0
+  return amt
+}
+
+function matchesSection(meta: SalaryComponentMeta, section: 'Earnings' | 'Deductions'): boolean {
+  if (meta.section === section) return true
+  const s = String(meta.section ?? '').toLowerCase()
+  if (section === 'Earnings') return s.includes('earning')
+  return s.includes('deduction')
+}
+
+function orderedComponents(structure: SalaryStructure, section: 'Earnings' | 'Deductions'): string[] {
+  return Object.entries(structure)
+    .filter(([, meta]) => matchesSection(meta, section))
+    .sort((a, b) => (a[1].order ?? 0) - (b[1].order ?? 0))
+    .map(([name]) => name)
+}
+
+export function buildEarningsData(emp: Employee, structure: SalaryStructure): { earnings: EarningItem[]; gross: number } {
   const earnings: EarningItem[] = []
   let gross = 0
 
-  for (const [empCol, structName] of Object.entries(empToStruct)) {
-    let v = emp[empCol]
-    if (!v) {
-      v = structure[structName]?.default || 0
-    }
-    try {
-      v = parseFloat(String(v))
-    } catch {
-      v = 0
-    }
-    earnings.push({ name: structName, amount: v })
-    gross += v
+  for (const name of orderedComponents(structure, 'Earnings')) {
+    const meta = structure[name]
+    const amount = resolveComponentAmount(emp, name, meta)
+    earnings.push({ name, amount })
+    gross += amount
   }
 
   return { earnings, gross }
@@ -635,28 +732,15 @@ export function buildDeductionsData(
   emp: Employee,
   structure: SalaryStructure
 ): { deductions: EarningItem[]; totalDed: number } {
-  const empToStruct: { [key: string]: string } = {
-    PT: 'Professional Tax',
-    TDS: 'Income Tax (TDS)',
-    'Loan Recovery': 'Loan / Advance Recovery',
-    'LOP Days': 'Loss of Pay',
-  }
-
   const deductions: EarningItem[] = []
   let totalDed = 0
 
-  for (const [empCol, structName] of Object.entries(empToStruct)) {
-    let v = emp[empCol]
-    if (!v) {
-      v = structure[structName]?.default || 0
-    }
-    try {
-      v = parseFloat(String(v))
-    } catch {
-      v = 0
-    }
-    deductions.push({ name: structName, amount: v })
-    totalDed += v
+  for (const name of orderedComponents(structure, 'Deductions')) {
+    if (name === 'Loss of Pay') continue
+    const meta = structure[name]
+    const amount = resolveComponentAmount(emp, name, meta)
+    deductions.push({ name, amount })
+    totalDed += amount
   }
 
   return { deductions, totalDed }

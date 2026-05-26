@@ -43,6 +43,9 @@ import {
   getTemplateMeta,
   uploadCustomTemplate,
   previewTemplate,
+  getCompanyLogoMeta,
+  getCompanyLogoPreviewUrl,
+  uploadCompanyLogo,
   type PayrollBatch,
   type PayslipResult,
   type TemplateMeta,
@@ -88,8 +91,12 @@ export function PayslipManagement() {
 
   // Template header actions
   const templateFileRef = useRef<HTMLInputElement>(null)
+  const logoFileRef = useRef<HTMLInputElement>(null)
   const [templateMeta, setTemplateMeta] = useState<TemplateMeta | null>(null)
   const [uploadingTemplate, setUploadingTemplate] = useState(false)
+  const [hasCompanyLogo, setHasCompanyLogo] = useState(false)
+  const [logoPreviewKey, setLogoPreviewKey] = useState(0)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
 
   // PDF Preview modal
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -129,10 +136,21 @@ export function PayslipManagement() {
     }
   }, [])
 
+  const loadCompanyLogoMeta = useCallback(async () => {
+    try {
+      const meta = await getCompanyLogoMeta()
+      setHasCompanyLogo(meta.hasLogo)
+      if (meta.hasLogo) setLogoPreviewKey(Date.now())
+    } catch {
+      setHasCompanyLogo(false)
+    }
+  }, [])
+
   useEffect(() => {
     void loadLatestBatch()
     void loadTemplateMeta()
-  }, [loadLatestBatch])
+    void loadCompanyLogoMeta()
+  }, [loadLatestBatch, loadCompanyLogoMeta])
 
   useEffect(() => {
     if (activeTab === 'history') {
@@ -190,14 +208,28 @@ export function PayslipManagement() {
     setPreviewName('')
   }
 
+  const handleDownloadPayslip = async (
+    batchId: string,
+    fileName: string,
+    downloadName: string
+  ) => {
+    try {
+      await downloadPayslipPdf(batchId, fileName, downloadName)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to download payslip PDF'
+      toast.error(message)
+    }
+  }
+
   const handlePreview = async (batchId: string, fileName: string, name: string) => {
     setPreviewLoading(true)
     setPreviewName(name)
     try {
       const url = await openPayslipPdf(batchId, fileName)
       setPreviewUrl(url)
-    } catch {
-      toast.error('Failed to load PDF preview')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to load PDF preview'
+      toast.error(message)
     } finally {
       setPreviewLoading(false)
     }
@@ -218,6 +250,28 @@ export function PayslipManagement() {
       await previewTemplate(templateMeta?.name)
     } catch {
       toast.error('Failed to preview template')
+    }
+  }
+
+  const handleLogoFileSelect = async (files: FileList | null) => {
+    const file = files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload a PNG or JPG image')
+      return
+    }
+    setUploadingLogo(true)
+    try {
+      await uploadCompanyLogo(file)
+      setHasCompanyLogo(true)
+      setLogoPreviewKey(Date.now())
+      toast.success('Company logo saved — new payslips will include it')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to upload logo'
+      toast.error(message)
+    } finally {
+      setUploadingLogo(false)
+      if (logoFileRef.current) logoFileRef.current.value = ''
     }
   }
 
@@ -333,8 +387,10 @@ export function PayslipManagement() {
       toast.success('Merged payslip PDF downloaded')
     } catch (error: unknown) {
       const message =
-        (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-        'Failed to download merged payslips'
+        error instanceof Error
+          ? error.message
+          : (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+            'Failed to download merged payslips'
       toast.error(message)
     } finally {
       setDownloadingAll(false)
@@ -461,7 +517,7 @@ export function PayslipManagement() {
             <Button
               size="sm"
               variant="secondary"
-              onClick={() => void downloadPayslipPdf(batch.id, r.fileName!, `Payslip_${r.name}.pdf`)}
+              onClick={() => void handleDownloadPayslip(batch.id, r.fileName!, `Payslip_${r.name}.pdf`)}
               title="Download PDF"
             >
               <Download className="h-3.5 w-3.5" />
@@ -519,12 +575,38 @@ export function PayslipManagement() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <input
+              ref={logoFileRef}
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/webp"
+              className="hidden"
+              onChange={(e) => void handleLogoFileSelect(e.target.files)}
+            />
+            <input
               ref={templateFileRef}
               type="file"
               accept=".xlsx,.xls"
               className="hidden"
               onChange={(e) => void handleTemplateFileSelect(e.target.files)}
             />
+            {hasCompanyLogo && (
+              <img
+                src={getCompanyLogoPreviewUrl(logoPreviewKey)}
+                alt="Company logo"
+                className="h-10 w-auto max-w-[120px] rounded border border-border bg-white object-contain px-1"
+              />
+            )}
+            <Button
+              variant="secondary"
+              disabled={uploadingLogo}
+              onClick={() => logoFileRef.current?.click()}
+            >
+              {uploadingLogo ? (
+                <Loader className="h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
+              {hasCompanyLogo ? 'Change Logo' : 'Upload Logo'}
+            </Button>
             <Button
               variant="secondary"
               disabled={uploadingTemplate}
@@ -834,7 +916,7 @@ export function PayslipManagement() {
                                         size="sm"
                                         variant="secondary"
                                         onClick={() =>
-                                          void downloadPayslipPdf(
+                                          void handleDownloadPayslip(
                                             b.id,
                                             r.fileName!,
                                             `Payslip_${r.name}_${b.payMonth || b.id}.pdf`

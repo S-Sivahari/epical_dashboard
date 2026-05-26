@@ -6,7 +6,7 @@ import { join } from 'path'
 
 async function main() {
   const buf = await generatePayrollTemplateBuffer()
-  const { company, structure, employees } = readMasterExcelFromBuffer(buf)
+  const { company, structure, employees } = await readMasterExcelFromBuffer(buf)
   console.log('Company:', company['Company Name'])
   console.log('Employees:', employees.length)
 
