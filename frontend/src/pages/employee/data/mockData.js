@@ -122,4 +122,88 @@ export const faqs = [
   { q: 'How do I reset my portal password?', a: 'Go to Settings > Security or contact IT support to reset your password.' },
   { q: 'When are payslips available?', a: 'Payslips are published by the 5th of each month for the previous period.' },
   { q: 'How many days in advance should I apply for leave?', a: 'Casual and earned leave should be applied at least 3 working days in advance.' },
+  { q: 'How do I track my support ticket?', a: 'Open Raise Tickets from the sidebar. Your ticket history shows status, priority, and any admin remarks. The list refreshes automatically every 30 seconds.' },
+  { q: 'What is compensation leave?', a: 'Compensation leave is extra earned leave credited by HR for overtime or special work. View your credits under Leave Request > Compensation Leave.' },
+  { q: 'Who can see my tickets?', a: 'Only you and the admin support team can view tickets you raise. Other employees cannot access your ticket history.' },
+]
+
+export const userGuideSections = [
+  {
+    key: 'raise-ticket',
+    title: 'Raise Ticket',
+    summary: 'Submit IT or HR issues to the support team.',
+    linkTo: '/employee/tickets',
+    linkLabel: 'Raise Tickets',
+    steps: [
+      'Open Raise Tickets from the sidebar.',
+      'Enter an issue title, detailed description, and priority level.',
+      'Click Submit Ticket — your request is sent to the admin support team.',
+      'The ticket appears immediately in your Ticket History table.',
+    ],
+  },
+  {
+    key: 'track-ticket',
+    title: 'Track Ticket Status',
+    summary: 'Monitor responses and status updates on your tickets.',
+    linkTo: '/employee/tickets',
+    linkLabel: 'Raise Tickets',
+    steps: [
+      'Go to Raise Tickets and scroll to Ticket History.',
+      'Check the Status column: Pending, In Progress, or Completed.',
+      'Read Admin Remarks for updates or instructions from support.',
+      'The list refreshes automatically — no manual reload needed.',
+    ],
+  },
+  {
+    key: 'apply-leave',
+    title: 'Apply Leave',
+    summary: 'Request casual, sick, or earned leave.',
+    linkTo: '/employee/leave',
+    linkLabel: 'Leave Request',
+    steps: [
+      'Open Leave Request and review your leave balances.',
+      'Fill in leave type, duration, and from/to dates.',
+      'Submit the form — pending requests appear in the Pending section.',
+      'Cancel a pending request before approval if your plans change.',
+    ],
+  },
+  {
+    key: 'view-compensation',
+    title: 'View Compensation',
+    summary: 'See extra earned leave credited by HR.',
+    linkTo: '/employee/leave',
+    linkLabel: 'Leave Request',
+    steps: [
+      'Open Leave Request and find the Compensation Leave section.',
+      'Each entry shows days credited, reason, date, and who added it.',
+      'Credits are added to your Earned Leave balance automatically.',
+      'Contact HR via this page if an entry looks incorrect.',
+    ],
+  },
+  {
+    key: 'company-calendar',
+    title: 'Company Calendar',
+    summary: 'View holidays, events, and team leave.',
+    linkTo: '/employee/calendar',
+    linkLabel: 'Company Calendar',
+    steps: [
+      'Open Company Calendar from the sidebar.',
+      'Browse the monthly view for public holidays and company events.',
+      'See who is on approved leave on any given day.',
+      'Use the calendar when planning your own leave dates.',
+    ],
+  },
+  {
+    key: 'employee-profile',
+    title: 'Employee Profile',
+    summary: 'View your personal and employment details.',
+    linkTo: '/employee/profile',
+    linkLabel: 'My Profile',
+    steps: [
+      'Click your avatar in the top bar and select Profile.',
+      'Review your name, employee ID, designation, and join date.',
+      'View assigned details synced from the HR employee record.',
+      'Contact HR if any profile information needs updating.',
+    ],
+  },
 ]

@@ -20,7 +20,6 @@ const quickLinks = [
   { to: '/employee/timesheet', label: 'Timesheet', icon: Clock },
   { to: '/employee/leave', label: 'Leave', icon: CalendarOff },
   { to: '/employee/documents', label: 'Documents', icon: FileText },
-  { to: '/employee/profile', label: 'Profile', icon: BadgeCheck },
 ]
 
 function greeting() {

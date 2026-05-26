@@ -84,7 +84,8 @@ const EmployeeCalendar = lazy(() => import('@pages/employee/CompanyCalendar'))
 const EmployeeDocuments = lazy(() => import('@pages/employee/DocumentRequest'))
 const EmployeeTraining = lazy(() => import('@pages/employee/Training'))
 const EmployeeAchievements = lazy(() => import('@pages/employee/Achievements'))
-const EmployeeSupport = lazy(() => import('@pages/employee/HelpSupport'))
+const EmployeeRaiseTickets = lazy(() => import('@pages/employee/HelpSupport'))
+const EmployeeHelpSupport = lazy(() => import('@pages/employee/EmployeeHelpSupport'))
 const EmployeeProfilePage = lazy(() => import('@pages/employee/EmployeeProfile'))
 
 function RootRedirect() {
@@ -140,7 +141,9 @@ export function AppRoutes() {
             <Route path="training" element={<EmployeeTraining />} />
             <Route path="achievements" element={<EmployeeAchievements />} />
             <Route path="profile" element={<EmployeeProfilePage />} />
-            <Route path="support" element={<EmployeeSupport />} />
+            <Route path="tickets" element={<EmployeeRaiseTickets />} />
+            <Route path="help" element={<EmployeeHelpSupport />} />
+            <Route path="support" element={<Navigate to="/employee/tickets" replace />} />
           </Route>
         </Route>
 
