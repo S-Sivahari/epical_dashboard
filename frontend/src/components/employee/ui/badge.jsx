@@ -32,6 +32,8 @@ export function statusVariant(status) {
     Open: 'default',
     'In Progress': 'warning',
     Completed: 'success',
+    Paid: 'success',
+    Pending: 'warning',
   }
   return map[status] || 'secondary'
 }

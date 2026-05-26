@@ -36,7 +36,7 @@ function formatWhen(iso?: string): string {
   }
 }
 
-export function DocumentManagement() {
+export function DocumentManagement({ embedded = false }: { embedded?: boolean }) {
   const [tab, setTab] = useState<AdminTab>('requested')
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
@@ -144,8 +144,8 @@ export function DocumentManagement() {
     }
   }
 
-  return (
-    <PageWrapper>
+  const content = (
+    <>
       <input
         ref={fileInputRef}
         type="file"
@@ -425,6 +425,9 @@ export function DocumentManagement() {
           </div>
         ) : null}
       </div>
-    </PageWrapper>
+    </>
   )
+
+  if (embedded) return content
+  return <PageWrapper>{content}</PageWrapper>
 }

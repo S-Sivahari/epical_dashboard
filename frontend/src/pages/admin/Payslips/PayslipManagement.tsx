@@ -64,7 +64,7 @@ type TabId = 'upload' | 'history'
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export function PayslipManagement() {
+export function PayslipManagement({ embedded = false }: { embedded?: boolean }) {
   const { employees, loading: employeesLoading } = useEmployees()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -509,8 +509,8 @@ export function PayslipManagement() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
-  return (
-    <PageWrapper>
+  const content = (
+    <>
       {/* Top Actions */}
       <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         {/* Tabs */}
@@ -993,6 +993,9 @@ export function PayslipManagement() {
         onClose={() => setPayslipDeleteTarget(null)}
         onConfirm={handleDeletePayslip}
       />
-    </PageWrapper>
+    </>
   )
+
+  if (embedded) return content
+  return <PageWrapper>{content}</PageWrapper>
 }
