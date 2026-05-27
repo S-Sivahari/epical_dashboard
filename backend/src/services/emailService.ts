@@ -32,11 +32,6 @@ interface ReminderEmailParams {
 }
 
 export async function sendCheckoutReminderEmail(params: ReminderEmailParams): Promise<boolean> {
-  if (!isEmailConfigured()) {
-    console.log(`⚠ Email not configured — skipping reminder for ${params.employeeName}`);
-    return false;
-  }
-
   const checkInStr = params.checkInTime.toLocaleString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
@@ -67,6 +62,18 @@ export async function sendCheckoutReminderEmail(params: ReminderEmailParams): Pr
       </div>
     </div>
   `;
+
+  if (!env.enableEmailNotifications || !isEmailConfigured()) {
+    console.log(`[Email Service] [MOCK MODE] Email notifications disabled or credentials missing. Reminder email to: ${params.to}`);
+    console.log(`----------------------------------------------------------------------`);
+    console.log(`TO:       ${params.to}`);
+    console.log(`SUBJECT:  Timesheet Checkout Reminder`);
+    console.log(`HTML BODY PREVIEW (first 300 chars):`);
+    console.log(html.substring(0, 300) + '...');
+    console.log(`----------------------------------------------------------------------`);
+    return true;
+  }
+
 
   try {
     await getTransporter().sendMail({
@@ -142,11 +149,6 @@ interface AutoCheckoutEmailParams {
 }
 
 export async function sendAutoCheckoutConfirmationEmail(params: AutoCheckoutEmailParams): Promise<boolean> {
-  if (!isEmailConfigured()) {
-    console.log(`⚠ Email not configured — skipping auto-checkout confirmation for ${params.employeeName}`);
-    return false;
-  }
-
   const fmt = (d: Date) =>
     d.toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
 
@@ -176,6 +178,18 @@ export async function sendAutoCheckoutConfirmationEmail(params: AutoCheckoutEmai
       </div>
     </div>
   `;
+
+  if (!env.enableEmailNotifications || !isEmailConfigured()) {
+    console.log(`[Email Service] [MOCK MODE] Email notifications disabled or credentials missing. Auto-checkout confirmation to: ${params.to}`);
+    console.log(`----------------------------------------------------------------------`);
+    console.log(`TO:       ${params.to}`);
+    console.log(`SUBJECT:  Automatic Checkout Completed — Timesheet Updated`);
+    console.log(`HTML BODY PREVIEW (first 300 chars):`);
+    console.log(html.substring(0, 300) + '...');
+    console.log(`----------------------------------------------------------------------`);
+    return true;
+  }
+
 
   try {
     await getTransporter().sendMail({
