@@ -170,7 +170,7 @@ export async function exportToPDF<T extends Record<string, any>>(
   const employeeStyle = Boolean(options?.employeePdfStyle)
 
   function drawHeaderBlock(): number {
-    let y: number
+    let y = 38
     const reportTitleStr = options?.reportTitle ?? 'Employee Details Report'
 
     if (employeeStyle && logo && options?.headerLogoAdjacentToTitle) {
@@ -220,11 +220,17 @@ export async function exportToPDF<T extends Record<string, any>>(
       doc.text(reportTitleStr, textLeft, reportBaseline)
       y = Math.max(logoTop + lh, reportBaseline + reportDescApprox) + 14
     } else {
-      y = employeeStyle && logo ? drawPdfLogoLeft(doc, logo, 40, 14) : 38
+      if (employeeStyle && logo) {
+        y = drawPdfLogoLeft(doc, logo, 40, 14)
+      }
 
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(18)
-      drawEpicalBrandedText(doc, { before: 'EP', after: 'AL LAYOUTS PVT LTD' }, 40, y, 'center', pageWidth)
+      if (employeeStyle && logo) {
+        drawEpicalBrandedText(doc, { before: 'EP', after: 'AL LAYOUTS PVT LTD' }, 40, y, 'left', pageWidth)
+      } else {
+        drawEpicalBrandedText(doc, { before: 'EP', after: 'AL LAYOUTS PVT LTD' }, 40, y, 'center', pageWidth)
+      }
       y += 18
 
       if (!employeeStyle) {
@@ -244,7 +250,9 @@ export async function exportToPDF<T extends Record<string, any>>(
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(12)
       doc.setTextColor(30, 41, 59)
-      doc.text(reportTitleStr, pageWidth / 2, y, { align: 'center' })
+      doc.text(reportTitleStr, employeeStyle && logo ? 40 : pageWidth / 2, y, {
+        align: employeeStyle && logo ? 'left' : 'center',
+      })
       y += 14
     }
 
@@ -335,7 +343,7 @@ export async function exportToPDF<T extends Record<string, any>>(
           acc[idx] = { cellWidth: (pageWidth - 20) / headers.length }
           return acc
         },
-        {} as Record<number, unknown>,
+        {} as any,
       ),
     })
 
