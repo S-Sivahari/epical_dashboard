@@ -61,9 +61,9 @@ const historyColumns = [
 
 const WEEKLY_CHART_HEIGHT = 280
 
-function formatDuration(startedAt, pausedAt = null, totalPausedMs = 0) {
+function formatDuration(startedAt, pausedAt = null, totalPausedMs = 0, serverTimeSkew = 0) {
   if (!startedAt) return '0h 0m'
-  const end = pausedAt ? new Date(pausedAt).getTime() : Date.now()
+  const end = pausedAt ? new Date(pausedAt).getTime() : Date.now() + serverTimeSkew
   const ms = Math.max(0, end - new Date(startedAt).getTime() - (totalPausedMs || 0))
   const hours = Math.floor(ms / 3600000)
   const mins = Math.floor((ms % 3600000) / 60000)
@@ -114,6 +114,7 @@ export default function Timesheet() {
     resumeTask,
     completeTask,
     attendanceHistory,
+    serverTimeSkew,
   } = useTimesheetStore()
   const { toast } = useToast()
   const defaultHistoryRange = getPresetDateRange('This Month')
@@ -122,7 +123,7 @@ export default function Timesheet() {
   const [historyPreset, setHistoryPreset] = useState('This Month')
   const [elapsed, setElapsed] = useState('0h 0m')
   const [submitting, setSubmitting] = useState(false)
-  const [liveNow, setLiveNow] = useState(() => Date.now())
+  const [liveNow, setLiveNow] = useState(() => Date.now() + (serverTimeSkew || 0))
   const [checkoutReview, setCheckoutReview] = useState(false)
   const [checkoutError, setCheckoutError] = useState('')
 
@@ -162,23 +163,32 @@ export default function Timesheet() {
   }, [initialized, hasAwaitingApproval])
 
   useEffect(() => {
+    if (!initialized || !checkedIn) return undefined
+    const sync = () => {
+      void useTimesheetStore.getState().syncAttendanceWithBackend()
+    }
+    const id = setInterval(sync, 10000) // Poll every 10 seconds when checked in to capture auto-checkouts in real-time
+    return () => clearInterval(id)
+  }, [initialized, checkedIn])
+
+  useEffect(() => {
     if (!activeTask?.startedAt) return undefined
     const tick = () =>
       setElapsed(
-        formatDuration(activeTask.startedAt, activeTask.pausedAt, activeTask.totalPausedMs)
+        formatDuration(activeTask.startedAt, activeTask.pausedAt, activeTask.totalPausedMs, serverTimeSkew)
       )
     tick()
     const id = setInterval(tick, activeTask.paused ? 60000 : 30000)
     return () => clearInterval(id)
-  }, [activeTask?.startedAt, activeTask?.pausedAt, activeTask?.totalPausedMs, activeTask?.paused])
+  }, [activeTask?.startedAt, activeTask?.pausedAt, activeTask?.totalPausedMs, activeTask?.paused, serverTimeSkew])
 
   useEffect(() => {
     if (!checkedIn) return undefined
-    const tick = () => setLiveNow(Date.now())
+    const tick = () => setLiveNow(Date.now() + (serverTimeSkew || 0))
     tick()
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
-  }, [checkedIn])
+  }, [checkedIn, serverTimeSkew])
 
   const { register, setValue, watch, reset, trigger, formState: { errors } } = useForm({
     resolver: zodResolver(taskSchema),
@@ -190,7 +200,7 @@ export default function Timesheet() {
   const canStartSession =
     !!selectedTaskId && String(workDescription || '').trim().length >= 3
   const startableTasks = useMemo(
-    () => assignedTasks.filter((t) => t.status === 'assigned'),
+    () => assignedTasks.filter((t) => t.status === 'assigned' || t.status === 'in_progress'),
     [assignedTasks]
   )
   const selectedTask = startableTasks.find((t) => t.id === selectedTaskId)
@@ -357,14 +367,14 @@ export default function Timesheet() {
   const currentTaskPausedMs = useMemo(() => {
     if (!checkedIn) return 0
     let pausedMs = 0
-    if (pausedTasks && pausedTasks[0]) {
+    if (activeTask) {
+      pausedMs += activeTask.totalPausedMs || 0
+    } else if (pausedTasks && pausedTasks[0]) {
       const task = pausedTasks[0]
-      pausedMs += task.totalPausedMs
+      pausedMs += task.totalPausedMs || 0
       if (task.pausedAt) {
         pausedMs += Math.max(0, liveNow - new Date(task.pausedAt).getTime())
       }
-    } else if (activeTask) {
-      pausedMs += activeTask.totalPausedMs
     }
     return pausedMs
   }, [checkedIn, activeTask, pausedTasks, liveNow])

@@ -365,6 +365,7 @@ export const employeeTimesheetController = {
         ]);
 
       res.json({
+        serverTime: new Date().toISOString(),
         attendance: buildAttendanceResponse(openAttendance, latestAttendance),
         active: activePayload.active,
         pausedTasks: activePayload.pausedTasks,
@@ -557,6 +558,7 @@ export const employeeTimesheetController = {
       });
 
       res.status(201).json({
+        serverTime: new Date().toISOString(),
         checkedIn: true,
         checkInTime: attendance.checkInTime.toISOString(),
         sessionStatus: attendance.sessionStatus,
@@ -636,6 +638,7 @@ export const employeeTimesheetController = {
         });
 
         res.json({
+          serverTime: new Date().toISOString(),
           checkedIn: false,
           checkOutTime: now.toISOString(),
           stoppedTasks,
@@ -697,7 +700,18 @@ export const employeeTimesheetController = {
         return;
       }
 
-      const taskProject = await ProjectModel.findById(assigned.projectId);
+      let taskProject = await ProjectModel.findById(assigned.projectId);
+
+      if (!taskProject) {
+        // Fallback: project may have been archived or deleted.
+        // Use the metadata stored on the AssignedTask so the employee is not blocked.
+        taskProject = {
+          _id: assigned.projectId,
+          projectName: assigned.projectName,
+          clientName: assigned.clientName || '',
+          technologyNode: assigned.technologyNode || '',
+        } as any;
+      }
 
       if (assigned.status === 'completed') {
         res.status(400).json({ error: 'This task is already completed' });
@@ -724,11 +738,8 @@ export const employeeTimesheetController = {
         return;
       }
 
-      if (!taskProject) {
-        res.status(400).json({ error: 'Project not found for this task' });
-        return;
-      }
-
+      // Pin to a const so TypeScript flow analysis keeps the non-null guarantee inside the async callback
+      const resolvedProject = taskProject!;
       const now = new Date();
       const workNote = String(description).trim();
       const session = await mongoose.startSession();
@@ -739,10 +750,10 @@ export const employeeTimesheetController = {
           timesheet = new TimesheetModel({
             employee: employee.employeeName || employee.name,
             employeeId: employee.employeeId || employee.id,
-            projectId: taskProject._id,
-            project: taskProject.projectName,
-            client: taskProject.clientName,
-            technologyNode: taskProject.technologyNode,
+            projectId: resolvedProject._id,
+            project: resolvedProject.projectName,
+            client: resolvedProject.clientName,
+            technologyNode: resolvedProject.technologyNode,
             loginTime: now,
             task: workNote,
             billable: true,

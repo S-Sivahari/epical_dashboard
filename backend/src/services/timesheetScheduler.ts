@@ -1,6 +1,7 @@
 import cron, { type ScheduledTask } from 'node-cron';
 import { getAutoCheckoutSettings } from './autoCheckoutService';
 import { processReminders, processAutoCheckouts } from './autoCheckoutService';
+import { env } from '../config/env';
 
 let reminderJob: ScheduledTask | null = null;
 let autoCheckoutJob: ScheduledTask | null = null;
@@ -14,10 +15,12 @@ async function scheduleJobs() {
   const settings = await getAutoCheckoutSettings();
 
   if (reminderJob) {
+    console.log('[Scheduler] Stopping existing reminder job.');
     reminderJob.stop();
     reminderJob = null;
   }
   if (autoCheckoutJob) {
+    console.log('[Scheduler] Stopping existing auto-checkout job.');
     autoCheckoutJob.stop();
     autoCheckoutJob = null;
   }
@@ -27,10 +30,12 @@ async function scheduleJobs() {
     return;
   }
 
-  const reminderCron = timeToCron(settings.reminderTime);
-  const autoCheckoutCron = timeToCron(settings.autoCheckoutTime);
+  const reminderCron = env.testCronTimings ? '* * * * *' : timeToCron(settings.reminderTime);
+  const autoCheckoutCron = env.testCronTimings ? '* * * * *' : timeToCron(settings.autoCheckoutTime);
 
+  console.log('Reminder cron started');
   reminderJob = cron.schedule(reminderCron, async () => {
+    console.log('Reminder cron tick');
     console.log(`[Scheduler] Running reminder job at ${new Date().toISOString()}`);
     try {
       await processReminders();
@@ -39,7 +44,9 @@ async function scheduleJobs() {
     }
   });
 
+  console.log('Auto-checkout cron started');
   autoCheckoutJob = cron.schedule(autoCheckoutCron, async () => {
+    console.log('Auto-checkout cron tick');
     console.log(`[Scheduler] Running auto-checkout job at ${new Date().toISOString()}`);
     try {
       await processAutoCheckouts();
@@ -48,7 +55,8 @@ async function scheduleJobs() {
     }
   });
 
-  console.log(`✓ Scheduler started — Reminder: ${settings.reminderTime} (${reminderCron}), Auto-checkout: ${settings.autoCheckoutTime} (${autoCheckoutCron})`);
+  console.log('Timesheet scheduler initialized');
+  console.log(`✓ Scheduler started (Test Mode: ${env.testCronTimings}) — Reminder Cron: ${reminderCron}, Auto-checkout Cron: ${autoCheckoutCron}`);
 }
 
 export async function initScheduler() {

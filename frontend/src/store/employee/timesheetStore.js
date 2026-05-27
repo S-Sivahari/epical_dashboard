@@ -93,6 +93,8 @@ export const useTimesheetStore = create((set, get) => ({
   autoCheckoutInfo: null,
   autoCheckoutSettings: null,
   attendanceHistory: [],
+  serverTimeSkew: 0,
+
 
   refreshAttendanceHistory: async ({ from, to } = {}) => {
     try {
@@ -124,12 +126,14 @@ export const useTimesheetStore = create((set, get) => ({
     try {
       const data = await fetchTimesheetBootstrap()
 
+      const serverTimeSkew = data.serverTime ? new Date(data.serverTime).getTime() - Date.now() : 0
       const activeRes = { active: data.active, pausedTasks: data.pausedTasks ?? [] }
       const checkInTime = data.attendance?.checkInTime ? new Date(data.attendance.checkInTime) : null
       const activeTask = mapActiveTaskFromApi(activeRes)
       const pausedTasks = activeRes.pausedTasks.map(mapTaskEntryFromApi).filter(Boolean)
 
       set({
+        serverTimeSkew,
         checkedIn: data.attendance?.checkedIn ?? false,
         checkInTime,
         attendance: data.attendance ?? null,
@@ -154,6 +158,39 @@ export const useTimesheetStore = create((set, get) => ({
       set({ initialized: true })
     } finally {
       set({ loading: false })
+    }
+  },
+
+  syncAttendanceWithBackend: async () => {
+    try {
+      const data = await fetchTimesheetBootstrap()
+      const serverTimeSkew = data.serverTime ? new Date(data.serverTime).getTime() - Date.now() : 0
+      const activeRes = { active: data.active, pausedTasks: data.pausedTasks ?? [] }
+      const checkInTime = data.attendance?.checkInTime ? new Date(data.attendance.checkInTime) : null
+      const activeTask = mapActiveTaskFromApi(activeRes)
+      const pausedTasks = activeRes.pausedTasks.map(mapTaskEntryFromApi).filter(Boolean)
+
+      set({
+        serverTimeSkew,
+        checkedIn: data.attendance?.checkedIn ?? false,
+        checkInTime,
+        attendance: data.attendance ?? null,
+        activeTask,
+        pausedTasks,
+        assignedTasks: data.assignedTasks ?? [],
+        sessions: (data.sessions ?? []).map(mapSessionFromApi),
+        attendanceHistory: Array.isArray(data.attendanceHistory) ? data.attendanceHistory : [],
+        sessionStatus: data.attendance?.sessionStatus ?? null,
+        autoCheckoutInfo: {
+          reminderSent: data.attendance?.reminderSent ?? false,
+          autoCheckedOut: data.attendance?.autoCheckedOut ?? false,
+          expectedCheckoutTime: data.attendance?.expectedCheckoutTime ?? null,
+          autoCheckoutTime: data.attendance?.autoCheckoutTime ?? null,
+          autoCheckoutEnabled: data.attendance?.autoCheckoutEnabled ?? true,
+        }
+      })
+    } catch (err) {
+      console.error('Failed to sync timesheet state with backend', err)
     }
   },
 
@@ -185,7 +222,9 @@ export const useTimesheetStore = create((set, get) => ({
 
   checkIn: async () => {
     const data = await apiCheckIn()
+    const serverTimeSkew = data.serverTime ? new Date(data.serverTime).getTime() - Date.now() : 0
     set({
+      serverTimeSkew,
       checkedIn: true,
       checkInTime: data.checkInTime ? new Date(data.checkInTime) : new Date(),
       sessionStatus: data.sessionStatus || 'Active',
@@ -212,7 +251,8 @@ export const useTimesheetStore = create((set, get) => ({
 
   checkOut: async () => {
     const data = await apiCheckOut()
-    set({ checkedIn: false, checkInTime: null, activeTask: null, pausedTasks: [], sessionStatus: 'Completed' })
+    const serverTimeSkew = data?.serverTime ? new Date(data.serverTime).getTime() - Date.now() : 0
+    set({ serverTimeSkew, checkedIn: false, checkInTime: null, activeTask: null, pausedTasks: [], sessionStatus: 'Completed' })
     if (data?.checkOutTime) {
       set((state) => ({
         attendance: {
