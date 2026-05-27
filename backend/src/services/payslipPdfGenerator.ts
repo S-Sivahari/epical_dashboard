@@ -4,6 +4,7 @@ import { join } from 'path'
 import {
   COMPANY_LOGO_BUNDLED,
   COMPANY_LOGO_PATH,
+  COMPANY_LOGO_PIC,
   PAYROLL_UPLOADS_ROOT,
   findProjectRootLogo,
 } from '../config/paths'
@@ -543,6 +544,7 @@ export function resolveLogoPath(company: Company = {}): string | null {
     company['Logo Path'],
     company['Logo'],
     COMPANY_LOGO_PATH,
+    COMPANY_LOGO_PIC,
     rootLogo,
     join(PAYROLL_UPLOADS_ROOT, 'template', 'company_logo.jpg'),
     join(PAYROLL_UPLOADS_ROOT, 'template', 'company_logo.png'),
