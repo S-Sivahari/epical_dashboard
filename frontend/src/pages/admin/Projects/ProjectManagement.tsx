@@ -19,7 +19,6 @@ import {
 } from '@/lib/textLimits'
 import {
   Clock,
-  Users,
   Search,
   X,
   Archive,
@@ -40,28 +39,17 @@ import {
   SlidersHorizontal,
   ArrowUpRight,
   UserCheck,
-  TrendingUp,
   Sliders,
-  FileText,
   Edit2,
 } from 'lucide-react'
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Cell,
-  LabelList,
-} from 'recharts'
 import { formatDate } from '@/utils/formatDate'
 import ExcelJS from 'exceljs'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import {
   downloadExcelBuffer,
+  fetchExportLogo,
+  scaleExportLogo,
 } from '@/utils/exportLogo'
 import api from '@/services/api'
 import { getEmployees } from '@/services/employeeService'
@@ -434,10 +422,10 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
       >
         <CalendarIcon className="h-4 w-4 text-emerald-650" />
         {preset === 'Custom' && startDate === endDate
-          ? formatDate(startDate)
+          ? `Month to Date: ${formatDate(startDate)}`
           : preset === 'Custom'
-            ? `${formatDate(startDate)} – ${formatDate(endDate)}`
-            : `${preset} (${formatDate(startDate)} – ${formatDate(endDate)})`}
+            ? `Month to Date: ${formatDate(startDate)} – ${formatDate(endDate)}`
+            : `Month to Date: ${preset} (${formatDate(startDate)} – ${formatDate(endDate)})`}
         <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
       </button>
 
@@ -985,21 +973,20 @@ function EmployeeLeaderboard({
 }: {
   data: { name: string; dept: string; hours: number; hue: number }[]
 }) {
-  const maxHours = data.length > 0 ? Math.max(...data.map((d) => d.hours)) : 0
+  const sortedData = useMemo(() => {
+    return [...data].sort((a, b) => a.name.localeCompare(b.name))
+  }, [data])
+
+  const maxHours = sortedData.length > 0 ? Math.max(...sortedData.map((d) => d.hours)) : 0
 
   return (
     <div className="space-y-3.5">
-      {data.map((item, idx) => {
+      {sortedData.map((item, idx) => {
         const percent = maxHours > 0 ? (item.hours / maxHours) * 100 : 0
-        const isTop = idx < 3
+        const hue = Math.round((idx * 137.5) % 360)
         return (
           <div key={item.name} className="flex items-center gap-3">
-            <span
-              className="w-5 text-xs font-bold text-center text-slate-400"
-            >
-              #{idx + 1}
-            </span>
-            <Avatar name={item.name} size="sm" color={`hsl(${item.hue},55%,45%)`} />
+            <Avatar name={item.name} size="sm" color={`hsl(${hue},55%,45%)`} />
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between text-xs font-bold text-slate-700">
                 <span className="truncate">
@@ -1010,49 +997,17 @@ function EmployeeLeaderboard({
               <div className="mt-1 w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-500"
-                  style={{ width: `${percent}%`, backgroundColor: `hsla(${item.hue}, 85%, 50%, 0.45)` }}
+                  style={{ width: `${percent}%`, backgroundColor: `hsla(${hue}, 85%, 50%, 0.45)` }}
                 />
               </div>
             </div>
           </div>
         )
       })}
-      {data.length === 0 && (
+      {sortedData.length === 0 && (
         <p className="text-center text-slate-400 text-xs py-8">No hours logged in this period.</p>
       )}
     </div>
-  )
-}
-
-const PROJECT_COLORS = [
-  '#3b82f6', // Blue
-  '#ef4444', // Red
-  '#f59e0b', // Amber
-  '#10b981', // Emerald
-  '#8b5cf6', // Purple
-  '#ec4899', // Pink
-  '#14b8a6', // Teal
-  '#6366f1', // Indigo
-  '#06b6d4', // Cyan
-  '#f97316', // Orange
-]
-
-function HoursBarLabel(props: { x?: number; y?: number; width?: number; value?: number | string }) {
-  const { x = 0, y = 0, width = 0, value } = props
-  const n = Number(value)
-  if (!Number.isFinite(n)) return null
-  const text = Number.isInteger(n) ? `${n}h` : `${n.toFixed(1)}h`
-  return (
-    <text
-      x={x + width / 2}
-      y={y - 8}
-      fill="#475569"
-      fontSize={10}
-      fontWeight={600}
-      textAnchor="middle"
-    >
-      {text}
-    </text>
   )
 }
 
@@ -1064,8 +1019,6 @@ export function ProjectManagement() {
   const [activeTab, setActiveTab] = useState<'projects' | 'timesheets'>('projects')
   const [allProjects, setAllProjects] = useState<Project[]>([])
   const [timesheets, setTimesheets] = useState<TimesheetLog[]>([])
-  const [chartHoursByProject, setChartHoursByProject] = useState<{ name: string; hours: number }[]>([])
-  const [leaderboardData, setLeaderboardData] = useState<{ name: string; dept: string; hours: number; hue: number }[]>([])
   const [loading, setLoading] = useState(false)
 
   const projects = allProjects
@@ -1113,31 +1066,6 @@ export function ProjectManagement() {
     setSelectedAuditProjectName(name)
     setAuditTrailModalOpen(true)
   }, [])
-
-  const handleBarClick = useCallback((data: any) => {
-    if (!data) return
-    
-    // Check if clicked directly on Bar or through BarChart activePayload
-    let pId = data.projectId || (data.payload && data.payload.projectId)
-    let pName = data.name || (data.payload && data.payload.name)
-
-    if (!pId && data.activePayload && data.activePayload[0]) {
-      const payload = data.activePayload[0].payload
-      pId = payload.projectId
-      pName = payload.name
-    }
-
-    if (pId) {
-      openAuditTrail(pId, pName)
-    } else if (pName) {
-      const found = allProjects.find(p => p.name === pName)
-      if (found) {
-        openAuditTrail(found.id, found.name)
-      } else {
-        toast.error(`Could not find project: ${pName}`)
-      }
-    }
-  }, [allProjects, openAuditTrail])
 
   const emptyForm = {
     name: '',
@@ -1191,14 +1119,8 @@ export function ProjectManagement() {
     if (tsSearch.trim()) params.search = tsSearch.trim()
 
     try {
-      const [logsRes, chartRes, leaderboardRes] = await Promise.all([
-        api.get('/timesheets', { params }),
-        api.get('/timesheets/hours-by-project', { params }),
-        api.get('/timesheets/employee-hours', { params }),
-      ])
+      const logsRes = await api.get('/timesheets', { params })
       setTimesheets(logsRes.data)
-      setChartHoursByProject(chartRes.data)
-      setLeaderboardData(leaderboardRes.data)
     } catch (err) {
       console.error(err)
       toast.error('Failed to load timesheet data.')
@@ -1549,6 +1471,47 @@ export function ProjectManagement() {
     getEmployeeTeam,
   ])
 
+  // Derived Project Hours based on filteredTimesheets
+  const derivedHoursByProject = useMemo(() => {
+    const projectMap: Record<string, { name: string; hours: number; projectId?: string }> = {}
+    filteredTimesheets.forEach((t) => {
+      const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours) || 0
+      if (projectMap[t.project]) {
+        projectMap[t.project].hours += hours
+      } else {
+        projectMap[t.project] = {
+          name: t.project,
+          hours,
+          projectId: t.projectId
+        }
+      }
+    })
+    return Object.values(projectMap)
+      .map(p => ({ ...p, hours: Math.round(p.hours * 10) / 10 }))
+      .sort((a, b) => b.hours - a.hours)
+  }, [filteredTimesheets])
+
+  // Derived Employee Hours based on filteredTimesheets
+  const derivedLeaderboardData = useMemo(() => {
+    const empMap: Record<string, { name: string; dept: string; hours: number; hue: number }> = {}
+    filteredTimesheets.forEach((t) => {
+      const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours) || 0
+      const empInfo = MOCK_EMPLOYEES.find((e) => e.id === t.employeeId)
+      if (empMap[t.employeeName]) {
+        empMap[t.employeeName].hours += hours
+      } else {
+        empMap[t.employeeName] = {
+          name: t.employeeName,
+          dept: empInfo?.team ?? '—',
+          hours,
+          hue: empInfo?.hue ?? 200
+        }
+      }
+    })
+    return Object.values(empMap)
+      .map(e => ({ ...e, hours: Math.round(e.hours * 10) / 10 }))
+  }, [filteredTimesheets])
+
   // ── Timesheets Pagination derived values ────────────────────
   const totalTimesheetsPages = Math.ceil(filteredTimesheets.length / timesheetsPerPage)
   const indexOfLastTimesheet = timesheetsCurrentPage * timesheetsPerPage
@@ -1559,8 +1522,6 @@ export function ProjectManagement() {
   useEffect(() => {
     setTimesheetsCurrentPage(1)
   }, [tsSearch, tsStartDate, tsEndDate, tsEmployeeFilters, tsProjectFilters, tsStatusFilters])
-
-  // ── Recharts Chart Data and Leaderboard are managed via server-side aggregation state ──
 
   // ── Export Implementations (Excel / PDF) ─────────────────────
   const handleExportExcel = useCallback(async () => {
@@ -1634,11 +1595,16 @@ export function ProjectManagement() {
     }
 
     const { hoursByProject, leaderboard } = buildTimesheetExportAnalytics(filteredTimesheets)
+    
+    // Sort leaderboard alphabetically matching the A-Z requirement
+    const sortedLeaderboard = [...leaderboard].sort((a, b) => a.name.localeCompare(b.name))
+
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt' })
     const pageWidth = doc.internal.pageSize.width || 842
     const pageHeight = doc.internal.pageSize.height || 595
     const marginX = 40
-    const contentWidth = pageWidth - marginX * 2
+
+    const logo = await fetchExportLogo()
 
     const tableTheme = {
       styles: { fontSize: 8, cellPadding: 4, overflow: 'linebreak' as const },
@@ -1646,11 +1612,6 @@ export function ProjectManagement() {
       alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
       theme: 'grid' as const,
       margin: { left: marginX, right: marginX, bottom: 36 },
-    }
-
-    const getTableEndY = () => {
-      const last = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable
-      return last?.finalY ?? marginX
     }
 
     const addSectionTitle = (title: string, y: number) => {
@@ -1661,179 +1622,173 @@ export function ProjectManagement() {
       return y + 14
     }
 
-    let headerY = 28
-    headerY += 12
+    let headerY = 20
 
+    // Draw the green chip logo if available
+    let logoWidth = 0
+    if (logo) {
+      const scaled = scaleExportLogo(logo.width, logo.height, 48)
+      const format = logo.dataUrl.includes('image/png') ? 'PNG' : 'JPEG'
+      doc.addImage(logo.dataUrl, format, marginX, headerY, scaled.width, scaled.height)
+      logoWidth = scaled.width
+    }
+
+    // Draw Title next to Logo
+    const textX = marginX + logoWidth + 12
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(18)
     doc.setTextColor(30, 41, 59)
-    doc.text('EPICAL LAYOUTS PVT LTD', pageWidth / 2, headerY, { align: 'center' })
-    headerY += 20
+    doc.text('EPICAL LAYOUTS PVT LTD', textX, headerY + 16)
 
     doc.setFontSize(12)
-    doc.setTextColor(30, 41, 59)
-    doc.text('Timesheet Report', pageWidth / 2, headerY, { align: 'center' })
-    headerY += 20
+    doc.setTextColor(71, 85, 105)
+    doc.text('Timesheet Report', textX, headerY + 32)
+    
+    headerY += 45
 
+    // Generated Timestamp
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
     doc.setTextColor(100, 116, 139)
-    doc.text(`Period Range: ${tsStartDate} to ${tsEndDate}`, marginX, headerY)
-    doc.text(`Generated Timestamp: ${new Date().toLocaleString()}`, pageWidth - marginX, headerY, { align: 'right' })
+    doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - marginX, headerY, { align: 'right' })
     headerY += 10
 
+    // Horizontal Line divider
     doc.setDrawColor(226, 232, 240)
     doc.line(marginX, headerY, pageWidth - marginX, headerY)
 
     let cursorY = headerY + 18
-    doc.setDrawColor(226, 232, 240)
-    
-    // Title for Analytics Overview
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(11)
-    doc.setTextColor(30, 41, 59)
-    doc.text('ANALYTICS OVERVIEW', marginX, cursorY)
-    cursorY += 16
 
     const colWidth = 360
     const colGap = 42
     const col2X = marginX + colWidth + colGap
 
-    const brightColors = [
-      [59, 130, 246],  // Blue
-      [239, 68, 68],   // Red
-      [245, 158, 11],  // Amber
-      [16, 185, 129],  // Emerald
-      [139, 92, 246],  // Purple
-      [236, 72, 153],  // Pink
-      [20, 184, 166],  // Teal
-      [99, 102, 241],  // Indigo
-      [6, 182, 212],   // Cyan
-      [249, 115, 22],   // Orange
-    ]
+    // Helper to convert HSL to RGB
+    const hslToRgb = (h: number, s: number, l: number): [number, number, number] => {
+      s /= 100
+      l /= 100
+      const k = (n: number) => (n + h / 30) % 12
+      const a = s * Math.min(l, 1 - l)
+      const f = (n: number) => {
+        const r = l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1))
+        return Math.round(255 * r)
+      }
+      return [f(0), f(8), f(4)]
+    }
 
-    const chartColors = [
-      [168, 199, 248], // Subtle Blue
-      [240, 174, 176], // Subtle Red
-      [242, 210, 153], // Subtle Amber
-      [151, 221, 201], // Subtle Emerald
-      [200, 183, 247], // Subtle Purple
-      [239, 175, 210], // Subtle Pink
-      [152, 220, 215], // Subtle Teal
-      [184, 187, 245], // Subtle Indigo
-      [147, 219, 234], // Subtle Cyan
-      [244, 193, 158], // Subtle Orange
-    ]
+    // 3D Bar Drawer
+    const draw3DBar = (x: number, y: number, width: number, height: number, baseColor: [number, number, number]) => {
+      const adjustColor = (color: [number, number, number], percent: number) => {
+        return color.map(c => Math.min(255, Math.max(0, Math.round(c * (1 + percent))))) as [number, number, number]
+      }
 
-    // 1. LEFT COLUMN: Aggregated Hours by Project
+      const frontColor = baseColor
+      const topColor = adjustColor(baseColor, 0.35)
+      const rightColor = adjustColor(baseColor, -0.3)
+
+      const depth = 3
+
+      // 1. Draw front face (rectangle)
+      doc.setFillColor(frontColor[0], frontColor[1], frontColor[2])
+      doc.rect(x, y, width, height, 'F')
+
+      // 2. Draw top face (parallelogram)
+      doc.setFillColor(topColor[0], topColor[1], topColor[2])
+      doc.triangle(x, y, x + depth, y - depth, x + width + depth, y - depth, 'F')
+      doc.triangle(x, y, x + width + depth, y - depth, x + width, y, 'F')
+
+      // 3. Draw right side face (parallelogram)
+      doc.setFillColor(rightColor[0], rightColor[1], rightColor[2])
+      doc.triangle(x + width, y, x + width + depth, y - depth, x + width + depth, y - depth + height, 'F')
+      doc.triangle(x + width, y, x + width + depth, y - depth + height, x + width, y + height, 'F')
+    }
+
+    // 1. LEFT COLUMN: PROJECT HOURS
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(9)
     doc.setTextColor(71, 85, 105)
-    doc.setFillColor(71, 85, 105)
+    doc.setFillColor(74, 175, 125)
     doc.rect(marginX, cursorY, 3, 10, 'F')
-    doc.text('AGGREGATED HOURS BY PROJECT', marginX + 8, cursorY + 8)
-    
+    doc.text('PROJECT HOURS', marginX + 8, cursorY + 8)
+
     let leftY = cursorY + 24
     const maxProjectHours = Math.max(...hoursByProject.map(p => p.hours), 1)
-    
-    hoursByProject.forEach((p, idx) => {
-      // Label
+    const averageProjectHours = hoursByProject.length > 0 ? (hoursByProject.reduce((sum, p) => sum + p.hours, 0) / hoursByProject.length) : 0
+
+    hoursByProject.forEach((p) => {
+      // Calculate bar width proportional to max, with min width of 5
+      const barWidth = Math.max(5, (p.hours / maxProjectHours) * 160)
+      
+      // Determine project color based on average comparison
+      const isGreaterThanAverage = p.hours > averageProjectHours
+      const baseColor: [number, number, number] = isGreaterThanAverage ? [74, 175, 125] : [241, 108, 111]
+
+      // Draw the 3D bar
+      draw3DBar(marginX, leftY, barWidth, 8, baseColor)
+
+      // Project text to the right of the bar
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(8)
-      doc.setTextColor(71, 85, 105)
-      const projectLabel = doc.getTextWidth(p.name) > colWidth - 48
-        ? `${p.name.slice(0, 42)}…`
-        : p.name
-      doc.text(projectLabel, marginX, leftY)
-      
-      // Value text (matches on-screen chart labels)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(71, 85, 105)
-      doc.text(formatExportHours(p.hours), marginX + colWidth, leftY, { align: 'right' })
-      
-      // Track background
-      doc.setFillColor(241, 245, 249)
-      doc.roundedRect(marginX, leftY + 4, colWidth, 6, 3, 3, 'F')
-      
-      // Colored bar
-      const barWidth = (p.hours / maxProjectHours) * colWidth
-      if (barWidth > 0) {
-        const adjustedWidth = Math.max(6, barWidth)
-        const color = chartColors[idx % chartColors.length]
-        const borderColor = brightColors[idx % brightColors.length]
-        doc.setFillColor(color[0], color[1], color[2])
-        doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2])
-        doc.setLineWidth(0.5)
-        doc.roundedRect(marginX, leftY + 4, adjustedWidth, 6, 3, 3, 'FD')
-      }
-      
-      leftY += 24
+      doc.setTextColor(30, 41, 59)
+      doc.text(`${formatExportHours(p.hours)} — ${p.name}`, marginX + barWidth + 10, leftY + 7)
+
+      leftY += 18
     })
 
-    // 2. RIGHT COLUMN: Employee-wise Hours Leaderboard
+    // 2. RIGHT COLUMN: EMPLOYEE HOURS
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(9)
     doc.setTextColor(71, 85, 105)
-    doc.setFillColor(71, 85, 105)
+    doc.setFillColor(59, 130, 246)
     doc.rect(col2X, cursorY, 3, 10, 'F')
-    doc.text('EMPLOYEE-WISE HOURS LEADERBOARD', col2X + 8, cursorY + 8)
-    
+    doc.text('EMPLOYEE HOURS', col2X + 8, cursorY + 8)
+
     let rightY = cursorY + 24
-    const maxEmployeeHours = Math.max(...leaderboard.map(e => e.hours), 1)
-    
-    leaderboard.forEach((e, idx) => {
-      const color = chartColors[idx % chartColors.length]
-      const borderColor = brightColors[idx % brightColors.length]
+    const maxEmployeeHours = Math.max(...sortedLeaderboard.map(e => e.hours), 1)
+
+    sortedLeaderboard.forEach((e, idx) => {
+      // Calculate bar width
+      const barWidth = Math.max(5, (e.hours / maxEmployeeHours) * 160)
       
-      // Rank badge indicator
+      // Get unique colors for different employees using golden angle
+      const baseColor = hslToRgb(Math.round((idx * 137.5) % 360), 75, 50)
+
+      // Draw the 3D bar
+      draw3DBar(col2X, rightY, barWidth, 8, baseColor)
+
+      // Employee text to the right of the bar
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(8)
-      doc.setTextColor(borderColor[0], borderColor[1], borderColor[2])
-      doc.text(`#${idx + 1}`, col2X, rightY)
-      
-      // Employee name
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(71, 85, 105)
-      doc.text(e.name, col2X + 20, rightY)
-      
-      // Hours value
-      doc.setFont('helvetica', 'bold')
       doc.setTextColor(30, 41, 59)
-      doc.text(formatExportHours(e.hours), col2X + colWidth, rightY, { align: 'right' })
-      
-      // Progress Track
-      doc.setFillColor(241, 245, 249)
-      doc.roundedRect(col2X + 20, rightY + 4, colWidth - 20, 6, 3, 3, 'F')
-      
-      // Progress bar colored
-      const barWidth = (e.hours / maxEmployeeHours) * (colWidth - 20)
-      if (barWidth > 0) {
-        const adjustedWidth = Math.max(6, barWidth)
-        doc.setFillColor(color[0], color[1], color[2])
-        doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2])
-        doc.setLineWidth(0.5)
-        doc.roundedRect(col2X + 20, rightY + 4, adjustedWidth, 6, 3, 3, 'FD')
-      }
-      
-      rightY += 24
+      doc.text(`${formatExportHours(e.hours)} — ${e.name}`, col2X + barWidth + 10, rightY + 7)
+
+      rightY += 18
     })
 
     // Set cursorY to the maximum end of either column
-    cursorY = Math.max(leftY, rightY) + 24
+    cursorY = Math.max(leftY, rightY) + 25
 
     // Detailed time logs
     cursorY = addSectionTitle('Detailed Time Logs', cursorY)
 
-    const tableHeaders = ['Employee', 'Project', 'Login Time', 'Logout Time', 'Total Hours']
+    const tableHeaders = ['Employee', 'Project', 'Login Time', 'Logout Time', 'Duration']
 
     const tableRows = filteredTimesheets.map((t) => {
       const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours)
+      const durationStr = (() => {
+        if (hours === null) return '—'
+        const totalMinutes = Math.round(hours * 60)
+        const hrs = Math.floor(totalMinutes / 60)
+        const mins = totalMinutes % 60
+        return `${hrs}hr ${mins}min`
+      })()
+      
       return [
         `${t.employeeName} (${t.employeeId})`,
         t.project,
         formatDateTime(t.loginTime),
         t.logoutTime ? formatDateTime(t.logoutTime) : '—',
-        hours !== null ? formatExportHours(hours) : '—',
+        durationStr,
       ]
     })
 
@@ -1858,7 +1813,7 @@ export function ProjectManagement() {
       doc.setFontSize(8)
       doc.setTextColor(148, 163, 184)
       doc.text(`Page ${i} of ${totalPages}`, pageWidth - marginX, pageHeight - 20, { align: 'right' })
-      doc.text('Confidential - Internal Administrative Records', marginX, pageHeight - 20)
+      doc.text('Confidential - EPICAL Timesheet Data', marginX, pageHeight - 20)
     }
 
     doc.save(`Timesheet_Report_${tsStartDate}_to_${tsEndDate}.pdf`)
@@ -2278,14 +2233,6 @@ export function ProjectManagement() {
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-3">
                 <div className="flex-1 grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 items-center">
-                  {/* Date Range Picker */}
-                  <CustomDateRangePicker
-                    startDate={tsStartDate}
-                    endDate={tsEndDate}
-                    preset={datePreset}
-                    onChange={handleDateRangeChange}
-                  />
-
                   {/* Search Box */}
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -2297,6 +2244,14 @@ export function ProjectManagement() {
                       className="h-10 w-full rounded-xl border border-slate-250 bg-white pl-9 pr-3 text-xs font-semibold text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
                     />
                   </div>
+
+                  {/* Date Range Picker */}
+                  <CustomDateRangePicker
+                    startDate={tsStartDate}
+                    endDate={tsEndDate}
+                    preset={datePreset}
+                    onChange={handleDateRangeChange}
+                  />
 
                   {/* Employee Filter */}
                   <FilterCheckboxGroup
@@ -2412,46 +2367,88 @@ export function ProjectManagement() {
 
           {/* Analytics */}
           <div className="grid gap-5 lg:grid-cols-2">
-            {/* Hours by Project Recharts Bar Chart */}
+            {/* Hours by Project Cards */}
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <h3 className="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-700">
                 <span className="h-3.5 w-1.5 rounded-full bg-emerald-500" /> Aggregated Hours by Project
               </h3>
-              {chartHoursByProject.length > 0 ? (
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartHoursByProject} margin={{ top: 28, right: 5, left: -25, bottom: 5 }} onClick={handleBarClick}>
-                      <defs>
-                        <linearGradient id="emeraldGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#10b981" stopOpacity={0.85} />
-                          <stop offset="100%" stopColor="#047857" stopOpacity={0.85} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid stroke="#f8fafc" vertical={false} />
-                      <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }} axisLine={false} tickLine={false} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, fontSize: 11, fontWeight: 600 }}
-                        cursor={{ fill: '#f8fafc' }}
-                      />
-                      <Bar dataKey="hours" radius={[6, 6, 0, 0]} maxBarSize={38} className="cursor-pointer" onClick={handleBarClick}>
-                        <LabelList dataKey="hours" content={HoursBarLabel} />
-                        {chartHoursByProject.map((entry, index) => {
-                          const baseColor = PROJECT_COLORS[index % PROJECT_COLORS.length]
-                          return (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={baseColor}
-                              fillOpacity={0.4}
-                              stroke={baseColor}
-                              strokeWidth={1.5}
-                              strokeOpacity={0.8}
-                            />
-                          )
-                        })}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+              {derivedHoursByProject.length > 0 ? (
+                <div className="h-64 overflow-y-auto pr-1">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    {(() => {
+                      const totalHours = derivedHoursByProject.reduce((sum, p) => sum + p.hours, 0)
+                      const averageHours = derivedHoursByProject.length > 0 ? totalHours / derivedHoursByProject.length : 0
+                      
+                      return derivedHoursByProject.map((project) => {
+                        const isGreaterThanAverage = project.hours > averageHours
+                        const percentage = totalHours > 0 ? ((project.hours / totalHours) * 100).toFixed(2) : '0.00'
+                        const cardBg = isGreaterThanAverage ? 'bg-[#4aaf7d]' : 'bg-[#f16c6f]'
+                        const foundProject = allProjects.find((p) => p.name === project.name)
+                        
+                        return (
+                          <div
+                            key={project.name}
+                            className="relative group"
+                          >
+                            <div
+                              onClick={() => {
+                                if (project.projectId) {
+                                  openAuditTrail(project.projectId, project.name)
+                                } else {
+                                  if (foundProject) {
+                                    openAuditTrail(foundProject.id, foundProject.name)
+                                  } else {
+                                    openAuditTrail('', project.name)
+                                  }
+                                }
+                              }}
+                              className={`flex flex-col justify-between p-3 rounded-xl text-white shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 cursor-pointer select-none ${cardBg}`}
+                            >
+                              <div className="text-[10px] font-black uppercase tracking-wider opacity-95 truncate" title={project.name}>
+                                {project.name}
+                              </div>
+                              <div className="mt-2.5 flex items-baseline justify-between gap-1">
+                                <span className="text-sm font-black tracking-tight tabular-nums">
+                                  {project.hours.toFixed(1)}
+                                </span>
+                                <span className="text-[9px] font-extrabold opacity-95">
+                                  {isGreaterThanAverage ? '+' : ''}{percentage}%
+                                </span>
+                              </div>
+                            </div>
+                            
+                            {/* Hover details popover */}
+                            <div className="invisible opacity-0 scale-95 group-hover:visible group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 border border-slate-200 bg-white rounded-xl shadow-xl p-3 w-56 text-slate-800 pointer-events-none">
+                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 border-8 border-transparent border-b-white" />
+                              <div className="border-l-2 border-amber-500 pl-2 mb-2">
+                                <h4 className="font-bold text-[11px] truncate text-slate-800">{project.name}</h4>
+                              </div>
+                              <table className="w-full text-[10px] border-collapse">
+                                <tbody>
+                                  <tr className="border-b border-slate-100">
+                                    <td className="py-1 px-1.5 bg-slate-50 font-bold text-slate-400">Client</td>
+                                    <td className="py-1 px-1.5 font-semibold text-slate-700 text-right truncate max-w-[120px]">{foundProject?.client || '—'}</td>
+                                  </tr>
+                                  <tr className="border-b border-slate-100">
+                                    <td className="py-1 px-1.5 bg-slate-50 font-bold text-slate-400">Tech Node</td>
+                                    <td className="py-1 px-1.5 font-semibold text-slate-700 text-right truncate max-w-[120px]">{foundProject?.technologyNode || '—'}</td>
+                                  </tr>
+                                  <tr className="border-b border-slate-100">
+                                    <td className="py-1 px-1.5 bg-slate-50 font-bold text-slate-400">Total Hours</td>
+                                    <td className="py-1 px-1.5 font-semibold text-slate-700 text-right">{project.hours.toFixed(1)}h</td>
+                                  </tr>
+                                  <tr>
+                                    <td className="py-1 px-1.5 bg-slate-50 font-bold text-slate-400">Access</td>
+                                    <td className="py-1 px-1.5 font-semibold text-slate-700 text-right capitalize">{foundProject?.accessType || '—'}</td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )
+                      })
+                    })()}
+                  </div>
                 </div>
               ) : (
                 <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-slate-200 text-xs text-slate-400 font-semibold">
@@ -2466,7 +2463,7 @@ export function ProjectManagement() {
                 <span className="h-3.5 w-1.5 rounded-full bg-emerald-500" /> Aggregated Hours by Employee
               </h3>
               <div className="h-64 overflow-y-auto pr-1">
-                <EmployeeLeaderboard data={leaderboardData} />
+                <EmployeeLeaderboard data={derivedLeaderboardData} />
               </div>
             </div>
           </div>
@@ -2481,7 +2478,7 @@ export function ProjectManagement() {
                     <th className="px-5 py-3.5">Project</th>
                     <th className="px-5 py-3.5">Login Time</th>
                     <th className="px-5 py-3.5">Logout Time</th>
-                    <th className="px-5 py-3.5">Total Hours</th>
+                    <th className="px-5 py-3.5">Duration</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
@@ -2542,9 +2539,15 @@ export function ProjectManagement() {
                           {t.logoutTime ? formatDateTime(t.logoutTime) : '—'}
                         </td>
 
-                        {/* Total Hours Column */}
+                        {/* Duration Column */}
                         <td className="px-5 py-3.5 font-black text-slate-700 tracking-tight tabular-nums">
-                          {hours !== null ? `${hours.toFixed(1)}h` : '—'}
+                          {(() => {
+                            if (hours === null) return '—'
+                            const totalMinutes = Math.round(hours * 60)
+                            const hrs = Math.floor(totalMinutes / 60)
+                            const mins = totalMinutes % 60
+                            return `${hrs}hr ${mins}min`
+                          })()}
                         </td>
                       </tr>
                     )

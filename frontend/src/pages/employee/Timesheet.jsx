@@ -55,7 +55,7 @@ const historyColumns = [
   { key: 'description', label: 'Description' },
   { key: 'start', label: 'Start' },
   { key: 'end', label: 'End' },
-  { key: 'hours', label: 'Hours' },
+  { key: 'duration', label: 'Duration' },
 ]
 
 const WEEKLY_CHART_HEIGHT = 280
@@ -436,12 +436,27 @@ export default function Timesheet() {
       .filter((s) => isDateInRange(s.date, historyRange.start, historyRange.end))
       .forEach((s) => {
         const loginMs = s.loginTime ? new Date(s.loginTime).getTime() : 0
-        let hours = '—'
-        if (typeof s.hours === 'number') {
-          hours = s.hours
-        } else if (!s.logoutTime && s.loginTime) {
-          hours = hoursFromMs(liveNow - loginMs)
+        const logoutMs = s.logoutTime ? new Date(s.logoutTime).getTime() : (s.taskStatus === 'In Progress' ? liveNow : 0)
+        
+        let durationStr = '—'
+        if (loginMs && logoutMs) {
+          const diffMs = logoutMs - loginMs
+          if (diffMs > 0) {
+            const totalMinutes = Math.round(diffMs / 60000)
+            const hrs = Math.floor(totalMinutes / 60)
+            const mins = totalMinutes % 60
+            if (hrs === 0) {
+              durationStr = `${mins}min`
+            } else if (mins === 0) {
+              durationStr = `${hrs}hr`
+            } else {
+              durationStr = `${hrs}hr ${mins}min`
+            }
+          } else {
+            durationStr = '0min'
+          }
         }
+
         entries.push({
           id: `task-${s.id}`,
           sortAt: loginMs,
@@ -451,7 +466,7 @@ export default function Timesheet() {
             stripTaskLabelPrefix(s.task, { projectName: s.project }) || '—',
           start: s.start,
           end: s.end,
-          hours,
+          duration: durationStr,
         })
       })
 

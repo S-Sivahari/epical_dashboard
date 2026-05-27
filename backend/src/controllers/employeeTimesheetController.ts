@@ -68,16 +68,9 @@ function computeTotalHours(
 
 async function findOpenTimesheet(employee: ResolvedEmployee) {
   return TimesheetModel.findOne({
-    $and: [
-      {
-        $or: [
-          { employeeId: { $in: employee.identityTokens } },
-          { employee: { $in: employee.identityTokens } },
-        ],
-      },
-      { $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }] },
-      { taskStatus: { $in: ['In Progress', 'Paused', 'Session Incomplete'] } },
-    ],
+    employeeId: employee.employeeId,
+    $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }],
+    taskStatus: { $in: ['In Progress', 'Paused', 'Session Incomplete'] },
   }).sort({ loginTime: -1 });
 }
 
@@ -85,15 +78,8 @@ async function findTimesheetByIdAndEmployee(timesheetId: string, employee: Resol
   if (!mongoose.Types.ObjectId.isValid(timesheetId)) return null;
   return TimesheetModel.findOne({
     _id: timesheetId,
-    $and: [
-      {
-        $or: [
-          { employeeId: { $in: employee.identityTokens } },
-          { employee: { $in: employee.identityTokens } },
-        ],
-      },
-      { $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }] },
-    ],
+    employeeId: employee.employeeId,
+    $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }],
   });
 }
 
@@ -221,16 +207,9 @@ function startOfWeekISO(): string {
 
 async function fetchActiveTaskPayload(employee: ResolvedEmployee) {
   const openLogs = await TimesheetModel.find({
-    $and: [
-      {
-        $or: [
-          { employeeId: { $in: employee.identityTokens } },
-          { employee: { $in: employee.identityTokens } },
-        ],
-      },
-      { $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }] },
-      { taskStatus: { $in: ['In Progress', 'Paused', 'Session Incomplete'] } },
-    ],
+    employeeId: employee.employeeId,
+    $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }],
+    taskStatus: { $in: ['In Progress', 'Paused', 'Session Incomplete'] },
   })
     .sort({ loginTime: -1 })
     .lean();
@@ -342,10 +321,7 @@ export const employeeTimesheetController = {
       const today = todayDateKey();
 
       const sessionMatch = {
-        $or: [
-          { employeeId: { $in: employee.identityTokens } },
-          { employee: { $in: employee.identityTokens } },
-        ],
+        employeeId: employee.employeeId,
         date: { $gte: monthFrom, $lte: today },
       };
 
@@ -476,10 +452,7 @@ export const employeeTimesheetController = {
 
       const { from, to } = req.query;
       const match: Record<string, unknown> = {
-        $or: [
-          { employeeId: { $in: employee.identityTokens } },
-          { employee: { $in: employee.identityTokens } },
-        ],
+        employeeId: employee.employeeId,
       };
 
       if (from || to) {

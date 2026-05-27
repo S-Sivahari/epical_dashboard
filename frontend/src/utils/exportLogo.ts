@@ -1,4 +1,4 @@
-export const EXPORT_LOGO_PATH = '/pic/epical_layouts.jpeg'
+export const EXPORT_LOGO_PATH = '/logo.jpeg'
 export const PDF_LOGO_MAX_WIDTH = 72
 
 export interface ExportLogoAsset {
@@ -18,10 +18,11 @@ let logoCache: ExportLogoAsset | null = null
 export async function fetchExportLogo(): Promise<ExportLogoAsset | null> {
   if (logoCache) return logoCache
   try {
-    const res = await fetch(EXPORT_LOGO_PATH)
+    const res = await fetch(`${EXPORT_LOGO_PATH}?t=${Date.now()}`)
     if (!res.ok) return null
     const buffer = await res.arrayBuffer()
-    const blob = new Blob([buffer], { type: 'image/jpeg' })
+    const contentType = EXPORT_LOGO_PATH.endsWith('.png') ? 'image/png' : 'image/jpeg'
+    const blob = new Blob([buffer], { type: contentType })
     const dataUrl = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = () => resolve(reader.result as string)
@@ -49,7 +50,8 @@ export function drawPdfLogoLeft(
   topY = 14,
 ): number {
   const { width, height } = scaleExportLogo(logo.width, logo.height, PDF_LOGO_MAX_WIDTH)
-  doc.addImage(logo.dataUrl, 'JPEG', leftX, topY, width, height)
+  const format = EXPORT_LOGO_PATH.endsWith('.png') ? 'PNG' : 'JPEG'
+  doc.addImage(logo.dataUrl, format, leftX, topY, width, height)
   return topY + height + 10
 }
 

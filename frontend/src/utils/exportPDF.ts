@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { employeeToExportRow } from '@/constants/employeeExport'
 import type { Employee } from '@/types'
-import { drawPdfLogoLeft, fetchExportLogo } from '@/utils/exportLogo'
+import { fetchExportLogo, scaleExportLogo, EXPORT_LOGO_PATH } from '@/utils/exportLogo'
 
 const BRAND_GREEN: [number, number, number] = [16, 185, 129]
 
@@ -168,12 +168,28 @@ export async function exportToPDF<T extends Record<string, any>>(
   const employeeStyle = Boolean(options?.employeePdfStyle)
 
   function drawHeaderBlock(): number {
-    let y = employeeStyle && logo ? drawPdfLogoLeft(doc, logo, 40, 14) : 38
+    let y = 38
+    let textX = 40
+    let align: 'center' | 'left' = 'center'
+
+    if (employeeStyle && logo) {
+      const scaled = scaleExportLogo(logo.width, logo.height, 48)
+      const format = EXPORT_LOGO_PATH.endsWith('.png') ? 'PNG' : 'JPEG'
+      doc.addImage(logo.dataUrl, format, 40, 20, scaled.width, scaled.height)
+      textX = 40 + scaled.width + 12
+      y = 20
+      align = 'left'
+    }
 
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(18)
-    drawEpicalBrandedText(doc, { before: 'EP', after: 'AL LAYOUTS PVT LTD' }, 40, y, 'center', pageWidth)
-    y += 18
+    if (align === 'center') {
+      drawEpicalBrandedText(doc, { before: 'EP', after: 'AL LAYOUTS PVT LTD' }, 40, y, 'center', pageWidth)
+      y += 18
+    } else {
+      drawEpicalBrandedText(doc, { before: 'EP', after: 'AL LAYOUTS PVT LTD' }, textX, y + 16, 'left', pageWidth)
+      y += 32
+    }
 
     if (!employeeStyle) {
       doc.setFont('helvetica', 'normal')
@@ -192,7 +208,11 @@ export async function exportToPDF<T extends Record<string, any>>(
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(12)
     doc.setTextColor(30, 41, 59)
-    doc.text(options?.reportTitle ?? 'Employee Details Report', pageWidth / 2, y, { align: 'center' })
+    if (align === 'center') {
+      doc.text(options?.reportTitle ?? 'Employee Details Report', pageWidth / 2, y, { align: 'center' })
+    } else {
+      doc.text(options?.reportTitle ?? 'Employee Details Report', textX, y, { align: 'left' })
+    }
     y += 14
 
     doc.setDrawColor(226, 232, 240)
@@ -282,7 +302,7 @@ export async function exportToPDF<T extends Record<string, any>>(
           acc[idx] = { cellWidth: (pageWidth - 20) / headers.length }
           return acc
         },
-        {} as Record<number, unknown>,
+        {} as any,
       ),
     })
 
