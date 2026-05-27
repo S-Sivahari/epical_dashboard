@@ -1,6 +1,5 @@
 import { useMemo, useState, useCallback, useRef, useEffect } from 'react'
 import { PageWrapper } from '@components/layout/PageWrapper'
-import { Breadcrumb } from '@components/layout/Breadcrumb'
 import { Avatar } from '@components/ui/Avatar'
 import { Badge } from '@components/ui/Badge'
 import { Button } from '@components/ui/Button'
@@ -1870,7 +1869,6 @@ export function ProjectManagement() {
       {/* ── Page Header (Linear Clean Style) ───────────────── */}
       <div className="mb-6 flex flex-col gap-4 border-b border-slate-100 pb-5 md:flex-row md:items-center md:justify-between">
         <div>
-          <Breadcrumb items={[{ label: 'Admin Dashboard' }, { label: 'Projects & Timesheets' }]} />
           <h1 className="mt-2 font-display text-2xl font-black tracking-tight text-slate-800">
           </h1>
         </div>

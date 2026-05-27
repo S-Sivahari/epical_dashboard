@@ -17,9 +17,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
-import { PageHeader } from '@components/layout/PageHeader'
 import { PageWrapper } from '@components/layout/PageWrapper'
-import { Breadcrumb } from '@components/layout/Breadcrumb'
 import { Button } from '@components/ui/Button'
 import { DataTable, type Column } from '@components/tables/DataTable'
 import { Modal } from '@components/ui/Modal'
@@ -658,39 +656,34 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
 
   return (
     <PageWrapper>
-      <PageHeader
-        title="Payslip Management"
-        breadcrumb={<Breadcrumb items={[{ label: 'Payslips' }]} />}
-        actions={
-          <Button variant="secondary" onClick={() => void handleDownloadTemplate()}>
-            <FileSpreadsheet className="h-4 w-4" />
-            Download Template
-          </Button>
-        }
-      />
+      <header className="mb-6 flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex gap-1 rounded-xl border border-border bg-surface/60 p-1 w-fit">
+          {(
+            [
+              { id: 'upload' as TabId, label: 'Upload & Generate', icon: Upload },
+              { id: 'history' as TabId, label: 'History', icon: History },
+            ] as const
+          ).map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+                activeTab === id
+                  ? 'bg-white text-primary shadow-sm'
+                  : 'text-muted hover:text-ink'
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </button>
+          ))}
+        </div>
 
-      {/* Tab Bar */}
-      <div className="mb-5 flex gap-1 rounded-xl border border-border bg-surface/60 p-1 w-fit">
-        {(
-          [
-            { id: 'upload' as TabId, label: 'Upload & Generate', icon: Upload },
-            { id: 'history' as TabId, label: 'History', icon: History },
-          ] as const
-        ).map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => setActiveTab(id)}
-            className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
-              activeTab === id
-                ? 'bg-white text-primary shadow-sm'
-                : 'text-muted hover:text-ink'
-            }`}
-          >
-            <Icon className="h-4 w-4" />
-            {label}
-          </button>
-        ))}
-      </div>
+        <Button variant="secondary" onClick={() => void handleDownloadTemplate()}>
+          <FileSpreadsheet className="h-4 w-4" />
+          Download Template
+        </Button>
+      </header>
   
       {/* Upload Tab */}
       {activeTab === 'upload' && (

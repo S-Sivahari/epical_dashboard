@@ -17,14 +17,32 @@ export const PAYROLL_TEMPLATE_DIR = join(PAYROLL_UPLOADS_ROOT, 'template')
 /** Default payslip logo in uploads (set via admin upload or copy from project root). */
 export const COMPANY_LOGO_PATH = join(PAYROLL_TEMPLATE_DIR, 'company_logo.png')
 
+/** Project logo used on payslip PDFs (epical_dashboard/pic/epical_layouts.jpeg). */
+export const COMPANY_LOGO_PIC = join(PROJECT_ROOT, 'pic', 'epical_layouts.jpeg')
+
 /** Optional bundled fallback logo shipped with the backend. */
-export const COMPANY_LOGO_BUNDLED = join(BACKEND_ROOT, 'src', 'assets', 'company_logo.png')
+export const COMPANY_LOGO_BUNDLED = join(BACKEND_ROOT, 'src', 'assets', 'company_logo.jpeg')
 
 const IMAGE_EXT = /\.(png|jpe?g|webp)$/i
 
-/** Logo placed in epical_dashboard root (e.g. company_logo.png or WhatsApp image). */
+/** Logo placed in epical_dashboard root or pic/ folder. */
 export function findProjectRootLogo(): string | null {
   if (!existsSync(PROJECT_ROOT)) return null
+
+  const picPreferred = [
+    'epical_layouts.jpeg',
+    'epical_layouts.jpg',
+    'company_logo.png',
+    'company_logo.jpg',
+    'company_logo.jpeg',
+    'logo.png',
+    'logo.jpg',
+    'logo.jpeg',
+  ]
+  for (const name of picPreferred) {
+    const p = join(PROJECT_ROOT, 'pic', name)
+    if (existsSync(p)) return p
+  }
 
   const preferred = [
     'company_logo.png',

@@ -10,10 +10,16 @@ export function AdminLayout() {
       <Sidebar />
       <div className="lg:pl-[260px]">
         <Navbar />
-        <main className="min-h-screen bg-white pt-16">
-          <Suspense fallback={<PageLoading />}>
-            <Outlet />
-          </Suspense>
+        <main className="relative min-h-screen bg-white pt-16">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-0 z-0 h-80 bg-gradient-to-b from-emerald-50/45 via-transparent to-transparent"
+          />
+          <div className="relative z-[1]">
+            <Suspense fallback={<PageLoading />}>
+              <Outlet />
+            </Suspense>
+          </div>
         </main>
       </div>
     </div>

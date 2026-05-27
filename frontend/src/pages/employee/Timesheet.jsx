@@ -114,6 +114,7 @@ export default function Timesheet() {
     completeTask,
     attendanceHistory,
     serverTimeSkew,
+    sessionsLoading,
   } = useTimesheetStore()
   const { toast } = useToast()
   const defaultHistoryRange = getPresetDateRange('This Month')
@@ -126,9 +127,27 @@ export default function Timesheet() {
   const [checkoutReview, setCheckoutReview] = useState(false)
   const [checkoutError, setCheckoutError] = useState('')
 
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
+
   useEffect(() => {
     hydrate()
   }, [hydrate])
+
+  useEffect(() => {
+    let active = true
+    if (initialized) {
+      setIsInitialLoading(true)
+      void useTimesheetStore.getState().refreshSessionsForRange({ from: historyStart, to: historyEnd })
+        .finally(() => {
+          if (active) {
+            setIsInitialLoading(false)
+          }
+        })
+    }
+    return () => {
+      active = false
+    }
+  }, [initialized, historyStart, historyEnd])
 
   useEffect(() => {
     const onFocus = () => {
@@ -199,7 +218,7 @@ export default function Timesheet() {
   const canStartSession =
     !!selectedTaskId && String(workDescription || '').trim().length >= 3
   const startableTasks = useMemo(
-    () => assignedTasks.filter((t) => t.status === 'assigned' || t.status === 'in_progress'),
+    () => assignedTasks.filter((t) => t.status !== 'completed'),
     [assignedTasks]
   )
   const selectedTask = startableTasks.find((t) => t.id === selectedTaskId)
@@ -473,7 +492,7 @@ export default function Timesheet() {
     return entries.sort((a, b) => b.sortAt - a.sortAt)
   }, [sessions, historyRange, checkedIn, liveNow])
 
-  if (!initialized && loading) {
+  if (!initialized) {
     return (
       <div className="flex min-h-[320px] items-center justify-center text-muted">
         <Loader2 className="mr-2 h-6 w-6 animate-spin text-primary" />
@@ -510,7 +529,7 @@ export default function Timesheet() {
                     }
                   />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-[160px] overflow-y-auto">
                   {startableTasks.map((t) => (
                     <SelectItem key={t.id} value={t.id}>
                       {t.projectName}
@@ -698,7 +717,23 @@ export default function Timesheet() {
           />
         </div>
 
-        <DataTable columns={historyColumns} data={unifiedHistory} />
+        {(isInitialLoading || sessionsLoading) && unifiedHistory.length === 0 ? (
+          <div className="space-y-3">
+            <div className="h-10 w-full animate-pulse rounded-xl bg-slate-100/80" />
+            <div className="h-12 w-full animate-pulse rounded-xl bg-slate-200/50" />
+            <div className="h-12 w-full animate-pulse rounded-xl bg-slate-200/50" />
+            <div className="h-12 w-full animate-pulse rounded-xl bg-slate-200/50" />
+          </div>
+        ) : (
+          <div className="relative">
+            {(isInitialLoading || sessionsLoading) && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/50 backdrop-blur-[1px] rounded-xl">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            )}
+            <DataTable columns={historyColumns} data={unifiedHistory} />
+          </div>
+        )}
       </div>
 
     </div>

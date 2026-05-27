@@ -321,8 +321,11 @@ export const employeeTimesheetController = {
       const today = todayDateKey();
 
       const sessionMatch = {
-        employeeId: employee.employeeId,
-        date: { $gte: monthFrom, $lte: today },
+        $or: [
+          { employeeId: { $in: employee.identityTokens } },
+          { employee: { $in: employee.identityTokens } },
+        ],
+        loginTime: { $gte: new Date(`${monthFrom}T00:00:00.000Z`), $lte: new Date(`${today}T23:59:59.999Z`) },
       };
 
       const [openAttendance, latestAttendance, activePayload, assignedTasks, sessions, attendanceHistory] =
@@ -451,16 +454,23 @@ export const employeeTimesheetController = {
       }
 
       const { from, to } = req.query;
-      const match: Record<string, unknown> = {
-        employeeId: employee.employeeId,
+      const match: Record<string, any> = {
+        $or: [
+          { employeeId: { $in: employee.identityTokens } },
+          { employee: { $in: employee.identityTokens } },
+        ],
       };
 
       if (from || to) {
-        const dateFilter: Record<string, string> = {};
-        if (typeof from === 'string' && from) dateFilter.$gte = from;
-        if (typeof to === 'string' && to) dateFilter.$lte = to;
-        if (Object.keys(dateFilter).length > 0) {
-          match.date = dateFilter;
+        const loginTimeFilter: Record<string, Date> = {};
+        if (typeof from === 'string' && from) {
+          loginTimeFilter.$gte = new Date(`${from}T00:00:00.000Z`);
+        }
+        if (typeof to === 'string' && to) {
+          loginTimeFilter.$lte = new Date(`${to}T23:59:59.999Z`);
+        }
+        if (Object.keys(loginTimeFilter).length > 0) {
+          match.loginTime = loginTimeFilter;
         }
       }
 
@@ -995,8 +1005,8 @@ export const employeeTimesheetController = {
           }).session(session);
 
           if (linkedAssigned) {
-            linkedAssigned.status = 'pending_review';
-            linkedAssigned.timesheetId = openLog._id as Types.ObjectId;
+            linkedAssigned.status = 'assigned';
+            linkedAssigned.timesheetId = undefined;
             await linkedAssigned.save({ session });
           } else {
             await AssignedTaskModel.updateMany(
@@ -1006,9 +1016,11 @@ export const employeeTimesheetController = {
                   { timesheetId: openLog._id },
                   { employeeId: { $in: employee.identityTokens } },
                   { employeeName: { $in: employee.identityTokens } },
+                  { employeeId: openLog.employeeId },
+                  { employeeName: openLog.employee },
                 ],
               },
-              { $set: { status: 'pending_review', timesheetId: openLog._id } },
+              { $set: { status: 'assigned', timesheetId: undefined } },
               { session }
             );
           }

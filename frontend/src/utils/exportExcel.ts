@@ -6,6 +6,8 @@ export interface ExportExcelOptions {
   panelTitle?: string
   reportTitle?: string
   sheetName?: string
+  /** Omits panel subtitle row and “[ Excel · .xlsx ]” in the top header band. */
+  compactHeader?: boolean
 }
 
 function formatDateStr(d: string | Date | undefined | null): string {
@@ -58,9 +60,13 @@ export function exportToExcel<T extends Record<string, any>>(
 
   aoa.push(['------------------------------------------------------------'])
   aoa.push(['                    EPICAL LAYOUTS PVT LTD'])
-  aoa.push([`                 ${options?.panelTitle ?? 'Document Management Panel'}`])
+  if (!options?.compactHeader) {
+    aoa.push([`                 ${options?.panelTitle ?? 'Document Management Panel'}`])
+  }
   aoa.push([`                    ${options?.reportTitle ?? 'Employee Details Report'}`])
-  aoa.push(['                         [ Excel · .xlsx ]'])
+  if (!options?.compactHeader) {
+    aoa.push(['                         [ Excel · .xlsx ]'])
+  }
   aoa.push(['------------------------------------------------------------'])
   aoa.push([])
   aoa.push([`Generated Date : ${genDate}`])

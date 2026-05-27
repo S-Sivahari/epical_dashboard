@@ -4,7 +4,7 @@ import {
   parseStructureMatrix,
   parseStructureFallbackScan,
   resolveSalaryStructureSheetName,
-  preferNamedSalaryStructure,
+  combineSalaryStructureSources,
   cellToString,
 } from './salaryStructureParser'
 import { parseCompanySheetXlsx, readCompanyFromWorkbookBuffer, finalizeCompany } from './companyParser'
@@ -340,7 +340,7 @@ export async function readMasterExcelFromBuffer(buffer: Buffer): Promise<{
     fallbackStructure = parseStructureFallbackScan(matrix)
   }
 
-  parsed.structure = preferNamedSalaryStructure(
+  parsed.structure = combineSalaryStructureSources(
     fromNamedSheet,
     fromStyles,
     parsed.structure,

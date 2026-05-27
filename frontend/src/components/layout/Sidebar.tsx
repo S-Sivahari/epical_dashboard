@@ -6,6 +6,7 @@ import {
   CalendarDays,
   FileText,
   LayoutGrid,
+  LogOut,
   Menu,
   Newspaper,
   Receipt,
@@ -14,7 +15,8 @@ import {
   Users,
   X,
 } from 'lucide-react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
+import { useAuthStore } from '@store/authStore'
 import { cn } from '@/utils/cn'
 import { ROUTES } from '@constants/routes'
 import { useUiStore } from '@store/uiStore'
@@ -64,17 +66,25 @@ export function Sidebar() {
   const { sidebarOpen, setSidebarOpen, toggleSidebar } = useUiStore()
   const { counts: notificationCounts } = useNotificationCounts()
   const showDrawer = !isLg && sidebarOpen
+  const logout = useAuthStore((s) => s.logout)
+  const navigate = useNavigate()
+
+  function handleLogout() {
+    logout()
+    navigate('/auth/login')
+    if (!isLg) setSidebarOpen(false)
+  }
 
   return (
     <>
       {!isLg ? (
         <button
           type="button"
-          className="fixed left-4 top-4 z-40 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-white shadow-sm lg:hidden"
+          className="fixed left-4 top-4 z-40 inline-flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-100/90 bg-white shadow-md shadow-emerald-950/5 lg:hidden"
           onClick={toggleSidebar}
           aria-label="Toggle menu"
         >
-          {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          {sidebarOpen ? <X className="h-5 w-5 text-emerald-900" /> : <Menu className="h-5 w-5 text-emerald-900" />}
         </button>
       ) : null}
 
@@ -89,23 +99,23 @@ export function Sidebar() {
 
       <aside
         className={cn(
-          'fixed left-0 top-0 z-40 flex h-full w-[260px] flex-col border-r border-border bg-white transition-transform duration-200 ease-in-out lg:translate-x-0',
+          'fixed left-0 top-0 z-40 flex h-full w-[260px] flex-col border-r border-emerald-100/80 bg-gradient-to-b from-white via-emerald-50/25 to-emerald-50/45 shadow-[4px_0_24px_-8px_rgba(16,185,129,0.15)] transition-transform duration-200 ease-in-out lg:translate-x-0',
           isLg ? 'translate-x-0' : sidebarOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        <div className="flex h-16 items-center gap-2 border-b border-border px-5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-sm font-bold text-white">
+        <div className="flex h-16 shrink-0 items-center gap-2 border-b border-emerald-100/70 bg-white/70 px-5 backdrop-blur-sm">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 text-sm font-bold text-white shadow-md shadow-emerald-900/20 ring-2 ring-white">
             E
           </div>
           <div>
-            <p className="font-display text-sm font-semibold text-ink">{APP_SHORT_NAME}</p>
-            <p className="text-xs text-muted">Enterprise</p>
+            <p className="font-display text-sm font-semibold tracking-tight text-slate-900">{APP_SHORT_NAME}</p>
+            <p className="text-xs font-medium text-emerald-700/55">Enterprise</p>
           </div>
         </div>
-        <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
+        <nav className="min-h-0 flex-1 space-y-6 overflow-y-auto px-3 py-4 pb-3">
           {groups.map((g) => (
             <div key={g.label}>
-              <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted">
+              <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-emerald-900/40">
                 {g.label}
               </p>
               <div className="space-y-1">
@@ -117,15 +127,14 @@ export function Sidebar() {
                     onClick={() => !isLg && setSidebarOpen(false)}
                     className={({ isActive }) =>
                       cn(
-                        'relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-ui',
+                        'relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-ui',
                         isActive
-                          ? 'border-l-4 border-primary bg-emerald-50 text-emerald-900'
-                          : 'border-l-4 border-transparent text-muted hover:bg-surface',
-                        isActive && 'text-emerald-900',
+                          ? 'border-l-[3px] border-emerald-600 bg-white text-emerald-950 shadow-md shadow-emerald-900/[0.07]'
+                          : 'border-l-[3px] border-transparent text-slate-600 hover:bg-white/75 hover:text-emerald-950',
                       )
                     }
                   >
-                    <item.icon className={cn('h-5 w-5', 'opacity-90')} />
+                    <item.icon className="h-[1.125rem] w-[1.125rem] shrink-0 opacity-[0.92]" />
                     <span className="truncate">{item.label}</span>
                     {item.notificationKey && (
                       <NotificationBadge 
@@ -140,6 +149,17 @@ export function Sidebar() {
             </div>
           ))}
         </nav>
+
+        <div className="shrink-0 border-t border-emerald-100/80 bg-white/50 p-3 backdrop-blur-[2px]">
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-emerald-100/80 bg-white px-3 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition-ui hover:border-red-100 hover:bg-red-50 hover:text-red-700"
+          >
+            <LogOut className="h-4 w-4 shrink-0" />
+            Log out
+          </button>
+        </div>
       </aside>
     </>
   )

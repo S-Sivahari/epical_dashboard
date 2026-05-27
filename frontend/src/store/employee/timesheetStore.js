@@ -94,6 +94,7 @@ export const useTimesheetStore = create((set, get) => ({
   autoCheckoutSettings: null,
   attendanceHistory: [],
   serverTimeSkew: 0,
+  sessionsLoading: true,
 
 
   refreshAttendanceHistory: async ({ from, to } = {}) => {
@@ -109,6 +110,7 @@ export const useTimesheetStore = create((set, get) => ({
   },
 
   refreshSessionsForRange: async ({ from, to } = {}) => {
+    set({ sessionsLoading: true })
     try {
       const range = from && to ? { from, to } : defaultMonthRange()
       const sessions = await fetchMySessions(range)
@@ -117,6 +119,8 @@ export const useTimesheetStore = create((set, get) => ({
     } catch (err) {
       console.error('Failed to load sessions for range', err)
       return []
+    } finally {
+      set({ sessionsLoading: false })
     }
   },
 
@@ -152,10 +156,11 @@ export const useTimesheetStore = create((set, get) => ({
           autoCheckoutEnabled: data.attendance?.autoCheckoutEnabled ?? true,
         },
         autoCheckoutSettings: null,
+        sessionsLoading: false,
       })
     } catch (err) {
       console.error('Failed to load timesheet state', err)
-      set({ initialized: true })
+      set({ initialized: true, sessionsLoading: false })
     } finally {
       set({ loading: false })
     }
