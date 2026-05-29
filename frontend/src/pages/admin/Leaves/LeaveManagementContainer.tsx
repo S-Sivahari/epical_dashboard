@@ -129,83 +129,85 @@ export function LeaveManagementContainer() {
 
   return (
     <PageWrapper>
-      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="inline-flex rounded-xl border border-border bg-surface/60 p-1">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                activeTab === tab.id
-                  ? 'bg-white text-primary shadow-sm'
-                  : 'text-muted hover:text-ink'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        {activeTab !== 'calendar' && (
-          <div className="flex flex-wrap gap-2">
-            {activeTab === 'requests' && (
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={() => setDeleteAllOpen(true)}
-                disabled={deletingAll}
+      <div className="crewiq-dashboard">
+        <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="inline-flex rounded-xl border border-border bg-surface/60 p-1">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  activeTab === tab.id
+                    ? 'bg-white text-primary shadow-sm'
+                    : 'text-muted hover:text-ink'
+                }`}
               >
-                <Trash2 className="h-4 w-4" />
-                Delete All Leaves
-              </Button>
-            )}
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => void handleExport('pdf')}
-              loading={exporting === 'pdf'}
-            >
-              <FileText className="h-4 w-4 text-red-600" />
-              Export PDF
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => void handleExport('excel')}
-              loading={exporting === 'excel'}
-            >
-              <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-              Export Excel
-            </Button>
+                {tab.label}
+              </button>
+            ))}
           </div>
-        )}
-      </div>
+          {activeTab !== 'calendar' && (
+            <div className="flex flex-wrap gap-2">
+              {activeTab === 'requests' && (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => setDeleteAllOpen(true)}
+                  disabled={deletingAll}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete All Leaves
+                </Button>
+              )}
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void handleExport('pdf')}
+                loading={exporting === 'pdf'}
+              >
+                <FileText className="h-4 w-4 text-red-600" />
+                Export PDF
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void handleExport('excel')}
+                loading={exporting === 'excel'}
+              >
+                <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                Export Excel
+              </Button>
+            </div>
+          )}
+        </div>
 
-      <div className="animate-fadeIn">
-        {activeTab === 'requests' && (
-          <LeaveRequests filters={leaveFilters} onFiltersChange={setLeaveFilters} />
-        )}
-        {activeTab === 'calendar' && <CompanyCalendar />}
-        {activeTab === 'compensation' && (
-          <CompensationManagement
-            onExportDataChange={setCompensationExportRows}
-            onSearchChange={setCompensationSearch}
-          />
-        )}
-      </div>
+        <div className="animate-fadeIn">
+          {activeTab === 'requests' && (
+            <LeaveRequests filters={leaveFilters} onFiltersChange={setLeaveFilters} />
+          )}
+          {activeTab === 'calendar' && <CompanyCalendar />}
+          {activeTab === 'compensation' && (
+            <CompensationManagement
+              onExportDataChange={setCompensationExportRows}
+              onSearchChange={setCompensationSearch}
+            />
+          )}
+        </div>
 
-      <ConfirmModal
-        isOpen={deleteAllOpen}
-        title="Delete all leave records?"
-        description="This will permanently delete every leave request and all leave history from the database, including pending, approved, rejected, and cancelled records. Related leave notifications will also be removed. This action cannot be undone."
-        confirmLabel={deletingAll ? 'Deleting...' : 'Delete all'}
-        danger
-        onClose={() => {
-          if (deletingAll) return
-          setDeleteAllOpen(false)
-        }}
-        onConfirm={handleDeleteAllLeaves}
-      />
+        <ConfirmModal
+          isOpen={deleteAllOpen}
+          title="Delete all leave records?"
+          description="This will permanently delete every leave request and all leave history from the database, including pending, approved, rejected, and cancelled records. Related leave notifications will also be removed. This action cannot be undone."
+          confirmLabel={deletingAll ? 'Deleting...' : 'Delete all'}
+          danger
+          onClose={() => {
+            if (deletingAll) return
+            setDeleteAllOpen(false)
+          }}
+          onConfirm={handleDeleteAllLeaves}
+        />
+      </div>
     </PageWrapper>
   )
 }

@@ -5,7 +5,9 @@ import { CompanyCalendar } from '../Leaves/CompanyCalendar'
 export default function AdminCompanyCalendarPage() {
   return (
     <PageWrapper>
-      <CompanyCalendar />
+      <div className="crewiq-dashboard">
+        <CompanyCalendar />
+      </div>
     </PageWrapper>
   )
 }

@@ -4,12 +4,18 @@ import { Modal } from '@components/ui/Modal'
 import { Button } from '@components/ui/Button'
 import { NewsImage } from '@components/NewsImage'
 import { formatDate } from '@/utils/formatDate'
+import { cn } from '@/utils/cn'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Megaphone } from 'lucide-react'
 
 const CACHE_KEY = 'admin-news-ticker-v1'
 
-export function AdminNewsTicker() {
+type AdminNewsTickerProps = {
+  variant?: 'default' | 'brand'
+}
+
+export function AdminNewsTicker({ variant = 'brand' }: AdminNewsTickerProps) {
+  const isBrand = variant === 'brand'
   const [items, setItems] = useState<NewsItem[]>([])
   const [loading, setLoading] = useState(true)
   const [index, setIndex] = useState(0)
@@ -58,7 +64,14 @@ export function AdminNewsTicker() {
 
   if (loading && items.length === 0) {
     return (
-      <div className="min-h-[110px] rounded-xl border border-zinc-700/50 bg-[#27272a] p-4.5 md:min-h-[124px] md:p-5">
+      <div
+        className={cn(
+          'min-h-[110px] rounded-xl p-4.5 md:min-h-[124px] md:p-5',
+          isBrand
+            ? 'company-announcement-card crewiq-dash-card rounded-xl'
+            : 'border border-zinc-700/50 bg-[#27272a]',
+        )}
+      >
         <div className="flex items-start gap-4">
           <div className="h-10 w-10 rounded-xl bg-[#3f3f46] skeleton" />
           <div className="flex-1 space-y-2">
@@ -78,7 +91,12 @@ export function AdminNewsTicker() {
 
   return (
     <>
-      <div className="relative min-h-[110px] overflow-hidden rounded-xl border border-zinc-700/40 md:min-h-[124px]">
+      <div
+        className={cn(
+          'relative min-h-[110px] overflow-hidden rounded-xl md:min-h-[124px]',
+          isBrand ? 'company-announcement-card crewiq-dash-card rounded-xl' : 'border border-zinc-700/40',
+        )}
+      >
         <AnimatePresence mode="wait">
           <motion.button
             key={current.id}
@@ -88,21 +106,38 @@ export function AdminNewsTicker() {
             exit={{ opacity: 0, x: -40 }}
             transition={{ duration: 0.4 }}
             onClick={() => setActive(current)}
-            className="min-h-[110px] w-full cursor-pointer bg-gradient-to-r from-[#27272a] to-[#3f3f46] p-4.5 text-left md:min-h-[124px] md:p-5"
+            className={cn(
+              'min-h-[110px] w-full cursor-pointer p-4.5 text-left md:min-h-[124px] md:p-5',
+              isBrand
+                ? 'bg-transparent'
+                : 'bg-gradient-to-r from-[#27272a] to-[#3f3f46]',
+            )}
           >
             <div className="flex items-start gap-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/10">
-                <Megaphone className="h-5 w-5 text-[#4f8ef7]" />
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[rgba(0,229,255,0.12)]">
+                <Megaphone className="h-5 w-5 shrink-0 text-[var(--neon-cyan,#00e5ff)]" />
               </div>
 
               <div className="flex-1 pr-14">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#8892a4]">
+                <p
+                  className={cn(
+                    'announcement-subtext text-[11px] font-semibold uppercase tracking-wider',
+                    isBrand ? '' : 'text-[#8892a4]',
+                  )}
+                >
                   Company Announcement
                 </p>
                 <h3 className="mt-1 font-display text-lg font-semibold text-white md:text-xl">
                   {current.title}
                 </h3>
-                <p className="mt-1.5 text-sm text-[#8892a4] line-clamp-2">{excerpt}</p>
+                <p
+                  className={cn(
+                    'announcement-subtext mt-1.5 text-sm line-clamp-2',
+                    isBrand ? '' : 'text-[#8892a4]',
+                  )}
+                >
+                  {excerpt}
+                </p>
               </div>
             </div>
           </motion.button>
@@ -145,7 +180,7 @@ export function AdminNewsTicker() {
                     setIndex(i)
                   }}
                   className={`h-1.5 rounded-full transition-all ${
-                    i === index ? 'w-5 bg-[#4f8ef7]' : 'w-1.5 bg-white/30'
+                    i === index ? (isBrand ? 'w-5 bg-[var(--neon-cyan,#00e5ff)]' : 'w-5 bg-[#4f8ef7]') : 'w-1.5 bg-white/30'
                   }`}
                   aria-label={`Go to slide ${i + 1}`}
                 />

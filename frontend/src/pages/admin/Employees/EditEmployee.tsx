@@ -159,7 +159,7 @@ type CertificateDocKey =
   | 'certificate12th'
   | 'certificateDiploma'
   | 'certificateDegree'
-type ExistingDocument = { key: string; name: string; url: string; uploadedAt?: string }
+type ExistingDocument = { key: string; name: string; url?: string; uploadedAt?: string }
 type EmployeeDocuments = Partial<Record<DocKey, { filename?: string; uploadedAt?: string }>>
 
 const DOCUMENT_TYPES: Record<StandardDocKey, string> = {
@@ -607,7 +607,9 @@ export function EditEmployee() {
   if (pageLoading) {
     return (
       <PageWrapper>
-        <p className="text-sm text-muted">Loading employee details…</p>
+        <div className="crewiq-dashboard">
+          <p className="text-sm text-muted">Loading employee details…</p>
+        </div>
       </PageWrapper>
     )
   }
@@ -615,14 +617,16 @@ export function EditEmployee() {
   if (loadError) {
     return (
       <PageWrapper>
-        <PageHeader title="Edit Employee" />
-        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
-          <p className="text-sm font-medium text-red-700">{loadError}</p>
-          <div className="mt-4 flex justify-center gap-3">
-            <Button variant="secondary" onClick={() => guardedNavigate('/admin/employees')}>
-              Back to Employees
-            </Button>
-            <Button onClick={() => window.location.reload()}>Retry</Button>
+        <div className="crewiq-dashboard">
+          <PageHeader title="Edit Employee" />
+          <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+            <p className="text-sm font-medium text-red-700">{loadError}</p>
+            <div className="mt-4 flex justify-center gap-3">
+              <Button variant="secondary" onClick={() => guardedNavigate('/admin/employees')}>
+                Back to Employees
+              </Button>
+              <Button onClick={() => window.location.reload()}>Retry</Button>
+            </div>
           </div>
         </div>
       </PageWrapper>
@@ -631,6 +635,7 @@ export function EditEmployee() {
 
   return (
     <PageWrapper>
+      <div className="crewiq-dashboard">
       <PageHeader
         title={`Edit — ${employeeName}`}
         breadcrumb={
@@ -647,7 +652,7 @@ export function EditEmployee() {
       <form ref={formRef} id="edit-employee-form" className="mx-auto max-w-6xl space-y-8 pb-32" onSubmit={onSubmit}>
         <div className="grid gap-6 lg:grid-cols-2">
           {/* ── Section 1: Personal Details ─────────────────────────────── */}
-          <div className="rounded-2xl border border-border bg-white p-6 shadow-sm lg:col-span-2">
+          <div className="rounded-2xl border border-border bg-white p-6 shadow-sm lg:col-span-2" style={{backgroundColor:'var(--bg-card)',borderColor:'var(--border-subtle)'}}>
             <h3 className="mb-6 font-display text-lg font-semibold text-ink">Personal Details</h3>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               <Input
@@ -759,7 +764,7 @@ export function EditEmployee() {
           </div>
 
           {/* ── Section 2: Account Details ──────────────────────────────── */}
-          <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+          <div className="rounded-2xl border border-border bg-white p-6 shadow-sm" style={{backgroundColor:'var(--bg-card)',borderColor:'var(--border-subtle)'}}>
             <h3 className="mb-6 font-display text-lg font-semibold text-ink">Account Details</h3>
             <div className="grid gap-4">
               <Input
@@ -837,7 +842,7 @@ export function EditEmployee() {
           </div>
 
           {/* ── Section 4: ID Proof ─────────────────────────────────────── */}
-          <div className="rounded-2xl border border-border bg-white p-6 shadow-sm lg:col-span-2">
+          <div className="rounded-2xl border border-border bg-white p-6 shadow-sm lg:col-span-2" style={{backgroundColor:'var(--bg-card)',borderColor:'var(--border-subtle)'}}>
             <h3 className="mb-6 font-display text-lg font-semibold text-ink">ID Proof</h3>
             <div className="grid gap-4 md:grid-cols-3">
               <Input
@@ -860,7 +865,7 @@ export function EditEmployee() {
           </div>
 
           {/* ── Section 5: Emergency Contact ────────────────────────────── */}
-          <div className="rounded-2xl border border-border bg-white p-6 shadow-sm lg:col-span-2">
+          <div className="rounded-2xl border border-border bg-white p-6 shadow-sm lg:col-span-2" style={{backgroundColor:'var(--bg-card)',borderColor:'var(--border-subtle)'}}>
             <h3 className="mb-6 font-display text-lg font-semibold text-ink">Emergency Contact Details</h3>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               <Input
@@ -900,7 +905,7 @@ export function EditEmployee() {
         </div>
 
         {/* ── Section 5: Documents ────────────────────────────────────── */}
-        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm" style={{backgroundColor:'var(--bg-card)',borderColor:'var(--border-subtle)'}}>
           <div className="mb-6 flex items-center justify-between">
             <h3 className="font-display text-lg font-semibold text-ink">Employee Documents</h3>
             <button
@@ -1262,7 +1267,7 @@ export function EditEmployee() {
       </form>
 
       {/* ── Fixed Bottom Action Bar ────────────────────────────────────────────────── */}
-      <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-white p-4 shadow-lg">
+      <div className="crewiq-action-bar fixed bottom-0 left-0 right-0 border-t border-border bg-white p-4 shadow-lg">
         <div className="mx-auto max-w-6xl flex items-center justify-end gap-2">
           {submitError && (
             <p className="flex-1 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5 mr-2">
@@ -1280,8 +1285,8 @@ export function EditEmployee() {
 
       {/* ── File Size Help Modal ────────────────────────────────────────────────── */}
       {showFileHelp && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-white p-6 shadow-lg">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="crewiq-dashboard-overlay relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border p-6 shadow-lg">
             <button
               type="button"
               className="absolute right-4 top-4 rounded-md p-1 hover:bg-surface"
@@ -1333,6 +1338,7 @@ export function EditEmployee() {
           </div>
         </div>
       )}
+      </div>
     </PageWrapper>
   )
 }

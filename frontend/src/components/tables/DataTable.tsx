@@ -18,6 +18,7 @@ export function DataTable<T extends { id?: string }>({
   sortColumn,
   sortDirection,
   onSort,
+  className,
 }: {
   columns: Column<T>[]
   data?: T[]
@@ -26,23 +27,34 @@ export function DataTable<T extends { id?: string }>({
   sortColumn?: string
   sortDirection?: 'asc' | 'desc'
   onSort?: (key: string) => void
+  className?: string
 }) {
   if (loading) {
     return (
-      <div className="flex min-h-[200px] items-center justify-center rounded-xl border border-border bg-surface/40">
+      <div
+        className={cn(
+          'flex min-h-[200px] items-center justify-center rounded-xl border border-border bg-surface/40',
+          className,
+        )}
+      >
         <Spinner size="lg" />
       </div>
     )
   }
   if (!data.length) {
     return (
-      <div className="rounded-xl border border-dashed border-border bg-surface/40 p-10 text-center text-sm text-muted">
+      <div
+        className={cn(
+          'rounded-xl border border-dashed border-border bg-surface/40 p-10 text-center text-sm text-muted',
+          className,
+        )}
+      >
         {empty ?? 'No records found.'}
       </div>
     )
   }
   return (
-    <div className="overflow-x-auto rounded-xl border border-border bg-white shadow-sm">
+    <div className={cn('overflow-x-auto rounded-xl border border-border bg-white shadow-sm', className)}>
       <table className="min-w-full divide-y divide-border text-sm">
         <thead className="bg-surface/80">
           <tr>

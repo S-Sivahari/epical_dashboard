@@ -187,9 +187,10 @@ setDeleteConfirmOpen(false)
 
   return (
     <PageWrapper>
-      <PageHeader title="" breadcrumb={<Breadcrumb items={[{ label: 'Manage News' }]} />} />
+      <div className="crewiq-dashboard">
+        <PageHeader title="" breadcrumb={<Breadcrumb items={[{ label: 'Manage News' }]} />} />
 
-      <section className="mb-6 overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
+        <section className="mb-6 overflow-hidden rounded-2xl border border-border bg-white shadow-sm" style={{backgroundColor:'var(--bg-card)',borderColor:'var(--border-subtle)'}}>
         <div className="border-b border-border bg-gradient-to-r from-emerald-50 via-white to-teal-50 px-6 py-5">
           <div className="flex items-start gap-4">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
@@ -479,6 +480,7 @@ setDeleteConfirmOpen(false)
         }}
         onConfirm={() => void handleRemove()}
       />
+      </div>
     </PageWrapper>
   )
 }

@@ -273,16 +273,16 @@ function MetricCard({
   secondaryText?: string
 }) {
   return (
-    <div className="group relative overflow-hidden rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05),0_4px_12px_-2px_rgba(15,23,42,0.06)] transition-all duration-200 hover:border-slate-200 hover:shadow-md">
+    <div className="admin-card group relative overflow-hidden rounded-xl border border-[rgba(161,161,170,0.18)] bg-[rgba(39,39,42,0.88)] p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05),0_4px_12px_-2px_rgba(15,23,42,0.06)] transition-all duration-200 hover:border-[rgba(161,161,170,0.3)] hover:shadow-md">
       <div className={`absolute inset-x-0 top-0 h-1 ${accentClass}`} />
       <div className="flex items-center justify-between gap-3 pt-0.5">
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{label}</p>
-          <p className="mt-1.5 font-display text-3xl font-extrabold tabular-nums leading-none tracking-tight text-slate-900">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-[#94a3b8]">{label}</p>
+          <p className="mt-1.5 font-display text-3xl font-extrabold tabular-nums leading-none tracking-tight text-white">
             {value}
           </p>
           {secondaryText && (
-            <p className="mt-1.5 text-xs font-medium text-slate-500">{secondaryText}</p>
+            <p className="mt-1.5 text-xs font-medium text-[#94a3b8]">{secondaryText}</p>
           )}
         </div>
         <span
@@ -458,9 +458,9 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
     <div ref={containerRef} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="inline-flex h-9 max-w-full items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50/50 px-2.5 text-xs font-bold text-slate-700 shadow-sm transition-colors hover:bg-white whitespace-nowrap"
+        className="inline-flex h-9 max-w-full items-center gap-1.5 rounded-lg border border-[rgba(161,161,170,0.18)] bg-[rgba(39,39,42,0.88)] px-2.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[rgba(39,39,42,0.95)] whitespace-nowrap"
       >
-        <CalendarIcon className="h-3.5 w-3.5 text-emerald-650 flex-shrink-0" />
+        <CalendarIcon className="h-3.5 w-3.5 text-[#38bdf8] flex-shrink-0" />
         <span className="truncate max-w-xs text-xs leading-tight">
           {preset === 'Custom' && startDate === endDate
             ? `${formatDate(startDate)}`
@@ -468,26 +468,26 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
               ? `${formatDate(startDate)} – ${formatDate(endDate)}`
               : `${preset} (${formatDate(startDate)} – ${formatDate(endDate)})`}
         </span>
-        <ChevronDown className="h-3 w-3 text-slate-400 flex-shrink-0" />
+        <ChevronDown className="h-3 w-3 text-[#94a3b8] flex-shrink-0" />
       </button>
 
       {open && (
-        <div className="date-range-popover absolute left-0 top-full z-50 mt-2 flex w-[92vw] flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl animate-fadeIn sm:w-auto sm:min-w-[500px] md:flex-row">
+        <div className="date-range-popover absolute left-0 top-full z-50 mt-2 flex w-[92vw] flex-col gap-4 rounded-2xl border border-[rgba(161,161,170,0.18)] bg-[rgba(39,39,42,0.88)] p-4 shadow-xl animate-fadeIn sm:w-auto sm:min-w-[500px] md:flex-row">
           {/* Calendar Grid */}
           <div className="flex-1 select-none">
             <div className="flex items-center justify-between mb-4">
-              <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-slate-100 rounded-lg text-slate-600">
+              <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-[rgba(161,161,170,0.1)] rounded-lg text-[#94a3b8]">
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <span className="date-range-month-title type-calendar-month text-slate-800">
+              <span className="date-range-month-title type-calendar-month text-white">
                 {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
               </span>
-              <button type="button" onClick={handleNextMonth} className="p-1 hover:bg-slate-100 rounded-lg text-slate-600">
+              <button type="button" onClick={handleNextMonth} className="p-1 hover:bg-[rgba(161,161,170,0.1)] rounded-lg text-[#94a3b8]">
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="type-calendar-weekday mb-1 grid grid-cols-7 gap-1 text-center text-slate-400">
+            <div className="type-calendar-weekday mb-1 grid grid-cols-7 gap-1 text-center text-[#94a3b8]">
               {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
                 <span key={d} className="py-1">
                   {d}
@@ -511,9 +511,9 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
                     title={`Filter logs for ${cell.dateString}. Shift+click a second date for a range.`}
                     className={`
                       h-7 w-7 rounded-lg flex items-center justify-center font-semibold transition-all
-                      ${cell.isCurrentMonth ? 'text-slate-700 hover:bg-emerald-50 hover:text-emerald-700' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}
-                      ${isSingleDay || isSelectedStart || isSelectedEnd ? 'bg-emerald-600 text-white hover:bg-emerald-600 hover:text-white shadow-sm' : ''}
-                      ${isWithinRange ? 'bg-emerald-50 text-emerald-800 rounded-none' : ''}
+                      ${cell.isCurrentMonth ? 'text-white hover:bg-[#38bdf8]/20 hover:text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[rgba(161,161,170,0.1)] hover:text-white'}
+                      ${isSingleDay || isSelectedStart || isSelectedEnd ? 'bg-[#38bdf8] text-white hover:bg-[#38bdf8] hover:text-white shadow-sm' : ''}
+                      ${isWithinRange ? 'bg-[#38bdf8]/20 text-[#38bdf8] rounded-none' : ''}
                     `}
                   >
                     {cell.day}
@@ -521,17 +521,17 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
                 )
               })}
             </div>
-            <p className="mt-3 text-[10px] text-slate-400 font-medium">
+            <p className="mt-3 text-[10px] text-[#94a3b8] font-medium">
               Click any date to filter that day. Hold Shift, click a start date, then another date for a custom range.
             </p>
           </div>
 
           {/* Divider */}
-          <div className="hidden md:block border-l border-slate-150" />
+          <div className="hidden md:block border-l border-[rgba(161,161,170,0.18)]" />
 
           {/* Quick Presets Panel */}
           <div className="w-36 flex flex-col gap-0.5">
-            <p className="type-card-label-caps mb-2 text-[9px] text-slate-400">Quick Presets</p>
+            <p className="type-card-label-caps mb-2 text-[9px] text-[#94a3b8]">Quick Presets</p>
             {[
               'Today',
               'Yesterday',
@@ -549,7 +549,7 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
                 onClick={() => handlePresetClick(p)}
                 className={`
                   text-left px-2.5 py-1 rounded-lg text-xs font-semibold transition-all
-                  ${preset === p ? 'bg-emerald-50 text-emerald-700 font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'}
+                  ${preset === p ? 'bg-[#38bdf8]/20 text-[#38bdf8] font-bold' : 'text-[#94a3b8] hover:bg-[rgba(161,161,170,0.1)] hover:text-white'}
                 `}
               >
                 {p}
@@ -586,7 +586,7 @@ function AvatarGroup({ users, max = 3 }: { users: string[]; max?: number }) {
         return (
           <div
             key={username}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-slate-100 text-[10px] font-bold shadow-sm ring-1 ring-slate-200/40"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[rgba(39,39,42,0.88)] bg-[rgba(39,39,42,0.88)] text-[10px] font-bold shadow-sm ring-1 ring-[rgba(161,161,170,0.18)]"
             style={{
               background: `linear-gradient(135deg, hsl(${hue}, 80%, 96%) 0%, hsl(${hue}, 55%, 85%) 100%)`,
               color: `hsl(${hue}, 85%, 28%)`,
@@ -598,7 +598,7 @@ function AvatarGroup({ users, max = 3 }: { users: string[]; max?: number }) {
         )
       })}
       {remaining > 0 && (
-        <div className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-slate-100 text-[10px] font-black text-slate-600 shadow-sm ring-1 ring-slate-200/40">
+        <div className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[rgba(39,39,42,0.88)] bg-[rgba(39,39,42,0.88)] text-[10px] font-black text-[#94a3b8] shadow-sm ring-1 ring-[rgba(161,161,170,0.18)]">
           +{remaining}
         </div>
       )}
@@ -660,7 +660,7 @@ function FilterCheckboxGroup({
   return (
     <div ref={rootRef} className="relative">
       {!compact && (
-        <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+        <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-[#94a3b8]">
           {label}
         </span>
       )}
@@ -669,15 +669,15 @@ function FilterCheckboxGroup({
         aria-expanded={open}
         aria-haspopup="listbox"
         onClick={() => setOpen((v) => !v)}
-        className={`flex h-9 w-full items-center justify-between gap-1.5 rounded-lg border bg-white px-2.5 text-left text-xs font-bold outline-none transition-all ${
+        className={`flex h-9 w-full items-center justify-between gap-1.5 rounded-lg border bg-[rgba(39,39,42,0.88)] px-2.5 text-left text-xs font-bold outline-none transition-all ${
           open || selected.length > 0
-            ? 'border-emerald-500 text-slate-700 ring-4 ring-emerald-500/10'
-            : 'border-slate-200 text-slate-600 hover:border-slate-300'
+            ? 'border-[#38bdf8] text-white ring-4 ring-[#38bdf8]/10'
+            : 'border-[rgba(161,161,170,0.18)] text-[#94a3b8] hover:border-[rgba(161,161,170,0.3)]'
         }`}
       >
         <span className="truncate text-xs">{summary}</span>
         <ChevronDown
-          className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`h-3.5 w-3.5 shrink-0 text-[#94a3b8] transition-transform ${open ? 'rotate-180' : ''}`}
         />
       </button>
 
@@ -685,22 +685,22 @@ function FilterCheckboxGroup({
         <div
           role="listbox"
           aria-label={label}
-          className="absolute left-0 right-0 z-50 mt-1 rounded-xl border border-slate-200 bg-white p-2 shadow-lg"
+          className="absolute left-0 right-0 z-50 mt-1 rounded-xl border border-[rgba(161,161,170,0.18)] bg-[rgba(39,39,42,0.88)] p-2 shadow-lg"
         >
-          <div className="mb-2 flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</span>
+          <div className="mb-2 flex items-center justify-between gap-2 border-b border-[rgba(161,161,170,0.18)] pb-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8]">{label}</span>
             <div className="flex shrink-0 gap-2">
               <button
                 type="button"
                 onClick={() => onChange(options.map((o) => o.value))}
-                className="text-[10px] font-bold text-emerald-600 hover:text-emerald-800"
+                className="text-[10px] font-bold text-[#38bdf8] hover:text-[#38bdf8]/80"
               >
                 All
               </button>
               <button
                 type="button"
                 onClick={() => onChange([])}
-                className="text-[10px] font-bold text-slate-500 hover:text-slate-700"
+                className="text-[10px] font-bold text-[#94a3b8] hover:text-white"
               >
                 Clear
               </button>
@@ -708,18 +708,18 @@ function FilterCheckboxGroup({
           </div>
           <div className="max-h-48 space-y-0.5 overflow-y-auto pr-0.5">
             {options.length === 0 ? (
-              <p className="px-2 py-2 text-xs font-semibold text-slate-400">No options</p>
+              <p className="px-2 py-2 text-xs font-semibold text-[#94a3b8]">No options</p>
             ) : (
               options.map((opt) => (
                 <label
                   key={opt.value}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-slate-700 transition-colors hover:bg-slate-50"
+                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-white transition-colors hover:bg-[rgba(161,161,170,0.1)]"
                 >
                   <input
                     type="checkbox"
                     checked={selected.includes(opt.value)}
                     onChange={() => toggle(opt.value)}
-                    className="h-3.5 w-3.5 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500/20"
+                    className="h-3.5 w-3.5 shrink-0 rounded border-[rgba(161,161,170,0.18)] text-[#38bdf8] focus:ring-[#38bdf8]/20"
                   />
                   <span className="truncate font-semibold" title={opt.label}>
                     {opt.label}
@@ -753,26 +753,26 @@ function CheckboxList({
   }
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
+      <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-[#94a3b8]">
         {label}
       </label>
-      <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-2 max-h-32 overflow-y-auto space-y-0.5">
+      <div className="rounded-xl border border-[rgba(161,161,170,0.18)] bg-[rgba(39,39,42,0.88)]/50 p-2 max-h-32 overflow-y-auto space-y-0.5">
         {items.map((item) => (
           <label
             key={item}
-            className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-xs text-slate-700 transition-colors hover:bg-white border border-transparent hover:border-slate-100"
+            className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-xs text-white transition-colors hover:bg-[rgba(161,161,170,0.1)] border border-transparent hover:border-[rgba(161,161,170,0.18)]"
           >
             <input
               type="checkbox"
               checked={selected.includes(item)}
               onChange={() => toggle(item)}
-              className="h-3.5 w-3.5 rounded border-slate-350 text-emerald-600 focus:ring-emerald-500/20"
+              className="h-3.5 w-3.5 rounded border-[rgba(161,161,170,0.18)] text-[#38bdf8] focus:ring-[#38bdf8]/20"
             />
             <span>{item}</span>
           </label>
         ))}
       </div>
-      <p className="mt-1 text-[10px] text-slate-400 font-semibold">
+      <p className="mt-1 text-[10px] text-[#94a3b8] font-semibold">
         {selected.length} of {items.length} selected
       </p>
     </div>
@@ -1334,7 +1334,7 @@ export function ProjectManagement() {
       setLoading(true)
       try {
         if (modalMode === 'create') {
-          const res = await api.post('/projects', {
+          await api.post('/projects', {
             name: form.name.trim(),
             client: form.client.trim(),
             technologyNode: form.technologyNode.trim(),
@@ -2123,10 +2123,11 @@ export function ProjectManagement() {
     tsStatusFilters.length > 0
   return (
     <PageWrapper className="dashboard-surface py-4 sm:py-5">
-      {/* ── Compact admin header: tabs + contextual actions ───────────────── */}
-      <div className="sticky top-0 z-30 -mx-4 mb-4 border-b border-slate-200/80 bg-white/95 px-4 py-2.5 backdrop-blur-md sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50/80 p-1">
+      <div className="crewiq-dashboard">
+        {/* ── Compact admin header: tabs + contextual actions ───────────────── */}
+        <div className="sticky top-0 z-30 -mx-4 mb-4 border-b border-slate-200/80 bg-white/95 px-4 py-2.5 backdrop-blur-md sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8" style={{backgroundColor:'rgba(10,17,35,0.95)',borderColor:'var(--border-subtle)'}}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50/80 p-1">
             {[
               { key: 'projects' as const, label: 'Projects', icon: FolderOpen, count: filteredProjects.length },
               { key: 'timesheets' as const, label: 'Timesheets', icon: Clock, count: filteredTimesheets.length },
@@ -3088,6 +3089,7 @@ export function ProjectManagement() {
         onClose={() => setArchivedModalOpen(false)}
         onRefreshActiveProjects={refreshAllData}
       />
+      </div>
     </PageWrapper>
   )
 }

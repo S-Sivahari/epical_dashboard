@@ -99,14 +99,6 @@ export function ArchivedProjectsModal({
     }
   }
 
-  const formatDate = (isoString: string) => {
-    return new Date(isoString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    })
-  }
-
   const formatDateTime = (isoString: string) => {
     const d = new Date(isoString)
     return `${d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} · ${d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`

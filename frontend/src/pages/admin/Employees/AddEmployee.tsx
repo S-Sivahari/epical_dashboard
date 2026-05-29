@@ -450,13 +450,15 @@ export function AddEmployee() {
   }
 
   return (
-    <PageWrapper>
-      <PageHeader
-        title=""
-        breadcrumb={
-          <Breadcrumb items={[{ label: 'Employees', to: '/admin/employees' }, { label: 'Add' }]} />
-        }
-      />
+    <div className="crewiq-dashboard">
+      <div className="crewiq-dash-bg" />
+      <PageWrapper className="relative z-10 py-4 font-body">
+        <PageHeader
+          title=""
+          breadcrumb={
+            <Breadcrumb items={[{ label: 'Employees', to: '/admin/employees' }, { label: 'Add' }]} />
+          }
+        />
 
       <form ref={formRef} id="add-employee-form" className="mx-auto max-w-6xl space-y-8 pb-32" onSubmit={onSubmit}>
         {/* 2-column grid for sections */}
@@ -1155,6 +1157,7 @@ export function AddEmployee() {
           </div>
         </div>
       )}
-    </PageWrapper>
+      </PageWrapper>
+    </div>
   )
 }

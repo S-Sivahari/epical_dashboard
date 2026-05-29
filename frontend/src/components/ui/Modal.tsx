@@ -16,6 +16,7 @@ export function Modal({
   onClose,
   size = 'md',
   elevated = false,
+  className,
   children,
 }: {
   isOpen: boolean
@@ -24,6 +25,7 @@ export function Modal({
   size?: 'sm' | 'md' | 'lg' | 'xl'
   /** Stack above another open modal (e.g. override form over project tasks). */
   elevated?: boolean
+  className?: string
   children: ReactNode
 }) {
   const z = elevated ? 'z-[60]' : 'z-50'
@@ -41,6 +43,7 @@ export function Modal({
             'fixed left-1/2 top-1/2 w-[calc(100%-2rem)] max-h-[90vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-border bg-white p-6 shadow-md outline-none',
             z,
             sizes[size],
+            className,
           )}
         >
           <div className="mb-4 flex items-start justify-between gap-3">

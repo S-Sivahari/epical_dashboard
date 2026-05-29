@@ -15,10 +15,11 @@ const CRITICAL_DATA = [
 export function Settings() {
   return (
     <PageWrapper>
+      <div className="crewiq-dashboard">
       <PageHeader title="" breadcrumb={<Breadcrumb items={[{ label: 'Settings' }]} />} />
 
       <div className="space-y-8">
-        <section className="rounded-xl border border-border bg-white p-5 shadow-sm">
+        <section className="rounded-xl border border-border p-5 shadow-sm" style={{backgroundColor:'var(--bg-card)',borderColor:'var(--border-subtle)'}}>
           <h2 className="font-display text-lg font-semibold text-ink">Sign-in</h2>
           <p className="mt-2 text-sm text-muted">
             All users sign in with Google (Gmail). There is no portal password to change.
@@ -27,7 +28,7 @@ export function Settings() {
           </p>
         </section>
 
-        <section className="rounded-xl border border-border bg-white p-5 shadow-sm">
+        <section className="rounded-xl border border-border p-5 shadow-sm" style={{backgroundColor:'var(--bg-card)',borderColor:'var(--border-subtle)'}}>
           <h2 className="font-display text-lg font-semibold text-ink">Data protection & backup</h2>
           <p className="mt-2 text-sm text-muted">
             Your HRMS data lives in MongoDB Atlas (database: <strong>Production</strong>).
@@ -87,7 +88,7 @@ export function Settings() {
           </p>
         </section>
 
-        <section className="rounded-xl border border-border bg-white p-5 shadow-sm">
+        <section className="rounded-xl border border-border p-5 shadow-sm" style={{backgroundColor:'var(--bg-card)',borderColor:'var(--border-subtle)'}}>
           <h2 className="font-display text-lg font-semibold text-ink">Help & support</h2>
           <p className="mt-2 text-sm text-muted">
             {APP_SHORT_NAME} v0.1.0 · {APP_NAME} · Internal use only
@@ -99,6 +100,7 @@ export function Settings() {
             </p>
           </div>
         </section>
+      </div>
       </div>
     </PageWrapper>
   )

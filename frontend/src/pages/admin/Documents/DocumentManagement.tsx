@@ -149,7 +149,7 @@ setRejectOpen(false)
   }
 
   const content = (
-    <>
+    <div className="crewiq-dashboard">
       <input
         ref={fileInputRef}
         type="file"
@@ -167,15 +167,16 @@ setRejectOpen(false)
           setRejectId(null)
         }}
         size="md"
+        className="admin-modal"
       >
-        <p className="mb-3 text-sm text-muted">
+        <p className="mb-3 text-sm text-[#94a3b8]">
           The employee will not receive a document file. Explain why this request was declined.
         </p>
-        <label className="block text-xs font-medium uppercase tracking-wide text-muted">
+        <label className="block text-xs font-medium uppercase tracking-wide text-[#94a3b8]">
           Reason for rejection
         </label>
         <textarea
-          className="mt-1 min-h-[100px] w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+          className="admin-form-textarea mt-1 min-h-[100px] w-full rounded-lg border border-[rgba(161,161,170,0.18)] bg-[rgba(39,39,42,0.88)] px-3 py-2 text-sm text-white outline-none focus:border-[#38bdf8]"
           value={rejectReason}
           onChange={(ev) => setRejectReason(ev.target.value)}
           placeholder="e.g. Missing tax year information..."
@@ -429,7 +430,7 @@ setRejectOpen(false)
           </div>
         ) : null}
       </div>
-    </>
+    </div>
   )
 
   if (embedded) return content

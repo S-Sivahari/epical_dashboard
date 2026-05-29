@@ -175,8 +175,9 @@ export function TicketManagement() {
     detailTicket ?? (selectedId ? (tickets.find((t) => t.id === selectedId) ?? null) : null)
 
   return (
-    <PageWrapper>
-      <div className="mb-8 grid gap-4 rounded-xl border border-border bg-white p-4 sm:grid-cols-2 lg:grid-cols-4">
+    <PageWrapper className="admin-page">
+      <div className="crewiq-dashboard">
+        <div className="admin-toolbar mb-8 grid gap-4 rounded-xl border border-[rgba(161,161,170,0.18)] bg-[rgba(39,39,42,0.88)] p-4 sm:grid-cols-2 lg:grid-cols-4">
         <Input
           label="Search"
           value={q}
@@ -217,10 +218,10 @@ export function TicketManagement() {
       </div>
 
       {loading && tickets.length === 0 ? (
-        <p className="text-sm text-muted">Loading tickets…</p>
+        <p className="text-sm text-[#94a3b8]">Loading tickets…</p>
       ) : null}
       {!loading && tickets.length === 0 ? (
-        <p className="text-sm text-muted">
+        <p className="text-sm text-[#94a3b8]">
           No tickets yet. Use employee ticket creation or run database seed (<code>/api/seed</code>).
         </p>
       ) : null}
@@ -234,23 +235,23 @@ export function TicketManagement() {
           return (
             <section
               key={statusCol}
-              className="overflow-hidden rounded-xl border border-border bg-white shadow-sm"
+              className="admin-card overflow-hidden rounded-xl border border-[rgba(161,161,170,0.18)] bg-[rgba(39,39,42,0.88)] shadow-sm"
             >
-              <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+              <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(161,161,170,0.18)] px-4 py-3">
                 <div className="flex flex-wrap items-center gap-3">
-                  <h2 className="text-lg font-semibold text-ink">{meta.title}</h2>
+                  <h2 className="text-lg font-semibold text-white">{meta.title}</h2>
                   <Badge variant={badgeVariant}>{meta.badgeLabel}</Badge>
                 </div>
-                <span className="text-sm font-semibold tabular-nums text-muted">{rows.length}</span>
+                <span className="text-sm font-semibold tabular-nums text-[#94a3b8]">{rows.length}</span>
               </header>
 
               {rows.length === 0 ? (
-                <p className="py-12 text-center text-sm text-muted">No tickets in this section.</p>
+                <p className="py-12 text-center text-sm text-[#94a3b8]">No tickets in this section.</p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="min-w-full border-collapse text-left text-sm">
+                  <table className="admin-table min-w-full border-collapse text-left text-sm">
                     <thead>
-                      <tr className="border-b border-border bg-surface/40 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                      <tr className="border-b border-[rgba(161,161,170,0.18)] bg-[rgba(39,39,42,0.88)] text-[11px] font-semibold uppercase tracking-wide text-[#94a3b8]">
                         <th className="px-4 py-3">Issue / ID</th>
                         <th className="px-4 py-3">Employee / ID</th>
                         <th className="px-4 py-3">Created</th>
@@ -263,21 +264,21 @@ export function TicketManagement() {
                         <tr
                           key={t.id}
                           className={cn(
-                            'cursor-pointer border-b border-border/80 transition-colors hover:bg-surface/30',
-                            idx % 2 === 1 && 'bg-surface/15',
+                            'cursor-pointer border-b border-[rgba(161,161,170,0.18)] transition-colors hover:bg-[rgba(39,39,42,0.88)]',
+                            idx % 2 === 1 && 'bg-[rgba(39,39,42,0.88)]',
                           )}
                           onClick={() => openDetail(t.id)}
                           role="presentation"
                         >
                           <td className="max-w-[220px] px-4 py-3 align-middle">
-                            <div className="line-clamp-2 font-medium capitalize text-ink">{t.title}</div>
-                            <div className="mt-0.5 font-mono text-xs text-muted">{t.id}</div>
+                            <div className="line-clamp-2 font-medium capitalize text-white">{t.title}</div>
+                            <div className="mt-0.5 font-mono text-xs text-[#94a3b8]">{t.id}</div>
                           </td>
                           <td className="px-4 py-3 align-middle">
-                            <div className="font-medium text-ink">{t.employeeName}</div>
-                            <div className="mt-0.5 font-mono text-xs text-muted">{t.employeeId}</div>
+                            <div className="font-medium text-white">{t.employeeName}</div>
+                            <div className="mt-0.5 font-mono text-xs text-[#94a3b8]">{t.employeeId}</div>
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3 align-middle text-muted">
+                          <td className="whitespace-nowrap px-4 py-3 align-middle text-[#94a3b8]">
                             {formatCreatedAt(t.createdAt)}
                           </td>
                           <td className="px-4 py-3 align-middle">
@@ -290,7 +291,7 @@ export function TicketManagement() {
                               role="presentation"
                             >
                               <Button size="sm" variant="ghost" type="button" onClick={() => openDetail(t.id)}>
-                                <Eye className="h-4 w-4 text-muted" aria-hidden />
+                                <Eye className="h-4 w-4 text-[#94a3b8]" aria-hidden />
                                 View
                               </Button>
 
@@ -300,7 +301,7 @@ export function TicketManagement() {
                                   type="button"
                                   disabled={moving !== null}
                                   variant="secondary"
-                                  className="border-border font-semibold text-ink"
+                                  className="admin-btn-secondary border-[rgba(161,161,170,0.18)] font-semibold text-white"
                                   onClick={() => void move(t.id, 'forward')}
                                   loading={isMoveForward(t.id)}
                                 >
@@ -315,7 +316,7 @@ export function TicketManagement() {
                                     type="button"
                                     disabled={moving !== null}
                                     variant="secondary"
-                                    className="border-border"
+                                    className="admin-btn-secondary border-[rgba(161,161,170,0.18)]"
                                     onClick={() => void move(t.id, 'back')}
                                     loading={isMoveBack(t.id)}
                                   >
@@ -325,7 +326,7 @@ export function TicketManagement() {
                                     size="sm"
                                     type="button"
                                     disabled={moving !== null}
-                                    className="bg-emerald-700 font-semibold text-white hover:bg-emerald-800"
+                                    className="admin-btn-primary bg-[#34d399] font-semibold text-white hover:bg-[#34d399]/90"
                                     onClick={() => void move(t.id, 'forward')}
                                     loading={isMoveForward(t.id)}
                                   >
@@ -354,6 +355,7 @@ export function TicketManagement() {
         onAddComment={handleModalAddComment}
         advancing={!!moving}
       />
+      </div>
     </PageWrapper>
   )
 }
