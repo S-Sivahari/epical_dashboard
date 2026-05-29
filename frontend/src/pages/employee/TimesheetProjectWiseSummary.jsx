@@ -1,0 +1,22 @@
+import { FolderKanban } from 'lucide-react'
+
+export function TimesheetProjectWiseSummary({ totalHours = 0, projectCount = 0 }) {
+  return (
+    <div className="flex h-full min-h-[5.5rem] flex-col justify-between rounded-xl border border-teal-200/70 bg-gradient-to-br from-teal-50/90 to-white p-4 shadow-card">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-sm font-medium text-teal-900/70">Project Wise Hours</p>
+          <p className="mt-1 font-heading text-2xl font-bold tabular-nums text-teal-900">
+            {totalHours.toFixed(1)}h
+          </p>
+        </div>
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-100 text-teal-700">
+          <FolderKanban className="h-5 w-5" />
+        </div>
+      </div>
+      <p className="text-xs font-semibold text-teal-800/60">
+        {projectCount} project{projectCount === 1 ? '' : 's'} this week
+      </p>
+    </div>
+  )
+}

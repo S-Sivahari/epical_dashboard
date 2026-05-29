@@ -186,8 +186,12 @@ export async function processAutoCheckouts(): Promise<number> {
             now,
             log.totalPausedMs
           );
+          // FIXED: Keep taskStatus as 'Session Incomplete' to preserve session discovery
+          // Previously changed to 'Pending', which made sessions invisible on re-login
           if (['In Progress', 'Paused', 'Session Incomplete'].includes(log.taskStatus || '')) {
-            log.taskStatus = 'Pending';
+            log.taskStatus = 'Session Incomplete';
+            // Add flag to indicate this was auto-completed (backend-closed)
+            (log as any).autoCompleted = true;
           }
           await log.save({ session });
           await syncProjectForTimesheet(log, session);
