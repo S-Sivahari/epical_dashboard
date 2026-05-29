@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { env } from '../config/env';
+import { formatDurationFromMs } from '../utils/durationFormat';
 
 let transporter: nodemailer.Transporter | null = null;
 
@@ -29,57 +30,148 @@ interface ReminderEmailParams {
   employeeName: string;
   checkInTime: Date;
   autoCheckoutTime: string;
+  projectName: string;
+  activeDurationMs: number;
 }
 
-export async function sendCheckoutReminderEmail(params: ReminderEmailParams): Promise<boolean> {
-  const checkInStr = params.checkInTime.toLocaleString('en-US', {
+const HRMS_COMPANY_NAME = 'Epical Layouts';
+const HRMS_PRODUCT_NAME = 'Epical EMS';
+
+function formatEmailTime(d: Date): string {
+  return d.toLocaleString('en-IN', {
     hour: '2-digit',
     minute: '2-digit',
     hour12: true,
+    timeZone: env.schedulerTimezone,
+  });
+}
+
+function formatEmailDateTime(d: Date): string {
+  return d.toLocaleString('en-IN', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: env.schedulerTimezone,
+  });
+}
+
+function buildHrmsTimesheetEmailHtml(options: {
+  eyebrow: string;
+  title: string;
+  greetingName: string;
+  intro: string;
+  highlightTitle: string;
+  detailRows: Array<{ label: string; value: string }>;
+  notice?: string;
+  accentColor?: string;
+}): string {
+  const accent = options.accentColor || '#2563eb';
+  const detailRowsHtml = options.detailRows
+    .map(
+      (row) => `
+        <tr>
+          <td style="padding:10px 0;color:#64748b;font-size:14px;font-weight:500;width:38%;vertical-align:top;">${row.label}</td>
+          <td style="padding:10px 0 10px 16px;color:#0f172a;font-size:14px;font-weight:600;vertical-align:top;">${row.value}</td>
+        </tr>`
+    )
+    .join('');
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${options.title}</title>
+</head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:#334155;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f1f5f9;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,0.08);">
+          <tr>
+            <td style="background:linear-gradient(135deg, ${accent} 0%, #1e293b 100%);padding:28px 32px;text-align:center;">
+              <p style="margin:0 0 8px 0;color:rgba(255,255,255,0.82);font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;">${options.eyebrow}</p>
+              <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;line-height:1.3;">${options.title}</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <p style="margin:0 0 12px 0;font-size:18px;font-weight:600;color:#0f172a;">Hello ${options.greetingName},</p>
+              <p style="margin:0 0 24px 0;font-size:15px;line-height:1.7;color:#475569;">${options.intro}</p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:4px 20px;margin:0 0 24px 0;">
+                <tr>
+                  <td>
+                    <p style="margin:16px 0 8px 0;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:${accent};">${options.highlightTitle}</p>
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">${detailRowsHtml}</table>
+                  </td>
+                </tr>
+              </table>
+              ${
+                options.notice
+                  ? `<div style="background:#fff7ed;border-left:4px solid #f59e0b;padding:16px 18px;border-radius:8px;margin:0 0 8px 0;">
+                      <p style="margin:0;font-size:14px;line-height:1.6;color:#92400e;">${options.notice}</p>
+                    </div>`
+                  : ''
+              }
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;text-align:center;">
+              <p style="margin:0 0 6px 0;font-size:13px;font-weight:600;color:#64748b;">${HRMS_COMPANY_NAME}</p>
+              <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;">This is an automated ${HRMS_PRODUCT_NAME} workforce notification. Please do not reply to this email.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+export async function sendCheckoutReminderEmail(params: ReminderEmailParams): Promise<boolean> {
+  const activeDuration = formatDurationFromMs(params.activeDurationMs, true);
+  const html = buildHrmsTimesheetEmailHtml({
+    eyebrow: 'Work Session Reminder',
+    title: 'Active Work Session Pending Checkout',
+    greetingName: params.employeeName,
+    intro:
+      'You currently have an active work session that has not been checked out. Please complete checkout before midnight to keep your timesheet accurate.',
+    highlightTitle: 'Active Session Summary',
+    accentColor: '#059669',
+    detailRows: [
+      { label: 'Employee', value: params.employeeName },
+      { label: 'Project', value: params.projectName },
+      { label: 'Check-in Time', value: formatEmailTime(params.checkInTime) },
+      { label: 'Active Duration', value: activeDuration },
+      { label: 'Auto-Checkout At', value: params.autoCheckoutTime },
+    ],
+    notice:
+      'If you do not check out manually, the system will automatically close your session at the scheduled auto-checkout time.',
   });
 
-  const html = `
-    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
-      <div style="background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); padding: 32px 24px; text-align: center;">
-        <h1 style="color: #ffffff; margin: 0; font-size: 22px;">⏰ Timesheet Checkout Reminder</h1>
-      </div>
-      <div style="padding: 32px 24px;">
-        <p style="font-size: 16px; color: #1a1a1a; margin: 0 0 16px;">Hello <strong>${params.employeeName}</strong>,</p>
-        <p style="font-size: 15px; color: #4a4a4a; line-height: 1.6; margin: 0 0 16px;">
-          You are still checked in from <strong>${checkInStr}</strong>. Please complete your checkout to ensure accurate timesheet records.
-        </p>
-        <div style="background: #fef9c3; border-left: 4px solid #eab308; padding: 16px; border-radius: 8px; margin: 20px 0;">
-          <p style="margin: 0; font-size: 14px; color: #854d0e;">
-            ⚠️ If you do not check out manually, the system will automatically check you out at <strong>${params.autoCheckoutTime}</strong>.
-          </p>
-        </div>
-        <p style="font-size: 14px; color: #6b7280; margin: 24px 0 0;">
-          Please log into the Employee Portal and complete your checkout properly to avoid automatic checkout.
-        </p>
-      </div>
-      <div style="background: #f9fafb; padding: 16px 24px; text-align: center; border-top: 1px solid #e5e7eb;">
-        <p style="margin: 0; font-size: 12px; color: #9ca3af;">This is an automated message from the Employee Portal.</p>
-      </div>
-    </div>
-  `;
+  const subject = 'Reminder: Active Work Session Pending Checkout';
 
   if (!env.enableEmailNotifications || !isEmailConfigured()) {
     console.log(`[Email Service] [MOCK MODE] Email notifications disabled or credentials missing. Reminder email to: ${params.to}`);
     console.log(`----------------------------------------------------------------------`);
     console.log(`TO:       ${params.to}`);
-    console.log(`SUBJECT:  Timesheet Checkout Reminder`);
+    console.log(`SUBJECT:  ${subject}`);
     console.log(`HTML BODY PREVIEW (first 300 chars):`);
     console.log(html.substring(0, 300) + '...');
     console.log(`----------------------------------------------------------------------`);
     return true;
   }
 
-
   try {
     await getTransporter().sendMail({
-      from: `"Employee Portal" <${env.SMTP_FROM || env.smtpFrom}>`,
+      from: `"${HRMS_PRODUCT_NAME}" <${env.SMTP_FROM || env.smtpFrom}>`,
       to: params.to,
-      subject: 'Timesheet Checkout Reminder',
+      subject,
       html,
     });
     console.log(`✓ Reminder email sent to ${params.to}`);
@@ -145,57 +237,58 @@ interface AutoCheckoutEmailParams {
   employeeName: string;
   checkInTime: Date;
   checkOutTime: Date;
-  totalHours: number;
+  totalDurationMs: number;
+  projectName?: string;
+  workDescription?: string;
+  autoCheckoutReason: string;
 }
 
 export async function sendAutoCheckoutConfirmationEmail(params: AutoCheckoutEmailParams): Promise<boolean> {
-  const fmt = (d: Date) =>
-    d.toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const totalDuration = formatDurationFromMs(params.totalDurationMs, true);
+  const detailRows: Array<{ label: string; value: string }> = [
+    { label: 'Employee', value: params.employeeName },
+    { label: 'Project', value: params.projectName || 'No active project' },
+    { label: 'Check-in Time', value: formatEmailDateTime(params.checkInTime) },
+    { label: 'Auto Checkout Time', value: formatEmailDateTime(params.checkOutTime) },
+    { label: 'Total Worked Duration', value: totalDuration },
+    { label: 'Reason', value: params.autoCheckoutReason },
+  ];
 
-  const html = `
-    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
-      <div style="background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); padding: 32px 24px; text-align: center;">
-        <h1 style="color: #ffffff; margin: 0; font-size: 22px;">✅ Automatic Checkout Completed</h1>
-      </div>
-      <div style="padding: 32px 24px;">
-        <p style="font-size: 16px; color: #1a1a1a; margin: 0 0 16px;">Hello <strong>${params.employeeName}</strong>,</p>
-        <p style="font-size: 15px; color: #4a4a4a; line-height: 1.6; margin: 0 0 16px;">
-          You were automatically checked out because your session remained active past the auto-checkout time.
-        </p>
-        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 16px; border-radius: 8px; margin: 20px 0;">
-          <table style="width: 100%; font-size: 14px; color: #1a1a1a;">
-            <tr><td style="padding: 4px 0; color: #6b7280;">Check-in:</td><td style="padding: 4px 0; font-weight: 600;">${fmt(params.checkInTime)}</td></tr>
-            <tr><td style="padding: 4px 0; color: #6b7280;">Auto Check-out:</td><td style="padding: 4px 0; font-weight: 600;">${fmt(params.checkOutTime)}</td></tr>
-            <tr><td style="padding: 4px 0; color: #6b7280;">Total Hours:</td><td style="padding: 4px 0; font-weight: 600;">${params.totalHours}h</td></tr>
-          </table>
-        </div>
-        <p style="font-size: 14px; color: #6b7280; margin: 24px 0 0;">
-          If you need to correct your timesheet, please contact your administrator.
-        </p>
-      </div>
-      <div style="background: #f9fafb; padding: 16px 24px; text-align: center; border-top: 1px solid #e5e7eb;">
-        <p style="margin: 0; font-size: 12px; color: #9ca3af;">This is an automated message from the Employee Portal.</p>
-      </div>
-    </div>
-  `;
+  if (params.workDescription) {
+    detailRows.splice(2, 0, { label: 'Work Description', value: params.workDescription });
+  }
+
+  const html = buildHrmsTimesheetEmailHtml({
+    eyebrow: 'Automatic Checkout',
+    title: 'Automatic Checkout Confirmation',
+    greetingName: params.employeeName,
+    intro:
+      'Your active work session was automatically checked out by the HRMS timesheet system. The session details below have been recorded in your work history.',
+    highlightTitle: 'Session Timing Summary',
+    accentColor: '#d97706',
+    detailRows,
+    notice:
+      'If any detail is incorrect, please contact your administrator to request a timesheet correction.',
+  });
+
+  const subject = 'Automatic Checkout Confirmation';
 
   if (!env.enableEmailNotifications || !isEmailConfigured()) {
     console.log(`[Email Service] [MOCK MODE] Email notifications disabled or credentials missing. Auto-checkout confirmation to: ${params.to}`);
     console.log(`----------------------------------------------------------------------`);
     console.log(`TO:       ${params.to}`);
-    console.log(`SUBJECT:  Automatic Checkout Completed — Timesheet Updated`);
+    console.log(`SUBJECT:  ${subject}`);
     console.log(`HTML BODY PREVIEW (first 300 chars):`);
     console.log(html.substring(0, 300) + '...');
     console.log(`----------------------------------------------------------------------`);
     return true;
   }
 
-
   try {
     await getTransporter().sendMail({
-      from: `"Employee Portal" <${env.SMTP_FROM || env.smtpFrom}>`,
+      from: `"${HRMS_PRODUCT_NAME}" <${env.SMTP_FROM || env.smtpFrom}>`,
       to: params.to,
-      subject: 'Automatic Checkout Completed — Timesheet Updated',
+      subject,
       html,
     });
     console.log(`✓ Auto-checkout confirmation sent to ${params.to}`);

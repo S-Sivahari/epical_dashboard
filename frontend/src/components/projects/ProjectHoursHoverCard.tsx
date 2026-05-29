@@ -16,8 +16,8 @@ export interface ProjectHoursHoverCardProps {
 function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="grid grid-cols-[5.5rem_1fr] gap-2 border-b border-slate-100/90 py-2 last:border-b-0 last:pb-0 first:pt-0">
-      <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</dt>
-      <dd className="min-w-0 text-right text-[11px] font-semibold leading-snug text-slate-700 break-words">
+      <dt className="type-card-label-caps text-[10px] text-slate-400">{label}</dt>
+      <dd className="type-body min-w-0 text-right text-[11px] font-semibold leading-snug text-slate-700 break-words">
         {value}
       </dd>
     </div>
@@ -50,7 +50,7 @@ export function ProjectHoursHoverCard({
             {projectName}
           </div>
           <div className="mt-2 flex items-baseline justify-between gap-1">
-            <span className="text-base font-black tracking-tight tabular-nums">{hours.toFixed(1)}</span>
+            <span className="type-metric text-base font-black tracking-tight text-white">{hours.toFixed(1)}</span>
             <span className="text-[10px] font-extrabold opacity-95">
               {isGreaterThanAverage ? '+' : ''}
               {percentage}%
@@ -73,7 +73,7 @@ export function ProjectHoursHoverCard({
             <div className="border-b border-emerald-100/80 bg-gradient-to-r from-emerald-50/90 to-white px-3.5 py-2.5">
               <div className="flex items-start gap-2">
                 <span className="mt-0.5 h-3.5 w-1 shrink-0 rounded-full bg-emerald-500" aria-hidden />
-                <p className="min-w-0 flex-1 text-[11px] font-bold leading-snug text-slate-800 break-words">
+                <p className="type-card-title min-w-0 flex-1 text-[11px] leading-snug text-slate-800 break-words">
                   {projectName}
                 </p>
               </div>

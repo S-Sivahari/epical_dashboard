@@ -11,6 +11,7 @@ import { KPIStatCard } from '@components/employee/shared/KPIStatCard'
 import { DataTable } from '@components/employee/shared/DataTable'
 import { DateRangePicker } from '@components/employee/shared/DateRangePicker'
 import { useTimesheetStore } from '@store/employee/timesheetStore'
+import { formatSessionDuration } from '@utils/durationFormat'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { formatDateKey, getPresetDateRange, getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
 import { TimesheetLiveSessionPanel } from '@pages/employee/TimesheetLiveSessionPanel'
@@ -411,26 +412,15 @@ export default function Timesheet() {
       .filter((s) => isDateInRange(s.date, historyRange.start, historyRange.end))
       .forEach((s) => {
         const loginMs = s.loginTime ? new Date(s.loginTime).getTime() : 0
-        const logoutMs = s.logoutTime ? new Date(s.logoutTime).getTime() : (s.taskStatus === 'In Progress' ? liveNow : 0)
-        
-        let durationStr = '—'
-        if (loginMs && logoutMs) {
-          const diffMs = logoutMs - loginMs
-          if (diffMs > 0) {
-            const totalMinutes = Math.round(diffMs / 60000)
-            const hrs = Math.floor(totalMinutes / 60)
-            const mins = totalMinutes % 60
-            if (hrs === 0) {
-              durationStr = `${mins}min`
-            } else if (mins === 0) {
-              durationStr = `${hrs}hr`
-            } else {
-              durationStr = `${hrs}hr ${mins}min`
-            }
-          } else {
-            durationStr = '0min'
-          }
-        }
+        const durationStr =
+          s.durationLabel ||
+          formatSessionDuration({
+            loginTime: s.loginTime,
+            logoutTime: s.logoutTime,
+            totalHours: s.totalHours,
+            totalPausedMs: s.totalPausedMs,
+            taskStatus: s.taskStatus,
+          })
 
         entries.push({
           id: `task-${s.id}`,
@@ -440,8 +430,9 @@ export default function Timesheet() {
           description:
             stripTaskLabelPrefix(s.task, { projectName: s.project }) || '—',
           start: s.start,
-          end: s.end,
+          end: s.end || (s.autoCheckedOut ? formatTimeLabel(s.logoutTime) : s.end),
           duration: durationStr,
+          statusNote: s.autoCheckedOut ? 'Auto Checked-Out' : null,
         })
       })
 
@@ -463,7 +454,7 @@ export default function Timesheet() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="dashboard-surface space-y-4">
       {/* Top analytics summary */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-stretch">
         <KPIStatCard
@@ -487,10 +478,8 @@ export default function Timesheet() {
       {/* Hybrid workspace: form 55% | live session 45% */}
       <section className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
         <div className="border-b border-border/60 bg-slate-50/50 px-4 py-3 sm:px-5">
-          <h3 className="font-heading text-base font-semibold text-foreground sm:text-lg">
-            Work session
-          </h3>
-          <p className="mt-0.5 text-xs text-muted">
+          <h3 className="type-section-title">Work session</h3>
+          <p className="type-body-sm mt-0.5">
             Check in to track time on your assigned project. Update your description before checking out.
           </p>
         </div>
@@ -629,7 +618,7 @@ export default function Timesheet() {
       <div className="grid gap-3 lg:grid-cols-2 lg:items-stretch">
         <div className="flex min-h-[320px] flex-col rounded-xl border border-border bg-card p-4 shadow-card sm:p-5">
           <div className="mb-3 flex shrink-0 items-center justify-between gap-2 border-b border-border/60 pb-2.5">
-            <h4 className="font-heading text-sm font-semibold text-foreground sm:text-base">Weekly Hours</h4>
+            <h4 className="type-card-title">Weekly Hours</h4>
             <span className="text-xs font-semibold tabular-nums text-muted">This week</span>
           </div>
           <div className="min-h-0 flex-1 w-full" style={{ height: WEEKLY_CHART_HEIGHT }}>
@@ -645,10 +634,8 @@ export default function Timesheet() {
 
         <div className="flex min-h-[320px] flex-col rounded-xl border border-teal-200/60 bg-gradient-to-b from-teal-50/30 to-card p-4 shadow-card sm:p-5">
           <div className="mb-3 flex shrink-0 items-center justify-between gap-2 border-b border-teal-100 pb-2.5">
-            <h4 className="font-heading text-sm font-semibold text-teal-900 sm:text-base">
-              Project breakdown
-            </h4>
-            <span className="text-xs font-bold tabular-nums text-teal-700">
+            <h4 className="type-card-title text-teal-900">Project breakdown</h4>
+            <span className="type-metric text-xs text-teal-700">
               {projectWiseTotal.toFixed(1)}h
             </span>
           </div>
@@ -671,7 +658,7 @@ export default function Timesheet() {
 
       <section className="rounded-xl border border-border bg-card p-4 shadow-card sm:p-5">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="font-heading text-base font-semibold text-foreground sm:text-lg">Work History</h3>
+          <h3 className="type-section-title">Work History</h3>
           <DateRangePicker
             startDate={historyStart}
             endDate={historyEnd}

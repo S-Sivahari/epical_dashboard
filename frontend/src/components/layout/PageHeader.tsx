@@ -26,12 +26,8 @@ export function PageHeader({
       )}
     >
       <div>
-        {title && (
-          <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">{title}</h1>
-        )}
-        {subtitle ? (
-          <p className={cn('max-w-2xl text-sm text-muted', title ? 'mt-1' : '')}>{subtitle}</p>
-        ) : null}
+        {title && <h1 className="font-display text-3xl font-bold tracking-tight text-slate-900">{title}</h1>}
+        {subtitle ? <p className={cn('max-w-2xl text-sm text-muted', title ? 'mt-1' : '')}>{subtitle}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
     </header>

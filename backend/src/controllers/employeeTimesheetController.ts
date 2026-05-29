@@ -9,6 +9,8 @@ import { getUserById } from '../services/authService';
 import { resolveEmployeeForAuthUser } from '../utils/employeeAuth';
 import { syncProjectForTimesheet, getTimesheetWorkflowStatus } from '../utils/syncProject';
 import { buildAssignmentIdentityTokens, ensureAssignedTasksForEmployee } from '../utils/assignedTaskSync';
+import { openAttendanceFilter } from '../utils/attendanceQueries';
+import { computeTotalHoursDecimal } from '../utils/durationFormat';
 import { getAutoCheckoutSettings, updateAutoCheckoutSettings } from '../services/autoCheckoutService';
 import { restartScheduler } from '../services/timesheetScheduler';
 
@@ -121,7 +123,12 @@ function toFrontendTimesheet(t: any) {
     task: t.task || '',
     adminNotes: t.adminNotes,
     overriddenHours: t.overriddenHours,
-    totalHours: t.totalHours,
+    totalHours:
+      t.totalHours ??
+      (t.logoutTime
+        ? computeTotalHoursDecimal(t.loginTime, t.logoutTime, t.totalPausedMs, t.overriddenHours)
+        : undefined),
+    autoCheckedOut: t.autoCheckedOut ?? false,
     taskStatus: t.taskStatus || (t.logoutTime ? 'Pending' : 'Session Incomplete'),
     workflowStatus: getTimesheetWorkflowStatus(t),
     pausedAt: t.pausedAt ? t.pausedAt.toISOString() : undefined,
@@ -184,10 +191,9 @@ async function resolveEmployee(req: Request): Promise<ResolvedEmployee | null> {
 }
 
 async function requireOpenAttendance(employeeId: string) {
-  const attendance = await EmployeeAttendanceModel.findOne({
-    employeeId,
-    checkOutTime: { $exists: false },
-  }).sort({ checkInTime: -1 });
+  const attendance = await EmployeeAttendanceModel.findOne(
+    openAttendanceFilter({ employeeId })
+  ).sort({ checkInTime: -1 });
   return attendance;
 }
 
@@ -203,6 +209,18 @@ function startOfWeekISO(): string {
   const diff = day === 0 ? 6 : day - 1;
   d.setDate(d.getDate() - diff);
   return d.toISOString().slice(0, 10);
+}
+
+function buildSessionDateMatch(from?: string, to?: string) {
+  if (!from && !to) return null;
+
+  const rangeFilter: Record<string, Date> = {};
+  if (from) rangeFilter.$gte = new Date(`${from}T00:00:00.000Z`);
+  if (to) rangeFilter.$lte = new Date(`${to}T23:59:59.999Z`);
+
+  return {
+    $or: [{ loginTime: rangeFilter }, { logoutTime: rangeFilter }],
+  };
 }
 
 export type ProjectWiseHoursRow = {
@@ -299,10 +317,23 @@ async function aggregateProjectWiseHoursForEmployee(
 }
 
 async function fetchActiveTaskPayload(employee: ResolvedEmployee) {
+  const openAttendance = await requireOpenAttendance(employee.id);
+  if (!openAttendance) {
+    return { active: null, pausedTasks: [] };
+  }
+
   const openLogs = await TimesheetModel.find({
-    employeeId: employee.employeeId,
-    $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }],
-    taskStatus: { $in: ['In Progress', 'Paused', 'Session Incomplete'] },
+    $and: [
+      {
+        $or: [
+          { employeeId: { $in: employee.identityTokens } },
+          { employee: { $in: employee.identityTokens } },
+        ],
+      },
+      { $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }] },
+      { loginTime: { $gte: openAttendance.checkInTime } },
+      { taskStatus: { $in: ['In Progress', 'Paused', 'Session Incomplete'] } },
+    ],
   })
     .sort({ loginTime: -1 })
     .lean();
@@ -412,10 +443,20 @@ export const employeeTimesheetController = {
       const monthFrom = startOfMonthISO();
       const weekFrom = startOfWeekISO();
       const today = todayDateKey();
+      const identityTokens = employee.identityTokens?.length ? employee.identityTokens : [employee.employeeId]
 
       const sessionMatch = {
-        employeeId: employee.employeeId,
-        date: { $gte: monthFrom, $lte: today },
+        $and: [
+          {
+            $or: [
+              { employeeId: { $in: identityTokens } },
+              { employee: { $in: identityTokens } },
+            ],
+          },
+          buildSessionDateMatch(monthFrom, today) ?? {
+            loginTime: { $gte: new Date(`${monthFrom}T00:00:00.000Z`), $lte: new Date(`${today}T23:59:59.999Z`) },
+          },
+        ],
       };
 
       const [openAttendance, latestAttendance, activePayload, assignedTasks, sessions, attendanceHistory, projectWiseHours] =
@@ -437,22 +478,13 @@ export const employeeTimesheetController = {
       res.json({
         serverTime: new Date().toISOString(),
         attendance: buildAttendanceResponse(openAttendance, latestAttendance),
-        active: activePayload.active,
-        pausedTasks: activePayload.pausedTasks,
-        assignedTasks,
-        sessions: sessions.map(toFrontendTimesheet),
-        attendanceHistory: attendanceHistory.map((r) => toFrontendAttendance(r as any)),
-        projectWiseHours,
-      });
-    } catch (error) {
-      console.error('Error loading timesheet bootstrap:', error);
-      res.status(500).json({ error: 'Failed to load timesheet' });
-    }
+      const identityTokens = employee.identityTokens?.length ? employee.identityTokens : [employee.employeeId]
+      const match: Record<string, any> = {
   },
 
   getMyAssignedTasks: async (req: Request, res: Response): Promise<void> => {
-    try {
-      const employee = await resolveEmployee(req);
+              { employeeId: { $in: identityTokens } },
+              { employee: { $in: identityTokens } },
       if (!employee) {
         res.status(401).json({ error: 'Unauthorized' });
         return;
@@ -460,11 +492,10 @@ export const employeeTimesheetController = {
 
       void ensureAssignedTasksForEmployee({
         id: employee.id,
-        name: employee.name,
+        typeof to === 'string' ? to : undefined,
         email: employee.email,
         employeeName: employee.employeeName,
         employeeId: employee.employeeId,
-      }).catch((err) => console.error('Background assigned-task sync failed:', err));
 
       res.json(await fetchAssignedTasksForEmployee(employee));
     } catch (error) {
@@ -566,17 +597,25 @@ export const employeeTimesheetController = {
       }
 
       const { from, to } = req.query;
-      const match: Record<string, unknown> = {
-        employeeId: employee.employeeId,
+      const identityTokens = employee.identityTokens?.length ? employee.identityTokens : [employee.employeeId]
+      const match: Record<string, any> = {
+        $and: [
+          {
+            $or: [
+              { employeeId: { $in: identityTokens } },
+              { employee: { $in: identityTokens } },
+            ],
+          },
+        ],
       };
 
-      if (from || to) {
-        const dateFilter: Record<string, string> = {};
-        if (typeof from === 'string' && from) dateFilter.$gte = from;
-        if (typeof to === 'string' && to) dateFilter.$lte = to;
-        if (Object.keys(dateFilter).length > 0) {
-          match.date = dateFilter;
-        }
+      const dateMatch = buildSessionDateMatch(
+        typeof from === 'string' ? from : undefined,
+        typeof to === 'string' ? to : undefined,
+      );
+      if (dateMatch) {
+        match.$and.push(dateMatch);
+      }
       }
 
       const logs = await TimesheetModel.find(match).sort({ loginTime: -1 });
@@ -1209,10 +1248,9 @@ export const employeeTimesheetController = {
         return;
       }
 
-      const attendance = await EmployeeAttendanceModel.findOne({
-        employeeId: employee.id,
-        checkOutTime: { $exists: false },
-      }).sort({ checkInTime: -1 });
+      const attendance = await EmployeeAttendanceModel.findOne(
+        openAttendanceFilter({ employeeId: employee.id })
+      ).sort({ checkInTime: -1 });
 
       if (!attendance) {
         res.json({ active: false });
@@ -1250,10 +1288,11 @@ export const employeeTimesheetController = {
         return;
       }
 
-      const openAttendance = await EmployeeAttendanceModel.findOne({
-        employeeId: employee.id,
-        checkOutTime: { $exists: false },
-      }).sort({ checkInTime: -1 }).lean();
+      const openAttendance = await EmployeeAttendanceModel.findOne(
+        openAttendanceFilter({ employeeId: employee.id })
+      )
+        .sort({ checkInTime: -1 })
+        .lean();
 
       if (!openAttendance) {
         res.json({ hasActiveSession: false, elapsedMs: 0, serverTime: new Date().toISOString() });
@@ -1264,11 +1303,17 @@ export const employeeTimesheetController = {
       const checkInTime = new Date(openAttendance.checkInTime);
       const elapsedMs = now.getTime() - checkInTime.getTime();
 
-      // Calculate total paused duration across all tasks in this session
       const sessionTasks = await TimesheetModel.find({
-        employeeId: employee.employeeId,
-        loginTime: { $gte: checkInTime },
-        $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }],
+        $and: [
+          {
+            $or: [
+              { employeeId: { $in: employee.identityTokens } },
+              { employee: { $in: employee.identityTokens } },
+            ],
+          },
+          { loginTime: { $gte: checkInTime } },
+          { $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }] },
+        ],
       }).lean();
 
       let totalPausedMs = sessionTasks.reduce((sum, task) => sum + (task.totalPausedMs || 0), 0);

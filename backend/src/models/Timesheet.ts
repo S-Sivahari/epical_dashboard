@@ -26,6 +26,7 @@ export interface Timesheet extends Document {
   taskStatus?: 'Pending' | 'In Progress' | 'Paused' | 'Completed' | 'Session Incomplete';
   pausedAt?: Date;
   totalPausedMs?: number;
+  autoCheckedOut?: boolean;
   createdAt: Date;
 }
 
@@ -72,6 +73,7 @@ const TimesheetSchema = new Schema<Timesheet>(
     },
     pausedAt: { type: Date },
     totalPausedMs: { type: Number, default: 0 },
+    autoCheckedOut: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

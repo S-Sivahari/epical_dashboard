@@ -5,10 +5,18 @@ import { env } from '../config/env';
 
 let reminderJob: ScheduledTask | null = null;
 let autoCheckoutJob: ScheduledTask | null = null;
+let overdueSweepJob: ScheduledTask | null = null;
 
 function timeToCron(timeStr: string): string {
   const [hours, minutes] = timeStr.split(':').map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    throw new Error(`Invalid HH:mm time value: "${timeStr}"`);
+  }
   return `${minutes} ${hours} * * *`;
+}
+
+function cronOptions() {
+  return { timezone: env.schedulerTimezone };
 }
 
 async function scheduleJobs() {
@@ -24,46 +32,79 @@ async function scheduleJobs() {
     autoCheckoutJob.stop();
     autoCheckoutJob = null;
   }
+  if (overdueSweepJob) {
+    console.log('[Scheduler] Stopping existing overdue sweep job.');
+    overdueSweepJob.stop();
+    overdueSweepJob = null;
+  }
 
   if (!settings.enabled) {
-    console.log('⚠ Auto-checkout scheduler disabled via settings');
+    console.log('[Scheduler] Auto-checkout scheduler disabled via settings');
     return;
   }
 
   const reminderCron = env.testCronTimings ? '* * * * *' : timeToCron(settings.reminderTime);
   const autoCheckoutCron = env.testCronTimings ? '* * * * *' : timeToCron(settings.autoCheckoutTime);
+  const overdueSweepCron = env.testCronTimings ? '* * * * *' : '*/5 * * * *';
 
-  console.log('Reminder cron started');
-  reminderJob = cron.schedule(reminderCron, async () => {
-    console.log('Reminder cron tick');
-    console.log(`[Scheduler] Running reminder job at ${new Date().toISOString()}`);
-    try {
-      await processReminders();
-    } catch (error) {
-      console.error('[Scheduler] Reminder job error:', error);
-    }
-  });
+  console.log(
+    `[Scheduler] Configuring jobs (timezone=${env.schedulerTimezone}, testMode=${env.testCronTimings})`
+  );
+  console.log(
+    `[Scheduler] Reminder=${settings.reminderTime} (${reminderCron}), Auto-checkout=${settings.autoCheckoutTime} (${autoCheckoutCron}), Overdue sweep=${overdueSweepCron}`
+  );
 
-  console.log('Auto-checkout cron started');
-  autoCheckoutJob = cron.schedule(autoCheckoutCron, async () => {
-    console.log('Auto-checkout cron tick');
-    console.log(`[Scheduler] Running auto-checkout job at ${new Date().toISOString()}`);
-    try {
-      await processAutoCheckouts();
-    } catch (error) {
-      console.error('[Scheduler] Auto-checkout job error:', error);
-    }
-  });
+  reminderJob = cron.schedule(
+    reminderCron,
+    async () => {
+      const tickAt = new Date().toISOString();
+      console.log(`[Scheduler] Reminder cron tick at ${tickAt}`);
+      try {
+        await processReminders();
+      } catch (error) {
+        console.error('[Scheduler] Reminder job error:', error);
+      }
+    },
+    cronOptions()
+  );
 
-  console.log('Timesheet scheduler initialized');
-  console.log(`✓ Scheduler started (Test Mode: ${env.testCronTimings}) — Reminder Cron: ${reminderCron}, Auto-checkout Cron: ${autoCheckoutCron}`);
+  autoCheckoutJob = cron.schedule(
+    autoCheckoutCron,
+    async () => {
+      const tickAt = new Date().toISOString();
+      console.log(`[Scheduler] Auto-checkout cron tick at ${tickAt}`);
+      try {
+        await processAutoCheckouts();
+      } catch (error) {
+        console.error('[Scheduler] Auto-checkout job error:', error);
+      }
+    },
+    cronOptions()
+  );
+
+  overdueSweepJob = cron.schedule(
+    overdueSweepCron,
+    async () => {
+      if (env.testCronTimings) return;
+      try {
+        await processAutoCheckouts();
+      } catch (error) {
+        console.error('[Scheduler] Overdue auto-checkout sweep error:', error);
+      }
+    },
+    cronOptions()
+  );
+
+  console.log('[Scheduler] Timesheet scheduler initialized');
 }
 
 export async function initScheduler() {
   try {
     await scheduleJobs();
+    console.log('[Scheduler] Running startup overdue auto-checkout sweep...');
+    await processAutoCheckouts();
   } catch (error) {
-    console.error('✗ Failed to initialize scheduler:', error);
+    console.error('[Scheduler] Failed to initialize scheduler:', error);
   }
 }
 
@@ -81,5 +122,9 @@ export function stopScheduler() {
     autoCheckoutJob.stop();
     autoCheckoutJob = null;
   }
-  console.log('✓ Scheduler stopped');
+  if (overdueSweepJob) {
+    overdueSweepJob.stop();
+    overdueSweepJob = null;
+  }
+  console.log('[Scheduler] Scheduler stopped');
 }

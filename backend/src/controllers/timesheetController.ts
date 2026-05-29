@@ -54,6 +54,8 @@ function toFrontendTimesheet(t: any) {
     adminNotes: t.adminNotes,
     overriddenHours: t.overriddenHours,
     totalHours: t.totalHours,
+    totalPausedMs: t.totalPausedMs || 0,
+    autoCheckedOut: t.autoCheckedOut ?? false,
     taskStatus: t.taskStatus || (t.logoutTime ? 'Pending' : 'Session Incomplete'),
     workflowStatus: getTimesheetWorkflowStatus(t),
   };

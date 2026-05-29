@@ -89,13 +89,9 @@ export function LiveSessionTimer({
 
   return (
     <div className="flex flex-col items-center justify-center rounded-xl border border-emerald-200/70 bg-gradient-to-b from-emerald-50/80 to-white px-4 py-6 text-center shadow-sm">
-      <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-800/80">
-        Active session
-      </p>
-      <p className="mt-2 font-mono text-4xl font-bold tabular-nums tracking-tight text-emerald-700 sm:text-5xl">
-        {elapsed}
-      </p>
-      <p className="mt-2 text-sm font-medium text-muted">Since {sinceLabel}</p>
+      <p className="type-card-label-caps tracking-widest text-emerald-800/80">Active session</p>
+      <p className="type-metric-xl mt-2 text-emerald-700 sm:text-5xl">{elapsed}</p>
+      <p className="type-body mt-2">Since {sinceLabel}</p>
       {isPaused && (
         <span className="mt-3 inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-amber-800">
           Paused
@@ -152,13 +148,11 @@ export function TimesheetLiveSessionPanel({
 
       {currentWorkTask && !checkoutReview && (
         <div className="flex flex-1 flex-col rounded-xl border border-border bg-white p-4 shadow-sm">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted">Current project</p>
-          <p className="mt-1.5 font-heading text-base font-semibold text-foreground">
-            {currentWorkTask.project}
-          </p>
+          <p className="type-card-label-caps text-[10px] tracking-widest">Current project</p>
+          <p className="type-card-title mt-1.5">{currentWorkTask.project}</p>
           {descriptionPreview ? (
             <div className="timesheet-panel-scroll mt-2 max-h-28 flex-1 overflow-y-auto rounded-lg border border-border/60 bg-slate-50/80 px-3 py-2">
-              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-muted">
+              <p className="type-body whitespace-pre-wrap break-words">
                 {descriptionPreview}
               </p>
             </div>

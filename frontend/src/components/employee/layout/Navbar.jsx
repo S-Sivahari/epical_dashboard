@@ -34,7 +34,7 @@ export function Navbar() {
           <Menu className="h-5 w-5 text-black" />
         </button>
         <div className="hidden sm:block">
-          <h1 className="font-display text-2xl font-semibold text-black">{title}</h1>
+          <h1 className="font-display text-3xl font-bold text-black">{title}</h1>
           {showWelcomeSubtitle && (
             <p className="text-xs text-muted font-medium">Welcome back, {firstName}</p>
           )}

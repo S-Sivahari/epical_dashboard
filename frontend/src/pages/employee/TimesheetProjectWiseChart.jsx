@@ -11,8 +11,8 @@ export function TimesheetProjectWiseChart({ data = [] }) {
     return (
       <div className="flex h-full min-h-[200px] flex-col items-center justify-center rounded-lg border border-dashed border-border bg-slate-50/50 px-4 text-center">
         <FolderKanban className="mb-2 h-8 w-8 text-slate-300" />
-        <p className="text-sm font-semibold text-muted">No project hours this week</p>
-        <p className="mt-1 text-xs text-muted">Hours appear after you log time on assigned projects.</p>
+        <p className="type-body font-semibold text-muted">No project hours this week</p>
+        <p className="type-body-sm mt-1">Hours appear after you log time on assigned projects.</p>
       </div>
     )
   }
@@ -27,10 +27,10 @@ export function TimesheetProjectWiseChart({ data = [] }) {
             className="rounded-lg border border-border/80 bg-slate-50/40 px-3 py-2.5 transition-colors hover:bg-slate-50"
           >
             <div className="flex items-baseline justify-between gap-2">
-              <p className="min-w-0 truncate text-sm font-bold text-foreground" title={item.project}>
+              <p className="type-body min-w-0 truncate font-semibold text-foreground" title={item.project}>
                 {item.project}
               </p>
-              <span className="shrink-0 text-sm font-extrabold tabular-nums text-teal-700">
+              <span className="type-metric-inline shrink-0 text-teal-700">
                 {item.hours.toFixed(1)}h
               </span>
             </div>

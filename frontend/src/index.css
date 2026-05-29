@@ -1,5 +1,6 @@
 @tailwind base;
 @tailwind components;
+@import './styles/typography.css';
 @tailwind utilities;
 
 @layer base {
@@ -121,21 +122,32 @@
   animation-play-state: paused;
 }
 
-/* FullCalendar minimal layout */
+/* FullCalendar — DM Sans body, Plus Jakarta toolbar title */
 .fc {
   --fc-border-color: #e2e8f0;
   --fc-today-bg-color: #f0fdf4;
   --fc-event-bg-color: #16a34a;
   --fc-event-border-color: #16a34a;
-  font-family: 'DM Sans', system-ui, sans-serif;
+  --fc-font-family: 'DM Sans', system-ui, sans-serif;
+  font-family: var(--fc-font-family);
 }
 .fc .fc-toolbar-title {
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   font-size: 1.125rem;
   font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.fc .fc-col-header-cell-cushion,
+.fc .fc-daygrid-day-number,
+.fc .fc-list-day-text,
+.fc .fc-list-day-side-text,
+.fc .fc-timegrid-slot-label-cushion,
+.fc .fc-timegrid-axis-cushion {
+  font-family: var(--fc-font-family);
+  font-size: 0.8125rem;
 }
 .fc .fc-button {
-  @apply rounded-lg border border-border bg-white text-sm font-medium text-ink shadow-sm;
+  @apply rounded-lg border border-border bg-white font-body text-sm font-medium text-ink shadow-sm;
 }
 .fc .fc-button-primary:not(:disabled).fc-button-active,
 .fc .fc-button-primary:not(:disabled):active {
