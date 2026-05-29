@@ -25,10 +25,16 @@ import { Avatar } from '@components/ui/Avatar'
 import { SelectField } from '@components/forms/SelectField'
 import { stringToHueColor } from '@/utils/stringColor'
 import { toast } from 'sonner'
+import { useAuthStore } from '@store/authStore'
+import {
+  clearPayslipUploadSession,
+  readPayslipUploadSession,
+  savePayslipUploadSession,
+} from '@/utils/payslipUploadSession'
 import {
   downloadPayrollTemplate,
   uploadPayroll,
-  getLatestPayrollBatch,
+  getPayrollBatch,
   listBatches,
   openPayslipPdf,
   downloadPayslipPdf,
@@ -139,14 +145,15 @@ function batchMatchesPeriod(
 
 export function PayslipManagement({ embedded: _embedded = false }: { embedded?: boolean }) {
   const { employees, loading: employeesLoading } = useEmployees()
+  const userId = useAuthStore((s) => s.user?.id)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Tabs
   const [activeTab, setActiveTab] = useState<TabId>('upload')
 
-  // Upload tab state
+  // Upload tab state — empty on open; only restored from current login session (refresh-safe)
   const [batch, setBatch] = useState<PayrollBatch | null>(null)
-  const [loadingBatch, setLoadingBatch] = useState(true)
+  const [loadingBatch, setLoadingBatch] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [sendingId, setSendingId] = useState<string | null>(null)
   const [sendingAll, setSendingAll] = useState(false)
@@ -179,17 +186,39 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
 
   // ── Loaders ────────────────────────────────────────────────────────────────
 
-  const loadLatestBatch = useCallback(async () => {
+  const setUploadBatch = useCallback(
+    (next: PayrollBatch | null) => {
+      setBatch(next)
+      if (!userId) return
+      if (next) savePayslipUploadSession(userId, next.id)
+      else clearPayslipUploadSession()
+    },
+    [userId],
+  )
+
+  const restoreSessionBatch = useCallback(async () => {
+    if (!userId) {
+      setBatch(null)
+      return
+    }
+
+    const batchId = readPayslipUploadSession(userId)
+    if (!batchId) {
+      setBatch(null)
+      return
+    }
+
     setLoadingBatch(true)
     try {
-      const latest = await getLatestPayrollBatch()
-      setBatch(latest)
+      const restored = await getPayrollBatch(batchId)
+      setBatch(restored)
     } catch {
-      toast.error('Failed to load payroll history')
+      clearPayslipUploadSession()
+      setBatch(null)
     } finally {
       setLoadingBatch(false)
     }
-  }, [])
+  }, [userId])
 
   const loadAllBatches = useCallback(async () => {
     setLoadingHistory(true)
@@ -204,9 +233,16 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
   }, [])
 
   useEffect(() => {
-    void loadLatestBatch()
+    void restoreSessionBatch()
     void loadTemplateMeta()
-  }, [loadLatestBatch])
+  }, [restoreSessionBatch])
+
+  useEffect(() => {
+    if (!userId) {
+      setBatch(null)
+      clearPayslipUploadSession()
+    }
+  }, [userId])
 
   useEffect(() => {
     if (activeTab === 'history') {
@@ -343,7 +379,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
         employeeDbIdByEmpId: options?.resendPayslips ? buildEmployeeDbIdMap() : undefined,
       })
       const newBatch = result.batch
-      setBatch(newBatch)
+      setUploadBatch(newBatch)
       setSelectedFile(null)
       setReplaceConfirm(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -393,7 +429,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
     setDeletingBatch(true)
     try {
       await deletePayrollBatch(batch.id)
-      setBatch(null)
+      setUploadBatch(null)
       setBatchDeleteOpen(false)
     } catch (error: unknown) {
       const message =
@@ -410,7 +446,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
     setDeletingPayslip(payslipDeleteTarget.fileName)
     try {
       const updated = await deletePayslip(batch.id, payslipDeleteTarget.fileName)
-      setBatch(updated)
+      setUploadBatch(updated)
       setPayslipDeleteTarget(null)
     } catch (error: unknown) {
       const message =
@@ -432,7 +468,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
     setSendingAll(true)
     try {
       const result = await sendAllPayslipsToDashboard(batch.id, buildEmployeeDbIdMap())
-      setBatch(result.batch)
+      setUploadBatch(result.batch)
       if (result.failed.length > 0) {
         toast.warning(`${result.failed.length} failed: ${result.failed.map((f) => f.empId).join(', ')}`)
       }
@@ -470,7 +506,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
     setSendingId(empId)
     try {
       const updated = await sendPayslipToDashboard(batch.id, empId, fileName, employeeDbId)
-      setBatch(updated)
+      setUploadBatch(updated)
     } catch (error: unknown) {
       const message =
         (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
