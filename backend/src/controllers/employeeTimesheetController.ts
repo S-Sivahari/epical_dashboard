@@ -443,20 +443,24 @@ export const employeeTimesheetController = {
       const monthFrom = startOfMonthISO();
       const weekFrom = startOfWeekISO();
       const today = todayDateKey();
-      const identityTokens = employee.identityTokens?.length ? employee.identityTokens : [employee.employeeId]
 
       const sessionMatch = {
+<<<<<<< HEAD
+        employeeId: employee.employeeId,
+        date: { $gte: monthFrom, $lte: today },
+=======
         $and: [
           {
             $or: [
-              { employeeId: { $in: identityTokens } },
-              { employee: { $in: identityTokens } },
+              { employeeId: { $in: employee.identityTokens } },
+              { employee: { $in: employee.identityTokens } },
             ],
           },
           buildSessionDateMatch(monthFrom, today) ?? {
             loginTime: { $gte: new Date(`${monthFrom}T00:00:00.000Z`), $lte: new Date(`${today}T23:59:59.999Z`) },
           },
         ],
+>>>>>>> 300862c (project_management)
       };
 
       const [openAttendance, latestAttendance, activePayload, assignedTasks, sessions, attendanceHistory, projectWiseHours] =
@@ -478,13 +482,22 @@ export const employeeTimesheetController = {
       res.json({
         serverTime: new Date().toISOString(),
         attendance: buildAttendanceResponse(openAttendance, latestAttendance),
-      const identityTokens = employee.identityTokens?.length ? employee.identityTokens : [employee.employeeId]
-      const match: Record<string, any> = {
+        active: activePayload.active,
+        pausedTasks: activePayload.pausedTasks,
+        assignedTasks,
+        sessions: sessions.map(toFrontendTimesheet),
+        attendanceHistory: attendanceHistory.map((r) => toFrontendAttendance(r as any)),
+        projectWiseHours,
+      });
+    } catch (error) {
+      console.error('Error loading timesheet bootstrap:', error);
+      res.status(500).json({ error: 'Failed to load timesheet' });
+    }
   },
 
   getMyAssignedTasks: async (req: Request, res: Response): Promise<void> => {
-              { employeeId: { $in: identityTokens } },
-              { employee: { $in: identityTokens } },
+    try {
+      const employee = await resolveEmployee(req);
       if (!employee) {
         res.status(401).json({ error: 'Unauthorized' });
         return;
@@ -492,10 +505,11 @@ export const employeeTimesheetController = {
 
       void ensureAssignedTasksForEmployee({
         id: employee.id,
-        typeof to === 'string' ? to : undefined,
+        name: employee.name,
         email: employee.email,
         employeeName: employee.employeeName,
         employeeId: employee.employeeId,
+      }).catch((err) => console.error('Background assigned-task sync failed:', err));
 
       res.json(await fetchAssignedTasksForEmployee(employee));
     } catch (error) {
@@ -597,13 +611,25 @@ export const employeeTimesheetController = {
       }
 
       const { from, to } = req.query;
-      const identityTokens = employee.identityTokens?.length ? employee.identityTokens : [employee.employeeId]
+<<<<<<< HEAD
+      const match: Record<string, unknown> = {
+        employeeId: employee.employeeId,
+      };
+
+      if (from || to) {
+        const dateFilter: Record<string, string> = {};
+        if (typeof from === 'string' && from) dateFilter.$gte = from;
+        if (typeof to === 'string' && to) dateFilter.$lte = to;
+        if (Object.keys(dateFilter).length > 0) {
+          match.date = dateFilter;
+        }
+=======
       const match: Record<string, any> = {
         $and: [
           {
             $or: [
-              { employeeId: { $in: identityTokens } },
-              { employee: { $in: identityTokens } },
+              { employeeId: { $in: employee.identityTokens } },
+              { employee: { $in: employee.identityTokens } },
             ],
           },
         ],
@@ -611,11 +637,11 @@ export const employeeTimesheetController = {
 
       const dateMatch = buildSessionDateMatch(
         typeof from === 'string' ? from : undefined,
-        typeof to === 'string' ? to : undefined,
+        typeof to === 'string' ? to : undefined
       );
       if (dateMatch) {
         match.$and.push(dateMatch);
-      }
+>>>>>>> 300862c (project_management)
       }
 
       const logs = await TimesheetModel.find(match).sort({ loginTime: -1 });

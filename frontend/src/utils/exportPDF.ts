@@ -2,7 +2,11 @@ import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { employeeToExportRow } from '@/constants/employeeExport'
 import type { Employee } from '@/types'
+<<<<<<< HEAD
 import { PDF_LOGO_MAX_WIDTH, drawPdfLogoLeft, fetchExportLogo, scaleExportLogo } from '@/utils/exportLogo'
+=======
+import { fetchExportLogo, scaleExportLogo, EXPORT_LOGO_PATH } from '@/utils/exportLogo'
+>>>>>>> 4dbd289 (pdf export for timeline)
 
 const BRAND_GREEN: [number, number, number] = [16, 185, 129]
 
@@ -170,15 +174,41 @@ export async function exportToPDF<T extends Record<string, any>>(
   const employeeStyle = Boolean(options?.employeePdfStyle)
 
   function drawHeaderBlock(): number {
-    let y = 38
+<<<<<<< HEAD
+    let y: number
     const reportTitleStr = options?.reportTitle ?? 'Employee Details Report'
 
     if (employeeStyle && logo && options?.headerLogoAdjacentToTitle) {
       const { width: lw, height: lh } = scaleExportLogo(logo.width, logo.height, PDF_LOGO_MAX_WIDTH)
+      /** Space between logo and text; group is horizontally centered as a unit. */
       const gap = 10
       const companyFontPt = 18
       const reportFontPt = 12
       const baselineStep = 17
+=======
+    let y = 38
+    let textX = 40
+    let align: 'center' | 'left' = 'center'
+
+    if (employeeStyle && logo) {
+      const scaled = scaleExportLogo(logo.width, logo.height, 48)
+      const format = EXPORT_LOGO_PATH.endsWith('.png') ? 'PNG' : 'JPEG'
+      doc.addImage(logo.dataUrl, format, 40, 20, scaled.width, scaled.height)
+      textX = 40 + scaled.width + 12
+      y = 20
+      align = 'left'
+    }
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(18)
+    if (align === 'center') {
+      drawEpicalBrandedText(doc, { before: 'EP', after: 'AL LAYOUTS PVT LTD' }, 40, y, 'center', pageWidth)
+      y += 18
+    } else {
+      drawEpicalBrandedText(doc, { before: 'EP', after: 'AL LAYOUTS PVT LTD' }, textX, y + 16, 'left', pageWidth)
+      y += 32
+    }
+>>>>>>> 4dbd289 (pdf export for timeline)
 
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(companyFontPt)
@@ -191,6 +221,7 @@ export async function exportToPDF<T extends Record<string, any>>(
       const groupLeft = pageWidth / 2 - groupW / 2
       const textLeft = groupLeft + lw + gap
 
+      // Vertical: two-line stack then align logo midpoint to stack midpoint (Helvetica pt approx.).
       const companyBaseline = 36
       const reportBaseline = companyBaseline + baselineStep
       const companyAscApprox = companyFontPt * 0.72
@@ -218,17 +249,11 @@ export async function exportToPDF<T extends Record<string, any>>(
       doc.text(reportTitleStr, textLeft, reportBaseline)
       y = Math.max(logoTop + lh, reportBaseline + reportDescApprox) + 14
     } else {
-      if (employeeStyle && logo) {
-        y = drawPdfLogoLeft(doc, logo, 40, 14)
-      }
+      y = employeeStyle && logo ? drawPdfLogoLeft(doc, logo, 40, 14) : 38
 
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(18)
-      if (employeeStyle && logo) {
-        drawEpicalBrandedText(doc, { before: 'EP', after: 'AL LAYOUTS PVT LTD' }, 40, y, 'left', pageWidth)
-      } else {
-        drawEpicalBrandedText(doc, { before: 'EP', after: 'AL LAYOUTS PVT LTD' }, 40, y, 'center', pageWidth)
-      }
+      drawEpicalBrandedText(doc, { before: 'EP', after: 'AL LAYOUTS PVT LTD' }, 40, y, 'center', pageWidth)
       y += 18
 
       if (!employeeStyle) {
@@ -238,6 +263,7 @@ export async function exportToPDF<T extends Record<string, any>>(
         doc.text(options?.panelTitle ?? 'Document Management Panel', pageWidth / 2, y, { align: 'center' })
         y += 18
 
+<<<<<<< HEAD
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(8)
         doc.setTextColor(16, 185, 129)
@@ -248,11 +274,20 @@ export async function exportToPDF<T extends Record<string, any>>(
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(12)
       doc.setTextColor(30, 41, 59)
-      doc.text(reportTitleStr, employeeStyle && logo ? 40 : pageWidth / 2, y, {
-        align: employeeStyle && logo ? 'left' : 'center',
-      })
+      doc.text(reportTitleStr, pageWidth / 2, y, { align: 'center' })
       y += 14
     }
+=======
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(12)
+    doc.setTextColor(30, 41, 59)
+    if (align === 'center') {
+      doc.text(options?.reportTitle ?? 'Employee Details Report', pageWidth / 2, y, { align: 'center' })
+    } else {
+      doc.text(options?.reportTitle ?? 'Employee Details Report', textX, y, { align: 'left' })
+    }
+    y += 14
+>>>>>>> 4dbd289 (pdf export for timeline)
 
     doc.setDrawColor(226, 232, 240)
     doc.setLineWidth(1)
