@@ -30,6 +30,11 @@ export async function fetchMySessions({ from, to } = {}) {
   return res.data
 }
 
+export async function fetchMyProjectWiseHours({ from, to } = {}) {
+  const res = await api.get('/timesheets/mine/project-wise-hours', { params: { from, to } })
+  return res.data
+}
+
 export async function checkIn() {
   const res = await api.post('/timesheets/mine/check-in')
   return res.data
@@ -67,6 +72,11 @@ export async function completeActiveTask(timesheetId, description) {
 
 export async function fetchSessionStatus() {
   const res = await api.get('/timesheets/mine/session-status')
+  return res.data
+}
+
+export async function fetchCurrentElapsed() {
+  const res = await api.get('/timesheets/mine/current-elapsed')
   return res.data
 }
 

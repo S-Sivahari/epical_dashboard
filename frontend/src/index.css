@@ -65,6 +65,24 @@
   .animate-marquee {
     animation: marquee var(--marquee-duration, 25s) linear infinite;
   }
+  .timesheet-panel-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(148 163 184 / 0.55) transparent;
+  }
+  .timesheet-panel-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .timesheet-panel-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .timesheet-panel-scroll::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: rgb(148 163 184 / 0.45);
+  }
+  .timesheet-panel-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgb(100 116 139 / 0.55);
+  }
 }
 
 @keyframes shimmer {

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Play, LogIn, LogOut, Loader2, Pause, AlertTriangle } from 'lucide-react'
+import { LogIn, LogOut, Loader2, AlertTriangle, Clock, CalendarDays } from 'lucide-react'
 import { Button } from '@components/employee/ui/button'
 import { Label } from '@components/employee/ui/label'
 import { Textarea } from '@components/employee/ui/textarea'
@@ -13,10 +13,16 @@ import { DateRangePicker } from '@components/employee/shared/DateRangePicker'
 import { useTimesheetStore } from '@store/employee/timesheetStore'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { formatDateKey, getPresetDateRange, getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
-import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
+import { TimesheetLiveSessionPanel } from '@pages/employee/TimesheetLiveSessionPanel'
+import { TimesheetProjectWiseSummary } from '@pages/employee/TimesheetProjectWiseSummary'
 
 const TimesheetWeeklyChart = lazy(() =>
   import('@pages/employee/TimesheetWeeklyChart').then((m) => ({ default: m.TimesheetWeeklyChart })),
+)
+const TimesheetProjectWiseChart = lazy(() =>
+  import('@pages/employee/TimesheetProjectWiseChart').then((m) => ({
+    default: m.TimesheetProjectWiseChart,
+  })),
 )
 
 function stripTaskLabelPrefix(taskText, { taskTitle, projectName } = {}) {
@@ -39,12 +45,6 @@ function stripTaskLabelPrefix(taskText, { taskTitle, projectName } = {}) {
   return s
 }
 
-function displayTaskTitle(title, projectName) {
-  if (!title) return projectName || ''
-  if (/^Work on /i.test(title.trim())) return projectName || title.replace(/^Work on /i, '').trim()
-  return title
-}
-
 const taskSchema = z.object({
   assignedTaskId: z.string().min(1, 'Select an assigned project'),
   description: z.string().min(3, 'Description required'),
@@ -60,15 +60,6 @@ const historyColumns = [
 ]
 
 const WEEKLY_CHART_HEIGHT = 280
-
-function formatDuration(startedAt, pausedAt = null, totalPausedMs = 0, serverTimeSkew = 0) {
-  if (!startedAt) return '0h 0m'
-  const end = pausedAt ? new Date(pausedAt).getTime() : Date.now() + serverTimeSkew
-  const ms = Math.max(0, end - new Date(startedAt).getTime() - (totalPausedMs || 0))
-  const hours = Math.floor(ms / 3600000)
-  const mins = Math.floor((ms % 3600000) / 60000)
-  return `${hours}h ${mins}m`
-}
 
 function hoursFromMs(ms) {
   return Math.round((ms / 3600000) * 10) / 10
@@ -115,13 +106,17 @@ export default function Timesheet() {
     completeTask,
     attendanceHistory,
     serverTimeSkew,
+    sessionsLoading,
+    backendElapsedMs,
+    hasBackendElapsedData,
+    backendElapsedLastFetch,
+    projectWiseHours,
   } = useTimesheetStore()
   const { toast } = useToast()
   const defaultHistoryRange = getPresetDateRange('This Month')
   const [historyStart, setHistoryStart] = useState(defaultHistoryRange.start)
   const [historyEnd, setHistoryEnd] = useState(defaultHistoryRange.end)
   const [historyPreset, setHistoryPreset] = useState('This Month')
-  const [elapsed, setElapsed] = useState('0h 0m')
   const [submitting, setSubmitting] = useState(false)
   const [liveNow, setLiveNow] = useState(() => Date.now() + (serverTimeSkew || 0))
   const [checkoutReview, setCheckoutReview] = useState(false)
@@ -158,7 +153,7 @@ export default function Timesheet() {
       void refreshSessions()
       void refreshActiveTask()
     }
-    const id = setInterval(refresh, 12000)
+    const id = setInterval(refresh, 30000) // Poll every 30 seconds instead of 12 seconds when awaiting approval
     return () => clearInterval(id)
   }, [initialized, hasAwaitingApproval])
 
@@ -167,26 +162,15 @@ export default function Timesheet() {
     const sync = () => {
       void useTimesheetStore.getState().syncAttendanceWithBackend()
     }
-    const id = setInterval(sync, 10000) // Poll every 10 seconds when checked in to capture auto-checkouts in real-time
+    const id = setInterval(sync, 30000) // Poll every 30 seconds when checked in to capture auto-checkouts in real-time
     return () => clearInterval(id)
   }, [initialized, checkedIn])
-
-  useEffect(() => {
-    if (!activeTask?.startedAt) return undefined
-    const tick = () =>
-      setElapsed(
-        formatDuration(activeTask.startedAt, activeTask.pausedAt, activeTask.totalPausedMs, serverTimeSkew)
-      )
-    tick()
-    const id = setInterval(tick, activeTask.paused ? 60000 : 30000)
-    return () => clearInterval(id)
-  }, [activeTask?.startedAt, activeTask?.pausedAt, activeTask?.totalPausedMs, activeTask?.paused, serverTimeSkew])
 
   useEffect(() => {
     if (!checkedIn) return undefined
     const tick = () => setLiveNow(Date.now() + (serverTimeSkew || 0))
     tick()
-    const id = setInterval(tick, 1000)
+    const id = setInterval(tick, 15000) // Check-in analytics only needs updates every 15s instead of 1s
     return () => clearInterval(id)
   }, [checkedIn, serverTimeSkew])
 
@@ -379,16 +363,6 @@ export default function Timesheet() {
     return pausedMs
   }, [checkedIn, activeTask, pausedTasks, liveNow])
 
-  const checkInElapsed = useMemo(() => {
-    if (!checkedIn || !checkInTime) return null
-    const totalMs = Math.max(0, liveNow - checkInTime.getTime() - currentTaskPausedMs)
-    const totalSeconds = Math.floor(totalMs / 1000)
-    const h = Math.floor(totalSeconds / 3600)
-    const m = Math.floor((totalSeconds % 3600) / 60)
-    const s = totalSeconds % 60
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-  }, [checkedIn, checkInTime, liveNow, currentTaskPausedMs])
-
   const weeklyHours = useMemo(() => {
     const byDay = {}
     const chartDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -474,7 +448,12 @@ export default function Timesheet() {
     return entries.sort((a, b) => b.sortAt - a.sortAt)
   }, [sessions, historyRange, checkedIn, liveNow])
 
-  if (!initialized && loading) {
+  const projectWiseTotal = useMemo(
+    () => (projectWiseHours ?? []).reduce((sum, p) => sum + (p.hours || 0), 0),
+    [projectWiseHours]
+  )
+
+  if (!initialized) {
     return (
       <div className="flex min-h-[320px] items-center justify-center text-muted">
         <Loader2 className="mr-2 h-6 w-6 animate-spin text-primary" />
@@ -484,25 +463,60 @@ export default function Timesheet() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <KPIStatCard title="Daily Hours Today" value={formatMsToHMS(todayHoursMs)} />
-        <KPIStatCard title="Weekly Hours" value={`${totalWeekly.toFixed(1)}h`} />
+    <div className="space-y-4">
+      {/* Top analytics summary */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-stretch">
+        <KPIStatCard
+          title="Daily Hours Today"
+          value={formatMsToHMS(todayHoursMs)}
+          icon={Clock}
+          className="h-full min-h-[5.5rem] p-4"
+        />
+        <KPIStatCard
+          title="Weekly Hours"
+          value={`${totalWeekly.toFixed(1)}h`}
+          icon={CalendarDays}
+          className="h-full min-h-[5.5rem] p-4"
+        />
+        <TimesheetProjectWiseSummary
+          totalHours={projectWiseTotal}
+          projectCount={(projectWiseHours ?? []).length}
+        />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3 lg:items-start">
-        <InteractiveCard selectable={false} className={portalCardClass({ className: 'flex flex-col gap-4 p-6 lg:col-span-1' })}>
-          <h3 className="font-heading text-lg font-semibold">Check In / Out</h3>
+      {/* Hybrid workspace: form 55% | live session 45% */}
+      <section className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
+        <div className="border-b border-border/60 bg-slate-50/50 px-4 py-3 sm:px-5">
+          <h3 className="font-heading text-base font-semibold text-foreground sm:text-lg">
+            Work session
+          </h3>
+          <p className="mt-0.5 text-xs text-muted">
+            Check in to track time on your assigned project. Update your description before checking out.
+          </p>
+        </div>
 
-          <div className="flex flex-col gap-3">
+        <div className="grid lg:grid-cols-[minmax(0,55%)_minmax(0,45%)] lg:divide-x lg:divide-border/60">
+          <div className="flex flex-col gap-4 p-4 sm:p-5 lg:min-h-[360px]">
+            {!checkedIn && attendance?.autoCheckedOut && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <div className="flex items-center gap-2 text-sm font-medium text-amber-700">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  Auto Checked-Out
+                </div>
+                <p className="mt-1 text-xs text-amber-600">
+                  Your previous session was automatically closed by the system.
+                </p>
+              </div>
+            )}
+
             <div className="space-y-1.5">
-              <Label>Assigned Project</Label>
+              <Label className="text-sm font-semibold">Assigned Project</Label>
               <Select
                 value={selectedTaskId}
                 onValueChange={(v) => setValue('assignedTaskId', v, { shouldValidate: true })}
                 disabled={checkedIn || checkoutReview || startableTasks.length === 0}
               >
-                <SelectTrigger className="h-10">
+                <SelectTrigger className="h-11">
                   <SelectValue
                     placeholder={
                       startableTasks.length === 0
@@ -511,7 +525,7 @@ export default function Timesheet() {
                     }
                   />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-[220px] overflow-y-auto">
                   {startableTasks.map((t) => (
                     <SelectItem key={t.id} value={t.id}>
                       {t.projectName}
@@ -520,172 +534,144 @@ export default function Timesheet() {
                 </SelectContent>
               </Select>
               {selectedTask?.description && !checkedIn && (
-                <p className="mt-1.5 line-clamp-3 break-words text-xs text-muted">
-                  {selectedTask.description}
-                </p>
+                <p className="line-clamp-2 break-words text-xs text-muted">{selectedTask.description}</p>
               )}
               {errors.assignedTaskId && !checkedIn && (
-                <p className="mt-1 text-xs text-danger">{errors.assignedTaskId.message}</p>
+                <p className="text-xs text-danger">{errors.assignedTaskId.message}</p>
               )}
             </div>
-            <div className="space-y-1.5">
-              <Label>Work Description</Label>
+
+            <div className="flex min-h-0 flex-1 flex-col space-y-1.5">
+              <Label className="text-sm font-semibold">Work Description</Label>
               <Textarea
-                className="min-h-[88px] resize-none"
+                className="min-h-[7.5rem] max-h-[min(20rem,40vh)] resize-y overflow-y-auto text-sm leading-relaxed"
+                rows={5}
                 {...register('description')}
-                placeholder="What are you working on?"
+                placeholder="Describe what you are working on — notes can be as detailed as you need."
                 disabled={checkedIn && !checkoutReview}
               />
               {checkoutReview && (
-                <p className="mt-1.5 text-xs text-amber-700">
+                <p className="text-xs font-medium text-amber-700">
                   Update your work summary, then confirm check out.
                 </p>
               )}
               {(errors.description || checkoutError) && (
-                <p className="mt-1 text-xs text-danger">
-                  {checkoutError || errors.description?.message}
-                </p>
+                <p className="text-xs text-danger">{checkoutError || errors.description?.message}</p>
               )}
             </div>
-          </div>
 
-          {checkedIn && checkInTime && checkInElapsed && (
-            <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-center">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted">
-                {activeTask ? 'Timer running' : pausedTasks[0] ? 'Timer paused' : 'Checked in'}
-              </p>
-              <p className="mt-1 font-mono text-3xl font-bold tabular-nums text-primary">{checkInElapsed}</p>
-              <p className="mt-1 text-xs text-muted">
-                Since {checkInTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </p>
-            </div>
-          )}
-
-          {!checkedIn && attendance?.autoCheckedOut && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-              <div className="flex items-center gap-2 text-amber-700 text-sm font-medium">
-                <AlertTriangle className="h-4 w-4" />
-                Auto Checked-Out
-              </div>
-              <p className="text-xs text-amber-600 mt-1">
-                Your previous session was automatically closed by the system.
-              </p>
-            </div>
-          )}
-
-          {checkedIn && currentWorkTask && !checkoutReview && (
-            <div className="rounded-lg border border-border bg-slate-50 p-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted">Current project</p>
-              <p className="mt-1 font-heading text-sm font-semibold text-foreground">{currentWorkTask.project}</p>
-              <p className="line-clamp-3 break-words text-xs text-muted">
-                {stripTaskLabelPrefix(currentWorkTask.description, {
-                  taskTitle: currentWorkTask.taskTitle,
-                  projectName: currentWorkTask.project,
-                }) || displayTaskTitle(currentWorkTask.taskTitle, currentWorkTask.project)}
-              </p>
-              {activeTask && (
-                <p className="mt-1 text-xs text-primary">Task elapsed {elapsed}</p>
-              )}
-              {pausedTasks[0] && !activeTask && (
-                <p className="mt-1 text-xs text-amber-700 font-medium">
-                  Paused ·{' '}
-                  {formatDuration(
-                    pausedTasks[0].startedAt,
-                    pausedTasks[0].pausedAt,
-                    pausedTasks[0].totalPausedMs
-                  )}
-                </p>
-              )}
-              <div className="mt-3 flex flex-wrap gap-2">
-                {activeTask ? (
+            <div className="mt-auto grid grid-cols-2 gap-3 pt-1">
+              {checkoutReview ? (
+                <>
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => onPauseTask(activeTask.timesheetId)}
+                    onClick={cancelCheckOut}
                     disabled={submitting}
-                    className="w-full gap-2"
+                    className="h-11"
                   >
-                    <Pause className="h-4 w-4" /> Pause
+                    Cancel
                   </Button>
-                ) : (
                   <Button
                     type="button"
-                    onClick={() => onResumeTask(pausedTasks[0].timesheetId)}
-                    disabled={submitting}
-                    className="w-full gap-2"
+                    onClick={onConfirmCheckOut}
+                    disabled={submitting || !canStartSession}
+                    className="h-11 gap-2"
                   >
-                    <Play className="h-4 w-4" /> Resume
+                    <LogOut className="h-4 w-4 shrink-0" />
+                    Confirm Check Out
                   </Button>
-                )}
-              </div>
+                </>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    onClick={onCheckIn}
+                    disabled={checkedIn || submitting || !canStartSession || startableTasks.length === 0}
+                    className="h-11 gap-2"
+                  >
+                    <LogIn className="h-4 w-4 shrink-0" /> Check In
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={beginCheckOut}
+                    disabled={!checkedIn || submitting}
+                    className="h-11 gap-2"
+                  >
+                    <LogOut className="h-4 w-4 shrink-0" /> Check Out
+                  </Button>
+                </>
+              )}
             </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            {checkoutReview ? (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={cancelCheckOut}
-                  disabled={submitting}
-                  className="h-10"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  onClick={onConfirmCheckOut}
-                  disabled={submitting || !canStartSession}
-                  className="h-10 gap-2"
-                >
-                  <LogOut className="h-4 w-4 shrink-0" />
-                  <span className="truncate">Confirm Check Out</span>
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  type="button"
-                  onClick={onCheckIn}
-                  disabled={checkedIn || submitting || !canStartSession || startableTasks.length === 0}
-                  className="h-10 gap-2"
-                >
-                  <LogIn className="h-4 w-4 shrink-0" /> Check In
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={beginCheckOut}
-                  disabled={!checkedIn || submitting}
-                  className="h-10 gap-2"
-                >
-                  <LogOut className="h-4 w-4 shrink-0" /> Check Out
-                </Button>
-              </>
-            )}
           </div>
-        </InteractiveCard>
 
-        <InteractiveCard className={portalCardClass({ className: 'p-6 lg:col-span-2' })}>
-          <h4 className="mb-4 font-heading text-lg font-semibold">Weekly Hours</h4>
-          <div className="w-full" style={{ height: WEEKLY_CHART_HEIGHT }}>
+          <div className="bg-slate-50/30 p-4 sm:p-5 lg:min-h-[360px]">
+            <TimesheetLiveSessionPanel
+              checkedIn={checkedIn}
+              checkInTime={checkInTime}
+              activeTask={activeTask}
+              pausedTasks={pausedTasks}
+              currentWorkTask={currentWorkTask}
+              serverTimeSkew={serverTimeSkew}
+              backendElapsedMs={backendElapsedMs}
+              hasBackendElapsedData={hasBackendElapsedData}
+              backendElapsedLastFetch={backendElapsedLastFetch}
+              checkoutReview={checkoutReview}
+              submitting={submitting}
+              onPause={() => activeTask && onPauseTask(activeTask.timesheetId)}
+              onResume={() => pausedTasks[0] && onResumeTask(pausedTasks[0].timesheetId)}
+            />
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-3 lg:grid-cols-2 lg:items-stretch">
+        <div className="flex min-h-[320px] flex-col rounded-xl border border-border bg-card p-4 shadow-card sm:p-5">
+          <div className="mb-3 flex shrink-0 items-center justify-between gap-2 border-b border-border/60 pb-2.5">
+            <h4 className="font-heading text-sm font-semibold text-foreground sm:text-base">Weekly Hours</h4>
+            <span className="text-xs font-semibold tabular-nums text-muted">This week</span>
+          </div>
+          <div className="min-h-0 flex-1 w-full" style={{ height: WEEKLY_CHART_HEIGHT }}>
             <Suspense
               fallback={
-                <div className="flex h-full items-center justify-center text-sm text-muted">
-                  Loading chart…
-                </div>
+                <div className="flex h-full items-center justify-center text-sm text-muted">Loading chart…</div>
               }
             >
               <TimesheetWeeklyChart data={weeklyHours} height={WEEKLY_CHART_HEIGHT} />
             </Suspense>
           </div>
-        </InteractiveCard>
+        </div>
+
+        <div className="flex min-h-[320px] flex-col rounded-xl border border-teal-200/60 bg-gradient-to-b from-teal-50/30 to-card p-4 shadow-card sm:p-5">
+          <div className="mb-3 flex shrink-0 items-center justify-between gap-2 border-b border-teal-100 pb-2.5">
+            <h4 className="font-heading text-sm font-semibold text-teal-900 sm:text-base">
+              Project breakdown
+            </h4>
+            <span className="text-xs font-bold tabular-nums text-teal-700">
+              {projectWiseTotal.toFixed(1)}h
+            </span>
+          </div>
+          <div className="min-h-0 flex-1" style={{ minHeight: WEEKLY_CHART_HEIGHT }}>
+            <Suspense
+              fallback={
+                <div
+                  className="flex h-full items-center justify-center text-sm text-muted"
+                  style={{ height: WEEKLY_CHART_HEIGHT }}
+                >
+                  Loading…
+                </div>
+              }
+            >
+              <TimesheetProjectWiseChart data={projectWiseHours ?? []} />
+            </Suspense>
+          </div>
+        </div>
       </div>
 
-      <InteractiveCard className={portalCardClass({ className: 'space-y-4 p-5 sm:p-6' })} selectable={false}>
-        <div className="flex flex-col items-start gap-3">
-          <h3 className="font-heading text-lg font-semibold">Work History</h3>
+      <section className="rounded-xl border border-border bg-card p-4 shadow-card sm:p-5">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="font-heading text-base font-semibold text-foreground sm:text-lg">Work History</h3>
           <DateRangePicker
             startDate={historyStart}
             endDate={historyEnd}
@@ -699,9 +685,25 @@ export default function Timesheet() {
           />
         </div>
 
-        <DataTable columns={historyColumns} data={unifiedHistory} />
-      </InteractiveCard>
-
+        {(isInitialLoading || sessionsLoading) && unifiedHistory.length === 0 ? (
+          <div className="space-y-2">
+            <div className="h-10 w-full animate-pulse rounded-lg bg-slate-100/80" />
+            <div className="h-11 w-full animate-pulse rounded-lg bg-slate-100/60" />
+            <div className="h-11 w-full animate-pulse rounded-lg bg-slate-100/60" />
+          </div>
+        ) : (
+          <div className="relative overflow-hidden rounded-lg border border-border/60">
+            {(isInitialLoading || sessionsLoading) && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/60 backdrop-blur-[1px]">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            )}
+            <div className="timesheet-panel-scroll max-h-[min(28rem,55vh)] overflow-auto">
+              <DataTable columns={historyColumns} data={unifiedHistory} />
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   )
 }

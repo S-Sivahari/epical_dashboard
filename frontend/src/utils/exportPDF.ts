@@ -175,7 +175,6 @@ export async function exportToPDF<T extends Record<string, any>>(
 
     if (employeeStyle && logo && options?.headerLogoAdjacentToTitle) {
       const { width: lw, height: lh } = scaleExportLogo(logo.width, logo.height, PDF_LOGO_MAX_WIDTH)
-      /** Space between logo and text; group is horizontally centered as a unit. */
       const gap = 10
       const companyFontPt = 18
       const reportFontPt = 12
@@ -192,7 +191,6 @@ export async function exportToPDF<T extends Record<string, any>>(
       const groupLeft = pageWidth / 2 - groupW / 2
       const textLeft = groupLeft + lw + gap
 
-      // Vertical: two-line stack then align logo midpoint to stack midpoint (Helvetica pt approx.).
       const companyBaseline = 36
       const reportBaseline = companyBaseline + baselineStep
       const companyAscApprox = companyFontPt * 0.72
