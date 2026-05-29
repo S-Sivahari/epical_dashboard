@@ -59,7 +59,9 @@ function formatLeaveBalances(balanceData = {}) {
 
 function SectionCard({ title, subtitle, action, children, className = '' }) {
   return (
-    <section className={`rounded-xl border border-border bg-card p-5 shadow-card md:p-6 ${className}`}>
+    <section
+      className={`rounded-xl border border-border bg-card p-5 shadow-card md:p-6 ${className}`}
+    >
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="font-heading text-lg font-semibold text-foreground">{title}</h3>
@@ -154,15 +156,9 @@ export default function Dashboard() {
     }
   }, [employee?.id])
 
-  const pendingLeaves = useMemo(
-    () => leaves.filter((l) => l.status === 'Pending'),
-    [leaves],
-  )
+  const pendingLeaves = useMemo(() => leaves.filter((l) => l.status === 'Pending'), [leaves])
 
-  const pendingDocs = useMemo(
-    () => documents.filter((d) => d.status === 'Requested'),
-    [documents],
-  )
+  const pendingDocs = useMemo(() => documents.filter((d) => d.status === 'Requested'), [documents])
 
   const enrolledCourses = enrollments.filter((e) => e.status === 'Enrolled').length
   const completedCourses = enrollments.filter((e) => e.status === 'Completed').length
@@ -173,7 +169,7 @@ export default function Dashboard() {
   const weeklyProgress = Math.min(100, Math.round((weeklyHours / weeklyTarget) * 100))
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <ProfileCard employee={employee} profile={profile} attendance={attendance} />
 
       <AnnouncementBanner />
@@ -271,7 +267,10 @@ export default function Dashboard() {
               ) : (
                 <div className="divide-y divide-border rounded-lg border border-border">
                   {leaves.slice(0, 5).map((leave) => (
-                    <div key={leave.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                    <div
+                      key={leave.id}
+                      className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                    >
                       <div className="min-w-0">
                         <p className="font-medium text-foreground">{leave.type}</p>
                         <p className="text-sm text-muted">
@@ -344,7 +343,10 @@ export default function Dashboard() {
               title="Document Requests"
               subtitle={`${pendingDocs.length} pending`}
               action={
-                <Link to="/employee/documents" className="text-sm font-medium text-primary hover:underline">
+                <Link
+                  to="/employee/documents"
+                  className="text-sm font-medium text-primary hover:underline"
+                >
                   View
                 </Link>
               }
@@ -386,7 +388,9 @@ export default function Dashboard() {
                     >
                       <div className="flex min-w-0 items-center gap-2">
                         <Calendar className="h-4 w-4 shrink-0 text-primary" />
-                        <span className="truncate text-sm font-medium text-foreground">{h.title}</span>
+                        <span className="truncate text-sm font-medium text-foreground">
+                          {h.title}
+                        </span>
                       </div>
                       <span className="shrink-0 text-xs text-muted">{formatDate(h.date)}</span>
                     </li>
@@ -398,7 +402,10 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <AssignedProjectsSection initialProjects={assignedProjects} loading={loading && assignedProjects == null} />
+      <AssignedProjectsSection
+        initialProjects={assignedProjects}
+        loading={loading && assignedProjects == null}
+      />
     </div>
   )
 }

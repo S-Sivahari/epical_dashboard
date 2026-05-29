@@ -43,7 +43,7 @@ export function Navbar() {
   const title = useMemo(() => {
     // Check if there's a direct route mapping
     if (routeTitles[pathname]) return routeTitles[pathname]
-    
+
     // For sub-routes (like /admin/employees/1), use parent route
     const parts = pathname.split('/').filter(Boolean)
     if (parts.length > 2) {
@@ -65,45 +65,53 @@ export function Navbar() {
 
   return (
     <header
-      className="fixed right-0 top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-white/90 px-4 backdrop-blur lg:left-[260px]"
+      className="fixed right-0 top-0 z-30 flex h-14 items-center justify-between gap-4 border-b border-emerald-100/90 bg-white/95 px-4 shadow-[0_1px_0_0_rgba(16,185,129,0.06)] backdrop-blur-md lg:left-[260px]"
       style={{ paddingLeft: isLg ? undefined : '3.25rem' }}
     >
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         {showBack && (
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="flex shrink-0 items-center justify-center rounded-lg border border-border bg-surface p-1.5 text-black hover:text-ink transition-ui"
+            className="flex shrink-0 items-center justify-center rounded-xl border border-emerald-100/90 bg-emerald-50/50 p-1.5 text-slate-700 transition-ui hover:border-emerald-200 hover:bg-emerald-50"
             title="Go back"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
         )}
-        <p className="truncate font-display text-2xl font-semibold text-black">{title}</p>
+        <p className="truncate font-display text-xl font-semibold tracking-tight text-slate-900 md:text-2xl">
+          {title}
+        </p>
       </div>
-      <div className="flex items-center gap-2 sm:gap-3">
+
+      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         <NotificationBell />
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
             <button
               type="button"
-              className="flex items-center gap-2 rounded-lg border border-border bg-white px-2 py-1.5 text-left text-sm transition-ui hover:bg-surface"
+              className="flex max-w-[min(100vw-8rem,18rem)] items-center gap-2 rounded-xl border border-emerald-100/80 bg-white px-2 py-1.5 text-left text-sm shadow-sm transition-ui hover:border-emerald-200/90 hover:bg-emerald-50/40"
             >
-              <Avatar name={user?.name ?? 'Admin'} size="sm" />
-              <span className="hidden max-w-[120px] truncate font-medium text-ink sm:inline">
-                {user?.name}
-              </span>
-                <ChevronDown className="h-4 w-4 text-black" />
+              <Avatar name={user?.name ?? 'Admin'} src={user?.avatarUrl} size="sm" />
+              <div className="hidden min-w-0 flex-1 flex-col sm:flex">
+                <span className="truncate font-semibold leading-tight text-slate-900">
+                  {user?.name}
+                </span>
+                <span className="truncate text-xs font-medium text-emerald-800/50">
+                  {user?.designation || user?.role || 'Admin'}
+                </span>
+              </div>
+              <ChevronDown className="h-4 w-4 shrink-0 text-emerald-900/45" />
             </button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
             <DropdownMenu.Content
-              className="z-50 min-w-[200px] rounded-xl border border-border bg-white p-1 shadow-md"
+              className="z-50 min-w-[200px] rounded-xl border border-emerald-100/80 bg-white p-1 shadow-lg shadow-emerald-950/10"
               sideOffset={6}
               align="end"
             >
               <DropdownMenu.Item
-                className="cursor-pointer rounded-lg px-3 py-2 text-sm text-ink outline-none hover:bg-surface"
+                className="cursor-pointer rounded-lg px-3 py-2 text-sm text-slate-800 outline-none hover:bg-emerald-50"
                 onSelect={() => navigate('/admin/settings')}
               >
                 Settings

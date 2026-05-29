@@ -10,8 +10,17 @@ import { NewsCard } from '@components/cards/NewsCard'
 import { toast } from 'sonner'
 import { NewsImage } from '@components/NewsImage'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
-import { createNews, deleteNews, listNews, resolveNewsImageSrc, updateNews, type NewsItem } from '@services/newsService'
+import {
+  createNews,
+  deleteNews,
+  listNews,
+  resolveNewsImageSrc,
+  updateNews,
+  type NewsItem,
+} from '@services/newsService'
 import { formatDate } from '@/utils/formatDate'
+
+const CACHE_KEY = 'admin-news-list-v1'
 
 export function CompanyNews() {
   const [items, setItems] = useState<NewsItem[]>([])
@@ -37,12 +46,13 @@ export function CompanyNews() {
   const [itemToDelete, setItemToDelete] = useState<NewsItem | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  const loadNews = async () => {
-    setLoading(true)
+  const loadNews = async (showLoader = true) => {
+    if (showLoader) setLoading(true)
     try {
       // Fetch all news items for admin management
       const data = await listNews()
       setItems(data)
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify(data))
     } catch {
       toast.error('Failed to load news')
     } finally {
@@ -51,7 +61,21 @@ export function CompanyNews() {
   }
 
   useEffect(() => {
-    void loadNews()
+    let hasCached = false
+    const cached = sessionStorage.getItem(CACHE_KEY)
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setItems(parsed)
+          setLoading(false)
+          hasCached = true
+        }
+      } catch {
+        // ignore cache parse errors
+      }
+    }
+    void loadNews(!hasCached)
   }, [])
 
   const handleImageFileChange = (file: File | null, forEdit = false) => {
@@ -168,7 +192,7 @@ export function CompanyNews() {
     <PageWrapper>
       <PageHeader title="" breadcrumb={<Breadcrumb items={[{ label: 'Manage News' }]} />} />
 
-      <section className="mb-10 overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
+      <section className="mb-6 overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
         <div className="border-b border-border bg-gradient-to-r from-emerald-50 via-white to-teal-50 px-6 py-5">
           <div className="flex items-start gap-4">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
@@ -177,13 +201,14 @@ export function CompanyNews() {
             <div>
               <h2 className="font-display text-lg font-semibold text-ink">Publish Company News</h2>
               <p className="mt-1 text-sm text-muted">
-                Create announcements for employees. Published news appears on dashboards and the news ticker.
+                Create announcements for employees. Published news appears on dashboards and the
+                news ticker.
               </p>
             </div>
           </div>
         </div>
 
-        <div className="grid gap-6 p-6 lg:grid-cols-5">
+        <div className="grid gap-5 p-6 lg:grid-cols-5">
           <div className="space-y-5 lg:col-span-3">
             <Input
               label="Title"
@@ -247,7 +272,10 @@ export function CompanyNews() {
                 <Button type="button" variant="ghost" onClick={resetForm} disabled={saving}>
                   Clear
                 </Button>
-                <Button onClick={() => void handleAdd()} disabled={saving || !title.trim() || !content.trim()}>
+                <Button
+                  onClick={() => void handleAdd()}
+                  disabled={saving || !title.trim() || !content.trim()}
+                >
                   <PlusCircle className="h-4 w-4" />
                   {saving ? 'Publishing...' : 'Publish News'}
                 </Button>
@@ -256,7 +284,9 @@ export function CompanyNews() {
           </div>
 
           <div className="lg:col-span-2">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Live Preview</p>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
+              Live Preview
+            </p>
             <div className="overflow-hidden rounded-xl border border-border bg-surface/40">
               {previewImageSrc ? (
                 <div className="aspect-[16/9] bg-surface">
@@ -275,29 +305,50 @@ export function CompanyNews() {
                 </div>
               )}
               <div className="space-y-2 p-4">
-                <p className="text-xs font-medium uppercase tracking-wider text-primary">Company Announcement</p>
+                <p className="text-xs font-medium uppercase tracking-wider text-primary">
+                  Company Announcement
+                </p>
                 <h3 className="font-display text-base font-semibold text-ink line-clamp-2">
                   {title.trim() || 'Announcement title'}
                 </h3>
-                <p className="text-sm leading-relaxed text-muted line-clamp-5 whitespace-pre-line">{contentPreview}</p>
-                {link.trim() && (
-                  <p className="truncate text-xs text-primary">{link}</p>
-                )}
+                <p className="text-sm leading-relaxed text-muted line-clamp-5 whitespace-pre-line">
+                  {contentPreview}
+                </p>
+                {link.trim() && <p className="truncate text-xs text-primary">{link}</p>}
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-3 flex items-center justify-between">
         <div>
           <h2 className="font-display text-lg font-semibold text-ink">Published News</h2>
-          <p className="text-sm text-muted">{items.length} announcement{items.length === 1 ? '' : 's'} live</p>
+          <p className="text-sm text-muted">
+            {items.length} announcement{items.length === 1 ? '' : 's'} live
+          </p>
         </div>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {loading ? (
-          <p className="text-sm text-muted">Loading published news...</p>
+          Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={`news-skeleton-${i}`}
+              className="min-h-[260px] rounded-xl border border-border bg-white p-5 shadow-sm"
+            >
+              <div className="space-y-3">
+                <div className="h-4 w-3/4 rounded-full skeleton" />
+                <div className="h-4 w-11/12 rounded-full skeleton" />
+                <div className="h-4 w-10/12 rounded-full skeleton" />
+                <div className="h-4 w-9/12 rounded-full skeleton" />
+                <div className="h-3 w-24 rounded-full skeleton" />
+              </div>
+              <div className="mt-6 flex justify-end gap-2">
+                <div className="h-8 w-20 rounded-lg skeleton" />
+                <div className="h-8 w-20 rounded-lg skeleton" />
+              </div>
+            </div>
+          ))
         ) : items.length === 0 ? (
           <p className="text-sm text-muted">No news published yet.</p>
         ) : (
@@ -323,9 +374,15 @@ export function CompanyNews() {
           <div className="space-y-4">
             <p className="text-sm text-muted">Published {formatDate(preview.publishedAt)}</p>
             {(preview.imageUrl || preview.hasImage) && (
-              <NewsImage item={preview} alt="" className="max-h-64 w-full rounded-lg object-cover" />
+              <NewsImage
+                item={preview}
+                alt=""
+                className="max-h-64 w-full rounded-lg object-cover"
+              />
             )}
-            <p className="whitespace-pre-line text-sm leading-relaxed text-ink">{preview.content}</p>
+            <p className="whitespace-pre-line text-sm leading-relaxed text-ink">
+              {preview.content}
+            </p>
             {preview.link && (
               <a
                 href={preview.link}
@@ -345,12 +402,7 @@ export function CompanyNews() {
         )}
       </Modal>
 
-      <Modal
-        isOpen={!!editing}
-        onClose={() => setEditing(null)}
-        title="Edit News"
-        size="lg"
-      >
+      <Modal isOpen={!!editing} onClose={() => setEditing(null)} title="Edit News" size="lg">
         <div className="space-y-4">
           <Input label="Title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
           <Input
@@ -369,7 +421,11 @@ export function CompanyNews() {
             {(editImagePreview || editing?.hasImage) && (
               <div className="flex items-center gap-3 pt-1">
                 {editImagePreview && (
-                  <img src={editImagePreview} alt="" className="h-16 w-24 rounded-lg object-cover ring-1 ring-border" />
+                  <img
+                    src={editImagePreview}
+                    alt=""
+                    className="h-16 w-24 rounded-lg object-cover ring-1 ring-border"
+                  />
                 )}
                 <button
                   type="button"
@@ -385,7 +441,11 @@ export function CompanyNews() {
               </div>
             )}
           </label>
-          <Input label="Link (optional)" value={editLink} onChange={(e) => setEditLink(e.target.value)} />
+          <Input
+            label="Link (optional)"
+            value={editLink}
+            onChange={(e) => setEditLink(e.target.value)}
+          />
           <label className="block text-sm font-medium text-ink">
             News Content
             <textarea

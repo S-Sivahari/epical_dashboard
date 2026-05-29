@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { employeeToExportRow } from '@/constants/employeeExport'
 import type { Employee } from '@/types'
-import { drawPdfLogoLeft, fetchExportLogo } from '@/utils/exportLogo'
+import { PDF_LOGO_MAX_WIDTH, drawPdfLogoLeft, fetchExportLogo, scaleExportLogo } from '@/utils/exportLogo'
 
 const BRAND_GREEN: [number, number, number] = [16, 185, 129]
 
@@ -54,6 +54,8 @@ export interface ExportPdfOptions {
   employeeDetailMode?: boolean
   /** Employee exports: logo top-left, omit panel subtitle / [ PDF Document ]. */
   employeePdfStyle?: boolean
+  /** With employeePdfStyle + logo: centered row of logo beside company/report titles. */
+  headerLogoAdjacentToTitle?: boolean
   panelTitle?: string
   reportTitle?: string
 }
@@ -168,32 +170,83 @@ export async function exportToPDF<T extends Record<string, any>>(
   const employeeStyle = Boolean(options?.employeePdfStyle)
 
   function drawHeaderBlock(): number {
-    let y = employeeStyle && logo ? drawPdfLogoLeft(doc, logo, 40, 14) : 38
+    let y: number
+    const reportTitleStr = options?.reportTitle ?? 'Employee Details Report'
 
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(18)
-    drawEpicalBrandedText(doc, { before: 'EP', after: 'AL LAYOUTS PVT LTD' }, 40, y, 'center', pageWidth)
-    y += 18
+    if (employeeStyle && logo && options?.headerLogoAdjacentToTitle) {
+      const { width: lw, height: lh } = scaleExportLogo(logo.width, logo.height, PDF_LOGO_MAX_WIDTH)
+      /** Space between logo and text; group is horizontally centered as a unit. */
+      const gap = 10
+      const companyFontPt = 18
+      const reportFontPt = 12
+      const baselineStep = 17
 
-    if (!employeeStyle) {
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(10)
-      doc.setTextColor(100, 116, 139)
-      doc.text(options?.panelTitle ?? 'Document Management Panel', pageWidth / 2, y, { align: 'center' })
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(companyFontPt)
+      const companyW =
+        doc.getTextWidth('EP') + doc.getTextWidth('IC') + doc.getTextWidth('AL LAYOUTS PVT LTD')
+      doc.setFontSize(reportFontPt)
+      const reportW = doc.getTextWidth(reportTitleStr)
+      const textColW = Math.max(companyW, reportW)
+      const groupW = lw + gap + textColW
+      const groupLeft = pageWidth / 2 - groupW / 2
+      const textLeft = groupLeft + lw + gap
+
+      // Vertical: two-line stack then align logo midpoint to stack midpoint (Helvetica pt approx.).
+      const companyBaseline = 36
+      const reportBaseline = companyBaseline + baselineStep
+      const companyAscApprox = companyFontPt * 0.72
+      const reportDescApprox = reportFontPt * 0.28
+      const textTop = companyBaseline - companyAscApprox
+      const textBottom = reportBaseline + reportDescApprox
+      const textMidY = (textTop + textBottom) / 2
+      const logoTop = textMidY - lh / 2
+
+      doc.addImage(logo.dataUrl, 'JPEG', groupLeft, logoTop, lw, lh)
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(companyFontPt)
+      drawEpicalBrandedText(
+        doc,
+        { before: 'EP', after: 'AL LAYOUTS PVT LTD' },
+        textLeft,
+        companyBaseline,
+        'left',
+        pageWidth,
+      )
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(reportFontPt)
+      doc.setTextColor(30, 41, 59)
+      doc.text(reportTitleStr, textLeft, reportBaseline)
+      y = Math.max(logoTop + lh, reportBaseline + reportDescApprox) + 14
+    } else {
+      y = employeeStyle && logo ? drawPdfLogoLeft(doc, logo, 40, 14) : 38
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(18)
+      drawEpicalBrandedText(doc, { before: 'EP', after: 'AL LAYOUTS PVT LTD' }, 40, y, 'center', pageWidth)
       y += 18
 
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(8)
-      doc.setTextColor(16, 185, 129)
-      doc.text('[ PDF Document ]', pageWidth / 2, y, { align: 'center' })
-      y += 12
-    }
+      if (!employeeStyle) {
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(10)
+        doc.setTextColor(100, 116, 139)
+        doc.text(options?.panelTitle ?? 'Document Management Panel', pageWidth / 2, y, { align: 'center' })
+        y += 18
 
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(12)
-    doc.setTextColor(30, 41, 59)
-    doc.text(options?.reportTitle ?? 'Employee Details Report', pageWidth / 2, y, { align: 'center' })
-    y += 14
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(8)
+        doc.setTextColor(16, 185, 129)
+        doc.text('[ PDF Document ]', pageWidth / 2, y, { align: 'center' })
+        y += 12
+      }
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(12)
+      doc.setTextColor(30, 41, 59)
+      doc.text(reportTitleStr, pageWidth / 2, y, { align: 'center' })
+      y += 14
+    }
 
     doc.setDrawColor(226, 232, 240)
     doc.setLineWidth(1)

@@ -76,6 +76,7 @@ export async function exportLeavesToPDF(
     filters,
     compactMode: true,
     employeePdfStyle: true,
+    headerLogoAdjacentToTitle: true,
     ...LEAVE_REPORT_OPTIONS,
   })
 }
@@ -90,6 +91,7 @@ export async function exportLeavesToExcel(
   await exportToExcel(rows, filename, LEAVE_EXPORT_HEADERS, {
     generatedBy,
     filters,
+    compactHeader: true,
     ...LEAVE_REPORT_OPTIONS,
   })
 }

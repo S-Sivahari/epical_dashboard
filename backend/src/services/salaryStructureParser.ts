@@ -23,7 +23,14 @@ export function cellToString(val: unknown): string {
 /** Section column wins; peach fill is fallback when Section is empty. */
 export function normalizeComponentSection(sectionText: string, isPeachRow = false): 'Earnings' | 'Deductions' {
   const s = sectionText.trim().toLowerCase()
-  if (s.includes('deduction') || s === 'type 2' || s === 'type2' || s === 'd') {
+  if (
+    s.includes('deduction') ||
+    s.includes('deduct') ||
+    s === 'type 2' ||
+    s === 'type2' ||
+    s === 'd' ||
+    s === 'ded'
+  ) {
     return 'Deductions'
   }
   if (s.includes('earning') || s === 'type 1' || s === 'type1' || s === 'e') {
@@ -82,7 +89,14 @@ function detectStructureColumns(matrix: unknown[][]): StructureColumns {
       ) {
         componentCol = c
       }
-      if (v === 'section' || v === 'type' || v === 'category' || v === 'component type') {
+      if (
+        v === 'section' ||
+        v === 'type' ||
+        v === 'category' ||
+        v === 'component type' ||
+        /\bsection\b/.test(v) ||
+        (v.includes('component') && v.includes('type'))
+      ) {
         sectionCol = c
       }
       if (v.includes('default') || v === 'amount' || v.includes('amount')) {
@@ -238,11 +252,47 @@ export function listComponentsBySection(
     .map(([name]) => name)
 }
 
+function resolveMergedSection(
+  baseMeta: SalaryStructure[string] | undefined,
+  overlayMeta: SalaryStructure[string]
+): 'Earnings' | 'Deductions' {
+  if (baseMeta?.section === 'Deductions' || overlayMeta.section === 'Deductions') {
+    return 'Deductions'
+  }
+  return 'Earnings'
+}
+
+/**
+ * Merge XLSX + ExcelJS parses. ExcelJS carries row fill (peach = deduction);
+ * when either source classifies a component as Deductions, keep it as Deductions.
+ */
 export function mergeSalaryStructures(
   base: SalaryStructure,
-  fromStyles: SalaryStructure
+  overlay: SalaryStructure
 ): SalaryStructure {
-  return { ...base, ...fromStyles }
+  const merged: SalaryStructure = { ...base }
+
+  for (const [name, overlayMeta] of Object.entries(overlay)) {
+    const baseMeta = merged[name]
+    merged[name] = {
+      section: resolveMergedSection(baseMeta, overlayMeta),
+      order: baseMeta?.order ?? overlayMeta.order ?? 0,
+      default: baseMeta?.default ?? overlayMeta.default ?? 0,
+    }
+  }
+
+  return merged
+}
+
+/** Combine tabular (XLSX) parse with ExcelJS style-aware parse. */
+export function combineSalaryStructureSources(
+  fromNamedSheet: SalaryStructure,
+  fromStyles: SalaryStructure,
+  ...others: SalaryStructure[]
+): SalaryStructure {
+  const base = preferNamedSalaryStructure(fromNamedSheet, ...others)
+  if (Object.keys(fromStyles).length === 0) return base
+  return mergeSalaryStructures(base, fromStyles)
 }
 
 /** Pick whichever parse produced the most components. */

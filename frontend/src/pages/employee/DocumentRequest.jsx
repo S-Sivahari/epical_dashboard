@@ -38,11 +38,25 @@ import { cn } from '@pages/employee/lib/utils'
 const POLL_INTERVAL_MS = 5000
 const HISTORY_PAGE_SIZE = 10
 
-const schema = z.object({
-  type: z.string().min(1, 'Select document type'),
-  name: z.string().min(2, 'Document name required'),
-  reason: z.string().min(5, 'Reason required'),
-})
+const schema = z
+  .object({
+    type: z.string().min(1, 'Select document type'),
+    otherDocumentType: z.string().optional(),
+    name: z.string().min(2, 'Document name required'),
+    reason: z.string().min(5, 'Reason required'),
+  })
+  .superRefine((data, ctx) => {
+    if (data.type === 'Other') {
+      const details = (data.otherDocumentType || '').trim()
+      if (details.length < 2) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Enter the document type you need',
+          path: ['otherDocumentType'],
+        })
+      }
+    }
+  })
 
 function buildRequestColumns(onDownload, onDownloadError) {
   return [
@@ -207,6 +221,12 @@ export default function DocumentRequest() {
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(schema),
+    defaultValues: {
+      type: '',
+      otherDocumentType: '',
+      name: '',
+      reason: '',
+    },
   })
 
   const filteredRequests = useMemo(() => {
@@ -270,8 +290,13 @@ export default function DocumentRequest() {
 
   const onSubmit = async (data) => {
     try {
+      const documentType =
+        data.type === 'Other'
+          ? `Other: ${(data.otherDocumentType || '').trim()}`
+          : data.type
+
       await createDocumentRequest({
-        documentType: data.type,
+        documentType,
         documentName: data.name,
         reason: data.reason,
       })
@@ -345,9 +370,17 @@ export default function DocumentRequest() {
                   </p>
                 </div>
                 <div>
-                  <Label>Document type *</Label>
-                  <Select value={watch('type')} onValueChange={(v) => setValue('type', v)}>
-                    <SelectTrigger className="mt-1">
+                  <Label htmlFor="doc-request-type">Document type *</Label>
+                  <Select
+                    value={watch('type') || undefined}
+                    onValueChange={(v) => {
+                      setValue('type', v, { shouldValidate: true })
+                      if (v !== 'Other') {
+                        setValue('otherDocumentType', '', { shouldValidate: false })
+                      }
+                    }}
+                  >
+                    <SelectTrigger id="doc-request-type" className="mt-1">
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -360,6 +393,24 @@ export default function DocumentRequest() {
                   </Select>
                   {errors.type && <p className="mt-1 text-xs text-danger">{errors.type.message}</p>}
                 </div>
+                {watch('type') === 'Other' ? (
+                  <div className="rounded-lg border border-border bg-muted/30 p-4">
+                    <Label htmlFor="doc-request-other-type">Specify document type *</Label>
+                    <p className="mt-0.5 text-xs text-muted">
+                      Describe what HR should prepare (for example bonafide letter, address proof letter).
+                    </p>
+                    <Input
+                      id="doc-request-other-type"
+                      className="mt-2"
+                      {...register('otherDocumentType')}
+                      placeholder="e.g. Bonafide certificate for visa"
+                      autoComplete="off"
+                    />
+                    {errors.otherDocumentType ? (
+                      <p className="mt-1 text-xs text-danger">{errors.otherDocumentType.message}</p>
+                    ) : null}
+                  </div>
+                ) : null}
                 <div>
                   <Label>Document name *</Label>
                   <Input

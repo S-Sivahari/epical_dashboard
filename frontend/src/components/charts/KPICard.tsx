@@ -6,7 +6,7 @@ export function KPICard({
   value,
   trend,
   icon: Icon,
-  color = '#16a34a',
+  color = '#059669',
 }: {
   title: string
   value: string | number
@@ -15,27 +15,32 @@ export function KPICard({
   color?: string
 }) {
   return (
-    <div className="rounded-xl border border-border bg-surface/70 p-4 shadow-sm">
+    <div className="rounded-2xl border border-emerald-100/60 bg-white p-3.5 shadow-[0_6px_18px_-12px_rgba(15,118,110,0.16)]">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm text-muted">{title}</p>
-          <p className="mt-2 font-display text-2xl font-semibold text-ink">{value}</p>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{title}</p>
+          <p className="mt-1.5 font-display text-[22px] font-semibold tracking-tight text-slate-900">
+            {value}
+          </p>
           {trend ? (
             <p
               className={cn(
-                'mt-1 text-xs font-medium',
-                trend.direction === 'up' ? 'text-success' : 'text-danger',
+                'mt-2 inline-flex items-center gap-0.5 text-[11px] font-semibold',
+                trend.direction === 'up' ? 'text-emerald-600' : 'text-rose-600',
               )}
             >
-              {trend.direction === 'up' ? '▲' : '▼'} {trend.label}
+              <span>{trend.direction === 'up' ? '▲' : '▼'}</span>
+              <span>{trend.label}</span>
             </p>
           ) : null}
         </div>
-        <span
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-sm"
-          style={{ backgroundColor: color }}
-        >
-          <Icon className="h-5 w-5" />
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-emerald-100">
+          <span
+            className="flex h-7 w-7 items-center justify-center rounded-full text-white shadow-sm"
+            style={{ backgroundColor: color }}
+          >
+            <Icon className="h-[14px] w-[14px]" strokeWidth={2} />
+          </span>
         </span>
       </div>
     </div>
