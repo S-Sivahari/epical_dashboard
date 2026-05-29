@@ -61,16 +61,12 @@ function NavItem({ to, label, end, collapsed, onNavigate }) {
           <span
             className={cn(
               'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors duration-200',
-              isActive
-                ? 'text-emerald-900'
-                : 'text-slate-600',
+              isActive ? 'text-emerald-900' : 'text-slate-600',
             )}
           >
             <Icon className="h-5 w-5 opacity-90" strokeWidth={2} />
           </span>
-          {!collapsed && (
-            <span className="min-w-0 flex-1 truncate pr-1">{label}</span>
-          )}
+          {!collapsed && <span className="min-w-0 flex-1 truncate pr-1">{label}</span>}
         </>
       )}
     </NavLink>
@@ -113,8 +109,16 @@ export function Sidebar() {
             sidebarCollapsed ? 'justify-center px-2' : 'justify-between px-4',
           )}
         >
-          <div className={cn('flex items-center gap-2.5 overflow-hidden', sidebarCollapsed && 'justify-center')}>
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-emerald-600 font-heading text-sm font-bold text-white shadow-sm">
+          <NavLink
+            to="/employee"
+            end
+            className={cn(
+              'group flex items-center gap-2.5 overflow-hidden transition-ui hover:opacity-95',
+              sidebarCollapsed && 'justify-center',
+            )}
+            title="Go to dashboard"
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-emerald-600 font-heading text-sm font-bold text-white shadow-sm transition-ui group-hover:scale-[1.03]">
               {company.logo}
             </div>
             {!sidebarCollapsed && (
@@ -129,7 +133,7 @@ export function Sidebar() {
                 <p className="truncate text-[11px] font-medium text-slate-500">Employee Portal</p>
               </motion.div>
             )}
-          </div>
+          </NavLink>
           <button
             type="button"
             onClick={closeMobile}

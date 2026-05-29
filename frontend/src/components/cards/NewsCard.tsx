@@ -15,8 +15,10 @@ export function NewsCard({
   onEdit?: () => void
 }) {
   return (
-    <article className="flex h-full flex-col rounded-xl border border-border bg-white p-5 shadow-sm">
-      <h3 className="font-display text-base font-semibold text-emerald-900 line-clamp-2">{item.title}</h3>
+    <article className="flex h-full flex-col rounded-xl border border-border bg-white p-5 shadow-sm transition-ui hover:border-emerald-200 hover:shadow-md">
+      <h3 className="font-display text-base font-semibold text-emerald-900 line-clamp-2">
+        {item.title}
+      </h3>
       <p className="mt-3 flex-1 text-sm leading-relaxed text-ink line-clamp-6 whitespace-pre-line">
         {item.content}
       </p>

@@ -138,7 +138,7 @@ export default function LeaveRequest() {
   const getRequestDates = (request) => {
     const start = normalizeDate(request.from)
     const end = normalizeDate(request.to)
-    if (request.leaveDuration === 'Half Day') {
+    if (request.leaveDuration === 'half Day') {
       return [{ date: start, session: request.halfDaySession }]
     }
     return getDateRange(start, end).map((date) => ({ date, session: 'Full Day' }))

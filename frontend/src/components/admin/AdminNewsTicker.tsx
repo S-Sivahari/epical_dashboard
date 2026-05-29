@@ -9,11 +9,13 @@ import { ChevronLeft, ChevronRight, Megaphone } from 'lucide-react'
 
 // Gradient backgrounds for cards
 const GRADIENTS = [
-  'from-emerald-600 to-teal-500',
-  'from-green-600 to-emerald-500',
-  'from-teal-600 to-cyan-500',
-  'from-emerald-700 to-green-500',
+  'from-emerald-600/90 to-teal-500/90',
+  'from-green-600/90 to-emerald-500/90',
+  'from-teal-600/90 to-cyan-500/90',
+  'from-emerald-700/90 to-green-500/90',
 ]
+
+const CACHE_KEY = 'admin-news-ticker-v1'
 
 export function AdminNewsTicker() {
   const [items, setItems] = useState<NewsItem[]>([])
@@ -22,13 +24,30 @@ export function AdminNewsTicker() {
   const [active, setActive] = useState<NewsItem | null>(null)
 
   useEffect(() => {
+    let hasCached = false
+    const cached = sessionStorage.getItem(CACHE_KEY)
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setItems(parsed)
+          setIndex(0)
+          setLoading(false)
+          hasCached = true
+        }
+      } catch {
+        hasCached = false
+      }
+    }
+
     const load = async () => {
-      setLoading(true)
+      if (!hasCached) setLoading(true)
       try {
         // Fetch only 10 most recent news items for better performance
         const data = await listNews(10)
         setItems(data)
         setIndex(0)
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify(data))
       } catch {
         setItems([])
       } finally {
@@ -47,7 +66,23 @@ export function AdminNewsTicker() {
     return () => clearInterval(timer)
   }, [items.length])
 
-  if (loading || items.length === 0) return null
+  if (loading && items.length === 0) {
+    return (
+      <div className="min-h-[110px] rounded-2xl border border-border bg-white p-4.5 shadow-sm md:min-h-[124px] md:p-5">
+        <div className="flex items-start gap-4">
+          <div className="h-10 w-10 rounded-xl skeleton" />
+          <div className="flex-1 space-y-2">
+            <div className="h-3 w-36 rounded-full skeleton" />
+            <div className="h-5 w-2/3 rounded-lg skeleton" />
+            <div className="h-4 w-full rounded-lg skeleton" />
+            <div className="h-4 w-5/6 rounded-lg skeleton" />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (items.length === 0) return null
 
   const current = items[index]
   const gradient = GRADIENTS[index % GRADIENTS.length]
@@ -56,7 +91,7 @@ export function AdminNewsTicker() {
   return (
     <>
       {/* Carousel container matching employee design */}
-      <div className="relative overflow-hidden rounded-2xl">
+      <div className="relative min-h-[110px] overflow-hidden rounded-2xl md:min-h-[124px]">
         <AnimatePresence mode="wait">
           <motion.button
             key={current.id}
@@ -66,21 +101,23 @@ export function AdminNewsTicker() {
             exit={{ opacity: 0, x: -40 }}
             transition={{ duration: 0.4 }}
             onClick={() => setActive(current)}
-            className={`w-full cursor-pointer bg-gradient-to-r p-6 text-left text-white md:p-8 ${gradient}`}
+            className={`min-h-[110px] w-full cursor-pointer bg-gradient-to-r p-4.5 text-left text-white md:min-h-[124px] md:p-5 ${gradient}`}
           >
             <div className="flex items-start gap-4">
               {/* Icon */}
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/20">
-                <Megaphone className="h-6 w-6" />
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/20">
+                <Megaphone className="h-5 w-5" />
               </div>
-              
+
               {/* Content */}
-              <div className="flex-1 pr-16">
-                <p className="text-xs font-medium uppercase tracking-wider text-white/80">
+              <div className="flex-1 pr-14">
+                <p className="text-[11px] font-medium uppercase tracking-wider text-white/80">
                   Company Announcement
                 </p>
-                <h3 className="mt-1 font-display text-xl font-bold md:text-2xl">{current.title}</h3>
-                <p className="mt-2 text-sm text-white/90 line-clamp-2">{excerpt}</p>
+                <h3 className="mt-1 font-display text-lg font-semibold md:text-xl">
+                  {current.title}
+                </h3>
+                <p className="mt-1.5 text-sm text-white/90 line-clamp-2">{excerpt}</p>
               </div>
             </div>
           </motion.button>
@@ -90,17 +127,17 @@ export function AdminNewsTicker() {
         {items.length > 1 && (
           <>
             {/* Arrow buttons */}
-            <div className="absolute bottom-4 right-4 flex gap-2">
+            <div className="absolute bottom-3 right-3 flex gap-1.5">
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation()
                   setIndex((i) => (i - 1 + items.length) % items.length)
                 }}
-                className="rounded-lg bg-white/20 p-1.5 hover:bg-white/30"
+                className="rounded-md bg-white/20 p-1 hover:bg-white/30"
                 aria-label="Previous"
               >
-                <ChevronLeft className="h-4 w-4 text-white" />
+                <ChevronLeft className="h-3.5 w-3.5 text-white" />
               </button>
               <button
                 type="button"
@@ -108,15 +145,15 @@ export function AdminNewsTicker() {
                   e.stopPropagation()
                   setIndex((i) => (i + 1) % items.length)
                 }}
-                className="rounded-lg bg-white/20 p-1.5 hover:bg-white/30"
+                className="rounded-md bg-white/20 p-1 hover:bg-white/30"
                 aria-label="Next"
               >
-                <ChevronRight className="h-4 w-4 text-white" />
+                <ChevronRight className="h-3.5 w-3.5 text-white" />
               </button>
             </div>
-            
+
             {/* Dot indicators */}
-            <div className="absolute bottom-4 left-6 flex gap-1.5">
+            <div className="absolute bottom-3 left-5 flex gap-1">
               {items.map((item, i) => (
                 <button
                   key={item.id}
@@ -126,7 +163,7 @@ export function AdminNewsTicker() {
                     setIndex(i)
                   }}
                   className={`h-1.5 rounded-full transition-all ${
-                    i === index ? 'w-6 bg-white' : 'w-1.5 bg-white/40'
+                    i === index ? 'w-5 bg-white' : 'w-1.5 bg-white/45'
                   }`}
                   aria-label={`Go to slide ${i + 1}`}
                 />
@@ -139,12 +176,7 @@ export function AdminNewsTicker() {
       {/* Modal with smooth animation */}
       <AnimatePresence>
         {active && (
-          <Modal
-            isOpen={!!active}
-            onClose={() => setActive(null)}
-            title={active.title}
-            size="lg"
-          >
+          <Modal isOpen={!!active} onClose={() => setActive(null)} title={active.title} size="lg">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -181,7 +213,12 @@ export function AdminNewsTicker() {
                 >
                   <span>View Link</span>
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                    />
                   </svg>
                 </a>
               )}

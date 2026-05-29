@@ -26,10 +26,10 @@ import { ROUTES } from '@constants/routes'
 import { cn } from '@/utils/cn'
 
 const cardShell =
-  'rounded-2xl border border-emerald-100/50 bg-white shadow-[0_4px_28px_-8px_rgba(15,118,110,0.12)]'
+  'rounded-2xl border border-emerald-100/60 bg-white shadow-[0_6px_20px_-12px_rgba(15,118,110,0.14)]'
 
 const quickLinkClass =
-  'inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-emerald-200/80 bg-white px-3 text-center text-sm font-semibold text-emerald-900 transition-ui hover:border-emerald-300 hover:bg-emerald-50/90 hover:shadow-sm sm:h-12'
+  'inline-flex h-8 w-full items-center justify-center gap-2 rounded-lg border border-emerald-200/80 bg-white px-2 text-center text-[12px] font-semibold text-emerald-900 transition-ui hover:border-emerald-300 hover:bg-emerald-50/90 hover:shadow-sm sm:h-9'
 
 export function DashboardHome() {
   const user = useAuthStore((s) => s.user)
@@ -57,8 +57,7 @@ export function DashboardHome() {
         sunday.setDate(monday.getDate() + 6)
 
         const pad = (n: number) => String(n).padStart(2, '0')
-        const fmt = (d: Date) =>
-          `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+        const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 
         const weekParams = { from: fmt(monday), to: fmt(sunday) }
 
@@ -96,10 +95,8 @@ export function DashboardHome() {
           ? Number(t.overriddenHours)
           : t.logoutTime
             ? Math.round(
-                ((new Date(t.logoutTime).getTime() -
-                  new Date(t.loginTime).getTime()) /
-                  3600000) *
-                  10
+                ((new Date(t.logoutTime).getTime() - new Date(t.loginTime).getTime()) / 3600000) *
+                  10,
               ) / 10
             : 0
       const d = new Date(t.loginTime)
@@ -114,21 +111,14 @@ export function DashboardHome() {
   }, [timesheets])
 
   // Compute KPI values from real data
-  const activeProjectsCount = projects.filter(
-    (p: any) => p.status === 'Active'
-  ).length
+  const activeProjectsCount = projects.filter((p: any) => p.status === 'Active').length
   const totalEmployeesWorking = employeeHours.length
-  const activeTasksCount = timesheets.filter(
-    (t: any) => !t.logoutTime
-  ).length
+  const activeTasksCount = timesheets.filter((t: any) => !t.logoutTime).length
 
   // Build activity feed from recent timesheets
   const activity = useMemo(() => {
     const recent = [...timesheets]
-      .sort(
-        (a: any, b: any) =>
-          new Date(b.loginTime).getTime() - new Date(a.loginTime).getTime()
-      )
+      .sort((a: any, b: any) => new Date(b.loginTime).getTime() - new Date(a.loginTime).getTime())
       .slice(0, 5)
 
     return recent.map((t: any, idx: number) => {
@@ -150,15 +140,15 @@ export function DashboardHome() {
   )
 
   return (
-    <PageWrapper className="py-7">
-      <div className="space-y-7">
+    <PageWrapper className="py-3">
+      <div className="space-y-4">
         <AdminNewsTicker />
 
-        <div className="grid gap-5 lg:grid-cols-3">
+        <div className="grid gap-3 lg:grid-cols-3">
           <motion.section
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className={cn(cardShell, 'p-5 md:p-6 lg:col-span-2')}
+            className={cn(cardShell, 'p-3.5 md:p-4 lg:col-span-2')}
           >
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-4">
@@ -177,7 +167,7 @@ export function DashboardHome() {
                 <Sparkles className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={1.75} />
               </div>
             </div>
-            <div className="mt-6 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-3 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-4">
               <Link to={ROUTES.EMPLOYEE_ADD} className={quickLinkClass}>
                 <UserPlus className="h-4 w-4 shrink-0 text-emerald-600" strokeWidth={2.25} />
                 Add Employee
@@ -201,24 +191,27 @@ export function DashboardHome() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.06 }}
-            className={cn(cardShell, 'flex flex-col p-5 md:p-6')}
+            className={cn(cardShell, 'flex flex-col p-3.5 md:p-4')}
           >
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-emerald-800/45">Today</p>
-            <p className="mt-4 text-sm leading-relaxed text-slate-600">
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-emerald-800/45">
+              Today
+            </p>
+            <p className="mt-2.5 text-sm leading-relaxed text-slate-600">
               {loading ? (
                 'Loading dashboard data…'
               ) : (
                 <>
                   <span className="font-semibold text-slate-900">{pendingLeavesCount}</span> leave
                   {pendingLeavesCount !== 1 ? 's' : ''} pending approval.{' '}
-                  <span className="font-semibold text-slate-900">{activeTasksCount}</span> active task
+                  <span className="font-semibold text-slate-900">{activeTasksCount}</span> active
+                  task
                   {activeTasksCount !== 1 ? 's' : ''} running now.
                 </>
               )}
             </p>
             <Link
               to={ROUTES.PROJECTS}
-              className="group mt-auto flex items-center gap-1 pt-5 text-sm font-semibold text-emerald-700 transition-ui hover:text-emerald-800"
+              className="group mt-auto flex items-center gap-1 pt-4 text-sm font-semibold text-emerald-700 transition-ui hover:text-emerald-800"
             >
               View all tasks
               <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -226,7 +219,7 @@ export function DashboardHome() {
           </motion.section>
         </div>
 
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-4">
           <KPICard
             title="Employees Working"
             value={totalEmployeesWorking}
@@ -266,32 +259,38 @@ export function DashboardHome() {
           />
         </div>
 
-        <div className={cn(cardShell, 'overflow-hidden p-5 md:p-6')}>
-          <div className="mb-1 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className={cn(cardShell, 'overflow-hidden p-3.5 md:p-4')}>
+          <div className="mb-1 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="font-display text-lg font-semibold text-slate-900">Weekly project hours</h2>
+              <h2 className="font-display text-lg font-semibold text-slate-900">
+                Weekly project hours
+              </h2>
               <p className="mt-1 text-sm text-slate-500">Hours logged this week (Mon–Sun)</p>
             </div>
             <div className="flex flex-shrink-0 items-center gap-4">
               <div className="text-right">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Total hours</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  Total hours
+                </p>
                 <p className="font-display text-2xl font-semibold tabular-nums text-emerald-800">
                   {loading ? '—' : `${totalWeeklyHours}`}
-                  {!loading ? <span className="text-base font-semibold text-slate-400"> h</span> : null}
+                  {!loading ? (
+                    <span className="text-base font-semibold text-slate-400"> h</span>
+                  ) : null}
                 </p>
               </div>
-              <span className="rounded-full border border-emerald-200/90 bg-emerald-50 px-4 py-1.5 text-xs font-semibold text-emerald-900">
+              <span className="rounded-full border border-emerald-200/90 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-900">
                 This Week
               </span>
             </div>
           </div>
-          <div className="mt-4">
+          <div className="mt-2.5">
             <HoursBarChart data={weeklyHours} />
           </div>
         </div>
 
-        <section className={cn(cardShell, 'p-5 md:p-6')}>
-          <div className="mb-5 border-b border-emerald-100/80 pb-5">
+        <section className={cn(cardShell, 'p-3.5 md:p-4')}>
+          <div className="mb-3.5 border-b border-emerald-100/80 pb-3">
             <h2 className="font-display text-lg font-semibold text-slate-900">Activity</h2>
             <p className="mt-1 text-sm text-slate-500">Latest work sessions from employees</p>
           </div>
@@ -307,7 +306,10 @@ export function DashboardHome() {
                   className="flex items-start justify-between gap-3 rounded-xl border border-emerald-100/60 bg-emerald-50/25 px-4 py-3"
                 >
                   <div>
-                    <Badge variant={a.type === 'Active Task' ? 'warning' : 'info'} className="mb-1.5">
+                    <Badge
+                      variant={a.type === 'Active Task' ? 'warning' : 'info'}
+                      className="mb-1.5"
+                    >
                       {a.type}
                     </Badge>
                     <p className="text-sm text-slate-800">{a.text}</p>

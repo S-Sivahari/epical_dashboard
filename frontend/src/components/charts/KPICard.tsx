@@ -15,15 +15,17 @@ export function KPICard({
   color?: string
 }) {
   return (
-    <div className="rounded-2xl border border-emerald-100/50 bg-white p-5 shadow-[0_4px_24px_-6px_rgba(15,118,110,0.12)]">
+    <div className="rounded-2xl border border-emerald-100/60 bg-white p-3.5 shadow-[0_6px_18px_-12px_rgba(15,118,110,0.16)]">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-slate-500">{title}</p>
-          <p className="mt-3 font-display text-3xl font-semibold tracking-tight text-slate-900">{value}</p>
+          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{title}</p>
+          <p className="mt-1.5 font-display text-[22px] font-semibold tracking-tight text-slate-900">
+            {value}
+          </p>
           {trend ? (
             <p
               className={cn(
-                'mt-2 inline-flex items-center gap-0.5 text-xs font-semibold',
+                'mt-2 inline-flex items-center gap-0.5 text-[11px] font-semibold',
                 trend.direction === 'up' ? 'text-emerald-600' : 'text-rose-600',
               )}
             >
@@ -32,11 +34,13 @@ export function KPICard({
             </p>
           ) : null}
         </div>
-        <span
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white shadow-lg shadow-black/15"
-          style={{ backgroundColor: color }}
-        >
-          <Icon className="h-5 w-5" strokeWidth={2} />
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-emerald-100">
+          <span
+            className="flex h-7 w-7 items-center justify-center rounded-full text-white shadow-sm"
+            style={{ backgroundColor: color }}
+          >
+            <Icon className="h-[14px] w-[14px]" strokeWidth={2} />
+          </span>
         </span>
       </div>
     </div>

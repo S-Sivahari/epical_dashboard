@@ -43,7 +43,7 @@ export function Navbar() {
   const title = useMemo(() => {
     // Check if there's a direct route mapping
     if (routeTitles[pathname]) return routeTitles[pathname]
-    
+
     // For sub-routes (like /admin/employees/1), use parent route
     const parts = pathname.split('/').filter(Boolean)
     if (parts.length > 2) {
@@ -65,7 +65,7 @@ export function Navbar() {
 
   return (
     <header
-      className="fixed right-0 top-0 z-30 flex h-16 items-center justify-between gap-4 border-b border-emerald-100/90 bg-white/95 px-4 shadow-[0_1px_0_0_rgba(16,185,129,0.06)] backdrop-blur-md lg:left-[260px]"
+      className="fixed right-0 top-0 z-30 flex h-14 items-center justify-between gap-4 border-b border-emerald-100/90 bg-white/95 px-4 shadow-[0_1px_0_0_rgba(16,185,129,0.06)] backdrop-blur-md lg:left-[260px]"
       style={{ paddingLeft: isLg ? undefined : '3.25rem' }}
     >
       <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -94,7 +94,9 @@ export function Navbar() {
             >
               <Avatar name={user?.name ?? 'Admin'} src={user?.avatarUrl} size="sm" />
               <div className="hidden min-w-0 flex-1 flex-col sm:flex">
-                <span className="truncate font-semibold leading-tight text-slate-900">{user?.name}</span>
+                <span className="truncate font-semibold leading-tight text-slate-900">
+                  {user?.name}
+                </span>
                 <span className="truncate text-xs font-medium text-emerald-800/50">
                   {user?.designation || user?.role || 'Admin'}
                 </span>

@@ -12,21 +12,22 @@ import { cn } from '@/utils/cn'
 import { Spinner } from '@components/ui/Spinner'
 
 const variants = cva(
-  'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-ui focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:pointer-events-none disabled:opacity-50 cursor-pointer',
+  'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-ui shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:pointer-events-none disabled:opacity-50 cursor-pointer active:translate-y-[1px] active:shadow-none',
   {
     variants: {
       variant: {
-        primary: 'bg-primary text-white hover:bg-green-700',
-        secondary: 'border border-border bg-white text-ink hover:bg-surface',
-        danger: 'bg-danger text-white hover:bg-red-600',
-        warning: 'bg-amber-500 text-white hover:bg-amber-600',
-        info: 'bg-blue-600 text-white hover:bg-blue-700',
-        ghost: 'text-ink hover:bg-surface',
+        primary: 'bg-primary text-white hover:bg-emerald-700 active:bg-emerald-800',
+        secondary:
+          'border border-emerald-200/80 bg-white text-emerald-900 hover:bg-emerald-50/60 active:bg-emerald-100/60',
+        danger: 'bg-danger text-white hover:bg-red-600 active:bg-red-700',
+        warning: 'bg-amber-500 text-white hover:bg-amber-600 active:bg-amber-700',
+        info: 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800',
+        ghost: 'text-ink shadow-none hover:bg-surface active:bg-slate-100',
       },
       size: {
-        sm: 'h-8 px-3 text-sm',
-        md: 'h-10 px-4 text-sm',
-        lg: 'h-11 px-5 text-base',
+        sm: 'h-7 px-2.5 text-xs',
+        md: 'h-9 px-3.5 text-sm',
+        lg: 'h-10 px-4 text-sm',
       },
     },
     defaultVariants: { variant: 'primary', size: 'md' },
@@ -61,7 +62,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
                 </>
               ),
             })}
-
           </Comp>
         )
       }

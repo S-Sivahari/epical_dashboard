@@ -28,12 +28,12 @@ export function HoursBarChart({ data }: { data: { name: string; hours: number }[
   const gradId = useId().replace(/:/g, '')
 
   return (
-    <div className="h-64 w-full sm:h-72">
+    <div className="h-48 w-full sm:h-52">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={data}
-          margin={{ top: 28, right: 8, left: -8, bottom: 0 }}
-          barCategoryGap="42%"
+          margin={{ top: 16, right: 8, left: -8, bottom: 0 }}
+          barCategoryGap="38%"
         >
           <defs>
             <linearGradient id={`hoursBarGrad-${gradId}`} x1="0" y1="1" x2="0" y2="0">
@@ -42,25 +42,26 @@ export function HoursBarChart({ data }: { data: { name: string; hours: number }[
               <stop offset="100%" stopColor="#d1fae5" stopOpacity={0.9} />
             </linearGradient>
           </defs>
-          <CartesianGrid
-            strokeDasharray="4 6"
-            stroke="rgb(203 213 225 / 0.85)"
-            vertical={false}
-          />
+          <CartesianGrid strokeDasharray="3 6" stroke="rgb(226 232 240 / 0.9)" vertical={false} />
           <XAxis
             dataKey="name"
             tick={{ fill: '#64748b', fontSize: 12, fontWeight: 500 }}
             axisLine={false}
             tickLine={false}
           />
-          <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} width={36} />
+          <YAxis
+            tick={{ fill: '#64748b', fontSize: 11 }}
+            axisLine={false}
+            tickLine={false}
+            width={36}
+          />
           <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(22,163,74,0.06)' }} />
           <Bar
             dataKey="hours"
             fill={`url(#hoursBarGrad-${gradId})`}
             radius={[8, 8, 0, 0]}
-            barSize={20}
-            maxBarSize={24}
+            barSize={16}
+            maxBarSize={20}
             isAnimationActive
           >
             <LabelList

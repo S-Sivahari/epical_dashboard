@@ -27,39 +27,50 @@ import { APP_SHORT_NAME } from '@/utils/constants'
 
 const groups: {
   label: string
-  items: { to: string; label: string; icon: typeof LayoutGrid; end?: boolean; notificationKey?: 'leaves' | 'documents' }[]
+  items: {
+    to: string
+    label: string
+    icon: typeof LayoutGrid
+    end?: boolean
+    notificationKey?: 'leaves' | 'documents'
+  }[]
 }[] = [
-    {
-      label: 'Main',
-      items: [{ to: ROUTES.DASHBOARD, label: 'Dashboard', icon: LayoutGrid, end: true }],
-    },
-    {
-      label: 'People',
-      items: [
-        { to: ROUTES.EMPLOYEES, label: 'Manage Employees', icon: Users, end: true },
-        { to: ROUTES.LEAVES, label: 'Manage Leaves', icon: CalendarCheck, notificationKey: 'leaves' },
-      ],
-    },
-    {
-      label: 'Work',
-      items: [
-        { to: ROUTES.PROJECTS, label: 'Projects / Timesheet', icon: Briefcase },
-        { to: ROUTES.CALENDAR, label: 'Company Calendar', icon: CalendarDays },
-      ],
-    },
-    {
-      label: 'Company',
-      items: [
-        { to: ROUTES.PAYSLIPS, label: 'Payslips', icon: Receipt },
-        { to: ROUTES.TRAINING, label: 'Training & Courses', icon: BookOpen },
-        { to: ROUTES.ACHIEVEMENTS, label: 'Company achievements', icon: Trophy },
-        { to: ROUTES.ANALYTICS, label: 'Analytics', icon: BarChart3 },
-        { to: ROUTES.DOCUMENTS, label: 'Documents Request', icon: FileText, notificationKey: 'documents' },
-        { to: ROUTES.NEWS, label: 'Manage News', icon: Newspaper },
-        { to: ROUTES.TICKETS, label: 'Tickets', icon: Ticket },
-      ],
-    },
-  ]
+  {
+    label: 'Main',
+    items: [{ to: ROUTES.DASHBOARD, label: 'Dashboard', icon: LayoutGrid, end: true }],
+  },
+  {
+    label: 'People',
+    items: [
+      { to: ROUTES.EMPLOYEES, label: 'Manage Employees', icon: Users, end: true },
+      { to: ROUTES.LEAVES, label: 'Manage Leaves', icon: CalendarCheck, notificationKey: 'leaves' },
+    ],
+  },
+  {
+    label: 'Work',
+    items: [
+      { to: ROUTES.PROJECTS, label: 'Projects / Timesheet', icon: Briefcase },
+      { to: ROUTES.CALENDAR, label: 'Company Calendar', icon: CalendarDays },
+    ],
+  },
+  {
+    label: 'Company',
+    items: [
+      { to: ROUTES.PAYSLIPS, label: 'Payslips', icon: Receipt },
+      { to: ROUTES.TRAINING, label: 'Training & Courses', icon: BookOpen },
+      { to: ROUTES.ACHIEVEMENTS, label: 'Company achievements', icon: Trophy },
+      { to: ROUTES.ANALYTICS, label: 'Analytics', icon: BarChart3 },
+      {
+        to: ROUTES.DOCUMENTS,
+        label: 'Documents Request',
+        icon: FileText,
+        notificationKey: 'documents',
+      },
+      { to: ROUTES.NEWS, label: 'Manage News', icon: Newspaper },
+      { to: ROUTES.TICKETS, label: 'Tickets', icon: Ticket },
+    ],
+  },
+]
 
 export function Sidebar() {
   const isLg = useMediaQuery('(min-width: 1024px)')
@@ -84,7 +95,11 @@ export function Sidebar() {
           onClick={toggleSidebar}
           aria-label="Toggle menu"
         >
-          {sidebarOpen ? <X className="h-5 w-5 text-emerald-900" /> : <Menu className="h-5 w-5 text-emerald-900" />}
+          {sidebarOpen ? (
+            <X className="h-5 w-5 text-emerald-900" />
+          ) : (
+            <Menu className="h-5 w-5 text-emerald-900" />
+          )}
         </button>
       ) : null}
 
@@ -103,22 +118,29 @@ export function Sidebar() {
           isLg ? 'translate-x-0' : sidebarOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        <div className="flex h-16 shrink-0 items-center gap-2 border-b border-emerald-100/70 bg-white/70 px-5 backdrop-blur-sm">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 text-sm font-bold text-white shadow-md shadow-emerald-900/20 ring-2 ring-white">
+        <NavLink
+          to={ROUTES.DASHBOARD}
+          end
+          className="group flex h-16 shrink-0 items-center gap-2 border-b border-emerald-100/70 bg-white/70 px-5 backdrop-blur-sm transition-ui hover:bg-white"
+          title="Go to dashboard"
+        >
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 text-sm font-bold text-white shadow-md shadow-emerald-900/20 ring-2 ring-white transition-ui group-hover:scale-[1.03]">
             E
           </div>
           <div>
-            <p className="font-display text-sm font-semibold tracking-tight text-slate-900">{APP_SHORT_NAME}</p>
+            <p className="font-display text-sm font-semibold tracking-tight text-slate-900">
+              {APP_SHORT_NAME}
+            </p>
             <p className="text-xs font-medium text-emerald-700/55">Enterprise</p>
           </div>
-        </div>
-        <nav className="min-h-0 flex-1 space-y-6 overflow-y-auto px-3 py-4 pb-3">
+        </NavLink>
+        <nav className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3 pb-2">
           {groups.map((g) => (
             <div key={g.label}>
-              <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-emerald-900/40">
+              <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-emerald-900/40">
                 {g.label}
               </p>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {g.items.map((item) => (
                   <NavLink
                     key={item.to}
@@ -127,18 +149,18 @@ export function Sidebar() {
                     onClick={() => !isLg && setSidebarOpen(false)}
                     className={({ isActive }) =>
                       cn(
-                        'relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-ui',
+                        'relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-ui',
                         isActive
-                          ? 'border-l-[3px] border-emerald-600 bg-white text-emerald-950 shadow-md shadow-emerald-900/[0.07]'
-                          : 'border-l-[3px] border-transparent text-slate-600 hover:bg-white/75 hover:text-emerald-950',
+                          ? 'border-l-2 border-emerald-500/70 bg-emerald-50/60 text-emerald-950 shadow-sm'
+                          : 'border-l-2 border-transparent text-slate-600 hover:bg-emerald-50/40 hover:text-emerald-950',
                       )
                     }
                   >
-                    <item.icon className="h-[1.125rem] w-[1.125rem] shrink-0 opacity-[0.92]" />
+                    <item.icon className="h-4 w-4 shrink-0 opacity-[0.88]" />
                     <span className="truncate">{item.label}</span>
                     {item.notificationKey && (
-                      <NotificationBadge 
-                        count={notificationCounts[item.notificationKey]} 
+                      <NotificationBadge
+                        count={notificationCounts[item.notificationKey]}
                         size="sm"
                         className="right-2"
                       />

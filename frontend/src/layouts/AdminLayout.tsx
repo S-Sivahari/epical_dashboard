@@ -10,7 +10,7 @@ export function AdminLayout() {
       <Sidebar />
       <div className="lg:pl-[260px]">
         <Navbar />
-        <main className="relative min-h-screen bg-white pt-16">
+        <main className="relative min-h-[calc(100vh-3.5rem)] bg-white pt-14">
           <div
             aria-hidden
             className="pointer-events-none absolute inset-x-0 top-0 z-0 h-80 bg-gradient-to-b from-emerald-50/45 via-transparent to-transparent"
