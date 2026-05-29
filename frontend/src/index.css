@@ -55,6 +55,40 @@
     cursor: none !important;
   }
 
+  /* Top-left cyber branding */
+  .login-top-brand-text {
+    font-family: var(--font-display, ui-sans-serif, system-ui, sans-serif);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.88);
+    text-shadow:
+      0 0 10px rgba(0, 200, 83, 0.45),
+      0 0 22px rgba(0, 200, 83, 0.2),
+      0 0 4px rgba(255, 255, 255, 0.15);
+    transition: text-shadow 0.35s ease, color 0.35s ease;
+  }
+
+  @media (min-width: 640px) {
+    .login-top-brand-text {
+      font-size: 0.75rem;
+      letter-spacing: 0.3em;
+    }
+  }
+
+  .login-top-brand:hover .login-top-brand-text {
+    color: rgba(255, 255, 255, 0.98);
+    text-shadow:
+      0 0 14px rgba(0, 230, 118, 0.65),
+      0 0 28px rgba(0, 200, 83, 0.35),
+      0 0 6px rgba(255, 255, 255, 0.2);
+  }
+
+  .chip-brand-logo {
+    background: transparent;
+  }
+
   /* Login page glassmorphism & glow utilities */
   .login-card-shell {
     position: relative;

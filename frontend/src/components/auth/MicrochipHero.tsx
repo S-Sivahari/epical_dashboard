@@ -2,8 +2,6 @@ import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
 import { useCallback, useRef, useState } from 'react'
 import { APP_NAME, APP_SHORT_NAME } from '@/utils/constants'
 
-const LOGO_URL = '/logo.png'
-
 const PARTICLES = Array.from({ length: 12 }, (_, i) => ({
   id: i,
   angle: (i / 12) * 360,
@@ -18,10 +16,6 @@ const SPARKS = Array.from({ length: 6 }, (_, i) => ({
   y: 15 + (i % 3) * 20,
   delay: i * 0.4,
 }))
-
-function EpicalLogo({ className = 'h-11 w-11' }: { className?: string }) {
-  return <img src={LOGO_URL} alt="Epical Layouts" className={className} />
-}
 
 export function MicrochipHero() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -58,12 +52,6 @@ export function MicrochipHero() {
       transition={{ duration: 0.7, ease: 'easeOut' }}
       className="relative flex w-full max-w-lg flex-col items-center gap-8 px-4 text-center lg:items-start lg:text-left"
     >
-      {/* Brand header — visible on mobile, hidden on lg (shown in hero text below) */}
-      <div className="flex items-center gap-3 lg:hidden">
-        <EpicalLogo className="h-9 w-9" />
-        <span className="text-xs font-semibold tracking-[0.25em] text-white/60">EPICAL LAYOUTS</span>
-      </div>
-
       {/* 3D Chip container */}
       <div
         ref={containerRef}
@@ -264,10 +252,6 @@ export function MicrochipHero() {
 
       {/* Hero text */}
       <div className="space-y-3">
-        <div className="hidden items-center gap-3 lg:flex">
-          <EpicalLogo className="h-10 w-10" />
-          <span className="text-xs font-semibold tracking-[0.25em] text-white/50">EPICAL LAYOUTS</span>
-        </div>
         <h1 className="font-display text-3xl font-extrabold tracking-tight text-white sm:text-4xl lg:text-5xl">
           {APP_SHORT_NAME}
           <motion.span

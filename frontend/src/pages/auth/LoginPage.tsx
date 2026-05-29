@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
 import { LoginBackground } from '@components/auth/LoginBackground'
 import { CursorGlow } from '@components/auth/CursorGlow'
+import { LoginTopBrand } from '@components/auth/LoginTopBrand'
 import { MicrochipHero } from '@components/auth/MicrochipHero'
 import { Button } from '@components/ui/Button'
 import { useAuthStore } from '@store/authStore'
@@ -122,6 +123,7 @@ export function LoginPage() {
   return (
     <div className="login-page relative min-h-screen overflow-hidden">
       <LoginBackground />
+      <LoginTopBrand />
       <CursorGlow />
 
       <div className="relative z-10 grid min-h-screen grid-rows-[auto_1fr] lg:grid-cols-2 lg:grid-rows-1">
