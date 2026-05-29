@@ -11,59 +11,59 @@
   }
 
   .type-page-title {
-    @apply font-display text-2xl font-bold tracking-tight text-slate-900;
+    @apply font-display text-2xl font-black tracking-tight text-slate-950;
   }
 
   .type-section-title {
-    @apply font-display text-base font-semibold tracking-tight text-slate-900 sm:text-lg;
+    @apply font-display text-base font-extrabold tracking-tight text-slate-900 sm:text-lg;
   }
 
   .type-card-title {
-    @apply font-display text-sm font-semibold tracking-tight text-slate-900 sm:text-base;
+    @apply font-display text-sm font-extrabold tracking-tight text-slate-900 sm:text-base;
   }
 
   .type-card-label {
-    @apply font-body text-sm font-medium text-muted;
+    @apply font-body text-sm font-bold text-slate-700;
   }
 
   .type-card-label-caps {
-    @apply font-body text-[11px] font-semibold uppercase tracking-wide text-muted;
+    @apply font-body text-[11px] font-extrabold uppercase tracking-wide text-slate-800;
   }
 
   .type-body {
-    @apply font-body text-sm leading-relaxed text-muted;
+    @apply font-body text-sm font-semibold leading-relaxed text-slate-700;
   }
 
   .type-body-sm {
-    @apply font-body text-xs leading-relaxed text-muted;
+    @apply font-body text-xs font-semibold leading-relaxed text-slate-600;
   }
 
   .type-table-head {
-    @apply font-display text-[11px] font-semibold uppercase tracking-wide text-slate-500;
+    @apply font-display text-[11px] font-extrabold uppercase tracking-wide text-slate-800;
   }
 
   .type-table-cell {
-    @apply font-body text-sm text-slate-600;
+    @apply font-body text-sm font-bold text-slate-900;
   }
 
   .type-metric-xl {
-    @apply font-mono text-4xl font-bold tabular-nums tracking-tight;
+    @apply font-mono text-4xl font-black tabular-nums tracking-tight text-slate-950;
   }
 
   .type-metric-lg {
-    @apply font-mono text-2xl font-bold tabular-nums tracking-tight text-foreground;
+    @apply font-mono text-2xl font-black tabular-nums tracking-tight text-slate-950;
   }
 
   .type-metric-md {
-    @apply font-mono text-3xl font-extrabold tabular-nums leading-none tracking-tight text-slate-900;
+    @apply font-mono text-3xl font-black tabular-nums leading-none tracking-tight text-slate-950;
   }
 
   .type-metric {
-    @apply font-mono text-sm font-semibold tabular-nums;
+    @apply font-mono text-sm font-bold tabular-nums text-slate-800;
   }
 
   .type-metric-inline {
-    @apply font-mono text-sm font-extrabold tabular-nums text-slate-900;
+    @apply font-mono text-sm font-black tabular-nums text-slate-950;
   }
 
   .type-calendar-month {
@@ -80,11 +80,11 @@
 
   /* Tables inside dashboard surfaces */
   .dashboard-surface table thead th {
-    @apply font-display text-[11px] font-semibold uppercase tracking-wide text-slate-500;
+    @apply font-display text-[11px] font-extrabold uppercase tracking-wide text-slate-900;
   }
 
   .dashboard-surface table tbody td {
-    @apply font-body text-sm text-slate-600;
+    @apply font-body text-sm text-slate-900 font-bold;
   }
 
   /* Date range popovers */
