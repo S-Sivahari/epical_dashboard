@@ -119,7 +119,7 @@ export const notifications = [
 ]
 
 export const faqs = [
-  { q: 'How do I reset my portal password?', a: 'Go to Settings > Security or contact IT support to reset your password.' },
+  { q: 'How do I sign in to the portal?', a: 'Use Continue with Google and the company Gmail address registered with HR. There is no separate portal password.' },
   { q: 'When are payslips available?', a: 'Payslips are published by the 5th of each month for the previous period.' },
   { q: 'How many days in advance should I apply for leave?', a: 'Casual and earned leave should be applied at least 3 working days in advance.' },
   { q: 'How do I track my support ticket?', a: 'Open Raise Tickets from the sidebar. Your ticket history shows status, priority, and any admin remarks. The list refreshes automatically every 30 seconds.' },

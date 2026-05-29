@@ -99,8 +99,7 @@ export function CompanyNews() {
       const item = await createNews({ title, content, imageUrl, link, imageFile })
       setItems((prev) => [item, ...prev])
       resetForm()
-      toast.success('News published')
-    } catch (e: unknown) {
+} catch (e: unknown) {
       const message = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
       toast.error(message || 'Failed to publish news')
     } finally {
@@ -114,8 +113,7 @@ export function CompanyNews() {
     try {
       await deleteNews(itemToDelete.id)
       setItems((prev) => prev.filter((n) => n.id !== itemToDelete.id))
-      toast.success('News removed')
-      setDeleteConfirmOpen(false)
+setDeleteConfirmOpen(false)
       setItemToDelete(null)
     } catch (e: unknown) {
       const message = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
@@ -166,8 +164,7 @@ export function CompanyNews() {
       })
       setItems((prev) => prev.map((n) => (n.id === updated.id ? updated : n)))
       setEditing(null)
-      toast.success('News updated')
-    } catch (e: unknown) {
+} catch (e: unknown) {
       const message = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
       toast.error(message || 'Failed to update news')
     } finally {

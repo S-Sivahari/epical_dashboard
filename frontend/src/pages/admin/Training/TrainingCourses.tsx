@@ -135,7 +135,6 @@ export function TrainingCourses() {
       setTopic('')
       setPlatform('')
       setLink('')
-      toast.success('Course added')
     } catch (e: any) {
       toast.error(e?.response?.data?.error || 'Failed to add course')
     } finally {
@@ -149,7 +148,6 @@ export function TrainingCourses() {
       await deleteCourse(id)
       setCourses((prev) => prev.filter((c) => c.id !== id))
       setEnrollments((prev) => prev.filter((e) => e.courseId !== id))
-      toast.success('Course removed')
     } catch (e: any) {
       toast.error(e?.response?.data?.error || 'Failed to remove course')
     } finally {
@@ -188,7 +186,6 @@ export function TrainingCourses() {
         )
       )
       setEditingCourse(null)
-      toast.success('Course updated')
     } catch (e: any) {
       toast.error(e?.response?.data?.error || 'Failed to update course')
     } finally {

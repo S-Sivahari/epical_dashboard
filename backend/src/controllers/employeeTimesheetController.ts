@@ -802,8 +802,8 @@ export const employeeTimesheetController = {
       }
 
       const { assignedTaskId, description } = req.body;
-      if (!assignedTaskId || !description || String(description).trim().length < 3) {
-        res.status(400).json({ error: 'Select a task and provide a description (min 3 characters)' });
+      if (!assignedTaskId) {
+        res.status(400).json({ error: 'Select a task before starting' });
         return;
       }
 
@@ -891,7 +891,10 @@ export const employeeTimesheetController = {
       // Pin to a const so TypeScript flow analysis keeps the non-null guarantee inside the async callback
       const resolvedProject = taskProject!;
       const now = new Date();
-      const workNote = String(description).trim();
+      const workNote =
+        (typeof description === 'string' ? description.trim() : '') ||
+        assigned.title ||
+        resolvedProject.projectName;
       const session = await mongoose.startSession();
 
       try {
@@ -1124,16 +1127,11 @@ export const employeeTimesheetController = {
         return;
       }
 
-      const completionSummary = typeof description === 'string' ? description.trim() : '';
-      if (completionSummary.length < 3) {
-        res.status(400).json({
-          error: 'Provide a completion summary (at least 3 characters) describing what you finished',
-        });
-        return;
-      }
-
-
-
+      const completionSummary =
+        (typeof description === 'string' ? description.trim() : '') ||
+        (typeof openLog.task === 'string' ? openLog.task.trim() : '') ||
+        openLog.project ||
+        'Session completed';
       const now = new Date();
       const session = await mongoose.startSession();
 

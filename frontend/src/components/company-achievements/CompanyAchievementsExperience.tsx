@@ -196,7 +196,6 @@ export function CompanyAchievementsExperience({
       const next = await updateAchievementPage(fd)
       setPageMeta(next)
       setCoverOpen(false)
-      toast.success('Cover section updated')
     } catch (e: unknown) {
       const msg =
         (e as { response?: { data?: { error?: string } } })?.response?.data?.error ||
@@ -251,11 +250,9 @@ export function CompanyAchievementsExperience({
       if (editTarget) {
         const updated = await updateCompanyAchievement(editTarget.id, fd)
         setRows((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))
-        toast.success('Achievement updated')
       } else {
         const created = await createCompanyAchievement(fd)
         setRows((prev) => [...prev, created].sort((a, b) => a.sortOrder - b.sortOrder))
-        toast.success('Achievement added')
       }
       setAddOpen(false)
     } catch (e: unknown) {
@@ -273,7 +270,6 @@ export function CompanyAchievementsExperience({
     try {
       await deleteCompanyAchievement(deleteTarget.id)
       setRows((prev) => prev.filter((x) => x.id !== deleteTarget.id))
-      toast.success('Achievement removed')
     } catch (e: unknown) {
       const msg =
         (e as { response?: { data?: { error?: string } } })?.response?.data?.error ||

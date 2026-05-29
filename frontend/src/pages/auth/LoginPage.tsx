@@ -73,7 +73,6 @@ export function LoginPage() {
       completeOAuthRedirect({ token, role: oauthRole, email, name, designation })
       prefetchEmployeeDashboard()
       window.history.replaceState({}, '', '/auth/login')
-      toast.success('Welcome back')
       navigate(oauthRole === 'admin' ? '/admin' : '/employee', { replace: true })
       return
     }
@@ -108,7 +107,6 @@ export function LoginPage() {
     try {
       await login(values.email, values.password)
       prefetchEmployeeDashboard()
-      toast.success('Welcome back')
       const userRole = useAuthStore.getState().role
       navigate(userRole === 'admin' ? '/admin' : '/employee', { replace: true })
     } catch (error) {

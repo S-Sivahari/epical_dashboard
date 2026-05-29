@@ -18,9 +18,9 @@ export default {
         info: '#3b82f6',
       },
       fontFamily: {
-        display: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
-        heading: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
-        body: ['"DM Sans"', 'system-ui', 'sans-serif'],
+        display: ['"Inter"', '"DM Sans"', 'system-ui', 'sans-serif'],
+        heading: ['"Inter"', '"DM Sans"', 'system-ui', 'sans-serif'],
+        body: ['"DM Sans"', '"Inter"', 'system-ui', 'sans-serif'],
         mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
       },
       boxShadow: {

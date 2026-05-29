@@ -95,7 +95,6 @@ export function LeaveManagementContainer() {
         } else {
           await exportLeavesToExcel(filteredLeaveRequests, filename, exportFilterMeta, generatedBy)
         }
-        toast.success(`Exported ${filteredLeaveRequests.length} leave request(s)`)
         return
       }
 
@@ -108,7 +107,6 @@ export function LeaveManagementContainer() {
       } else {
         await exportCompensationToExcel(compensationExportRows, filename, exportFilterMeta, generatedBy)
       }
-      toast.success(`Exported ${compensationExportRows.length} compensation entr${compensationExportRows.length === 1 ? 'y' : 'ies'}`)
     } finally {
       setExporting(null)
     }
@@ -117,13 +115,8 @@ export function LeaveManagementContainer() {
   const handleDeleteAllLeaves = async () => {
     setDeletingAll(true)
     try {
-      const deletedCount = await deleteAllLeaves()
+      await deleteAllLeaves()
       setDeleteAllOpen(false)
-      toast.success(
-        deletedCount > 0
-          ? `Deleted ${deletedCount} leave record${deletedCount === 1 ? '' : 's'}`
-          : 'No leave records to delete',
-      )
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??

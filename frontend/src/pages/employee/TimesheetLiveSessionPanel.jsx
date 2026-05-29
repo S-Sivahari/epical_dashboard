@@ -121,7 +121,7 @@ export function TimesheetLiveSessionPanel({
       <div className="flex h-full min-h-[320px] flex-col items-center justify-center rounded-xl border border-dashed border-border bg-slate-50/50 px-6 text-center">
         <p className="text-sm font-semibold text-muted">No active session</p>
         <p className="mt-1 max-w-xs text-xs text-muted">
-          Select a project, add your work description, and check in to start tracking time.
+          Select a project and check in to start tracking time. Work description is optional.
         </p>
       </div>
     )

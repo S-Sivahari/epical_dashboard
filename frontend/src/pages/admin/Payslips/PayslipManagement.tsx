@@ -349,17 +349,6 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
       setReplaceConfirm(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
 
-      if (result.replaced) {
-        toast.success(
-          result.resentCount && result.resentCount > 0
-            ? `Payslips for ${newBatch.payMonth} updated — ${result.resentCount} employee(s) notified (regenerated)`
-            : `Payslips for ${newBatch.payMonth} updated with the new payroll file`
-        )
-      } else {
-        toast.success(
-          `${newBatch.totalGenerated} payslip PDF(s) generated from ${newBatch.employeeCount} employee(s)`
-        )
-      }
       if (newBatch.totalFailed > 0) {
         toast.warning(`${newBatch.totalFailed} payslip(s) failed to generate`)
       }
@@ -407,7 +396,6 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
       await deletePayrollBatch(batch.id)
       setBatch(null)
       setBatchDeleteOpen(false)
-      toast.success('Uploaded Excel and all payslips deleted')
     } catch (error: unknown) {
       const message =
         (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
@@ -425,7 +413,6 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
       const updated = await deletePayslip(batch.id, payslipDeleteTarget.fileName)
       setBatch(updated)
       setPayslipDeleteTarget(null)
-      toast.success(`Payslip deleted for ${payslipDeleteTarget.name}`)
     } catch (error: unknown) {
       const message =
         (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
@@ -441,15 +428,12 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
 
   const handleSendAll = async () => {
     if (!batch || unsentCount === 0) {
-      toast.info('All payslips are already sent')
       return
     }
     setSendingAll(true)
     try {
       const result = await sendAllPayslipsToDashboard(batch.id, buildEmployeeDbIdMap())
       setBatch(result.batch)
-      if (result.sent > 0) toast.success(`Sent ${result.sent} payslip(s) to employee dashboards`)
-      if (result.skipped > 0) toast.info(`${result.skipped} already sent — skipped`)
       if (result.failed.length > 0) {
         toast.warning(`${result.failed.length} failed: ${result.failed.map((f) => f.empId).join(', ')}`)
       }
@@ -465,13 +449,11 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
 
   const handleDownloadAll = async (targetBatch: PayrollBatch) => {
     if ((targetBatch.totalGenerated ?? 0) === 0) {
-      toast.info('No payslips to download')
       return
     }
     setDownloadingAll(true)
     try {
       await downloadAllPayslipPdfs(targetBatch.id, targetBatch.payMonth)
-      toast.success('Merged payslip PDF downloaded')
     } catch (error: unknown) {
       const message =
         error instanceof Error
@@ -490,7 +472,6 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
     try {
       const updated = await sendPayslipToDashboard(batch.id, empId, fileName, employeeDbId)
       setBatch(updated)
-      toast.success(`Payslip sent to ${name}'s dashboard`)
     } catch (error: unknown) {
       const message =
         (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
@@ -1119,7 +1100,4 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
       />
     </PageWrapper>
   )
-
-  if (embedded) return content
-  return <PageWrapper>{content}</PageWrapper>
 }

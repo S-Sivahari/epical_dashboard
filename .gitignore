@@ -21,6 +21,9 @@ dist-ssr/
 .env
 .env.*
 
+# Database exports (may contain PII)
+backend/backups/
+
 # Editor files
 .vscode/*
 !.vscode/extensions.json

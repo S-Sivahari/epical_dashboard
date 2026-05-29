@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { toast } from 'sonner'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
 import { SelectField } from '@components/forms/SelectField'
@@ -62,8 +61,7 @@ export function CompensationLeaves() {
               },
               ...r,
             ])
-            toast.success('Compensation leave added')
-          }}
+}}
         >
           Add
         </Button>

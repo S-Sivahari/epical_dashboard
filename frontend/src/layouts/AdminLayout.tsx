@@ -6,15 +6,11 @@ import { PageLoading } from '@components/layout/PageLoading'
 
 export function AdminLayout() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#18181b] font-body text-white">
       <Sidebar />
       <div className="lg:pl-[260px]">
         <Navbar />
-        <main className="relative min-h-[calc(100vh-3.5rem)] bg-white pt-14">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 top-0 z-0 h-80 bg-gradient-to-b from-emerald-50/45 via-transparent to-transparent"
-          />
+        <main className="relative min-h-[calc(100vh-3.5rem)] bg-[#18181b] pt-14">
           <div className="relative z-[1]">
             <Suspense fallback={<PageLoading />}>
               <Outlet />

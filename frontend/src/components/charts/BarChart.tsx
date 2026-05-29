@@ -10,22 +10,43 @@ import {
   YAxis,
 } from 'recharts'
 
-const tooltipStyle = {
-  backgroundColor: '#ffffff',
-  border: '1px solid rgb(209 250 229)',
-  borderRadius: 12,
-  color: '#0f172a',
-  fontSize: 12,
-  boxShadow: '0 4px 24px -4px rgba(15,118,110,0.18)',
-}
-
 function formatHoursLabel(v: unknown) {
   if (typeof v !== 'number' || Number.isNaN(v)) return ''
   return v.toFixed(2)
 }
 
-export function HoursBarChart({ data }: { data: { name: string; hours: number }[] }) {
+export function HoursBarChart({
+  data,
+  theme = 'light',
+}: {
+  data: { name: string; hours: number }[]
+  theme?: 'light' | 'dark'
+}) {
   const gradId = useId().replace(/:/g, '')
+  const isDark = theme === 'dark'
+
+  const tooltipStyle = isDark
+    ? {
+        backgroundColor: '#3f3f46',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: 12,
+        color: '#ffffff',
+        fontSize: 12,
+        boxShadow: '0 8px 24px -8px rgba(0,0,0,0.5)',
+      }
+    : {
+        backgroundColor: '#ffffff',
+        border: '1px solid rgb(209 250 229)',
+        borderRadius: 12,
+        color: '#0f172a',
+        fontSize: 12,
+        boxShadow: '0 4px 24px -4px rgba(15,118,110,0.18)',
+      }
+
+  const axisColor = isDark ? '#8892a4' : '#64748b'
+  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgb(226 232 240 / 0.9)'
+  const labelFill = isDark ? '#ffffff' : '#065f46'
+  const cursorFill = isDark ? 'rgba(79,142,247,0.08)' : 'rgba(22,163,74,0.06)'
 
   return (
     <div className="h-48 w-full sm:h-52">
@@ -42,20 +63,20 @@ export function HoursBarChart({ data }: { data: { name: string; hours: number }[
               <stop offset="100%" stopColor="#d1fae5" stopOpacity={0.9} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 6" stroke="rgb(226 232 240 / 0.9)" vertical={false} />
+          <CartesianGrid strokeDasharray="3 6" stroke={gridColor} vertical={false} />
           <XAxis
             dataKey="name"
-            tick={{ fill: '#64748b', fontSize: 12, fontWeight: 500 }}
+            tick={{ fill: axisColor, fontSize: 12, fontWeight: 500 }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
-            tick={{ fill: '#64748b', fontSize: 11 }}
+            tick={{ fill: axisColor, fontSize: 11 }}
             axisLine={false}
             tickLine={false}
             width={36}
           />
-          <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(22,163,74,0.06)' }} />
+          <Tooltip contentStyle={tooltipStyle} cursor={{ fill: cursorFill }} />
           <Bar
             dataKey="hours"
             fill={`url(#hoursBarGrad-${gradId})`}
@@ -68,7 +89,7 @@ export function HoursBarChart({ data }: { data: { name: string; hours: number }[
               dataKey="hours"
               position="top"
               formatter={formatHoursLabel}
-              fill="#065f46"
+              fill={labelFill}
               fontSize={12}
               fontWeight={600}
             />

@@ -169,7 +169,6 @@ export function CompensationManagement({
         setCompensationData((prev) =>
           prev.map((item) => (item.id === editingId ? updated : item)),
         )
-        toast.success('Compensation entry updated')
         resetForm()
       } else {
         if (selectedEmployees.length === 0) {
@@ -188,9 +187,6 @@ export function CompensationManagement({
         })
         const created = await createCompensation(entries)
         setCompensationData((prev) => [...created, ...prev])
-        toast.success(
-          `Compensation added for ${created.length} employee${created.length > 1 ? 's' : ''}`,
-        )
         resetForm()
       }
     } catch (err: any) {
@@ -225,8 +221,7 @@ export function CompensationManagement({
         toast.warning(res.message || 'Deletion skipped because the employee has already used this earned leave.')
       } else {
         setCompensationData((prev) => prev.filter((item) => item.id !== entryToDelete.id))
-        toast.success('Compensation entry deleted')
-      }
+}
       setDeleteConfirmOpen(false)
       setEntryToDelete(null)
     } catch {

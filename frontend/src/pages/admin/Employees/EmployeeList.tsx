@@ -159,9 +159,6 @@ export function EmployeeList() {
         `(${result.updated ?? ids.length} employees)`,
         reason,
       )
-      toast.success(
-        `Updated status to ${bulkStatus} for ${result.updated ?? ids.length} employee${(result.updated ?? ids.length) === 1 ? '' : 's'}`,
-      )
       exitSelectionMode()
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not update employee statuses'
@@ -178,11 +175,8 @@ export function EmployeeList() {
     try {
       const exportData = await getEmployeesForExport()
       if (!exportData.length) {
-        toast.info('No employees match the current filters.')
         return
       }
-
-      toast.info(`Exporting ${exportData.length} employee${exportData.length === 1 ? '' : 's'} matching current filters…`)
 
       const exportDate = new Date().toISOString().split('T')[0]
       const filename = activeDirectoryExportFilename(new Date(exportDate))
@@ -201,13 +195,11 @@ export function EmployeeList() {
       if (format === 'pdf') {
         await exportToPDF(exportData, filename, ACTIVE_DIRECTORY_EXPORT_HEADERS, exportOptions)
         console.info('[Manage Employees] Exported Active Directory PDF:', filename, `(${exportData.length} employees)`)
-        toast.success(`PDF export ready — ${exportData.length} employees`)
         return
       }
 
       exportToExcel(exportData, filename, ACTIVE_DIRECTORY_EXPORT_HEADERS, exportOptions)
       console.info('[Manage Employees] Exported Active Directory Excel:', filename, `(${exportData.length} employees)`)
-      toast.success(`Excel export ready — ${exportData.length} employees`)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Export failed'
       toast.error(message)
@@ -259,8 +251,7 @@ export function EmployeeList() {
         `${employee.status} → ${newStatus}`,
         reason,
       )
-      toast.success(`${employee.firstName}'s status updated to ${newStatus}`)
-    } catch (err) {
+} catch (err) {
       const message = err instanceof Error ? err.message : 'Could not update status'
       setStatusReasonError(message)
       toast.error(message)

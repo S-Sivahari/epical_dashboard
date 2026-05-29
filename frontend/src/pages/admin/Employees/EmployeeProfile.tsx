@@ -154,8 +154,7 @@ export function EmployeeProfile() {
     try {
       console.info('[Manage Employees] Exported employee PDF:', fileName)
       await exportToPDF([exportRow], fileName, exportHeaders, exportOptions)
-      toast.success('PDF export ready')
-    } catch {
+} catch {
       toast.error('PDF export failed')
     }
   }
@@ -164,8 +163,7 @@ export function EmployeeProfile() {
     try {
       console.info('[Manage Employees] Exported employee Excel:', fileName)
       await exportToExcel([exportRow], fileName, exportHeaders, exportOptions)
-      toast.success('Excel export ready')
-    } catch {
+} catch {
       toast.error('Excel export failed')
     }
   }

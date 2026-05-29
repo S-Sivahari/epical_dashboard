@@ -65,7 +65,7 @@ export function Navbar() {
 
   return (
     <header
-      className="fixed right-0 top-0 z-30 flex h-14 items-center justify-between gap-4 border-b border-emerald-100/90 bg-white/95 px-4 shadow-[0_1px_0_0_rgba(16,185,129,0.06)] backdrop-blur-md lg:left-[260px]"
+      className="fixed right-0 top-0 z-30 flex h-14 items-center justify-between gap-4 border-b border-zinc-700/50 bg-[#1f1f23]/95 px-4 shadow-[0_1px_0_0_rgba(0,0,0,0.2)] backdrop-blur-md lg:left-[260px]"
       style={{ paddingLeft: isLg ? undefined : '3.25rem' }}
     >
       <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -73,13 +73,13 @@ export function Navbar() {
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="flex shrink-0 items-center justify-center rounded-xl border border-emerald-100/90 bg-emerald-50/50 p-1.5 text-slate-700 transition-ui hover:border-emerald-200 hover:bg-emerald-50"
+            className="flex shrink-0 items-center justify-center rounded-xl border border-zinc-700/50 bg-[#27272a] p-1.5 text-slate-300 transition-ui hover:border-zinc-600 hover:bg-[#3f3f46]"
             title="Go back"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
         )}
-        <p className="truncate font-display text-xl font-semibold tracking-tight text-slate-900 md:text-2xl">
+        <p className="truncate font-display text-xl font-semibold tracking-tight text-white md:text-2xl">
           {title}
         </p>
       </div>
@@ -90,35 +90,35 @@ export function Navbar() {
           <DropdownMenu.Trigger asChild>
             <button
               type="button"
-              className="flex max-w-[min(100vw-8rem,18rem)] items-center gap-2 rounded-xl border border-emerald-100/80 bg-white px-2 py-1.5 text-left text-sm shadow-sm transition-ui hover:border-emerald-200/90 hover:bg-emerald-50/40"
+              className="flex max-w-[min(100vw-8rem,18rem)] items-center gap-2 rounded-xl border border-zinc-700/50 bg-[#27272a] px-2 py-1.5 text-left text-sm shadow-sm transition-ui hover:border-zinc-600 hover:bg-[#3f3f46]"
             >
               <Avatar name={user?.name ?? 'Admin'} src={user?.avatarUrl} size="sm" />
               <div className="hidden min-w-0 flex-1 flex-col sm:flex">
-                <span className="truncate font-semibold leading-tight text-slate-900">
+                <span className="truncate font-semibold leading-tight text-white">
                   {user?.name}
                 </span>
-                <span className="truncate text-xs font-medium text-emerald-800/50">
+                <span className="truncate text-xs font-medium text-[#8892a4]">
                   {user?.designation || user?.role || 'Admin'}
                 </span>
               </div>
-              <ChevronDown className="h-4 w-4 shrink-0 text-emerald-900/45" />
+              <ChevronDown className="h-4 w-4 shrink-0 text-[#8892a4]" />
             </button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
             <DropdownMenu.Content
-              className="z-50 min-w-[200px] rounded-xl border border-emerald-100/80 bg-white p-1 shadow-lg shadow-emerald-950/10"
+              className="z-50 min-w-[200px] rounded-xl border border-zinc-700/50 bg-[#27272a] p-1 shadow-lg shadow-black/30"
               sideOffset={6}
               align="end"
             >
               <DropdownMenu.Item
-                className="cursor-pointer rounded-lg px-3 py-2 text-sm text-slate-800 outline-none hover:bg-emerald-50"
+                className="cursor-pointer rounded-lg px-3 py-2 text-sm text-slate-200 outline-none hover:bg-[#3f3f46]"
                 onSelect={() => navigate('/admin/settings')}
               >
                 Settings
               </DropdownMenu.Item>
-              <DropdownMenu.Separator className="my-1 h-px bg-border" />
+              <DropdownMenu.Separator className="my-1 h-px bg-slate-700/50" />
               <DropdownMenu.Item
-                className="cursor-pointer rounded-lg px-3 py-2 text-sm text-danger outline-none hover:bg-red-50"
+                className="cursor-pointer rounded-lg px-3 py-2 text-sm text-red-400 outline-none hover:bg-red-950/30"
                 onSelect={() => {
                   logout()
                   navigate('/auth/login')

@@ -93,8 +93,7 @@ export function DocumentManagement({ embedded = false }: { embedded?: boolean })
     setBusyId(id)
     try {
       const updated = await uploadFulfillmentFile(id, file)
-      toast.success('File attached to request')
-      // Update the item in state immediately
+// Update the item in state immediately
       setItems((prev) =>
         prev.map((item) =>
           item.id === id
@@ -114,8 +113,7 @@ export function DocumentManagement({ embedded = false }: { embedded?: boolean })
     setBusyId(id)
     try {
       await approveDocumentRequest(id)
-      toast.success('Request approved')
-      await load()
+await load()
     } catch (error: unknown) {
       const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error
       toast.error(message || 'Could not approve')
@@ -140,8 +138,7 @@ export function DocumentManagement({ embedded = false }: { embedded?: boolean })
     setBusyId(rejectId)
     try {
       await rejectDocumentRequest(rejectId, reason)
-      toast.success('Request rejected')
-      setRejectOpen(false)
+setRejectOpen(false)
       await load()
     } catch (error: unknown) {
       const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error

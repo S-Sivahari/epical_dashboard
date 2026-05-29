@@ -116,7 +116,6 @@ export function TimesheetLogOverrideModal({
         billable: form.billable,
         adminNotes: null,
       })
-      toast.success('Log override saved')
       await onSaved?.()
       onClose()
     } catch (err) {

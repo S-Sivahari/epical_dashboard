@@ -6,7 +6,6 @@ import {
   CalendarDays,
   FileText,
   LayoutGrid,
-  LogOut,
   Menu,
   Newspaper,
   Receipt,
@@ -15,8 +14,7 @@ import {
   Users,
   X,
 } from 'lucide-react'
-import { NavLink, useNavigate } from 'react-router-dom'
-import { useAuthStore } from '@store/authStore'
+import { NavLink } from 'react-router-dom'
 import { cn } from '@/utils/cn'
 import { ROUTES } from '@constants/routes'
 import { useUiStore } from '@store/uiStore'
@@ -77,28 +75,20 @@ export function Sidebar() {
   const { sidebarOpen, setSidebarOpen, toggleSidebar } = useUiStore()
   const { counts: notificationCounts } = useNotificationCounts()
   const showDrawer = !isLg && sidebarOpen
-  const logout = useAuthStore((s) => s.logout)
-  const navigate = useNavigate()
-
-  function handleLogout() {
-    logout()
-    navigate('/auth/login')
-    if (!isLg) setSidebarOpen(false)
-  }
 
   return (
     <>
       {!isLg ? (
         <button
           type="button"
-          className="fixed left-4 top-4 z-40 inline-flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-100/90 bg-white shadow-md shadow-emerald-950/5 lg:hidden"
+          className="fixed left-4 top-4 z-40 inline-flex h-10 w-10 items-center justify-center rounded-xl border border-zinc-700/50 bg-[#1f1f23] shadow-md shadow-black/20 lg:hidden"
           onClick={toggleSidebar}
           aria-label="Toggle menu"
         >
           {sidebarOpen ? (
-            <X className="h-5 w-5 text-emerald-900" />
+            <X className="h-5 w-5 text-slate-300" />
           ) : (
-            <Menu className="h-5 w-5 text-emerald-900" />
+            <Menu className="h-5 w-5 text-slate-300" />
           )}
         </button>
       ) : null}
@@ -107,37 +97,37 @@ export function Sidebar() {
         <button
           type="button"
           aria-label="Close menu"
-          className="fixed inset-0 z-30 bg-slate-900/40 lg:hidden"
+          className="fixed inset-0 z-30 bg-slate-900/60 backdrop-blur-sm lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       ) : null}
 
       <aside
         className={cn(
-          'fixed left-0 top-0 z-40 flex h-full w-[260px] flex-col border-r border-emerald-100/80 bg-gradient-to-b from-white via-emerald-50/25 to-emerald-50/45 shadow-[4px_0_24px_-8px_rgba(16,185,129,0.15)] transition-transform duration-200 ease-in-out lg:translate-x-0',
+          'fixed left-0 top-0 z-40 flex h-full w-[260px] flex-col border-r border-zinc-700/50 bg-[#1f1f23] shadow-[4px_0_24px_-8px_rgba(0,0,0,0.4)] transition-transform duration-200 ease-in-out lg:translate-x-0',
           isLg ? 'translate-x-0' : sidebarOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
         <NavLink
           to={ROUTES.DASHBOARD}
           end
-          className="group flex h-16 shrink-0 items-center gap-2 border-b border-emerald-100/70 bg-white/70 px-5 backdrop-blur-sm transition-ui hover:bg-white"
+          className="group flex h-16 shrink-0 items-center gap-2.5 border-b border-zinc-700/50 bg-[#1f1f23] px-5 transition-ui hover:bg-[#252528]"
           title="Go to dashboard"
         >
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 text-sm font-bold text-white shadow-md shadow-emerald-900/20 ring-2 ring-white transition-ui group-hover:scale-[1.03]">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 text-sm font-bold text-white shadow-md shadow-emerald-900/30 ring-2 ring-slate-700/50 transition-ui group-hover:scale-[1.03]">
             E
           </div>
           <div>
-            <p className="font-display text-sm font-semibold tracking-tight text-slate-900">
+            <p className="font-display text-sm font-semibold tracking-tight text-white">
               {APP_SHORT_NAME}
             </p>
-            <p className="text-xs font-medium text-emerald-700/55">Enterprise</p>
+            <p className="text-xs font-medium text-[#8892a4]">Enterprise</p>
           </div>
         </NavLink>
         <nav className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3 pb-2">
           {groups.map((g) => (
             <div key={g.label}>
-              <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-emerald-900/40">
+              <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[#8892a4]">
                 {g.label}
               </p>
               <div className="space-y-0.5">
@@ -151,19 +141,28 @@ export function Sidebar() {
                       cn(
                         'relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-ui',
                         isActive
-                          ? 'border-l-2 border-emerald-500/70 bg-emerald-50/60 text-emerald-950 shadow-sm'
-                          : 'border-l-2 border-transparent text-slate-600 hover:bg-emerald-50/40 hover:text-emerald-950',
+                          ? 'border-l-2 border-[#4f8ef7] bg-[rgba(79,142,247,0.1)] text-white shadow-sm'
+                          : 'border-l-2 border-transparent text-[#cbd5e1] hover:bg-[#27272a] hover:text-white',
                       )
                     }
                   >
-                    <item.icon className="h-4 w-4 shrink-0 opacity-[0.88]" />
-                    <span className="truncate">{item.label}</span>
-                    {item.notificationKey && (
-                      <NotificationBadge
-                        count={notificationCounts[item.notificationKey]}
-                        size="sm"
-                        className="right-2"
-                      />
+                    {({ isActive }) => (
+                      <>
+                        <item.icon
+                          className={cn(
+                            'h-4 w-4 shrink-0 transition-colors',
+                            isActive ? 'text-[#4f8ef7]' : 'text-[#8892a4]',
+                          )}
+                        />
+                        <span className="truncate">{item.label}</span>
+                        {item.notificationKey && (
+                          <NotificationBadge
+                            count={notificationCounts[item.notificationKey]}
+                            size="sm"
+                            className="right-2"
+                          />
+                        )}
+                      </>
                     )}
                   </NavLink>
                 ))}
@@ -171,17 +170,6 @@ export function Sidebar() {
             </div>
           ))}
         </nav>
-
-        <div className="shrink-0 border-t border-emerald-100/80 bg-white/50 p-3 backdrop-blur-[2px]">
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-emerald-100/80 bg-white px-3 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition-ui hover:border-red-100 hover:bg-red-50 hover:text-red-700"
-          >
-            <LogOut className="h-4 w-4 shrink-0" />
-            Log out
-          </button>
-        </div>
       </aside>
     </>
   )

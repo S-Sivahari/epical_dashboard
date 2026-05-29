@@ -439,8 +439,7 @@ export function AddEmployee() {
       if (uploadIssues) {
         toast.warning('Employee added, but some files failed to upload. Edit the profile to retry.')
       } else {
-        toast.success(`Employee ${createdEmployee.employeeId} added successfully`)
-      }
+}
 
       navigate('/admin/employees')
     } catch (err) {

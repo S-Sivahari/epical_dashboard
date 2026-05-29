@@ -1343,7 +1343,6 @@ export function ProjectManagement() {
             visibleUsers: form.accessType === 'private' ? form.visibleUsers : [],
             teamLead: form.teamLead.trim() || undefined,
           })
-          toast.success(`Project "${res.data.name}" created successfully.`)
           await refreshAllData()
         } else {
           const oldProject = allProjects.find((p) => p.id === editingId)
@@ -1360,8 +1359,6 @@ export function ProjectManagement() {
             visibleUsers: form.accessType === 'private' ? form.visibleUsers : [],
             teamLead: form.teamLead.trim() || undefined,
           })
-          toast.success('Project details updated successfully.')
-
           if (oldProjectName && oldProjectName !== newProjectName) {
             setTsProjectFilters((prev) =>
               prev.map((n) => (n === oldProjectName ? newProjectName : n))
@@ -1411,7 +1408,6 @@ export function ProjectManagement() {
           refreshAllData()
         }, 300)
         
-        toast.success(`Project "${pName}" and all associated history have been safely archived.`)
       }
     } catch (err: any) {
       console.error('Archive error:', err)
@@ -1832,7 +1828,6 @@ export function ProjectManagement() {
 
     const buffer = await workbook.xlsx.writeBuffer()
     downloadExcelBuffer(buffer, `Timesheet_Report_${tsStartDate}_to_${tsEndDate}.xlsx`)
-    toast.success('Excel spreadsheet generated and downloaded successfully.')
   }, [filteredTimesheets, tsStartDate, tsEndDate])
 
   const handleExportPDF = useCallback(async () => {
@@ -2081,7 +2076,6 @@ export function ProjectManagement() {
     }
 
     doc.save(`Timesheet_Report_${tsStartDate}_to_${tsEndDate}.pdf`)
-    toast.success('PDF report exported successfully.')
   }, [filteredTimesheets, tsStartDate, tsEndDate])
 
   const clearTimesheetFilters = useCallback(() => {

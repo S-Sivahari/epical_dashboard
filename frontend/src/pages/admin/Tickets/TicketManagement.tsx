@@ -119,7 +119,6 @@ export function TicketManagement() {
       setMoving({ id, dir: direction })
       try {
         await updateStatus(id, next)
-        toast.success(`Moved to ${next}`)
         await fetchTickets({
           q: q.trim() || undefined,
           priority: priority === 'all' ? undefined : priority,

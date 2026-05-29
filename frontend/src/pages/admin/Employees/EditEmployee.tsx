@@ -593,8 +593,7 @@ export function EditEmployee() {
       if (uploadIssues) {
         toast.warning('Changes saved, but some files failed to upload. Please try again.')
       } else {
-        toast.success(`Changes saved for ${values.employeeId?.trim().toUpperCase()}`)
-      }
+}
 
       allowNavigation()
       navigate('/admin/employees')

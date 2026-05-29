@@ -49,7 +49,6 @@ export function TicketDetailModal({
     try {
       await onUpdateStatus(ticket.id, target, statusRemark.trim() || undefined)
       setStatusRemark('')
-      toast.success(`Status updated to ${target}`)
     } catch (error: unknown) {
       const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error
       toast.error(message || 'Failed to update status')
@@ -62,7 +61,6 @@ export function TicketDetailModal({
     try {
       await onAddComment(ticket.id, comment.trim())
       setComment('')
-      toast.success('Remark added')
     } catch {
       toast.error('Failed to add remark')
     } finally {
