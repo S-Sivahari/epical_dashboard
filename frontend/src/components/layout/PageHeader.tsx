@@ -21,7 +21,7 @@ export function PageHeader({
   return (
     <header className={cn('mb-6 flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-end sm:justify-between', className)}>
       <div>
-        {title && <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">{title}</h1>}
+        {title && <h1 className="font-display text-3xl font-bold tracking-tight text-black">{title}</h1>}
         {subtitle ? <p className={cn('max-w-2xl text-sm text-muted', title ? 'mt-1' : '')}>{subtitle}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}

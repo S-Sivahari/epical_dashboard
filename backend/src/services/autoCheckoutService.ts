@@ -1,23 +1,96 @@
-import mongoose from 'mongoose';
+import mongoose, { type ClientSession } from 'mongoose';
 import { EmployeeAttendanceModel } from '../models/EmployeeAttendance';
 import { AutoCheckoutSettingsModel } from '../models/AutoCheckoutSettings';
 import { TimesheetModel } from '../models/Timesheet';
 import { AssignedTaskModel } from '../models/AssignedTask';
 import { syncProjectForTimesheet } from '../utils/syncProject';
+import {
+  identityTokensFromAttendance,
+  openAttendanceFilter,
+  openTimesheetsForAttendanceFilter,
+  resolveIdentityTokensForAttendance,
+} from '../utils/attendanceQueries';
+import {
+  computeTotalHoursDecimal,
+  formatDurationFromMs,
+  sumTimesheetWorkedMs,
+} from '../utils/durationFormat';
 import { sendCheckoutReminderEmail, sendAutoCheckoutConfirmationEmail } from './emailService';
 import { env } from '../config/env';
 
-function computeTotalHours(loginTime: Date, logoutTime: Date, totalPausedMs = 0): number {
-  const diffMs = logoutTime.getTime() - loginTime.getTime() - (totalPausedMs || 0);
-  if (diffMs <= 0) return 0;
-  return Math.round((diffMs / (1000 * 60 * 60)) * 10) / 10;
-}
-
-function finalizePauseAccumulation(timesheet: { pausedAt?: Date | null; totalPausedMs?: number }) {
+function finalizePauseAccumulation(
+  timesheet: { pausedAt?: Date | null; totalPausedMs?: number },
+  now: Date
+) {
   if (!timesheet.pausedAt) return;
-  const pausedMs = Date.now() - new Date(timesheet.pausedAt).getTime();
+  const pausedMs = now.getTime() - new Date(timesheet.pausedAt).getTime();
   timesheet.totalPausedMs = (timesheet.totalPausedMs || 0) + Math.max(0, pausedMs);
   timesheet.pausedAt = null;
+}
+
+function isTransactionUnsupportedError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /replica set|mongos|Transaction numbers are only allowed/i.test(message);
+}
+
+function isAutoCheckoutDue(
+  attendance: { checkInTime: Date; autoCheckoutTime?: Date | null },
+  settings: { autoCheckoutTime: string },
+  now: Date
+): boolean {
+  if (env.testCronTimings) {
+    const elapsedMs = now.getTime() - attendance.checkInTime.getTime();
+    return elapsedMs >= 5 * 60 * 1000;
+  }
+
+  const deadline = attendance.autoCheckoutTime;
+  if (deadline instanceof Date && now.getTime() >= deadline.getTime() - 30_000) {
+    return true;
+  }
+
+  const [ah, am] = settings.autoCheckoutTime.split(':').map(Number);
+  if (Number.isNaN(ah) || Number.isNaN(am)) return false;
+
+  const todayCutoff = new Date(now);
+  todayCutoff.setHours(ah, am, 0, 0);
+
+  return now.getTime() >= todayCutoff.getTime() && attendance.checkInTime.getTime() < todayCutoff.getTime();
+}
+
+async function findOpenTimesheetsForAutoCheckout(
+  attendance: {
+    employeeId?: string;
+    employeeName?: string;
+    employeeEmail?: string;
+    checkInTime: Date;
+  },
+  session?: ClientSession
+) {
+  const identityTokens = await resolveIdentityTokensForAttendance(attendance);
+  const checkInTime = attendance.checkInTime;
+
+  const runQuery = (filter: ReturnType<typeof openTimesheetsForAttendanceFilter>) => {
+    const query = TimesheetModel.find(filter);
+    if (session) query.session(session);
+    return query;
+  };
+
+  let openLogs = await runQuery(openTimesheetsForAttendanceFilter(identityTokens, checkInTime));
+
+  if (openLogs.length === 0) {
+    openLogs = await runQuery(
+      openTimesheetsForAttendanceFilter(identityTokens, checkInTime, { strictLoginWindow: false })
+    );
+  }
+
+  if (openLogs.length === 0) {
+    const fallbackTokens = identityTokensFromAttendance(attendance);
+    openLogs = await runQuery(
+      openTimesheetsForAttendanceFilter(fallbackTokens, checkInTime, { strictLoginWindow: false })
+    );
+  }
+
+  return { openLogs, identityTokens };
 }
 
 export async function getAutoCheckoutSettings() {
@@ -60,14 +133,12 @@ export async function processReminders(): Promise<number> {
     return 0;
   }
 
-  const query: any = {
-    checkOutTime: { $exists: false },
-    sessionStatus: { $in: ['Active', 'Paused'] },
+  const query = openAttendanceFilter({
     reminderSent: false,
     autoCheckoutEnabled: true,
-  };
+  });
 
-  console.log(`[Reminder Job] Scanning for open sessions. Query: ${JSON.stringify(query)}`);
+  console.log(`[Reminder Job] Scanning for open sessions at ${new Date().toISOString()}`);
   const activeAttendances = await EmployeeAttendanceModel.find(query);
 
   console.log(`[Reminder Job] Open sessions found: ${activeAttendances.length}`);
@@ -79,48 +150,171 @@ export async function processReminders(): Promise<number> {
     const checkInTime = attendance.checkInTime;
     const elapsedMs = now.getTime() - checkInTime.getTime();
     const elapsedMinutes = Math.floor(elapsedMs / (60 * 1000));
-    
-    let isEligible = false;
-    if (env.testCronTimings) {
-      isEligible = elapsedMinutes >= 2;
-    } else {
-      isEligible = true;
-    }
 
-    console.log(`[Reminder Job] Session: ID=${attendance._id}, EmployeeID=${attendance.employeeId}, EmployeeName=${attendance.employeeName}, Status=${attendance.sessionStatus}, Check-in=${checkInTime.toISOString()}, CurrentTime=${now.toISOString()}, ElapsedMinutes=${elapsedMinutes}, ReminderEligible=${isEligible}`);
+    const isEligible = env.testCronTimings ? elapsedMinutes >= 2 : true;
 
-    if (!isEligible) {
-      continue;
-    }
+    console.log(
+      `[Reminder Job] Session: ID=${attendance._id}, EmployeeID=${attendance.employeeId}, EmployeeName=${attendance.employeeName}, Status=${attendance.sessionStatus}, Check-in=${checkInTime.toISOString()}, ElapsedMinutes=${elapsedMinutes}, ReminderEligible=${isEligible}`
+    );
+
+    if (!isEligible) continue;
 
     const email = attendance.employeeEmail;
     if (!email) {
-      console.log(`[Reminder Job] ⚠ No email for employee ${attendance.employeeName} — skipping reminder`);
+      console.log(
+        `[Reminder Job] No email for employee ${attendance.employeeName} — marking reminder sent`
+      );
       attendance.reminderSent = true;
       await attendance.save();
       continue;
     }
 
-    console.log(`Sending reminder email to: ${email}`);
+    const { openLogs } = await findOpenTimesheetsForAutoCheckout(attendance);
+    const activeLog =
+      openLogs.find((log) => log.taskStatus === 'In Progress' || log.taskStatus === 'Session Incomplete') ||
+      openLogs[0];
+
+    const activeDurationMs = activeLog
+      ? sumTimesheetWorkedMs([activeLog], now)
+      : Math.max(0, elapsedMs);
+
+    console.log(`[Reminder Job] Sending reminder email to: ${email}`);
     const sent = await sendCheckoutReminderEmail({
       to: email,
       employeeName: attendance.employeeName,
       checkInTime: attendance.checkInTime,
       autoCheckoutTime: settings.autoCheckoutTime,
+      projectName: activeLog?.project || 'No active project',
+      activeDurationMs,
     });
 
     if (sent) {
       attendance.reminderSent = true;
       await attendance.save();
-      console.log(`✓ Reminder email sent successfully to ${email}`);
+      console.log(`[Reminder Job] Reminder email sent successfully to ${email}`);
       sentCount++;
     } else {
-      console.log(`✗ Failed to send reminder email to ${email}. Will retry on next tick.`);
+      console.log(`[Reminder Job] Failed to send reminder email to ${email}. Will retry on next tick.`);
     }
   }
 
   console.log(`[Reminder Job] Completed. Sent: ${sentCount}`);
   return sentCount;
+}
+
+type AutoCheckoutResult = {
+  checkedOut: boolean;
+  totalDurationMs: number;
+  projectName: string;
+  workDescription?: string;
+  checkOutTime: Date;
+  checkInTime: Date;
+  employeeEmail?: string;
+  employeeName: string;
+  closedLogCount: number;
+};
+
+async function performAutoCheckoutForAttendance(
+  attendance: InstanceType<typeof EmployeeAttendanceModel>,
+  now: Date,
+  session?: ClientSession
+): Promise<AutoCheckoutResult | null> {
+  const claimQuery = EmployeeAttendanceModel.findOneAndUpdate(
+    openAttendanceFilter({ _id: attendance._id }),
+    {
+      $set: {
+        checkOutTime: now,
+        autoCheckedOut: true,
+        sessionStatus: 'Auto Checked-Out',
+      },
+    },
+    { new: false }
+  );
+  if (session) claimQuery.session(session);
+  const claimed = await claimQuery;
+  if (!claimed) {
+    console.log(
+      `[Auto-Checkout Job] Session already closed for ${attendance.employeeName} — skipping duplicate checkout.`
+    );
+    return null;
+  }
+
+  const checkInTime = claimed.checkInTime;
+  const { openLogs, identityTokens } = await findOpenTimesheetsForAutoCheckout(claimed, session);
+
+  console.log(
+    `[Auto-Checkout Job] Found ${openLogs.length} open timesheet log(s) for ${claimed.employeeName} (tokens=${identityTokens.join(',')}).`
+  );
+
+  for (const log of openLogs) {
+    if (log.taskStatus === 'Paused') {
+      finalizePauseAccumulation(log, now);
+    }
+    log.logoutTime = now;
+    log.totalHours = computeTotalHoursDecimal(log.loginTime, now, log.totalPausedMs, log.overriddenHours);
+    log.autoCheckedOut = true;
+    if (['In Progress', 'Paused', 'Session Incomplete'].includes(log.taskStatus || '')) {
+      log.taskStatus = 'Session Incomplete';
+    }
+    await log.save(session ? { session } : undefined);
+    await syncProjectForTimesheet(log, session);
+
+    const assignedQuery = AssignedTaskModel.findOne({ timesheetId: log._id });
+    if (session) assignedQuery.session(session);
+    const assignedTask = await assignedQuery;
+    if (assignedTask) {
+      assignedTask.status = 'assigned';
+      assignedTask.timesheetId = undefined;
+      await assignedTask.save(session ? { session } : undefined);
+    }
+  }
+
+  const totalDurationMs =
+    openLogs.length > 0
+      ? sumTimesheetWorkedMs(openLogs, now)
+      : Math.max(0, now.getTime() - checkInTime.getTime());
+
+  const primaryLog =
+    openLogs.find((log) => log.taskStatus === 'Session Incomplete') ||
+    openLogs.find((log) => log.project) ||
+    openLogs[0];
+
+  const primaryProject = primaryLog?.project || 'No active project';
+  const workDescription = primaryLog?.task || undefined;
+
+  return {
+    checkedOut: true,
+    totalDurationMs,
+    projectName: primaryProject,
+    workDescription,
+    checkOutTime: now,
+    checkInTime: claimed.checkInTime,
+    employeeEmail: claimed.employeeEmail,
+    employeeName: claimed.employeeName,
+    closedLogCount: openLogs.length,
+  };
+}
+
+async function runAutoCheckoutWithOptionalTransaction(
+  attendance: InstanceType<typeof EmployeeAttendanceModel>,
+  now: Date
+): Promise<AutoCheckoutResult | null> {
+  const session = await mongoose.startSession();
+  try {
+    let result: AutoCheckoutResult | null = null;
+    await session.withTransaction(async () => {
+      result = await performAutoCheckoutForAttendance(attendance, now, session);
+    });
+    return result;
+  } catch (error) {
+    if (!isTransactionUnsupportedError(error)) throw error;
+    console.warn(
+      `[Auto-Checkout Job] MongoDB transactions unavailable — falling back to non-transactional checkout for ${attendance.employeeName}.`
+    );
+    return performAutoCheckoutForAttendance(attendance, now);
+  } finally {
+    session.endSession();
+  }
 }
 
 export async function processAutoCheckouts(): Promise<number> {
@@ -130,116 +324,77 @@ export async function processAutoCheckouts(): Promise<number> {
     return 0;
   }
 
-  const query: any = {
-    checkOutTime: { $exists: false },
-    sessionStatus: { $in: ['Active', 'Paused'] },
-    autoCheckoutEnabled: true,
-  };
+  const query = openAttendanceFilter({ autoCheckoutEnabled: true });
+  const now = new Date();
 
-  console.log(`[Auto-Checkout Job] Scanning for open sessions. Query: ${JSON.stringify(query)}`);
+  console.log(`[Auto-Checkout Job] Scanning for open sessions at ${now.toISOString()}`);
   const activeAttendances = await EmployeeAttendanceModel.find(query);
 
   console.log(`[Auto-Checkout Job] Open sessions found: ${activeAttendances.length}`);
 
   let checkedOutCount = 0;
-  const now = new Date();
 
   for (const attendance of activeAttendances) {
     const checkInTime = attendance.checkInTime;
-    const elapsedMs = now.getTime() - checkInTime.getTime();
-    const elapsedMinutes = Math.floor(elapsedMs / (60 * 1000));
+    const elapsedMinutes = Math.floor((now.getTime() - checkInTime.getTime()) / (60 * 1000));
+    const isEligible = isAutoCheckoutDue(attendance, settings, now);
 
-    let isEligible = false;
-    if (env.testCronTimings) {
-      isEligible = elapsedMinutes >= 5;
-    } else {
-      isEligible = true;
-    }
+    console.log(
+      `[Auto-Checkout Job] Session: ID=${attendance._id}, EmployeeID=${attendance.employeeId}, EmployeeName=${attendance.employeeName}, Status=${attendance.sessionStatus}, Check-in=${checkInTime.toISOString()}, AutoCheckoutTime=${attendance.autoCheckoutTime?.toISOString() ?? 'n/a'}, ElapsedMinutes=${elapsedMinutes}, AutoCheckoutEligible=${isEligible}`
+    );
 
-    console.log(`[Auto-Checkout Job] Session: ID=${attendance._id}, EmployeeID=${attendance.employeeId}, EmployeeName=${attendance.employeeName}, Status=${attendance.sessionStatus}, Check-in=${checkInTime.toISOString()}, CurrentTime=${now.toISOString()}, ElapsedMinutes=${elapsedMinutes}, AutoCheckoutEligible=${isEligible}`);
+    if (!isEligible) continue;
 
-    if (!isEligible) {
-      continue;
-    }
+    console.log(`[Auto-Checkout Job] Auto checkout triggered for ${attendance.employeeName}`);
 
-    console.log(`Auto checkout triggered for ${attendance.employeeName}`);
-    const session = await mongoose.startSession();
     try {
-      await session.withTransaction(async () => {
-        const openLogs = await TimesheetModel.find({
-          $or: [
-            { employeeId: attendance.employeeId },
-            { employee: attendance.employeeName },
-          ],
-          $and: [{ $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }] }],
-        }).session(session);
+      const result = await runAutoCheckoutWithOptionalTransaction(attendance, now);
+      if (!result?.checkedOut) {
+        console.warn(
+          `[Auto-Checkout Job] Auto-checkout did not complete for ${attendance.employeeName}.`
+        );
+        continue;
+      }
 
-        console.log(`[Auto-Checkout Job] Found ${openLogs.length} open timesheet log(s) for ${attendance.employeeName}.`);
-
-        for (const log of openLogs) {
-          if (log.taskStatus === 'Paused') {
-            finalizePauseAccumulation(log);
-          }
-          log.logoutTime = now;
-          log.totalHours = computeTotalHours(
-            log.loginTime,
-            now,
-            log.totalPausedMs
-          );
-          // FIXED: Keep taskStatus as 'Session Incomplete' to preserve session discovery
-          // Previously changed to 'Pending', which made sessions invisible on re-login
-          if (['In Progress', 'Paused', 'Session Incomplete'].includes(log.taskStatus || '')) {
-            log.taskStatus = 'Session Incomplete';
-            // Add flag to indicate this was auto-completed (backend-closed)
-            (log as any).autoCompleted = true;
-          }
-          await log.save({ session });
-          await syncProjectForTimesheet(log, session);
-
-          const assignedTask = await AssignedTaskModel.findOne({ timesheetId: log._id }).session(session);
-          if (assignedTask) {
-            assignedTask.status = 'assigned';
-            assignedTask.timesheetId = undefined;
-            await assignedTask.save({ session });
-          }
-        }
-
-        const totalHoursToday = openLogs.reduce((sum, l) => sum + (l.totalHours || 0), 0);
-
-        attendance.checkOutTime = now;
-        attendance.autoCheckedOut = true;
-        attendance.sessionStatus = 'Auto Checked-Out';
-        await attendance.save({ session });
-
-        console.log(`[Auto-Checkout Job] MongoDB update success for ${attendance.employeeName}. Status set to Auto Checked-Out.`);
-
-        if (attendance.employeeEmail) {
-          console.log(`[Auto-Checkout Job] Attempting to send confirmation email to ${attendance.employeeEmail}...`);
-          const emailSent = await sendAutoCheckoutConfirmationEmail({
-            to: attendance.employeeEmail,
-            employeeName: attendance.employeeName,
-            checkInTime: attendance.checkInTime,
-            checkOutTime: now,
-            totalHours: Math.round(totalHoursToday * 10) / 10,
-          });
-          if (emailSent) {
-            console.log(`[Auto-Checkout Job] ✓ Confirmation email sent successfully to ${attendance.employeeEmail}`);
-          } else {
-            console.log(`[Auto-Checkout Job] ✗ Failed to send confirmation email to ${attendance.employeeEmail}`);
-          }
-        }
-      });
-
-      console.log(`[Auto-Checkout Job] Frontend synchronization completed for ${attendance.employeeName}.`);
+      console.log(
+        `[Auto-Checkout Job] MongoDB update success for ${attendance.employeeName}. Status set to Auto Checked-Out. Closed ${result.closedLogCount} log(s), duration=${formatDurationFromMs(result.totalDurationMs)}.`
+      );
       checkedOutCount++;
+
+      if (result.employeeEmail) {
+        console.log(
+          `[Auto-Checkout Job] Sending confirmation email to ${result.employeeEmail}...`
+        );
+        const emailSent = await sendAutoCheckoutConfirmationEmail({
+          to: result.employeeEmail,
+          employeeName: result.employeeName,
+          checkInTime: result.checkInTime,
+          checkOutTime: result.checkOutTime,
+          totalDurationMs: result.totalDurationMs,
+          projectName: result.projectName,
+          workDescription: result.workDescription,
+          autoCheckoutReason: `Your session remained active past the scheduled auto-checkout time (${settings.autoCheckoutTime}).`,
+        });
+        if (emailSent) {
+          console.log(
+            `[Auto-Checkout Job] Confirmation email sent successfully to ${result.employeeEmail}`
+          );
+        } else {
+          console.log(
+            `[Auto-Checkout Job] Failed to send confirmation email to ${result.employeeEmail}`
+          );
+        }
+      }
     } catch (error) {
-      console.error(`[Auto-Checkout Job] ✗ Auto-checkout failed for ${attendance.employeeName}:`, error);
-    } finally {
-      session.endSession();
+      console.error(
+        `[Auto-Checkout Job] Auto-checkout failed for ${attendance.employeeName}:`,
+        error
+      );
     }
   }
 
-  console.log(`[Auto-Checkout Job] Processing complete. Checked out: ${checkedOutCount}/${activeAttendances.length}`);
+  console.log(
+    `[Auto-Checkout Job] Processing complete. Checked out: ${checkedOutCount}/${activeAttendances.length}`
+  );
   return checkedOutCount;
 }
-

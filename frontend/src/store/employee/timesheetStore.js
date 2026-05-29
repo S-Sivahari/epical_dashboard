@@ -20,6 +20,7 @@ import {
   resumeActiveTask as apiResumeActiveTask,
   completeActiveTask as apiCompleteActiveTask,
 } from '@services/employeeTimesheetService'
+import { formatSessionDuration } from '@utils/durationFormat'
 
 function defaultMonthRange() {
   return getPresetDateRange('This Month')
@@ -53,6 +54,26 @@ function mapActiveTaskFromApi(activeRes) {
   return mapTaskEntryFromApi(activeRes.active)
 }
 
+function applyBootstrapAttendanceState(data) {
+  const checkedIn = data.attendance?.checkedIn ?? false
+  const autoCheckedOut = data.attendance?.autoCheckedOut ?? false
+  const activeRes = checkedIn
+    ? { active: data.active, pausedTasks: data.pausedTasks ?? [] }
+    : { active: null, pausedTasks: [] }
+
+  return {
+    checkedIn,
+    checkInTime: checkedIn && data.attendance?.checkInTime ? new Date(data.attendance.checkInTime) : null,
+    activeTask: checkedIn ? mapActiveTaskFromApi(activeRes) : null,
+    pausedTasks: checkedIn
+      ? activeRes.pausedTasks.map(mapTaskEntryFromApi).filter(Boolean)
+      : [],
+    sessionStatus: autoCheckedOut
+      ? data.attendance?.sessionStatus ?? 'Auto Checked-Out'
+      : data.attendance?.sessionStatus ?? null,
+  }
+}
+
 function mapSessionFromApi(entry) {
   const login = entry.loginTime ? new Date(entry.loginTime) : null
   const logout = entry.logoutTime ? new Date(entry.logoutTime) : null
@@ -68,9 +89,13 @@ function mapSessionFromApi(entry) {
     start: fmt(login),
     end: fmt(logout),
     hours: entry.totalHours ?? (logout && login ? Math.round(((logout - login) / 3600000) * 10) / 10 : '—'),
+    durationLabel: formatSessionDuration(entry),
     date: entry.date || (login ? login.toISOString().split('T')[0] : ''),
     loginTime: entry.loginTime,
     logoutTime: entry.logoutTime,
+    totalHours: entry.totalHours,
+    totalPausedMs: entry.totalPausedMs || 0,
+    autoCheckedOut: entry.autoCheckedOut ?? false,
     taskStatus: entry.taskStatus,
     workflowStatus: entry.workflowStatus,
     approvalStatus: entry.approvalStatus,
@@ -172,24 +197,17 @@ export const useTimesheetStore = create((set, get) => ({
       const data = await fetchTimesheetBootstrap()
 
       const serverTimeSkew = data.serverTime ? new Date(data.serverTime).getTime() - Date.now() : 0
-      const activeRes = { active: data.active, pausedTasks: data.pausedTasks ?? [] }
-      const checkInTime = data.attendance?.checkInTime ? new Date(data.attendance.checkInTime) : null
-      const activeTask = mapActiveTaskFromApi(activeRes)
-      const pausedTasks = activeRes.pausedTasks.map(mapTaskEntryFromApi).filter(Boolean)
+      const attendanceState = applyBootstrapAttendanceState(data)
 
       set({
         serverTimeSkew,
-        checkedIn: data.attendance?.checkedIn ?? false,
-        checkInTime,
+        ...attendanceState,
         attendance: data.attendance ?? null,
-        activeTask,
-        pausedTasks,
         assignedTasks: data.assignedTasks ?? [],
         sessions: (data.sessions ?? []).map(mapSessionFromApi),
         attendanceHistory: Array.isArray(data.attendanceHistory) ? data.attendanceHistory : [],
         projectWiseHours: Array.isArray(data.projectWiseHours) ? data.projectWiseHours : [],
         initialized: true,
-        sessionStatus: data.attendance?.sessionStatus ?? null,
         autoCheckoutInfo: {
           reminderSent: data.attendance?.reminderSent ?? false,
           autoCheckedOut: data.attendance?.autoCheckedOut ?? false,
@@ -217,31 +235,30 @@ export const useTimesheetStore = create((set, get) => ({
     try {
       const data = await fetchTimesheetBootstrap()
       const serverTimeSkew = data.serverTime ? new Date(data.serverTime).getTime() - Date.now() : 0
-      const activeRes = { active: data.active, pausedTasks: data.pausedTasks ?? [] }
-      const checkInTime = data.attendance?.checkInTime ? new Date(data.attendance.checkInTime) : null
-      const activeTask = mapActiveTaskFromApi(activeRes)
-      const pausedTasks = activeRes.pausedTasks.map(mapTaskEntryFromApi).filter(Boolean)
+      const attendanceState = applyBootstrapAttendanceState(data)
+      const wasCheckedIn = get().checkedIn
+      const autoCheckedOut = data.attendance?.autoCheckedOut ?? false
 
       set({
         serverTimeSkew,
-        checkedIn: data.attendance?.checkedIn ?? false,
-        checkInTime,
+        ...attendanceState,
         attendance: data.attendance ?? null,
-        activeTask,
-        pausedTasks,
         assignedTasks: data.assignedTasks ?? [],
         sessions: (data.sessions ?? []).map(mapSessionFromApi),
         attendanceHistory: Array.isArray(data.attendanceHistory) ? data.attendanceHistory : [],
         projectWiseHours: Array.isArray(data.projectWiseHours) ? data.projectWiseHours : [],
-        sessionStatus: data.attendance?.sessionStatus ?? null,
         autoCheckoutInfo: {
           reminderSent: data.attendance?.reminderSent ?? false,
-          autoCheckedOut: data.attendance?.autoCheckedOut ?? false,
+          autoCheckedOut,
           expectedCheckoutTime: data.attendance?.expectedCheckoutTime ?? null,
           autoCheckoutTime: data.attendance?.autoCheckoutTime ?? null,
           autoCheckoutEnabled: data.attendance?.autoCheckoutEnabled ?? true,
-        }
+        },
       })
+
+      if (wasCheckedIn && !attendanceState.checkedIn) {
+        await Promise.all([get().refreshSessionsForRange(), get().refreshAttendanceHistory()])
+      }
       
       await get().fetchBackendElapsedData()
       await get().refreshProjectWiseHours()

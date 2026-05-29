@@ -121,20 +121,21 @@ export function ArchivedProjectsModal({
 
   return (
     <Modal isOpen={isOpen} title="" onClose={onClose} size="xl">
+      <div className="dashboard-surface">
       <div className="-mt-8 mb-4 flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800 shadow-sm">
             <Archive className="h-4 w-4 text-white" />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-slate-800">Archived Projects</h2>
-            <p className="text-xs font-medium text-slate-500">
+            <h2 className="type-card-title text-slate-800">Archived Projects</h2>
+            <p className="type-body-sm text-slate-500">
               Review details and restore projects to the active dashboard.
             </p>
           </div>
         </div>
         {!loadingList && sortedList.length > 0 && (
-          <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold tabular-nums text-slate-600">
+          <span className="type-metric rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-600">
             {sortedList.length} archived
           </span>
         )}
@@ -171,7 +172,7 @@ export function ArchivedProjectsModal({
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-[15px] font-bold leading-snug text-slate-800">{p.name}</h3>
+                        <h3 className="type-card-title text-[15px] leading-snug text-slate-800">{p.name}</h3>
                         {p.status === 'Completed' ? (
                           <Badge
                             variant="neutral"
@@ -222,7 +223,7 @@ export function ArchivedProjectsModal({
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                   <div className="rounded-lg border border-slate-100 bg-slate-50/80 px-2.5 py-2">
                     <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Tech node</p>
-                    <p className="mt-0.5 flex items-center gap-1 text-xs font-bold text-slate-700 font-mono">
+                    <p className="type-metric mt-0.5 flex items-center gap-1 text-xs text-slate-700">
                       <Cpu className="h-3 w-3 text-emerald-600" />
                       {p.technologyNode || '—'}
                     </p>
@@ -288,6 +289,7 @@ export function ArchivedProjectsModal({
         <Button variant="secondary" onClick={onClose} className="h-9 rounded-lg px-4 text-xs font-bold">
           Close
         </Button>
+      </div>
       </div>
     </Modal>
   )

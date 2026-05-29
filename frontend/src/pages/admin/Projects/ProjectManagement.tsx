@@ -16,6 +16,7 @@ import {
   enforceMaxWords,
   MAX_PROJECT_DESCRIPTION_WORDS,
 } from '@/lib/textLimits'
+import { stringToHue, stringToHueColor } from '@/utils/stringColor'
 import {
   Clock,
   Search,
@@ -99,6 +100,9 @@ interface TimesheetLog {
   adminNotes?: string
   overriddenHours?: number
   taskStatus?: 'Pending' | 'In Progress' | 'Completed' | 'Session Incomplete'
+  totalHours?: number
+  totalPausedMs?: number
+  autoCheckedOut?: boolean
 }
 
 /* ================================================================
@@ -139,14 +143,33 @@ function useClickOutside(ref: React.RefObject<HTMLElement | null>, handler: () =
 /* ================================================================
    HELPER – Hours Calculation (with Overridden Hours respect)
    ================================================================ */
-const calculateHours = (login: string, logout?: string, overriddenHours?: number): number | null => {
+const calculateHours = (
+  login: string,
+  logout?: string,
+  overriddenHours?: number,
+  totalHours?: number,
+  totalPausedMs?: number
+): number | null => {
   if (overriddenHours !== undefined && overriddenHours !== null) return overriddenHours
+  if (totalHours !== undefined && totalHours !== null && totalHours > 0) return totalHours
   if (!logout) return null
   const loginDate = new Date(login)
   const logoutDate = new Date(logout)
   if (isNaN(loginDate.getTime()) || isNaN(logoutDate.getTime())) return 0
-  const diffMs = logoutDate.getTime() - loginDate.getTime()
+  const diffMs = logoutDate.getTime() - loginDate.getTime() - (totalPausedMs || 0)
+  if (diffMs <= 0) return 0
   return Math.round((diffMs / (1000 * 60 * 60)) * 10) / 10
+}
+
+function formatAdminDuration(hours: number | null): string {
+  if (hours === null) return '—'
+  const totalMinutes = Math.round(hours * 60)
+  const hrs = Math.floor(totalMinutes / 60)
+  const mins = totalMinutes % 60
+  if (hrs === 0 && mins === 0) return '0m'
+  if (hrs === 0) return `${mins}m`
+  if (mins === 0) return `${hrs}h`
+  return `${hrs}h ${String(mins).padStart(2, '0')}m`
 }
 
 /** Hours-by-project and employee leaderboard from filtered logs (export/PDF). */
@@ -155,7 +178,13 @@ function buildTimesheetExportAnalytics(logs: TimesheetLog[]) {
   const byEmployee: Record<string, { name: string; dept: string; hours: number }> = {}
 
   logs.forEach((t) => {
-    const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours) || 0
+    const hours = calculateHours(
+      t.loginTime,
+      t.logoutTime,
+      t.overriddenHours,
+      t.totalHours,
+      t.totalPausedMs
+    ) || 0
     byProject[t.project] = (byProject[t.project] || 0) + hours
 
     const emp = MOCK_EMPLOYEES.find((e) => e.id === t.employeeId)
@@ -235,12 +264,10 @@ function MetricCard({
       <div className={`absolute inset-x-0 top-0 h-1 ${accentClass}`} />
       <div className="flex items-center justify-between gap-3 pt-0.5">
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{label}</p>
-          <p className="mt-1.5 font-display text-3xl font-extrabold tabular-nums leading-none tracking-tight text-slate-900">
-            {value}
-          </p>
+          <p className="type-card-label-caps text-slate-500">{label}</p>
+          <p className="type-metric-md mt-1.5">{value}</p>
           {secondaryText && (
-            <p className="mt-1.5 text-xs font-medium text-slate-500">{secondaryText}</p>
+            <p className="type-body-sm mt-1.5 text-slate-500">{secondaryText}</p>
           )}
         </div>
         <span
@@ -430,14 +457,14 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-2 flex flex-col md:flex-row gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl animate-fadeIn w-[92vw] sm:w-auto sm:min-w-[500px]">
+        <div className="date-range-popover absolute left-0 top-full z-50 mt-2 flex w-[92vw] flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl animate-fadeIn sm:w-auto sm:min-w-[500px] md:flex-row">
           {/* Calendar Grid */}
           <div className="flex-1 select-none">
             <div className="flex items-center justify-between mb-4">
               <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-slate-100 rounded-lg text-slate-600">
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <span className="text-xs font-bold text-slate-800">
+              <span className="date-range-month-title type-calendar-month text-slate-800">
                 {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
               </span>
               <button type="button" onClick={handleNextMonth} className="p-1 hover:bg-slate-100 rounded-lg text-slate-600">
@@ -445,7 +472,7 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
               </button>
             </div>
 
-            <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 mb-1">
+            <div className="type-calendar-weekday mb-1 grid grid-cols-7 gap-1 text-center text-slate-400">
               {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
                 <span key={d} className="py-1">
                   {d}
@@ -489,9 +516,7 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
 
           {/* Quick Presets Panel */}
           <div className="w-36 flex flex-col gap-0.5">
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-              Quick Presets
-            </p>
+            <p className="type-card-label-caps mb-2 text-[9px] text-slate-400">Quick Presets</p>
             {[
               'Today',
               'Yesterday',
@@ -993,9 +1018,9 @@ function EmployeeLeaderboard({
                   <p className="truncate text-sm font-bold text-slate-800 group-hover:text-emerald-800">
                     {item.name}
                   </p>
-                  <span className="shrink-0 text-sm font-extrabold tabular-nums text-slate-900">
+                  <span className="type-metric-inline shrink-0">
                     {item.hours.toFixed(1)}
-                    <span className="ml-0.5 text-[11px] font-bold text-slate-500">h</span>
+                    <span className="type-body-sm ml-0.5 font-semibold text-slate-500">h</span>
                   </span>
                 </div>
                 <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200/60">
@@ -1433,7 +1458,13 @@ export function ProjectManagement() {
   const derivedHoursByProject = useMemo(() => {
     const projectMap: Record<string, { name: string; hours: number; projectId?: string }> = {}
     filteredTimesheets.forEach((t) => {
-      const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours) || 0
+      const hours = calculateHours(
+      t.loginTime,
+      t.logoutTime,
+      t.overriddenHours,
+      t.totalHours,
+      t.totalPausedMs
+    ) || 0
       if (projectMap[t.project]) {
         projectMap[t.project].hours += hours
       } else {
@@ -1453,8 +1484,15 @@ export function ProjectManagement() {
   const derivedLeaderboardData = useMemo(() => {
     const empMap: Record<string, { name: string; dept: string; hours: number; hue: number }> = {}
     filteredTimesheets.forEach((t) => {
-      const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours) || 0
+      const hours = calculateHours(
+      t.loginTime,
+      t.logoutTime,
+      t.overriddenHours,
+      t.totalHours,
+      t.totalPausedMs
+    ) || 0
       const empInfo = MOCK_EMPLOYEES.find((e) => e.id === t.employeeId)
+      const employeeColorKey = t.employeeId || t.employeeName
       if (empMap[t.employeeName]) {
         empMap[t.employeeName].hours += hours
       } else {
@@ -1462,7 +1500,7 @@ export function ProjectManagement() {
           name: t.employeeName,
           dept: empInfo?.team ?? '—',
           hours,
-          hue: empInfo?.hue ?? 200
+          hue: empInfo?.hue ?? stringToHue(employeeColorKey),
         }
       }
     })
@@ -1521,7 +1559,13 @@ export function ProjectManagement() {
     addRow(['DETAILED TIME LOGS'])
     addRow(['Employee', 'Employee ID', 'Project', 'Login Time', 'Logout Time', 'Total Hours'])
     filteredTimesheets.forEach((t) => {
-      const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours)
+      const hours = calculateHours(
+      t.loginTime,
+      t.logoutTime,
+      t.overriddenHours,
+      t.totalHours,
+      t.totalPausedMs
+    )
       addRow([
         t.employeeName,
         t.employeeId,
@@ -1732,7 +1776,13 @@ export function ProjectManagement() {
     const tableHeaders = ['Employee', 'Project', 'Login Time', 'Logout Time', 'Duration']
 
     const tableRows = filteredTimesheets.map((t) => {
-      const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours)
+      const hours = calculateHours(
+      t.loginTime,
+      t.logoutTime,
+      t.overriddenHours,
+      t.totalHours,
+      t.totalPausedMs
+    )
       const durationStr = (() => {
         if (hours === null) return '—'
         const totalMinutes = Math.round(hours * 60)
@@ -1824,7 +1874,7 @@ export function ProjectManagement() {
 
 
   return (
-    <PageWrapper className="py-4 sm:py-5">
+    <PageWrapper className="dashboard-surface py-4 sm:py-5">
       {/* ── Compact admin header: tabs + contextual actions ───────────────── */}
       <div className="sticky top-0 z-30 -mx-4 mb-4 border-b border-slate-200/80 bg-white/95 px-4 py-2.5 backdrop-blur-md sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -2359,12 +2409,12 @@ export function ProjectManagement() {
           <div className="grid gap-3 lg:grid-cols-2">
             <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
               <div className="mb-3 flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
-                <h3 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-slate-700">
+                <h3 className="type-card-label-caps flex items-center gap-2 text-slate-700">
                   <span className="h-3.5 w-1 shrink-0 rounded-full bg-emerald-500" />
                   Aggregated Hours by Project
                 </h3>
                 {derivedHoursByProject.length > 0 && (
-                  <span className="text-xs font-bold tabular-nums text-slate-500">
+                  <span className="type-metric text-xs text-slate-500">
                     {derivedHoursByProject.length} project{derivedHoursByProject.length === 1 ? '' : 's'}
                   </span>
                 )}
@@ -2436,12 +2486,12 @@ export function ProjectManagement() {
 
             <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
               <div className="mb-3 flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
-                <h3 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-slate-700">
+                <h3 className="type-card-label-caps flex items-center gap-2 text-slate-700">
                   <span className="h-3.5 w-1 shrink-0 rounded-full bg-emerald-500" />
                   Aggregated Hours by Employee
                 </h3>
                 {derivedLeaderboardData.length > 0 && (
-                  <span className="text-xs font-bold tabular-nums text-slate-500">
+                  <span className="type-metric text-xs text-slate-500">
                     {derivedLeaderboardData.length} employee{derivedLeaderboardData.length === 1 ? '' : 's'}
                   </span>
                 )}
@@ -2457,18 +2507,24 @@ export function ProjectManagement() {
             <div className="max-h-[min(32rem,70vh)] overflow-auto timesheet-panel-scroll">
               <table className="w-full min-w-[640px] border-collapse text-left">
                 <thead className="sticky top-0 z-10">
-                  <tr className="border-b border-slate-200 bg-slate-50/95 text-[11px] font-bold uppercase tracking-wide text-slate-500 backdrop-blur-sm">
-                    <th className="px-5 py-3">Employee</th>
-                    <th className="px-5 py-3">Project</th>
-                    <th className="px-5 py-3">Login Time</th>
-                    <th className="px-5 py-3">Logout Time</th>
-                    <th className="px-5 py-3">Duration</th>
+                  <tr className="border-b border-slate-200 bg-slate-50/95 backdrop-blur-sm">
+                    <th className="type-table-head px-5 py-3">Employee</th>
+                    <th className="type-table-head px-5 py-3">Project</th>
+                    <th className="type-table-head px-5 py-3">Login Time</th>
+                    <th className="type-table-head px-5 py-3">Logout Time</th>
+                    <th className="type-table-head px-5 py-3">Duration</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm">
                   {currentTimesheets.map((t) => {
                     const empInfo = MOCK_EMPLOYEES.find((e) => e.id === t.employeeId)
-                    const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours)
+                    const hours = calculateHours(
+                      t.loginTime,
+                      t.logoutTime,
+                      t.overriddenHours,
+                      t.totalHours,
+                      t.totalPausedMs
+                    )
 
                     return (
                       <tr
@@ -2480,7 +2536,11 @@ export function ProjectManagement() {
                             <Avatar
                               name={t.employeeName}
                               size="sm"
-                              color={empInfo ? `hsl(${empInfo.hue},55%,45%)` : '#10b981'}
+                              color={
+                                empInfo
+                                  ? `hsl(${empInfo.hue},55%,45%)`
+                                  : stringToHueColor(t.employeeId || t.employeeName)
+                              }
                             />
                             <div className="min-w-0">
                               <p className="truncate font-bold text-slate-800 leading-tight">
@@ -2528,15 +2588,14 @@ export function ProjectManagement() {
                         </td>
 
                         <td className="px-5 py-3.5">
-                          <span className="inline-flex rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-sm font-extrabold tabular-nums text-slate-900">
-                            {(() => {
-                              if (hours === null) return '—'
-                              const totalMinutes = Math.round(hours * 60)
-                              const hrs = Math.floor(totalMinutes / 60)
-                              const mins = totalMinutes % 60
-                              return `${hrs}h ${mins}m`
-                            })()}
+                          <span className="type-metric-inline inline-flex rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1">
+                            {formatAdminDuration(hours)}
                           </span>
+                          {t.autoCheckedOut && (
+                            <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-amber-600">
+                              Auto Checked-Out
+                            </p>
+                          )}
                         </td>
                       </tr>
                     )
