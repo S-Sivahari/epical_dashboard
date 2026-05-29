@@ -34,6 +34,7 @@ import { SearchBar } from '@components/employee/shared/SearchBar'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { PayslipsSection } from '@components/employee/shared/PayslipsSection'
 import { cn } from '@pages/employee/lib/utils'
+import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 
 const POLL_INTERVAL_MS = 5000
 const HISTORY_PAGE_SIZE = 10
@@ -359,9 +360,11 @@ export default function DocumentRequest() {
             className="animate-in fade-in space-y-8 duration-200"
           >
             <div className="grid gap-6 lg:grid-cols-2 lg:items-stretch">
-              <form
+              <InteractiveCard
+                as="form"
+                selectable={false}
                 onSubmit={handleSubmit(onSubmit)}
-                className="flex h-full flex-col space-y-4 rounded-xl border border-border bg-card p-6 shadow-card"
+                className={portalCardClass({ className: 'flex h-full flex-col space-y-4 p-6' })}
               >
                 <div>
                   <h3 className="font-heading text-lg font-semibold">Request document</h3>
@@ -436,9 +439,9 @@ export default function DocumentRequest() {
                     {isSubmitting ? 'Submitting…' : 'Submit request'}
                   </Button>
                 </div>
-              </form>
+              </InteractiveCard>
 
-              <div className="flex h-full flex-col rounded-xl border border-border bg-card p-6 shadow-card">
+              <InteractiveCard selectable={false} className={portalCardClass({ className: 'flex h-full flex-col p-6' })}>
                 <div className="mb-4 flex items-start gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <Download className="h-5 w-5" />
@@ -496,10 +499,10 @@ export default function DocumentRequest() {
                     </div>
                   )}
                 </div>
-              </div>
+              </InteractiveCard>
             </div>
 
-            <div className="rounded-xl border border-border bg-card p-6 shadow-card">
+            <InteractiveCard className={portalCardClass({ className: 'p-6' })}>
               <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
                 <div className="flex items-start gap-2">
                   <CalendarDays className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
@@ -593,7 +596,7 @@ export default function DocumentRequest() {
                   )}
                 </>
               )}
-            </div>
+            </InteractiveCard>
           </div>
         )}
       </div>

@@ -21,6 +21,7 @@ import { SearchBar } from '@components/employee/shared/SearchBar'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { useAuthStore } from '@store/authStore'
 import { cn } from '@pages/employee/lib/utils'
+import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 
 const PAGE_SIZE = 10
 
@@ -329,7 +330,7 @@ export function PayslipsSection({ payslips, loading }) {
 
   return (
     <>
-      <div className="animate-in fade-in duration-200 rounded-xl border border-border bg-card p-6 shadow-card">
+      <InteractiveCard className={portalCardClass({ className: 'animate-in fade-in p-6 duration-200' })}>
         <div className="mb-6 flex flex-wrap items-start justify-between gap-4 border-b border-border pb-5">
           <div className="flex items-start gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -469,7 +470,7 @@ export function PayslipsSection({ payslips, loading }) {
             )}
           </>
         )}
-      </div>
+      </InteractiveCard>
 
       {viewPayslip && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

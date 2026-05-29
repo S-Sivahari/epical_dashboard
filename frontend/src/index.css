@@ -31,6 +31,23 @@
   }
 }
 
+@layer components {
+  /* Employee portal — interactive card highlight (matches portalCardClass) */
+  .employee-portal [data-portal-card] {
+    @apply outline-none transition-[border-color,box-shadow,ring] duration-200 ease-out;
+  }
+  .employee-portal [data-portal-card]:hover {
+    @apply border-primary/30 shadow-md;
+    box-shadow:
+      0 4px 6px -1px rgb(0 0 0 / 0.06),
+      0 0 0 1px rgb(16 185 129 / 0.06);
+  }
+  .employee-portal [data-portal-card][data-selected='true'],
+  .employee-portal [data-portal-card]:focus-visible {
+    @apply border-primary/50 ring-2 ring-primary/20;
+  }
+}
+
 @layer utilities {
   .transition-ui {
     @apply transition-all duration-200 ease-in-out;

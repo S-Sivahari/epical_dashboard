@@ -27,6 +27,7 @@ import { useToast } from '@components/employee/shared/ToastProvider'
 import { useAuthStore } from '@store/authStore'
 import { useTicketStore } from '@store/ticketStore'
 import { cn } from '@pages/employee/lib/utils'
+import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 
 const querySchema = z.object({
   subject: z.string().min(3, 'Subject is required'),
@@ -50,7 +51,7 @@ function UserGuideAccordion() {
   }
 
   return (
-    <section className="rounded-xl border border-border bg-card p-6 shadow-card">
+    <InteractiveCard className={portalCardClass({ className: 'p-6' })}>
       <div className="mb-4 flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
           <BookOpen className="h-5 w-5 text-primary" />
@@ -157,7 +158,7 @@ function UserGuideAccordion() {
           Choose a feature above to load its guide.
         </p>
       )}
-    </section>
+    </InteractiveCard>
   )
 }
 
@@ -212,7 +213,7 @@ export default function EmployeeHelpSupport() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* FAQ */}
-        <section className="rounded-xl border border-border bg-card p-6 shadow-card">
+        <InteractiveCard className={portalCardClass({ className: 'p-6' })}>
           <h3 className="font-heading text-lg font-semibold">FAQ</h3>
           <p className="mt-1 mb-4 text-sm text-muted">Common questions about the portal and HR processes.</p>
           <div className="space-y-2">
@@ -234,10 +235,10 @@ export default function EmployeeHelpSupport() {
               </div>
             ))}
           </div>
-        </section>
+        </InteractiveCard>
 
         {/* Contact Support */}
-        <section className="rounded-xl border border-border bg-card p-6 shadow-card">
+        <InteractiveCard className={portalCardClass({ className: 'p-6' })}>
           <h3 className="font-heading text-lg font-semibold">Contact Support</h3>
           <p className="mt-1 mb-4 text-sm text-muted">Reach the HR & IT support team directly.</p>
 
@@ -272,7 +273,7 @@ export default function EmployeeHelpSupport() {
               {isSubmitting ? 'Sending…' : 'Send Query'}
             </Button>
           </form>
-        </section>
+        </InteractiveCard>
       </div>
 
       <UserGuideAccordion />

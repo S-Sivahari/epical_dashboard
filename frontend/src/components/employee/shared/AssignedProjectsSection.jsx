@@ -4,6 +4,7 @@ import { FolderKanban, Globe, Lock, User, Clock, Cpu } from 'lucide-react'
 import { Badge } from '@components/employee/ui/badge'
 import { Progress } from '@components/employee/ui/progress'
 import api from '@services/api'
+import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 
 function projectStatusLabel(status) {
   if (status === 'Active') return 'In Progress'
@@ -23,7 +24,8 @@ function ProjectBlockCard({ project }) {
   return (
     <motion.article
       whileHover={{ y: -3 }}
-      className="flex flex-col rounded-xl border border-border bg-white p-5 shadow-card transition-shadow hover:shadow-md"
+      data-portal-card=""
+      className={portalCardClass({ className: 'flex flex-col bg-white p-5 transition-shadow' })}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
@@ -137,7 +139,7 @@ export function AssignedProjectsSection({ initialProjects = null, loading: loadi
   }, [initialProjects, loadingProp])
 
   return (
-    <section className="rounded-xl border border-border bg-card p-6 shadow-card">
+    <InteractiveCard className={portalCardClass({ className: 'p-6' })}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -182,6 +184,6 @@ export function AssignedProjectsSection({ initialProjects = null, loading: loadi
           ))}
         </div>
       )}
-    </section>
+    </InteractiveCard>
   )
 }

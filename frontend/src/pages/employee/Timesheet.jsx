@@ -13,6 +13,7 @@ import { DateRangePicker } from '@components/employee/shared/DateRangePicker'
 import { useTimesheetStore } from '@store/employee/timesheetStore'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { formatDateKey, getPresetDateRange, getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
+import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 
 const TimesheetWeeklyChart = lazy(() =>
   import('@pages/employee/TimesheetWeeklyChart').then((m) => ({ default: m.TimesheetWeeklyChart })),
@@ -465,7 +466,7 @@ export default function Timesheet() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3 lg:items-start">
-        <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-card lg:col-span-1">
+        <InteractiveCard selectable={false} className={portalCardClass({ className: 'flex flex-col gap-4 p-6 lg:col-span-1' })}>
           <h3 className="font-heading text-lg font-semibold">Check In / Out</h3>
 
           <div className="flex flex-col gap-3">
@@ -639,9 +640,9 @@ export default function Timesheet() {
               </>
             )}
           </div>
-        </div>
+        </InteractiveCard>
 
-        <div className="rounded-xl border border-border bg-card p-6 shadow-card lg:col-span-2">
+        <InteractiveCard className={portalCardClass({ className: 'p-6 lg:col-span-2' })}>
           <h4 className="mb-4 font-heading text-lg font-semibold">Weekly Hours</h4>
           <div className="w-full" style={{ height: WEEKLY_CHART_HEIGHT }}>
             <Suspense
@@ -654,10 +655,10 @@ export default function Timesheet() {
               <TimesheetWeeklyChart data={weeklyHours} height={WEEKLY_CHART_HEIGHT} />
             </Suspense>
           </div>
-        </div>
+        </InteractiveCard>
       </div>
 
-      <div className="space-y-4">
+      <InteractiveCard className={portalCardClass({ className: 'space-y-4 p-5 sm:p-6' })} selectable={false}>
         <div className="flex flex-col items-start gap-3">
           <h3 className="font-heading text-lg font-semibold">Work History</h3>
           <DateRangePicker
@@ -674,7 +675,7 @@ export default function Timesheet() {
         </div>
 
         <DataTable columns={historyColumns} data={unifiedHistory} />
-      </div>
+      </InteractiveCard>
 
     </div>
   )

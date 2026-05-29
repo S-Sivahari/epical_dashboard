@@ -1,18 +1,24 @@
 import { cn } from '@pages/employee/lib/utils'
 import { Badge, statusVariant } from '@components/employee/ui/badge'
+import { portalCardClass } from '@components/employee/shared/interactiveCard'
 
-export function DataTable({ columns, data, statusKey }) {
+export function DataTable({ columns, data, statusKey, compact = false, emptyMessage = 'No records found.' }) {
   if (!data?.length) {
     return (
-      <div className="rounded-xl border border-border bg-card p-8 text-center text-muted">
-        No records found.
+      <div className="rounded-lg border border-dashed border-border bg-surface/30 px-4 py-10 text-center text-sm text-muted">
+        {emptyMessage}
       </div>
     )
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-card">
-      <table className="w-full min-w-[800px] text-sm">
+    <div
+      data-portal-card=""
+      className={cn(
+        portalCardClass({ className: 'w-full max-w-full overflow-x-auto rounded-lg bg-background/40 shadow-none' }),
+      )}
+    >
+      <table className={cn('w-full text-sm', compact ? 'min-w-0 table-auto' : 'min-w-[800px]')}>
         <thead>
           <tr className="border-b border-border bg-slate-50/80">
             {columns.map((col) => (
