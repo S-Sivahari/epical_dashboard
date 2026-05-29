@@ -11,14 +11,11 @@ import { KPIStatCard } from '@components/employee/shared/KPIStatCard'
 import { DataTable } from '@components/employee/shared/DataTable'
 import { DateRangePicker } from '@components/employee/shared/DateRangePicker'
 import { useTimesheetStore } from '@store/employee/timesheetStore'
+import { formatSessionDuration } from '@utils/durationFormat'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { formatDateKey, getPresetDateRange, getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
-<<<<<<< HEAD
-import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
-=======
 import { TimesheetLiveSessionPanel } from '@pages/employee/TimesheetLiveSessionPanel'
 import { TimesheetProjectWiseSummary } from '@pages/employee/TimesheetProjectWiseSummary'
->>>>>>> 7e5928b (project_management)
 
 const TimesheetWeeklyChart = lazy(() =>
   import('@pages/employee/TimesheetWeeklyChart').then((m) => ({ default: m.TimesheetWeeklyChart })),
@@ -110,14 +107,11 @@ export default function Timesheet() {
     completeTask,
     attendanceHistory,
     serverTimeSkew,
-<<<<<<< HEAD
-=======
     sessionsLoading,
     backendElapsedMs,
     hasBackendElapsedData,
     backendElapsedLastFetch,
     projectWiseHours,
->>>>>>> 7e5928b (project_management)
   } = useTimesheetStore()
   const { toast } = useToast()
   const defaultHistoryRange = getPresetDateRange('This Month')
@@ -129,9 +123,27 @@ export default function Timesheet() {
   const [checkoutReview, setCheckoutReview] = useState(false)
   const [checkoutError, setCheckoutError] = useState('')
 
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
+
   useEffect(() => {
     hydrate()
   }, [hydrate])
+
+  useEffect(() => {
+    let active = true
+    if (initialized) {
+      setIsInitialLoading(true)
+      void useTimesheetStore.getState().refreshSessionsForRange({ from: historyStart, to: historyEnd })
+        .finally(() => {
+          if (active) {
+            setIsInitialLoading(false)
+          }
+        })
+    }
+    return () => {
+      active = false
+    }
+  }, [initialized, historyStart, historyEnd])
 
   useEffect(() => {
     const onFocus = () => {
@@ -191,7 +203,7 @@ export default function Timesheet() {
   const canStartSession =
     !!selectedTaskId && String(workDescription || '').trim().length >= 3
   const startableTasks = useMemo(
-    () => assignedTasks.filter((t) => t.status === 'assigned' || t.status === 'in_progress'),
+    () => assignedTasks.filter((t) => t.status !== 'completed'),
     [assignedTasks]
   )
   const selectedTask = startableTasks.find((t) => t.id === selectedTaskId)
@@ -418,26 +430,15 @@ export default function Timesheet() {
       .filter((s) => isDateInRange(s.date, historyRange.start, historyRange.end))
       .forEach((s) => {
         const loginMs = s.loginTime ? new Date(s.loginTime).getTime() : 0
-        const logoutMs = s.logoutTime ? new Date(s.logoutTime).getTime() : (s.taskStatus === 'In Progress' ? liveNow : 0)
-        
-        let durationStr = '—'
-        if (loginMs && logoutMs) {
-          const diffMs = logoutMs - loginMs
-          if (diffMs > 0) {
-            const totalMinutes = Math.round(diffMs / 60000)
-            const hrs = Math.floor(totalMinutes / 60)
-            const mins = totalMinutes % 60
-            if (hrs === 0) {
-              durationStr = `${mins}min`
-            } else if (mins === 0) {
-              durationStr = `${hrs}hr`
-            } else {
-              durationStr = `${hrs}hr ${mins}min`
-            }
-          } else {
-            durationStr = '0min'
-          }
-        }
+        const durationStr =
+          s.durationLabel ||
+          formatSessionDuration({
+            loginTime: s.loginTime,
+            logoutTime: s.logoutTime,
+            totalHours: s.totalHours,
+            totalPausedMs: s.totalPausedMs,
+            taskStatus: s.taskStatus,
+          })
 
         entries.push({
           id: `task-${s.id}`,
@@ -447,24 +448,21 @@ export default function Timesheet() {
           description:
             stripTaskLabelPrefix(s.task, { projectName: s.project }) || '—',
           start: s.start,
-          end: s.end,
+          end: s.end || (s.autoCheckedOut ? formatTimeLabel(s.logoutTime) : s.end),
           duration: durationStr,
+          statusNote: s.autoCheckedOut ? 'Auto Checked-Out' : null,
         })
       })
 
     return entries.sort((a, b) => b.sortAt - a.sortAt)
   }, [sessions, historyRange, checkedIn, liveNow])
 
-<<<<<<< HEAD
-  if (!initialized && loading) {
-=======
   const projectWiseTotal = useMemo(
     () => (projectWiseHours ?? []).reduce((sum, p) => sum + (p.hours || 0), 0),
     [projectWiseHours]
   )
 
   if (!initialized) {
->>>>>>> 7e5928b (project_management)
     return (
       <div className="flex min-h-[320px] items-center justify-center text-muted">
         <Loader2 className="mr-2 h-6 w-6 animate-spin text-primary" />
@@ -474,7 +472,7 @@ export default function Timesheet() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="dashboard-surface space-y-4">
       {/* Top analytics summary */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-stretch">
         <KPIStatCard
@@ -495,18 +493,11 @@ export default function Timesheet() {
         />
       </div>
 
-<<<<<<< HEAD
-      <div className="grid gap-6 lg:grid-cols-3 lg:items-start">
-        <InteractiveCard selectable={false} className={portalCardClass({ className: 'flex flex-col gap-4 p-6 lg:col-span-1' })}>
-          <h3 className="font-heading text-lg font-semibold">Check In / Out</h3>
-=======
       {/* Hybrid workspace: form 55% | live session 45% */}
       <section className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
         <div className="border-b border-border/60 bg-slate-50/50 px-4 py-3 sm:px-5">
-          <h3 className="font-heading text-base font-semibold text-foreground sm:text-lg">
-            Work session
-          </h3>
-          <p className="mt-0.5 text-xs text-muted">
+          <h3 className="type-section-title">Work session</h3>
+          <p className="type-body-sm mt-0.5">
             Check in to track time on your assigned project. Update your description before checking out.
           </p>
         </div>
@@ -525,7 +516,6 @@ export default function Timesheet() {
                 </p>
               </div>
             )}
->>>>>>> 7e5928b (project_management)
 
             <div className="space-y-1.5">
               <Label className="text-sm font-semibold">Assigned Project</Label>
@@ -543,11 +533,7 @@ export default function Timesheet() {
                     }
                   />
                 </SelectTrigger>
-<<<<<<< HEAD
-                <SelectContent>
-=======
                 <SelectContent className="max-h-[220px] overflow-y-auto">
->>>>>>> 7e5928b (project_management)
                   {startableTasks.map((t) => (
                     <SelectItem key={t.id} value={t.id}>
                       {t.projectName}
@@ -646,25 +632,16 @@ export default function Timesheet() {
               onResume={() => pausedTasks[0] && onResumeTask(pausedTasks[0].timesheetId)}
             />
           </div>
-<<<<<<< HEAD
-        </InteractiveCard>
-
-        <InteractiveCard className={portalCardClass({ className: 'p-6 lg:col-span-2' })}>
-          <h4 className="mb-4 font-heading text-lg font-semibold">Weekly Hours</h4>
-          <div className="w-full" style={{ height: WEEKLY_CHART_HEIGHT }}>
-=======
         </div>
       </section>
-
       {/* Charts: weekly + project breakdown */}
       <div className="grid gap-3 lg:grid-cols-2 lg:items-stretch">
         <div className="flex min-h-[320px] flex-col rounded-xl border border-border bg-card p-4 shadow-card sm:p-5">
           <div className="mb-3 flex shrink-0 items-center justify-between gap-2 border-b border-border/60 pb-2.5">
-            <h4 className="font-heading text-sm font-semibold text-foreground sm:text-base">Weekly Hours</h4>
+            <h4 className="type-card-title">Weekly Hours</h4>
             <span className="text-xs font-semibold tabular-nums text-muted">This week</span>
           </div>
           <div className="min-h-0 flex-1 w-full" style={{ height: WEEKLY_CHART_HEIGHT }}>
->>>>>>> 7e5928b (project_management)
             <Suspense
               fallback={
                 <div className="flex h-full items-center justify-center text-sm text-muted">Loading chart…</div>
@@ -673,22 +650,12 @@ export default function Timesheet() {
               <TimesheetWeeklyChart data={weeklyHours} height={WEEKLY_CHART_HEIGHT} />
             </Suspense>
           </div>
-<<<<<<< HEAD
-        </InteractiveCard>
-      </div>
-
-      <InteractiveCard className={portalCardClass({ className: 'space-y-4 p-5 sm:p-6' })} selectable={false}>
-        <div className="flex flex-col items-start gap-3">
-          <h3 className="font-heading text-lg font-semibold">Work History</h3>
-=======
         </div>
 
         <div className="flex min-h-[320px] flex-col rounded-xl border border-teal-200/60 bg-gradient-to-b from-teal-50/30 to-card p-4 shadow-card sm:p-5">
           <div className="mb-3 flex shrink-0 items-center justify-between gap-2 border-b border-teal-100 pb-2.5">
-            <h4 className="font-heading text-sm font-semibold text-teal-900 sm:text-base">
-              Project breakdown
-            </h4>
-            <span className="text-xs font-bold tabular-nums text-teal-700">
+            <h4 className="type-card-title text-teal-600 font-extrabold">Project breakdown</h4>
+            <span className="type-metric text-xs text-teal-600 font-bold">
               {projectWiseTotal.toFixed(1)}h
             </span>
           </div>
@@ -712,8 +679,7 @@ export default function Timesheet() {
       {/* Work history */}
       <section className="rounded-xl border border-border bg-card p-4 shadow-card sm:p-5">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="font-heading text-base font-semibold text-foreground sm:text-lg">Work History</h3>
->>>>>>> 7e5928b (project_management)
+          <h3 className="type-section-title">Work History</h3>
           <DateRangePicker
             startDate={historyStart}
             endDate={historyEnd}
@@ -727,11 +693,6 @@ export default function Timesheet() {
           />
         </div>
 
-<<<<<<< HEAD
-        <DataTable columns={historyColumns} data={unifiedHistory} />
-      </InteractiveCard>
-
-=======
         {(isInitialLoading || sessionsLoading) && unifiedHistory.length === 0 ? (
           <div className="space-y-2">
             <div className="h-10 w-full animate-pulse rounded-lg bg-slate-100/80" />
@@ -751,7 +712,6 @@ export default function Timesheet() {
           </div>
         )}
       </section>
->>>>>>> 7e5928b (project_management)
     </div>
   )
 }

@@ -445,10 +445,6 @@ export const employeeTimesheetController = {
       const today = todayDateKey();
 
       const sessionMatch = {
-<<<<<<< HEAD
-        employeeId: employee.employeeId,
-        date: { $gte: monthFrom, $lte: today },
-=======
         $and: [
           {
             $or: [
@@ -460,7 +456,6 @@ export const employeeTimesheetController = {
             loginTime: { $gte: new Date(`${monthFrom}T00:00:00.000Z`), $lte: new Date(`${today}T23:59:59.999Z`) },
           },
         ],
->>>>>>> 300862c (project_management)
       };
 
       const [openAttendance, latestAttendance, activePayload, assignedTasks, sessions, attendanceHistory, projectWiseHours] =
@@ -611,19 +606,6 @@ export const employeeTimesheetController = {
       }
 
       const { from, to } = req.query;
-<<<<<<< HEAD
-      const match: Record<string, unknown> = {
-        employeeId: employee.employeeId,
-      };
-
-      if (from || to) {
-        const dateFilter: Record<string, string> = {};
-        if (typeof from === 'string' && from) dateFilter.$gte = from;
-        if (typeof to === 'string' && to) dateFilter.$lte = to;
-        if (Object.keys(dateFilter).length > 0) {
-          match.date = dateFilter;
-        }
-=======
       const match: Record<string, any> = {
         $and: [
           {
@@ -641,7 +623,6 @@ export const employeeTimesheetController = {
       );
       if (dateMatch) {
         match.$and.push(dateMatch);
->>>>>>> 300862c (project_management)
       }
 
       const logs = await TimesheetModel.find(match).sort({ loginTime: -1 });
@@ -1191,8 +1172,8 @@ export const employeeTimesheetController = {
           }).session(session);
 
           if (linkedAssigned) {
-            linkedAssigned.status = 'pending_review';
-            linkedAssigned.timesheetId = openLog._id as Types.ObjectId;
+            linkedAssigned.status = 'assigned';
+            linkedAssigned.timesheetId = undefined;
             await linkedAssigned.save({ session });
           } else {
             await AssignedTaskModel.updateMany(
@@ -1202,9 +1183,11 @@ export const employeeTimesheetController = {
                   { timesheetId: openLog._id },
                   { employeeId: { $in: employee.identityTokens } },
                   { employeeName: { $in: employee.identityTokens } },
+                  { employeeId: openLog.employeeId },
+                  { employeeName: openLog.employee },
                 ],
               },
-              { $set: { status: 'pending_review', timesheetId: openLog._id } },
+              { $set: { status: 'assigned', timesheetId: undefined } },
               { session }
             );
           }
