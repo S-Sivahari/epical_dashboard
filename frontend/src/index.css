@@ -49,12 +49,6 @@
     animation: marquee var(--marquee-duration, 25s) linear infinite;
   }
 
-  /* Login page — hide native cursor, use glow orb instead */
-  .login-page,
-  .login-page * {
-    cursor: none !important;
-  }
-
   /* Top-left cyber branding */
   .login-top-brand-text {
     font-family: var(--font-display, ui-sans-serif, system-ui, sans-serif);
