@@ -634,8 +634,8 @@ export default function Timesheet() {
 
         <div className="flex min-h-[320px] flex-col rounded-xl border border-teal-200/60 bg-gradient-to-b from-teal-50/30 to-card p-4 shadow-card sm:p-5">
           <div className="mb-3 flex shrink-0 items-center justify-between gap-2 border-b border-teal-100 pb-2.5">
-            <h4 className="type-card-title text-teal-900">Project breakdown</h4>
-            <span className="type-metric text-xs text-teal-700">
+            <h4 className="type-card-title text-teal-600 font-extrabold">Project breakdown</h4>
+            <span className="type-metric text-xs text-teal-600 font-bold">
               {projectWiseTotal.toFixed(1)}h
             </span>
           </div>
