@@ -17,6 +17,8 @@ import { Badge } from '@components/ui/Badge'
 import { Modal } from '@components/ui/Modal'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
+import { DateInput } from '@components/shared/DateInput'
+import { getCalendarEntryBounds, validateIsoInRange } from '@/utils/dateValidation'
 import { Plus, Edit2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
@@ -105,19 +107,25 @@ export function AdminCalendarView() {
     setEditingId(null)
   }
 
+  const calendarBounds = getCalendarEntryBounds()
+
   const handleAddHoliday = async () => {
     if (!title.trim() || !date) {
       toast.error('Please fill holiday name and date')
       return
     }
 
+    const dateCheck = validateIsoInRange(date, calendarBounds.min, calendarBounds.max)
+    if (!dateCheck.valid) {
+      toast.error(dateCheck.error)
+      return
+    }
+
     try {
       if (editingId) {
         await updateHoliday(editingId, { title, date, description, type })
-        toast.success('Holiday updated')
       } else {
         await addHoliday({ title, date, description, type })
-        toast.success('Holiday added')
       }
       resetHolidayForm()
       setIsHolidayFormOpen(false)
@@ -140,7 +148,6 @@ export function AdminCalendarView() {
     if (!holidayToDelete) return
     try {
       await deleteHoliday(holidayToDelete.id)
-      toast.success('Holiday deleted')
       setDeleteConfirmOpen(false)
       setHolidayToDelete(null)
       fetchHolidays()
@@ -464,7 +471,13 @@ export function AdminCalendarView() {
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-ink">Date</label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <DateInput
+                value={date}
+                onChange={setDate}
+                minDate={calendarBounds.min}
+                maxDate={calendarBounds.max}
+                placeholder="dd/mm/yyyy"
+              />
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-ink">Type</label>

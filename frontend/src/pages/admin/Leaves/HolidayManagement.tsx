@@ -8,6 +8,8 @@ import interactionPlugin from '@fullcalendar/interaction'
 import type { EventInput } from '@fullcalendar/core'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
+import { DateInput } from '@components/shared/DateInput'
+import { getCalendarEntryBounds, validateIsoInRange } from '@/utils/dateValidation'
 import { Modal } from '@components/ui/Modal'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { Badge } from '@components/ui/Badge'
@@ -127,8 +129,6 @@ export function HolidayManagement() {
     setIsLoading(true)
     try {
       await skipHoliday(holiday.id, reason)
-      const action = holiday.skipped ? 'restored as a holiday' : 'marked as a working day'
-      toast.success(`"${holiday.title}" has been ${action}`)
       setSkipModalOpen(false)
       setHolidayToSkip(null)
       setSkipReason('')
@@ -139,6 +139,8 @@ export function HolidayManagement() {
     }
   }
 
+  const calendarBounds = getCalendarEntryBounds()
+
   const validateForm = (): boolean => {
     if (!title.trim()) {
       toast.error('Holiday name is required')
@@ -146,6 +148,11 @@ export function HolidayManagement() {
     }
     if (!date) {
       toast.error('Date is required')
+      return false
+    }
+    const dateCheck = validateIsoInRange(date, calendarBounds.min, calendarBounds.max)
+    if (!dateCheck.valid) {
+      toast.error(dateCheck.error)
       return false
     }
     return true
@@ -158,7 +165,6 @@ export function HolidayManagement() {
     try {
       if (editingId) {
         await updateHoliday(editingId, { title, date, description, type })
-        toast.success('Holiday updated successfully')
       } else {
         const exists = holidays.some((h) => h.date === date && h.id !== editingId)
         if (exists) {
@@ -167,7 +173,6 @@ export function HolidayManagement() {
           return
         }
         await addHoliday({ title, date, description, type })
-        toast.success('Holiday added successfully')
       }
       resetForm()
       setFormOpen(false)
@@ -188,7 +193,6 @@ export function HolidayManagement() {
     setIsLoading(true)
     try {
       await deleteHoliday(holidayToDelete.id)
-      toast.success('Holiday deleted successfully')
       setDeleteConfirmOpen(false)
       setHolidayToDelete(null)
     } catch {
@@ -349,7 +353,13 @@ export function HolidayManagement() {
           </div>
           <div>
             <label className="block text-sm font-medium text-ink mb-2">Date *</label>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <DateInput
+              value={date}
+              onChange={setDate}
+              minDate={calendarBounds.min}
+              maxDate={calendarBounds.max}
+              placeholder="dd/mm/yyyy"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-ink mb-2">Type</label>

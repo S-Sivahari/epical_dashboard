@@ -6,7 +6,6 @@ import {
   CalendarDays,
   FileText,
   LayoutGrid,
-  LogOut,
   Menu,
   Newspaper,
   Receipt,
@@ -15,15 +14,13 @@ import {
   Users,
   X,
 } from 'lucide-react'
-import { NavLink, useNavigate } from 'react-router-dom'
-import { useAuthStore } from '@store/authStore'
+import { NavLink } from 'react-router-dom'
 import { cn } from '@/utils/cn'
 import { ROUTES } from '@constants/routes'
 import { useUiStore } from '@store/uiStore'
 import { useMediaQuery } from '@hooks/useMediaQuery'
 import { useNotificationCounts } from '@hooks/useNotificationCounts'
 import { NotificationBadge } from '@components/ui/NotificationBadge'
-import { APP_SHORT_NAME } from '@/utils/constants'
 
 const groups: {
   label: string
@@ -77,28 +74,20 @@ export function Sidebar() {
   const { sidebarOpen, setSidebarOpen, toggleSidebar } = useUiStore()
   const { counts: notificationCounts } = useNotificationCounts()
   const showDrawer = !isLg && sidebarOpen
-  const logout = useAuthStore((s) => s.logout)
-  const navigate = useNavigate()
-
-  function handleLogout() {
-    logout()
-    navigate('/auth/login')
-    if (!isLg) setSidebarOpen(false)
-  }
 
   return (
     <>
       {!isLg ? (
         <button
           type="button"
-          className="fixed left-4 top-4 z-40 inline-flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-100/90 bg-white shadow-md shadow-emerald-950/5 lg:hidden"
+          className="admin-sidebar-toggle fixed left-4 top-4 z-40 lg:hidden"
           onClick={toggleSidebar}
           aria-label="Toggle menu"
         >
           {sidebarOpen ? (
-            <X className="h-5 w-5 text-emerald-900" />
+            <X className="h-5 w-5 text-zinc-300" />
           ) : (
-            <Menu className="h-5 w-5 text-emerald-900" />
+            <Menu className="h-5 w-5 text-zinc-300" />
           )}
         </button>
       ) : null}
@@ -107,39 +96,36 @@ export function Sidebar() {
         <button
           type="button"
           aria-label="Close menu"
-          className="fixed inset-0 z-30 bg-slate-900/40 lg:hidden"
+          className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       ) : null}
 
       <aside
         className={cn(
-          'fixed left-0 top-0 z-40 flex h-full w-[260px] flex-col border-r border-emerald-100/80 bg-gradient-to-b from-white via-emerald-50/25 to-emerald-50/45 shadow-[4px_0_24px_-8px_rgba(16,185,129,0.15)] transition-transform duration-200 ease-in-out lg:translate-x-0',
+          'admin-sidebar sidebar-navigation fixed left-0 top-0 z-40 flex h-full w-[260px] flex-col transition-transform duration-200 ease-in-out lg:translate-x-0',
           isLg ? 'translate-x-0' : sidebarOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
         <NavLink
           to={ROUTES.DASHBOARD}
           end
-          className="group flex h-16 shrink-0 items-center gap-2 border-b border-emerald-100/70 bg-white/70 px-5 backdrop-blur-sm transition-ui hover:bg-white"
+          className="admin-sidebar-brand group flex h-[4.25rem] shrink-0 items-center gap-3 px-5 transition-opacity hover:opacity-90"
           title="Go to dashboard"
         >
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 text-sm font-bold text-white shadow-md shadow-emerald-900/20 ring-2 ring-white transition-ui group-hover:scale-[1.03]">
-            E
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--neon-green)] shadow-sm shadow-[rgba(0,230,118,0.2)]">
+            <span className="font-display text-base font-bold text-white">E</span>
           </div>
-          <div>
-            <p className="font-display text-sm font-semibold tracking-tight text-slate-900">
-              {APP_SHORT_NAME}
-            </p>
-            <p className="text-xs font-medium text-emerald-700/55">Enterprise</p>
+          <div className="min-w-0 leading-tight">
+            <p className="truncate font-display text-[15px] font-bold tracking-tight text-white">EMPWR</p>
+            <p className="truncate text-[11px] font-medium text-[var(--text-muted)]">Enterprise</p>
           </div>
         </NavLink>
-        <nav className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3 pb-2">
+
+        <nav className="min-h-0 flex-1 space-y-6 overflow-y-auto px-3 py-5 pb-2">
           {groups.map((g) => (
             <div key={g.label}>
-              <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-emerald-900/40">
-                {g.label}
-              </p>
+              <p className="admin-sidebar-group-label mb-2.5 px-3">{g.label}</p>
               <div className="space-y-0.5">
                 {g.items.map((item) => (
                   <NavLink
@@ -148,22 +134,27 @@ export function Sidebar() {
                     end={item.end ?? false}
                     onClick={() => !isLg && setSidebarOpen(false)}
                     className={({ isActive }) =>
-                      cn(
-                        'relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-ui',
-                        isActive
-                          ? 'border-l-2 border-emerald-500/70 bg-emerald-50/60 text-emerald-950 shadow-sm'
-                          : 'border-l-2 border-transparent text-slate-600 hover:bg-emerald-50/40 hover:text-emerald-950',
-                      )
+                      cn('admin-sidebar-link', isActive && 'admin-sidebar-link-active')
                     }
                   >
-                    <item.icon className="h-4 w-4 shrink-0 opacity-[0.88]" />
-                    <span className="truncate">{item.label}</span>
-                    {item.notificationKey && (
-                      <NotificationBadge
-                        count={notificationCounts[item.notificationKey]}
-                        size="sm"
-                        className="right-2"
-                      />
+                    {({ isActive }) => (
+                      <>
+                        <item.icon
+                          className={cn(
+                            'admin-sidebar-link-icon h-[18px] w-[18px] shrink-0 transition-colors',
+                            isActive ? 'text-[var(--neon-green)]' : 'text-[var(--text-muted)]',
+                          )}
+                          strokeWidth={2}
+                        />
+                        <span className="truncate">{item.label}</span>
+                        {item.notificationKey && (
+                          <NotificationBadge
+                            count={notificationCounts[item.notificationKey]}
+                            size="sm"
+                            className="right-2"
+                          />
+                        )}
+                      </>
                     )}
                   </NavLink>
                 ))}
@@ -171,17 +162,6 @@ export function Sidebar() {
             </div>
           ))}
         </nav>
-
-        <div className="shrink-0 border-t border-emerald-100/80 bg-white/50 p-3 backdrop-blur-[2px]">
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-emerald-100/80 bg-white px-3 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition-ui hover:border-red-100 hover:bg-red-50 hover:text-red-700"
-          >
-            <LogOut className="h-4 w-4 shrink-0" />
-            Log out
-          </button>
-        </div>
       </aside>
     </>
   )

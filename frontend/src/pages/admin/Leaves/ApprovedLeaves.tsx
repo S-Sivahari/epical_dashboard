@@ -24,8 +24,7 @@ export function ApprovedLeaves({ filters }: { filters: LeaveFilters }) {
     }
     try {
       await rejectLeave(leaveToCancel.id, cancelReason)
-      toast.success('Leave rejected successfully')
-    } catch {
+} catch {
       toast.error('Failed to reject leave')
     } finally {
       setCancelModalOpen(false)

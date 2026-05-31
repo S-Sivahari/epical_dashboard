@@ -85,7 +85,6 @@ export function ArchivedProjectsModal({
     setRestoringId(id)
     try {
       await api.post(`/projects/archived/${id}/restore`)
-      toast.success(`Project "${name}" and all history has been restored successfully!`)
       await fetchArchivedProjects()
       await onRefreshActiveProjects()
     } catch (err: unknown) {
@@ -98,14 +97,6 @@ export function ArchivedProjectsModal({
     } finally {
       setRestoringId(null)
     }
-  }
-
-  const formatDate = (isoString: string) => {
-    return new Date(isoString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    })
   }
 
   const formatDateTime = (isoString: string) => {

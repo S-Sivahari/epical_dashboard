@@ -6,13 +6,14 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
+import { LoginBackground } from '@components/auth/LoginBackground'
+import { LoginTopBrand } from '@components/auth/LoginTopBrand'
+import { MicrochipHero } from '@components/auth/MicrochipHero'
 import { Button } from '@components/ui/Button'
 import { useAuthStore } from '@store/authStore'
-import { APP_NAME, APP_SHORT_NAME } from '@/utils/constants'
 import { getGoogleClientId } from '@services/googleOAuthService'
 import { prefetchEmployeeDashboard } from '@/utils/prefetchEmployeeRoutes'
 
-const LOGO_URL = '/logo.png'
 const googleClientId = getGoogleClientId()
 const googleSignInEnabled = googleClientId.endsWith('.apps.googleusercontent.com')
 
@@ -46,11 +47,6 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>
 
-// EPICAL LAYOUTS logo using actual image
-function EpicalLogo({ className = 'h-12 w-12' }: { className?: string }) {
-  return <img src={LOGO_URL} alt="Epical Layouts" className={className} />
-}
-
 export function LoginPage() {
   const login = useAuthStore((s) => s.login)
   const completeOAuthRedirect = useAuthStore((s) => s.completeOAuthRedirect)
@@ -73,7 +69,6 @@ export function LoginPage() {
       completeOAuthRedirect({ token, role: oauthRole, email, name, designation })
       prefetchEmployeeDashboard()
       window.history.replaceState({}, '', '/auth/login')
-      toast.success('Welcome back')
       navigate(oauthRole === 'admin' ? '/admin' : '/employee', { replace: true })
       return
     }
@@ -108,7 +103,6 @@ export function LoginPage() {
     try {
       await login(values.email, values.password)
       prefetchEmployeeDashboard()
-      toast.success('Welcome back')
       const userRole = useAuthStore.getState().role
       navigate(userRole === 'admin' ? '/admin' : '/employee', { replace: true })
     } catch (error) {
@@ -124,158 +118,111 @@ export function LoginPage() {
   }
 
   return (
-    <div className="relative grid h-screen overflow-hidden lg:grid-cols-2">
-      {/* ─── Left Panel: Branding ─── */}
-      <div
-        className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-[#0a3d2f] via-[#0d4a3a] to-[#06301f] p-12 text-white lg:flex"
-        style={{ clipPath: 'polygon(0 0, 100% 0, 82% 100%, 0 100%)' }}
-      >
-        {/* Diagonal accent stripe */}
-        <div className="pointer-events-none absolute -right-10 bottom-0 h-full w-24 -translate-x-8 -rotate-[8deg] rounded-l-full bg-gradient-to-t from-emerald-500/60 to-emerald-400/30 blur-sm" />
-        <div className="pointer-events-none absolute -right-4 bottom-0 h-[80%] w-20 -translate-x-8 -rotate-[8deg] rounded-l-full bg-emerald-400/40 blur-md" />
+    <div className="login-page relative">
+      <LoginBackground />
+      <LoginTopBrand />
 
-        {/* Subtle circuit-line decorations */}
-        <div className="pointer-events-none absolute inset-0 opacity-[0.04]">
-          <svg className="h-full w-full" viewBox="0 0 800 800" fill="none">
-            <path d="M200 100h300M300 100v200M300 300h400M500 200v300M100 400h250M250 400v200M250 600h350" stroke="#fff" strokeWidth="1" />
-            <circle cx="200" cy="100" r="2" fill="#fff" />
-            <circle cx="300" cy="100" r="2" fill="#fff" />
-            <circle cx="300" cy="300" r="2" fill="#fff" />
-            <circle cx="500" cy="200" r="2" fill="#fff" />
-            <circle cx="500" cy="500" r="2" fill="#fff" />
-          </svg>
-        </div>
-
-        {/* Decorative circles */}
-        <div className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-white/[0.03]" />
-        <div className="pointer-events-none absolute -bottom-32 -left-16 h-96 w-96 rounded-full bg-white/[0.02]" />
-
-        {/* Logo + Brand */}
-        <div className="relative z-10">
-          <div className="flex items-center gap-3">
-            <EpicalLogo className="h-11 w-11" />
-            <span className="text-sm font-semibold tracking-widest text-white/80">EPICAL LAYOUTS</span>
-          </div>
-        </div>
-
-        {/* Hero text - centered vertically */}
-        <div className="relative z-10 space-y-3">
-          <h1 className="font-display text-6xl font-extrabold leading-none tracking-tight text-white">
-            {APP_SHORT_NAME}
-            <span className="mt-1 block h-1 w-20 rounded-full bg-emerald-400" />
-          </h1>
-          <p className="max-w-sm text-sm leading-relaxed text-emerald-100/70">
-            {APP_NAME}
-          </p>
-        </div>
-      </div>
-
-      {/* ─── Right Panel: Login Form ─── */}
-      <div className="flex items-center justify-center bg-[#f7f8fa] px-4">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="w-full max-w-sm rounded-2xl border border-border bg-white p-8 shadow-lg shadow-black/[0.04]"
-        >
-          {/* Logo + Title */}
-          <div className="mb-6 text-center">
-            <div className="mx-auto mb-2 flex justify-center">
-              <EpicalLogo className="h-10 w-10" />
-            </div>
-            <p className="mb-3 text-[10px] font-semibold tracking-widest text-muted">EPICAL LAYOUTS</p>
-            <h2 className="font-display text-xl font-bold text-ink">Welcome back</h2>
-            <p className="mt-0.5 text-xs text-muted">Sign in to your enterprise portal</p>
+      <div className="login-page-scaler relative">
+        <div className="relative z-10 grid min-h-screen grid-rows-[auto_1fr] lg:grid-cols-2 lg:grid-rows-1">
+          <div className="flex items-center justify-center px-4 py-10 lg:translate-x-10 lg:py-0 lg:pl-16 lg:pr-4">
+            <MicrochipHero />
           </div>
 
-          {/* Form */}
-          <form className="space-y-4" onSubmit={onSubmit} noValidate>
-            {/* Email */}
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-ink">Email</label>
-              <div className="relative">
-                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                <input
-                  type="email"
-                  autoComplete="email"
-                  placeholder="Enter your email"
-                  className={`h-10 w-full rounded-lg border bg-white pl-10 pr-3 text-sm text-ink shadow-sm outline-none transition-all placeholder:text-muted/60 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 ${
-                    errors.email ? 'border-red-400 focus:border-red-400 focus:ring-red-400/20' : 'border-border'
-                  }`}
-                  {...register('email')}
-                />
-              </div>
-              {errors.email ? <p className="text-xs text-red-500">{errors.email.message}</p> : null}
-            </div>
-
-            {/* Password */}
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-ink">Password</label>
-              <div className="relative">
-                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  placeholder="Enter your password"
-                  className={`h-10 w-full rounded-lg border bg-white pl-10 pr-10 text-sm text-ink shadow-sm outline-none transition-all placeholder:text-muted/60 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 ${
-                    errors.password ? 'border-red-400 focus:border-red-400 focus:ring-red-400/20' : 'border-border'
-                  }`}
-                  {...register('password')}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((p) => !p)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink transition-colors"
-                  tabIndex={-1}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-              {errors.password ? <p className="text-xs text-red-500">{errors.password.message}</p> : null}
-            </div>
-
-            {/* Forgot password */}
-            <div className="flex justify-end">
-              <button type="button" className="text-xs font-medium text-emerald-600 hover:text-emerald-700 transition-colors">
-                Forgot password?
-              </button>
-            </div>
-
-            {/* Login button */}
-            <Button
-              type="submit"
-              className="h-10 w-full rounded-lg bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-700"
-              loading={isSubmitting}
+          <div className="flex items-center justify-center px-4 pb-10 lg:py-0 lg:pr-12">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.15, ease: 'easeOut' }}
+              className="login-card-shell w-full max-w-sm"
             >
-              Login
-            </Button>
-          </form>
+              <div className="login-glass rounded-2xl p-8">
+                <div className="login-card-content">
+                  <div className="mb-5 text-center">
+                  <h2 className="login-card-title font-display text-lg font-semibold tracking-tight">
+                    Welcome back
+                  </h2>
+                  <p className="login-card-subtitle mt-1 text-xs">Sign in to your enterprise portal</p>
+                </div>
 
-          {/* Google sign-in */}
-          {googleSignInEnabled ? (
-            <>
-              <div className="relative my-5">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-border" />
-                </div>
-                <div className="relative flex justify-center text-xs">
-                  <span className="bg-white px-3 text-muted">Or continue with</span>
-                </div>
+                  <form className="space-y-4" onSubmit={onSubmit} noValidate>
+                  <div className="space-y-1">
+                    <label className="login-card-label text-xs font-medium">Email</label>
+                    <div className="relative">
+                      <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                      <input
+                        type="email"
+                        autoComplete="email"
+                        placeholder="Enter your email"
+                        className={`login-input ${errors.email ? 'login-input-error' : ''}`}
+                        {...register('email')}
+                      />
+                    </div>
+                    {errors.email ? <p className="text-xs text-red-400">{errors.email.message}</p> : null}
+                  </div>
+
+                  {/* Password */}
+                  <div className="space-y-1">
+                    <label className="login-card-label text-xs font-medium">Password</label>
+                    <div className="relative">
+                      <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        autoComplete="current-password"
+                        placeholder="Enter your password"
+                        className={`login-input pr-10 ${errors.password ? 'login-input-error' : ''}`}
+                        {...register('password')}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((p) => !p)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 transition-colors hover:text-zinc-300"
+                        tabIndex={-1}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    {errors.password ? <p className="text-xs text-red-400">{errors.password.message}</p> : null}
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="login-btn-glow h-10 w-full rounded-lg text-sm font-semibold text-white"
+                    loading={isSubmitting}
+                  >
+                    Login
+                  </Button>
+                </form>
+
+                {googleSignInEnabled ? (
+                  <>
+                    <div className="relative my-5">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-zinc-600/40" />
+                      </div>
+                      <div className="relative flex justify-center text-xs">
+                        <span className="login-card-subtitle bg-[#27272a]/90 px-3 backdrop-blur-sm">
+                          Or continue with
+                        </span>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="login-btn-secondary h-11 w-full gap-3 rounded-lg text-sm font-medium backdrop-blur-sm"
+                      loading={googleLoading}
+                      onClick={handleGoogleRedirect}
+                    >
+                      <GoogleMark />
+                      Continue with Google
+                    </Button>
+                  </>
+                ) : null}
               </div>
-              <Button
-                type="button"
-                variant="secondary"
-                className="h-11 w-full gap-3 rounded-lg text-sm font-medium"
-                loading={googleLoading}
-                onClick={handleGoogleRedirect}
-              >
-                <GoogleMark />
-                Continue with Google
-              </Button>
-            </>
-          ) : null}
-        </motion.div>
+            </div>
+          </motion.div>
+        </div>
       </div>
+    </div>  
     </div>
   )
 }

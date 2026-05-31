@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Modal } from '@components/ui/Modal'
 import { Avatar } from '@components/ui/Avatar'
 import { Badge } from '@components/ui/Badge'
@@ -16,11 +16,7 @@ import {
   ThumbsUp,
   FileEdit,
   Timer,
-  ListFilter,
-  ChevronDown,
   Activity,
-  BarChart3,
-  X,
 } from 'lucide-react'
 
 /* ================================================================
@@ -120,109 +116,6 @@ function SummaryCard({ label, value, icon: Icon, accentColor }: {
 }
 
 /* ================================================================
-   COMPONENT — Event Type Filter Dropdown
-   ================================================================ */
-function EventTypeFilter({ options, selected, onChange }: {
-  options: { value: string; label: string; count: number }[]
-  selected: string[]
-  onChange: (next: string[]) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const allSelected = selected.length === 0
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"
-      >
-        <ListFilter className="h-3.5 w-3.5 text-slate-400" />
-        {allSelected ? 'All Events' : `${selected.length} type${selected.length > 1 ? 's' : ''}`}
-        <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full mt-1 z-20 w-64 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
-            <button
-              onClick={() => { onChange([]); setOpen(false) }}
-              className={`mb-1 w-full rounded-lg px-3 py-2 text-left text-xs font-bold transition-colors ${allSelected ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
-            >
-              All Events
-            </button>
-            {options.map((opt) => {
-              const isActive = selected.includes(opt.value)
-              return (
-                <button
-                  key={opt.value}
-                  onClick={() => {
-                    if (isActive) {
-                      onChange(selected.filter((s) => s !== opt.value))
-                    } else {
-                      onChange([...selected, opt.value])
-                    }
-                  }}
-                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-semibold transition-colors ${isActive ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
-                >
-                  <span>{opt.label}</span>
-                  <span className={`text-[10px] font-bold ${isActive ? 'text-emerald-500' : 'text-slate-400'}`}>{opt.count}</span>
-                </button>
-              )
-            })}
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
-
-/* ================================================================
-   COMPONENT — Employee Filter Dropdown
-   ================================================================ */
-function EmployeeFilter({ employees, selected, onChange }: {
-  employees: string[]
-  selected: string
-  onChange: (val: string) => void
-}) {
-  const [open, setOpen] = useState(false)
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"
-      >
-        <Users className="h-3.5 w-3.5 text-slate-400" />
-        {selected || 'All Employees'}
-        <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full mt-1 z-20 w-56 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
-            <button
-              onClick={() => { onChange(''); setOpen(false) }}
-              className={`mb-1 w-full rounded-lg px-3 py-2 text-left text-xs font-bold transition-colors ${!selected ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
-            >
-              All Employees
-            </button>
-            {employees.map((emp) => (
-              <button
-                key={emp}
-                onClick={() => { onChange(emp); setOpen(false) }}
-                className={`w-full rounded-lg px-3 py-2 text-left text-xs font-semibold transition-colors ${selected === emp ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
-              >
-                {emp}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
-
-/* ================================================================
    COMPONENT — Timeline Event Card
    ================================================================ */
 function TimelineEvent({ event, isLast }: { event: AuditEvent; isLast: boolean }) {
@@ -308,10 +201,6 @@ export function ProjectAuditTrailModal({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Filters
-  const [typeFilter, setTypeFilter] = useState<string[]>([])
-  const [employeeFilter, setEmployeeFilter] = useState('')
-
   // Fetch audit trail when modal opens
   const fetchAuditTrail = useCallback(async () => {
     if (!projectId) return
@@ -331,40 +220,8 @@ export function ProjectAuditTrailModal({
   useEffect(() => {
     if (isOpen && projectId) {
       fetchAuditTrail()
-      setTypeFilter([])
-      setEmployeeFilter('')
     }
   }, [isOpen, projectId, fetchAuditTrail])
-
-  // Derived data
-  const uniqueEmployees = useMemo(() => {
-    if (!data) return []
-    return [...new Set(data.events.map((e) => e.employee))].sort()
-  }, [data])
-
-  const eventTypeOptions = useMemo(() => {
-    if (!data) return []
-    const counts: Record<string, number> = {}
-    data.events.forEach((e) => {
-      counts[e.type] = (counts[e.type] || 0) + 1
-    })
-    return Object.entries(counts).map(([type, count]) => ({
-      value: type,
-      label: (EVENT_CONFIG[type] || DEFAULT_CONFIG).label,
-      count,
-    })).sort((a, b) => b.count - a.count)
-  }, [data])
-
-  const filteredEvents = useMemo(() => {
-    if (!data) return []
-    return data.events.filter((e) => {
-      if (typeFilter.length > 0 && !typeFilter.includes(e.type)) return false
-      if (employeeFilter && e.employee !== employeeFilter) return false
-      return true
-    })
-  }, [data, typeFilter, employeeFilter])
-
-  const hasActiveFilters = typeFilter.length > 0 || !!employeeFilter
 
   return (
     <Modal isOpen={isOpen} title="" onClose={onClose} size="xl">
@@ -453,18 +310,8 @@ export function ProjectAuditTrailModal({
               <div className="flex flex-col items-center justify-center py-16 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50">
                 <Activity className="h-10 w-10 text-slate-300 mb-3" />
                 <p className="text-xs font-bold text-slate-400">
-                  {hasActiveFilters
-                    ? 'No events match the selected filters.'
-                    : 'No activity recorded for this project yet.'}
+                  No activity recorded for this project yet.
                 </p>
-                {hasActiveFilters && (
-                  <button
-                    onClick={() => { setTypeFilter([]); setEmployeeFilter('') }}
-                    className="mt-2 text-xs font-bold text-emerald-600 hover:text-emerald-800 transition-colors"
-                  >
-                    Clear Filters
-                  </button>
-                )}
               </div>
             )}
           </div>

@@ -5,10 +5,7 @@ import {
   subMonths,
   startOfMonth,
   endOfMonth,
-  startOfWeek,
-  endOfWeek,
   eachDayOfInterval,
-  isSameMonth,
   isToday,
 } from 'date-fns'
 import * as Tooltip from '@radix-ui/react-tooltip'
@@ -42,9 +39,8 @@ export default function CompanyCalendar() {
 
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(monthStart)
-  const startDate = startOfWeek(monthStart, { weekStartsOn: 0 })
-  const endDate = endOfWeek(monthEnd, { weekStartsOn: 0 })
-  const calendarDays = eachDayOfInterval({ start: startDate, end: endDate })
+  const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd })
+  const leadingEmptyCells = monthStart.getDay()
 
   const currentMonthIdx = currentDate.getMonth()
   const currentYear = currentDate.getFullYear()
@@ -206,13 +202,20 @@ export default function CompanyCalendar() {
                   </div>
                 ))}
 
-                {calendarDays.map((day) => {
+                {Array.from({ length: leadingEmptyCells }).map((_, index) => (
+                  <div
+                    key={`pad-${index}`}
+                    className="min-h-[5rem] xl:min-h-[5.5rem] rounded-xl border border-transparent bg-transparent"
+                    aria-hidden
+                  />
+                ))}
+
+                {monthDays.map((day) => {
                   const dateStr = format(day, 'yyyy-MM-dd')
                   const dayHolidays = getHolidaysForDay(dateStr)
                   const dayEvents = getEventsForDay(dateStr)
                   const dayLeaves = getMyLeavesForDay(dateStr)
                   const dayTeamLeaves = getTeamLeavesForDay(dateStr)
-                  const isCurrentMonth = isSameMonth(day, currentDate)
                   const isTodayDate = isToday(day)
 
                   return (
@@ -220,8 +223,7 @@ export default function CompanyCalendar() {
                       <Tooltip.Trigger asChild>
                         <div
                           onClick={() => handleDateClick(dateStr)}
-                          className={`min-h-[5rem] xl:min-h-[5.5rem] p-1.5 rounded-xl border transition-all cursor-pointer flex flex-col gap-0.5 hover:shadow-sm overflow-hidden
-                            ${!isCurrentMonth ? 'bg-gray-50/40 text-muted/50 border-transparent' : 'bg-white border-border hover:border-primary/50'}
+                          className={`min-h-[5rem] xl:min-h-[5.5rem] p-1.5 rounded-xl border transition-all cursor-pointer flex flex-col gap-0.5 hover:shadow-sm overflow-hidden bg-white border-border hover:border-primary/50
                             ${isTodayDate ? 'ring-2 ring-primary/20 border-primary/40 bg-primary/5' : ''}
                             ${dayTeamLeaves.length > 0 ? 'bg-purple-50/30' : ''}
                           `}

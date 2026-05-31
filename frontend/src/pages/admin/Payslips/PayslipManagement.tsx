@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Download,
   FileSpreadsheet,
   FileText,
   Loader,
@@ -26,10 +25,16 @@ import { Avatar } from '@components/ui/Avatar'
 import { SelectField } from '@components/forms/SelectField'
 import { stringToHueColor } from '@/utils/stringColor'
 import { toast } from 'sonner'
+import { useAuthStore } from '@store/authStore'
+import {
+  clearPayslipUploadSession,
+  readPayslipUploadSession,
+  savePayslipUploadSession,
+} from '@/utils/payslipUploadSession'
 import {
   downloadPayrollTemplate,
   uploadPayroll,
-  getLatestPayrollBatch,
+  getPayrollBatch,
   listBatches,
   openPayslipPdf,
   downloadPayslipPdf,
@@ -138,16 +143,17 @@ function batchMatchesPeriod(
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export function PayslipManagement({ embedded = false }: { embedded?: boolean }) {
+export function PayslipManagement({ embedded: _embedded = false }: { embedded?: boolean }) {
   const { employees, loading: employeesLoading } = useEmployees()
+  const userId = useAuthStore((s) => s.user?.id)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Tabs
   const [activeTab, setActiveTab] = useState<TabId>('upload')
 
-  // Upload tab state
+  // Upload tab state — empty on open; only restored from current login session (refresh-safe)
   const [batch, setBatch] = useState<PayrollBatch | null>(null)
-  const [loadingBatch, setLoadingBatch] = useState(true)
+  const [loadingBatch, setLoadingBatch] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [sendingId, setSendingId] = useState<string | null>(null)
   const [sendingAll, setSendingAll] = useState(false)
@@ -180,17 +186,39 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
 
   // ── Loaders ────────────────────────────────────────────────────────────────
 
-  const loadLatestBatch = useCallback(async () => {
+  const setUploadBatch = useCallback(
+    (next: PayrollBatch | null) => {
+      setBatch(next)
+      if (!userId) return
+      if (next) savePayslipUploadSession(userId, next.id)
+      else clearPayslipUploadSession()
+    },
+    [userId],
+  )
+
+  const restoreSessionBatch = useCallback(async () => {
+    if (!userId) {
+      setBatch(null)
+      return
+    }
+
+    const batchId = readPayslipUploadSession(userId)
+    if (!batchId) {
+      setBatch(null)
+      return
+    }
+
     setLoadingBatch(true)
     try {
-      const latest = await getLatestPayrollBatch()
-      setBatch(latest)
+      const restored = await getPayrollBatch(batchId)
+      setBatch(restored)
     } catch {
-      toast.error('Failed to load payroll history')
+      clearPayslipUploadSession()
+      setBatch(null)
     } finally {
       setLoadingBatch(false)
     }
-  }, [])
+  }, [userId])
 
   const loadAllBatches = useCallback(async () => {
     setLoadingHistory(true)
@@ -205,9 +233,16 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
   }, [])
 
   useEffect(() => {
-    void loadLatestBatch()
+    void restoreSessionBatch()
     void loadTemplateMeta()
-  }, [loadLatestBatch])
+  }, [restoreSessionBatch])
+
+  useEffect(() => {
+    if (!userId) {
+      setBatch(null)
+      clearPayslipUploadSession()
+    }
+  }, [userId])
 
   useEffect(() => {
     if (activeTab === 'history') {
@@ -344,22 +379,11 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
         employeeDbIdByEmpId: options?.resendPayslips ? buildEmployeeDbIdMap() : undefined,
       })
       const newBatch = result.batch
-      setBatch(newBatch)
+      setUploadBatch(newBatch)
       setSelectedFile(null)
       setReplaceConfirm(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
 
-      if (result.replaced) {
-        toast.success(
-          result.resentCount && result.resentCount > 0
-            ? `Payslips for ${newBatch.payMonth} updated — ${result.resentCount} employee(s) notified (regenerated)`
-            : `Payslips for ${newBatch.payMonth} updated with the new payroll file`
-        )
-      } else {
-        toast.success(
-          `${newBatch.totalGenerated} payslip PDF(s) generated from ${newBatch.employeeCount} employee(s)`
-        )
-      }
       if (newBatch.totalFailed > 0) {
         toast.warning(`${newBatch.totalFailed} payslip(s) failed to generate`)
       }
@@ -405,9 +429,8 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
     setDeletingBatch(true)
     try {
       await deletePayrollBatch(batch.id)
-      setBatch(null)
+      setUploadBatch(null)
       setBatchDeleteOpen(false)
-      toast.success('Uploaded Excel and all payslips deleted')
     } catch (error: unknown) {
       const message =
         (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
@@ -423,9 +446,8 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
     setDeletingPayslip(payslipDeleteTarget.fileName)
     try {
       const updated = await deletePayslip(batch.id, payslipDeleteTarget.fileName)
-      setBatch(updated)
+      setUploadBatch(updated)
       setPayslipDeleteTarget(null)
-      toast.success(`Payslip deleted for ${payslipDeleteTarget.name}`)
     } catch (error: unknown) {
       const message =
         (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
@@ -441,15 +463,12 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
 
   const handleSendAll = async () => {
     if (!batch || unsentCount === 0) {
-      toast.info('All payslips are already sent')
       return
     }
     setSendingAll(true)
     try {
       const result = await sendAllPayslipsToDashboard(batch.id, buildEmployeeDbIdMap())
-      setBatch(result.batch)
-      if (result.sent > 0) toast.success(`Sent ${result.sent} payslip(s) to employee dashboards`)
-      if (result.skipped > 0) toast.info(`${result.skipped} already sent — skipped`)
+      setUploadBatch(result.batch)
       if (result.failed.length > 0) {
         toast.warning(`${result.failed.length} failed: ${result.failed.map((f) => f.empId).join(', ')}`)
       }
@@ -465,13 +484,11 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
 
   const handleDownloadAll = async (targetBatch: PayrollBatch) => {
     if ((targetBatch.totalGenerated ?? 0) === 0) {
-      toast.info('No payslips to download')
       return
     }
     setDownloadingAll(true)
     try {
       await downloadAllPayslipPdfs(targetBatch.id, targetBatch.payMonth)
-      toast.success('Merged payslip PDF downloaded')
     } catch (error: unknown) {
       const message =
         error instanceof Error
@@ -484,13 +501,12 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
     }
   }
 
-  const handleSend = async (empId: string, fileName: string, name: string, employeeDbId?: string) => {
+  const handleSend = async (empId: string, fileName: string, _name: string, employeeDbId?: string) => {
     if (!batch) return
     setSendingId(empId)
     try {
       const updated = await sendPayslipToDashboard(batch.id, empId, fileName, employeeDbId)
-      setBatch(updated)
-      toast.success(`Payslip sent to ${name}'s dashboard`)
+      setUploadBatch(updated)
     } catch (error: unknown) {
       const message =
         (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
@@ -527,8 +543,8 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
         <div className="flex items-center gap-2">
           <Avatar name={r.name} size="sm" color={stringToHueColor(r.empId)} />
           <div>
-            <span className="block font-medium">{r.name}</span>
-            <span className="text-xs text-muted">{r.empId}</span>
+            <span className="block font-medium text-white">{r.name}</span>
+            <span className="text-xs text-[#94a3b8]">{r.empId}</span>
           </div>
         </div>
       ),
@@ -539,26 +555,26 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
       render: (r) => {
         if (r.sent) {
           return (
-            <span className="inline-flex items-center gap-1 text-sm text-green-700">
+            <span className="inline-flex items-center gap-1 text-sm text-[#34d399]">
               <CheckCircle2 className="h-4 w-4" /> Sent to dashboard
             </span>
           )
         }
         if (r.status === 'success') {
           return (
-            <span className="inline-flex items-center gap-1 text-sm text-primary">
+            <span className="inline-flex items-center gap-1 text-sm text-[#38bdf8]">
               <CheckCircle2 className="h-4 w-4" /> Generated
             </span>
           )
         }
         if (r.status === 'error') {
           return (
-            <span className="inline-flex items-center gap-1 text-sm text-danger" title={r.error}>
+            <span className="inline-flex items-center gap-1 text-sm text-[#f87171]" title={r.error}>
               <AlertCircle className="h-4 w-4" /> Failed
             </span>
           )
         }
-        return <span className="text-sm text-muted">Awaiting upload</span>
+        return <span className="text-sm text-[#94a3b8]">Awaiting upload</span>
       },
     },
     {
@@ -577,7 +593,7 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
               {downloadingAll ? (
                 <Loader className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <FileText className="h-3.5 w-3.5 text-red-600" />
+                <FileText className="h-3.5 w-3.5 text-[#f87171]" />
               )}
               Download All
             </Button>
@@ -587,7 +603,7 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
       className: 'min-w-[420px]',
       render: (r) => {
         if (!batch || r.status !== 'success' || !r.fileName) {
-          return <span className="text-sm text-muted">—</span>
+          return <span className="text-sm text-[#94a3b8]">—</span>
         }
         return (
           <div className="flex flex-wrap items-center gap-1.5">
@@ -607,7 +623,7 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
               onClick={() => void handleDownloadPayslip(batch.id, r.fileName!, `Payslip_${r.name}.pdf`)}
               title="Download PDF"
             >
-              <FileText className="h-3.5 w-3.5 text-red-600" />
+              <FileText className="h-3.5 w-3.5 text-[#f87171]" />
               Download PDF
             </Button>
             <Button
@@ -655,9 +671,10 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <PageWrapper>
-      <header className="mb-6 flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex gap-1 rounded-xl border border-border bg-surface/60 p-1 w-fit">
+    <PageWrapper className="admin-page">
+      <div className="crewiq-dashboard">
+        <header className="mb-6 flex flex-col gap-3 border-b border-[rgba(161,161,170,0.18)] pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex gap-1 rounded-xl border border-[rgba(161,161,170,0.18)] bg-[rgba(39,39,42,0.88)] p-1 w-fit">
           {(
             [
               { id: 'upload' as TabId, label: 'Upload & Generate', icon: Upload },
@@ -669,8 +686,8 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
               onClick={() => setActiveTab(id)}
               className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
                 activeTab === id
-                  ? 'bg-white text-primary shadow-sm'
-                  : 'text-muted hover:text-ink'
+                  ? 'bg-[rgba(39,39,42,0.88)] text-[#38bdf8] shadow-sm'
+                  : 'text-[#94a3b8] hover:text-white'
               }`}
             >
               <Icon className="h-4 w-4" />
@@ -689,7 +706,7 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
       {activeTab === 'upload' && (
         <div className="space-y-5">
           {/* Upload Section */}
-          <section className="rounded-2xl border border-border bg-white p-5 shadow-sm">
+          <section className="admin-card rounded-2xl border border-[rgba(161,161,170,0.18)] bg-[rgba(39,39,42,0.88)] p-5 shadow-sm">
             <div className="space-y-4">
               <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center">
                 <input
@@ -709,7 +726,7 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
                 </Button>
   
                 {selectedFile && (
-                  <span className="inline-flex items-center rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-ink">
+                  <span className="inline-flex items-center rounded-lg border border-[rgba(161,161,170,0.18)] bg-[rgba(39,39,42,0.88)] px-3 py-1.5 text-sm text-white">
                     <strong className="truncate max-w-[240px]">
                       {selectedFile.name}
                     </strong>
@@ -731,37 +748,37 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
               </div>
   
               {batch && (
-                <div className="rounded-xl border border-border bg-surface/40 p-4">
+                <div className="rounded-xl border border-[rgba(161,161,170,0.18)] bg-[rgba(39,39,42,0.88)]/40 p-4">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     {/* Left */}
                     <div>
-                      <p className="font-semibold text-ink">
+                      <p className="font-semibold text-white">
                         {batch.originalFileName}
                       </p>
   
                       {batch.payMonth && (
-                        <p className="text-sm text-muted">
+                        <p className="text-sm text-[#94a3b8]">
                           {batch.payMonth}
                         </p>
                       )}
   
-                      <p className="text-xs text-muted">
+                      <p className="text-xs text-[#94a3b8]">
                         {new Date(batch.uploadedAt).toLocaleString()}
                       </p>
   
                       <div className="mt-3 flex flex-wrap gap-4 text-sm">
-                        <span className="flex items-center gap-1 text-primary">
+                        <span className="flex items-center gap-1 text-[#38bdf8]">
                           <CheckCircle2 className="h-4 w-4" />
                           {batch.totalGenerated} Generated
                         </span>
   
-                        <span className="flex items-center gap-1 text-green-600">
+                        <span className="flex items-center gap-1 text-[#34d399]">
                           <Send className="h-4 w-4" />
                           {batch.totalSent ?? 0} Sent
                         </span>
   
                         {batch.totalFailed > 0 && (
-                          <span className="flex items-center gap-1 text-danger">
+                          <span className="flex items-center gap-1 text-[#f87171]">
                             <AlertCircle className="h-4 w-4" />
                             {batch.totalFailed} Failed
                           </span>
@@ -795,7 +812,7 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
                           )
                         }
                       >
-                        <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                        <FileSpreadsheet className="h-4 w-4 text-[#34d399]" />
                         Download Excel
                       </Button>
   
@@ -820,14 +837,14 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
           </section>
   
           {/* Payslip Table */}
-          <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
+          <section className="admin-table overflow-hidden rounded-2xl border border-[rgba(161,161,170,0.18)] bg-[rgba(39,39,42,0.88)] shadow-sm">
             <DataTable
               columns={columns}
               data={payrollRows}
               loading={employeesLoading || loadingBatch}
               empty={
                 <div className="py-10 text-center">
-                  <p className="text-muted">No payslips generated yet.</p>
+                  <p className="text-[#94a3b8]">No payslips generated yet.</p>
                 </div>
               }
             />
@@ -876,16 +893,16 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
               </div>
 
               {loadingHistory ? (
-                <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border">
-                  <Loader className="h-5 w-5 animate-spin text-muted" />
+                <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-[rgba(161,161,170,0.18)]">
+                  <Loader className="h-5 w-5 animate-spin text-[#94a3b8]" />
                 </div>
               ) : !historyPeriodSelected ? (
-                <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border">
-                  <p className="text-sm text-muted">Select a year and month to view payroll history.</p>
+                <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-[rgba(161,161,170,0.18)]">
+                  <p className="text-sm text-[#94a3b8]">Select a year and month to view payroll history.</p>
                 </div>
               ) : filteredBatches.length === 0 ? (
-                <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border">
-                  <p className="text-sm text-muted">
+                <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-[rgba(161,161,170,0.18)]">
+                  <p className="text-sm text-[#94a3b8]">
                     No payroll upload for{' '}
                     {CALENDAR_MONTHS[parseInt(historyMonth, 10) - 1] ?? historyMonth} {historyYear}.
                   </p>
@@ -898,24 +915,24 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
                     return (
                       <div
                         key={b.id}
-                        className="rounded-xl border border-border bg-white shadow-sm overflow-hidden"
+                        className="rounded-xl border border-[rgba(161,161,170,0.18)] bg-[rgba(39,39,42,0.88)] shadow-sm overflow-hidden"
                       >
                         {/* Batch header */}
                         <button
                           type="button"
-                          className="w-full flex items-center justify-between p-4 text-left hover:bg-surface/50 transition-colors"
+                          className="w-full flex items-center justify-between p-4 text-left hover:bg-[rgba(161,161,170,0.08)] transition-colors"
                           onClick={() => setExpandedBatchId(isExpanded ? null : b.id)}
                         >
                           <div className="flex items-center gap-3 min-w-0">
-                            <div className="h-10 w-10 rounded-lg shrink-0 flex items-center justify-center bg-primary/10">
-                              <FileText className="h-5 w-5 text-primary" />
+                            <div className="h-10 w-10 rounded-lg shrink-0 flex items-center justify-center bg-[#38bdf8]/10">
+                              <FileText className="h-5 w-5 text-[#38bdf8]" />
                             </div>
                             <div className="min-w-0">
-                              <p className="font-semibold text-ink truncate">
+                              <p className="font-semibold text-white truncate">
                                 {b.payMonth || 'Unknown Month'}
                               </p>
-                              <p className="text-xs text-muted truncate">{b.originalFileName}</p>
-                              <p className="text-xs text-muted">
+                              <p className="text-xs text-[#94a3b8] truncate">{b.originalFileName}</p>
+                              <p className="text-xs text-[#94a3b8]">
                                 {new Date(b.uploadedAt).toLocaleDateString('en-IN', {
                                   day: '2-digit',
                                   month: 'short',
@@ -928,36 +945,36 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
                           <div className="flex items-center gap-6 shrink-0">
                             <div className="hidden sm:flex gap-5 text-sm">
                               <span className="text-center">
-                                <p className="font-bold text-ink">{b.employeeCount}</p>
-                                <p className="text-xs text-muted">employees</p>
+                                <p className="font-bold text-white">{b.employeeCount}</p>
+                                <p className="text-xs text-[#94a3b8]">employees</p>
                               </span>
                               <span className="text-center">
-                                <p className="font-bold text-primary">{b.totalGenerated}</p>
-                                <p className="text-xs text-muted">generated</p>
+                                <p className="font-bold text-[#38bdf8]">{b.totalGenerated}</p>
+                                <p className="text-xs text-[#94a3b8]">generated</p>
                               </span>
                               <span className="text-center">
-                                <p className="font-bold text-green-600">{sentCount}</p>
-                                <p className="text-xs text-muted">sent</p>
+                                <p className="font-bold text-[#34d399]">{sentCount}</p>
+                                <p className="text-xs text-[#94a3b8]">sent</p>
                               </span>
                               {b.totalFailed > 0 && (
                                 <span className="text-center">
-                                  <p className="font-bold text-danger">{b.totalFailed}</p>
-                                  <p className="text-xs text-muted">failed</p>
+                                  <p className="font-bold text-[#f87171]">{b.totalFailed}</p>
+                                  <p className="text-xs text-[#94a3b8]">failed</p>
                                 </span>
                               )}
                             </div>
                             {isExpanded ? (
-                              <ChevronDown className="h-4 w-4 text-muted" />
+                              <ChevronDown className="h-4 w-4 text-[#94a3b8]" />
                             ) : (
-                              <ChevronRight className="h-4 w-4 text-muted" />
+                              <ChevronRight className="h-4 w-4 text-[#94a3b8]" />
                             )}
                           </div>
                         </button>
 
                         {/* Expanded payslip list */}
                         {isExpanded && (
-                          <div className="border-t border-border">
-                            <div className="p-3 flex justify-end gap-2 bg-surface/30">
+                          <div className="border-t border-[rgba(161,161,170,0.18)]">
+                            <div className="p-3 flex justify-end gap-2 bg-[rgba(39,39,42,0.88)]/30">
                               {(b.totalGenerated ?? 0) > 0 && (
                                 <Button
                                   size="sm"
@@ -968,7 +985,7 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
                                   {downloadingAll ? (
                                     <Loader className="h-3.5 w-3.5 animate-spin" />
                                   ) : (
-                                    <FileText className="h-3.5 w-3.5 text-red-600" />
+                                    <FileText className="h-3.5 w-3.5 text-[#f87171]" />
                                   )}
                                   Download All PDFs
                                 </Button>
@@ -978,17 +995,17 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
                                 variant="secondary"
                                 onClick={() => downloadUploadedExcel(b.id, b.originalFileName)}
                               >
-                                <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+                                <FileSpreadsheet className="h-3.5 w-3.5 text-[#34d399]" />
                                 Download Excel
                               </Button>
                             </div>
-                            <div className="divide-y divide-border/60">
+                            <div className="divide-y divide-[rgba(161,161,170,0.18)]/60">
                               {b.results
                                 .filter((r) => r.status === 'success' && r.fileName)
                                 .map((r) => (
                                   <div
                                     key={r.fileName}
-                                    className="flex items-center justify-between px-4 py-2.5 hover:bg-surface/30 transition-colors"
+                                    className="flex items-center justify-between px-4 py-2.5 hover:bg-[rgba(161,161,170,0.08)] transition-colors"
                                   >
                                     <div className="flex items-center gap-2 min-w-0">
                                       <Avatar
@@ -997,13 +1014,13 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
                                         color={stringToHueColor(r.empId)}
                                       />
                                       <div className="min-w-0">
-                                        <p className="text-sm font-medium text-ink truncate">{r.name}</p>
-                                        <p className="text-xs text-muted">{r.empId}</p>
+                                        <p className="text-sm font-medium text-white truncate">{r.name}</p>
+                                        <p className="text-xs text-[#94a3b8]">{r.empId}</p>
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-1.5 shrink-0">
                                       {r.sent && (
-                                        <span className="inline-flex items-center gap-1 text-xs text-green-700 mr-1">
+                                        <span className="inline-flex items-center gap-1 text-xs text-[#34d399] mr-1">
                                           <CheckCircle2 className="h-3 w-3" /> Sent
                                         </span>
                                       )}
@@ -1026,7 +1043,7 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
                                           )
                                         }
                                       >
-                                        <FileText className="h-3.5 w-3.5 text-red-600" />
+                                        <FileText className="h-3.5 w-3.5 text-[#f87171]" />
                                         Download PDF
                                       </Button>
                                     </div>
@@ -1035,10 +1052,10 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
                               {b.results.filter((r) => r.status === 'error').map((r) => (
                                 <div
                                   key={r.empId + '-err'}
-                                  className="flex items-center gap-3 px-4 py-2.5 bg-red-50/50"
+                                  className="flex items-center gap-3 px-4 py-2.5 bg-[#f87171]/10"
                                 >
-                                  <AlertCircle className="h-4 w-4 text-danger shrink-0" />
-                                  <span className="text-sm text-danger">
+                                  <AlertCircle className="h-4 w-4 text-[#f87171] shrink-0" />
+                                  <span className="text-sm text-[#f87171]">
                                     {r.name} ({r.empId}) — {r.error || 'Generation failed'}
                                   </span>
                                 </div>
@@ -1066,7 +1083,7 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
             <iframe
               src={previewUrl}
               title="Payslip PDF Preview"
-              className="w-full rounded-lg border border-border"
+              className="w-full rounded-lg border border-[rgba(161,161,170,0.18)]"
               style={{ height: '70vh' }}
             />
             <div className="flex justify-end gap-2">
@@ -1117,9 +1134,7 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
         onClose={() => setReplaceConfirm(null)}
         onConfirm={handleConfirmReplace}
       />
+      </div>
     </PageWrapper>
   )
-
-  if (embedded) return content
-  return <PageWrapper>{content}</PageWrapper>
 }

@@ -48,7 +48,7 @@ function stripTaskLabelPrefix(taskText, { taskTitle, projectName } = {}) {
 
 const taskSchema = z.object({
   assignedTaskId: z.string().min(1, 'Select an assigned project'),
-  description: z.string().min(3, 'Description required'),
+  description: z.string().optional(),
 })
 
 const historyColumns = [
@@ -200,8 +200,7 @@ export default function Timesheet() {
 
   const selectedTaskId = watch('assignedTaskId')
   const workDescription = watch('description')
-  const canStartSession =
-    !!selectedTaskId && String(workDescription || '').trim().length >= 3
+  const canStartSession = !!selectedTaskId
   const startableTasks = useMemo(
     () => assignedTasks.filter((t) => t.status !== 'completed'),
     [assignedTasks]
@@ -234,7 +233,7 @@ export default function Timesheet() {
   ])
 
   const onCheckIn = async () => {
-    const valid = await trigger()
+    const valid = await trigger('assignedTaskId')
     if (!valid) return
 
     try {
@@ -245,7 +244,7 @@ export default function Timesheet() {
       try {
         await startTask({
           assignedTaskId: selectedTaskId,
-          description: workDescription.trim(),
+          description: String(workDescription || '').trim(),
         })
       } catch (startErr) {
         try {
@@ -293,14 +292,7 @@ export default function Timesheet() {
   }
 
   const onConfirmCheckOut = async () => {
-    const valid = await trigger('description')
-    if (!valid) return
-
     const summary = String(workDescription || '').trim()
-    if (summary.length < 3) {
-      setCheckoutError('Enter at least 3 characters describing what you completed.')
-      return
-    }
 
     try {
       setSubmitting(true)
@@ -498,7 +490,7 @@ export default function Timesheet() {
         <div className="border-b border-border/60 bg-slate-50/50 px-4 py-3 sm:px-5">
           <h3 className="type-section-title">Work session</h3>
           <p className="type-body-sm mt-0.5">
-            Check in to track time on your assigned project. Update your description before checking out.
+            Check in to track time on your assigned project. A work description is optional.
           </p>
         </div>
 
@@ -550,7 +542,9 @@ export default function Timesheet() {
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col space-y-1.5">
-              <Label className="text-sm font-semibold">Work Description</Label>
+              <Label className="text-sm font-semibold">
+                Work Description <span className="font-normal text-muted">(optional)</span>
+              </Label>
               <Textarea
                 className="min-h-[7.5rem] max-h-[min(20rem,40vh)] resize-y overflow-y-auto text-sm leading-relaxed"
                 rows={5}
@@ -560,11 +554,11 @@ export default function Timesheet() {
               />
               {checkoutReview && (
                 <p className="text-xs font-medium text-amber-700">
-                  Update your work summary, then confirm check out.
+                  Add a work summary if you like, then confirm check out.
                 </p>
               )}
-              {(errors.description || checkoutError) && (
-                <p className="text-xs text-danger">{checkoutError || errors.description?.message}</p>
+              {checkoutError && (
+                <p className="text-xs text-danger">{checkoutError}</p>
               )}
             </div>
 
@@ -583,7 +577,7 @@ export default function Timesheet() {
                   <Button
                     type="button"
                     onClick={onConfirmCheckOut}
-                    disabled={submitting || !canStartSession}
+                    disabled={submitting}
                     className="h-11 gap-2"
                   >
                     <LogOut className="h-4 w-4 shrink-0" />

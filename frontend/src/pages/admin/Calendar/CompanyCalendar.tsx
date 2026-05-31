@@ -10,6 +10,8 @@ import { Breadcrumb } from '@components/layout/Breadcrumb'
 import { Modal } from '@components/ui/Modal'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
+import { DateInput } from '@components/shared/DateInput'
+import { getCalendarEntryBounds, validateIsoInRange } from '@/utils/dateValidation'
 import { Badge } from '@components/ui/Badge'
 import { useLeaves } from '@hooks/useLeaves'
 import { formatDate } from '@/utils/formatDate'
@@ -38,6 +40,7 @@ export function CompanyCalendar() {
   const [time, setTime] = useState('')
   const [desc, setDesc] = useState('')
   const [currentDate, setCurrentDate] = useState(new Date(2026, 4, 21))
+  const calendarBounds = getCalendarEntryBounds()
 
   // Get month/year for sidebar
   const currentMonth = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
@@ -259,7 +262,16 @@ export function CompanyCalendar() {
       <Modal isOpen={open} title="Add Event" onClose={() => setOpen(false)}>
         <div className="grid gap-3">
           <Input label="Event Name" value={title} onChange={(e) => setTitle(e.target.value)} />
-          <Input label="Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <div>
+            <span className="mb-1.5 block text-sm font-medium text-ink">Date</span>
+            <DateInput
+              value={date}
+              onChange={setDate}
+              minDate={calendarBounds.min}
+              maxDate={calendarBounds.max}
+              placeholder="dd/mm/yyyy"
+            />
+          </div>
           <Input label="Time (Optional)" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
           <label className="text-sm font-medium text-ink">
             Description
@@ -279,11 +291,15 @@ export function CompanyCalendar() {
                   toast.error('Add title and date')
                   return
                 }
+                const dateCheck = validateIsoInRange(date, calendarBounds.min, calendarBounds.max)
+                if (!dateCheck.valid) {
+                  toast.error(dateCheck.error)
+                  return
+                }
                 setEvents((e) => [
                   ...e,
                   { id: String(Date.now()), title, date, time, description: desc },
                 ])
-                toast.success('Event added')
                 setOpen(false)
                 setTitle('')
                 setDate('')
