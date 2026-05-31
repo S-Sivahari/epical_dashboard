@@ -472,7 +472,7 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
       </button>
 
       {open && (
-        <div className="date-range-popover absolute left-0 top-full z-50 mt-2 flex w-[92vw] flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl animate-fadeIn sm:w-auto sm:min-w-[500px] md:flex-row">
+        <div className="date-range-popover absolute right-0 top-full z-50 mt-2 flex w-[92vw] flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl animate-fadeIn sm:w-auto sm:min-w-[500px] md:flex-row">
           {/* Calendar Grid */}
           <div className="flex-1 select-none">
             <div className="flex items-center justify-between mb-4">

@@ -35,28 +35,20 @@ export function LiveSessionTimer({
 
   useEffect(() => {
     const tick = () => {
-      let elapsedMs
+      let pausedMs = 0
+      const now = Date.now() + (serverTimeSkew || 0)
 
-      if (hasBackendElapsedData && backendElapsedMs !== undefined && backendElapsedLastFetch) {
-        const timeSinceBackendFetch =
-          Date.now() - new Date(backendElapsedLastFetch).getTime() + (serverTimeSkew || 0)
-        elapsedMs = backendElapsedMs + timeSinceBackendFetch
-      } else {
-        let pausedMs = 0
-        const now = Date.now() + (serverTimeSkew || 0)
-
-        if (activeTask) {
-          pausedMs += activeTask.totalPausedMs || 0
-        } else if (pausedTasks?.[0]) {
-          const task = pausedTasks[0]
-          pausedMs += task.totalPausedMs || 0
-          if (task.pausedAt) {
-            pausedMs += Math.max(0, now - new Date(task.pausedAt).getTime())
-          }
+      if (activeTask) {
+        pausedMs += activeTask.totalPausedMs || 0
+      } else if (pausedTasks?.[0]) {
+        const task = pausedTasks[0]
+        pausedMs += task.totalPausedMs || 0
+        if (task.pausedAt) {
+          pausedMs += Math.max(0, now - new Date(task.pausedAt).getTime())
         }
-
-        elapsedMs = Math.max(0, now - checkInTime.getTime() - pausedMs)
       }
+
+      const elapsedMs = Math.max(0, now - checkInTime.getTime() - pausedMs)
 
       const totalSeconds = Math.floor(elapsedMs / 1000)
       const h = Math.floor(totalSeconds / 3600)
@@ -75,9 +67,6 @@ export function LiveSessionTimer({
     activeTask,
     pausedTasks,
     serverTimeSkew,
-    backendElapsedMs,
-    hasBackendElapsedData,
-    backendElapsedLastFetch,
   ])
 
   const sinceLabel = checkInTime.toLocaleTimeString([], {

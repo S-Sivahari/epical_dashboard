@@ -143,7 +143,7 @@ export function DateRangePicker({ startDate, endDate, preset, onChange }) {
       </button>
 
       {open && (
-        <div className="date-range-popover absolute left-0 top-full z-50 mt-2 flex w-[92vw] flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-xl sm:w-auto sm:min-w-[500px] md:flex-row">
+        <div className="date-range-popover absolute right-0 top-full z-50 mt-2 flex w-[92vw] flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-xl sm:w-auto sm:min-w-[500px] md:flex-row">
           <div className="flex-1 select-none">
             <div className="mb-4 flex items-center justify-between">
               <button
