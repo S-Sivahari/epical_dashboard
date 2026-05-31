@@ -399,20 +399,19 @@ export default function Timesheet() {
     attendanceHistory.forEach((seg) => {
       if (seg.date === todayKey) {
         const startMs = new Date(seg.checkInTime).getTime()
-        const isOpen = !seg.checkOutTime
+        const isOpen = checkedIn && !seg.checkOutTime
         const endMs = seg.checkOutTime ? new Date(seg.checkOutTime).getTime() : isOpen ? liveNow : startMs
         totalMs += Math.max(0, endMs - startMs)
       }
     })
-    return Math.max(0, totalMs - currentTaskPausedMs)
+    return Math.max(0, totalMs - (checkedIn ? currentTaskPausedMs : 0))
   }, [attendanceHistory, checkedIn, liveNow, todayKey, currentTaskPausedMs])
 
   const formatMsToHMS = (ms) => {
-    if (ms < 0) return '0h 0m 0s'
+    if (ms < 0) return '0h 0m'
     const hours = Math.floor(ms / 3600000)
     const minutes = Math.floor((ms % 3600000) / 60000)
-    const seconds = Math.floor((ms % 60000) / 1000)
-    return `${hours}h ${minutes}m ${seconds}s`
+    return `${hours}h ${minutes}m`
   }
 
   const unifiedHistory = useMemo(() => {
@@ -422,15 +421,14 @@ export default function Timesheet() {
       .filter((s) => isDateInRange(s.date, historyRange.start, historyRange.end))
       .forEach((s) => {
         const loginMs = s.loginTime ? new Date(s.loginTime).getTime() : 0
-        const durationStr =
-          s.durationLabel ||
-          formatSessionDuration({
-            loginTime: s.loginTime,
-            logoutTime: s.logoutTime,
-            totalHours: s.totalHours,
-            totalPausedMs: s.totalPausedMs,
-            taskStatus: s.taskStatus,
-          })
+        const durationStr = formatSessionDuration({
+          loginTime: s.loginTime,
+          logoutTime: s.logoutTime,
+          totalHours: s.totalHours,
+          totalPausedMs: s.totalPausedMs,
+          taskStatus: s.taskStatus,
+          autoCheckedOut: s.autoCheckedOut,
+        })
 
         entries.push({
           id: `task-${s.id}`,
@@ -440,7 +438,9 @@ export default function Timesheet() {
           description:
             stripTaskLabelPrefix(s.task, { projectName: s.project }) || '—',
           start: s.start,
-          end: s.end || (s.autoCheckedOut ? formatTimeLabel(s.logoutTime) : s.end),
+          end: s.logoutTime
+            ? formatTimeLabel(s.logoutTime)
+            : (s.end && s.end !== '—' ? s.end : '—'),
           duration: durationStr,
           statusNote: s.autoCheckedOut ? 'Auto Checked-Out' : null,
         })

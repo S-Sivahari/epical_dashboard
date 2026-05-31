@@ -71,6 +71,9 @@ function applyBootstrapAttendanceState(data) {
     sessionStatus: autoCheckedOut
       ? data.attendance?.sessionStatus ?? 'Auto Checked-Out'
       : data.attendance?.sessionStatus ?? null,
+    backendElapsedMs: 0,
+    hasBackendElapsedData: false,
+    backendElapsedLastFetch: null,
   }
 }
 
@@ -129,6 +132,9 @@ export const useTimesheetStore = create((set, get) => ({
   hasBackendElapsedData: false,
   backendElapsedLastFetch: null,
 
+
+  syncing: false,
+  fetchingBootstrap: false,
 
   refreshAttendanceHistory: async ({ from, to } = {}) => {
     try {
@@ -191,8 +197,8 @@ export const useTimesheetStore = create((set, get) => ({
   },
 
   hydrate: async () => {
-    if (get().initialized) return
-    set({ loading: true })
+    if (get().initialized || get().fetchingBootstrap) return
+    set({ loading: true, fetchingBootstrap: true })
     try {
       const data = await fetchTimesheetBootstrap()
 
@@ -227,11 +233,13 @@ export const useTimesheetStore = create((set, get) => ({
       console.error('Failed to load timesheet state', err)
       set({ initialized: true, sessionsLoading: false })
     } finally {
-      set({ loading: false })
+      set({ loading: false, fetchingBootstrap: false })
     }
   },
 
   syncAttendanceWithBackend: async () => {
+    if (get().syncing) return
+    set({ syncing: true })
     try {
       const data = await fetchTimesheetBootstrap()
       const serverTimeSkew = data.serverTime ? new Date(data.serverTime).getTime() - Date.now() : 0
@@ -264,6 +272,8 @@ export const useTimesheetStore = create((set, get) => ({
       await get().refreshProjectWiseHours()
     } catch (err) {
       console.error('Failed to sync timesheet state with backend', err)
+    } finally {
+      set({ syncing: false })
     }
   },
 
@@ -329,7 +339,17 @@ export const useTimesheetStore = create((set, get) => ({
   checkOut: async () => {
     const data = await apiCheckOut()
     const serverTimeSkew = data?.serverTime ? new Date(data.serverTime).getTime() - Date.now() : 0
-    set({ serverTimeSkew, checkedIn: false, checkInTime: null, activeTask: null, pausedTasks: [], sessionStatus: 'Completed' })
+    set({
+      serverTimeSkew,
+      checkedIn: false,
+      checkInTime: null,
+      activeTask: null,
+      pausedTasks: [],
+      sessionStatus: 'Completed',
+      backendElapsedMs: 0,
+      hasBackendElapsedData: false,
+      backendElapsedLastFetch: null,
+    })
     if (data?.checkOutTime) {
       set((state) => ({
         attendance: {

@@ -1405,7 +1405,7 @@ input[type='number'] {
 .crewiq-dashboard thead,
 .crewiq-dashboard thead tr,
 .crewiq-dashboard thead th {
-  background-color: #45454b !important;
+  background-color: #0e1119 !important;
   border-color: var(--border-subtle) !important;
   color: var(--text-muted) !important;
 }

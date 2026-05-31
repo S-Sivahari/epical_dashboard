@@ -24,14 +24,17 @@ export function formatDurationFromMs(ms, padMinutes = false) {
 
 export function formatSessionDuration(session) {
   if (!session) return '—'
-  const { loginTime, logoutTime, totalHours, totalPausedMs, taskStatus } = session
+  const { loginTime, logoutTime, totalHours, totalPausedMs, taskStatus, autoCheckedOut } = session
   if (totalHours != null && totalHours > 0) {
     return formatDurationFromMs(Math.round(totalHours * 3600000))
   }
   const loginMs = loginTime ? new Date(loginTime).getTime() : 0
   if (!loginMs) return '—'
-  const logoutMs = logoutTime
-    ? new Date(logoutTime).getTime()
+  
+  const isFinalized = logoutTime || autoCheckedOut === true || ['Completed', 'Pending', 'Session Incomplete', 'Session Finished', 'Rejected'].includes(taskStatus);
+  
+  const logoutMs = isFinalized
+    ? (logoutTime ? new Date(logoutTime).getTime() : loginMs)
     : taskStatus === 'In Progress'
       ? Date.now()
       : 0

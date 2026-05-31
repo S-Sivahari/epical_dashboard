@@ -1327,7 +1327,7 @@ export const employeeTimesheetController = {
 
       // If any task is currently paused, add pause duration
       const pausedTask = sessionTasks.find(t => t.taskStatus === 'Paused' && t.pausedAt);
-      if (pausedTask) {
+      if (pausedTask && pausedTask.pausedAt) {
         totalPausedMs += now.getTime() - new Date(pausedTask.pausedAt).getTime();
       }
 
