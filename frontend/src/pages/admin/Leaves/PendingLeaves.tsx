@@ -32,8 +32,7 @@ export function PendingLeaves({ filters: _filters }: { filters: LeaveFilters }) 
 
     try {
       await rejectLeave(selectedLeaveId, rejectionReason)
-      toast.success('Leave rejected with reason')
-      setRejectModalOpen(false)
+setRejectModalOpen(false)
       setRejectionReason('')
       setSelectedLeaveId(null)
       await fetchLeaves()
@@ -79,8 +78,7 @@ export function PendingLeaves({ filters: _filters }: { filters: LeaveFilters }) 
             size="sm"
             onClick={async () => {
               await approveLeave(l.id)
-              toast.success('Leave approved')
-              await fetchLeaves()
+await fetchLeaves()
             }}
           >
             Approve

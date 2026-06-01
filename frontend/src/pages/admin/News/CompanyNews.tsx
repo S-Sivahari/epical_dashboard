@@ -99,8 +99,7 @@ export function CompanyNews() {
       const item = await createNews({ title, content, imageUrl, link, imageFile })
       setItems((prev) => [item, ...prev])
       resetForm()
-      toast.success('News published')
-    } catch (e: unknown) {
+} catch (e: unknown) {
       const message = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
       toast.error(message || 'Failed to publish news')
     } finally {
@@ -114,8 +113,7 @@ export function CompanyNews() {
     try {
       await deleteNews(itemToDelete.id)
       setItems((prev) => prev.filter((n) => n.id !== itemToDelete.id))
-      toast.success('News removed')
-      setDeleteConfirmOpen(false)
+setDeleteConfirmOpen(false)
       setItemToDelete(null)
     } catch (e: unknown) {
       const message = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
@@ -166,8 +164,7 @@ export function CompanyNews() {
       })
       setItems((prev) => prev.map((n) => (n.id === updated.id ? updated : n)))
       setEditing(null)
-      toast.success('News updated')
-    } catch (e: unknown) {
+} catch (e: unknown) {
       const message = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
       toast.error(message || 'Failed to update news')
     } finally {
@@ -190,9 +187,10 @@ export function CompanyNews() {
 
   return (
     <PageWrapper>
-      <PageHeader title="" breadcrumb={<Breadcrumb items={[{ label: 'Manage News' }]} />} />
+      <div className="crewiq-dashboard">
+        <PageHeader title="" breadcrumb={<Breadcrumb items={[{ label: 'Manage News' }]} />} />
 
-      <section className="mb-6 overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
+        <section className="mb-6 overflow-hidden rounded-2xl border border-border bg-white shadow-sm" style={{backgroundColor:'var(--bg-card)',borderColor:'var(--border-subtle)'}}>
         <div className="border-b border-border bg-gradient-to-r from-emerald-50 via-white to-teal-50 px-6 py-5">
           <div className="flex items-start gap-4">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
@@ -482,6 +480,7 @@ export function CompanyNews() {
         }}
         onConfirm={() => void handleRemove()}
       />
+      </div>
     </PageWrapper>
   )
 }

@@ -12,8 +12,8 @@ export function KPIStatCard({ title, value, icon: Icon, trend, className }) {
     >
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm text-muted">{title}</p>
-          <p className="mt-1 font-heading text-2xl font-bold text-foreground">{value}</p>
+          <p className="type-card-label">{title}</p>
+          <p className="type-metric-lg mt-1 text-foreground">{value}</p>
           {trend && <p className="mt-1 text-xs text-primary">{trend}</p>}
         </div>
         {Icon && (

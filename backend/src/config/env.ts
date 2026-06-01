@@ -37,4 +37,7 @@ export const env = {
   smtpUser: process.env.SMTP_USER || '',
   smtpPass: process.env.SMTP_PASS || '',
   smtpFrom: process.env.SMTP_FROM || 'no-reply@company.com',
+  testCronTimings: process.env.TEST_CRON_TIMINGS === 'true',
+  schedulerTimezone: process.env.SCHEDULER_TIMEZONE || 'Asia/Kolkata',
 };
+

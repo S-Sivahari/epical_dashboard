@@ -22,7 +22,7 @@ export function DataTable({ columns, data, statusKey, compact = false, emptyMess
         <thead>
           <tr className="border-b border-border bg-slate-50/80">
             {columns.map((col) => (
-              <th key={col.key} className="px-4 py-3 text-left font-heading font-semibold text-foreground">
+              <th key={col.key} className="type-table-head px-4 py-3 text-left">
                 {col.label}
               </th>
             ))}
@@ -35,7 +35,7 @@ export function DataTable({ columns, data, statusKey, compact = false, emptyMess
                 <td
                   key={col.key}
                   className={cn(
-                    'px-4 py-3 text-muted',
+                    'type-table-cell px-4 py-3',
                     col.key === 'description' && 'max-w-[280px] whitespace-normal break-words'
                   )}
                 >

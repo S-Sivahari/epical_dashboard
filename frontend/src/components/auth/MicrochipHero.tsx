@@ -2,8 +2,6 @@ import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
 import { useCallback, useRef, useState } from 'react'
 import { APP_NAME, APP_SHORT_NAME } from '@/utils/constants'
 
-const LOGO_URL = '/logo.png'
-
 const PARTICLES = Array.from({ length: 12 }, (_, i) => ({
   id: i,
   angle: (i / 12) * 360,
@@ -18,10 +16,6 @@ const SPARKS = Array.from({ length: 6 }, (_, i) => ({
   y: 15 + (i % 3) * 20,
   delay: i * 0.4,
 }))
-
-function EpicalLogo({ className = 'h-11 w-11' }: { className?: string }) {
-  return <img src={LOGO_URL} alt="Epical Layouts" className={className} />
-}
 
 export function MicrochipHero() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -58,12 +52,6 @@ export function MicrochipHero() {
       transition={{ duration: 0.7, ease: 'easeOut' }}
       className="relative flex w-full max-w-lg flex-col items-center gap-8 px-4 text-center lg:items-start lg:text-left"
     >
-      {/* Brand header — visible on mobile, hidden on lg (shown in hero text below) */}
-      <div className="flex items-center gap-3 lg:hidden">
-        <EpicalLogo className="h-9 w-9" />
-        <span className="text-xs font-semibold tracking-[0.25em] text-white/60">EPICAL LAYOUTS</span>
-      </div>
-
       {/* 3D Chip container */}
       <div
         ref={containerRef}
@@ -262,22 +250,20 @@ export function MicrochipHero() {
         ))}
       </div>
 
-      {/* Hero text */}
-      <div className="space-y-3">
-        <div className="hidden items-center gap-3 lg:flex">
-          <EpicalLogo className="h-10 w-10" />
-          <span className="text-xs font-semibold tracking-[0.25em] text-white/50">EPICAL LAYOUTS</span>
-        </div>
-        <h1 className="font-display text-3xl font-extrabold tracking-tight text-white sm:text-4xl lg:text-5xl">
+      {/* Hero text — 10% smaller than previous sizes */}
+      <div className="space-y-4">
+        <h1 className="font-display text-[2.025rem] font-extrabold tracking-tight text-white sm:text-[2.7rem] lg:text-[3.375rem]">
           {APP_SHORT_NAME}
           <motion.span
-            className="mt-2 block h-1 w-16 rounded-full bg-[#00C853]"
-            animate={{ width: ['4rem', '5rem', '4rem'], opacity: [0.7, 1, 0.7] }}
+            className="mt-2 block h-1 w-[3.6rem] rounded-full bg-[#00C853]"
+            animate={{ width: ['3.6rem', '4.5rem', '3.6rem'], opacity: [0.7, 1, 0.7] }}
             transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
           />
         </h1>
-        <p className="max-w-sm text-sm leading-relaxed text-white/45 lg:text-base">{APP_NAME}</p>
-        <p className="hidden text-xs tracking-widest text-[#00C853]/60 lg:block">
+        <p className="max-w-md text-[0.9rem] leading-relaxed text-white/45 sm:text-[1.0125rem] lg:text-[1.125rem]">
+          {APP_NAME}
+        </p>
+        <p className="text-[0.7875rem] tracking-widest text-[#00C853]/60 sm:text-[0.9rem] lg:block">
           SECURE · ENTERPRISE · CONNECTED
         </p>
       </div>

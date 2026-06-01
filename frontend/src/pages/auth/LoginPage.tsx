@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
 import { LoginBackground } from '@components/auth/LoginBackground'
-import { CursorGlow } from '@components/auth/CursorGlow'
+import { LoginTopBrand } from '@components/auth/LoginTopBrand'
 import { MicrochipHero } from '@components/auth/MicrochipHero'
 import { Button } from '@components/ui/Button'
 import { useAuthStore } from '@store/authStore'
@@ -69,7 +69,6 @@ export function LoginPage() {
       completeOAuthRedirect({ token, role: oauthRole, email, name, designation })
       prefetchEmployeeDashboard()
       window.history.replaceState({}, '', '/auth/login')
-      toast.success('Welcome back')
       navigate(oauthRole === 'admin' ? '/admin' : '/employee', { replace: true })
       return
     }
@@ -104,7 +103,6 @@ export function LoginPage() {
     try {
       await login(values.email, values.password)
       prefetchEmployeeDashboard()
-      toast.success('Welcome back')
       const userRole = useAuthStore.getState().role
       navigate(userRole === 'admin' ? '/admin' : '/employee', { replace: true })
     } catch (error) {
@@ -120,46 +118,37 @@ export function LoginPage() {
   }
 
   return (
-    <div className="login-page relative min-h-screen overflow-hidden">
+    <div className="login-page relative">
       <LoginBackground />
-      <CursorGlow />
+      <LoginTopBrand />
 
-      <div className="relative z-10 grid min-h-screen grid-rows-[auto_1fr] lg:grid-cols-2 lg:grid-rows-1">
-        {/* ─── Left / Top: 3D Microchip Hero ─── */}
-        <div className="flex items-center justify-center px-4 py-10 lg:py-0 lg:pl-12 lg:pr-6">
-          <MicrochipHero />
-        </div>
+      <div className="login-page-scaler relative">
+        <div className="relative z-10 grid min-h-screen grid-rows-[auto_1fr] lg:grid-cols-2 lg:grid-rows-1">
+          <div className="flex items-center justify-center px-4 py-10 lg:translate-x-10 lg:py-0 lg:pl-16 lg:pr-4">
+            <MicrochipHero />
+          </div>
 
-        {/* ─── Right / Bottom: Login Form ─── */}
-        <div className="flex items-center justify-center px-4 pb-10 lg:py-0 lg:pr-12">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.15, ease: 'easeOut' }}
-            className="login-card-shell w-full max-w-sm"
-          >
-            <div className="login-card-glow-ring" aria-hidden="true" />
-            <div className="login-card-outer-glow" aria-hidden="true" />
-
-            <div className="login-glass rounded-2xl p-8">
-              <div className="login-card-reflection" aria-hidden="true" />
-
-              <div className="login-card-content">
-                {/* Title */}
-                <div className="mb-5 text-center">
-                  <h2 className="font-display text-xl font-bold tracking-tight text-white drop-shadow-[0_0_12px_rgba(0,200,83,0.3)]">
+          <div className="flex items-center justify-center px-4 pb-10 lg:py-0 lg:pr-12">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.15, ease: 'easeOut' }}
+              className="login-card-shell w-full max-w-sm"
+            >
+              <div className="login-glass rounded-2xl p-8">
+                <div className="login-card-content">
+                  <div className="mb-5 text-center">
+                  <h2 className="login-card-title font-display text-lg font-semibold tracking-tight">
                     Welcome back
                   </h2>
-                  <p className="mt-1 text-xs text-white/50">Sign in to your enterprise portal</p>
+                  <p className="login-card-subtitle mt-1 text-xs">Sign in to your enterprise portal</p>
                 </div>
 
-                {/* Form */}
-                <form className="space-y-4" onSubmit={onSubmit} noValidate>
-                  {/* Email */}
+                  <form className="space-y-4" onSubmit={onSubmit} noValidate>
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-[#00C853]/70">Email</label>
+                    <label className="login-card-label text-xs font-medium">Email</label>
                     <div className="relative">
-                      <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#00C853]/50" />
+                      <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
                       <input
                         type="email"
                         autoComplete="email"
@@ -173,9 +162,9 @@ export function LoginPage() {
 
                   {/* Password */}
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-[#00C853]/70">Password</label>
+                    <label className="login-card-label text-xs font-medium">Password</label>
                     <div className="relative">
-                      <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#00C853]/50" />
+                      <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
                       <input
                         type={showPassword ? 'text' : 'password'}
                         autoComplete="current-password"
@@ -186,7 +175,7 @@ export function LoginPage() {
                       <button
                         type="button"
                         onClick={() => setShowPassword((p) => !p)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#00C853]/40 transition-all hover:text-[#00e676] hover:drop-shadow-[0_0_8px_rgba(0,200,83,0.7)]"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 transition-colors hover:text-zinc-300"
                         tabIndex={-1}
                       >
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -195,14 +184,6 @@ export function LoginPage() {
                     {errors.password ? <p className="text-xs text-red-400">{errors.password.message}</p> : null}
                   </div>
 
-                  {/* Forgot password */}
-                  <div className="flex justify-end">
-                    <button type="button" className="login-link-glow text-xs font-medium text-[#00C853]">
-                      Forgot password?
-                    </button>
-                  </div>
-
-                  {/* Login button */}
                   <Button
                     type="submit"
                     className="login-btn-glow h-10 w-full rounded-lg text-sm font-semibold text-white"
@@ -212,21 +193,22 @@ export function LoginPage() {
                   </Button>
                 </form>
 
-                {/* Google sign-in */}
                 {googleSignInEnabled ? (
                   <>
                     <div className="relative my-5">
                       <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-[#00C853]/15" />
+                        <div className="w-full border-t border-zinc-600/40" />
                       </div>
                       <div className="relative flex justify-center text-xs">
-                        <span className="bg-[#021208]/90 px-3 text-white/40 backdrop-blur-sm">Or continue with</span>
+                        <span className="login-card-subtitle bg-[#27272a]/90 px-3 backdrop-blur-sm">
+                          Or continue with
+                        </span>
                       </div>
                     </div>
                     <Button
                       type="button"
                       variant="secondary"
-                      className="login-btn-secondary h-11 w-full gap-3 rounded-lg text-sm font-medium text-white/85 backdrop-blur-sm"
+                      className="login-btn-secondary h-11 w-full gap-3 rounded-lg text-sm font-medium backdrop-blur-sm"
                       loading={googleLoading}
                       onClick={handleGoogleRedirect}
                     >
@@ -240,6 +222,7 @@ export function LoginPage() {
           </motion.div>
         </div>
       </div>
+    </div>  
     </div>
   )
 }

@@ -3,11 +3,11 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useNavigate } from 'react-router-dom'
+import { Controller } from 'react-hook-form'
 import { Calendar, AlertTriangle, X, Clock, History, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@pages/employee/lib/utils'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 import { Button } from '@components/employee/ui/button'
-import { Input } from '@components/employee/ui/input'
 import { Label } from '@components/employee/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/employee/ui/select'
 import { DataTable } from '@components/employee/shared/DataTable'
@@ -20,14 +20,39 @@ import { useAuthStore } from '@store/authStore'
 
 import * as leaveService from '@services/leaveService'
 import { listCompensation } from '@services/compensationService'
+import { DateInput } from '@components/shared/DateInput'
+import {
+  getLeaveDateBounds,
+  ISO_DATE_REGEX,
+  leaveRangeError,
+  parseIsoDate,
+} from '@/utils/dateValidation'
+
+const leaveBounds = getLeaveDateBounds()
 
 const leaveSchema = z
   .object({
     type: z.string().min(1, 'Select leave type'),
     leaveDuration: z.enum(['Full Day', 'Half Day']),
     halfDaySession: z.string().optional(),
-    fromDate: z.string().min(1, 'From date required'),
-    toDate: z.string().min(1, 'To date required'),
+    fromDate: z
+      .string()
+      .min(1, 'From date required')
+      .regex(ISO_DATE_REGEX, 'Enter a valid date as dd/mm/yyyy')
+      .refine((v) => parseIsoDate(v).valid, 'Invalid calendar date')
+      .refine(
+        (v) => v >= leaveBounds.min && v <= leaveBounds.max,
+        `Leave can only be applied from today up to ${leaveBounds.max.split('-').reverse().join('/')}`,
+      ),
+    toDate: z
+      .string()
+      .min(1, 'To date required')
+      .regex(ISO_DATE_REGEX, 'Enter a valid date as dd/mm/yyyy')
+      .refine((v) => parseIsoDate(v).valid, 'Invalid calendar date')
+      .refine(
+        (v) => v >= leaveBounds.min && v <= leaveBounds.max,
+        `Leave can only be applied from today up to ${leaveBounds.max.split('-').reverse().join('/')}`,
+      ),
   })
   .superRefine((data, ctx) => {
     if (data.leaveDuration === 'Half Day') {
@@ -36,6 +61,12 @@ const leaveSchema = z
       }
       if (data.fromDate && data.toDate && data.fromDate !== data.toDate) {
         ctx.addIssue({ path: ['toDate'], code: 'custom', message: 'From and To date must match for half-day leave' })
+      }
+    }
+    if (data.fromDate && data.toDate) {
+      const rangeErr = leaveRangeError(data.fromDate, data.toDate)
+      if (rangeErr) {
+        ctx.addIssue({ path: ['toDate'], code: 'custom', message: rangeErr })
       }
     }
   })
@@ -441,11 +472,10 @@ export default function LeaveRequest() {
       return
     }
 
-    const currentFrom = new Date(data.fromDate)
-    const currentTo = new Date(data.toDate)
-
-    if (currentTo < currentFrom) {
-      setError('toDate', { type: 'manual', message: 'End date must be the same or after the start date' })
+    const rangeErr = leaveRangeError(data.fromDate, data.toDate)
+    if (rangeErr) {
+      setError('toDate', { type: 'manual', message: rangeErr })
+      toast({ title: 'Validation error', description: rangeErr })
       return
     }
 
@@ -550,23 +580,47 @@ export default function LeaveRequest() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label>From Date *</Label>
-              <Input type="date" className="mt-1" {...register('fromDate')} />
-              {errors.fromDate && <p className="mt-1 text-xs text-danger">{errors.fromDate.message}</p>}
+              <Controller
+                name="fromDate"
+                control={control}
+                render={({ field }) => (
+                  <DateInput
+                    className="mt-1 rounded-xl"
+                    value={field.value || ''}
+                    onChange={field.onChange}
+                    minDate={leaveBounds.min}
+                    maxDate={leaveBounds.max}
+                    error={errors.fromDate?.message}
+                  />
+                )}
+              />
             </div>
             <div>
               <Label>To Date *</Label>
-              <Input
-                type="date"
-                className="mt-1"
-                {...register('toDate')}
-                disabled={leaveDuration === 'Half Day'}
+              <Controller
+                name="toDate"
+                control={control}
+                render={({ field }) => (
+                  <DateInput
+                    className="mt-1 rounded-xl"
+                    value={field.value || ''}
+                    onChange={field.onChange}
+                    minDate={leaveBounds.min}
+                    maxDate={leaveBounds.max}
+                    disabled={leaveDuration === 'Half Day'}
+                    error={errors.toDate?.message}
+                  />
+                )}
               />
               {leaveDuration === 'Half Day' && (
                 <p className="mt-1 text-xs text-muted">Half-day leave uses the same start and end date.</p>
               )}
-              {errors.toDate && <p className="mt-1 text-xs text-danger">{errors.toDate.message}</p>}
             </div>
           </div>
+          <p className="text-xs text-muted">
+            Dates must be in dd/mm/yyyy format. Leave can be applied from today up to{' '}
+            {leaveBounds.max.split('-').reverse().join('/')}.
+          </p>
           {holidayWarning && (
             <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />

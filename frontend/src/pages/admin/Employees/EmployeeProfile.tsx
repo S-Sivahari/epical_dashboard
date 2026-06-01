@@ -98,10 +98,12 @@ export function EmployeeProfile() {
   if (loading) {
     return (
       <PageWrapper>
+        <div className="crewiq-dashboard">
         <PageHeader title="" />
         <div className="flex items-center justify-center py-20">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           <span className="ml-3 text-sm text-muted">Loading profile…</span>
+        </div>
         </div>
       </PageWrapper>
     )
@@ -110,6 +112,7 @@ export function EmployeeProfile() {
   if (loadError || !employee) {
     return (
       <PageWrapper>
+        <div className="crewiq-dashboard">
         <PageHeader title="Employee Profile" />
         <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
           <p className="text-sm font-medium text-red-700">{loadError ?? 'Employee not found.'}</p>
@@ -118,6 +121,7 @@ export function EmployeeProfile() {
               <Link to="/admin/employees">Back to Employees</Link>
             </Button>
           </div>
+        </div>
         </div>
       </PageWrapper>
     )
@@ -154,8 +158,7 @@ export function EmployeeProfile() {
     try {
       console.info('[Manage Employees] Exported employee PDF:', fileName)
       await exportToPDF([exportRow], fileName, exportHeaders, exportOptions)
-      toast.success('PDF export ready')
-    } catch {
+} catch {
       toast.error('PDF export failed')
     }
   }
@@ -164,14 +167,14 @@ export function EmployeeProfile() {
     try {
       console.info('[Manage Employees] Exported employee Excel:', fileName)
       await exportToExcel([exportRow], fileName, exportHeaders, exportOptions)
-      toast.success('Excel export ready')
-    } catch {
+} catch {
       toast.error('Excel export failed')
     }
   }
 
   return (
     <PageWrapper>
+      <div className="crewiq-dashboard">
       <PageHeader
         title={name}
         subtitle={employee.employeeId}
@@ -242,7 +245,7 @@ export function EmployeeProfile() {
 
         {/* ── Main Content ────────────────────────────────────────────── */}
         <section className="lg:col-span-2">
-          <div className="rounded-xl border border-border bg-white p-6 shadow-sm">
+          <div className="rounded-xl border border-border p-6 shadow-sm" style={{backgroundColor:'var(--bg-card)',borderColor:'var(--border-subtle)'}}>
             
             {/* ── Personal ──────────────────────────────────────── */}
             <SectionHeader title="Personal Details" />
@@ -378,6 +381,7 @@ export function EmployeeProfile() {
             </div>
           </div>
         </section>
+      </div>
       </div>
     </PageWrapper>
   )

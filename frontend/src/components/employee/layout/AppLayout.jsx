@@ -11,11 +11,11 @@ export function AppLayout() {
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed)
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex h-screen bg-background">
       <Sidebar />
       <div
         className={cn(
-          'flex min-h-screen flex-col transition-[padding] duration-300 ease-in-out',
+          'flex flex-1 flex-col overflow-hidden transition-[padding] duration-300 ease-in-out',
           sidebarCollapsed ? 'lg:pl-[72px]' : 'lg:pl-[248px]',
         )}
       >

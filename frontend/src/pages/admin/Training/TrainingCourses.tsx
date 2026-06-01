@@ -135,7 +135,6 @@ export function TrainingCourses() {
       setTopic('')
       setPlatform('')
       setLink('')
-      toast.success('Course added')
     } catch (e: any) {
       toast.error(e?.response?.data?.error || 'Failed to add course')
     } finally {
@@ -149,7 +148,6 @@ export function TrainingCourses() {
       await deleteCourse(id)
       setCourses((prev) => prev.filter((c) => c.id !== id))
       setEnrollments((prev) => prev.filter((e) => e.courseId !== id))
-      toast.success('Course removed')
     } catch (e: any) {
       toast.error(e?.response?.data?.error || 'Failed to remove course')
     } finally {
@@ -188,7 +186,6 @@ export function TrainingCourses() {
         )
       )
       setEditingCourse(null)
-      toast.success('Course updated')
     } catch (e: any) {
       toast.error(e?.response?.data?.error || 'Failed to update course')
     } finally {
@@ -196,51 +193,50 @@ export function TrainingCourses() {
     }
   }
 
-
-
   return (
     <PageWrapper>
-      <PageHeader title="" breadcrumb={<Breadcrumb items={[{ label: 'Training' }]} />} />
-      <div className="mb-4 flex flex-wrap gap-2 border-b border-border pb-3">
-        {(
-          [
-            ['courses', 'Courses'],
-            ['enrollment', 'Enrollment'],
-            ['completed', 'Completed'],
-          ] as const
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setTab(key)}
-            className={`rounded-lg px-3 py-2 text-sm font-medium ${
-              tab === key ? 'bg-emerald-50 text-emerald-900 ring-1 ring-primary/30' : 'text-muted hover:bg-surface'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <div className="crewiq-dashboard">
+        <PageHeader title="" breadcrumb={<Breadcrumb items={[{ label: 'Training' }]} />} />
+        <div className="mb-4 flex flex-wrap gap-2 border-b border-border pb-3">
+          {(
+            [
+              ['courses', 'Courses'],
+              ['enrollment', 'Enrollment'],
+              ['completed', 'Completed'],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTab(key)}
+              className={`rounded-lg px-3 py-2 text-sm font-medium ${
+                tab === key ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'text-muted hover:bg-surface'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
-      {tab === 'courses' ? (
-        <div className="space-y-4">
-          <div className="rounded-xl border border-border bg-white p-5 shadow-sm space-y-4">
-            <div className="flex items-center gap-2 text-ink font-semibold">
-              <PlusCircle className="h-4 w-4 text-emerald-600" />
-              Add New Course
-            </div>
-            <div className="grid gap-3 md:grid-cols-4 md:items-end">
-              <Input label="Course Title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Enter course name" />
-              <Input label="Topic" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g., React, SQL, AI" />
-              <Input label="Platform" value={platform} onChange={(e) => setPlatform(e.target.value)} placeholder="e.g., Udemy, Coursera" />
-              <Input label="Course Link" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://..." />
-              <div className="md:col-span-4 flex justify-end">
-                <Button onClick={() => void handleCreateCourse()} disabled={savingCourse} className="min-w-[120px]">
-                  {savingCourse ? 'Saving...' : 'Add Course'}
-                </Button>
+        {tab === 'courses' ? (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-border bg-white p-5 shadow-sm space-y-4">
+              <div className="flex items-center gap-2 text-ink font-semibold">
+                <PlusCircle className="h-4 w-4 text-emerald-600" />
+                Add New Course
+              </div>
+              <div className="grid gap-3 md:grid-cols-4 md:items-end">
+                <Input label="Course Title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Enter course name" />
+                <Input label="Topic" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g. Sales, React" />
+                <Input label="Platform" value={platform} onChange={(e) => setPlatform(e.target.value)} placeholder="e.g. Udemy, Coursera" />
+                <div className="flex gap-2">
+                  <Input className="flex-1" label="Course Link" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://..." />
+                  <Button onClick={() => void handleCreateCourse()} disabled={savingCourse}>
+                    {savingCourse ? 'Adding...' : 'Add'}
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
 
           <div className="space-y-2">
             <div className="relative w-full max-w-xl">
@@ -356,6 +352,7 @@ export function TrainingCourses() {
           </div>
         </div>
       </Modal>
+      </div>
     </PageWrapper>
   )
 }

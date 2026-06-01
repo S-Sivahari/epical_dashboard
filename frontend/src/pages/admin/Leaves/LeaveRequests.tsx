@@ -11,6 +11,8 @@ import * as leaveService from '@services/leaveService'
 import { X, ChevronLeft, ChevronRight, Check, ChevronDown, Search, AlertTriangle, ShieldCheck, UserCheck } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { EmployeeLeaveProfileModal } from './EmployeeLeaveProfileModal'
+import { DateInput } from '@components/shared/DateInput'
+import { getFilterDateBounds } from '@/utils/dateValidation'
 
 const LEAVE_TYPES = ['Sick Leave', 'Casual Leave', 'Earned Leave']
 
@@ -61,6 +63,7 @@ export function LeaveRequests({
   const [rejectionReason, setRejectionReason] = useState('')
   const [rejectionError, setRejectionError] = useState('')
   const rejectInputRef = useRef<HTMLTextAreaElement>(null)
+  const filterBounds = getFilterDateBounds()
 
   // Employee leave profile (click name on any status tab)
   const [profileEmployeeId, setProfileEmployeeId] = useState<string | null>(null)
@@ -139,7 +142,6 @@ export function LeaveRequests({
     
     try {
       await rejectLeave(leaveToReject!, trimmedReason)
-      toast.success('Leave rejected successfully')
       setIsRejectModalOpen(false)
     } catch {
       toast.error('Failed to reject leave')
@@ -167,7 +169,6 @@ export function LeaveRequests({
     if (!leaveToApprove) return
     try {
       await approveLeave(leaveToApprove.id)
-      toast.success('Leave approved successfully')
       setIsApproveModalOpen(false)
       setLeaveToApprove(null)
     } catch (err: any) {
@@ -322,25 +323,29 @@ export function LeaveRequests({
               ))}
             </select>
 
-            <input
-              type="date"
+            <DateInput
               value={filters.dateFrom || ''}
-              onChange={(e) => {
-                setFilters({ ...filters, dateFrom: e.target.value })
+              onChange={(iso) => {
+                setFilters({ ...filters, dateFrom: iso || undefined })
                 setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
               }}
-              className="h-10 rounded-lg bg-surface/50 px-3 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-primary/20"
+              minDate={filterBounds.min}
+              maxDate={filterBounds.max}
+              placeholder="dd/mm/yyyy"
+              className="h-10 rounded-lg bg-surface/50"
               title="Leave period from"
               aria-label="Leave period from"
             />
-            <input
-              type="date"
+            <DateInput
               value={filters.dateTo || ''}
-              onChange={(e) => {
-                setFilters({ ...filters, dateTo: e.target.value })
+              onChange={(iso) => {
+                setFilters({ ...filters, dateTo: iso || undefined })
                 setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
               }}
-              className="h-10 rounded-lg bg-surface/50 px-3 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-primary/20"
+              minDate={filterBounds.min}
+              maxDate={filterBounds.max}
+              placeholder="dd/mm/yyyy"
+              className="h-10 rounded-lg bg-surface/50"
               title="Leave period to"
               aria-label="Leave period to"
             />
