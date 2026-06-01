@@ -20,7 +20,7 @@ export default {
 
         surface: '#DCFCE7',
 
-        border: 'rgba(22, 163, 74, 0.12)',
+        border: 'rgba(22, 163, 74, 0.24)',
 
         ink: '#020617',
 

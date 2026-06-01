@@ -96,8 +96,9 @@ export function playNotificationSound(): void {
 function playTone(ctx: AudioContext): void {
   try {
     const startTime = ctx.currentTime;
+    const duration = 0.8; // Longer duration (800ms)
 
-    // Create oscillator for bell-like tone
+    // Create oscillator for pleasant chime tone
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     const filter = ctx.createBiquadFilter();
@@ -106,21 +107,27 @@ function playTone(ctx: AudioContext): void {
     filter.connect(gain);
     gain.connect(ctx.destination);
 
-    // Bell-like tone frequencies
+    // Pleasant two-tone chime - more musical and longer
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(800, startTime); // Start at 800 Hz
-    osc.frequency.exponentialRampToValueAtTime(600, startTime + 0.1); // Fall to 600 Hz
+    // First high note (bright start)
+    osc.frequency.setValueAtTime(1000, startTime);
+    // Quick transition to medium note for body
+    osc.frequency.exponentialRampToValueAtTime(800, startTime + 0.15);
+    // Subtle fall for natural decay
+    osc.frequency.exponentialRampToValueAtTime(700, startTime + duration);
 
-    // Volume envelope - increased volume for better audibility
-    gain.gain.setValueAtTime(0.5, startTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.2); // Fade out
+    // Volume envelope - starts moderate, sustains, then fades
+    gain.gain.setValueAtTime(0.6, startTime); // Start at 0.6
+    gain.gain.setValueAtTime(0.5, startTime + 0.1); // Sustain at 0.5
+    gain.gain.exponentialRampToValueAtTime(0.02, startTime + duration); // Long fade out
 
-    // Filter for warmth
+    // Filter for warm, pleasant tone
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(2000, startTime);
+    filter.frequency.setValueAtTime(2500, startTime);
+    filter.frequency.exponentialRampToValueAtTime(1500, startTime + duration);
 
     osc.start(startTime);
-    osc.stop(startTime + 0.2);
+    osc.stop(startTime + duration);
   } catch (error) {
     console.error('[Sound] Error in playTone:', error);
   }

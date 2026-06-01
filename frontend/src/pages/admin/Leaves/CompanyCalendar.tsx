@@ -22,6 +22,7 @@ import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { formatDate } from '@/utils/formatDate'
 import type { Holiday } from '@/types'
 import { useLeaveStore } from '@store/leaveStore'
+import { cn } from '@/utils/cn'
 
 interface CalendarSidebarEvent {
   id: string
@@ -32,7 +33,12 @@ interface CalendarSidebarEvent {
   holidayType?: Holiday['type']
 }
 
-export function CompanyCalendar() {
+interface CompanyCalendarProps {
+  variant?: 'default' | 'admin'
+}
+
+export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
+  const isAdminCal = variant === 'admin'
   const { holidays, leaves, loading, companyCalendarEvents } = useLeaves()
   const addHoliday = useLeaveStore((s) => s.addHoliday)
   const updateHoliday = useLeaveStore((s) => s.updateHoliday)
@@ -225,36 +231,60 @@ export function CompanyCalendar() {
 
   return (
     <Tooltip.Provider delayDuration={300}>
-      <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full pb-4 pr-4 pl-0">
+      <div className={cn('grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full pb-4 pr-4 pl-0', isAdminCal && 'admin-calendar-grid')}>
 
         {/* ── Left Column: Calendar Card ────────────────────────────── */}
         <div className="lg:col-span-2 xl:col-span-3 flex flex-col w-full">
-          <div className="w-full rounded-xl border border-border bg-white shadow-sm flex flex-col overflow-hidden">
+          <div className={cn(
+            'w-full flex flex-col overflow-hidden',
+            isAdminCal ? 'admin-cal-main' : 'rounded-xl border border-border bg-white shadow-sm',
+          )}>
             {/* Calendar Header */}
-            <div className="p-3 border-b border-border flex items-center justify-between bg-surface/30 flex-shrink-0">
+            <div className={cn(
+              'p-3 flex items-center justify-between flex-shrink-0',
+              isAdminCal ? 'admin-cal-header' : 'border-b border-border bg-surface/30',
+            )}>
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 rounded-lg border border-border bg-white p-0.5">
-                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={prevMonth}>
+                <div className={cn(
+                  'flex items-center gap-1 rounded-lg border p-0.5',
+                  isAdminCal ? 'admin-cal-month-nav' : 'border-border bg-white',
+                )}>
+                  <Button size="sm" variant="ghost" className={cn('h-8 w-8 p-0', isAdminCal && 'admin-cal-nav-btn')} onClick={prevMonth}>
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <span className="min-w-[7.5rem] px-2 text-center text-sm font-semibold text-ink">
+                  <span className={cn(
+                    'min-w-[7.5rem] px-2 text-center text-sm font-semibold',
+                    isAdminCal ? 'text-white' : 'text-ink',
+                  )}>
                     {format(currentDate, 'MMMM yyyy')}
                   </span>
-                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={nextMonth}>
+                  <Button size="sm" variant="ghost" className={cn('h-8 w-8 p-0', isAdminCal && 'admin-cal-nav-btn')} onClick={nextMonth}>
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
-                <Button size="sm" variant="secondary" className="h-8 px-3 text-xs" onClick={goToToday}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className={cn('h-8 px-3 text-xs', isAdminCal && 'admin-cal-today-btn')}
+                  onClick={goToToday}
+                >
                   Today
                 </Button>
               </div>
-              <Button size="sm" className="h-8 px-3 text-xs shadow-sm" onClick={() => setIsHolidayFormOpen(true)}>
+              <Button
+                size="sm"
+                className={cn('h-8 px-3 text-xs shadow-sm', isAdminCal && 'admin-dash-action-btn border-0')}
+                onClick={() => setIsHolidayFormOpen(true)}
+              >
                 <Plus className="h-4 w-4 mr-1.5" /> Add
               </Button>
             </div>
 
             {/* Legend */}
-            <div className="px-3 py-1.5 border-b border-border bg-gray-50 flex flex-wrap gap-3 text-xs font-medium flex-shrink-0">
+            <div className={cn(
+              'px-3 py-1.5 flex flex-wrap gap-3 text-xs font-medium flex-shrink-0',
+              isAdminCal ? 'admin-cal-legend' : 'border-b border-border bg-gray-50',
+            )}>
               <div className="flex items-center gap-1.5">
                 <div className="w-2.5 h-2.5 rounded-full bg-lime-400 border border-lime-500"></div>
                 <span className="text-muted">Approved Leave</span>
@@ -274,15 +304,18 @@ export function CompanyCalendar() {
             </div>
 
             {/* Calendar Grid */}
-            <div className="p-2.5 flex-1">
+            <div className={cn('p-2.5 flex-1', isAdminCal && 'admin-cal-grid-wrap')}>
               {loading ? (
                 <div className="flex h-48 items-center justify-center">
-                  <span className="text-sm text-muted">Loading calendar...</span>
+                  <span className={cn('text-sm', isAdminCal ? 'text-[var(--emerald-dark)]/70' : 'text-muted')}>Loading calendar...</span>
                 </div>
               ) : (
                 <div className="grid grid-cols-7 gap-1">
                   {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                    <div key={day} className="text-center text-xs font-semibold text-muted py-1 uppercase tracking-wider">
+                    <div key={day} className={cn(
+                      'text-center text-xs font-semibold py-1 uppercase tracking-wider',
+                      isAdminCal ? 'admin-cal-weekday' : 'text-muted',
+                    )}>
                       {day}
                     </div>
                   ))}
@@ -306,13 +339,24 @@ export function CompanyCalendar() {
                         <Tooltip.Trigger asChild>
                           <div
                             onClick={() => handleDateClick(dateStr)}
-                            className={`min-h-[5rem] xl:min-h-[5.5rem] p-1.5 rounded-lg border transition-all cursor-pointer flex flex-col gap-0.5 hover:shadow-sm overflow-hidden bg-white border-border hover:border-primary/50
-                              ${isTodayDate ? 'ring-2 ring-primary/20 border-primary/40 bg-primary/5' : ''}
-                              ${hasMultipleLeaves ? 'bg-red-50/40' : ''}
-                            `}
+                            className={cn(
+                              'min-h-[5rem] xl:min-h-[5.5rem] p-1.5 rounded-lg border transition-all cursor-pointer flex flex-col gap-0.5 hover:shadow-sm overflow-hidden',
+                              isAdminCal
+                                ? 'admin-cal-day border-[rgba(20,83,45,0.15)] bg-white/75 hover:border-[rgba(20,83,45,0.35)] hover:bg-emerald-50/80'
+                                : 'bg-white border-border hover:border-primary/50',
+                              isTodayDate && (isAdminCal
+                                ? 'admin-cal-day-today ring-2 ring-[rgba(20,83,45,0.25)] border-[var(--emerald-dark)]/40 bg-emerald-50/90'
+                                : 'ring-2 ring-primary/20 border-primary/40 bg-primary/5'),
+                              hasMultipleLeaves && (isAdminCal ? 'bg-red-50/50' : 'bg-red-50/40'),
+                            )}
                           >
                             <div className="flex justify-between items-start">
-                              <span className={`text-sm font-semibold ${isTodayDate ? 'text-primary' : 'text-ink'}`}>
+                              <span className={cn(
+                                'text-sm font-semibold',
+                                isTodayDate
+                                  ? isAdminCal ? 'text-[var(--emerald-dark)]' : 'text-primary'
+                                  : 'text-ink',
+                              )}>
                                 {format(day, 'd')}
                               </span>
                               <div className="flex gap-0.5">
@@ -445,13 +489,22 @@ export function CompanyCalendar() {
         <div className="lg:col-span-1 flex flex-col gap-3">
 
           {/* Month Holidays */}
-          <div className="rounded-xl border border-border bg-white p-3 shadow-sm flex flex-col h-[220px]">
-            <div className="mb-2 flex items-center justify-between flex-shrink-0">
+          <div className={cn(
+            'rounded-xl p-3 shadow-sm flex flex-col h-[220px]',
+            isAdminCal ? 'admin-cal-side-card' : 'border border-border bg-white',
+          )}>
+            <div className={cn('mb-2 flex items-center justify-between flex-shrink-0', isAdminCal && 'admin-cal-side-head')}>
               <div className="flex items-center gap-2">
-                <h3 className="font-display text-sm font-semibold text-ink">
+                <h3 className={cn(
+                  'font-display text-sm font-semibold',
+                  isAdminCal ? 'text-[var(--emerald-dark)]' : 'text-ink',
+                )}>
                   {format(currentDate, 'MMM yyyy')} Holidays
                 </h3>
-                <span className="inline-flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">
+                <span className={cn(
+                  'inline-flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold',
+                  isAdminCal ? 'admin-cal-count-badge' : 'bg-blue-100 text-blue-700',
+                )}>
                   {currentMonthHolidays.length}
                 </span>
               </div>
@@ -478,7 +531,12 @@ export function CompanyCalendar() {
                     return (
                       <div
                         key={holiday.id}
-                        className="group flex items-center justify-between p-2 rounded-lg border border-border hover:border-primary/40 hover:shadow-sm transition-all"
+                        className={cn(
+                          'group flex items-center justify-between p-2 rounded-lg border transition-all',
+                          isAdminCal
+                            ? 'admin-cal-list-item border-[rgba(20,83,45,0.12)] hover:border-[rgba(20,83,45,0.28)]'
+                            : 'border-border hover:border-primary/40 hover:shadow-sm',
+                        )}
                       >
                         <div className="flex-1 flex items-center gap-2 min-w-0">
                           <div className={`flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold text-white flex-shrink-0 shadow-sm ${
@@ -512,7 +570,10 @@ export function CompanyCalendar() {
                   })}
               </div>
             ) : (
-              <div className="rounded-lg border border-dashed border-border bg-surface/50 p-4 flex flex-col items-center justify-center text-center flex-1">
+              <div className={cn(
+                'rounded-lg border border-dashed p-4 flex flex-col items-center justify-center text-center flex-1',
+                isAdminCal ? 'admin-cal-empty' : 'border-border bg-surface/50',
+              )}>
                 <span className="text-xl mb-1 opacity-50">📅</span>
                 <p className="text-muted text-xs font-medium">No holidays this month</p>
               </div>
@@ -520,13 +581,22 @@ export function CompanyCalendar() {
           </div>
 
           {/* Company Events */}
-          <div className="rounded-xl border border-border bg-white p-3 shadow-sm flex flex-col h-[220px]">
-            <div className="mb-2 flex items-center justify-between flex-shrink-0">
+          <div className={cn(
+            'rounded-xl p-3 shadow-sm flex flex-col h-[220px]',
+            isAdminCal ? 'admin-cal-side-card' : 'border border-border bg-white',
+          )}>
+            <div className={cn('mb-2 flex items-center justify-between flex-shrink-0', isAdminCal && 'admin-cal-side-head')}>
               <div className="flex items-center gap-2">
-                <h3 className="font-display text-sm font-semibold text-ink">
+                <h3 className={cn(
+                  'font-display text-sm font-semibold',
+                  isAdminCal ? 'text-[var(--emerald-dark)]' : 'text-ink',
+                )}>
                   Company Events
                 </h3>
-                <span className="inline-flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700">
+                <span className={cn(
+                  'inline-flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold',
+                  isAdminCal ? 'admin-cal-count-badge admin-cal-count-badge-amber' : 'bg-amber-100 text-amber-700',
+                )}>
                   {currentMonthEvents.length}
                 </span>
               </div>
@@ -539,7 +609,12 @@ export function CompanyCalendar() {
                   .map((event) => (
                     <div
                       key={event.id}
-                      className="group flex items-center p-2 rounded-lg border border-border hover:border-primary/40 hover:shadow-sm transition-all"
+                      className={cn(
+                        'group flex items-center p-2 rounded-lg border transition-all',
+                        isAdminCal
+                          ? 'admin-cal-list-item border-[rgba(20,83,45,0.12)] hover:border-[rgba(20,83,45,0.28)]'
+                          : 'border-border hover:border-primary/40 hover:shadow-sm',
+                      )}
                     >
                       <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-amber-100 to-amber-50 flex-shrink-0 text-sm shadow-sm font-semibold text-amber-700">
                         📢
@@ -560,7 +635,10 @@ export function CompanyCalendar() {
                   ))}
               </div>
             ) : (
-              <div className="rounded-lg border border-dashed border-border bg-surface/50 p-4 flex flex-col items-center justify-center text-center flex-1">
+              <div className={cn(
+                'rounded-lg border border-dashed p-4 flex flex-col items-center justify-center text-center flex-1',
+                isAdminCal ? 'admin-cal-empty' : 'border-border bg-surface/50',
+              )}>
                 <span className="text-xl mb-1 opacity-50">📢</span>
                 <p className="text-muted text-xs font-medium">No events this month</p>
               </div>
@@ -568,11 +646,20 @@ export function CompanyCalendar() {
           </div>
 
           {/* Approved Leaves */}
-          <div className="rounded-xl border border-border bg-white p-3 shadow-sm flex flex-col h-[220px]">
-            <div className="mb-2 flex items-center justify-between flex-shrink-0">
+          <div className={cn(
+            'rounded-xl p-3 shadow-sm flex flex-col h-[220px]',
+            isAdminCal ? 'admin-cal-side-card' : 'border border-border bg-white',
+          )}>
+            <div className={cn('mb-2 flex items-center justify-between flex-shrink-0', isAdminCal && 'admin-cal-side-head')}>
               <div className="flex items-center gap-2">
-                <h3 className="font-display text-sm font-semibold text-ink">Approved Leaves</h3>
-                <span className="inline-flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold bg-lime-100 text-lime-700">
+                <h3 className={cn(
+                  'font-display text-sm font-semibold',
+                  isAdminCal ? 'text-[var(--emerald-dark)]' : 'text-ink',
+                )}>Approved Leaves</h3>
+                <span className={cn(
+                  'inline-flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold',
+                  isAdminCal ? 'admin-cal-count-badge admin-cal-count-badge-lime' : 'bg-lime-100 text-lime-700',
+                )}>
                   {currentMonthLeaves.length}
                 </span>
               </div>
@@ -582,7 +669,12 @@ export function CompanyCalendar() {
                 {currentMonthLeaves.map((leave) => (
                   <div
                     key={leave.id}
-                    className="flex items-center p-2 rounded-lg border border-border hover:border-primary/40 hover:shadow-sm transition-all"
+                    className={cn(
+                      'flex items-center p-2 rounded-lg border transition-all',
+                      isAdminCal
+                        ? 'admin-cal-list-item border-[rgba(20,83,45,0.12)] hover:border-[rgba(20,83,45,0.28)]'
+                        : 'border-border hover:border-primary/40 hover:shadow-sm',
+                    )}
                   >
                     <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-lime-100 to-lime-50 flex-shrink-0 text-sm shadow-sm">
                       ✈️
@@ -599,7 +691,10 @@ export function CompanyCalendar() {
                 ))}
               </div>
             ) : (
-              <div className="rounded-lg border border-dashed border-border bg-surface/50 p-4 flex flex-col items-center justify-center text-center flex-1">
+              <div className={cn(
+                'rounded-lg border border-dashed p-4 flex flex-col items-center justify-center text-center flex-1',
+                isAdminCal ? 'admin-cal-empty' : 'border-border bg-surface/50',
+              )}>
                 <span className="text-xl mb-1 opacity-50">🏖️</span>
                 <p className="text-muted text-xs font-medium">No approved leaves this month</p>
               </div>
