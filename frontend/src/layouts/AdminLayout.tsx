@@ -2,6 +2,7 @@ import { Suspense, type CSSProperties } from 'react'
 import { Outlet } from 'react-router-dom'
 import { LoginBackground } from '@components/auth/LoginBackground'
 import { CommandBar } from '@components/layout/CommandBar'
+import { CommandPalette } from '@components/command-center/CommandPalette'
 import {
   SmartSidebar,
   SMART_SIDEBAR_COLLAPSED,
@@ -33,6 +34,7 @@ export function AdminLayout() {
         }
       >
         <CommandBar />
+        <CommandPalette />
         <main className="cmd-main relative flex-1 overflow-y-auto has-[[data-admin-dashboard]]:overflow-hidden">
           <LoginBackground variant="admin" />
           <div className="relative z-[1] min-h-full">

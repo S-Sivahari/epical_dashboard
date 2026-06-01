@@ -10,7 +10,6 @@ import {
   Search,
   Sparkles,
 } from 'lucide-react'
-import { motion } from 'framer-motion'
 import { Avatar } from '@components/ui/Avatar'
 import { NotificationBell } from '@components/layout/NotificationBell'
 import { useAuthStore } from '@store/authStore'
@@ -18,6 +17,7 @@ import { useDashboardStore } from '@store/dashboardStore'
 import { useNotificationStore } from '@store/notificationStore'
 import { useMediaQuery } from '@hooks/useMediaQuery'
 import { ROUTES } from '@constants/routes'
+import { formatDate } from '@/utils/formatDate'
 import { formatDistanceToNow } from 'date-fns'
 
 function titleCase(slug: string) {
@@ -60,9 +60,6 @@ export function CommandBar() {
       })),
     [notifications],
   )
-
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
   const pageTitle = useMemo(() => {
     if (routeTitles[pathname]) return routeTitles[pathname]
@@ -110,20 +107,30 @@ export function CommandBar() {
             </div>
           </>
         )}
-        {isDashboard && (
-          <motion.div
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="min-w-0"
-          >
-            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-blue-dark)]">{greeting}</p>
-            <p className="truncate font-display text-lg font-semibold tracking-tight lg:text-xl">
-              <span className="text-[var(--text-primary)]">{user?.name?.split(' ')[0] ?? 'Admin'}</span>
-              <span className="text-[var(--text-slate-blue)]">, your </span>
-              <span className="text-[var(--text-green-deep)]">dashboard</span>
-              <span className="text-[var(--text-slate-blue)]"> is ready</span>
-            </p>
-          </motion.div>
+        {isDashboard && user && (
+          <div className="flex min-w-0 items-center gap-3">
+            <Avatar
+              name={user.name}
+              src={user.avatarUrl}
+              size="lg"
+              color="var(--emerald-dark)"
+              className="h-11 w-11 shrink-0 text-sm font-bold ring-0"
+            />
+            <div className="min-w-0">
+              <p className="truncate font-display text-base font-bold text-slate-900 sm:text-lg">
+                Welcome back, {user.name?.split(' ')[0] ?? 'Admin'}!
+              </p>
+              <p className="truncate text-xs text-slate-500 sm:text-sm">
+                {user.designation || user.role}
+                {user.joinedAt ? (
+                  <>
+                    {' '}
+                    · Joined {formatDate(user.joinedAt, 'yyyy-MM-dd')}
+                  </>
+                ) : null}
+              </p>
+            </div>
+          </div>
         )}
       </div>
 

@@ -83,6 +83,10 @@ export function CommandPalette() {
   }, [query])
 
   useEffect(() => {
+    if (!open) setQuery('')
+  }, [open])
+
+  useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault()

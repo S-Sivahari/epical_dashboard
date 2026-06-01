@@ -29,16 +29,16 @@ export function ProjectHoursPanel({
   const [periodOpen, setPeriodOpen] = useState(false)
 
   return (
-    <section className={cn('admin-dash-card flex min-h-0 flex-col p-3 sm:p-4', className)}>
+    <section className={cn('admin-dash-card project-hours-panel flex min-h-0 flex-col p-3 sm:p-4', className)}>
       <div className="mb-2 flex shrink-0 flex-wrap items-start justify-between gap-2">
         <div>
-          <h2 className="font-display text-base font-semibold text-[var(--text-primary)]">Project Hours</h2>
-          <p className="text-xs text-[var(--text-muted)]">{getChartSubtitle(chartPeriod)}</p>
+          <h2 className="font-display text-base font-semibold text-slate-900">Project Hours</h2>
+          <p className="text-xs font-medium text-slate-600">{getChartSubtitle(chartPeriod)}</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="text-right">
-            <p className="text-[9px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Total</p>
-            <p className="font-display text-lg font-bold tabular-nums text-[var(--text-primary)]">
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Total</p>
+            <p className="font-display text-lg font-bold tabular-nums text-slate-900">
               {loading ? '—' : `${totalPeriodHours} h`}
             </p>
           </div>
@@ -76,7 +76,7 @@ export function ProjectHoursPanel({
         {loading ? (
           <SkeletonBlock className="h-full min-h-[120px]" />
         ) : (
-          <HoursBarChart data={chartData} theme="light" brand={false} fillParent height={180} />
+          <HoursBarChart data={chartData} theme="light" colorScheme="dashboard" fillParent height={180} />
         )}
       </div>
     </section>
