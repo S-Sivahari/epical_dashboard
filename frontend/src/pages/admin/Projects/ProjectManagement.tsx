@@ -263,6 +263,7 @@ function MetricCard({
   accentClass,
   iconClassName,
   secondaryText,
+  variant = 'default',
 }: {
   label: string
   value: string | number
@@ -270,19 +271,38 @@ function MetricCard({
   accentClass: string
   iconClassName: string
   secondaryText?: string
+  variant?: 'default' | 'hero'
 }) {
+  if (variant === 'hero') {
+    return (
+      <div className="projects-metric-glass group">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="projects-metric-label">{label}</p>
+            <p className="projects-metric-value font-display">{value}</p>
+            {secondaryText ? <p className="projects-metric-sub">{secondaryText}</p> : null}
+          </div>
+          <span
+            className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/15 ring-1 ring-white/20 ${iconClassName}`}
+          >
+            <Icon className="h-3 w-3 text-white" strokeWidth={2} />
+          </span>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="admin-card group relative overflow-hidden rounded-xl border border-white/[0.07] bg-[#161922] p-5 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.35),0_0_0_1px_rgba(255,255,255,0.02)_inset] transition-all duration-300 hover:border-white/[0.12] hover:shadow-[0_4px_16px_-4px_rgba(0,0,0,0.5)] hover:-translate-y-0.5">
+    <div className="metric-card group relative overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
       <div className={`absolute inset-x-0 top-0 h-[2px] ${accentClass} opacity-80`} />
-      <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
       <div className="relative flex items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <p className="text-[10.5px] font-bold uppercase tracking-[0.08em] text-slate-500">{label}</p>
-          <p className="mt-2 font-display text-[28px] font-extrabold tabular-nums leading-none tracking-tight text-white">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-800">{label}</p>
+          <p className="metric-value mt-2 font-display text-2xl font-bold tabular-nums leading-none tracking-tight">
             {value}
           </p>
           {secondaryText && (
-            <p className="mt-2 text-[11px] font-semibold text-slate-400">{secondaryText}</p>
+            <p className="mt-2 text-[11px] font-semibold text-slate-700">{secondaryText}</p>
           )}
         </div>
         <span
@@ -458,9 +478,9 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
     <div ref={containerRef} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="inline-flex h-9 max-w-full items-center gap-1.5 rounded-lg border border-white/10 bg-[#161922] px-2.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[#1d212d] whitespace-nowrap"
+        className="projects-date-trigger inline-flex h-9 max-w-full items-center gap-1.5 rounded-lg border px-2.5 text-xs font-bold text-[var(--emerald-dark)] shadow-sm transition-colors whitespace-nowrap"
       >
-        <CalendarIcon className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+        <CalendarIcon className="h-3.5 w-3.5 text-[var(--emerald-dark)] flex-shrink-0" />
         <span className="truncate max-w-xs text-xs leading-tight">
           {preset === 'Custom' && startDate === endDate
             ? `${formatDate(startDate)}`
@@ -468,26 +488,26 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
               ? `${formatDate(startDate)} – ${formatDate(endDate)}`
               : `${preset} (${formatDate(startDate)} – ${formatDate(endDate)})`}
         </span>
-        <ChevronDown className="h-3 w-3 text-[#94a3b8] flex-shrink-0" />
+        <ChevronDown className="h-3 w-3 text-[var(--emerald-dark)]/70 flex-shrink-0" />
       </button>
 
       {open && (
-        <div className="date-range-popover absolute left-0 top-full z-50 mt-2 flex w-[92vw] flex-col gap-4 rounded-2xl border border-white/5 bg-[#161922] p-4 shadow-2xl animate-fadeIn sm:w-auto sm:min-w-[500px] md:flex-row">
+        <div className="projects-date-calendar date-range-popover absolute left-0 top-full z-50 mt-2 flex w-[92vw] flex-col gap-3 rounded-2xl p-3 shadow-2xl animate-fadeIn sm:w-auto sm:min-w-[500px] md:flex-row md:p-4">
           {/* Calendar Grid */}
           <div className="flex-1 select-none">
-            <div className="flex items-center justify-between mb-4">
-              <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-white/5 rounded-lg text-[#94a3b8]">
+            <div className="projects-date-calendar-header flex items-center justify-between mb-3 rounded-lg px-2 py-1.5">
+              <button type="button" onClick={handlePrevMonth} className="projects-date-nav-btn p-1 rounded-md">
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <span className="date-range-month-title type-calendar-month text-white">
+              <span className="date-range-month-title type-calendar-month">
                 {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
               </span>
-              <button type="button" onClick={handleNextMonth} className="p-1 hover:bg-white/5 rounded-lg text-[#94a3b8]">
+              <button type="button" onClick={handleNextMonth} className="projects-date-nav-btn p-1 rounded-md">
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="type-calendar-weekday mb-1 grid grid-cols-7 gap-1 text-center text-[#94a3b8]">
+            <div className="projects-date-weekdays type-calendar-weekday mb-1.5 grid grid-cols-7 gap-1 text-center">
               {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
                 <span key={d} className="py-1">
                   {d}
@@ -510,10 +530,10 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
                     onClick={(e) => handleDayClick(cell.dateString, e)}
                     title={`Filter logs for ${cell.dateString}. Shift+click a second date for a range.`}
                     className={`
-                      h-7 w-7 rounded-lg flex items-center justify-center font-semibold transition-all
-                      ${cell.isCurrentMonth ? 'text-white hover:bg-emerald-500/20 hover:text-emerald-400' : 'text-[#94a3b8] hover:bg-white/5 hover:text-white'}
-                      ${isSingleDay || isSelectedStart || isSelectedEnd ? 'bg-emerald-600 text-white hover:bg-emerald-500 hover:text-white shadow-sm' : ''}
-                      ${isWithinRange ? 'bg-emerald-600/20 text-emerald-450 rounded-none' : ''}
+                      projects-date-day h-7 w-7 rounded-lg flex items-center justify-center font-semibold transition-all
+                      ${cell.isCurrentMonth ? 'projects-date-day-current' : 'projects-date-day-muted'}
+                      ${isSingleDay || isSelectedStart || isSelectedEnd ? 'projects-date-day-selected' : ''}
+                      ${isWithinRange ? 'projects-date-day-in-range' : ''}
                     `}
                   >
                     {cell.day}
@@ -521,17 +541,17 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
                 )
               })}
             </div>
-            <p className="mt-3 text-[10px] text-[#94a3b8] font-medium">
+            <p className="projects-date-hint mt-2.5 text-[10px] font-medium">
               Click any date to filter that day. Hold Shift, click a start date, then another date for a custom range.
             </p>
           </div>
 
           {/* Divider */}
-          <div className="hidden md:block border-l border-white/5" />
+          <div className="projects-date-divider hidden md:block" />
 
           {/* Quick Presets Panel */}
-          <div className="w-36 flex flex-col gap-0.5">
-            <p className="type-card-label-caps mb-2 text-[9px] text-[#94a3b8]">Quick Presets</p>
+          <div className="projects-date-presets w-36 flex flex-col gap-0.5">
+            <p className="type-card-label-caps mb-2 text-[9px]">Quick Presets</p>
             {[
               'Today',
               'Yesterday',
@@ -548,8 +568,8 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
                 type="button"
                 onClick={() => handlePresetClick(p)}
                 className={`
-                  text-left px-2.5 py-1 rounded-lg text-xs font-semibold transition-all
-                  ${preset === p ? 'bg-emerald-600/20 text-emerald-400 font-bold' : 'text-[#94a3b8] hover:bg-white/5 hover:text-white'}
+                  projects-date-preset text-left px-2.5 py-1 rounded-lg text-xs font-semibold transition-all
+                  ${preset === p ? 'projects-date-preset-active' : ''}
                 `}
               >
                 {p}
@@ -598,7 +618,7 @@ function AvatarGroup({ users, max = 3 }: { users: string[]; max?: number }) {
         )
       })}
       {remaining > 0 && (
-        <div className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[rgba(39,39,42,0.88)] bg-[rgba(39,39,42,0.88)] text-[10px] font-black text-[#94a3b8] shadow-sm ring-1 ring-[rgba(161,161,170,0.18)]">
+        <div className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[rgba(39,39,42,0.88)] bg-[rgba(39,39,42,0.88)] text-[10px] font-black text-slate-600 shadow-sm ring-1 ring-[rgba(161,161,170,0.18)]">
           +{remaining}
         </div>
       )}
@@ -660,7 +680,7 @@ function FilterCheckboxGroup({
   return (
     <div ref={rootRef} className="relative">
       {!compact && (
-        <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-[#94a3b8]">
+        <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-600">
           {label}
         </span>
       )}
@@ -669,15 +689,15 @@ function FilterCheckboxGroup({
         aria-expanded={open}
         aria-haspopup="listbox"
         onClick={() => setOpen((v) => !v)}
-        className={`flex h-9 w-full items-center justify-between gap-1.5 rounded-lg border bg-[#161922] px-2.5 text-left text-xs font-bold outline-none transition-all ${
+        className={`flex h-9 w-full items-center justify-between gap-1.5 rounded-lg border bg-[var(--bg-card)] px-2.5 text-left text-xs font-bold outline-none transition-all ${
           open || selected.length > 0
-            ? 'border-emerald-500/50 text-white ring-4 ring-emerald-500/10'
-            : 'border-white/10 text-slate-400 hover:border-white/20'
+            ? 'border-[rgba(20,83,45,0.35)] text-ink ring-4 ring-[rgba(20,83,45,0.12)]'
+            : 'border-border text-slate-700 hover:border-white/20'
         }`}
       >
         <span className="truncate text-xs">{summary}</span>
         <ChevronDown
-          className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`h-3.5 w-3.5 shrink-0 text-slate-700 transition-transform ${open ? 'rotate-180' : ''}`}
         />
       </button>
 
@@ -685,22 +705,22 @@ function FilterCheckboxGroup({
         <div
           role="listbox"
           aria-label={label}
-          className="absolute left-0 right-0 z-50 mt-1 rounded-xl border border-white/5 bg-[#161922] p-2 shadow-2xl"
+          className="absolute left-0 right-0 z-50 mt-1 rounded-xl border border-border bg-[var(--bg-card)] p-2 shadow-2xl"
         >
-          <div className="mb-2 flex items-center justify-between gap-2 border-b border-white/5 pb-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</span>
+          <div className="mb-2 flex items-center justify-between gap-2 border-b border-border pb-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700">{label}</span>
             <div className="flex shrink-0 gap-2">
               <button
                 type="button"
                 onClick={() => onChange(options.map((o) => o.value))}
-                className="text-[10px] font-bold text-emerald-400 hover:text-emerald-350"
+                className="text-[10px] font-bold text-[var(--emerald-dark)] hover:text-[var(--green-600)]"
               >
                 All
               </button>
               <button
                 type="button"
                 onClick={() => onChange([])}
-                className="text-[10px] font-bold text-slate-400 hover:text-white"
+                className="text-[10px] font-bold text-slate-700 hover:text-ink"
               >
                 Clear
               </button>
@@ -708,18 +728,18 @@ function FilterCheckboxGroup({
           </div>
           <div className="max-h-48 space-y-0.5 overflow-y-auto pr-0.5">
             {options.length === 0 ? (
-              <p className="px-2 py-2 text-xs font-semibold text-slate-400">No options</p>
+              <p className="px-2 py-2 text-xs font-semibold text-slate-700">No options</p>
             ) : (
               options.map((opt) => (
                 <label
                   key={opt.value}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-white transition-colors hover:bg-white/5"
+                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-ink transition-colors hover:bg-emerald-50/50"
                 >
                   <input
                     type="checkbox"
                     checked={selected.includes(opt.value)}
                     onChange={() => toggle(opt.value)}
-                    className="h-3.5 w-3.5 shrink-0 rounded border-white/10 text-emerald-600 focus:ring-emerald-500/20 bg-[#111319]"
+                    className="h-3.5 w-3.5 shrink-0 rounded border-border bg-[var(--bg-input)] accent-[var(--emerald-dark)]"
                   />
                   <span className="truncate font-semibold" title={opt.label}>
                     {opt.label}
@@ -756,23 +776,23 @@ function CheckboxList({
       <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-450">
         {label}
       </label>
-      <div className="rounded-xl border border-white/10 bg-[#111319] p-2 max-h-32 overflow-y-auto space-y-0.5">
+      <div className="rounded-xl border border-border bg-[var(--bg-input)] p-2 max-h-32 overflow-y-auto space-y-0.5">
         {items.map((item) => (
           <label
             key={item}
-            className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-xs text-white transition-colors hover:bg-white/5 border border-transparent hover:border-white/10"
+            className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-xs text-ink transition-colors hover:bg-emerald-50/50 border border-transparent hover:border-border"
           >
             <input
               type="checkbox"
               checked={selected.includes(item)}
               onChange={() => toggle(item)}
-              className="h-3.5 w-3.5 rounded border-white/10 bg-[#111319] text-emerald-600 focus:ring-emerald-500/20"
+              className="h-3.5 w-3.5 rounded border-border bg-[var(--bg-input)] accent-[var(--emerald-dark)]"
             />
             <span className="font-semibold">{item}</span>
           </label>
         ))}
       </div>
-      <p className="mt-1 text-[10px] text-slate-500 font-bold">
+      <p className="mt-1 text-[10px] text-slate-600 font-bold">
         {selected.length} of {items.length} selected
       </p>
     </div>
@@ -807,28 +827,24 @@ const ProjectCard = memo(function ProjectCard({
   return (
     <div
       className={cn(
-        'group relative flex min-h-[190px] flex-col justify-between overflow-hidden rounded-xl border p-5 transition-all duration-300 hover:-translate-y-0.5 animate-fadeIn',
-        isCompleted
-          ? 'border-emerald-500/15 bg-[#161922] shadow-[0_2px_12px_-3px_rgba(0,0,0,0.35)] hover:border-emerald-500/30 hover:shadow-[0_6px_24px_-6px_rgba(16,185,129,0.1)]'
-          : 'border-white/[0.06] bg-[#161922] shadow-[0_2px_12px_-3px_rgba(0,0,0,0.35)] hover:border-emerald-500/20 hover:shadow-[0_6px_24px_-6px_rgba(16,185,129,0.08)]'
+        'projects-card group relative flex min-h-[190px] flex-col justify-between overflow-hidden rounded-xl p-5 transition-all duration-300 hover:-translate-y-0.5 animate-fadeIn',
+        isCompleted && 'border-[rgba(20,83,45,0.35)] bg-emerald-50/50',
       )}
     >
-      {/* Subtle gradient overlay for depth */}
-      <div className="absolute inset-0 bg-gradient-to-b from-white/[0.015] via-transparent to-transparent pointer-events-none rounded-xl" />
       <div className="relative space-y-3.5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-1 items-start gap-3">
-            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-extrabold ring-1 bg-emerald-500/10 text-emerald-400 ring-emerald-500/25">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-extrabold ring-1 bg-[var(--emerald-surface)] text-[var(--emerald-dark)] ring-[rgba(20,83,45,0.22)]">
               {projectInitial}
             </span>
             <div className="min-w-0 flex-1">
               <h3 className={cn(
                 'text-[14px] font-bold leading-tight transition-colors font-display truncate',
-                isCompleted ? 'text-emerald-400 group-hover:text-emerald-300' : 'text-slate-100 group-hover:text-emerald-400'
+                isCompleted ? 'text-[var(--emerald-dark)] group-hover:text-[var(--green-600)]' : 'text-ink group-hover:text-[var(--emerald-dark)]'
               )}>
                 {project.name}
               </h3>
-              <p className="mt-0.5 text-xs font-semibold text-slate-400 truncate">
+              <p className="mt-0.5 text-xs font-semibold text-slate-700 truncate">
                 {project.client}
               </p>
             </div>
@@ -843,7 +859,7 @@ const ProjectCard = memo(function ProjectCard({
                 Rejected
               </Badge>
             ) : isCompleted ? (
-              <Badge variant="success" className="border border-emerald-500/15 bg-emerald-500/5 px-1.5 py-0.5 text-[9px] font-bold text-emerald-400 rounded-md">
+              <Badge variant="success" className="border border-[rgba(20,83,45,0.18)] bg-[var(--emerald-surface)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--emerald-dark)] rounded-md">
                 Completed
               </Badge>
             ) : (
@@ -863,19 +879,19 @@ const ProjectCard = memo(function ProjectCard({
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-white/[0.05] pt-3 text-xs">
-          <span className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-slate-500">Scope</span>
-          <span className="font-semibold text-slate-300 truncate max-w-[200px]" title={visibilitySummary}>{visibilitySummary}</span>
+        <div className="flex items-center justify-between border-t border-border pt-3 text-xs">
+          <span className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-slate-600">Scope</span>
+          <span className="font-semibold text-slate-800 truncate max-w-[200px]" title={visibilitySummary}>{visibilitySummary}</span>
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-t border-white/[0.05] pt-3 mt-auto">
+        <div className="flex items-center justify-between gap-3 border-t border-border pt-3 mt-auto">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-white/5 bg-[#111319] px-2 py-0.5 text-[10px] font-bold text-slate-400">
-              <Cpu className="h-3 w-3 shrink-0 text-emerald-500" strokeWidth={2.5} />
-              <span className="truncate font-mono text-slate-300">{project.technologyNode}</span>
+            <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-border bg-[var(--bg-input)] px-2 py-0.5 text-[10px] font-bold text-slate-700">
+              <Cpu className="h-3 w-3 shrink-0 text-[var(--emerald-dark)]" strokeWidth={2.5} />
+              <span className="truncate font-mono text-slate-800">{project.technologyNode}</span>
             </span>
             {project.accessType === 'private' && project.teamLead && (
-              <span className="inline-flex items-center rounded-md border border-emerald-500/10 bg-emerald-500/5 px-2 py-0.5 text-[10px] font-bold text-emerald-400 truncate max-w-[120px]" title={`Lead: ${project.teamLead}`}>
+              <span className="inline-flex items-center rounded-md border border-[rgba(20,83,45,0.18)] bg-[var(--emerald-surface)] px-2 py-0.5 text-[10px] font-bold text-[var(--emerald-dark)] truncate max-w-[120px]" title={`Lead: ${project.teamLead}`}>
                 Lead: {project.teamLead.split(' ')[0]}
               </span>
             )}
@@ -884,17 +900,17 @@ const ProjectCard = memo(function ProjectCard({
             {project.accessType === 'private' && project.visibleUsers.length > 0 && (
               <AvatarGroup users={project.visibleUsers} max={2} />
             )}
-            <div className="flex items-center border-l border-white/[0.06] pl-2 gap-0.5">
+            <div className="flex items-center border-l border-border pl-2 gap-0.5">
               <button
                 onClick={onEdit}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-700 transition-colors hover:bg-emerald-50/50 hover:text-ink"
                 title="Edit Project"
               >
                 <Edit2 className="h-3.5 w-3.5" />
               </button>
               <button
                 onClick={onDelete}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-amber-500/10 hover:text-amber-400"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-700 transition-colors hover:bg-amber-500/10 hover:text-amber-400"
                 title="Archive Project"
               >
                 <Archive className="h-3.5 w-3.5" />
@@ -927,21 +943,21 @@ const ProjectListRow = memo(function ProjectListRow({
     project.name.charAt(project.name.indexOf(' ') + 1) || project.name.charAt(0)
 
   return (
-    <tr className={cn('group transition-colors border-b border-white/5 hover:bg-white/[0.02]', isCompleted ? 'bg-emerald-950/10' : '')}>
+    <tr className={cn('group transition-colors border-b border-border hover:bg-emerald-50/50', isCompleted ? 'bg-emerald-50/60' : '')}>
       <td className="px-5 py-4">
         <div className="flex items-center gap-3">
-          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-sm font-extrabold text-emerald-400 ring-1 ring-emerald-500/25">
+          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--emerald-surface)] text-sm font-extrabold text-[var(--emerald-dark)] ring-1 ring-[rgba(20,83,45,0.22)]">
             {projectInitial}
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-slate-100 group-hover:text-emerald-450">{project.name}</p>
+            <p className="truncate text-sm font-bold text-ink group-hover:text-[var(--emerald-dark)]">{project.name}</p>
           </div>
         </div>
       </td>
-      <td className="px-5 py-4 text-sm font-semibold text-slate-300">{project.client}</td>
+      <td className="px-5 py-4 text-sm font-semibold text-slate-800">{project.client}</td>
       <td className="px-5 py-4">
-        <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-[#111319] px-2.5 py-1 text-[11px] font-bold text-slate-300 font-mono">
-          <Cpu className="h-3.5 w-3.5 text-emerald-500" />
+        <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-[var(--bg-input)] px-2.5 py-1 text-[11px] font-bold text-slate-800 font-mono">
+          <Cpu className="h-3.5 w-3.5 text-[var(--emerald-dark)]" />
           {project.technologyNode}
         </span>
       </td>
@@ -960,14 +976,14 @@ const ProjectListRow = memo(function ProjectListRow({
         {project.accessType === 'private' ? (
           <div className="flex items-center gap-2">
             {project.teamLead && (
-              <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-bold text-emerald-400">
+              <span className="inline-flex items-center gap-1 rounded-lg border border-[rgba(20,83,45,0.22)] bg-[var(--emerald-surface)] px-2 py-0.5 text-[11px] font-bold text-[var(--emerald-dark)]">
                 Lead: {project.teamLead}
               </span>
             )}
             <AvatarGroup users={project.visibleUsers} max={3} />
           </div>
         ) : (
-          <span className="text-xs font-medium text-slate-500">All Members (Public)</span>
+          <span className="text-xs font-medium text-slate-600">All Members (Public)</span>
         )}
       </td>
       <td className="px-5 py-4">
@@ -980,7 +996,7 @@ const ProjectListRow = memo(function ProjectListRow({
             <X className="mr-1 h-3.5 w-3.5 text-rose-400" /> Rejected
           </Badge>
         ) : isCompleted ? (
-          <Badge variant="success" className="border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-400">
+          <Badge variant="success" className="border border-[rgba(20,83,45,0.22)] bg-[var(--emerald-surface)] px-2.5 py-1 text-[11px] font-bold text-[var(--emerald-dark)]">
             <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Completed
           </Badge>
         ) : (
@@ -994,14 +1010,14 @@ const ProjectListRow = memo(function ProjectListRow({
         <div className="flex items-center justify-end gap-1">
           <button
             onClick={onEdit}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-700 transition-colors hover:bg-emerald-50/50 hover:text-ink"
             title="Edit Project"
           >
             <Edit2 className="h-4 w-4" />
           </button>
           <button
             onClick={onDelete}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-amber-500/10 hover:text-amber-400"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-700 transition-colors hover:bg-amber-500/10 hover:text-amber-400"
             title="Archive Project"
           >
             <Archive className="h-4 w-4" />
@@ -1034,21 +1050,21 @@ function EmployeeLeaderboard({
         return (
           <div
             key={item.name}
-            className="group rounded-lg border border-transparent px-2 py-2 transition-all hover:border-white/[0.04] hover:bg-white/[0.02]"
+            className="group rounded-lg border border-transparent px-2 py-2 transition-all hover:border-border hover:bg-emerald-50/50"
           >
             <div className="flex items-center gap-2.5">
               <Avatar name={item.name} size="sm" color={`hsl(${hue},55%,45%)`} />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="truncate text-sm font-bold text-slate-200 group-hover:text-emerald-400 font-display">
+                  <p className="truncate text-sm font-bold text-ink group-hover:text-[var(--emerald-dark)] font-display">
                     {item.name}
                   </p>
-                  <span className="type-metric-inline shrink-0 text-slate-100">
+                  <span className="type-metric-inline shrink-0 text-ink">
                     {item.hours.toFixed(1)}
                     <span className="text-[10px] ml-0.5 font-semibold text-slate-450">h</span>
                   </span>
                 </div>
-                <div className="mt-1.5 h-[7px] w-full overflow-hidden rounded-full bg-white/[0.04] ring-1 ring-white/[0.06]">
+                <div className="mt-1.5 h-[7px] w-full overflow-hidden rounded-full bg-surface/80 ring-1 ring-border">
                   <div
                     className="h-full rounded-full transition-all duration-500 ease-out"
                     style={{
@@ -1063,7 +1079,7 @@ function EmployeeLeaderboard({
         )
       })}
       {sortedData.length === 0 && (
-        <p className="py-10 text-center text-sm font-semibold text-slate-500">
+        <p className="py-10 text-center text-sm font-semibold text-slate-600">
           No hours logged in this period.
         </p>
       )}
@@ -2171,256 +2187,254 @@ export function ProjectManagement() {
     tsProjectFilters.length > 0 ||
     tsStatusFilters.length > 0
   return (
-    <PageWrapper className="dashboard-surface py-4 sm:py-5">
-      <div className="crewiq-dashboard">
-        {/* ── Compact admin header: tabs + contextual actions ───────────────── */}
-        <div className="sticky top-0 z-30 -mx-4 mb-5 border-b border-white/[0.06] bg-[#0c0f1a]/95 px-4 py-3 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="inline-flex items-center gap-0.5 rounded-lg border border-white/[0.06] bg-[#0f1219] p-0.5">
-            {[
-              { key: 'projects' as const, label: 'Projects', icon: FolderOpen, count: filteredProjects.length },
-              { key: 'timesheets' as const, label: 'Timesheets', icon: Clock, count: filteredTimesheets.length },
-            ].map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`inline-flex items-center gap-1.5 rounded-[7px] px-3.5 py-[7px] text-[12px] font-bold transition-all duration-200 ${
-                  activeTab === tab.key
-                    ? 'bg-emerald-600 text-white shadow-[0_1px_3px_rgba(0,0,0,0.3),0_0_0_1px_rgba(16,185,129,0.15)_inset]'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
-                }`}
-              >
-                <tab.icon className="h-3.5 w-3.5 shrink-0" />
-                {tab.label}
-                <span
-                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-black tabular-nums leading-none ${
-                    activeTab === tab.key ? 'bg-white/15 text-white' : 'bg-white/5 text-slate-500'
-                  }`}
-                >
-                  {tab.count}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap items-center justify-end gap-2">
+    <div className="crewiq-dashboard admin-projects-view">
+      <div className="crewiq-dash-bg" aria-hidden />
+      <PageWrapper className="relative z-10 py-3 font-body">
+        <div className="projects-shell animate-fadeIn">
+          {/* Dark green hero — title, tabs, actions, metrics */}
+          <div className="projects-hero sticky top-0 z-30">
+            <div className="projects-hero-top">
+              <div className="min-w-0">
+                <h1 className="projects-hero-title font-display">Projects & Timesheets</h1>
+                <p className="projects-hero-sub">
+                  Manage projects, review logs, and track team hours in one place
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="projects-tab-rail">
+                  {[
+                    { key: 'projects' as const, label: 'Projects', icon: FolderOpen, count: filteredProjects.length },
+                    { key: 'timesheets' as const, label: 'Timesheets', icon: Clock, count: filteredTimesheets.length },
+                  ].map((tab) => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setActiveTab(tab.key)}
+                      className={`inline-flex items-center gap-1 rounded-[6px] px-2 py-1 text-[11px] font-bold transition-all duration-200 ${
+                        activeTab === tab.key
+                          ? 'admin-dash-action-btn-sm text-white'
+                          : 'projects-tab-inactive'
+                      }`}
+                    >
+                      <tab.icon className="h-3 w-3 shrink-0" />
+                      {tab.label}
+                      <span
+                        className={`rounded-full px-1 py-px text-[9px] font-black tabular-nums leading-none ${
+                          activeTab === tab.key ? 'bg-white/20 text-white' : 'bg-white/15 text-white/80'
+                        }`}
+                      >
+                        {tab.count}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {activeTab === 'projects' && (
+                    <>
+                      <Button
+                        onClick={() => setArchivedModalOpen(true)}
+                        className="flex h-7 items-center gap-1 rounded-md border border-white/20 bg-white/10 px-2.5 py-0 text-[11px] font-bold text-white transition-all hover:bg-white/20"
+                      >
+                        <Archive className="h-3 w-3" />
+                        <span className="hidden sm:inline">Archived</span>
+                      </Button>
+                      <Button
+                        onClick={openCreateProject}
+                        className="admin-dash-action-btn flex h-7 items-center gap-1 rounded-md px-2.5 py-0 text-[11px] font-bold"
+                      >
+                        <Plus className="h-3 w-3" />
+                        Create Project
+                      </Button>
+                    </>
+                  )}
+                  {activeTab === 'timesheets' && (
+                    <>
+                      <button
+                        onClick={handleExportPDF}
+                        className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-rose-300/30 bg-rose-500/20 px-2.5 text-[11px] font-bold text-rose-100 transition-all hover:bg-rose-500/30"
+                        title="Export timesheet data as PDF report"
+                      >
+                        <FileDown className="h-3 w-3 shrink-0" />
+                        <span>PDF Report</span>
+                      </button>
+                      <button
+                        onClick={handleExportExcel}
+                        className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-white/20 bg-white/10 px-2.5 text-[11px] font-bold text-white transition-all hover:bg-white/20"
+                        title="Export timesheet data as Excel spreadsheet"
+                      >
+                        <FileSpreadsheet className="h-3 w-3 shrink-0" />
+                        <span>Excel</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
             {activeTab === 'projects' && (
-              <>
-                <Button
-                  onClick={() => setArchivedModalOpen(true)}
-                  className="flex h-8 items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-0 text-[12px] font-bold text-slate-300 transition-all hover:bg-white/[0.06] hover:border-white/[0.14] hover:text-white"
-                >
-                  <Archive className="h-3.5 w-3.5 text-slate-500" />
-                  <span className="hidden sm:inline">Archived</span>
-                </Button>
-                <Button
-                  onClick={openCreateProject}
-                  className="flex h-8 items-center gap-1.5 rounded-lg border-0 bg-emerald-600 px-3.5 py-0 text-[12px] font-bold text-white shadow-[0_1px_3px_rgba(0,0,0,0.25)] transition-all hover:bg-emerald-500 hover:shadow-[0_2px_10px_rgba(16,185,129,0.25)]"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Create Project
-                </Button>
-              </>
-            )}
-            {activeTab === 'timesheets' && (
-              <>
-                <button
-                  onClick={handleExportPDF}
-                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-rose-500/15 bg-rose-500/8 px-3 text-[12px] font-bold text-rose-400 transition-all hover:bg-rose-500/15 hover:border-rose-500/25"
-                  title="Export timesheet data as PDF report"
-                >
-                  <FileDown className="h-3.5 w-3.5 shrink-0 text-rose-500" />
-                  <span>PDF Report</span>
-                </button>
-                <button
-                  onClick={handleExportExcel}
-                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-emerald-500/15 bg-emerald-500/8 px-3 text-[12px] font-bold text-emerald-400 transition-all hover:bg-emerald-500/15 hover:border-emerald-500/25"
-                  title="Export timesheet data as Excel spreadsheet"
-                >
-                  <FileSpreadsheet className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                  <span>Excel</span>
-                </button>
-              </>
+              <div className="projects-metrics-band">
+                <MetricCard
+                  variant="hero"
+                  label="Total Projects"
+                  value={projectMetrics.total}
+                  icon={FolderOpen}
+                  accentClass=""
+                  iconClassName=""
+                  secondaryText="All registered projects"
+                />
+                <MetricCard
+                  variant="hero"
+                  label="In Progress"
+                  value={projectMetrics.inProgress}
+                  icon={ArrowUpRight}
+                  accentClass=""
+                  iconClassName=""
+                  secondaryText="Currently active"
+                />
+                <MetricCard
+                  variant="hero"
+                  label="Completed"
+                  value={projectMetrics.completed}
+                  icon={CheckCircle2}
+                  accentClass=""
+                  iconClassName=""
+                  secondaryText="Successfully delivered"
+                />
+              </div>
             )}
           </div>
-        </div>
-      </div>
 
       {/* ================================================================
            TAB 1 – PROJECTS
            ================================================================ */}
       {activeTab === 'projects' && (
-        <div className="space-y-5 pb-16 animate-fadeIn">
-          {/* Project metrics */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <MetricCard
-              label="Total Projects"
-              value={projectMetrics.total}
-              icon={FolderOpen}
-              accentClass="bg-gradient-to-r from-slate-400 to-slate-500"
-              iconClassName="bg-slate-500/10 text-slate-300 ring-slate-500/15"
-              secondaryText="All registered projects"
-            />
-            <MetricCard
-              label="In Progress"
-              value={projectMetrics.inProgress}
-              icon={ArrowUpRight}
-              accentClass="bg-gradient-to-r from-emerald-500 to-emerald-400"
-              iconClassName="bg-emerald-500/10 text-emerald-400 ring-emerald-500/20"
-              secondaryText="Currently active"
-            />
-            <MetricCard
-              label="Completed"
-              value={projectMetrics.completed}
-              icon={CheckCircle2}
-              accentClass="bg-gradient-to-r from-teal-500 to-teal-400"
-              iconClassName="bg-teal-500/10 text-teal-400 ring-teal-500/20"
-              secondaryText="Successfully delivered"
-            />
-          </div>
-
-          {/* Search & filters toolbar */}
-          <div className="rounded-xl border border-white/[0.06] bg-[#161922] p-3.5 shadow-[0_2px_12px_-3px_rgba(0,0,0,0.35)]">
-            <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                <div className="relative min-w-[200px] flex-1 sm:max-w-md">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search projects, clients, tech nodes…"
-                    className="h-9 w-full rounded-lg border border-white/10 bg-[#111319] pl-9 pr-8 text-sm font-semibold text-slate-200 outline-none transition-all placeholder:text-slate-500 focus:border-emerald-500/50 focus:bg-[#111319]/80 focus:ring-2 focus:ring-emerald-500/10"
-                  />
-                  {searchQuery && (
-                    <button
-                      onClick={() => setSearchQuery('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-slate-400 hover:bg-white/5 hover:text-slate-200"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-
+        <div className="projects-body-grid">
+          {/* Light green sidebar — search & filters */}
+          <aside className="projects-sidebar space-y-3">
+            <p className="projects-sidebar-title">Search & Filters</p>
+            <div className="relative min-w-0">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--emerald-dark)]" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search projects, clients…"
+                className="admin-field h-9 w-full pl-9 pr-8 text-sm font-medium text-ink shadow-sm placeholder:text-ink/45"
+              />
+              {searchQuery ? (
                 <button
-                  type="button"
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-xs font-bold transition-all ${
-                    showFilters || activeFiltersCount > 0
-                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
-                      : 'border-white/10 bg-[#111319] text-slate-300 hover:bg-white/[0.04]'
-                  }`}
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-slate-700 hover:bg-white/60 hover:text-ink"
                 >
-                  <SlidersHorizontal className="h-3.5 w-3.5" />
-                  Filters
-                  {activeFiltersCount > 0 && (
-                    <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-emerald-600 px-1 text-[10px] font-black text-white">
-                      {activeFiltersCount}
-                    </span>
-                  )}
+                  <X className="h-3.5 w-3.5" />
                 </button>
-              </div>
-
-              <div className="flex items-center justify-between gap-3 sm:justify-end">
-                <p className="text-xs font-semibold text-slate-400 tabular-nums">
-                  <span className="font-bold text-slate-100">{filteredProjects.length}</span>
-                  <span className="text-slate-500"> / {projects.length}</span>
-                </p>
-
-                <div className="flex rounded-lg border border-white/10 bg-[#111319] p-0.5">
-                  <button
-                    onClick={() => setViewMode('grid')}
-                    className={`rounded-md p-2 transition-all ${
-                      viewMode === 'grid'
-                        ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'text-slate-450 hover:text-slate-200'
-                    }`}
-                    title="Grid layout"
-                  >
-                    <LayoutGrid className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => setViewMode('list')}
-                    className={`rounded-md p-2 transition-all ${
-                      viewMode === 'list'
-                        ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'text-slate-455 hover:text-slate-200'
-                    }`}
-                    title="List layout"
-                  >
-                    <List className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
+              ) : null}
             </div>
 
-            {showFilters && (
-              <div className="mt-3 border-t border-white/5 pt-3 animate-fadeIn">
-                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
-                  <FilterCheckboxGroup
-                    label="Client Name"
-                    placeholder="All Clients"
-                    compact
-                    options={uniqueClients.map((c) => ({ value: c, label: c }))}
-                    selected={filterClients}
-                    onChange={setFilterClients}
-                  />
+            <button
+              type="button"
+              onClick={() => setShowFilters(!showFilters)}
+              className={`inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-bold transition-all ${
+                showFilters || activeFiltersCount > 0
+                  ? 'border-[rgba(20,83,45,0.35)] bg-white/80 text-[var(--emerald-dark)]'
+                  : 'border-[rgba(20,83,45,0.2)] bg-white/50 text-slate-800 hover:bg-white/70'
+              }`}
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              {showFilters ? 'Hide Filters' : 'Show Filters'}
+              {activeFiltersCount > 0 ? (
+                <span className="admin-dash-action-btn-sm inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1 text-[10px] font-black text-white">
+                  {activeFiltersCount}
+                </span>
+              ) : null}
+            </button>
 
-                  <FilterCheckboxGroup
-                    label="Employee"
-                    placeholder="All Employees"
-                    compact
-                    options={uniqueEmployees.map((emp) => ({ value: emp, label: emp }))}
-                    selected={filterEmployees}
-                    onChange={setFilterEmployees}
-                  />
-
-                  <FilterCheckboxGroup
-                    label="Project Status"
-                    placeholder="All Statuses"
-                    compact
-                    options={[
-                      { value: 'Active', label: 'In Progress' },
-                      { value: 'Completed', label: 'Completed' },
-                      { value: 'Cancelled', label: 'Cancelled' },
-                    ]}
-                    selected={filterStatuses}
-                    onChange={setFilterStatuses}
-                  />
-
-                  <FilterCheckboxGroup
-                    label="Access Control"
-                    placeholder="All Access"
-                    compact
-                    options={[
-                      { value: 'public', label: 'Public' },
-                      { value: 'private', label: 'Private' },
-                    ]}
-                    selected={filterAccessTypes}
-                    onChange={setFilterAccessTypes}
-                  />
-
-
-                </div>
-
-                {activeFiltersCount > 0 && (
-                  <div className="mt-2.5 flex items-center justify-between border-t border-white/5 pt-2.5">
-                    <p className="text-xs font-semibold text-slate-450">
-                      {activeFiltersCount} filter{activeFiltersCount === 1 ? '' : 's'} active
-                    </p>
-                    <button
-                      onClick={clearProjectsFilters}
-                      className="text-xs font-bold text-emerald-450 hover:text-emerald-350 transition-colors"
-                    >
-                      Reset All Filters
-                    </button>
-                  </div>
-                )}
+            {showFilters ? (
+              <div className="space-y-3 rounded-lg border border-[rgba(20,83,45,0.15)] bg-white/55 p-3 animate-fadeIn">
+                <FilterCheckboxGroup
+                  label="Client Name"
+                  placeholder="All Clients"
+                  compact
+                  options={uniqueClients.map((c) => ({ value: c, label: c }))}
+                  selected={filterClients}
+                  onChange={setFilterClients}
+                />
+                <FilterCheckboxGroup
+                  label="Employee"
+                  placeholder="All Employees"
+                  compact
+                  options={uniqueEmployees.map((emp) => ({ value: emp, label: emp }))}
+                  selected={filterEmployees}
+                  onChange={setFilterEmployees}
+                />
+                <FilterCheckboxGroup
+                  label="Project Status"
+                  placeholder="All Statuses"
+                  compact
+                  options={[
+                    { value: 'Active', label: 'In Progress' },
+                    { value: 'Completed', label: 'Completed' },
+                    { value: 'Cancelled', label: 'Cancelled' },
+                  ]}
+                  selected={filterStatuses}
+                  onChange={setFilterStatuses}
+                />
+                <FilterCheckboxGroup
+                  label="Access Control"
+                  placeholder="All Access"
+                  compact
+                  options={[
+                    { value: 'public', label: 'Public' },
+                    { value: 'private', label: 'Private' },
+                  ]}
+                  selected={filterAccessTypes}
+                  onChange={setFilterAccessTypes}
+                />
+                {activeFiltersCount > 0 ? (
+                  <button
+                    onClick={clearProjectsFilters}
+                    className="w-full text-center text-xs font-bold text-[var(--emerald-dark)] hover:text-[var(--green-600)] transition-colors"
+                  >
+                    Reset All Filters
+                  </button>
+                ) : null}
               </div>
-            )}
-          </div>
+            ) : null}
 
-          {/* Projects View Render */}
+            <div className="rounded-lg border border-[rgba(20,83,45,0.12)] bg-white/45 p-3">
+              <p className="text-xs font-semibold text-slate-700 tabular-nums">
+                <span className="font-bold text-[var(--emerald-dark)]">{filteredProjects.length}</span>
+                <span className="text-slate-600"> / {projects.length} projects</span>
+              </p>
+              <div className="projects-view-toggle mt-2">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`flex-1 rounded-md p-2 transition-all ${
+                    viewMode === 'grid' ? 'admin-projects-green-solid shadow-sm' : 'text-slate-600 hover:text-ink'
+                  }`}
+                  title="Grid layout"
+                >
+                  <LayoutGrid className="mx-auto h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`flex-1 rounded-md p-2 transition-all ${
+                    viewMode === 'list' ? 'admin-projects-green-solid shadow-sm' : 'text-slate-600 hover:text-ink'
+                  }`}
+                  title="List layout"
+                >
+                  <List className="mx-auto h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </aside>
+
+          {/* Main content panel */}
+          <div className="projects-main-panel">
+            <div className="projects-main-header">
+              <h2 className="font-display text-sm font-bold text-[var(--emerald-dark)]">Project Directory</h2>
+              <p className="text-xs font-medium text-slate-600">
+                {viewMode === 'grid' ? 'Grid view' : 'List view'} · {filteredProjects.length} result{filteredProjects.length === 1 ? '' : 's'}
+              </p>
+            </div>
           {viewMode === 'grid' ? (
             <>
               {filteredProjects.length > 0 ? (
@@ -2444,30 +2458,30 @@ export function ProjectManagement() {
               )}
             </>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-[#161922] shadow-[0_2px_12px_-3px_rgba(0,0,0,0.35)]">
+            <div className="projects-table-shell">
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-left">
                   <thead>
-                    <tr className="border-b border-white/[0.06] bg-[#0e1119]">
-                      <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">
+                    <tr className="border-b border-border bg-transparent">
+                      <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
                         Project Details
                       </th>
-                      <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">
+                      <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
                         Client
                       </th>
-                      <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">
+                      <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
                         Technology Node
                       </th>
-                      <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">
+                      <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
                         Access Control
                       </th>
-                      <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">
+                      <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
                         Visibility Scope
                       </th>
-                      <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">
+                      <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
                         Status
                       </th>
-                      <th className="px-5 py-3 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">
+                      <th className="px-5 py-3 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
                         Actions
                       </th>
                     </tr>
@@ -2497,8 +2511,8 @@ export function ProjectManagement() {
 
           {/* Projects Pagination Controls */}
           {totalProjectsPages > 1 && (
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.05] pt-4">
-              <span className="text-[11px] font-semibold text-slate-500">
+            <div className="projects-pagination-bar flex flex-wrap items-center justify-between gap-3">
+              <span className="text-[11px] font-semibold text-slate-600">
                 Showing {indexOfFirstProject + 1}–{Math.min(indexOfLastProject, filteredProjects.length)} of {filteredProjects.length} projects
               </span>
               <div className="flex items-center gap-1.5">
@@ -2506,7 +2520,7 @@ export function ProjectManagement() {
                   type="button"
                   disabled={projectsCurrentPage === 1}
                   onClick={() => setProjectsCurrentPage((p) => Math.max(1, p - 1))}
-                  className="inline-flex h-7 items-center justify-center rounded-lg border border-white/[0.08] bg-[#161922] px-3 text-[11px] font-bold text-slate-400 transition-all hover:bg-white/[0.04] hover:text-slate-200 disabled:opacity-40 disabled:pointer-events-none"
+                  className="inline-flex h-7 items-center justify-center rounded-lg border border-border bg-[var(--bg-card)] px-3 text-[11px] font-bold text-slate-700 transition-all hover:bg-emerald-50/60 hover:text-ink disabled:opacity-40 disabled:pointer-events-none"
                 >
                   Previous
                 </button>
@@ -2517,8 +2531,8 @@ export function ProjectManagement() {
                     onClick={() => setProjectsCurrentPage(page)}
                     className={`inline-flex h-7 w-7 items-center justify-center rounded-lg text-[11px] font-black transition-all ${
                       projectsCurrentPage === page
-                        ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'border border-white/[0.06] bg-[#161922] text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
+                        ? 'admin-projects-green-solid shadow-sm'
+                        : 'border border-border bg-[var(--bg-card)] text-slate-700 hover:bg-emerald-50/60 hover:text-ink'
                     }`}
                   >
                     {page}
@@ -2528,13 +2542,14 @@ export function ProjectManagement() {
                   type="button"
                   disabled={projectsCurrentPage === totalProjectsPages}
                   onClick={() => setProjectsCurrentPage((p) => Math.min(totalProjectsPages, p + 1))}
-                  className="inline-flex h-7 items-center justify-center rounded-lg border border-white/[0.08] bg-[#161922] px-3 text-[11px] font-bold text-slate-400 transition-all hover:bg-white/[0.04] hover:text-slate-200 disabled:opacity-40 disabled:pointer-events-none"
+                  className="inline-flex h-7 items-center justify-center rounded-lg border border-border bg-[var(--bg-card)] px-3 text-[11px] font-bold text-slate-700 transition-all hover:bg-emerald-50/60 hover:text-ink disabled:opacity-40 disabled:pointer-events-none"
                 >
                   Next
                 </button>
               </div>
             </div>
           )}
+          </div>
         </div>
       )}
 
@@ -2542,25 +2557,25 @@ export function ProjectManagement() {
            TAB 2 – TIMESHEETS (Manage Timesheets / Review Time Logs)
            ================================================================ */}
       {activeTab === 'timesheets' && (
-        <div className="space-y-5 pb-16 animate-fadeIn">
+        <div className="space-y-4 pb-8 animate-fadeIn">
           {/* Timesheets filter toolbar */}
-          <div className="rounded-xl border border-white/[0.06] bg-[#161922] p-3.5 shadow-[0_2px_12px_-3px_rgba(0,0,0,0.35)]">
+          <div className="projects-ts-filters">
             <div className="flex flex-col gap-2">
               <div className="grid grid-cols-1 items-center gap-2 md:grid-cols-2 xl:grid-cols-[minmax(11rem,1.4fr)_auto_minmax(8.5rem,1fr)_minmax(8.5rem,1fr)_minmax(7.5rem,0.9fr)_auto]">
                 <div className="relative min-w-0 md:col-span-2 xl:col-span-1">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
                   <input
                     type="text"
                     value={tsSearch}
                     onChange={(e) => setTsSearch(e.target.value)}
                     placeholder="Search employees, projects…"
-                    className="h-9 w-full rounded-lg border border-white/10 bg-[#111319] pl-9 pr-8 text-sm font-semibold text-slate-200 outline-none transition-all placeholder:text-slate-500 focus:border-emerald-500/50 focus:bg-[#111319]/80 focus:ring-2 focus:ring-emerald-500/10"
+                    className="admin-field h-9 w-full pl-9 pr-8 text-sm font-medium text-ink shadow-sm placeholder:text-ink/45"
                   />
                   {tsSearch.trim() && (
                     <button
                       type="button"
                       onClick={() => setTsSearch('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-slate-700 hover:bg-emerald-50/50 hover:text-ink"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -2610,15 +2625,15 @@ export function ProjectManagement() {
                 </div>
 
                 <div className="flex items-center justify-end gap-2 xl:justify-end">
-                  <span className="inline-flex h-9 items-center rounded-lg border border-white/10 bg-[#111319] px-3 text-xs font-semibold tabular-nums text-slate-350">
-                    <span className="font-bold text-slate-100">{filteredTimesheets.length}</span>
-                    <span className="ml-1 text-slate-500">logs</span>
+                  <span className="inline-flex h-9 items-center rounded-lg border border-border bg-[var(--bg-input)] px-3 text-xs font-semibold tabular-nums text-slate-350">
+                    <span className="font-bold text-ink">{filteredTimesheets.length}</span>
+                    <span className="ml-1 text-slate-600">logs</span>
                   </span>
                   {hasActiveTimesheetFilters && (
                     <button
                       type="button"
                       onClick={clearTimesheetFilters}
-                      className="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg border border-white/10 bg-[#111319] px-2.5 text-xs font-bold text-slate-350 transition-colors hover:bg-white/[0.04] hover:text-white"
+                      className="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg border border-border bg-[var(--bg-input)] px-2.5 text-xs font-bold text-slate-350 transition-colors hover:bg-emerald-50/60 hover:text-ink"
                       title="Reset filters"
                     >
                       <X className="h-3.5 w-3.5" />
@@ -2629,16 +2644,16 @@ export function ProjectManagement() {
             </div>
 
             {hasActiveTimesheetFilters && (
-              <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-white/5 pt-2.5">
-                <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Active</span>
+              <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-border pt-2.5">
+                <span className="text-[11px] font-bold uppercase tracking-wide text-slate-600">Active</span>
 
                 {tsSearch.trim() && (
-                  <span className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-[#111319] px-2 py-1 text-xs font-semibold text-slate-300">
+                  <span className="inline-flex items-center gap-1 rounded-md border border-border bg-[var(--bg-input)] px-2 py-1 text-xs font-semibold text-slate-800">
                     Search: &quot;{tsSearch}&quot;
                     <button
                       type="button"
                       onClick={() => setTsSearch('')}
-                      className="text-slate-500 hover:text-slate-300"
+                      className="text-slate-600 hover:text-slate-800"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -2648,13 +2663,13 @@ export function ProjectManagement() {
                 {tsEmployeeFilters.map((empName) => (
                   <span
                     key={empName}
-                    className="inline-flex items-center gap-1 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-xs font-semibold text-emerald-400"
+                    className="inline-flex items-center gap-1 rounded-md border border-[rgba(20,83,45,0.22)] bg-[var(--emerald-surface)] px-2 py-1 text-xs font-semibold text-[var(--emerald-dark)]"
                   >
                     {empName}
                     <button
                       type="button"
                       onClick={() => setTsEmployeeFilters(tsEmployeeFilters.filter((name) => name !== empName))}
-                      className="text-emerald-555 text-emerald-400 hover:text-emerald-300"
+                      className="text-[var(--emerald-dark)] hover:text-[var(--green-600)]"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -2664,13 +2679,13 @@ export function ProjectManagement() {
                 {tsProjectFilters.map((proj) => (
                   <span
                     key={proj}
-                    className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-[#111319] px-2 py-1 text-xs font-semibold text-slate-300"
+                    className="inline-flex items-center gap-1 rounded-md border border-border bg-[var(--bg-input)] px-2 py-1 text-xs font-semibold text-slate-800"
                   >
                     {proj}
                     <button
                       type="button"
                       onClick={() => setTsProjectFilters(tsProjectFilters.filter((p) => p !== proj))}
-                      className="text-slate-500 hover:text-slate-300"
+                      className="text-slate-600 hover:text-slate-800"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -2696,7 +2711,7 @@ export function ProjectManagement() {
                 <button
                   type="button"
                   onClick={clearTimesheetFilters}
-                  className="ml-auto text-xs font-bold text-emerald-450 hover:text-emerald-350"
+                  className="ml-auto text-xs font-bold text-[var(--emerald-dark)] hover:text-[var(--green-600)]"
                 >
                   Clear all
                 </button>
@@ -2706,10 +2721,10 @@ export function ProjectManagement() {
 
           {/* Analytics panels */}
           <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-xl border border-white/[0.06] bg-[#161922] p-5 shadow-[0_2px_12px_-3px_rgba(0,0,0,0.35)]">
-              <div className="mb-4 flex items-center justify-between gap-2 border-b border-white/[0.05] pb-3">
-                <h3 className="type-card-label-caps flex items-center gap-2 text-emerald-450 font-extrabold">
-                  <span className="h-3.5 w-1 shrink-0 rounded-full bg-emerald-500" />
+            <div className="projects-analytics-card">
+              <div className="projects-analytics-head mb-0 flex items-center justify-between gap-2 border-b-0 pb-0">
+                <h3 className="type-card-label-caps flex items-center gap-2 font-extrabold">
+                  <span className="h-3.5 w-1 shrink-0 rounded-full bg-white/80" />
                   Aggregated Hours by Project
                 </h3>
                 {derivedHoursByProject.length > 0 && (
@@ -2718,6 +2733,7 @@ export function ProjectManagement() {
                   </span>
                 )}
               </div>
+              <div className="projects-analytics-body">
               {derivedHoursByProject.length > 0 ? (
                 <div className="timesheet-panel-scroll h-60 overflow-auto pr-0.5 sm:h-64">
                   <ProjectHoursHoverCardProvider>
@@ -2777,16 +2793,17 @@ export function ProjectManagement() {
                   </ProjectHoursHoverCardProvider>
                 </div>
               ) : (
-                <div className="flex h-60 items-center justify-center rounded-lg border border-dashed border-white/[0.06] bg-[#111319] text-sm font-semibold text-slate-500 sm:h-64">
+                <div className="flex h-60 items-center justify-center rounded-lg border border-dashed border-[rgba(20,83,45,0.2)] bg-white/60 text-sm font-semibold text-slate-600 sm:h-64">
                   No data logs available in the chosen dates.
                 </div>
               )}
+              </div>
             </div>
 
-            <div className="rounded-xl border border-white/[0.06] bg-[#161922] p-5 shadow-[0_2px_12px_-3px_rgba(0,0,0,0.35)]">
-              <div className="mb-4 flex items-center justify-between gap-2 border-b border-white/[0.05] pb-3">
-                <h3 className="type-card-label-caps flex items-center gap-2 text-emerald-450 font-extrabold">
-                  <span className="h-3.5 w-1 shrink-0 rounded-full bg-emerald-500" />
+            <div className="projects-analytics-card">
+              <div className="projects-analytics-head mb-0 flex items-center justify-between gap-2 border-b-0 pb-0">
+                <h3 className="type-card-label-caps flex items-center gap-2 font-extrabold">
+                  <span className="h-3.5 w-1 shrink-0 rounded-full bg-white/80" />
                   Aggregated Hours by Employee
                 </h3>
                 {derivedLeaderboardData.length > 0 && (
@@ -2795,23 +2812,25 @@ export function ProjectManagement() {
                   </span>
                 )}
               </div>
+              <div className="projects-analytics-body">
               <div className="timesheet-panel-scroll max-h-[15.75rem] overflow-y-auto pr-0.5">
                 <EmployeeLeaderboard data={derivedLeaderboardData} />
+              </div>
               </div>
             </div>
           </div>
 
           {/* Timesheet log table */}
-          <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-[#161922] shadow-[0_2px_12px_-3px_rgba(0,0,0,0.35)]">
+          <div className="projects-ts-table-wrap">
             <div className="max-h-[min(32rem,70vh)] overflow-auto timesheet-panel-scroll">
               <table className="w-full min-w-[640px] border-collapse text-left">
                 <thead className="sticky top-0 z-10">
-                  <tr className="border-b border-white/[0.08] bg-[#0e1119]">
-                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">Employee</th>
-                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">Project</th>
-                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">Login Time</th>
-                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">Logout Time</th>
-                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">Duration</th>
+                  <tr className="border-b border-transparent bg-transparent">
+                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Employee</th>
+                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Project</th>
+                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Login Time</th>
+                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Logout Time</th>
+                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Duration</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 text-sm">
@@ -2828,7 +2847,7 @@ export function ProjectManagement() {
                     return (
                       <tr
                         key={t.id}
-                        className="group transition-colors hover:bg-white/[0.02]"
+                        className="group transition-colors hover:bg-emerald-50/50"
                       >
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-3">
@@ -2842,10 +2861,10 @@ export function ProjectManagement() {
                               }
                             />
                             <div className="min-w-0">
-                              <p className="truncate font-bold text-slate-100 leading-tight">
+                              <p className="truncate font-bold text-ink leading-tight">
                                 {t.employeeName}
                               </p>
-                              <p className="text-[11px] font-semibold text-slate-500 font-mono">
+                              <p className="text-[11px] font-semibold text-slate-600 font-mono">
                                 {t.employeeId}
                               </p>
                             </div>
@@ -2867,27 +2886,27 @@ export function ProjectManagement() {
                                 }
                               }
                             }}
-                            className="group/btn block max-w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 rounded-md"
+                            className="group/btn block max-w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(20,83,45,0.22)] rounded-md"
                           >
-                            <p className="flex items-center gap-1 font-bold text-slate-200 transition-colors group-hover/btn:text-emerald-450">
+                            <p className="flex items-center gap-1 font-bold text-ink transition-colors group-hover/btn:text-[var(--emerald-dark)]">
                               <span className="truncate">{t.project}</span>
-                              <ArrowUpRight className="h-3.5 w-3.5 shrink-0 opacity-0 text-emerald-500 transition-all group-hover/btn:opacity-100" />
+                              <ArrowUpRight className="h-3.5 w-3.5 shrink-0 opacity-0 text-[var(--emerald-dark)] transition-all group-hover/btn:opacity-100" />
                             </p>
                           </button>
                         </td>
 
                         <td className="whitespace-nowrap px-5 py-3.5">
-                          <p className="font-semibold text-slate-300">{formatDateTime(t.loginTime)}</p>
+                          <p className="font-semibold text-slate-800">{formatDateTime(t.loginTime)}</p>
                         </td>
 
                         <td className="whitespace-nowrap px-5 py-3.5">
-                          <p className="font-semibold text-slate-300">
+                          <p className="font-semibold text-slate-800">
                             {t.logoutTime ? formatDateTime(t.logoutTime) : '—'}
                           </p>
                         </td>
 
                         <td className="px-5 py-3.5">
-                          <span className="inline-flex rounded-lg border border-white/10 bg-[#111319] px-2.5 py-1 text-slate-200 font-mono text-xs font-bold">
+                          <span className="inline-flex rounded-lg border border-border bg-[var(--bg-input)] px-2.5 py-1 text-ink font-mono text-xs font-bold">
                             {formatAdminDuration(hours)}
                           </span>
                           {t.autoCheckedOut && (
@@ -2901,7 +2920,7 @@ export function ProjectManagement() {
                   })}
                   {filteredTimesheets.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="py-12 text-center text-sm font-semibold text-slate-500">
+                      <td colSpan={5} className="py-12 text-center text-sm font-semibold text-slate-600">
                         No individual logs correspond to selected range and filters.
                       </td>
                     </tr>
@@ -2912,8 +2931,8 @@ export function ProjectManagement() {
           </div>
 
           {totalTimesheetsPages > 1 && (
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.05] pt-4">
-              <span className="text-[11px] font-semibold text-slate-500">
+            <div className="projects-pagination-bar flex flex-wrap items-center justify-between gap-3">
+              <span className="text-[11px] font-semibold text-slate-600">
                 Showing {indexOfFirstTimesheet + 1}–{Math.min(indexOfLastTimesheet, filteredTimesheets.length)} of {filteredTimesheets.length} logs
               </span>
               <div className="flex items-center gap-1.5">
@@ -2921,7 +2940,7 @@ export function ProjectManagement() {
                   type="button"
                   disabled={timesheetsCurrentPage === 1}
                   onClick={() => setTimesheetsCurrentPage((p) => Math.max(1, p - 1))}
-                  className="inline-flex h-7 items-center justify-center rounded-lg border border-white/[0.08] bg-[#161922] px-3 text-[11px] font-bold text-slate-400 transition-all hover:bg-white/[0.04] hover:text-slate-200 disabled:opacity-40 disabled:pointer-events-none"
+                  className="inline-flex h-7 items-center justify-center rounded-lg border border-border bg-[var(--bg-card)] px-3 text-[11px] font-bold text-slate-700 transition-all hover:bg-emerald-50/60 hover:text-ink disabled:opacity-40 disabled:pointer-events-none"
                 >
                   Previous
                 </button>
@@ -2932,8 +2951,8 @@ export function ProjectManagement() {
                     onClick={() => setTimesheetsCurrentPage(page)}
                     className={`inline-flex h-7 w-7 items-center justify-center rounded-lg text-[11px] font-black transition-all ${
                       timesheetsCurrentPage === page
-                        ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'border border-white/[0.06] bg-[#161922] text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
+                        ? 'admin-projects-green-solid shadow-sm'
+                        : 'border border-border bg-[var(--bg-card)] text-slate-700 hover:bg-emerald-50/60 hover:text-ink'
                     }`}
                   >
                     {page}
@@ -2943,7 +2962,7 @@ export function ProjectManagement() {
                   type="button"
                   disabled={timesheetsCurrentPage === totalTimesheetsPages}
                   onClick={() => setTimesheetsCurrentPage((p) => Math.min(totalTimesheetsPages, p + 1))}
-                  className="inline-flex h-7 items-center justify-center rounded-lg border border-white/[0.08] bg-[#161922] px-3 text-[11px] font-bold text-slate-400 transition-all hover:bg-white/[0.04] hover:text-slate-200 disabled:opacity-40 disabled:pointer-events-none"
+                  className="inline-flex h-7 items-center justify-center rounded-lg border border-border bg-[var(--bg-card)] px-3 text-[11px] font-bold text-slate-700 transition-all hover:bg-emerald-50/60 hover:text-ink disabled:opacity-40 disabled:pointer-events-none"
                 >
                   Next
                 </button>
@@ -2952,6 +2971,8 @@ export function ProjectManagement() {
           )}
         </div>
       )}
+
+        </div>
 
       {/* ================================================================
            MODALS (Forms)
@@ -2963,7 +2984,6 @@ export function ProjectManagement() {
         title={modalMode === 'create' ? 'Create New Project' : 'Edit Project Details'}
         onClose={() => setModalOpen(false)}
         size="lg"
-        theme="dark"
       >
         <form onSubmit={handleSaveProject} className="space-y-4 pt-1">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -2973,7 +2993,6 @@ export function ProjectManagement() {
               value={form.name}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, name: e.target.value })}
               required
-              theme="dark"
             />
             <Input
               label="Client Name"
@@ -2981,7 +3000,6 @@ export function ProjectManagement() {
               value={form.client}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, client: e.target.value })}
               required
-              theme="dark"
             />
           </div>
 
@@ -2992,7 +3010,6 @@ export function ProjectManagement() {
               value={form.technologyNode}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, technologyNode: e.target.value })}
               required
-              theme="dark"
             />
           </div>
 
@@ -3012,7 +3029,6 @@ export function ProjectManagement() {
               { value: 'public', label: 'Public — Visible system-wide to all employees' },
               { value: 'private', label: 'Private — Access restricted specifically by user/team' },
             ]}
-            theme="dark"
           />
 
           {/* Team Lead Selection - Always Available */}
@@ -3028,12 +3044,11 @@ export function ProjectManagement() {
                 label: `${e.firstName} ${e.lastName || ''}`.trim() + ` (${e.department})`,
               })),
             ]}
-            theme="dark"
           />
 
           {/* Conditional private security rules */}
           {form.accessType === 'private' && (
-            <div className="grid gap-4 sm:grid-cols-2 rounded-2xl border border-white/10 bg-white/[0.02] p-4 animate-fadeIn">
+            <div className="grid gap-4 sm:grid-cols-2 rounded-2xl border border-border bg-emerald-50/40 p-4 animate-fadeIn">
               <CheckboxList
                 label="Allowed Users"
                 items={employees.map((e) => `${e.firstName} ${e.lastName || ''}`.trim())}
@@ -3044,7 +3059,7 @@ export function ProjectManagement() {
           )}
 
           <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-700">
               Project Description scope
             </label>
             <textarea
@@ -3054,14 +3069,14 @@ export function ProjectManagement() {
                 setForm({ ...form, description: enforceMaxWords(e.target.value) })
               }
               rows={3}
-              className="w-full rounded-xl border border-white/10 bg-[#111319] p-3 text-xs text-white outline-none transition-all placeholder:text-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+              className="w-full rounded-xl border border-border bg-[var(--bg-input)] p-3 text-xs text-ink outline-none transition-all placeholder:text-slate-600 focus:border-[var(--emerald-dark)] focus:ring-2 focus:ring-[rgba(20,83,45,0.15)]"
               required
             />
             <p
               className={`mt-1 text-right text-[11px] font-semibold ${
                 countWords(form.description) >= MAX_PROJECT_DESCRIPTION_WORDS
                   ? 'text-amber-500'
-                  : 'text-slate-500'
+                  : 'text-slate-600'
               }`}
             >
               {countWords(form.description)} / {MAX_PROJECT_DESCRIPTION_WORDS} words
@@ -3070,13 +3085,13 @@ export function ProjectManagement() {
 
           {modalMode === 'edit' && (
             <div>
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-700">
                 Project Status
               </label>
               <select
                 value={form.status}
                 onChange={(e) => setForm({ ...form, status: e.target.value as 'Active' | 'Completed' | 'Cancelled' })}
-                className="w-full rounded-xl border border-white/10 bg-[#111319] p-2.5 text-xs text-white outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                className="w-full rounded-xl border border-border bg-[var(--bg-input)] p-2.5 text-xs text-ink outline-none transition-all focus:border-[var(--emerald-dark)] focus:ring-2 focus:ring-[rgba(20,83,45,0.15)]"
               >
                 <option value="Active">In Progress</option>
                 <option value="Completed">Completed</option>
@@ -3085,13 +3100,13 @@ export function ProjectManagement() {
             </div>
           )}
 
-          <div className="flex justify-end gap-3 border-t border-white/5 pt-4 mt-2">
+          <div className="flex justify-end gap-3 border-t border-border pt-4 mt-2">
             <Button
               type="button"
               variant="secondary"
               onClick={() => setModalOpen(false)}
               disabled={loading}
-              className="rounded-xl font-bold py-2 px-4 border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] hover:text-white"
+              className="rounded-xl font-bold py-2 px-4 border-border bg-surface/80 text-slate-800 hover:bg-emerald-50 hover:text-ink"
             >
               Cancel
             </Button>
@@ -3099,7 +3114,7 @@ export function ProjectManagement() {
               type="submit"
               loading={loading}
               disabled={loading}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl py-2 px-4 border-0"
+              className="admin-dash-action-btn w-full rounded-xl py-2 px-4 font-bold border-0"
             >
               {modalMode === 'create' ? 'Create Project' : 'Save Changes'}
             </Button>
@@ -3136,7 +3151,6 @@ export function ProjectManagement() {
             setProjectToDelete(null)
           }}
           onConfirm={handleConfirmArchive}
-          theme="dark"
         />
       )}
 
@@ -3146,8 +3160,8 @@ export function ProjectManagement() {
         onClose={() => setArchivedModalOpen(false)}
         onRefreshActiveProjects={refreshAllData}
       />
-      </div>
-    </PageWrapper>
+      </PageWrapper>
+    </div>
   )
 }
 
@@ -3164,15 +3178,15 @@ function EmptyState({
   hasFilters: boolean
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-white/[0.08] bg-[#111319] py-14 px-6">
-      <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white/[0.04] ring-1 ring-white/[0.06]">
-        <FolderOpen className="h-5 w-5 text-slate-500" />
+    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-[var(--bg-input)] py-14 px-6">
+      <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-surface/80 ring-1 ring-border">
+        <FolderOpen className="h-5 w-5 text-slate-600" />
       </div>
-      <p className="text-center text-sm font-semibold text-slate-400">{message}</p>
+      <p className="text-center text-sm font-semibold text-slate-700">{message}</p>
       {hasFilters && (
         <button
           onClick={onClear}
-          className="mt-4 text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors bg-emerald-500/10 hover:bg-emerald-500/15 py-2 px-4 rounded-lg border border-emerald-500/20"
+          className="mt-4 text-xs font-bold text-[var(--emerald-dark)] hover:text-[var(--green-600)] transition-colors bg-[var(--emerald-surface)] hover:bg-[var(--emerald-sage)] py-2 px-4 rounded-lg border border-[rgba(20,83,45,0.22)]"
         >
           Reset Applied Filters
         </button>
@@ -3200,36 +3214,36 @@ const _ProjectArchiveConfirmModal = function ProjectArchiveConfirmModal({
   onConfirm,
 }: ProjectArchiveConfirmModalProps) {
   return (
-    <Modal isOpen={isOpen} title="" onClose={onClose} size="md" theme="dark">
+    <Modal isOpen={isOpen} title="" onClose={onClose} size="md">
       {/* Sleek icon header */}
       <div className="-mt-10 mb-4 flex items-center gap-2">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 shadow-md">
-          <Archive className="h-4 w-4 text-white" />
+          <Archive className="h-4 w-4 text-ink" />
         </div>
-        <h3 className="text-sm font-black text-white leading-tight">Archive Project</h3>
+        <h3 className="text-sm font-black text-ink leading-tight">Archive Project</h3>
       </div>
 
       <div className="space-y-4">
-        <p className="text-xs text-slate-300 font-bold leading-relaxed">
-          Are you sure you want to archive project <strong className="text-white font-extrabold">"{projectName}"</strong>?
+        <p className="text-xs text-slate-800 font-bold leading-relaxed">
+          Are you sure you want to archive project <strong className="text-ink font-extrabold">"{projectName}"</strong>?
         </p>
-        <p className="text-xs text-slate-400 font-semibold leading-relaxed">
+        <p className="text-xs text-slate-700 font-semibold leading-relaxed">
           This will safely move the project and its complete history (assigned tasks and timesheet logs) to separate archived storage. Active dashboards stay clean. You can restore the project at any time.
         </p>
 
-        <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
+        <div className="flex justify-end gap-3 pt-4 border-t border-border">
           <Button
             type="button"
             variant="secondary"
             onClick={onClose}
-            className="rounded-xl font-bold py-2 px-4 text-xs h-9 border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] hover:text-white"
+            className="rounded-xl font-bold py-2 px-4 text-xs h-9 border-border bg-surface/80 text-slate-800 hover:bg-emerald-50 hover:text-ink"
           >
             Cancel
           </Button>
           <Button
             type="button"
             onClick={onConfirm}
-            className="bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl py-2 px-4 text-xs h-9 border-0 shadow-sm"
+            className="bg-amber-600 hover:bg-amber-700 text-ink font-bold rounded-xl py-2 px-4 text-xs h-9 border-0 shadow-sm"
           >
             Archive Project
           </Button>

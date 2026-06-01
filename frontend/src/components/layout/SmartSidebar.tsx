@@ -95,7 +95,7 @@ function NavItem({
                 initial={{ opacity: 0, width: 0 }}
                 animate={{ opacity: 1, width: 'auto' }}
                 exit={{ opacity: 0, width: 0 }}
-                className="truncate text-[13px] font-medium"
+                className="truncate text-sm font-medium"
               >
                 {item.label}
               </motion.span>
@@ -176,7 +176,7 @@ export function SmartSidebar() {
           {expanded && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-w-0">
               <p className="truncate font-display text-[15px] font-bold tracking-tight">EMPWR</p>
-              <p className="truncate text-[11px] font-medium text-[var(--text-muted)]">Dashboard</p>
+              <p className="truncate text-xs font-medium text-[var(--text-muted)]">Dashboard</p>
             </motion.div>
           )}
         </NavLink>
