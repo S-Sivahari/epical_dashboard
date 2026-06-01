@@ -15,7 +15,7 @@ export function NewsCard({
   onEdit?: () => void
 }) {
   return (
-    <article className="flex h-full flex-col rounded-xl border border-border bg-white p-5 shadow-sm transition-ui hover:border-emerald-200 hover:shadow-md">
+    <article className="admin-news-card flex h-full flex-col rounded-xl border border-border bg-white p-5 shadow-sm transition-ui hover:border-emerald-200 hover:shadow-md">
       <h3 className="font-display text-base font-semibold text-emerald-900 line-clamp-2">
         {item.title}
       </h3>
