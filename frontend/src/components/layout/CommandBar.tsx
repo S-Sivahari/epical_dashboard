@@ -239,10 +239,6 @@ export function CommandBar() {
                 <p className="text-sm font-semibold text-[var(--text-primary)]">{user?.name}</p>
                 <p className="text-xs text-[var(--text-muted)]">{user?.designation || user?.role || 'Admin'}</p>
               </div>
-              <DropdownMenu.Item className="cmd-dropdown-item" onSelect={() => navigate(ROUTES.SETTINGS)}>
-                Settings
-              </DropdownMenu.Item>
-              <DropdownMenu.Separator className="my-1 h-px bg-[var(--border-subtle)]" />
               <DropdownMenu.Item
                 className="cmd-dropdown-item text-[var(--emerald-dark)] hover:bg-[var(--emerald-surface)]"
                 onSelect={() => {
