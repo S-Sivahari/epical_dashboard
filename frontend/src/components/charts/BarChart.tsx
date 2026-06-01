@@ -1,4 +1,5 @@
-import { useId } from 'react'
+import { useId, useMemo } from 'react'
+import { cn } from '@/utils/cn'
 import {
   Bar,
   BarChart,
@@ -39,10 +40,20 @@ export function HoursBarChart({
   data,
   theme = 'light',
   brand = false,
+  height = 280,
+  fillParent = false,
+  animate = true,
+  className,
 }: {
   data: { name: string; hours: number }[]
   theme?: 'light' | 'dark'
   brand?: boolean
+  /** Fixed pixel height for the chart area (prevents layout shift). Ignored when fillParent is true. */
+  height?: number
+  /** Grow to fill a flex parent (e.g. admin dashboard card). */
+  fillParent?: boolean
+  animate?: boolean
+  className?: string
 }) {
   const gradId = useId().replace(/:/g, '')
   const isDark = theme === 'dark'
@@ -77,12 +88,26 @@ export function HoursBarChart({
   // For the dark brand dashboard — single green gradient like reference
   const useCellColors = false
 
+  const yMax = useMemo(() => {
+    const peak = data.reduce((max, row) => Math.max(max, row.hours ?? 0), 0)
+    return Math.max(8, Math.ceil(peak * 1.25))
+  }, [data])
+
+  const chartHeight = fillParent ? undefined : height
+
   return (
-    <div className="h-full min-h-[220px] w-full flex-1">
-      <ResponsiveContainer width="100%" height="100%">
+    <div
+      className={cn(
+        'w-full shrink-0 overflow-hidden',
+        fillParent ? 'h-full min-h-[220px] flex-1' : '',
+        className,
+      )}
+      style={chartHeight != null ? { height: chartHeight } : undefined}
+    >
+      <ResponsiveContainer width="100%" height={fillParent ? '100%' : chartHeight}>
         <BarChart
           data={data}
-          margin={{ top: 20, right: 8, left: -8, bottom: 0 }}
+          margin={{ top: 24, right: 8, left: 0, bottom: 4 }}
           barCategoryGap="40%"
         >
           <defs>
@@ -124,7 +149,10 @@ export function HoursBarChart({
             tick={{ fill: axisColor, fontSize: 11 }}
             axisLine={false}
             tickLine={false}
-            width={34}
+            width={36}
+            domain={[0, yMax]}
+            allowDecimals={false}
+            tickCount={5}
           />
           <Tooltip
             contentStyle={tooltipStyle}
@@ -137,7 +165,7 @@ export function HoursBarChart({
             radius={[6, 6, 0, 0]}
             barSize={14}
             maxBarSize={20}
-            isAnimationActive
+            isAnimationActive={animate}
           >
             {useCellColors
               ? data.map((_entry, index) => (
