@@ -8,9 +8,20 @@ export function truncateToMaxWords(
   text: string,
   maxWords = MAX_PROJECT_DESCRIPTION_WORDS
 ): string {
-  const words = text.trim().split(/\s+/).filter(Boolean);
-  if (words.length <= maxWords) return words.join(' ');
-  return words.slice(0, maxWords).join(' ');
+  if (countWords(text) <= maxWords) return text;
+  
+  let wordCount = 0;
+  let cutIndex = text.length;
+  const regex = /\S+/g;
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    wordCount++;
+    if (wordCount === maxWords) {
+      cutIndex = match.index + match[0].length;
+      break;
+    }
+  }
+  return text.slice(0, cutIndex);
 }
 
 export function enforceMaxWords(

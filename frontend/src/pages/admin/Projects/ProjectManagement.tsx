@@ -39,6 +39,7 @@ import {
   SlidersHorizontal,
   ArrowUpRight,
   Edit2,
+  Crown,
 } from 'lucide-react'
 import { formatDate } from '@/utils/formatDate'
 import ExcelJS from 'exceljs'
@@ -735,7 +736,7 @@ function FilterCheckboxGroup({
 }
 
 /* ================================================================
-   COMPONENT – Checkbox List (for Modal Allowed Users)
+   COMPONENT – Unified Permissions Manager (Enterprise-Style)
    ================================================================ */
 function CheckboxList({
   label,
@@ -748,33 +749,223 @@ function CheckboxList({
   selected: string[]
   onChange: (next: string[]) => void
 }) {
+  const [searchQuery, setSearchQuery] = useState('')
+  
+  const filteredItems = useMemo(() => {
+    if (!searchQuery.trim()) return items
+    const query = searchQuery.toLowerCase()
+    return items.filter(item => item.toLowerCase().includes(query))
+  }, [items, searchQuery])
+  
+  // Separate selected and unselected items for better visibility
+  const selectedItems = useMemo(() => {
+    return filteredItems.filter(item => selected.includes(item))
+  }, [filteredItems, selected])
+  
+  const unselectedItems = useMemo(() => {
+    return filteredItems.filter(item => !selected.includes(item))
+  }, [filteredItems, selected])
+  
   const toggle = (item: string) => {
     onChange(selected.includes(item) ? selected.filter((s) => s !== item) : [...selected, item])
   }
+  
+  const selectAll = () => {
+    // Add all filtered items to selection (merge with existing)
+    const newSelection = [...new Set([...selected, ...filteredItems])]
+    onChange(newSelection)
+  }
+  
+  const clearAll = () => {
+    // Only clear items that are in the filtered list
+    onChange(selected.filter(s => !filteredItems.includes(s)))
+  }
+  
   return (
-    <div>
-      <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-450">
-        {label}
-      </label>
-      <div className="rounded-xl border border-white/10 bg-[#111319] p-2 max-h-32 overflow-y-auto space-y-0.5">
-        {items.map((item) => (
-          <label
-            key={item}
-            className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-xs text-white transition-colors hover:bg-white/5 border border-transparent hover:border-white/10"
-          >
-            <input
-              type="checkbox"
-              checked={selected.includes(item)}
-              onChange={() => toggle(item)}
-              className="h-3.5 w-3.5 rounded border-white/10 bg-[#111319] text-emerald-600 focus:ring-emerald-500/20"
-            />
-            <span className="font-semibold">{item}</span>
+    <div className="rounded-xl border border-white/10 bg-gradient-to-b from-[#0f1219] to-[#0a0d14] shadow-lg overflow-hidden">
+      {/* Header Section */}
+      <div className="border-b border-white/10 bg-[#0f1219]/80 backdrop-blur-sm px-4 py-3">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-bold uppercase tracking-wider text-slate-300">
+            {label}
           </label>
-        ))}
+          <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 shadow-sm">
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+            <span className="text-[11px] font-bold text-emerald-400 tabular-nums">
+              {selected.length}
+            </span>
+          </span>
+        </div>
       </div>
-      <p className="mt-1 text-[10px] text-slate-500 font-bold">
-        {selected.length} of {items.length} selected
-      </p>
+
+      {/* Content Section */}
+      <div className="p-4 space-y-3">
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search members..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full h-9 pl-9 pr-10 rounded-lg border border-white/10 bg-[#0a0d14] text-xs text-white outline-none transition-all placeholder:text-slate-500 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 focus:bg-[#0f1219]"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md hover:bg-white/10 transition-colors"
+              title="Clear search"
+            >
+              <X className="h-3.5 w-3.5 text-slate-400" />
+            </button>
+          )}
+        </div>
+
+        {/* Selected Members Chips */}
+        {selected.length > 0 && (
+          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+            <div className="flex flex-wrap gap-1.5">
+              {selected.map((member) => (
+                <span
+                  key={member}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 text-[11px] font-semibold text-emerald-400 shadow-sm transition-all hover:bg-emerald-500/20 hover:border-emerald-500/40"
+                >
+                  <CheckCircle2 className="h-3 w-3 shrink-0" />
+                  <span className="max-w-[120px] truncate" title={member}>{member}</span>
+                  <button
+                    type="button"
+                    onClick={() => toggle(member)}
+                    className="ml-0.5 p-0.5 rounded hover:bg-emerald-500/30 transition-colors group"
+                    title={`Remove ${member}`}
+                  >
+                    <X className="h-3 w-3 group-hover:text-emerald-300" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Bulk Actions */}
+        <div className="flex items-center justify-between px-1">
+          <button
+            type="button"
+            onClick={selectAll}
+            disabled={filteredItems.length === 0 || selectedItems.length === filteredItems.length}
+            className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Select All {filteredItems.length !== items.length && filteredItems.length > 0 && `(${filteredItems.length})`}
+          </button>
+          <button
+            type="button"
+            onClick={clearAll}
+            disabled={filteredItems.length === 0 || selected.filter(s => filteredItems.includes(s)).length === 0}
+            className="text-[11px] font-bold text-slate-400 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Clear {filteredItems.length !== items.length && filteredItems.length > 0 && `(${filteredItems.length})`}
+          </button>
+        </div>
+
+        {/* Members List */}
+        <div className="rounded-lg border border-white/10 bg-[#0a0d14] max-h-72 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent hover:scrollbar-thumb-white/20">
+          {filteredItems.length > 0 ? (
+            <div className="p-2 space-y-0.5">
+              {/* Assigned Members First */}
+              {selectedItems.length > 0 && (
+                <>
+                  <div className="px-2 py-1.5 sticky top-0 bg-[#0a0d14] z-10">
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Assigned ({selectedItems.length})
+                    </p>
+                  </div>
+                  {selectedItems.map((item) => (
+                    <label
+                      key={item}
+                      className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-xs transition-all bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15 hover:border-emerald-500/35 group"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={true}
+                        onChange={() => toggle(item)}
+                        className="h-3.5 w-3.5 shrink-0 rounded border-emerald-500/30 bg-emerald-500/10 text-emerald-600 focus:ring-2 focus:ring-emerald-500/30 focus:ring-offset-0 transition-all cursor-pointer"
+                      />
+                      <span className="font-bold truncate flex-1" title={item}>
+                        {item}
+                      </span>
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500 opacity-80 group-hover:opacity-100 transition-opacity" />
+                    </label>
+                  ))}
+                </>
+              )}
+
+              {/* Divider */}
+              {selectedItems.length > 0 && unselectedItems.length > 0 && (
+                <div className="px-2 py-2">
+                  <div className="border-t border-white/10" />
+                </div>
+              )}
+
+              {/* Available Members */}
+              {unselectedItems.length > 0 && (
+                <>
+                  {selectedItems.length > 0 && (
+                    <div className="px-2 py-1.5 sticky top-0 bg-[#0a0d14] z-10">
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                        <span className="h-3 w-3 rounded border border-slate-600 flex items-center justify-center">
+                          <span className="h-1 w-1 rounded-full bg-slate-600" />
+                        </span>
+                        Available ({unselectedItems.length})
+                      </p>
+                    </div>
+                  )}
+                  {unselectedItems.map((item) => (
+                    <label
+                      key={item}
+                      className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-xs transition-all border border-transparent text-slate-300 hover:bg-white/5 hover:border-white/10 hover:text-white group"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={false}
+                        onChange={() => toggle(item)}
+                        className="h-3.5 w-3.5 shrink-0 rounded border-white/20 bg-[#0f1219] text-emerald-600 focus:ring-2 focus:ring-emerald-500/30 focus:ring-offset-0 transition-all cursor-pointer hover:border-white/30"
+                      />
+                      <span className="font-semibold truncate flex-1" title={item}>
+                        {item}
+                      </span>
+                    </label>
+                  ))}
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="px-4 py-10 text-center">
+              <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-slate-800/50 mb-3">
+                <Search className="h-5 w-5 text-slate-600" />
+              </div>
+              <p className="text-xs font-semibold text-slate-500 mb-1">No members found</p>
+              {searchQuery && (
+                <p className="text-[10px] text-slate-600">Try a different search term</p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Footer Section */}
+      <div className="border-t border-white/10 bg-[#0a0d14] px-4 py-2.5">
+        <p className="text-[10px] font-semibold text-slate-500 text-center">
+          {selected.length > 0 ? (
+            <>
+              <span className="text-emerald-400 font-bold">{selected.length}</span> of{' '}
+              <span className="text-slate-400">{items.length}</span> members selected
+            </>
+          ) : (
+            <>No members selected</>
+          )}
+        </p>
+      </div>
     </div>
   )
 }
@@ -791,118 +982,258 @@ const ProjectCard = memo(function ProjectCard({
   onEdit: () => void
   onDelete: () => void
 }) {
+  const [showMembersModal, setShowMembersModal] = useState(false)
   const isCompleted = project.status === 'Completed'
   const isCancelled = project.status === 'Cancelled'
   const isRejected = project.status === 'Rejected'
 
-  // Visibility/scope summary
-  const visibilitySummary =
-    project.accessType === 'private'
-      ? `${project.visibleUsers.length} Users · Lead: ${project.teamLead || 'Not assigned'}`
-      : 'All Members'
-
   const projectInitial =
     project.name.charAt(project.name.indexOf(' ') + 1) || project.name.charAt(0)
+
+  // Prepare team members display (always show for both public and private)
+  const displayMembers = project.accessType === 'public' 
+    ? [] 
+    : project.visibleUsers.filter(u => u !== project.teamLead)
 
   return (
     <div
       className={cn(
-        'group relative flex min-h-[190px] flex-col justify-between overflow-hidden rounded-xl border p-5 transition-all duration-300 hover:-translate-y-0.5 animate-fadeIn',
+        'group relative flex flex-col overflow-hidden rounded-2xl border transition-all duration-300 hover:-translate-y-1 animate-fadeIn',
         isCompleted
-          ? 'border-emerald-500/15 bg-[#161922] shadow-[0_2px_12px_-3px_rgba(0,0,0,0.35)] hover:border-emerald-500/30 hover:shadow-[0_6px_24px_-6px_rgba(16,185,129,0.1)]'
-          : 'border-white/[0.06] bg-[#161922] shadow-[0_2px_12px_-3px_rgba(0,0,0,0.35)] hover:border-emerald-500/20 hover:shadow-[0_6px_24px_-6px_rgba(16,185,129,0.08)]'
+          ? 'border-emerald-500/20 bg-gradient-to-br from-[#1a1f2e] to-[#161922] shadow-[0_4px_16px_-4px_rgba(0,0,0,0.4)] hover:border-emerald-500/40 hover:shadow-[0_8px_32px_-8px_rgba(16,185,129,0.15)]'
+          : 'border-white/[0.08] bg-gradient-to-br from-[#1a1f2e] to-[#161922] shadow-[0_4px_16px_-4px_rgba(0,0,0,0.4)] hover:border-emerald-500/30 hover:shadow-[0_8px_32px_-8px_rgba(16,185,129,0.12)]'
       )}
     >
+      {/* Top accent bar */}
+      <div className={cn(
+        "absolute inset-x-0 top-0 h-1 rounded-t-2xl",
+        isCompleted ? "bg-gradient-to-r from-emerald-500 to-emerald-400" : "bg-gradient-to-r from-emerald-500/50 to-cyan-500/50"
+      )} />
+      
       {/* Subtle gradient overlay for depth */}
-      <div className="absolute inset-0 bg-gradient-to-b from-white/[0.015] via-transparent to-transparent pointer-events-none rounded-xl" />
-      <div className="relative space-y-3.5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 flex-1 items-start gap-3">
-            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-extrabold ring-1 bg-emerald-500/10 text-emerald-400 ring-emerald-500/25">
+      <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] via-transparent to-black/[0.02] pointer-events-none rounded-2xl" />
+      
+      <div className="relative flex flex-col p-4">
+        {/* Header Section: Avatar + Title + Status */}
+        <div className="flex items-start gap-3 mb-3">
+          <div className="relative">
+            <span className={cn(
+              "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-black shadow-lg ring-2 transition-all duration-300 group-hover:scale-105",
+              isCompleted 
+                ? "bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 text-emerald-400 ring-emerald-500/30" 
+                : "bg-gradient-to-br from-emerald-500/15 to-cyan-500/15 text-emerald-400 ring-emerald-500/25"
+            )}>
               {projectInitial}
             </span>
+            {/* Status indicator dot */}
+            <span className={cn(
+              "absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#161922]",
+              isCompleted ? "bg-emerald-500" : isCancelled || isRejected ? "bg-rose-500" : "bg-blue-500 animate-pulse"
+            )} />
+          </div>
+          
+          <div className="min-w-0 flex-1">
+            <h3 className={cn(
+              'text-[14px] font-bold leading-tight transition-colors font-display truncate mb-1',
+              isCompleted ? 'text-emerald-400 group-hover:text-emerald-300' : 'text-slate-50 group-hover:text-emerald-400'
+            )}>
+              {project.name}
+            </h3>
+            <p className="text-[11px] font-semibold text-slate-400 truncate">
+              {project.client}
+            </p>
+          </div>
+        </div>
+
+        {/* Info Grid: Tech Node + Access + Status */}
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          {/* Technology Node */}
+          <div className="col-span-2 flex items-center gap-2 rounded-lg border border-white/5 bg-[#0f1219] px-2.5 py-2">
+            <Cpu className="h-3.5 w-3.5 shrink-0 text-emerald-500" strokeWidth={2.5} />
             <div className="min-w-0 flex-1">
-              <h3 className={cn(
-                'text-[14px] font-bold leading-tight transition-colors font-display truncate',
-                isCompleted ? 'text-emerald-400 group-hover:text-emerald-300' : 'text-slate-100 group-hover:text-emerald-400'
-              )}>
-                {project.name}
-              </h3>
-              <p className="mt-0.5 text-xs font-semibold text-slate-400 truncate">
-                {project.client}
-              </p>
-            </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            {isCancelled ? (
-              <Badge variant="neutral" className="border border-rose-500/25 bg-rose-500/10 px-1.5 py-0.5 text-[9px] font-bold text-rose-400 rounded-md">
-                Cancelled
-              </Badge>
-            ) : isRejected ? (
-              <Badge variant="neutral" className="border border-rose-500/25 bg-rose-500/10 px-1.5 py-0.5 text-[9px] font-bold text-rose-400 rounded-md">
-                Rejected
-              </Badge>
-            ) : isCompleted ? (
-              <Badge variant="success" className="border border-emerald-500/15 bg-emerald-500/5 px-1.5 py-0.5 text-[9px] font-bold text-emerald-400 rounded-md">
-                Completed
-              </Badge>
-            ) : (
-              <Badge variant="info" className="border border-blue-500/15 bg-blue-500/5 px-1.5 py-0.5 text-[9px] font-bold text-blue-400 rounded-md">
-                In Progress
-              </Badge>
-            )}
-            {project.accessType === 'private' ? (
-              <Badge variant="warning" className="border border-amber-500/15 bg-amber-500/5 px-1.5 py-0.5 text-[9px] font-bold text-amber-400 rounded-md">
-                Private
-              </Badge>
-            ) : (
-              <Badge variant="info" className="border border-sky-500/15 bg-sky-500/5 px-1.5 py-0.5 text-[9px] font-bold text-sky-400 rounded-md">
-                Public
-              </Badge>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between border-t border-white/[0.05] pt-3 text-xs">
-          <span className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-slate-500">Scope</span>
-          <span className="font-semibold text-slate-300 truncate max-w-[200px]" title={visibilitySummary}>{visibilitySummary}</span>
-        </div>
-
-        <div className="flex items-center justify-between gap-3 border-t border-white/[0.05] pt-3 mt-auto">
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-white/5 bg-[#111319] px-2 py-0.5 text-[10px] font-bold text-slate-400">
-              <Cpu className="h-3 w-3 shrink-0 text-emerald-500" strokeWidth={2.5} />
-              <span className="truncate font-mono text-slate-300">{project.technologyNode}</span>
-            </span>
-            {project.accessType === 'private' && project.teamLead && (
-              <span className="inline-flex items-center rounded-md border border-emerald-500/10 bg-emerald-500/5 px-2 py-0.5 text-[10px] font-bold text-emerald-400 truncate max-w-[120px]" title={`Lead: ${project.teamLead}`}>
-                Lead: {project.teamLead.split(' ')[0]}
+              <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">Technology</span>
+              <span className="block truncate text-[11px] font-bold font-mono text-slate-200">
+                {project.technologyNode}
               </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {project.accessType === 'private' && project.visibleUsers.length > 0 && (
-              <AvatarGroup users={project.visibleUsers} max={2} />
-            )}
-            <div className="flex items-center border-l border-white/[0.06] pl-2 gap-0.5">
-              <button
-                onClick={onEdit}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
-                title="Edit Project"
-              >
-                <Edit2 className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={onDelete}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-amber-500/10 hover:text-amber-400"
-                title="Archive Project"
-              >
-                <Archive className="h-3.5 w-3.5" />
-              </button>
             </div>
           </div>
+
+          {/* Access Type */}
+          <div className="flex items-center gap-1.5 rounded-lg border border-white/5 bg-[#0f1219] px-2.5 py-2">
+            {project.accessType === 'private' ? (
+              <>
+                <Lock className="h-3 w-3 shrink-0 text-amber-400" />
+                <div className="min-w-0 flex-1">
+                  <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">Access</span>
+                  <span className="block text-[10px] font-bold text-amber-400">Private</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <Globe className="h-3 w-3 shrink-0 text-sky-400" />
+                <div className="min-w-0 flex-1">
+                  <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">Access</span>
+                  <span className="block text-[10px] font-bold text-sky-400">Public</span>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Status */}
+          <div className="flex items-center gap-1.5 rounded-lg border border-white/5 bg-[#0f1219] px-2.5 py-2">
+            {isCancelled ? (
+              <>
+                <X className="h-3 w-3 shrink-0 text-rose-400" />
+                <div className="min-w-0 flex-1">
+                  <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">Status</span>
+                  <span className="block text-[10px] font-bold text-rose-400">Cancelled</span>
+                </div>
+              </>
+            ) : isRejected ? (
+              <>
+                <X className="h-3 w-3 shrink-0 text-rose-400" />
+                <div className="min-w-0 flex-1">
+                  <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">Status</span>
+                  <span className="block text-[10px] font-bold text-rose-400">Rejected</span>
+                </div>
+              </>
+            ) : isCompleted ? (
+              <>
+                <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-400" />
+                <div className="min-w-0 flex-1">
+                  <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">Status</span>
+                  <span className="block text-[10px] font-bold text-emerald-400">Completed</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <span className="inline-block h-2 w-2 rounded-full bg-blue-500 shrink-0 animate-pulse" />
+                <div className="min-w-0 flex-1">
+                  <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">Status</span>
+                  <span className="block text-[10px] font-bold text-blue-400">In Progress</span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Team Section */}
+        <div className="rounded-lg border border-white/5 bg-[#0f1219] p-3 mb-3">
+          <div className="space-y-2.5">
+            {/* Team Lead */}
+            <div className="flex items-center gap-2">
+              <Crown className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 w-12 shrink-0">Lead</span>
+              <span className="text-[11px] font-bold text-emerald-400 truncate flex-1" title={project.teamLead || 'Not assigned'}>
+                {project.teamLead || <span className="text-slate-500">Not assigned</span>}
+              </span>
+            </div>
+
+            {/* Divider */}
+            <div className="border-t border-white/5" />
+
+            {/* Team Members */}
+            <div className="flex items-center gap-2">
+              {project.accessType === 'public' ? (
+                <>
+                  <Globe className="h-3.5 w-3.5 shrink-0 text-sky-400" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 w-12 shrink-0">Team</span>
+                  <span className="inline-flex items-center gap-1 rounded-md bg-sky-500/10 border border-sky-500/20 px-2 py-0.5">
+                    <span className="text-[10px] font-bold text-sky-400">Public Access</span>
+                  </span>
+                </>
+              ) : displayMembers.length > 0 ? (
+                <>
+                  <div className="h-3.5 w-3.5 shrink-0" /> {/* Spacer for alignment */}
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 w-12 shrink-0">Team</span>
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                    <button
+                      onClick={() => setShowMembersModal(true)}
+                      className="text-left text-[10px] font-semibold text-slate-300 hover:text-emerald-400 transition-colors truncate flex-1"
+                      title={displayMembers.join(', ')}
+                    >
+                      {displayMembers.slice(0, 2).join(', ')}
+                    </button>
+                    {displayMembers.length > 2 && (
+                      <span className="inline-flex items-center rounded-md bg-white/5 border border-white/10 px-1.5 py-0.5 shrink-0">
+                        <span className="text-[9px] font-bold text-slate-400">+{displayMembers.length - 2}</span>
+                      </span>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="h-3.5 w-3.5 shrink-0" /> {/* Spacer for alignment */}
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 w-12 shrink-0">Team</span>
+                  <span className="text-[10px] font-semibold text-slate-500">No members</span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center justify-end gap-1.5">
+          <button
+            onClick={onEdit}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-all hover:bg-emerald-500/10 hover:text-emerald-400 hover:scale-105"
+            title="Edit Project"
+          >
+            <Edit2 className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={onDelete}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-all hover:bg-rose-500/10 hover:text-rose-400 hover:scale-105"
+            title="Archive Project"
+          >
+            <Archive className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
+
+      {showMembersModal && (
+        <Modal
+          isOpen={showMembersModal}
+          title={`Team Members — ${project.name}`}
+          onClose={() => setShowMembersModal(false)}
+          size="md"
+          theme="dark"
+        >
+          <div className="space-y-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Project Lead</p>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+                <Crown className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                <span className="text-sm font-bold text-emerald-400">{project.teamLead || 'Not assigned'}</span>
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">
+                Team Members ({displayMembers.length})
+              </p>
+              {displayMembers.length > 0 ? (
+                <div className="max-h-64 overflow-y-auto rounded-lg border border-white/5 bg-[#111319] p-2 space-y-1">
+                  {displayMembers.map((username) => (
+                    <div key={username} className="flex items-center gap-2.5 px-3 py-2 hover:bg-white/5 rounded-md transition-colors">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                      <span className="text-xs font-semibold text-slate-300 break-words">{username}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="px-3 py-4 text-center rounded-lg bg-[#111319] border border-white/5">
+                  <p className="text-xs font-semibold text-slate-500">No team members assigned</p>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end pt-2 border-t border-white/5">
+              <Button onClick={() => setShowMembersModal(false)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs py-1.5 px-3">
+                Close
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 })
@@ -926,85 +1257,141 @@ const ProjectListRow = memo(function ProjectListRow({
   const projectInitial =
     project.name.charAt(project.name.indexOf(' ') + 1) || project.name.charAt(0)
 
+  // Prepare team members display (exclude lead from members list)
+  const displayMembers = project.accessType === 'public' 
+    ? [] 
+    : project.visibleUsers.filter(u => u !== project.teamLead)
+
   return (
     <tr className={cn('group transition-colors border-b border-white/5 hover:bg-white/[0.02]', isCompleted ? 'bg-emerald-950/10' : '')}>
-      <td className="px-5 py-4">
-        <div className="flex items-center gap-3">
-          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-sm font-extrabold text-emerald-400 ring-1 ring-emerald-500/25">
+      {/* Project Name */}
+      <td className="px-4 py-3.5">
+        <div className="flex items-center gap-2.5">
+          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-xs font-extrabold text-emerald-400 ring-1 ring-emerald-500/25">
             {projectInitial}
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-slate-100 group-hover:text-emerald-450">{project.name}</p>
+            <p className="truncate text-[13px] font-bold text-slate-100 group-hover:text-emerald-400 transition-colors" title={project.name}>
+              {project.name}
+            </p>
           </div>
         </div>
       </td>
-      <td className="px-5 py-4 text-sm font-semibold text-slate-300">{project.client}</td>
-      <td className="px-5 py-4">
-        <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-[#111319] px-2.5 py-1 text-[11px] font-bold text-slate-300 font-mono">
-          <Cpu className="h-3.5 w-3.5 text-emerald-500" />
-          {project.technologyNode}
+
+      {/* Client */}
+      <td className="px-4 py-3.5">
+        <span className="text-[12px] font-semibold text-slate-300 truncate block" title={project.client}>
+          {project.client}
         </span>
       </td>
-      <td className="px-5 py-4">
+
+      {/* Technology Node */}
+      <td className="px-4 py-3.5">
+        <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-[#111319] px-2.5 py-1 text-[10.5px] font-bold text-slate-300 font-mono">
+          <Cpu className="h-3 w-3 text-emerald-500 shrink-0" />
+          <span className="truncate" title={project.technologyNode}>{project.technologyNode}</span>
+        </span>
+      </td>
+
+      {/* Access Type */}
+      <td className="px-4 py-3.5">
         {project.accessType === 'private' ? (
-          <Badge variant="warning" className="border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[11px] font-bold text-amber-400">
-            <Lock className="mr-1 h-3.5 w-3.5 text-amber-500" /> Private
+          <Badge variant="warning" className="border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400 inline-flex items-center gap-1">
+            <Lock className="h-3 w-3" /> Private
           </Badge>
         ) : (
-          <Badge variant="info" className="border border-sky-500/20 bg-sky-500/10 px-2.5 py-1 text-[11px] font-bold text-sky-400">
-            <Globe className="mr-1 h-3.5 w-3.5 text-sky-500" /> Public
+          <Badge variant="info" className="border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-400 inline-flex items-center gap-1">
+            <Globe className="h-3 w-3" /> Public
           </Badge>
         )}
       </td>
-      <td className="px-5 py-4">
-        {project.accessType === 'private' ? (
-          <div className="flex items-center gap-2">
-            {project.teamLead && (
-              <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-bold text-emerald-400">
-                Lead: {project.teamLead}
-              </span>
-            )}
-            <AvatarGroup users={project.visibleUsers} max={3} />
+
+      {/* Team (Lead + Members) - Redesigned */}
+      <td className="px-4 py-3.5">
+        <div className="flex flex-col gap-1.5 min-w-0">
+          {/* Team Lead */}
+          <div className="flex items-center gap-1.5">
+            <Crown className="h-3 w-3 shrink-0 text-emerald-500" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 w-10 shrink-0">Lead</span>
+            <span className="text-[11px] font-bold text-emerald-400 truncate flex-1" title={project.teamLead || 'Not assigned'}>
+              {project.teamLead || <span className="text-slate-500">Not assigned</span>}
+            </span>
           </div>
-        ) : (
-          <span className="text-xs font-medium text-slate-500">All Members (Public)</span>
-        )}
+          
+          {/* Team Members */}
+          <div className="flex items-center gap-1.5">
+            {project.accessType === 'public' ? (
+              <>
+                <Globe className="h-3 w-3 shrink-0 text-sky-400" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 w-10 shrink-0">Team</span>
+                <span className="inline-flex items-center gap-1 rounded-md bg-sky-500/10 border border-sky-500/20 px-1.5 py-0.5">
+                  <span className="text-[10px] font-bold text-sky-400">Public Access</span>
+                </span>
+              </>
+            ) : displayMembers.length > 0 ? (
+              <>
+                <div className="h-3 w-3 shrink-0" /> {/* Spacer for alignment */}
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 w-10 shrink-0">Team</span>
+                <div className="flex items-center gap-1 flex-1 min-w-0">
+                  <span className="text-[10px] font-semibold text-slate-400 truncate" title={displayMembers.join(', ')}>
+                    {displayMembers.slice(0, 2).join(', ')}
+                  </span>
+                  {displayMembers.length > 2 && (
+                    <span className="inline-flex items-center rounded-md bg-white/5 border border-white/10 px-1.5 py-0.5 shrink-0">
+                      <span className="text-[9px] font-bold text-slate-400">+{displayMembers.length - 2}</span>
+                    </span>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="h-3 w-3 shrink-0" /> {/* Spacer for alignment */}
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 w-10 shrink-0">Team</span>
+                <span className="text-[10px] font-semibold text-slate-500">No members</span>
+              </>
+            )}
+          </div>
+        </div>
       </td>
-      <td className="px-5 py-4">
+
+      {/* Status */}
+      <td className="px-4 py-3.5">
         {isCancelled ? (
-          <Badge variant="neutral" className="border border-rose-500/25 bg-rose-500/10 px-2.5 py-1 text-[11px] font-bold text-rose-400">
-            <X className="mr-1 h-3.5 w-3.5 text-rose-400" /> Cancelled
+          <Badge variant="neutral" className="border border-rose-500/25 bg-rose-500/10 px-2 py-0.5 text-[10px] font-bold text-rose-400 inline-flex items-center gap-1">
+            <X className="h-3 w-3" /> Cancelled
           </Badge>
         ) : isRejected ? (
-          <Badge variant="neutral" className="border border-rose-500/25 bg-rose-500/10 px-2.5 py-1 text-[11px] font-bold text-rose-400">
-            <X className="mr-1 h-3.5 w-3.5 text-rose-400" /> Rejected
+          <Badge variant="neutral" className="border border-rose-500/25 bg-rose-500/10 px-2 py-0.5 text-[10px] font-bold text-rose-400 inline-flex items-center gap-1">
+            <X className="h-3 w-3" /> Rejected
           </Badge>
         ) : isCompleted ? (
-          <Badge variant="success" className="border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-400">
-            <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Completed
+          <Badge variant="success" className="border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400 inline-flex items-center gap-1">
+            <CheckCircle2 className="h-3 w-3" /> Completed
           </Badge>
         ) : (
-          <Badge variant="info" className="border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-[11px] font-bold text-blue-400">
-            <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-blue-500" />
+          <Badge variant="info" className="border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-[10px] font-bold text-blue-400 inline-flex items-center gap-1">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-500" />
             In Progress
           </Badge>
         )}
       </td>
-      <td className="px-5 py-4 text-right">
+
+      {/* Actions */}
+      <td className="px-4 py-3.5 text-right">
         <div className="flex items-center justify-end gap-1">
           <button
             onClick={onEdit}
             className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
             title="Edit Project"
           >
-            <Edit2 className="h-4 w-4" />
+            <Edit2 className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={onDelete}
             className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-amber-500/10 hover:text-amber-400"
             title="Archive Project"
           >
-            <Archive className="h-4 w-4" />
+            <Archive className="h-3.5 w-3.5" />
           </button>
         </div>
       </td>
@@ -1226,7 +1613,7 @@ export function ProjectManagement() {
   }, [filterClients, filterEmployees, filterStatuses, filterAccessTypes])
 
   const filteredProjects = useMemo(() => {
-    return projects.filter((p) => {
+    let filtered = projects.filter((p) => {
       const query = searchQuery.toLowerCase()
       const matchSearch =
         !query ||
@@ -1247,6 +1634,19 @@ export function ProjectManagement() {
 
       return matchSearch && matchClient && matchStatus && matchAccess && matchEmployee
     })
+
+    // Sort projects: In Progress → Cancelled/Rejected → Completed
+    filtered.sort((a, b) => {
+      const getStatusPriority = (status: string) => {
+        if (status === 'Active') return 1
+        if (status === 'Cancelled' || status === 'Rejected') return 2
+        if (status === 'Completed') return 3
+        return 4
+      }
+      return getStatusPriority(a.status) - getStatusPriority(b.status)
+    })
+
+    return filtered
   }, [
     projects,
     searchQuery,
@@ -1315,16 +1715,25 @@ export function ProjectManagement() {
   const openEditProject = useCallback((p: Project) => {
     setModalMode('edit')
     setEditingId(p.id)
+    
+    // Create a copy of visibleUsers array to ensure proper state update
+    const assignedUsers = [...p.visibleUsers]
+    
     setForm({
       name: p.name,
       client: p.client,
       technologyNode: p.technologyNode,
       accessType: p.accessType,
       description: p.description,
-      visibleUsers: [...p.visibleUsers],
+      visibleUsers: assignedUsers, // Pre-select assigned users
       teamLead: p.teamLead || '',
       status: (p.status === 'Rejected' ? 'Cancelled' : p.status) as 'Active' | 'Completed' | 'Cancelled',
     })
+    
+    // Debug log to verify data is loaded correctly
+    console.log('Edit Project - Assigned Users:', assignedUsers)
+    console.log('Edit Project - Access Type:', p.accessType)
+    
     setModalOpen(true)
   }, [])
 
@@ -1336,6 +1745,13 @@ export function ProjectManagement() {
       e.preventDefault()
       if (!form.name.trim() || !form.client.trim() || !form.technologyNode.trim()) {
         toast.error('Please specify Project Name, Client, and Technology Node.')
+        return
+      }
+
+      // Validate Technology Node format: must be (number)nm
+      const techNodePattern = /^\d+nm$/
+      if (!techNodePattern.test(form.technologyNode.trim())) {
+        toast.error('Technology Node must be in the format: [number]nm (e.g., 7nm, 28nm, 5nm)')
         return
       }
 
@@ -2986,14 +3402,34 @@ export function ProjectManagement() {
           </div>
 
           <div className="w-full">
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">
+              Technology Node
+            </label>
             <Input
-              label="Technology Node"
-              placeholder="e.g. 7nm FinFET, 28nm FD-SOI"
+              label=""
+              placeholder="e.g. 7nm, 28nm, 5nm"
               value={form.technologyNode}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, technologyNode: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                const value = e.target.value
+                // Allow typing numbers followed by optional 'nm'
+                // This regex allows: "7", "7n", "7nm", "28", "28nm", etc.
+                if (value === '' || /^\d+n?m?$/.test(value)) {
+                  setForm({ ...form, technologyNode: value })
+                }
+              }}
+              onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
+                const value = e.target.value.trim()
+                // Auto-append 'nm' if user only typed numbers
+                if (value && /^\d+$/.test(value)) {
+                  setForm({ ...form, technologyNode: value + 'nm' })
+                }
+              }}
               required
               theme="dark"
             />
+            <p className="mt-1 text-[10px] font-semibold text-slate-500">
+              Format: [number]nm (e.g., 7nm, 28nm, 5nm)
+            </p>
           </div>
 
           <SelectField
@@ -3033,7 +3469,7 @@ export function ProjectManagement() {
 
           {/* Conditional private security rules */}
           {form.accessType === 'private' && (
-            <div className="grid gap-4 sm:grid-cols-2 rounded-2xl border border-white/10 bg-white/[0.02] p-4 animate-fadeIn">
+            <div className="animate-fadeIn">
               <CheckboxList
                 label="Allowed Users"
                 items={employees.map((e) => `${e.firstName} ${e.lastName || ''}`.trim())}
@@ -3045,16 +3481,22 @@ export function ProjectManagement() {
 
           <div>
             <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">
-              Project Description scope
+              Project Description
             </label>
             <textarea
               placeholder="Provide a detailed scope of this project, goals, and standard specifications..."
               value={form.description}
-              onChange={(e) =>
-                setForm({ ...form, description: enforceMaxWords(e.target.value) })
-              }
-              rows={3}
-              className="w-full rounded-xl border border-white/10 bg-[#111319] p-3 text-xs text-white outline-none transition-all placeholder:text-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+              onChange={(e) => {
+                const newValue = e.target.value
+                setForm({ ...form, description: enforceMaxWords(newValue) })
+              }}
+              rows={4}
+              className="w-full resize-y rounded-xl border border-white/10 bg-[#111319] p-3 text-xs text-white outline-none transition-all placeholder:text-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 leading-relaxed"
+              style={{ 
+                whiteSpace: 'pre-wrap',
+                wordWrap: 'break-word',
+                overflowWrap: 'break-word'
+              }}
               required
             />
             <p

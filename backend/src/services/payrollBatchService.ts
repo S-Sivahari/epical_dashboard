@@ -159,7 +159,7 @@ export async function processPayrollUpload(
   const replaceBatchId = options.replaceBatchId?.trim()
   const replaced = !!replaceBatchId
 
-  let id = randomUUID()
+  let id: string = randomUUID()
   let previouslySentEmpIds = new Set<string>()
 
   if (replaceBatchId) {
