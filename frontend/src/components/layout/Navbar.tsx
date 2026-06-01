@@ -75,7 +75,7 @@ export function Navbar() {
             <ArrowLeft className="h-4 w-4" />
           </button>
         )}
-        <p className="truncate font-display text-xl font-semibold tracking-tight text-white md:text-2xl">
+        <p className="truncate font-display text-xl font-semibold tracking-tight text-[var(--text-primary)] md:text-2xl">
           {title}
         </p>
       </div>
@@ -85,27 +85,27 @@ export function Navbar() {
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
             <button type="button" className="admin-navbar-user-btn flex max-w-[min(100vw-8rem,18rem)] items-center gap-2 px-2 py-1.5 text-left text-sm">
-              <Avatar name={user?.name ?? 'Admin'} src={user?.avatarUrl} size="sm" color="#00e676" className="!ring-0" />
+              <Avatar name={user?.name ?? 'Admin'} src={user?.avatarUrl} size="sm" color="#16a34a" className="!ring-0" />
               <div className="hidden min-w-0 flex-1 flex-col sm:flex">
-                <span className="truncate font-semibold leading-tight text-white">{user?.name}</span>
-                <span className="truncate text-xs font-medium text-[#8b8b96]">
+                <span className="truncate font-semibold leading-tight text-[var(--text-primary)]">{user?.name}</span>
+                <span className="truncate text-xs font-medium text-[var(--text-muted)]">
                   {user?.designation || user?.role || 'Admin'}
                 </span>
               </div>
-              <ChevronDown className="h-4 w-4 shrink-0 text-[#8b8b96]" />
+              <ChevronDown className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
             </button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
             <DropdownMenu.Content className="admin-navbar-menu z-50 min-w-[200px] p-1" sideOffset={6} align="end">
               <DropdownMenu.Item
-                className="cursor-pointer rounded-lg px-3 py-2 text-sm text-zinc-200 outline-none hover:bg-white/5"
+                className="cursor-pointer rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] outline-none hover:bg-emerald-50 hover:text-[var(--text-primary)]"
                 onSelect={() => navigate('/admin/settings')}
               >
                 Settings
               </DropdownMenu.Item>
-              <DropdownMenu.Separator className="my-1 h-px bg-zinc-700/50" />
+              <DropdownMenu.Separator className="my-1 h-px bg-[var(--border-subtle)]" />
               <DropdownMenu.Item
-                className="cursor-pointer rounded-lg px-3 py-2 text-sm text-red-400 outline-none hover:bg-red-950/30"
+                className="cursor-pointer rounded-lg px-3 py-2 text-sm text-red-600 outline-none hover:bg-red-50"
                 onSelect={() => {
                   logout()
                   navigate('/auth/login')

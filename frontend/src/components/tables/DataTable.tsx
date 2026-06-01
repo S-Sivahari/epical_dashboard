@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { motion } from 'framer-motion'
 import { cn } from '@/utils/cn'
 import { Spinner } from '@components/ui/Spinner'
 
@@ -54,18 +55,24 @@ export function DataTable<T extends { id?: string }>({
     )
   }
   return (
-    <div className={cn('overflow-x-auto rounded-xl border border-border bg-white shadow-sm', className)}>
+    <div
+      className={cn(
+        'admin-table-scroll max-h-[70vh] overflow-auto rounded-xl border border-border bg-white shadow-glass',
+        className,
+      )}
+    >
       <table className="min-w-full divide-y divide-border text-sm">
-        <thead className="bg-surface/80">
+        <thead className="sticky top-0 z-10 bg-surface/95 backdrop-blur-sm">
           <tr>
             {columns.map((c) => (
               <th
                 key={String(c.key)}
                 scope="col"
                 className={cn(
-                  'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted',
+                  'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted transition-colors duration-150',
                   c.className,
-                  c.sortable && 'cursor-pointer hover:bg-surface/80'
+                  c.sortable && 'cursor-pointer hover:bg-emerald-50/60',
+                  sortColumn === c.key && 'bg-emerald-50/40 text-primary',
                 )}
                 onClick={() => c.sortable && onSort?.(String(c.key))}
               >
@@ -88,13 +95,20 @@ export function DataTable<T extends { id?: string }>({
         </thead>
         <tbody className="divide-y divide-border">
           {data.map((row, i) => (
-            <tr key={(row as { id?: string }).id ?? i} className="hover:bg-surface/60">
+            <motion.tr
+              key={(row as { id?: string }).id ?? i}
+              layout
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.2, delay: Math.min(i * 0.02, 0.3) }}
+              className="transition-colors duration-150 hover:bg-emerald-50/50"
+            >
               {columns.map((c) => (
                 <td key={String(c.key)} className={cn('whitespace-nowrap px-4 py-3 text-ink', c.className)}>
                   {c.render ? c.render(row) : String((row as Record<string, unknown>)[c.key as string] ?? '')}
                 </td>
               ))}
-            </tr>
+            </motion.tr>
           ))}
         </tbody>
       </table>

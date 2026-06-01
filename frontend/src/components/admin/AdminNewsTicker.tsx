@@ -73,11 +73,11 @@ export function AdminNewsTicker({ variant = 'brand' }: AdminNewsTickerProps) {
         )}
       >
         <div className="flex items-start gap-4">
-          <div className="h-10 w-10 rounded-xl bg-[#3f3f46] skeleton" />
+          <div className="h-10 w-10 rounded-xl bg-emerald-100 skeleton-soft" />
           <div className="flex-1 space-y-2">
-            <div className="h-3 w-36 rounded-full bg-[#3f3f46] skeleton" />
-            <div className="h-5 w-2/3 rounded-lg bg-[#3f3f46] skeleton" />
-            <div className="h-4 w-full rounded-lg bg-[#3f3f46] skeleton" />
+            <div className="h-3 w-36 rounded-full bg-slate-200 skeleton" />
+            <div className="h-5 w-2/3 rounded-lg bg-slate-200 skeleton" />
+            <div className="h-4 w-full rounded-lg bg-slate-200 skeleton" />
           </div>
         </div>
       </div>
@@ -114,26 +114,26 @@ export function AdminNewsTicker({ variant = 'brand' }: AdminNewsTickerProps) {
             )}
           >
             <div className="flex items-start gap-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[rgba(0,229,255,0.12)]">
-                <Megaphone className="h-5 w-5 shrink-0 text-[var(--neon-cyan,#00e5ff)]" />
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100">
+                <Megaphone className="h-5 w-5 shrink-0 text-[var(--neon-green)]" />
               </div>
 
               <div className="flex-1 pr-14">
                 <p
                   className={cn(
                     'announcement-subtext text-[11px] font-semibold uppercase tracking-wider',
-                    isBrand ? '' : 'text-[#8892a4]',
+                    isBrand ? 'text-[var(--text-muted)]' : 'text-[#8892a4]',
                   )}
                 >
                   Company Announcement
                 </p>
-                <h3 className="mt-1 font-display text-lg font-semibold text-white md:text-xl">
+                <h3 className="mt-1 font-display text-lg font-semibold text-[var(--text-primary)] md:text-xl">
                   {current.title}
                 </h3>
                 <p
                   className={cn(
                     'announcement-subtext mt-1.5 text-sm line-clamp-2',
-                    isBrand ? '' : 'text-[#8892a4]',
+                    isBrand ? 'text-[var(--text-secondary)]' : 'text-[#8892a4]',
                   )}
                 >
                   {excerpt}
@@ -152,10 +152,10 @@ export function AdminNewsTicker({ variant = 'brand' }: AdminNewsTickerProps) {
                   e.stopPropagation()
                   setIndex((i) => (i - 1 + items.length) % items.length)
                 }}
-                className="rounded-full bg-white/15 p-1.5 transition-colors hover:bg-white/25"
+                className="rounded-full bg-emerald-100/80 p-1.5 transition-colors hover:bg-emerald-200/80"
                 aria-label="Previous"
               >
-                <ChevronLeft className="h-3.5 w-3.5 text-white" />
+                <ChevronLeft className="h-3.5 w-3.5 text-emerald-700" />
               </button>
               <button
                 type="button"
@@ -163,10 +163,10 @@ export function AdminNewsTicker({ variant = 'brand' }: AdminNewsTickerProps) {
                   e.stopPropagation()
                   setIndex((i) => (i + 1) % items.length)
                 }}
-                className="rounded-full bg-white/15 p-1.5 transition-colors hover:bg-white/25"
+                className="rounded-full bg-emerald-100/80 p-1.5 transition-colors hover:bg-emerald-200/80"
                 aria-label="Next"
               >
-                <ChevronRight className="h-3.5 w-3.5 text-white" />
+                <ChevronRight className="h-3.5 w-3.5 text-emerald-700" />
               </button>
             </div>
 
@@ -179,8 +179,8 @@ export function AdminNewsTicker({ variant = 'brand' }: AdminNewsTickerProps) {
                     e.stopPropagation()
                     setIndex(i)
                   }}
-                  className={`h-1.5 rounded-full transition-all ${
-                    i === index ? (isBrand ? 'w-5 bg-[var(--neon-cyan,#00e5ff)]' : 'w-5 bg-[#4f8ef7]') : 'w-1.5 bg-white/30'
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    i === index ? (isBrand ? 'w-5 bg-[var(--neon-green)]' : 'w-5 bg-[#4f8ef7]') : 'w-1.5 bg-slate-300'
                   }`}
                   aria-label={`Go to slide ${i + 1}`}
                 />
