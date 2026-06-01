@@ -10,10 +10,16 @@ const tooltipStyle = {
   fontSize: 12,
 }
 
-export function DepartmentPieChart({ data }: { data: { name: string; value: number }[] }) {
+export function DepartmentPieChart({
+  data,
+  height = 288,
+}: {
+  data: { name: string; value: number }[]
+  height?: number
+}) {
   return (
-    <div className="h-72 w-full">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="w-full shrink-0 overflow-hidden" style={{ height }}>
+      <ResponsiveContainer width="100%" height={height}>
         <PieChart>
           <Pie dataKey="value" data={data} innerRadius={60} outerRadius={90} paddingAngle={3} isAnimationActive>
             {data.map((_, i) => (
