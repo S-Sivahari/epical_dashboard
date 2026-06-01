@@ -1048,69 +1048,69 @@ const ProjectCard = memo(function ProjectCard({
         {/* Info Grid: Tech Node + Access + Status */}
         <div className="grid grid-cols-2 gap-2 mb-3">
           {/* Technology Node */}
-          <div className="col-span-2 flex items-center gap-2 rounded-lg border border-white/5 bg-[#0f1219] px-2.5 py-2">
-            <Cpu className="h-3.5 w-3.5 shrink-0 text-emerald-500" strokeWidth={2.5} />
+          <div className="col-span-2 flex items-center gap-2.5 rounded-lg border border-white/5 bg-[#0f1219] px-3 py-2.5">
+            <Cpu className="h-4 w-4 shrink-0 text-emerald-500" strokeWidth={2.5} />
             <div className="min-w-0 flex-1">
-              <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">Technology</span>
-              <span className="block truncate text-[11px] font-bold font-mono text-slate-200">
+              <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500 leading-tight mb-0.5">Technology</span>
+              <span className="block truncate text-[11px] font-bold font-mono text-slate-200 leading-tight">
                 {project.technologyNode}
               </span>
             </div>
           </div>
 
           {/* Access Type */}
-          <div className="flex items-center gap-1.5 rounded-lg border border-white/5 bg-[#0f1219] px-2.5 py-2">
+          <div className="flex items-center gap-2.5 rounded-lg border border-white/5 bg-[#0f1219] px-3 py-2.5">
             {project.accessType === 'private' ? (
               <>
-                <Lock className="h-3 w-3 shrink-0 text-amber-400" />
+                <Lock className="h-4 w-4 shrink-0 text-amber-400" />
                 <div className="min-w-0 flex-1">
-                  <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">Access</span>
-                  <span className="block text-[10px] font-bold text-amber-400">Private</span>
+                  <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500 leading-tight mb-0.5">Access</span>
+                  <span className="block text-[10px] font-bold text-amber-400 leading-tight truncate">Private</span>
                 </div>
               </>
             ) : (
               <>
-                <Globe className="h-3 w-3 shrink-0 text-sky-400" />
+                <Globe className="h-4 w-4 shrink-0 text-sky-400" />
                 <div className="min-w-0 flex-1">
-                  <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">Access</span>
-                  <span className="block text-[10px] font-bold text-sky-400">Public</span>
+                  <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500 leading-tight mb-0.5">Access</span>
+                  <span className="block text-[10px] font-bold text-sky-400 leading-tight truncate">Public</span>
                 </div>
               </>
             )}
           </div>
 
           {/* Status */}
-          <div className="flex items-center gap-1.5 rounded-lg border border-white/5 bg-[#0f1219] px-2.5 py-2">
+          <div className="flex items-center gap-2.5 rounded-lg border border-white/5 bg-[#0f1219] px-3 py-2.5">
             {isCancelled ? (
               <>
-                <X className="h-3 w-3 shrink-0 text-rose-400" />
+                <X className="h-4 w-4 shrink-0 text-rose-400" />
                 <div className="min-w-0 flex-1">
-                  <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">Status</span>
-                  <span className="block text-[10px] font-bold text-rose-400">Cancelled</span>
+                  <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500 leading-tight mb-0.5">Status</span>
+                  <span className="block text-[10px] font-bold text-rose-400 leading-tight truncate">Cancelled</span>
                 </div>
               </>
             ) : isRejected ? (
               <>
-                <X className="h-3 w-3 shrink-0 text-rose-400" />
+                <X className="h-4 w-4 shrink-0 text-rose-400" />
                 <div className="min-w-0 flex-1">
-                  <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">Status</span>
-                  <span className="block text-[10px] font-bold text-rose-400">Rejected</span>
+                  <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500 leading-tight mb-0.5">Status</span>
+                  <span className="block text-[10px] font-bold text-rose-400 leading-tight truncate">Rejected</span>
                 </div>
               </>
             ) : isCompleted ? (
               <>
-                <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-400" />
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
                 <div className="min-w-0 flex-1">
-                  <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">Status</span>
-                  <span className="block text-[10px] font-bold text-emerald-400">Completed</span>
+                  <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500 leading-tight mb-0.5">Status</span>
+                  <span className="block text-[10px] font-bold text-emerald-400 leading-tight truncate">Completed</span>
                 </div>
               </>
             ) : (
               <>
-                <span className="inline-block h-2 w-2 rounded-full bg-blue-500 shrink-0 animate-pulse" />
+                <span className="inline-block h-2.5 w-2.5 rounded-full bg-blue-500 shrink-0 animate-pulse" />
                 <div className="min-w-0 flex-1">
-                  <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">Status</span>
-                  <span className="block text-[10px] font-bold text-blue-400">In Progress</span>
+                  <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500 leading-tight mb-0.5">Status</span>
+                  <span className="block text-[10px] font-bold text-blue-400 leading-tight truncate">In Progress</span>
                 </div>
               </>
             )}
@@ -1408,43 +1408,50 @@ function EmployeeLeaderboard({
   data: { name: string; dept: string; hours: number; hue: number }[]
 }) {
   const sortedData = useMemo(() => {
-    return [...data].sort((a, b) => a.name.localeCompare(b.name))
+    return [...data].sort((a, b) => b.hours - a.hours)
   }, [data])
 
   const maxHours = sortedData.length > 0 ? Math.max(...sortedData.map((d) => d.hours)) : 0
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-2">
       {sortedData.map((item, idx) => {
         const percent = maxHours > 0 ? (item.hours / maxHours) * 100 : 0
         const hue = item.hue ?? Math.round((idx * 137.5) % 360)
         return (
           <div
             key={item.name}
-            className="group rounded-lg border border-transparent px-2 py-2 transition-all hover:border-white/[0.04] hover:bg-white/[0.02]"
+            className="group relative overflow-hidden rounded-lg border border-white/[0.08] bg-gradient-to-r from-[#1a1f2e]/80 to-[#1a1f2e]/60 backdrop-blur-sm transition-all hover:border-white/[0.14] hover:from-[#1a1f2e]/90 hover:to-[#1a1f2e]/70 shadow-[0_2px_6px_rgba(0,0,0,0.2)]"
           >
-            <div className="flex items-center gap-2.5">
-              <Avatar name={item.name} size="sm" color={`hsl(${hue},55%,45%)`} />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="truncate text-sm font-bold text-slate-200 group-hover:text-emerald-400 font-display">
-                    {item.name}
-                  </p>
-                  <span className="type-metric-inline shrink-0 text-slate-100">
-                    {item.hours.toFixed(1)}
-                    <span className="text-[10px] ml-0.5 font-semibold text-slate-450">h</span>
-                  </span>
-                </div>
-                <div className="mt-1.5 h-[7px] w-full overflow-hidden rounded-full bg-white/[0.04] ring-1 ring-white/[0.06]">
-                  <div
-                    className="h-full rounded-full transition-all duration-500 ease-out"
-                    style={{
-                      width: `${percent}%`,
-                      background: `linear-gradient(90deg, hsl(${hue}, 70%, 48%) 0%, hsl(${hue}, 75%, 58%) 100%)`,
-                    }}
-                  />
-                </div>
+            <div className="relative flex items-center gap-3 px-3 py-2.5">
+              {/* Avatar Circle */}
+              <div className="relative z-10 shrink-0">
+                <Avatar name={item.name} size="sm" color={`hsl(${hue},60%,50%)`} />
               </div>
+
+              {/* Name and Progress Bar */}
+              <div className="relative z-10 min-w-0 flex-1">
+                <p className="truncate text-sm font-bold text-white group-hover:text-emerald-400 transition-colors font-display drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
+                  {item.name}
+                </p>
+              </div>
+
+              {/* Hours Display */}
+              <div className="relative z-10 shrink-0">
+                <span className="text-sm font-bold text-white tabular-nums drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
+                  {item.hours.toFixed(1)}
+                  <span className="text-[10px] ml-0.5 font-semibold text-slate-300">h</span>
+                </span>
+              </div>
+
+              {/* Background Progress Bar */}
+              <div
+                className="absolute inset-0 opacity-25 transition-all duration-500 ease-out"
+                style={{
+                  width: `${percent}%`,
+                  background: `linear-gradient(90deg, hsl(${hue}, 65%, 50%) 0%, hsl(${hue}, 70%, 55%) 100%)`,
+                }}
+              />
             </div>
           </div>
         )
@@ -2303,73 +2310,115 @@ export function ProjectManagement() {
 
     const { hoursByProject, leaderboard } = buildTimesheetExportAnalytics(filteredTimesheets)
     
-    // Sort leaderboard alphabetically matching the A-Z requirement
+    // Sort leaderboard alphabetically
     const sortedLeaderboard = [...leaderboard].sort((a, b) => a.name.localeCompare(b.name))
 
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt' })
+    // Create portrait PDF
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
     const pageWidth = doc.internal.pageSize.width || 595
     const pageHeight = doc.internal.pageSize.height || 842
-    const marginX = 36
+    const marginX = 40
+    const marginY = 40
     const contentWidth = pageWidth - marginX * 2
 
     const logo = await fetchExportLogo()
 
-    const tableTheme = {
-      styles: { fontSize: 7.5, cellPadding: 4, overflow: 'linebreak' as const },
-      headStyles: { fillColor: [30, 41, 59] as [number, number, number], fontStyle: 'bold' as const, textColor: [255, 255, 255] as [number, number, number] },
-      alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
-      theme: 'grid' as const,
-      margin: { left: marginX, right: marginX, bottom: 44 },
+    // Emerald/Green color palette
+    const colors = {
+      emerald: {
+        primary: [16, 185, 129] as [number, number, number],
+        dark: [5, 150, 105] as [number, number, number],
+        darker: [4, 120, 87] as [number, number, number],
+        light: [209, 250, 229] as [number, number, number],
+        veryLight: [236, 253, 245] as [number, number, number],
+      },
+      slate: {
+        dark: [30, 41, 59] as [number, number, number],
+        medium: [71, 85, 105] as [number, number, number],
+        light: [148, 163, 184] as [number, number, number],
+        veryLight: [226, 232, 240] as [number, number, number],
+      },
+      white: [255, 255, 255] as [number, number, number],
     }
 
-    const addSectionTitle = (title: string, y: number) => {
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(10)
-      doc.setTextColor(30, 41, 59)
-      doc.text(title, marginX, y)
-      doc.setDrawColor(226, 232, 240)
-      doc.setLineWidth(0.5)
-      doc.line(marginX, y + 4, marginX + contentWidth, y + 4)
-      return y + 16
-    }
+    // ═══════════════════════════════════════════════════════════════
+    // HEADER SECTION
+    // ═══════════════════════════════════════════════════════════════
+    let cursorY = marginY
 
-    let headerY = 20
-
-    // Draw the green chip logo if available
-    let logoWidth = 0
+    // Logo and Company Info Section
+    let logoHeight = 0
     if (logo) {
-      const scaled = scaleExportLogo(logo.width, logo.height, 44)
+      const scaled = scaleExportLogo(logo.width, logo.height, 55)
       const format = logo.dataUrl.includes('image/png') ? 'PNG' : 'JPEG'
-      doc.addImage(logo.dataUrl, format, marginX, headerY, scaled.width, scaled.height)
-      logoWidth = scaled.width
+      doc.addImage(logo.dataUrl, format, marginX, cursorY, scaled.width, scaled.height)
+      logoHeight = scaled.height
     }
 
-    // Draw Title next to Logo
-    const textX = marginX + logoWidth + 10
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(16)
-    doc.setTextColor(30, 41, 59)
-    doc.text('EPICAL LAYOUTS PVT LTD', textX, headerY + 14)
-
-    doc.setFontSize(11)
-    doc.setTextColor(71, 85, 105)
-    doc.text('Timesheet Report', textX, headerY + 28)
+    // Company name and report title (aligned to the right of logo)
+    const textX = marginX + (logoHeight > 0 ? logoHeight + 20 : 0)
     
-    headerY += 40
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(20)
+    doc.setTextColor(...colors.slate.dark)
+    doc.text('EPICAL LAYOUTS PVT LTD', textX, cursorY + 18)
 
-    // Generated Timestamp
+    doc.setFontSize(13)
+    doc.setTextColor(...colors.emerald.dark)
+    doc.text('Timesheet Performance Report', textX, cursorY + 38)
+
+    // Move cursor below logo/title section
+    cursorY += Math.max(logoHeight, 45) + 20
+
+    // Report metadata section (left-aligned, structured)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.setTextColor(...colors.slate.medium)
+    
+    const metaLabelX = marginX
+    const metaValueX = marginX + 90
+    
+    // Report Period
+    doc.text('Report Period:', metaLabelX, cursorY)
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
-    doc.setTextColor(100, 116, 139)
-    doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - marginX, headerY, { align: 'right' })
-    headerY += 10
+    doc.text(`${tsStartDate} to ${tsEndDate}`, metaValueX, cursorY)
+    cursorY += 14
+    
+    // Generated
+    doc.setFont('helvetica', 'bold')
+    doc.text('Generated:', metaLabelX, cursorY)
+    doc.setFont('helvetica', 'normal')
+    doc.text(new Date().toLocaleString('en-US', { 
+      month: 'short', 
+      day: '2-digit', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true 
+    }), metaValueX, cursorY)
+    cursorY += 14
+    
+    // Total Entries
+    doc.setFont('helvetica', 'bold')
+    doc.text('Total Entries:', metaLabelX, cursorY)
+    doc.setFont('helvetica', 'normal')
+    doc.text(String(filteredTimesheets.length), metaValueX, cursorY)
+    cursorY += 20
 
-    // Horizontal Line divider
-    doc.setDrawColor(226, 232, 240)
-    doc.setLineWidth(1)
-    doc.line(marginX, headerY, pageWidth - marginX, headerY)
+    // Header divider with emerald accent
+    doc.setDrawColor(...colors.emerald.primary)
+    doc.setLineWidth(2)
+    doc.line(marginX, cursorY, pageWidth - marginX, cursorY)
+    
+    doc.setDrawColor(...colors.slate.veryLight)
+    doc.setLineWidth(0.5)
+    doc.line(marginX, cursorY + 2, pageWidth - marginX, cursorY + 2)
 
-    let cursorY = headerY + 16
+    cursorY += 20
+
+    // ═══════════════════════════════════════════════════════════════
+    // CHARTS SECTION
+    // ═══════════════════════════════════════════════════════════════
 
     // Helper to convert HSL to RGB
     const hslToRgb = (h: number, s: number, l: number): [number, number, number] => {
@@ -2384,109 +2433,162 @@ export function ProjectManagement() {
       return [f(0), f(8), f(4)]
     }
 
-    // 3D Bar Drawer
-    const draw3DBar = (x: number, y: number, width: number, height: number, baseColor: [number, number, number]) => {
-      const adjustColor = (color: [number, number, number], percent: number) => {
-        return color.map(c => Math.min(255, Math.max(0, Math.round(c * (1 + percent))))) as [number, number, number]
+    // Enhanced 3D Bar with emerald gradient
+    const drawEnhancedBar = (x: number, y: number, width: number, height: number, color: [number, number, number]) => {
+      const adjustColor = (c: [number, number, number], percent: number) => {
+        return c.map(v => Math.min(255, Math.max(0, Math.round(v * (1 + percent))))) as [number, number, number]
       }
 
-      const frontColor = baseColor
-      const topColor = adjustColor(baseColor, 0.35)
-      const rightColor = adjustColor(baseColor, -0.3)
+      const frontColor = color
+      const topColor = adjustColor(color, 0.25)
+      const rightColor = adjustColor(color, -0.25)
+      const depth = 4
 
-      const depth = 3
-
-      // 1. Draw front face (rectangle)
-      doc.setFillColor(frontColor[0], frontColor[1], frontColor[2])
+      // Front face
+      doc.setFillColor(...frontColor)
       doc.rect(x, y, width, height, 'F')
 
-      // 2. Draw top face (parallelogram)
-      doc.setFillColor(topColor[0], topColor[1], topColor[2])
+      // Top face
+      doc.setFillColor(...topColor)
       doc.triangle(x, y, x + depth, y - depth, x + width + depth, y - depth, 'F')
       doc.triangle(x, y, x + width + depth, y - depth, x + width, y, 'F')
 
-      // 3. Draw right side face (parallelogram)
-      doc.setFillColor(rightColor[0], rightColor[1], rightColor[2])
+      // Right face
+      doc.setFillColor(...rightColor)
       doc.triangle(x + width, y, x + width + depth, y - depth, x + width + depth, y - depth + height, 'F')
       doc.triangle(x + width, y, x + width + depth, y - depth + height, x + width, y + height, 'F')
+
+      // Subtle highlight
+      doc.setDrawColor(...adjustColor(color, 0.4))
+      doc.setLineWidth(0.5)
+      doc.line(x, y, x + width, y)
     }
 
-    // Maximum bar width scaled for portrait content area
-    const maxBarWidth = contentWidth * 0.55
+    // Calculate chart dimensions (stacked vertically for portrait)
+    const maxBarWidth = contentWidth * 0.6
 
-    // ── PROJECT HOURS (full-width, stacked vertically) ──
+    // ─────────────────────────────────────────────────────────────
+    // PROJECT HOURS (Stacked Vertically)
+    // ─────────────────────────────────────────────────────────────
+
+    // Section header
+    doc.setFillColor(...colors.emerald.primary)
+    doc.rect(marginX, cursorY, 4, 14, 'F')
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(9)
-    doc.setTextColor(71, 85, 105)
-    doc.setFillColor(74, 175, 125)
-    doc.rect(marginX, cursorY, 3, 10, 'F')
-    doc.text('PROJECT HOURS', marginX + 8, cursorY + 8)
+    doc.setFontSize(11)
+    doc.setTextColor(...colors.slate.dark)
+    doc.text('PROJECT HOURS', marginX + 10, cursorY + 11)
 
-    cursorY += 22
+    cursorY += 24
+
     const maxProjectHours = Math.max(...hoursByProject.map(p => p.hours), 1)
-    const averageProjectHours = hoursByProject.length > 0 ? (hoursByProject.reduce((sum, p) => sum + p.hours, 0) / hoursByProject.length) : 0
+    const avgProjectHours = hoursByProject.length > 0 
+      ? hoursByProject.reduce((sum, p) => sum + p.hours, 0) / hoursByProject.length 
+      : 0
 
-    hoursByProject.forEach((p) => {
-      const barWidth = Math.max(5, (p.hours / maxProjectHours) * maxBarWidth)
-      const isGreaterThanAverage = p.hours > averageProjectHours
-      const baseColor: [number, number, number] = isGreaterThanAverage ? [74, 175, 125] : [241, 108, 111]
-
-      draw3DBar(marginX, cursorY, barWidth, 8, baseColor)
-
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(7.5)
-      doc.setTextColor(30, 41, 59)
-      doc.text(`${formatExportHours(p.hours)} — ${p.name}`, marginX + barWidth + 8, cursorY + 7)
-
-      cursorY += 16
-    })
-
-    cursorY += 14
-
-    // ── EMPLOYEE HOURS (full-width, stacked below) ──
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(9)
-    doc.setTextColor(71, 85, 105)
-    doc.setFillColor(59, 130, 246)
-    doc.rect(marginX, cursorY, 3, 10, 'F')
-    doc.text('EMPLOYEE HOURS', marginX + 8, cursorY + 8)
-
-    cursorY += 22
-    const maxEmployeeHours = Math.max(...sortedLeaderboard.map(e => e.hours), 1)
-
-    sortedLeaderboard.forEach((e, idx) => {
-      // Check if we need a new page for the analytics section
-      if (cursorY > pageHeight - 60) {
+    hoursByProject.forEach((p, idx) => {
+      // Check if we need a new page
+      if (cursorY > pageHeight - 80) {
         doc.addPage()
-        cursorY = 36
+        cursorY = marginY
       }
 
-      const barWidth = Math.max(5, (e.hours / maxEmployeeHours) * maxBarWidth)
-      const baseColor = hslToRgb(Math.round((idx * 137.5) % 360), 75, 50)
+      const barWidth = Math.max(8, (p.hours / maxProjectHours) * maxBarWidth)
+      const isAboveAvg = p.hours > avgProjectHours
+      const barColor = isAboveAvg ? colors.emerald.primary : colors.emerald.dark
 
-      draw3DBar(marginX, cursorY, barWidth, 8, baseColor)
+      drawEnhancedBar(marginX, cursorY, barWidth, 10, barColor)
 
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(7.5)
-      doc.setTextColor(30, 41, 59)
-      doc.text(`${formatExportHours(e.hours)} — ${e.name}`, marginX + barWidth + 8, cursorY + 7)
+      doc.setFontSize(8)
+      doc.setTextColor(...colors.slate.dark)
+      const hoursText = `${formatExportHours(p.hours)}`
+      doc.text(hoursText, marginX + barWidth + 8, cursorY + 8)
 
-      cursorY += 16
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8)
+      doc.setTextColor(...colors.slate.medium)
+      const projectName = p.name.length > 45 ? p.name.substring(0, 42) + '...' : p.name
+      doc.text(projectName, marginX + barWidth + 8 + doc.getTextWidth(hoursText) + 6, cursorY + 8)
+
+      cursorY += 14
     })
 
     cursorY += 20
 
-    // Check if there's enough room for the table header, otherwise start on a new page
-    if (cursorY > pageHeight - 100) {
+    // ─────────────────────────────────────────────────────────────
+    // EMPLOYEE HOURS (Stacked Vertically)
+    // ─────────────────────────────────────────────────────────────
+
+    // Section header
+    doc.setFillColor(...colors.emerald.primary)
+    doc.rect(marginX, cursorY, 4, 14, 'F')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.setTextColor(...colors.slate.dark)
+    doc.text('EMPLOYEE HOURS', marginX + 10, cursorY + 11)
+
+    cursorY += 24
+
+    const maxEmployeeHours = Math.max(...sortedLeaderboard.map(e => e.hours), 1)
+
+    sortedLeaderboard.forEach((e, idx) => {
+      // Check if we need a new page
+      if (cursorY > pageHeight - 80) {
+        doc.addPage()
+        cursorY = marginY
+      }
+
+      const barWidth = Math.max(8, (e.hours / maxEmployeeHours) * maxBarWidth)
+      const hue = Math.round((idx * 137.5) % 360)
+      const barColor = hslToRgb(hue, 70, 45)
+
+      drawEnhancedBar(marginX, cursorY, barWidth, 10, barColor)
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(8)
+      doc.setTextColor(...colors.slate.dark)
+      const hoursText = `${formatExportHours(e.hours)}`
+      doc.text(hoursText, marginX + barWidth + 8, cursorY + 8)
+
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8)
+      doc.setTextColor(...colors.slate.medium)
+      const empName = e.name.length > 40 ? e.name.substring(0, 37) + '...' : e.name
+      doc.text(empName, marginX + barWidth + 8 + doc.getTextWidth(hoursText) + 6, cursorY + 8)
+
+      cursorY += 14
+    })
+
+    cursorY += 20
+
+    // ═══════════════════════════════════════════════════════════════
+    // DETAILED TIME LOGS TABLE
+    // ═══════════════════════════════════════════════════════════════
+
+    // Check if we need a new page
+    if (cursorY > pageHeight - 150) {
       doc.addPage()
-      cursorY = 36
+      cursorY = marginY
     }
 
-    // ── Detailed time logs ──
-    cursorY = addSectionTitle('Detailed Time Logs', cursorY)
+    // Section divider
+    doc.setDrawColor(...colors.slate.veryLight)
+    doc.setLineWidth(0.5)
+    doc.line(marginX, cursorY, pageWidth - marginX, cursorY)
+    cursorY += 16
 
+    // Section title
+    doc.setFillColor(...colors.emerald.primary)
+    doc.rect(marginX, cursorY, 4, 14, 'F')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.setTextColor(...colors.slate.dark)
+    doc.text('DETAILED TIME LOGS', marginX + 10, cursorY + 11)
+    cursorY += 24
+
+    // Prepare table data
     const tableHeaders = ['Employee', 'Project', 'Login Time', 'Logout Time', 'Duration']
-
     const tableRows = filteredTimesheets.map((t) => {
       const hours = calculateHours(
         t.loginTime,
@@ -2500,7 +2602,7 @@ export function ProjectManagement() {
         const totalMinutes = Math.round(hours * 60)
         const hrs = Math.floor(totalMinutes / 60)
         const mins = totalMinutes % 60
-        return `${hrs}hr ${mins}min`
+        return `${hrs}h ${mins}m`
       })()
       
       return [
@@ -2512,32 +2614,89 @@ export function ProjectManagement() {
       ]
     })
 
+    // Enhanced table theme with emerald styling
     autoTable(doc, {
-      ...tableTheme,
       head: [tableHeaders],
       body: tableRows,
       startY: cursorY,
-      styles: { ...tableTheme.styles, cellPadding: 4 },
+      theme: 'grid',
+      styles: {
+        fontSize: 8,
+        cellPadding: 6,
+        overflow: 'linebreak',
+        lineColor: colors.slate.veryLight,
+        lineWidth: 0.5,
+        valign: 'middle',
+      },
+      headStyles: {
+        fillColor: colors.emerald.dark,
+        textColor: colors.white,
+        fontStyle: 'bold',
+        fontSize: 9,
+        halign: 'left',
+        valign: 'middle',
+        cellPadding: 8,
+        overflow: 'linebreak',
+        minCellHeight: 20,
+      },
+      alternateRowStyles: {
+        fillColor: colors.emerald.veryLight,
+      },
       columnStyles: {
-        0: { cellWidth: contentWidth * 0.24 },
-        1: { cellWidth: contentWidth * 0.22 },
-        2: { cellWidth: contentWidth * 0.22 },
-        3: { cellWidth: contentWidth * 0.22 },
-        4: { cellWidth: contentWidth * 0.10, halign: 'right' },
+        0: { cellWidth: contentWidth * 0.23, halign: 'left', valign: 'middle' },
+        1: { cellWidth: contentWidth * 0.21, halign: 'left', valign: 'middle' },
+        2: { cellWidth: contentWidth * 0.21, halign: 'center', valign: 'middle' },
+        3: { cellWidth: contentWidth * 0.21, halign: 'center', valign: 'middle' },
+        4: { cellWidth: contentWidth * 0.14, halign: 'right', valign: 'middle', fontStyle: 'bold' },
+      },
+      didDrawCell: (data) => {
+        // Override header alignment for Duration column
+        if (data.section === 'head' && data.column.index === 4) {
+          const cell = data.cell
+          const text = cell.text[0]
+          const cellWidth = cell.width
+          const cellX = cell.x
+          const cellY = cell.y
+          
+          // Clear the cell and redraw with right alignment
+          doc.setFillColor(...colors.emerald.dark)
+          doc.rect(cellX, cellY, cellWidth, cell.height, 'F')
+          
+          doc.setTextColor(...colors.white)
+          doc.setFont('helvetica', 'bold')
+          doc.setFontSize(9)
+          doc.text(text, cellX + cellWidth - 8, cellY + cell.height / 2, { 
+            align: 'right',
+            baseline: 'middle'
+          })
+        }
+      },
+      margin: { left: marginX, right: marginX, bottom: 60 },
+      didDrawPage: (data) => {
+        // Ensure consistent spacing
       },
     })
 
-    // ── Footer on every page ──
+    // ═══════════════════════════════════════════════════════════════
+    // FOOTER ON EVERY PAGE
+    // ═══════════════════════════════════════════════════════════════
     const totalPages = doc.getNumberOfPages()
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i)
-      doc.setDrawColor(226, 232, 240)
-      doc.setLineWidth(0.5)
-      doc.line(marginX, pageHeight - 36, pageWidth - marginX, pageHeight - 36)
-      doc.setFontSize(7)
-      doc.setTextColor(148, 163, 184)
-      doc.text(`Page ${i} of ${totalPages}`, pageWidth - marginX, pageHeight - 24, { align: 'right' })
-      doc.text('Confidential – EPICAL Timesheet Data', marginX, pageHeight - 24)
+      
+      // Footer divider
+      doc.setDrawColor(...colors.emerald.primary)
+      doc.setLineWidth(1)
+      doc.line(marginX, pageHeight - 35, pageWidth - marginX, pageHeight - 35)
+
+      // Footer text
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8)
+      doc.setTextColor(...colors.slate.light)
+      doc.text('Confidential – EPICAL Timesheet Data', marginX, pageHeight - 20)
+      
+      doc.setFont('helvetica', 'bold')
+      doc.text(`Page ${i} of ${totalPages}`, pageWidth - marginX, pageHeight - 20, { align: 'right' })
     }
 
     doc.save(`Timesheet_Report_${tsStartDate}_to_${tsEndDate}.pdf`)
@@ -2590,9 +2749,9 @@ export function ProjectManagement() {
     <PageWrapper className="dashboard-surface py-4 sm:py-5">
       <div className="crewiq-dashboard">
         {/* ── Compact admin header: tabs + contextual actions ───────────────── */}
-        <div className="sticky top-0 z-30 -mx-4 mb-5 border-b border-white/[0.06] bg-[#0c0f1a]/95 px-4 py-3 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+        <div className="sticky top-0 z-30 -mx-4 mb-5 border-b border-white/[0.08] bg-gradient-to-b from-[#0c0f1a] to-[#0c0f1a]/95 px-4 py-3 backdrop-blur-xl shadow-[0_4px_16px_-4px_rgba(0,0,0,0.4)] sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="inline-flex items-center gap-0.5 rounded-lg border border-white/[0.06] bg-[#0f1219] p-0.5">
+            <div className="inline-flex items-center gap-0.5 rounded-lg border border-white/[0.08] bg-gradient-to-b from-[#0f1219] to-[#0a0d12] p-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
             {[
               { key: 'projects' as const, label: 'Projects', icon: FolderOpen, count: filteredProjects.length },
               { key: 'timesheets' as const, label: 'Timesheets', icon: Clock, count: filteredTimesheets.length },
@@ -2602,15 +2761,15 @@ export function ProjectManagement() {
                 onClick={() => setActiveTab(tab.key)}
                 className={`inline-flex items-center gap-1.5 rounded-[7px] px-3.5 py-[7px] text-[12px] font-bold transition-all duration-200 ${
                   activeTab === tab.key
-                    ? 'bg-emerald-600 text-white shadow-[0_1px_3px_rgba(0,0,0,0.3),0_0_0_1px_rgba(16,185,129,0.15)_inset]'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
+                    ? 'bg-gradient-to-b from-emerald-500 to-emerald-600 text-white shadow-[0_2px_8px_rgba(16,185,129,0.3),0_1px_2px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.1)_inset]'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.05]'
                 }`}
               >
                 <tab.icon className="h-3.5 w-3.5 shrink-0" />
                 {tab.label}
                 <span
                   className={`rounded-full px-1.5 py-0.5 text-[10px] font-black tabular-nums leading-none ${
-                    activeTab === tab.key ? 'bg-white/15 text-white' : 'bg-white/5 text-slate-500'
+                    activeTab === tab.key ? 'bg-white/20 text-white shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)]' : 'bg-white/5 text-slate-500'
                   }`}
                 >
                   {tab.count}
@@ -2624,14 +2783,14 @@ export function ProjectManagement() {
               <>
                 <Button
                   onClick={() => setArchivedModalOpen(true)}
-                  className="flex h-8 items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-0 text-[12px] font-bold text-slate-300 transition-all hover:bg-white/[0.06] hover:border-white/[0.14] hover:text-white"
+                  className="flex h-8 items-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.04] px-3 py-0 text-[12px] font-bold text-slate-300 transition-all hover:bg-white/[0.08] hover:border-white/[0.16] hover:text-white shadow-[0_1px_3px_rgba(0,0,0,0.2)]"
                 >
-                  <Archive className="h-3.5 w-3.5 text-slate-500" />
+                  <Archive className="h-3.5 w-3.5 text-slate-400" />
                   <span className="hidden sm:inline">Archived</span>
                 </Button>
                 <Button
                   onClick={openCreateProject}
-                  className="flex h-8 items-center gap-1.5 rounded-lg border-0 bg-emerald-600 px-3.5 py-0 text-[12px] font-bold text-white shadow-[0_1px_3px_rgba(0,0,0,0.25)] transition-all hover:bg-emerald-500 hover:shadow-[0_2px_10px_rgba(16,185,129,0.25)]"
+                  className="flex h-8 items-center gap-1.5 rounded-lg border-0 bg-gradient-to-b from-emerald-500 to-emerald-600 px-3.5 py-0 text-[12px] font-bold text-white shadow-[0_2px_8px_rgba(16,185,129,0.3),0_1px_2px_rgba(0,0,0,0.3)] transition-all hover:from-emerald-400 hover:to-emerald-500 hover:shadow-[0_4px_16px_rgba(16,185,129,0.4)]"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   Create Project
@@ -2642,18 +2801,18 @@ export function ProjectManagement() {
               <>
                 <button
                   onClick={handleExportPDF}
-                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-rose-500/15 bg-rose-500/8 px-3 text-[12px] font-bold text-rose-400 transition-all hover:bg-rose-500/15 hover:border-rose-500/25"
+                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-rose-500/20 bg-gradient-to-b from-rose-500/10 to-rose-500/5 px-3 text-[12px] font-bold text-rose-400 transition-all hover:from-rose-500/15 hover:to-rose-500/10 hover:border-rose-500/30 shadow-[0_1px_3px_rgba(0,0,0,0.2)]"
                   title="Export timesheet data as PDF report"
                 >
-                  <FileDown className="h-3.5 w-3.5 shrink-0 text-rose-500" />
+                  <FileDown className="h-3.5 w-3.5 shrink-0 text-rose-400" />
                   <span>PDF Report</span>
                 </button>
                 <button
                   onClick={handleExportExcel}
-                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-emerald-500/15 bg-emerald-500/8 px-3 text-[12px] font-bold text-emerald-400 transition-all hover:bg-emerald-500/15 hover:border-emerald-500/25"
+                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-emerald-500/20 bg-gradient-to-b from-emerald-500/10 to-emerald-500/5 px-3 text-[12px] font-bold text-emerald-400 transition-all hover:from-emerald-500/15 hover:to-emerald-500/10 hover:border-emerald-500/30 shadow-[0_1px_3px_rgba(0,0,0,0.2)]"
                   title="Export timesheet data as Excel spreadsheet"
                 >
-                  <FileSpreadsheet className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                  <FileSpreadsheet className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
                   <span>Excel</span>
                 </button>
               </>
@@ -2696,7 +2855,7 @@ export function ProjectManagement() {
           </div>
 
           {/* Search & filters toolbar */}
-          <div className="rounded-xl border border-white/[0.06] bg-[#161922] p-3.5 shadow-[0_2px_12px_-3px_rgba(0,0,0,0.35)]">
+          <div className="rounded-xl border border-white/[0.08] bg-gradient-to-b from-[#161922] to-[#13161f] p-3.5 shadow-[0_4px_16px_-4px_rgba(0,0,0,0.4)]">
             <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                 <div className="relative min-w-[200px] flex-1 sm:max-w-md">
@@ -2706,7 +2865,7 @@ export function ProjectManagement() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search projects, clients, tech nodes…"
-                    className="h-9 w-full rounded-lg border border-white/10 bg-[#111319] pl-9 pr-8 text-sm font-semibold text-slate-200 outline-none transition-all placeholder:text-slate-500 focus:border-emerald-500/50 focus:bg-[#111319]/80 focus:ring-2 focus:ring-emerald-500/10"
+                    className="h-9 w-full rounded-lg border border-white/10 bg-[#0d0f15] pl-9 pr-8 text-sm font-semibold text-slate-200 outline-none transition-all placeholder:text-slate-500 focus:border-emerald-500/50 focus:bg-[#0d0f15] focus:ring-2 focus:ring-emerald-500/20 shadow-[inset_0_1px_2px_rgba(0,0,0,0.3)]"
                   />
                   {searchQuery && (
                     <button
@@ -2721,16 +2880,16 @@ export function ProjectManagement() {
                 <button
                   type="button"
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-xs font-bold transition-all ${
+                  className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-xs font-bold transition-all shadow-[0_1px_3px_rgba(0,0,0,0.2)] ${
                     showFilters || activeFiltersCount > 0
-                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
-                      : 'border-white/10 bg-[#111319] text-slate-300 hover:bg-white/[0.04]'
+                      ? 'border-emerald-500/30 bg-gradient-to-b from-emerald-500/15 to-emerald-500/10 text-emerald-400'
+                      : 'border-white/10 bg-gradient-to-b from-[#0d0f15] to-[#0a0c11] text-slate-300 hover:from-white/[0.06] hover:to-white/[0.03]'
                   }`}
                 >
                   <SlidersHorizontal className="h-3.5 w-3.5" />
                   Filters
                   {activeFiltersCount > 0 && (
-                    <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-emerald-600 px-1 text-[10px] font-black text-white">
+                    <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-emerald-600 px-1 text-[10px] font-black text-white shadow-[0_1px_3px_rgba(0,0,0,0.3)]">
                       {activeFiltersCount}
                     </span>
                   )}
@@ -3122,14 +3281,14 @@ export function ProjectManagement() {
 
           {/* Analytics panels */}
           <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-xl border border-white/[0.06] bg-[#161922] p-5 shadow-[0_2px_12px_-3px_rgba(0,0,0,0.35)]">
-              <div className="mb-4 flex items-center justify-between gap-2 border-b border-white/[0.05] pb-3">
-                <h3 className="type-card-label-caps flex items-center gap-2 text-emerald-450 font-extrabold">
-                  <span className="h-3.5 w-1 shrink-0 rounded-full bg-emerald-500" />
+            <div className="rounded-xl border border-white/[0.08] bg-gradient-to-b from-[#161922] to-[#13161f] p-5 shadow-[0_4px_16px_-4px_rgba(0,0,0,0.4)]">
+              <div className="mb-4 flex items-center justify-between gap-2 border-b border-white/[0.08] pb-3">
+                <h3 className="type-card-label-caps flex items-center gap-2 text-emerald-400 font-extrabold">
+                  <span className="h-3.5 w-1 shrink-0 rounded-full bg-gradient-to-b from-emerald-400 to-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
                   Aggregated Hours by Project
                 </h3>
                 {derivedHoursByProject.length > 0 && (
-                  <span className="text-xs text-slate-450 font-mono">
+                  <span className="text-xs text-slate-400 font-mono font-bold">
                     {derivedHoursByProject.length} project{derivedHoursByProject.length === 1 ? '' : 's'}
                   </span>
                 )}
@@ -3162,7 +3321,7 @@ export function ProjectManagement() {
                           const isGreaterThanAverage = project.hours > averageHours
                           const percentage =
                             totalHours > 0 ? ((project.hours / totalHours) * 100).toFixed(2) : '0.00'
-                          const cardBg = isGreaterThanAverage ? 'bg-[#4aaf7d]' : 'bg-[#f16c6f]'
+                          const cardBg = isGreaterThanAverage ? 'bg-[#4aaf7d]' : 'bg-[#a78bfa]'
                           const foundProject = allProjects.find((p) => p.name === project.name)
 
                           return (
@@ -3193,20 +3352,20 @@ export function ProjectManagement() {
                   </ProjectHoursHoverCardProvider>
                 </div>
               ) : (
-                <div className="flex h-60 items-center justify-center rounded-lg border border-dashed border-white/[0.06] bg-[#111319] text-sm font-semibold text-slate-500 sm:h-64">
+                <div className="flex h-60 items-center justify-center rounded-lg border border-dashed border-white/[0.08] bg-[#0d0f15] text-sm font-semibold text-slate-500 sm:h-64 shadow-[inset_0_2px_8px_rgba(0,0,0,0.3)]">
                   No data logs available in the chosen dates.
                 </div>
               )}
             </div>
 
-            <div className="rounded-xl border border-white/[0.06] bg-[#161922] p-5 shadow-[0_2px_12px_-3px_rgba(0,0,0,0.35)]">
-              <div className="mb-4 flex items-center justify-between gap-2 border-b border-white/[0.05] pb-3">
-                <h3 className="type-card-label-caps flex items-center gap-2 text-emerald-450 font-extrabold">
-                  <span className="h-3.5 w-1 shrink-0 rounded-full bg-emerald-500" />
+            <div className="rounded-xl border border-white/[0.08] bg-gradient-to-b from-[#161922] to-[#13161f] p-5 shadow-[0_4px_16px_-4px_rgba(0,0,0,0.4)]">
+              <div className="mb-4 flex items-center justify-between gap-2 border-b border-white/[0.08] pb-3">
+                <h3 className="flex items-center gap-2.5 text-xs font-extrabold uppercase tracking-wider text-slate-300">
+                  <span className="h-4 w-1 shrink-0 rounded-full bg-gradient-to-b from-emerald-400 to-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
                   Aggregated Hours by Employee
                 </h3>
                 {derivedLeaderboardData.length > 0 && (
-                  <span className="text-xs text-slate-450 font-mono">
+                  <span className="text-sm font-bold text-slate-400 tabular-nums">
                     {derivedLeaderboardData.length} employee{derivedLeaderboardData.length === 1 ? '' : 's'}
                   </span>
                 )}
@@ -3218,19 +3377,19 @@ export function ProjectManagement() {
           </div>
 
           {/* Timesheet log table */}
-          <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-[#161922] shadow-[0_2px_12px_-3px_rgba(0,0,0,0.35)]">
+          <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-b from-[#161922] to-[#13161f] shadow-[0_4px_16px_-4px_rgba(0,0,0,0.4)]">
             <div className="max-h-[min(32rem,70vh)] overflow-auto timesheet-panel-scroll">
               <table className="w-full min-w-[640px] border-collapse text-left">
                 <thead className="sticky top-0 z-10">
-                  <tr className="border-b border-white/[0.08] bg-[#0e1119]">
-                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">Employee</th>
-                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">Project</th>
-                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">Login Time</th>
-                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">Logout Time</th>
-                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">Duration</th>
+                  <tr className="border-b border-white/[0.1] bg-gradient-to-b from-[#0e1119] to-[#0b0d12] shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
+                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-400">Employee</th>
+                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-400">Project</th>
+                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-400">Login Time</th>
+                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-400">Logout Time</th>
+                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-400">Duration</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5 text-sm">
+                <tbody className="divide-y divide-white/[0.06] text-sm">
                   {currentTimesheets.map((t) => {
                     const empInfo = MOCK_EMPLOYEES.find((e) => e.id === t.employeeId)
                     const hours = calculateHours(
@@ -3244,7 +3403,7 @@ export function ProjectManagement() {
                     return (
                       <tr
                         key={t.id}
-                        className="group transition-colors hover:bg-white/[0.02]"
+                        className="group transition-colors hover:bg-white/[0.03] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]"
                       >
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-3">
@@ -3303,11 +3462,11 @@ export function ProjectManagement() {
                         </td>
 
                         <td className="px-5 py-3.5">
-                          <span className="inline-flex rounded-lg border border-white/10 bg-[#111319] px-2.5 py-1 text-slate-200 font-mono text-xs font-bold">
+                          <span className="inline-flex rounded-lg border border-white/[0.12] bg-gradient-to-b from-[#0d0f15] to-[#0a0c11] px-2.5 py-1 text-slate-200 font-mono text-xs font-bold shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.03)]">
                             {formatAdminDuration(hours)}
                           </span>
                           {t.autoCheckedOut && (
-                            <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-amber-500">
+                            <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-amber-400">
                               Auto Checked-Out
                             </p>
                           )}
