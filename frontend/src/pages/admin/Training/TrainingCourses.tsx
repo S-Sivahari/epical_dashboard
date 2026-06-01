@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react'
-import { PageHeader } from '@components/layout/PageHeader'
 import { PageWrapper } from '@components/layout/PageWrapper'
-import { Breadcrumb } from '@components/layout/Breadcrumb'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
 import { Badge } from '@components/ui/Badge'
@@ -18,10 +16,29 @@ import {
   type Course,
   type CourseEnrollment,
 } from '@services/trainingService'
-import { X, Search, PlusCircle, Pencil } from 'lucide-react'
+import { cn } from '@/utils/cn'
+import {
+  X,
+  Search,
+  PlusCircle,
+  Pencil,
+  GraduationCap,
+  Users,
+  Award,
+  Sparkles,
+  ExternalLink,
+} from 'lucide-react'
+
+type TabId = 'courses' | 'enrollment' | 'completed'
+
+const tabs: Array<{ id: TabId; label: string; icon: typeof GraduationCap }> = [
+  { id: 'courses', label: 'Courses', icon: GraduationCap },
+  { id: 'enrollment', label: 'Enrollment', icon: Users },
+  { id: 'completed', label: 'Completed', icon: Award },
+]
 
 export function TrainingCourses() {
-  const [tab, setTab] = useState<'courses' | 'enrollment' | 'completed'>('courses')
+  const [tab, setTab] = useState<TabId>('courses')
   const [title, setTitle] = useState('')
   const [topic, setTopic] = useState('')
   const [platform, setPlatform] = useState('')
@@ -42,6 +59,8 @@ export function TrainingCourses() {
   const [loadingEnrollments, setLoadingEnrollments] = useState(false)
   const [courseFilter, setCourseFilter] = useState('')
   const [employeeFilter, setEmployeeFilter] = useState('')
+  const [enrolledTotal, setEnrolledTotal] = useState(0)
+  const [completedTotal, setCompletedTotal] = useState(0)
 
   const enrollmentColumns: Column<CourseEnrollment>[] = [
     { key: 'employeeId', header: 'Employee ID' },
@@ -62,15 +81,50 @@ export function TrainingCourses() {
     },
   ]
 
+  const completedColumns: Column<CourseEnrollment>[] = [
+    { key: 'employeeId', header: 'Employee ID' },
+    { key: 'employeeName', header: 'Name' },
+    { key: 'courseTitle', header: 'Course' },
+    { key: 'topic', header: 'Topic' },
+    {
+      key: 'enrolledAt',
+      header: 'Enrolled date',
+      render: (r) => formatDate(r.enrolledAt),
+    },
+    {
+      key: 'completedAt',
+      header: 'Completed date',
+      render: (r) => (r.completedAt ? formatDate(r.completedAt) : '—'),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: () => <Badge variant="success">Completed</Badge>,
+    },
+  ]
+
   const loadCourses = async () => {
     setLoadingCourses(true)
     try {
       const data = await listCourses(search)
       setCourses(data)
-    } catch (e) {
+    } catch {
       toast.error('Failed to load courses')
     } finally {
       setLoadingCourses(false)
+    }
+  }
+
+  const refreshEnrollmentTotals = async () => {
+    try {
+      const [enrolled, completed] = await Promise.all([
+        listEnrollments({ status: 'Enrolled' }),
+        listEnrollments({ status: 'Completed' }),
+      ])
+      setEnrolledTotal(enrolled.length)
+      setCompletedTotal(completed.length)
+    } catch {
+      // ignore — metrics are supplementary
     }
   }
 
@@ -95,32 +149,14 @@ export function TrainingCourses() {
   }, [search])
 
   useEffect(() => {
+    void refreshEnrollmentTotals()
+  }, [])
+
+  useEffect(() => {
     if (tab !== 'courses') {
       void loadEnrollments()
     }
   }, [tab, courseFilter, employeeFilter])
-
-  const completedColumns: Column<CourseEnrollment>[] = [
-    { key: 'employeeId', header: 'Employee ID' },
-    { key: 'employeeName', header: 'Name' },
-    { key: 'courseTitle', header: 'Course' },
-    { key: 'topic', header: 'Topic' },
-    {
-      key: 'enrolledAt',
-      header: 'Enrolled date',
-      render: (r) => formatDate(r.enrolledAt),
-    },
-    {
-      key: 'completedAt',
-      header: 'Completed date',
-      render: (r) => (r.completedAt ? formatDate(r.completedAt) : '—'),
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      render: () => <Badge variant="success">Completed</Badge>,
-    },
-  ]
 
   const handleCreateCourse = async () => {
     if (!title || !topic || !platform || !link) {
@@ -135,8 +171,9 @@ export function TrainingCourses() {
       setTopic('')
       setPlatform('')
       setLink('')
-    } catch (e: any) {
-      toast.error(e?.response?.data?.error || 'Failed to add course')
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { error?: string } } }
+      toast.error(err?.response?.data?.error || 'Failed to add course')
     } finally {
       setSavingCourse(false)
     }
@@ -148,8 +185,10 @@ export function TrainingCourses() {
       await deleteCourse(id)
       setCourses((prev) => prev.filter((c) => c.id !== id))
       setEnrollments((prev) => prev.filter((e) => e.courseId !== id))
-    } catch (e: any) {
-      toast.error(e?.response?.data?.error || 'Failed to remove course')
+      void refreshEnrollmentTotals()
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { error?: string } } }
+      toast.error(err?.response?.data?.error || 'Failed to remove course')
     } finally {
       setRemovingCourse(null)
     }
@@ -180,178 +219,310 @@ export function TrainingCourses() {
       setCourses((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
       setEnrollments((prev) =>
         prev.map((e) =>
-          e.courseId === updated.id
-            ? { ...e, courseTitle: updated.title, topic: updated.topic }
-            : e
-        )
+          e.courseId === updated.id ? { ...e, courseTitle: updated.title, topic: updated.topic } : e,
+        ),
       )
       setEditingCourse(null)
-    } catch (e: any) {
-      toast.error(e?.response?.data?.error || 'Failed to update course')
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { error?: string } } }
+      toast.error(err?.response?.data?.error || 'Failed to update course')
     } finally {
       setUpdatingCourse(false)
     }
   }
 
+  const activeTabMeta = tabs.find((t) => t.id === tab)!
+
+  const enrollmentTable = (
+    <div className="admin-training-table-wrap overflow-hidden">
+      <DataTable
+        columns={tab === 'completed' ? completedColumns : enrollmentColumns}
+        data={enrollments}
+        loading={loadingEnrollments}
+        empty={
+          <div className="admin-training-empty flex min-h-[220px] flex-col items-center justify-center px-6 py-8 text-center">
+            <Users className="mb-2 h-8 w-8 text-[var(--emerald-dark)]/40" />
+            <p className="text-sm font-semibold text-[var(--emerald-dark)]">
+              {tab === 'completed' ? 'No completed enrollments yet' : 'No active enrollments'}
+            </p>
+            <p className="mt-1 text-xs text-muted">Try adjusting your filters or add more courses.</p>
+          </div>
+        }
+      />
+    </div>
+  )
+
   return (
-    <PageWrapper>
-      <div className="crewiq-dashboard">
-        <PageHeader title="" breadcrumb={<Breadcrumb items={[{ label: 'Training' }]} />} />
-        <div className="mb-4 flex flex-wrap gap-2 border-b border-border pb-3">
-          {(
-            [
-              ['courses', 'Courses'],
-              ['enrollment', 'Enrollment'],
-              ['completed', 'Completed'],
-            ] as const
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setTab(key)}
-              className={`rounded-lg px-3 py-2 text-sm font-medium ${
-                tab === key ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'text-muted hover:bg-surface'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {tab === 'courses' ? (
-          <div className="space-y-4">
-            <div className="rounded-xl border border-border bg-white p-5 shadow-sm space-y-4">
-              <div className="flex items-center gap-2 text-ink font-semibold">
-                <PlusCircle className="h-4 w-4 text-emerald-600" />
-                Add New Course
+    <PageWrapper className="relative z-10 py-3 font-body">
+      <div className="crewiq-dashboard admin-training-view">
+        <div className="admin-training-shell animate-fadeIn">
+          {/* Hero */}
+          <div className="admin-training-hero">
+            <div className="admin-training-hero-top">
+              <div className="min-w-0">
+                <h1 className="admin-training-hero-title font-display">Training & Courses</h1>
+                <p className="admin-training-hero-sub">
+                  Manage courses, track enrollments, and monitor completions
+                </p>
               </div>
-              <div className="grid gap-3 md:grid-cols-4 md:items-end">
-                <Input label="Course Title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Enter course name" />
-                <Input label="Topic" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g. Sales, React" />
-                <Input label="Platform" value={platform} onChange={(e) => setPlatform(e.target.value)} placeholder="e.g. Udemy, Coursera" />
-                <div className="flex gap-2">
-                  <Input className="flex-1" label="Course Link" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://..." />
-                  <Button onClick={() => void handleCreateCourse()} disabled={savingCourse}>
-                    {savingCourse ? 'Adding...' : 'Add'}
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-          <div className="space-y-2">
-            <div className="relative w-full max-w-xl">
-              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search added courses by name, platform or topic..."
-                className="pl-10 rounded-full shadow-sm"
-              />
-            </div>
-            <p className="font-semibold text-ink">Added Courses</p>
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {loadingCourses ? (
-                <p className="text-sm text-muted">Loading courses...</p>
-              ) : courses.length === 0 ? (
-                <p className="text-sm text-muted">No courses yet.</p>
-              ) : (
-                courses.map((c) => (
-                  <div key={c.id} className="rounded-xl border border-border bg-white p-4 shadow-sm space-y-2">
-                    <p className="font-semibold text-ink">{c.title}</p>
-                    <p className="text-sm text-muted">Platform: {c.platform}</p>
-                    <p className="text-sm text-muted">Topic: {c.topic}</p>
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      <Button size="sm" variant="warning" asChild>
-                        <a href={c.link} target="_blank" rel="noreferrer">
-                          View Course
-                        </a>
-                      </Button>
-                      <Button size="sm" variant="info" onClick={() => openEditCourse(c)}>
-                        <Pencil className="h-3.5 w-3.5" />
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        disabled={removingCourse === c.id}
-                        onClick={() => handleDeleteCourse(c.id)}
-                      >
-                        {removingCourse === c.id ? 'Removing...' : 'Remove'}
-                      </Button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {tab !== 'courses' ? (
-        <div className="space-y-4">
-          <div className="flex flex-wrap gap-3 items-end">
-            <div className="w-48">
-              <label className="block text-xs font-medium text-muted mb-1">Course</label>
-              <select
-                value={courseFilter}
-                onChange={(e) => setCourseFilter(e.target.value)}
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm"
-              >
-                <option value="">All</option>
-                {courses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.title}
-                  </option>
+              <div className="admin-training-tab-rail">
+                {tabs.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setTab(t.id)}
+                    className={cn(
+                      'inline-flex items-center gap-1 rounded-[6px] px-2.5 py-1 text-[11px] font-bold transition-all duration-200',
+                      tab === t.id ? 'admin-dash-action-btn-sm text-white' : 'admin-training-tab-inactive',
+                    )}
+                  >
+                    <t.icon className="h-3 w-3 shrink-0" />
+                    {t.label}
+                    <span
+                      className={cn(
+                        'rounded-full px-1 py-px text-[9px] font-black tabular-nums leading-none',
+                        tab === t.id ? 'bg-white/20 text-white' : 'bg-white/15 text-white/80',
+                      )}
+                    >
+                      {t.id === 'courses'
+                        ? courses.length
+                        : t.id === 'enrollment'
+                          ? enrolledTotal
+                          : completedTotal}
+                    </span>
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
-            <div className="w-56">
-              <label className="block text-xs font-medium text-muted mb-1">Employee</label>
-              <Input
-                value={employeeFilter}
-                onChange={(e) => setEmployeeFilter(e.target.value)}
-                placeholder="Search by name or ID"
-              />
+            <div className="admin-training-metrics-band">
+              <div className="admin-training-metric-glass">
+                <p className="admin-training-metric-label">Total Courses</p>
+                <p className="admin-training-metric-value font-display">{courses.length}</p>
+              </div>
+              <div className="admin-training-metric-glass">
+                <p className="admin-training-metric-label">Active Enrollments</p>
+                <p className="admin-training-metric-value font-display">{enrolledTotal}</p>
+              </div>
+              <div className="admin-training-metric-glass">
+                <p className="admin-training-metric-label">Completed</p>
+                <p className="admin-training-metric-value font-display">{completedTotal}</p>
+              </div>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => { setCourseFilter(''); setEmployeeFilter(''); }}>
-              <X className="h-4 w-4 mr-1" /> Clear
-            </Button>
           </div>
 
-          <DataTable
-            columns={tab === 'completed' ? completedColumns : enrollmentColumns}
-            data={enrollments}
-            loading={loadingEnrollments}
-            empty={
-              <p className="text-sm text-muted px-2 py-4">
-                {tab === 'completed' ? 'No completed enrollments yet.' : 'No active enrollments match your filters.'}
-              </p>
-            }
-          />
-        </div>
-      ) : null}
+          {/* Courses tab */}
+          {tab === 'courses' && (
+            <div className="admin-training-body-grid">
+              <aside className="admin-training-sidebar space-y-4">
+                <p className="admin-training-sidebar-title">Add New Course</p>
+                <p className="text-xs font-medium leading-relaxed text-[var(--emerald-dark)]/80">
+                  Create a course catalog entry employees can enroll in from their dashboard.
+                </p>
+                <Input
+                  label="Course Title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Enter course name"
+                />
+                <Input
+                  label="Topic"
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  placeholder="e.g. Sales, React"
+                />
+                <Input
+                  label="Platform"
+                  value={platform}
+                  onChange={(e) => setPlatform(e.target.value)}
+                  placeholder="e.g. Udemy, Coursera"
+                />
+                <Input
+                  label="Course Link"
+                  value={link}
+                  onChange={(e) => setLink(e.target.value)}
+                  placeholder="https://..."
+                />
+                <Button
+                  className="admin-dash-action-btn w-full border-0"
+                  onClick={() => void handleCreateCourse()}
+                  disabled={savingCourse}
+                >
+                  <PlusCircle className="h-4 w-4" />
+                  {savingCourse ? 'Adding...' : 'Add Course'}
+                </Button>
+                <div className="admin-training-tip-box rounded-lg p-3 text-xs font-medium leading-relaxed">
+                  <Sparkles className="mb-1.5 h-3.5 w-3.5 text-[var(--emerald-dark)]" />
+                  Fill all fields including a valid link so employees can open the course directly.
+                </div>
+              </aside>
 
-      <Modal
-        isOpen={!!editingCourse}
-        onClose={() => setEditingCourse(null)}
-        title="Edit Course"
-        size="lg"
-      >
-        <div className="grid gap-3 md:grid-cols-2">
-          <Input label="Course Title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
-          <Input label="Topic" value={editTopic} onChange={(e) => setEditTopic(e.target.value)} />
-          <Input label="Platform" value={editPlatform} onChange={(e) => setEditPlatform(e.target.value)} />
-          <Input label="Course Link" value={editLink} onChange={(e) => setEditLink(e.target.value)} />
-          <div className="md:col-span-2 flex justify-end gap-2 pt-2">
-            <Button variant="ghost" onClick={() => setEditingCourse(null)}>
-              Cancel
-            </Button>
-            <Button onClick={() => void handleUpdateCourse()} disabled={updatingCourse}>
-              {updatingCourse ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </div>
+              <div className="admin-training-main-panel space-y-4">
+                <div className="admin-training-panel-header">
+                  <div>
+                    <h2 className="font-display text-sm font-bold text-[var(--emerald-dark)]">
+                      Course Catalog
+                    </h2>
+                    <p className="text-xs font-medium text-slate-600">
+                      {loadingCourses
+                        ? 'Loading...'
+                        : `${courses.length} course${courses.length === 1 ? '' : 's'} available`}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="relative max-w-xl">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--emerald-dark)]" />
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search by name, platform or topic..."
+                    className="pl-9"
+                  />
+                </div>
+
+                {loadingCourses ? (
+                  <div className="admin-training-empty flex min-h-[200px] items-center justify-center rounded-xl">
+                    <p className="text-sm font-medium text-[var(--emerald-dark)]/70">Loading courses...</p>
+                  </div>
+                ) : courses.length === 0 ? (
+                  <div className="admin-training-empty flex min-h-[220px] flex-col items-center justify-center rounded-xl px-6 text-center">
+                    <GraduationCap className="mb-2 h-8 w-8 text-[var(--emerald-dark)]/40" />
+                    <p className="text-sm font-semibold text-[var(--emerald-dark)]">No courses yet</p>
+                    <p className="mt-1 text-xs text-muted">Use the sidebar form to add your first course.</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {courses.map((c) => (
+                      <div key={c.id} className="admin-training-course-card space-y-2 rounded-xl p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-display text-sm font-bold text-[var(--emerald-dark)] line-clamp-2">
+                            {c.title}
+                          </p>
+                          <Badge variant="neutral" className="shrink-0 text-[10px]">
+                            {c.platform}
+                          </Badge>
+                        </div>
+                        <p className="text-xs font-medium text-slate-600">Topic: {c.topic}</p>
+                        <div className="flex flex-wrap gap-2 pt-2">
+                          <Button size="sm" variant="secondary" className="admin-training-secondary-btn" asChild>
+                            <a href={c.link} target="_blank" rel="noreferrer">
+                              <ExternalLink className="h-3.5 w-3.5" />
+                              View
+                            </a>
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="admin-training-secondary-btn"
+                            onClick={() => openEditCourse(c)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            disabled={removingCourse === c.id}
+                            onClick={() => void handleDeleteCourse(c.id)}
+                          >
+                            {removingCourse === c.id ? 'Removing...' : 'Remove'}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Enrollment / Completed tabs */}
+          {tab !== 'courses' && (
+            <div className="admin-training-body-grid">
+              <aside className="admin-training-sidebar space-y-4">
+                <p className="admin-training-sidebar-title">{activeTabMeta.label}</p>
+                <p className="text-xs font-medium leading-relaxed text-[var(--emerald-dark)]/80">
+                  {tab === 'enrollment'
+                    ? 'View employees currently enrolled in training courses.'
+                    : 'Review employees who have completed their courses.'}
+                </p>
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-[var(--emerald-dark)]">
+                    Course
+                  </label>
+                  <select
+                    value={courseFilter}
+                    onChange={(e) => setCourseFilter(e.target.value)}
+                    className="admin-training-select w-full rounded-lg border px-3 py-2 text-sm font-medium"
+                  >
+                    <option value="">All courses</option>
+                    {courses.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <Input
+                  label="Employee"
+                  value={employeeFilter}
+                  onChange={(e) => setEmployeeFilter(e.target.value)}
+                  placeholder="Search by name or ID"
+                />
+                {(courseFilter || employeeFilter) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-[var(--emerald-dark)]"
+                    onClick={() => {
+                      setCourseFilter('')
+                      setEmployeeFilter('')
+                    }}
+                  >
+                    <X className="h-4 w-4 mr-1" /> Clear filters
+                  </Button>
+                )}
+              </aside>
+
+              <div className="admin-training-main-panel">
+                <div className="admin-training-panel-header">
+                  <div>
+                    <h2 className="font-display text-sm font-bold text-[var(--emerald-dark)]">
+                      {tab === 'enrollment' ? 'Active Enrollments' : 'Completed Training'}
+                    </h2>
+                    <p className="text-xs font-medium text-slate-600">
+                      {loadingEnrollments
+                        ? 'Loading...'
+                        : `${enrollments.length} record${enrollments.length === 1 ? '' : 's'} in this view`}
+                    </p>
+                  </div>
+                </div>
+                {enrollmentTable}
+              </div>
+            </div>
+          )}
         </div>
-      </Modal>
+
+        <Modal isOpen={!!editingCourse} onClose={() => setEditingCourse(null)} title="Edit Course" size="lg">
+          <div className="grid gap-3 md:grid-cols-2">
+            <Input label="Course Title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+            <Input label="Topic" value={editTopic} onChange={(e) => setEditTopic(e.target.value)} />
+            <Input label="Platform" value={editPlatform} onChange={(e) => setEditPlatform(e.target.value)} />
+            <Input label="Course Link" value={editLink} onChange={(e) => setEditLink(e.target.value)} />
+            <div className="md:col-span-2 flex justify-end gap-2 pt-2">
+              <Button variant="ghost" onClick={() => setEditingCourse(null)}>
+                Cancel
+              </Button>
+              <Button
+                className="admin-dash-action-btn border-0"
+                onClick={() => void handleUpdateCourse()}
+                disabled={updatingCourse}
+              >
+                {updatingCourse ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
       </div>
     </PageWrapper>
   )

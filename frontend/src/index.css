@@ -2578,6 +2578,832 @@
   background: linear-gradient(180deg, rgba(240, 253, 244, 0.4) 0%, #ffffff 100%);
 }
 
+/* ── Admin Payslips — green dashboard layout ── */
+.admin-portal .admin-payslips-view.crewiq-dashboard {
+  background: linear-gradient(180deg, rgba(220, 252, 231, 0.35) 0%, var(--bg-canvas) 42%, var(--bg-canvas) 100%);
+}
+
+.admin-payslips-view .admin-payslips-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding-bottom: 1.5rem;
+}
+
+.admin-payslips-view .admin-payslips-hero {
+  overflow: hidden;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(20, 83, 45, 0.35);
+  background: linear-gradient(135deg, #0a2918 0%, var(--emerald-dark) 42%, #166534 100%);
+  box-shadow: 0 6px 20px -8px rgba(20, 83, 45, 0.45);
+}
+
+.admin-payslips-view .admin-payslips-hero-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  padding: 0.625rem 1rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.admin-payslips-view .admin-payslips-hero-title {
+  font-size: 0.9375rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: #ffffff;
+}
+
+.admin-payslips-view .admin-payslips-hero-sub {
+  display: none;
+}
+
+.admin-payslips-view .admin-payslips-tab-rail {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.125rem;
+  padding: 0.125rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.admin-payslips-view .admin-payslips-tab-inactive {
+  color: rgba(255, 255, 255, 0.78);
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.admin-payslips-view .admin-payslips-tab-inactive:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.admin-payslips-view .admin-payslips-template-btn {
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+}
+
+.admin-payslips-view .admin-payslips-template-btn:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
+.admin-payslips-view .admin-payslips-metrics-band {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.375rem;
+  padding: 0.375rem 1rem 0.5rem;
+  background: rgba(0, 0, 0, 0.14);
+}
+
+@media (max-width: 640px) {
+  .admin-payslips-view .admin-payslips-metrics-band {
+    grid-template-columns: 1fr;
+  }
+}
+
+.admin-payslips-view .admin-payslips-metric-glass {
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.625rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.admin-payslips-view .admin-payslips-metric-label {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.admin-payslips-view .admin-payslips-metric-value {
+  margin-top: 0.125rem;
+  font-size: 1.125rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-payslips-view .admin-payslips-body-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .admin-payslips-view .admin-payslips-body-grid {
+    grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+  }
+}
+
+.admin-payslips-view .admin-payslips-sidebar {
+  border-radius: 1rem;
+  border: 1px solid rgba(20, 83, 45, 0.22);
+  background: linear-gradient(180deg, var(--emerald-surface) 0%, rgba(220, 252, 231, 0.55) 100%);
+  padding: 1rem;
+  box-shadow: var(--shadow-card);
+}
+
+@media (min-width: 1024px) {
+  .admin-payslips-view .admin-payslips-sidebar {
+    position: sticky;
+    top: 4.5rem;
+  }
+}
+
+.admin-payslips-view .admin-payslips-sidebar-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--emerald-dark);
+}
+
+.admin-payslips-view .admin-payslips-tip-box {
+  border: 1px solid rgba(20, 83, 45, 0.15);
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--emerald-dark);
+}
+
+.admin-payslips-view .admin-payslips-main-panel {
+  border-radius: 1rem;
+  border: 1px solid rgba(20, 83, 45, 0.18);
+  border-left: 4px solid var(--emerald-dark);
+  background: linear-gradient(180deg, #ffffff 0%, rgba(240, 253, 244, 0.88) 100%);
+  padding: 1rem;
+  box-shadow: var(--shadow-card);
+  min-height: 420px;
+}
+
+.admin-payslips-view .admin-payslips-panel-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(20, 83, 45, 0.1);
+}
+
+.admin-payslips-view .admin-payslip-batch-summary {
+  border: 1px solid rgba(20, 83, 45, 0.12);
+  background: rgba(255, 255, 255, 0.72);
+  margin-bottom: 0.75rem;
+}
+
+.admin-payslips-view .admin-payslip-file-chip {
+  border: 1px solid rgba(20, 83, 45, 0.2);
+  background: rgba(255, 255, 255, 0.75);
+  color: var(--emerald-dark);
+}
+
+.admin-payslips-view .admin-payslip-secondary-btn {
+  border-color: rgba(20, 83, 45, 0.22) !important;
+  background: rgba(255, 255, 255, 0.85) !important;
+  color: var(--emerald-dark) !important;
+  font-weight: 600;
+}
+
+.admin-payslips-view .admin-payslip-secondary-btn:hover:not(:disabled) {
+  background: rgba(220, 252, 231, 0.85) !important;
+}
+
+.admin-payslips-view .admin-payslip-table-wrap {
+  overflow: hidden;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(20, 83, 45, 0.12);
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.admin-payslips-view .admin-payslip-table-wrap thead tr {
+  background: linear-gradient(180deg, var(--emerald-dark) 0%, #0f3d24 100%);
+}
+
+.admin-payslips-view .admin-payslip-table-wrap thead th {
+  color: rgba(255, 255, 255, 0.92) !important;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-payslips-view .admin-payslip-table-wrap tbody tr {
+  border-bottom: 1px solid rgba(20, 83, 45, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+  transition: background 0.15s ease;
+}
+
+.admin-payslips-view .admin-payslip-table-wrap tbody tr:hover {
+  background: rgba(220, 252, 231, 0.45);
+}
+
+.admin-payslips-view .admin-payslip-table-wrap tbody tr:nth-child(even) {
+  background: rgba(240, 253, 244, 0.35);
+}
+
+.admin-payslips-view .admin-payslip-empty {
+  border: 1px dashed rgba(20, 83, 45, 0.2);
+  background: rgba(240, 253, 244, 0.45);
+}
+
+.admin-payslips-view .admin-payslip-history-card {
+  border: 1px solid rgba(20, 83, 45, 0.15);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 2px 10px rgba(20, 83, 45, 0.06);
+}
+
+.admin-payslips-view .admin-payslip-history-head:hover {
+  background: rgba(220, 252, 231, 0.45);
+}
+
+.admin-payslips-view .admin-dash-action-btn,
+.admin-payslips-view .admin-dash-action-btn-sm {
+  background: linear-gradient(180deg, var(--emerald-dark) 0%, #0f3d24 100%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(20, 83, 45, 0.28);
+}
+
+.admin-payslips-view .admin-dash-action-btn:hover:not(:disabled),
+.admin-payslips-view .admin-dash-action-btn-sm:hover {
+  background: linear-gradient(180deg, #166534 0%, var(--emerald-dark) 100%);
+  color: #ffffff;
+}
+
+/* ── Admin Training — green dashboard layout ── */
+.admin-portal .admin-training-view.crewiq-dashboard {
+  background: linear-gradient(180deg, rgba(220, 252, 231, 0.35) 0%, var(--bg-canvas) 42%, var(--bg-canvas) 100%);
+}
+
+.admin-training-view .admin-training-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding-bottom: 1.5rem;
+}
+
+.admin-training-view .admin-training-hero {
+  overflow: hidden;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(20, 83, 45, 0.35);
+  background: linear-gradient(135deg, #0a2918 0%, var(--emerald-dark) 42%, #166534 100%);
+  box-shadow: 0 6px 20px -8px rgba(20, 83, 45, 0.45);
+}
+
+.admin-training-view .admin-training-hero-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  padding: 0.625rem 1rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.admin-training-view .admin-training-hero-title {
+  font-size: 0.9375rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: #ffffff;
+}
+
+.admin-training-view .admin-training-hero-sub {
+  display: none;
+}
+
+.admin-training-view .admin-training-tab-rail {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.125rem;
+  padding: 0.125rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.admin-training-view .admin-training-tab-inactive {
+  color: rgba(255, 255, 255, 0.78);
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.admin-training-view .admin-training-tab-inactive:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.admin-training-view .admin-training-metrics-band {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.375rem;
+  padding: 0.375rem 1rem 0.5rem;
+  background: rgba(0, 0, 0, 0.14);
+}
+
+@media (max-width: 640px) {
+  .admin-training-view .admin-training-metrics-band {
+    grid-template-columns: 1fr;
+  }
+}
+
+.admin-training-view .admin-training-metric-glass {
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.625rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.admin-training-view .admin-training-metric-label {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.admin-training-view .admin-training-metric-value {
+  margin-top: 0.125rem;
+  font-size: 1.125rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-training-view .admin-training-body-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .admin-training-view .admin-training-body-grid {
+    grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+  }
+}
+
+.admin-training-view .admin-training-sidebar {
+  border-radius: 1rem;
+  border: 1px solid rgba(20, 83, 45, 0.22);
+  background: linear-gradient(180deg, var(--emerald-surface) 0%, rgba(220, 252, 231, 0.55) 100%);
+  padding: 1rem;
+  box-shadow: var(--shadow-card);
+}
+
+@media (min-width: 1024px) {
+  .admin-training-view .admin-training-sidebar {
+    position: sticky;
+    top: 4.5rem;
+  }
+}
+
+.admin-training-view .admin-training-sidebar-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--emerald-dark);
+}
+
+.admin-training-view .admin-training-tip-box {
+  border: 1px solid rgba(20, 83, 45, 0.15);
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--emerald-dark);
+}
+
+.admin-training-view .admin-training-select {
+  border-color: rgba(20, 83, 45, 0.22);
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--text-primary);
+}
+
+.admin-training-view .admin-training-select:focus {
+  outline: none;
+  border-color: var(--emerald-dark);
+  box-shadow: 0 0 0 3px rgba(20, 83, 45, 0.12);
+}
+
+.admin-training-view .admin-training-main-panel {
+  border-radius: 1rem;
+  border: 1px solid rgba(20, 83, 45, 0.18);
+  border-left: 4px solid var(--emerald-dark);
+  background: linear-gradient(180deg, #ffffff 0%, rgba(240, 253, 244, 0.88) 100%);
+  padding: 1rem;
+  box-shadow: var(--shadow-card);
+  min-height: 420px;
+}
+
+.admin-training-view .admin-training-panel-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(20, 83, 45, 0.1);
+}
+
+.admin-training-view .admin-training-course-card {
+  border: 1px solid rgba(20, 83, 45, 0.15);
+  border-left: 3px solid var(--emerald-dark);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 2px 10px rgba(20, 83, 45, 0.06);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.admin-training-view .admin-training-course-card:hover {
+  border-color: rgba(20, 83, 45, 0.28);
+  box-shadow: var(--shadow-card);
+}
+
+.admin-training-view .admin-training-secondary-btn {
+  border-color: rgba(20, 83, 45, 0.22) !important;
+  background: rgba(255, 255, 255, 0.85) !important;
+  color: var(--emerald-dark) !important;
+  font-weight: 600;
+}
+
+.admin-training-view .admin-training-secondary-btn:hover:not(:disabled) {
+  background: rgba(220, 252, 231, 0.85) !important;
+}
+
+.admin-training-view .admin-training-table-wrap {
+  overflow: hidden;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(20, 83, 45, 0.12);
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.admin-training-view .admin-training-table-wrap thead tr {
+  background: linear-gradient(180deg, var(--emerald-dark) 0%, #0f3d24 100%);
+}
+
+.admin-training-view .admin-training-table-wrap thead th {
+  color: rgba(255, 255, 255, 0.92) !important;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-training-view .admin-training-table-wrap tbody tr {
+  border-bottom: 1px solid rgba(20, 83, 45, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+  transition: background 0.15s ease;
+}
+
+.admin-training-view .admin-training-table-wrap tbody tr:hover {
+  background: rgba(220, 252, 231, 0.45);
+}
+
+.admin-training-view .admin-training-table-wrap tbody tr:nth-child(even) {
+  background: rgba(240, 253, 244, 0.35);
+}
+
+.admin-training-view .admin-training-empty {
+  border: 1px dashed rgba(20, 83, 45, 0.2);
+  background: rgba(240, 253, 244, 0.45);
+}
+
+.admin-training-view .admin-dash-action-btn,
+.admin-training-view .admin-dash-action-btn-sm {
+  background: linear-gradient(180deg, var(--emerald-dark) 0%, #0f3d24 100%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(20, 83, 45, 0.28);
+}
+
+.admin-training-view .admin-dash-action-btn:hover:not(:disabled),
+.admin-training-view .admin-dash-action-btn-sm:hover {
+  background: linear-gradient(180deg, #166534 0%, var(--emerald-dark) 100%);
+  color: #ffffff;
+}
+
+/* ── Admin Tickets — green dashboard layout ── */
+.admin-portal .admin-tickets-view.crewiq-dashboard {
+  background: linear-gradient(180deg, rgba(220, 252, 231, 0.35) 0%, var(--bg-canvas) 42%, var(--bg-canvas) 100%);
+}
+
+.admin-tickets-view .admin-tickets-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding-bottom: 1.5rem;
+}
+
+.admin-tickets-view .admin-tickets-hero {
+  overflow: hidden;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(20, 83, 45, 0.35);
+  background: linear-gradient(135deg, #0a2918 0%, var(--emerald-dark) 42%, #166534 100%);
+  box-shadow: 0 6px 20px -8px rgba(20, 83, 45, 0.45);
+}
+
+.admin-tickets-view .admin-tickets-hero-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  padding: 0.625rem 1rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.admin-tickets-view .admin-tickets-hero-title {
+  font-size: 0.9375rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: #ffffff;
+}
+
+.admin-tickets-view .admin-tickets-hero-sub {
+  display: none;
+}
+
+.admin-tickets-view .admin-tickets-tab-rail {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.125rem;
+  padding: 0.125rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.admin-tickets-view .admin-tickets-tab-inactive {
+  color: rgba(255, 255, 255, 0.78);
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.admin-tickets-view .admin-tickets-tab-inactive:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.admin-tickets-view .admin-tickets-metrics-band {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.375rem;
+  padding: 0.375rem 1rem 0.5rem;
+  background: rgba(0, 0, 0, 0.14);
+}
+
+@media (max-width: 640px) {
+  .admin-tickets-view .admin-tickets-metrics-band {
+    grid-template-columns: 1fr;
+  }
+}
+
+.admin-tickets-view .admin-tickets-metric-glass {
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.625rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.admin-tickets-view .admin-tickets-metric-label {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.admin-tickets-view .admin-tickets-metric-value {
+  margin-top: 0.125rem;
+  font-size: 1.125rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-tickets-view .admin-tickets-body-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .admin-tickets-view .admin-tickets-body-grid {
+    grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+  }
+}
+
+.admin-tickets-view .admin-tickets-sidebar {
+  border-radius: 1rem;
+  border: 1px solid rgba(20, 83, 45, 0.22);
+  background: linear-gradient(180deg, var(--emerald-surface) 0%, rgba(220, 252, 231, 0.55) 100%);
+  padding: 1rem;
+  box-shadow: var(--shadow-card);
+}
+
+@media (min-width: 1024px) {
+  .admin-tickets-view .admin-tickets-sidebar {
+    position: sticky;
+    top: 4.5rem;
+  }
+}
+
+.admin-tickets-view .admin-tickets-sidebar-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--emerald-dark);
+}
+
+.admin-tickets-view .admin-tickets-tip-box {
+  border: 1px solid rgba(20, 83, 45, 0.15);
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--emerald-dark);
+}
+
+.admin-tickets-view .admin-tickets-main-panel {
+  border-radius: 1rem;
+  border: 1px solid rgba(20, 83, 45, 0.18);
+  border-left: 4px solid var(--emerald-dark);
+  background: linear-gradient(180deg, #ffffff 0%, rgba(240, 253, 244, 0.88) 100%);
+  padding: 1rem;
+  box-shadow: var(--shadow-card);
+  min-height: 420px;
+}
+
+.admin-tickets-view .admin-tickets-panel-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(20, 83, 45, 0.1);
+}
+
+.admin-tickets-view .admin-tickets-column {
+  border: 1px solid rgba(20, 83, 45, 0.15);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 2px 10px rgba(20, 83, 45, 0.06);
+}
+
+.admin-tickets-view .admin-tickets-column-head {
+  background: linear-gradient(180deg, var(--emerald-dark) 0%, #0f3d24 100%);
+  color: #ffffff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.admin-tickets-view .admin-tickets-column-empty {
+  color: var(--emerald-dark);
+  opacity: 0.7;
+  background: rgba(240, 253, 244, 0.45);
+}
+
+.admin-tickets-view .admin-tickets-table thead tr {
+  background: rgba(20, 83, 45, 0.08);
+}
+
+.admin-tickets-view .admin-tickets-table thead th {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--emerald-dark);
+}
+
+.admin-tickets-view .admin-tickets-row {
+  border-bottom: 1px solid rgba(20, 83, 45, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.admin-tickets-view .admin-tickets-row:hover {
+  background: rgba(220, 252, 231, 0.55);
+}
+
+.admin-tickets-view .admin-tickets-row:nth-child(even) {
+  background: rgba(240, 253, 244, 0.35);
+}
+
+.admin-tickets-view .admin-tickets-row:nth-child(even):hover {
+  background: rgba(220, 252, 231, 0.55);
+}
+
+.admin-tickets-view .admin-tickets-secondary-btn {
+  border-color: rgba(20, 83, 45, 0.22) !important;
+  background: rgba(255, 255, 255, 0.85) !important;
+  color: var(--emerald-dark) !important;
+  font-weight: 600;
+}
+
+.admin-tickets-view .admin-tickets-secondary-btn:hover:not(:disabled) {
+  background: rgba(220, 252, 231, 0.85) !important;
+}
+
+.admin-tickets-view .admin-tickets-empty {
+  border: 1px dashed rgba(20, 83, 45, 0.2);
+  background: rgba(240, 253, 244, 0.45);
+}
+
+.admin-tickets-view .admin-dash-action-btn,
+.admin-tickets-view .admin-dash-action-btn-sm {
+  background: linear-gradient(180deg, var(--emerald-dark) 0%, #0f3d24 100%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(20, 83, 45, 0.28);
+}
+
+.admin-tickets-view .admin-dash-action-btn:hover:not(:disabled),
+.admin-tickets-view .admin-dash-action-btn-sm:hover {
+  background: linear-gradient(180deg, #166534 0%, var(--emerald-dark) 100%);
+  color: #ffffff;
+}
+
+.admin-tickets-modal {
+  border: 1px solid rgba(20, 83, 45, 0.22) !important;
+  border-left: 4px solid var(--emerald-dark) !important;
+  background: linear-gradient(180deg, #ffffff 0%, rgba(240, 253, 244, 0.92) 100%) !important;
+  box-shadow: 0 16px 48px rgba(20, 83, 45, 0.18) !important;
+}
+
+.admin-tickets-modal [class*="font-display"] {
+  color: var(--emerald-dark) !important;
+}
+
+.admin-tickets-modal-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--emerald-dark);
+  opacity: 0.85;
+}
+
+.admin-tickets-modal-description {
+  border: 1px solid rgba(20, 83, 45, 0.15);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.admin-tickets-modal-comments {
+  border: 1px solid rgba(20, 83, 45, 0.12);
+  background: rgba(240, 253, 244, 0.45);
+}
+
+.admin-tickets-modal-comment {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(20, 83, 45, 0.08);
+}
+
+.admin-tickets-modal-section {
+  border-top: 1px solid rgba(20, 83, 45, 0.12);
+}
+
+.admin-tickets-modal-textarea {
+  border: 1px solid rgba(20, 83, 45, 0.2);
+  background: rgba(255, 255, 255, 0.9);
+  color: #1e293b;
+}
+
+.admin-tickets-modal-textarea:focus {
+  border-color: var(--emerald-dark);
+  box-shadow: 0 0 0 2px rgba(20, 83, 45, 0.12);
+}
+
+.admin-tickets-modal .admin-tickets-secondary-btn {
+  border-color: rgba(20, 83, 45, 0.22) !important;
+  background: rgba(255, 255, 255, 0.85) !important;
+  color: var(--emerald-dark) !important;
+  font-weight: 600;
+}
+
+.admin-tickets-modal .admin-tickets-secondary-btn:hover:not(:disabled) {
+  background: rgba(220, 252, 231, 0.85) !important;
+}
+
+.admin-tickets-modal .admin-dash-action-btn {
+  background: linear-gradient(180deg, var(--emerald-dark) 0%, #0f3d24 100%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(20, 83, 45, 0.28);
+}
+
+.admin-tickets-modal .admin-dash-action-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #166534 0%, var(--emerald-dark) 100%);
+  color: #ffffff;
+}
+
 /* Dashboard text — dark black shades instead of light grey */
 .admin-dashboard-view .text-muted {
   color: #1e293b !important;
