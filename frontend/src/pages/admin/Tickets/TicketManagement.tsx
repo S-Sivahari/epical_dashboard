@@ -176,185 +176,188 @@ export function TicketManagement() {
 
   return (
     <PageWrapper className="admin-page">
-      <div className="crewiq-dashboard">
-        <div className="admin-toolbar mb-8 grid gap-4 rounded-xl border border-[rgba(161,161,170,0.18)] bg-[rgba(39,39,42,0.88)] p-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Input
-          label="Search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Title or employee name..."
-        />
-        <Input
-          label="Employee ID"
-          value={employeeIdFilter}
-          onChange={(e) => setEmployeeIdFilter(e.target.value)}
-          placeholder="Filter by ID..."
-        />
-        <SelectField
-          label="Priority"
-          id="ticket-priority"
-          options={[
-            { value: 'all', label: 'All priorities' },
-            { value: 'Low', label: 'Low' },
-            { value: 'Medium', label: 'Medium' },
-            { value: 'High', label: 'High' },
-            { value: 'Critical', label: 'Critical' },
-          ]}
-          value={priority}
-          onChange={(e) => setPriority(e.target.value)}
-        />
-        <SelectField
-          label="Status"
-          id="ticket-section-filter"
-          options={[
-            { value: 'all', label: 'All sections' },
-            { value: 'Pending', label: 'Pending' },
-            { value: 'In Progress', label: 'In Progress' },
-            { value: 'Completed', label: 'Completed' },
-          ]}
-          value={sectionFilter}
-          onChange={(e) => setSectionFilter(e.target.value as SectionFilter)}
-        />
-      </div>
+      <div className="tickets-page crewiq-dashboard space-y-6">
+        <div className="admin-toolbar admin-panel grid gap-4 rounded-xl p-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Input
+            label="Search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Title or employee name..."
+          />
+          <Input
+            label="Employee ID"
+            value={employeeIdFilter}
+            onChange={(e) => setEmployeeIdFilter(e.target.value)}
+            placeholder="Filter by ID..."
+          />
+          <SelectField
+            label="Priority"
+            id="ticket-priority"
+            options={[
+              { value: 'all', label: 'All priorities' },
+              { value: 'Low', label: 'Low' },
+              { value: 'Medium', label: 'Medium' },
+              { value: 'High', label: 'High' },
+              { value: 'Critical', label: 'Critical' },
+            ]}
+            value={priority}
+            onChange={(e) => setPriority(e.target.value)}
+          />
+          <SelectField
+            label="Status"
+            id="ticket-section-filter"
+            options={[
+              { value: 'all', label: 'All sections' },
+              { value: 'Pending', label: 'Pending' },
+              { value: 'In Progress', label: 'In Progress' },
+              { value: 'Completed', label: 'Completed' },
+            ]}
+            value={sectionFilter}
+            onChange={(e) => setSectionFilter(e.target.value as SectionFilter)}
+          />
+        </div>
 
-      {loading && tickets.length === 0 ? (
-        <p className="text-sm text-[#94a3b8]">Loading tickets…</p>
-      ) : null}
-      {!loading && tickets.length === 0 ? (
-        <p className="text-sm text-[#94a3b8]">
-          No tickets yet. Use employee ticket creation or run database seed (<code>/api/seed</code>).
-        </p>
-      ) : null}
+        {loading && tickets.length === 0 ? (
+          <p className="text-sm text-muted">Loading tickets…</p>
+        ) : null}
+        {!loading && tickets.length === 0 ? (
+          <p className="text-sm text-muted">
+            No tickets yet. Use employee ticket creation or run database seed (<code className="rounded bg-[#F5F7F9] px-1">/api/seed</code>).
+          </p>
+        ) : null}
 
-      <div className="space-y-8">
-        {BOARD_STATUSES.map((statusCol) => {
-          const meta = SECTION_COPY[statusCol]
-          const rows = columns[statusCol]
-          const badgeVariant = statusVariant(statusCol)
+        <div className="space-y-6">
+          {BOARD_STATUSES.map((statusCol) => {
+            const meta = SECTION_COPY[statusCol]
+            const rows = columns[statusCol]
+            const badgeVariant = statusVariant(statusCol)
 
-          return (
-            <section
-              key={statusCol}
-              className="admin-card overflow-hidden rounded-xl border border-[rgba(161,161,170,0.18)] bg-[rgba(39,39,42,0.88)] shadow-sm"
-            >
-              <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(161,161,170,0.18)] px-4 py-3">
-                <div className="flex flex-wrap items-center gap-3">
-                  <h2 className="text-lg font-semibold text-white">{meta.title}</h2>
-                  <Badge variant={badgeVariant}>{meta.badgeLabel}</Badge>
-                </div>
-                <span className="text-sm font-semibold tabular-nums text-[#94a3b8]">{rows.length}</span>
-              </header>
+            return (
+              <section
+                key={statusCol}
+                className="overflow-hidden rounded-xl border border-border bg-white shadow-sm"
+              >
+                <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-[#F5F7F9] px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h2 className="text-lg font-semibold text-ink">{meta.title}</h2>
+                    <Badge variant={badgeVariant}>{meta.badgeLabel}</Badge>
+                  </div>
+                  <span className="text-sm font-semibold tabular-nums text-muted">{rows.length}</span>
+                </header>
 
-              {rows.length === 0 ? (
-                <p className="py-12 text-center text-sm text-[#94a3b8]">No tickets in this section.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="admin-table min-w-full border-collapse text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-[rgba(161,161,170,0.18)] bg-[rgba(39,39,42,0.88)] text-[11px] font-semibold uppercase tracking-wide text-[#94a3b8]">
-                        <th className="px-4 py-3">Issue / ID</th>
-                        <th className="px-4 py-3">Employee / ID</th>
-                        <th className="px-4 py-3">Created</th>
-                        <th className="px-4 py-3">Priority</th>
-                        <th className="px-4 py-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((t, idx) => (
-                        <tr
-                          key={t.id}
-                          className={cn(
-                            'cursor-pointer border-b border-[rgba(161,161,170,0.18)] transition-colors hover:bg-[rgba(39,39,42,0.88)]',
-                            idx % 2 === 1 && 'bg-[rgba(39,39,42,0.88)]',
-                          )}
-                          onClick={() => openDetail(t.id)}
-                          role="presentation"
-                        >
-                          <td className="max-w-[220px] px-4 py-3 align-middle">
-                            <div className="line-clamp-2 font-medium capitalize text-white">{t.title}</div>
-                            <div className="mt-0.5 font-mono text-xs text-[#94a3b8]">{t.id}</div>
-                          </td>
-                          <td className="px-4 py-3 align-middle">
-                            <div className="font-medium text-white">{t.employeeName}</div>
-                            <div className="mt-0.5 font-mono text-xs text-[#94a3b8]">{t.employeeId}</div>
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3 align-middle text-[#94a3b8]">
-                            {formatCreatedAt(t.createdAt)}
-                          </td>
-                          <td className="px-4 py-3 align-middle">
-                            <Badge variant={priorityVariant(t.priority)}>{t.priority}</Badge>
-                          </td>
-                          <td className="px-4 py-3 align-middle">
-                            <div
-                              className="flex flex-wrap items-center justify-end gap-2"
-                              onClick={(e) => e.stopPropagation()}
-                              role="presentation"
-                            >
-                              <Button size="sm" variant="ghost" type="button" onClick={() => openDetail(t.id)}>
-                                <Eye className="h-4 w-4 text-[#94a3b8]" aria-hidden />
-                                View
-                              </Button>
-
-                              {statusCol === 'Pending' && (
+                {rows.length === 0 ? (
+                  <p className="py-12 text-center text-sm text-muted">No tickets in this section.</p>
+                ) : (
+                  <div className="overflow-x-auto bg-white">
+                    <table className="tickets-table min-w-full border-collapse text-left text-sm">
+                      <thead>
+                        <tr className="border-b border-border bg-[#F5F7F9] text-[11px] font-semibold uppercase tracking-wide text-[#5c5a66]">
+                          <th className="px-4 py-3">Issue / ID</th>
+                          <th className="px-4 py-3">Employee / ID</th>
+                          <th className="px-4 py-3">Created</th>
+                          <th className="px-4 py-3">Priority</th>
+                          <th className="px-4 py-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((t, idx) => (
+                          <tr
+                            key={t.id}
+                            className={cn(
+                              'cursor-pointer border-b border-border bg-white transition-colors hover:bg-[rgba(6,192,51,0.06)]',
+                              idx % 2 === 1 && 'bg-[#FAFBFC]',
+                            )}
+                            onClick={() => openDetail(t.id)}
+                            role="presentation"
+                          >
+                            <td className="max-w-[220px] px-4 py-3 align-middle">
+                              <div className="line-clamp-2 font-medium capitalize text-ink">{t.title}</div>
+                              <div className="mt-0.5 font-mono text-xs text-[#5c5a66]">{t.id}</div>
+                            </td>
+                            <td className="px-4 py-3 align-middle">
+                              <div className="font-medium text-ink">{t.employeeName}</div>
+                              <div className="mt-0.5 font-mono text-xs text-[#5c5a66]">{t.employeeId}</div>
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-3 align-middle text-[#5c5a66]">
+                              {formatCreatedAt(t.createdAt)}
+                            </td>
+                            <td className="px-4 py-3 align-middle">
+                              <Badge variant={priorityVariant(t.priority)}>{t.priority}</Badge>
+                            </td>
+                            <td className="px-4 py-3 align-middle">
+                              <div
+                                className="flex flex-wrap items-center justify-end gap-2"
+                                onClick={(e) => e.stopPropagation()}
+                                role="presentation"
+                              >
                                 <Button
                                   size="sm"
+                                  variant="ghost"
                                   type="button"
-                                  disabled={moving !== null}
-                                  variant="secondary"
-                                  className="admin-btn-secondary border-[rgba(161,161,170,0.18)] font-semibold text-white"
-                                  onClick={() => void move(t.id, 'forward')}
-                                  loading={isMoveForward(t.id)}
+                                  className="text-ink"
+                                  onClick={() => openDetail(t.id)}
                                 >
-                                  → In Progress
+                                  <Eye className="h-4 w-4 text-muted" aria-hidden />
+                                  View
                                 </Button>
-                              )}
 
-                              {statusCol === 'In Progress' && (
-                                <>
+                                {statusCol === 'Pending' && (
                                   <Button
                                     size="sm"
                                     type="button"
                                     disabled={moving !== null}
                                     variant="secondary"
-                                    className="admin-btn-secondary border-[rgba(161,161,170,0.18)]"
-                                    onClick={() => void move(t.id, 'back')}
-                                    loading={isMoveBack(t.id)}
-                                  >
-                                    ← Pending
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    type="button"
-                                    disabled={moving !== null}
-                                    className="admin-btn-primary bg-[#34d399] font-semibold text-white hover:bg-[#34d399]/90"
                                     onClick={() => void move(t.id, 'forward')}
                                     loading={isMoveForward(t.id)}
                                   >
-                                    Mark as completed
+                                    → In Progress
                                   </Button>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-          )
-        })}
-      </div>
+                                )}
 
-      <TicketDetailModal
-        ticket={modalTicket}
-        isOpen={detailOpen}
-        onClose={closeDetail}
-        onUpdateStatus={handleModalUpdateStatus}
-        onAddComment={handleModalAddComment}
-        advancing={!!moving}
-      />
+                                {statusCol === 'In Progress' && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      type="button"
+                                      disabled={moving !== null}
+                                      variant="secondary"
+                                      onClick={() => void move(t.id, 'back')}
+                                      loading={isMoveBack(t.id)}
+                                    >
+                                      ← Pending
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      type="button"
+                                      disabled={moving !== null}
+                                      onClick={() => void move(t.id, 'forward')}
+                                      loading={isMoveForward(t.id)}
+                                    >
+                                      Mark as completed
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            )
+          })}
+        </div>
+
+        <TicketDetailModal
+          ticket={modalTicket}
+          isOpen={detailOpen}
+          onClose={closeDetail}
+          onUpdateStatus={handleModalUpdateStatus}
+          onAddComment={handleModalAddComment}
+          advancing={!!moving}
+        />
       </div>
     </PageWrapper>
   )
