@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Download,
   FileSpreadsheet,
   FileText,
   Loader,
@@ -127,11 +126,7 @@ function parseBatchPayPeriod(batch: PayrollBatch): { year: number; month: number
   return null
 }
 
-function batchMatchesPeriod(
-  batch: PayrollBatch,
-  year: number,
-  month: number
-): boolean {
+function batchMatchesPeriod(batch: PayrollBatch, year: number, month: number): boolean {
   const period = parseBatchPayPeriod(batch)
   return period?.year === year && period?.month === month
 }
@@ -155,7 +150,10 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
   const [deletingPayslip, setDeletingPayslip] = useState<string | null>(null)
   const [downloadingAll, setDownloadingAll] = useState(false)
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false)
-  const [payslipDeleteTarget, setPayslipDeleteTarget] = useState<{ fileName: string; name: string } | null>(null)
+  const [payslipDeleteTarget, setPayslipDeleteTarget] = useState<{
+    fileName: string
+    name: string
+  } | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [replaceConfirm, setReplaceConfirm] = useState<{
     payMonth: string
@@ -176,7 +174,6 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
   const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null)
   const [historyYear, setHistoryYear] = useState('')
   const [historyMonth, setHistoryMonth] = useState('')
-
 
   // ── Loaders ────────────────────────────────────────────────────────────────
 
@@ -227,10 +224,12 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
     }
     return [
       { value: '', label: 'Select year' },
-      ...[...years].sort((a, b) => b - a).map((y) => ({
-        value: String(y),
-        label: String(y),
-      })),
+      ...[...years]
+        .sort((a, b) => b - a)
+        .map((y) => ({
+          value: String(y),
+          label: String(y),
+        })),
     ]
   }, [allBatches])
 
@@ -284,11 +283,7 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
     setPreviewName('')
   }
 
-  const handleDownloadPayslip = async (
-    batchId: string,
-    fileName: string,
-    downloadName: string
-  ) => {
+  const handleDownloadPayslip = async (batchId: string, fileName: string, downloadName: string) => {
     try {
       await downloadPayslipPdf(batchId, fileName, downloadName)
     } catch (err: unknown) {
@@ -334,7 +329,7 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
 
   const runPayrollUpload = async (
     file: File,
-    options?: { replaceBatchId?: string; resendPayslips?: boolean }
+    options?: { replaceBatchId?: string; resendPayslips?: boolean },
   ) => {
     setUploading(true)
     try {
@@ -353,11 +348,11 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
         toast.success(
           result.resentCount && result.resentCount > 0
             ? `Payslips for ${newBatch.payMonth} updated — ${result.resentCount} employee(s) notified (regenerated)`
-            : `Payslips for ${newBatch.payMonth} updated with the new payroll file`
+            : `Payslips for ${newBatch.payMonth} updated with the new payroll file`,
         )
       } else {
         toast.success(
-          `${newBatch.totalGenerated} payslip PDF(s) generated from ${newBatch.employeeCount} employee(s)`
+          `${newBatch.totalGenerated} payslip PDF(s) generated from ${newBatch.employeeCount} employee(s)`,
         )
       }
       if (newBatch.totalFailed > 0) {
@@ -367,8 +362,9 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
         void loadAllBatches()
       }
     } catch (error: unknown) {
-      const dup = (error as Error & { duplicatePayPeriod?: { payMonth?: string; existingBatch: PayrollBatch } })
-        .duplicatePayPeriod
+      const dup = (
+        error as Error & { duplicatePayPeriod?: { payMonth?: string; existingBatch: PayrollBatch } }
+      ).duplicatePayPeriod
       if (dup?.existingBatch) {
         setReplaceConfirm({
           payMonth: dup.payMonth || dup.existingBatch.payMonth || 'this period',
@@ -451,7 +447,9 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
       if (result.sent > 0) toast.success(`Sent ${result.sent} payslip(s) to employee dashboards`)
       if (result.skipped > 0) toast.info(`${result.skipped} already sent — skipped`)
       if (result.failed.length > 0) {
-        toast.warning(`${result.failed.length} failed: ${result.failed.map((f) => f.empId).join(', ')}`)
+        toast.warning(
+          `${result.failed.length} failed: ${result.failed.map((f) => f.empId).join(', ')}`,
+        )
       }
     } catch (error: unknown) {
       const message =
@@ -484,7 +482,12 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
     }
   }
 
-  const handleSend = async (empId: string, fileName: string, name: string, employeeDbId?: string) => {
+  const handleSend = async (
+    empId: string,
+    fileName: string,
+    name: string,
+    employeeDbId?: string,
+  ) => {
     if (!batch) return
     setSendingId(empId)
     try {
@@ -604,7 +607,9 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
             <Button
               size="sm"
               variant="secondary"
-              onClick={() => void handleDownloadPayslip(batch.id, r.fileName!, `Payslip_${r.name}.pdf`)}
+              onClick={() =>
+                void handleDownloadPayslip(batch.id, r.fileName!, `Payslip_${r.name}.pdf`)
+              }
               title="Download PDF"
             >
               <FileText className="h-3.5 w-3.5 text-red-600" />
@@ -654,8 +659,8 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
-  return (
-    <PageWrapper>
+  const content = (
+    <>
       <header className="mb-6 flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-1 rounded-xl border border-border bg-surface/60 p-1 w-fit">
           {(
@@ -668,9 +673,7 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
               key={id}
               onClick={() => setActiveTab(id)}
               className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
-                activeTab === id
-                  ? 'bg-white text-primary shadow-sm'
-                  : 'text-muted hover:text-ink'
+                activeTab === id ? 'bg-white text-primary shadow-sm' : 'text-muted hover:text-ink'
               }`}
             >
               <Icon className="h-4 w-4" />
@@ -684,7 +687,7 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
           Download Template
         </Button>
       </header>
-  
+
       {/* Upload Tab */}
       {activeTab === 'upload' && (
         <div className="space-y-5">
@@ -699,23 +702,18 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
                   className="hidden"
                   onChange={(e) => handleFileSelect(e.target.files)}
                 />
-  
-                <Button
-                  variant="secondary"
-                  onClick={() => fileInputRef.current?.click()}
-                >
+
+                <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
                   <Upload className="h-4 w-4" />
                   Choose Excel File
                 </Button>
-  
+
                 {selectedFile && (
                   <span className="inline-flex items-center rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-ink">
-                    <strong className="truncate max-w-[240px]">
-                      {selectedFile.name}
-                    </strong>
+                    <strong className="truncate max-w-[240px]">{selectedFile.name}</strong>
                   </span>
                 )}
-  
+
                 <Button
                   className="sm:ml-auto"
                   onClick={handleUploadAndProcess}
@@ -729,37 +727,31 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
                   Upload & Generate Payslips
                 </Button>
               </div>
-  
+
               {batch && (
                 <div className="rounded-xl border border-border bg-surface/40 p-4">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     {/* Left */}
                     <div>
-                      <p className="font-semibold text-ink">
-                        {batch.originalFileName}
-                      </p>
-  
-                      {batch.payMonth && (
-                        <p className="text-sm text-muted">
-                          {batch.payMonth}
-                        </p>
-                      )}
-  
+                      <p className="font-semibold text-ink">{batch.originalFileName}</p>
+
+                      {batch.payMonth && <p className="text-sm text-muted">{batch.payMonth}</p>}
+
                       <p className="text-xs text-muted">
                         {new Date(batch.uploadedAt).toLocaleString()}
                       </p>
-  
+
                       <div className="mt-3 flex flex-wrap gap-4 text-sm">
                         <span className="flex items-center gap-1 text-primary">
                           <CheckCircle2 className="h-4 w-4" />
                           {batch.totalGenerated} Generated
                         </span>
-  
+
                         <span className="flex items-center gap-1 text-green-600">
                           <Send className="h-4 w-4" />
                           {batch.totalSent ?? 0} Sent
                         </span>
-  
+
                         {batch.totalFailed > 0 && (
                           <span className="flex items-center gap-1 text-danger">
                             <AlertCircle className="h-4 w-4" />
@@ -768,7 +760,7 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
                         )}
                       </div>
                     </div>
-  
+
                     {/* Right */}
                     <div className="flex flex-wrap gap-2">
                       <Button
@@ -784,21 +776,16 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
                         )}
                         Send All
                       </Button>
-  
+
                       <Button
                         size="sm"
                         variant="secondary"
-                        onClick={() =>
-                          downloadUploadedExcel(
-                            batch.id,
-                            batch.originalFileName
-                          )
-                        }
+                        onClick={() => downloadUploadedExcel(batch.id, batch.originalFileName)}
                       >
                         <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
                         Download Excel
                       </Button>
-  
+
                       <Button
                         size="sm"
                         variant="danger"
@@ -818,7 +805,7 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
               )}
             </div>
           </section>
-  
+
           {/* Payslip Table */}
           <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
             <DataTable
@@ -834,205 +821,211 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
           </section>
         </div>
       )}
-  
+
       {/* History Tab */}
       {activeTab === 'history' && (
         <div className="space-y-5">
           <div className="space-y-4">
-              <div className="flex flex-nowrap items-end gap-3">
-                <div className="w-36 shrink-0">
-                  <SelectField
-                    label="Year"
-                    value={historyYear}
-                    onChange={(e) => {
-                      setHistoryYear(e.target.value)
-                      setHistoryMonth('')
-                    }}
-                    options={historyYearOptions}
-                  />
-                </div>
-                <div className="w-44 shrink-0">
-                  <SelectField
-                    label="Month"
-                    value={historyMonth}
-                    onChange={(e) => setHistoryMonth(e.target.value)}
-                    disabled={!historyYear}
-                    options={historyMonthOptions}
-                  />
-                </div>
-                {historyPeriodSelected && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="mb-0.5 shrink-0"
-                    onClick={() => {
-                      setHistoryYear('')
-                      setHistoryMonth('')
-                    }}
-                  >
-                    <X className="h-4 w-4 mr-1" /> Clear
-                  </Button>
-                )}
+            <div className="flex flex-nowrap items-end gap-3">
+              <div className="w-36 shrink-0">
+                <SelectField
+                  label="Year"
+                  value={historyYear}
+                  onChange={(e) => {
+                    setHistoryYear(e.target.value)
+                    setHistoryMonth('')
+                  }}
+                  options={historyYearOptions}
+                />
               </div>
+              <div className="w-44 shrink-0">
+                <SelectField
+                  label="Month"
+                  value={historyMonth}
+                  onChange={(e) => setHistoryMonth(e.target.value)}
+                  disabled={!historyYear}
+                  options={historyMonthOptions}
+                />
+              </div>
+              {historyPeriodSelected && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mb-0.5 shrink-0"
+                  onClick={() => {
+                    setHistoryYear('')
+                    setHistoryMonth('')
+                  }}
+                >
+                  <X className="h-4 w-4 mr-1" /> Clear
+                </Button>
+              )}
+            </div>
 
-              {loadingHistory ? (
-                <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border">
-                  <Loader className="h-5 w-5 animate-spin text-muted" />
-                </div>
-              ) : !historyPeriodSelected ? (
-                <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border">
-                  <p className="text-sm text-muted">Select a year and month to view payroll history.</p>
-                </div>
-              ) : filteredBatches.length === 0 ? (
-                <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border">
-                  <p className="text-sm text-muted">
-                    No payroll upload for{' '}
-                    {CALENDAR_MONTHS[parseInt(historyMonth, 10) - 1] ?? historyMonth} {historyYear}.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {filteredBatches.map((b) => {
-                    const isExpanded = expandedBatchId === b.id
-                    const sentCount = b.totalSent ?? 0
-                    return (
-                      <div
-                        key={b.id}
-                        className="rounded-xl border border-border bg-white shadow-sm overflow-hidden"
+            {loadingHistory ? (
+              <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border">
+                <Loader className="h-5 w-5 animate-spin text-muted" />
+              </div>
+            ) : !historyPeriodSelected ? (
+              <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border">
+                <p className="text-sm text-muted">
+                  Select a year and month to view payroll history.
+                </p>
+              </div>
+            ) : filteredBatches.length === 0 ? (
+              <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border">
+                <p className="text-sm text-muted">
+                  No payroll upload for{' '}
+                  {CALENDAR_MONTHS[parseInt(historyMonth, 10) - 1] ?? historyMonth} {historyYear}.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredBatches.map((b) => {
+                  const isExpanded = expandedBatchId === b.id
+                  const sentCount = b.totalSent ?? 0
+                  return (
+                    <div
+                      key={b.id}
+                      className="rounded-xl border border-border bg-white shadow-sm overflow-hidden"
+                    >
+                      {/* Batch header */}
+                      <button
+                        type="button"
+                        className="w-full flex items-center justify-between p-4 text-left hover:bg-surface/50 transition-colors"
+                        onClick={() => setExpandedBatchId(isExpanded ? null : b.id)}
                       >
-                        {/* Batch header */}
-                        <button
-                          type="button"
-                          className="w-full flex items-center justify-between p-4 text-left hover:bg-surface/50 transition-colors"
-                          onClick={() => setExpandedBatchId(isExpanded ? null : b.id)}
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="h-10 w-10 rounded-lg shrink-0 flex items-center justify-center bg-primary/10">
-                              <FileText className="h-5 w-5 text-primary" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="font-semibold text-ink truncate">
-                                {b.payMonth || 'Unknown Month'}
-                              </p>
-                              <p className="text-xs text-muted truncate">{b.originalFileName}</p>
-                              <p className="text-xs text-muted">
-                                {new Date(b.uploadedAt).toLocaleDateString('en-IN', {
-                                  day: '2-digit',
-                                  month: 'short',
-                                  year: 'numeric',
-                                })}
-                              </p>
-                            </div>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="h-10 w-10 rounded-lg shrink-0 flex items-center justify-center bg-primary/10">
+                            <FileText className="h-5 w-5 text-primary" />
                           </div>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-ink truncate">
+                              {b.payMonth || 'Unknown Month'}
+                            </p>
+                            <p className="text-xs text-muted truncate">{b.originalFileName}</p>
+                            <p className="text-xs text-muted">
+                              {new Date(b.uploadedAt).toLocaleDateString('en-IN', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                              })}
+                            </p>
+                          </div>
+                        </div>
 
-                          <div className="flex items-center gap-6 shrink-0">
-                            <div className="hidden sm:flex gap-5 text-sm">
+                        <div className="flex items-center gap-6 shrink-0">
+                          <div className="hidden sm:flex gap-5 text-sm">
+                            <span className="text-center">
+                              <p className="font-bold text-ink">{b.employeeCount}</p>
+                              <p className="text-xs text-muted">employees</p>
+                            </span>
+                            <span className="text-center">
+                              <p className="font-bold text-primary">{b.totalGenerated}</p>
+                              <p className="text-xs text-muted">generated</p>
+                            </span>
+                            <span className="text-center">
+                              <p className="font-bold text-green-600">{sentCount}</p>
+                              <p className="text-xs text-muted">sent</p>
+                            </span>
+                            {b.totalFailed > 0 && (
                               <span className="text-center">
-                                <p className="font-bold text-ink">{b.employeeCount}</p>
-                                <p className="text-xs text-muted">employees</p>
+                                <p className="font-bold text-danger">{b.totalFailed}</p>
+                                <p className="text-xs text-muted">failed</p>
                               </span>
-                              <span className="text-center">
-                                <p className="font-bold text-primary">{b.totalGenerated}</p>
-                                <p className="text-xs text-muted">generated</p>
-                              </span>
-                              <span className="text-center">
-                                <p className="font-bold text-green-600">{sentCount}</p>
-                                <p className="text-xs text-muted">sent</p>
-                              </span>
-                              {b.totalFailed > 0 && (
-                                <span className="text-center">
-                                  <p className="font-bold text-danger">{b.totalFailed}</p>
-                                  <p className="text-xs text-muted">failed</p>
-                                </span>
-                              )}
-                            </div>
-                            {isExpanded ? (
-                              <ChevronDown className="h-4 w-4 text-muted" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4 text-muted" />
                             )}
                           </div>
-                        </button>
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4 text-muted" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-muted" />
+                          )}
+                        </div>
+                      </button>
 
-                        {/* Expanded payslip list */}
-                        {isExpanded && (
-                          <div className="border-t border-border">
-                            <div className="p-3 flex justify-end gap-2 bg-surface/30">
-                              {(b.totalGenerated ?? 0) > 0 && (
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  disabled={downloadingAll}
-                                  onClick={() => void handleDownloadAll(b)}
-                                >
-                                  {downloadingAll ? (
-                                    <Loader className="h-3.5 w-3.5 animate-spin" />
-                                  ) : (
-                                    <FileText className="h-3.5 w-3.5 text-red-600" />
-                                  )}
-                                  Download All PDFs
-                                </Button>
-                              )}
+                      {/* Expanded payslip list */}
+                      {isExpanded && (
+                        <div className="border-t border-border">
+                          <div className="p-3 flex justify-end gap-2 bg-surface/30">
+                            {(b.totalGenerated ?? 0) > 0 && (
                               <Button
                                 size="sm"
                                 variant="secondary"
-                                onClick={() => downloadUploadedExcel(b.id, b.originalFileName)}
+                                disabled={downloadingAll}
+                                onClick={() => void handleDownloadAll(b)}
                               >
-                                <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
-                                Download Excel
+                                {downloadingAll ? (
+                                  <Loader className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <FileText className="h-3.5 w-3.5 text-red-600" />
+                                )}
+                                Download All PDFs
                               </Button>
-                            </div>
-                            <div className="divide-y divide-border/60">
-                              {b.results
-                                .filter((r) => r.status === 'success' && r.fileName)
-                                .map((r) => (
-                                  <div
-                                    key={r.fileName}
-                                    className="flex items-center justify-between px-4 py-2.5 hover:bg-surface/30 transition-colors"
-                                  >
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      <Avatar
-                                        name={r.name}
-                                        size="sm"
-                                        color={stringToHueColor(r.empId)}
-                                      />
-                                      <div className="min-w-0">
-                                        <p className="text-sm font-medium text-ink truncate">{r.name}</p>
-                                        <p className="text-xs text-muted">{r.empId}</p>
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center gap-1.5 shrink-0">
-                                      {r.sent && (
-                                        <span className="inline-flex items-center gap-1 text-xs text-green-700 mr-1">
-                                          <CheckCircle2 className="h-3 w-3" /> Sent
-                                        </span>
-                                      )}
-                                      <Button
-                                        size="sm"
-                                        variant="secondary"
-                                        onClick={() => void handlePreview(b.id, r.fileName!, r.name)}
-                                      >
-                                        <Eye className="h-3.5 w-3.5" />
-                                        Preview
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="secondary"
-                                        onClick={() =>
-                                          void handleDownloadPayslip(
-                                            b.id,
-                                            r.fileName!,
-                                            `Payslip_${r.name}_${b.payMonth || b.id}.pdf`
-                                          )
-                                        }
-                                      >
-                                        <FileText className="h-3.5 w-3.5 text-red-600" />
-                                        Download PDF
-                                      </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => downloadUploadedExcel(b.id, b.originalFileName)}
+                            >
+                              <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+                              Download Excel
+                            </Button>
+                          </div>
+                          <div className="divide-y divide-border/60">
+                            {b.results
+                              .filter((r) => r.status === 'success' && r.fileName)
+                              .map((r) => (
+                                <div
+                                  key={r.fileName}
+                                  className="flex items-center justify-between px-4 py-2.5 hover:bg-surface/30 transition-colors"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <Avatar
+                                      name={r.name}
+                                      size="sm"
+                                      color={stringToHueColor(r.empId)}
+                                    />
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-medium text-ink truncate">
+                                        {r.name}
+                                      </p>
+                                      <p className="text-xs text-muted">{r.empId}</p>
                                     </div>
                                   </div>
-                                ))}
-                              {b.results.filter((r) => r.status === 'error').map((r) => (
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {r.sent && (
+                                      <span className="inline-flex items-center gap-1 text-xs text-green-700 mr-1">
+                                        <CheckCircle2 className="h-3 w-3" /> Sent
+                                      </span>
+                                    )}
+                                    <Button
+                                      size="sm"
+                                      variant="secondary"
+                                      onClick={() => void handlePreview(b.id, r.fileName!, r.name)}
+                                    >
+                                      <Eye className="h-3.5 w-3.5" />
+                                      Preview
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="secondary"
+                                      onClick={() =>
+                                        void handleDownloadPayslip(
+                                          b.id,
+                                          r.fileName!,
+                                          `Payslip_${r.name}_${b.payMonth || b.id}.pdf`,
+                                        )
+                                      }
+                                    >
+                                      <FileText className="h-3.5 w-3.5 text-red-600" />
+                                      Download PDF
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            {b.results
+                              .filter((r) => r.status === 'error')
+                              .map((r) => (
                                 <div
                                   key={r.empId + '-err'}
                                   className="flex items-center gap-3 px-4 py-2.5 bg-red-50/50"
@@ -1043,14 +1036,14 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
                                   </span>
                                 </div>
                               ))}
-                            </div>
                           </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1117,7 +1110,7 @@ export function PayslipManagement({ embedded = false }: { embedded?: boolean }) 
         onClose={() => setReplaceConfirm(null)}
         onConfirm={handleConfirmReplace}
       />
-    </PageWrapper>
+    </>
   )
 
   if (embedded) return content

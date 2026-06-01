@@ -43,6 +43,7 @@
     "@types/nodemailer": "^8.0.0",
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.17",
+    "@types/pdfkit": "^0.17.6",
     "tsx": "^4.22.3",
     "typescript": "^6.0.3"
   }
