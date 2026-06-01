@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { Upload, CheckCircle2, XCircle } from 'lucide-react'
+import { Upload, CheckCircle2, XCircle, FileText, Inbox, History, Sparkles } from 'lucide-react'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
 import { Badge } from '@components/ui/Badge'
@@ -20,6 +20,32 @@ import {
 type AdminTab = 'requested' | 'approved' | 'history'
 
 const PAGE_SIZE = 10
+
+const tabConfig: Array<{
+  key: AdminTab
+  label: string
+  icon: typeof Inbox
+  description: string
+}> = [
+  {
+    key: 'requested',
+    label: 'Requested',
+    icon: Inbox,
+    description: 'Review pending requests, attach fulfillment files, then approve or reject.',
+  },
+  {
+    key: 'approved',
+    label: 'Approved',
+    icon: CheckCircle2,
+    description: 'Download fulfilled documents that are ready for employees.',
+  },
+  {
+    key: 'history',
+    label: 'History',
+    icon: History,
+    description: 'Full audit trail of approved and rejected document requests.',
+  },
+]
 
 function statusBadge(status: DocumentRequestRecord['status']) {
   if (status === 'Approved') return <Badge variant="success">Approved</Badge>
@@ -148,8 +174,211 @@ setRejectOpen(false)
     }
   }
 
+  const pendingUploadCount = items.filter((r) => !r.hasFulfillmentFile).length
+  const activeTabMeta = tabConfig.find((t) => t.key === tab)!
+
+  const tableShell = (
+    <>
+      {loading ? (
+        <div className="admin-doc-loading flex min-h-[240px] items-center justify-center">
+          <p className="text-sm font-medium text-[var(--emerald-dark)]/70">Loading documents...</p>
+        </div>
+      ) : items.length === 0 ? (
+        <div className="admin-doc-empty flex min-h-[280px] flex-col items-center justify-center px-6 text-center">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-white/70 shadow-sm">
+            <FileText className="h-6 w-6 text-[var(--emerald-dark)]" />
+          </div>
+          <p className="text-sm font-semibold text-[var(--emerald-dark)]">No records in this view</p>
+          <p className="mt-1 max-w-md text-xs font-medium text-slate-600">
+            Requests appear here after employees submit from Document Request.
+          </p>
+        </div>
+      ) : tab === 'requested' ? (
+        <table className="admin-doc-table min-w-full border-collapse text-left text-sm">
+          <thead className="sticky top-0 z-[1]">
+            <tr className="text-[11px] font-semibold uppercase tracking-wide">
+              <th className="px-4 py-3">Document</th>
+              <th className="px-4 py-3">Employee / ID</th>
+              <th className="px-4 py-3">Reason</th>
+              <th className="px-4 py-3">Requested</th>
+              <th className="px-4 py-3">Fulfillment file</th>
+              <th className="min-w-[200px] px-4 py-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((row) => (
+              <tr key={row.id} className="admin-doc-row border-b border-[rgba(20,83,45,0.08)]">
+                <td className="px-4 py-3 align-top">
+                  <p className="font-semibold text-ink">{row.documentName}</p>
+                  <p className="text-xs text-muted">{row.documentType}</p>
+                  <p className="font-mono text-[11px] text-muted">{row.id}</p>
+                </td>
+                <td className="px-4 py-3 align-top">
+                  <p className="font-medium text-ink">{row.employeeName}</p>
+                  <p className="font-mono text-xs text-muted">{row.employeeId}</p>
+                </td>
+                <td className="max-w-[220px] px-4 py-3 align-top">
+                  <p className="line-clamp-4 text-muted">{row.reason}</p>
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 align-middle text-muted">
+                  {formatWhen(row.requestedAt)}
+                </td>
+                <td className="px-4 py-3 align-middle">
+                  {row.hasFulfillmentFile ? (
+                    <Badge variant="success">Attached</Badge>
+                  ) : (
+                    <Badge variant="neutral">Not uploaded</Badge>
+                  )}
+                </td>
+                <td className="px-4 py-3 align-middle">
+                  <div className="flex flex-col items-end gap-2 sm:flex-row sm:justify-end">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      type="button"
+                      disabled={busyId === row.id}
+                      loading={busyId === row.id}
+                      className="admin-doc-secondary-btn w-full shrink-0 sm:w-auto"
+                      onClick={() => startUploadPick(row.id)}
+                    >
+                      <Upload className="h-4 w-4" />
+                      Upload file
+                    </Button>
+                    <Button
+                      size="sm"
+                      type="button"
+                      disabled={!row.hasFulfillmentFile || busyId !== null}
+                      className="admin-dash-action-btn w-full shrink-0 border-0 sm:w-auto"
+                      onClick={() => void onApprove(row.id)}
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      type="button"
+                      disabled={busyId !== null}
+                      className="w-full shrink-0 sm:w-auto"
+                      onClick={() => openReject(row.id)}
+                    >
+                      <XCircle className="h-4 w-4" />
+                      Reject
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : tab === 'approved' ? (
+        <table className="admin-doc-table min-w-full border-collapse text-left text-sm">
+          <thead className="sticky top-0 z-[1]">
+            <tr className="text-[11px] font-semibold uppercase tracking-wide">
+              <th className="px-4 py-3">Document</th>
+              <th className="px-4 py-3">Employee / ID</th>
+              <th className="px-4 py-3">Reason</th>
+              <th className="px-4 py-3">Processed</th>
+              <th className="min-w-[120px] px-4 py-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((row) => (
+              <tr key={row.id} className="admin-doc-row border-b border-[rgba(20,83,45,0.08)]">
+                <td className="px-4 py-3 align-top">
+                  <p className="font-semibold text-ink">{row.documentName}</p>
+                  <p className="text-xs text-muted">{row.documentType}</p>
+                </td>
+                <td className="px-4 py-3 align-top">
+                  <p className="font-medium text-ink">{row.employeeName}</p>
+                  <p className="font-mono text-xs text-muted">{row.employeeId}</p>
+                </td>
+                <td className="max-w-[240px] px-4 py-3 align-top">
+                  <p className="line-clamp-3 text-muted">{row.reason}</p>
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-muted">{formatWhen(row.processedAt)}</td>
+                <td className="px-4 py-3 text-right">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    type="button"
+                    className="admin-doc-secondary-btn"
+                    onClick={() =>
+                      void downloadDocumentPdf(row.id, `${row.documentName}.pdf`).catch(() =>
+                        toast.error('Download failed'),
+                      )
+                    }
+                  >
+                    Download
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <table className="admin-doc-table min-w-full border-collapse text-left text-sm">
+          <thead className="sticky top-0 z-[1]">
+            <tr className="text-[11px] font-semibold uppercase tracking-wide">
+              <th className="px-4 py-3">When</th>
+              <th className="px-4 py-3">Document</th>
+              <th className="px-4 py-3">Employee</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Rejection reason</th>
+              <th className="px-4 py-3 text-right">Download</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((row) => (
+              <tr key={row.id} className="admin-doc-row border-b border-[rgba(20,83,45,0.08)]">
+                <td className="whitespace-nowrap px-4 py-3 text-muted">
+                  {formatWhen(row.processedAt || row.requestedAt)}
+                </td>
+                <td className="px-4 py-3 align-top">
+                  <p className="font-semibold text-ink">{row.documentName}</p>
+                  <p className="text-xs text-muted">{row.documentType}</p>
+                </td>
+                <td className="px-4 py-3 align-top">
+                  <p className="font-medium text-ink">{row.employeeName}</p>
+                  <p className="font-mono text-xs text-muted">{row.employeeId}</p>
+                </td>
+                <td className="px-4 py-3 align-middle">{statusBadge(row.status)}</td>
+                <td className="max-w-[260px] px-4 py-3 align-top text-sm">
+                  {row.status === 'Rejected' ? (
+                    <span className="text-danger">{row.rejectionReason || '—'}</span>
+                  ) : (
+                    <span className="text-muted">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-right">
+                  {row.status === 'Approved' ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      type="button"
+                      className="admin-doc-secondary-btn"
+                      onClick={() =>
+                        void downloadDocumentPdf(row.id, `${row.documentName}.pdf`).catch(() =>
+                          toast.error('Download failed'),
+                        )
+                      }
+                    >
+                      Download
+                    </Button>
+                  ) : (
+                    <span className="text-xs text-muted">—</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </>
+  )
+
   const content = (
-    <div className="crewiq-dashboard">
+    <div className={cn('crewiq-dashboard', !embedded && 'admin-documents-view')}>
       <input
         ref={fileInputRef}
         type="file"
@@ -169,14 +398,14 @@ setRejectOpen(false)
         size="md"
         className="admin-modal"
       >
-        <p className="mb-3 text-sm text-[#94a3b8]">
+        <p className="mb-3 text-sm text-muted">
           The employee will not receive a document file. Explain why this request was declined.
         </p>
-        <label className="block text-xs font-medium uppercase tracking-wide text-[#94a3b8]">
+        <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">
           Reason for rejection
         </label>
         <textarea
-          className="admin-form-textarea mt-1 min-h-[100px] w-full rounded-lg border border-[rgba(161,161,170,0.18)] bg-[rgba(39,39,42,0.88)] px-3 py-2 text-sm text-white outline-none focus:border-[#38bdf8]"
+          className="mt-1 min-h-[100px] w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-ink outline-none focus:border-[var(--emerald-dark)] focus:ring-2 focus:ring-[rgba(20,83,45,0.12)]"
           value={rejectReason}
           onChange={(ev) => setRejectReason(ev.target.value)}
           placeholder="e.g. Missing tax year information..."
@@ -197,242 +426,136 @@ setRejectOpen(false)
         </div>
       </Modal>
 
-      <div className="mb-6 flex flex-wrap gap-2 border-b border-border pb-3">
-        {(
-          [
-            ['requested', 'Requested'],
-            ['approved', 'Approved'],
-            ['history', 'History'],
-          ] as const
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setTab(key)}
-            className={cn(
-              'rounded-lg px-4 py-2 text-sm font-medium transition-colors',
-              tab === key
-                ? 'bg-emerald-50 text-emerald-900 ring-1 ring-primary/40'
-                : 'text-muted hover:bg-surface',
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <div className={cn(!embedded && 'admin-documents-shell animate-fadeIn')}>
+        {!embedded ? (
+          <>
+            <div className="admin-documents-hero">
+              <div className="admin-documents-hero-top">
+                <div className="min-w-0">
+                  <h1 className="admin-documents-hero-title font-display">Document Requests</h1>
+                  <p className="admin-documents-hero-sub">
+                    Review, fulfill, and track employee document requests
+                  </p>
+                </div>
+                <div className="admin-documents-tab-rail">
+                  {tabConfig.map((t) => (
+                    <button
+                      key={t.key}
+                      type="button"
+                      onClick={() => setTab(t.key)}
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-[6px] px-2.5 py-1 text-[11px] font-bold transition-all duration-200',
+                        tab === t.key ? 'admin-dash-action-btn-sm text-white' : 'admin-documents-tab-inactive',
+                      )}
+                    >
+                      <t.icon className="h-3 w-3 shrink-0" />
+                      {t.label}
+                      {tab === t.key && (
+                        <span className="rounded-full bg-white/20 px-1 py-px text-[9px] font-black tabular-nums leading-none">
+                          {total}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="admin-documents-metrics-band">
+                <div className="admin-documents-metric-glass">
+                  <p className="admin-documents-metric-label">In This View</p>
+                  <p className="admin-documents-metric-value font-display">{total}</p>
+                </div>
+                <div className="admin-documents-metric-glass">
+                  <p className="admin-documents-metric-label">On This Page</p>
+                  <p className="admin-documents-metric-value font-display">{items.length}</p>
+                </div>
+                {tab === 'requested' && (
+                  <div className="admin-documents-metric-glass">
+                    <p className="admin-documents-metric-label">Awaiting Upload</p>
+                    <p className="admin-documents-metric-value font-display">{pendingUploadCount}</p>
+                  </div>
+                )}
+              </div>
+            </div>
 
-      <div className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
-        <div className={cn('max-h-[min(560px,calc(100vh-240px))] overflow-auto')}>
-          {loading ? (
-            <p className="p-10 text-center text-sm text-muted">Loading...</p>
-          ) : items.length === 0 ? (
-            <p className="p-10 text-center text-sm text-muted">
-              No records in this view. Requests appear after employees submit from Document Request.
-            </p>
-          ) : tab === 'requested' ? (
-            <table className="min-w-full border-collapse text-left text-sm">
-              <thead className="sticky top-0 z-[1] border-b border-border bg-surface/90 backdrop-blur">
-                <tr className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-                  <th className="px-4 py-3">Document</th>
-                  <th className="px-4 py-3">Employee / ID</th>
-                  <th className="px-4 py-3">Reason</th>
-                  <th className="px-4 py-3">Requested</th>
-                  <th className="px-4 py-3">Fulfillment file</th>
-                  <th className="min-w-[200px] px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((row, i) => (
-                  <tr
-                    key={row.id}
-                    className={cn('border-b border-border/70', i % 2 === 1 ? 'bg-surface/40' : 'bg-white')}
-                  >
-                    <td className="px-4 py-3 align-top">
-                      <p className="font-semibold text-ink">{row.documentName}</p>
-                      <p className="text-xs text-muted">{row.documentType}</p>
-                      <p className="font-mono text-[11px] text-muted">{row.id}</p>
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <p>{row.employeeName}</p>
-                      <p className="font-mono text-xs text-muted">{row.employeeId}</p>
-                    </td>
-                    <td className="max-w-[220px] px-4 py-3 align-top">
-                      <p className="line-clamp-4 text-muted">{row.reason}</p>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 align-middle text-muted">
-                      {formatWhen(row.requestedAt)}
-                    </td>
-                    <td className="px-4 py-3 align-middle">
-                      {row.hasFulfillmentFile ? (
-                        <Badge variant="success">Attached</Badge>
-                      ) : (
-                        <Badge variant="neutral">Not uploaded</Badge>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 align-middle">
-                      <div className="flex flex-col items-end gap-2 sm:flex-row sm:justify-end">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          type="button"
-                          disabled={busyId === row.id}
-                          loading={busyId === row.id}
-                          className="w-full shrink-0 sm:w-auto"
-                          onClick={() => startUploadPick(row.id)}
-                        >
-                          <Upload className="h-4 w-4" />
-                          Upload file
-                        </Button>
-                        <Button
-                          size="sm"
-                          type="button"
-                          disabled={!row.hasFulfillmentFile || busyId !== null}
-                          className="w-full shrink-0 bg-emerald-700 hover:bg-emerald-800 sm:w-auto"
-                          onClick={() => void onApprove(row.id)}
-                        >
-                          <CheckCircle2 className="h-4 w-4" />
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          type="button"
-                          disabled={busyId !== null}
-                          className="w-full shrink-0 sm:w-auto"
-                          onClick={() => openReject(row.id)}
-                        >
-                          <XCircle className="h-4 w-4" />
-                          Reject
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : tab === 'approved' ? (
-            <table className="min-w-full border-collapse text-left text-sm">
-              <thead className="sticky top-0 z-[1] border-b border-border bg-surface/90 backdrop-blur">
-                <tr className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-                  <th className="px-4 py-3">Document</th>
-                  <th className="px-4 py-3">Employee / ID</th>
-                  <th className="px-4 py-3">Reason</th>
-                  <th className="px-4 py-3">Processed</th>
-                  <th className="min-w-[120px] px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((row, i) => (
-                  <tr
-                    key={row.id}
-                    className={cn('border-b border-border/70', i % 2 === 1 ? 'bg-surface/40' : 'bg-white')}
-                  >
-                    <td className="px-4 py-3 align-top">
-                      <p className="font-semibold">{row.documentName}</p>
-                      <p className="text-xs text-muted">{row.documentType}</p>
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <p>{row.employeeName}</p>
-                      <p className="font-mono text-xs text-muted">{row.employeeId}</p>
-                    </td>
-                    <td className="max-w-[240px] px-4 py-3 align-top">
-                      <p className="line-clamp-3 text-muted">{row.reason}</p>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-muted">{formatWhen(row.processedAt)}</td>
-                    <td className="px-4 py-3 text-right">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        type="button"
-                        onClick={() =>
-                          void downloadDocumentPdf(row.id, `${row.documentName}.pdf`).catch(() =>
-                            toast.error('Download failed'),
-                          )
-                        }
-                      >
-                        Download
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <table className="min-w-full border-collapse text-left text-sm">
-              <thead className="sticky top-0 z-[1] border-b border-border bg-surface/90 backdrop-blur">
-                <tr className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-                  <th className="px-4 py-3">When</th>
-                  <th className="px-4 py-3">Document</th>
-                  <th className="px-4 py-3">Employee</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Rejection reason</th>
-                  <th className="px-4 py-3 text-right">Download</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((row, i) => (
-                  <tr
-                    key={row.id}
-                    className={cn('border-b border-border/70', i % 2 === 1 ? 'bg-surface/40' : 'bg-white')}
-                  >
-                    <td className="whitespace-nowrap px-4 py-3 text-muted">
-                      {formatWhen(row.processedAt || row.requestedAt)}
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <p className="font-semibold">{row.documentName}</p>
-                      <p className="text-xs text-muted">{row.documentType}</p>
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <p>{row.employeeName}</p>
-                      <p className="font-mono text-xs text-muted">{row.employeeId}</p>
-                    </td>
-                    <td className="px-4 py-3 align-middle">{statusBadge(row.status)}</td>
-                    <td className="max-w-[260px] px-4 py-3 align-top text-sm">
-                      {row.status === 'Rejected' ? (
-                        <span className="text-danger">{row.rejectionReason || '—'}</span>
-                      ) : (
-                        <span className="text-muted">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {row.status === 'Approved' ? (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          type="button"
-                          onClick={() =>
-                            void downloadDocumentPdf(row.id, `${row.documentName}.pdf`).catch(() =>
-                              toast.error('Download failed'),
-                            )
-                          }
-                        >
-                          Download
-                        </Button>
-                      ) : (
-                        <span className="text-xs text-muted">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+            <div className="admin-documents-body-grid">
+              <aside className="admin-documents-sidebar space-y-4">
+                <p className="admin-documents-sidebar-title">{activeTabMeta.label}</p>
+                <p className="text-xs font-medium leading-relaxed text-[var(--emerald-dark)]/80">
+                  {activeTabMeta.description}
+                </p>
+                <div className="admin-documents-stat-box rounded-lg p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--emerald-dark)]/70">
+                    Total records
+                  </p>
+                  <p className="mt-1 font-display text-2xl font-bold tabular-nums text-[var(--emerald-dark)]">
+                    {loading ? '—' : total}
+                  </p>
+                </div>
+                {tab === 'requested' && (
+                  <div className="admin-documents-tip-box rounded-lg p-3 text-xs font-medium leading-relaxed">
+                    <Sparkles className="mb-1.5 h-3.5 w-3.5 text-[var(--emerald-dark)]" />
+                    Upload the fulfillment file first, then approve so the employee can download it.
+                  </div>
+                )}
+              </aside>
 
-        {!loading && total > 0 ? (
-          <div className="border-t border-border bg-surface/40 px-4 py-3">
-            <PaginationBar
-              total={total}
-              page={page}
-              pageSize={PAGE_SIZE}
-              onPageChange={setPage}
-            />
-          </div>
-        ) : null}
+              <div className="admin-documents-main-panel">
+                <div className="admin-documents-panel-header">
+                  <div>
+                    <h2 className="font-display text-sm font-bold text-[var(--emerald-dark)]">
+                      {activeTabMeta.label} Documents
+                    </h2>
+                    <p className="text-xs font-medium text-slate-600">
+                      {loading
+                        ? 'Loading...'
+                        : total === 0
+                          ? 'No records to display'
+                          : `Showing page ${page} · ${total} total record${total === 1 ? '' : 's'}`}
+                    </p>
+                  </div>
+                </div>
+                <div className="admin-doc-table-wrap overflow-auto">{tableShell}</div>
+                {!loading && total > 0 ? (
+                  <div className="admin-documents-pagination mt-3">
+                    <PaginationBar total={total} page={page} pageSize={PAGE_SIZE} onPageChange={setPage} />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="mb-6 flex flex-wrap gap-2 border-b border-border pb-3">
+              {tabConfig.map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setTab(t.key)}
+                  className={cn(
+                    'rounded-lg px-4 py-2 text-sm font-medium transition-colors',
+                    tab === t.key
+                      ? 'bg-emerald-50 text-emerald-900 ring-1 ring-primary/40'
+                      : 'text-muted hover:bg-surface',
+                  )}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <div className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
+              <div className="max-h-[min(560px,calc(100vh-240px))] overflow-auto">{tableShell}</div>
+              {!loading && total > 0 ? (
+                <div className="border-t border-border bg-surface/40 px-4 py-3">
+                  <PaginationBar total={total} page={page} pageSize={PAGE_SIZE} onPageChange={setPage} />
+                </div>
+              ) : null}
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
 
   if (embedded) return content
-  return <PageWrapper>{content}</PageWrapper>
+  return <PageWrapper className="relative z-10 py-3 font-body">{content}</PageWrapper>
 }
