@@ -25,7 +25,7 @@ function titleCase(slug: string) {
 }
 
 const routeTitles: Record<string, string> = {
-  '/admin': 'Command Center',
+  '/admin': 'Dashboard',
   '/admin/employees': 'Employees',
   '/admin/leaves': 'Leave Management',
   '/admin/projects': 'Projects & Timesheets',
@@ -120,7 +120,7 @@ export function CommandBar() {
             <p className="truncate font-display text-lg font-semibold tracking-tight lg:text-xl">
               <span className="text-[var(--text-primary)]">{user?.name?.split(' ')[0] ?? 'Admin'}</span>
               <span className="text-[var(--text-slate-blue)]">, your </span>
-              <span className="text-[var(--text-green-deep)]">command center</span>
+              <span className="text-[var(--text-green-deep)]">dashboard</span>
               <span className="text-[var(--text-slate-blue)]"> is ready</span>
             </p>
           </motion.div>

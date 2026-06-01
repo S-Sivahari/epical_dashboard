@@ -689,6 +689,32 @@
     -webkit-backdrop-filter: blur(var(--glass-blur));
   }
 
+  .admin-news-panel {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    box-shadow: var(--shadow-card) !important;
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+  }
+
+  .admin-news-panel-accent {
+    background: linear-gradient(
+      180deg,
+      var(--emerald-dark) 0%,
+      #0f3d24 50%,
+      var(--emerald-dark) 100%
+    );
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .admin-news-panel-accent-label {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    letter-spacing: 0.2em;
+    color: rgba(255, 255, 255, 0.92);
+  }
+
   /* Activity / status badges */
   .badge-completed,
   .badge-status-completed {
@@ -1229,6 +1255,104 @@
   animation-play-state: paused;
 }
 
+@keyframes admin-news-ticker-drift {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(-3%);
+  }
+}
+
+.animate-admin-news-ticker {
+  animation: admin-news-ticker-drift var(--ticker-duration, 90s) ease-in-out infinite;
+}
+
+@keyframes marquee-vertical {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-50%);
+  }
+}
+
+.animate-marquee-vertical {
+  animation: marquee-vertical var(--marquee-duration, 90s) linear infinite;
+}
+
+.admin-dashboard-view {
+  height: calc(100dvh - 4.25rem);
+  max-height: calc(100dvh - 4.25rem);
+  overflow: hidden;
+  margin: 0 !important;
+}
+
+/* Dashboard action buttons — match news panel dark green */
+.admin-dashboard-view .crewiq-quick-link,
+.admin-dashboard-view .admin-dash-action-btn {
+  background: linear-gradient(180deg, var(--emerald-dark) 0%, #0f3d24 100%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(20, 83, 45, 0.28);
+}
+
+.admin-dashboard-view .crewiq-quick-link:hover,
+.admin-dashboard-view .admin-dash-action-btn:hover {
+  background: linear-gradient(180deg, #166534 0%, var(--emerald-dark) 100%);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(20, 83, 45, 0.38);
+  transform: translateY(-1px);
+}
+
+.admin-dashboard-view .crewiq-quick-link svg,
+.admin-dashboard-view .admin-dash-action-btn svg {
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.admin-dashboard-view .admin-dash-action-btn-sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 10px;
+  font-weight: 600;
+  background: linear-gradient(180deg, var(--emerald-dark) 0%, #0f3d24 100%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(20, 83, 45, 0.25);
+  transition: all 0.22s ease;
+}
+
+.admin-dashboard-view .admin-dash-action-btn-sm:hover {
+  background: linear-gradient(180deg, #166534 0%, var(--emerald-dark) 100%);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  box-shadow: 0 3px 10px rgba(20, 83, 45, 0.35);
+}
+
+.admin-dashboard-view .cmd-period-btn {
+  background: linear-gradient(180deg, var(--emerald-dark) 0%, #0f3d24 100%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(20, 83, 45, 0.25);
+}
+
+.admin-dashboard-view .cmd-period-btn:hover {
+  background: linear-gradient(180deg, #166534 0%, var(--emerald-dark) 100%);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+
+.admin-dashboard-view .cmd-period-btn svg {
+  color: rgba(255, 255, 255, 0.9);
+}
+
 @keyframes login-reflection-sweep {
   0%,
   100% {
@@ -1554,7 +1678,7 @@ input[type='number'] {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   Command Center — Next-gen admin dashboard
+   Dashboard — Admin home
 ═══════════════════════════════════════════════════════════════ */
 
 .cmd-portal {

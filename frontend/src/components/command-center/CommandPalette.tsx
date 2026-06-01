@@ -43,7 +43,7 @@ export function CommandPalette() {
 
   const items: CommandItem[] = useMemo(
     () => [
-      { id: 'dash', label: 'Command Center', description: 'Dashboard home', icon: LayoutGrid, group: 'Navigate', action: () => navigate(ROUTES.DASHBOARD), keywords: ['home', 'overview'] },
+      { id: 'dash', label: 'Dashboard', description: 'Dashboard home', icon: LayoutGrid, group: 'Navigate', action: () => navigate(ROUTES.DASHBOARD), keywords: ['home', 'overview'] },
       { id: 'emp', label: 'Manage Employees', icon: Users, group: 'Navigate', action: () => navigate(ROUTES.EMPLOYEES) },
       { id: 'add-emp', label: 'Add Employee', icon: UserPlus, group: 'Quick Actions', action: () => navigate(ROUTES.EMPLOYEE_ADD), keywords: ['create', 'hire'] },
       { id: 'leaves', label: 'Manage Leaves', icon: CalendarCheck, group: 'Navigate', action: () => navigate(ROUTES.LEAVES) },

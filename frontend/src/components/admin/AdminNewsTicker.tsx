@@ -1,25 +1,155 @@
-import { useEffect, useState } from 'react'
-import { listNews, type NewsItem } from '@services/newsService'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  listNews,
+  resolveNewsImageSrc,
+  updateNews,
+  type NewsItem,
+} from '@services/newsService'
 import { Modal } from '@components/ui/Modal'
 import { Button } from '@components/ui/Button'
+import { Input } from '@components/ui/Input'
 import { NewsImage } from '@components/NewsImage'
 import { formatDate } from '@/utils/formatDate'
 import { cn } from '@/utils/cn'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Megaphone } from 'lucide-react'
+import { Megaphone, Pencil } from 'lucide-react'
+import { ROUTES } from '@/constants/routes'
 
-const CACHE_KEY = 'admin-news-ticker-v1'
+const CACHE_KEY = 'admin-news-ticker-v2'
+const MARQUEE_DURATION = '90s'
+const TICKER_LIMIT = 5
 
 type AdminNewsTickerProps = {
   variant?: 'default' | 'brand'
+  className?: string
 }
 
-export function AdminNewsTicker({ variant = 'brand' }: AdminNewsTickerProps) {
+function NewsMarqueeCard({
+  item,
+  isBrand,
+  onClick,
+  onHoverStart,
+}: {
+  item: NewsItem
+  isBrand: boolean
+  onClick: () => void
+  onHoverStart: () => void
+}) {
+  const hasImage = Boolean(item.imageUrl || item.hasImage)
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={onHoverStart}
+      className={cn(
+        'w-full shrink-0 rounded-xl p-2 text-left transition-shadow',
+        isBrand
+          ? 'bg-white shadow-sm hover:shadow-md'
+          : 'border border-zinc-700/40 bg-[#27272a] hover:border-zinc-600/60',
+      )}
+    >
+      <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-slate-100">
+        {hasImage ? (
+          <NewsImage
+            item={item}
+            alt={item.title}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div
+            className={cn(
+              'flex h-full items-center justify-center',
+              isBrand ? 'bg-emerald-50' : 'bg-[#3f3f46]',
+            )}
+          >
+            <Megaphone
+              className={cn(
+                'h-6 w-6',
+                isBrand ? 'text-[var(--neon-green)]' : 'text-[#8892a4]',
+              )}
+            />
+          </div>
+        )}
+      </div>
+
+      <span
+        className={cn(
+          'mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider',
+          isBrand
+            ? 'bg-emerald-50 text-emerald-700'
+            : 'bg-emerald-900/40 text-emerald-400',
+        )}
+      >
+        <Megaphone className="h-2.5 w-2.5" />
+        Company News
+      </span>
+
+      <h3
+        className={cn(
+          'mt-1 line-clamp-2 font-display text-xs font-semibold leading-snug',
+          isBrand ? 'text-[var(--text-primary)]' : 'text-white',
+        )}
+      >
+        {item.title}
+      </h3>
+    </button>
+  )
+}
+
+function MarqueeSkeleton({ isBrand }: { isBrand: boolean }) {
+  return (
+    <div
+      className={cn(
+        'admin-news-panel flex h-full overflow-hidden',
+        !isBrand && 'border border-zinc-700/50 bg-[#27272a]',
+      )}
+    >
+      <div className="flex min-w-0 flex-1 flex-col p-2">
+        <div className="flex flex-col gap-2.5">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={`news-skeleton-${i}`} className="rounded-xl bg-white/80 p-2">
+              <div className="aspect-[4/3] rounded-lg bg-slate-200 skeleton" />
+              <div className="mt-1.5 h-2.5 w-14 rounded-full bg-slate-200 skeleton" />
+              <div className="mt-1 h-3 w-full rounded bg-slate-200 skeleton" />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="admin-news-panel-accent w-8 shrink-0" />
+    </div>
+  )
+}
+
+export function AdminNewsTicker({ variant = 'brand', className }: AdminNewsTickerProps) {
+  const navigate = useNavigate()
   const isBrand = variant === 'brand'
   const [items, setItems] = useState<NewsItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [index, setIndex] = useState(0)
+  const [paused, setPaused] = useState(false)
   const [active, setActive] = useState<NewsItem | null>(null)
+  const [editing, setEditing] = useState<NewsItem | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editContent, setEditContent] = useState('')
+  const [editImageUrl, setEditImageUrl] = useState('')
+  const [editLink, setEditLink] = useState('')
+  const [editImageFile, setEditImageFile] = useState<File | null>(null)
+  const [editImagePreview, setEditImagePreview] = useState<string | null>(null)
+  const [editClearImage, setEditClearImage] = useState(false)
+  const [updating, setUpdating] = useState(false)
+
+  const tickerItems = items.slice(0, TICKER_LIMIT)
+  const loopItems = useMemo(() => {
+    if (tickerItems.length === 0) return []
+    return [...tickerItems, ...tickerItems]
+  }, [tickerItems])
+
+  const persistItems = (next: NewsItem[]) => {
+    const limited = next.slice(0, TICKER_LIMIT)
+    setItems(limited)
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify(limited))
+  }
 
   useEffect(() => {
     let hasCached = false
@@ -28,8 +158,7 @@ export function AdminNewsTicker({ variant = 'brand' }: AdminNewsTickerProps) {
       try {
         const parsed = JSON.parse(cached)
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setItems(parsed)
-          setIndex(0)
+          setItems(parsed.slice(0, TICKER_LIMIT))
           setLoading(false)
           hasCached = true
         }
@@ -41,10 +170,8 @@ export function AdminNewsTicker({ variant = 'brand' }: AdminNewsTickerProps) {
     const load = async () => {
       if (!hasCached) setLoading(true)
       try {
-        const data = await listNews(10)
-        setItems(data)
-        setIndex(0)
-        sessionStorage.setItem(CACHE_KEY, JSON.stringify(data))
+        const data = await listNews(TICKER_LIMIT)
+        persistItems(data)
       } catch {
         setItems([])
       } finally {
@@ -54,140 +181,118 @@ export function AdminNewsTicker({ variant = 'brand' }: AdminNewsTickerProps) {
     void load()
   }, [])
 
-  useEffect(() => {
-    if (items.length <= 1) return
-    const timer = setInterval(() => {
-      setIndex((i) => (i + 1) % items.length)
-    }, 5000)
-    return () => clearInterval(timer)
-  }, [items.length])
+  const openEdit = async (item: NewsItem) => {
+    setActive(null)
+    setEditing(item)
+    setEditTitle(item.title)
+    setEditContent(item.content)
+    setEditImageUrl(item.imageUrl || '')
+    setEditLink(item.link || '')
+    setEditImageFile(null)
+    setEditClearImage(false)
+    if (item.imageUrl?.trim()) {
+      setEditImagePreview(item.imageUrl)
+    } else if (item.hasImage) {
+      const src = await resolveNewsImageSrc(item)
+      setEditImagePreview(src)
+    } else {
+      setEditImagePreview(null)
+    }
+  }
+
+  const handleEditImageChange = (file: File | null) => {
+    setEditImageFile(file)
+    setEditClearImage(false)
+    setEditImagePreview(file ? URL.createObjectURL(file) : null)
+  }
+
+  const handleUpdate = async () => {
+    if (!editing || !editTitle.trim() || !editContent.trim()) return
+    setUpdating(true)
+    try {
+      const updated = await updateNews(editing.id, {
+        title: editTitle,
+        content: editContent,
+        imageUrl: editImageUrl,
+        link: editLink,
+        imageFile: editImageFile,
+        clearImage: editClearImage,
+      })
+      persistItems(items.map((n) => (n.id === updated.id ? updated : n)))
+      setEditing(null)
+    } catch {
+      // Handle error silently
+    } finally {
+      setUpdating(false)
+    }
+  }
 
   if (loading && items.length === 0) {
     return (
-      <div
-        className={cn(
-          'min-h-[110px] rounded-xl p-4.5 md:min-h-[124px] md:p-5',
-          isBrand
-            ? 'company-announcement-card crewiq-dash-card rounded-xl'
-            : 'border border-zinc-700/50 bg-[#27272a]',
-        )}
-      >
-        <div className="flex items-start gap-4">
-          <div className="h-10 w-10 rounded-xl bg-emerald-100 skeleton-soft" />
-          <div className="flex-1 space-y-2">
-            <div className="h-3 w-36 rounded-full bg-slate-200 skeleton" />
-            <div className="h-5 w-2/3 rounded-lg bg-slate-200 skeleton" />
-            <div className="h-4 w-full rounded-lg bg-slate-200 skeleton" />
-          </div>
-        </div>
+      <div className={cn('min-h-0', className)}>
+        <MarqueeSkeleton isBrand={isBrand} />
       </div>
     )
   }
 
   if (items.length === 0) return null
 
-  const current = items[index]
-  const excerpt = current.excerpt || current.content?.slice(0, 120) || ''
-
   return (
     <>
       <div
         className={cn(
-          'relative min-h-[110px] overflow-hidden rounded-xl md:min-h-[124px]',
-          isBrand ? 'company-announcement-card crewiq-dash-card rounded-xl' : 'border border-zinc-700/40',
+          'admin-news-panel flex h-full min-h-0 overflow-hidden',
+          !isBrand && 'border border-zinc-700/40 bg-[#27272a]',
+          className,
         )}
+        onMouseLeave={() => setPaused(false)}
       >
-        <AnimatePresence mode="wait">
-          <motion.button
-            key={current.id}
-            type="button"
-            initial={{ opacity: 0, x: 40 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -40 }}
-            transition={{ duration: 0.4 }}
-            onClick={() => setActive(current)}
-            className={cn(
-              'min-h-[110px] w-full cursor-pointer p-4.5 text-left md:min-h-[124px] md:p-5',
-              isBrand
-                ? 'bg-transparent'
-                : 'bg-gradient-to-r from-[#27272a] to-[#3f3f46]',
-            )}
-          >
-            <div className="flex items-start gap-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100">
-                <Megaphone className="h-5 w-5 shrink-0 text-[var(--neon-green)]" />
-              </div>
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-3 py-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+              Company News
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate(ROUTES.NEWS)}
+              className="admin-dash-action-btn-sm"
+            >
+              Manage
+            </button>
+          </div>
 
-              <div className="flex-1 pr-14">
-                <p
-                  className={cn(
-                    'announcement-subtext text-[11px] font-semibold uppercase tracking-wider',
-                    isBrand ? 'text-[var(--text-muted)]' : 'text-[#8892a4]',
-                  )}
-                >
-                  Company Announcement
-                </p>
-                <h3 className="mt-1 font-display text-lg font-semibold text-[var(--text-primary)] md:text-xl">
-                  {current.title}
-                </h3>
-                <p
-                  className={cn(
-                    'announcement-subtext mt-1.5 text-sm line-clamp-2',
-                    isBrand ? 'text-[var(--text-secondary)]' : 'text-[#8892a4]',
-                  )}
-                >
-                  {excerpt}
-                </p>
-              </div>
-            </div>
-          </motion.button>
-        </AnimatePresence>
-
-        {items.length > 1 && (
-          <>
-            <div className="absolute bottom-3 right-3 flex gap-1.5">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setIndex((i) => (i - 1 + items.length) % items.length)
-                }}
-                className="rounded-full bg-emerald-100/80 p-1.5 transition-colors hover:bg-emerald-200/80"
-                aria-label="Previous"
-              >
-                <ChevronLeft className="h-3.5 w-3.5 text-emerald-700" />
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setIndex((i) => (i + 1) % items.length)
-                }}
-                className="rounded-full bg-emerald-100/80 p-1.5 transition-colors hover:bg-emerald-200/80"
-                aria-label="Next"
-              >
-                <ChevronRight className="h-3.5 w-3.5 text-emerald-700" />
-              </button>
-            </div>
-
-            <div className="absolute bottom-3 left-5 flex gap-1">
-              {items.map((item, i) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setIndex(i)
-                  }}
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    i === index ? (isBrand ? 'w-5 bg-[var(--neon-green)]' : 'w-5 bg-[#4f8ef7]') : 'w-1.5 bg-slate-300'
-                  }`}
-                  aria-label={`Go to slide ${i + 1}`}
+          <div className="relative min-h-0 flex-1 overflow-hidden px-2 py-2">
+            <div
+              className="flex w-full flex-col gap-2.5 animate-marquee-vertical"
+              style={
+                {
+                  '--marquee-duration': MARQUEE_DURATION,
+                  animationPlayState: paused ? 'paused' : 'running',
+                } as React.CSSProperties
+              }
+            >
+              {loopItems.map((item, idx) => (
+                <NewsMarqueeCard
+                  key={`${item.id}-${idx}`}
+                  item={item}
+                  isBrand={isBrand}
+                  onClick={() => setActive(item)}
+                  onHoverStart={() => setPaused(true)}
                 />
               ))}
             </div>
-          </>
-        )}
+          </div>
+        </div>
+
+        <aside
+          className="admin-news-panel-accent flex w-9 shrink-0 flex-col items-center justify-center gap-3 py-4 sm:w-10"
+          aria-hidden
+        >
+          <Megaphone className="h-4 w-4 text-white/90" strokeWidth={2} />
+          <span className="admin-news-panel-accent-label text-[10px] font-bold uppercase">
+            News
+          </span>
+        </aside>
       </div>
 
       <AnimatePresence>
@@ -206,7 +311,7 @@ export function AdminNewsTicker({ variant = 'brand' }: AdminNewsTickerProps) {
                 <NewsImage
                   item={active}
                   alt={active.title}
-                  className="w-full rounded-xl object-cover max-h-80"
+                  className="max-h-80 w-full rounded-xl object-cover"
                 />
               )}
 
@@ -235,15 +340,82 @@ export function AdminNewsTicker({ variant = 'brand' }: AdminNewsTickerProps) {
                 </a>
               )}
 
-              <div className="flex justify-end pt-3">
+              <div className="flex justify-end gap-2 pt-3">
                 <Button variant="secondary" onClick={() => setActive(null)}>
                   Close
+                </Button>
+                <Button onClick={() => void openEdit(active)}>
+                  <Pencil className="h-3.5 w-3.5" />
+                  Edit
                 </Button>
               </div>
             </motion.div>
           </Modal>
         )}
       </AnimatePresence>
+
+      <Modal isOpen={!!editing} onClose={() => setEditing(null)} title="Edit News" size="lg">
+        <div className="space-y-4">
+          <Input label="Title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+          <Input
+            label="Image URL (optional)"
+            value={editImageUrl}
+            onChange={(e) => setEditImageUrl(e.target.value)}
+          />
+          <label className="block space-y-1.5">
+            <span className="text-sm font-medium text-ink">Upload image (optional)</span>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary"
+              onChange={(e) => handleEditImageChange(e.target.files?.[0] ?? null)}
+            />
+            {(editImagePreview || editing?.hasImage) && (
+              <div className="flex items-center gap-3 pt-1">
+                {editImagePreview && (
+                  <img
+                    src={editImagePreview}
+                    alt=""
+                    className="h-16 w-24 rounded-lg object-cover ring-1 ring-border"
+                  />
+                )}
+                <button
+                  type="button"
+                  className="text-xs text-danger hover:underline"
+                  onClick={() => {
+                    setEditImageFile(null)
+                    setEditImagePreview(null)
+                    setEditClearImage(true)
+                  }}
+                >
+                  Remove image
+                </button>
+              </div>
+            )}
+          </label>
+          <Input
+            label="Link (optional)"
+            value={editLink}
+            onChange={(e) => setEditLink(e.target.value)}
+          />
+          <label className="block text-sm font-medium text-ink">
+            News Content
+            <textarea
+              className="mt-1 min-h-[140px] w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+            />
+          </label>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setEditing(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => void handleUpdate()} disabled={updating}>
+              {updating ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </>
   )
 }

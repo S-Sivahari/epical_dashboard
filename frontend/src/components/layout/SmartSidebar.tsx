@@ -45,7 +45,7 @@ const groups: {
 }[] = [
   {
     label: 'Overview',
-    items: [{ to: ROUTES.DASHBOARD, label: 'Command Center', icon: LayoutGrid, end: true }],
+    items: [{ to: ROUTES.DASHBOARD, label: 'Dashboard', icon: LayoutGrid, end: true }],
   },
   {
     label: 'People',
@@ -197,7 +197,7 @@ export function SmartSidebar() {
           {expanded && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-w-0">
               <p className="truncate font-display text-[15px] font-bold tracking-tight">EMPWR</p>
-              <p className="truncate text-[11px] font-medium text-[var(--text-muted)]">Command Center</p>
+              <p className="truncate text-[11px] font-medium text-[var(--text-muted)]">Dashboard</p>
             </motion.div>
           )}
         </NavLink>
