@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Plus, Search, X, CheckSquare, FileText, FileSpreadsheet, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageWrapper } from '@components/layout/PageWrapper'
@@ -34,18 +34,6 @@ const STATUS_OPTIONS: { value: Employee['status']; label: string }[] = [
 const filterSelectClass =
   'admin-field h-10 w-full cursor-pointer appearance-none pl-3 pr-10 text-sm font-medium shadow-sm'
 
-function buildFilterSummary(
-  filters: { name: string; employmentType: string; status: string },
-  total: number,
-): string {
-  const parts: string[] = []
-  if (filters.name.trim()) parts.push(`search "${filters.name.trim()}"`)
-  if (filters.employmentType !== 'all') parts.push(`type ${filters.employmentType}`)
-  if (filters.status !== 'all') parts.push(`status ${filters.status}`)
-  if (parts.length === 0) return `${total} employee${total === 1 ? '' : 's'} (all filters)`
-  return `${total} employee${total === 1 ? '' : 's'} matching ${parts.join(', ')}`
-}
-
 export function EmployeeList() {
   const {
     employees,
@@ -54,6 +42,7 @@ export function EmployeeList() {
     setFilters,
     pagination,
     setPage,
+    setPageSize,
     sort,
     setSort,
     updateEmployeeStatus,
@@ -96,11 +85,6 @@ export function EmployeeList() {
   const [bulkStatusReason, setBulkStatusReason] = useState('')
   const [bulkStatusReasonError, setBulkStatusReasonError] = useState('')
   const bulkReasonInputRef = useRef<HTMLTextAreaElement>(null)
-
-  const filterSummary = useMemo(
-    () => buildFilterSummary(filters, pagination.total),
-    [filters, pagination.total],
-  )
 
   const exitSelectionMode = () => {
     setSelectionMode(false)
@@ -392,7 +376,6 @@ export function EmployeeList() {
         <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h3 className="font-display text-lg font-semibold text-ink">Active Directory</h3>
-            <p className="text-sm text-ink/80">{filterSummary}</p>
           </div>
         </div>
 
@@ -511,15 +494,9 @@ export function EmployeeList() {
         </div>
       )}
 
-      <div className="space-y-4 pb-12">
-        <PaginationBar
-          total={pagination.total}
-          page={pagination.page}
-          pageSize={pagination.pageSize}
-          onPageChange={setPage}
-        />
+      <div className="space-y-0 pb-12">
         <DataTable
-          className="employee-list-table"
+          className="employee-list-table rounded-b-none border-b-0"
           columns={columns}
           data={employees}
           loading={loading}
@@ -533,6 +510,18 @@ export function EmployeeList() {
             }
           }}
         />
+        {!loading && pagination.total > 0 ? (
+          <div className="employee-list-table admin-panel rounded-t-none border-t-0 px-4 py-3">
+            <PaginationBar
+              total={pagination.total}
+              page={pagination.page}
+              pageSize={pagination.pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              pageSizeOptions={[10, 20, 50, 100]}
+            />
+          </div>
+        ) : null}
       </div>
 
       {/* Status Change Confirmation Modal */}
