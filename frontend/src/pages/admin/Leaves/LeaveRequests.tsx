@@ -230,8 +230,8 @@ export function LeaveRequests({
     <Tooltip.Provider delayDuration={300}>
       <div className="space-y-4">
         {/* Filters */}
-        <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-border/60">
-          <div className="flex flex-wrap items-center gap-3">
+        <div className="overflow-visible rounded-xl bg-white p-4 shadow-sm ring-1 ring-border/60">
+          <div className="flex flex-wrap items-center gap-3 overflow-visible">
             <div className="relative min-w-[200px] flex-1" ref={empDropRef}>
               <button
                 type="button"
@@ -326,13 +326,17 @@ export function LeaveRequests({
             <DateInput
               value={filters.dateFrom || ''}
               onChange={(iso) => {
-                setFilters({ ...filters, dateFrom: iso || undefined })
+                const next: LeaveFilters = { ...filters, dateFrom: iso || undefined }
+                if (next.dateTo && iso && next.dateTo < iso) {
+                  next.dateTo = undefined
+                }
+                setFilters(next)
                 setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
               }}
               minDate={filterBounds.min}
-              maxDate={filterBounds.max}
-              placeholder="dd/mm/yyyy"
-              className="h-10 rounded-lg bg-surface/50"
+              maxDate={filters.dateTo || filterBounds.max}
+              placeholder="From (dd/mm/yyyy)"
+              className="h-10 rounded-lg bg-surface/50 sm:min-w-[10.5rem]"
               title="Leave period from"
               aria-label="Leave period from"
             />
@@ -342,10 +346,10 @@ export function LeaveRequests({
                 setFilters({ ...filters, dateTo: iso || undefined })
                 setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
               }}
-              minDate={filterBounds.min}
+              minDate={filters.dateFrom || filterBounds.min}
               maxDate={filterBounds.max}
-              placeholder="dd/mm/yyyy"
-              className="h-10 rounded-lg bg-surface/50"
+              placeholder="To (dd/mm/yyyy)"
+              className="h-10 rounded-lg bg-surface/50 sm:min-w-[10.5rem]"
               title="Leave period to"
               aria-label="Leave period to"
             />

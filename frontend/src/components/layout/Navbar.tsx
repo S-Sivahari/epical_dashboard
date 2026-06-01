@@ -98,13 +98,6 @@ export function Navbar() {
           <DropdownMenu.Portal>
             <DropdownMenu.Content className="admin-navbar-menu z-50 min-w-[200px] p-1" sideOffset={6} align="end">
               <DropdownMenu.Item
-                className="cursor-pointer rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] outline-none hover:bg-emerald-50 hover:text-[var(--text-primary)]"
-                onSelect={() => navigate('/admin/settings')}
-              >
-                Settings
-              </DropdownMenu.Item>
-              <DropdownMenu.Separator className="my-1 h-px bg-[var(--border-subtle)]" />
-              <DropdownMenu.Item
                 className="cursor-pointer rounded-lg px-3 py-2 text-sm text-red-600 outline-none hover:bg-red-50"
                 onSelect={() => {
                   logout()

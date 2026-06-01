@@ -134,7 +134,11 @@
   }
 
   .login-top-brand:hover .login-top-brand-text {
-    color: rgba(212, 212, 216, 0.95);
+    color: #06c033;
+  }
+
+  .login-top-brand img {
+    filter: drop-shadow(0 2px 10px rgba(6, 192, 51, 0.2));
   }
 
   .login-card-shell {
@@ -4529,4 +4533,43 @@ input[type='number'] {
   .cmd-portal .lg\:pl-\[var\(--cmd-sidebar-offset\)\] {
     padding-left: 0;
   }
+}
+
+/* Tickets page — readable light tables (override legacy dark row styles) */
+.tickets-page .tickets-table thead th {
+  background-color: #f5f7f9 !important;
+  color: #5c5a66 !important;
+}
+
+.tickets-page .tickets-table tbody tr {
+  background-color: #ffffff !important;
+}
+
+.tickets-page .tickets-table tbody tr:nth-child(even) {
+  background-color: #fafbfc !important;
+}
+
+.tickets-page .tickets-table tbody tr:hover {
+  background-color: rgba(6, 192, 51, 0.06) !important;
+}
+
+.tickets-page .tickets-table tbody td,
+.tickets-page .tickets-table tbody td div {
+  color: #111111;
+}
+
+.tickets-page .tickets-table tbody td .text-muted,
+.tickets-page .tickets-table tbody td [class*='font-mono'] {
+  color: #5c5a66 !important;
+}
+
+.tickets-page .tickets-table tbody tr:hover td,
+.tickets-page .tickets-table tbody tr:hover td div,
+.tickets-page .tickets-table tbody tr:hover td .text-ink {
+  color: #111111 !important;
+}
+
+.tickets-page .tickets-table tbody tr:hover td [class*='font-mono'],
+.tickets-page .tickets-table tbody tr:hover td .text-muted {
+  color: #5c5a66 !important;
 }

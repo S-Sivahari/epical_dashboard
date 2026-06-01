@@ -5,13 +5,18 @@ type CompanyLogoProps = {
   alt?: string
 }
 
+const CHIP_LOGO_SRC = '/pic/epical-chip-logo.png?v=3'
+
 export function CompanyLogo({ className, alt = 'Epical Layouts' }: CompanyLogoProps) {
   return (
     <img
-      src="/pic/logos.png"
+      src={CHIP_LOGO_SRC}
       alt={alt}
-      className={cn('object-contain', className)}
+      width={56}
+      height={56}
+      className={cn('object-contain select-none', className)}
       draggable={false}
+      decoding="async"
     />
   )
 }
