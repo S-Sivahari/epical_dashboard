@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Plus, Search, X, CheckSquare, FileText, FileSpreadsheet, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageWrapper } from '@components/layout/PageWrapper'
@@ -34,18 +34,6 @@ const STATUS_OPTIONS: { value: Employee['status']; label: string }[] = [
 const filterSelectClass =
   'admin-field h-10 w-full cursor-pointer appearance-none pl-3 pr-10 text-sm font-medium shadow-sm'
 
-function buildFilterSummary(
-  filters: { name: string; employmentType: string; status: string },
-  total: number,
-): string {
-  const parts: string[] = []
-  if (filters.name.trim()) parts.push(`search "${filters.name.trim()}"`)
-  if (filters.employmentType !== 'all') parts.push(`type ${filters.employmentType}`)
-  if (filters.status !== 'all') parts.push(`status ${filters.status}`)
-  if (parts.length === 0) return `${total} employee${total === 1 ? '' : 's'} (all filters)`
-  return `${total} employee${total === 1 ? '' : 's'} matching ${parts.join(', ')}`
-}
-
 export function EmployeeList() {
   const {
     employees,
@@ -54,6 +42,7 @@ export function EmployeeList() {
     setFilters,
     pagination,
     setPage,
+    setPageSize,
     sort,
     setSort,
     updateEmployeeStatus,
@@ -96,11 +85,6 @@ export function EmployeeList() {
   const [bulkStatusReason, setBulkStatusReason] = useState('')
   const [bulkStatusReasonError, setBulkStatusReasonError] = useState('')
   const bulkReasonInputRef = useRef<HTMLTextAreaElement>(null)
-
-  const filterSummary = useMemo(
-    () => buildFilterSummary(filters, pagination.total),
-    [filters, pagination.total],
-  )
 
   const exitSelectionMode = () => {
     setSelectionMode(false)
@@ -299,8 +283,8 @@ export function EmployeeList() {
           <Link to={`/admin/employees/${e.id}`} className="flex items-center gap-3 group">
             <EmployeeAvatar employeeId={e.id} name={name} color={stringToHueColor(e.id)} />
             <div>
-              <p className="font-medium text-[#a1a1aa] group-hover:text-[#22c55e] transition-ui">{name}</p>
-              <p className="text-xs font-mono text-[#71717a]">{e.employeeId}</p>
+              <p className="font-semibold text-ink group-hover:text-emerald-700 transition-ui">{name}</p>
+              <p className="text-xs font-mono text-ink/80">{e.employeeId}</p>
             </div>
           </Link>
         )
@@ -311,8 +295,8 @@ export function EmployeeList() {
       header: 'Personal Email',
       className: 'min-w-[260px]',
       render: (e) => (
-        <span className="text-sm text-[#a1a1aa]">
-          {e.personalEmail ? e.personalEmail : <span>—</span>}
+        <span className="text-sm text-ink">
+          {e.personalEmail ? e.personalEmail : <span className="text-ink/60">—</span>}
         </span>
       ),
     },
@@ -321,8 +305,8 @@ export function EmployeeList() {
       header: 'Company Email',
       className: 'min-w-[260px]',
       render: (e) => (
-        <span className="text-sm text-[#a1a1aa]">
-          {e.email ? e.email : <span>—</span>}
+        <span className="text-sm text-ink">
+          {e.email ? e.email : <span className="text-ink/60">—</span>}
         </span>
       ),
     },
@@ -330,13 +314,13 @@ export function EmployeeList() {
       key: 'employmentType',
       header: 'Type',
       sortable: true,
-      render: (e) => <span className="text-[#a1a1aa]">{e.employmentType}</span>,
+      render: (e) => <span className="text-ink">{e.employmentType}</span>,
     },
     {
       key: 'joinedAt',
       header: 'Joined',
       sortable: true,
-      render: (e) => <span className="text-[#a1a1aa]">{formatDate(e.joinedAt)}</span>,
+      render: (e) => <span className="text-ink">{formatDate(e.joinedAt)}</span>,
     },
     {
       key: 'status',
@@ -372,7 +356,7 @@ export function EmployeeList() {
               requestStatusChange(e, event.target.value as Employee['status'])
             }
             showChevron
-            className="admin-field h-8 min-w-[6.5rem] max-w-[7.5rem] flex-1 px-2 py-0 text-[11px] font-semibold text-[#a1a1aa] disabled:opacity-60"
+            className="admin-field h-8 min-w-[6.5rem] max-w-[7.5rem] flex-1 px-2 py-0 text-[11px] font-semibold text-ink disabled:opacity-60"
             options={STATUS_OPTIONS}
           />
         </div>
@@ -391,8 +375,7 @@ export function EmployeeList() {
         {/* Active Directory heading above the filter toolbar */}
         <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h3 className="font-display text-lg font-semibold text-white">Active Directory</h3>
-            <p className="text-sm text-[#a1a1aa]">{filterSummary}</p>
+            <h3 className="font-display text-lg font-semibold text-ink">Active Directory</h3>
           </div>
         </div>
 
@@ -407,12 +390,12 @@ export function EmployeeList() {
               value={searchInput}
               onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="Search employees…"
-              className="admin-field h-10 w-full pl-10 pr-9 text-sm font-medium shadow-sm placeholder:text-[#71717a]"
+              className="admin-field h-10 w-full pl-10 pr-9 text-sm font-medium text-ink shadow-sm placeholder:text-ink/45"
             />
             {searchInput ? (
               <button
                 type="button"
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-[#71717a] transition-ui hover:bg-[rgba(161,161,170,0.1)] hover:text-white"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-ink/60 transition-ui hover:bg-emerald-50 hover:text-ink"
                 onClick={() => handleSearchChange('')}
                 aria-label="Clear search"
               >
@@ -483,16 +466,16 @@ export function EmployeeList() {
       {selectionMode && someSelected && (
         <div className="admin-panel admin-panel-accent mb-4 flex flex-wrap items-center gap-3 px-4 py-3">
           <CheckSquare className="h-4 w-4 shrink-0 text-[#22c55e]" />
-          <span className="text-sm font-medium text-white">
+          <span className="text-sm font-medium text-ink">
             {selectedIds.size} employee{selectedIds.size > 1 ? 's' : ''} selected
           </span>
           <div className="ml-auto flex items-center gap-2">
-            <span className="text-sm text-[#a1a1aa]">Change status to:</span>
+            <span className="text-sm text-ink">Change status to:</span>
             <div className="relative">
               <select
                 value={bulkStatus}
                 onChange={(e) => setBulkStatus(e.target.value as Employee['status'])}
-                className="admin-field h-8 max-w-[118px] cursor-pointer appearance-none pl-2 pr-7 text-[11px] font-semibold text-[#a1a1aa]"
+                className="admin-field h-8 max-w-[118px] cursor-pointer appearance-none pl-2 pr-7 text-[11px] font-semibold text-ink"
                 aria-label="Bulk target status"
               >
                 {STATUS_OPTIONS.map(opt => (
@@ -511,15 +494,9 @@ export function EmployeeList() {
         </div>
       )}
 
-      <div className="space-y-4 pb-12">
-        <PaginationBar
-          total={pagination.total}
-          page={pagination.page}
-          pageSize={pagination.pageSize}
-          onPageChange={setPage}
-        />
+      <div className="space-y-0 pb-12">
         <DataTable
-          className="employee-list-table"
+          className="employee-list-table rounded-b-none border-b-0"
           columns={columns}
           data={employees}
           loading={loading}
@@ -533,6 +510,18 @@ export function EmployeeList() {
             }
           }}
         />
+        {!loading && pagination.total > 0 ? (
+          <div className="employee-list-table admin-panel rounded-t-none border-t-0 px-4 py-3">
+            <PaginationBar
+              total={pagination.total}
+              page={pagination.page}
+              pageSize={pagination.pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              pageSizeOptions={[10, 20, 50, 100]}
+            />
+          </div>
+        ) : null}
       </div>
 
       {/* Status Change Confirmation Modal */}

@@ -33,46 +33,25 @@ import { Avatar } from '@components/ui/Avatar'
 export const SMART_SIDEBAR_COLLAPSED = 72
 export const SMART_SIDEBAR_EXPANDED = 248
 
-const groups: {
+const navItems: {
+  to: string
   label: string
-  items: {
-    to: string
-    label: string
-    icon: typeof LayoutGrid
-    end?: boolean
-    notificationKey?: 'leaves' | 'documents'
-  }[]
+  icon: typeof LayoutGrid
+  end?: boolean
+  notificationKey?: 'leaves' | 'documents'
 }[] = [
-  {
-    label: 'Overview',
-    items: [{ to: ROUTES.DASHBOARD, label: 'Dashboard', icon: LayoutGrid, end: true }],
-  },
-  {
-    label: 'People',
-    items: [
-      { to: ROUTES.EMPLOYEES, label: 'Employees', icon: Users, end: true },
-      { to: ROUTES.LEAVES, label: 'Leaves', icon: CalendarCheck, notificationKey: 'leaves' },
-    ],
-  },
-  {
-    label: 'Operations',
-    items: [
-      { to: ROUTES.PROJECTS, label: 'Projects', icon: Briefcase },
-      { to: ROUTES.CALENDAR, label: 'Calendar', icon: CalendarDays },
-      { to: ROUTES.TICKETS, label: 'Tickets', icon: Ticket },
-    ],
-  },
-  {
-    label: 'Company',
-    items: [
-      { to: ROUTES.PAYSLIPS, label: 'Payslips', icon: Receipt },
-      { to: ROUTES.TRAINING, label: 'Training', icon: BookOpen },
-      { to: ROUTES.ACHIEVEMENTS, label: 'Achievements', icon: Trophy },
-      { to: ROUTES.ANALYTICS, label: 'Analytics', icon: BarChart3 },
-      { to: ROUTES.DOCUMENTS, label: 'Documents', icon: FileText, notificationKey: 'documents' },
-      { to: ROUTES.NEWS, label: 'News', icon: Newspaper },
-    ],
-  },
+  { to: ROUTES.DASHBOARD, label: 'Dashboard', icon: LayoutGrid, end: true },
+  { to: ROUTES.EMPLOYEES, label: 'Employees', icon: Users, end: true },
+  { to: ROUTES.LEAVES, label: 'Leaves', icon: CalendarCheck, notificationKey: 'leaves' },
+  { to: ROUTES.PROJECTS, label: 'Projects', icon: Briefcase },
+  { to: ROUTES.CALENDAR, label: 'Calendar', icon: CalendarDays },
+  { to: ROUTES.TICKETS, label: 'Tickets', icon: Ticket },
+  { to: ROUTES.PAYSLIPS, label: 'Payslips', icon: Receipt },
+  { to: ROUTES.TRAINING, label: 'Training', icon: BookOpen },
+  { to: ROUTES.ACHIEVEMENTS, label: 'Achievements', icon: Trophy },
+  { to: ROUTES.ANALYTICS, label: 'Analytics', icon: BarChart3 },
+  { to: ROUTES.DOCUMENTS, label: 'Documents', icon: FileText, notificationKey: 'documents' },
+  { to: ROUTES.NEWS, label: 'News', icon: Newspaper },
 ]
 
 function NavItem({
@@ -81,7 +60,7 @@ function NavItem({
   notificationCount,
   onNavigate,
 }: {
-  item: (typeof groups)[number]['items'][number]
+  item: (typeof navItems)[number]
   expanded: boolean
   notificationCount?: number
   onNavigate: () => void
@@ -187,7 +166,7 @@ export function SmartSidebar() {
           to={ROUTES.DASHBOARD}
           end
           className={cn(
-            'cmd-sidebar-brand flex shrink-0 items-center gap-3 px-4 py-4',
+            'cmd-sidebar-brand flex shrink-0 items-center gap-3 px-4 py-3',
             !expanded && 'justify-center px-2',
           )}
         >
@@ -202,31 +181,23 @@ export function SmartSidebar() {
           )}
         </NavLink>
 
-        <nav className="min-h-0 flex-1 space-y-5 overflow-y-auto px-2.5 py-3">
-          {groups.map((g) => (
-            <div key={g.label}>
-              {expanded && <p className="cmd-nav-group-label mb-2 px-2">{g.label}</p>}
-              {!expanded && <div className="mx-auto mb-2 h-px w-8 bg-[var(--border-subtle)]" aria-hidden />}
-              <div className="space-y-0.5">
-                {g.items.map((item) => (
-                  <NavItem
-                    key={item.to}
-                    item={item}
-                    expanded={expanded}
-                    notificationCount={
-                      item.notificationKey ? notificationCounts[item.notificationKey] : undefined
-                    }
-                    onNavigate={closeMobile}
-                  />
-                ))}
-              </div>
-            </div>
+        <nav className="cmd-nav-list min-h-0 flex-1 overflow-hidden px-2.5 py-1">
+          {navItems.map((item) => (
+            <NavItem
+              key={item.to}
+              item={item}
+              expanded={expanded}
+              notificationCount={
+                item.notificationKey ? notificationCounts[item.notificationKey] : undefined
+              }
+              onNavigate={closeMobile}
+            />
           ))}
         </nav>
 
-        <div className="shrink-0 border-t border-[var(--border-subtle)] px-2.5 py-3">
+        <div className="shrink-0 border-t border-[var(--border-subtle)] px-2.5 py-2">
           {expanded && user && (
-            <div className="mb-2 flex items-center gap-2.5 rounded-xl px-2 py-2">
+            <div className="mb-1.5 flex items-center gap-2 rounded-xl px-2 py-1.5">
               <Avatar name={user.name ?? 'Admin'} src={user.avatarUrl} size="sm" color="#166534" className="!ring-0" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">{user.name}</p>

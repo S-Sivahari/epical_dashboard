@@ -1291,6 +1291,7 @@
   max-height: calc(100dvh - 4.25rem);
   overflow: hidden;
   margin: 0 !important;
+  color: #0f172a;
 }
 
 /* Dashboard action buttons — match news panel dark green */
@@ -1355,6 +1356,24 @@
 
 .admin-dashboard-view .cmd-period-btn svg {
   color: rgba(255, 255, 255, 0.9);
+}
+
+/* Dashboard text — dark black shades instead of light grey */
+.admin-dashboard-view .text-muted {
+  color: #1e293b !important;
+}
+
+.admin-dashboard-view .metric-card > div > div > p:first-child {
+  color: #1e293b !important;
+}
+
+.admin-dashboard-view .project-hours-panel p {
+  color: #0f172a;
+}
+
+.admin-dashboard-view .project-hours-panel .project-hours-subtitle,
+.admin-dashboard-view .project-hours-panel .project-hours-label {
+  color: #334155 !important;
 }
 
 @keyframes login-reflection-sweep {
@@ -1598,15 +1617,26 @@ input[type='number'] {
   background-color: rgba(22, 163, 74, 0.04);
 }
 
+.crewiq-dashboard .employee-list-table thead th {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
 .employee-list-table thead th {
-  color: var(--text-secondary);
+  color: var(--text-primary);
+  font-weight: 700;
 }
 
 .employee-list-table tbody td {
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 .employee-list-table tbody td.text-ink {
+  color: var(--text-primary);
+}
+
+.employee-list-table tbody td .text-ink,
+.employee-list-table tbody td [class*="text-slate-"] {
   color: var(--text-primary);
 }
 
@@ -1721,20 +1751,33 @@ input[type='number'] {
   color: var(--text-muted);
 }
 
+.cmd-nav-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.cmd-nav-list .cmd-nav-item {
+  flex: 1 1 0;
+  min-height: 2rem;
+  max-height: 2.625rem;
+}
+
 .cmd-nav-item {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   border-radius: 0.75rem;
-  padding: 0.625rem 0.75rem;
+  padding: 0.5rem 0.75rem;
   font-size: 0.8125rem;
   color: var(--text-secondary);
   transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  flex-shrink: 0;
 }
 
 .cmd-nav-item-collapsed {
   justify-content: center;
-  padding: 0.625rem;
+  padding: 0.5rem;
 }
 
 .cmd-nav-item:hover {
@@ -2037,7 +2080,11 @@ input[type='number'] {
 
 .admin-portal .cmd-search-trigger span,
 .admin-portal .cmd-ai-input::placeholder {
-  color: var(--text-muted);
+  color: #1e293b;
+}
+
+.admin-portal .cmd-search-trigger svg {
+  color: #334155;
 }
 
 .admin-portal .cmd-hero-eyebrow {

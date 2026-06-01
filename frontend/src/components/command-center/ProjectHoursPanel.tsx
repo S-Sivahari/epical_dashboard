@@ -33,11 +33,11 @@ export function ProjectHoursPanel({
       <div className="mb-2 flex shrink-0 flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="font-display text-base font-semibold text-slate-900">Project Hours</h2>
-          <p className="text-xs font-medium text-slate-600">{getChartSubtitle(chartPeriod)}</p>
+          <p className="text-xs font-medium text-slate-800 project-hours-subtitle">{getChartSubtitle(chartPeriod)}</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="text-right">
-            <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Total</p>
+            <p className="project-hours-label text-[9px] font-semibold uppercase tracking-wider text-slate-800">Total</p>
             <p className="font-display text-lg font-bold tabular-nums text-slate-900">
               {loading ? '—' : `${totalPeriodHours} h`}
             </p>

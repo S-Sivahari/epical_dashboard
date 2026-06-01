@@ -22,7 +22,7 @@ export function CommandCenterMetricCard({
     <div className={cn('metric-card !py-3', className)}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-800">
             {title}
           </p>
           <p className="metric-value mt-1 font-display text-xl font-bold tabular-nums">

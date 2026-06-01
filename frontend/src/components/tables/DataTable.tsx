@@ -69,7 +69,7 @@ export function DataTable<T extends { id?: string }>({
                 key={String(c.key)}
                 scope="col"
                 className={cn(
-                  'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted transition-colors duration-150',
+                  'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-ink transition-colors duration-150',
                   c.className,
                   c.sortable && 'cursor-pointer hover:bg-emerald-50/60',
                   sortColumn === c.key && 'bg-emerald-50/40 text-primary',
@@ -80,10 +80,10 @@ export function DataTable<T extends { id?: string }>({
                   {c.header}
                   {c.sortable && (
                     <div className="flex flex-col -space-y-[2px]">
-                      <svg width="8" height="6" viewBox="0 0 8 6" fill="none" className={cn(sortColumn === c.key && sortDirection === 'asc' ? 'text-primary' : 'text-muted/30')}>
+                      <svg width="8" height="6" viewBox="0 0 8 6" fill="none" className={cn(sortColumn === c.key && sortDirection === 'asc' ? 'text-primary' : 'text-ink/35')}>
                         <path d="M4 0L8 6H0L4 0Z" fill="currentColor"/>
                       </svg>
-                      <svg width="8" height="6" viewBox="0 0 8 6" fill="none" className={cn(sortColumn === c.key && sortDirection === 'desc' ? 'text-primary' : 'text-muted/30')}>
+                      <svg width="8" height="6" viewBox="0 0 8 6" fill="none" className={cn(sortColumn === c.key && sortDirection === 'desc' ? 'text-primary' : 'text-ink/35')}>
                         <path d="M4 6L0 0H8L4 6Z" fill="currentColor"/>
                       </svg>
                     </div>

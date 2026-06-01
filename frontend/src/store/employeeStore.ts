@@ -22,6 +22,7 @@ interface EmployeeState {
   setFilters: (f: Partial<EmployeeFilters>) => void
   setSort: (column: string, direction: 'asc' | 'desc') => void
   setPage: (page: number) => void
+  setPageSize: (pageSize: number) => void
   fetchEmployees: () => Promise<void>
   fetchEmployeesSilent: () => Promise<void>
   getEmployeesForExport: () => Promise<Employee[]>
@@ -79,6 +80,8 @@ export const useEmployeeStore = create<EmployeeState>((set, get) => ({
   setSort: (column, direction) =>
     set({ sort: { column, direction }, exportSnapshot: null, exportSnapshotKey: null }),
   setPage: (page) => set({ pagination: { ...get().pagination, page } }),
+  setPageSize: (pageSize) =>
+    set({ pagination: { ...get().pagination, pageSize, page: 1 }, exportSnapshot: null, exportSnapshotKey: null }),
   fetchEmployees: async () => {
     set({ loading: true })
     const { filters, pagination } = get()
