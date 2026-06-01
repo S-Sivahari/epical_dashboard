@@ -14,6 +14,7 @@ export const env = {
   GOOGLE_CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/api/auth/google/callback',
   SESSION_SECRET: process.env.SESSION_SECRET || 'session-secret-key',
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
+  GNEWS_API_KEY: process.env.GNEWS_API_KEY || '',
   ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@company.com',
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'admin123',
   ADMIN_NAME: process.env.ADMIN_NAME || 'Admin User',
