@@ -1,7 +1,9 @@
 import { Request, Response } from 'express'
+import type { ParsedQs } from 'qs'
 import * as newsService from '../services/newsService'
+import { fetchTopHeadlinesByDate } from '../services/externalNewsService'
 
-function paramStr(v: string | string[] | undefined): string {
+function paramStr(v: string | string[] | ParsedQs | ParsedQs[] | undefined): string {
   if (typeof v === 'string') return v
   if (Array.isArray(v) && typeof v[0] === 'string') return v[0]
   return ''
@@ -14,6 +16,27 @@ function fileToBlob(file?: Express.Multer.File) {
     contentType: file.mimetype,
     filename: file.originalname || 'image',
   }
+}
+
+function toLocalDateKey(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function normalizeDate(input: string | string[] | ParsedQs | ParsedQs[] | undefined): string | null {
+  const trimmed = paramStr(input).trim()
+  if (!trimmed) return null
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null
+  const parsed = new Date(`${trimmed}T00:00:00`)
+  if (Number.isNaN(parsed.getTime())) return null
+  return trimmed
+}
+
+function trimOrEmpty(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  return value.trim()
 }
 
 export const newsController = {
@@ -108,6 +131,63 @@ export const newsController = {
       res.json({ success: true })
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to delete news'
+      res.status(500).json({ error: message })
+    }
+  },
+
+  fetchExternal: async (req: Request, res: Response): Promise<void> => {
+    const rawDate = req.query.date
+    const dateParam = typeof rawDate === 'string' ? rawDate.trim() : ''
+    const requestedDate = normalizeDate(dateParam)
+    if (dateParam && !requestedDate) {
+      res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD.' })
+      return
+    }
+    const newsDate = requestedDate || toLocalDateKey(new Date())
+    try {
+      const items = await fetchTopHeadlinesByDate(newsDate, 10)
+      res.json({ date: newsDate, items })
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch external news'
+      res.status(500).json({ error: message })
+    }
+  },
+
+  importExternal: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const payload = Array.isArray(req.body?.items) ? req.body.items : []
+      if (payload.length === 0) {
+        res.status(400).json({ error: 'No news items provided' })
+        return
+      }
+
+      const sanitized = payload
+        .map((item: any) => {
+          const title = trimOrEmpty(item.title)
+          const content = trimOrEmpty(item.content) || title
+          const link = trimOrEmpty(item.link)
+          const imageUrl = trimOrEmpty(item.imageUrl)
+          const publishedAt = trimOrEmpty(item.publishedAt)
+          if (!title || !content || !link) return null
+          return {
+            title,
+            content,
+            link,
+            imageUrl: imageUrl || undefined,
+            publishedAt: publishedAt || undefined,
+          }
+        })
+        .filter(Boolean)
+
+      if (sanitized.length === 0) {
+        res.status(400).json({ error: 'No valid news items provided' })
+        return
+      }
+
+      const items = await newsService.createNewsBatch(sanitized)
+      res.status(201).json(items)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to import news'
       res.status(500).json({ error: message })
     }
   },

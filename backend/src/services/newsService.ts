@@ -14,6 +14,13 @@ function toListItem(doc: News): NewsListItem {
   }
 }
 
+function resolvePublishedAt(input?: string | Date): string {
+  if (!input) return new Date().toISOString()
+  const parsed = typeof input === 'string' ? new Date(input) : input
+  if (Number.isNaN(parsed.getTime())) return new Date().toISOString()
+  return parsed.toISOString()
+}
+
 export async function listNews(limit?: number): Promise<NewsListItem[]> {
   const query = col().find({}).sort({ publishedAt: -1 })
   const docs = limit ? await query.limit(limit).toArray() : await query.toArray()
@@ -30,6 +37,7 @@ export async function createNews(payload: {
   imageUrl?: string
   image?: NewsImageBlob
   link?: string
+  publishedAt?: string | Date
 }): Promise<NewsListItem> {
   const now = new Date()
   const news: News = {
@@ -40,12 +48,44 @@ export async function createNews(payload: {
     imageUrl: payload.imageUrl?.trim() || undefined,
     image: payload.image,
     link: payload.link?.trim(),
-    publishedAt: now.toISOString(),
+    publishedAt: resolvePublishedAt(payload.publishedAt),
     createdAt: now,
     updatedAt: now,
   }
   await col().insertOne(news)
   return toListItem(news)
+}
+
+export async function createNewsBatch(
+  items: Array<{
+    title: string
+    content: string
+    imageUrl?: string
+    image?: NewsImageBlob
+    link?: string
+    publishedAt?: string | Date
+  }>
+): Promise<NewsListItem[]> {
+  if (items.length === 0) return []
+  const now = new Date()
+  const docs: News[] = items.map((item) => {
+    const title = item.title.trim()
+    const content = item.content.trim() || title
+    return {
+      id: randomUUID(),
+      title,
+      content,
+      excerpt: content.slice(0, 220),
+      imageUrl: item.imageUrl?.trim() || undefined,
+      image: item.image,
+      link: item.link?.trim(),
+      publishedAt: resolvePublishedAt(item.publishedAt),
+      createdAt: now,
+      updatedAt: now,
+    }
+  })
+  await col().insertMany(docs)
+  return docs.map(toListItem)
 }
 
 export async function updateNews(

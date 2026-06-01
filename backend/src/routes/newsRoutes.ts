@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import multer from 'multer'
 import { newsController } from '../controllers/newsController'
+import { authMiddleware, requireRole } from '../middleware/authMiddleware'
 
 export const newsRoutes = Router()
 
@@ -17,6 +18,8 @@ const imageUpload = multer({
 })
 
 newsRoutes.get('/news', newsController.list)
+newsRoutes.get('/news/external', authMiddleware, requireRole('Admin'), newsController.fetchExternal)
+newsRoutes.post('/news/import', authMiddleware, requireRole('Admin'), newsController.importExternal)
 newsRoutes.get('/news/:id/image', newsController.getImage)
 newsRoutes.post('/news', imageUpload.single('image'), newsController.create)
 newsRoutes.put('/news/:id', imageUpload.single('image'), newsController.update)
