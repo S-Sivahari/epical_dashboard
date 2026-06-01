@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Megaphone, PlusCircle } from 'lucide-react'
+import { Megaphone, PlusCircle, Rss } from 'lucide-react'
 import { PageHeader } from '@components/layout/PageHeader'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Breadcrumb } from '@components/layout/Breadcrumb'
@@ -7,23 +7,46 @@ import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
 import { Modal } from '@components/ui/Modal'
 import { NewsCard } from '@components/cards/NewsCard'
-import { toast } from 'sonner'
 import { NewsImage } from '@components/NewsImage'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
 import {
   createNews,
   deleteNews,
+  fetchExternalNews,
+  importExternalNews,
   listNews,
   resolveNewsImageSrc,
   updateNews,
+  type ExternalNewsItem,
   type NewsItem,
 } from '@services/newsService'
 import { formatDate } from '@/utils/formatDate'
 
 const CACHE_KEY = 'admin-news-list-v1'
 
+type TabId = 'fetch' | 'publish' | 'current'
+
+const tabs: Array<{ id: TabId; label: string }> = [
+  { id: 'fetch', label: 'Fetch News' },
+  { id: 'publish', label: 'Publish News' },
+  { id: 'current', label: 'Current News' },
+]
+
+const toDateInputValue = (date: Date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 export function CompanyNews() {
+  const [activeTab, setActiveTab] = useState<TabId>('fetch')
   const [items, setItems] = useState<NewsItem[]>([])
+  const [externalItems, setExternalItems] = useState<ExternalNewsItem[]>([])
+  const [selectedExternal, setSelectedExternal] = useState<Set<string>>(new Set())
+  const [fetchDate, setFetchDate] = useState(() => toDateInputValue(new Date()))
+  const [fetchingExternal, setFetchingExternal] = useState(false)
+  const [importingExternal, setImportingExternal] = useState(false)
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [imageUrl, setImageUrl] = useState('')
@@ -54,7 +77,7 @@ export function CompanyNews() {
       setItems(data)
       sessionStorage.setItem(CACHE_KEY, JSON.stringify(data))
     } catch {
-      toast.error('Failed to load news')
+      // Handle error silently
     } finally {
       setLoading(false)
     }
@@ -89,9 +112,54 @@ export function CompanyNews() {
     setImagePreview(file ? URL.createObjectURL(file) : null)
   }
 
+  const toggleExternalSelection = (link: string) => {
+    setSelectedExternal((prev) => {
+      const next = new Set(prev)
+      if (next.has(link)) {
+        next.delete(link)
+      } else {
+        next.add(link)
+      }
+      return next
+    })
+  }
+
+  const handleFetchExternal = async () => {
+    if (!fetchDate) {
+      return
+    }
+    setFetchingExternal(true)
+    try {
+      const response = await fetchExternalNews(fetchDate)
+      setExternalItems(response.items)
+      setSelectedExternal(new Set())
+    } catch {
+      // Handle error silently
+    } finally {
+      setFetchingExternal(false)
+    }
+  }
+
+  const handleImportExternal = async () => {
+    const selected = externalItems.filter((item) => selectedExternal.has(item.link))
+    if (selected.length === 0) {
+      return
+    }
+    setImportingExternal(true)
+    try {
+      const created = await importExternalNews(selected)
+      setItems((prev) => [...created, ...prev])
+      setExternalItems((prev) => prev.filter((item) => !selectedExternal.has(item.link)))
+      setSelectedExternal(new Set())
+    } catch {
+      // Handle error silently
+    } finally {
+      setImportingExternal(false)
+    }
+  }
+
   const handleAdd = async () => {
     if (!title || !content) {
-      toast.error('Title and content are required')
       return
     }
     setSaving(true)
@@ -99,9 +167,8 @@ export function CompanyNews() {
       const item = await createNews({ title, content, imageUrl, link, imageFile })
       setItems((prev) => [item, ...prev])
       resetForm()
-} catch (e: unknown) {
-      const message = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
-      toast.error(message || 'Failed to publish news')
+    } catch {
+      // Handle error silently
     } finally {
       setSaving(false)
     }
@@ -113,11 +180,10 @@ export function CompanyNews() {
     try {
       await deleteNews(itemToDelete.id)
       setItems((prev) => prev.filter((n) => n.id !== itemToDelete.id))
-setDeleteConfirmOpen(false)
+      setDeleteConfirmOpen(false)
       setItemToDelete(null)
-    } catch (e: unknown) {
-      const message = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
-      toast.error(message || 'Failed to remove news')
+    } catch {
+      // Handle error silently
     } finally {
       setDeleting(false)
     }
@@ -149,7 +215,6 @@ setDeleteConfirmOpen(false)
   const handleUpdate = async () => {
     if (!editing) return
     if (!editTitle || !editContent) {
-      toast.error('Title and content are required')
       return
     }
     setUpdating(true)
@@ -164,9 +229,8 @@ setDeleteConfirmOpen(false)
       })
       setItems((prev) => prev.map((n) => (n.id === updated.id ? updated : n)))
       setEditing(null)
-} catch (e: unknown) {
-      const message = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
-      toast.error(message || 'Failed to update news')
+    } catch {
+      // Handle error silently
     } finally {
       setUpdating(false)
     }
@@ -190,8 +254,137 @@ setDeleteConfirmOpen(false)
       <div className="crewiq-dashboard">
         <PageHeader title="" breadcrumb={<Breadcrumb items={[{ label: 'Manage News' }]} />} />
 
-        <section className="mb-6 overflow-hidden rounded-2xl border border-border bg-white shadow-sm" style={{backgroundColor:'var(--bg-card)',borderColor:'var(--border-subtle)'}}>
-        <div className="border-b border-border bg-gradient-to-r from-emerald-50 via-white to-teal-50 px-6 py-5">
+        <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="inline-flex rounded-xl border border-border bg-surface/60 p-1">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  activeTab === tab.id
+                    ? 'bg-white text-primary shadow-sm'
+                    : 'text-muted hover:text-ink'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {activeTab === 'fetch' && (
+          <section
+            className="mb-6 overflow-hidden rounded-2xl border border-border bg-white shadow-sm"
+            style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
+          >
+            <div className="border-b border-border bg-gradient-to-r from-sky-950/30 via-[var(--bg-card)] to-cyan-950/20 px-6 py-5">
+              <div className="flex items-start gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-600 text-white shadow-sm">
+                  <Rss className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="font-display text-lg font-semibold text-ink">Fetch News</h2>
+                  <p className="mt-1 text-sm text-muted">
+                    Pull the top 10 headlines for a date, then choose which items to publish.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-5 p-6 lg:grid-cols-5">
+              <div className="space-y-4 lg:col-span-2">
+                <Input
+                  label="News date"
+                  type="date"
+                  value={fetchDate}
+                  onChange={(e) => setFetchDate(e.target.value)}
+                />
+                <div className="flex flex-wrap gap-2">
+                  <Button onClick={() => void handleFetchExternal()} disabled={fetchingExternal}>
+                    {fetchingExternal ? 'Fetching...' : 'Fetch Top 10'}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => void handleImportExternal()}
+                    disabled={importingExternal || selectedExternal.size === 0}
+                  >
+                    {importingExternal
+                      ? 'Adding...'
+                      : `Add Selected (${selectedExternal.size})`}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="lg:col-span-3">
+                {externalItems.length === 0 ? (
+                  <div className="flex min-h-[180px] items-center justify-center rounded-xl border border-dashed border-border bg-surface/40 px-4 text-center text-sm text-muted">
+                    Fetch top headlines to preview and select news items.
+                  </div>
+                ) : (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {externalItems.map((item) => {
+                      const checked = selectedExternal.has(item.link)
+                      return (
+                        <div
+                          key={item.link}
+                          className={`rounded-xl border bg-white p-4 shadow-sm ${
+                            checked ? 'border-primary/60 ring-1 ring-primary/20' : 'border-border'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleExternalSelection(item.link)}
+                              className="mt-1 h-4 w-4 accent-emerald-600"
+                              aria-label={`Select ${item.title}`}
+                            />
+                            <div className="flex-1 space-y-1">
+                              <p className="text-xs text-muted">
+                                {formatDate(item.publishedAt)}
+                                {item.source ? ` - ${item.source}` : ''}
+                              </p>
+                              <h3 className="text-sm font-semibold text-ink line-clamp-2">
+                                {item.title}
+                              </h3>
+                              <p className="text-xs text-muted line-clamp-3">{item.content}</p>
+                              <a
+                                href={item.link}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex text-xs font-semibold text-primary hover:underline"
+                              >
+                                View source
+                              </a>
+                            </div>
+                            {item.imageUrl ? (
+                              <img
+                                src={item.imageUrl}
+                                alt=""
+                                className="h-16 w-20 rounded-lg object-cover ring-1 ring-border"
+                                loading="lazy"
+                                onError={(e) => {
+                                  ;(e.target as HTMLImageElement).style.display = 'none'
+                                }}
+                              />
+                            ) : null}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'publish' && (
+          <section
+            className="mb-6 overflow-hidden rounded-2xl border border-border bg-white shadow-sm"
+            style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
+          >
+        <div className="border-b border-border bg-gradient-to-r from-emerald-950/30 via-[var(--bg-card)] to-teal-950/20 px-6 py-5">
           <div className="flex items-start gap-4">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
               <Megaphone className="h-5 w-5" />
@@ -318,49 +511,54 @@ setDeleteConfirmOpen(false)
           </div>
         </div>
       </section>
-
-      <div className="mb-3 flex items-center justify-between">
-        <div>
-          <h2 className="font-display text-lg font-semibold text-ink">Published News</h2>
-          <p className="text-sm text-muted">
-            {items.length} announcement{items.length === 1 ? '' : 's'} live
-          </p>
-        </div>
-      </div>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {loading ? (
-          Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={`news-skeleton-${i}`}
-              className="min-h-[260px] rounded-xl border border-border bg-white p-5 shadow-sm"
-            >
-              <div className="space-y-3">
-                <div className="h-4 w-3/4 rounded-full skeleton" />
-                <div className="h-4 w-11/12 rounded-full skeleton" />
-                <div className="h-4 w-10/12 rounded-full skeleton" />
-                <div className="h-4 w-9/12 rounded-full skeleton" />
-                <div className="h-3 w-24 rounded-full skeleton" />
-              </div>
-              <div className="mt-6 flex justify-end gap-2">
-                <div className="h-8 w-20 rounded-lg skeleton" />
-                <div className="h-8 w-20 rounded-lg skeleton" />
-              </div>
-            </div>
-          ))
-        ) : items.length === 0 ? (
-          <p className="text-sm text-muted">No news published yet.</p>
-        ) : (
-          items.map((n) => (
-            <NewsCard
-              key={n.id}
-              item={n}
-              onView={() => setPreview(n)}
-              onEdit={() => openEdit(n)}
-              onRemove={() => requestRemove(n)}
-            />
-          ))
         )}
-      </div>
+
+      {activeTab === 'current' && (
+        <>
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h2 className="font-display text-lg font-semibold text-ink">Published News</h2>
+              <p className="text-sm text-muted">
+                {items.length} announcement{items.length === 1 ? '' : 's'} live
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {loading ? (
+              Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={`news-skeleton-${i}`}
+                  className="min-h-[260px] rounded-xl border border-border bg-white p-5 shadow-sm"
+                >
+                  <div className="space-y-3">
+                    <div className="h-4 w-3/4 rounded-full skeleton" />
+                    <div className="h-4 w-11/12 rounded-full skeleton" />
+                    <div className="h-4 w-10/12 rounded-full skeleton" />
+                    <div className="h-4 w-9/12 rounded-full skeleton" />
+                    <div className="h-3 w-24 rounded-full skeleton" />
+                  </div>
+                  <div className="mt-6 flex justify-end gap-2">
+                    <div className="h-8 w-20 rounded-lg skeleton" />
+                    <div className="h-8 w-20 rounded-lg skeleton" />
+                  </div>
+                </div>
+              ))
+            ) : items.length === 0 ? (
+              <p className="text-sm text-muted">No news published yet.</p>
+            ) : (
+              items.map((n) => (
+                <NewsCard
+                  key={n.id}
+                  item={n}
+                  onView={() => setPreview(n)}
+                  onEdit={() => openEdit(n)}
+                  onRemove={() => requestRemove(n)}
+                />
+              ))
+            )}
+          </div>
+        </>
+      )}
 
       <Modal
         isOpen={!!preview}

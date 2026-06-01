@@ -11,6 +11,20 @@ export interface NewsItem {
   publishedAt: string
 }
 
+export interface ExternalNewsItem {
+  title: string
+  content: string
+  imageUrl?: string
+  link: string
+  publishedAt: string
+  source?: string
+}
+
+export interface ExternalNewsResponse {
+  date: string
+  items: ExternalNewsItem[]
+}
+
 export async function listNews(limit?: number): Promise<NewsItem[]> {
   const params = limit ? { limit: String(limit) } : {}
   const { data } = await api.get<NewsItem[]>('/news', { params })
@@ -86,4 +100,15 @@ export async function updateNews(
 
 export async function deleteNews(id: string): Promise<void> {
   await api.delete(`/news/${id}`)
+}
+
+export async function fetchExternalNews(date?: string): Promise<ExternalNewsResponse> {
+  const params = date ? { date } : {}
+  const { data } = await api.get<ExternalNewsResponse>('/news/external', { params })
+  return data
+}
+
+export async function importExternalNews(items: ExternalNewsItem[]): Promise<NewsItem[]> {
+  const { data } = await api.post<NewsItem[]>('/news/import', { items })
+  return data
 }

@@ -287,7 +287,7 @@ export function DashboardHome() {
               </span>
             </div>
 
-            <HoursBarChart data={chartData} theme="dark" brand />
+            <HoursBarChart data={chartData} theme="dark" brand fillParent />
           </motion.section>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">

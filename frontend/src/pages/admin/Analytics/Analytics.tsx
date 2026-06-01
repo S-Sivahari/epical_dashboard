@@ -61,14 +61,18 @@ export function Analytics() {
         <KPICard title="Completed courses" value={24} icon={BookOpen} color="#3b82f6" />
         <KPICard title="Avg hours / week" value={36} icon={BarChart3} color="#f59e0b" />
       </div>
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <div className="admin-card">
-          <p className="mb-2 font-display text-sm font-semibold text-white">Weekly performance</p>
-          <HoursBarChart data={weekly} />
+      <div className="mt-6 grid gap-4 lg:grid-cols-2 lg:items-start">
+        <div className="admin-card flex h-[22rem] min-h-[22rem] flex-col">
+          <p className="mb-3 shrink-0 font-display text-sm font-semibold text-white">Weekly performance</p>
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <HoursBarChart data={weekly} height={280} animate={false} />
+          </div>
         </div>
-        <div className="admin-card">
-          <p className="mb-2 font-display text-sm font-semibold text-white">Course completion</p>
-          <DepartmentPieChart data={courses} />
+        <div className="admin-card flex h-[22rem] min-h-[22rem] flex-col">
+          <p className="mb-3 shrink-0 font-display text-sm font-semibold text-white">Course completion</p>
+          <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+            <DepartmentPieChart data={courses} height={280} />
+          </div>
         </div>
       </div>
       </div>
