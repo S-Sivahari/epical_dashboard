@@ -11,7 +11,6 @@ import {
   Receipt,
   Search,
   Settings,
-  Sparkles,
   Ticket,
   Trophy,
   UserPlus,
@@ -30,7 +29,7 @@ interface CommandItem {
   description?: string
   icon: typeof LayoutGrid
   action: () => void
-  group: 'Navigate' | 'Quick Actions' | 'AI Suggestions'
+  group: 'Navigate' | 'Quick Actions'
   keywords?: string[]
 }
 
@@ -61,8 +60,6 @@ export function CommandPalette() {
       { id: 'achievements', label: 'Company Achievements', icon: Trophy, group: 'Navigate', action: () => navigate(ROUTES.ACHIEVEMENTS) },
       { id: 'analytics', label: 'Analytics', icon: BarChart3, group: 'Navigate', action: () => navigate(ROUTES.ANALYTICS) },
       { id: 'settings', label: 'Settings', icon: Settings, group: 'Navigate', action: () => navigate(ROUTES.SETTINGS) },
-      { id: 'ai-report', label: 'Generate attendance report', description: 'AI suggestion', icon: Sparkles, group: 'AI Suggestions', action: () => navigate(ROUTES.ANALYTICS), keywords: ['ai', 'report'] },
-      { id: 'ai-leaves', label: 'Summarize pending leaves', description: 'AI suggestion', icon: Sparkles, group: 'AI Suggestions', action: () => navigate(ROUTES.LEAVES), keywords: ['ai', 'summary'] },
     ],
     [navigate],
   )
@@ -113,7 +110,7 @@ export function CommandPalette() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [open, setOpen, filtered, activeIndex])
 
-  const groups = ['Quick Actions', 'Navigate', 'AI Suggestions'] as const
+  const groups = ['Quick Actions', 'Navigate'] as const
 
   return (
     <AnimatePresence>

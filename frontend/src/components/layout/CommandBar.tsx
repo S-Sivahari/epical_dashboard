@@ -4,7 +4,6 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Activity,
   ArrowLeft,
-  Building2,
   ChevronDown,
   Plus,
   Search,
@@ -120,7 +119,7 @@ export function CommandBar() {
               <p className="truncate font-display text-base font-bold text-slate-900 sm:text-lg">
                 Welcome back, {user.name?.split(' ')[0] ?? 'Admin'}!
               </p>
-              <p className="truncate text-xs text-slate-500 sm:text-sm">
+              <p className="truncate text-xs font-medium text-slate-800 sm:text-sm">
                 {user.designation || user.role}
                 {user.joinedAt ? (
                   <>
@@ -139,8 +138,8 @@ export function CommandBar() {
         onClick={() => setCommandPaletteOpen(true)}
         className="cmd-search-trigger hidden max-w-md flex-1 items-center gap-2 rounded-xl px-3 py-2 text-left sm:flex lg:max-w-sm xl:max-w-md"
       >
-        <Search className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
-        <span className="flex-1 truncate text-sm text-[var(--text-muted)]">Search anything...</span>
+        <Search className="h-4 w-4 shrink-0 text-slate-700" />
+        <span className="flex-1 truncate text-sm font-medium text-slate-800">Search anything...</span>
         <kbd className="cmd-kbd hidden lg:inline">⌘K</kbd>
         <Sparkles className="h-3.5 w-3.5 shrink-0 text-[var(--text-indigo)]" />
       </button>
@@ -205,23 +204,6 @@ export function CommandBar() {
                   {item.label}
                 </DropdownMenu.Item>
               ))}
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
-        </DropdownMenu.Root>
-
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger asChild>
-            <button type="button" className="cmd-workspace-btn hidden items-center gap-2 rounded-xl px-2.5 py-1.5 lg:inline-flex">
-              <Building2 className="h-4 w-4 text-[var(--green-600)]" />
-              <span className="text-sm font-medium text-[var(--text-primary)]">EMPWR</span>
-              <ChevronDown className="h-3.5 w-3.5 text-[var(--text-muted)]" />
-            </button>
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Portal>
-            <DropdownMenu.Content className="cmd-dropdown z-50 min-w-[180px] p-1" sideOffset={8} align="end">
-              <DropdownMenu.Item className="cmd-dropdown-item cmd-dropdown-item-active">
-                EMPWR Enterprise
-              </DropdownMenu.Item>
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
