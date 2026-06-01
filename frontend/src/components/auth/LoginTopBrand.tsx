@@ -18,7 +18,7 @@ export function LoginTopBrand() {
         className="flex items-center gap-2.5 transition-opacity hover:opacity-80 sm:gap-3"
         aria-label="Epical Layouts — visit company website"
       >
-        <CompanyLogo className="h-11 w-11 sm:h-12 sm:w-12" />
+        <CompanyLogo className="h-12 w-12 shrink-0 sm:h-14 sm:w-14" />
         <span className="login-top-brand-text">EPICAL LAYOUTS</span>
       </a>
     </motion.header>
