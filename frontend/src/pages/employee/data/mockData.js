@@ -21,13 +21,13 @@ export const announcements = [
 ]
 
 export const leaveBalances = [
-  { type: 'Casual Leave', used: 4, total: 12, color: '#16a34a', key: 'casual' },
+  { type: 'Casual Leave', used: 4, total: 12, color: '#266b1c', key: 'casual' },
   { type: 'Sick Leave', used: 2, total: 10, color: '#3b82f6', key: 'sick' },
   { type: 'Earned Leave', used: 6, total: 18, color: '#8b5cf6', key: 'earned' },
 ]
 
 export const leaveChartData = [
-  { name: 'Casual', value: 4, color: '#16a34a' },
+  { name: 'Casual', value: 4, color: '#266b1c' },
   { name: 'Sick', value: 2, color: '#3b82f6' },
   { name: 'Earned', value: 6, color: '#8b5cf6' },
   { name: 'Remaining', value: 28, color: '#e2e8f0' },

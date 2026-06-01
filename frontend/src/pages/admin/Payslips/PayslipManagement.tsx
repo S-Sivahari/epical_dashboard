@@ -569,7 +569,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
         }
         if (r.status === 'success') {
           return (
-            <span className="inline-flex items-center gap-1 text-sm font-semibold text-[#15803D]">
+            <span className="inline-flex items-center gap-1 text-sm font-semibold text-[#2f7d24]">
               <CheckCircle2 className="h-4 w-4" /> Generated
             </span>
           )
@@ -697,7 +697,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
               <CheckCircle2 className="h-4 w-4" />
               {batch.totalGenerated} Generated
             </span>
-            <span className="flex items-center gap-1 text-[#15803D]">
+            <span className="flex items-center gap-1 text-[#2f7d24]">
               <Send className="h-4 w-4" />
               {batch.totalSent ?? 0} Sent
             </span>
@@ -955,7 +955,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
                               onClick={() => setExpandedBatchId(isExpanded ? null : b.id)}
                             >
                               <div className="flex min-w-0 items-center gap-3">
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[rgba(20,83,45,0.12)]">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[rgba(38,107,28,0.12)]">
                                   <FileText className="h-5 w-5 text-[var(--emerald-dark)]" />
                                 </div>
                                 <div className="min-w-0">
@@ -981,7 +981,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
                                     <p className="text-xs text-muted">generated</p>
                                   </span>
                                   <span className="text-center">
-                                    <p className="font-bold text-[#15803D]">{sentCount}</p>
+                                    <p className="font-bold text-[#2f7d24]">{sentCount}</p>
                                     <p className="text-xs text-muted">sent</p>
                                   </span>
                                   {b.totalFailed > 0 && (
@@ -999,7 +999,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
                               </div>
                             </button>
                             {isExpanded && (
-                              <div className="border-t border-[rgba(20,83,45,0.1)]">
+                              <div className="border-t border-[rgba(38,107,28,0.1)]">
                                 <div className="flex justify-end gap-2 bg-[rgba(240,253,244,0.5)] p-3">
                                   {(b.totalGenerated ?? 0) > 0 && (
                                     <Button
@@ -1027,7 +1027,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
                                     Download Excel
                                   </Button>
                                 </div>
-                                <div className="divide-y divide-[rgba(20,83,45,0.08)]">
+                                <div className="divide-y divide-[rgba(38,107,28,0.08)]">
                                   {b.results
                                     .filter((r) => r.status === 'success' && r.fileName)
                                     .map((r) => (

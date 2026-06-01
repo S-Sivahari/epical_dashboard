@@ -63,14 +63,14 @@ export function HolidayManagement() {
         backgroundColor: h.skipped
           ? '#94a3b8'
           : h.type === 'National'
-          ? '#16a34a'
+          ? '#266b1c'
           : h.type === 'Company'
           ? '#0066cc'
           : '#f97316',
         borderColor: h.skipped
           ? '#64748b'
           : h.type === 'National'
-          ? '#16a34a'
+          ? '#266b1c'
           : h.type === 'Company'
           ? '#0066cc'
           : '#f97316',

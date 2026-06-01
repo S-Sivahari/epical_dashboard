@@ -32,21 +32,21 @@ const CREWIQ_COLORS = [
 ]
 
 function getDarkBarColor(index: number, brand: boolean) {
-  if (!brand) return '#14532D'
+  if (!brand) return '#266b1c'
   return CREWIQ_COLORS[index % CREWIQ_COLORS.length]
 }
 
 const DASHBOARD_GREEN = {
-  dark: '#14532D',
-  mid: '#166534',
-  deep: '#0f3d24',
-  bright: '#15803D',
-  hover: '#16a34a',
+  dark: '#266b1c',
+  mid: '#266b1c',
+  deep: '#1f5516',
+  bright: '#2f7d24',
+  hover: '#3a912d',
   axis: '#0f172a',
   axisMuted: '#334155',
   label: '#0f172a',
   grid: 'rgba(15, 23, 42, 0.08)',
-  cursor: 'rgba(20, 83, 45, 0.14)',
+  cursor: 'rgba(38, 107, 28, 0.14)',
 }
 
 export function HoursBarChart({
@@ -104,7 +104,7 @@ export function HoursBarChart({
 
   const axisColor = isDashboard ? DASHBOARD_GREEN.axisMuted : isDark ? '#4a5568' : '#64748b'
   const gridColor = isDashboard ? DASHBOARD_GREEN.grid : isDark ? 'rgba(255,255,255,0.05)' : 'rgb(226 232 240 / 0.9)'
-  const labelFill = isDashboard ? DASHBOARD_GREEN.label : isDark ? 'rgba(255,255,255,0.65)' : '#065f46'
+  const labelFill = isDashboard ? DASHBOARD_GREEN.label : isDark ? 'rgba(255,255,255,0.65)' : '#266b1c'
   const cursorFill = isDashboard
     ? DASHBOARD_GREEN.cursor
     : isDark
@@ -155,7 +155,7 @@ export function HoursBarChart({
                 </>
               ) : (
                 <>
-                  <stop offset="0%" stopColor="#059669" stopOpacity={1} />
+                  <stop offset="0%" stopColor="#266b1c" stopOpacity={1} />
                   <stop offset="65%" stopColor="#34d399" stopOpacity={0.95} />
                   <stop offset="100%" stopColor="#d1fae5" stopOpacity={0.9} />
                 </>

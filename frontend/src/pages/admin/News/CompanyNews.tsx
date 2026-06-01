@@ -423,7 +423,7 @@ export function CompanyNews() {
                               <img
                                 src={item.imageUrl}
                                 alt=""
-                                className="h-16 w-20 shrink-0 rounded-lg object-cover ring-1 ring-[rgba(20,83,45,0.15)]"
+                                className="h-16 w-20 shrink-0 rounded-lg object-cover ring-1 ring-[rgba(38,107,28,0.15)]"
                                 loading="lazy"
                                 onError={(e) => {
                                   ;(e.target as HTMLImageElement).style.display = 'none'
@@ -511,7 +511,7 @@ export function CompanyNews() {
                   />
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[rgba(20,83,45,0.12)] pt-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[rgba(38,107,28,0.12)] pt-4">
                   <p className="text-xs font-medium text-slate-600">Required fields are marked with *</p>
                   <div className="flex gap-2">
                     <Button type="button" variant="ghost" onClick={resetForm} disabled={saving}>
@@ -545,7 +545,7 @@ export function CompanyNews() {
                         />
                       </div>
                     ) : (
-                      <div className="flex aspect-[4/3] items-center justify-center bg-gradient-to-br from-[var(--emerald-dark)] to-[#166534]">
+                      <div className="flex aspect-[4/3] items-center justify-center bg-gradient-to-br from-[var(--emerald-dark)] to-[#266b1c]">
                         <Megaphone className="h-10 w-10 text-white/80" />
                       </div>
                     )}

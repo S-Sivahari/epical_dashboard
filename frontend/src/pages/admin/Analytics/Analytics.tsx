@@ -8,7 +8,7 @@ import { DepartmentPieChart } from '@components/charts/PieChart'
 import { exportAnalyticsPdf } from '@/utils/exportPDF'
 import { BarChart3, BookOpen, Clock, FileText, Sparkles, TrendingUp } from 'lucide-react'
 
-const PIE_GREEN = ['#14532D', '#166534', '#22c55e']
+const PIE_GREEN = ['#266b1c', '#2f7d24', '#3a912d']
 
 export function Analytics() {
   const [month, setMonth] = useState('5')

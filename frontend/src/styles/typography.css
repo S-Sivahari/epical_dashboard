@@ -1,7 +1,6 @@
 /**
  * Dashboard typography tokens
- * - font-display (Plus Jakarta Sans): headings
- * - font-body (DM Sans): UI copy, labels, tables
+ * - font-display / font-body: Inter (Tabler sans stack)
  * - font-mono (JetBrains Mono): timers, durations, metrics
  */
 

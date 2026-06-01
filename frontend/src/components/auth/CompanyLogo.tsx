@@ -12,8 +12,8 @@ export function CompanyLogo({ className, alt = 'Epical Layouts' }: CompanyLogoPr
     <img
       src={CHIP_LOGO_SRC}
       alt={alt}
-      width={56}
-      height={56}
+      width={62}
+      height={62}
       className={cn('object-contain select-none', className)}
       draggable={false}
       decoding="async"

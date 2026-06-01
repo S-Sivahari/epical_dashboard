@@ -25,7 +25,7 @@ export function LeaveLineChart({ data }: { data: { month: string; leaves: number
           <XAxis dataKey="month" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
           <YAxis tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
           <Tooltip contentStyle={tooltipStyle} />
-          <Line type="monotone" dataKey="leaves" stroke="#16a34a" strokeWidth={3} dot={false} isAnimationActive />
+          <Line type="monotone" dataKey="leaves" stroke="#266b1c" strokeWidth={3} dot={false} isAnimationActive />
         </LineChart>
       </ResponsiveContainer>
     </div>

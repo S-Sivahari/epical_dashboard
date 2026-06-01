@@ -20,6 +20,8 @@ export function DataTable<T extends { id?: string }>({
   sortDirection,
   onSort,
   className,
+  brandHeader = false,
+  striped = false,
 }: {
   columns: Column<T>[]
   data?: T[]
@@ -29,6 +31,8 @@ export function DataTable<T extends { id?: string }>({
   sortDirection?: 'asc' | 'desc'
   onSort?: (key: string) => void
   className?: string
+  brandHeader?: boolean
+  striped?: boolean
 }) {
   if (loading) {
     return (
@@ -62,17 +66,29 @@ export function DataTable<T extends { id?: string }>({
       )}
     >
       <table className="min-w-full divide-y divide-border text-sm">
-        <thead className="sticky top-0 z-10 bg-surface/95 backdrop-blur-sm">
+        <thead
+          className={cn(
+            'sticky top-0 z-10',
+            brandHeader
+              ? 'employee-directory-thead bg-[#266b1c]'
+              : 'bg-surface/95 backdrop-blur-sm',
+          )}
+        >
           <tr>
             {columns.map((c) => (
               <th
                 key={String(c.key)}
                 scope="col"
                 className={cn(
-                  'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-ink transition-colors duration-150',
+                  'px-4 py-3 text-left text-sm font-semibold transition-colors duration-150',
+                  brandHeader
+                    ? 'text-white tracking-normal normal-case'
+                    : 'text-xs font-semibold uppercase tracking-wide text-ink',
                   c.className,
-                  c.sortable && 'cursor-pointer hover:bg-emerald-50/60',
-                  sortColumn === c.key && 'bg-emerald-50/40 text-primary',
+                  c.sortable && !brandHeader && 'cursor-pointer hover:bg-emerald-50/60',
+                  c.sortable && brandHeader && 'cursor-pointer hover:bg-[#1f5516]',
+                  !brandHeader && sortColumn === c.key && 'bg-emerald-50/40 text-primary',
+                  brandHeader && sortColumn === c.key && 'bg-[#1f5516]',
                 )}
                 onClick={() => c.sortable && onSort?.(String(c.key))}
               >
@@ -80,10 +96,10 @@ export function DataTable<T extends { id?: string }>({
                   {c.header}
                   {c.sortable && (
                     <div className="flex flex-col -space-y-[2px]">
-                      <svg width="8" height="6" viewBox="0 0 8 6" fill="none" className={cn(sortColumn === c.key && sortDirection === 'asc' ? 'text-primary' : 'text-ink/35')}>
+                      <svg width="8" height="6" viewBox="0 0 8 6" fill="none" className={cn(sortColumn === c.key && sortDirection === 'asc' ? (brandHeader ? 'text-white' : 'text-primary') : brandHeader ? 'text-white/50' : 'text-ink/35')}>
                         <path d="M4 0L8 6H0L4 0Z" fill="currentColor"/>
                       </svg>
-                      <svg width="8" height="6" viewBox="0 0 8 6" fill="none" className={cn(sortColumn === c.key && sortDirection === 'desc' ? 'text-primary' : 'text-ink/35')}>
+                      <svg width="8" height="6" viewBox="0 0 8 6" fill="none" className={cn(sortColumn === c.key && sortDirection === 'desc' ? (brandHeader ? 'text-white' : 'text-primary') : brandHeader ? 'text-white/50' : 'text-ink/35')}>
                         <path d="M4 6L0 0H8L4 6Z" fill="currentColor"/>
                       </svg>
                     </div>
@@ -93,7 +109,7 @@ export function DataTable<T extends { id?: string }>({
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-border">
+        <tbody className={cn(striped ? 'employee-directory-tbody' : 'divide-y divide-border')}>
           {data.map((row, i) => (
             <motion.tr
               key={(row as { id?: string }).id ?? i}
@@ -101,10 +117,20 @@ export function DataTable<T extends { id?: string }>({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.2, delay: Math.min(i * 0.02, 0.3) }}
-              className="transition-colors duration-150 hover:bg-emerald-50/50"
+              className={cn(
+                'transition-colors duration-150',
+                striped ? 'employee-directory-row' : 'hover:bg-emerald-50/50',
+              )}
             >
               {columns.map((c) => (
-                <td key={String(c.key)} className={cn('whitespace-nowrap px-4 py-3 text-ink', c.className)}>
+                <td
+                  key={String(c.key)}
+                  className={cn(
+                    'whitespace-nowrap px-4 py-3.5 text-ink',
+                    striped && 'employee-directory-cell',
+                    c.className,
+                  )}
+                >
                   {c.render ? c.render(row) : String((row as Record<string, unknown>)[c.key as string] ?? '')}
                 </td>
               ))}

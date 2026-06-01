@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
-import { HoursBarChart } from '@components/charts/BarChart'
+import { ProjectHoursAreaChart } from '@components/charts/ProjectHoursAreaChart'
 import { SkeletonBlock } from './shared'
 import {
   CHART_PERIODS,
@@ -29,26 +29,28 @@ export function ProjectHoursPanel({
   const [periodOpen, setPeriodOpen] = useState(false)
 
   return (
-    <section className={cn('admin-dash-card project-hours-panel flex min-h-0 flex-col p-3 sm:p-4', className)}>
-      <div className="mb-2 flex shrink-0 flex-wrap items-start justify-between gap-2">
+    <section className={cn('dashboard-chart-card project-hours-panel flex min-h-0 flex-col', className)}>
+      <div className="mb-3 flex shrink-0 flex-wrap items-start justify-between gap-3 px-4 pt-4 sm:px-5 sm:pt-5">
         <div>
-          <h2 className="font-display text-base font-semibold text-slate-900">Project Hours</h2>
-          <p className="text-xs font-medium text-slate-800 project-hours-subtitle">{getChartSubtitle(chartPeriod)}</p>
+          <h2 className="font-display text-base font-semibold text-[#266b1c] sm:text-lg">Project Hours</h2>
+          <p className="mt-0.5 text-xs font-medium text-slate-500">{getChartSubtitle(chartPeriod)}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <div className="text-right">
-            <p className="project-hours-label text-[9px] font-semibold uppercase tracking-wider text-slate-800">Total</p>
-            <p className="font-display text-lg font-bold tabular-nums text-slate-900">
-              {loading ? '—' : `${totalPeriodHours} h`}
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              {chartPeriod}
+            </p>
+            <p className="font-display text-2xl font-bold tabular-nums text-[#1f5516] sm:text-[1.65rem]">
+              {loading ? '—' : `${totalPeriodHours}h`}
             </p>
           </div>
           <div className="relative">
             <button
               type="button"
               onClick={() => setPeriodOpen(!periodOpen)}
-              className="cmd-period-btn flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold"
+              className="dashboard-period-btn flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold"
             >
-              {chartPeriod}
+              Period
               <ChevronDown className={cn('h-3 w-3 transition-transform', periodOpen && 'rotate-180')} />
             </button>
             {periodOpen && (
@@ -72,11 +74,11 @@ export function ProjectHoursPanel({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1">
+      <div className="min-h-0 flex-1 px-2 pb-3 sm:px-3 sm:pb-4">
         {loading ? (
-          <SkeletonBlock className="h-full min-h-[120px]" />
+          <SkeletonBlock className="mx-2 h-full min-h-[140px] rounded-xl" />
         ) : (
-          <HoursBarChart data={chartData} theme="light" colorScheme="dashboard" fillParent height={180} />
+          <ProjectHoursAreaChart data={chartData} fillParent height={180} />
         )}
       </div>
     </section>

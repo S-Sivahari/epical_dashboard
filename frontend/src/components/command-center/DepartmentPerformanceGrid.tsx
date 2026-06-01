@@ -118,7 +118,7 @@ export function DepartmentPerformanceGrid({
                               <div className="cmd-progress-track mt-2">
                                 <motion.div
                                   className="cmd-progress-fill"
-                                  style={{ background: 'linear-gradient(90deg, #14532D, #166534, #15803D)' }}
+                                  style={{ background: 'linear-gradient(90deg, #266b1c, #2f7d24, #3a912d)' }}
                                   initial={{ width: 0 }}
                                   animate={{ width: `${dept.performance}%` }}
                                   transition={{ duration: 0.8, delay: 0.1 }}

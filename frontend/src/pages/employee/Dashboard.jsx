@@ -26,7 +26,7 @@ import { cn } from '@pages/employee/lib/utils'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 
 const LEAVE_COLORS = {
-  'Casual Leave': '#16a34a',
+  'Casual Leave': '#266b1c',
   'Sick Leave': '#3b82f6',
   'Earned Leave': '#8b5cf6',
 }
@@ -256,7 +256,7 @@ export default function Dashboard() {
                   used={lb.used}
                   total={lb.total}
                   remaining={lb.remaining}
-                  color={lb.color ?? LEAVE_COLORS[lb.type] ?? '#16a34a'}
+                  color={lb.color ?? LEAVE_COLORS[lb.type] ?? '#266b1c'}
                   embedded
                   className="h-full min-h-0 py-3"
                 />

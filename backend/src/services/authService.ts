@@ -81,7 +81,7 @@ export async function seedDefaultUsers(): Promise<{ created: string[]; skipped: 
       email: ADMIN_LOGIN_EMAIL,
       password: env.ADMIN_PASSWORD || 'admin123',
       role: 'Admin',
-      designation: 'HR Director',
+      designation: 'Administrator',
       joinedAt: '2019-04-01',
     },
     {

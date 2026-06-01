@@ -6,8 +6,6 @@ import { z } from 'zod'
 import { ExternalLink, X, HelpCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Breadcrumb } from '@components/layout/Breadcrumb'
-import { PageHeader } from '@components/layout/PageHeader'
-import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
 import { SelectField } from '@components/forms/SelectField'
@@ -450,25 +448,25 @@ export function AddEmployee() {
   }
 
   return (
-    <div className="crewiq-dashboard">
-      <div className="crewiq-dash-bg" />
-      <PageWrapper className="relative z-10 py-4 font-body">
-        <PageHeader
-          title=""
-          breadcrumb={
-            <Breadcrumb items={[{ label: 'Employees', to: '/admin/employees' }, { label: 'Add' }]} />
-          }
-        />
+    <div className="crewiq-dashboard employee-pages employee-directory-view employee-form-view">
+      <div className="employee-directory-bg" aria-hidden>
+        <div className="employee-directory-bg-gradient" />
+        <div className="employee-directory-bg-leaves" />
+      </div>
 
-      <form ref={formRef} id="add-employee-form" className="mx-auto max-w-6xl space-y-8 pb-32" onSubmit={onSubmit}>
-        {/* 2-column grid for sections */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Section 1: Personal Details */}
-          <div className="rounded-2xl border border-border bg-white p-6 shadow-sm lg:col-span-2">
-            <div className="mb-6">
-              <h3 className="font-display text-lg font-semibold text-ink">Personal Details</h3>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="employee-directory-shell">
+        <header className="employee-directory-header">
+          <Breadcrumb items={[{ label: 'Employees', to: '/admin/employees' }, { label: 'Add' }]} />
+          <h1 className="employee-directory-title">Add Employee</h1>
+        </header>
+
+        <div className="employee-form-body">
+          <form ref={formRef} id="add-employee-form" className="employee-form pb-8" onSubmit={onSubmit}>
+            <div className="employee-form-sections">
+          {/* Section 1: Personal Details — left column */}
+          <div className="employee-form-card">
+            <h3 className="employee-form-card-title">Personal Details</h3>
+            <div className="employee-form-fields employee-form-fields--2">
               <Input
                 label="Employee ID"
                 required
@@ -535,8 +533,8 @@ export function AddEmployee() {
 
             {/* Address Section */}
             <div className="mt-8 border-t border-border pt-6">
-              <h3 className="font-display text-lg font-semibold text-ink mb-4">Address Details</h3>
-              <div className="space-y-4">
+              <h3 className="employee-form-card-title">Address Details</h3>
+              <div className="employee-form-fields mt-4">
                 <Input
                   label="Permanent Address"
                   required
@@ -575,12 +573,10 @@ export function AddEmployee() {
             </div>
           </div>
 
-          {/* Section 2: Account Details */}
-          <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
-            <div className="mb-6">
-              <h3 className="font-display text-lg font-semibold text-ink">Account Details</h3>
-            </div>
-            <div className="grid gap-4">
+          {/* Section 2: Account Details — right column */}
+          <div className="employee-form-card">
+            <h3 className="employee-form-card-title">Account Details</h3>
+            <div className="employee-form-fields">
               <Input
                 label="Bank name"
                 error={form.formState.errors.bankName?.message}
@@ -613,12 +609,10 @@ export function AddEmployee() {
             </div>
           </div>
 
-          {/* Section 3: Joining Details */}
-          <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
-            <div className="mb-6">
-              <h3 className="font-display text-lg font-semibold text-ink">Joining Details</h3>
-            </div>
-            <div className="grid gap-4">
+          {/* Section 3: Joining Details — left column */}
+          <div className="employee-form-card">
+            <h3 className="employee-form-card-title">Joining Details</h3>
+            <div className="employee-form-fields">
               <Input
                 label="Joining date"
                 type="date"
@@ -658,12 +652,10 @@ export function AddEmployee() {
             </div>
           </div>
 
-          {/* Section 4: ID Proof */}
-          <div className="rounded-2xl border border-border bg-white p-6 shadow-sm lg:col-span-2">
-            <div className="mb-6">
-              <h3 className="font-display text-lg font-semibold text-ink">ID Proof</h3>
-            </div>
-            <div className="grid gap-4 md:grid-cols-3">
+          {/* Section 4: ID Proof — right column */}
+          <div className="employee-form-card">
+            <h3 className="employee-form-card-title">ID Proof</h3>
+            <div className="employee-form-fields">
               <Input
                 label="Aadhaar number"
                 error={form.formState.errors.aadhaar?.message}
@@ -683,12 +675,10 @@ export function AddEmployee() {
             </div>
           </div>
 
-          {/* Section 5: Emergency Contact */}
-          <div className="rounded-2xl border border-border bg-white p-6 shadow-sm lg:col-span-2">
-            <div className="mb-6">
-              <h3 className="font-display text-lg font-semibold text-ink">Emergency Contact Details</h3>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {/* Section 5: Emergency Contact — left column */}
+          <div className="employee-form-card">
+            <h3 className="employee-form-card-title">Emergency Contact Details</h3>
+            <div className="employee-form-fields">
               <Input
                 label="Name"
                 required
@@ -716,18 +706,16 @@ export function AddEmployee() {
               />
               <Input
                 label="Address"
-                className="lg:col-span-2"
                 required
                 error={form.formState.errors.emergencyContactAddress?.message}
                 {...form.register('emergencyContactAddress')}
               />
             </div>
           </div>
-        </div>
 
-        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
-          <div className="mb-6 flex items-center justify-between">
-            <h3 className="font-display text-lg font-semibold text-ink">Employee Documents</h3>
+            <div className="employee-form-card">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="employee-form-card-title mb-0">Employee Documents</h3>
             <button
               type="button"
               onClick={() => setShowFileHelp(true)}
@@ -739,7 +727,7 @@ export function AddEmployee() {
           </div>
           
           {/* Row 1: Aadhaar, PAN, Offer Letter */}
-          <div className="grid gap-4 md:grid-cols-3 items-start">
+          <div className="employee-form-doc-stack">
             {['aadhaar', 'pan', 'offerLetter'].map((key) => {
               const docKey = key as DocKey
               const label = DOCUMENT_TYPES[docKey]
@@ -789,7 +777,7 @@ export function AddEmployee() {
           </div>
 
           {/* Row 2: Certificates, Agreement Document, Profile Photo */}
-          <div className="mt-6 grid gap-4 md:grid-cols-3 items-start">
+          <div className="employee-form-doc-stack mt-4">
             {/* Certificates */}
             <div className="rounded-xl border border-border bg-surface p-4 h-full flex flex-col">
               <div className="flex items-start justify-between mb-3">
@@ -942,12 +930,13 @@ export function AddEmployee() {
               {photoError ? <p className="text-xs text-danger mt-2">{photoError}</p> : null}
             </div>
           </div>
+            </div>
+            </div>
+          </form>
         </div>
-      </form>
 
-      {/* ── Fixed Bottom Action Bar ────────────────────────────────────────────────── */}
-      <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-white p-4 shadow-lg">
-        <div className="mx-auto max-w-6xl flex items-center justify-end gap-2">
+      <div className="employee-form-action-bar">
+        <div className="employee-form-action-bar-inner">
           {submitError && (
             <p className="flex-1 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5 mr-2">
               {submitError}
@@ -960,6 +949,7 @@ export function AddEmployee() {
             Create Employee
           </Button>
         </div>
+      </div>
       </div>
 
       {/* ── Preview Modal ────────────────────────────────────────────────── */}
@@ -1157,7 +1147,6 @@ export function AddEmployee() {
           </div>
         </div>
       )}
-      </PageWrapper>
     </div>
   )
 }

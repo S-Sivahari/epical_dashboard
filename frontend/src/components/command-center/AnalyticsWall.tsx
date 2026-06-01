@@ -29,7 +29,7 @@ interface AnalyticsWallProps {
   pendingLeavesCount: number
 }
 
-const LEAVE_COLORS = ['#14532D', '#166534', '#15803D', '#16A34A']
+const LEAVE_COLORS = ['#266b1c', '#266b1c', '#2f7d24', '#266b1c']
 
 export function AnalyticsWall({
   loading,
@@ -168,7 +168,7 @@ export function AnalyticsWall({
                           <XAxis type="number" hide />
                           <YAxis type="category" dataKey="name" width={72} tick={{ fontSize: 11, fill: '#3F6212' }} />
                           <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid rgba(134, 239, 172, 0.45)', background: '#FFFFFF' }} />
-                          <Bar dataKey="employeeCount" radius={[0, 6, 6, 0]} fill="#166534" />
+                          <Bar dataKey="employeeCount" radius={[0, 6, 6, 0]} fill="#266b1c" />
                         </BarChart>
                       </ResponsiveContainer>
                     </motion.div>

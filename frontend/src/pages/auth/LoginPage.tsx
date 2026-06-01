@@ -148,7 +148,7 @@ export function LoginPage() {
                   <div className="space-y-1">
                     <label className="login-card-label text-xs font-medium">Email</label>
                     <div className="relative">
-                      <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                      <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                       <input
                         type="email"
                         autoComplete="email"
@@ -157,14 +157,14 @@ export function LoginPage() {
                         {...register('email')}
                       />
                     </div>
-                    {errors.email ? <p className="text-xs text-red-400">{errors.email.message}</p> : null}
+                    {errors.email ? <p className="text-xs text-red-600">{errors.email.message}</p> : null}
                   </div>
 
                   {/* Password */}
                   <div className="space-y-1">
                     <label className="login-card-label text-xs font-medium">Password</label>
                     <div className="relative">
-                      <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                      <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                       <input
                         type={showPassword ? 'text' : 'password'}
                         autoComplete="current-password"
@@ -175,13 +175,13 @@ export function LoginPage() {
                       <button
                         type="button"
                         onClick={() => setShowPassword((p) => !p)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 transition-colors hover:text-zinc-300"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600"
                         tabIndex={-1}
                       >
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
-                    {errors.password ? <p className="text-xs text-red-400">{errors.password.message}</p> : null}
+                    {errors.password ? <p className="text-xs text-red-600">{errors.password.message}</p> : null}
                   </div>
 
                   <Button
@@ -197,10 +197,10 @@ export function LoginPage() {
                   <>
                     <div className="relative my-5">
                       <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-zinc-600/40" />
+                        <div className="w-full border-t border-slate-200" />
                       </div>
                       <div className="relative flex justify-center text-xs">
-                        <span className="login-card-subtitle bg-[#27272a]/90 px-3 backdrop-blur-sm">
+                        <span className="login-card-subtitle bg-[#f8fafc] px-3">
                           Or continue with
                         </span>
                       </div>

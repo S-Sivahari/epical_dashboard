@@ -237,7 +237,7 @@ export function Sidebar() {
                 name={user.name ?? 'Admin'}
                 src={user.avatarUrl}
                 size="sm"
-                color="#16a34a"
+                color="#266b1c"
                 className="!ring-0"
               />
               <div className="min-w-0 flex-1">

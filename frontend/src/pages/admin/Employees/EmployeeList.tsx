@@ -1,14 +1,23 @@
 import { Link } from 'react-router-dom'
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { Plus, Search, X, CheckSquare, FileText, FileSpreadsheet, ChevronDown } from 'lucide-react'
+import { useState, useRef, useCallback } from 'react'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+import {
+  Plus,
+  Search,
+  X,
+  FileText,
+  FileSpreadsheet,
+  ChevronDown,
+  Eye,
+  Pencil,
+  MoreVertical,
+} from 'lucide-react'
 import { toast } from 'sonner'
-import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
 import { Badge } from '@components/ui/Badge'
 import { Modal } from '@components/ui/Modal'
 import { DataTable, type Column } from '@components/tables/DataTable'
 import { PaginationBar } from '@components/tables/Pagination'
-import { SelectField } from '@components/forms/SelectField'
 import { useEmployees } from '@hooks/useEmployees'
 import type { Employee } from '@/types'
 import { stringToHueColor } from '@/utils/stringColor'
@@ -17,6 +26,7 @@ import { exportToExcel } from '@/utils/exportExcel'
 import { exportToPDF } from '@/utils/exportPDF'
 import { formatDate } from '@/utils/formatDate'
 import { useAuthStore } from '@store/authStore'
+import { ROUTES } from '@constants/routes'
 import {
   ACTIVE_DIRECTORY_EXPORT_HEADERS,
   ACTIVE_DIRECTORY_REPORT_OPTIONS,
@@ -25,14 +35,12 @@ import {
 
 const STATUS_OPTIONS: { value: Employee['status']; label: string }[] = [
   { value: 'Active', label: 'Active' },
-  { value: 'Inactive', label: 'Inactive' },
-  { value: 'Deactivated', label: 'Deactivated' },
   { value: 'Notice Period', label: 'Notice Period' },
+  { value: 'Deactivated', label: 'Deactivated' },
 ]
 
-/** Native filter selects: dropdown options stay system-styled; the control chrome is themed here. */
 const filterSelectClass =
-  'admin-field h-10 w-full cursor-pointer appearance-none pl-3 pr-10 text-sm font-medium shadow-sm'
+  'employee-directory-filter-select h-10 w-full min-w-[9.5rem] cursor-pointer appearance-none pl-3 pr-9 text-sm font-medium'
 
 export function EmployeeList() {
   const {
@@ -46,7 +54,6 @@ export function EmployeeList() {
     sort,
     setSort,
     updateEmployeeStatus,
-    bulkUpdateStatus,
     getEmployeesForExport,
   } = useEmployees()
 
@@ -75,84 +82,6 @@ export function EmployeeList() {
   const [statusChangeReason, setStatusChangeReason] = useState('')
   const [statusReasonError, setStatusReasonError] = useState('')
   const reasonInputRef = useRef<HTMLTextAreaElement>(null)
-
-  // Bulk selection state
-  const [selectionMode, setSelectionMode] = useState(false)
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [bulkStatus, setBulkStatus] = useState<Employee['status']>('Active')
-  const [bulkSaving, setBulkSaving] = useState(false)
-  const [bulkStatusModalOpen, setBulkStatusModalOpen] = useState(false)
-  const [bulkStatusReason, setBulkStatusReason] = useState('')
-  const [bulkStatusReasonError, setBulkStatusReasonError] = useState('')
-  const bulkReasonInputRef = useRef<HTMLTextAreaElement>(null)
-
-  const exitSelectionMode = () => {
-    setSelectionMode(false)
-    setSelectedIds(new Set())
-  }
-
-  // Clear selection when employees change (page change, filter change)
-  useEffect(() => {
-    setSelectedIds(new Set())
-  }, [employees])
-
-  const allSelected = employees.length > 0 && employees.every((e) => selectedIds.has(e.id!))
-  const someSelected = selectedIds.size > 0
-
-  const toggleSelectAll = () => {
-    if (allSelected) {
-      setSelectedIds(new Set())
-    } else {
-      setSelectedIds(new Set(employees.map((e) => e.id!)))
-    }
-  }
-
-  const toggleSelect = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  const requestBulkStatusChange = () => {
-    if (selectedIds.size === 0) return
-    setBulkStatusReason('')
-    setBulkStatusReasonError('')
-    setBulkStatusModalOpen(true)
-    setTimeout(() => bulkReasonInputRef.current?.focus(), 50)
-  }
-
-  const confirmBulkStatusChange = async () => {
-    const reason = bulkStatusReason.trim()
-    if (!reason) {
-      setBulkStatusReasonError('Please provide a reason for the bulk status change.')
-      return
-    }
-    if (selectedIds.size === 0) return
-
-    setBulkStatusModalOpen(false)
-    setBulkSaving(true)
-    const ids = Array.from(selectedIds)
-    try {
-      const result = await bulkUpdateStatus(ids, bulkStatus, reason, user?.email || user?.name)
-      console.info(
-        '[Manage Employees] Bulk status change:',
-        bulkStatus,
-        `(${result.updated ?? ids.length} employees)`,
-        reason,
-      )
-      exitSelectionMode()
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not update employee statuses'
-      toast.error(message)
-      setBulkStatusModalOpen(true)
-    } finally {
-      setBulkSaving(false)
-      setBulkStatusReason('')
-    }
-  }
 
   const handleExport = async (format: 'excel' | 'pdf') => {
     setExporting(format)
@@ -247,31 +176,6 @@ export function EmployeeList() {
     }
   }
 
-  // Checkbox column
-  const checkboxColumn: Column<Employee> = {
-    key: 'select' as any,
-    header: (
-      <input
-        type="checkbox"
-        className="h-4 w-4 cursor-pointer rounded border-[rgba(161,161,170,0.28)] accent-[#22c55e]"
-        checked={allSelected}
-        onChange={toggleSelectAll}
-        aria-label="Select all employees"
-      />
-    ) as any,
-    className: 'w-10 px-3',
-    render: (e) => (
-      <input
-        type="checkbox"
-        className="h-4 w-4 cursor-pointer rounded border-[rgba(161,161,170,0.28)] accent-[#22c55e]"
-        checked={selectedIds.has(e.id!)}
-        onChange={() => toggleSelect(e.id!)}
-        aria-label={`Select ${e.firstName} ${e.lastName}`}
-        onClick={(ev) => ev.stopPropagation()}
-      />
-    ),
-  }
-
   const dataColumns: Column<Employee>[] = [
     {
       key: 'firstName',
@@ -280,11 +184,11 @@ export function EmployeeList() {
       render: (e) => {
         const name = `${e.firstName} ${e.lastName}`
         return (
-          <Link to={`/admin/employees/${e.id}`} className="flex items-center gap-3 group">
+          <Link to={ROUTES.EMPLOYEE(e.id!)} className="employee-directory-employee-link group flex items-center gap-3">
             <EmployeeAvatar employeeId={e.id} name={name} color={stringToHueColor(e.id)} />
-            <div>
-              <p className="font-semibold text-ink group-hover:text-emerald-700 transition-ui">{name}</p>
-              <p className="text-xs font-mono text-ink/80">{e.employeeId}</p>
+            <div className="min-w-0">
+              <p className="font-semibold text-[#1a4712] transition-colors group-hover:text-[#266b1c]">{name}</p>
+              <p className="text-xs font-medium text-slate-500">{e.employeeId}</p>
             </div>
           </Link>
         )
@@ -295,18 +199,18 @@ export function EmployeeList() {
       header: 'Personal Email',
       className: 'min-w-[260px]',
       render: (e) => (
-        <span className="text-sm text-ink">
-          {e.personalEmail ? e.personalEmail : <span className="text-ink/60">—</span>}
+        <span className="text-sm text-slate-700">
+          {e.personalEmail ? e.personalEmail : <span className="text-slate-400">—</span>}
         </span>
       ),
     },
     {
       key: 'email',
       header: 'Company Email',
-      className: 'min-w-[260px]',
+      className: 'min-w-[240px]',
       render: (e) => (
-        <span className="text-sm text-ink">
-          {e.email ? e.email : <span className="text-ink/60">—</span>}
+        <span className="text-sm text-slate-700">
+          {e.email ? e.email : <span className="text-slate-400">—</span>}
         </span>
       ),
     },
@@ -314,214 +218,221 @@ export function EmployeeList() {
       key: 'employmentType',
       header: 'Type',
       sortable: true,
-      render: (e) => <span className="text-ink">{e.employmentType}</span>,
+      render: (e) => <span className="text-sm font-medium text-slate-700">{e.employmentType}</span>,
     },
     {
       key: 'joinedAt',
       header: 'Joined',
       sortable: true,
-      render: (e) => <span className="text-ink">{formatDate(e.joinedAt)}</span>,
+      render: (e) => <span className="text-sm text-slate-700">{formatDate(e.joinedAt)}</span>,
     },
     {
       key: 'status',
       header: 'Status',
       sortable: true,
       render: (e) => (
-        <Badge variant={statusVariant(e.status)}>{e.status}</Badge>
+        <Badge variant={statusVariant(e.status)} className="employee-directory-status-badge px-3 py-1 text-xs font-semibold">
+          {e.status}
+        </Badge>
       ),
     },
     {
-      key: 'ops' as any,
-      header: 'Account',
-      className: 'w-32',
+      key: 'ops' as const,
+      header: 'Actions',
+      className: 'w-32 text-right',
       render: (e) => (
-        <div className="flex items-center gap-1.5">
-          <span
-            className={`inline-block h-2 w-2 shrink-0 rounded-full ${
-              e.status === 'Active'
-                ? 'bg-[#34d399]'
-                : e.status === 'Notice Period'
-                  ? 'bg-[#fbbf24]'
-                  : e.status === 'Deactivated'
-                    ? 'bg-[#f87171]'
-                    : 'bg-[#94a3b8]'
-            }`}
-            title={e.status}
-          />
-          <SelectField
-            aria-label={`Change status for ${e.firstName} ${e.lastName ?? ''}`.trim()}
-            value={e.status}
-            disabled={savingStatusId === e.id}
-            onChange={(event) =>
-              requestStatusChange(e, event.target.value as Employee['status'])
-            }
-            showChevron
-            className="admin-field h-8 min-w-[6.5rem] max-w-[7.5rem] flex-1 px-2 py-0 text-[11px] font-semibold text-ink disabled:opacity-60"
-            options={STATUS_OPTIONS}
-          />
+        <div
+          className="flex items-center justify-end gap-1"
+          onClick={(event) => event.stopPropagation()}
+          role="presentation"
+        >
+          <Link
+            to={ROUTES.EMPLOYEE(e.id!)}
+            className="employee-directory-action-btn"
+            title="View employee"
+            aria-label={`View ${e.firstName} ${e.lastName ?? ''}`.trim()}
+          >
+            <Eye className="h-4 w-4" strokeWidth={2} />
+          </Link>
+          <Link
+            to={ROUTES.EMPLOYEE_EDIT(e.id!)}
+            className="employee-directory-action-btn"
+            title="Edit employee"
+            aria-label={`Edit ${e.firstName} ${e.lastName ?? ''}`.trim()}
+          >
+            <Pencil className="h-4 w-4" strokeWidth={2} />
+          </Link>
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger asChild>
+              <button
+                type="button"
+                className="employee-directory-action-btn disabled:opacity-50"
+                title="Change account status"
+                aria-label={`Change status for ${e.firstName} ${e.lastName ?? ''}`.trim()}
+                disabled={savingStatusId === e.id}
+              >
+                <MoreVertical className="h-4 w-4" strokeWidth={2} />
+              </button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content
+                className="admin-navbar-menu z-50 min-w-[180px] p-1"
+                sideOffset={4}
+                align="end"
+              >
+                <p className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted">
+                  Change status
+                </p>
+                {STATUS_OPTIONS.map((option) => (
+                  <DropdownMenu.Item
+                    key={option.value}
+                    className="cursor-pointer rounded-lg px-3 py-2 text-sm text-ink outline-none hover:bg-surface/80 data-[disabled]:opacity-50"
+                    disabled={e.status === option.value || savingStatusId === e.id}
+                    onSelect={() => requestStatusChange(e, option.value)}
+                  >
+                    {option.label}
+                  </DropdownMenu.Item>
+                ))}
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
         </div>
       ),
     },
   ]
 
-  const columns: Column<Employee>[] = selectionMode
-    ? [checkboxColumn, ...dataColumns]
-    : dataColumns
-
   return (
-    <div className="crewiq-dashboard">
-      <div className="crewiq-dash-bg" />
-      <PageWrapper className="relative z-10 py-4 font-body">
-        {/* Active Directory heading above the filter toolbar */}
-        <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h3 className="font-display text-lg font-semibold text-ink">Active Directory</h3>
-          </div>
-        </div>
-
-      {/* Filter toolbar */}
-      <div className="admin-panel admin-toolbar mb-4 flex flex-col gap-3 p-4 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
-        <div className="flex w-full flex-1 flex-nowrap items-center gap-3">
-          {/* Free-text search */}
-          <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#22c55e]" />
-            <input
-              type="text"
-              value={searchInput}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="Search employees…"
-              className="admin-field h-10 w-full pl-10 pr-9 text-sm font-medium text-ink shadow-sm placeholder:text-ink/45"
-            />
-            {searchInput ? (
-              <button
-                type="button"
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-ink/60 transition-ui hover:bg-emerald-50 hover:text-ink"
-                onClick={() => handleSearchChange('')}
-                aria-label="Clear search"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            ) : null}
-          </div>
-          <div className="relative min-w-0 flex-1">
-            <select
-              value={filters.employmentType}
-              onChange={(e) => setFilters({ employmentType: e.target.value })}
-              className={filterSelectClass}
-              aria-label="Filter by employment type"
-            >
-              <option value="all">All types</option>
-              <option value="Full-time">Full-time</option>
-              <option value="Contract">Contract</option>
-              <option value="Intern">Intern</option>
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#22c55e]" aria-hidden />
-          </div>
-          <div className="relative min-w-0 flex-1">
-            <select
-              value={filters.status}
-              onChange={(e) => setFilters({ status: e.target.value })}
-              className={filterSelectClass}
-              aria-label="Filter by status"
-            >
-              <option value="all">All statuses</option>
-              {STATUS_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#22c55e]" aria-hidden />
-          </div>
-        </div>
-        <div className="flex gap-3">
-          {selectionMode ? (
-            <Button variant="secondary" onClick={exitSelectionMode}>
-              Cancel
-            </Button>
-          ) : (
-            <Button variant="secondary" onClick={() => setSelectionMode(true)}>
-              <CheckSquare className="h-4 w-4" />
-              Select
-            </Button>
-          )}
-          <Button variant="secondary" onClick={() => handleExport('pdf')} loading={exporting === 'pdf'}>
-            <FileText className="h-4 w-4 text-red-600" />
-            Export PDF
-          </Button>
-          <Button variant="secondary" onClick={() => handleExport('excel')} loading={exporting === 'excel'}>
-            <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-            Export Excel
-          </Button>
-          <Button asChild>
-            <Link to="/admin/employees/add">
-              <Plus className="h-4 w-4" />
-              Add Employee
-            </Link>
-          </Button>
-        </div>
+    <div className="crewiq-dashboard employee-pages employee-directory-view">
+      <div className="employee-directory-bg" aria-hidden>
+        <div className="employee-directory-bg-gradient" />
+        <div className="employee-directory-bg-leaves" />
       </div>
 
-      {/* Bulk action bar — appears when in selection mode with employees selected */}
-      {selectionMode && someSelected && (
-        <div className="admin-panel admin-panel-accent mb-4 flex flex-wrap items-center gap-3 px-4 py-3">
-          <CheckSquare className="h-4 w-4 shrink-0 text-[#22c55e]" />
-          <span className="text-sm font-medium text-ink">
-            {selectedIds.size} employee{selectedIds.size > 1 ? 's' : ''} selected
-          </span>
-          <div className="ml-auto flex items-center gap-2">
-            <span className="text-sm text-ink">Change status to:</span>
-            <div className="relative">
+      <div className="employee-directory-shell">
+        <header className="employee-directory-header">
+          <h1 className="employee-directory-title">Employee Active Directory</h1>
+        </header>
+
+        <div className="employee-directory-toolbar">
+          <div className="employee-directory-toolbar-filters">
+            <div className="employee-directory-search-wrap">
+              <Search className="employee-directory-search-icon" strokeWidth={2} />
+              <input
+                type="text"
+                value={searchInput}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Search by Name, Email, or EPL..."
+                className="employee-directory-search-input"
+              />
+              {searchInput ? (
+                <button
+                  type="button"
+                  className="employee-directory-search-clear"
+                  onClick={() => handleSearchChange('')}
+                  aria-label="Clear search"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
+            </div>
+
+            <div className="employee-directory-select-wrap">
               <select
-                value={bulkStatus}
-                onChange={(e) => setBulkStatus(e.target.value as Employee['status'])}
-                className="admin-field h-8 max-w-[118px] cursor-pointer appearance-none pl-2 pr-7 text-[11px] font-semibold text-ink"
-                aria-label="Bulk target status"
+                value={filters.employmentType}
+                onChange={(e) => setFilters({ employmentType: e.target.value })}
+                className={filterSelectClass}
+                aria-label="Filter by employment type"
               >
-                {STATUS_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                <option value="all">All types</option>
+                <option value="Full-time">Full-time</option>
+                <option value="Contract">Contract</option>
+                <option value="Intern">Intern</option>
+              </select>
+              <ChevronDown className="employee-directory-select-icon" aria-hidden />
+            </div>
+
+            <div className="employee-directory-select-wrap">
+              <select
+                value={filters.status}
+                onChange={(e) => setFilters({ status: e.target.value })}
+                className={filterSelectClass}
+                aria-label="Filter by status"
+              >
+                <option value="all">All statuses</option>
+                {STATUS_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
                 ))}
               </select>
-              <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#22c55e]" aria-hidden />
+              <ChevronDown className="employee-directory-select-icon" aria-hidden />
             </div>
-            <Button size="sm" onClick={requestBulkStatusChange} loading={bulkSaving}>
-              Apply
-            </Button>
-            <Button size="sm" variant="ghost" onClick={exitSelectionMode}>
-              Clear
+          </div>
+
+          <div className="employee-directory-toolbar-actions">
+            <button
+              type="button"
+              className="employee-directory-export-btn"
+              onClick={() => void handleExport('pdf')}
+              disabled={exporting === 'pdf'}
+            >
+              <FileText className="h-4 w-4 text-red-600" strokeWidth={2} />
+              Export PDF
+            </button>
+            <button
+              type="button"
+              className="employee-directory-export-btn"
+              onClick={() => void handleExport('excel')}
+              disabled={exporting === 'excel'}
+            >
+              <FileSpreadsheet className="h-4 w-4 text-[#266b1c]" strokeWidth={2} />
+              Export Excel
+            </button>
+            <Button asChild size="lg" className="employee-directory-add-btn shrink-0">
+              <Link to={ROUTES.EMPLOYEE_ADD}>
+                <Plus className="h-4 w-4" strokeWidth={2.5} />
+                Add Employee
+              </Link>
             </Button>
           </div>
         </div>
-      )}
 
-      <div className="space-y-0 pb-12">
-        <DataTable
-          className="employee-list-table rounded-b-none border-b-0"
-          columns={columns}
-          data={employees}
-          loading={loading}
-          sortColumn={sort.column}
-          sortDirection={sort.direction}
-          onSort={(key) => {
-            if (sort.column === key) {
-              setSort(key, sort.direction === 'asc' ? 'desc' : 'asc')
-            } else {
-              setSort(key, 'asc')
-            }
-          }}
-        />
-        {!loading && pagination.total > 0 ? (
-          <div className="employee-list-table admin-panel rounded-t-none border-t-0 px-4 py-3">
-            <PaginationBar
-              total={pagination.total}
-              page={pagination.page}
-              pageSize={pagination.pageSize}
-              onPageChange={setPage}
-              onPageSizeChange={setPageSize}
-              pageSizeOptions={[10, 20, 50, 100]}
-            />
+        <section className="employee-directory-table-section">
+          <div className="employee-directory-table-head">
+            <h2 className="employee-directory-table-title">Employees List</h2>
           </div>
-        ) : null}
+
+          <DataTable
+            className="employee-list-table employee-directory-table"
+            columns={dataColumns}
+            data={employees}
+            loading={loading}
+            brandHeader
+            striped
+            sortColumn={sort.column}
+            sortDirection={sort.direction}
+            onSort={(key) => {
+              if (sort.column === key) {
+                setSort(key, sort.direction === 'asc' ? 'desc' : 'asc')
+              } else {
+                setSort(key, 'asc')
+              }
+            }}
+          />
+
+          {!loading && pagination.total > 0 ? (
+            <div className="employee-directory-pagination">
+              <PaginationBar
+                total={pagination.total}
+                page={pagination.page}
+                pageSize={pagination.pageSize}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+                pageSizeOptions={[10, 20, 50, 100]}
+              />
+            </div>
+          ) : null}
+        </section>
       </div>
 
       {/* Status Change Confirmation Modal */}
@@ -557,7 +468,7 @@ export function EmployeeList() {
                 }}
                 placeholder="Provide a reason for this status change..."
                 className={`admin-field w-full resize-none px-3 py-2 text-sm transition-shadow ${
-                  statusReasonError ? 'border-[#f87171] focus:ring-[#f87171]/20' : 'focus:ring-[#22c55e]/30'
+                  statusReasonError ? 'border-[#f87171] focus:ring-[#f87171]/20' : 'focus:ring-[#266b1c]/30'
                 }`}
                 rows={3}
               />
@@ -576,56 +487,6 @@ export function EmployeeList() {
           </div>
         )}
       </Modal>
-
-      {/* Bulk Status Change Confirmation Modal */}
-      <Modal
-        isOpen={bulkStatusModalOpen}
-        onClose={() => setBulkStatusModalOpen(false)}
-        title="Confirm Bulk Status Change"
-        size="sm"
-        className="admin-modal"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-[#a1a1aa]">
-            You are about to change the status of{' '}
-            <span className="font-semibold text-white">
-              {selectedIds.size} employee{selectedIds.size === 1 ? '' : 's'}
-            </span>
-            {' '}to{' '}
-            <span className="font-semibold text-white">{bulkStatus}</span>.
-          </p>
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-white">
-              Reason <span className="text-[#f87171]">*</span>
-            </label>
-            <textarea
-              ref={bulkReasonInputRef}
-              value={bulkStatusReason}
-              onChange={(e) => {
-                setBulkStatusReason(e.target.value)
-                if (bulkStatusReasonError) setBulkStatusReasonError('')
-              }}
-              placeholder="Provide a reason for this bulk status change..."
-              className={`admin-field w-full resize-none px-3 py-2 text-sm transition-shadow placeholder:text-[#71717a] ${
-                bulkStatusReasonError ? 'border-[#f87171] focus:ring-[#f87171]/20' : 'focus:ring-[#22c55e]/30'
-              }`}
-              rows={3}
-            />
-            {bulkStatusReasonError && (
-              <p className="text-xs text-[#f87171] font-medium">{bulkStatusReasonError}</p>
-            )}
-          </div>
-          <div className="flex justify-end gap-3 pt-2 border-t border-[rgba(161,161,170,0.18)]">
-            <Button variant="secondary" onClick={() => setBulkStatusModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={() => void confirmBulkStatusChange()} loading={bulkSaving}>
-              Confirm Change
-            </Button>
-          </div>
-        </div>
-      </Modal>
-      </PageWrapper>
     </div>
   )
 }

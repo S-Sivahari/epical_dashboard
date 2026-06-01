@@ -22,6 +22,7 @@ const TICKER_LIMIT = 5
 
 type AdminNewsTickerProps = {
   variant?: 'default' | 'brand'
+  scrollMode?: 'marquee' | 'static'
   className?: string
 }
 
@@ -37,6 +38,7 @@ function NewsMarqueeCard({
   onHoverStart: () => void
 }) {
   const hasImage = Boolean(item.imageUrl || item.hasImage)
+  const summary = item.content?.trim().slice(0, 120) ?? ''
 
   return (
     <button
@@ -44,60 +46,51 @@ function NewsMarqueeCard({
       onClick={onClick}
       onMouseEnter={onHoverStart}
       className={cn(
-        'w-full shrink-0 rounded-xl p-2 text-left transition-shadow',
+        'dashboard-news-card w-full shrink-0 text-left transition-all',
         isBrand
-          ? 'bg-white shadow-sm hover:shadow-md'
+          ? 'bg-white hover:shadow-md'
           : 'border border-zinc-700/40 bg-[#27272a] hover:border-zinc-600/60',
       )}
     >
-      <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-slate-100">
-        {hasImage ? (
-          <NewsImage
-            item={item}
-            alt={item.title}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div
-            className={cn(
-              'flex h-full items-center justify-center',
-              isBrand ? 'bg-emerald-50' : 'bg-[#3f3f46]',
-            )}
-          >
-            <Megaphone
+      <div className="flex gap-3 p-2.5">
+        <div className="relative h-[4.5rem] w-[5.5rem] shrink-0 overflow-hidden rounded-lg bg-slate-100 ring-1 ring-[rgba(38,107,28,0.1)]">
+          {hasImage ? (
+            <NewsImage item={item} alt={item.title} className="h-full w-full object-cover" />
+          ) : (
+            <div
               className={cn(
-                'h-6 w-6',
-                isBrand ? 'text-[var(--neon-green)]' : 'text-[#8892a4]',
+                'flex h-full items-center justify-center',
+                isBrand ? 'bg-[#e8f2e6]' : 'bg-[#3f3f46]',
               )}
-            />
-          </div>
-        )}
+            >
+              <Megaphone
+                className={cn('h-5 w-5', isBrand ? 'text-[#266b1c]' : 'text-[#8892a4]')}
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <span className="dashboard-news-tag">
+            <Megaphone className="h-2.5 w-2.5" />
+            Company News
+          </span>
+          <h3 className="mt-1 line-clamp-2 font-display text-xs font-semibold leading-snug text-slate-900">
+            {item.title}
+          </h3>
+          {summary ? (
+            <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-slate-500">{summary}</p>
+          ) : null}
+          <span className="mt-1.5 inline-block text-[10px] font-semibold text-[#266b1c]">
+            Read More →
+          </span>
+        </div>
       </div>
-
-      <span
-        className={cn(
-          'mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider',
-          isBrand
-            ? 'bg-emerald-50 text-emerald-700'
-            : 'bg-emerald-900/40 text-emerald-400',
-        )}
-      >
-        <Megaphone className="h-2.5 w-2.5" />
-        Company News
-      </span>
-
-      <h3
-        className={cn(
-          'mt-1 line-clamp-2 font-display text-xs font-semibold leading-snug text-slate-900',
-        )}
-      >
-        {item.title}
-      </h3>
     </button>
   )
 }
 
-function MarqueeSkeleton({ isBrand }: { isBrand: boolean }) {
+function MarqueeSkeleton({ isBrand, showAccent = true }: { isBrand: boolean; showAccent?: boolean }) {
   return (
     <div
       className={cn(
@@ -116,12 +109,16 @@ function MarqueeSkeleton({ isBrand }: { isBrand: boolean }) {
           ))}
         </div>
       </div>
-      <div className="admin-news-panel-accent w-8 shrink-0" />
+      {showAccent ? <div className="admin-news-panel-accent w-8 shrink-0" /> : null}
     </div>
   )
 }
 
-export function AdminNewsTicker({ variant = 'brand', className }: AdminNewsTickerProps) {
+export function AdminNewsTicker({
+  variant = 'brand',
+  scrollMode = 'marquee',
+  className,
+}: AdminNewsTickerProps) {
   const navigate = useNavigate()
   const isBrand = variant === 'brand'
   const [items, setItems] = useState<NewsItem[]>([])
@@ -140,9 +137,10 @@ export function AdminNewsTicker({ variant = 'brand', className }: AdminNewsTicke
 
   const tickerItems = items.slice(0, TICKER_LIMIT)
   const loopItems = useMemo(() => {
+    if (scrollMode === 'static') return tickerItems
     if (tickerItems.length === 0) return []
     return [...tickerItems, ...tickerItems]
-  }, [tickerItems])
+  }, [tickerItems, scrollMode])
 
   const persistItems = (next: NewsItem[]) => {
     const limited = next.slice(0, TICKER_LIMIT)
@@ -229,7 +227,7 @@ export function AdminNewsTicker({ variant = 'brand', className }: AdminNewsTicke
   if (loading && items.length === 0) {
     return (
       <div className={cn('min-h-0', className)}>
-        <MarqueeSkeleton isBrand={isBrand} />
+        <MarqueeSkeleton isBrand={isBrand} showAccent={scrollMode === 'marquee'} />
       </div>
     )
   }
@@ -247,27 +245,35 @@ export function AdminNewsTicker({ variant = 'brand', className }: AdminNewsTicke
         onMouseLeave={() => setPaused(false)}
       >
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-3 py-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-800">
-              Company News
-            </p>
+          <div className="dashboard-news-header flex shrink-0 items-center justify-between px-3 py-2.5">
+            <p className="dashboard-news-header-title">Company News</p>
             <button
               type="button"
               onClick={() => navigate(ROUTES.NEWS)}
-              className="admin-dash-action-btn-sm"
+              className="dashboard-news-manage-btn"
             >
               Manage
             </button>
           </div>
 
-          <div className="relative min-h-0 flex-1 overflow-hidden px-2 py-2">
+          <div
+            className={cn(
+              'relative min-h-0 flex-1 px-3 pb-3 pt-1',
+              scrollMode === 'static' ? 'overflow-y-auto overscroll-contain' : 'overflow-hidden',
+            )}
+          >
             <div
-              className="flex w-full flex-col gap-2.5 animate-marquee-vertical"
+              className={cn(
+                'flex w-full flex-col gap-3',
+                scrollMode === 'marquee' && 'animate-marquee-vertical',
+              )}
               style={
-                {
-                  '--marquee-duration': MARQUEE_DURATION,
-                  animationPlayState: paused ? 'paused' : 'running',
-                } as React.CSSProperties
+                scrollMode === 'marquee'
+                  ? ({
+                      '--marquee-duration': MARQUEE_DURATION,
+                      animationPlayState: paused ? 'paused' : 'running',
+                    } as React.CSSProperties)
+                  : undefined
               }
             >
               {loopItems.map((item, idx) => (
@@ -283,15 +289,17 @@ export function AdminNewsTicker({ variant = 'brand', className }: AdminNewsTicke
           </div>
         </div>
 
-        <aside
-          className="admin-news-panel-accent flex w-9 shrink-0 flex-col items-center justify-center gap-3 py-4 sm:w-10"
-          aria-hidden
-        >
-          <Megaphone className="h-4 w-4 text-white/90" strokeWidth={2} />
-          <span className="admin-news-panel-accent-label text-[10px] font-bold uppercase">
-            News
-          </span>
-        </aside>
+        {scrollMode === 'marquee' ? (
+          <aside
+            className="dashboard-news-accent admin-news-panel-accent flex w-9 shrink-0 flex-col items-center justify-center gap-3 py-4 sm:w-10"
+            aria-hidden
+          >
+            <Megaphone className="h-4 w-4 text-white/90" strokeWidth={2} />
+            <span className="admin-news-panel-accent-label text-[10px] font-bold uppercase">
+              News
+            </span>
+          </aside>
+        ) : null}
       </div>
 
       <AnimatePresence>

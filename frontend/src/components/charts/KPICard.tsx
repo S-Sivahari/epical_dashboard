@@ -6,7 +6,7 @@ export function KPICard({
   value,
   trend,
   icon: Icon,
-  color = '#059669',
+  color = '#266b1c',
   className,
 }: {
   title: string
@@ -44,7 +44,7 @@ export function KPICard({
                 'mt-2 inline-flex items-center gap-0.5 text-[11px] font-semibold',
                 trend.direction === 'up'
                   ? isBrand
-                    ? 'text-[#22c55e]'
+                    ? 'text-[#266b1c]'
                     : 'text-[#2ecc71]'
                   : 'text-rose-500',
               )}

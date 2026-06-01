@@ -7,7 +7,7 @@ export function TimesheetWeeklyChart({ data, height = 280 }) {
         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
         <XAxis
           dataKey="day"
-          tick={{ fontSize: 12, fontFamily: 'DM Sans, system-ui, sans-serif' }}
+          tick={{ fontSize: 12, fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}
           axisLine={false}
           tickLine={false}
         />
@@ -19,7 +19,7 @@ export function TimesheetWeeklyChart({ data, height = 280 }) {
           allowDecimals={false}
         />
         <Tooltip />
-        <Bar dataKey="hours" fill="#16a34a" radius={[6, 6, 0, 0]} maxBarSize={56} />
+        <Bar dataKey="hours" fill="#266b1c" radius={[6, 6, 0, 0]} maxBarSize={56} />
       </BarChart>
     </ResponsiveContainer>
   )

@@ -342,10 +342,10 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                             className={cn(
                               'min-h-[5rem] xl:min-h-[5.5rem] p-1.5 rounded-lg border transition-all cursor-pointer flex flex-col gap-0.5 hover:shadow-sm overflow-hidden',
                               isAdminCal
-                                ? 'admin-cal-day border-[rgba(20,83,45,0.15)] bg-white/75 hover:border-[rgba(20,83,45,0.35)] hover:bg-emerald-50/80'
+                                ? 'admin-cal-day border-[rgba(38,107,28,0.15)] bg-white/75 hover:border-[rgba(38,107,28,0.35)] hover:bg-emerald-50/80'
                                 : 'bg-white border-border hover:border-primary/50',
                               isTodayDate && (isAdminCal
-                                ? 'admin-cal-day-today ring-2 ring-[rgba(20,83,45,0.25)] border-[var(--emerald-dark)]/40 bg-emerald-50/90'
+                                ? 'admin-cal-day-today ring-2 ring-[rgba(38,107,28,0.25)] border-[var(--emerald-dark)]/40 bg-emerald-50/90'
                                 : 'ring-2 ring-primary/20 border-primary/40 bg-primary/5'),
                               hasMultipleLeaves && (isAdminCal ? 'bg-red-50/50' : 'bg-red-50/40'),
                             )}
@@ -534,7 +534,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                         className={cn(
                           'group flex items-center justify-between p-2 rounded-lg border transition-all',
                           isAdminCal
-                            ? 'admin-cal-list-item border-[rgba(20,83,45,0.12)] hover:border-[rgba(20,83,45,0.28)]'
+                            ? 'admin-cal-list-item border-[rgba(38,107,28,0.12)] hover:border-[rgba(38,107,28,0.28)]'
                             : 'border-border hover:border-primary/40 hover:shadow-sm',
                         )}
                       >
@@ -612,7 +612,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                       className={cn(
                         'group flex items-center p-2 rounded-lg border transition-all',
                         isAdminCal
-                          ? 'admin-cal-list-item border-[rgba(20,83,45,0.12)] hover:border-[rgba(20,83,45,0.28)]'
+                          ? 'admin-cal-list-item border-[rgba(38,107,28,0.12)] hover:border-[rgba(38,107,28,0.28)]'
                           : 'border-border hover:border-primary/40 hover:shadow-sm',
                       )}
                     >
@@ -672,7 +672,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                     className={cn(
                       'flex items-center p-2 rounded-lg border transition-all',
                       isAdminCal
-                        ? 'admin-cal-list-item border-[rgba(20,83,45,0.12)] hover:border-[rgba(20,83,45,0.28)]'
+                        ? 'admin-cal-list-item border-[rgba(38,107,28,0.12)] hover:border-[rgba(38,107,28,0.28)]'
                         : 'border-border hover:border-primary/40 hover:shadow-sm',
                     )}
                   >

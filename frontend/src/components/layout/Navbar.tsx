@@ -85,7 +85,7 @@ export function Navbar() {
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
             <button type="button" className="admin-navbar-user-btn flex max-w-[min(100vw-8rem,18rem)] items-center gap-2 px-2 py-1.5 text-left text-sm">
-              <Avatar name={user?.name ?? 'Admin'} src={user?.avatarUrl} size="sm" color="#16a34a" className="!ring-0" />
+              <Avatar name={user?.name ?? 'Admin'} src={user?.avatarUrl} size="sm" color="#266b1c" className="!ring-0" />
               <div className="hidden min-w-0 flex-1 flex-col sm:flex">
                 <span className="truncate font-semibold leading-tight text-[var(--text-primary)]">{user?.name}</span>
                 <span className="truncate text-xs font-medium text-[var(--text-muted)]">

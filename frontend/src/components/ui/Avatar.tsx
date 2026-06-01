@@ -23,7 +23,7 @@ export function Avatar({
   className?: string
 }) {
   const sizes = { sm: 'h-8 w-8 text-xs', md: 'h-10 w-10 text-sm', lg: 'h-12 w-12 text-base' }
-  const bg = color ?? '#16a34a'
+  const bg = color ?? '#266b1c'
   return (
     <span
       className={cn(

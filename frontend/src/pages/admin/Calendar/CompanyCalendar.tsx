@@ -84,7 +84,7 @@ export function CompanyCalendar() {
       allDay: true,
       backgroundColor:
         h.type === 'National'
-          ? '#16a34a'
+          ? '#266b1c'
           : h.type === 'Company'
           ? '#0066cc'
           : h.type === 'Company Event'
@@ -92,7 +92,7 @@ export function CompanyCalendar() {
           : '#f97316',
       borderColor:
         h.type === 'National'
-          ? '#16a34a'
+          ? '#266b1c'
           : h.type === 'Company'
           ? '#0066cc'
           : h.type === 'Company Event'

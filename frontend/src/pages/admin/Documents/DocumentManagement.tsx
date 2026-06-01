@@ -207,7 +207,7 @@ setRejectOpen(false)
           </thead>
           <tbody>
             {items.map((row) => (
-              <tr key={row.id} className="admin-doc-row border-b border-[rgba(20,83,45,0.08)]">
+              <tr key={row.id} className="admin-doc-row border-b border-[rgba(38,107,28,0.08)]">
                 <td className="px-4 py-3 align-top">
                   <p className="font-semibold text-ink">{row.documentName}</p>
                   <p className="text-xs text-muted">{row.documentType}</p>
@@ -284,7 +284,7 @@ setRejectOpen(false)
           </thead>
           <tbody>
             {items.map((row) => (
-              <tr key={row.id} className="admin-doc-row border-b border-[rgba(20,83,45,0.08)]">
+              <tr key={row.id} className="admin-doc-row border-b border-[rgba(38,107,28,0.08)]">
                 <td className="px-4 py-3 align-top">
                   <p className="font-semibold text-ink">{row.documentName}</p>
                   <p className="text-xs text-muted">{row.documentType}</p>
@@ -330,7 +330,7 @@ setRejectOpen(false)
           </thead>
           <tbody>
             {items.map((row) => (
-              <tr key={row.id} className="admin-doc-row border-b border-[rgba(20,83,45,0.08)]">
+              <tr key={row.id} className="admin-doc-row border-b border-[rgba(38,107,28,0.08)]">
                 <td className="whitespace-nowrap px-4 py-3 text-muted">
                   {formatWhen(row.processedAt || row.requestedAt)}
                 </td>
@@ -405,7 +405,7 @@ setRejectOpen(false)
           Reason for rejection
         </label>
         <textarea
-          className="mt-1 min-h-[100px] w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-ink outline-none focus:border-[var(--emerald-dark)] focus:ring-2 focus:ring-[rgba(20,83,45,0.12)]"
+          className="mt-1 min-h-[100px] w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-ink outline-none focus:border-[var(--emerald-dark)] focus:ring-2 focus:ring-[rgba(38,107,28,0.12)]"
           value={rejectReason}
           onChange={(ev) => setRejectReason(ev.target.value)}
           placeholder="e.g. Missing tax year information..."

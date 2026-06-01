@@ -15,19 +15,19 @@ export function CommandCenterWelcome() {
 
   return (
     <motion.section
-      initial={{ opacity: 0, y: -8 }}
+      initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}
-      className="admin-dash-card shrink-0 p-3 sm:p-3.5"
+      className="dashboard-quick-actions-bar shrink-0"
     >
-      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+      <div className="dashboard-quick-actions-grid">
         {quickActions.map(({ label, icon: Icon, route }) => (
           <button
             key={label}
             type="button"
             onClick={() => navigate(route)}
-            className="crewiq-quick-link admin-dash-action-btn !h-9 !text-xs"
+            className="dashboard-quick-action-glass"
           >
-            <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+            <Icon className="h-4 w-4 shrink-0" strokeWidth={2} />
             <span className="truncate">{label}</span>
           </button>
         ))}

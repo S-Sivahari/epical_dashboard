@@ -10,7 +10,7 @@ export default {
 
       colors: {
 
-        primary: '#166534',
+        primary: '#266b1c',
 
         background: '#F8FAF8',
 
@@ -18,36 +18,54 @@ export default {
 
         foreground: '#020617',
 
-        surface: '#DCFCE7',
+        surface: '#e8f2e6',
 
-        border: 'rgba(22, 163, 74, 0.24)',
+        border: 'rgba(38, 107, 28, 0.24)',
 
         ink: '#020617',
 
         muted: '#475569',
 
-        danger: '#166534',
+        danger: '#266b1c',
 
-        warning: '#15803D',
+        warning: '#2f7d24',
 
-        success: '#15803D',
+        success: '#2f7d24',
 
-        info: '#166534',
+        info: '#266b1c',
 
         emerald: {
+          50: '#e8f2e6',
+          100: '#cfe5cb',
+          200: '#b8d9b2',
+          300: '#9acb92',
+          400: '#76b86c',
+          500: '#3a912d',
+          600: '#2f7d24',
+          700: '#266b1c',
+          800: '#266b1c',
+          900: '#1f5516',
+          950: '#1a4712',
+          primary: '#266b1c',
+          fresh: '#2f7d24',
+          mint: '#3a912d',
+          sage: '#cfe5cb',
+          surface: '#e8f2e6',
+          dark: '#266b1c',
+        },
 
-          primary: '#166534',
-
-          fresh: '#15803D',
-
-          mint: '#16A34A',
-
-          sage: '#BBF7D0',
-
-          surface: '#DCFCE7',
-
-          dark: '#14532D',
-
+        green: {
+          50: '#e8f2e6',
+          100: '#cfe5cb',
+          200: '#b8d9b2',
+          300: '#9acb92',
+          400: '#76b86c',
+          500: '#3a912d',
+          600: '#2f7d24',
+          700: '#266b1c',
+          800: '#266b1c',
+          900: '#1f5516',
+          950: '#1a4712',
         },
 
         brand: {
@@ -61,36 +79,32 @@ export default {
       },
 
       fontFamily: {
-
-        display: ['"Inter"', '"DM Sans"', 'system-ui', 'sans-serif'],
-
-        heading: ['"Inter"', '"DM Sans"', 'system-ui', 'sans-serif'],
-
-        body: ['"DM Sans"', '"Inter"', 'system-ui', 'sans-serif'],
-
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', '"San Francisco"', 'Segoe UI', 'Roboto', '"Helvetica Neue"', 'sans-serif'],
+        display: ['Inter', '-apple-system', 'BlinkMacSystemFont', '"San Francisco"', 'Segoe UI', 'Roboto', '"Helvetica Neue"', 'sans-serif'],
+        heading: ['Inter', '-apple-system', 'BlinkMacSystemFont', '"San Francisco"', 'Segoe UI', 'Roboto', '"Helvetica Neue"', 'sans-serif'],
+        body: ['Inter', '-apple-system', 'BlinkMacSystemFont', '"San Francisco"', 'Segoe UI', 'Roboto', '"Helvetica Neue"', 'sans-serif'],
         mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
-
       },
 
       boxShadow: {
 
-        card: '0 1px 2px rgba(22, 101, 52, 0.04), 0 4px 16px -4px rgba(22, 163, 74, 0.08)',
+        card: '0 1px 2px rgba(38, 107, 28, 0.04), 0 4px 16px -4px rgba(38, 107, 28, 0.08)',
 
-        glass: '0 1px 2px rgba(22, 163, 74, 0.04), 0 8px 24px -8px rgba(22, 163, 74, 0.1)',
+        glass: '0 1px 2px rgba(38, 107, 28, 0.04), 0 8px 24px -8px rgba(38, 107, 28, 0.1)',
 
-        'glass-lg': '0 8px 32px -8px rgba(22, 163, 74, 0.14), 0 2px 8px rgba(22, 101, 52, 0.04)',
+        'glass-lg': '0 8px 32px -8px rgba(38, 107, 28, 0.14), 0 2px 8px rgba(38, 107, 28, 0.04)',
 
-        emerald: '0 4px 20px -4px rgba(22, 163, 74, 0.25)',
+        emerald: '0 4px 20px -4px rgba(38, 107, 28, 0.25)',
 
       },
 
       backgroundImage: {
 
-        'emerald-gradient': 'linear-gradient(135deg, #166534 0%, #15803D 50%, #16A34A 100%)',
+        'emerald-gradient': 'linear-gradient(135deg, #266b1c 0%, #2f7d24 50%, #3a912d 100%)',
 
-        'emerald-soft': 'linear-gradient(180deg, #FFFFFF 0%, #DCFCE7 100%)',
+        'emerald-soft': 'linear-gradient(180deg, #FFFFFF 0%, #e8f2e6 100%)',
 
-        'emerald-radial': 'radial-gradient(circle at top right, rgba(22, 163, 74, 0.15), transparent 55%)',
+        'emerald-radial': 'radial-gradient(circle at top right, rgba(38, 107, 28, 0.15), transparent 55%)',
 
       },
 
@@ -118,9 +132,9 @@ export default {
 
         emeraldPulse: {
 
-          '0%, 100%': { boxShadow: '0 0 0 0 rgba(22, 163, 74, 0.2)' },
+          '0%, 100%': { boxShadow: '0 0 0 0 rgba(38, 107, 28, 0.2)' },
 
-          '50%': { boxShadow: '0 0 0 6px rgba(134, 239, 172, 0.15)' },
+          '50%': { boxShadow: '0 0 0 6px rgba(168, 212, 160, 0.15)' },
 
         },
 

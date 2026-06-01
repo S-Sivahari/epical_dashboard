@@ -15,11 +15,11 @@ interface CalendarEvent {
 }
 
 const typeConfig = {
-  leave: { icon: Palmtree, color: '#166534', label: 'Leave' },
-  holiday: { icon: Calendar, color: '#15803D', label: 'Holiday' },
-  payroll: { icon: DollarSign, color: '#14532D', label: 'Payroll' },
-  event: { icon: Calendar, color: '#166534', label: 'Event' },
-  announcement: { icon: Megaphone, color: '#14532D', label: 'News' },
+  leave: { icon: Palmtree, color: '#266b1c', label: 'Leave' },
+  holiday: { icon: Calendar, color: '#2f7d24', label: 'Holiday' },
+  payroll: { icon: DollarSign, color: '#266b1c', label: 'Payroll' },
+  event: { icon: Calendar, color: '#266b1c', label: 'Event' },
+  announcement: { icon: Megaphone, color: '#266b1c', label: 'News' },
 }
 
 export function SmartCalendarHub({

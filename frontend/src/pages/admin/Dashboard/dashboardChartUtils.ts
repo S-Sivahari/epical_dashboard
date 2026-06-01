@@ -47,7 +47,13 @@ export function getChartRange(period: ChartPeriod) {
   return { from: formatDateKey(start), to: formatDateKey(end) }
 }
 
-function hoursFromTimesheet(t: { loginTime?: string; logoutTime?: string; overriddenHours?: number }) {
+function hoursFromTimesheet(t: {
+  loginTime?: string
+  logoutTime?: string
+  overriddenHours?: number
+  totalHours?: number
+}) {
+  if (t.totalHours != null) return Number(t.totalHours)
   if (t.overriddenHours != null) return Number(t.overriddenHours)
   if (!t.loginTime || !t.logoutTime) return 0
   return (
@@ -55,6 +61,105 @@ function hoursFromTimesheet(t: { loginTime?: string; logoutTime?: string; overri
       ((new Date(t.logoutTime).getTime() - new Date(t.loginTime).getTime()) / 3600000) * 10,
     ) / 10
   )
+}
+
+export type ProjectTableRow = {
+  id: string
+  project: string
+  client: string
+  lead: string
+  totalHours: number
+}
+
+type DashboardProject = {
+  id?: string
+  _id?: string
+  name?: string
+  client?: string
+  teamLead?: string
+  status?: string
+}
+
+type DashboardTimesheet = {
+  project?: string
+  projectId?: string
+  client?: string
+  loginTime?: string
+  logoutTime?: string
+  overriddenHours?: number
+  totalHours?: number
+}
+
+export function aggregateProjectTableRows(
+  timesheets: DashboardTimesheet[],
+  projects: DashboardProject[],
+): ProjectTableRow[] {
+  const hoursByKey = new Map<string, number>()
+
+  timesheets.forEach((t) => {
+    const hours = hoursFromTimesheet(t)
+    if (hours <= 0) return
+    const key = (t.projectId || t.project || '').trim()
+    if (!key) return
+    hoursByKey.set(key, (hoursByKey.get(key) || 0) + hours)
+  })
+
+  const projectById = new Map<string, DashboardProject>()
+  const projectByName = new Map<string, DashboardProject>()
+  projects.forEach((p) => {
+    const id = String(p.id || p._id || '').trim()
+    if (id) projectById.set(id, p)
+    if (p.name) projectByName.set(p.name, p)
+  })
+
+  const rows = new Map<string, ProjectTableRow>()
+
+  const upsertRow = (key: string, partial: Omit<ProjectTableRow, 'id' | 'totalHours'> & { totalHours?: number }) => {
+    const existing = rows.get(key)
+    const hours = partial.totalHours ?? existing?.totalHours ?? 0
+    rows.set(key, {
+      id: key,
+      project: partial.project,
+      client: partial.client,
+      lead: partial.lead,
+      totalHours: Math.round(hours * 10) / 10,
+    })
+  }
+
+  projects
+    .filter((p) => p.status === 'Active')
+    .forEach((p) => {
+      const id = String(p.id || p._id || p.name || '').trim()
+      if (!id) return
+      const hours = hoursByKey.get(id) ?? (p.name ? hoursByKey.get(p.name) : 0) ?? 0
+      upsertRow(id, {
+        project: p.name || 'Untitled Project',
+        client: p.client || '—',
+        lead: p.teamLead || '—',
+        totalHours: hours,
+      })
+    })
+
+  hoursByKey.forEach((hours, key) => {
+    if (rows.has(key)) {
+      const row = rows.get(key)!
+      row.totalHours = Math.round(hours * 10) / 10
+      return
+    }
+
+    const matched = projectById.get(key) || projectByName.get(key)
+    const sampleTs = timesheets.find((t) => t.projectId === key || t.project === key)
+    upsertRow(key, {
+      project: matched?.name || key,
+      client: matched?.client || sampleTs?.client || '—',
+      lead: matched?.teamLead || '—',
+      totalHours: hours,
+    })
+  })
+
+  return Array.from(rows.values())
+    .sort((a, b) => b.totalHours - a.totalHours || a.project.localeCompare(b.project))
+    .slice(0, 10)
 }
 
 export function aggregateChartData(

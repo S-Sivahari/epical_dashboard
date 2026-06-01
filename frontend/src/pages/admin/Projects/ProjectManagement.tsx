@@ -691,7 +691,7 @@ function FilterCheckboxGroup({
         onClick={() => setOpen((v) => !v)}
         className={`flex h-9 w-full items-center justify-between gap-1.5 rounded-lg border bg-[var(--bg-card)] px-2.5 text-left text-xs font-bold outline-none transition-all ${
           open || selected.length > 0
-            ? 'border-[rgba(20,83,45,0.35)] text-ink ring-4 ring-[rgba(20,83,45,0.12)]'
+            ? 'border-[rgba(38,107,28,0.35)] text-ink ring-4 ring-[rgba(38,107,28,0.12)]'
             : 'border-border text-slate-700 hover:border-white/20'
         }`}
       >
@@ -828,13 +828,13 @@ const ProjectCard = memo(function ProjectCard({
     <div
       className={cn(
         'projects-card group relative flex min-h-[190px] flex-col justify-between overflow-hidden rounded-xl p-5 transition-all duration-300 hover:-translate-y-0.5 animate-fadeIn',
-        isCompleted && 'border-[rgba(20,83,45,0.35)] bg-emerald-50/50',
+        isCompleted && 'border-[rgba(38,107,28,0.35)] bg-emerald-50/50',
       )}
     >
       <div className="relative space-y-3.5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-1 items-start gap-3">
-            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-extrabold ring-1 bg-[var(--emerald-surface)] text-[var(--emerald-dark)] ring-[rgba(20,83,45,0.22)]">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-extrabold ring-1 bg-[var(--emerald-surface)] text-[var(--emerald-dark)] ring-[rgba(38,107,28,0.22)]">
               {projectInitial}
             </span>
             <div className="min-w-0 flex-1">
@@ -859,7 +859,7 @@ const ProjectCard = memo(function ProjectCard({
                 Rejected
               </Badge>
             ) : isCompleted ? (
-              <Badge variant="success" className="border border-[rgba(20,83,45,0.18)] bg-[var(--emerald-surface)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--emerald-dark)] rounded-md">
+              <Badge variant="success" className="border border-[rgba(38,107,28,0.18)] bg-[var(--emerald-surface)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--emerald-dark)] rounded-md">
                 Completed
               </Badge>
             ) : (
@@ -891,7 +891,7 @@ const ProjectCard = memo(function ProjectCard({
               <span className="truncate font-mono text-slate-800">{project.technologyNode}</span>
             </span>
             {project.accessType === 'private' && project.teamLead && (
-              <span className="inline-flex items-center rounded-md border border-[rgba(20,83,45,0.18)] bg-[var(--emerald-surface)] px-2 py-0.5 text-[10px] font-bold text-[var(--emerald-dark)] truncate max-w-[120px]" title={`Lead: ${project.teamLead}`}>
+              <span className="inline-flex items-center rounded-md border border-[rgba(38,107,28,0.18)] bg-[var(--emerald-surface)] px-2 py-0.5 text-[10px] font-bold text-[var(--emerald-dark)] truncate max-w-[120px]" title={`Lead: ${project.teamLead}`}>
                 Lead: {project.teamLead.split(' ')[0]}
               </span>
             )}
@@ -946,7 +946,7 @@ const ProjectListRow = memo(function ProjectListRow({
     <tr className={cn('group transition-colors border-b border-border hover:bg-emerald-50/50', isCompleted ? 'bg-emerald-50/60' : '')}>
       <td className="px-5 py-4">
         <div className="flex items-center gap-3">
-          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--emerald-surface)] text-sm font-extrabold text-[var(--emerald-dark)] ring-1 ring-[rgba(20,83,45,0.22)]">
+          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--emerald-surface)] text-sm font-extrabold text-[var(--emerald-dark)] ring-1 ring-[rgba(38,107,28,0.22)]">
             {projectInitial}
           </span>
           <div className="min-w-0">
@@ -976,7 +976,7 @@ const ProjectListRow = memo(function ProjectListRow({
         {project.accessType === 'private' ? (
           <div className="flex items-center gap-2">
             {project.teamLead && (
-              <span className="inline-flex items-center gap-1 rounded-lg border border-[rgba(20,83,45,0.22)] bg-[var(--emerald-surface)] px-2 py-0.5 text-[11px] font-bold text-[var(--emerald-dark)]">
+              <span className="inline-flex items-center gap-1 rounded-lg border border-[rgba(38,107,28,0.22)] bg-[var(--emerald-surface)] px-2 py-0.5 text-[11px] font-bold text-[var(--emerald-dark)]">
                 Lead: {project.teamLead}
               </span>
             )}
@@ -996,7 +996,7 @@ const ProjectListRow = memo(function ProjectListRow({
             <X className="mr-1 h-3.5 w-3.5 text-rose-400" /> Rejected
           </Badge>
         ) : isCompleted ? (
-          <Badge variant="success" className="border border-[rgba(20,83,45,0.22)] bg-[var(--emerald-surface)] px-2.5 py-1 text-[11px] font-bold text-[var(--emerald-dark)]">
+          <Badge variant="success" className="border border-[rgba(38,107,28,0.22)] bg-[var(--emerald-surface)] px-2.5 py-1 text-[11px] font-bold text-[var(--emerald-dark)]">
             <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Completed
           </Badge>
         ) : (
@@ -2334,8 +2334,8 @@ export function ProjectManagement() {
               onClick={() => setShowFilters(!showFilters)}
               className={`inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-bold transition-all ${
                 showFilters || activeFiltersCount > 0
-                  ? 'border-[rgba(20,83,45,0.35)] bg-white/80 text-[var(--emerald-dark)]'
-                  : 'border-[rgba(20,83,45,0.2)] bg-white/50 text-slate-800 hover:bg-white/70'
+                  ? 'border-[rgba(38,107,28,0.35)] bg-white/80 text-[var(--emerald-dark)]'
+                  : 'border-[rgba(38,107,28,0.2)] bg-white/50 text-slate-800 hover:bg-white/70'
               }`}
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -2348,7 +2348,7 @@ export function ProjectManagement() {
             </button>
 
             {showFilters ? (
-              <div className="space-y-3 rounded-lg border border-[rgba(20,83,45,0.15)] bg-white/55 p-3 animate-fadeIn">
+              <div className="space-y-3 rounded-lg border border-[rgba(38,107,28,0.15)] bg-white/55 p-3 animate-fadeIn">
                 <FilterCheckboxGroup
                   label="Client Name"
                   placeholder="All Clients"
@@ -2399,7 +2399,7 @@ export function ProjectManagement() {
               </div>
             ) : null}
 
-            <div className="rounded-lg border border-[rgba(20,83,45,0.12)] bg-white/45 p-3">
+            <div className="rounded-lg border border-[rgba(38,107,28,0.12)] bg-white/45 p-3">
               <p className="text-xs font-semibold text-slate-700 tabular-nums">
                 <span className="font-bold text-[var(--emerald-dark)]">{filteredProjects.length}</span>
                 <span className="text-slate-600"> / {projects.length} projects</span>
@@ -2663,7 +2663,7 @@ export function ProjectManagement() {
                 {tsEmployeeFilters.map((empName) => (
                   <span
                     key={empName}
-                    className="inline-flex items-center gap-1 rounded-md border border-[rgba(20,83,45,0.22)] bg-[var(--emerald-surface)] px-2 py-1 text-xs font-semibold text-[var(--emerald-dark)]"
+                    className="inline-flex items-center gap-1 rounded-md border border-[rgba(38,107,28,0.22)] bg-[var(--emerald-surface)] px-2 py-1 text-xs font-semibold text-[var(--emerald-dark)]"
                   >
                     {empName}
                     <button
@@ -2793,7 +2793,7 @@ export function ProjectManagement() {
                   </ProjectHoursHoverCardProvider>
                 </div>
               ) : (
-                <div className="flex h-60 items-center justify-center rounded-lg border border-dashed border-[rgba(20,83,45,0.2)] bg-white/60 text-sm font-semibold text-slate-600 sm:h-64">
+                <div className="flex h-60 items-center justify-center rounded-lg border border-dashed border-[rgba(38,107,28,0.2)] bg-white/60 text-sm font-semibold text-slate-600 sm:h-64">
                   No data logs available in the chosen dates.
                 </div>
               )}
@@ -2886,7 +2886,7 @@ export function ProjectManagement() {
                                 }
                               }
                             }}
-                            className="group/btn block max-w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(20,83,45,0.22)] rounded-md"
+                            className="group/btn block max-w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(38,107,28,0.22)] rounded-md"
                           >
                             <p className="flex items-center gap-1 font-bold text-ink transition-colors group-hover/btn:text-[var(--emerald-dark)]">
                               <span className="truncate">{t.project}</span>
@@ -3069,7 +3069,7 @@ export function ProjectManagement() {
                 setForm({ ...form, description: enforceMaxWords(e.target.value) })
               }
               rows={3}
-              className="w-full rounded-xl border border-border bg-[var(--bg-input)] p-3 text-xs text-ink outline-none transition-all placeholder:text-slate-600 focus:border-[var(--emerald-dark)] focus:ring-2 focus:ring-[rgba(20,83,45,0.15)]"
+              className="w-full rounded-xl border border-border bg-[var(--bg-input)] p-3 text-xs text-ink outline-none transition-all placeholder:text-slate-600 focus:border-[var(--emerald-dark)] focus:ring-2 focus:ring-[rgba(38,107,28,0.15)]"
               required
             />
             <p
@@ -3091,7 +3091,7 @@ export function ProjectManagement() {
               <select
                 value={form.status}
                 onChange={(e) => setForm({ ...form, status: e.target.value as 'Active' | 'Completed' | 'Cancelled' })}
-                className="w-full rounded-xl border border-border bg-[var(--bg-input)] p-2.5 text-xs text-ink outline-none transition-all focus:border-[var(--emerald-dark)] focus:ring-2 focus:ring-[rgba(20,83,45,0.15)]"
+                className="w-full rounded-xl border border-border bg-[var(--bg-input)] p-2.5 text-xs text-ink outline-none transition-all focus:border-[var(--emerald-dark)] focus:ring-2 focus:ring-[rgba(38,107,28,0.15)]"
               >
                 <option value="Active">In Progress</option>
                 <option value="Completed">Completed</option>
@@ -3186,7 +3186,7 @@ function EmptyState({
       {hasFilters && (
         <button
           onClick={onClear}
-          className="mt-4 text-xs font-bold text-[var(--emerald-dark)] hover:text-[var(--green-600)] transition-colors bg-[var(--emerald-surface)] hover:bg-[var(--emerald-sage)] py-2 px-4 rounded-lg border border-[rgba(20,83,45,0.22)]"
+          className="mt-4 text-xs font-bold text-[var(--emerald-dark)] hover:text-[var(--green-600)] transition-colors bg-[var(--emerald-surface)] hover:bg-[var(--emerald-sage)] py-2 px-4 rounded-lg border border-[rgba(38,107,28,0.22)]"
         >
           Reset Applied Filters
         </button>

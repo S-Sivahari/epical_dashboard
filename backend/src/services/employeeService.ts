@@ -238,11 +238,25 @@ export async function getAllEmployees(
     query.status = { $ne: 'Archived' };
   }
 
+  const statusRankSwitch = {
+    $switch: {
+      branches: [
+        { case: { $eq: ['$status', 'Active'] }, then: 0 },
+        { case: { $eq: ['$status', 'Notice Period'] }, then: 1 },
+        { case: { $eq: ['$status', 'Deactivated'] }, then: 2 },
+        { case: { $eq: ['$status', 'Inactive'] }, then: 3 },
+      ],
+      default: 99,
+    },
+  };
 
   const sortDirectionVal = filters.sortDirection === 'desc' ? -1 : 1;
-  let sortObj: Record<string, 1 | -1> = { createdAt: -1 };
+  const sortObj: Record<string, 1 | -1> = { statusRank: 1 };
   if (filters.sortColumn) {
-    sortObj = { [filters.sortColumn]: sortDirectionVal };
+    sortObj[filters.sortColumn] = sortDirectionVal;
+  } else {
+    sortObj.firstName = 1;
+    sortObj.lastName = 1;
   }
 
   // Get total count and page in parallel — projection skips photo/doc blobs
@@ -250,11 +264,14 @@ export async function getAllEmployees(
   const [total, data] = await Promise.all([
     collection.countDocuments(query),
     collection
-      .find(query)
-      .project(EMPLOYEE_LIST_PROJECTION)
-      .skip(skip)
-      .limit(pageSize)
-      .sort(sortObj)
+      .aggregate([
+        { $match: query },
+        { $addFields: { statusRank: statusRankSwitch } },
+        { $sort: sortObj },
+        { $skip: skip },
+        { $limit: pageSize },
+        { $project: EMPLOYEE_LIST_PROJECTION },
+      ])
       .toArray(),
   ]);
 

@@ -16,9 +16,9 @@ const variants = cva(
   {
     variants: {
       variant: {
-        primary: 'bg-primary text-white hover:bg-emerald-700 active:bg-emerald-800',
+        primary: 'bg-primary text-white hover:bg-[#1f5516] active:bg-[#1a4814]',
         secondary:
-          'border border-emerald-200/80 bg-white text-emerald-900 hover:bg-emerald-50/60 active:bg-emerald-100/60',
+          'border border-[rgba(38,107,28,0.24)] bg-white text-[#266b1c] hover:bg-[#e8f2e6] active:bg-[#cfe5cb]',
         danger: 'bg-danger text-white hover:bg-red-600 active:bg-red-700',
         warning: 'bg-amber-500 text-white hover:bg-amber-600 active:bg-amber-700',
         info: 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800',

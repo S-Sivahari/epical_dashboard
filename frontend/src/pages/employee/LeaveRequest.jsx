@@ -256,7 +256,7 @@ export default function LeaveRequest() {
     // Fetch Balances
     leaveService.getBalances().then((data) => {
       const formatted = [
-        { key: 'casual', type: 'Casual Leave', used: data['Casual Leave']?.used || 0, total: data['Casual Leave']?.total || 12, color: '#16a34a' },
+        { key: 'casual', type: 'Casual Leave', used: data['Casual Leave']?.used || 0, total: data['Casual Leave']?.total || 12, color: '#266b1c' },
         { key: 'sick', type: 'Sick Leave', used: data['Sick Leave']?.used || 0, total: data['Sick Leave']?.total || 12, color: '#3b82f6' },
         { key: 'earned', type: 'Earned Leave', used: data['Earned Leave']?.used || 0, total: data['Earned Leave']?.total || 0, color: '#8b5cf6' },
       ]
@@ -279,7 +279,7 @@ export default function LeaveRequest() {
     const balanceInterval = setInterval(() => {
       leaveService.getBalances().then((data) => {
         const formatted = [
-          { key: 'casual', type: 'Casual Leave', used: data['Casual Leave']?.used || 0, total: data['Casual Leave']?.total || 12, color: '#16a34a' },
+          { key: 'casual', type: 'Casual Leave', used: data['Casual Leave']?.used || 0, total: data['Casual Leave']?.total || 12, color: '#266b1c' },
           { key: 'sick', type: 'Sick Leave', used: data['Sick Leave']?.used || 0, total: data['Sick Leave']?.total || 12, color: '#3b82f6' },
           { key: 'earned', type: 'Earned Leave', used: data['Earned Leave']?.used || 0, total: data['Earned Leave']?.total || 0, color: '#8b5cf6' },
         ]
@@ -507,7 +507,7 @@ export default function LeaveRequest() {
       // Refresh balances and notifications after submission
       const newBalances = await leaveService.getBalances()
       setLeaveBalances([
-        { key: 'casual', type: 'Casual Leave', used: newBalances['Casual Leave']?.used || 0, total: newBalances['Casual Leave']?.total || 12, color: '#16a34a' },
+        { key: 'casual', type: 'Casual Leave', used: newBalances['Casual Leave']?.used || 0, total: newBalances['Casual Leave']?.total || 12, color: '#266b1c' },
         { key: 'sick', type: 'Sick Leave', used: newBalances['Sick Leave']?.used || 0, total: newBalances['Sick Leave']?.total || 12, color: '#3b82f6' },
         { key: 'earned', type: 'Earned Leave', used: newBalances['Earned Leave']?.used || 0, total: newBalances['Earned Leave']?.total || 0, color: '#8b5cf6' },
       ])
