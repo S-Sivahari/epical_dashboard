@@ -277,7 +277,7 @@ export function CompanyNews() {
             className="mb-6 overflow-hidden rounded-2xl border border-border bg-white shadow-sm"
             style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
           >
-            <div className="border-b border-border bg-gradient-to-r from-sky-50 via-white to-cyan-50 px-6 py-5">
+            <div className="border-b border-border bg-gradient-to-r from-sky-950/30 via-[var(--bg-card)] to-cyan-950/20 px-6 py-5">
               <div className="flex items-start gap-4">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-600 text-white shadow-sm">
                   <Rss className="h-5 w-5" />
@@ -384,7 +384,7 @@ export function CompanyNews() {
             className="mb-6 overflow-hidden rounded-2xl border border-border bg-white shadow-sm"
             style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
           >
-        <div className="border-b border-border bg-gradient-to-r from-emerald-50 via-white to-teal-50 px-6 py-5">
+        <div className="border-b border-border bg-gradient-to-r from-emerald-950/30 via-[var(--bg-card)] to-teal-950/20 px-6 py-5">
           <div className="flex items-start gap-4">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
               <Megaphone className="h-5 w-5" />

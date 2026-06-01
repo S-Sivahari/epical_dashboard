@@ -32,14 +32,28 @@ const CREWIQ_COLORS = [
 ]
 
 function getDarkBarColor(index: number, brand: boolean) {
-  if (!brand) return '#4ade80' // light theme: plain green
+  if (!brand) return '#14532D'
   return CREWIQ_COLORS[index % CREWIQ_COLORS.length]
+}
+
+const DASHBOARD_GREEN = {
+  dark: '#14532D',
+  mid: '#166534',
+  deep: '#0f3d24',
+  bright: '#15803D',
+  hover: '#16a34a',
+  axis: '#1e293b',
+  axisMuted: '#475569',
+  label: '#0f172a',
+  grid: 'rgba(15, 23, 42, 0.08)',
+  cursor: 'rgba(20, 83, 45, 0.14)',
 }
 
 export function HoursBarChart({
   data,
   theme = 'light',
   brand = false,
+  colorScheme = 'default',
   height = 280,
   fillParent = false,
   animate = true,
@@ -48,6 +62,7 @@ export function HoursBarChart({
   data: { name: string; hours: number }[]
   theme?: 'light' | 'dark'
   brand?: boolean
+  colorScheme?: 'default' | 'dashboard'
   /** Fixed pixel height for the chart area (prevents layout shift). Ignored when fillParent is true. */
   height?: number
   /** Grow to fill a flex parent (e.g. admin dashboard card). */
@@ -57,33 +72,46 @@ export function HoursBarChart({
 }) {
   const gradId = useId().replace(/:/g, '')
   const isDark = theme === 'dark'
+  const isDashboard = colorScheme === 'dashboard'
 
-  const tooltipStyle = isDark
+  const tooltipStyle = isDashboard
     ? {
-        backgroundColor: '#161b27',
-        border: '1px solid rgba(255,255,255,0.09)',
-        borderRadius: 12,
+        backgroundColor: DASHBOARD_GREEN.dark,
+        border: '1px solid rgba(255,255,255,0.15)',
+        borderRadius: 10,
         color: '#ffffff',
         fontSize: 12,
-        boxShadow: '0 12px 32px -8px rgba(0,0,0,0.7)',
+        fontWeight: 600,
+        boxShadow: '0 8px 24px rgba(20, 83, 45, 0.35)',
       }
-    : {
-        backgroundColor: '#ffffff',
-        border: '1px solid rgb(209 250 229)',
-        borderRadius: 12,
-        color: '#0f172a',
-        fontSize: 12,
-        boxShadow: '0 4px 24px -4px rgba(15,118,110,0.18)',
-      }
+    : isDark
+      ? {
+          backgroundColor: '#161b27',
+          border: '1px solid rgba(255,255,255,0.09)',
+          borderRadius: 12,
+          color: '#ffffff',
+          fontSize: 12,
+          boxShadow: '0 12px 32px -8px rgba(0,0,0,0.7)',
+        }
+      : {
+          backgroundColor: '#ffffff',
+          border: '1px solid rgb(209 250 229)',
+          borderRadius: 12,
+          color: '#0f172a',
+          fontSize: 12,
+          boxShadow: '0 4px 24px -4px rgba(15,118,110,0.18)',
+        }
 
-  const axisColor = isDark ? '#4a5568' : '#64748b'
-  const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgb(226 232 240 / 0.9)'
-  const labelFill = isDark ? 'rgba(255,255,255,0.65)' : '#065f46'
-  const cursorFill = isDark
-    ? brand
-      ? 'rgba(79,142,247,0.06)'
-      : 'rgba(79,142,247,0.08)'
-    : 'rgba(22,163,74,0.06)'
+  const axisColor = isDashboard ? DASHBOARD_GREEN.axisMuted : isDark ? '#4a5568' : '#64748b'
+  const gridColor = isDashboard ? DASHBOARD_GREEN.grid : isDark ? 'rgba(255,255,255,0.05)' : 'rgb(226 232 240 / 0.9)'
+  const labelFill = isDashboard ? DASHBOARD_GREEN.label : isDark ? 'rgba(255,255,255,0.65)' : '#065f46'
+  const cursorFill = isDashboard
+    ? DASHBOARD_GREEN.cursor
+    : isDark
+      ? brand
+        ? 'rgba(79,142,247,0.06)'
+        : 'rgba(79,142,247,0.08)'
+      : 'rgba(22,163,74,0.06)'
 
   // For the dark brand dashboard — single green gradient like reference
   const useCellColors = false
@@ -113,7 +141,13 @@ export function HoursBarChart({
           <defs>
             {/* Fallback gradient for non-brand or light mode */}
             <linearGradient id={`hoursBarGrad-${gradId}`} x1="0" y1="1" x2="0" y2="0">
-              {brand && isDark ? (
+              {isDashboard ? (
+                <>
+                  <stop offset="0%" stopColor={DASHBOARD_GREEN.deep} stopOpacity={1} />
+                  <stop offset="50%" stopColor={DASHBOARD_GREEN.dark} stopOpacity={1} />
+                  <stop offset="100%" stopColor={DASHBOARD_GREEN.mid} stopOpacity={0.95} />
+                </>
+              ) : brand && isDark ? (
                 <>
                   <stop offset="0%" stopColor="#00a152" stopOpacity={1} />
                   <stop offset="55%" stopColor="#00e676" stopOpacity={0.95} />
@@ -128,6 +162,14 @@ export function HoursBarChart({
               )}
             </linearGradient>
 
+            {isDashboard && (
+              <linearGradient id={`hoursBarHoverGrad-${gradId}`} x1="0" y1="1" x2="0" y2="0">
+                <stop offset="0%" stopColor={DASHBOARD_GREEN.dark} stopOpacity={1} />
+                <stop offset="55%" stopColor={DASHBOARD_GREEN.bright} stopOpacity={1} />
+                <stop offset="100%" stopColor={DASHBOARD_GREEN.hover} stopOpacity={1} />
+              </linearGradient>
+            )}
+
             {/* Per-color gradients for cell mode */}
             {useCellColors &&
               CREWIQ_COLORS.map((color, i) => (
@@ -141,12 +183,12 @@ export function HoursBarChart({
           <CartesianGrid strokeDasharray="3 6" stroke={gridColor} vertical={false} />
           <XAxis
             dataKey="name"
-            tick={{ fill: axisColor, fontSize: 11, fontWeight: 500 }}
+            tick={{ fill: axisColor, fontSize: 11, fontWeight: isDashboard ? 600 : 500 }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
-            tick={{ fill: axisColor, fontSize: 11 }}
+            tick={{ fill: axisColor, fontSize: 11, fontWeight: isDashboard ? 500 : 400 }}
             axisLine={false}
             tickLine={false}
             width={36}
@@ -157,6 +199,8 @@ export function HoursBarChart({
           <Tooltip
             contentStyle={tooltipStyle}
             cursor={{ fill: cursorFill }}
+            labelStyle={isDashboard ? { color: 'rgba(255,255,255,0.85)', fontWeight: 600 } : undefined}
+            itemStyle={isDashboard ? { color: '#ffffff', fontWeight: 700 } : undefined}
             formatter={(v: number) => [`${v}h`, 'Hours']}
           />
           <Bar
@@ -166,6 +210,16 @@ export function HoursBarChart({
             barSize={14}
             maxBarSize={20}
             isAnimationActive={animate}
+            activeBar={
+              isDashboard
+                ? {
+                    fill: `url(#hoursBarHoverGrad-${gradId})`,
+                    stroke: DASHBOARD_GREEN.dark,
+                    strokeWidth: 1,
+                    radius: 6,
+                  }
+                : undefined
+            }
           >
             {useCellColors
               ? data.map((_entry, index) => (
