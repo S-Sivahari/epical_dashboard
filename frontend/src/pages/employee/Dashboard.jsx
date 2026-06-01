@@ -9,6 +9,7 @@ import {
   LogIn,
   LogOut,
   Calendar,
+  FileText,
 } from 'lucide-react'
 import { ProfileCard } from '@components/employee/shared/ProfileCard'
 import { KPIStatCard } from '@components/employee/shared/KPIStatCard'
@@ -21,12 +22,16 @@ import { useAuthStore } from '@store/authStore'
 import { fetchEmployeeDashboard } from '@services/employeeDashboardService'
 import * as leaveService from '@services/leaveService'
 import { formatDate } from '@pages/employee/lib/utils'
+import { cn } from '@pages/employee/lib/utils'
+import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 
 const LEAVE_COLORS = {
   'Casual Leave': '#16a34a',
   'Sick Leave': '#3b82f6',
   'Earned Leave': '#8b5cf6',
 }
+
+const CARD_CLASS = portalCardClass({ className: 'flex h-full flex-col p-4 sm:p-5' })
 
 function formatLeaveBalances(balanceData = {}) {
   return [
@@ -59,23 +64,40 @@ function formatLeaveBalances(balanceData = {}) {
 
 function SectionCard({ title, subtitle, action, children, className = '' }) {
   return (
-    <section
-      className={`rounded-xl border border-border bg-card p-5 shadow-card md:p-6 ${className}`}
-    >
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="font-heading text-lg font-semibold text-foreground">{title}</h3>
-          {subtitle ? <p className="mt-0.5 text-sm text-muted">{subtitle}</p> : null}
+    <InteractiveCard className={cn(CARD_CLASS, className)}>
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-2 border-b border-border pb-3">
+        <div className="min-w-0">
+          <h3 className="font-heading text-base font-semibold text-foreground">{title}</h3>
+          {subtitle ? <p className="mt-0.5 text-xs text-muted">{subtitle}</p> : null}
         </div>
         {action}
       </div>
-      {children}
-    </section>
+      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+    </InteractiveCard>
+  )
+}
+
+function SectionLink({ to, label }) {
+  return (
+    <Link
+      to={to}
+      className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:underline"
+    >
+      {label} <ArrowRight className="h-3.5 w-3.5" />
+    </Link>
   )
 }
 
 function InlineSkeleton({ className = '' }) {
-  return <div className={`animate-pulse rounded-xl bg-slate-100 ${className}`} />
+  return <div className={cn('animate-pulse rounded-xl bg-slate-100', className)} />
+}
+
+function EmptyState({ children }) {
+  return (
+    <p className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border px-3 py-6 text-center text-xs text-muted">
+      {children}
+    </p>
+  )
 }
 
 export default function Dashboard() {
@@ -157,250 +179,222 @@ export default function Dashboard() {
   }, [employee?.id])
 
   const pendingLeaves = useMemo(() => leaves.filter((l) => l.status === 'Pending'), [leaves])
-
   const pendingDocs = useMemo(() => documents.filter((d) => d.status === 'Requested'), [documents])
-
   const enrolledCourses = enrollments.filter((e) => e.status === 'Enrolled').length
   const completedCourses = enrollments.filter((e) => e.status === 'Completed').length
-
-  const upcomingHolidays = useMemo(() => holidays.slice(0, 5), [holidays])
+  const upcomingHolidays = useMemo(() => holidays.slice(0, 4), [holidays])
+  const recentLeaves = useMemo(() => leaves.slice(0, 4), [leaves])
 
   const weeklyTarget = 40
   const weeklyProgress = Math.min(100, Math.round((weeklyHours / weeklyTarget) * 100))
 
-  return (
-    <div className="space-y-5">
-      <ProfileCard employee={employee} profile={profile} attendance={attendance} />
+  const widgetSkeleton = <InlineSkeleton className="min-h-[220px] h-full" />
 
-      <AnnouncementBanner />
+  return (
+    <div className="max-w-full space-y-4 overflow-x-hidden">
+      <AnnouncementBanner compact />
+
+      <ProfileCard employee={employee} profile={profile} attendance={attendance} compact />
 
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
-            <InlineSkeleton key={i} className="h-28" />
+            <InlineSkeleton key={i} className="h-24" />
           ))}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <KPIStatCard
+            className="p-4"
             title="Hours This Month"
             value={`${monthlyHours}h`}
             icon={Clock}
-            trend={`${weeklyHours}h logged this week`}
+            trend={`${weeklyHours}h this week`}
           />
           <KPIStatCard
+            className="p-4"
             title="Pending Leave"
             value={String(pendingLeaves.length)}
             icon={CalendarOff}
-            trend={pendingLeaves.length ? 'Awaiting approval' : 'No pending requests'}
+            trend={pendingLeaves.length ? 'Awaiting approval' : 'None pending'}
           />
           <KPIStatCard
+            className="p-4"
             title="Active Projects"
             value={String(projectCount)}
             icon={FolderKanban}
-            trend={projectCount ? 'Assigned to you' : 'None assigned yet'}
+            trend={projectCount ? 'Assigned to you' : 'None assigned'}
           />
           <KPIStatCard
+            className="p-4"
             title="Training"
             value={String(completedCourses)}
             icon={BookOpen}
             trend={
               enrolledCourses > 0
-                ? `${enrolledCourses} course${enrolledCourses === 1 ? '' : 's'} in progress`
-                : 'No active enrollments'
+                ? `${enrolledCourses} in progress`
+                : 'No enrollments'
             }
           />
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          {balancesLoading ? (
-            <InlineSkeleton className="h-64" />
-          ) : (
-            <SectionCard
-              title="Leave Balance"
-              subtitle="Your remaining leave for the year"
-              action={
-                <Link
-                  to="/employee/leave"
-                  className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-                >
-                  Apply leave <ArrowRight className="h-4 w-4" />
-                </Link>
-              }
-            >
-              <div className="grid gap-3 sm:grid-cols-3">
-                {balances.map((lb) => (
-                  <LeaveCard
-                    key={lb.key}
-                    type={lb.type}
-                    used={lb.used}
-                    total={lb.total}
-                    remaining={lb.remaining}
-                    color={lb.color ?? LEAVE_COLORS[lb.type] ?? '#16a34a'}
-                  />
-                ))}
-              </div>
-            </SectionCard>
-          )}
+      <div className="grid gap-4 md:grid-cols-2 md:items-stretch">
+        {balancesLoading ? (
+          widgetSkeleton
+        ) : (
+          <SectionCard
+            title="Leave balance"
+            subtitle="Remaining leave for the year"
+            action={<SectionLink to="/employee/leave" label="Apply" />}
+          >
+            <div className="grid flex-1 auto-rows-fr gap-2">
+              {balances.map((lb) => (
+                <LeaveCard
+                  key={lb.key}
+                  type={lb.type}
+                  used={lb.used}
+                  total={lb.total}
+                  remaining={lb.remaining}
+                  color={lb.color ?? LEAVE_COLORS[lb.type] ?? '#16a34a'}
+                  embedded
+                  className="h-full min-h-0 py-3"
+                />
+              ))}
+            </div>
+          </SectionCard>
+        )}
 
-          {loading ? (
-            <InlineSkeleton className="h-64" />
-          ) : (
-            <SectionCard
-              title="Recent Leave Requests"
-              subtitle="Latest activity on your leave applications"
-              action={
-                <Link
-                  to="/employee/leave"
-                  className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-                >
-                  View all <ArrowRight className="h-4 w-4" />
-                </Link>
-              }
-            >
-              {leaves.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
-                  No leave requests yet.
-                </p>
-              ) : (
-                <div className="divide-y divide-border rounded-lg border border-border">
-                  {leaves.slice(0, 5).map((leave) => (
-                    <div
-                      key={leave.id}
-                      className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
-                    >
-                      <div className="min-w-0">
-                        <p className="font-medium text-foreground">{leave.type}</p>
-                        <p className="text-sm text-muted">
-                          {formatDate(leave.from)} – {formatDate(leave.to)} · {leave.days}{' '}
-                          {leave.days === 1 ? 'day' : 'days'}
-                        </p>
-                      </div>
-                      <Badge variant={statusVariant(leave.status)}>{leave.status}</Badge>
+        {loading ? (
+          widgetSkeleton
+        ) : (
+          <SectionCard
+            title="Recent leave requests"
+            subtitle="Latest applications"
+            action={<SectionLink to="/employee/leave" label="View all" />}
+          >
+            {recentLeaves.length === 0 ? (
+              <EmptyState>No leave requests yet.</EmptyState>
+            ) : (
+              <ul className="flex flex-1 flex-col divide-y divide-border rounded-lg border border-border">
+                {recentLeaves.map((leave) => (
+                  <li
+                    key={leave.id}
+                    className="flex items-center justify-between gap-2 px-3 py-2.5"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">{leave.type}</p>
+                      <p className="truncate text-xs text-muted">
+                        {formatDate(leave.from)} – {formatDate(leave.to)} · {leave.days}d
+                      </p>
                     </div>
-                  ))}
-                </div>
-              )}
-            </SectionCard>
-          )}
-        </div>
-
-        <div className="space-y-6">
-          {loading ? (
-            <InlineSkeleton className="h-64" />
-          ) : (
-            <SectionCard title="Today's Attendance" subtitle="Quick status from timesheet">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-3">
-                  <span className="inline-flex items-center gap-2 text-sm text-muted">
-                    <LogIn className="h-4 w-4 text-primary" /> Check-in
-                  </span>
-                  <span className="text-sm font-semibold text-foreground">
-                    {attendance?.checkInTime
-                      ? new Date(attendance.checkInTime).toLocaleTimeString('en-IN', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })
-                      : '—'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-3">
-                  <span className="inline-flex items-center gap-2 text-sm text-muted">
-                    <LogOut className="h-4 w-4 text-primary" /> Check-out
-                  </span>
-                  <span className="text-sm font-semibold text-foreground">
-                    {attendance?.checkOutTime
-                      ? new Date(attendance.checkOutTime).toLocaleTimeString('en-IN', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })
-                      : '—'}
-                  </span>
-                </div>
-                <div>
-                  <div className="mb-2 flex justify-between text-sm">
-                    <span className="text-muted">Weekly hours</span>
-                    <span className="font-semibold text-foreground">
-                      {weeklyHours}h / {weeklyTarget}h
-                    </span>
-                  </div>
-                  <Progress value={weeklyProgress} className="h-2.5" />
-                </div>
-                <Link
-                  to="/employee/timesheet"
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-primary/90"
-                >
-                  <Clock className="h-4 w-4" /> Open Timesheet
-                </Link>
-              </div>
-            </SectionCard>
-          )}
-
-          {!loading && pendingDocs.length > 0 ? (
-            <SectionCard
-              title="Document Requests"
-              subtitle={`${pendingDocs.length} pending`}
-              action={
-                <Link
-                  to="/employee/documents"
-                  className="text-sm font-medium text-primary hover:underline"
-                >
-                  View
-                </Link>
-              }
-            >
-              <div className="space-y-2">
-                {pendingDocs.slice(0, 3).map((doc) => (
-                  <div key={doc.id} className="rounded-lg border border-border px-3 py-2.5">
-                    <p className="text-sm font-medium text-foreground">{doc.documentName}</p>
-                    <p className="text-xs text-muted">{doc.documentType}</p>
-                  </div>
+                    <Badge variant={statusVariant(leave.status)} className="shrink-0 text-[10px]">
+                      {leave.status}
+                    </Badge>
+                  </li>
                 ))}
-              </div>
-            </SectionCard>
-          ) : null}
+              </ul>
+            )}
+          </SectionCard>
+        )}
 
-          {loading ? (
-            <InlineSkeleton className="h-48" />
-          ) : (
-            <SectionCard
-              title="Upcoming Holidays"
-              subtitle="Next dates on the company calendar"
-              action={
-                <Link
-                  to="/employee/calendar"
-                  className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-                >
-                  Calendar <ArrowRight className="h-4 w-4" />
-                </Link>
-              }
-            >
-              {upcomingHolidays.length === 0 ? (
-                <p className="text-sm text-muted">No upcoming holidays scheduled.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {upcomingHolidays.map((h) => (
-                    <li
-                      key={h.id ?? h.date}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5"
-                    >
-                      <div className="flex min-w-0 items-center gap-2">
-                        <Calendar className="h-4 w-4 shrink-0 text-primary" />
-                        <span className="truncate text-sm font-medium text-foreground">
-                          {h.title}
-                        </span>
-                      </div>
-                      <span className="shrink-0 text-xs text-muted">{formatDate(h.date)}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </SectionCard>
-          )}
-        </div>
+        {loading ? (
+          widgetSkeleton
+        ) : (
+          <SectionCard title="Today's attendance" subtitle="Timesheet snapshot">
+            <div className="flex flex-1 flex-col gap-2.5">
+              <div className="flex items-center justify-between rounded-lg bg-slate-50/90 px-3 py-2">
+                <span className="inline-flex items-center gap-1.5 text-xs text-muted">
+                  <LogIn className="h-3.5 w-3.5 text-primary" /> Check-in
+                </span>
+                <span className="text-xs font-semibold text-foreground">
+                  {attendance?.checkInTime
+                    ? new Date(attendance.checkInTime).toLocaleTimeString('en-IN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    : '—'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between rounded-lg bg-slate-50/90 px-3 py-2">
+                <span className="inline-flex items-center gap-1.5 text-xs text-muted">
+                  <LogOut className="h-3.5 w-3.5 text-primary" /> Check-out
+                </span>
+                <span className="text-xs font-semibold text-foreground">
+                  {attendance?.checkOutTime
+                    ? new Date(attendance.checkOutTime).toLocaleTimeString('en-IN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    : '—'}
+                </span>
+              </div>
+              <div className="mt-auto">
+                <div className="mb-1.5 flex justify-between text-xs">
+                  <span className="text-muted">Weekly hours</span>
+                  <span className="font-semibold text-foreground">
+                    {weeklyHours}h / {weeklyTarget}h
+                  </span>
+                </div>
+                <Progress value={weeklyProgress} className="h-2" />
+              </div>
+              <Link
+                to="/employee/timesheet"
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-white hover:bg-primary/90"
+              >
+                <Clock className="h-3.5 w-3.5" /> Open timesheet
+              </Link>
+            </div>
+          </SectionCard>
+        )}
+
+        {loading ? (
+          widgetSkeleton
+        ) : (
+          <SectionCard
+            title="Upcoming holidays"
+            subtitle="Company calendar"
+            action={<SectionLink to="/employee/calendar" label="Calendar" />}
+          >
+            {upcomingHolidays.length === 0 ? (
+              <EmptyState>No upcoming holidays.</EmptyState>
+            ) : (
+              <ul className="flex flex-1 flex-col gap-2">
+                {upcomingHolidays.map((h) => (
+                  <li
+                    key={h.id ?? h.date}
+                    className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2"
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Calendar className="h-3.5 w-3.5 shrink-0 text-primary" />
+                      <span className="truncate text-sm font-medium text-foreground">{h.title}</span>
+                    </div>
+                    <span className="shrink-0 text-[11px] text-muted">{formatDate(h.date)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </SectionCard>
+        )}
       </div>
+
+      {!loading && pendingDocs.length > 0 ? (
+        <div
+          data-portal-card=""
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200/80 bg-amber-50/80 px-4 py-3 shadow-sm transition-[border-color,box-shadow] duration-200 hover:border-amber-300 hover:shadow-md"
+        >
+          <div className="flex min-w-0 items-center gap-2">
+            <FileText className="h-4 w-4 shrink-0 text-amber-700" />
+            <p className="text-sm text-amber-900">
+              <span className="font-medium">{pendingDocs.length}</span> document request
+              {pendingDocs.length === 1 ? '' : 's'} pending HR review
+            </p>
+          </div>
+          <Link to="/employee/documents" className="text-xs font-medium text-primary hover:underline">
+            View documents
+          </Link>
+        </div>
+      ) : null}
 
       <AssignedProjectsSection
         initialProjects={assignedProjects}

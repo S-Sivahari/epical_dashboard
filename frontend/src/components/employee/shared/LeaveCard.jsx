@@ -1,7 +1,9 @@
 import { motion } from 'framer-motion'
 import { Progress } from '@components/employee/ui/progress'
+import { cn } from '@pages/employee/lib/utils'
+import { portalCardClass } from '@components/employee/shared/interactiveCard'
 
-export function LeaveCard({ type, used, total, remaining: remainingProp, color }) {
+export function LeaveCard({ type, used, total, remaining: remainingProp, color, embedded = false, className }) {
   const remaining =
     remainingProp != null
       ? remainingProp
@@ -12,8 +14,15 @@ export function LeaveCard({ type, used, total, remaining: remainingProp, color }
 
   return (
     <motion.div
-      whileHover={{ scale: 1.02 }}
-      className="rounded-xl border border-border bg-card p-4 shadow-card"
+      whileHover={embedded ? false : { scale: 1.02 }}
+      data-portal-card=""
+      className={cn(
+        'flex h-full flex-col p-4',
+        embedded
+          ? portalCardClass({ subtle: true, className: 'shadow-none' })
+          : portalCardClass({ className: 'shadow-card' }),
+        className,
+      )}
     >
       <div className="mb-3 flex items-center justify-between">
         <span className="font-heading text-sm font-semibold">{type}</span>

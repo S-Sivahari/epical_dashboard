@@ -8,6 +8,7 @@ import { KPIStatCard } from '@components/employee/shared/KPIStatCard'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { listCourses, listEnrollments, enrollEmployee, markComplete } from '@services/trainingService'
 import { useAuthStore } from '@store/authStore'
+import { portalCardClass } from '@components/employee/shared/interactiveCard'
 
 export default function Training() {
   const [courses, setCourses] = useState([])
@@ -192,7 +193,7 @@ export default function Training() {
                   <motion.div
                     key={course.id}
                     whileHover={{ y: -4 }}
-                    className="rounded-xl border border-border bg-card p-5 shadow-card"
+                    className={portalCardClass({ className: 'p-5' })}
                   >
                     <div className="flex items-start justify-between">
                       <Badge variant="secondary">{course.platform || 'Platform'}</Badge>
@@ -260,7 +261,7 @@ export default function Training() {
                     <motion.div
                       key={e.id}
                       whileHover={{ y: -4 }}
-                      className="rounded-xl border border-border bg-card p-5 shadow-card"
+                      className={portalCardClass({ className: 'p-5' })}
                     >
                       <Badge variant="success">Completed</Badge>
                       <h4 className="mt-3 font-heading font-semibold">{e.courseTitle}</h4>

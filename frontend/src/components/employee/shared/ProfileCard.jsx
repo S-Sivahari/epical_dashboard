@@ -29,7 +29,7 @@ function greeting() {
   return 'Good evening'
 }
 
-export function ProfileCard({ employee, profile, attendance }) {
+export function ProfileCard({ employee, profile, attendance, compact = false }) {
   if (!employee) return null
 
   const firstName = employee.name?.split(' ')[0] ?? 'there'
@@ -41,21 +41,37 @@ export function ProfileCard({ employee, profile, attendance }) {
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-700 via-primary to-teal-600 p-6 shadow-lg md:p-8"
+      className={`relative overflow-hidden rounded-xl bg-gradient-to-br from-emerald-700 via-primary to-teal-600 shadow-card ${
+        compact ? 'p-5 md:p-6' : 'rounded-2xl p-6 shadow-lg md:p-8'
+      }`}
     >
       <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10" />
       <div className="absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-white/5" />
-      <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+      <div
+        className={`relative flex flex-col lg:flex-row lg:items-center lg:justify-between ${
+          compact ? 'gap-4' : 'gap-6'
+        }`}
+      >
+        <div className={`flex flex-col sm:flex-row sm:items-center ${compact ? 'gap-4' : 'gap-5'}`}>
           <EmployeePhotoAvatar
             employeeId={employee.id}
             name={employee.name}
-            className="h-20 w-20 border-4 border-white/40 shadow-lg md:h-24 md:w-24"
-            fallbackClassName="bg-white/20 text-2xl text-white"
+            className={
+              compact
+                ? 'h-16 w-16 border-[3px] border-white/40 shadow-md md:h-[4.5rem] md:w-[4.5rem]'
+                : 'h-20 w-20 border-4 border-white/40 shadow-lg md:h-24 md:w-24'
+            }
+            fallbackClassName={compact ? 'bg-white/20 text-xl text-white' : 'bg-white/20 text-2xl text-white'}
           />
           <div className="min-w-0">
             <p className="text-sm font-medium text-white/80">{greeting()},</p>
-            <h2 className="font-heading text-2xl font-bold text-white md:text-3xl">{employee.name}</h2>
+            <h2
+              className={`font-heading font-bold text-white ${
+                compact ? 'text-xl md:text-2xl' : 'text-2xl md:text-3xl'
+              }`}
+            >
+              {employee.name}
+            </h2>
             <p className="mt-1 text-sm text-white/75">{employeeCode}</p>
             <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/90">
               {roleLabel ? (

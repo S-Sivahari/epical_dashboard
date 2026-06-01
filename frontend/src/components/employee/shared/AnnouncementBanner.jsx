@@ -15,7 +15,7 @@ const GRADIENTS = [
   'from-emerald-700 to-green-500',
 ]
 
-export function AnnouncementBanner() {
+export function AnnouncementBanner({ compact = false }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [index, setIndex] = useState(0)
@@ -48,7 +48,12 @@ export function AnnouncementBanner() {
 
   if (loading) {
     return (
-      <div className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-500 p-6 text-white md:p-8">
+      <div
+        className={cn(
+          'rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow-card',
+          compact ? 'p-4' : 'rounded-2xl p-6 md:p-8',
+        )}
+      >
         <p className="text-sm text-white/80">Loading announcements...</p>
       </div>
     )
@@ -64,7 +69,7 @@ export function AnnouncementBanner() {
 
   return (
     <>
-      <div className="relative overflow-hidden rounded-2xl">
+      <div className={cn('relative overflow-hidden shadow-card', compact ? 'rounded-xl' : 'rounded-2xl')}>
         <AnimatePresence mode="wait">
           <motion.button
             key={current.id}
@@ -75,23 +80,35 @@ export function AnnouncementBanner() {
             transition={{ duration: 0.4 }}
             onClick={() => setActive(current)}
             className={cn(
-              'w-full bg-gradient-to-r p-6 text-left text-white md:p-8 cursor-pointer',
-              gradient
+              'w-full cursor-pointer bg-gradient-to-r text-left text-white',
+              compact ? 'p-4 md:p-5' : 'p-6 md:p-8',
+              gradient,
             )}
           >
-            <div className="flex items-start gap-4">
-              {/* Icon */}
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/20">
-                <Megaphone className="h-6 w-6" />
+            <div className="flex items-start gap-3">
+              <div
+                className={cn(
+                  'flex shrink-0 items-center justify-center rounded-lg bg-white/20',
+                  compact ? 'h-9 w-9' : 'h-12 w-12 rounded-xl',
+                )}
+              >
+                <Megaphone className={compact ? 'h-4 w-4' : 'h-6 w-6'} />
               </div>
-              
-              {/* Content */}
-              <div className="flex-1 pr-16">
-                <p className="text-xs font-medium uppercase tracking-wider text-white/80">
-                  Company Announcement
+              <div className={cn('min-w-0 flex-1', items.length > 1 ? 'pr-14' : '')}>
+                <p className="text-[11px] font-medium uppercase tracking-wider text-white/80">
+                  Company announcements
                 </p>
-                <h3 className="mt-1 font-display text-xl font-bold text-white md:text-2xl">{current.title}</h3>
-                <p className="mt-2 text-sm text-white/90 line-clamp-2">{excerpt}</p>
+                <h3
+                  className={cn(
+                    'mt-0.5 font-display font-bold text-white',
+                    compact ? 'line-clamp-1 text-base md:text-lg' : 'text-xl md:text-2xl',
+                  )}
+                >
+                  {current.title}
+                </h3>
+                <p className={cn('mt-1 text-white/90 line-clamp-2', compact ? 'text-xs' : 'text-sm')}>
+                  {excerpt}
+                </p>
               </div>
             </div>
           </motion.button>

@@ -336,7 +336,6 @@ export function ProjectTasksModal({
         )
       )
 
-      toast.success('Task marked as completed')
       await applySyncResponse(result.project, result.timesheet)
     } catch (error) {
       console.error('Failed to mark task completed:', error)

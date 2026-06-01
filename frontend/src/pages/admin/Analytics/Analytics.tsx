@@ -30,7 +30,8 @@ export function Analytics() {
   ]
 
   return (
-    <PageWrapper>
+    <PageWrapper className="admin-page">
+      <div className="crewiq-dashboard">
       <PageHeader
         title=""
         breadcrumb={<Breadcrumb items={[{ label: 'Analytics' }]} />}
@@ -41,7 +42,7 @@ export function Analytics() {
           </Button>
         }
       />
-      <div className="mb-4 flex flex-wrap gap-3 rounded-xl border border-border bg-surface/60 p-4">
+      <div className="admin-toolbar mb-4">
         <SelectField
           label="Employee"
           id="analytics-employee"
@@ -61,14 +62,15 @@ export function Analytics() {
         <KPICard title="Avg hours / week" value={36} icon={BarChart3} color="#f59e0b" />
       </div>
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-border bg-white p-4 shadow-sm">
-          <p className="mb-2 font-display text-sm font-semibold text-ink">Weekly performance</p>
+        <div className="admin-card">
+          <p className="mb-2 font-display text-sm font-semibold text-white">Weekly performance</p>
           <HoursBarChart data={weekly} />
         </div>
-        <div className="rounded-xl border border-border bg-white p-4 shadow-sm">
-          <p className="mb-2 font-display text-sm font-semibold text-ink">Course completion</p>
+        <div className="admin-card">
+          <p className="mb-2 font-display text-sm font-semibold text-white">Course completion</p>
           <DepartmentPieChart data={courses} />
         </div>
+      </div>
       </div>
     </PageWrapper>
   )

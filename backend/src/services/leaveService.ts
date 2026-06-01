@@ -122,6 +122,8 @@ function normalizeDate(date: string) {
 }
 
 export async function createLeave(payload: CreateLeavePayload): Promise<LeaveRequest> {
+  validateLeaveDates(payload.from, payload.to);
+
   const col = getLeaveCol();
 
   // 1. Fetch holidays (exclude skipped ones — they are working days)
@@ -626,6 +628,7 @@ export async function seedHolidays(): Promise<void> {
 
 import * as emailService from './emailService';
 import { env } from '../config/env';
+import { validateLeaveDates } from '../utils/dateValidation';
 
 /**
  * Notify all admins when an employee submits a leave request

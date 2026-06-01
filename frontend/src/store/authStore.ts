@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { jwtDecode } from 'jwt-decode'
 import api from '@services/api'
 import { verifyGoogleOAuthLogin } from '@services/googleOAuthService'
+import { clearPayslipUploadSession } from '@/utils/payslipUploadSession'
 
 export type UserRole = 'admin' | 'employee'
 
@@ -105,6 +106,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ token, isAuthenticated: true, user, role: mappedRole })
   },
   logout: () => {
+    clearPayslipUploadSession()
     localStorage.removeItem('hrms_token')
     localStorage.removeItem('hrms_role')
     localStorage.removeItem('hrms_user')

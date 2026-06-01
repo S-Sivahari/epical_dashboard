@@ -143,7 +143,7 @@ export function DateRangePicker({ startDate, endDate, preset, onChange }) {
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-2 flex w-[92vw] flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-xl sm:w-auto sm:min-w-[500px] md:flex-row">
+        <div className="date-range-popover absolute right-0 top-full z-50 mt-2 flex w-[92vw] flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-xl sm:w-auto sm:min-w-[500px] md:flex-row">
           <div className="flex-1 select-none">
             <div className="mb-4 flex items-center justify-between">
               <button
@@ -155,7 +155,7 @@ export function DateRangePicker({ startDate, endDate, preset, onChange }) {
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <span className="text-xs font-semibold text-foreground">
+              <span className="date-range-month-title type-calendar-month">
                 {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
               </span>
               <button
@@ -169,7 +169,7 @@ export function DateRangePicker({ startDate, endDate, preset, onChange }) {
               </button>
             </div>
 
-            <div className="mb-1 grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-muted">
+            <div className="type-calendar-weekday mb-1 grid grid-cols-7 gap-1 text-center">
               {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
                 <span key={d} className="py-1">
                   {d}
@@ -177,7 +177,7 @@ export function DateRangePicker({ startDate, endDate, preset, onChange }) {
               ))}
             </div>
 
-            <div className="grid grid-cols-7 gap-1 text-center text-xs">
+            <div className="type-calendar-day grid grid-cols-7 gap-1 text-center">
               {calendarCells.map((cell, idx) => {
                 const isSelectedStart = tempStart && cell.dateString === tempStart
                 const isSelectedEnd = tempEnd && cell.dateString === tempEnd
@@ -215,7 +215,7 @@ export function DateRangePicker({ startDate, endDate, preset, onChange }) {
           <div className="hidden border-l border-border md:block" />
 
           <div className="flex w-full flex-col gap-0.5 md:w-36">
-            <p className="mb-2 text-[9px] font-bold uppercase tracking-wider text-muted">Quick Presets</p>
+            <p className="type-card-label-caps mb-2 text-[9px]">Quick Presets</p>
             {QUICK_PRESETS.map((p) => (
               <button
                 key={p}

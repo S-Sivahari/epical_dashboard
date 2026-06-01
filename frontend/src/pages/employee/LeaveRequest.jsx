@@ -3,9 +3,11 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useNavigate } from 'react-router-dom'
-import { Calendar, AlertTriangle, X } from 'lucide-react'
+import { Controller } from 'react-hook-form'
+import { Calendar, AlertTriangle, X, Clock, History, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react'
+import { cn } from '@pages/employee/lib/utils'
+import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 import { Button } from '@components/employee/ui/button'
-import { Input } from '@components/employee/ui/input'
 import { Label } from '@components/employee/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/employee/ui/select'
 import { DataTable } from '@components/employee/shared/DataTable'
@@ -18,14 +20,39 @@ import { useAuthStore } from '@store/authStore'
 
 import * as leaveService from '@services/leaveService'
 import { listCompensation } from '@services/compensationService'
+import { DateInput } from '@components/shared/DateInput'
+import {
+  getLeaveDateBounds,
+  ISO_DATE_REGEX,
+  leaveRangeError,
+  parseIsoDate,
+} from '@/utils/dateValidation'
+
+const leaveBounds = getLeaveDateBounds()
 
 const leaveSchema = z
   .object({
     type: z.string().min(1, 'Select leave type'),
     leaveDuration: z.enum(['Full Day', 'Half Day']),
     halfDaySession: z.string().optional(),
-    fromDate: z.string().min(1, 'From date required'),
-    toDate: z.string().min(1, 'To date required'),
+    fromDate: z
+      .string()
+      .min(1, 'From date required')
+      .regex(ISO_DATE_REGEX, 'Enter a valid date as dd/mm/yyyy')
+      .refine((v) => parseIsoDate(v).valid, 'Invalid calendar date')
+      .refine(
+        (v) => v >= leaveBounds.min && v <= leaveBounds.max,
+        `Leave can only be applied from today up to ${leaveBounds.max.split('-').reverse().join('/')}`,
+      ),
+    toDate: z
+      .string()
+      .min(1, 'To date required')
+      .regex(ISO_DATE_REGEX, 'Enter a valid date as dd/mm/yyyy')
+      .refine((v) => parseIsoDate(v).valid, 'Invalid calendar date')
+      .refine(
+        (v) => v >= leaveBounds.min && v <= leaveBounds.max,
+        `Leave can only be applied from today up to ${leaveBounds.max.split('-').reverse().join('/')}`,
+      ),
   })
   .superRefine((data, ctx) => {
     if (data.leaveDuration === 'Half Day') {
@@ -36,11 +63,44 @@ const leaveSchema = z
         ctx.addIssue({ path: ['toDate'], code: 'custom', message: 'From and To date must match for half-day leave' })
       }
     }
+    if (data.fromDate && data.toDate) {
+      const rangeErr = leaveRangeError(data.fromDate, data.toDate)
+      if (rangeErr) {
+        ctx.addIssue({ path: ['toDate'], code: 'custom', message: rangeErr })
+      }
+    }
   })
 
 const leaveTypes = ['Sick Leave', 'Casual Leave', 'Earned Leave']
 const leaveDurations = ['Full Day', 'Half Day']
 const halfDaySessions = ['First Half', 'Second Half']
+
+const CARD_CLASS = portalCardClass({ className: 'p-5 sm:p-6' })
+
+function SectionHeader({ icon: Icon, title, description, children }) {
+  return (
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+      <div className="flex min-w-0 items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Icon className="h-5 w-5" />
+        </div>
+        <div className="min-w-0">
+          <h3 className="font-heading text-lg font-semibold text-foreground">{title}</h3>
+          {description ? <p className="mt-0.5 text-sm text-muted">{description}</p> : null}
+        </div>
+      </div>
+      {children ? <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">{children}</div> : null}
+    </div>
+  )
+}
+
+function getVisiblePageNumbers(current, total) {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1)
+  }
+  const pages = new Set([1, total, current, current - 1, current + 1])
+  return [...pages].filter((page) => page >= 1 && page <= total).sort((a, b) => a - b)
+}
 function formatAppliedDate(value) {
   if (!value) return '—'
   const date = new Date(value)
@@ -329,6 +389,34 @@ export default function LeaveRequest() {
 
   const pendingLeaves = requests.filter((r) => r.status === 'Pending')
 
+  const pendingColumns = useMemo(
+    () => [
+      { key: 'type', label: 'Leave Type' },
+      { key: 'leaveDuration', label: 'Duration' },
+      { key: 'from', label: 'Start Date' },
+      { key: 'to', label: 'End Date' },
+      { key: 'days', label: 'Days' },
+      { key: 'status', label: 'Status' },
+      {
+        key: 'actions',
+        label: 'Action',
+        render: (row) => (
+          <button
+            type="button"
+            onClick={() => handleCancel(row)}
+            disabled={cancellingId === row.id}
+            className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60"
+            title="Cancel this request"
+          >
+            <X className="h-3.5 w-3.5" />
+            {cancellingId === row.id ? 'Cancelling…' : 'Cancel'}
+          </button>
+        ),
+      },
+    ],
+    [cancellingId],
+  )
+
   const compensationHistoryRows = useMemo(
     () =>
       compensationEntries.map((entry) => ({
@@ -384,11 +472,10 @@ export default function LeaveRequest() {
       return
     }
 
-    const currentFrom = new Date(data.fromDate)
-    const currentTo = new Date(data.toDate)
-
-    if (currentTo < currentFrom) {
-      setError('toDate', { type: 'manual', message: 'End date must be the same or after the start date' })
+    const rangeErr = leaveRangeError(data.fromDate, data.toDate)
+    if (rangeErr) {
+      setError('toDate', { type: 'manual', message: rangeErr })
+      toast({ title: 'Validation error', description: rangeErr })
       return
     }
 
@@ -429,149 +516,176 @@ export default function LeaveRequest() {
     }
   }
 
+  const visiblePageNumbers = getVisiblePageNumbers(currentPage, totalPages)
+
   return (
-    <div className="space-y-6">
-      {/* Header with Calendar Icon */}
-      <div className="flex items-center justify-between">
+    <div className="max-w-full space-y-5 overflow-x-hidden">
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <button
           type="button"
           onClick={() => navigate('/employee/calendar')}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white hover:bg-primary/90 transition-colors"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary/90"
           title="View Company Calendar"
         >
-          <Calendar className="h-5 w-5" />
-          Calendar
+          <Calendar className="h-4 w-4" />
+          Company Calendar
         </button>
       </div>
 
-
-      {/* Apply Leave Form & Leave Balances & Pending Requests */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left Column: Apply for Leave Form */}
-        <div className="lg:col-span-1">
-          <form onSubmit={handleSubmit(onSubmit)} className="rounded-xl border border-border bg-card p-6 shadow-card space-y-4">
+      <div className="grid gap-5 lg:grid-cols-2 lg:items-stretch">
+        <InteractiveCard
+          as="form"
+          selectable={false}
+          onSubmit={handleSubmit(onSubmit, onError)}
+          className={cn(CARD_CLASS, 'flex h-full flex-col space-y-4')}
+        >
+          <div>
+            <h3 className="font-heading text-lg font-semibold text-foreground">Apply for leave</h3>
+            <p className="mt-1 text-sm text-muted">Submit a new leave request for HR approval.</p>
+          </div>
+          <div>
+            <Label>Leave Type *</Label>
+            <Select value={watch('type')} onValueChange={(v) => setValue('type', v)}>
+              <SelectTrigger className="mt-1"><SelectValue placeholder="Select type" /></SelectTrigger>
+              <SelectContent>
+                {leaveTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {errors.type && <p className="mt-1 text-xs text-danger">{errors.type.message}</p>}
+          </div>
+          <div>
+            <Label>Leave Duration *</Label>
+            <Select value={watch('leaveDuration')} onValueChange={(v) => setValue('leaveDuration', v)}>
+              <SelectTrigger className="mt-1"><SelectValue placeholder="Select duration" /></SelectTrigger>
+              <SelectContent>
+                {leaveDurations.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {errors.leaveDuration && <p className="mt-1 text-xs text-danger">{errors.leaveDuration.message}</p>}
+          </div>
+          {leaveDuration === 'Half Day' && (
             <div>
-              <Label>Leave Type *</Label>
-              <Select value={watch('type')} onValueChange={(v) => setValue('type', v)}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder="Select type" /></SelectTrigger>
+              <Label>Half-day Session *</Label>
+              <Select value={watch('halfDaySession')} onValueChange={(v) => setValue('halfDaySession', v)}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select session" /></SelectTrigger>
                 <SelectContent>
-                  {leaveTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  {halfDaySessions.map((session) => (
+                    <SelectItem key={session} value={session}>{session}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              {errors.type && <p className="mt-1 text-xs text-danger">{errors.type.message}</p>}
+              {errors.halfDaySession && <p className="mt-1 text-xs text-danger">{errors.halfDaySession.message}</p>}
             </div>
+          )}
+          <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <Label>Leave Duration *</Label>
-              <Select value={watch('leaveDuration')} onValueChange={(v) => setValue('leaveDuration', v)}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder="Select duration" /></SelectTrigger>
-                <SelectContent>
-                  {leaveDurations.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {errors.leaveDuration && <p className="mt-1 text-xs text-danger">{errors.leaveDuration.message}</p>}
-            </div>
-            {leaveDuration === 'Half Day' && (
-              <div>
-                <Label>Half-day Session *</Label>
-                <Select value={watch('halfDaySession')} onValueChange={(v) => setValue('halfDaySession', v)}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select session" /></SelectTrigger>
-                  <SelectContent>
-                    {halfDaySessions.map((session) => (
-                      <SelectItem key={session} value={session}>{session}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.halfDaySession && <p className="mt-1 text-xs text-danger">{errors.halfDaySession.message}</p>}
-              </div>
-            )}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <Label>From Date *</Label>
-                <Input type="date" className="mt-1" {...register('fromDate')} />
-                {errors.fromDate && <p className="mt-1 text-xs text-danger">{errors.fromDate.message}</p>}
-              </div>
-              <div>
-                <Label>To Date *</Label>
-                <Input
-                  type="date"
-                  className="mt-1"
-                  {...register('toDate')}
-                  disabled={leaveDuration === 'Half Day'}
-                />
-                {leaveDuration === 'Half Day' && (
-                  <p className="mt-1 text-xs text-muted">Half-day leave must have the same start and end date.</p>
+              <Label>From Date *</Label>
+              <Controller
+                name="fromDate"
+                control={control}
+                render={({ field }) => (
+                  <DateInput
+                    className="mt-1 rounded-xl"
+                    value={field.value || ''}
+                    onChange={field.onChange}
+                    minDate={leaveBounds.min}
+                    maxDate={leaveBounds.max}
+                    error={errors.fromDate?.message}
+                  />
                 )}
-                {errors.toDate && <p className="mt-1 text-xs text-danger">{errors.toDate.message}</p>}
-              </div>
+              />
             </div>
-            {holidayWarning && (
-              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-600" />
-                <span>{holidayWarning}</span>
-              </div>
-            )}
-            <Button type="submit" disabled={isSubmitting} className="w-full">Submit Request</Button>
-          </form>
-        </div>
-
-        {/* Right Column: Leave Balance & Pending Requests */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Leave Balance */}
-          <div className="rounded-xl border border-border bg-card p-6 shadow-card">
-
-            <div className="space-y-3">
-              {leaveBalances.map((lb) => (
-                <LeaveCard key={lb.key} type={lb.type} used={lb.used} total={lb.total} color={lb.color} />
-              ))}
+            <div>
+              <Label>To Date *</Label>
+              <Controller
+                name="toDate"
+                control={control}
+                render={({ field }) => (
+                  <DateInput
+                    className="mt-1 rounded-xl"
+                    value={field.value || ''}
+                    onChange={field.onChange}
+                    minDate={leaveBounds.min}
+                    maxDate={leaveBounds.max}
+                    disabled={leaveDuration === 'Half Day'}
+                    error={errors.toDate?.message}
+                  />
+                )}
+              />
+              {leaveDuration === 'Half Day' && (
+                <p className="mt-1 text-xs text-muted">Half-day leave uses the same start and end date.</p>
+              )}
             </div>
           </div>
-
-          {/* Pending Requests */}
-          <div className="rounded-xl border border-border bg-card p-6 shadow-card">
-            <h3 className="font-heading text-lg font-semibold mb-4">Pending Requests</h3>
-            {pendingLeaves.length === 0 ? (
-              <p className="text-sm text-muted">No pending leave requests</p>
-            ) : (
-              <div className="space-y-3">
-                {pendingLeaves.map((req) => (
-                  <div key={req.id} className="rounded-lg border border-yellow-300 bg-yellow-50 p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1">
-                        <p className="font-medium">{req.type}</p>
-                        <p className="text-xs text-muted mt-1">{req.from} to {req.to} ({req.days} days)</p>
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <span className="px-2 py-1 rounded text-xs font-medium whitespace-nowrap text-yellow-700 bg-yellow-200">
-                          Pending
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleCancel(req)}
-                          disabled={cancellingId === req.id}
-                          className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-60 border border-red-200 transition-colors"
-                          title="Cancel this request"
-                        >
-                          <X className="h-3 w-3" />
-                          {cancellingId === req.id ? 'Cancelling...' : 'Cancel'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+          <p className="text-xs text-muted">
+            Dates must be in dd/mm/yyyy format. Leave can be applied from today up to{' '}
+            {leaveBounds.max.split('-').reverse().join('/')}.
+          </p>
+          {holidayWarning && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+              <span>{holidayWarning}</span>
+            </div>
+          )}
+          <div className="mt-auto pt-1">
+            <Button type="submit" disabled={isSubmitting} className="w-full">
+              {isSubmitting ? 'Submitting…' : 'Submit Request'}
+            </Button>
           </div>
-        </div>
+        </InteractiveCard>
+
+        <InteractiveCard className={cn(CARD_CLASS, 'flex h-full flex-col')}>
+          <SectionHeader
+            icon={BarChart3}
+            title="Leave balance"
+            description="Track used and remaining days by leave type"
+          />
+          <div className="grid flex-1 auto-rows-fr gap-3">
+            {leaveBalances.map((lb) => (
+              <LeaveCard
+                key={lb.key}
+                type={lb.type}
+                used={lb.used}
+                total={lb.total}
+                color={lb.color}
+                embedded
+                className="h-full"
+              />
+            ))}
+          </div>
+        </InteractiveCard>
       </div>
 
-      {/* Leave History Table */}
-      <div className="rounded-xl border border-border bg-card p-6 shadow-card">
-        <h3 className="font-heading text-lg font-semibold mb-4">Leave History</h3>
-        <p className="mb-4 text-sm text-muted">
-          Includes approved/rejected leave requests and compensation days credited to earned leave.
-        </p>
-        <div className="mb-4 flex flex-wrap gap-3 items-end">
-          <SearchBar value={search} onChange={setSearch} placeholder="Search leave history..." className="max-w-xs" />
+      <InteractiveCard className={CARD_CLASS}>
+        <SectionHeader
+          icon={Clock}
+          title="Pending requests"
+          description="Requests awaiting HR approval — you can cancel while pending"
+        />
+        <DataTable
+          columns={pendingColumns}
+          data={pendingLeaves}
+          statusKey="status"
+          compact
+          emptyMessage="No pending leave requests."
+        />
+      </InteractiveCard>
+
+      <InteractiveCard className={CARD_CLASS}>
+        <SectionHeader
+          icon={History}
+          title="Leave history"
+          description="Approved, rejected, and compensation credits on earned leave"
+        >
+          <SearchBar
+            value={search}
+            onChange={setSearch}
+            placeholder="Search leave history…"
+            className="w-full min-w-0 sm:max-w-xs"
+          />
+        </SectionHeader>
+
+        <div className="mb-4 flex flex-wrap items-center gap-3">
           <FilterDropdown
             value={statusFilter}
             onChange={setStatusFilter}
@@ -582,7 +696,7 @@ export default function LeaveRequest() {
               { value: 'credited', label: 'Credited' },
             ]}
           />
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex items-center gap-2 sm:ml-auto">
             <span className="text-xs text-muted">Rows per page</span>
             <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
               <SelectTrigger className="h-9 w-[90px]">
@@ -598,36 +712,71 @@ export default function LeaveRequest() {
             </Select>
           </div>
         </div>
-        <DataTable columns={columns} data={pagedHistory} statusKey="status" />
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-muted">
-          <span>
-            Showing {historyLeaves.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}-
-            {Math.min(currentPage * pageSize, historyLeaves.length)} of {historyLeaves.length} records
-          </span>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={currentPage === 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              Prev
-            </Button>
-            <span className="text-xs font-medium">
-              Page {currentPage} / {totalPages}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={currentPage >= totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      </div>
 
+        <DataTable
+          columns={columns}
+          data={pagedHistory}
+          statusKey="status"
+          compact
+          emptyMessage="No leave history records match your filters."
+        />
+
+        {historyLeaves.length > 0 && (
+          <div className="mt-4 flex flex-col gap-4 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted">
+              Showing {(currentPage - 1) * pageSize + 1}–
+              {Math.min(currentPage * pageSize, historyLeaves.length)} of {historyLeaves.length} records
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1"
+                disabled={currentPage === 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </Button>
+              <div className="flex items-center gap-1">
+                {visiblePageNumbers.map((pageNum, index) => {
+                  const prevPage = visiblePageNumbers[index - 1]
+                  const showEllipsis = prevPage != null && pageNum - prevPage > 1
+                  return (
+                    <span key={pageNum} className="flex items-center gap-1">
+                      {showEllipsis && <span className="px-1 text-sm text-muted">…</span>}
+                      <button
+                        type="button"
+                        onClick={() => setPage(pageNum)}
+                        className={cn(
+                          'flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-sm font-medium transition-colors',
+                          pageNum === currentPage
+                            ? 'bg-primary text-white shadow-sm'
+                            : 'text-muted hover:bg-surface hover:text-foreground',
+                        )}
+                        aria-label={`Page ${pageNum}`}
+                        aria-current={pageNum === currentPage ? 'page' : undefined}
+                      >
+                        {pageNum}
+                      </button>
+                    </span>
+                  )
+                })}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1"
+                disabled={currentPage >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </InteractiveCard>
     </div>
   )
 }

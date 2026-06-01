@@ -14,6 +14,7 @@ export const MOCK_EMPLOYEES: Employee[] = [
     email: 'asha.menon@company.com',
     phone: '+91 90000 10001',
     ctc: 2400000,
+    department: 'Engineering',
   },
   {
     id: 'E-1002',
@@ -27,6 +28,7 @@ export const MOCK_EMPLOYEES: Employee[] = [
     status: 'Active',
     email: 'rahul.verma@company.com',
     phone: '+91 90000 10002',
+    department: 'HR',
   },
   {
     id: 'E-1003',
@@ -39,6 +41,7 @@ export const MOCK_EMPLOYEES: Employee[] = [
     joinedAt: '2023-01-10',
     status: 'Inactive',
     email: 'meera.iyer@company.com',
+    department: 'Finance',
   },
   {
     id: 'E-1004',
@@ -51,6 +54,7 @@ export const MOCK_EMPLOYEES: Employee[] = [
     joinedAt: '2020-11-20',
     status: 'Inactive',
     email: 'dev.patel@company.com',
+    department: 'Operations',
   },
 ]
 

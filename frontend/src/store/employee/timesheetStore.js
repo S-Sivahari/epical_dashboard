@@ -7,7 +7,9 @@ import {
   fetchMyAttendanceHistory,
   fetchMyActiveTask,
   fetchMySessions,
+  fetchMyProjectWiseHours,
   fetchSessionStatus,
+  fetchCurrentElapsed,
   fetchAutoCheckoutSettings,
   updateAutoCheckoutSettings as apiUpdateAutoCheckoutSettings,
   checkIn as apiCheckIn,
@@ -18,6 +20,7 @@ import {
   resumeActiveTask as apiResumeActiveTask,
   completeActiveTask as apiCompleteActiveTask,
 } from '@services/employeeTimesheetService'
+import { formatSessionDuration } from '@utils/durationFormat'
 
 function defaultMonthRange() {
   return getPresetDateRange('This Month')
@@ -51,6 +54,29 @@ function mapActiveTaskFromApi(activeRes) {
   return mapTaskEntryFromApi(activeRes.active)
 }
 
+function applyBootstrapAttendanceState(data) {
+  const checkedIn = data.attendance?.checkedIn ?? false
+  const autoCheckedOut = data.attendance?.autoCheckedOut ?? false
+  const activeRes = checkedIn
+    ? { active: data.active, pausedTasks: data.pausedTasks ?? [] }
+    : { active: null, pausedTasks: [] }
+
+  return {
+    checkedIn,
+    checkInTime: checkedIn && data.attendance?.checkInTime ? new Date(data.attendance.checkInTime) : null,
+    activeTask: checkedIn ? mapActiveTaskFromApi(activeRes) : null,
+    pausedTasks: checkedIn
+      ? activeRes.pausedTasks.map(mapTaskEntryFromApi).filter(Boolean)
+      : [],
+    sessionStatus: autoCheckedOut
+      ? data.attendance?.sessionStatus ?? 'Auto Checked-Out'
+      : data.attendance?.sessionStatus ?? null,
+    backendElapsedMs: 0,
+    hasBackendElapsedData: false,
+    backendElapsedLastFetch: null,
+  }
+}
+
 function mapSessionFromApi(entry) {
   const login = entry.loginTime ? new Date(entry.loginTime) : null
   const logout = entry.logoutTime ? new Date(entry.logoutTime) : null
@@ -66,9 +92,13 @@ function mapSessionFromApi(entry) {
     start: fmt(login),
     end: fmt(logout),
     hours: entry.totalHours ?? (logout && login ? Math.round(((logout - login) / 3600000) * 10) / 10 : '—'),
+    durationLabel: formatSessionDuration(entry),
     date: entry.date || (login ? login.toISOString().split('T')[0] : ''),
     loginTime: entry.loginTime,
     logoutTime: entry.logoutTime,
+    totalHours: entry.totalHours,
+    totalPausedMs: entry.totalPausedMs || 0,
+    autoCheckedOut: entry.autoCheckedOut ?? false,
     taskStatus: entry.taskStatus,
     workflowStatus: entry.workflowStatus,
     approvalStatus: entry.approvalStatus,
@@ -93,6 +123,18 @@ export const useTimesheetStore = create((set, get) => ({
   autoCheckoutInfo: null,
   autoCheckoutSettings: null,
   attendanceHistory: [],
+  projectWiseHours: [],
+  serverTimeSkew: 0,
+  sessionsLoading: true,
+  // ADDED: Backend-provided elapsed duration for timer accuracy after device shutdown
+  backendElapsedMs: 0,
+  backendTotalPausedMs: 0,
+  hasBackendElapsedData: false,
+  backendElapsedLastFetch: null,
+
+
+  syncing: false,
+  fetchingBootstrap: false,
 
   refreshAttendanceHistory: async ({ from, to } = {}) => {
     try {
@@ -106,7 +148,20 @@ export const useTimesheetStore = create((set, get) => ({
     }
   },
 
+  refreshProjectWiseHours: async ({ from, to } = {}) => {
+    try {
+      const range = from && to ? { from, to } : defaultWeekRange()
+      const data = await fetchMyProjectWiseHours(range)
+      set({ projectWiseHours: Array.isArray(data?.projects) ? data.projects : [] })
+      return data?.projects ?? []
+    } catch (err) {
+      console.error('Failed to load project-wise hours', err)
+      return []
+    }
+  },
+
   refreshSessionsForRange: async ({ from, to } = {}) => {
+    set({ sessionsLoading: true })
     try {
       const range = from && to ? { from, to } : defaultMonthRange()
       const sessions = await fetchMySessions(range)
@@ -115,31 +170,50 @@ export const useTimesheetStore = create((set, get) => ({
     } catch (err) {
       console.error('Failed to load sessions for range', err)
       return []
+    } finally {
+      set({ sessionsLoading: false })
+    }
+  },
+
+  fetchBackendElapsedData: async () => {
+    try {
+      const data = await fetchCurrentElapsed()
+      if (data.hasActiveSession) {
+        set({
+          backendElapsedMs: data.elapsedMs,
+          backendTotalPausedMs: data.totalPausedMs,
+          hasBackendElapsedData: true,
+          backendElapsedLastFetch: new Date(),
+        })
+        return data
+      } else {
+        set({ hasBackendElapsedData: false, backendElapsedMs: 0 })
+        return null
+      }
+    } catch (err) {
+      console.error('Failed to fetch backend elapsed data', err)
+      return null
     }
   },
 
   hydrate: async () => {
-    if (get().initialized) return
-    set({ loading: true })
+    if (get().initialized || get().fetchingBootstrap) return
+    set({ loading: true, fetchingBootstrap: true })
     try {
       const data = await fetchTimesheetBootstrap()
 
-      const activeRes = { active: data.active, pausedTasks: data.pausedTasks ?? [] }
-      const checkInTime = data.attendance?.checkInTime ? new Date(data.attendance.checkInTime) : null
-      const activeTask = mapActiveTaskFromApi(activeRes)
-      const pausedTasks = activeRes.pausedTasks.map(mapTaskEntryFromApi).filter(Boolean)
+      const serverTimeSkew = data.serverTime ? new Date(data.serverTime).getTime() - Date.now() : 0
+      const attendanceState = applyBootstrapAttendanceState(data)
 
       set({
-        checkedIn: data.attendance?.checkedIn ?? false,
-        checkInTime,
+        serverTimeSkew,
+        ...attendanceState,
         attendance: data.attendance ?? null,
-        activeTask,
-        pausedTasks,
         assignedTasks: data.assignedTasks ?? [],
         sessions: (data.sessions ?? []).map(mapSessionFromApi),
         attendanceHistory: Array.isArray(data.attendanceHistory) ? data.attendanceHistory : [],
+        projectWiseHours: Array.isArray(data.projectWiseHours) ? data.projectWiseHours : [],
         initialized: true,
-        sessionStatus: data.attendance?.sessionStatus ?? null,
         autoCheckoutInfo: {
           reminderSent: data.attendance?.reminderSent ?? false,
           autoCheckedOut: data.attendance?.autoCheckedOut ?? false,
@@ -148,12 +222,58 @@ export const useTimesheetStore = create((set, get) => ({
           autoCheckoutEnabled: data.attendance?.autoCheckoutEnabled ?? true,
         },
         autoCheckoutSettings: null,
+        sessionsLoading: false,
       })
+      
+      await get().fetchBackendElapsedData()
+      if (!Array.isArray(data.projectWiseHours) || data.projectWiseHours.length === 0) {
+        await get().refreshProjectWiseHours()
+      }
     } catch (err) {
       console.error('Failed to load timesheet state', err)
-      set({ initialized: true })
+      set({ initialized: true, sessionsLoading: false })
     } finally {
-      set({ loading: false })
+      set({ loading: false, fetchingBootstrap: false })
+    }
+  },
+
+  syncAttendanceWithBackend: async () => {
+    if (get().syncing) return
+    set({ syncing: true })
+    try {
+      const data = await fetchTimesheetBootstrap()
+      const serverTimeSkew = data.serverTime ? new Date(data.serverTime).getTime() - Date.now() : 0
+      const attendanceState = applyBootstrapAttendanceState(data)
+      const wasCheckedIn = get().checkedIn
+      const autoCheckedOut = data.attendance?.autoCheckedOut ?? false
+
+      set({
+        serverTimeSkew,
+        ...attendanceState,
+        attendance: data.attendance ?? null,
+        assignedTasks: data.assignedTasks ?? [],
+        sessions: (data.sessions ?? []).map(mapSessionFromApi),
+        attendanceHistory: Array.isArray(data.attendanceHistory) ? data.attendanceHistory : [],
+        projectWiseHours: Array.isArray(data.projectWiseHours) ? data.projectWiseHours : [],
+        autoCheckoutInfo: {
+          reminderSent: data.attendance?.reminderSent ?? false,
+          autoCheckedOut,
+          expectedCheckoutTime: data.attendance?.expectedCheckoutTime ?? null,
+          autoCheckoutTime: data.attendance?.autoCheckoutTime ?? null,
+          autoCheckoutEnabled: data.attendance?.autoCheckoutEnabled ?? true,
+        },
+      })
+
+      if (wasCheckedIn && !attendanceState.checkedIn) {
+        await Promise.all([get().refreshSessionsForRange(), get().refreshAttendanceHistory()])
+      }
+      
+      await get().fetchBackendElapsedData()
+      await get().refreshProjectWiseHours()
+    } catch (err) {
+      console.error('Failed to sync timesheet state with backend', err)
+    } finally {
+      set({ syncing: false })
     }
   },
 
@@ -185,7 +305,9 @@ export const useTimesheetStore = create((set, get) => ({
 
   checkIn: async () => {
     const data = await apiCheckIn()
+    const serverTimeSkew = data.serverTime ? new Date(data.serverTime).getTime() - Date.now() : 0
     set({
+      serverTimeSkew,
       checkedIn: true,
       checkInTime: data.checkInTime ? new Date(data.checkInTime) : new Date(),
       sessionStatus: data.sessionStatus || 'Active',
@@ -206,13 +328,28 @@ export const useTimesheetStore = create((set, get) => ({
         autoCheckoutEnabled: true,
       },
     })
-    await Promise.all([get().refreshAttendanceHistory(), get().refreshSessionsForRange()])
+    await Promise.all([
+      get().refreshAttendanceHistory(),
+      get().refreshSessionsForRange(),
+      get().refreshProjectWiseHours(),
+    ])
     return data
   },
 
   checkOut: async () => {
     const data = await apiCheckOut()
-    set({ checkedIn: false, checkInTime: null, activeTask: null, pausedTasks: [], sessionStatus: 'Completed' })
+    const serverTimeSkew = data?.serverTime ? new Date(data.serverTime).getTime() - Date.now() : 0
+    set({
+      serverTimeSkew,
+      checkedIn: false,
+      checkInTime: null,
+      activeTask: null,
+      pausedTasks: [],
+      sessionStatus: 'Completed',
+      backendElapsedMs: 0,
+      hasBackendElapsedData: false,
+      backendElapsedLastFetch: null,
+    })
     if (data?.checkOutTime) {
       set((state) => ({
         attendance: {
@@ -225,43 +362,124 @@ export const useTimesheetStore = create((set, get) => ({
       }))
     }
     await get().refreshAssignedTasks()
-    await Promise.all([get().refreshAttendanceHistory(), get().refreshSessionsForRange()])
+    await Promise.all([
+      get().refreshAttendanceHistory(),
+      get().refreshSessionsForRange(),
+      get().refreshProjectWiseHours(),
+    ])
   },
 
   startTask: async ({ assignedTaskId, description }) => {
     const data = await apiStartTask(assignedTaskId, description)
-    await get().refreshActiveTask()
-    await get().refreshAssignedTasks()
+    if (data?.timesheet) {
+      const activeTask = mapTaskEntryFromApi({
+        timesheet: data.timesheet,
+        assignedTask: data.assignedTask,
+      })
+      set((state) => {
+        const nextAssigned = state.assignedTasks.map((t) =>
+          t.id === data.assignedTask?.id ? data.assignedTask : t
+        )
+        return {
+          activeTask,
+          assignedTasks: nextAssigned,
+        }
+      })
+    } else {
+      await get().refreshActiveTask()
+      await get().refreshAssignedTasks()
+    }
     return data
   },
 
   stopTask: async (timesheetId) => {
     const data = await apiStopActiveTask(timesheetId)
-    await get().refreshActiveTask()
-    await get().refreshSessions()
-    await get().refreshAssignedTasks()
+    if (data?.timesheet) {
+      set((state) => {
+        const mappedSession = mapSessionFromApi(data.timesheet)
+        const nextSessions = [
+          mappedSession,
+          ...state.sessions.filter((s) => s.id !== mappedSession.id),
+        ]
+        return {
+          activeTask: null,
+          sessions: nextSessions,
+        }
+      })
+      await get().refreshAssignedTasks()
+      await get().refreshProjectWiseHours()
+    } else {
+      await get().refreshActiveTask()
+      await get().refreshSessions()
+      await get().refreshAssignedTasks()
+      await get().refreshProjectWiseHours()
+    }
     return data
   },
 
   pauseTask: async (timesheetId) => {
     const data = await apiPauseActiveTask(timesheetId)
-    await get().refreshActiveTask()
-    await get().refreshAssignedTasks()
+    if (data?.timesheet) {
+      const mapped = mapTaskEntryFromApi({ timesheet: data.timesheet })
+      set((state) => {
+        const nextPaused = [
+          mapped,
+          ...state.pausedTasks.filter((t) => t.timesheetId !== mapped.timesheetId),
+        ]
+        return {
+          activeTask: null,
+          pausedTasks: nextPaused,
+        }
+      })
+      await get().refreshAssignedTasks()
+    } else {
+      await get().refreshActiveTask()
+      await get().refreshAssignedTasks()
+    }
     return data
   },
 
   resumeTask: async (timesheetId) => {
     const data = await apiResumeActiveTask(timesheetId)
-    await get().refreshActiveTask()
-    await get().refreshAssignedTasks()
+    if (data?.timesheet) {
+      const mapped = mapTaskEntryFromApi({ timesheet: data.timesheet })
+      set((state) => {
+        const nextPaused = state.pausedTasks.filter((t) => t.timesheetId !== mapped.timesheetId)
+        return {
+          activeTask: mapped,
+          pausedTasks: nextPaused,
+        }
+      })
+      await get().refreshAssignedTasks()
+    } else {
+      await get().refreshActiveTask()
+      await get().refreshAssignedTasks()
+    }
     return data
   },
 
   completeTask: async (timesheetId, description) => {
     const data = await apiCompleteActiveTask(timesheetId, description)
-    await get().refreshActiveTask()
-    await get().refreshSessions()
-    await get().refreshAssignedTasks()
+    if (data?.timesheet) {
+      set((state) => {
+        const mappedSession = mapSessionFromApi(data.timesheet)
+        const nextSessions = [
+          mappedSession,
+          ...state.sessions.filter((s) => s.id !== mappedSession.id),
+        ]
+        return {
+          activeTask: null,
+          sessions: nextSessions,
+        }
+      })
+      await get().refreshAssignedTasks()
+      await get().refreshProjectWiseHours()
+    } else {
+      await get().refreshActiveTask()
+      await get().refreshSessions()
+      await get().refreshAssignedTasks()
+      await get().refreshProjectWiseHours()
+    }
     return data
   },
 

@@ -1,22 +1,28 @@
 import { cn } from '@pages/employee/lib/utils'
 import { Badge, statusVariant } from '@components/employee/ui/badge'
+import { portalCardClass } from '@components/employee/shared/interactiveCard'
 
-export function DataTable({ columns, data, statusKey }) {
+export function DataTable({ columns, data, statusKey, compact = false, emptyMessage = 'No records found.' }) {
   if (!data?.length) {
     return (
-      <div className="rounded-xl border border-border bg-card p-8 text-center text-muted">
-        No records found.
+      <div className="rounded-lg border border-dashed border-border bg-surface/30 px-4 py-10 text-center text-sm text-muted">
+        {emptyMessage}
       </div>
     )
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-card">
-      <table className="w-full min-w-[800px] text-sm">
+    <div
+      data-portal-card=""
+      className={cn(
+        portalCardClass({ className: 'w-full max-w-full overflow-x-auto rounded-lg bg-background/40 shadow-none' }),
+      )}
+    >
+      <table className={cn('w-full text-sm', compact ? 'min-w-0 table-auto' : 'min-w-[800px]')}>
         <thead>
           <tr className="border-b border-border bg-slate-50/80">
             {columns.map((col) => (
-              <th key={col.key} className="px-4 py-3 text-left font-heading font-semibold text-foreground">
+              <th key={col.key} className="type-table-head px-4 py-3 text-left">
                 {col.label}
               </th>
             ))}
@@ -29,7 +35,7 @@ export function DataTable({ columns, data, statusKey }) {
                 <td
                   key={col.key}
                   className={cn(
-                    'px-4 py-3 text-muted',
+                    'type-table-cell px-4 py-3',
                     col.key === 'description' && 'max-w-[280px] whitespace-normal break-words'
                   )}
                 >

@@ -93,8 +93,7 @@ export function DocumentManagement({ embedded = false }: { embedded?: boolean })
     setBusyId(id)
     try {
       const updated = await uploadFulfillmentFile(id, file)
-      toast.success('File attached to request')
-      // Update the item in state immediately
+// Update the item in state immediately
       setItems((prev) =>
         prev.map((item) =>
           item.id === id
@@ -114,8 +113,7 @@ export function DocumentManagement({ embedded = false }: { embedded?: boolean })
     setBusyId(id)
     try {
       await approveDocumentRequest(id)
-      toast.success('Request approved')
-      await load()
+await load()
     } catch (error: unknown) {
       const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error
       toast.error(message || 'Could not approve')
@@ -140,8 +138,7 @@ export function DocumentManagement({ embedded = false }: { embedded?: boolean })
     setBusyId(rejectId)
     try {
       await rejectDocumentRequest(rejectId, reason)
-      toast.success('Request rejected')
-      setRejectOpen(false)
+setRejectOpen(false)
       await load()
     } catch (error: unknown) {
       const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error
@@ -152,7 +149,7 @@ export function DocumentManagement({ embedded = false }: { embedded?: boolean })
   }
 
   const content = (
-    <>
+    <div className="crewiq-dashboard">
       <input
         ref={fileInputRef}
         type="file"
@@ -170,15 +167,16 @@ export function DocumentManagement({ embedded = false }: { embedded?: boolean })
           setRejectId(null)
         }}
         size="md"
+        className="admin-modal"
       >
-        <p className="mb-3 text-sm text-muted">
+        <p className="mb-3 text-sm text-[#94a3b8]">
           The employee will not receive a document file. Explain why this request was declined.
         </p>
-        <label className="block text-xs font-medium uppercase tracking-wide text-muted">
+        <label className="block text-xs font-medium uppercase tracking-wide text-[#94a3b8]">
           Reason for rejection
         </label>
         <textarea
-          className="mt-1 min-h-[100px] w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+          className="admin-form-textarea mt-1 min-h-[100px] w-full rounded-lg border border-[rgba(161,161,170,0.18)] bg-[rgba(39,39,42,0.88)] px-3 py-2 text-sm text-white outline-none focus:border-[#38bdf8]"
           value={rejectReason}
           onChange={(ev) => setRejectReason(ev.target.value)}
           placeholder="e.g. Missing tax year information..."
@@ -432,7 +430,7 @@ export function DocumentManagement({ embedded = false }: { embedded?: boolean })
           </div>
         ) : null}
       </div>
-    </>
+    </div>
   )
 
   if (embedded) return content

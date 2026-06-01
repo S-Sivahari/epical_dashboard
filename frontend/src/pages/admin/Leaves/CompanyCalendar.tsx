@@ -6,10 +6,7 @@ import {
   subMonths,
   startOfMonth,
   endOfMonth,
-  startOfWeek,
-  endOfWeek,
   eachDayOfInterval,
-  isSameMonth,
   isToday,
 } from 'date-fns'
 import * as Tooltip from '@radix-ui/react-tooltip'
@@ -17,6 +14,8 @@ import { Badge } from '@components/ui/Badge'
 import { Modal } from '@components/ui/Modal'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
+import { DateInput } from '@components/shared/DateInput'
+import { getCalendarEntryBounds, validateIsoInRange } from '@/utils/dateValidation'
 import { Plus, Edit2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
@@ -76,9 +75,8 @@ export function CompanyCalendar() {
 
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(monthStart)
-  const startDate = startOfWeek(monthStart, { weekStartsOn: 0 })
-  const endDate = endOfWeek(monthEnd, { weekStartsOn: 0 })
-  const calendarDays = eachDayOfInterval({ start: startDate, end: endDate })
+  const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd })
+  const leadingEmptyCells = monthStart.getDay()
 
   const currentMonthIdx = currentDate.getMonth()
   const currentYear = currentDate.getFullYear()
@@ -115,19 +113,25 @@ export function CompanyCalendar() {
     setEditingId(null)
   }
 
+  const calendarBounds = getCalendarEntryBounds()
+
   const handleAddHoliday = async () => {
     if (!title.trim() || !date) {
       toast.error('Please fill holiday name and date')
       return
     }
 
+    const dateCheck = validateIsoInRange(date, calendarBounds.min, calendarBounds.max)
+    if (!dateCheck.valid) {
+      toast.error(dateCheck.error)
+      return
+    }
+
     try {
       if (editingId) {
         await updateHoliday(editingId, { title, date, description, type })
-        toast.success('Holiday updated')
       } else {
         await addHoliday({ title, date, description, type })
-        toast.success('Holiday added')
       }
       resetHolidayForm()
       setIsHolidayFormOpen(false)
@@ -150,7 +154,6 @@ export function CompanyCalendar() {
     if (!holidayToDelete) return
     try {
       await deleteHoliday(holidayToDelete.id)
-      toast.success('Holiday deleted')
       setDeleteConfirmOpen(false)
       setHolidayToDelete(null)
       fetchHolidays()
@@ -164,7 +167,6 @@ export function CompanyCalendar() {
     if (eventToDelete.holidayType) {
       try {
         await deleteHoliday(eventToDelete.id)
-        toast.success('Event deleted')
         fetchHolidays()
       } catch {
         toast.error('Failed to delete event')
@@ -172,7 +174,6 @@ export function CompanyCalendar() {
     } else {
       try {
         await deleteCompanyCalendarEvent(eventToDelete.id)
-        toast.success('Event removed')
       } catch {
         toast.error('Failed to remove event')
       }
@@ -285,12 +286,18 @@ export function CompanyCalendar() {
                       {day}
                     </div>
                   ))}
-                  {calendarDays.map((day) => {
+                  {Array.from({ length: leadingEmptyCells }).map((_, index) => (
+                    <div
+                      key={`pad-${index}`}
+                      className="min-h-[5rem] xl:min-h-[5.5rem] rounded-lg border border-transparent bg-transparent"
+                      aria-hidden
+                    />
+                  ))}
+                  {monthDays.map((day) => {
                     const dateStr = format(day, 'yyyy-MM-dd')
                     const dayHolidays = getHolidaysForDay(dateStr)
                     const dayLeaves = getLeavesForDay(dateStr)
                     const dayEvents = getEventsForDay(dateStr)
-                    const isCurrentMonth = isSameMonth(day, currentDate)
                     const isTodayDate = isToday(day)
                     const hasMultipleLeaves = dayLeaves.length > 1
 
@@ -299,10 +306,9 @@ export function CompanyCalendar() {
                         <Tooltip.Trigger asChild>
                           <div
                             onClick={() => handleDateClick(dateStr)}
-                            className={`min-h-[5rem] xl:min-h-[5.5rem] p-1.5 rounded-lg border transition-all cursor-pointer flex flex-col gap-0.5 hover:shadow-sm overflow-hidden
-                              ${!isCurrentMonth ? 'bg-gray-50/40 text-muted/50 border-transparent' : 'bg-white border-border hover:border-primary/50'}
+                            className={`min-h-[5rem] xl:min-h-[5.5rem] p-1.5 rounded-lg border transition-all cursor-pointer flex flex-col gap-0.5 hover:shadow-sm overflow-hidden bg-white border-border hover:border-primary/50
                               ${isTodayDate ? 'ring-2 ring-primary/20 border-primary/40 bg-primary/5' : ''}
-                              ${hasMultipleLeaves && isCurrentMonth ? 'bg-red-50/40' : ''}
+                              ${hasMultipleLeaves ? 'bg-red-50/40' : ''}
                             `}
                           >
                             <div className="flex justify-between items-start">
@@ -721,10 +727,12 @@ export function CompanyCalendar() {
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-ink">Date <span className="text-red-500">*</span></label>
-              <Input
-                type="date"
+              <DateInput
                 value={date}
-                onChange={(e) => setDate(e.target.value)}
+                onChange={setDate}
+                minDate={calendarBounds.min}
+                maxDate={calendarBounds.max}
+                placeholder="dd/mm/yyyy"
               />
             </div>
             <div>

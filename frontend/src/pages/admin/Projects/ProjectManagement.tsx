@@ -1,6 +1,5 @@
-import { useMemo, useState, useCallback, useRef, useEffect } from 'react'
+import { memo, useMemo, useState, useCallback, useRef, useEffect } from 'react'
 import { PageWrapper } from '@components/layout/PageWrapper'
-import { Breadcrumb } from '@components/layout/Breadcrumb'
 import { Avatar } from '@components/ui/Avatar'
 import { Badge } from '@components/ui/Badge'
 import { Button } from '@components/ui/Button'
@@ -8,7 +7,7 @@ import { Input } from '@components/ui/Input'
 import { SelectField } from '@components/forms/SelectField'
 import { Modal } from '@components/ui/Modal'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
-import { ProjectTasksModal } from '@components/modals/ProjectTasksModal'
+
 import { ProjectAuditTrailModal } from '@components/modals/ProjectAuditTrailModal'
 import { ArchivedProjectsModal } from '@components/modals/ArchivedProjectsModal'
 import { toast } from 'sonner'
@@ -17,9 +16,9 @@ import {
   enforceMaxWords,
   MAX_PROJECT_DESCRIPTION_WORDS,
 } from '@/lib/textLimits'
+import { stringToHue, stringToHueColor } from '@/utils/stringColor'
 import {
   Clock,
-  Users,
   Search,
   X,
   Archive,
@@ -39,33 +38,25 @@ import {
   CheckCircle2,
   SlidersHorizontal,
   ArrowUpRight,
-  UserCheck,
-  TrendingUp,
-  Sliders,
-  FileText,
   Edit2,
 } from 'lucide-react'
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Cell,
-  LabelList,
-} from 'recharts'
 import { formatDate } from '@/utils/formatDate'
 import ExcelJS from 'exceljs'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import {
   downloadExcelBuffer,
+  fetchExportLogo,
+  scaleExportLogo,
 } from '@/utils/exportLogo'
 import api from '@/services/api'
 import { getEmployees } from '@/services/employeeService'
 import type { Employee } from '@/types'
+import { cn } from '@/utils/cn'
+import {
+  ProjectHoursHoverCard,
+  ProjectHoursHoverCardProvider,
+} from '@components/projects/ProjectHoursHoverCard'
 
 /* ================================================================
    TYPE DEFINITIONS
@@ -109,6 +100,9 @@ interface TimesheetLog {
   adminNotes?: string
   overriddenHours?: number
   taskStatus?: 'Pending' | 'In Progress' | 'Completed' | 'Session Incomplete'
+  totalHours?: number
+  totalPausedMs?: number
+  autoCheckedOut?: boolean
 }
 
 /* ================================================================
@@ -125,13 +119,7 @@ const MOCK_EMPLOYEES = [
   { id: 'E-1008', name: 'Vikram Singh', team: 'R&D', hue: 60 },
 ]
 
-const MOCK_TEAMS = [
-  'Design Team',
-  'Verification Team',
-  'R&D Team',
-  'Hardware Team',
-  'Operations Team',
-]
+// MOCK_TEAMS removed — was unused after teamFilterOptions cleanup
 
 
 /* ================================================================
@@ -155,14 +143,33 @@ function useClickOutside(ref: React.RefObject<HTMLElement | null>, handler: () =
 /* ================================================================
    HELPER – Hours Calculation (with Overridden Hours respect)
    ================================================================ */
-const calculateHours = (login: string, logout?: string, overriddenHours?: number): number | null => {
+const calculateHours = (
+  login: string,
+  logout?: string,
+  overriddenHours?: number,
+  totalHours?: number,
+  totalPausedMs?: number
+): number | null => {
   if (overriddenHours !== undefined && overriddenHours !== null) return overriddenHours
+  if (totalHours !== undefined && totalHours !== null && totalHours > 0) return totalHours
   if (!logout) return null
   const loginDate = new Date(login)
   const logoutDate = new Date(logout)
   if (isNaN(loginDate.getTime()) || isNaN(logoutDate.getTime())) return 0
-  const diffMs = logoutDate.getTime() - loginDate.getTime()
+  const diffMs = logoutDate.getTime() - loginDate.getTime() - (totalPausedMs || 0)
+  if (diffMs <= 0) return 0
   return Math.round((diffMs / (1000 * 60 * 60)) * 10) / 10
+}
+
+function formatAdminDuration(hours: number | null): string {
+  if (hours === null) return '—'
+  const totalMinutes = Math.round(hours * 60)
+  const hrs = Math.floor(totalMinutes / 60)
+  const mins = totalMinutes % 60
+  if (hrs === 0 && mins === 0) return '0m'
+  if (hrs === 0) return `${mins}m`
+  if (mins === 0) return `${hrs}h`
+  return `${hrs}h ${String(mins).padStart(2, '0')}m`
 }
 
 /** Hours-by-project and employee leaderboard from filtered logs (export/PDF). */
@@ -171,7 +178,13 @@ function buildTimesheetExportAnalytics(logs: TimesheetLog[]) {
   const byEmployee: Record<string, { name: string; dept: string; hours: number }> = {}
 
   logs.forEach((t) => {
-    const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours) || 0
+    const hours = calculateHours(
+      t.loginTime,
+      t.logoutTime,
+      t.overriddenHours,
+      t.totalHours,
+      t.totalPausedMs
+    ) || 0
     byProject[t.project] = (byProject[t.project] || 0) + hours
 
     const emp = MOCK_EMPLOYEES.find((e) => e.id === t.employeeId)
@@ -201,6 +214,18 @@ function buildTimesheetExportAnalytics(logs: TimesheetLog[]) {
 function formatExportHours(hours: number): string {
   const n = Math.round(hours * 10) / 10
   return Number.isInteger(n) ? `${n}h` : `${n.toFixed(1)}h`
+}
+
+function formatExcelDuration(hours: number | null | undefined): string {
+  if (hours === null || hours === undefined) return '—'
+  const totalMinutes = Math.round(hours * 60)
+  if (totalMinutes <= 0) return '—'
+  const hrs = Math.floor(totalMinutes / 60)
+  const mins = totalMinutes % 60
+  if (hrs === 0) {
+    return `${mins}m`
+  }
+  return `${hrs}h ${String(mins).padStart(2, '0')}m`
 }
 
 /** Simplified operational status for the Timesheets log view (read-only). */
@@ -236,31 +261,34 @@ function MetricCard({
   value,
   icon: Icon,
   accentClass,
+  iconClassName,
   secondaryText,
 }: {
   label: string
   value: string | number
   icon: React.ElementType
   accentClass: string
+  iconClassName: string
   secondaryText?: string
 }) {
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
-      <div className={`absolute inset-x-0 top-0 h-[4px] ${accentClass}`} />
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
-          <p className="mt-2 font-display text-2xl font-extrabold tabular-nums text-slate-800 tracking-tight">
+    <div className="admin-card group relative overflow-hidden rounded-xl border border-white/[0.07] bg-[#161922] p-5 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.35),0_0_0_1px_rgba(255,255,255,0.02)_inset] transition-all duration-300 hover:border-white/[0.12] hover:shadow-[0_4px_16px_-4px_rgba(0,0,0,0.5)] hover:-translate-y-0.5">
+      <div className={`absolute inset-x-0 top-0 h-[2px] ${accentClass} opacity-80`} />
+      <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
+      <div className="relative flex items-center justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.08em] text-slate-500">{label}</p>
+          <p className="mt-2 font-display text-[28px] font-extrabold tabular-nums leading-none tracking-tight text-white">
             {value}
           </p>
           {secondaryText && (
-            <p className="mt-1 text-xs text-slate-400 font-medium">{secondaryText}</p>
+            <p className="mt-2 text-[11px] font-semibold text-slate-400">{secondaryText}</p>
           )}
         </div>
         <span
-          className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${accentClass} bg-opacity-10 transition-all duration-300 group-hover:scale-105`}
+          className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg shadow-sm ring-1 ring-inset transition-all duration-300 group-hover:scale-105 group-hover:shadow-md ${iconClassName}`}
         >
-          <Icon className="h-5 w-5" />
+          <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
         </span>
       </div>
     </div>
@@ -427,37 +455,39 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
   }, [currentMonth])
 
   return (
-    <div ref={containerRef} className="relative inline-block">
+    <div ref={containerRef} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors"
+        className="inline-flex h-9 max-w-full items-center gap-1.5 rounded-lg border border-white/10 bg-[#161922] px-2.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[#1d212d] whitespace-nowrap"
       >
-        <CalendarIcon className="h-4 w-4 text-emerald-650" />
-        {preset === 'Custom' && startDate === endDate
-          ? formatDate(startDate)
-          : preset === 'Custom'
-            ? `${formatDate(startDate)} – ${formatDate(endDate)}`
-            : `${preset} (${formatDate(startDate)} – ${formatDate(endDate)})`}
-        <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+        <CalendarIcon className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+        <span className="truncate max-w-xs text-xs leading-tight">
+          {preset === 'Custom' && startDate === endDate
+            ? `${formatDate(startDate)}`
+            : preset === 'Custom'
+              ? `${formatDate(startDate)} – ${formatDate(endDate)}`
+              : `${preset} (${formatDate(startDate)} – ${formatDate(endDate)})`}
+        </span>
+        <ChevronDown className="h-3 w-3 text-[#94a3b8] flex-shrink-0" />
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-2 flex flex-col md:flex-row gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl animate-fadeIn w-[92vw] sm:w-auto sm:min-w-[500px]">
+        <div className="date-range-popover absolute left-0 top-full z-50 mt-2 flex w-[92vw] flex-col gap-4 rounded-2xl border border-white/5 bg-[#161922] p-4 shadow-2xl animate-fadeIn sm:w-auto sm:min-w-[500px] md:flex-row">
           {/* Calendar Grid */}
           <div className="flex-1 select-none">
             <div className="flex items-center justify-between mb-4">
-              <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-slate-100 rounded-lg text-slate-600">
+              <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-white/5 rounded-lg text-[#94a3b8]">
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <span className="text-xs font-bold text-slate-800">
+              <span className="date-range-month-title type-calendar-month text-white">
                 {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
               </span>
-              <button type="button" onClick={handleNextMonth} className="p-1 hover:bg-slate-100 rounded-lg text-slate-600">
+              <button type="button" onClick={handleNextMonth} className="p-1 hover:bg-white/5 rounded-lg text-[#94a3b8]">
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 mb-1">
+            <div className="type-calendar-weekday mb-1 grid grid-cols-7 gap-1 text-center text-[#94a3b8]">
               {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
                 <span key={d} className="py-1">
                   {d}
@@ -481,9 +511,9 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
                     title={`Filter logs for ${cell.dateString}. Shift+click a second date for a range.`}
                     className={`
                       h-7 w-7 rounded-lg flex items-center justify-center font-semibold transition-all
-                      ${cell.isCurrentMonth ? 'text-slate-700 hover:bg-emerald-50 hover:text-emerald-700' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}
-                      ${isSingleDay || isSelectedStart || isSelectedEnd ? 'bg-emerald-600 text-white hover:bg-emerald-600 hover:text-white shadow-sm' : ''}
-                      ${isWithinRange ? 'bg-emerald-50 text-emerald-800 rounded-none' : ''}
+                      ${cell.isCurrentMonth ? 'text-white hover:bg-emerald-500/20 hover:text-emerald-400' : 'text-[#94a3b8] hover:bg-white/5 hover:text-white'}
+                      ${isSingleDay || isSelectedStart || isSelectedEnd ? 'bg-emerald-600 text-white hover:bg-emerald-500 hover:text-white shadow-sm' : ''}
+                      ${isWithinRange ? 'bg-emerald-600/20 text-emerald-450 rounded-none' : ''}
                     `}
                   >
                     {cell.day}
@@ -491,19 +521,17 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
                 )
               })}
             </div>
-            <p className="mt-3 text-[10px] text-slate-400 font-medium">
+            <p className="mt-3 text-[10px] text-[#94a3b8] font-medium">
               Click any date to filter that day. Hold Shift, click a start date, then another date for a custom range.
             </p>
           </div>
 
           {/* Divider */}
-          <div className="hidden md:block border-l border-slate-150" />
+          <div className="hidden md:block border-l border-white/5" />
 
           {/* Quick Presets Panel */}
           <div className="w-36 flex flex-col gap-0.5">
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-              Quick Presets
-            </p>
+            <p className="type-card-label-caps mb-2 text-[9px] text-[#94a3b8]">Quick Presets</p>
             {[
               'Today',
               'Yesterday',
@@ -521,7 +549,7 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
                 onClick={() => handlePresetClick(p)}
                 className={`
                   text-left px-2.5 py-1 rounded-lg text-xs font-semibold transition-all
-                  ${preset === p ? 'bg-emerald-50 text-emerald-700 font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'}
+                  ${preset === p ? 'bg-emerald-600/20 text-emerald-400 font-bold' : 'text-[#94a3b8] hover:bg-white/5 hover:text-white'}
                 `}
               >
                 {p}
@@ -544,7 +572,7 @@ function AvatarGroup({ users, max = 3 }: { users: string[]; max?: number }) {
   const remaining = users.length - max
 
   return (
-    <div className="flex -space-x-2.5 overflow-hidden">
+    <div className="flex -space-x-2 overflow-hidden">
       {visible.map((username) => {
         const emp = MOCK_EMPLOYEES.find((e) => e.name === username)
         const hue = emp ? emp.hue : 120
@@ -558,7 +586,7 @@ function AvatarGroup({ users, max = 3 }: { users: string[]; max?: number }) {
         return (
           <div
             key={username}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-slate-100 text-[10px] font-bold shadow-sm ring-1 ring-slate-200/30"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[rgba(39,39,42,0.88)] bg-[rgba(39,39,42,0.88)] text-[10px] font-bold shadow-sm ring-1 ring-[rgba(161,161,170,0.18)]"
             style={{
               background: `linear-gradient(135deg, hsl(${hue}, 80%, 96%) 0%, hsl(${hue}, 55%, 85%) 100%)`,
               color: `hsl(${hue}, 85%, 28%)`,
@@ -570,7 +598,7 @@ function AvatarGroup({ users, max = 3 }: { users: string[]; max?: number }) {
         )
       })}
       {remaining > 0 && (
-        <div className="inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-slate-200 text-[9px] font-black text-slate-750 shadow-sm ring-1 ring-slate-200/30">
+        <div className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[rgba(39,39,42,0.88)] bg-[rgba(39,39,42,0.88)] text-[10px] font-black text-[#94a3b8] shadow-sm ring-1 ring-[rgba(161,161,170,0.18)]">
           +{remaining}
         </div>
       )}
@@ -632,7 +660,7 @@ function FilterCheckboxGroup({
   return (
     <div ref={rootRef} className="relative">
       {!compact && (
-        <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+        <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-[#94a3b8]">
           {label}
         </span>
       )}
@@ -641,15 +669,15 @@ function FilterCheckboxGroup({
         aria-expanded={open}
         aria-haspopup="listbox"
         onClick={() => setOpen((v) => !v)}
-        className={`flex h-10 w-full items-center justify-between gap-2 rounded-xl border bg-white px-3 text-left text-xs font-bold outline-none transition-all ${
+        className={`flex h-9 w-full items-center justify-between gap-1.5 rounded-lg border bg-[#161922] px-2.5 text-left text-xs font-bold outline-none transition-all ${
           open || selected.length > 0
-            ? 'border-emerald-500 text-slate-700 ring-4 ring-emerald-500/10'
-            : 'border-slate-250 text-slate-600 hover:border-slate-300'
+            ? 'border-emerald-500/50 text-white ring-4 ring-emerald-500/10'
+            : 'border-white/10 text-slate-400 hover:border-white/20'
         }`}
       >
-        <span className="truncate">{summary}</span>
+        <span className="truncate text-xs">{summary}</span>
         <ChevronDown
-          className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
         />
       </button>
 
@@ -657,22 +685,22 @@ function FilterCheckboxGroup({
         <div
           role="listbox"
           aria-label={label}
-          className="absolute left-0 right-0 z-50 mt-1 rounded-xl border border-slate-200 bg-white p-2 shadow-lg"
+          className="absolute left-0 right-0 z-50 mt-1 rounded-xl border border-white/5 bg-[#161922] p-2 shadow-2xl"
         >
-          <div className="mb-2 flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</span>
+          <div className="mb-2 flex items-center justify-between gap-2 border-b border-white/5 pb-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</span>
             <div className="flex shrink-0 gap-2">
               <button
                 type="button"
                 onClick={() => onChange(options.map((o) => o.value))}
-                className="text-[10px] font-bold text-emerald-600 hover:text-emerald-800"
+                className="text-[10px] font-bold text-emerald-400 hover:text-emerald-350"
               >
                 All
               </button>
               <button
                 type="button"
                 onClick={() => onChange([])}
-                className="text-[10px] font-bold text-slate-500 hover:text-slate-700"
+                className="text-[10px] font-bold text-slate-400 hover:text-white"
               >
                 Clear
               </button>
@@ -685,13 +713,13 @@ function FilterCheckboxGroup({
               options.map((opt) => (
                 <label
                   key={opt.value}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-slate-700 transition-colors hover:bg-slate-50"
+                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-white transition-colors hover:bg-white/5"
                 >
                   <input
                     type="checkbox"
                     checked={selected.includes(opt.value)}
                     onChange={() => toggle(opt.value)}
-                    className="h-3.5 w-3.5 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500/20"
+                    className="h-3.5 w-3.5 shrink-0 rounded border-white/10 text-emerald-600 focus:ring-emerald-500/20 bg-[#111319]"
                   />
                   <span className="truncate font-semibold" title={opt.label}>
                     {opt.label}
@@ -725,26 +753,26 @@ function CheckboxList({
   }
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
+      <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-450">
         {label}
       </label>
-      <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-2 max-h-32 overflow-y-auto space-y-0.5">
+      <div className="rounded-xl border border-white/10 bg-[#111319] p-2 max-h-32 overflow-y-auto space-y-0.5">
         {items.map((item) => (
           <label
             key={item}
-            className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-xs text-slate-700 transition-colors hover:bg-white border border-transparent hover:border-slate-100"
+            className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-xs text-white transition-colors hover:bg-white/5 border border-transparent hover:border-white/10"
           >
             <input
               type="checkbox"
               checked={selected.includes(item)}
               onChange={() => toggle(item)}
-              className="h-3.5 w-3.5 rounded border-slate-350 text-emerald-600 focus:ring-emerald-500/20"
+              className="h-3.5 w-3.5 rounded border-white/10 bg-[#111319] text-emerald-600 focus:ring-emerald-500/20"
             />
-            <span>{item}</span>
+            <span className="font-semibold">{item}</span>
           </label>
         ))}
       </div>
-      <p className="mt-1 text-[10px] text-slate-400 font-semibold">
+      <p className="mt-1 text-[10px] text-slate-500 font-bold">
         {selected.length} of {items.length} selected
       </p>
     </div>
@@ -754,23 +782,18 @@ function CheckboxList({
 /* ================================================================
    COMPONENT – Project Card (Grid View Card)
    ================================================================ */
-function ProjectCard({
+const ProjectCard = memo(function ProjectCard({
   project,
   onEdit,
   onDelete,
-  onTasks,
-  onStatusChange,
 }: {
   project: Project
   onEdit: () => void
   onDelete: () => void
-  onTasks: () => void
-  onStatusChange: (status: 'Active' | 'Completed' | 'Cancelled') => void
 }) {
   const isCompleted = project.status === 'Completed'
   const isCancelled = project.status === 'Cancelled'
   const isRejected = project.status === 'Rejected'
-  const isActive = project.status === 'Active'
 
   // Visibility/scope summary
   const visibilitySummary =
@@ -778,204 +801,216 @@ function ProjectCard({
       ? `${project.visibleUsers.length} Users · Lead: ${project.teamLead || 'Not assigned'}`
       : 'All Members'
 
+  const projectInitial =
+    project.name.charAt(project.name.indexOf(' ') + 1) || project.name.charAt(0)
+
   return (
-    <div className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 animate-fadeIn">
-      <div>
+    <div
+      className={cn(
+        'group relative flex min-h-[190px] flex-col justify-between overflow-hidden rounded-xl border p-5 transition-all duration-300 hover:-translate-y-0.5 animate-fadeIn',
+        isCompleted
+          ? 'border-emerald-500/15 bg-[#161922] shadow-[0_2px_12px_-3px_rgba(0,0,0,0.35)] hover:border-emerald-500/30 hover:shadow-[0_6px_24px_-6px_rgba(16,185,129,0.1)]'
+          : 'border-white/[0.06] bg-[#161922] shadow-[0_2px_12px_-3px_rgba(0,0,0,0.35)] hover:border-emerald-500/20 hover:shadow-[0_6px_24px_-6px_rgba(16,185,129,0.08)]'
+      )}
+    >
+      {/* Subtle gradient overlay for depth */}
+      <div className="absolute inset-0 bg-gradient-to-b from-white/[0.015] via-transparent to-transparent pointer-events-none rounded-xl" />
+      <div className="relative space-y-3.5">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 font-extrabold text-xs">
-              {project.name.charAt(project.name.indexOf(' ') + 1) || project.name[0]}
+          <div className="flex min-w-0 flex-1 items-start gap-3">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-extrabold ring-1 bg-emerald-500/10 text-emerald-400 ring-emerald-500/25">
+              {projectInitial}
             </span>
-            <div>
-              <h3 className="font-bold text-slate-700 leading-snug group-hover:text-emerald-700 transition-colors">
+            <div className="min-w-0 flex-1">
+              <h3 className={cn(
+                'text-[14px] font-bold leading-tight transition-colors font-display truncate',
+                isCompleted ? 'text-emerald-400 group-hover:text-emerald-300' : 'text-slate-100 group-hover:text-emerald-400'
+              )}>
                 {project.name}
               </h3>
-              <p className="text-[10px] text-slate-400 font-medium">Client: {project.client}</p>
+              <p className="mt-0.5 text-xs font-semibold text-slate-400 truncate">
+                {project.client}
+              </p>
             </div>
           </div>
-          <div className="flex flex-col items-end gap-1.5">
+          <div className="flex shrink-0 items-center gap-1">
             {isCancelled ? (
-              <Badge variant="danger" className="py-0.5 px-2 bg-rose-50 text-rose-700 border border-rose-100 text-[10px]">
-                <X className="mr-1 h-3 w-3" /> Cancelled
+              <Badge variant="neutral" className="border border-rose-500/25 bg-rose-500/10 px-1.5 py-0.5 text-[9px] font-bold text-rose-400 rounded-md">
+                Cancelled
               </Badge>
             ) : isRejected ? (
-              <Badge variant="danger" className="py-0.5 px-2 bg-rose-50 text-rose-700 border border-rose-100 text-[10px]">
-                <X className="mr-1 h-3 w-3" /> Rejected
+              <Badge variant="neutral" className="border border-rose-500/25 bg-rose-500/10 px-1.5 py-0.5 text-[9px] font-bold text-rose-400 rounded-md">
+                Rejected
               </Badge>
             ) : isCompleted ? (
-              <Badge variant="neutral" className="bg-slate-100 text-slate-600 border border-slate-200 py-0.5 px-2 text-[10px]">
-                <CheckCircle2 className="mr-1 h-3 w-3" /> Completed
+              <Badge variant="success" className="border border-emerald-500/15 bg-emerald-500/5 px-1.5 py-0.5 text-[9px] font-bold text-emerald-400 rounded-md">
+                Completed
               </Badge>
             ) : (
-              <Badge variant="info" className="py-0.5 px-2 bg-blue-50 text-blue-700 border border-blue-100 text-[10px]">
-                <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-blue-500" />
+              <Badge variant="info" className="border border-blue-500/15 bg-blue-500/5 px-1.5 py-0.5 text-[9px] font-bold text-blue-400 rounded-md">
                 In Progress
               </Badge>
             )}
             {project.accessType === 'private' ? (
-              <Badge variant="warning" className="py-0.5 px-2 bg-amber-50 text-amber-700 border border-amber-100 text-[10px]">
-                <Lock className="mr-1 h-3 w-3 text-amber-500" /> Private
+              <Badge variant="warning" className="border border-amber-500/15 bg-amber-500/5 px-1.5 py-0.5 text-[9px] font-bold text-amber-400 rounded-md">
+                Private
               </Badge>
             ) : (
-              <Badge variant="info" className="py-0.5 px-2 bg-sky-50 text-sky-700 border border-sky-100 text-[10px]">
-                <Globe className="mr-1 h-3 w-3 text-sky-500" /> Public
+              <Badge variant="info" className="border border-sky-500/15 bg-sky-500/5 px-1.5 py-0.5 text-[9px] font-bold text-sky-400 rounded-md">
+                Public
               </Badge>
             )}
           </div>
         </div>
 
-        <p className="mt-2 text-[10px] font-semibold text-slate-400">
-          Visibility Scope: {visibilitySummary}
-        </p>
+        <div className="flex items-center justify-between border-t border-white/[0.05] pt-3 text-xs">
+          <span className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-slate-500">Scope</span>
+          <span className="font-semibold text-slate-300 truncate max-w-[200px]" title={visibilitySummary}>{visibilitySummary}</span>
+        </div>
 
-        {/* Access controls & Team Layout Redesign */}
-        <div className="mt-4 flex items-center justify-between gap-2 border-t border-slate-50 pt-3">
-          <div className="flex flex-wrap gap-1.5 items-center">
-            <span className="inline-flex items-center gap-1 rounded-lg bg-slate-50 border border-slate-150 px-2 py-0.5 text-[10px] font-bold text-slate-500 font-mono">
-              <Cpu className="h-2.5 w-2.5 text-slate-400" />
-              {project.technologyNode}
+        <div className="flex items-center justify-between gap-3 border-t border-white/[0.05] pt-3 mt-auto">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-white/5 bg-[#111319] px-2 py-0.5 text-[10px] font-bold text-slate-400">
+              <Cpu className="h-3 w-3 shrink-0 text-emerald-500" strokeWidth={2.5} />
+              <span className="truncate font-mono text-slate-300">{project.technologyNode}</span>
             </span>
             {project.accessType === 'private' && project.teamLead && (
-              <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50/50 border border-emerald-100/50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-                <UserCheck className="h-2.5 w-2.5 text-emerald-500" />
-                Lead: {project.teamLead}
+              <span className="inline-flex items-center rounded-md border border-emerald-500/10 bg-emerald-500/5 px-2 py-0.5 text-[10px] font-bold text-emerald-400 truncate max-w-[120px]" title={`Lead: ${project.teamLead}`}>
+                Lead: {project.teamLead.split(' ')[0]}
               </span>
             )}
           </div>
-          {project.accessType === 'private' && project.visibleUsers.length > 0 && (
-            <AvatarGroup users={project.visibleUsers} max={3} />
-          )}
-        </div>
-      </div>
-
-      <div className="mt-5 flex items-center justify-end border-t border-slate-100 pt-3.5">
-        <div className="flex items-center gap-1">
-          <button
-            onClick={onEdit}
-            className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-            title="Edit Project"
-          >
-            <Edit2 className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={onDelete}
-            className="rounded-lg p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
-            title="Archive Project"
-          >
-            <Archive className="h-3.5 w-3.5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {project.accessType === 'private' && project.visibleUsers.length > 0 && (
+              <AvatarGroup users={project.visibleUsers} max={2} />
+            )}
+            <div className="flex items-center border-l border-white/[0.06] pl-2 gap-0.5">
+              <button
+                onClick={onEdit}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
+                title="Edit Project"
+              >
+                <Edit2 className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={onDelete}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-amber-500/10 hover:text-amber-400"
+                title="Archive Project"
+              >
+                <Archive className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   )
-}
+})
 
 /* ================================================================
    COMPONENT – Project Card List Row View
    ================================================================ */
-function ProjectListRow({
+const ProjectListRow = memo(function ProjectListRow({
   project,
   onEdit,
   onDelete,
-  onTasks,
-  onStatusChange,
 }: {
   project: Project
   onEdit: () => void
   onDelete: () => void
-  onTasks: () => void
-  onStatusChange: (status: 'Active' | 'Completed' | 'Cancelled') => void
 }) {
   const isCompleted = project.status === 'Completed'
   const isCancelled = project.status === 'Cancelled'
   const isRejected = project.status === 'Rejected'
-  const isActive = project.status === 'Active'
+
+  const projectInitial =
+    project.name.charAt(project.name.indexOf(' ') + 1) || project.name.charAt(0)
 
   return (
-    <tr className="group transition-colors hover:bg-slate-50/50">
-      <td className="px-5 py-3.5">
+    <tr className={cn('group transition-colors border-b border-white/5 hover:bg-white/[0.02]', isCompleted ? 'bg-emerald-950/10' : '')}>
+      <td className="px-5 py-4">
         <div className="flex items-center gap-3">
-          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 font-extrabold text-xs">
-            {project.name.charAt(project.name.indexOf(' ') + 1) || project.name[0]}
+          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-sm font-extrabold text-emerald-400 ring-1 ring-emerald-500/25">
+            {projectInitial}
           </span>
           <div className="min-w-0">
-            <p className="font-bold text-slate-700 truncate">{project.name}</p>
+            <p className="truncate text-sm font-bold text-slate-100 group-hover:text-emerald-450">{project.name}</p>
           </div>
         </div>
       </td>
-      <td className="px-5 py-3.5 text-slate-500 font-medium">{project.client}</td>
-      <td className="px-5 py-3.5">
-        <span className="inline-flex items-center gap-1 rounded-lg bg-slate-50 border border-slate-150 px-2 py-0.5 text-[10px] font-bold text-slate-500 font-mono">
-          <Cpu className="h-2.5 w-2.5 text-slate-400" />
+      <td className="px-5 py-4 text-sm font-semibold text-slate-300">{project.client}</td>
+      <td className="px-5 py-4">
+        <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-[#111319] px-2.5 py-1 text-[11px] font-bold text-slate-300 font-mono">
+          <Cpu className="h-3.5 w-3.5 text-emerald-500" />
           {project.technologyNode}
         </span>
       </td>
-      <td className="px-5 py-3.5">
+      <td className="px-5 py-4">
         {project.accessType === 'private' ? (
-          <Badge variant="warning" className="py-0.5 px-2 bg-amber-50 text-amber-700 border border-amber-100">
-            <Lock className="mr-1 h-3 w-3 text-amber-500" /> Private
+          <Badge variant="warning" className="border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[11px] font-bold text-amber-400">
+            <Lock className="mr-1 h-3.5 w-3.5 text-amber-500" /> Private
           </Badge>
         ) : (
-          <Badge variant="info" className="py-0.5 px-2 bg-sky-50 text-sky-700 border border-sky-100">
-            <Globe className="mr-1 h-3 w-3 text-sky-500" /> Public
+          <Badge variant="info" className="border border-sky-500/20 bg-sky-500/10 px-2.5 py-1 text-[11px] font-bold text-sky-400">
+            <Globe className="mr-1 h-3.5 w-3.5 text-sky-500" /> Public
           </Badge>
         )}
       </td>
-      <td className="px-5 py-3.5">
+      <td className="px-5 py-4">
         {project.accessType === 'private' ? (
           <div className="flex items-center gap-2">
             {project.teamLead && (
-              <span className="inline-flex items-center gap-1 rounded bg-emerald-50 text-emerald-700 px-2 py-0.5 text-[10px] font-bold border border-emerald-100">
+              <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-bold text-emerald-400">
                 Lead: {project.teamLead}
               </span>
             )}
             <AvatarGroup users={project.visibleUsers} max={3} />
           </div>
         ) : (
-          <span className="text-[11px] text-slate-400 italic">All Members (Public)</span>
+          <span className="text-xs font-medium text-slate-500">All Members (Public)</span>
         )}
       </td>
-      <td className="px-5 py-3.5">
+      <td className="px-5 py-4">
         {isCancelled ? (
-          <Badge variant="danger" className="py-0.5 px-2 bg-rose-50 text-rose-700 border border-rose-100">
-            <X className="mr-1 h-3 w-3" /> Cancelled
+          <Badge variant="neutral" className="border border-rose-500/25 bg-rose-500/10 px-2.5 py-1 text-[11px] font-bold text-rose-400">
+            <X className="mr-1 h-3.5 w-3.5 text-rose-400" /> Cancelled
           </Badge>
         ) : isRejected ? (
-          <Badge variant="danger" className="py-0.5 px-2 bg-rose-50 text-rose-700 border border-rose-100">
-            <X className="mr-1 h-3 w-3" /> Rejected
+          <Badge variant="neutral" className="border border-rose-500/25 bg-rose-500/10 px-2.5 py-1 text-[11px] font-bold text-rose-400">
+            <X className="mr-1 h-3.5 w-3.5 text-rose-400" /> Rejected
           </Badge>
         ) : isCompleted ? (
-          <Badge variant="neutral" className="bg-slate-100 text-slate-600 border border-slate-200 py-0.5 px-2">
-            <CheckCircle2 className="mr-1 h-3 w-3" /> Completed
+          <Badge variant="success" className="border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-400">
+            <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Completed
           </Badge>
         ) : (
-          <Badge variant="info" className="py-0.5 px-2 bg-blue-50 text-blue-700 border border-blue-100">
-            <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-blue-500" />
+          <Badge variant="info" className="border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-[11px] font-bold text-blue-400">
+            <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-blue-500" />
             In Progress
           </Badge>
         )}
       </td>
-      <td className="px-5 py-3.5 text-right">
-        <div className="flex items-center justify-end gap-1.5">
+      <td className="px-5 py-4 text-right">
+        <div className="flex items-center justify-end gap-1">
           <button
             onClick={onEdit}
-            className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
             title="Edit Project"
           >
-            <Edit2 className="h-3.5 w-3.5" />
+            <Edit2 className="h-4 w-4" />
           </button>
           <button
             onClick={onDelete}
-            className="rounded-lg p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-amber-500/10 hover:text-amber-400"
             title="Archive Project"
           >
-            <Archive className="h-3.5 w-3.5" />
+            <Archive className="h-4 w-4" />
           </button>
         </div>
       </td>
     </tr>
   )
-}
+})
 
 /* ================================================================
    COMPONENT – Employee Leaderboard / Progress Layout
@@ -985,74 +1020,54 @@ function EmployeeLeaderboard({
 }: {
   data: { name: string; dept: string; hours: number; hue: number }[]
 }) {
-  const maxHours = data.length > 0 ? Math.max(...data.map((d) => d.hours)) : 0
+  const sortedData = useMemo(() => {
+    return [...data].sort((a, b) => a.name.localeCompare(b.name))
+  }, [data])
+
+  const maxHours = sortedData.length > 0 ? Math.max(...sortedData.map((d) => d.hours)) : 0
 
   return (
-    <div className="space-y-3.5">
-      {data.map((item, idx) => {
+    <div className="space-y-2.5">
+      {sortedData.map((item, idx) => {
         const percent = maxHours > 0 ? (item.hours / maxHours) * 100 : 0
-        const isTop = idx < 3
+        const hue = item.hue ?? Math.round((idx * 137.5) % 360)
         return (
-          <div key={item.name} className="flex items-center gap-3">
-            <span
-              className="w-5 text-xs font-bold text-center text-slate-400"
-            >
-              #{idx + 1}
-            </span>
-            <Avatar name={item.name} size="sm" color={`hsl(${item.hue},55%,45%)`} />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                <span className="truncate">
-                  {item.name}
-                </span>
-                <span className="tabular-nums font-extrabold text-slate-800">{item.hours.toFixed(1)} hrs</span>
-              </div>
-              <div className="mt-1 w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{ width: `${percent}%`, backgroundColor: `hsla(${item.hue}, 85%, 50%, 0.45)` }}
-                />
+          <div
+            key={item.name}
+            className="group rounded-lg border border-transparent px-2 py-2 transition-all hover:border-white/[0.04] hover:bg-white/[0.02]"
+          >
+            <div className="flex items-center gap-2.5">
+              <Avatar name={item.name} size="sm" color={`hsl(${hue},55%,45%)`} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate text-sm font-bold text-slate-200 group-hover:text-emerald-400 font-display">
+                    {item.name}
+                  </p>
+                  <span className="type-metric-inline shrink-0 text-slate-100">
+                    {item.hours.toFixed(1)}
+                    <span className="text-[10px] ml-0.5 font-semibold text-slate-450">h</span>
+                  </span>
+                </div>
+                <div className="mt-1.5 h-[7px] w-full overflow-hidden rounded-full bg-white/[0.04] ring-1 ring-white/[0.06]">
+                  <div
+                    className="h-full rounded-full transition-all duration-500 ease-out"
+                    style={{
+                      width: `${percent}%`,
+                      background: `linear-gradient(90deg, hsl(${hue}, 70%, 48%) 0%, hsl(${hue}, 75%, 58%) 100%)`,
+                    }}
+                  />
+                </div>
               </div>
             </div>
           </div>
         )
       })}
-      {data.length === 0 && (
-        <p className="text-center text-slate-400 text-xs py-8">No hours logged in this period.</p>
+      {sortedData.length === 0 && (
+        <p className="py-10 text-center text-sm font-semibold text-slate-500">
+          No hours logged in this period.
+        </p>
       )}
     </div>
-  )
-}
-
-const PROJECT_COLORS = [
-  '#3b82f6', // Blue
-  '#ef4444', // Red
-  '#f59e0b', // Amber
-  '#10b981', // Emerald
-  '#8b5cf6', // Purple
-  '#ec4899', // Pink
-  '#14b8a6', // Teal
-  '#6366f1', // Indigo
-  '#06b6d4', // Cyan
-  '#f97316', // Orange
-]
-
-function HoursBarLabel(props: { x?: number; y?: number; width?: number; value?: number | string }) {
-  const { x = 0, y = 0, width = 0, value } = props
-  const n = Number(value)
-  if (!Number.isFinite(n)) return null
-  const text = Number.isInteger(n) ? `${n}h` : `${n.toFixed(1)}h`
-  return (
-    <text
-      x={x + width / 2}
-      y={y - 8}
-      fill="#475569"
-      fontSize={10}
-      fontWeight={600}
-      textAnchor="middle"
-    >
-      {text}
-    </text>
   )
 }
 
@@ -1064,8 +1079,6 @@ export function ProjectManagement() {
   const [activeTab, setActiveTab] = useState<'projects' | 'timesheets'>('projects')
   const [allProjects, setAllProjects] = useState<Project[]>([])
   const [timesheets, setTimesheets] = useState<TimesheetLog[]>([])
-  const [chartHoursByProject, setChartHoursByProject] = useState<{ name: string; hours: number }[]>([])
-  const [leaderboardData, setLeaderboardData] = useState<{ name: string; dept: string; hours: number; hue: number }[]>([])
   const [loading, setLoading] = useState(false)
 
   const projects = allProjects
@@ -1093,10 +1106,7 @@ export function ProjectManagement() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [employees, setEmployees] = useState<Employee[]>([])
 
-  // ── Project Tasks Modal States ───────────────────────────────
-  const [tasksModalOpen, setTasksModalOpen] = useState(false)
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
-  const [selectedProjectName, setSelectedProjectName] = useState<string>('')
+
 
   // ── Project Audit Trail Modal States ────────────────────────────
   const [auditTrailModalOpen, setAuditTrailModalOpen] = useState(false)
@@ -1113,31 +1123,6 @@ export function ProjectManagement() {
     setSelectedAuditProjectName(name)
     setAuditTrailModalOpen(true)
   }, [])
-
-  const handleBarClick = useCallback((data: any) => {
-    if (!data) return
-    
-    // Check if clicked directly on Bar or through BarChart activePayload
-    let pId = data.projectId || (data.payload && data.payload.projectId)
-    let pName = data.name || (data.payload && data.payload.name)
-
-    if (!pId && data.activePayload && data.activePayload[0]) {
-      const payload = data.activePayload[0].payload
-      pId = payload.projectId
-      pName = payload.name
-    }
-
-    if (pId) {
-      openAuditTrail(pId, pName)
-    } else if (pName) {
-      const found = allProjects.find(p => p.name === pName)
-      if (found) {
-        openAuditTrail(found.id, found.name)
-      } else {
-        toast.error(`Could not find project: ${pName}`)
-      }
-    }
-  }, [allProjects, openAuditTrail])
 
   const emptyForm = {
     name: '',
@@ -1191,14 +1176,8 @@ export function ProjectManagement() {
     if (tsSearch.trim()) params.search = tsSearch.trim()
 
     try {
-      const [logsRes, chartRes, leaderboardRes] = await Promise.all([
-        api.get('/timesheets', { params }),
-        api.get('/timesheets/hours-by-project', { params }),
-        api.get('/timesheets/employee-hours', { params }),
-      ])
+      const logsRes = await api.get('/timesheets', { params })
       setTimesheets(logsRes.data)
-      setChartHoursByProject(chartRes.data)
-      setLeaderboardData(leaderboardRes.data)
     } catch (err) {
       console.error(err)
       toast.error('Failed to load timesheet data.')
@@ -1215,8 +1194,10 @@ export function ProjectManagement() {
   }, [fetchProjects, fetchEmployees])
 
   useEffect(() => {
-    fetchTimesheetsData()
-  }, [fetchTimesheetsData])
+    if (activeTab === 'timesheets') {
+      fetchTimesheetsData()
+    }
+  }, [fetchTimesheetsData, activeTab])
 
   // ── Derived Client / Project Lists for Filter Options ──────────
   const uniqueClients = useMemo(() => {
@@ -1232,16 +1213,7 @@ export function ProjectManagement() {
     return [...empSet].sort()
   }, [projects])
 
-  const getTeamLeadDepartment = useCallback((teamLeadName?: string) => {
-    if (!teamLeadName) return undefined
-    const emp = employees.find((e) => {
-      const fullName = `${e.firstName} ${e.lastName || ''}`.trim()
-      return fullName === teamLeadName
-    })
-    return emp ? `${emp.department} Team` : undefined
-  }, [employees])
 
-  const teamFilterOptions = useMemo(() => [...MOCK_TEAMS], [])
 
   // ── Projects Tab Filter Implementation ──────────────────────
   const activeFiltersCount = useMemo(() => {
@@ -1290,9 +1262,35 @@ export function ProjectManagement() {
   const indexOfFirstProject = indexOfLastProject - projectsPerPage
   const currentProjects = filteredProjects.slice(indexOfFirstProject, indexOfLastProject)
 
+  // Track previous filters to only reset page when they actually change
+  const prevFiltersRef = useRef({
+    searchQuery,
+    filterClients,
+    filterEmployees,
+    filterStatuses,
+    filterAccessTypes
+  })
+
   // Reset projects page to 1 when filters or search query change
   useEffect(() => {
-    setProjectsCurrentPage(1)
+    const prev = prevFiltersRef.current
+    const filtersChanged =
+      prev.searchQuery !== searchQuery ||
+      JSON.stringify(prev.filterClients) !== JSON.stringify(filterClients) ||
+      JSON.stringify(prev.filterEmployees) !== JSON.stringify(filterEmployees) ||
+      JSON.stringify(prev.filterStatuses) !== JSON.stringify(filterStatuses) ||
+      JSON.stringify(prev.filterAccessTypes) !== JSON.stringify(filterAccessTypes)
+
+    if (filtersChanged) {
+      setProjectsCurrentPage(1)
+      prevFiltersRef.current = {
+        searchQuery,
+        filterClients,
+        filterEmployees,
+        filterStatuses,
+        filterAccessTypes
+      }
+    }
   }, [searchQuery, filterClients, filterEmployees, filterStatuses, filterAccessTypes])
 
   // ── Projects Tab Metrics Calculation ─────────────────────────
@@ -1330,50 +1328,8 @@ export function ProjectManagement() {
     setModalOpen(true)
   }, [])
 
-  const openProjectTasks = useCallback((p: Project) => {
-    setSelectedProjectId(p.id)
-    setSelectedProjectName(p.name)
-    setTasksModalOpen(true)
-  }, [])
 
-  const handleUpdateProjectStatus = useCallback(
-    async (projectId: string, newStatus: 'Active' | 'Completed' | 'Cancelled') => {
-      try {
-        const project = allProjects.find((p) => p.id === projectId)
-        if (!project) {
-          toast.error('Project not found.')
-          return
-        }
 
-        await api.put(`/projects/${projectId}`, {
-          name: project.name,
-          client: project.client,
-          technologyNode: project.technologyNode,
-          accessType: project.accessType,
-          description: project.description,
-          status: newStatus,
-          visibleUsers: project.visibleUsers,
-          teamLead: project.teamLead,
-        })
-
-        setAllProjects((prev) =>
-          prev.map((p) =>
-            p.id === projectId ? { ...p, status: newStatus } : p
-          )
-        )
-
-        const statusText = newStatus === 'Completed' ? 'marked as completed' : newStatus === 'Cancelled' ? 'cancelled' : 'updated'
-        toast.success(`Project ${statusText} successfully.`)
-
-        await refreshAllData()
-      } catch (err: any) {
-        console.error('Status update error:', err)
-        toast.error(err.response?.data?.error || 'Failed to update project status.')
-        await refreshAllData()
-      }
-    },
-    [allProjects, refreshAllData]
-  )
 
   const handleSaveProject = useCallback(
     async (e: React.FormEvent) => {
@@ -1398,7 +1354,7 @@ export function ProjectManagement() {
       setLoading(true)
       try {
         if (modalMode === 'create') {
-          const res = await api.post('/projects', {
+          await api.post('/projects', {
             name: form.name.trim(),
             client: form.client.trim(),
             technologyNode: form.technologyNode.trim(),
@@ -1407,7 +1363,6 @@ export function ProjectManagement() {
             visibleUsers: form.accessType === 'private' ? form.visibleUsers : [],
             teamLead: form.teamLead.trim() || undefined,
           })
-          toast.success(`Project "${res.data.name}" created successfully.`)
           await refreshAllData()
         } else {
           const oldProject = allProjects.find((p) => p.id === editingId)
@@ -1424,8 +1379,6 @@ export function ProjectManagement() {
             visibleUsers: form.accessType === 'private' ? form.visibleUsers : [],
             teamLead: form.teamLead.trim() || undefined,
           })
-          toast.success('Project details updated successfully.')
-
           if (oldProjectName && oldProjectName !== newProjectName) {
             setTsProjectFilters((prev) =>
               prev.map((n) => (n === oldProjectName ? newProjectName : n))
@@ -1475,7 +1428,6 @@ export function ProjectManagement() {
           refreshAllData()
         }, 300)
         
-        toast.success(`Project "${pName}" and all associated history have been safely archived.`)
       }
     } catch (err: any) {
       console.error('Archive error:', err)
@@ -1549,18 +1501,99 @@ export function ProjectManagement() {
     getEmployeeTeam,
   ])
 
+  // Derived Project Hours based on filteredTimesheets
+  const derivedHoursByProject = useMemo(() => {
+    const projectMap: Record<string, { name: string; hours: number; projectId?: string }> = {}
+    filteredTimesheets.forEach((t) => {
+      const hours = calculateHours(
+        t.loginTime,
+        t.logoutTime,
+        t.overriddenHours,
+        t.totalHours,
+        t.totalPausedMs
+      ) || 0
+      if (projectMap[t.project]) {
+        projectMap[t.project].hours += hours
+      } else {
+        projectMap[t.project] = {
+          name: t.project,
+          hours,
+          projectId: t.projectId
+        }
+      }
+    })
+    return Object.values(projectMap)
+      .map(p => ({ ...p, hours: Math.round(p.hours * 10) / 10 }))
+      .sort((a, b) => b.hours - a.hours)
+  }, [filteredTimesheets])
+
+  // Derived Employee Hours based on filteredTimesheets
+  const derivedLeaderboardData = useMemo(() => {
+    const empMap: Record<string, { name: string; dept: string; hours: number; hue: number }> = {}
+    filteredTimesheets.forEach((t) => {
+      const hours = calculateHours(
+        t.loginTime,
+        t.logoutTime,
+        t.overriddenHours,
+        t.totalHours,
+        t.totalPausedMs
+      ) || 0
+      const empInfo = MOCK_EMPLOYEES.find((e) => e.id === t.employeeId)
+      const employeeColorKey = t.employeeId || t.employeeName
+      if (empMap[t.employeeName]) {
+        empMap[t.employeeName].hours += hours
+      } else {
+        empMap[t.employeeName] = {
+          name: t.employeeName,
+          dept: empInfo?.team ?? '—',
+          hours,
+          hue: empInfo?.hue ?? stringToHue(employeeColorKey),
+        }
+      }
+    })
+    return Object.values(empMap)
+      .map(e => ({ ...e, hours: Math.round(e.hours * 10) / 10 }))
+  }, [filteredTimesheets])
+
   // ── Timesheets Pagination derived values ────────────────────
   const totalTimesheetsPages = Math.ceil(filteredTimesheets.length / timesheetsPerPage)
   const indexOfLastTimesheet = timesheetsCurrentPage * timesheetsPerPage
   const indexOfFirstTimesheet = indexOfLastTimesheet - timesheetsPerPage
   const currentTimesheets = filteredTimesheets.slice(indexOfFirstTimesheet, indexOfLastTimesheet)
 
+  // Track previous timesheets filters to only reset page when they actually change
+  const prevTsFiltersRef = useRef({
+    tsSearch,
+    tsStartDate,
+    tsEndDate,
+    tsEmployeeFilters,
+    tsProjectFilters,
+    tsStatusFilters
+  })
+
   // Reset timesheets page to 1 when filters or search query change
   useEffect(() => {
-    setTimesheetsCurrentPage(1)
-  }, [tsSearch, tsStartDate, tsEndDate, tsEmployeeFilters, tsProjectFilters, tsStatusFilters])
+    const prev = prevTsFiltersRef.current
+    const filtersChanged =
+      prev.tsSearch !== tsSearch ||
+      prev.tsStartDate !== tsStartDate ||
+      prev.tsEndDate !== tsEndDate ||
+      JSON.stringify(prev.tsEmployeeFilters) !== JSON.stringify(tsEmployeeFilters) ||
+      JSON.stringify(prev.tsProjectFilters) !== JSON.stringify(tsProjectFilters) ||
+      JSON.stringify(prev.tsStatusFilters) !== JSON.stringify(tsStatusFilters)
 
-  // ── Recharts Chart Data and Leaderboard are managed via server-side aggregation state ──
+    if (filtersChanged) {
+      setTimesheetsCurrentPage(1)
+      prevTsFiltersRef.current = {
+        tsSearch,
+        tsStartDate,
+        tsEndDate,
+        tsEmployeeFilters,
+        tsProjectFilters,
+        tsStatusFilters
+      }
+    }
+  }, [tsSearch, tsStartDate, tsEndDate, tsEmployeeFilters, tsProjectFilters, tsStatusFilters])
 
   // ── Export Implementations (Excel / PDF) ─────────────────────
   const handleExportExcel = useCallback(async () => {
@@ -1572,59 +1605,278 @@ export function ProjectManagement() {
     const { hoursByProject, leaderboard } = buildTimesheetExportAnalytics(filteredTimesheets)
     const workbook = new ExcelJS.Workbook()
     const sheet = workbook.addWorksheet('Timesheet Report')
-    let row = 1
 
-    const addRow = (values: (string | number)[]) => {
-      sheet.getRow(row).values = values
-      row += 1
+    // Ensure grid lines are visible in the excel sheet
+    sheet.views = [{ showGridLines: true }]
+
+    // Keep track of rows we merge so we can exclude them from column width auto-adjustment
+    const fullMergedRows: number[] = []
+
+    // Helper to merge and style banner headers
+    const addMainHeader = (r: number, text: string, bgColor: string, fontSize: number, height: number) => {
+      sheet.mergeCells(r, 1, r, 6)
+      const cell = sheet.getCell(r, 1)
+      cell.value = text
+      cell.font = { name: 'Segoe UI', size: fontSize, bold: true, color: { argb: 'FFFFFFFF' } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } }
+      cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      sheet.getRow(r).height = height
+      fullMergedRows.push(r)
     }
 
-    addRow(['EPICAL LAYOUTS PVT LTD'])
-    addRow(['Timesheet Report'])
-    addRow([`Date range: ${tsStartDate} to ${tsEndDate}`])
-    addRow([`Generated: ${new Date().toLocaleString()}`])
-    addRow([])
+    // Helper to add empty spacing rows
+    const addEmptyRow = (r: number, height = 15) => {
+      sheet.getRow(r).height = height
+    }
 
-    addRow(['AGGREGATED HOURS BY PROJECT'])
-    addRow(['Project', 'Hours'])
-    hoursByProject.forEach((p) => {
-      addRow([p.name, formatExportHours(p.hours)])
-    })
-    addRow([])
+    // Helper to add section headers
+    const addSectionHeader = (r: number, text: string, bgColor: string) => {
+      sheet.mergeCells(r, 1, r, 6)
+      const cell = sheet.getCell(r, 1)
+      cell.value = text
+      cell.font = { name: 'Segoe UI', size: 11, bold: true, color: { argb: 'FFFFFFFF' } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } }
+      cell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 }
+      sheet.getRow(r).height = 25
+      fullMergedRows.push(r)
+    }
 
-    addRow(['AGGREGATED HOURS BY EMPLOYEE'])
-    addRow(['Rank', 'Employee', 'Department', 'Hours'])
-    leaderboard.forEach((e, index) => {
-      addRow([index + 1, e.name, e.dept, formatExportHours(e.hours)])
-    })
-    addRow([])
+    // Helper to style table header row
+    const styleTableHeader = (r: number, colCount: number, bgColor: string) => {
+      sheet.getRow(r).height = 22
+      for (let c = 1; c <= colCount; c++) {
+        const cell = sheet.getCell(r, c)
+        cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFFFFFF' } }
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } }
+        cell.alignment = { horizontal: 'center', vertical: 'middle' }
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+          bottom: { style: 'medium', color: { argb: 'FF9CA3AF' } },
+          left: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+          right: { style: 'thin', color: { argb: 'FFD1D5DB' } }
+        }
+      }
+    }
 
-    addRow(['DETAILED TIME LOGS'])
-    addRow(['Employee', 'Employee ID', 'Project', 'Login Time', 'Logout Time', 'Total Hours'])
+    // Helper to style data cells
+    const styleDataRow = (r: number, colCount: number, isEven: boolean, alignments: ('left' | 'center' | 'right')[]) => {
+      sheet.getRow(r).height = 20
+      const rowBg = isEven ? 'FFFFFFFF' : 'FFF9FAFB'
+      for (let c = 1; c <= colCount; c++) {
+        const cell = sheet.getCell(r, c)
+        cell.font = { name: 'Segoe UI', size: 9, color: { argb: 'FF374151' } } // Slate-700
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } }
+        cell.alignment = { horizontal: alignments[c - 1] || 'left', vertical: 'middle' }
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+          bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+          left: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+          right: { style: 'thin', color: { argb: 'FFE5E7EB' } }
+        }
+      }
+    }
+
+    let currentRow = 1
+
+    // 1. Banner Title Header
+    addMainHeader(currentRow, 'EPICAL LAYOUTS PVT LTD', 'FF047857', 15, 38)
+    currentRow++
+    addMainHeader(currentRow, 'TIMESHEET PERFORMANCE SUMMARY REPORT', 'FF065F46', 11, 24)
+    currentRow++
+
+    addEmptyRow(currentRow, 15)
+    currentRow++
+
+    // 2. TIMESHEET REPORT SUMMARY (Section 1)
+    addSectionHeader(currentRow, '1. TIMESHEET REPORT SUMMARY', 'FF0F766E') // Teal-700
+    currentRow++
+
+    // Calculate total hours across filtered timesheets
+    let totalSecHours = 0
     filteredTimesheets.forEach((t) => {
-      const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours)
-      addRow([
-        t.employeeName,
-        t.employeeId,
-        t.project,
-        formatDateTime(t.loginTime),
-        t.logoutTime ? formatDateTime(t.logoutTime) : '—',
-        hours !== null ? formatExportHours(hours) : '—',
-      ])
+      const h = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours, t.totalHours, t.totalPausedMs) || 0
+      totalSecHours += h
+    })
+    const totalHoursFormatted = formatExcelDuration(totalSecHours)
+
+    const setSummaryRow = (r: number, label1: string, val1: string, label2: string, val2: string) => {
+      sheet.getRow(r).height = 20
+      
+      sheet.getCell(r, 1).value = label1
+      sheet.getCell(r, 1).font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF4B5563' } } // Gray-600
+      sheet.getCell(r, 1).alignment = { horizontal: 'left', vertical: 'middle', indent: 1 }
+      
+      sheet.getCell(r, 2).value = val1
+      sheet.getCell(r, 2).font = { name: 'Segoe UI', size: 9, color: { argb: 'FF1F2937' } } // Gray-800
+      sheet.getCell(r, 2).alignment = { horizontal: 'left', vertical: 'middle' }
+
+      sheet.getCell(r, 4).value = label2
+      sheet.getCell(r, 4).font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF4B5563' } } // Gray-600
+      sheet.getCell(r, 4).alignment = { horizontal: 'left', vertical: 'middle', indent: 1 }
+
+      sheet.getCell(r, 5).value = val2
+      sheet.getCell(r, 5).font = { name: 'Segoe UI', size: 9, color: { argb: 'FF1F2937' } } // Gray-800
+      sheet.getCell(r, 5).alignment = { horizontal: 'left', vertical: 'middle' }
+
+      sheet.mergeCells(r, 2, r, 3)
+      sheet.mergeCells(r, 5, r, 6)
+
+      for (let c = 1; c <= 6; c++) {
+        sheet.getCell(r, c).border = {
+          top: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+          bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+          left: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+          right: { style: 'thin', color: { argb: 'FFE5E7EB' } }
+        }
+        sheet.getCell(r, c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } }
+      }
+    }
+
+    setSummaryRow(
+      currentRow,
+      'Report Period:',
+      `${tsStartDate} to ${tsEndDate}`,
+      'Total Hours Logged:',
+      totalHoursFormatted
+    )
+    fullMergedRows.push(currentRow)
+    currentRow++
+
+    setSummaryRow(
+      currentRow,
+      'Generated By:',
+      'System Admin',
+      'Total Working Employees:',
+      String(leaderboard.length)
+    )
+    fullMergedRows.push(currentRow)
+    currentRow++
+
+    setSummaryRow(
+      currentRow,
+      'Generated Date:',
+      new Date().toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) +
+        ', ' +
+        new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
+      'Total Active Projects:',
+      String(hoursByProject.length)
+    )
+    fullMergedRows.push(currentRow)
+    currentRow++
+
+    addEmptyRow(currentRow, 15)
+    currentRow++
+
+    // 3. AGGREGATED HOURS BY EMPLOYEE (Section 2)
+    addSectionHeader(currentRow, '2. AGGREGATED HOURS BY EMPLOYEE', 'FF0F766E')
+    currentRow++
+
+    sheet.getCell(currentRow, 1).value = 'Employee'
+    sheet.getCell(currentRow, 2).value = 'Total Hours Logged'
+    sheet.mergeCells(currentRow, 2, currentRow, 3)
+    styleTableHeader(currentRow, 3, 'FF115E59')
+    currentRow++
+
+    leaderboard.forEach((e, idx) => {
+      sheet.getCell(currentRow, 1).value = e.name
+      sheet.getCell(currentRow, 2).value = formatExcelDuration(e.hours)
+      sheet.mergeCells(currentRow, 2, currentRow, 3)
+      styleDataRow(currentRow, 3, idx % 2 === 0, ['left', 'center', 'center'])
+      currentRow++
     })
 
+    addEmptyRow(currentRow, 15)
+    currentRow++
+
+    // 4. AGGREGATED HOURS BY PROJECT (Section 3)
+    addSectionHeader(currentRow, '3. AGGREGATED HOURS BY PROJECT', 'FF0F766E')
+    currentRow++
+
+    sheet.getCell(currentRow, 1).value = 'Project'
+    sheet.getCell(currentRow, 2).value = 'Total Hours Logged'
+    sheet.mergeCells(currentRow, 2, currentRow, 3)
+    styleTableHeader(currentRow, 3, 'FF115E59')
+    currentRow++
+
+    hoursByProject.forEach((p, idx) => {
+      sheet.getCell(currentRow, 1).value = p.name
+      sheet.getCell(currentRow, 2).value = formatExcelDuration(p.hours)
+      sheet.mergeCells(currentRow, 2, currentRow, 3)
+      styleDataRow(currentRow, 3, idx % 2 === 0, ['left', 'center', 'center'])
+      currentRow++
+    })
+
+    addEmptyRow(currentRow, 15)
+    currentRow++
+
+    // 5. WORK SESSION LOGS (Section 4)
+    addSectionHeader(currentRow, '4. WORK SESSION LOGS', 'FF0369A1') // Sky-700
+    currentRow++
+
+    sheet.getCell(currentRow, 1).value = 'Employee'
+    sheet.getCell(currentRow, 2).value = 'Employee ID'
+    sheet.getCell(currentRow, 3).value = 'Project'
+    sheet.getCell(currentRow, 4).value = 'Login Time'
+    sheet.getCell(currentRow, 5).value = 'Logout Time'
+    sheet.getCell(currentRow, 6).value = 'Total Hours'
+    styleTableHeader(currentRow, 6, 'FF0284C7') // Sky-600
+    currentRow++
+
+    filteredTimesheets.forEach((t, idx) => {
+      const hours = calculateHours(
+        t.loginTime,
+        t.logoutTime,
+        t.overriddenHours,
+        t.totalHours,
+        t.totalPausedMs
+      )
+      sheet.getCell(currentRow, 1).value = t.employeeName
+      sheet.getCell(currentRow, 2).value = t.employeeId
+      sheet.getCell(currentRow, 3).value = t.project
+      sheet.getCell(currentRow, 4).value = formatDateTime(t.loginTime)
+      sheet.getCell(currentRow, 5).value = t.logoutTime ? formatDateTime(t.logoutTime) : '—'
+      sheet.getCell(currentRow, 6).value = formatExcelDuration(hours)
+
+      styleDataRow(currentRow, 6, idx % 2 === 0, ['left', 'center', 'left', 'center', 'center', 'center'])
+      currentRow++
+    })
+
+    // Setup base column widths
     sheet.columns = [
-      { width: 22 },
-      { width: 14 },
-      { width: 22 },
-      { width: 24 },
-      { width: 24 },
-      { width: 12 },
+      { width: 22 }, // Col 1 (Employee / Project)
+      { width: 15 }, // Col 2 (Emp ID / Hours)
+      { width: 22 }, // Col 3 (Project / merged hours)
+      { width: 24 }, // Col 4 (Login / Summary right side labels)
+      { width: 24 }, // Col 5 (Logout / Summary right side values)
+      { width: 14 }, // Col 6 (Total Hours / merged right side values)
     ]
+
+    // Auto-adjust column widths programmatically based on content, avoiding merged headers
+    sheet.columns.forEach((column) => {
+      let maxLen = 0
+      column.eachCell?.({ includeEmpty: false }, (cell) => {
+        const cellRow = Number(cell.row)
+
+        if (
+          cellRow > 3 &&
+          !fullMergedRows.includes(cellRow) &&
+          cell.address === cell.master.address
+        ) {
+          const cellValue = cell.value ? String(cell.value) : ''
+          if (cellValue.length > maxLen) {
+            maxLen = cellValue.length
+          }
+        }
+      })
+
+      const currentWidth = column.width || 12
+      if (maxLen > 0) {
+        column.width = Math.max(maxLen + 4, currentWidth)
+      }
+    })
 
     const buffer = await workbook.xlsx.writeBuffer()
     downloadExcelBuffer(buffer, `Timesheet_Report_${tsStartDate}_to_${tsEndDate}.xlsx`)
-    toast.success('Excel spreadsheet generated and downloaded successfully.')
   }, [filteredTimesheets, tsStartDate, tsEndDate])
 
   const handleExportPDF = useCallback(async () => {
@@ -1634,23 +1886,24 @@ export function ProjectManagement() {
     }
 
     const { hoursByProject, leaderboard } = buildTimesheetExportAnalytics(filteredTimesheets)
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt' })
-    const pageWidth = doc.internal.pageSize.width || 842
-    const pageHeight = doc.internal.pageSize.height || 595
-    const marginX = 40
+    
+    // Sort leaderboard alphabetically matching the A-Z requirement
+    const sortedLeaderboard = [...leaderboard].sort((a, b) => a.name.localeCompare(b.name))
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt' })
+    const pageWidth = doc.internal.pageSize.width || 595
+    const pageHeight = doc.internal.pageSize.height || 842
+    const marginX = 36
     const contentWidth = pageWidth - marginX * 2
 
+    const logo = await fetchExportLogo()
+
     const tableTheme = {
-      styles: { fontSize: 8, cellPadding: 4, overflow: 'linebreak' as const },
+      styles: { fontSize: 7.5, cellPadding: 4, overflow: 'linebreak' as const },
       headStyles: { fillColor: [30, 41, 59] as [number, number, number], fontStyle: 'bold' as const, textColor: [255, 255, 255] as [number, number, number] },
       alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
       theme: 'grid' as const,
-      margin: { left: marginX, right: marginX, bottom: 36 },
-    }
-
-    const getTableEndY = () => {
-      const last = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable
-      return last?.finalY ?? marginX
+      margin: { left: marginX, right: marginX, bottom: 44 },
     }
 
     const addSectionTitle = (title: string, y: number) => {
@@ -1658,182 +1911,188 @@ export function ProjectManagement() {
       doc.setFontSize(10)
       doc.setTextColor(30, 41, 59)
       doc.text(title, marginX, y)
-      return y + 14
+      doc.setDrawColor(226, 232, 240)
+      doc.setLineWidth(0.5)
+      doc.line(marginX, y + 4, marginX + contentWidth, y + 4)
+      return y + 16
     }
 
-    let headerY = 28
-    headerY += 12
+    let headerY = 20
 
+    // Draw the green chip logo if available
+    let logoWidth = 0
+    if (logo) {
+      const scaled = scaleExportLogo(logo.width, logo.height, 44)
+      const format = logo.dataUrl.includes('image/png') ? 'PNG' : 'JPEG'
+      doc.addImage(logo.dataUrl, format, marginX, headerY, scaled.width, scaled.height)
+      logoWidth = scaled.width
+    }
+
+    // Draw Title next to Logo
+    const textX = marginX + logoWidth + 10
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(18)
+    doc.setFontSize(16)
     doc.setTextColor(30, 41, 59)
-    doc.text('EPICAL LAYOUTS PVT LTD', pageWidth / 2, headerY, { align: 'center' })
-    headerY += 20
+    doc.text('EPICAL LAYOUTS PVT LTD', textX, headerY + 14)
 
-    doc.setFontSize(12)
-    doc.setTextColor(30, 41, 59)
-    doc.text('Timesheet Report', pageWidth / 2, headerY, { align: 'center' })
-    headerY += 20
+    doc.setFontSize(11)
+    doc.setTextColor(71, 85, 105)
+    doc.text('Timesheet Report', textX, headerY + 28)
+    
+    headerY += 40
 
+    // Generated Timestamp
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9)
+    doc.setFontSize(8)
     doc.setTextColor(100, 116, 139)
-    doc.text(`Period Range: ${tsStartDate} to ${tsEndDate}`, marginX, headerY)
-    doc.text(`Generated Timestamp: ${new Date().toLocaleString()}`, pageWidth - marginX, headerY, { align: 'right' })
+    doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - marginX, headerY, { align: 'right' })
     headerY += 10
 
+    // Horizontal Line divider
     doc.setDrawColor(226, 232, 240)
+    doc.setLineWidth(1)
     doc.line(marginX, headerY, pageWidth - marginX, headerY)
 
-    let cursorY = headerY + 18
-    doc.setDrawColor(226, 232, 240)
-    
-    // Title for Analytics Overview
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(11)
-    doc.setTextColor(30, 41, 59)
-    doc.text('ANALYTICS OVERVIEW', marginX, cursorY)
-    cursorY += 16
+    let cursorY = headerY + 16
 
-    const colWidth = 360
-    const colGap = 42
-    const col2X = marginX + colWidth + colGap
+    // Helper to convert HSL to RGB
+    const hslToRgb = (h: number, s: number, l: number): [number, number, number] => {
+      s /= 100
+      l /= 100
+      const k = (n: number) => (n + h / 30) % 12
+      const a = s * Math.min(l, 1 - l)
+      const f = (n: number) => {
+        const r = l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1))
+        return Math.round(255 * r)
+      }
+      return [f(0), f(8), f(4)]
+    }
 
-    const brightColors = [
-      [59, 130, 246],  // Blue
-      [239, 68, 68],   // Red
-      [245, 158, 11],  // Amber
-      [16, 185, 129],  // Emerald
-      [139, 92, 246],  // Purple
-      [236, 72, 153],  // Pink
-      [20, 184, 166],  // Teal
-      [99, 102, 241],  // Indigo
-      [6, 182, 212],   // Cyan
-      [249, 115, 22],   // Orange
-    ]
+    // 3D Bar Drawer
+    const draw3DBar = (x: number, y: number, width: number, height: number, baseColor: [number, number, number]) => {
+      const adjustColor = (color: [number, number, number], percent: number) => {
+        return color.map(c => Math.min(255, Math.max(0, Math.round(c * (1 + percent))))) as [number, number, number]
+      }
 
-    const chartColors = [
-      [168, 199, 248], // Subtle Blue
-      [240, 174, 176], // Subtle Red
-      [242, 210, 153], // Subtle Amber
-      [151, 221, 201], // Subtle Emerald
-      [200, 183, 247], // Subtle Purple
-      [239, 175, 210], // Subtle Pink
-      [152, 220, 215], // Subtle Teal
-      [184, 187, 245], // Subtle Indigo
-      [147, 219, 234], // Subtle Cyan
-      [244, 193, 158], // Subtle Orange
-    ]
+      const frontColor = baseColor
+      const topColor = adjustColor(baseColor, 0.35)
+      const rightColor = adjustColor(baseColor, -0.3)
 
-    // 1. LEFT COLUMN: Aggregated Hours by Project
+      const depth = 3
+
+      // 1. Draw front face (rectangle)
+      doc.setFillColor(frontColor[0], frontColor[1], frontColor[2])
+      doc.rect(x, y, width, height, 'F')
+
+      // 2. Draw top face (parallelogram)
+      doc.setFillColor(topColor[0], topColor[1], topColor[2])
+      doc.triangle(x, y, x + depth, y - depth, x + width + depth, y - depth, 'F')
+      doc.triangle(x, y, x + width + depth, y - depth, x + width, y, 'F')
+
+      // 3. Draw right side face (parallelogram)
+      doc.setFillColor(rightColor[0], rightColor[1], rightColor[2])
+      doc.triangle(x + width, y, x + width + depth, y - depth, x + width + depth, y - depth + height, 'F')
+      doc.triangle(x + width, y, x + width + depth, y - depth + height, x + width, y + height, 'F')
+    }
+
+    // Maximum bar width scaled for portrait content area
+    const maxBarWidth = contentWidth * 0.55
+
+    // ── PROJECT HOURS (full-width, stacked vertically) ──
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(9)
     doc.setTextColor(71, 85, 105)
-    doc.setFillColor(71, 85, 105)
+    doc.setFillColor(74, 175, 125)
     doc.rect(marginX, cursorY, 3, 10, 'F')
-    doc.text('AGGREGATED HOURS BY PROJECT', marginX + 8, cursorY + 8)
-    
-    let leftY = cursorY + 24
+    doc.text('PROJECT HOURS', marginX + 8, cursorY + 8)
+
+    cursorY += 22
     const maxProjectHours = Math.max(...hoursByProject.map(p => p.hours), 1)
-    
-    hoursByProject.forEach((p, idx) => {
-      // Label
+    const averageProjectHours = hoursByProject.length > 0 ? (hoursByProject.reduce((sum, p) => sum + p.hours, 0) / hoursByProject.length) : 0
+
+    hoursByProject.forEach((p) => {
+      const barWidth = Math.max(5, (p.hours / maxProjectHours) * maxBarWidth)
+      const isGreaterThanAverage = p.hours > averageProjectHours
+      const baseColor: [number, number, number] = isGreaterThanAverage ? [74, 175, 125] : [241, 108, 111]
+
+      draw3DBar(marginX, cursorY, barWidth, 8, baseColor)
+
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(8)
-      doc.setTextColor(71, 85, 105)
-      const projectLabel = doc.getTextWidth(p.name) > colWidth - 48
-        ? `${p.name.slice(0, 42)}…`
-        : p.name
-      doc.text(projectLabel, marginX, leftY)
-      
-      // Value text (matches on-screen chart labels)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(71, 85, 105)
-      doc.text(formatExportHours(p.hours), marginX + colWidth, leftY, { align: 'right' })
-      
-      // Track background
-      doc.setFillColor(241, 245, 249)
-      doc.roundedRect(marginX, leftY + 4, colWidth, 6, 3, 3, 'F')
-      
-      // Colored bar
-      const barWidth = (p.hours / maxProjectHours) * colWidth
-      if (barWidth > 0) {
-        const adjustedWidth = Math.max(6, barWidth)
-        const color = chartColors[idx % chartColors.length]
-        const borderColor = brightColors[idx % brightColors.length]
-        doc.setFillColor(color[0], color[1], color[2])
-        doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2])
-        doc.setLineWidth(0.5)
-        doc.roundedRect(marginX, leftY + 4, adjustedWidth, 6, 3, 3, 'FD')
-      }
-      
-      leftY += 24
+      doc.setFontSize(7.5)
+      doc.setTextColor(30, 41, 59)
+      doc.text(`${formatExportHours(p.hours)} — ${p.name}`, marginX + barWidth + 8, cursorY + 7)
+
+      cursorY += 16
     })
 
-    // 2. RIGHT COLUMN: Employee-wise Hours Leaderboard
+    cursorY += 14
+
+    // ── EMPLOYEE HOURS (full-width, stacked below) ──
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(9)
     doc.setTextColor(71, 85, 105)
-    doc.setFillColor(71, 85, 105)
-    doc.rect(col2X, cursorY, 3, 10, 'F')
-    doc.text('EMPLOYEE-WISE HOURS LEADERBOARD', col2X + 8, cursorY + 8)
-    
-    let rightY = cursorY + 24
-    const maxEmployeeHours = Math.max(...leaderboard.map(e => e.hours), 1)
-    
-    leaderboard.forEach((e, idx) => {
-      const color = chartColors[idx % chartColors.length]
-      const borderColor = brightColors[idx % brightColors.length]
-      
-      // Rank badge indicator
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(8)
-      doc.setTextColor(borderColor[0], borderColor[1], borderColor[2])
-      doc.text(`#${idx + 1}`, col2X, rightY)
-      
-      // Employee name
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(71, 85, 105)
-      doc.text(e.name, col2X + 20, rightY)
-      
-      // Hours value
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(30, 41, 59)
-      doc.text(formatExportHours(e.hours), col2X + colWidth, rightY, { align: 'right' })
-      
-      // Progress Track
-      doc.setFillColor(241, 245, 249)
-      doc.roundedRect(col2X + 20, rightY + 4, colWidth - 20, 6, 3, 3, 'F')
-      
-      // Progress bar colored
-      const barWidth = (e.hours / maxEmployeeHours) * (colWidth - 20)
-      if (barWidth > 0) {
-        const adjustedWidth = Math.max(6, barWidth)
-        doc.setFillColor(color[0], color[1], color[2])
-        doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2])
-        doc.setLineWidth(0.5)
-        doc.roundedRect(col2X + 20, rightY + 4, adjustedWidth, 6, 3, 3, 'FD')
+    doc.setFillColor(59, 130, 246)
+    doc.rect(marginX, cursorY, 3, 10, 'F')
+    doc.text('EMPLOYEE HOURS', marginX + 8, cursorY + 8)
+
+    cursorY += 22
+    const maxEmployeeHours = Math.max(...sortedLeaderboard.map(e => e.hours), 1)
+
+    sortedLeaderboard.forEach((e, idx) => {
+      // Check if we need a new page for the analytics section
+      if (cursorY > pageHeight - 60) {
+        doc.addPage()
+        cursorY = 36
       }
-      
-      rightY += 24
+
+      const barWidth = Math.max(5, (e.hours / maxEmployeeHours) * maxBarWidth)
+      const baseColor = hslToRgb(Math.round((idx * 137.5) % 360), 75, 50)
+
+      draw3DBar(marginX, cursorY, barWidth, 8, baseColor)
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(7.5)
+      doc.setTextColor(30, 41, 59)
+      doc.text(`${formatExportHours(e.hours)} — ${e.name}`, marginX + barWidth + 8, cursorY + 7)
+
+      cursorY += 16
     })
 
-    // Set cursorY to the maximum end of either column
-    cursorY = Math.max(leftY, rightY) + 24
+    cursorY += 20
 
-    // Detailed time logs
+    // Check if there's enough room for the table header, otherwise start on a new page
+    if (cursorY > pageHeight - 100) {
+      doc.addPage()
+      cursorY = 36
+    }
+
+    // ── Detailed time logs ──
     cursorY = addSectionTitle('Detailed Time Logs', cursorY)
 
-    const tableHeaders = ['Employee', 'Project', 'Login Time', 'Logout Time', 'Total Hours']
+    const tableHeaders = ['Employee', 'Project', 'Login Time', 'Logout Time', 'Duration']
 
     const tableRows = filteredTimesheets.map((t) => {
-      const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours)
+      const hours = calculateHours(
+        t.loginTime,
+        t.logoutTime,
+        t.overriddenHours,
+        t.totalHours,
+        t.totalPausedMs
+      )
+      const durationStr = (() => {
+        if (hours === null) return '—'
+        const totalMinutes = Math.round(hours * 60)
+        const hrs = Math.floor(totalMinutes / 60)
+        const mins = totalMinutes % 60
+        return `${hrs}hr ${mins}min`
+      })()
+      
       return [
         `${t.employeeName} (${t.employeeId})`,
         t.project,
         formatDateTime(t.loginTime),
         t.logoutTime ? formatDateTime(t.logoutTime) : '—',
-        hours !== null ? formatExportHours(hours) : '—',
+        durationStr,
       ]
     })
 
@@ -1842,27 +2101,30 @@ export function ProjectManagement() {
       head: [tableHeaders],
       body: tableRows,
       startY: cursorY,
-      styles: { ...tableTheme.styles, cellPadding: 5 },
+      styles: { ...tableTheme.styles, cellPadding: 4 },
       columnStyles: {
-        0: { cellWidth: 180 },
-        1: { cellWidth: 170 },
-        2: { cellWidth: 140 },
-        3: { cellWidth: 140 },
-        4: { cellWidth: 90, halign: 'right' },
+        0: { cellWidth: contentWidth * 0.24 },
+        1: { cellWidth: contentWidth * 0.22 },
+        2: { cellWidth: contentWidth * 0.22 },
+        3: { cellWidth: contentWidth * 0.22 },
+        4: { cellWidth: contentWidth * 0.10, halign: 'right' },
       },
     })
 
+    // ── Footer on every page ──
     const totalPages = doc.getNumberOfPages()
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i)
-      doc.setFontSize(8)
+      doc.setDrawColor(226, 232, 240)
+      doc.setLineWidth(0.5)
+      doc.line(marginX, pageHeight - 36, pageWidth - marginX, pageHeight - 36)
+      doc.setFontSize(7)
       doc.setTextColor(148, 163, 184)
-      doc.text(`Page ${i} of ${totalPages}`, pageWidth - marginX, pageHeight - 20, { align: 'right' })
-      doc.text('Confidential - Internal Administrative Records', marginX, pageHeight - 20)
+      doc.text(`Page ${i} of ${totalPages}`, pageWidth - marginX, pageHeight - 24, { align: 'right' })
+      doc.text('Confidential – EPICAL Timesheet Data', marginX, pageHeight - 24)
     }
 
     doc.save(`Timesheet_Report_${tsStartDate}_to_${tsEndDate}.pdf`)
-    toast.success('PDF report exported successfully.')
   }, [filteredTimesheets, tsStartDate, tsEndDate])
 
   const clearTimesheetFilters = useCallback(() => {
@@ -1908,68 +2170,79 @@ export function ProjectManagement() {
     tsEmployeeFilters.length > 0 ||
     tsProjectFilters.length > 0 ||
     tsStatusFilters.length > 0
-
-
   return (
-    <PageWrapper>
-      {/* ── Page Header (Linear Clean Style) ───────────────── */}
-      <div className="mb-6 flex flex-col gap-4 border-b border-slate-100 pb-5 md:flex-row md:items-center md:justify-between">
-        <div>
-          <Breadcrumb items={[{ label: 'Admin Dashboard' }, { label: 'Projects & Timesheets' }]} />
-          <h1 className="mt-2 font-display text-2xl font-black tracking-tight text-slate-800">
-          </h1>
-        </div>
-
-        {/* Header CTA Trigger */}
-        <div className="flex items-center gap-2">
-          {activeTab === 'projects' && (
-            <>
-              <Button
-                onClick={() => setArchivedModalOpen(true)}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-all shadow-sm rounded-xl py-2 px-4 flex items-center gap-1.5 border border-slate-200"
+    <PageWrapper className="dashboard-surface py-4 sm:py-5">
+      <div className="crewiq-dashboard">
+        {/* ── Compact admin header: tabs + contextual actions ───────────────── */}
+        <div className="sticky top-0 z-30 -mx-4 mb-5 border-b border-white/[0.06] bg-[#0c0f1a]/95 px-4 py-3 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="inline-flex items-center gap-0.5 rounded-lg border border-white/[0.06] bg-[#0f1219] p-0.5">
+            {[
+              { key: 'projects' as const, label: 'Projects', icon: FolderOpen, count: filteredProjects.length },
+              { key: 'timesheets' as const, label: 'Timesheets', icon: Clock, count: filteredTimesheets.length },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`inline-flex items-center gap-1.5 rounded-[7px] px-3.5 py-[7px] text-[12px] font-bold transition-all duration-200 ${
+                  activeTab === tab.key
+                    ? 'bg-emerald-600 text-white shadow-[0_1px_3px_rgba(0,0,0,0.3),0_0_0_1px_rgba(16,185,129,0.15)_inset]'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
+                }`}
               >
-                <Archive className="h-4 w-4 text-slate-500" /> Archived Projects
-              </Button>
-              <Button
-                onClick={openCreateProject}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-all shadow-sm rounded-xl py-2 px-4 flex items-center gap-1.5 focus:ring-4 focus:ring-emerald-500/10 border-0"
-              >
-                <Plus className="h-4 w-4" /> Create Project
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* ── Redesigned Smooth Tab Bar ────────────────────── */}
-      <div className="sticky top-0 z-30 -mx-4 bg-white/95 backdrop-blur-md px-4 py-3 border-b border-slate-100 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 mb-6">
-        <div className="flex items-center gap-1.5 rounded-xl bg-slate-100 p-1.5 max-w-xs shadow-inner">
-          {[
-            { key: 'projects' as const, label: 'Projects', icon: FolderOpen, count: filteredProjects.length },
-            { key: 'timesheets' as const, label: 'Timesheets', icon: Clock, count: filteredTimesheets.length },
-          ].map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 px-3.5 text-xs font-bold transition-all duration-300 ${
-                activeTab === tab.key
-                  ? 'bg-white text-indigo-600 shadow-md scale-102 border border-slate-200/50'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <tab.icon className="h-3.5 w-3.5" />
-              {tab.label}
-              {tab.key === 'projects' && (
+                <tab.icon className="h-3.5 w-3.5 shrink-0" />
+                {tab.label}
                 <span
-                  className={`ml-1.5 rounded-full px-2 py-0.5 text-[10px] font-black transition-colors duration-300 ${
-                    activeTab === tab.key ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-200 text-slate-500'
+                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-black tabular-nums leading-none ${
+                    activeTab === tab.key ? 'bg-white/15 text-white' : 'bg-white/5 text-slate-500'
                   }`}
                 >
                   {tab.count}
                 </span>
-              )}
-            </button>
-          ))}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {activeTab === 'projects' && (
+              <>
+                <Button
+                  onClick={() => setArchivedModalOpen(true)}
+                  className="flex h-8 items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-0 text-[12px] font-bold text-slate-300 transition-all hover:bg-white/[0.06] hover:border-white/[0.14] hover:text-white"
+                >
+                  <Archive className="h-3.5 w-3.5 text-slate-500" />
+                  <span className="hidden sm:inline">Archived</span>
+                </Button>
+                <Button
+                  onClick={openCreateProject}
+                  className="flex h-8 items-center gap-1.5 rounded-lg border-0 bg-emerald-600 px-3.5 py-0 text-[12px] font-bold text-white shadow-[0_1px_3px_rgba(0,0,0,0.25)] transition-all hover:bg-emerald-500 hover:shadow-[0_2px_10px_rgba(16,185,129,0.25)]"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Create Project
+                </Button>
+              </>
+            )}
+            {activeTab === 'timesheets' && (
+              <>
+                <button
+                  onClick={handleExportPDF}
+                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-rose-500/15 bg-rose-500/8 px-3 text-[12px] font-bold text-rose-400 transition-all hover:bg-rose-500/15 hover:border-rose-500/25"
+                  title="Export timesheet data as PDF report"
+                >
+                  <FileDown className="h-3.5 w-3.5 shrink-0 text-rose-500" />
+                  <span>PDF Report</span>
+                </button>
+                <button
+                  onClick={handleExportExcel}
+                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-emerald-500/15 bg-emerald-500/8 px-3 text-[12px] font-bold text-emerald-400 transition-all hover:bg-emerald-500/15 hover:border-emerald-500/25"
+                  title="Export timesheet data as Excel spreadsheet"
+                >
+                  <FileSpreadsheet className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                  <span>Excel</span>
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1977,47 +2250,52 @@ export function ProjectManagement() {
            TAB 1 – PROJECTS
            ================================================================ */}
       {activeTab === 'projects' && (
-        <div className="space-y-6 animate-fadeIn">
-          {/* Analytics Cards */}
+        <div className="space-y-5 pb-16 animate-fadeIn">
+          {/* Project metrics */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <MetricCard
               label="Total Projects"
               value={projectMetrics.total}
               icon={FolderOpen}
-              accentClass="bg-slate-500"
+              accentClass="bg-gradient-to-r from-slate-400 to-slate-500"
+              iconClassName="bg-slate-500/10 text-slate-300 ring-slate-500/15"
+              secondaryText="All registered projects"
             />
             <MetricCard
-              label="In Progress Projects"
+              label="In Progress"
               value={projectMetrics.inProgress}
               icon={ArrowUpRight}
-              accentClass="bg-emerald-600"
+              accentClass="bg-gradient-to-r from-emerald-500 to-emerald-400"
+              iconClassName="bg-emerald-500/10 text-emerald-400 ring-emerald-500/20"
+              secondaryText="Currently active"
             />
             <MetricCard
-              label="Completed Projects"
+              label="Completed"
               value={projectMetrics.completed}
               icon={CheckCircle2}
-              accentClass="bg-teal-500"
+              accentClass="bg-gradient-to-r from-teal-500 to-teal-400"
+              iconClassName="bg-teal-500/10 text-teal-400 ring-teal-500/20"
+              secondaryText="Successfully delivered"
             />
           </div>
 
-          {/* Action Toolbar */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              {/* Search + Filter toggle */}
-              <div className="flex flex-1 flex-wrap items-center gap-2">
-                <div className="relative flex-1 min-w-[240px] max-w-sm">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          {/* Search & filters toolbar */}
+          <div className="rounded-xl border border-white/[0.06] bg-[#161922] p-3.5 shadow-[0_2px_12px_-3px_rgba(0,0,0,0.35)]">
+            <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                <div className="relative min-w-[200px] flex-1 sm:max-w-md">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search name, client, tech node, scope..."
-                    className="h-10 w-full rounded-xl border border-slate-250 bg-white pl-9 pr-8 text-xs font-semibold text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                    placeholder="Search projects, clients, tech nodes…"
+                    className="h-9 w-full rounded-lg border border-white/10 bg-[#111319] pl-9 pr-8 text-sm font-semibold text-slate-200 outline-none transition-all placeholder:text-slate-500 focus:border-emerald-500/50 focus:bg-[#111319]/80 focus:ring-2 focus:ring-emerald-500/10"
                   />
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-slate-400 hover:bg-white/5 hover:text-slate-200"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -2027,35 +2305,35 @@ export function ProjectManagement() {
                 <button
                   type="button"
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`inline-flex items-center gap-1.5 rounded-xl border h-10 px-3.5 text-xs font-bold transition-all ${
+                  className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-xs font-bold transition-all ${
                     showFilters || activeFiltersCount > 0
-                      ? 'border-emerald-200 bg-emerald-50/50 text-emerald-600'
-                      : 'border-slate-250 bg-white text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                      : 'border-white/10 bg-[#111319] text-slate-300 hover:bg-white/[0.04]'
                   }`}
                 >
                   <SlidersHorizontal className="h-3.5 w-3.5" />
-                  Advanced Filters
+                  Filters
                   {activeFiltersCount > 0 && (
-                    <span className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-black text-white">
+                    <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-emerald-600 px-1 text-[10px] font-black text-white">
                       {activeFiltersCount}
                     </span>
                   )}
                 </button>
               </div>
 
-              {/* Layout controls */}
-              <div className="flex items-center gap-3 self-end sm:self-auto">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  Matches: {filteredProjects.length} / {projects.length}
-                </span>
+              <div className="flex items-center justify-between gap-3 sm:justify-end">
+                <p className="text-xs font-semibold text-slate-400 tabular-nums">
+                  <span className="font-bold text-slate-100">{filteredProjects.length}</span>
+                  <span className="text-slate-500"> / {projects.length}</span>
+                </p>
 
-                <div className="flex rounded-xl border border-slate-250 bg-white p-1">
+                <div className="flex rounded-lg border border-white/10 bg-[#111319] p-0.5">
                   <button
                     onClick={() => setViewMode('grid')}
-                    className={`rounded-lg p-1.5 transition-all ${
+                    className={`rounded-md p-2 transition-all ${
                       viewMode === 'grid'
-                        ? 'bg-emerald-50 text-emerald-600 shadow-sm border border-slate-200/40'
-                        : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-slate-450 hover:text-slate-200'
                     }`}
                     title="Grid layout"
                   >
@@ -2063,10 +2341,10 @@ export function ProjectManagement() {
                   </button>
                   <button
                     onClick={() => setViewMode('list')}
-                    className={`rounded-lg p-1.5 transition-all ${
+                    className={`rounded-md p-2 transition-all ${
                       viewMode === 'list'
-                        ? 'bg-emerald-50 text-emerald-600 shadow-sm border border-slate-200/40'
-                        : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-slate-455 hover:text-slate-200'
                     }`}
                     title="List layout"
                   >
@@ -2076,9 +2354,8 @@ export function ProjectManagement() {
               </div>
             </div>
 
-            {/* Sliding Advanced Filters Panel */}
             {showFilters && (
-              <div className="mt-4 border-t border-slate-100 pt-4 animate-fadeIn">
+              <div className="mt-3 border-t border-white/5 pt-3 animate-fadeIn">
                 <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
                   <FilterCheckboxGroup
                     label="Client Name"
@@ -2127,13 +2404,13 @@ export function ProjectManagement() {
                 </div>
 
                 {activeFiltersCount > 0 && (
-                  <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
-                    <p className="text-[11px] font-semibold text-slate-400">
-                      Applied Filters: {activeFiltersCount} filters currently active
+                  <div className="mt-2.5 flex items-center justify-between border-t border-white/5 pt-2.5">
+                    <p className="text-xs font-semibold text-slate-450">
+                      {activeFiltersCount} filter{activeFiltersCount === 1 ? '' : 's'} active
                     </p>
                     <button
                       onClick={clearProjectsFilters}
-                      className="text-xs font-bold text-emerald-600 hover:text-emerald-800 transition-colors"
+                      className="text-xs font-bold text-emerald-450 hover:text-emerald-350 transition-colors"
                     >
                       Reset All Filters
                     </button>
@@ -2154,8 +2431,7 @@ export function ProjectManagement() {
                       project={p}
                       onEdit={() => openEditProject(p)}
                       onDelete={() => handleDeleteProject(p)}
-                      onTasks={() => openProjectTasks(p)}
-                      onStatusChange={(status) => handleUpdateProjectStatus(p.id, status)}
+
                     />
                   ))}
                 </div>
@@ -2168,48 +2444,47 @@ export function ProjectManagement() {
               )}
             </>
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-[#161922] shadow-[0_2px_12px_-3px_rgba(0,0,0,0.35)]">
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-left">
                   <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50/60">
-                      <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    <tr className="border-b border-white/[0.06] bg-[#0e1119]">
+                      <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">
                         Project Details
                       </th>
-                      <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">
                         Client
                       </th>
-                      <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">
                         Technology Node
                       </th>
-                      <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">
                         Access Control
                       </th>
-                      <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">
                         Visibility Scope
                       </th>
-                      <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">
                         Status
                       </th>
-                      <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 text-right">
+                      <th className="px-5 py-3 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs">
+                  <tbody className="divide-y divide-white/5 text-sm">
                     {currentProjects.map((p) => (
                       <ProjectListRow
                         key={p.id}
                         project={p}
                         onEdit={() => openEditProject(p)}
                         onDelete={() => handleDeleteProject(p)}
-                        onTasks={() => openProjectTasks(p)}
-                        onStatusChange={(status) => handleUpdateProjectStatus(p.id, status)}
+
                       />
                     ))}
                     {filteredProjects.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="py-16 text-center text-slate-400 font-medium">
+                        <td colSpan={7} className="py-16 text-center text-slate-550 font-medium">
                           No projects matched the selected filters.
                         </td>
                       </tr>
@@ -2222,8 +2497,8 @@ export function ProjectManagement() {
 
           {/* Projects Pagination Controls */}
           {totalProjectsPages > 1 && (
-            <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4">
-              <span className="text-xs font-semibold text-slate-500">
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.05] pt-4">
+              <span className="text-[11px] font-semibold text-slate-500">
                 Showing {indexOfFirstProject + 1}–{Math.min(indexOfLastProject, filteredProjects.length)} of {filteredProjects.length} projects
               </span>
               <div className="flex items-center gap-1.5">
@@ -2231,7 +2506,7 @@ export function ProjectManagement() {
                   type="button"
                   disabled={projectsCurrentPage === 1}
                   onClick={() => setProjectsCurrentPage((p) => Math.max(1, p - 1))}
-                  className="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-white"
+                  className="inline-flex h-7 items-center justify-center rounded-lg border border-white/[0.08] bg-[#161922] px-3 text-[11px] font-bold text-slate-400 transition-all hover:bg-white/[0.04] hover:text-slate-200 disabled:opacity-40 disabled:pointer-events-none"
                 >
                   Previous
                 </button>
@@ -2240,10 +2515,10 @@ export function ProjectManagement() {
                     key={page}
                     type="button"
                     onClick={() => setProjectsCurrentPage(page)}
-                    className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-xs font-black transition-all ${
+                    className={`inline-flex h-7 w-7 items-center justify-center rounded-lg text-[11px] font-black transition-all ${
                       projectsCurrentPage === page
-                        ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-500/10'
-                        : 'border border-slate-250 bg-white text-slate-600 hover:bg-slate-50'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'border border-white/[0.06] bg-[#161922] text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
                     }`}
                   >
                     {page}
@@ -2253,7 +2528,7 @@ export function ProjectManagement() {
                   type="button"
                   disabled={projectsCurrentPage === totalProjectsPages}
                   onClick={() => setProjectsCurrentPage((p) => Math.min(totalProjectsPages, p + 1))}
-                  className="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-white"
+                  className="inline-flex h-7 items-center justify-center rounded-lg border border-white/[0.08] bg-[#161922] px-3 text-[11px] font-bold text-slate-400 transition-all hover:bg-white/[0.04] hover:text-slate-200 disabled:opacity-40 disabled:pointer-events-none"
                 >
                   Next
                 </button>
@@ -2267,38 +2542,41 @@ export function ProjectManagement() {
            TAB 2 – TIMESHEETS (Manage Timesheets / Review Time Logs)
            ================================================================ */}
       {activeTab === 'timesheets' && (
-        <div className="space-y-6 animate-fadeIn">
-          {/* UNIFIED FILTERS SECTION AT TOP */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h3 className="mb-4 text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
-              <Sliders className="h-4 w-4 text-emerald-600" /> Filter
-            </h3>
+        <div className="space-y-5 pb-16 animate-fadeIn">
+          {/* Timesheets filter toolbar */}
+          <div className="rounded-xl border border-white/[0.06] bg-[#161922] p-3.5 shadow-[0_2px_12px_-3px_rgba(0,0,0,0.35)]">
+            <div className="flex flex-col gap-2">
+              <div className="grid grid-cols-1 items-center gap-2 md:grid-cols-2 xl:grid-cols-[minmax(11rem,1.4fr)_auto_minmax(8.5rem,1fr)_minmax(8.5rem,1fr)_minmax(7.5rem,0.9fr)_auto]">
+                <div className="relative min-w-0 md:col-span-2 xl:col-span-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                  <input
+                    type="text"
+                    value={tsSearch}
+                    onChange={(e) => setTsSearch(e.target.value)}
+                    placeholder="Search employees, projects…"
+                    className="h-9 w-full rounded-lg border border-white/10 bg-[#111319] pl-9 pr-8 text-sm font-semibold text-slate-200 outline-none transition-all placeholder:text-slate-500 focus:border-emerald-500/50 focus:bg-[#111319]/80 focus:ring-2 focus:ring-emerald-500/10"
+                  />
+                  {tsSearch.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => setTsSearch('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
 
-            {/* Filters and Actions Layout */}
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-3">
-                <div className="flex-1 grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 items-center">
-                  {/* Date Range Picker */}
+                <div className="shrink-0">
                   <CustomDateRangePicker
                     startDate={tsStartDate}
                     endDate={tsEndDate}
                     preset={datePreset}
                     onChange={handleDateRangeChange}
                   />
+                </div>
 
-                  {/* Search Box */}
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={tsSearch}
-                      onChange={(e) => setTsSearch(e.target.value)}
-                      placeholder="Search project details..."
-                      className="h-10 w-full rounded-xl border border-slate-250 bg-white pl-9 pr-3 text-xs font-semibold text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
-                    />
-                  </div>
-
-                  {/* Employee Filter */}
+                <div className="h-9 min-w-0">
                   <FilterCheckboxGroup
                     label="Employee"
                     placeholder="All Employees"
@@ -2307,8 +2585,9 @@ export function ProjectManagement() {
                     selected={tsEmployeeFilters}
                     onChange={setTsEmployeeFilters}
                   />
+                </div>
 
-                  {/* Project Filter */}
+                <div className="h-9 min-w-0">
                   <FilterCheckboxGroup
                     label="Project"
                     placeholder="All Projects"
@@ -2317,8 +2596,9 @@ export function ProjectManagement() {
                     selected={tsProjectFilters}
                     onChange={setTsProjectFilters}
                   />
+                </div>
 
-                  {/* Status Filter */}
+                <div className="h-9 min-w-0">
                   <FilterCheckboxGroup
                     label="Status"
                     placeholder="All Statuses"
@@ -2329,184 +2609,249 @@ export function ProjectManagement() {
                   />
                 </div>
 
-                {/* Action Buttons (right-aligned, natural width) */}
-                <div className="h-10 flex items-center gap-3 justify-end">
+                <div className="flex items-center justify-end gap-2 xl:justify-end">
+                  <span className="inline-flex h-9 items-center rounded-lg border border-white/10 bg-[#111319] px-3 text-xs font-semibold tabular-nums text-slate-350">
+                    <span className="font-bold text-slate-100">{filteredTimesheets.length}</span>
+                    <span className="ml-1 text-slate-500">logs</span>
+                  </span>
                   {hasActiveTimesheetFilters && (
                     <button
+                      type="button"
                       onClick={clearTimesheetFilters}
-                      className="h-10 inline-flex items-center text-xs font-bold text-emerald-600 hover:text-emerald-800 transition-colors whitespace-nowrap"
+                      className="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg border border-white/10 bg-[#111319] px-2.5 text-xs font-bold text-slate-350 transition-colors hover:bg-white/[0.04] hover:text-white"
+                      title="Reset filters"
                     >
-                      Clear Filters
+                      <X className="h-3.5 w-3.5" />
                     </button>
                   )}
-
-                  {/* Document Export Buttons */}
-                  <div className="flex rounded-xl border border-slate-200 bg-white shadow-sm h-10">
-                    <button
-                      onClick={handleExportPDF}
-                      className="flex h-10 items-center gap-1.5 border-r border-slate-200 px-3.5 text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
-                    >
-                      <FileDown className="h-4 w-4 text-rose-500" />
-                      <span className="ml-1 whitespace-nowrap">PDF Report</span>
-                    </button>
-                    <button
-                      onClick={handleExportExcel}
-                      className="flex h-10 items-center gap-1.5 px-3.5 text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
-                    >
-                      <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-                      <span className="ml-1 whitespace-nowrap">Excel Spreadsheet</span>
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>
+
             {hasActiveTimesheetFilters && (
-              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1">Active Filters:</span>
-                
+              <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-white/5 pt-2.5">
+                <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Active</span>
+
                 {tsSearch.trim() && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-150 px-2.5 py-1 text-xs font-semibold text-slate-650 border border-slate-200/50">
-                    Search: "{tsSearch}"
-                    <button onClick={() => setTsSearch('')} className="text-slate-400 hover:text-slate-600 transition-colors">
+                  <span className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-[#111319] px-2 py-1 text-xs font-semibold text-slate-300">
+                    Search: &quot;{tsSearch}&quot;
+                    <button
+                      type="button"
+                      onClick={() => setTsSearch('')}
+                      className="text-slate-500 hover:text-slate-300"
+                    >
                       <X className="h-3 w-3" />
                     </button>
                   </span>
                 )}
-                
-                {tsEmployeeFilters.map(empName => (
-                  <span key={empName} className="inline-flex items-center gap-1 rounded-full bg-slate-150 px-2.5 py-1 text-xs font-semibold text-slate-650 border border-slate-200/50">
-                    Employee: {empName}
-                    <button onClick={() => setTsEmployeeFilters(tsEmployeeFilters.filter(name => name !== empName))} className="text-slate-400 hover:text-slate-600 transition-colors">
+
+                {tsEmployeeFilters.map((empName) => (
+                  <span
+                    key={empName}
+                    className="inline-flex items-center gap-1 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-xs font-semibold text-emerald-400"
+                  >
+                    {empName}
+                    <button
+                      type="button"
+                      onClick={() => setTsEmployeeFilters(tsEmployeeFilters.filter((name) => name !== empName))}
+                      className="text-emerald-555 text-emerald-400 hover:text-emerald-300"
+                    >
                       <X className="h-3 w-3" />
                     </button>
                   </span>
                 ))}
-                
-                {tsProjectFilters.map(proj => (
-                  <span key={proj} className="inline-flex items-center gap-1 rounded-full bg-slate-150 px-2.5 py-1 text-xs font-semibold text-slate-650 border border-slate-200/50">
-                    Project: {proj}
-                    <button onClick={() => setTsProjectFilters(tsProjectFilters.filter(p => p !== proj))} className="text-slate-400 hover:text-slate-600 transition-colors">
+
+                {tsProjectFilters.map((proj) => (
+                  <span
+                    key={proj}
+                    className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-[#111319] px-2 py-1 text-xs font-semibold text-slate-300"
+                  >
+                    {proj}
+                    <button
+                      type="button"
+                      onClick={() => setTsProjectFilters(tsProjectFilters.filter((p) => p !== proj))}
+                      className="text-slate-500 hover:text-slate-300"
+                    >
                       <X className="h-3 w-3" />
                     </button>
                   </span>
                 ))}
-                
-                {tsStatusFilters.map(status => (
-                  <span key={status} className="inline-flex items-center gap-1 rounded-full bg-slate-150 px-2.5 py-1 text-xs font-semibold text-slate-650 border border-slate-200/50">
-                    Status: {status}
-                    <button onClick={() => setTsStatusFilters(tsStatusFilters.filter(s => s !== status))} className="text-slate-400 hover:text-slate-600 transition-colors">
+
+                {tsStatusFilters.map((status) => (
+                  <span
+                    key={status}
+                    className="inline-flex items-center gap-1 rounded-md border border-blue-500/20 bg-blue-500/10 px-2 py-1 text-xs font-semibold text-blue-400"
+                  >
+                    {status}
+                    <button
+                      type="button"
+                      onClick={() => setTsStatusFilters(tsStatusFilters.filter((s) => s !== status))}
+                      className="text-blue-500/70 hover:text-blue-300"
+                    >
                       <X className="h-3 w-3" />
                     </button>
                   </span>
                 ))}
-                
+
                 <button
+                  type="button"
                   onClick={clearTimesheetFilters}
-                  className="text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors ml-auto text-[11px]"
+                  className="ml-auto text-xs font-bold text-emerald-450 hover:text-emerald-350"
                 >
-                  Clear All
+                  Clear all
                 </button>
               </div>
             )}
           </div>
 
-          {/* Analytics */}
-          <div className="grid gap-5 lg:grid-cols-2">
-            {/* Hours by Project Recharts Bar Chart */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h3 className="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-700">
-                <span className="h-3.5 w-1.5 rounded-full bg-emerald-500" /> Aggregated Hours by Project
-              </h3>
-              {chartHoursByProject.length > 0 ? (
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartHoursByProject} margin={{ top: 28, right: 5, left: -25, bottom: 5 }} onClick={handleBarClick}>
-                      <defs>
-                        <linearGradient id="emeraldGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#10b981" stopOpacity={0.85} />
-                          <stop offset="100%" stopColor="#047857" stopOpacity={0.85} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid stroke="#f8fafc" vertical={false} />
-                      <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }} axisLine={false} tickLine={false} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, fontSize: 11, fontWeight: 600 }}
-                        cursor={{ fill: '#f8fafc' }}
-                      />
-                      <Bar dataKey="hours" radius={[6, 6, 0, 0]} maxBarSize={38} className="cursor-pointer" onClick={handleBarClick}>
-                        <LabelList dataKey="hours" content={HoursBarLabel} />
-                        {chartHoursByProject.map((entry, index) => {
-                          const baseColor = PROJECT_COLORS[index % PROJECT_COLORS.length]
+          {/* Analytics panels */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-xl border border-white/[0.06] bg-[#161922] p-5 shadow-[0_2px_12px_-3px_rgba(0,0,0,0.35)]">
+              <div className="mb-4 flex items-center justify-between gap-2 border-b border-white/[0.05] pb-3">
+                <h3 className="type-card-label-caps flex items-center gap-2 text-emerald-450 font-extrabold">
+                  <span className="h-3.5 w-1 shrink-0 rounded-full bg-emerald-500" />
+                  Aggregated Hours by Project
+                </h3>
+                {derivedHoursByProject.length > 0 && (
+                  <span className="text-xs text-slate-450 font-mono">
+                    {derivedHoursByProject.length} project{derivedHoursByProject.length === 1 ? '' : 's'}
+                  </span>
+                )}
+              </div>
+              {derivedHoursByProject.length > 0 ? (
+                <div className="timesheet-panel-scroll h-60 overflow-auto pr-0.5 sm:h-64">
+                  <ProjectHoursHoverCardProvider>
+                    <div
+                      className={
+                        derivedHoursByProject.length > 9
+                          ? 'grid w-max min-w-full gap-2 p-0.5'
+                          : 'grid w-full grid-cols-2 gap-2 sm:grid-cols-3'
+                      }
+                      style={
+                        derivedHoursByProject.length > 9
+                          ? {
+                              gridTemplateRows: 'repeat(3, minmax(4.25rem, auto))',
+                              gridAutoFlow: 'column',
+                              gridAutoColumns: 'minmax(7.25rem, 8.5rem)',
+                            }
+                          : undefined
+                      }
+                    >
+                      {(() => {
+                        const totalHours = derivedHoursByProject.reduce((sum, p) => sum + p.hours, 0)
+                        const averageHours =
+                          derivedHoursByProject.length > 0 ? totalHours / derivedHoursByProject.length : 0
+
+                        return derivedHoursByProject.map((project) => {
+                          const isGreaterThanAverage = project.hours > averageHours
+                          const percentage =
+                            totalHours > 0 ? ((project.hours / totalHours) * 100).toFixed(2) : '0.00'
+                          const cardBg = isGreaterThanAverage ? 'bg-[#4aaf7d]' : 'bg-[#f16c6f]'
+                          const foundProject = allProjects.find((p) => p.name === project.name)
+
                           return (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={baseColor}
-                              fillOpacity={0.4}
-                              stroke={baseColor}
-                              strokeWidth={1.5}
-                              strokeOpacity={0.8}
+                            <ProjectHoursHoverCard
+                              key={project.name}
+                              projectName={project.name}
+                              hours={project.hours}
+                              percentage={percentage}
+                              isGreaterThanAverage={isGreaterThanAverage}
+                              cardBg={cardBg}
+                              client={foundProject?.client}
+                              technologyNode={foundProject?.technologyNode}
+                              accessType={foundProject?.accessType}
+                              onCardClick={() => {
+                                if (project.projectId) {
+                                  openAuditTrail(project.projectId, project.name)
+                                } else if (foundProject) {
+                                  openAuditTrail(foundProject.id, foundProject.name)
+                                } else {
+                                  openAuditTrail('', project.name)
+                                }
+                              }}
                             />
                           )
-                        })}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                        })
+                      })()}
+                    </div>
+                  </ProjectHoursHoverCardProvider>
                 </div>
               ) : (
-                <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-slate-200 text-xs text-slate-400 font-semibold">
+                <div className="flex h-60 items-center justify-center rounded-lg border border-dashed border-white/[0.06] bg-[#111319] text-sm font-semibold text-slate-500 sm:h-64">
                   No data logs available in the chosen dates.
                 </div>
               )}
             </div>
 
-            {/* Custom SaaS Leaderboard for Employee Hours */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h3 className="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-700">
-                <span className="h-3.5 w-1.5 rounded-full bg-emerald-500" /> Aggregated Hours by Employee
-              </h3>
-              <div className="h-64 overflow-y-auto pr-1">
-                <EmployeeLeaderboard data={leaderboardData} />
+            <div className="rounded-xl border border-white/[0.06] bg-[#161922] p-5 shadow-[0_2px_12px_-3px_rgba(0,0,0,0.35)]">
+              <div className="mb-4 flex items-center justify-between gap-2 border-b border-white/[0.05] pb-3">
+                <h3 className="type-card-label-caps flex items-center gap-2 text-emerald-450 font-extrabold">
+                  <span className="h-3.5 w-1 shrink-0 rounded-full bg-emerald-500" />
+                  Aggregated Hours by Employee
+                </h3>
+                {derivedLeaderboardData.length > 0 && (
+                  <span className="text-xs text-slate-450 font-mono">
+                    {derivedLeaderboardData.length} employee{derivedLeaderboardData.length === 1 ? '' : 's'}
+                  </span>
+                )}
+              </div>
+              <div className="timesheet-panel-scroll max-h-[15.75rem] overflow-y-auto pr-0.5">
+                <EmployeeLeaderboard data={derivedLeaderboardData} />
               </div>
             </div>
           </div>
 
-          {/* Timesheet Data Table */}
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/60 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    <th className="px-5 py-3.5">Employee</th>
-                    <th className="px-5 py-3.5">Project</th>
-                    <th className="px-5 py-3.5">Login Time</th>
-                    <th className="px-5 py-3.5">Logout Time</th>
-                    <th className="px-5 py-3.5">Total Hours</th>
+          {/* Timesheet log table */}
+          <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-[#161922] shadow-[0_2px_12px_-3px_rgba(0,0,0,0.35)]">
+            <div className="max-h-[min(32rem,70vh)] overflow-auto timesheet-panel-scroll">
+              <table className="w-full min-w-[640px] border-collapse text-left">
+                <thead className="sticky top-0 z-10">
+                  <tr className="border-b border-white/[0.08] bg-[#0e1119]">
+                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">Employee</th>
+                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">Project</th>
+                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">Login Time</th>
+                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">Logout Time</th>
+                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-500">Duration</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-xs">
+                <tbody className="divide-y divide-white/5 text-sm">
                   {currentTimesheets.map((t) => {
                     const empInfo = MOCK_EMPLOYEES.find((e) => e.id === t.employeeId)
-                    const hours = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours)
+                    const hours = calculateHours(
+                      t.loginTime,
+                      t.logoutTime,
+                      t.overriddenHours,
+                      t.totalHours,
+                      t.totalPausedMs
+                    )
 
                     return (
-                      <tr key={t.id} className="group hover:bg-slate-50/40 transition-colors">
-                        {/* Employee Column */}
+                      <tr
+                        key={t.id}
+                        className="group transition-colors hover:bg-white/[0.02]"
+                      >
                         <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-3">
                             <Avatar
                               name={t.employeeName}
                               size="sm"
-                              color={empInfo ? `hsl(${empInfo.hue},55%,45%)` : '#10b981'}
+                              color={
+                                empInfo
+                                  ? `hsl(${empInfo.hue},55%,45%)`
+                                  : stringToHueColor(t.employeeId || t.employeeName)
+                              }
                             />
-                            <div>
-                              <p className="font-bold text-slate-700 leading-tight">{t.employeeName}</p>
-                              <p className="text-[10px] text-slate-400 font-bold font-mono">{t.employeeId}</p>
+                            <div className="min-w-0">
+                              <p className="truncate font-bold text-slate-100 leading-tight">
+                                {t.employeeName}
+                              </p>
+                              <p className="text-[11px] font-semibold text-slate-500 font-mono">
+                                {t.employeeId}
+                              </p>
                             </div>
                           </div>
                         </td>
 
-                        {/* Project Details Column */}
                         <td className="px-5 py-3.5">
                           <button
                             type="button"
@@ -2522,36 +2867,41 @@ export function ProjectManagement() {
                                 }
                               }
                             }}
-                            className="group/btn text-left focus:outline-none block"
+                            className="group/btn block max-w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 rounded-md"
                           >
-                            <p className="font-bold text-slate-700 group-hover/btn:text-emerald-600 transition-colors leading-tight flex items-center gap-1">
-                              {t.project}
-                              <ArrowUpRight className="h-3 w-3 opacity-0 group-hover/btn:opacity-100 transition-all transform translate-y-0.5 group-hover/btn:translate-y-0 group-hover/btn:translate-x-0.5 text-emerald-500 shrink-0" />
+                            <p className="flex items-center gap-1 font-bold text-slate-200 transition-colors group-hover/btn:text-emerald-450">
+                              <span className="truncate">{t.project}</span>
+                              <ArrowUpRight className="h-3.5 w-3.5 shrink-0 opacity-0 text-emerald-500 transition-all group-hover/btn:opacity-100" />
                             </p>
                           </button>
-                          {/* Only project name is rendered */}
                         </td>
 
-                        {/* Login Time Column */}
-                        <td className="px-5 py-3.5 font-semibold text-slate-600 whitespace-nowrap">
-                          {formatDateTime(t.loginTime)}
+                        <td className="whitespace-nowrap px-5 py-3.5">
+                          <p className="font-semibold text-slate-300">{formatDateTime(t.loginTime)}</p>
                         </td>
 
-                        {/* Logout Time Column */}
-                        <td className="px-5 py-3.5 font-semibold text-slate-600 whitespace-nowrap">
-                          {t.logoutTime ? formatDateTime(t.logoutTime) : '—'}
+                        <td className="whitespace-nowrap px-5 py-3.5">
+                          <p className="font-semibold text-slate-300">
+                            {t.logoutTime ? formatDateTime(t.logoutTime) : '—'}
+                          </p>
                         </td>
 
-                        {/* Total Hours Column */}
-                        <td className="px-5 py-3.5 font-black text-slate-700 tracking-tight tabular-nums">
-                          {hours !== null ? `${hours.toFixed(1)}h` : '—'}
+                        <td className="px-5 py-3.5">
+                          <span className="inline-flex rounded-lg border border-white/10 bg-[#111319] px-2.5 py-1 text-slate-200 font-mono text-xs font-bold">
+                            {formatAdminDuration(hours)}
+                          </span>
+                          {t.autoCheckedOut && (
+                            <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-amber-500">
+                              Auto Checked-Out
+                            </p>
+                          )}
                         </td>
                       </tr>
                     )
                   })}
                   {filteredTimesheets.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="py-16 text-center text-slate-400 font-medium">
+                      <td colSpan={5} className="py-12 text-center text-sm font-semibold text-slate-500">
                         No individual logs correspond to selected range and filters.
                       </td>
                     </tr>
@@ -2561,10 +2911,9 @@ export function ProjectManagement() {
             </div>
           </div>
 
-          {/* Timesheets Pagination Controls */}
           {totalTimesheetsPages > 1 && (
-            <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4">
-              <span className="text-xs font-semibold text-slate-500">
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.05] pt-4">
+              <span className="text-[11px] font-semibold text-slate-500">
                 Showing {indexOfFirstTimesheet + 1}–{Math.min(indexOfLastTimesheet, filteredTimesheets.length)} of {filteredTimesheets.length} logs
               </span>
               <div className="flex items-center gap-1.5">
@@ -2572,7 +2921,7 @@ export function ProjectManagement() {
                   type="button"
                   disabled={timesheetsCurrentPage === 1}
                   onClick={() => setTimesheetsCurrentPage((p) => Math.max(1, p - 1))}
-                  className="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-white"
+                  className="inline-flex h-7 items-center justify-center rounded-lg border border-white/[0.08] bg-[#161922] px-3 text-[11px] font-bold text-slate-400 transition-all hover:bg-white/[0.04] hover:text-slate-200 disabled:opacity-40 disabled:pointer-events-none"
                 >
                   Previous
                 </button>
@@ -2581,10 +2930,10 @@ export function ProjectManagement() {
                     key={page}
                     type="button"
                     onClick={() => setTimesheetsCurrentPage(page)}
-                    className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-xs font-black transition-all ${
+                    className={`inline-flex h-7 w-7 items-center justify-center rounded-lg text-[11px] font-black transition-all ${
                       timesheetsCurrentPage === page
-                        ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/10'
-                        : 'border border-slate-250 bg-white text-slate-600 hover:bg-slate-50'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'border border-white/[0.06] bg-[#161922] text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
                     }`}
                   >
                     {page}
@@ -2594,7 +2943,7 @@ export function ProjectManagement() {
                   type="button"
                   disabled={timesheetsCurrentPage === totalTimesheetsPages}
                   onClick={() => setTimesheetsCurrentPage((p) => Math.min(totalTimesheetsPages, p + 1))}
-                  className="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-white"
+                  className="inline-flex h-7 items-center justify-center rounded-lg border border-white/[0.08] bg-[#161922] px-3 text-[11px] font-bold text-slate-400 transition-all hover:bg-white/[0.04] hover:text-slate-200 disabled:opacity-40 disabled:pointer-events-none"
                 >
                   Next
                 </button>
@@ -2614,6 +2963,7 @@ export function ProjectManagement() {
         title={modalMode === 'create' ? 'Create New Project' : 'Edit Project Details'}
         onClose={() => setModalOpen(false)}
         size="lg"
+        theme="dark"
       >
         <form onSubmit={handleSaveProject} className="space-y-4 pt-1">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -2623,6 +2973,7 @@ export function ProjectManagement() {
               value={form.name}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, name: e.target.value })}
               required
+              theme="dark"
             />
             <Input
               label="Client Name"
@@ -2630,6 +2981,7 @@ export function ProjectManagement() {
               value={form.client}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, client: e.target.value })}
               required
+              theme="dark"
             />
           </div>
 
@@ -2640,6 +2992,7 @@ export function ProjectManagement() {
               value={form.technologyNode}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, technologyNode: e.target.value })}
               required
+              theme="dark"
             />
           </div>
 
@@ -2659,6 +3012,7 @@ export function ProjectManagement() {
               { value: 'public', label: 'Public — Visible system-wide to all employees' },
               { value: 'private', label: 'Private — Access restricted specifically by user/team' },
             ]}
+            theme="dark"
           />
 
           {/* Team Lead Selection - Always Available */}
@@ -2674,11 +3028,12 @@ export function ProjectManagement() {
                 label: `${e.firstName} ${e.lastName || ''}`.trim() + ` (${e.department})`,
               })),
             ]}
+            theme="dark"
           />
 
           {/* Conditional private security rules */}
           {form.accessType === 'private' && (
-            <div className="grid gap-4 sm:grid-cols-2 rounded-2xl border border-slate-200 bg-slate-50/50 p-4 animate-fadeIn">
+            <div className="grid gap-4 sm:grid-cols-2 rounded-2xl border border-white/10 bg-white/[0.02] p-4 animate-fadeIn">
               <CheckboxList
                 label="Allowed Users"
                 items={employees.map((e) => `${e.firstName} ${e.lastName || ''}`.trim())}
@@ -2689,7 +3044,7 @@ export function ProjectManagement() {
           )}
 
           <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">
               Project Description scope
             </label>
             <textarea
@@ -2699,14 +3054,14 @@ export function ProjectManagement() {
                 setForm({ ...form, description: enforceMaxWords(e.target.value) })
               }
               rows={3}
-              className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+              className="w-full rounded-xl border border-white/10 bg-[#111319] p-3 text-xs text-white outline-none transition-all placeholder:text-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
               required
             />
             <p
               className={`mt-1 text-right text-[11px] font-semibold ${
                 countWords(form.description) >= MAX_PROJECT_DESCRIPTION_WORDS
-                  ? 'text-amber-600'
-                  : 'text-slate-400'
+                  ? 'text-amber-500'
+                  : 'text-slate-500'
               }`}
             >
               {countWords(form.description)} / {MAX_PROJECT_DESCRIPTION_WORDS} words
@@ -2715,13 +3070,13 @@ export function ProjectManagement() {
 
           {modalMode === 'edit' && (
             <div>
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">
                 Project Status
               </label>
               <select
                 value={form.status}
                 onChange={(e) => setForm({ ...form, status: e.target.value as 'Active' | 'Completed' | 'Cancelled' })}
-                className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-700 outline-none transition-all focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                className="w-full rounded-xl border border-white/10 bg-[#111319] p-2.5 text-xs text-white outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
               >
                 <option value="Active">In Progress</option>
                 <option value="Completed">Completed</option>
@@ -2730,13 +3085,13 @@ export function ProjectManagement() {
             </div>
           )}
 
-          <div className="flex justify-end gap-3 border-t border-slate-100 pt-4 mt-2">
+          <div className="flex justify-end gap-3 border-t border-white/5 pt-4 mt-2">
             <Button
               type="button"
               variant="secondary"
               onClick={() => setModalOpen(false)}
               disabled={loading}
-              className="rounded-xl font-bold py-2 px-4"
+              className="rounded-xl font-bold py-2 px-4 border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] hover:text-white"
             >
               Cancel
             </Button>
@@ -2752,20 +3107,7 @@ export function ProjectManagement() {
         </form>
       </Modal>
 
-      {/* Project Tasks Modal */}
-      {selectedProjectId && (
-        <ProjectTasksModal
-          isOpen={tasksModalOpen}
-          onClose={() => {
-            setTasksModalOpen(false)
-            setSelectedProjectId(null)
-            setSelectedProjectName('')
-          }}
-          projectId={selectedProjectId}
-          projectName={selectedProjectName}
-          onRefresh={refreshAllData}
-        />
-      )}
+
 
       {/* Project Audit Trail Modal */}
       {selectedAuditProjectId && (
@@ -2794,6 +3136,7 @@ export function ProjectManagement() {
             setProjectToDelete(null)
           }}
           onConfirm={handleConfirmArchive}
+          theme="dark"
         />
       )}
 
@@ -2803,6 +3146,7 @@ export function ProjectManagement() {
         onClose={() => setArchivedModalOpen(false)}
         onRefreshActiveProjects={refreshAllData}
       />
+      </div>
     </PageWrapper>
   )
 }
@@ -2820,13 +3164,15 @@ function EmptyState({
   hasFilters: boolean
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-250 py-16 bg-white p-6 shadow-sm">
-      <FolderOpen className="h-12 w-12 text-slate-350 mb-3 animate-pulse" />
-      <p className="text-sm text-slate-500 font-bold text-center">{message}</p>
+    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-white/[0.08] bg-[#111319] py-14 px-6">
+      <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white/[0.04] ring-1 ring-white/[0.06]">
+        <FolderOpen className="h-5 w-5 text-slate-500" />
+      </div>
+      <p className="text-center text-sm font-semibold text-slate-400">{message}</p>
       {hasFilters && (
         <button
           onClick={onClear}
-          className="mt-3 text-xs font-extrabold text-emerald-600 hover:text-emerald-800 transition-colors bg-emerald-50 hover:bg-emerald-100/70 py-2 px-4 rounded-xl border border-emerald-200/45 shadow-sm"
+          className="mt-4 text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors bg-emerald-500/10 hover:bg-emerald-500/15 py-2 px-4 rounded-lg border border-emerald-500/20"
         >
           Reset Applied Filters
         </button>
@@ -2845,36 +3191,38 @@ interface ProjectArchiveConfirmModalProps {
   onConfirm: () => void
 }
 
-function ProjectArchiveConfirmModal({
+// @ts-expect-error Reserved component — not yet wired into the UI
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _ProjectArchiveConfirmModal = function ProjectArchiveConfirmModal({
   isOpen,
   onClose,
   projectName,
   onConfirm,
 }: ProjectArchiveConfirmModalProps) {
   return (
-    <Modal isOpen={isOpen} title="" onClose={onClose} size="md">
+    <Modal isOpen={isOpen} title="" onClose={onClose} size="md" theme="dark">
       {/* Sleek icon header */}
       <div className="-mt-10 mb-4 flex items-center gap-2">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 shadow-md">
           <Archive className="h-4 w-4 text-white" />
         </div>
-        <h3 className="text-sm font-black text-slate-800 leading-tight">Archive Project</h3>
+        <h3 className="text-sm font-black text-white leading-tight">Archive Project</h3>
       </div>
 
       <div className="space-y-4">
-        <p className="text-xs text-slate-550 text-slate-500 font-bold leading-relaxed">
-          Are you sure you want to archive project <strong className="text-slate-800 font-extrabold">"{projectName}"</strong>?
+        <p className="text-xs text-slate-300 font-bold leading-relaxed">
+          Are you sure you want to archive project <strong className="text-white font-extrabold">"{projectName}"</strong>?
         </p>
         <p className="text-xs text-slate-400 font-semibold leading-relaxed">
           This will safely move the project and its complete history (assigned tasks and timesheet logs) to separate archived storage. Active dashboards stay clean. You can restore the project at any time.
         </p>
 
-        <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+        <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
           <Button
             type="button"
             variant="secondary"
             onClick={onClose}
-            className="rounded-xl font-bold py-2 px-4 text-xs h-9"
+            className="rounded-xl font-bold py-2 px-4 text-xs h-9 border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] hover:text-white"
           >
             Cancel
           </Button>
@@ -2890,3 +3238,4 @@ function ProjectArchiveConfirmModal({
     </Modal>
   )
 }
+

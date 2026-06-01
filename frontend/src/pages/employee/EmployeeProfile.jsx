@@ -7,6 +7,7 @@ import { EmployeePhotoAvatar } from '@components/employee/shared/EmployeePhotoAv
 import { Badge } from '@components/employee/ui/badge'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { formatDate } from '@pages/employee/lib/utils'
+import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 import { documentListFromEmployee } from '@/utils/employeeDocuments'
 
 function InfoRow({ label, value }) {
@@ -120,7 +121,7 @@ export default function EmployeeProfile() {
   return (
     <div className="space-y-6">
       <div className="grid gap-6 lg:grid-cols-3">
-        <aside className="h-max rounded-xl border border-border bg-card p-5 shadow-card">
+        <InteractiveCard className={portalCardClass({ className: 'h-max p-5' })}>
           <div className="flex flex-col items-center text-center">
             <EmployeePhotoAvatar
               employeeId={employee.id}
@@ -155,10 +156,10 @@ export default function EmployeeProfile() {
               </p>
             </div>
           </div>
-        </aside>
+        </InteractiveCard>
 
         <section className="lg:col-span-2">
-          <div className="rounded-xl border border-border bg-card p-6 shadow-card">
+          <InteractiveCard className={portalCardClass({ className: 'p-6' })}>
             <SectionHeader title="Personal Details" />
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               <InfoRow label="First Name" value={employee.firstName} />
@@ -239,7 +240,7 @@ export default function EmployeeProfile() {
                 ) : null}
               </div>
             )}
-          </div>
+          </InteractiveCard>
         </section>
       </div>
     </div>
@@ -248,7 +249,10 @@ export default function EmployeeProfile() {
 
 function DocumentPreviewCard({ doc, onPreview, loading }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border bg-slate-50/80 px-4 py-3">
+    <div
+      data-portal-card=""
+      className={portalCardClass({ subtle: true, className: 'flex items-center gap-3 px-4 py-3 shadow-none' })}
+    >
       <FileText className="h-5 w-5 shrink-0 text-primary" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-foreground">{doc.name}</p>

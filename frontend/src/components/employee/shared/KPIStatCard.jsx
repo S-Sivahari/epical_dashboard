@@ -1,19 +1,19 @@
 import { motion } from 'framer-motion'
 import { cn } from '@pages/employee/lib/utils'
+import { portalCardClass } from '@components/employee/shared/interactiveCard'
 
 export function KPIStatCard({ title, value, icon: Icon, trend, className }) {
   return (
     <motion.div
-      whileHover={{ y: -4, boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.08)' }}
-      className={cn(
-        'rounded-xl border border-border bg-card p-5 shadow-card transition-shadow',
-        className
-      )}
+      data-portal-card=""
+      tabIndex={0}
+      whileHover={{ y: -2 }}
+      className={cn(portalCardClass({ className: cn('cursor-default p-5', className) }))}
     >
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm text-muted">{title}</p>
-          <p className="mt-1 font-heading text-2xl font-bold text-foreground">{value}</p>
+          <p className="type-card-label">{title}</p>
+          <p className="type-metric-lg mt-1 text-foreground">{value}</p>
           {trend && <p className="mt-1 text-xs text-primary">{trend}</p>}
         </div>
         {Icon && (

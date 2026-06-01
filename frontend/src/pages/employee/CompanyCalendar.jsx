@@ -5,10 +5,7 @@ import {
   subMonths,
   startOfMonth,
   endOfMonth,
-  startOfWeek,
-  endOfWeek,
   eachDayOfInterval,
-  isSameMonth,
   isToday,
 } from 'date-fns'
 import * as Tooltip from '@radix-ui/react-tooltip'
@@ -20,6 +17,7 @@ import { useLeaves } from '@hooks/useLeaves'
 import { useAuthStore } from '@store/authStore'
 import { formatDate } from '@/utils/formatDate'
 import * as leaveService from '@services/leaveService'
+import { portalCardClass } from '@components/employee/shared/interactiveCard'
 
 export default function CompanyCalendar() {
   const { leaves, holidays, companyCalendarEvents } = useLeaves()
@@ -41,9 +39,8 @@ export default function CompanyCalendar() {
 
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(monthStart)
-  const startDate = startOfWeek(monthStart, { weekStartsOn: 0 })
-  const endDate = endOfWeek(monthEnd, { weekStartsOn: 0 })
-  const calendarDays = eachDayOfInterval({ start: startDate, end: endDate })
+  const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd })
+  const leadingEmptyCells = monthStart.getDay()
 
   const currentMonthIdx = currentDate.getMonth()
   const currentYear = currentDate.getFullYear()
@@ -148,7 +145,10 @@ export default function CompanyCalendar() {
 
         {/* ── Calendar Card ─────────────────────────────────────────── */}
         <div className="lg:col-span-2 xl:col-span-3 flex flex-col w-full">
-          <div className="w-full rounded-xl border border-border bg-white shadow-sm flex flex-col overflow-hidden">
+          <div
+            data-portal-card=""
+            className={portalCardClass({ className: 'flex w-full flex-col overflow-hidden bg-white shadow-sm' })}
+          >
             {/* Header */}
             <div className="p-3 border-b border-border flex items-center justify-between bg-surface/30">
               <div className="flex items-center gap-2">
@@ -202,13 +202,20 @@ export default function CompanyCalendar() {
                   </div>
                 ))}
 
-                {calendarDays.map((day) => {
+                {Array.from({ length: leadingEmptyCells }).map((_, index) => (
+                  <div
+                    key={`pad-${index}`}
+                    className="min-h-[5rem] xl:min-h-[5.5rem] rounded-xl border border-transparent bg-transparent"
+                    aria-hidden
+                  />
+                ))}
+
+                {monthDays.map((day) => {
                   const dateStr = format(day, 'yyyy-MM-dd')
                   const dayHolidays = getHolidaysForDay(dateStr)
                   const dayEvents = getEventsForDay(dateStr)
                   const dayLeaves = getMyLeavesForDay(dateStr)
                   const dayTeamLeaves = getTeamLeavesForDay(dateStr)
-                  const isCurrentMonth = isSameMonth(day, currentDate)
                   const isTodayDate = isToday(day)
 
                   return (
@@ -216,8 +223,7 @@ export default function CompanyCalendar() {
                       <Tooltip.Trigger asChild>
                         <div
                           onClick={() => handleDateClick(dateStr)}
-                          className={`min-h-[5rem] xl:min-h-[5.5rem] p-1.5 rounded-xl border transition-all cursor-pointer flex flex-col gap-0.5 hover:shadow-sm overflow-hidden
-                            ${!isCurrentMonth ? 'bg-gray-50/40 text-muted/50 border-transparent' : 'bg-white border-border hover:border-primary/50'}
+                          className={`min-h-[5rem] xl:min-h-[5.5rem] p-1.5 rounded-xl border transition-all cursor-pointer flex flex-col gap-0.5 hover:shadow-sm overflow-hidden bg-white border-border hover:border-primary/50
                             ${isTodayDate ? 'ring-2 ring-primary/20 border-primary/40 bg-primary/5' : ''}
                             ${dayTeamLeaves.length > 0 ? 'bg-purple-50/30' : ''}
                           `}
@@ -352,7 +358,10 @@ export default function CompanyCalendar() {
         {/* ── Right Column ─────────────────────────────────────────── */}
         <div className="lg:col-span-1 flex flex-col gap-3">
           {/* Holidays */}
-          <div className="rounded-xl border border-border bg-white p-3 shadow-sm flex flex-col h-[220px]">
+          <div
+            data-portal-card=""
+            className={portalCardClass({ className: 'flex h-[220px] flex-col bg-white p-3 shadow-sm' })}
+          >
             <div className="mb-2 flex items-center gap-2 flex-shrink-0">
               <h3 className="font-display text-sm font-semibold text-ink">
                 {format(currentDate, 'MMM yyyy')} Holidays
@@ -390,7 +399,10 @@ export default function CompanyCalendar() {
           </div>
 
           {/* Company Events */}
-          <div className="rounded-xl border border-border bg-white p-3 shadow-sm flex flex-col h-[220px]">
+          <div
+            data-portal-card=""
+            className={portalCardClass({ className: 'flex h-[220px] flex-col bg-white p-3 shadow-sm' })}
+          >
             <div className="mb-2 flex items-center gap-2 flex-shrink-0">
               <h3 className="font-display text-sm font-semibold text-ink">Company Events</h3>
               <span className="inline-flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700">
@@ -420,7 +432,10 @@ export default function CompanyCalendar() {
           </div>
 
           {/* My Approved Leaves */}
-          <div className="rounded-xl border border-border bg-white p-3 shadow-sm flex flex-col h-[220px]">
+          <div
+            data-portal-card=""
+            className={portalCardClass({ className: 'flex h-[220px] flex-col bg-white p-3 shadow-sm' })}
+          >
             <div className="mb-2 flex items-center gap-2 flex-shrink-0">
               <h3 className="font-display text-sm font-semibold text-ink">My Leaves</h3>
               <span className="inline-flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold bg-lime-100 text-lime-700">
@@ -452,7 +467,10 @@ export default function CompanyCalendar() {
             )}
           </div>
           {/* Team Availability */}
-          <div className="rounded-xl border border-border bg-white p-3 shadow-sm flex flex-col h-[220px]">
+          <div
+            data-portal-card=""
+            className={portalCardClass({ className: 'flex h-[220px] flex-col bg-white p-3 shadow-sm' })}
+          >
             <div className="mb-2 flex items-center gap-2 flex-shrink-0">
               <h3 className="font-display text-sm font-semibold text-ink">Team on Leave</h3>
               <span className="inline-flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700">
