@@ -7,7 +7,7 @@ import { PDF_LOGO_MAX_WIDTH, drawPdfLogoLeft, fetchExportLogo, scaleExportLogo, 
 const BRAND_GREEN: [number, number, number] = [16, 185, 129]
 
 /** Draw "EPICAL …" with IC in brand green; returns total rendered width. */
-function drawEpicalBrandedText(
+export function drawEpicalBrandedText(
   doc: jsPDF,
   parts: { before: string; after: string },
   x: number,
@@ -33,10 +33,10 @@ function drawEpicalBrandedText(
   return totalWidth
 }
 
+/** @deprecated Use exportEmployeeAnalyticsReport instead */
 export async function exportAnalyticsPdf(filename: string) {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt' })
   const pageWidth = doc.internal.pageSize.width || 842
-
   let y = 40
   doc.setFontSize(16)
   doc.setTextColor(0, 0, 0)
@@ -46,6 +46,9 @@ export async function exportAnalyticsPdf(filename: string) {
   doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth / 2, y, { align: 'center' })
   doc.save(filename)
 }
+
+export { formatDateStr }
+export const PDF_BRAND_GREEN: [number, number, number] = [16, 185, 129]
 
 export interface ExportPdfOptions {
   generatedBy?: string
@@ -295,29 +298,34 @@ export async function exportToPDF<T extends Record<string, any>>(
 
   function drawFooters() {
     const totalPages = doc.getNumberOfPages()
-    const footerY = pageHeight - 30
+    const footerTop = pageHeight - 44
+    const footerRow1Y = pageHeight - 30
+    const footerRow2Y = pageHeight - 18
 
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i)
       doc.setDrawColor(226, 232, 240)
       doc.setLineWidth(1)
-      doc.line(40, footerY - 12, pageWidth - 40, footerY - 12)
+      doc.line(40, footerTop, pageWidth - 40, footerTop)
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(8)
       doc.setTextColor(100, 116, 139)
       drawEpicalBrandedText(
         doc,
-        { before: 'EP', after: 'AL LAYOUTS PVT LTD – Confidential Document' },
+        { before: 'EP', after: 'AL LAYOUTS PVT LTD' },
         40,
-        footerY,
+        footerRow1Y,
         'left',
         pageWidth,
         'normal',
       )
-      doc.text(`System Generated Report | Generated on ${genDate} ${genTime}`, pageWidth / 2, footerY, {
-        align: 'center',
-      })
-      doc.text(`Page ${i} of ${totalPages}`, pageWidth - 40, footerY, { align: 'right' })
+      doc.text(`Page ${i} of ${totalPages}`, pageWidth - 40, footerRow1Y, { align: 'right' })
+      doc.text(
+        `Confidential Document   |   System Generated Report   |   Generated on ${genDate} ${genTime}`,
+        pageWidth / 2,
+        footerRow2Y,
+        { align: 'center' },
+      )
     }
   }
 
