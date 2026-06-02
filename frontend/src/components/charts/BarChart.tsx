@@ -49,6 +49,19 @@ const DASHBOARD_GREEN = {
   cursor: 'rgba(38, 107, 28, 0.14)',
 }
 
+const ANALYTICS_GREEN = {
+  primary: '#06C033',
+  mid: '#05a82b',
+  deep: '#048522',
+  bright: '#39D353',
+  hover: '#2ecc4a',
+  axis: '#0f172a',
+  axisMuted: '#64748b',
+  label: '#06C033',
+  grid: 'rgba(6, 192, 51, 0.1)',
+  cursor: 'rgba(6, 192, 51, 0.12)',
+}
+
 export function HoursBarChart({
   data,
   theme = 'light',
@@ -62,7 +75,7 @@ export function HoursBarChart({
   data: { name: string; hours: number }[]
   theme?: 'light' | 'dark'
   brand?: boolean
-  colorScheme?: 'default' | 'dashboard'
+  colorScheme?: 'default' | 'dashboard' | 'analytics'
   /** Fixed pixel height for the chart area (prevents layout shift). Ignored when fillParent is true. */
   height?: number
   /** Grow to fill a flex parent (e.g. admin dashboard card). */
@@ -73,8 +86,21 @@ export function HoursBarChart({
   const gradId = useId().replace(/:/g, '')
   const isDark = theme === 'dark'
   const isDashboard = colorScheme === 'dashboard'
+  const isAnalytics = colorScheme === 'analytics'
+  const palette = isAnalytics ? ANALYTICS_GREEN : DASHBOARD_GREEN
 
-  const tooltipStyle = isDashboard
+  const tooltipStyle = isAnalytics
+    ? {
+        backgroundColor: '#0f172a',
+        border: 'none',
+        borderRadius: 8,
+        color: '#ffffff',
+        fontSize: 12,
+        fontWeight: 600,
+        boxShadow: '0 6px 20px rgba(15, 23, 42, 0.22)',
+        padding: '8px 12px',
+      }
+    : isDashboard
     ? {
         backgroundColor: DASHBOARD_GREEN.dark,
         border: '1px solid rgba(255,255,255,0.15)',
@@ -102,11 +128,11 @@ export function HoursBarChart({
           boxShadow: '0 4px 24px -4px rgba(15,118,110,0.18)',
         }
 
-  const axisColor = isDashboard ? DASHBOARD_GREEN.axisMuted : isDark ? '#4a5568' : '#64748b'
-  const gridColor = isDashboard ? DASHBOARD_GREEN.grid : isDark ? 'rgba(255,255,255,0.05)' : 'rgb(226 232 240 / 0.9)'
-  const labelFill = isDashboard ? DASHBOARD_GREEN.label : isDark ? 'rgba(255,255,255,0.65)' : '#266b1c'
-  const cursorFill = isDashboard
-    ? DASHBOARD_GREEN.cursor
+  const axisColor = isAnalytics || isDashboard ? palette.axisMuted : isDark ? '#4a5568' : '#64748b'
+  const gridColor = isAnalytics || isDashboard ? palette.grid : isDark ? 'rgba(255,255,255,0.05)' : 'rgb(226 232 240 / 0.9)'
+  const labelFill = isAnalytics ? ANALYTICS_GREEN.label : isDashboard ? DASHBOARD_GREEN.label : isDark ? 'rgba(255,255,255,0.65)' : '#266b1c'
+  const cursorFill = isAnalytics || isDashboard
+    ? palette.cursor
     : isDark
       ? brand
         ? 'rgba(79,142,247,0.06)'
@@ -135,13 +161,23 @@ export function HoursBarChart({
       <ResponsiveContainer width="100%" height={fillParent ? '100%' : chartHeight}>
         <BarChart
           data={data}
-          margin={{ top: 24, right: 8, left: 0, bottom: 4 }}
-          barCategoryGap="40%"
+          margin={
+            isAnalytics
+              ? { top: 12, right: 12, left: 4, bottom: 8 }
+              : { top: 24, right: 8, left: 0, bottom: 4 }
+          }
+          barCategoryGap={isAnalytics ? '28%' : '40%'}
         >
           <defs>
             {/* Fallback gradient for non-brand or light mode */}
             <linearGradient id={`hoursBarGrad-${gradId}`} x1="0" y1="1" x2="0" y2="0">
-              {isDashboard ? (
+              {isAnalytics ? (
+                <>
+                  <stop offset="0%" stopColor={ANALYTICS_GREEN.deep} stopOpacity={1} />
+                  <stop offset="45%" stopColor={ANALYTICS_GREEN.mid} stopOpacity={1} />
+                  <stop offset="100%" stopColor={ANALYTICS_GREEN.primary} stopOpacity={1} />
+                </>
+              ) : isDashboard ? (
                 <>
                   <stop offset="0%" stopColor={DASHBOARD_GREEN.deep} stopOpacity={1} />
                   <stop offset="50%" stopColor={DASHBOARD_GREEN.dark} stopOpacity={1} />
@@ -162,11 +198,21 @@ export function HoursBarChart({
               )}
             </linearGradient>
 
-            {isDashboard && (
+            {(isDashboard || isAnalytics) && (
               <linearGradient id={`hoursBarHoverGrad-${gradId}`} x1="0" y1="1" x2="0" y2="0">
-                <stop offset="0%" stopColor={DASHBOARD_GREEN.dark} stopOpacity={1} />
-                <stop offset="55%" stopColor={DASHBOARD_GREEN.bright} stopOpacity={1} />
-                <stop offset="100%" stopColor={DASHBOARD_GREEN.hover} stopOpacity={1} />
+                {isAnalytics ? (
+                  <>
+                    <stop offset="0%" stopColor={ANALYTICS_GREEN.mid} stopOpacity={1} />
+                    <stop offset="55%" stopColor={ANALYTICS_GREEN.primary} stopOpacity={1} />
+                    <stop offset="100%" stopColor={ANALYTICS_GREEN.bright} stopOpacity={1} />
+                  </>
+                ) : (
+                  <>
+                    <stop offset="0%" stopColor={DASHBOARD_GREEN.dark} stopOpacity={1} />
+                    <stop offset="55%" stopColor={DASHBOARD_GREEN.bright} stopOpacity={1} />
+                    <stop offset="100%" stopColor={DASHBOARD_GREEN.hover} stopOpacity={1} />
+                  </>
+                )}
               </linearGradient>
             )}
 
@@ -180,43 +226,63 @@ export function HoursBarChart({
               ))}
           </defs>
 
-          <CartesianGrid strokeDasharray="3 6" stroke={gridColor} vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
           <XAxis
             dataKey="name"
-            tick={{ fill: axisColor, fontSize: 11, fontWeight: isDashboard ? 600 : 500 }}
+            tick={{ fill: axisColor, fontSize: isAnalytics ? 11 : 11, fontWeight: isAnalytics || isDashboard ? 600 : 500 }}
             axisLine={false}
             tickLine={false}
+            label={
+              isAnalytics
+                ? { value: 'Weekday', position: 'insideBottom', offset: -2, fill: axisColor, fontSize: 10, fontWeight: 600 }
+                : undefined
+            }
           />
           <YAxis
-            tick={{ fill: axisColor, fontSize: 11, fontWeight: isDashboard ? 500 : 400 }}
+            tick={{ fill: axisColor, fontSize: 10, fontWeight: isAnalytics || isDashboard ? 500 : 400 }}
             axisLine={false}
             tickLine={false}
-            width={36}
+            width={isAnalytics ? 32 : 36}
             domain={[0, yMax]}
             allowDecimals={false}
             tickCount={5}
+            label={
+              isAnalytics
+                ? {
+                    value: 'Hours',
+                    angle: -90,
+                    position: 'insideLeft',
+                    fill: axisColor,
+                    fontSize: 10,
+                    fontWeight: 600,
+                    offset: 8,
+                  }
+                : undefined
+            }
           />
           <Tooltip
             contentStyle={tooltipStyle}
-            cursor={{ fill: cursorFill }}
-            labelStyle={isDashboard ? { color: 'rgba(255,255,255,0.85)', fontWeight: 600 } : undefined}
-            itemStyle={isDashboard ? { color: '#ffffff', fontWeight: 700 } : undefined}
-            formatter={(v: number) => [`${v}h`, 'Hours']}
+            cursor={{ fill: cursorFill, radius: 4 }}
+            labelStyle={
+              isAnalytics || isDashboard ? { color: 'rgba(255,255,255,0.85)', fontWeight: 600, marginBottom: 2 } : undefined
+            }
+            itemStyle={isAnalytics || isDashboard ? { color: '#ffffff', fontWeight: 700 } : undefined}
+            formatter={(v: number) => [`${v} hrs`, 'Logged']}
           />
           <Bar
             dataKey="hours"
             fill={`url(#hoursBarGrad-${gradId})`}
-            radius={[6, 6, 0, 0]}
-            barSize={14}
-            maxBarSize={20}
+            radius={isAnalytics ? [8, 8, 2, 2] : [6, 6, 0, 0]}
+            barSize={isAnalytics ? 28 : 14}
+            maxBarSize={isAnalytics ? 36 : 20}
             isAnimationActive={animate}
             activeBar={
-              isDashboard
+              isAnalytics || isDashboard
                 ? {
                     fill: `url(#hoursBarHoverGrad-${gradId})`,
-                    stroke: DASHBOARD_GREEN.dark,
+                    stroke: isAnalytics ? ANALYTICS_GREEN.primary : DASHBOARD_GREEN.dark,
                     strokeWidth: 1,
-                    radius: 6,
+                    radius: isAnalytics ? 8 : 6,
                   }
                 : undefined
             }
@@ -232,14 +298,16 @@ export function HoursBarChart({
                   />
                 ))
               : null}
-            <LabelList
-              dataKey="hours"
-              position="top"
-              formatter={formatHoursLabel}
-              fill={labelFill}
-              fontSize={11}
-              fontWeight={600}
-            />
+            {!isAnalytics && (
+              <LabelList
+                dataKey="hours"
+                position="top"
+                formatter={formatHoursLabel}
+                fill={labelFill}
+                fontSize={11}
+                fontWeight={600}
+              />
+            )}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
