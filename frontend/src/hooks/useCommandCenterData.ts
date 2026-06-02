@@ -15,6 +15,7 @@ import {
   buildUpcomingDeadlines,
   countEmployeesJoinedThisMonth,
 } from '@/pages/admin/Dashboard/dashboardBackendUtils'
+import { fetchAdminDocumentRequests } from '@services/documentRequestService'
 import type { DocumentRequestRecord, LeaveRequest } from '@/types'
 
 export interface DepartmentStats {
@@ -56,14 +57,20 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
           api.get('/timesheets', { params: { from, to } }),
           api.get('/projects', { params: { syncCompletion: true } }),
           api.get('/timesheets/employee-hours', { params: { from, to } }),
-          api.get('/document-requests').catch(() => ({ data: [] })),
+          fetchAdminDocumentRequests({ status: 'Requested', page: 1, limit: 50 }).catch(() => ({
+            items: [],
+            total: 0,
+            page: 1,
+            limit: 50,
+          })),
           api.get('/payslips/batches').catch(() => ({ data: [] })),
           api.get('/employees', { params: { pageSize: 500, page: 1 } }).catch(() => ({ data: { employees: [] } })),
         ])
         setTimesheets(tsRes.data || [])
         setProjects(projRes.data || [])
         setEmployeeHours(empHoursRes.data || [])
-        setDocumentRequests(docRes.data || [])
+        const docPayload = docRes as { items?: DocumentRequestRecord[] }
+        setDocumentRequests(Array.isArray(docPayload.items) ? docPayload.items : [])
         setPayslipBatches(batchRes.data || [])
         const empPayload = empRes.data?.data ?? empRes.data?.employees ?? empRes.data ?? []
         setAllEmployees(Array.isArray(empPayload) ? empPayload : [])
@@ -86,7 +93,7 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
   const approvedLeaves = leaves.filter((l) => l.status === 'Approved')
   const activeProjects = projects.filter((p: any) => p.status === 'Active')
   const pendingDocs = documentRequests.filter(
-    (d: DocumentRequestRecord) => d.status === 'Pending',
+    (d: DocumentRequestRecord) => d.status === 'Requested',
   ) as DocumentRequestRecord[]
   const pendingTickets = tickets.filter((t) => t.status === 'Pending' || t.status === 'In Progress')
 

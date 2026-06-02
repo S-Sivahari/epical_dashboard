@@ -22,7 +22,15 @@ export interface ExternalNewsItem {
 
 export interface ExternalNewsResponse {
   date: string
+  limit?: number
+  filters?: string[]
   items: ExternalNewsItem[]
+}
+
+export interface FetchExternalNewsParams {
+  date?: string
+  limit?: number
+  filters?: string[]
 }
 
 export async function listNews(limit?: number): Promise<NewsItem[]> {
@@ -102,9 +110,14 @@ export async function deleteNews(id: string): Promise<void> {
   await api.delete(`/news/${id}`)
 }
 
-export async function fetchExternalNews(date?: string): Promise<ExternalNewsResponse> {
-  const params = date ? { date } : {}
-  const { data } = await api.get<ExternalNewsResponse>('/news/external', { params })
+export async function fetchExternalNews(
+  params: FetchExternalNewsParams = {}
+): Promise<ExternalNewsResponse> {
+  const query: Record<string, string> = {}
+  if (params.date) query.date = params.date
+  if (params.limit != null) query.limit = String(params.limit)
+  if (params.filters?.length) query.filters = params.filters.join(',')
+  const { data } = await api.get<ExternalNewsResponse>('/news/external', { params: query })
   return data
 }
 
