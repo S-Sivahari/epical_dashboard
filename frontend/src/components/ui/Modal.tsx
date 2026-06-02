@@ -10,6 +10,10 @@ const sizes: Record<string, string> = {
   xl: 'max-w-3xl',
 }
 
+function isDateInputPopoverTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest('[data-date-input-popover]'))
+}
+
 export function Modal({
   isOpen,
   title,
@@ -35,12 +39,16 @@ export function Modal({
   return (
     <Dialog.Root
       open={isOpen}
+      modal={false}
       onOpenChange={(open) => {
         if (!open) onClose()
       }}
     >
       <Dialog.Portal>
-        <Dialog.Overlay className={cn('fixed inset-0 bg-slate-950/60 backdrop-blur-sm', z)} />
+        <Dialog.Overlay
+          className={cn('fixed inset-0 bg-slate-950/60 backdrop-blur-sm', z)}
+          onClick={onClose}
+        />
         <Dialog.Content
           className={cn(
             'fixed left-1/2 top-1/2 w-[calc(100%-2rem)] max-h-[90vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border p-6 shadow-2xl outline-none',
@@ -51,6 +59,16 @@ export function Modal({
             sizes[size],
             className,
           )}
+          onPointerDownOutside={(e) => {
+            if (isDateInputPopoverTarget(e.target)) e.preventDefault()
+          }}
+          onInteractOutside={(e) => {
+            if (isDateInputPopoverTarget(e.target)) e.preventDefault()
+          }}
+          onFocusOutside={(e) => {
+            if (isDateInputPopoverTarget(e.target)) e.preventDefault()
+          }}
+          onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <div className="mb-4 flex items-start justify-between gap-3">
             <Dialog.Title className={cn(

@@ -6,11 +6,8 @@ import {
   subMonths,
   startOfMonth,
   endOfMonth,
-  startOfWeek,
-  endOfWeek,
   eachDayOfInterval,
   isToday,
-  isWithinInterval,
   parseISO,
 } from 'date-fns'
 import * as Tooltip from '@radix-ui/react-tooltip'
@@ -46,17 +43,13 @@ type ViewPreset = 'today' | 'week' | 'month'
 
 const VIEW_PRESET_OPTIONS: { id: ViewPreset; label: string }[] = [
   { id: 'today', label: 'Today' },
-  { id: 'week', label: 'This Week' },
+ 
   { id: 'month', label: 'This Month' },
 ]
 
-function isDateInRange(dateStr: string, start: string, end: string): boolean {
+function dateInViewMonth(dateStr: string, monthIdx: number, year: number): boolean {
   const d = parseISO(dateStr)
-  return isWithinInterval(d, { start: parseISO(start), end: parseISO(end) })
-}
-
-function leaveOverlapsRange(from: string, to: string, start: string, end: string): boolean {
-  return from <= end && to >= start
+  return d.getMonth() === monthIdx && d.getFullYear() === year
 }
 
 export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
@@ -66,6 +59,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
   const updateHoliday = useLeaveStore((s) => s.updateHoliday)
   const deleteHoliday = useLeaveStore((s) => s.deleteHoliday)
   const fetchHolidays = useLeaveStore((s) => s.fetchHolidays)
+  const addCompanyCalendarEvent = useLeaveStore((s) => s.addCompanyCalendarEvent)
   const deleteCompanyCalendarEvent = useLeaveStore((s) => s.deleteCompanyCalendarEvent)
 
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -106,23 +100,6 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
     setCurrentDate(preset === 'month' ? startOfMonth(now) : now)
   }
 
-  const viewRange = useMemo(() => {
-    const anchor = new Date()
-    if (viewPreset === 'today') {
-      const d = format(anchor, 'yyyy-MM-dd')
-      return { start: d, end: d }
-    }
-    if (viewPreset === 'week') {
-      const weekStart = startOfWeek(anchor, { weekStartsOn: 0 })
-      const weekEnd = endOfWeek(anchor, { weekStartsOn: 0 })
-      return {
-        start: format(weekStart, 'yyyy-MM-dd'),
-        end: format(weekEnd, 'yyyy-MM-dd'),
-      }
-    }
-    return null
-  }, [viewPreset])
-
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(monthStart)
   const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd })
@@ -136,19 +113,43 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
     return leaves.filter((l) => l.status === 'Approved')
   }, [leaves])
 
-  const getHolidaysForDay = (dateStr: string) => holidays.filter((h) => h.date === dateStr)
+  const holidayEvents = useMemo((): CalendarSidebarEvent[] => {
+    return holidays
+      .filter((h) => h.type === 'Company Event')
+      .map((h) => ({
+        id: h.id,
+        title: h.title,
+        date: h.date,
+        description: h.description,
+        holidayType: h.type,
+      }))
+  }, [holidays])
+
+  const getHolidaysForDay = (dateStr: string) =>
+    holidays.filter((h) => h.date === dateStr && h.type !== 'Company Event')
   const getLeavesForDay = (dateStr: string) =>
     approvedLeaves.filter((l) => dateStr >= l.from && dateStr <= l.to)
-  const getEventsForDay = (dateStr: string) => dbSidebarEvents.filter((e) => e.date === dateStr)
+  const getEventsForDay = (dateStr: string) => {
+    const fromDb = dbSidebarEvents.filter((e) => e.date === dateStr)
+    const fromLegacy = holidayEvents.filter((e) => e.date === dateStr)
+    const seen = new Set(fromDb.map((e) => e.id))
+    return [...fromDb, ...fromLegacy.filter((e) => !seen.has(e.id))]
+  }
 
   const itemsOnSelectedDate = useMemo(() => {
     if (!selectedDateStr) return { leaves: [], holidays: [], events: [] }
+    const fromDb = dbSidebarEvents.filter((e) => e.date === selectedDateStr)
+    const fromLegacy = holidayEvents.filter((e) => e.date === selectedDateStr)
+    const seen = new Set(fromDb.map((e) => e.id))
+    const events = [...fromDb, ...fromLegacy.filter((e) => !seen.has(e.id))]
     return {
       leaves: approvedLeaves.filter((l) => selectedDateStr >= l.from && selectedDateStr <= l.to),
-      holidays: holidays.filter((h) => h.date === selectedDateStr),
-      events: dbSidebarEvents.filter((e) => e.date === selectedDateStr),
+      holidays: holidays.filter(
+        (h) => h.date === selectedDateStr && h.type !== 'Company Event',
+      ),
+      events,
     }
-  }, [selectedDateStr, approvedLeaves, holidays, dbSidebarEvents])
+  }, [selectedDateStr, approvedLeaves, holidays, dbSidebarEvents, holidayEvents])
 
   const handleDateClick = (dateStr: string) => {
     setSelectedDateStr(dateStr)
@@ -180,14 +181,18 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
     try {
       if (editingId) {
         await updateHoliday(editingId, { title, date, description, type })
+      } else if (type === 'Company Event') {
+        await addCompanyCalendarEvent({ title, date, description })
       } else {
         await addHoliday({ title, date, description, type })
       }
+      await fetchHolidays()
+      setCurrentDate(startOfMonth(parseISO(date)))
       resetHolidayForm()
       setIsHolidayFormOpen(false)
-      fetchHolidays()
+      toast.success(editingId ? 'Updated successfully' : 'Saved successfully')
     } catch {
-      toast.error('Failed to save holiday')
+      toast.error('Failed to save')
     }
   }
 
@@ -232,63 +237,31 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
     setEventToDelete(null)
   }
 
-  const holidayEvents = useMemo((): CalendarSidebarEvent[] => {
-    return holidays
-      .filter((h) => h.type === 'Company Event')
-      .map((h) => ({
-        id: h.id,
-        title: h.title,
-        date: h.date,
-        description: h.description,
-        holidayType: h.type,
-      }))
-  }, [holidays])
-
-  const currentMonthHolidays = useMemo(() => {
-    return holidays.filter((h) => {
-      if (h.type === 'Company Event') return false
-      const holidayDate = new Date(h.date)
-      return holidayDate.getMonth() === currentMonthIdx && holidayDate.getFullYear() === currentYear
-    })
+  const sidebarHolidays = useMemo(() => {
+    return holidays.filter(
+      (h) => h.type !== 'Company Event' && dateInViewMonth(h.date, currentMonthIdx, currentYear),
+    )
   }, [holidays, currentMonthIdx, currentYear])
 
-  const currentMonthEvents = useMemo(() => {
-    return [...dbSidebarEvents, ...holidayEvents].filter((e) => {
-      const eventDate = new Date(e.date)
-      return eventDate.getMonth() === currentMonthIdx && eventDate.getFullYear() === currentYear
-    })
+  const sidebarEvents = useMemo(() => {
+    return [...dbSidebarEvents, ...holidayEvents].filter((e) =>
+      dateInViewMonth(e.date, currentMonthIdx, currentYear),
+    )
   }, [dbSidebarEvents, holidayEvents, currentMonthIdx, currentYear])
 
-  const currentMonthLeaves = useMemo(() => {
+  const sidebarLeaves = useMemo(() => {
     return approvedLeaves
       .filter((leave) => {
-        const fromDate = new Date(leave.from)
-        const toDate = new Date(leave.to)
+        const fromDate = parseISO(leave.from)
+        const toDate = parseISO(leave.to)
         return (
-          (fromDate.getMonth() === currentMonthIdx && fromDate.getFullYear() === currentYear) ||
-          (toDate.getMonth() === currentMonthIdx && toDate.getFullYear() === currentYear) ||
+          dateInViewMonth(leave.from, currentMonthIdx, currentYear) ||
+          dateInViewMonth(leave.to, currentMonthIdx, currentYear) ||
           (fromDate < monthStart && toDate > monthEnd)
         )
       })
-      .sort((a, b) => new Date(a.from).getTime() - new Date(b.from).getTime())
+      .sort((a, b) => parseISO(a.from).getTime() - parseISO(b.from).getTime())
   }, [approvedLeaves, currentMonthIdx, currentYear, monthStart, monthEnd])
-
-  const sidebarHolidays = useMemo(() => {
-    if (!isAdminCal || !viewRange) return currentMonthHolidays
-    return currentMonthHolidays.filter((h) => isDateInRange(h.date, viewRange.start, viewRange.end))
-  }, [isAdminCal, viewRange, currentMonthHolidays])
-
-  const sidebarEvents = useMemo(() => {
-    if (!isAdminCal || !viewRange) return currentMonthEvents
-    return currentMonthEvents.filter((e) => isDateInRange(e.date, viewRange.start, viewRange.end))
-  }, [isAdminCal, viewRange, currentMonthEvents])
-
-  const sidebarLeaves = useMemo(() => {
-    if (!isAdminCal || !viewRange) return currentMonthLeaves
-    return currentMonthLeaves.filter((l) =>
-      leaveOverlapsRange(l.from, l.to, viewRange.start, viewRange.end),
-    )
-  }, [isAdminCal, viewRange, currentMonthLeaves])
 
   const viewPresetLabel = VIEW_PRESET_OPTIONS.find((o) => o.id === viewPreset)?.label ?? 'Today'
 
@@ -706,9 +679,9 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
             {sidebarHolidays.length > 0 ? (
               <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1 custom-scrollbar">
                 {sidebarHolidays
-                  .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                  .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime())
                   .map((holiday) => {
-                    const dayName = format(new Date(holiday.date), 'EEE')
+                    const dayName = format(parseISO(holiday.date), 'EEE')
                     return (
                       <div
                         key={holiday.id}
@@ -738,7 +711,10 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                             </p>
                           </div>
                         </div>
-                        <div className="flex gap-1 flex-shrink-0 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className={cn(
+                          'flex gap-1 flex-shrink-0 ml-2 transition-opacity',
+                          isAdminCal ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+                        )}>
                           <Button size="sm" variant="secondary" className="h-6 w-6 p-0" onClick={() => handleEditHoliday(holiday)}>
                             <Edit2 className="h-3 w-3" />
                           </Button>
@@ -790,7 +766,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
             {sidebarEvents.length > 0 ? (
               <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1 custom-scrollbar">
                 {sidebarEvents
-                  .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                  .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime())
                   .map((event) => (
                     <div
                       key={event.id}
@@ -811,7 +787,10 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                       <Button
                         size="sm"
                         variant="danger"
-                        className="h-6 w-6 p-0 ml-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                        className={cn(
+                          'h-6 w-6 p-0 ml-1 flex-shrink-0 transition-opacity',
+                          isAdminCal ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+                        )}
                         onClick={() => { setEventToDelete(event); setEventDeleteConfirmOpen(true) }}
                       >
                         <Trash2 className="h-3 w-3" />
@@ -1002,10 +981,10 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
         <Modal isOpen={isHolidayFormOpen} onClose={() => {
           setIsHolidayFormOpen(false)
           resetHolidayForm()
-        }} title={editingId ? 'Edit Holiday' : 'Add Holiday'}>
+        }} title={editingId ? 'Edit Event' : 'Add Event'}>
           <div className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-ink">Holiday Name <span className="text-red-500">*</span></label>
+              <label className="mb-1.5 block text-sm font-medium text-ink">EventName <span className="text-red-500">*</span></label>
               <Input
                 placeholder="e.g., Independence Day"
                 value={title}
@@ -1055,7 +1034,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                 Cancel
               </Button>
               <Button onClick={handleAddHoliday}>
-                {editingId ? 'Update Holiday' : 'Save Holiday'}
+                {editingId ? 'Update Event' : 'Save Event'}
               </Button>
             </div>
           </div>
