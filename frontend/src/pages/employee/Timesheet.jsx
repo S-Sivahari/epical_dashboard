@@ -11,7 +11,7 @@ import { KPIStatCard } from '@components/employee/shared/KPIStatCard'
 import { DataTable } from '@components/employee/shared/DataTable'
 import { DateRangePicker } from '@components/employee/shared/DateRangePicker'
 import { useTimesheetStore } from '@store/employee/timesheetStore'
-import { formatSessionDuration } from '@utils/durationFormat'
+import { formatSessionDuration, formatDurationFromMs } from '@utils/durationFormat'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { formatDateKey, getPresetDateRange, getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
 import { TimesheetLiveSessionPanel } from '@pages/employee/TimesheetLiveSessionPanel'
@@ -112,6 +112,8 @@ export default function Timesheet() {
     hasBackendElapsedData,
     backendElapsedLastFetch,
     projectWiseHours,
+    // NEW: Use all-time projects for Project Breakdown
+    allTimeProjectWiseHours,
   } = useTimesheetStore()
   const { toast } = useToast()
   const defaultHistoryRange = getPresetDateRange('This Month')
@@ -129,11 +131,22 @@ export default function Timesheet() {
     hydrate()
   }, [hydrate])
 
+  // NEW: Fetch all-time projects once on initialization (not affected by date filter)
+  useEffect(() => {
+    if (initialized) {
+      void useTimesheetStore.getState().refreshAllTimeProjectWiseHours()
+    }
+  }, [initialized])
+
   useEffect(() => {
     let active = true
     if (initialized) {
       setIsInitialLoading(true)
-      void useTimesheetStore.getState().refreshSessionsForRange({ from: historyStart, to: historyEnd })
+      // FIXED: Refresh both sessions and project hours together to keep them synchronized
+      void Promise.all([
+        useTimesheetStore.getState().refreshSessionsForRange({ from: historyStart, to: historyEnd }),
+        useTimesheetStore.getState().refreshProjectWiseHours({ from: historyStart, to: historyEnd }),
+      ])
         .finally(() => {
           if (active) {
             setIsInitialLoading(false)
@@ -407,48 +420,49 @@ export default function Timesheet() {
     return Math.max(0, totalMs - (checkedIn ? currentTaskPausedMs : 0))
   }, [attendanceHistory, checkedIn, liveNow, todayKey, currentTaskPausedMs])
 
-  const formatMsToHMS = (ms) => {
-    if (ms < 0) return '0h 0m'
-    const hours = Math.floor(ms / 3600000)
-    const minutes = Math.floor((ms % 3600000) / 60000)
-    return `${hours}h ${minutes}m`
-  }
-
+  // FIXED: Removed manual active session injection. Backend now returns unified history directly.
+  // Frontend must ONLY render backend payloads without modification.
+  // The 'sessions' array from store already contains finalized history.
+  // Active session (if any) is included in the session payload when checked in.
   const unifiedHistory = useMemo(() => {
-    const entries = []
-
+    // STRICT: Deduplicate and filter sessions for current date range only
+    const deduped = new Map()
+    
     sessions
       .filter((s) => isDateInRange(s.date, historyRange.start, historyRange.end))
       .forEach((s) => {
-        const loginMs = s.loginTime ? new Date(s.loginTime).getTime() : 0
-        const durationStr = formatSessionDuration({
-          loginTime: s.loginTime,
-          logoutTime: s.logoutTime,
-          totalHours: s.totalHours,
-          totalPausedMs: s.totalPausedMs,
-          taskStatus: s.taskStatus,
-          autoCheckedOut: s.autoCheckedOut,
-        })
+        // Deduplicate by session ID to prevent duplicates from polling
+        if (!deduped.has(s.id)) {
+          const loginMs = s.loginTime ? new Date(s.loginTime).getTime() : 0
+          const durationStr = formatSessionDuration({
+            loginTime: s.loginTime,
+            logoutTime: s.logoutTime,
+            totalHours: s.totalHours,
+            totalPausedMs: s.totalPausedMs,
+            taskStatus: s.taskStatus,
+            autoCheckedOut: s.autoCheckedOut,
+          })
 
-        entries.push({
-          id: `task-${s.id}`,
-          sortAt: loginMs,
-          date: s.date,
-          project: s.project || '—',
-          description:
-            stripTaskLabelPrefix(s.task, { projectName: s.project }) || '—',
-          start: s.start,
-          end: s.logoutTime
-            ? formatTimeLabel(s.logoutTime)
-            : (s.end && s.end !== '—' ? s.end : '—'),
-          duration: durationStr,
-          statusNote: s.autoCheckedOut ? 'Auto Checked-Out' : null,
-        })
+          deduped.set(s.id, {
+            id: `task-${s.id}`,
+            sortAt: loginMs,
+            date: s.date,
+            project: s.project || '—',
+            description: stripTaskLabelPrefix(s.task, { projectName: s.project }) || '—',
+            start: s.start,
+            end: s.logoutTime ? formatTimeLabel(s.logoutTime) : (s.end && s.end !== '—' ? s.end : '—'),
+            duration: durationStr,
+            statusNote: s.autoCheckedOut ? 'Auto Checked-Out' : null,
+            hours: s.totalHours ?? 0,
+          })
+        }
       })
 
-    return entries.sort((a, b) => b.sortAt - a.sortAt)
-  }, [sessions, historyRange, checkedIn, liveNow])
+    return Array.from(deduped.values()).sort((a, b) => b.sortAt - a.sortAt)
+  }, [sessions, historyRange])
 
+  // FIXED: Removed manual project derivation. Backend already returns complete project breakdown.
+  // Frontend must use backend payload directly without modification or re-derivation.
   const projectWiseTotal = useMemo(
     () => (projectWiseHours ?? []).reduce((sum, p) => sum + (p.hours || 0), 0),
     [projectWiseHours]
@@ -469,7 +483,7 @@ export default function Timesheet() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-stretch">
         <KPIStatCard
           title="Daily Hours Today"
-          value={formatMsToHMS(todayHoursMs)}
+          value={formatDurationFromMs(todayHoursMs)}
           icon={Clock}
           className="h-full min-h-[5.5rem] p-4"
         />
@@ -664,7 +678,8 @@ export default function Timesheet() {
                 </div>
               }
             >
-              <TimesheetProjectWiseChart data={projectWiseHours ?? []} />
+              {/* Filtered, synchronized project breakdown hours */}
+              <TimesheetProjectWiseChart data={projectWiseHours} />
             </Suspense>
           </div>
         </div>
@@ -682,7 +697,11 @@ export default function Timesheet() {
               setHistoryStart(start)
               setHistoryEnd(end)
               setHistoryPreset(preset)
-              void useTimesheetStore.getState().refreshSessionsForRange({ from: start, to: end })
+              // FIXED: Refresh both sessions and project hours together when filter changes
+              void Promise.all([
+                useTimesheetStore.getState().refreshSessionsForRange({ from: start, to: end }),
+                useTimesheetStore.getState().refreshProjectWiseHours({ from: start, to: end }),
+              ])
             }}
           />
         </div>

@@ -9,6 +9,7 @@ export type NotificationType =
   | 'DocumentApproved'
   | 'DocumentRejected'
   | 'PayslipSent'
+  | 'PayslipRegenerated'
   | 'HolidayAdded'
   | 'HolidayUpdated'
   | 'HolidayDeleted'
