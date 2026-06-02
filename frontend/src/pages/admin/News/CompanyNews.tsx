@@ -330,9 +330,6 @@ export function CompanyNews() {
             <div className="admin-news-hero-top">
               <div className="min-w-0">
                 <h1 className="admin-news-hero-title font-display">Company News Curation Hub</h1>
-                <p className="admin-news-hero-sub">
-                  Curate the employee news feed — manage, publish, and import headlines
-                </p>
               </div>
               <nav className="admin-news-tab-rail" aria-label="News curation views">
                 {tabs.map((tab) => (
@@ -386,10 +383,6 @@ export function CompanyNews() {
                     <h2 className="font-display text-sm font-extrabold admin-news-panel-title">
                       Published News
                     </h2>
-                    <p className="text-xs font-medium text-slate-600">
-                      {items.length} announcement{items.length === 1 ? '' : 's'} live on employee
-                      dashboards
-                    </p>
                   </div>
                   <div className="flex items-center gap-1.5 text-xs font-semibold admin-news-text-brand">
                     <CalendarDays className="h-3.5 w-3.5" aria-hidden />
@@ -453,9 +446,6 @@ export function CompanyNews() {
                   <h2 className="font-display text-base font-extrabold admin-news-panel-title">
                     Create Announcement
                   </h2>
-                  <p className="text-xs font-medium text-slate-600">
-                    Published news appears on dashboards and the news ticker
-                  </p>
                 </header>
 
                 <div className="admin-news-publish-body">
@@ -560,7 +550,6 @@ export function CompanyNews() {
                 </div>
 
                 <footer className="admin-news-publish-actions">
-                  <p className="text-xs font-medium text-slate-500">Required fields are marked with *</p>
                   <div className="flex flex-wrap items-center justify-end gap-2">
                     <Button type="button" variant="ghost" onClick={resetForm} disabled={saving}>
                       Clear

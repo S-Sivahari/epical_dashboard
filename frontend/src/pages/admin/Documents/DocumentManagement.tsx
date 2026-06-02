@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { Upload, CheckCircle2, XCircle, FileText, Inbox, History, Sparkles } from 'lucide-react'
+import { Upload, CheckCircle2, XCircle, FileText, Inbox, History } from 'lucide-react'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
 import { Badge } from '@components/ui/Badge'
@@ -448,9 +448,6 @@ setRejectOpen(false)
               <div className="admin-documents-hero-top">
                 <div className="min-w-0">
                   <h1 className="admin-documents-hero-title font-display">Document Requests Hub</h1>
-                  <p className="admin-documents-hero-sub">
-                    Review, fulfill, and track employee document requests
-                  </p>
                 </div>
                 <nav className="admin-documents-tab-rail" aria-label="Document request views">
                   {tabConfig.map((t) => (
@@ -506,14 +503,6 @@ setRejectOpen(false)
                     {loading ? '—' : total}
                   </p>
                 </div>
-                {tab === 'requested' && (
-                  <div className="admin-documents-tip-box">
-                    <Sparkles className="admin-documents-tip-icon" aria-hidden />
-                    <p>
-                      Upload the fulfillment file first, then approve so the employee can download it.
-                    </p>
-                  </div>
-                )}
               </aside>
 
               <div className="admin-documents-main-panel">
