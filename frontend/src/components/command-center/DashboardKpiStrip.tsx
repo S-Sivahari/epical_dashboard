@@ -1,5 +1,4 @@
 import type { LucideIcon } from 'lucide-react'
-import { TrendingUp } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { NotificationBadge } from '@components/ui/NotificationBadge'
 import { cn } from '@/utils/cn'
@@ -7,11 +6,16 @@ import { cn } from '@/utils/cn'
 export type DashboardKpiItem = {
   label: string
   value: number | string
-  subtext: string
+  trend?: string
+  subtext?: string
   icon: LucideIcon
   tone: 'slate' | 'amber' | 'blue' | 'violet'
   route: string
   notificationCount?: number
+  /** Secondary line under label (e.g. hires this month) */
+  hint?: string
+  /** Same card size as default; colored icon, black count + label only */
+  layout?: 'default' | 'minimal'
 }
 
 const toneStyles = {
@@ -66,39 +70,58 @@ export function DashboardKpiStrip({
       {items.map((item) => {
         const Icon = item.icon
         const tone = toneStyles[item.tone]
+        if (item.layout === 'minimal') {
+          return (
+            <button
+              key={item.label}
+              type="button"
+              onClick={() => navigate(item.route)}
+              className={cn(
+                'dashboard-kpi-card dashboard-kpi-card--link dashboard-kpi-card--minimal',
+                `dashboard-kpi-card--tone-${item.tone}`,
+              )}
+              aria-label={`${item.label}: ${loading ? 'loading' : item.value}`}
+            >
+              <span className={cn('dashboard-kpi-icon', tone.iconBg, tone.iconColor)}>
+                <Icon className="h-5 w-5" strokeWidth={2} />
+              </span>
+              <p className="dashboard-kpi-value dashboard-kpi-value--black">
+                {loading ? '—' : item.value}
+              </p>
+              <p className="dashboard-kpi-label dashboard-kpi-label--black">{item.label}</p>
+              {item.hint ? (
+                <p className="dashboard-kpi-hint dashboard-kpi-hint--black">{item.hint}</p>
+              ) : null}
+            </button>
+          )
+        }
+
         return (
           <button
             key={item.label}
             type="button"
             onClick={() => navigate(item.route)}
             className="dashboard-kpi-card dashboard-kpi-card--link"
-            aria-label={`${item.label}: ${loading ? 'loading' : item.value}. ${item.subtext}`}
+            aria-label={`${item.label}: ${loading ? 'loading' : item.value}. ${item.trend ?? item.subtext ?? ''}`}
           >
-            <div className="flex items-start justify-between gap-2">
-              <span className={cn('dashboard-kpi-icon relative', tone.iconBg, tone.iconColor)}>
-                <Icon className="h-5 w-5" strokeWidth={2} />
-                {item.notificationCount != null && item.notificationCount > 0 ? (
-                  <NotificationBadge
-                    count={item.notificationCount}
-                    size="sm"
-                    className="-right-1.5 -top-1.5"
-                  />
-                ) : null}
-              </span>
-              <TrendingUp
-                className={cn(
-                  'h-4 w-4 shrink-0 text-slate-300',
-                  variant === 'column' && 'hidden',
-                )}
-                strokeWidth={2}
-                aria-hidden
-              />
-            </div>
+            <span className={cn('dashboard-kpi-icon relative', tone.iconBg, tone.iconColor)}>
+              <Icon className="h-5 w-5" strokeWidth={2} />
+              {item.notificationCount != null && item.notificationCount > 0 ? (
+                <NotificationBadge
+                  count={item.notificationCount}
+                  size="sm"
+                  className="-right-1.5 -top-1.5"
+                />
+              ) : null}
+            </span>
             <p className={cn('dashboard-kpi-value', tone.value)}>
               {loading ? '—' : item.value}
             </p>
             <p className={cn('dashboard-kpi-label', tone.label)}>{item.label}</p>
-            <p className="dashboard-kpi-subtext">{item.subtext}</p>
+            {item.trend ? (
+              <p className="dashboard-kpi-trend">{item.trend}</p>
+            ) : null}
+            {item.subtext ? <p className="dashboard-kpi-subtext">{item.subtext}</p> : null}
           </button>
         )
       })}

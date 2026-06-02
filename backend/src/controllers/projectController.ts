@@ -128,7 +128,16 @@ export const projectController = {
       }
 
       const refreshedProjects = await ProjectModel.find(query).sort({ createdAt: -1 });
-      res.json(refreshedProjects.map(toFrontendProject));
+      const syncCompletion =
+        req.query.syncCompletion === 'true' || req.query.syncCompletion === '1';
+      let projectsToMap = refreshedProjects;
+      if (syncCompletion && refreshedProjects.length > 0) {
+        const synced = await Promise.all(
+          refreshedProjects.map((p) => updateProjectCompletionStatus(p._id)),
+        );
+        projectsToMap = synced.map((result, index) => result?.project || refreshedProjects[index]);
+      }
+      res.json(projectsToMap.map(toFrontendProject));
     } catch (error) {
       console.error('Error fetching projects:', error);
       res.status(500).json({ error: 'Failed to fetch projects' });

@@ -7,6 +7,24 @@ import { resolveEmployeeForAuthUser, employeeBelongsToAuthUser, findEmployeeByLo
 import { sanitizeEmployeeForDetail } from '../utils/sanitizeEmployee';
 
 export const employeeController = {
+  getDailyActivityLog: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!isAdminRole(req.user?.role ?? '')) {
+        res.status(403).json({ error: 'Forbidden' });
+        return;
+      }
+      const date =
+        typeof req.query.date === 'string' && req.query.date.trim()
+          ? req.query.date.trim()
+          : new Date().toISOString().split('T')[0];
+      const entries = await employeeService.getDailyActivityLog(date);
+      res.json({ date, entries });
+    } catch (error) {
+      console.error('Error fetching daily activity log:', error);
+      res.status(500).json({ error: 'Failed to fetch activity log' });
+    }
+  },
+
   // Get all employees with filtering and pagination
   getAllEmployees: async (req: AuthRequest, res: Response): Promise<void> => {
     try {

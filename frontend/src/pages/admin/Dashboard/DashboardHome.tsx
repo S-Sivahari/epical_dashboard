@@ -1,73 +1,63 @@
 import { useMemo, useState } from 'react'
 import { BarChart3, ClipboardList, FileCheck2, Users } from 'lucide-react'
-import { AdminNewsTicker } from '@components/admin/AdminNewsTicker'
+import { DashboardActivityLogPanel } from './DashboardActivityLogPanel'
+import { DashboardLeftInsights } from './DashboardLeftInsights'
+import { DashboardPendingApprovalsPanel } from './DashboardPendingApprovalsPanel'
 import { ContributionHistoryPanel } from '@components/command-center/ContributionHistoryPanel'
 import { DashboardKpiStrip } from '@components/command-center/DashboardKpiStrip'
-import { DashboardQuickActionsSidebar } from '@components/command-center/DashboardQuickActionsSidebar'
 import { ProjectHoursChartPanel } from '@components/command-center/ProjectHoursChartPanel'
 import { ROUTES } from '@constants/routes'
 import { useCommandCenterData } from '@hooks/useCommandCenterData'
-import { useNotificationCounts } from '@hooks/useNotificationCounts'
 import {
   aggregateProjectTableRows,
   type ChartPeriod,
 } from './dashboardChartUtils'
-
+import { formatEmployeesAddedThisMonth } from './dashboardBackendUtils'
 export function DashboardHome() {
   const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('This Week')
   const data = useCommandCenterData(chartPeriod)
-  const { counts: notificationCounts } = useNotificationCounts()
-
   const projectTableRows = useMemo(
     () => aggregateProjectTableRows(data.timesheets, data.projects),
     [data.timesheets, data.projects],
   )
 
-  const totalProjects = data.projects.length
   const pendingDocuments = data.pendingDocs.length
-  const pendingLeavesNotification = Math.max(
-    notificationCounts.leaves ?? 0,
-    data.pendingLeavesCount,
-  )
-  const pendingDocumentsNotification = Math.max(
-    notificationCounts.documents ?? 0,
-    pendingDocuments,
-  )
 
   const kpiItems = [
     {
-      label: 'Total Employees',
+      label: 'Active employees',
       value: data.totalEmployees,
-      subtext: 'Active employees',
+      hint: data.loading
+        ? '…'
+        : formatEmployeesAddedThisMonth(data.employeesAddedThisMonth),
       icon: Users,
       tone: 'slate' as const,
       route: ROUTES.EMPLOYEES,
+      layout: 'minimal' as const,
     },
     {
-      label: 'Pending Leaves',
+      label: 'Pending leaves',
       value: data.pendingLeavesCount,
-      subtext: 'Requires approval',
       icon: ClipboardList,
       tone: 'amber' as const,
       route: ROUTES.LEAVES,
-      notificationCount: pendingLeavesNotification,
+      layout: 'minimal' as const,
     },
     {
-      label: 'Active Projects',
+      label: 'Active projects',
       value: data.activeProjectsCount,
-      subtext: `${totalProjects} total projects`,
       icon: BarChart3,
       tone: 'blue' as const,
       route: ROUTES.PROJECTS,
+      layout: 'minimal' as const,
     },
     {
-      label: 'Documents Pending',
+      label: 'Documents pending',
       value: pendingDocuments,
-      subtext: 'Requires review',
       icon: FileCheck2,
       tone: 'violet' as const,
       route: ROUTES.DOCUMENTS,
-      notificationCount: pendingDocumentsNotification,
+      layout: 'minimal' as const,
     },
   ]
 
@@ -82,31 +72,39 @@ export function DashboardHome() {
         <div className="dashboard-main-grid min-h-0 flex-1">
           <aside className="dashboard-left-column min-h-0">
             <DashboardKpiStrip items={kpiItems} loading={data.loading} variant="column" />
-            <DashboardQuickActionsSidebar />
+            <DashboardLeftInsights
+              totalEmployees={data.totalEmployees}
+              upcomingDeadlines={data.upcomingDeadlines}
+              className="dashboard-left-insights-column min-h-0 flex-1"
+            />
           </aside>
 
           <div className="dashboard-center-column min-h-0">
-            <ProjectHoursChartPanel
-              loading={data.loading}
-              chartData={data.chartData}
-              chartPeriod={chartPeriod}
-              onPeriodChange={setChartPeriod}
-              totalPeriodHours={data.totalPeriodHours}
-              className="dashboard-center-chart"
-            />
-            <ContributionHistoryPanel
-              loading={data.loading}
-              rows={projectTableRows}
-              className="dashboard-center-table"
-            />
+            <div className="dashboard-center-stack min-h-0 flex-1">
+              <ProjectHoursChartPanel
+                loading={data.loading}
+                chartData={data.chartData}
+                chartPeriod={chartPeriod}
+                onPeriodChange={setChartPeriod}
+                totalPeriodHours={data.totalPeriodHours}
+                className="dashboard-center-chart dashboard-center-stack-section"
+              />
+              <ContributionHistoryPanel
+                loading={data.loading}
+                rows={projectTableRows}
+                className="dashboard-center-table dashboard-center-stack-section"
+              />
+            </div>
           </div>
 
           <aside className="dashboard-right-column min-h-0">
-            <AdminNewsTicker
-              variant="brand"
-              scrollMode="static"
-              className="dashboard-news-column min-h-0 flex-1"
-            />
+            <div className="dashboard-right-stack min-h-0 flex-1">
+              <DashboardPendingApprovalsPanel
+                tasks={data.pendingApprovalTasks}
+                className="dashboard-right-approvals min-h-0"
+              />
+              <DashboardActivityLogPanel className="dashboard-right-activity min-h-0" />
+            </div>
           </aside>
         </div>
       </div>

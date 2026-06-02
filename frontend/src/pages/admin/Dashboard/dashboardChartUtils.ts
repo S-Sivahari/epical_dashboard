@@ -63,27 +63,82 @@ function hoursFromTimesheet(t: {
   )
 }
 
+export type ProjectContributionStatus = 'In Progress' | 'Completed' | 'Cancelled'
+
 export type ProjectTableRow = {
   id: string
   project: string
   client: string
   lead: string
+  members: string[]
   totalHours: number
+  status: ProjectContributionStatus
+}
+
+export function mapProjectContributionStatus(
+  projectStatus?: string,
+): ProjectContributionStatus {
+  const s = (projectStatus || '').trim()
+  if (s === 'Completed') return 'Completed'
+  if (s === 'Cancelled' || s === 'Rejected') return 'Cancelled'
+  return 'In Progress'
+}
+
+export function formatProjectMembers(names: string[]): string {
+  if (names.length === 0) return '—'
+  const sorted = [...names].sort((a, b) => a.localeCompare(b))
+  if (sorted.length <= 3) {
+    const joined = sorted.join(', ')
+    return joined.length > 56 ? `${joined.slice(0, 53)}...` : joined
+  }
+  return `${sorted.slice(0, 3).join(', ')}, ...`
 }
 
 type DashboardProject = {
   id?: string
   _id?: string
   name?: string
+  projectName?: string
   client?: string
+  clientName?: string
   teamLead?: string
   status?: string
+  completionPercentage?: number
+  completedTasks?: number
+  totalTasks?: number
+}
+
+function normalizeDashboardProject(raw: DashboardProject): DashboardProject {
+  const id = String(raw.id || raw._id || '').trim()
+  const name = String(raw.name || raw.projectName || '').trim()
+  return {
+    ...raw,
+    id: id || undefined,
+    _id: id || raw._id,
+    name: name || undefined,
+    client: raw.client || raw.clientName,
+    teamLead: raw.teamLead,
+  }
+}
+
+export function projectCompletionPercent(project?: DashboardProject): number {
+  if (!project) return 0
+  const total = Number(project.totalTasks ?? 0)
+  const completed = Number(project.completedTasks ?? 0)
+  if (total > 0) {
+    return Math.min(100, Math.max(0, Math.round((completed / total) * 100)))
+  }
+  const stored = Number(project.completionPercentage ?? 0)
+  return Number.isFinite(stored)
+    ? Math.min(100, Math.max(0, Math.round(stored)))
+    : 0
 }
 
 type DashboardTimesheet = {
   project?: string
   projectId?: string
   client?: string
+  employeeName?: string
   loginTime?: string
   logoutTime?: string
   overriddenHours?: number
@@ -95,6 +150,14 @@ export function aggregateProjectTableRows(
   projects: DashboardProject[],
 ): ProjectTableRow[] {
   const hoursByKey = new Map<string, number>()
+  const membersByKey = new Map<string, Set<string>>()
+
+  const addMember = (key: string, name: string) => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    if (!membersByKey.has(key)) membersByKey.set(key, new Set())
+    membersByKey.get(key)!.add(trimmed)
+  }
 
   timesheets.forEach((t) => {
     const hours = hoursFromTimesheet(t)
@@ -102,19 +165,23 @@ export function aggregateProjectTableRows(
     const key = (t.projectId || t.project || '').trim()
     if (!key) return
     hoursByKey.set(key, (hoursByKey.get(key) || 0) + hours)
+    if (t.employeeName) addMember(key, t.employeeName)
   })
+
+  const normalizedProjects = projects.map((p) => normalizeDashboardProject(p))
 
   const projectById = new Map<string, DashboardProject>()
   const projectByName = new Map<string, DashboardProject>()
-  projects.forEach((p) => {
+  normalizedProjects.forEach((p) => {
     const id = String(p.id || p._id || '').trim()
     if (id) projectById.set(id, p)
     if (p.name) projectByName.set(p.name, p)
   })
 
-  const rows = new Map<string, ProjectTableRow>()
+  type RowDraft = Omit<ProjectTableRow, 'members' | 'status'>
+  const rows = new Map<string, RowDraft>()
 
-  const upsertRow = (key: string, partial: Omit<ProjectTableRow, 'id' | 'totalHours'> & { totalHours?: number }) => {
+  const upsertRow = (key: string, partial: Omit<RowDraft, 'id' | 'totalHours'> & { totalHours?: number }) => {
     const existing = rows.get(key)
     const hours = partial.totalHours ?? existing?.totalHours ?? 0
     rows.set(key, {
@@ -126,7 +193,7 @@ export function aggregateProjectTableRows(
     })
   }
 
-  projects
+  normalizedProjects
     .filter((p) => p.status === 'Active')
     .forEach((p) => {
       const id = String(p.id || p._id || p.name || '').trim()
@@ -157,9 +224,28 @@ export function aggregateProjectTableRows(
     })
   })
 
-  return Array.from(rows.values())
+  const sorted = Array.from(rows.values())
     .sort((a, b) => b.totalHours - a.totalHours || a.project.localeCompare(b.project))
     .slice(0, 10)
+
+  const membersForRow = (row: RowDraft): string[] => {
+    const fromId = membersByKey.get(row.id)
+    const fromName = membersByKey.get(row.project)
+    const combined = new Set<string>([...(fromId ?? []), ...(fromName ?? [])])
+    return Array.from(combined)
+  }
+
+  return sorted.map((row) => {
+    const project =
+      projectById.get(row.id) ||
+      projectByName.get(row.id) ||
+      projectByName.get(row.project)
+    return {
+      ...row,
+      members: membersForRow(row),
+      status: mapProjectContributionStatus(project?.status),
+    }
+  })
 }
 
 export function aggregateChartData(

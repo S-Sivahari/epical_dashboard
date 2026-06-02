@@ -13,7 +13,7 @@ export function AdminTopNav() {
 
   return (
     <nav
-      className="admin-top-nav admin-top-nav-refined shrink-0 border-b border-[rgba(38,107,28,0.12)]"
+      className="admin-top-nav admin-top-nav-refined shrink-0"
       aria-label="Admin navigation"
     >
       <div className="admin-top-nav-spread">

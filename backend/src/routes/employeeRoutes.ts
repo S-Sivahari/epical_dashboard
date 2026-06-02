@@ -15,6 +15,9 @@ router.get('/search', employeeController.searchEmployees);
 // Check if employee ID exists
 router.get('/check-id', employeeController.checkEmployeeId);
 
+// Daily user activity log for admin dashboard (must be before /:id)
+router.get('/daily-activity', employeeController.getDailyActivityLog);
+
 // Bulk update status for multiple employees
 router.patch('/bulk-status', employeeController.bulkUpdateStatus);
 

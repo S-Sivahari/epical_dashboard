@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, LogOut } from 'lucide-react'
 import { CompanyLogo } from '@components/auth/CompanyLogo'
 import { Avatar } from '@components/ui/Avatar'
+import { CommandBarNewsMarquee } from '@components/layout/CommandBarNewsMarquee'
 import { NotificationBell } from '@components/layout/NotificationBell'
 import { useAuthStore } from '@store/authStore'
 import { ROUTES } from '@constants/routes'
@@ -79,12 +80,15 @@ export function CommandBar() {
         )}
 
         {isDashboard && user ? (
-          <div className="min-w-0">
-            <p className="truncate font-display text-base font-extrabold text-[#1a4712] sm:text-lg">
-              {user.name}
-            </p>
-            <p className="truncate text-xs font-medium text-slate-600 sm:text-sm">Admin Portal</p>
-          </div>
+          <>
+            <div className="min-w-0 shrink-0">
+              <p className="truncate font-display text-base font-extrabold text-[#1a4712] sm:text-lg">
+                {user.name}
+              </p>
+              <p className="truncate text-xs font-medium text-slate-600 sm:text-sm">Admin Portal</p>
+            </div>
+            <CommandBarNewsMarquee className="ml-1 hidden min-w-0 flex-1 sm:flex" />
+          </>
         ) : null}
       </div>
 
