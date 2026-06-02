@@ -327,7 +327,7 @@ export const payslipController = {
 
   getBatch: async (req: Request, res: Response): Promise<void> => {
     try {
-      const batch = await getPayrollBatch(req.params.batchId)
+      const batch = await getPayrollBatch(req.params.batchId as string)
       if (!batch) {
         res.status(404).json({ error: 'Payroll batch not found' })
         return
@@ -342,14 +342,14 @@ export const payslipController = {
   /** Download the uploaded payroll Excel for a batch */
   downloadUploadedExcel: async (req: Request, res: Response): Promise<void> => {
     try {
-      const batch = await getPayrollBatch(req.params.batchId)
+      const batch = await getPayrollBatch(req.params.batchId as string)
       if (!batch) {
         res.status(404).json({ error: 'Payroll batch not found' })
         return
       }
       
       try {
-        const buffer = readBatchExcel(req.params.batchId)
+        const buffer = readBatchExcel(req.params.batchId as string)
         res.setHeader(
           'Content-Type',
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -375,8 +375,8 @@ export const payslipController = {
   /** Download a generated payslip PDF */
   downloadPayslipPdf: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { batchId } = req.params
-      const fileName = decodeURIComponent(req.params.fileName)
+      const { batchId } = req.params as any
+      const fileName = decodeURIComponent(req.params.fileName as string)
       const batch = await getPayrollBatch(batchId)
       if (!batch) {
         res.status(404).json({ error: 'Payroll batch not found' })
@@ -602,7 +602,7 @@ export const payslipController = {
   /** Delete entire batch: uploaded Excel + all generated payslips */
   deleteBatch: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { batchId } = req.params
+      const { batchId } = req.params as any
       await deletePayrollBatch(batchId)
       res.json({ message: 'Payroll upload and payslips deleted successfully' })
     } catch (error: unknown) {
@@ -615,7 +615,7 @@ export const payslipController = {
   /** Delete a single generated payslip PDF */
   deletePayslip: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { batchId, fileName } = req.params
+      const { batchId, fileName } = req.params as any
       const batch = await deletePayslipFromBatch(batchId, fileName)
       res.json({ message: 'Payslip deleted successfully', batch })
     } catch (error: unknown) {
@@ -639,7 +639,7 @@ export const payslipController = {
   /** Download all payslip PDFs in a batch merged into one file */
   downloadAllPayslipsPdf: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { batchId } = req.params
+      const { batchId } = req.params as any
       const batch = await getPayrollBatch(batchId)
       if (!batch) {
         res.status(404).json({ error: 'Payroll batch not found' })
@@ -664,8 +664,8 @@ export const payslipController = {
   /** Download payslip PDF as attachment (saves file instead of opening inline) */
   downloadPayslipPdfAttachment: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { batchId } = req.params
-      const fileName = decodeURIComponent(req.params.fileName)
+      const { batchId } = req.params as any
+      const fileName = decodeURIComponent(req.params.fileName as string)
       const batch = await getPayrollBatch(batchId)
       if (!batch) {
         res.status(404).json({ error: 'Payroll batch not found' })

@@ -10,9 +10,8 @@ import { Modal } from '@components/ui/Modal'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
 import { NewsImage } from '@components/NewsImage'
-import { formatDate } from '@/utils/formatDate'
+import { NewsDetailModal } from '@components/news/NewsDetailModal'
 import { cn } from '@/utils/cn'
-import { motion, AnimatePresence } from 'framer-motion'
 import { Megaphone, Pencil } from 'lucide-react'
 import { ROUTES } from '@/constants/routes'
 
@@ -302,64 +301,11 @@ export function AdminNewsTicker({
         ) : null}
       </div>
 
-      <AnimatePresence>
-        {active && (
-          <Modal isOpen={!!active} onClose={() => setActive(null)} title={active.title} size="lg">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3 }}
-              className="space-y-5"
-            >
-              <p className="text-sm text-muted">{formatDate(active.publishedAt)}</p>
-
-              {(active.imageUrl || active.hasImage) && (
-                <NewsImage
-                  item={active}
-                  alt={active.title}
-                  className="max-h-80 w-full rounded-xl object-cover"
-                />
-              )}
-
-              <div className="rounded-lg bg-surface/50 p-4">
-                <p className="whitespace-pre-line text-sm leading-relaxed text-ink">
-                  {active.content}
-                </p>
-              </div>
-
-              {active.link && (
-                <a
-                  href={active.link}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
-                >
-                  <span>View Link</span>
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                    />
-                  </svg>
-                </a>
-              )}
-
-              <div className="flex justify-end gap-2 pt-3">
-                <Button variant="secondary" onClick={() => setActive(null)}>
-                  Close
-                </Button>
-                <Button onClick={() => void openEdit(active)}>
-                  <Pencil className="h-3.5 w-3.5" />
-                  Edit
-                </Button>
-              </div>
-            </motion.div>
-          </Modal>
-        )}
-      </AnimatePresence>
+      <NewsDetailModal
+        item={active}
+        onClose={() => setActive(null)}
+        onEdit={(item) => void openEdit(item)}
+      />
 
       <Modal isOpen={!!editing} onClose={() => setEditing(null)} title="Edit News" size="lg">
         <div className="space-y-4">

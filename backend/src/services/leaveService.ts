@@ -179,11 +179,7 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
     // Notify all admins
     const userCollection = getDB().collection('users');
     const admins = await userCollection.find({ role: 'Admin' }).toArray();
-    console.log(`[Leave Notification] Found ${admins.length} admins to notify`);
-    console.log(`[Leave Notification] Admins:`, admins.map((a) => ({ id: a.id, name: a.name })));
-
     for (const admin of admins) {
-      console.log(`[Leave Notification] Creating notification for admin: ${admin.id}`);
       await notificationService.createNotification({
         recipientId: admin.id,
         recipientType: 'Admin',
@@ -196,7 +192,6 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
           employeeName: payload.employeeName,
         },
       });
-      console.log(`[Leave Notification] Notification created for admin: ${admin.id}`);
     }
   } catch (error) {
     console.error('Error creating notification for leave submission:', error);
@@ -308,11 +303,17 @@ export async function updateLeaveStatus(
   actionBy?: string
 ): Promise<LeaveRequest | null> {
   const col = getLeaveCol();
+  const existing = await col.findOne({ id });
+  if (!existing) return null;
+
+  // Idempotent: only Pending leaves can be approved/rejected once
+  if (existing.status !== 'Pending') {
+    return existing as LeaveRequest;
+  }
 
   // If approving, validate the employee has sufficient balance
   if (status === 'Approved') {
-    const leave = await getLeaveById(id);
-    if (!leave) return null;
+    const leave = existing as LeaveRequest;
 
     // Fetch employee leaves to calculate current balance
     const employeeLeaves = await getAllLeaves(leave.employeeId);
@@ -357,13 +358,17 @@ export async function updateLeaveStatus(
   }
 
   const result = await col.findOneAndUpdate(
-    { id },
+    { id, status: 'Pending' },
     { $set: updateDoc },
     { returnDocument: 'after' }
   );
 
-  if (result) {
-    // Create notification for employee
+  if (!result) {
+    return (await col.findOne({ id })) as LeaveRequest | null;
+  }
+
+  if (result.status === status) {
+    // Create notification for employee (only when status actually changed)
     try {
       const notificationType = status === 'Approved' ? 'LeaveApproved' : 'LeaveRejected';
       const title = status === 'Approved' ? 'Leave Approved' : 'Leave Rejected';
@@ -651,7 +656,6 @@ export async function notifyAdminsAboutLeaveRequest(leave: LeaveRequest): Promis
       }, `${env.FRONTEND_URL}/admin/leaves`);
     }
     
-    console.log(`[Leave Email] Sent leave request notification to ${admins.length} admin(s)`);
   } catch (error) {
     console.error('[Leave Email] Error sending admin notification:', error);
   }
@@ -685,7 +689,6 @@ export async function notifyEmployeeAboutLeaveStatus(leave: LeaveRequest): Promi
       rejectionReason: leave.rejectionReason,
     }, `${env.FRONTEND_URL}/employee/leaves`);
     
-    console.log(`[Leave Email] Sent ${leave.status} notification to ${employee.email}`);
   } catch (error) {
     console.error('[Leave Email] Error sending employee notification:', error);
   }

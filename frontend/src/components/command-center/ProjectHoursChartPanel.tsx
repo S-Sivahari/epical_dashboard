@@ -28,7 +28,7 @@ export function ProjectHoursChartPanel({
 
   return (
     <section className={cn('dashboard-panel dashboard-project-chart', className)}>
-      <header className="dashboard-panel-header">
+      <header className="dashboard-panel-header dashboard-panel-header--primary">
         <div>
           <h2 className="dashboard-panel-title">Project Hours</h2>
           <p className="dashboard-panel-subtitle">{getChartSubtitle(chartPeriod)}</p>
