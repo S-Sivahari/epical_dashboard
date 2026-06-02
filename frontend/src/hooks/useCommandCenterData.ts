@@ -10,6 +10,12 @@ import {
   getChartRange,
   type ChartPeriod,
 } from '@/pages/admin/Dashboard/dashboardChartUtils'
+import {
+  buildPendingApprovals,
+  buildUpcomingDeadlines,
+  countEmployeesJoinedThisMonth,
+} from '@/pages/admin/Dashboard/dashboardBackendUtils'
+import type { DocumentRequestRecord, LeaveRequest } from '@/types'
 
 export interface DepartmentStats {
   name: string
@@ -48,7 +54,7 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
         const { from, to } = getChartRange(chartPeriod)
         const [tsRes, projRes, empHoursRes, docRes, batchRes, empRes] = await Promise.all([
           api.get('/timesheets', { params: { from, to } }),
-          api.get('/projects'),
+          api.get('/projects', { params: { syncCompletion: true } }),
           api.get('/timesheets/employee-hours', { params: { from, to } }),
           api.get('/document-requests').catch(() => ({ data: [] })),
           api.get('/payslips/batches').catch(() => ({ data: [] })),
@@ -59,11 +65,12 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
         setEmployeeHours(empHoursRes.data || [])
         setDocumentRequests(docRes.data || [])
         setPayslipBatches(batchRes.data || [])
-        const empPayload = empRes.data?.employees ?? empRes.data ?? []
+        const empPayload = empRes.data?.data ?? empRes.data?.employees ?? empRes.data ?? []
         setAllEmployees(Array.isArray(empPayload) ? empPayload : [])
-        if (empRes.data?.total != null) {
+        const total = empRes.data?.total
+        if (total != null) {
           useEmployeeStore.setState((s) => ({
-            pagination: { ...s.pagination, total: empRes.data.total },
+            pagination: { ...s.pagination, total },
           }))
         }
       } catch (err) {
@@ -78,7 +85,9 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
   const pendingLeaves = leaves.filter((l) => l.status === 'Pending')
   const approvedLeaves = leaves.filter((l) => l.status === 'Approved')
   const activeProjects = projects.filter((p: any) => p.status === 'Active')
-  const pendingDocs = documentRequests.filter((d: any) => d.status === 'Pending')
+  const pendingDocs = documentRequests.filter(
+    (d: DocumentRequestRecord) => d.status === 'Pending',
+  ) as DocumentRequestRecord[]
   const pendingTickets = tickets.filter((t) => t.status === 'Pending' || t.status === 'In Progress')
 
   const chartData = useMemo(
@@ -208,6 +217,26 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
     chartPeriod,
   ])
 
+  const pendingApprovalTasks = useMemo(
+    () => buildPendingApprovals(pendingLeaves as LeaveRequest[], pendingDocs),
+    [pendingLeaves, pendingDocs],
+  )
+
+  const upcomingDeadlines = useMemo(
+    () =>
+      buildUpcomingDeadlines(
+        allEmployees,
+        payslipBatches,
+        holidays.map((h) => ({ date: h.date, name: h.title })),
+      ),
+    [allEmployees, payslipBatches, holidays],
+  )
+
+  const employeesAddedThisMonth = useMemo(
+    () => countEmployeesJoinedThisMonth(allEmployees),
+    [allEmployees],
+  )
+
   const activityStream = useMemo(() => {
     const stream: {
       id: string
@@ -278,5 +307,9 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
     notifications,
     pendingDocs,
     pendingTickets,
+    allEmployees,
+    pendingApprovalTasks,
+    upcomingDeadlines,
+    employeesAddedThisMonth,
   }
 }

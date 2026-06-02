@@ -34,15 +34,23 @@ export function ProjectHoursAreaChart({
 }) {
   const gradId = useId().replace(/:/g, '')
 
-  const yMax = useMemo(() => {
+  const { yMax, yTicks } = useMemo(() => {
     const peak = data.reduce((max, row) => Math.max(max, row.hours ?? 0), 0)
-    return Math.max(4, Math.ceil(peak * 1.3))
+    if (peak <= 0) {
+      return { yMax: 8, yTicks: [0, 2, 4, 6, 8] }
+    }
+    const padded = Math.ceil(peak * 1.2)
+    const step = padded <= 10 ? 2 : padded <= 40 ? 5 : padded <= 100 ? 10 : 20
+    const max = Math.ceil(padded / step) * step
+    const ticks: number[] = []
+    for (let v = 0; v <= max; v += step) ticks.push(v)
+    return { yMax: max, yTicks: ticks }
   }, [data])
 
   const chartHeight = fillParent ? undefined : height
   const margin = compact
     ? { top: 4, right: 4, left: -16, bottom: -4 }
-    : { top: 12, right: 8, left: -8, bottom: 0 }
+    : { top: 16, right: 12, left: 4, bottom: 4 }
 
   return (
     <div
@@ -74,24 +82,26 @@ export function ProjectHoursAreaChart({
           />
           {!compact && (
             <YAxis
-              tick={{ fill: CHART_GREEN.axis, fontSize: 13 }}
+              tick={{ fill: CHART_GREEN.axis, fontSize: 12 }}
               axisLine={false}
               tickLine={false}
-              width={28}
+              width={44}
               domain={[0, yMax]}
+              ticks={yTicks}
               tickFormatter={(v) => `${v}h`}
             />
           )}
           <Tooltip
+            cursor={{ stroke: 'rgba(38, 107, 28, 0.25)', strokeWidth: 1 }}
             contentStyle={{
               backgroundColor: '#ffffff',
               border: '1px solid rgba(38, 107, 28, 0.18)',
               borderRadius: 10,
-              fontSize: 15,
+              fontSize: 14,
               boxShadow: '0 8px 24px rgba(38, 107, 28, 0.12)',
             }}
-            labelStyle={{ color: '#266b1c', fontWeight: 600 }}
-            formatter={(value: number) => [`${value} h`, 'Hours']}
+            labelStyle={{ color: '#266b1c', fontWeight: 600, marginBottom: 4 }}
+            formatter={(value: number) => [`${value} h`, 'Hours logged']}
           />
           <Area
             type="monotone"

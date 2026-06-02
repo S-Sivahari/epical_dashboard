@@ -1,6 +1,7 @@
 import { Collection, ObjectId, Filter, Document } from 'mongodb';
 import { getDB } from '../config/db';
 import { Employee, CreateEmployeePayload, UpdateEmployeePayload, EmployeeActivityEntry } from '../models/Employee';
+import { TimesheetModel } from '../models/Timesheet';
 import * as emailService from './emailService';
 import { ensureUserAccountForEmployee } from '../utils/employeeAuth';
 import { sanitizeEmployeeForDetail, sanitizeEmployeeForList } from '../utils/sanitizeEmployee';
@@ -708,6 +709,143 @@ export async function bulkUpdateStatus(
 
   const result = await collection.bulkWrite(ops);
   return { updated: result.modifiedCount };
+}
+
+export type DailyActivityLogEntry = {
+  id: string;
+  userName: string;
+  message: string;
+  time: string;
+};
+
+/** Aggregated user activity for a single calendar day (admin dashboard). */
+export async function getDailyActivityLog(dateStr: string): Promise<DailyActivityLogEntry[]> {
+  const day =
+    typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
+      ? dateStr
+      : new Date().toISOString().split('T')[0];
+  const start = new Date(`${day}T00:00:00`);
+  const end = new Date(`${day}T23:59:59.999`);
+  const entries: Array<DailyActivityLogEntry & { sortAt: number }> = [];
+
+  const collection = getEmployeeCollection();
+  const employees = await collection
+    .find({ activityHistory: { $exists: true, $not: { $size: 0 } } })
+    .project({ firstName: 1, lastName: 1, id: 1, activityHistory: 1 })
+    .toArray();
+
+  for (const emp of employees) {
+    const userName = `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Employee';
+    for (const entry of (emp.activityHistory as EmployeeActivityEntry[]) || []) {
+      const at = new Date(entry.at);
+      if (Number.isNaN(at.getTime()) || at < start || at > end) continue;
+      entries.push({
+        id: `profile-${emp.id}-${at.getTime()}`,
+        userName,
+        message: entry.summary || `${entry.type} update`,
+        time: at.toISOString(),
+        sortAt: at.getTime(),
+      });
+    }
+  }
+
+  const timesheets = await TimesheetModel.find({ loginTime: { $gte: start, $lte: end } }).lean();
+  for (const t of timesheets) {
+    const at = new Date(t.loginTime);
+    const hours = t.totalHours ?? 0;
+    entries.push({
+      id: `ts-${String(t._id)}`,
+      userName: (t as { employee?: string }).employee || 'Employee',
+      message: `Logged ${hours}h on ${(t as { project?: string }).project || 'project'}`,
+      time: at.toISOString(),
+      sortAt: at.getTime(),
+    });
+  }
+
+  const db = getDB();
+  const leaveSeen = new Set<string>();
+  const leaves = await db.collection('leaves').find({
+    $or: [
+      { createdAt: { $gte: start, $lte: end } },
+      { updatedAt: { $gte: start, $lte: end } },
+      { approvedAt: { $gte: start, $lte: end } },
+      { rejectedAt: { $gte: start, $lte: end } },
+    ],
+  }).toArray();
+
+  for (const l of leaves) {
+    const leaveKey = String(l.id || l._id || '');
+    if (!leaveKey || leaveSeen.has(leaveKey)) continue;
+
+    const status = String(l.status || '');
+    let at: Date | null = null;
+    let message = '';
+
+    if (status === 'Approved' && l.approvedAt) {
+      at = new Date(l.approvedAt as Date);
+      message = `Leave approved (${l.type}) — ${l.from} to ${l.to}`;
+    } else if (status === 'Rejected' && l.rejectedAt) {
+      at = new Date(l.rejectedAt as Date);
+      message = `Leave rejected (${l.type}) — ${l.from} to ${l.to}`;
+    } else if (status === 'Pending' && l.createdAt) {
+      at = new Date(l.createdAt as Date);
+      message = `Leave request submitted (${l.type}) — ${l.from} to ${l.to}`;
+    } else if (l.updatedAt) {
+      at = new Date(l.updatedAt as Date);
+      message = `Leave updated (${l.type}) — ${l.from} to ${l.to}`;
+    }
+
+    if (!at || Number.isNaN(at.getTime()) || at < start || at > end) continue;
+    leaveSeen.add(leaveKey);
+    entries.push({
+      id: `leave-${leaveKey}`,
+      userName: (l.employeeName as string) || 'Employee',
+      message,
+      time: at.toISOString(),
+      sortAt: at.getTime(),
+    });
+  }
+
+  const leaveNotifTypes = new Set([
+    'LeaveSubmitted',
+    'LeaveApproved',
+    'LeaveRejected',
+    'LeaveCancelled',
+  ]);
+
+  const notifications = await db.collection('notifications').find({
+    createdAt: { $gte: start, $lte: end },
+    type: { $nin: Array.from(leaveNotifTypes) },
+  }).toArray();
+
+  for (const n of notifications) {
+    const at = new Date(n.createdAt as Date);
+    if (Number.isNaN(at.getTime())) continue;
+    const related = (n.relatedData || {}) as { employeeName?: string };
+    entries.push({
+      id: `notif-${String(n._id)}`,
+      userName: related.employeeName || (n.recipientType as string) || 'System',
+      message: (n.message as string) || (n.title as string) || 'Notification',
+      time: at.toISOString(),
+      sortAt: at.getTime(),
+    });
+  }
+
+  const seen = new Set<string>();
+  const deduped: DailyActivityLogEntry[] = [];
+
+  for (const row of entries.sort((a, b) => b.sortAt - a.sortAt)) {
+    const minuteBucket = Math.floor(row.sortAt / 60_000);
+    const normMsg = row.message.toLowerCase().replace(/\s+/g, ' ').trim();
+    const key = `${row.userName.toLowerCase()}|${normMsg}|${minuteBucket}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const { sortAt: _sortAt, ...entry } = row;
+    deduped.push(entry);
+    if (deduped.length >= 80) break;
+  }
+
+  return deduped;
 }
 
 /** Remove deprecated department field from all employee and user documents. */

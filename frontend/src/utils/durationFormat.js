@@ -9,7 +9,7 @@ export function computeWorkedMs(loginTime, logoutTime, totalPausedMs = 0) {
   return Math.max(0, end - start - paused)
 }
 
-export function formatDurationFromMs(ms, padMinutes = false) {
+export function formatDurationFromMs(ms) {
   const safeMs = Math.max(0, Math.floor(ms))
   const totalMinutes = Math.floor(safeMs / 60000)
   const hours = Math.floor(totalMinutes / 60)
@@ -17,8 +17,7 @@ export function formatDurationFromMs(ms, padMinutes = false) {
 
   if (hours === 0 && minutes === 0) return '0m'
   if (hours === 0) return `${minutes}m`
-  if (minutes === 0) return `${hours}h`
-  const minPart = padMinutes ? String(minutes).padStart(2, '0') : String(minutes)
+  const minPart = String(minutes).padStart(2, '0')
   return `${hours}h ${minPart}m`
 }
 

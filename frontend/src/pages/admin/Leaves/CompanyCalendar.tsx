@@ -8,6 +8,7 @@ import {
   endOfMonth,
   eachDayOfInterval,
   isToday,
+  parseISO,
 } from 'date-fns'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { Badge } from '@components/ui/Badge'
@@ -37,6 +38,11 @@ interface CompanyCalendarProps {
   variant?: 'default' | 'admin'
 }
 
+function dateInViewMonth(dateStr: string, monthIdx: number, year: number): boolean {
+  const d = parseISO(dateStr)
+  return d.getMonth() === monthIdx && d.getFullYear() === year
+}
+
 export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
   const isAdminCal = variant === 'admin'
   const { holidays, leaves, loading, companyCalendarEvents } = useLeaves()
@@ -44,6 +50,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
   const updateHoliday = useLeaveStore((s) => s.updateHoliday)
   const deleteHoliday = useLeaveStore((s) => s.deleteHoliday)
   const fetchHolidays = useLeaveStore((s) => s.fetchHolidays)
+  const addCompanyCalendarEvent = useLeaveStore((s) => s.addCompanyCalendarEvent)
   const deleteCompanyCalendarEvent = useLeaveStore((s) => s.deleteCompanyCalendarEvent)
 
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -77,7 +84,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
   // Calendar logic
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1))
   const prevMonth = () => setCurrentDate(subMonths(currentDate, 1))
-  const goToToday = () => setCurrentDate(new Date())
+  const goToToday = () => setCurrentDate(startOfMonth(new Date()))
 
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(monthStart)
@@ -92,19 +99,43 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
     return leaves.filter((l) => l.status === 'Approved')
   }, [leaves])
 
-  const getHolidaysForDay = (dateStr: string) => holidays.filter((h) => h.date === dateStr)
+  const holidayEvents = useMemo((): CalendarSidebarEvent[] => {
+    return holidays
+      .filter((h) => h.type === 'Company Event')
+      .map((h) => ({
+        id: h.id,
+        title: h.title,
+        date: h.date,
+        description: h.description,
+        holidayType: h.type,
+      }))
+  }, [holidays])
+
+  const getHolidaysForDay = (dateStr: string) =>
+    holidays.filter((h) => h.date === dateStr && h.type !== 'Company Event')
   const getLeavesForDay = (dateStr: string) =>
     approvedLeaves.filter((l) => dateStr >= l.from && dateStr <= l.to)
-  const getEventsForDay = (dateStr: string) => dbSidebarEvents.filter((e) => e.date === dateStr)
+  const getEventsForDay = (dateStr: string) => {
+    const fromDb = dbSidebarEvents.filter((e) => e.date === dateStr)
+    const fromLegacy = holidayEvents.filter((e) => e.date === dateStr)
+    const seen = new Set(fromDb.map((e) => e.id))
+    return [...fromDb, ...fromLegacy.filter((e) => !seen.has(e.id))]
+  }
 
   const itemsOnSelectedDate = useMemo(() => {
     if (!selectedDateStr) return { leaves: [], holidays: [], events: [] }
+    const fromDb = dbSidebarEvents.filter((e) => e.date === selectedDateStr)
+    const fromLegacy = holidayEvents.filter((e) => e.date === selectedDateStr)
+    const seen = new Set(fromDb.map((e) => e.id))
+    const events = [...fromDb, ...fromLegacy.filter((e) => !seen.has(e.id))]
     return {
       leaves: approvedLeaves.filter((l) => selectedDateStr >= l.from && selectedDateStr <= l.to),
-      holidays: holidays.filter((h) => h.date === selectedDateStr),
-      events: dbSidebarEvents.filter((e) => e.date === selectedDateStr),
+      holidays: holidays.filter(
+        (h) => h.date === selectedDateStr && h.type !== 'Company Event',
+      ),
+      events,
     }
-  }, [selectedDateStr, approvedLeaves, holidays, dbSidebarEvents])
+  }, [selectedDateStr, approvedLeaves, holidays, dbSidebarEvents, holidayEvents])
 
   const handleDateClick = (dateStr: string) => {
     setSelectedDateStr(dateStr)
@@ -136,14 +167,18 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
     try {
       if (editingId) {
         await updateHoliday(editingId, { title, date, description, type })
+      } else if (type === 'Company Event') {
+        await addCompanyCalendarEvent({ title, date, description })
       } else {
         await addHoliday({ title, date, description, type })
       }
+      await fetchHolidays()
+      setCurrentDate(startOfMonth(parseISO(date)))
       resetHolidayForm()
       setIsHolidayFormOpen(false)
-      fetchHolidays()
+      toast.success(editingId ? 'Updated successfully' : 'Saved successfully')
     } catch {
-      toast.error('Failed to save holiday')
+      toast.error('Failed to save')
     }
   }
 
@@ -188,57 +223,62 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
     setEventToDelete(null)
   }
 
-  const holidayEvents = useMemo((): CalendarSidebarEvent[] => {
-    return holidays
-      .filter((h) => h.type === 'Company Event')
-      .map((h) => ({
-        id: h.id,
-        title: h.title,
-        date: h.date,
-        description: h.description,
-        holidayType: h.type,
-      }))
-  }, [holidays])
-
-  const currentMonthHolidays = useMemo(() => {
-    return holidays.filter((h) => {
-      if (h.type === 'Company Event') return false
-      const holidayDate = new Date(h.date)
-      return holidayDate.getMonth() === currentMonthIdx && holidayDate.getFullYear() === currentYear
-    })
+  const sidebarHolidays = useMemo(() => {
+    return holidays.filter(
+      (h) => h.type !== 'Company Event' && dateInViewMonth(h.date, currentMonthIdx, currentYear),
+    )
   }, [holidays, currentMonthIdx, currentYear])
 
-  const currentMonthEvents = useMemo(() => {
-    return [...dbSidebarEvents, ...holidayEvents].filter((e) => {
-      const eventDate = new Date(e.date)
-      return eventDate.getMonth() === currentMonthIdx && eventDate.getFullYear() === currentYear
-    })
+  const sidebarEvents = useMemo(() => {
+    return [...dbSidebarEvents, ...holidayEvents].filter((e) =>
+      dateInViewMonth(e.date, currentMonthIdx, currentYear),
+    )
   }, [dbSidebarEvents, holidayEvents, currentMonthIdx, currentYear])
 
-  const currentMonthLeaves = useMemo(() => {
+  const sidebarLeaves = useMemo(() => {
     return approvedLeaves
       .filter((leave) => {
-        const fromDate = new Date(leave.from)
-        const toDate = new Date(leave.to)
+        const fromDate = parseISO(leave.from)
+        const toDate = parseISO(leave.to)
         return (
-          (fromDate.getMonth() === currentMonthIdx && fromDate.getFullYear() === currentYear) ||
-          (toDate.getMonth() === currentMonthIdx && toDate.getFullYear() === currentYear) ||
+          dateInViewMonth(leave.from, currentMonthIdx, currentYear) ||
+          dateInViewMonth(leave.to, currentMonthIdx, currentYear) ||
           (fromDate < monthStart && toDate > monthEnd)
         )
       })
-      .sort((a, b) => new Date(a.from).getTime() - new Date(b.from).getTime())
+      .sort((a, b) => parseISO(a.from).getTime() - parseISO(b.from).getTime())
   }, [approvedLeaves, currentMonthIdx, currentYear, monthStart, monthEnd])
 
   return (
     <Tooltip.Provider delayDuration={300}>
-      <div className={cn('grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full pb-4 pr-4 pl-0', isAdminCal && 'admin-calendar-grid')}>
+      <div
+        className={cn(isAdminCal && 'flex min-h-0 flex-1 flex-col')}
+      >
+      <div
+        className={cn(
+          'grid w-full pr-4 pl-0',
+          isAdminCal
+            ? 'admin-calendar-grid min-h-0 flex-1 grid-cols-1 gap-3 pb-0 lg:grid-cols-[minmax(0,1fr)_minmax(17rem,22rem)]'
+            : 'grid-cols-1 gap-4 pb-4 lg:grid-cols-3 xl:grid-cols-4',
+        )}
+      >
 
         {/* ── Left Column: Calendar Card ────────────────────────────── */}
-        <div className="lg:col-span-2 xl:col-span-3 flex flex-col w-full">
-          <div className={cn(
-            'w-full flex flex-col overflow-hidden',
-            isAdminCal ? 'admin-cal-main' : 'rounded-xl border border-border bg-white shadow-sm',
-          )}>
+        <div
+          className={cn(
+            'flex w-full min-w-0 flex-col',
+            !isAdminCal && 'lg:col-span-2 xl:col-span-3',
+            isAdminCal && 'admin-cal-main-col h-full min-h-0',
+          )}
+        >
+          <div
+            className={cn(
+              'flex w-full flex-col overflow-hidden',
+              isAdminCal
+                ? 'admin-cal-main h-full min-h-0'
+                : 'rounded-xl border border-border bg-white shadow-sm',
+            )}
+          >
             {/* Calendar Header */}
             <div className={cn(
               'p-3 flex items-center justify-between flex-shrink-0',
@@ -249,34 +289,70 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                   'flex items-center gap-1 rounded-lg border p-0.5',
                   isAdminCal ? 'admin-cal-month-nav' : 'border-border bg-white',
                 )}>
-                  <Button size="sm" variant="ghost" className={cn('h-8 w-8 p-0', isAdminCal && 'admin-cal-nav-btn')} onClick={prevMonth}>
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <span className={cn(
-                    'min-w-[7.5rem] px-2 text-center text-sm font-semibold',
-                    isAdminCal ? 'text-white' : 'text-ink',
-                  )}>
-                    {format(currentDate, 'MMMM yyyy')}
-                  </span>
-                  <Button size="sm" variant="ghost" className={cn('h-8 w-8 p-0', isAdminCal && 'admin-cal-nav-btn')} onClick={nextMonth}>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
+                  {isAdminCal ? (
+                    <>
+                      <button
+                        type="button"
+                        className="admin-cal-nav-btn"
+                        onClick={prevMonth}
+                        aria-label="Previous month"
+                      >
+                        <ChevronLeft className="admin-cal-nav-icon h-4 w-4" aria-hidden />
+                      </button>
+                      <span className="admin-cal-month-title min-w-[7.5rem] px-2 text-center text-sm font-semibold">
+                        {format(currentDate, 'MMMM yyyy')}
+                      </span>
+                      <button
+                        type="button"
+                        className="admin-cal-nav-btn"
+                        onClick={nextMonth}
+                        aria-label="Next month"
+                      >
+                        <ChevronRight className="admin-cal-nav-icon h-4 w-4" aria-hidden />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={prevMonth}>
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <span className="min-w-[7.5rem] px-2 text-center text-sm font-semibold text-ink">
+                        {format(currentDate, 'MMMM yyyy')}
+                      </span>
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={nextMonth}>
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </>
+                  )}
                 </div>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className={cn('h-8 px-3 text-xs', isAdminCal && 'admin-cal-today-btn')}
-                  onClick={goToToday}
-                >
-                  Today
-                </Button>
+                {isAdminCal ? (
+                  <button
+                    type="button"
+                    className="admin-cal-today-btn inline-flex h-7 items-center rounded-lg px-2.5 text-[11px] font-semibold transition-colors"
+                    onClick={goToToday}
+                  >
+                    Today
+                  </button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-8 px-3 text-xs"
+                    onClick={goToToday}
+                  >
+                    Today
+                  </Button>
+                )}
               </div>
               <Button
                 size="sm"
-                className={cn('h-8 px-3 text-xs shadow-sm', isAdminCal && 'admin-dash-action-btn border-0')}
+                className={cn(
+                  'h-8 px-3 text-xs shadow-sm',
+                  isAdminCal && 'admin-dash-action-btn border-0 !text-white [&_svg]:!text-white',
+                )}
                 onClick={() => setIsHolidayFormOpen(true)}
               >
-                <Plus className="h-4 w-4 mr-1.5" /> Add
+                <Plus className="h-4 w-4 mr-1.5 shrink-0" /> Add
               </Button>
             </div>
 
@@ -304,25 +380,50 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
             </div>
 
             {/* Calendar Grid */}
-            <div className={cn('p-2.5 flex-1', isAdminCal && 'admin-cal-grid-wrap')}>
+            <div className={cn('flex-1 min-h-0', isAdminCal ? 'admin-cal-grid-wrap p-1.5' : 'p-2.5')}>
               {loading ? (
                 <div className="flex h-48 items-center justify-center">
-                  <span className={cn('text-sm', isAdminCal ? 'text-[var(--emerald-dark)]/70' : 'text-muted')}>Loading calendar...</span>
+                  <span className={cn('text-sm', isAdminCal ? 'admin-cal-loading-text' : 'text-muted')}>
+                    Loading calendar...
+                  </span>
                 </div>
               ) : (
-                <div className="grid grid-cols-7 gap-1">
-                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                    <div key={day} className={cn(
-                      'text-center text-xs font-semibold py-1 uppercase tracking-wider',
-                      isAdminCal ? 'admin-cal-weekday' : 'text-muted',
-                    )}>
-                      {day}
-                    </div>
-                  ))}
+                <div
+                  className={cn(
+                    isAdminCal ? 'flex min-h-0 flex-1 flex-col' : 'grid grid-cols-7 gap-1',
+                  )}
+                >
+                  <div
+                    className={cn(
+                      'grid grid-cols-7 gap-0.5',
+                      isAdminCal ? 'admin-cal-weekdays shrink-0' : 'contents',
+                    )}
+                  >
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                      <div
+                        key={day}
+                        className={cn(
+                          'text-center font-semibold uppercase tracking-wider',
+                          isAdminCal ? 'admin-cal-weekday' : 'py-1 text-xs text-muted',
+                        )}
+                      >
+                        {day}
+                      </div>
+                    ))}
+                  </div>
+                  <div
+                    className={cn(
+                      'grid grid-cols-7 gap-0.5',
+                      isAdminCal ? 'admin-cal-day-grid min-h-0 flex-1' : 'contents',
+                    )}
+                  >
                   {Array.from({ length: leadingEmptyCells }).map((_, index) => (
                     <div
                       key={`pad-${index}`}
-                      className="min-h-[5rem] xl:min-h-[5.5rem] rounded-lg border border-transparent bg-transparent"
+                      className={cn(
+                        'rounded-lg border border-transparent bg-transparent',
+                        isAdminCal ? 'admin-cal-day-pad' : 'min-h-[5rem] xl:min-h-[5.5rem]',
+                      )}
                       aria-hidden
                     />
                   ))}
@@ -340,12 +441,12 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                           <div
                             onClick={() => handleDateClick(dateStr)}
                             className={cn(
-                              'min-h-[5rem] xl:min-h-[5.5rem] p-1.5 rounded-lg border transition-all cursor-pointer flex flex-col gap-0.5 hover:shadow-sm overflow-hidden',
+                              'rounded-lg border transition-all cursor-pointer flex flex-col gap-0.5 hover:shadow-sm overflow-hidden',
                               isAdminCal
-                                ? 'admin-cal-day border-[rgba(38,107,28,0.15)] bg-white/75 hover:border-[rgba(38,107,28,0.35)] hover:bg-emerald-50/80'
-                                : 'bg-white border-border hover:border-primary/50',
+                                ? 'admin-cal-day border-[rgba(26,67,41,0.15)] bg-white/75 p-1 hover:border-[rgba(26,67,41,0.28)]'
+                                : 'min-h-[5rem] xl:min-h-[5.5rem] p-1.5 bg-white border-border hover:border-primary/50',
                               isTodayDate && (isAdminCal
-                                ? 'admin-cal-day-today ring-2 ring-[rgba(38,107,28,0.25)] border-[var(--emerald-dark)]/40 bg-emerald-50/90'
+                                ? 'admin-cal-day-today'
                                 : 'ring-2 ring-primary/20 border-primary/40 bg-primary/5'),
                               hasMultipleLeaves && (isAdminCal ? 'bg-red-50/50' : 'bg-red-50/40'),
                             )}
@@ -354,7 +455,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                               <span className={cn(
                                 'text-sm font-semibold',
                                 isTodayDate
-                                  ? isAdminCal ? 'text-[var(--emerald-dark)]' : 'text-primary'
+                                  ? isAdminCal ? 'admin-cal-day-num-today' : 'text-primary'
                                   : 'text-ink',
                               )}>
                                 {format(day, 'd')}
@@ -479,6 +580,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                       </Tooltip.Root>
                     )
                   })}
+                  </div>
                 </div>
               )}
             </div>
@@ -486,222 +588,390 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
         </div>
 
         {/* ── Right Column: Stacked Cards Column ───────────────────── */}
-        <div className="lg:col-span-1 flex flex-col gap-3">
+        <div
+          className={cn(
+            'flex min-h-0 flex-col',
+            !isAdminCal && 'lg:col-span-1 gap-3',
+            isAdminCal && 'admin-cal-sidebar h-full min-h-0',
+          )}
+        >
+          <div
+            className={cn(
+              'flex h-full min-h-0 flex-col overflow-hidden rounded-xl shadow-sm',
+              isAdminCal
+                ? 'admin-cal-side-unified'
+                : 'border border-border bg-white',
+            )}
+          >
+            <header
+              className={cn(
+                'flex-shrink-0 border-b px-3 py-2',
+                isAdminCal
+                  ? 'admin-cal-side-unified-title'
+                  : 'border-border',
+              )}
+            >
+              <h2
+                className={cn(
+                  'font-display text-sm font-bold tracking-tight',
+                  isAdminCal ? 'admin-cal-side-month-label' : 'text-ink',
+                )}
+              >
+                {format(currentDate, 'MMMM yyyy')}
+              </h2>
+            </header>
 
-          {/* Month Holidays */}
-          <div className={cn(
-            'rounded-xl p-3 shadow-sm flex flex-col h-[220px]',
-            isAdminCal ? 'admin-cal-side-card' : 'border border-border bg-white',
-          )}>
-            <div className={cn('mb-2 flex items-center justify-between flex-shrink-0', isAdminCal && 'admin-cal-side-head')}>
-              <div className="flex items-center gap-2">
-                <h3 className={cn(
-                  'font-display text-sm font-semibold',
-                  isAdminCal ? 'text-[var(--emerald-dark)]' : 'text-ink',
-                )}>
-                  {format(currentDate, 'MMM yyyy')} Holidays
-                </h3>
-                <span className={cn(
-                  'inline-flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold',
-                  isAdminCal ? 'admin-cal-count-badge' : 'bg-blue-100 text-blue-700',
-                )}>
-                  {currentMonthHolidays.length}
-                </span>
-              </div>
-            </div>
+            <div
+              className={cn(
+                'flex min-h-0 flex-1 flex-col gap-2 overflow-hidden',
+                isAdminCal ? 'admin-cal-side-unified-body' : 'p-3',
+              )}
+            >
+              {/* Holidays */}
+              <section
+                className={cn(
+                  'flex flex-col rounded-lg',
+                  sidebarHolidays.length > 0 &&
+                    (isAdminCal
+                      ? 'admin-cal-side-section--active admin-cal-side-section--active-holidays admin-cal-side-section--scroll'
+                      : 'border border-emerald-100/90 bg-emerald-50/50 px-2 py-1.5'),
+                )}
+              >
+                <div className={cn('flex items-center gap-2', isAdminCal && 'admin-cal-side-section-head')}>
+                  <h3
+                    className={cn(
+                      'text-xs font-semibold',
+                      isAdminCal ? 'admin-cal-side-section-title' : 'text-ink',
+                    )}
+                  >
+                    Holidays
+                  </h3>
+                  <span
+                    className={cn(
+                      'inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold',
+                      isAdminCal ? 'admin-cal-count-badge' : 'bg-blue-100 text-blue-700',
+                    )}
+                  >
+                    {sidebarHolidays.length}
+                  </span>
+                </div>
 
-            {/* Legend inside Holidays card */}
-            <div className="flex gap-3 text-[10px] font-medium border-b border-border pb-1.5 mb-2 flex-shrink-0">
-              <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                <span className="text-muted">Public Holiday</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                <span className="text-muted">Company Holiday</span>
-              </div>
-            </div>
+                <div
+                  className={cn(
+                    'mb-1 flex flex-shrink-0 gap-2 text-[10px] font-medium',
+                    isAdminCal
+                      ? 'admin-cal-side-legend flex-col items-start gap-1'
+                      : 'border-b border-border pb-1 text-muted',
+                  )}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-2 w-2 rounded-full bg-green-500" />
+                    <span className="text-muted">Public Holiday</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-2 w-2 rounded-full bg-blue-500" />
+                    <span className="text-muted">Company Holiday</span>
+                  </div>
+                </div>
 
-            {currentMonthHolidays.length > 0 ? (
-              <div className="space-y-1.5 overflow-y-auto pr-1 custom-scrollbar flex-1 min-h-0">
-                {currentMonthHolidays
-                  .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                  .map((holiday) => {
-                    const dayName = format(new Date(holiday.date), 'EEE')
-                    return (
+                {sidebarHolidays.length > 0 ? (
+                  <div
+                    className={cn(
+                      'space-y-1 overflow-y-auto pr-1 custom-scrollbar',
+                      isAdminCal ? 'admin-cal-side-section-list' : 'max-h-28',
+                    )}
+                  >
+                    {[...sidebarHolidays]
+                      .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime())
+                      .map((holiday) => {
+                        const dayName = format(parseISO(holiday.date), 'EEE')
+                        return (
+                          <div
+                            key={holiday.id}
+                            className={cn(
+                              'group flex items-center justify-between rounded-lg border p-2 transition-all',
+                              isAdminCal
+                                ? 'admin-cal-list-item border-[rgba(38,107,28,0.12)] hover:border-[rgba(38,107,28,0.28)]'
+                                : 'border-border hover:border-primary/40 hover:shadow-sm',
+                            )}
+                          >
+                            <div className="flex min-w-0 flex-1 items-center gap-2">
+                              <div
+                                className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-xs font-bold text-white shadow-sm ${
+                                  holiday.type === 'National'
+                                    ? 'bg-green-500'
+                                    : holiday.type === 'Company'
+                                      ? 'bg-blue-500'
+                                      : 'bg-green-500'
+                                }`}
+                              >
+                                🎉
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <h4
+                                  className={cn(
+                                    'text-xs font-semibold text-ink',
+                                    isAdminCal ? 'line-clamp-2 leading-snug' : 'truncate',
+                                  )}
+                                >
+                                  {holiday.title}
+                                </h4>
+                                <p className="text-[10px] text-muted">
+                                  {dayName} • {formatDate(holiday.date)}
+                                </p>
+                              </div>
+                            </div>
+                            <div
+                              className={cn(
+                                'ml-2 flex flex-shrink-0 gap-1 transition-opacity',
+                                isAdminCal ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+                              )}
+                            >
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="h-6 w-6 p-0"
+                                onClick={() => handleEditHoliday(holiday)}
+                              >
+                                <Edit2 className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="danger"
+                                className="h-6 w-6 p-0"
+                                onClick={() => {
+                                  setHolidayToDelete(holiday)
+                                  setDeleteConfirmOpen(true)
+                                }}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                  </div>
+                ) : (
+                  <div
+                    className={cn(
+                      'flex items-center justify-center gap-1.5 rounded-lg border border-dashed py-1.5 text-center',
+                      isAdminCal ? 'admin-cal-empty admin-cal-empty-compact' : 'border-border bg-surface/50 py-3',
+                    )}
+                  >
+                    <span className="text-sm opacity-50">📅</span>
+                    <p className="text-[10px] font-medium text-muted">No holidays this month</p>
+                  </div>
+                )}
+              </section>
+
+              {!isAdminCal ? (
+                <div className="h-px flex-shrink-0 bg-border" aria-hidden />
+              ) : null}
+
+              {/* Company Events */}
+              <section
+                className={cn(
+                  'flex flex-col rounded-lg',
+                  sidebarEvents.length > 0 &&
+                    (isAdminCal
+                      ? 'admin-cal-side-section--active admin-cal-side-section--active-events admin-cal-side-section--scroll'
+                      : 'border border-amber-100/90 bg-amber-50/50 px-2 py-1.5'),
+                )}
+              >
+                <div className={cn('flex items-center gap-2', isAdminCal && 'admin-cal-side-section-head')}>
+                  <h3
+                    className={cn(
+                      'text-xs font-semibold',
+                      isAdminCal ? 'admin-cal-side-section-title' : 'text-ink',
+                    )}
+                  >
+                    Company Events
+                  </h3>
+                  <span
+                    className={cn(
+                      'inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold',
+                      isAdminCal
+                        ? 'admin-cal-count-badge admin-cal-count-badge-amber'
+                        : 'bg-amber-100 text-amber-700',
+                    )}
+                  >
+                    {sidebarEvents.length}
+                  </span>
+                </div>
+
+                {sidebarEvents.length > 0 ? (
+                  <div
+                    className={cn(
+                      'space-y-1 overflow-y-auto pr-1 custom-scrollbar',
+                      isAdminCal ? 'admin-cal-side-section-list' : 'max-h-28',
+                    )}
+                  >
+                    {[...sidebarEvents]
+                      .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime())
+                      .map((event) => (
+                        <div
+                          key={event.id}
+                          className={cn(
+                            'group flex items-center rounded-lg border p-2 transition-all',
+                            isAdminCal
+                              ? 'admin-cal-list-item border-[rgba(38,107,28,0.12)] hover:border-[rgba(38,107,28,0.28)]'
+                              : 'border-border hover:border-primary/40 hover:shadow-sm',
+                          )}
+                        >
+                          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-amber-100 to-amber-50 text-sm font-semibold text-amber-700 shadow-sm">
+                            📢
+                          </div>
+                          <div className="ml-2 min-w-0 flex-1">
+                            <h4
+                              className={cn(
+                                'text-xs font-semibold text-ink',
+                                isAdminCal ? 'line-clamp-2 leading-snug' : 'truncate',
+                              )}
+                            >
+                              {event.title}
+                            </h4>
+                            <p className="text-[10px] text-muted">
+                              {event.time || 'All day'} • {formatDate(event.date)}
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            className={cn(
+                              'ml-1 h-6 w-6 flex-shrink-0 p-0 transition-opacity',
+                              isAdminCal ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+                            )}
+                            onClick={() => {
+                              setEventToDelete(event)
+                              setEventDeleteConfirmOpen(true)
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <div
+                    className={cn(
+                      'flex flex-col items-center justify-center rounded-lg border border-dashed py-2 text-center',
+                      isAdminCal ? 'admin-cal-empty admin-cal-empty-compact' : 'border-border bg-surface/50 py-4',
+                    )}
+                  >
+                    <span className="text-base opacity-50">📢</span>
+                    <p className="text-[10px] font-medium text-muted">No events this month</p>
+                  </div>
+                )}
+              </section>
+
+              {!isAdminCal ? (
+                <div className="h-px flex-shrink-0 bg-border" aria-hidden />
+              ) : null}
+
+              {/* Approved Leaves */}
+              <section
+                className={cn(
+                  'flex min-h-0 flex-col rounded-lg',
+                  sidebarLeaves.length > 0 &&
+                    (isAdminCal
+                      ? 'admin-cal-side-section--active admin-cal-side-section--active-leaves admin-cal-side-section--fills'
+                      : 'border border-lime-100/90 bg-lime-50/50 px-2 py-1.5'),
+                )}
+              >
+                <div className={cn('flex items-center gap-2', isAdminCal && 'admin-cal-side-section-head')}>
+                  <h3
+                    className={cn(
+                      'text-xs font-semibold',
+                      isAdminCal ? 'admin-cal-side-section-title' : 'text-ink',
+                    )}
+                  >
+                    Approved Leaves
+                  </h3>
+                  <span
+                    className={cn(
+                      'inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold',
+                      isAdminCal
+                        ? 'admin-cal-count-badge admin-cal-count-badge-lime'
+                        : 'bg-lime-100 text-lime-700',
+                    )}
+                  >
+                    {sidebarLeaves.length}
+                  </span>
+                </div>
+
+                {sidebarLeaves.length > 0 ? (
+                  <div
+                    className={cn(
+                      'min-h-0 space-y-1 overflow-y-auto pr-1 custom-scrollbar',
+                      isAdminCal ? 'admin-cal-side-section-list admin-cal-side-section-list--fills' : 'max-h-36',
+                    )}
+                  >
+                    {sidebarLeaves.map((leave) => (
                       <div
-                        key={holiday.id}
+                        key={leave.id}
                         className={cn(
-                          'group flex items-center justify-between p-2 rounded-lg border transition-all',
+                          'flex items-center rounded-lg border p-2 transition-all',
                           isAdminCal
                             ? 'admin-cal-list-item border-[rgba(38,107,28,0.12)] hover:border-[rgba(38,107,28,0.28)]'
                             : 'border-border hover:border-primary/40 hover:shadow-sm',
                         )}
                       >
-                        <div className="flex-1 flex items-center gap-2 min-w-0">
-                          <div className={`flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold text-white flex-shrink-0 shadow-sm ${
-                            holiday.type === 'National'
-                              ? 'bg-green-500'
-                              : holiday.type === 'Company'
-                              ? 'bg-blue-500'
-                              : holiday.type === 'Company Event'
-                              ? 'bg-orange-500'
-                              : 'bg-green-500'
-                          }`}>
-                            🎉
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-ink text-xs truncate">{holiday.title}</h4>
-                            <p className="text-[10px] text-muted">
-                              {dayName} • {formatDate(holiday.date)}
-                            </p>
-                          </div>
+                        <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-lime-100 to-lime-50 text-sm shadow-sm">
+                          ✈️
                         </div>
-                        <div className="flex gap-1 flex-shrink-0 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button size="sm" variant="secondary" className="h-6 w-6 p-0" onClick={() => handleEditHoliday(holiday)}>
-                            <Edit2 className="h-3 w-3" />
-                          </Button>
-                          <Button size="sm" variant="danger" className="h-6 w-6 p-0" onClick={() => { setHolidayToDelete(holiday); setDeleteConfirmOpen(true) }}>
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                        <div className="ml-2 min-w-0 flex-1">
+                          <h4
+                            className={cn(
+                              'text-xs font-semibold text-ink',
+                              isAdminCal ? 'line-clamp-2 leading-snug' : 'truncate',
+                            )}
+                          >
+                            {leave.employeeName}
+                          </h4>
+                          <p className="text-[10px] leading-snug text-muted">
+                            {leave.type} • {leave.days}d
+                            {isAdminCal ? (
+                              <>
+                                {' '}
+                                • {format(parseISO(leave.from), 'MMM d')}
+                                {leave.days > 1
+                                  ? ` – ${format(parseISO(leave.to), 'MMM d')}`
+                                  : ''}
+                              </>
+                            ) : null}
+                          </p>
                         </div>
+                        {!isAdminCal ? (
+                          <div className="ml-2 flex-shrink-0 text-right">
+                            <span className="block text-xs font-medium text-ink">
+                              {format(parseISO(leave.from), 'MMM d')}
+                            </span>
+                            {leave.days > 1 && (
+                              <span className="block text-[10px] leading-none text-muted">
+                                to {format(parseISO(leave.to), 'MMM d')}
+                              </span>
+                            )}
+                          </div>
+                        ) : null}
                       </div>
-                    )
-                  })}
-              </div>
-            ) : (
-              <div className={cn(
-                'rounded-lg border border-dashed p-4 flex flex-col items-center justify-center text-center flex-1',
-                isAdminCal ? 'admin-cal-empty' : 'border-border bg-surface/50',
-              )}>
-                <span className="text-xl mb-1 opacity-50">📅</span>
-                <p className="text-muted text-xs font-medium">No holidays this month</p>
-              </div>
-            )}
-          </div>
-
-          {/* Company Events */}
-          <div className={cn(
-            'rounded-xl p-3 shadow-sm flex flex-col h-[220px]',
-            isAdminCal ? 'admin-cal-side-card' : 'border border-border bg-white',
-          )}>
-            <div className={cn('mb-2 flex items-center justify-between flex-shrink-0', isAdminCal && 'admin-cal-side-head')}>
-              <div className="flex items-center gap-2">
-                <h3 className={cn(
-                  'font-display text-sm font-semibold',
-                  isAdminCal ? 'text-[var(--emerald-dark)]' : 'text-ink',
-                )}>
-                  Company Events
-                </h3>
-                <span className={cn(
-                  'inline-flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold',
-                  isAdminCal ? 'admin-cal-count-badge admin-cal-count-badge-amber' : 'bg-amber-100 text-amber-700',
-                )}>
-                  {currentMonthEvents.length}
-                </span>
-              </div>
-            </div>
-
-            {currentMonthEvents.length > 0 ? (
-              <div className="space-y-1.5 overflow-y-auto pr-1 custom-scrollbar flex-1 min-h-0">
-                {currentMonthEvents
-                  .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                  .map((event) => (
-                    <div
-                      key={event.id}
-                      className={cn(
-                        'group flex items-center p-2 rounded-lg border transition-all',
-                        isAdminCal
-                          ? 'admin-cal-list-item border-[rgba(38,107,28,0.12)] hover:border-[rgba(38,107,28,0.28)]'
-                          : 'border-border hover:border-primary/40 hover:shadow-sm',
-                      )}
-                    >
-                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-amber-100 to-amber-50 flex-shrink-0 text-sm shadow-sm font-semibold text-amber-700">
-                        📢
-                      </div>
-                      <div className="flex-1 ml-2 min-w-0">
-                        <h4 className="font-semibold text-ink text-xs truncate">{event.title}</h4>
-                        <p className="text-[10px] text-muted">{event.time || 'All day'} • {formatDate(event.date)}</p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        className="h-6 w-6 p-0 ml-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                        onClick={() => { setEventToDelete(event); setEventDeleteConfirmOpen(true) }}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
-              </div>
-            ) : (
-              <div className={cn(
-                'rounded-lg border border-dashed p-4 flex flex-col items-center justify-center text-center flex-1',
-                isAdminCal ? 'admin-cal-empty' : 'border-border bg-surface/50',
-              )}>
-                <span className="text-xl mb-1 opacity-50">📢</span>
-                <p className="text-muted text-xs font-medium">No events this month</p>
-              </div>
-            )}
-          </div>
-
-          {/* Approved Leaves */}
-          <div className={cn(
-            'rounded-xl p-3 shadow-sm flex flex-col h-[220px]',
-            isAdminCal ? 'admin-cal-side-card' : 'border border-border bg-white',
-          )}>
-            <div className={cn('mb-2 flex items-center justify-between flex-shrink-0', isAdminCal && 'admin-cal-side-head')}>
-              <div className="flex items-center gap-2">
-                <h3 className={cn(
-                  'font-display text-sm font-semibold',
-                  isAdminCal ? 'text-[var(--emerald-dark)]' : 'text-ink',
-                )}>Approved Leaves</h3>
-                <span className={cn(
-                  'inline-flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold',
-                  isAdminCal ? 'admin-cal-count-badge admin-cal-count-badge-lime' : 'bg-lime-100 text-lime-700',
-                )}>
-                  {currentMonthLeaves.length}
-                </span>
-              </div>
-            </div>
-            {currentMonthLeaves.length > 0 ? (
-              <div className="space-y-1.5 overflow-y-auto pr-1 custom-scrollbar flex-1 min-h-0">
-                {currentMonthLeaves.map((leave) => (
+                    ))}
+                  </div>
+                ) : (
                   <div
-                    key={leave.id}
                     className={cn(
-                      'flex items-center p-2 rounded-lg border transition-all',
-                      isAdminCal
-                        ? 'admin-cal-list-item border-[rgba(38,107,28,0.12)] hover:border-[rgba(38,107,28,0.28)]'
-                        : 'border-border hover:border-primary/40 hover:shadow-sm',
+                      'flex flex-col items-center justify-center rounded-lg border border-dashed py-2 text-center',
+                      isAdminCal ? 'admin-cal-empty admin-cal-empty-compact' : 'border-border bg-surface/50 py-4',
                     )}
                   >
-                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-lime-100 to-lime-50 flex-shrink-0 text-sm shadow-sm">
-                      ✈️
-                    </div>
-                    <div className="flex-1 ml-2 min-w-0">
-                      <h4 className="font-semibold text-ink text-xs truncate">{leave.employeeName}</h4>
-                      <p className="text-[10px] text-muted">{leave.type} • {leave.days}d</p>
-                    </div>
-                    <div className="text-right ml-2 flex-shrink-0">
-                      <span className="text-xs font-medium text-ink block">{format(new Date(leave.from), 'MMM d')}</span>
-                      {leave.days > 1 && <span className="text-[10px] text-muted block leading-none">to {format(new Date(leave.to), 'MMM d')}</span>}
-                    </div>
+                    <span className="text-base opacity-50">🏖️</span>
+                    <p className="text-[10px] font-medium text-muted">No approved leaves this month</p>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className={cn(
-                'rounded-lg border border-dashed p-4 flex flex-col items-center justify-center text-center flex-1',
-                isAdminCal ? 'admin-cal-empty' : 'border-border bg-surface/50',
-              )}>
-                <span className="text-xl mb-1 opacity-50">🏖️</span>
-                <p className="text-muted text-xs font-medium">No approved leaves this month</p>
-              </div>
-            )}
+                )}
+              </section>
+            </div>
           </div>
-
         </div>
+      </div>
       </div>
 
       {/* Date Click Modal - Shows what's on that date */}
@@ -810,10 +1080,10 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
         <Modal isOpen={isHolidayFormOpen} onClose={() => {
           setIsHolidayFormOpen(false)
           resetHolidayForm()
-        }} title={editingId ? 'Edit Holiday' : 'Add Holiday'}>
+        }} title={editingId ? 'Edit Event' : 'Add Event'}>
           <div className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-ink">Holiday Name <span className="text-red-500">*</span></label>
+              <label className="mb-1.5 block text-sm font-medium text-ink">EventName <span className="text-red-500">*</span></label>
               <Input
                 placeholder="e.g., Independence Day"
                 value={title}
@@ -863,7 +1133,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                 Cancel
               </Button>
               <Button onClick={handleAddHoliday}>
-                {editingId ? 'Update Holiday' : 'Save Holiday'}
+                {editingId ? 'Update Event' : 'Save Event'}
               </Button>
             </div>
           </div>

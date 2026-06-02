@@ -140,17 +140,11 @@ export const useLeaveStore = create<LeaveState>((set, get) => ({
     await get().fetchHolidays()
   },
   addCompanyCalendarEvent: async (payload) => {
-    const created = await calendarEventService.createCompanyCalendarEvent(payload)
-    set((s) => ({
-      companyCalendarEvents: [...s.companyCalendarEvents, created].sort((a, b) =>
-        a.date.localeCompare(b.date),
-      ),
-    }))
+    await calendarEventService.createCompanyCalendarEvent(payload)
+    await get().fetchHolidays()
   },
   deleteCompanyCalendarEvent: async (id) => {
     await calendarEventService.deleteCompanyCalendarEvent(id)
-    set((s) => ({
-      companyCalendarEvents: s.companyCalendarEvents.filter((e) => e.id !== id),
-    }))
+    await get().fetchHolidays()
   },
 }))

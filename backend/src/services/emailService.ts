@@ -37,8 +37,9 @@ interface ReminderEmailParams {
 const HRMS_COMPANY_NAME = 'Epical Layouts';
 const HRMS_PRODUCT_NAME = 'Epical EMS';
 
-function formatEmailTime(d: Date): string {
-  return d.toLocaleString('en-IN', {
+function formatEmailTime(d: Date | string): string {
+  const dateObj = typeof d === 'string' || typeof (d as any).getMonth !== 'function' ? new Date(d) : d;
+  return dateObj.toLocaleString('en-IN', {
     hour: '2-digit',
     minute: '2-digit',
     hour12: true,
@@ -46,8 +47,9 @@ function formatEmailTime(d: Date): string {
   });
 }
 
-function formatEmailDateTime(d: Date): string {
-  return d.toLocaleString('en-IN', {
+function formatEmailDateTime(d: Date | string): string {
+  const dateObj = typeof d === 'string' || typeof (d as any).getMonth !== 'function' ? new Date(d) : d;
+  return dateObj.toLocaleString('en-IN', {
     weekday: 'short',
     day: '2-digit',
     month: 'short',

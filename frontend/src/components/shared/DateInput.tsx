@@ -22,6 +22,27 @@ import {
 const CALENDAR_WIDTH = 280
 const CALENDAR_HEIGHT_ESTIMATE = 340
 
+function getDatePickerPortalRoot(): HTMLElement {
+  if (typeof document === 'undefined') {
+    return null as unknown as HTMLElement
+  }
+  let root = document.getElementById('date-picker-portal-root')
+  if (!root) {
+    root = document.createElement('div')
+    root.id = 'date-picker-portal-root'
+    root.setAttribute('data-date-input-popover', '')
+    root.style.position = 'relative'
+    root.style.zIndex = '2147483646'
+    root.style.pointerEvents = 'none'
+    document.body.appendChild(root)
+  }
+  return root
+}
+
+/** Matches admin "Save Holiday" / primary button green */
+const SELECTED_DAY_CLASS =
+  'rounded-full bg-[#266b1c] font-semibold text-white shadow-md ring-2 ring-[#266b1c]/25 hover:bg-[#1f5516]'
+
 export interface DateInputProps
   extends Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'> {
   value: string
@@ -34,6 +55,14 @@ export interface DateInputProps
   withCalendar?: boolean
 }
 
+function isInsideDatePicker(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false
+  return Boolean(
+    target.closest('[data-date-input-popover]') ||
+      target.closest('#date-picker-portal-root'),
+  )
+}
+
 function useClickOutside(
   refs: React.RefObject<HTMLElement | null>[],
   handler: () => void,
@@ -44,10 +73,11 @@ function useClickOutside(
     const listener = (e: MouseEvent) => {
       const target = e.target as Node
       if (refs.some((ref) => ref.current?.contains(target))) return
+      if (isInsideDatePicker(target)) return
       handler()
     }
-    document.addEventListener('mousedown', listener)
-    return () => document.removeEventListener('mousedown', listener)
+    document.addEventListener('mousedown', listener, true)
+    return () => document.removeEventListener('mousedown', listener, true)
   }, [refs, handler, enabled])
 }
 
@@ -110,6 +140,8 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
     },
     ref,
   ) => {
+    /** ISO yyyy-mm-dd — drives highlight + input display while picker is open */
+    const [selectedDate, setSelectedDate] = useState(value)
     const [display, setDisplay] = useState(() => isoToDdMmYyyy(value))
     const [localError, setLocalError] = useState('')
     const [calendarOpen, setCalendarOpen] = useState(false)
@@ -120,8 +152,10 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
     })
     const anchorRef = useRef<HTMLDivElement>(null)
     const popoverRef = useRef<HTMLDivElement>(null)
+    const selectingFromCalendarRef = useRef(false)
 
     useEffect(() => {
+      setSelectedDate(value)
       setDisplay(isoToDdMmYyyy(value))
       if (value) {
         const d = new Date(`${value}T12:00:00`)
@@ -157,11 +191,19 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
       }
     }, [calendarOpen, updatePopoverPosition])
 
-    useClickOutside([anchorRef, popoverRef], () => setCalendarOpen(false), calendarOpen)
+    useClickOutside(
+      [anchorRef, popoverRef],
+      () => {
+        if (selectingFromCalendarRef.current) return
+        setCalendarOpen(false)
+      },
+      calendarOpen,
+    )
 
     const commitValue = (raw: string) => {
       if (!raw.trim()) {
         setLocalError('')
+        setSelectedDate('')
         onChange('')
         return
       }
@@ -183,15 +225,23 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
       }
 
       setLocalError('')
+      setSelectedDate(parsed.iso)
       onChange(parsed.iso)
     }
 
     const selectIso = (iso: string) => {
       if (!isIsoInRange(iso, minDate, maxDate)) return
+
+      selectingFromCalendarRef.current = true
       setLocalError('')
+      setSelectedDate(iso)
       setDisplay(isoToDdMmYyyy(iso))
       onChange(iso)
       setCalendarOpen(false)
+
+      window.setTimeout(() => {
+        selectingFromCalendarRef.current = false
+      }, 150)
     }
 
     const openCalendar = () => {
@@ -207,11 +257,14 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
       if (formatted.length === 10) {
         commitValue(formatted)
       } else if (!formatted) {
+        setSelectedDate('')
         onChange('')
       }
     }
 
     const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+      if (selectingFromCalendarRef.current) return
+      if (isInsideDatePicker(e.relatedTarget)) return
       if (display.trim()) {
         commitValue(display)
       }
@@ -221,11 +274,17 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
     const calendarCells = useMemo(() => buildCalendarCells(viewMonth), [viewMonth])
     const shownError = error || localError
 
+    const handleDayPick = (iso: string, inRange: boolean) => {
+      if (!inRange) return
+      selectIso(iso)
+    }
+
     const calendarPopover =
       withCalendar && calendarOpen && !disabled
         ? createPortal(
             <div
               ref={popoverRef}
+              data-date-input-popover
               role="dialog"
               aria-label="Choose date"
               style={{
@@ -233,9 +292,10 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
                 top: popoverPos.top,
                 left: popoverPos.left,
                 width: CALENDAR_WIDTH,
-                zIndex: 10000,
+                pointerEvents: 'auto',
               }}
-              className="rounded-xl border border-border bg-white p-3 shadow-xl ring-1 ring-black/10"
+              className="z-[2147483647] rounded-xl border border-border bg-white p-3 shadow-xl ring-1 ring-black/10"
+              onPointerDown={(e) => e.stopPropagation()}
             >
               <div className="mb-3 flex items-center justify-between">
                 <button
@@ -270,18 +330,29 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
               <div className="grid grid-cols-7 gap-0.5">
                 {calendarCells.map((cell) => {
                   const inRange = isIsoInRange(cell.dateString, minDate, maxDate)
-                  const isSelected = value === cell.dateString
+                  const isSelected = selectedDate === cell.dateString
                   return (
                     <button
                       key={`${cell.dateString}-${cell.day}`}
                       type="button"
+                      tabIndex={0}
                       disabled={!inRange}
-                      onClick={() => selectIso(cell.dateString)}
+                      aria-pressed={isSelected}
+                      aria-label={cell.dateString}
+                      onPointerDown={(e) => {
+                        e.stopPropagation()
+                        handleDayPick(cell.dateString, inRange)
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDayPick(cell.dateString, inRange)
+                      }}
                       className={cn(
-                        'flex h-8 w-full items-center justify-center rounded-lg text-xs font-medium transition-colors',
+                        'pointer-events-auto',
+                        'mx-auto flex h-8 w-8 items-center justify-center text-xs font-medium transition-colors',
                         cell.isCurrentMonth ? 'text-ink' : 'text-muted/70',
-                        inRange && !isSelected && 'hover:bg-primary/10 hover:text-primary',
-                        isSelected && 'bg-primary text-white shadow-sm hover:bg-primary',
+                        inRange && !isSelected && 'rounded-full hover:bg-emerald-50 hover:text-[#266b1c]',
+                        isSelected && SELECTED_DAY_CLASS,
                         !inRange && 'cursor-not-allowed opacity-30',
                       )}
                     >
@@ -291,10 +362,11 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
                 })}
               </div>
 
-              {value ? (
+              {selectedDate ? (
                 <button
                   type="button"
                   onClick={() => {
+                    setSelectedDate('')
                     setDisplay('')
                     onChange('')
                     setCalendarOpen(false)
@@ -305,7 +377,7 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
                 </button>
               ) : null}
             </div>,
-            document.body,
+            getDatePickerPortalRoot(),
           )
         : null
 

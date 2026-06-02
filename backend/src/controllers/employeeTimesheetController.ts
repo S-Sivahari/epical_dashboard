@@ -13,6 +13,7 @@ import { openAttendanceFilter } from '../utils/attendanceQueries';
 import { computeTotalHoursDecimal } from '../utils/durationFormat';
 import { getAutoCheckoutSettings, updateAutoCheckoutSettings } from '../services/autoCheckoutService';
 import { restartScheduler } from '../services/timesheetScheduler';
+import { sendCheckoutReminderEmail } from '../services/emailService';
 
 type ResolvedEmployee = {
   id: string;
@@ -125,9 +126,7 @@ function toFrontendTimesheet(t: any) {
     overriddenHours: t.overriddenHours,
     totalHours:
       t.totalHours ??
-      (t.logoutTime
-        ? computeTotalHoursDecimal(t.loginTime, t.logoutTime, t.totalPausedMs, t.overriddenHours)
-        : undefined),
+      computeTotalHoursDecimal(t.loginTime, t.logoutTime || new Date(), t.totalPausedMs, t.overriddenHours),
     autoCheckedOut: t.autoCheckedOut ?? false,
     taskStatus: t.taskStatus || (t.logoutTime ? 'Pending' : 'Session Incomplete'),
     workflowStatus: getTimesheetWorkflowStatus(t),
@@ -218,8 +217,10 @@ function buildSessionDateMatch(from?: string, to?: string) {
   if (from) rangeFilter.$gte = new Date(`${from}T00:00:00.000Z`);
   if (to) rangeFilter.$lte = new Date(`${to}T23:59:59.999Z`);
 
+  // FIXED: Only filter on loginTime to ensure sessions are in the requested range
+  // Previously used OR with logoutTime, which included sessions that started before the range
   return {
-    $or: [{ loginTime: rangeFilter }, { logoutTime: rangeFilter }],
+    loginTime: rangeFilter,
   };
 }
 
@@ -237,15 +238,20 @@ async function aggregateProjectWiseHoursForEmployee(
 ): Promise<ProjectWiseHoursRow[]> {
   const loginFrom = new Date(`${from}T00:00:00.000Z`);
   const loginTo = new Date(`${to}T23:59:59.999Z`);
+  const now = new Date();
 
   const rows = await TimesheetModel.aggregate([
     {
       $match: {
-        $or: [
-          { employeeId: { $in: employee.identityTokens } },
-          { employee: { $in: employee.identityTokens } },
+        $and: [
+          {
+            $or: [
+              { employeeId: { $in: employee.identityTokens } },
+              { employee: { $in: employee.identityTokens } },
+            ],
+          },
+          { loginTime: { $gte: loginFrom, $lte: loginTo } },
         ],
-        loginTime: { $gte: loginFrom, $lte: loginTo },
       },
     },
     {
@@ -262,13 +268,7 @@ async function aggregateProjectWiseHoursForEmployee(
             {
               $let: {
                 vars: {
-                  endMs: {
-                    $cond: [
-                      { $ne: [{ $ifNull: ['$logoutTime', null] }, null] },
-                      { $toLong: '$logoutTime' },
-                      { $toLong: '$$NOW' },
-                    ],
-                  },
+                  endMs: { $toLong: { $ifNull: ['$logoutTime', now] } },
                   startMs: { $toLong: '$loginTime' },
                   pausedMs: { $ifNull: ['$totalPausedMs', 0] },
                 },
@@ -452,7 +452,7 @@ export const employeeTimesheetController = {
               { employee: { $in: employee.identityTokens } },
             ],
           },
-          buildSessionDateMatch(monthFrom, today) ?? {
+          {
             loginTime: { $gte: new Date(`${monthFrom}T00:00:00.000Z`), $lte: new Date(`${today}T23:59:59.999Z`) },
           },
         ],
@@ -625,7 +625,10 @@ export const employeeTimesheetController = {
         match.$and.push(dateMatch);
       }
 
-      const logs = await TimesheetModel.find(match).sort({ loginTime: -1 });
+      const logs = await TimesheetModel.find(match)
+        .sort({ loginTime: -1 })
+        .limit(1000) // FIXED: Add safety limit to prevent excessive data transfers
+        .lean();
 
       res.json(logs.map(toFrontendTimesheet));
     } catch (error) {
@@ -647,8 +650,12 @@ export const employeeTimesheetController = {
 
       const settings = await getAutoCheckoutSettings();
       const now = new Date();
+      const isLateCheckIn = now.getHours() >= 21;
 
       const buildExpectedCheckout = () => {
+        if (isLateCheckIn) {
+          return now;
+        }
         const [rh, rm] = settings.reminderTime.split(':').map(Number);
         const d = new Date(now);
         d.setHours(rh, rm, 0, 0);
@@ -656,6 +663,11 @@ export const employeeTimesheetController = {
         return d;
       };
       const buildAutoCheckout = () => {
+        if (isLateCheckIn) {
+          const d = new Date(now);
+          d.setHours(24, 0, 0, 0);
+          return d;
+        }
         const [ah, am] = settings.autoCheckoutTime.split(':').map(Number);
         const d = new Date(now);
         d.setHours(ah, am, 0, 0);
@@ -932,6 +944,32 @@ export const employeeTimesheetController = {
           assignedTask: toFrontendAssignedTask(assigned),
           startedAt: now.toISOString(),
         });
+
+        // Trigger reminder email immediately if checking in late (9 PM IST or later)
+        const checkInHour = now.getHours();
+        if (checkInHour >= 21 && attendance && !attendance.reminderSent) {
+          attendance.reminderSent = true;
+          await attendance.save();
+
+          const settings = await getAutoCheckoutSettings();
+          const autoCheckoutTimeStr = settings.autoCheckoutTime || '00:00';
+          const [ah, am] = autoCheckoutTimeStr.split(':').map(Number);
+          const period = ah >= 12 ? 'PM' : 'AM';
+          const displayH = ah % 12 === 0 ? 12 : ah % 12;
+          const displayM = String(am).padStart(2, '0');
+          const displayAutoCheckout = `${displayH}:${displayM} ${period}`;
+
+          if (employee.email) {
+            void sendCheckoutReminderEmail({
+              to: employee.email,
+              employeeName: employee.employeeName || employee.name,
+              checkInTime: attendance.checkInTime,
+              autoCheckoutTime: displayAutoCheckout,
+              projectName: resolvedProject.projectName,
+              activeDurationMs: 0,
+            }).catch((err) => console.error('Failed to send immediate late checkout email:', err));
+          }
+        }
       } finally {
         session.endSession();
       }

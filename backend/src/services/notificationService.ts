@@ -47,7 +47,7 @@ async function createIndexes(): Promise<void> {
     }
     
     // Create indexes one by one to handle conflicts gracefully
-    const indexesToCreate = [
+    const indexesToCreate: { spec: any; options?: any }[] = [
       { spec: { id: 1 }, options: { unique: true, name: 'id_1' } },
       { spec: { recipientId: 1 }, options: { name: 'recipientId_1' } },
       { spec: { recipientId: 1, isRead: 1 }, options: { name: 'recipientId_1_isRead_1' } },

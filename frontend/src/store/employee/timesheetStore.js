@@ -124,6 +124,8 @@ export const useTimesheetStore = create((set, get) => ({
   autoCheckoutSettings: null,
   attendanceHistory: [],
   projectWiseHours: [],
+  // NEW: All-time project hours (not filtered by date)
+  allTimeProjectWiseHours: [],
   serverTimeSkew: 0,
   sessionsLoading: true,
   // ADDED: Backend-provided elapsed duration for timer accuracy after device shutdown
@@ -131,6 +133,7 @@ export const useTimesheetStore = create((set, get) => ({
   backendTotalPausedMs: 0,
   hasBackendElapsedData: false,
   backendElapsedLastFetch: null,
+  currentRange: { from: getPresetDateRange('This Month').start, to: getPresetDateRange('This Month').end },
 
 
   syncing: false,
@@ -138,9 +141,27 @@ export const useTimesheetStore = create((set, get) => ({
 
   refreshAttendanceHistory: async ({ from, to } = {}) => {
     try {
-      const range = from && to ? { from, to } : defaultWeekRange()
+      const activeFrom = from || get().currentRange.from
+      const activeTo = to || get().currentRange.to
+      const range = { from: activeFrom, to: activeTo }
+      if (from && to) {
+        set({ currentRange: { from, to } })
+      }
       const records = await fetchMyAttendanceHistory(range)
-      set({ attendanceHistory: records })
+      
+      // FIXED: Deduplicate by ID and use equality check to prevent flickering from polling
+      const deduped = new Map()
+      records.forEach(r => {
+        if (!deduped.has(r.id)) {
+          deduped.set(r.id, r)
+        }
+      })
+      const dedupedRecords = Array.from(deduped.values()).sort((a, b) => new Date(b.date) - new Date(a.date))
+      
+      set((state) => {
+        const isSame = JSON.stringify(state.attendanceHistory) === JSON.stringify(dedupedRecords)
+        return isSame ? {} : { attendanceHistory: dedupedRecords }
+      })
       return records
     } catch (err) {
       console.error('Failed to load attendance history', err)
@@ -150,28 +171,95 @@ export const useTimesheetStore = create((set, get) => ({
 
   refreshProjectWiseHours: async ({ from, to } = {}) => {
     try {
-      const range = from && to ? { from, to } : defaultWeekRange()
+      const activeFrom = from || get().currentRange.from
+      const activeTo = to || get().currentRange.to
+      const range = { from: activeFrom, to: activeTo }
+      if (from && to) {
+        set({ currentRange: { from, to } })
+      }
       const data = await fetchMyProjectWiseHours(range)
-      set({ projectWiseHours: Array.isArray(data?.projects) ? data.projects : [] })
-      return data?.projects ?? []
+      const projects = Array.isArray(data?.projects) ? data.projects : []
+      
+      // FIXED: Deduplicate projects by name and use equality check to prevent flickering
+      const deduped = new Map()
+      projects.forEach(p => {
+        if (!deduped.has(p.project)) {
+          deduped.set(p.project, p)
+        }
+      })
+      const dedupedProjects = Array.from(deduped.values())
+      
+      set((state) => {
+        const isSame = JSON.stringify(state.projectWiseHours) === JSON.stringify(dedupedProjects)
+        return isSame ? {} : { projectWiseHours: dedupedProjects }
+      })
+      return projects
     } catch (err) {
       console.error('Failed to load project-wise hours', err)
+      set({ projectWiseHours: [] })
       return []
     }
   },
 
-  refreshSessionsForRange: async ({ from, to } = {}) => {
-    set({ sessionsLoading: true })
+  // NEW: Fetch all-time project hours (from beginning of employment to today)
+  refreshAllTimeProjectWiseHours: async () => {
     try {
-      const range = from && to ? { from, to } : defaultMonthRange()
+      // Fetch from a very early date (2020) to today to get all projects ever worked on
+      const allTimeRange = { from: '2020-01-01', to: new Date().toISOString().split('T')[0] }
+      const data = await fetchMyProjectWiseHours(allTimeRange)
+      const projects = Array.isArray(data?.projects) ? data.projects : []
+      
+      // FIXED: Deduplicate projects and use equality check to prevent flickering from polling
+      const deduped = new Map()
+      projects.forEach(p => {
+        if (!deduped.has(p.project)) {
+          deduped.set(p.project, p)
+        }
+      })
+      const dedupedProjects = Array.from(deduped.values())
+      
+      set((state) => {
+        const isSame = JSON.stringify(state.allTimeProjectWiseHours) === JSON.stringify(dedupedProjects)
+        return isSame ? {} : { allTimeProjectWiseHours: dedupedProjects }
+      })
+      return projects
+    } catch (err) {
+      console.error('Failed to load all-time project-wise hours', err)
+      set({ allTimeProjectWiseHours: [] })
+      return []
+    }
+  },
+
+  refreshSessionsForRange: async ({ from, to, background = false } = {}) => {
+    if (!background) set({ sessionsLoading: true })
+    try {
+      const activeFrom = from || get().currentRange.from
+      const activeTo = to || get().currentRange.to
+      const range = { from: activeFrom, to: activeTo }
+      if (from && to) {
+        set({ currentRange: { from, to } })
+      }
       const sessions = await fetchMySessions(range)
-      set({ sessions: sessions.map(mapSessionFromApi) })
+      // FIXED: Deduplicate by session ID to prevent duplicates from polling
+      const deduped = new Map()
+      const mapped = Array.isArray(sessions) ? sessions.map(mapSessionFromApi) : []
+      mapped.forEach(s => {
+        // Only keep the first occurrence of each session ID
+        if (!deduped.has(s.id)) {
+          deduped.set(s.id, s)
+        }
+      })
+      const dedupedArray = Array.from(deduped.values())
+      set({ sessions: dedupedArray, sessionsLoading: false })
       return sessions
     } catch (err) {
       console.error('Failed to load sessions for range', err)
+      if (!background) {
+        set({ sessions: [], sessionsLoading: false })
+      } else {
+        set({ sessionsLoading: false })
+      }
       return []
-    } finally {
-      set({ sessionsLoading: false })
     }
   },
 
@@ -252,9 +340,6 @@ export const useTimesheetStore = create((set, get) => ({
         ...attendanceState,
         attendance: data.attendance ?? null,
         assignedTasks: data.assignedTasks ?? [],
-        sessions: (data.sessions ?? []).map(mapSessionFromApi),
-        attendanceHistory: Array.isArray(data.attendanceHistory) ? data.attendanceHistory : [],
-        projectWiseHours: Array.isArray(data.projectWiseHours) ? data.projectWiseHours : [],
         autoCheckoutInfo: {
           reminderSent: data.attendance?.reminderSent ?? false,
           autoCheckedOut,
@@ -264,12 +349,16 @@ export const useTimesheetStore = create((set, get) => ({
         },
       })
 
+      // Always perform background refreshes of sessions and project hours using the active range filter so they never fluctuate or get overwritten with defaults!
+      await Promise.all([
+        get().refreshSessionsForRange({ background: true }),
+        get().refreshProjectWiseHours(),
+        get().fetchBackendElapsedData(),
+      ])
+
       if (wasCheckedIn && !attendanceState.checkedIn) {
-        await Promise.all([get().refreshSessionsForRange(), get().refreshAttendanceHistory()])
+        await get().refreshAttendanceHistory()
       }
-      
-      await get().fetchBackendElapsedData()
-      await get().refreshProjectWiseHours()
     } catch (err) {
       console.error('Failed to sync timesheet state with backend', err)
     } finally {
@@ -278,7 +367,7 @@ export const useTimesheetStore = create((set, get) => ({
   },
 
   refreshSessions: async () => {
-    await get().refreshSessionsForRange()
+    await get().refreshSessionsForRange({ background: true })
   },
 
   refreshAssignedTasks: async () => {

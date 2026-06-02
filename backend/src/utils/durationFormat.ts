@@ -35,8 +35,7 @@ export function formatDurationFromMs(ms: number, padMinutes = false): string {
 
   if (hours === 0 && minutes === 0) return '0m';
   if (hours === 0) return `${minutes}m`;
-  if (minutes === 0) return `${hours}h`;
-  const minPart = padMinutes ? String(minutes).padStart(2, '0') : String(minutes);
+  const minPart = padMinutes || hours > 0 ? String(minutes).padStart(2, '0') : String(minutes);
   return `${hours}h ${minPart}m`;
 }
 

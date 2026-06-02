@@ -219,11 +219,13 @@ async function performAutoCheckoutForAttendance(
   now: Date,
   session?: ClientSession
 ): Promise<AutoCheckoutResult | null> {
+  const checkoutTimestamp = attendance.autoCheckoutTime || now;
+
   const claimQuery = EmployeeAttendanceModel.findOneAndUpdate(
     openAttendanceFilter({ _id: attendance._id }),
     {
       $set: {
-        checkOutTime: now,
+        checkOutTime: checkoutTimestamp,
         autoCheckedOut: true,
         sessionStatus: 'Auto Checked-Out',
       },
@@ -248,10 +250,10 @@ async function performAutoCheckoutForAttendance(
 
   for (const log of openLogs) {
     if (log.taskStatus === 'Paused') {
-      finalizePauseAccumulation(log, now);
+      finalizePauseAccumulation(log, checkoutTimestamp);
     }
-    log.logoutTime = now;
-    log.totalHours = computeTotalHoursDecimal(log.loginTime, now, log.totalPausedMs, log.overriddenHours);
+    log.logoutTime = checkoutTimestamp;
+    log.totalHours = computeTotalHoursDecimal(log.loginTime, checkoutTimestamp, log.totalPausedMs, log.overriddenHours);
     log.autoCheckedOut = true;
     if (['In Progress', 'Paused', 'Session Incomplete'].includes(log.taskStatus || '')) {
       log.taskStatus = 'Session Incomplete';
@@ -271,8 +273,8 @@ async function performAutoCheckoutForAttendance(
 
   const totalDurationMs =
     openLogs.length > 0
-      ? sumTimesheetWorkedMs(openLogs, now)
-      : Math.max(0, now.getTime() - checkInTime.getTime());
+      ? sumTimesheetWorkedMs(openLogs, checkoutTimestamp)
+      : Math.max(0, checkoutTimestamp.getTime() - checkInTime.getTime());
 
   const primaryLog =
     openLogs.find((log) => log.taskStatus === 'Session Incomplete') ||
@@ -287,7 +289,7 @@ async function performAutoCheckoutForAttendance(
     totalDurationMs,
     projectName: primaryProject,
     workDescription,
-    checkOutTime: now,
+    checkOutTime: checkoutTimestamp,
     checkInTime: claimed.checkInTime,
     employeeEmail: claimed.employeeEmail,
     employeeName: claimed.employeeName,

@@ -79,3 +79,15 @@ const TimesheetSchema = new Schema<Timesheet>(
 );
 
 export const TimesheetModel = model<Timesheet>('Timesheet', TimesheetSchema);
+
+// FIXED: Add indexes for common queries to improve performance
+// Index for fetching sessions by employee and date range
+TimesheetSchema.index({ employeeId: 1, loginTime: -1, logoutTime: 1, taskStatus: 1 });
+// Index for employee name and login time (backward compatibility)
+TimesheetSchema.index({ employee: 1, loginTime: -1 });
+// Index for finding open timesheets
+TimesheetSchema.index({ employeeId: 1, logoutTime: 1, taskStatus: 1 });
+// Index for project-wise hours aggregation
+TimesheetSchema.index({ projectId: 1, employeeId: 1, loginTime: -1, taskStatus: 1 });
+// Index for approval status queries
+TimesheetSchema.index({ employeeId: 1, taskStatus: 1, loginTime: -1 });
