@@ -11,11 +11,9 @@ export function LoginBackground({ variant = 'login' }: LoginBackgroundProps) {
 
   if (isAdmin) {
     return (
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 bg-[#F8FAF8]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_100%_0%,rgba(22,163,74,0.12),transparent_55%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_0%_100%,rgba(187,247,208,0.4),transparent_55%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_30%_at_50%_50%,rgba(220,252,231,0.5),transparent_70%)]" />
+      <div className="pointer-events-none absolute inset-0 overflow-hidden bg-[var(--dash-canvas,#e6ebe8)]">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_100%_0%,rgba(74,222,128,0.08),transparent_55%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_0%_100%,rgba(187,247,208,0.22),transparent_55%)]" />
       </div>
     )
   }

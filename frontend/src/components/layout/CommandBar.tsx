@@ -6,8 +6,6 @@ import { Avatar } from '@components/ui/Avatar'
 import { CommandBarNewsMarquee } from '@components/layout/CommandBarNewsMarquee'
 import { NotificationBell } from '@components/layout/NotificationBell'
 import { useAuthStore } from '@store/authStore'
-import { ROUTES } from '@constants/routes'
-
 function titleCase(slug: string) {
   return slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
@@ -33,8 +31,6 @@ export function CommandBar() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
-  const isDashboard = pathname === ROUTES.DASHBOARD || pathname === '/admin'
-
   const pageTitle = useMemo(() => {
     if (routeTitles[pathname]) return routeTitles[pathname]
     const parts = pathname.split('/').filter(Boolean)
@@ -59,37 +55,35 @@ export function CommandBar() {
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <CompanyLogo className="h-9 w-9 shrink-0 sm:h-10 sm:w-10" alt="Epical Layouts" />
 
-        {!isDashboard && (
-          <>
-            {showBack && (
-              <button
-                type="button"
-                onClick={() => navigate(-1)}
-                className="cmd-bar-icon-btn shrink-0"
-                title="Go back"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </button>
-            )}
-            <div className="min-w-0">
-              <p className="truncate font-display text-lg font-semibold tracking-tight text-[var(--text-primary)] lg:text-xl">
-                {pageTitle}
-              </p>
-            </div>
-          </>
+        {user ? (
+          <div className="min-w-0 shrink-0">
+            <p className="truncate font-display text-base font-extrabold text-[#1a4712] sm:text-lg">
+              {user.name}
+            </p>
+            <p className="truncate text-xs font-medium text-slate-600 sm:text-sm">
+              {pageTitle}
+            </p>
+          </div>
+        ) : (
+          <div className="min-w-0 shrink-0">
+            <p className="truncate font-display text-lg font-semibold tracking-tight text-[var(--text-primary)] lg:text-xl">
+              {pageTitle}
+            </p>
+          </div>
         )}
 
-        {isDashboard && user ? (
-          <>
-            <div className="min-w-0 shrink-0">
-              <p className="truncate font-display text-base font-extrabold text-[#1a4712] sm:text-lg">
-                {user.name}
-              </p>
-              <p className="truncate text-xs font-medium text-slate-600 sm:text-sm">Admin Portal</p>
-            </div>
-            <CommandBarNewsMarquee className="ml-1 hidden min-w-0 flex-1 sm:flex" />
-          </>
-        ) : null}
+        {showBack && (
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="cmd-bar-icon-btn shrink-0"
+            title="Go back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+        )}
+
+        <CommandBarNewsMarquee className="ml-1 min-w-0 flex-1" />
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">

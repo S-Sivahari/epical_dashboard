@@ -91,7 +91,7 @@ export function CommandBarNewsMarquee({ className }: CommandBarNewsMarqueeProps)
     [displayItems],
   )
 
-  if (!loading && loopItems.length === 0) return null
+  if (loopItems.length === 0) return null
 
   return (
     <>
@@ -100,35 +100,35 @@ export function CommandBarNewsMarquee({ className }: CommandBarNewsMarqueeProps)
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
         aria-label="Company news ticker"
+        aria-busy={loading}
       >
         <div className="cmd-bar-news-viewport min-w-0 flex-1">
-          {loading ? (
-            <div className="cmd-bar-news-skeleton" aria-hidden />
-          ) : (
-            <div
-              className="cmd-bar-news-track animate-marquee"
-              style={
-                {
-                  '--marquee-duration': MARQUEE_DURATION,
-                  animationPlayState: paused ? 'paused' : 'running',
-                } as React.CSSProperties
-              }
-            >
-              {loopItems.map((item, index) => (
-                <button
-                  key={`${item.id}-${index}`}
-                  type="button"
-                  className="cmd-bar-news-item"
-                  onClick={() => setActive(item)}
-                >
-                  <span className="cmd-bar-news-item-title">{item.title}</span>
-                  <span className="cmd-bar-news-separator" aria-hidden>
-                    ◆
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
+          <div
+            className={cn(
+              'cmd-bar-news-track animate-marquee',
+              loading && 'opacity-80',
+            )}
+            style={
+              {
+                '--marquee-duration': MARQUEE_DURATION,
+                animationPlayState: paused ? 'paused' : 'running',
+              } as React.CSSProperties
+            }
+          >
+            {loopItems.map((item, index) => (
+              <button
+                key={`${item.id}-${index}`}
+                type="button"
+                className="cmd-bar-news-item"
+                onClick={() => setActive(item)}
+              >
+                <span className="cmd-bar-news-item-title">{item.title}</span>
+                <span className="cmd-bar-news-separator" aria-hidden>
+                  ◆
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
