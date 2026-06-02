@@ -153,7 +153,17 @@ const calculateHours = (
 ): number | null => {
   if (overriddenHours !== undefined && overriddenHours !== null) return overriddenHours
   if (totalHours !== undefined && totalHours !== null && totalHours > 0) return totalHours
-  if (!logout) return null
+  
+  // FIXED: For active sessions (no logout), calculate live duration
+  if (!logout) {
+    const loginDate = new Date(login)
+    if (isNaN(loginDate.getTime())) return 0
+    const now = new Date()
+    const diffMs = now.getTime() - loginDate.getTime() - (totalPausedMs || 0)
+    if (diffMs <= 0) return 0
+    return Math.round((diffMs / (1000 * 60 * 60)) * 10) / 10
+  }
+  
   const loginDate = new Date(login)
   const logoutDate = new Date(logout)
   if (isNaN(loginDate.getTime()) || isNaN(logoutDate.getTime())) return 0
@@ -163,7 +173,8 @@ const calculateHours = (
 }
 
 function formatAdminDuration(hours: number | null): string {
-  if (hours === null) return '—'
+  if (hours === null || hours === undefined) return 'In Progress'
+  if (hours === 0) return '0m'
   const totalMinutes = Math.round(hours * 60)
   const hrs = Math.floor(totalMinutes / 60)
   const mins = totalMinutes % 60
@@ -308,7 +319,7 @@ interface DateRangePickerProps {
 
 function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRangePickerProps) {
   const [open, setOpen] = useState(false)
-  const [currentMonth, setCurrentMonth] = useState<Date>(new Date(startDate || '2026-05-01'))
+  const [currentMonth, setCurrentMonth] = useState<Date>(new Date(startDate || new Date().toISOString().split('T')[0]))
   const [tempStart, setTempStart] = useState<string | null>(startDate)
   const [tempEnd, setTempEnd] = useState<string | null>(endDate)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -337,14 +348,14 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
     if (open) {
       setTempStart(startDate)
       setTempEnd(endDate)
-      setCurrentMonth(new Date(startDate || '2026-05-01'))
+      setCurrentMonth(new Date(startDate || new Date().toISOString().split('T')[0]))
     }
   }, [open, startDate, endDate])
 
   const getPresetDates = (selectedPreset: string): { start: string; end: string } => {
-    const today = new Date('2026-05-21') // Anchored system date
-    let start = new Date('2026-05-21')
-    let end = new Date('2026-05-21')
+    const today = new Date() // Use actual current date
+    let start = new Date()
+    let end = new Date()
 
     switch (selectedPreset) {
       case 'Today':
@@ -1474,6 +1485,7 @@ export function ProjectManagement() {
   const [allProjects, setAllProjects] = useState<Project[]>([])
   const [timesheets, setTimesheets] = useState<TimesheetLog[]>([])
   const [loading, setLoading] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
 
   const projects = allProjects
 
@@ -1531,9 +1543,21 @@ export function ProjectManagement() {
   const [form, setForm] = useState(emptyForm)
 
   // ── Timesheets Date Range Picker States ─────────────────────
+  // FIXED: Initialize with current month instead of hardcoded May dates
+  const getCurrentMonthDates = () => {
+    const now = new Date()
+    const start = new Date(now.getFullYear(), now.getMonth(), 1)
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    return {
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0]
+    }
+  }
+  
+  const initialDates = getCurrentMonthDates()
   const [datePreset, setDatePreset] = useState<string>('This Month')
-  const [tsStartDate, setTsStartDate] = useState('2026-05-01')
-  const [tsEndDate, setTsEndDate] = useState('2026-05-31')
+  const [tsStartDate, setTsStartDate] = useState(initialDates.start)
+  const [tsEndDate, setTsEndDate] = useState(initialDates.end)
 
   // ── Timesheets Filters States ───────────────────────────────
   const [tsSearch, setTsSearch] = useState('')
@@ -1571,7 +1595,25 @@ export function ProjectManagement() {
 
     try {
       const logsRes = await api.get('/timesheets', { params })
-      setTimesheets(logsRes.data)
+      const newTimesheets = logsRes.data
+      
+      // FIXED: Deduplicate by ID and use stable comparison to prevent flickering
+      const deduped = new Map()
+      newTimesheets.forEach((t: TimesheetLog) => {
+        if (!deduped.has(t.id)) {
+          deduped.set(t.id, t)
+        }
+      })
+      const dedupedTimesheets = Array.from(deduped.values())
+      
+      // Only update state if data actually changed (prevents unnecessary re-renders)
+      setTimesheets((prev) => {
+        const isSame = JSON.stringify(prev) === JSON.stringify(dedupedTimesheets)
+        return isSame ? prev : dedupedTimesheets
+      })
+      
+      // Update last refresh timestamp
+      setLastUpdated(new Date())
     } catch (err) {
       console.error(err)
       toast.error('Failed to load timesheet data.')
@@ -1581,17 +1623,26 @@ export function ProjectManagement() {
   const refreshAllData = useCallback(async () => {
     await Promise.all([fetchProjects(), fetchTimesheetsData()])
   }, [fetchProjects, fetchTimesheetsData])
+  
+  // FIXED: Add auto-refresh polling when timesheet tab is active
+  useEffect(() => {
+    if (activeTab !== 'timesheets') return
+    
+    // Initial load
+    fetchTimesheetsData()
+    
+    // Poll every 15 seconds for real-time updates
+    const pollInterval = setInterval(() => {
+      fetchTimesheetsData()
+    }, 15000)
+    
+    return () => clearInterval(pollInterval)
+  }, [activeTab, fetchTimesheetsData])
 
   useEffect(() => {
     fetchProjects()
     fetchEmployees()
   }, [fetchProjects, fetchEmployees])
-
-  useEffect(() => {
-    if (activeTab === 'timesheets') {
-      fetchTimesheetsData()
-    }
-  }, [fetchTimesheetsData, activeTab])
 
   // ── Derived Client / Project Lists for Filter Options ──────────
   const uniqueClients = useMemo(() => {
@@ -1976,7 +2027,26 @@ export function ProjectManagement() {
     })
     return Object.values(empMap)
       .map(e => ({ ...e, hours: Math.round(e.hours * 10) / 10 }))
+      .sort((a, b) => b.hours - a.hours)
   }, [filteredTimesheets])
+  
+  // FIXED: Add live timer for active sessions to update aggregations every 15 seconds
+  const [, forceUpdate] = useState(0)
+  useEffect(() => {
+    if (activeTab !== 'timesheets') return
+    
+    // Check if there are any active sessions (no logout time)
+    const hasActiveSessions = filteredTimesheets.some(t => !t.logoutTime)
+    
+    if (!hasActiveSessions) return
+    
+    // Update every 15 seconds to recalculate hours for active sessions
+    const timer = setInterval(() => {
+      forceUpdate(n => n + 1)
+    }, 15000)
+    
+    return () => clearInterval(timer)
+  }, [activeTab, filteredTimesheets])
 
   // ── Timesheets Pagination derived values ────────────────────
   const totalTimesheetsPages = Math.ceil(filteredTimesheets.length / timesheetsPerPage)
@@ -3185,9 +3255,19 @@ export function ProjectManagement() {
                 </div>
 
                 <div className="flex items-center justify-end gap-2 xl:justify-end">
-                  <span className="inline-flex h-9 items-center rounded-lg border border-white/10 bg-[#111319] px-3 text-xs font-semibold tabular-nums text-slate-350">
-                    <span className="font-bold text-slate-100">{filteredTimesheets.length}</span>
-                    <span className="ml-1 text-slate-500">logs</span>
+                  <span className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 bg-[#111319] px-3 text-xs font-semibold text-slate-350">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="font-bold text-slate-100 tabular-nums">{filteredTimesheets.length}</span>
+                      <span className="text-slate-500">logs</span>
+                    </span>
+                    <span className="h-3 w-px bg-white/10" />
+                    <span className="inline-flex items-center gap-1 text-[10px] text-slate-500">
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                      </span>
+                      Auto-refresh
+                    </span>
                   </span>
                   {hasActiveTimesheetFilters && (
                     <button
@@ -3462,9 +3542,19 @@ export function ProjectManagement() {
                         </td>
 
                         <td className="px-5 py-3.5">
-                          <span className="inline-flex rounded-lg border border-white/[0.12] bg-gradient-to-b from-[#0d0f15] to-[#0a0c11] px-2.5 py-1 text-slate-200 font-mono text-xs font-bold shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.03)]">
-                            {formatAdminDuration(hours)}
-                          </span>
+                          {t.logoutTime ? (
+                            <span className="inline-flex rounded-lg border border-white/[0.12] bg-gradient-to-b from-[#0d0f15] to-[#0a0c11] px-2.5 py-1 text-slate-200 font-mono text-xs font-bold shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.03)]">
+                              {formatAdminDuration(hours)}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-gradient-to-b from-emerald-500/10 to-emerald-500/5 px-2.5 py-1 text-emerald-400 font-mono text-xs font-bold shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.03)]">
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                              </span>
+                              {formatAdminDuration(hours)} (Live)
+                            </span>
+                          )}
                           {t.autoCheckedOut && (
                             <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-amber-400">
                               Auto Checked-Out

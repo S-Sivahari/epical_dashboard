@@ -16,12 +16,13 @@ const MOCK_EMPLOYEES = [
 ];
 
 // Helper to compute total hours
-function computeTotalHours(loginTime: Date, logoutTime?: Date, overriddenHours?: number): number {
+function computeTotalHours(loginTime: Date, logoutTime?: Date, overriddenHours?: number, totalPausedMs = 0): number {
   if (overriddenHours !== undefined && overriddenHours !== null) {
     return Number(overriddenHours);
   }
+  // FIXED: For active sessions (no logout), return 0 to let frontend calculate live duration
   if (!logoutTime) return 0;
-  const diffMs = logoutTime.getTime() - loginTime.getTime();
+  const diffMs = logoutTime.getTime() - loginTime.getTime() - (totalPausedMs || 0);
   if (diffMs <= 0) return 0;
   return Math.round((diffMs / (1000 * 60 * 60)) * 10) / 10;
 }
@@ -29,6 +30,8 @@ function computeTotalHours(loginTime: Date, logoutTime?: Date, overriddenHours?:
 // Helper to map Mongoose timesheet log to frontend format
 function toFrontendTimesheet(t: any) {
   const dateOnly = t.loginTime ? new Date(t.loginTime).toISOString().split('T')[0] : '';
+  const totalHours = t.totalHours ?? computeTotalHours(t.loginTime, t.logoutTime, t.overriddenHours, t.totalPausedMs);
+  
   return {
     id: t._id.toString(),
     employeeId: t.employeeId,
@@ -53,11 +56,13 @@ function toFrontendTimesheet(t: any) {
     task: t.task || '',
     adminNotes: t.adminNotes,
     overriddenHours: t.overriddenHours,
-    totalHours: t.totalHours,
+    totalHours,
     totalPausedMs: t.totalPausedMs || 0,
     autoCheckedOut: t.autoCheckedOut ?? false,
     taskStatus: t.taskStatus || (t.logoutTime ? 'Pending' : 'Session Incomplete'),
     workflowStatus: getTimesheetWorkflowStatus(t),
+    pausedAt: t.pausedAt ? t.pausedAt.toISOString() : undefined,
+    isPaused: t.taskStatus === 'Paused',
   };
 }
 
@@ -109,17 +114,14 @@ async function buildMatchStage(req: Request) {
   const { from, to, employee, project, projectId, team, status, search } = req.query;
   const and: Record<string, unknown>[] = [];
 
+  // FIXED: Use UTC timestamps to match employee controller and prevent timezone discrepancies
   if (from || to) {
     const loginTime: Record<string, Date> = {};
     if (from) {
-      const startDate = new Date(from as string);
-      startDate.setHours(0, 0, 0, 0);
-      loginTime.$gte = startDate;
+      loginTime.$gte = new Date(`${from}T00:00:00.000Z`);
     }
     if (to) {
-      const endDate = new Date(to as string);
-      endDate.setHours(23, 59, 59, 999);
-      loginTime.$lte = endDate;
+      loginTime.$lte = new Date(`${to}T23:59:59.999Z`);
     }
     and.push({ loginTime });
   }
@@ -196,32 +198,51 @@ export const timesheetController = {
   getHoursByProject: async (req: Request, res: Response): Promise<void> => {
     try {
       const match = await buildMatchStage(req);
+      
+      // FIXED: Include active sessions and properly calculate hours with pause time
       const agg = [
         { $match: match },
         {
           $project: {
             project: 1,
+            projectId: 1,
             hours: {
               $cond: {
+                // If overriddenHours is set, use it
                 if: {
                   $and: [
                     { $ne: [{ $type: "$overriddenHours" }, "missing"] },
-                    { $ne: [{ $type: "$overriddenHours" }, "null"] },
-                    { $ne: ["$overriddenHours", null] },
-                    { $ne: ["$overriddenHours", "null"] }
+                    { $ne: ["$overriddenHours", null] }
                   ]
                 },
                 then: "$overriddenHours",
                 else: {
                   $cond: {
+                    // If there's a logout time, calculate completed session hours
                     if: { $and: ["$logoutTime", { $gt: ["$logoutTime", "$loginTime"] }] },
                     then: {
                       $divide: [
-                        { $subtract: ["$logoutTime", "$loginTime"] },
+                        {
+                          $subtract: [
+                            { $subtract: ["$logoutTime", "$loginTime"] },
+                            { $ifNull: ["$totalPausedMs", 0] }
+                          ]
+                        },
                         3600000
                       ]
                     },
-                    else: 0
+                    // For active sessions (no logout), calculate current duration
+                    else: {
+                      $divide: [
+                        {
+                          $subtract: [
+                            { $subtract: [new Date(), "$loginTime"] },
+                            { $ifNull: ["$totalPausedMs", 0] }
+                          ]
+                        },
+                        3600000
+                      ]
+                    }
                   }
                 }
               }
@@ -232,14 +253,14 @@ export const timesheetController = {
           $group: {
             _id: "$project",
             projectId: { $first: "$projectId" },
-            totalHours: { $sum: "$hours" }
+            totalHours: { $sum: { $max: [0, "$hours"] } } // Ensure no negative hours
           }
         },
         {
           $project: {
             _id: 0,
             name: "$_id",
-            projectId: "$projectId",
+            projectId: { $toString: "$projectId" },
             hours: { $round: ["$totalHours", 1] }
           }
         },
@@ -258,32 +279,51 @@ export const timesheetController = {
   getEmployeeHours: async (req: Request, res: Response): Promise<void> => {
     try {
       const match = await buildMatchStage(req);
+      
+      // FIXED: Include active sessions and properly calculate hours with pause time
       const agg = [
         { $match: match },
         {
           $project: {
             employee: 1,
+            employeeId: 1,
             hours: {
               $cond: {
+                // If overriddenHours is set, use it
                 if: {
                   $and: [
                     { $ne: [{ $type: "$overriddenHours" }, "missing"] },
-                    { $ne: [{ $type: "$overriddenHours" }, "null"] },
-                    { $ne: ["$overriddenHours", null] },
-                    { $ne: ["$overriddenHours", "null"] }
+                    { $ne: ["$overriddenHours", null] }
                   ]
                 },
                 then: "$overriddenHours",
                 else: {
                   $cond: {
+                    // If there's a logout time, calculate completed session hours
                     if: { $and: ["$logoutTime", { $gt: ["$logoutTime", "$loginTime"] }] },
                     then: {
                       $divide: [
-                        { $subtract: ["$logoutTime", "$loginTime"] },
+                        {
+                          $subtract: [
+                            { $subtract: ["$logoutTime", "$loginTime"] },
+                            { $ifNull: ["$totalPausedMs", 0] }
+                          ]
+                        },
                         3600000
                       ]
                     },
-                    else: 0
+                    // For active sessions (no logout), calculate current duration
+                    else: {
+                      $divide: [
+                        {
+                          $subtract: [
+                            { $subtract: [new Date(), "$loginTime"] },
+                            { $ifNull: ["$totalPausedMs", 0] }
+                          ]
+                        },
+                        3600000
+                      ]
+                    }
                   }
                 }
               }
@@ -293,13 +333,15 @@ export const timesheetController = {
         {
           $group: {
             _id: "$employee",
-            totalHours: { $sum: "$hours" }
+            employeeId: { $first: "$employeeId" },
+            totalHours: { $sum: { $max: [0, "$hours"] } } // Ensure no negative hours
           }
         },
         {
           $project: {
             _id: 0,
             name: "$_id",
+            employeeId: "$employeeId",
             hours: { $round: ["$totalHours", 1] }
           }
         },
@@ -311,14 +353,14 @@ export const timesheetController = {
       const enhancedResults = await Promise.all(results.map(async (item) => {
         let dept = 'R&D';
         let hue = 200;
-        const emp = MOCK_EMPLOYEES.find(e => e.name === item.name);
+        const emp = MOCK_EMPLOYEES.find(e => e.name === item.name || e.id === item.employeeId);
         if (emp) {
           dept = emp.team;
           hue = emp.hue;
         } else {
-          const [firstName, lastName] = item.name.split(' ');
+          const [firstName, lastName] = (item.name || '').split(' ');
           const db = mongoose.connection.db;
-          if (db) {
+          if (db && firstName) {
             const dbEmp = await db.collection('employees').findOne({
               firstName,
               lastName
