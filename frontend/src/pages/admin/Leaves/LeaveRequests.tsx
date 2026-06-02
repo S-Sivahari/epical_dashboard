@@ -4,6 +4,7 @@ import { Badge } from '@components/ui/Badge'
 import { Button } from '@components/ui/Button'
 import { Modal } from '@components/ui/Modal'
 import { useLeaves } from '@hooks/useLeaves'
+import { useEmployeeStore } from '@store/employeeStore'
 import { formatDate, formatDateTime } from '@/utils/formatDate'
 import { filterLeaves, excludeCancelledLeaves, type LeaveFilters } from '@/utils/leaveFilters'
 import * as leaveService from '@services/leaveService'
@@ -39,6 +40,19 @@ export function LeaveRequests({
   onFiltersChange: (f: LeaveFilters) => void
 }) {
   const { leaves, loading, approveLeave, rejectLeave } = useLeaves()
+
+  // Build a map of employeeId → { avatarUrl, initials } for profile pics
+  const allEmployees = useEmployeeStore((s) => s.employees)
+  const avatarMap = useMemo(() => {
+    const map: Record<string, { avatarUrl?: string; initials: string }> = {}
+    allEmployees.forEach((e) => {
+      const initials = `${e.firstName?.[0] ?? ''}${e.lastName?.[0] ?? ''}`.toUpperCase()
+      map[e.id] = { avatarUrl: e.avatarUrl, initials }
+      // also key by employeeId string for cross-reference
+      if (e.employeeId) map[String(e.employeeId)] = { avatarUrl: e.avatarUrl, initials }
+    })
+    return map
+  }, [allEmployees])
 
   const visibleLeaves = useMemo(() => excludeCancelledLeaves(leaves), [leaves])
 
@@ -102,7 +116,7 @@ export function LeaveRequests({
   const currentPage = statusPagination[currentStatus] || 1
   const totalPages = Math.ceil(filteredLeaves.length / ITEMS_PER_PAGE) || 1
   const startIdx = (currentPage - 1) * ITEMS_PER_PAGE
-  
+
   // Paginated leaves (Memoized)
   const paginatedLeaves = useMemo(() => {
     return filteredLeaves.slice(startIdx, startIdx + ITEMS_PER_PAGE)
@@ -139,7 +153,7 @@ export function LeaveRequests({
       setRejectionError('Rejection reason must be under 250 characters.')
       return
     }
-    
+
     try {
       await rejectLeave(leaveToReject!, trimmedReason)
       setIsRejectModalOpen(false)
@@ -228,9 +242,9 @@ export function LeaveRequests({
 
   return (
     <Tooltip.Provider delayDuration={300}>
-      <div className="space-y-4">
+      <div className="space-y-0">
         {/* Filters */}
-        <div className="overflow-visible rounded-xl bg-white p-4 shadow-sm ring-1 ring-border/60">
+        <div className="overflow-visible bg-white px-4 pt-4 pb-3 border-b border-gray-100">
           <div className="flex flex-wrap items-center gap-3 overflow-visible">
             <div className="relative min-w-[200px] flex-1" ref={empDropRef}>
               <button
@@ -378,7 +392,7 @@ export function LeaveRequests({
         </div>
 
         {/* Status tabs */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 bg-white px-4 py-3 border-b border-gray-100">
           {(['Pending', 'Approved', 'Rejected'] as StatusType[]).map((status) => {
             const count = visibleLeaves.filter((l) => l.status === status).length
             const active = filters.status === status
@@ -387,11 +401,10 @@ export function LeaveRequests({
                 key={status}
                 type="button"
                 onClick={() => setFilters({ ...filters, status })}
-                className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors ${
-                  active
-                    ? 'bg-primary text-white shadow-sm'
-                    : 'bg-white text-muted ring-1 ring-border/60 hover:text-ink'
-                }`}
+                className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors ${active
+                  ? 'bg-primary text-white shadow-sm'
+                  : 'bg-white text-muted ring-1 ring-border/60 hover:text-ink'
+                  }`}
               >
                 {status}
                 <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${active ? 'bg-white/20 text-white' : 'bg-surface text-muted'}`}>
@@ -403,98 +416,135 @@ export function LeaveRequests({
         </div>
 
         {/* Leave requests list */}
-        <div>
+        <div className="px-4 py-3">
           {loading ? (
-            <div className="flex h-52 items-center justify-center rounded-xl bg-white py-12 shadow-sm ring-1 ring-border/60">
+            <div className="flex h-52 items-center justify-center rounded-xl border border-gray-100 bg-gray-50 py-12">
               <span className="text-sm text-muted">Loading requests...</span>
             </div>
           ) : paginatedLeaves.length === 0 ? (
-            <div className="flex h-52 flex-col items-center justify-center rounded-xl bg-white py-12 shadow-sm ring-1 ring-border/60">
+            <div className="flex h-52 flex-col items-center justify-center rounded-xl border border-gray-100 bg-gray-50 py-12">
               <span className="text-sm text-muted">No {currentStatus.toLowerCase()} leave requests found.</span>
             </div>
           ) : (
             <div className="flex flex-col gap-2.5">
-              {paginatedLeaves.map((l) => (
-                <div
-                  key={l.id}
-                  onClick={() => openEmployeeProfile(l.employeeId, l.employeeName)}
-                  className="group flex cursor-pointer flex-col gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-border/60 transition-all hover:shadow-md hover:ring-primary/30 sm:flex-row sm:items-center sm:justify-between"
-                  title="Click to view leave history and balances"
-                >
-                  <div className="min-w-0 flex-1 space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="truncate text-sm font-semibold text-primary">{l.employeeName}</span>
-                      {getStatusBadge(l.status)}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
-                      <span className="font-medium text-ink">{l.type}</span>
-                      <span>
-                        {formatDate(l.from)} <span className="mx-1 opacity-40">→</span> {formatDate(l.to)}
-                      </span>
-                      <span className="font-medium text-ink">
-                        {l.days} {l.days === 1 ? 'day' : 'days'}
-                      </span>
-                      {l.reason && (
-                        <span className="line-clamp-1 min-w-0 max-w-full text-ink sm:max-w-md" title={l.reason}>
-                          {l.reason}
+              {paginatedLeaves.map((l) => {
+                const empAvatar = avatarMap[l.employeeId] ?? avatarMap[String(l.employeeId)]
+                const initials = empAvatar?.initials || l.employeeName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+                return (
+                  <div
+                    key={l.id}
+                    onClick={() => openEmployeeProfile(l.employeeId, l.employeeName)}
+                    className="group flex cursor-pointer flex-col gap-3 rounded-xl bg-white border border-gray-200 p-4 transition-all hover:shadow-sm hover:border-emerald-300 sm:flex-row sm:items-center sm:justify-between"
+                    title="Click to view leave history and balances"
+                  >
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        {/* Employee avatar */}
+                        {empAvatar?.avatarUrl ? (
+                          <img
+                            src={empAvatar.avatarUrl}
+                            alt={l.employeeName}
+                            className="h-8 w-8 rounded-full object-cover ring-2 ring-white shadow-sm shrink-0"
+                          />
+                        ) : (
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700 ring-2 ring-white shadow-sm">
+                            {initials}
+                          </div>
+                        )}
+                        <span className="truncate text-sm font-semibold text-primary">{l.employeeName}</span>
+                        {getStatusBadge(l.status)}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
+                        <span className="font-medium text-ink">{l.type}</span>
+                        <span>
+                          {formatDate(l.from)} <span className="mx-1 opacity-40">→</span> {formatDate(l.to)}
                         </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex w-full shrink-0 items-center justify-between gap-3 sm:w-auto sm:flex-col sm:items-end">
-                    <div className="space-y-1.5 text-right text-xs text-muted sm:text-sm">
-                      {toTimestamp(l.createdAt) && (
-                        <p>Applied {formatDateTime(toTimestamp(l.createdAt)!)}</p>
-                      )}
-                      {l.status === 'Rejected' && l.rejectionReason && (
-                        <div className="max-w-[220px] rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-left text-[11px] leading-snug text-red-900">
-                          {l.rejectionReason}
-                        </div>
-                      )}
-                      {l.status === 'Approved' && (
-                        <>
-                          {toTimestamp(l.approvalDate ?? l.updatedAt) && (
-                            <p>Approved {formatDateTime(toTimestamp(l.approvalDate ?? l.updatedAt)!)}</p>
-                          )}
-                          {(l as any).approvedBy && (
-                            <p className="inline-flex items-center gap-1 text-ink">
-                              <UserCheck className="h-3.5 w-3.5 text-green-500" />
-                              {(l as any).approvedBy}
-                            </p>
-                          )}
-                        </>
-                      )}
-                      {l.status === 'Rejected' && (l as any).rejectedBy && (
-                        <p className="inline-flex items-center gap-1 text-ink">
-                          <UserCheck className="h-3.5 w-3.5 text-red-500" />
-                          {(l as any).rejectedBy}
-                        </p>
-                      )}
+                        <span className="font-medium text-ink">
+                          {l.days} {l.days === 1 ? 'day' : 'days'}
+                        </span>
+                        {l.reason && (
+                          <span className="line-clamp-1 min-w-0 max-w-full text-ink sm:max-w-md" title={l.reason}>
+                            {l.reason}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
-                      {l.status === 'Pending' && (
-                        <>
-                          <Tooltip.Root>
-                            <Tooltip.Trigger asChild>
-                              <Button
-                                size="sm"
-                                variant="primary"
-                                className="h-9 w-9 rounded-lg p-0 bg-green-600 hover:bg-green-700"
-                                onClick={() => void openApproveModal(l)}
-                              >
-                                <Check className="h-4 w-4" />
-                              </Button>
-                            </Tooltip.Trigger>
-                            <Tooltip.Portal>
-                              <Tooltip.Content className="z-[100] rounded-md bg-ink px-2 py-1 text-xs text-white shadow-md">
-                                Approve
-                                <Tooltip.Arrow className="fill-ink" />
-                              </Tooltip.Content>
-                            </Tooltip.Portal>
-                          </Tooltip.Root>
+                    <div className="flex w-full shrink-0 items-center justify-between gap-3 sm:w-auto sm:flex-col sm:items-end">
+                      <div className="space-y-1.5 text-right text-xs text-muted sm:text-sm">
+                        {toTimestamp(l.createdAt) && (
+                          <p>Applied {formatDateTime(toTimestamp(l.createdAt)!)}</p>
+                        )}
+                        {l.status === 'Rejected' && l.rejectionReason && (
+                          <div className="max-w-[220px] rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-left text-[11px] leading-snug text-red-900">
+                            {l.rejectionReason}
+                          </div>
+                        )}
+                        {l.status === 'Approved' && (
+                          <>
+                            {toTimestamp(l.approvalDate ?? l.updatedAt) && (
+                              <p>Approved {formatDateTime(toTimestamp(l.approvalDate ?? l.updatedAt)!)}</p>
+                            )}
+                            {(l as any).approvedBy && (
+                              <p className="inline-flex items-center gap-1 text-ink">
+                                <UserCheck className="h-3.5 w-3.5 text-green-500" />
+                                {(l as any).approvedBy}
+                              </p>
+                            )}
+                          </>
+                        )}
+                        {l.status === 'Rejected' && (l as any).rejectedBy && (
+                          <p className="inline-flex items-center gap-1 text-ink">
+                            <UserCheck className="h-3.5 w-3.5 text-red-500" />
+                            {(l as any).rejectedBy}
+                          </p>
+                        )}
+                      </div>
 
+                      <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
+                        {l.status === 'Pending' && (
+                          <>
+                            <Tooltip.Root>
+                              <Tooltip.Trigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="primary"
+                                  className="h-9 w-9 rounded-lg p-0 bg-green-600 hover:bg-green-700"
+                                  onClick={() => void openApproveModal(l)}
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                              </Tooltip.Trigger>
+                              <Tooltip.Portal>
+                                <Tooltip.Content className="z-[100] rounded-md bg-ink px-2 py-1 text-xs text-white shadow-md">
+                                  Approve
+                                  <Tooltip.Arrow className="fill-ink" />
+                                </Tooltip.Content>
+                              </Tooltip.Portal>
+                            </Tooltip.Root>
+
+                            <Tooltip.Root>
+                              <Tooltip.Trigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="danger"
+                                  className="h-9 w-9 rounded-lg p-0"
+                                  onClick={() => openRejectModal(l.id)}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </Tooltip.Trigger>
+                              <Tooltip.Portal>
+                                <Tooltip.Content className="z-[100] rounded-md bg-ink px-2 py-1 text-xs text-white shadow-md">
+                                  Reject
+                                  <Tooltip.Arrow className="fill-ink" />
+                                </Tooltip.Content>
+                              </Tooltip.Portal>
+                            </Tooltip.Root>
+                          </>
+                        )}
+
+                        {l.status === 'Approved' && (
                           <Tooltip.Root>
                             <Tooltip.Trigger asChild>
                               <Button
@@ -513,39 +563,18 @@ export function LeaveRequests({
                               </Tooltip.Content>
                             </Tooltip.Portal>
                           </Tooltip.Root>
-                        </>
-                      )}
-
-                      {l.status === 'Approved' && (
-                        <Tooltip.Root>
-                          <Tooltip.Trigger asChild>
-                            <Button
-                              size="sm"
-                              variant="danger"
-                              className="h-9 w-9 rounded-lg p-0"
-                              onClick={() => openRejectModal(l.id)}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </Tooltip.Trigger>
-                          <Tooltip.Portal>
-                            <Tooltip.Content className="z-[100] rounded-md bg-ink px-2 py-1 text-xs text-white shadow-md">
-                              Reject
-                              <Tooltip.Arrow className="fill-ink" />
-                            </Tooltip.Content>
-                          </Tooltip.Portal>
-                        </Tooltip.Root>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
 
         {filteredLeaves.length > 0 && (
-          <div className="flex flex-col items-center justify-between gap-3 pt-1 sm:flex-row">
+          <div className="flex flex-col items-center justify-between gap-3 border-t border-gray-100 px-4 py-3 sm:flex-row">
             <p className="text-sm text-muted">
               Showing {startIdx + 1}–{Math.min(startIdx + ITEMS_PER_PAGE, filteredLeaves.length)} of {filteredLeaves.length}
             </p>
@@ -611,11 +640,10 @@ export function LeaveRequests({
                 Checking leave balance...
               </div>
             ) : approveBalance ? (
-              <div className={`rounded-lg p-3 border text-sm space-y-1 ${
-                approveBalance.remaining >= leaveToApprove.days
-                  ? 'bg-green-50 border-green-200'
-                  : 'bg-red-50 border-red-200'
-              }`}>
+              <div className={`rounded-lg p-3 border text-sm space-y-1 ${approveBalance.remaining >= leaveToApprove.days
+                ? 'bg-green-50 border-green-200'
+                : 'bg-red-50 border-red-200'
+                }`}>
                 <div className="flex items-center gap-2 font-medium mb-2">
                   {approveBalance.remaining >= leaveToApprove.days
                     ? <ShieldCheck className="h-4 w-4 text-green-600" />
@@ -687,9 +715,8 @@ export function LeaveRequests({
                 if (rejectionError) setRejectionError('')
               }}
               placeholder="Please provide a reason..."
-              className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 resize-none transition-shadow ${
-                rejectionError ? 'border-red-500 focus:ring-red-200' : 'border-border focus:ring-primary/30'
-              }`}
+              className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 resize-none transition-shadow ${rejectionError ? 'border-red-500 focus:ring-red-200' : 'border-border focus:ring-primary/30'
+                }`}
               rows={4}
               maxLength={250}
             />
@@ -704,7 +731,7 @@ export function LeaveRequests({
               </span>
             </div>
           </div>
-          
+
           <div className="flex justify-end gap-3 pt-2 border-t border-border">
             <Button
               variant="secondary"
