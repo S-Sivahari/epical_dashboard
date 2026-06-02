@@ -25,7 +25,7 @@ function ChartPlaceholder({ message, loading }: { message: string; loading?: boo
     <div className="admin-analytics-chart-placeholder">
       {loading ? (
         <>
-          <Loader2 className="h-6 w-6 animate-spin text-[#06C033]" />
+          <Loader2 className="h-6 w-6 animate-spin text-[#2f6b4f]" />
           <p className="text-sm font-medium text-slate-500">Loading analytics…</p>
         </>
       ) : (
@@ -205,7 +205,7 @@ export function Analytics() {
           <div className="admin-analytics-main-panel">
             <div className="admin-analytics-panel-header">
               <div>
-                <h2 className="font-display text-sm font-bold text-[#065F1F]">
+                <h2 className="admin-analytics-panel-title font-display text-sm font-bold">
                   {isAllEmployees ? 'Team Performance Comparison' : 'Individual Performance'}
                 </h2>
                 <p className="text-xs font-medium text-slate-600">

@@ -13,12 +13,12 @@ import type { IndividualPerformance } from '@/services/analyticsService'
 import { CalendarDays, Clock, TrendingUp, Umbrella } from 'lucide-react'
 
 const GREEN = {
-  primary: '#06C033',
-  dark: '#065F46',
-  medium: '#16A34A',
+  primary: '#2f6b4f',
+  dark: '#2f6b4f',
+  medium: '#3a8a62',
   light: '#86EFAC',
   axis: '#64748b',
-  grid: 'rgba(6, 192, 51, 0.12)',
+  grid: 'rgba(47, 107, 79, 0.12)',
 }
 
 function HoursTooltip({

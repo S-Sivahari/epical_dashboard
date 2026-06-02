@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { Upload, CheckCircle2, XCircle, FileText, Inbox, History, Sparkles } from 'lucide-react'
+import { Upload, CheckCircle2, XCircle, FileText, Inbox, History } from 'lucide-react'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
 import { Badge } from '@components/ui/Badge'
@@ -491,12 +491,6 @@ setRejectOpen(false)
                     {loading ? '—' : total}
                   </p>
                 </div>
-                {tab === 'requested' && (
-                  <div className="admin-documents-tip-box rounded-lg p-3 text-xs font-medium leading-relaxed">
-                    <Sparkles className="mb-1.5 h-3.5 w-3.5 text-[var(--emerald-dark)]" />
-                    Upload the fulfillment file first, then approve so the employee can download it.
-                  </div>
-                )}
               </aside>
 
               <div className="admin-documents-main-panel">
