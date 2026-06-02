@@ -14,6 +14,7 @@ import {
   fetchMyPayslipPdfUrl,
   openMyPayslipPdf,
 } from '@services/payslipService'
+import { formatPayslipDownloadFileName } from '@/utils/payslipDownloadName'
 import { Button } from '@components/employee/ui/button'
 import { DataTable } from '@components/employee/shared/DataTable'
 import { FilterDropdown } from '@components/employee/shared/FilterDropdown'
@@ -296,11 +297,12 @@ export function PayslipsSection({ payslips, loading }) {
   const handleDownload = useCallback(
     async (row) => {
       try {
-        const fileName = row.fileName || `payslip-${row.periodLabel}.pdf`
-        await downloadMyPayslipPdf(
-          row.id,
-          fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`,
+        const downloadName = formatPayslipDownloadFileName(
+          row.employeeName || user?.name || 'employee',
+          row.payMonth,
+          row.payPeriodKey,
         )
+        await downloadMyPayslipPdf(row.id, downloadName)
       } catch {
         toast({
           title: 'Download failed',
@@ -308,7 +310,7 @@ export function PayslipsSection({ payslips, loading }) {
         })
       }
     },
-    [toast],
+    [toast, user?.name],
   )
 
   const payslipColumns = useMemo(

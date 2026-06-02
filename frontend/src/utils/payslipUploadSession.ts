@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'hrms_payslip_upload_session'
+const LEGACY_SESSION_KEY = 'hrms_payslip_upload_session'
 
 interface PayslipUploadSession {
   userId: string
@@ -7,26 +8,32 @@ interface PayslipUploadSession {
 
 export function savePayslipUploadSession(userId: string, batchId: string): void {
   const payload: PayslipUploadSession = { userId, batchId }
-  sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
 }
 
 export function readPayslipUploadSession(userId: string): string | null {
-  const raw = sessionStorage.getItem(STORAGE_KEY)
+  const raw =
+    localStorage.getItem(STORAGE_KEY) ?? sessionStorage.getItem(LEGACY_SESSION_KEY)
   if (!raw) return null
 
   try {
     const parsed = JSON.parse(raw) as PayslipUploadSession
     if (parsed.userId !== userId || !parsed.batchId) {
-      sessionStorage.removeItem(STORAGE_KEY)
+      clearPayslipUploadSession()
       return null
+    }
+    if (!localStorage.getItem(STORAGE_KEY)) {
+      savePayslipUploadSession(userId, parsed.batchId)
+      sessionStorage.removeItem(LEGACY_SESSION_KEY)
     }
     return parsed.batchId
   } catch {
-    sessionStorage.removeItem(STORAGE_KEY)
+    clearPayslipUploadSession()
     return null
   }
 }
 
 export function clearPayslipUploadSession(): void {
-  sessionStorage.removeItem(STORAGE_KEY)
+  localStorage.removeItem(STORAGE_KEY)
+  sessionStorage.removeItem(LEGACY_SESSION_KEY)
 }

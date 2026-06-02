@@ -22,11 +22,13 @@ import {
   deletePayslipFromBatch,
   sendAllPayslipsInBatch,
   mergeBatchPayslipPdfs,
+  type PayrollBatch,
 } from '../services/payrollBatchService'
+import { formatPayslipDownloadFileName } from '../services/payslipDownloadName'
 import { AuthRequest } from '../middleware/authMiddleware'
 import {
   sendPayslipToEmployee,
-  getPayslipsForEmployeeEmail,
+  getPayslipsForAuthUser,
   getPayslipByIdForEmployee,
   getAllSentPayslips,
 } from '../services/employeePayslipService'
@@ -43,6 +45,11 @@ const TEMPLATE_PATH = join(TEMPLATE_DIR, 'active_template.xlsx')
 
 function templateMetaCollection() {
   return getDB().collection<{ name: string; uploadedAt: Date; size: number }>('payroll_template_meta')
+}
+
+function payslipDownloadNameForBatch(batch: PayrollBatch, storageFileName: string): string {
+  const row = batch.results.find((r) => r.fileName === storageFileName)
+  return formatPayslipDownloadFileName(row?.name ?? 'employee', batch.payMonth, batch.payPeriodKey)
 }
 
 async function notifyAdminsAndEmployee(params: {
@@ -211,12 +218,16 @@ export const payslipController = {
 
       const templateId = (req.body?.templateId as string) || 'classic'
       const replaceBatchId = String(req.body?.replaceBatchId || '').trim() || undefined
+      const allowDuplicatePayPeriod =
+        req.body?.allowDuplicatePayPeriod === true ||
+        req.body?.allowDuplicatePayPeriod === 'true' ||
+        req.body?.allowDuplicatePayPeriod === '1'
       const resendPayslips =
         req.body?.resendPayslips === true ||
         req.body?.resendPayslips === 'true' ||
         req.body?.resendPayslips === '1'
 
-      if (!replaceBatchId) {
+      if (!replaceBatchId && !allowDuplicatePayPeriod) {
         const { readMasterExcelFromBuffer } = await import('../services/payslipGenerator')
         const { company } = await readMasterExcelFromBuffer(file.buffer)
         const existing = await findBatchByPayPeriod(company)
@@ -373,10 +384,10 @@ export const payslipController = {
       }
 
       const filePath = await ensurePayslipPdfExists(batchId, fileName)
-      const safeName = filePath.split(/[/\\]/).pop() || fileName
+      const downloadName = payslipDownloadNameForBatch(batch, fileName)
 
       res.setHeader('Content-Type', 'application/pdf')
-      res.setHeader('Content-Disposition', `inline; filename="${safeName}"`)
+      res.setHeader('Content-Disposition', `inline; filename="${downloadName}"`)
       res.sendFile(filePath)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to download payslip'
@@ -494,7 +505,7 @@ export const payslipController = {
         res.status(401).json({ error: 'Unauthorized' })
         return
       }
-      const payslips = await getPayslipsForEmployeeEmail(req.user.email)
+      const payslips = await getPayslipsForAuthUser(req.user.id, req.user.email)
       res.json(payslips)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to load payslips'
@@ -509,17 +520,23 @@ export const payslipController = {
         res.status(401).json({ error: 'Unauthorized' })
         return
       }
-      const record = await getPayslipByIdForEmployee(req.params.payslipId, req.user.email)
+      const record = await getPayslipByIdForEmployee(
+        req.params.payslipId,
+        req.user.id,
+        req.user.email,
+      )
       if (!record) {
         res.status(404).json({ error: 'Payslip not found' })
         return
       }
       const filePath = await ensurePayslipPdfExists(record.batchId, record.fileName)
-      res.setHeader('Content-Type', 'application/pdf')
-      res.setHeader(
-        'Content-Disposition',
-        `inline; filename="${record.fileName}"`
+      const downloadName = formatPayslipDownloadFileName(
+        record.employeeName,
+        record.payMonth,
+        record.payPeriodKey,
       )
+      res.setHeader('Content-Type', 'application/pdf')
+      res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`)
       res.sendFile(filePath)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to download payslip'
@@ -655,9 +672,9 @@ export const payslipController = {
         return
       }
       const filePath = await ensurePayslipPdfExists(batchId, fileName)
-      const safeName = filePath.split(/[/\\]/).pop() || fileName
+      const downloadName = payslipDownloadNameForBatch(batch, fileName)
       res.setHeader('Content-Type', 'application/pdf')
-      res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`)
+      res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`)
       res.sendFile(filePath)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to download payslip'

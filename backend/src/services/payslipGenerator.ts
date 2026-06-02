@@ -396,6 +396,8 @@ export function buildPayslip(
   const email = safe(company['Email'])
   const website = safe(company['Website'])
 
+  const payroll = buildPayslipPayrollSummary(emp, structure, company)
+
   // Build document
   const sections = []
 
@@ -455,8 +457,9 @@ export function buildPayslip(
   // =========================================================================
   // SECTION 3 - QUICK BAR
   // =========================================================================
-  const paidDays = emp['Paid Days'] || company['Working Days']
-  const lopDays = emp['LOP Days'] || 0
+  const paidDays = payroll.paidDays
+  const lopDays = payroll.lopDays
+  const workingDays = payroll.workingDays || company['Working Days']
 
   sections.push(
     new Table({
@@ -465,7 +468,7 @@ export function buildPayslip(
         new TableRow({
           cells: [
             createQuickBarCell('Pay Date', payDate),
-            createQuickBarCell('Working Days', company['Working Days']),
+            createQuickBarCell('Working Days', workingDays),
             createQuickBarCell('LOP Days', lopDays),
             createQuickBarCell('Paid Days', paidDays),
           ],
@@ -496,16 +499,20 @@ export function buildPayslip(
   // =========================================================================
   // SECTION 5 - EARNINGS & DEDUCTIONS
   // =========================================================================
-  const { earnings, gross } = buildEarningsData(emp, structure)
-  const { deductions, totalDed } = buildDeductionsData(emp, structure)
-
-  sections.push(createEarningsDeductionsTable(earnings, gross, deductions, totalDed))
+  sections.push(
+    createEarningsDeductionsTable(
+      payroll.earnings.map((e) => ({ name: e.name, amount: e.month })),
+      payroll.gross,
+      payroll.deductions.map((d) => ({ name: d.name, amount: d.month })),
+      payroll.totalDeductions
+    )
+  )
   sections.push(new Paragraph({ text: '', spacing: { after: 200 } } as any))
 
   // =========================================================================
   // SECTION 6 - NET PAY
   // =========================================================================
-  const netPay = gross - totalDed
+  const netPay = payroll.netPay
   sections.push(
     new Paragraph({
       text: `NET PAY: Rs. ${formatAmount(netPay)}`,
@@ -745,28 +752,139 @@ export function buildDeductionsData(
   return { deductions, totalDed }
 }
 
-/** Net pay (take-home) — same formula as payslip PDF: gross − deductions including LOP. */
+export type PayslipPayrollLine = {
+  name: string
+  month: number
+  ytd: number
+}
+
+export type PayslipPayrollSummary = {
+  earnings: PayslipPayrollLine[]
+  deductions: PayslipPayrollLine[]
+  gross: number
+  grossYtd: number
+  totalDeductions: number
+  totalDedYtd: number
+  netPay: number
+  lopDays: number
+  lopAmount: number
+  workingDays: number
+  paidDays: number
+}
+
+export function roundPayrollAmount(value: number): number {
+  return Math.round(value * 100) / 100
+}
+
+/** Resolve YTD for a payroll component from employee row or month fallback. */
+export function getComponentYtd(
+  emp: Employee,
+  componentName: string,
+  monthAmount: number
+): number {
+  const ytdMap = emp['_componentYtd'] as Record<string, number> | undefined
+  if (ytdMap && componentName in ytdMap) {
+    return parseAmount(ytdMap[componentName])
+  }
+  for (const key of [`${componentName} YTD`, `YTD ${componentName}`, `${componentName} Ytd`]) {
+    if (emp[key] !== undefined && emp[key] !== '') {
+      return parseAmount(emp[key])
+    }
+  }
+  return monthAmount
+}
+
+export function resolvePaidDays(
+  emp: Employee,
+  company: Company
+): { workingDays: number; lopDays: number; paidDays: number } {
+  const lopDays = parseAmount(emp['LOP Days'])
+  const workingDays = parseAmount(company['Working Days'])
+  const paidFromEmp = parseAmount(emp['Paid Days'])
+  const paidDays =
+    paidFromEmp > 0
+      ? paidFromEmp
+      : workingDays > 0
+        ? Math.max(0, workingDays - lopDays)
+        : 0
+  return { workingDays, lopDays, paidDays }
+}
+
+export function resolveLopAmount(
+  emp: Employee,
+  structure: SalaryStructure,
+  gross: number,
+  lopDays: number,
+  paidDays: number
+): number {
+  const explicit = parseAmount(emp['Loss of Pay'])
+  if (explicit > 0) return roundPayrollAmount(explicit)
+  if (lopDays > 0 && gross > 0 && paidDays > 0) {
+    return roundPayrollAmount((gross / paidDays) * lopDays)
+  }
+  return roundPayrollAmount(parseAmount(structure['Loss of Pay']?.default))
+}
+
+/** Single source of truth for earnings, deductions, totals, and net pay. */
+export function buildPayslipPayrollSummary(
+  emp: Employee,
+  structure: SalaryStructure,
+  company: Company
+): PayslipPayrollSummary {
+  const { earnings, gross: structureGross } = buildEarningsData(emp, structure)
+  const { deductions } = buildDeductionsData(emp, structure)
+  const { workingDays, lopDays, paidDays } = resolvePaidDays(emp, company)
+  const lopAmount = resolveLopAmount(emp, structure, structureGross, lopDays, paidDays)
+
+  const allDeductions = deductions.filter((d) => d.name !== 'Loss of Pay')
+  if (lopAmount > 0 || lopDays > 0) {
+    allDeductions.push({ name: 'Loss of Pay', amount: lopAmount })
+  }
+
+  const earningsLines: PayslipPayrollLine[] = earnings.map((e) => ({
+    name: e.name,
+    month: e.amount,
+    ytd: getComponentYtd(emp, e.name, e.amount),
+  }))
+
+  const deductionLines: PayslipPayrollLine[] = allDeductions.map((d) => ({
+    name: d.name,
+    month: d.amount,
+    ytd: getComponentYtd(emp, d.name, d.amount),
+  }))
+
+  const gross = roundPayrollAmount(earningsLines.reduce((sum, row) => sum + row.month, 0))
+  const grossYtd = roundPayrollAmount(earningsLines.reduce((sum, row) => sum + row.ytd, 0))
+  const totalDeductions = roundPayrollAmount(
+    deductionLines.reduce((sum, row) => sum + row.month, 0)
+  )
+  const totalDedYtd = roundPayrollAmount(
+    deductionLines.reduce((sum, row) => sum + row.ytd, 0)
+  )
+  const netPay = roundPayrollAmount(gross - totalDeductions)
+
+  return {
+    earnings: earningsLines,
+    deductions: deductionLines,
+    gross,
+    grossYtd,
+    totalDeductions,
+    totalDedYtd,
+    netPay,
+    lopDays,
+    lopAmount,
+    workingDays,
+    paidDays,
+  }
+}
+
+/** Net pay (take-home) — gross earnings minus all deductions including LOP. */
 export function computeNetPay(
   emp: Employee,
   structure: SalaryStructure,
   company: Company
 ): number {
-  const { gross } = buildEarningsData(emp, structure)
-  const { deductions } = buildDeductionsData(emp, structure)
-  const lopDays = parseAmount(emp['LOP Days'])
-  const workingDays = parseAmount(company['Working Days']) || 26
-  const paidDays = parseAmount(emp['Paid Days']) || workingDays - lopDays
-  const lopAmount =
-    parseAmount(emp['Loss of Pay']) ||
-    (lopDays > 0 && gross > 0 && paidDays > 0
-      ? Math.round((gross / paidDays) * lopDays * 100) / 100
-      : parseAmount(structure['Loss of Pay']?.default))
-  const allDeductions = deductions.filter((d) => d.name !== 'Loss of Pay')
-  if (lopAmount > 0 || lopDays > 0) {
-    allDeductions.push({ name: 'Loss of Pay', amount: lopAmount })
-  }
-  const totalDedWithLop = allDeductions.reduce((s, d) => s + d.amount, 0)
-  return Math.round((gross - totalDedWithLop) * 100) / 100
+  return buildPayslipPayrollSummary(emp, structure, company).netPay
 }
 
 function createEarningsDeductionsTable(

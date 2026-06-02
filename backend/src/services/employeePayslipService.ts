@@ -2,6 +2,11 @@ import { randomUUID } from 'crypto'
 import { getDB } from '../config/db'
 import type { Company } from './payslipGenerator'
 import { parsePayPeriodFromCompany } from './payrollYtdService'
+import {
+  getEmployeeLoginEmails,
+  getPayslipEmailCandidates,
+  resolveEmployeeForAuthUser,
+} from '../utils/employeeAuth'
 
 export interface EmployeePayslipRecord {
   id: string
@@ -72,7 +77,8 @@ export async function sendPayslipToEmployee(params: {
     )
   }
 
-  const employeeEmail = String(employee.email || '').toLowerCase()
+  const loginEmails = getEmployeeLoginEmails(employee)
+  const employeeEmail = loginEmails[0]
   if (!employeeEmail) {
     throw new Error('Employee has no email on file — cannot deliver payslip to dashboard')
   }
@@ -92,20 +98,10 @@ export async function sendPayslipToEmployee(params: {
     }
   }
 
-  let existing: EmployeePayslipRecord | null = null
-  if (periodKey) {
-    existing = await payslipsCollection().findOne({
-      $or: [
-        { employeeDbId, payPeriodKey: periodKey },
-        { employeeEmail, payPeriodKey: periodKey },
-      ],
-    })
-  } else {
-    existing = await payslipsCollection().findOne({
-      batchId: params.batchId,
-      fileName: params.fileName,
-    })
-  }
+  let existing: EmployeePayslipRecord | null = await payslipsCollection().findOne({
+    batchId: params.batchId,
+    fileName: params.fileName,
+  })
 
   const record: EmployeePayslipRecord = {
     id: existing?.id ?? randomUUID(),
@@ -121,25 +117,11 @@ export async function sendPayslipToEmployee(params: {
     sentAt: new Date(),
   }
 
-  if (periodKey) {
-    await payslipsCollection().deleteMany({
-      $or: [
-        { employeeDbId, payPeriodKey: periodKey, id: { $ne: record.id } },
-        { employeeEmail, payPeriodKey: periodKey, id: { $ne: record.id } },
-      ],
-    })
-    await payslipsCollection().updateOne(
-      { employeeDbId, payPeriodKey: periodKey },
-      { $set: record },
-      { upsert: true }
-    )
-  } else {
-    await payslipsCollection().updateOne(
-      { batchId: params.batchId, fileName: params.fileName },
-      { $set: record },
-      { upsert: true }
-    )
-  }
+  await payslipsCollection().updateOne(
+    { batchId: params.batchId, fileName: params.fileName },
+    { $set: record },
+    { upsert: true }
+  )
 
   return { record, replaced: !!existing }
 }
@@ -161,9 +143,10 @@ export async function listSentFlagsForBatch(
 }
 
 function payslipPeriodKey(doc: EmployeePayslipRecord): string {
+  if (doc.batchId && doc.payPeriodKey) return `${doc.batchId}|${doc.payPeriodKey}`
   if (doc.payPeriodKey) return doc.payPeriodKey
   const fromLabel = resolvePayPeriodKey(undefined, doc.payMonth)
-  if (fromLabel) return fromLabel
+  if (fromLabel) return `${doc.batchId}|${fromLabel}`
   return `${doc.batchId}:${doc.fileName}`
 }
 
@@ -179,12 +162,23 @@ async function enrichRecordWithNetPay(doc: EmployeePayslipRecord): Promise<Emplo
   }
 }
 
-export async function getPayslipsForEmployeeEmail(email: string): Promise<EmployeePayslipRecord[]> {
-  const all = await payslipsCollection()
-    .find({ employeeEmail: email.toLowerCase().trim() })
-    .sort({ sentAt: -1 })
-    .toArray()
+async function payslipAccessOrClauses(
+  userId: string,
+  email?: string
+): Promise<Record<string, unknown>[]> {
+  const employee = await resolveEmployeeForAuthUser(userId, email)
+  const candidates = await getPayslipEmailCandidates(userId, email)
+  const clauses: Record<string, unknown>[] = []
+  if (candidates.length) {
+    clauses.push({ employeeEmail: { $in: candidates } })
+  }
+  if (employee?.id) {
+    clauses.push({ employeeDbId: String(employee.id) })
+  }
+  return clauses
+}
 
+function dedupePayslipRecords(all: EmployeePayslipRecord[]): EmployeePayslipRecord[] {
   const byPeriod = new Map<string, EmployeePayslipRecord>()
   for (const doc of all) {
     const key = payslipPeriodKey(doc)
@@ -194,10 +188,35 @@ export async function getPayslipsForEmployeeEmail(email: string): Promise<Employ
     }
   }
 
-  const deduped = [...byPeriod.values()].sort(
+  return [...byPeriod.values()].sort(
     (a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime()
   )
+}
 
+export async function getPayslipsForAuthUser(
+  userId: string,
+  email?: string
+): Promise<EmployeePayslipRecord[]> {
+  const orClauses = await payslipAccessOrClauses(userId, email)
+  if (!orClauses.length) return []
+
+  const all = await payslipsCollection()
+    .find({ $or: orClauses })
+    .sort({ sentAt: -1 })
+    .toArray()
+
+  const deduped = dedupePayslipRecords(all)
+  return Promise.all(deduped.map((doc) => enrichRecordWithNetPay(doc)))
+}
+
+/** @deprecated Use getPayslipsForAuthUser — kept for scripts/tests. */
+export async function getPayslipsForEmployeeEmail(email: string): Promise<EmployeePayslipRecord[]> {
+  const all = await payslipsCollection()
+    .find({ employeeEmail: email.toLowerCase().trim() })
+    .sort({ sentAt: -1 })
+    .toArray()
+
+  const deduped = dedupePayslipRecords(all)
   return Promise.all(deduped.map((doc) => enrichRecordWithNetPay(doc)))
 }
 
@@ -257,11 +276,15 @@ export async function clearSentPayslipsForBatch(batchId: string): Promise<void> 
 
 export async function getPayslipByIdForEmployee(
   payslipId: string,
-  email: string
+  userId: string,
+  email?: string
 ): Promise<EmployeePayslipRecord | null> {
+  const orClauses = await payslipAccessOrClauses(userId, email)
+  if (!orClauses.length) return null
+
   return payslipsCollection().findOne({
     id: payslipId,
-    employeeEmail: email.toLowerCase().trim(),
+    $or: orClauses,
   })
 }
 

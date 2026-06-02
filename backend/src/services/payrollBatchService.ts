@@ -298,27 +298,9 @@ export async function getLatestPayrollBatch(): Promise<PayrollBatch | null> {
   return enrichBatchWithSentStatus(batch)
 }
 
-export async function listPayrollBatches(limit = 20): Promise<PayrollBatch[]> {
-  const raw = await batchesCollection().find({}).sort({ uploadedAt: -1 }).toArray()
-  const byPeriod = new Map<string, PayrollBatch>()
-  const noPeriod: PayrollBatch[] = []
-
-  for (const b of raw) {
-    const key = batchPayPeriodKey(b)
-    if (!key) {
-      noPeriod.push(b)
-      continue
-    }
-    if (!byPeriod.has(key)) {
-      byPeriod.set(key, b)
-    }
-  }
-
-  const merged = [...byPeriod.values(), ...noPeriod].sort(
-    (a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
-  )
-
-  return Promise.all(merged.slice(0, limit).map((b) => enrichBatchWithSentStatus(b)))
+export async function listPayrollBatches(limit = 100): Promise<PayrollBatch[]> {
+  const raw = await batchesCollection().find({}).sort({ uploadedAt: -1 }).limit(limit).toArray()
+  return Promise.all(raw.map((b) => enrichBatchWithSentStatus(b)))
 }
 
 export function readBatchExcel(batchId: string): Buffer {

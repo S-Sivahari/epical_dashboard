@@ -15,6 +15,7 @@ export interface EmployeeDashboardPayslip {
   id: string
   employeeId: string
   payMonth: string
+  payPeriodKey?: string
   fileName: string
   sentAt: string
   /** Present when the API includes payroll breakdown fields */
@@ -107,6 +108,7 @@ export interface UploadPayrollOptions {
   templateId?: TemplateId
   replaceBatchId?: string
   resendPayslips?: boolean
+  allowDuplicatePayPeriod?: boolean
   employeeDbIdByEmpId?: Record<string, string>
 }
 
@@ -128,6 +130,9 @@ export async function uploadPayroll(
   }
   if (options.resendPayslips) {
     formData.append('resendPayslips', 'true')
+  }
+  if (options.allowDuplicatePayPeriod) {
+    formData.append('allowDuplicatePayPeriod', 'true')
   }
   if (options.employeeDbIdByEmpId && Object.keys(options.employeeDbIdByEmpId).length > 0) {
     formData.append('employeeDbIdByEmpId', JSON.stringify(options.employeeDbIdByEmpId))
