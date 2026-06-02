@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Eye, Ticket as TicketIcon, Clock, Loader2, CheckCircle2, Sparkles, LayoutGrid } from 'lucide-react'
+import {
+  Eye,
+  Ticket as TicketIcon,
+  Clock,
+  Loader2,
+  CheckCircle2,
+  LayoutGrid,
+  X,
+  Search,
+} from 'lucide-react'
 import { PageWrapper } from '@components/layout/PageWrapper'
-import { Input } from '@components/ui/Input'
-import { SelectField } from '@components/forms/SelectField'
 import { Button } from '@components/ui/Button'
-import { Badge } from '@components/ui/Badge'
 import {
   TicketDetailModal,
-  priorityVariant,
-  statusVariant,
 } from '@pages/admin/Tickets/TicketDetailModal'
 import type { Ticket, TicketStatus } from '@/types'
 import { cn } from '@/utils/cn'
@@ -21,14 +25,49 @@ type SectionFilter = 'all' | TicketStatus
 
 const BOARD_STATUSES = ['Pending', 'In Progress', 'Completed'] as const
 
-const SECTION_COPY: Record<TicketStatus, { title: string; badgeLabel: string }> = {
-  Pending: { title: 'Pending', badgeLabel: 'Pending' },
-  'In Progress': { title: 'In Progress', badgeLabel: 'In Progress' },
-  Completed: { title: 'Completed', badgeLabel: 'Completed' },
+const COLUMN_META: Record<
+  TicketStatus,
+  {
+    label: string
+    icon: typeof Clock
+    column: string
+    header: string
+    iconBox: string
+    count: string
+    empty: string
+  }
+> = {
+  Pending: {
+    label: 'Pending',
+    icon: Clock,
+    column: 'bg-red-50/95 ring-1 ring-red-200/70',
+    header: 'border-b border-red-200/60 bg-red-50/80',
+    iconBox: 'bg-red-100 text-red-700 ring-red-300/40',
+    count: 'bg-white/90 text-red-800 ring-red-200/80',
+    empty: 'border-red-200/70 bg-red-50/50',
+  },
+  'In Progress': {
+    label: 'In Progress',
+    icon: Loader2,
+    column: 'bg-emerald-50/95 ring-1 ring-emerald-200/70',
+    header: 'border-b border-emerald-200/60 bg-emerald-50/80',
+    iconBox: 'bg-emerald-100 text-emerald-700 ring-emerald-300/40',
+    count: 'bg-white/90 text-emerald-800 ring-emerald-200/80',
+    empty: 'border-emerald-200/70 bg-emerald-50/50',
+  },
+  Completed: {
+    label: 'Completed',
+    icon: CheckCircle2,
+    column: 'bg-teal-50/95 ring-1 ring-teal-200/70',
+    header: 'border-b border-teal-200/60 bg-teal-50/80',
+    iconBox: 'bg-teal-100 text-teal-700 ring-teal-300/40',
+    count: 'bg-white/90 text-teal-800 ring-teal-200/80',
+    empty: 'border-teal-200/70 bg-teal-50/50',
+  },
 }
 
 const tabItems: Array<{ id: SectionFilter; label: string; icon: typeof TicketIcon }> = [
-  { id: 'all', label: 'All Tickets', icon: LayoutGrid },
+  { id: 'all', label: 'All', icon: LayoutGrid },
   { id: 'Pending', label: 'Pending', icon: Clock },
   { id: 'In Progress', label: 'In Progress', icon: Loader2 },
   { id: 'Completed', label: 'Completed', icon: CheckCircle2 },
@@ -42,6 +81,24 @@ function formatCreatedAt(raw: Ticket['createdAt']): string {
     return String(raw)
   }
 }
+
+function priorityPillClass(priority: string): string {
+  switch (priority) {
+    case 'Critical':
+      return 'bg-red-100 text-red-800 ring-red-200/70'
+    case 'High':
+      return 'bg-rose-100 text-rose-800 ring-rose-200/70'
+    case 'Medium':
+      return 'bg-amber-100 text-amber-800 ring-amber-200/70'
+    case 'Low':
+      return 'bg-sky-100 text-sky-800 ring-sky-200/70'
+    default:
+      return 'bg-slate-100 text-slate-700 ring-slate-200/70'
+  }
+}
+
+const filterFieldClass =
+  'h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
 
 export function TicketManagement() {
   const tickets = useTicketStore((s) => s.tickets)
@@ -123,8 +180,7 @@ export function TicketManagement() {
     [tickets],
   )
 
-  const visibleStatuses =
-    sectionFilter === 'all' ? BOARD_STATUSES : ([sectionFilter] as readonly TicketStatus[])
+  const hasActiveFilters = !!(q || employeeIdFilter || priority !== 'all')
 
   const isMoveForward = (id: string) => moving?.id === id && moving?.dir === 'forward'
   const isMoveBack = (id: string) => moving?.id === id && moving?.dir === 'back'
@@ -193,155 +249,215 @@ export function TicketManagement() {
   const modalTicket =
     detailTicket ?? (selectedId ? (tickets.find((t) => t.id === selectedId) ?? null) : null)
 
-  const renderTicketTable = (statusCol: TicketStatus, rows: Ticket[]) => {
-    const meta = SECTION_COPY[statusCol]
-    const badgeVariant = statusVariant(statusCol)
+  const clearFilters = () => {
+    setQ('')
+    setEmployeeIdFilter('')
+    setPriority('all')
+  }
+
+  const visibleStatuses =
+    sectionFilter === 'all' ? BOARD_STATUSES : ([sectionFilter] as readonly TicketStatus[])
+
+  const renderTicketCard = (statusCol: TicketStatus, ticket: Ticket) => (
+    <article
+      key={ticket.id}
+      className="mb-3 cursor-pointer rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm transition-all hover:border-slate-300 hover:shadow-md"
+      onClick={() => openDetail(ticket.id)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          openDetail(ticket.id)
+        }
+      }}
+    >
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <h3 className="line-clamp-2 text-sm font-medium capitalize text-slate-800">{ticket.title}</h3>
+          <p className="mt-0.5 font-mono text-[10px] text-slate-400">{ticket.id}</p>
+        </div>
+      </div>
+
+      <p className="text-xs text-slate-500">
+        <span className="font-medium text-slate-600">{ticket.employeeName}</span>
+        <span className="mx-1 text-slate-300">·</span>
+        <span className="font-mono">{ticket.employeeId}</span>
+      </p>
+      <p className="mt-1 text-xs text-slate-400">{formatCreatedAt(ticket.createdAt)}</p>
+
+      <div
+        className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3"
+        onClick={(e) => e.stopPropagation()}
+        role="presentation"
+      >
+        <span
+          className={cn(
+            'inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset',
+            priorityPillClass(ticket.priority),
+          )}
+        >
+          {ticket.priority}
+        </span>
+
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
+          <Button
+            size="sm"
+            variant="secondary"
+            type="button"
+            className="h-7 border-slate-200 bg-white px-2 text-[11px] text-slate-700 shadow-sm hover:bg-slate-50"
+            onClick={() => openDetail(ticket.id)}
+          >
+            <Eye className="h-3.5 w-3.5" aria-hidden />
+            View
+          </Button>
+
+          {statusCol === 'Pending' && (
+            <Button
+              size="sm"
+              type="button"
+              disabled={moving !== null}
+              className="h-7 border-0 bg-emerald-600 px-2 text-[11px] text-white shadow-sm hover:bg-emerald-700"
+              onClick={() => void move(ticket.id, 'forward')}
+              loading={isMoveForward(ticket.id)}
+            >
+              → In Progress
+            </Button>
+          )}
+
+          {statusCol === 'In Progress' && (
+            <>
+              <Button
+                size="sm"
+                type="button"
+                disabled={moving !== null}
+                variant="secondary"
+                className="h-7 border-slate-200 bg-white px-2 text-[11px] text-slate-700 hover:bg-slate-50"
+                onClick={() => void move(ticket.id, 'back')}
+                loading={isMoveBack(ticket.id)}
+              >
+                ← Pending
+              </Button>
+              <Button
+                size="sm"
+                type="button"
+                disabled={moving !== null}
+                className="h-7 border-0 bg-emerald-600 px-2 text-[11px] text-white hover:bg-emerald-700"
+                onClick={() => void move(ticket.id, 'forward')}
+                loading={isMoveForward(ticket.id)}
+              >
+                Complete
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    </article>
+  )
+
+  const renderKanbanColumn = (statusCol: TicketStatus, rows: Ticket[]) => {
+    const meta = COLUMN_META[statusCol]
+    const Icon = meta.icon
 
     return (
-      <section key={statusCol} className="admin-tickets-column overflow-hidden rounded-xl">
-        <header className="admin-tickets-column-head flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="font-display text-sm font-bold">{meta.title}</h2>
-            <Badge variant={badgeVariant}>{meta.badgeLabel}</Badge>
+      <section
+        key={statusCol}
+        className={cn('flex min-h-0 min-w-0 flex-col rounded-xl', meta.column)}
+      >
+        <header
+          className={cn(
+            'flex shrink-0 items-center justify-between gap-2 px-3 py-2.5',
+            meta.header,
+          )}
+        >
+          <div className="flex min-w-0 items-center gap-2">
+            <span
+              className={cn(
+                'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg shadow-sm ring-1 ring-inset',
+                meta.iconBox,
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" aria-hidden />
+            </span>
+            <h2
+              className={cn(
+                'truncate text-sm font-semibold',
+                statusCol === 'Pending' ? 'text-red-950' : 'text-emerald-950',
+              )}
+            >
+              {meta.label}
+            </h2>
           </div>
-          <span className="text-sm font-bold tabular-nums text-white/80">{rows.length}</span>
+          <span
+            className={cn(
+              'rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums ring-1',
+              meta.count,
+            )}
+          >
+            {rows.length}
+          </span>
         </header>
 
-        {rows.length === 0 ? (
-          <p className="admin-tickets-column-empty py-10 text-center text-sm font-medium">
-            No tickets in this section.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="admin-tickets-table min-w-full border-collapse text-left text-sm">
-              <thead>
-                <tr>
-                  <th className="px-4 py-3">Issue / ID</th>
-                  <th className="px-4 py-3">Employee / ID</th>
-                  <th className="px-4 py-3">Created</th>
-                  <th className="px-4 py-3">Priority</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((t) => (
-                  <tr
-                    key={t.id}
-                    className="admin-tickets-row cursor-pointer transition-colors"
-                    onClick={() => openDetail(t.id)}
-                    role="presentation"
-                  >
-                    <td className="max-w-[220px] px-4 py-3 align-middle">
-                      <div className="line-clamp-2 font-semibold capitalize text-ink">{t.title}</div>
-                      <div className="mt-0.5 font-mono text-xs text-muted">{t.id}</div>
-                    </td>
-                    <td className="px-4 py-3 align-middle">
-                      <div className="font-medium text-ink">{t.employeeName}</div>
-                      <div className="mt-0.5 font-mono text-xs text-muted">{t.employeeId}</div>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 align-middle text-muted">
-                      {formatCreatedAt(t.createdAt)}
-                    </td>
-                    <td className="px-4 py-3 align-middle">
-                      <Badge variant={priorityVariant(t.priority)}>{t.priority}</Badge>
-                    </td>
-                    <td className="px-4 py-3 align-middle">
-                      <div
-                        className="flex flex-wrap items-center justify-end gap-2"
-                        onClick={(e) => e.stopPropagation()}
-                        role="presentation"
-                      >
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          type="button"
-                          className="admin-tickets-secondary-btn"
-                          onClick={() => openDetail(t.id)}
-                        >
-                          <Eye className="h-4 w-4" aria-hidden />
-                          View
-                        </Button>
-
-                        {statusCol === 'Pending' && (
-                          <Button
-                            size="sm"
-                            type="button"
-                            disabled={moving !== null}
-                            className="admin-dash-action-btn border-0"
-                            onClick={() => void move(t.id, 'forward')}
-                            loading={isMoveForward(t.id)}
-                          >
-                            → In Progress
-                          </Button>
-                        )}
-
-                        {statusCol === 'In Progress' && (
-                          <>
-                            <Button
-                              size="sm"
-                              type="button"
-                              disabled={moving !== null}
-                              variant="secondary"
-                              className="admin-tickets-secondary-btn"
-                              onClick={() => void move(t.id, 'back')}
-                              loading={isMoveBack(t.id)}
-                            >
-                              ← Pending
-                            </Button>
-                            <Button
-                              size="sm"
-                              type="button"
-                              disabled={moving !== null}
-                              className="admin-dash-action-btn border-0"
-                              onClick={() => void move(t.id, 'forward')}
-                              loading={isMoveForward(t.id)}
-                            >
-                              Mark completed
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-2">
+          {rows.length === 0 ? (
+            <div
+              className={cn(
+                'flex flex-col items-center justify-center rounded-lg border border-dashed px-3 py-8 text-center',
+                meta.empty,
+              )}
+            >
+              <TicketIcon className="mb-2 h-5 w-5 text-emerald-400/70" aria-hidden />
+              <p className="text-xs font-medium text-emerald-800/70">No tickets here</p>
+            </div>
+          ) : (
+            rows.map((t) => renderTicketCard(statusCol, t))
+          )}
+        </div>
       </section>
     )
   }
 
   return (
-    <PageWrapper className="relative z-10 py-3 font-body">
-      <div className="crewiq-dashboard admin-tickets-view">
-        <div className="admin-tickets-shell animate-fadeIn">
-          {/* Hero */}
-          <div className="admin-tickets-hero">
-            <div className="admin-tickets-hero-top">
-              <div className="min-w-0">
-                <h1 className="admin-tickets-hero-title font-display">Support Tickets</h1>
-                <p className="admin-tickets-hero-sub">Track, assign, and resolve employee requests</p>
-              </div>
-              <div className="admin-tickets-tab-rail">
+    <PageWrapper className="admin-tickets-page relative z-10 max-w-none px-0 py-0 font-body">
+      <div
+        className="flex h-full min-h-0 flex-col bg-emerald-50/40"
+        data-admin-tickets
+      >
+        <header className="shrink-0 border-b border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-base font-semibold tracking-tight text-slate-900">
+                Support Tickets
+              </h1>
+              <p className="mt-0.5 text-xs text-slate-500">
+                {loading
+                  ? 'Loading queue…'
+                  : `${narrowed.length} ticket${narrowed.length === 1 ? '' : 's'} matching filters`}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex flex-wrap items-center gap-1 rounded-lg border border-slate-200 bg-slate-50/80 p-0.5">
                 {tabItems.map((tab) => (
                   <button
                     key={tab.id}
                     type="button"
                     onClick={() => setSectionFilter(tab.id)}
                     className={cn(
-                      'inline-flex items-center gap-1 rounded-[6px] px-2.5 py-1 text-[11px] font-bold transition-all duration-200',
+                      'inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold transition-colors',
                       sectionFilter === tab.id
-                        ? 'admin-dash-action-btn-sm text-white'
-                        : 'admin-tickets-tab-inactive',
+                        ? 'bg-white text-emerald-700 shadow-sm ring-1 ring-slate-200/80'
+                        : 'text-slate-600 hover:bg-white/80 hover:text-slate-900',
                     )}
                   >
                     <tab.icon className="h-3 w-3 shrink-0" />
                     {tab.label}
                     <span
                       className={cn(
-                        'rounded-full px-1 py-px text-[9px] font-black tabular-nums leading-none',
-                        sectionFilter === tab.id ? 'bg-white/20 text-white' : 'bg-white/15 text-white/80',
+                        'rounded-full px-1.5 py-px text-[9px] font-bold tabular-nums',
+                        sectionFilter === tab.id
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-slate-200/80 text-slate-600',
                       )}
                     >
                       {statusCounts[tab.id]}
@@ -349,115 +465,92 @@ export function TicketManagement() {
                   </button>
                 ))}
               </div>
-            </div>
-            <div className="admin-tickets-metrics-band">
-              <div className="admin-tickets-metric-glass">
-                <p className="admin-tickets-metric-label">Pending</p>
-                <p className="admin-tickets-metric-value font-display">{statusCounts.Pending}</p>
-              </div>
-              <div className="admin-tickets-metric-glass">
-                <p className="admin-tickets-metric-label">In Progress</p>
-                <p className="admin-tickets-metric-value font-display">{statusCounts['In Progress']}</p>
-              </div>
-              <div className="admin-tickets-metric-glass">
-                <p className="admin-tickets-metric-label">Completed</p>
-                <p className="admin-tickets-metric-value font-display">{statusCounts.Completed}</p>
-              </div>
-            </div>
-          </div>
 
-          <div className="admin-tickets-body-grid">
-            {/* Filters sidebar */}
-            <aside className="admin-tickets-sidebar space-y-4">
-              <p className="admin-tickets-sidebar-title">Filters</p>
-              <p className="text-xs font-medium leading-relaxed text-[var(--emerald-dark)]/80">
-                Search tickets and narrow by employee or priority. Auto-refreshes every 30 seconds.
-              </p>
-              <Input
-                label="Search"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Title or employee name..."
-              />
-              <Input
-                label="Employee ID"
-                value={employeeIdFilter}
-                onChange={(e) => setEmployeeIdFilter(e.target.value)}
-                placeholder="Filter by ID..."
-              />
-              <SelectField
-                label="Priority"
-                id="ticket-priority"
-                options={[
-                  { value: 'all', label: 'All priorities' },
-                  { value: 'Low', label: 'Low' },
-                  { value: 'Medium', label: 'Medium' },
-                  { value: 'High', label: 'High' },
-                  { value: 'Critical', label: 'Critical' },
-                ]}
-                value={priority}
-                onChange={(e) => setPriority(e.target.value)}
-              />
-              {(q || employeeIdFilter || priority !== 'all') && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full text-[var(--emerald-dark)]"
-                  onClick={() => {
-                    setQ('')
-                    setEmployeeIdFilter('')
-                    setPriority('all')
-                  }}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <div className="relative">
+                  <Search
+                    className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
+                    aria-hidden
+                  />
+                  <input
+                    type="text"
+                    aria-label="Search tickets"
+                    autoComplete="off"
+                    className={cn(filterFieldClass, 'w-36 pl-7 sm:w-44')}
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    placeholder="Search…"
+                  />
+                </div>
+                <input
+                  type="text"
+                  aria-label="Employee ID"
+                  autoComplete="off"
+                  className={cn(filterFieldClass, 'w-28')}
+                  value={employeeIdFilter}
+                  onChange={(e) => setEmployeeIdFilter(e.target.value)}
+                  placeholder="Employee ID"
+                />
+                <select
+                  aria-label="Priority"
+                  className={cn(filterFieldClass, 'w-32 cursor-pointer')}
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value)}
                 >
-                  Clear filters
-                </Button>
-              )}
-              <div className="admin-tickets-tip-box rounded-lg p-3 text-xs font-medium leading-relaxed">
-                <Sparkles className="mb-1.5 h-3.5 w-3.5 text-[var(--emerald-dark)]" />
-                Click a row to open details. Use action buttons to move tickets through the workflow.
+                  <option value="all">All priorities</option>
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                  <option value="Critical">Critical</option>
+                </select>
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+                    onClick={clearFilters}
+                  >
+                    <X className="h-3 w-3" aria-hidden />
+                    Clear
+                  </button>
+                )}
               </div>
-            </aside>
-
-            {/* Main board */}
-            <div className="admin-tickets-main-panel">
-              <div className="admin-tickets-panel-header">
-                <div>
-                  <h2 className="font-display text-sm font-bold text-[var(--emerald-dark)]">
-                    Ticket Board
-                  </h2>
-                  <p className="text-xs font-medium text-slate-600">
-                    {loading
-                      ? 'Loading...'
-                      : `${narrowed.length} ticket${narrowed.length === 1 ? '' : 's'} matching filters`}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--emerald-dark)]">
-                  <TicketIcon className="h-3.5 w-3.5" />
-                  Live queue
-                </div>
-              </div>
-
-              {loading && tickets.length === 0 ? (
-                <div className="admin-tickets-empty flex min-h-[240px] items-center justify-center rounded-xl">
-                  <p className="text-sm font-medium text-[var(--emerald-dark)]/70">Loading tickets…</p>
-                </div>
-              ) : !loading && tickets.length === 0 ? (
-                <div className="admin-tickets-empty flex min-h-[240px] flex-col items-center justify-center rounded-xl px-6 text-center">
-                  <TicketIcon className="mb-2 h-8 w-8 text-[var(--emerald-dark)]/40" />
-                  <p className="text-sm font-semibold text-[var(--emerald-dark)]">No tickets yet</p>
-                  <p className="mt-1 text-xs text-muted">
-                    Tickets appear when employees submit requests or after database seed.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {visibleStatuses.map((statusCol) =>
-                    renderTicketTable(statusCol, columns[statusCol]),
-                  )}
-                </div>
-              )}
             </div>
           </div>
+        </header>
+
+        <div className="flex min-h-0 flex-1 flex-col px-3 py-3">
+          <div className="mb-2 flex shrink-0 items-center justify-end gap-1.5 text-[11px] font-medium text-emerald-700">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+            </span>
+            Live queue
+          </div>
+
+          {loading && tickets.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white">
+              <p className="text-sm font-medium text-slate-500">Loading tickets…</p>
+            </div>
+          ) : !loading && tickets.length === 0 ? (
+            <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-6 text-center">
+              <TicketIcon className="mb-2 h-8 w-8 text-slate-300" />
+              <p className="text-sm font-semibold text-slate-800">No tickets yet</p>
+              <p className="mt-1 max-w-xs text-xs text-slate-500">
+                Tickets appear when employees submit support requests.
+              </p>
+            </div>
+          ) : (
+            <div
+              className={cn(
+                'grid min-h-0 flex-1 gap-3',
+                visibleStatuses.length === 1
+                  ? 'grid-cols-1'
+                  : 'grid-cols-1 lg:grid-cols-3',
+              )}
+            >
+              {visibleStatuses.map((statusCol) => renderKanbanColumn(statusCol, columns[statusCol]))}
+            </div>
+          )}
         </div>
 
         <TicketDetailModal

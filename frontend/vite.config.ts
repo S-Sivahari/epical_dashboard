@@ -10,6 +10,11 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    // Windows: avoid EBUSY when index.css is read during HMR (editor + Vite race)
+    watch: {
+      usePolling: true,
+      interval: 300,
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
