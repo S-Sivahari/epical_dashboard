@@ -1,4 +1,5 @@
 @import './styles/typography.css';
+@import './styles/employee-timesheet.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -1316,6 +1317,42 @@
 .admin-portal main:has([data-admin-dashboard]) > .relative {
   min-height: 0;
   overflow: visible;
+}
+
+/* Employee portal — command-center dashboard (same chrome heights as admin) */
+.employee-portal:has([data-employee-dashboard]) {
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.employee-portal main:has([data-employee-dashboard]) > .relative {
+  min-height: 0;
+  overflow: visible;
+}
+
+@media (min-width: 1024px) {
+  .employee-portal .admin-dashboard-view[data-employee-dashboard] {
+    height: calc(100dvh - var(--admin-cmd-bar-h) - var(--admin-top-nav-h));
+    max-height: calc(100dvh - var(--admin-cmd-bar-h) - var(--admin-top-nav-h));
+    overflow: hidden;
+  }
+}
+
+@media (max-width: 1023px) {
+  .employee-portal .admin-dashboard-view[data-employee-dashboard] {
+    height: auto;
+    max-height: none;
+    overflow-y: auto;
+  }
+
+  .employee-portal .admin-dashboard-view[data-employee-dashboard] .dashboard-shell {
+    height: auto;
+    overflow: visible;
+  }
+
+  .employee-portal .admin-dashboard-view[data-employee-dashboard] .dashboard-main-grid {
+    overflow: visible;
+  }
 }
 
 .admin-dashboard-view {
@@ -3683,14 +3720,16 @@
 }
 
 /* Section nav — seamless sage bar, black page labels */
-.admin-portal .admin-top-nav-refined {
+.admin-portal .admin-top-nav-refined,
+.employee-portal .admin-top-nav-refined {
   background: linear-gradient(180deg, #f6faf6 0%, #eef6ec 48%, #e8f2e6 100%);
   border: none;
   box-shadow: none;
   outline: none;
 }
 
-.admin-portal .admin-top-nav-refined .admin-top-nav-link {
+.admin-portal .admin-top-nav-refined .admin-top-nav-link,
+.employee-portal .admin-top-nav-refined .admin-top-nav-link {
   margin: 0.35rem 0.15rem;
   padding-top: 0.625rem;
   padding-bottom: 0.625rem;
@@ -3702,24 +3741,29 @@
   outline: none;
 }
 
-.admin-portal .admin-top-nav-refined .admin-top-nav-link-text {
+.admin-portal .admin-top-nav-refined .admin-top-nav-link-text,
+.employee-portal .admin-top-nav-refined .admin-top-nav-link-text {
   color: #0f172a;
 }
 
-.admin-portal .admin-top-nav-refined .admin-top-nav-link:focus-visible {
+.admin-portal .admin-top-nav-refined .admin-top-nav-link:focus-visible,
+.employee-portal .admin-top-nav-refined .admin-top-nav-link:focus-visible {
   outline: 2px solid rgba(47, 107, 79, 0.35);
   outline-offset: 1px;
 }
 
 .admin-portal .admin-top-nav-refined .admin-top-nav-link-active,
-.admin-portal .admin-top-nav-refined .admin-top-nav-link-active:hover {
+.admin-portal .admin-top-nav-refined .admin-top-nav-link-active:hover,
+.employee-portal .admin-top-nav-refined .admin-top-nav-link-active,
+.employee-portal .admin-top-nav-refined .admin-top-nav-link-active:hover {
   color: var(--dash-forest, #1a4329);
   border: 1px solid rgba(38, 107, 28, 0.28);
   background: var(--dash-mint-soft, #bbf7d0);
   box-shadow: 0 1px 4px rgba(38, 107, 28, 0.12);
 }
 
-.admin-portal .admin-top-nav-refined .admin-top-nav-link-active .admin-top-nav-link-text {
+.admin-portal .admin-top-nav-refined .admin-top-nav-link-active .admin-top-nav-link-text,
+.employee-portal .admin-top-nav-refined .admin-top-nav-link-active .admin-top-nav-link-text {
   color: var(--dash-forest, #1a4329);
   font-weight: 600;
 }
@@ -4244,7 +4288,9 @@
 
 /* ── Admin Company Calendar — dashboard theme + 125% scale ── */
 .admin-calendar-view[data-admin-calendar],
-.admin-portal .admin-calendar-view {
+.admin-calendar-view[data-employee-calendar],
+.admin-portal .admin-calendar-view,
+.employee-portal .admin-calendar-view {
   --calendar-font-scale: 1.25;
   --cal-forest: #1a4329;
   --cal-forest-header: #2f6b4f;
@@ -4321,6 +4367,46 @@
   overflow: hidden;
   padding-top: 0.625rem !important;
   padding-bottom: 0.5rem !important;
+}
+
+/* Employee company calendar — same viewport fit as admin */
+.employee-portal:has([data-employee-calendar]) {
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.employee-portal main:has([data-employee-calendar]) {
+  overflow: hidden;
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: calc(100dvh - var(--admin-cmd-bar-h) - var(--admin-top-nav-h));
+}
+
+.employee-portal main:has([data-employee-calendar]) > .relative {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.employee-portal .admin-calendar-page {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  width: 100%;
+  max-width: none !important;
+  min-height: 0;
+  overflow: hidden;
+  padding-top: 0.625rem !important;
+  padding-bottom: 0.5rem !important;
+}
+
+.employee-portal .admin-calendar-view.crewiq-dashboard {
+  flex: 1;
+  min-height: 0;
+  margin: 0 !important;
+  background: transparent;
 }
 
 .admin-portal .admin-calendar-view.crewiq-dashboard {
@@ -8368,8 +8454,24 @@ input[type='number'] {
 }
 
 /* Seamless header stack: command bar → horizontal nav → main */
-.admin-portal.cmd-portal .cmd-main {
+.admin-portal.cmd-portal .cmd-main,
+.employee-portal.cmd-portal .cmd-main {
   background: var(--dash-canvas, #e6ebe8);
+}
+
+.employee-portal.cmd-portal .cmd-main > .relative {
+  padding: 1rem;
+}
+
+@media (min-width: 768px) {
+  .employee-portal.cmd-portal .cmd-main > .relative {
+    padding: 1.25rem;
+  }
+}
+
+.employee-portal.cmd-portal .cmd-main > .relative:has([data-employee-dashboard]),
+.employee-portal.cmd-portal .cmd-main > .relative:has([data-employee-calendar]) {
+  padding: 0;
 }
 
 .cmd-main {
@@ -8479,7 +8581,8 @@ input[type='number'] {
   color: var(--text-secondary);
 }
 
-.admin-portal .cmd-bar {
+.admin-portal .cmd-bar,
+.employee-portal .cmd-bar {
   border: none;
   background: linear-gradient(180deg, #ffffff 0%, var(--dash-canvas, #e6ebe8) 100%);
   backdrop-filter: none;
@@ -8575,7 +8678,8 @@ input[type='number'] {
 }
 
 /* Horizontal admin nav — all items spread across full width */
-.admin-portal .admin-top-nav {
+.admin-portal .admin-top-nav,
+.employee-portal .admin-top-nav {
   background: linear-gradient(180deg, #f4f7f5 0%, var(--dash-canvas, #e6ebe8) 100%);
   border: none;
   box-shadow: none;
@@ -8589,14 +8693,26 @@ input[type='number'] {
   align-items: stretch;
 }
 
+.employee-portal .admin-top-nav-spread {
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+}
+
 @media (max-width: 1279px) {
   .admin-top-nav-spread {
     grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .employee-portal .admin-top-nav-spread {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 767px) {
   .admin-top-nav-spread {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .employee-portal .admin-top-nav-spread {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
