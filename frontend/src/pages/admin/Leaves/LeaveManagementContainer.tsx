@@ -370,7 +370,7 @@ export function LeaveManagementContainer() {
           <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-[270px_1fr_290px]">
 
             {/* ════════════════════════════════════════════════════════
-                LEFT COLUMN — Insights + Upcoming
+                LEFT COLUMN — Insights + Trend + Upcoming
             ════════════════════════════════════════════════════════ */}
             <div className="flex flex-col gap-3">
 
@@ -424,6 +424,21 @@ export function LeaveManagementContainer() {
                       <span className={`mt-1 text-xl font-bold ${text}`}>{count}</span>
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Trend chart */}
+              <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+                  <h3 className="text-xs font-bold text-gray-700">Leave Trend Over Time</h3>
+                </div>
+                <TrendLine points={trendPoints} />
+                <div className="mt-1 flex justify-between text-[9px] text-gray-400">
+                  {Array.from({ length: 7 }, (_, i) => {
+                    const d = new Date(); d.setMonth(d.getMonth() - (6 - i))
+                    return <span key={i}>{d.toLocaleString('default', { month: 'short' })}</span>
+                  })}
                 </div>
               </div>
 
@@ -604,36 +619,7 @@ export function LeaveManagementContainer() {
                 </div>
               </div>
 
-              {/* Trend chart */}
-              <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-                  <h3 className="text-xs font-bold text-gray-700">Leave Trend Over Time</h3>
-                </div>
-                <TrendLine points={trendPoints} />
-                <div className="mt-1 flex justify-between text-[9px] text-gray-400">
-                  {Array.from({ length: 7 }, (_, i) => {
-                    const d = new Date(); d.setMonth(d.getMonth() - (6 - i))
-                    return <span key={i}>{d.toLocaleString('default', { month: 'short' })}</span>
-                  })}
-                </div>
-              </div>
-
               {/* Quick action buttons */}
-              <div className="grid grid-cols-2 gap-2">
-                <Button size="sm"
-                  className="h-8 bg-emerald-700 hover:bg-emerald-800 text-white border-none font-semibold text-xs"
-                  onClick={() => setLeaveFilters((f) => ({ ...f, status: 'Pending' }))}
-                >
-                  New Request
-                </Button>
-                <Button size="sm" variant="secondary"
-                  className="h-8 border-gray-200 bg-white text-gray-700 hover:bg-gray-50 font-semibold text-xs"
-                  onClick={() => void handleExport('excel')} loading={exporting === 'excel'}
-                >
-                  Balance Adjust.
-                </Button>
-              </div>
               <Button size="sm" variant="secondary"
                 className="h-8 w-full border-gray-200 bg-white text-gray-700 hover:bg-gray-50 font-semibold text-xs"
                 onClick={() => void handleExport('pdf')} loading={exporting === 'pdf'}
