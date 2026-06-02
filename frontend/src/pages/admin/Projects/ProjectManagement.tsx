@@ -1957,10 +1957,21 @@ export function ProjectManagement() {
 
       const matchEmployee = matchesMultiFilter(tsEmployeeFilters, t.employeeName)
       const matchProject = matchesMultiFilter(tsProjectFilters, t.project)
-      const matchStatus = matchesMultiFilter(
-        tsStatusFilters,
-        getTimesheetWorkflowStatus(t)
-      )
+      
+      // FIXED: Filter by project status instead of timesheet workflow status
+      const matchStatus = (() => {
+        if (tsStatusFilters.length === 0) return true
+        
+        // Find the project for this timelog
+        const project = allProjects.find(p => 
+          p.name === t.project || p.id === t.projectId
+        )
+        
+        if (!project) return false
+        
+        // Check if project status matches any selected filter
+        return tsStatusFilters.includes(project.status)
+      })()
 
       return matchSearch && matchEmployee && matchProject && matchStatus
     })
@@ -1972,7 +1983,7 @@ export function ProjectManagement() {
     tsEmployeeFilters,
     tsProjectFilters,
     tsStatusFilters,
-    getEmployeeTeam,
+    allProjects,
   ])
 
   // Derived Project Hours based on filteredTimesheets
@@ -2804,8 +2815,9 @@ export function ProjectManagement() {
 
   const tsStatusFilterOptions = useMemo(
     () => [
+      { value: 'Active', label: 'In Progress' },
       { value: 'Completed', label: 'Completed' },
-      { value: 'In Progress', label: 'In Progress' },
+      { value: 'Cancelled', label: 'Cancelled' },
     ],
     []
   )
