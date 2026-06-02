@@ -1,11 +1,14 @@
 import { Bell } from 'lucide-react'
 import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@components/employee/ui/dropdown-menu'
 import { useNotificationStore, NOTIFICATION_POLL_MS } from '@store/notificationStore'
+import { getNotificationRoute } from '@utils/notificationNavigation'
 import { cn } from '@pages/employee/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
 
 export function NotificationDropdown() {
+  const navigate = useNavigate()
   const { notifications, unreadCount, fetchNotifications, fetchNotificationsSilent, fetchUnreadCount, fetchUnreadCountSilent, markAsRead, markAllAsRead, deleteNotification } = useNotificationStore()
 
   useEffect(() => {
@@ -16,6 +19,12 @@ export function NotificationDropdown() {
     }, NOTIFICATION_POLL_MS)
     return () => clearInterval(interval)
   }, [fetchUnreadCount, fetchUnreadCountSilent])
+
+  const handleNotificationClick = async (notification) => {
+    const route = getNotificationRoute(notification)
+    await deleteNotification(notification.id)
+    if (route) navigate(route)
+  }
 
   return (
     <DropdownMenu
@@ -55,7 +64,7 @@ export function NotificationDropdown() {
                   className={`flex items-start gap-3 px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer ${
                     !n.isRead ? 'bg-primary/5' : ''
                   }`}
-                  onClick={() => !n.isRead && markAsRead(n.id)}
+                  onClick={() => void handleNotificationClick(n)}
                 >
                   <div
                     className={`mt-1 h-2 w-2 rounded-full flex-shrink-0 ${

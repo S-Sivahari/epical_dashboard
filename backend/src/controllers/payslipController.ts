@@ -470,12 +470,8 @@ export const payslipController = {
         employeeDbIdByEmpId ?? {}
       )
 
-      // Fire notifications for each successfully sent payslip
-      const sentRecords = await getDB()
-        .collection('employee_payslips')
-        .find({ batchId })
-        .toArray()
-      for (const rec of sentRecords) {
+      // Notify only for payslips sent in this request (not previously sent in batch)
+      for (const rec of result.sentRecords) {
         await notifyAdminsAndEmployee({
           employeeDbId: String(rec.employeeDbId),
           employeeName: String(rec.employeeName),

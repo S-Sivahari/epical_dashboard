@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   FileSpreadsheet,
   FileText,
@@ -14,7 +15,6 @@ import {
   X,
   ChevronDown,
   ChevronRight,
-  Sparkles,
   Folder,
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
@@ -149,9 +149,13 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
   const { employees, loading: employeesLoading } = useEmployees()
   const userId = useAuthStore((s) => s.user?.id)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<TabId>('upload')
+  const [activeTab, setActiveTab] = useState<TabId>(() => {
+    const tab = searchParams.get('tab')
+    return tab === 'history' ? 'history' : 'upload'
+  })
 
   // Upload tab state — empty on open; only restored from current login session (refresh-safe)
   const [batch, setBatch] = useState<PayrollBatch | null>(null)
@@ -198,6 +202,16 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
       else clearPayslipUploadSession()
     },
     [userId],
+  )
+
+  const syncPayslipUrl = useCallback(
+    (tab: TabId, batchId?: string | null) => {
+      const params = new URLSearchParams()
+      params.set('tab', tab)
+      if (tab === 'upload' && batchId) params.set('batchId', batchId)
+      setSearchParams(params, { replace: true })
+    },
+    [setSearchParams],
   )
 
   const restoreSessionBatch = useCallback(async () => {
@@ -265,6 +279,64 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
     setHistoryYear(String(period.year))
     setHistoryMonth(String(period.month))
   }, [allBatches, historyYear])
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab')
+    if (tabParam === 'history' || tabParam === 'upload') {
+      setActiveTab(tabParam)
+    }
+  }, [searchParams])
+
+  useEffect(() => {
+    const batchIdParam = searchParams.get('batchId')
+    if (!batchIdParam || batch?.id === batchIdParam) return
+
+    let cancelled = false
+    void (async () => {
+      setLoadingBatch(true)
+      try {
+        const loaded = await getPayrollBatch(batchIdParam)
+        if (!cancelled) {
+          setUploadBatch(loaded)
+          setActiveTab('upload')
+        }
+      } catch {
+        if (!cancelled) toast.error('Could not load payslip batch')
+      } finally {
+        if (!cancelled) setLoadingBatch(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [searchParams, batch?.id, setUploadBatch])
+
+  const periodBatches = useMemo(() => {
+    if (!batch?.payPeriodKey) return batch ? [batch] : []
+    return allBatches
+      .filter((b) => b.payPeriodKey === batch.payPeriodKey)
+      .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime())
+  }, [allBatches, batch])
+
+  const handleSwitchBatch = async (batchId: string) => {
+    if (batch?.id === batchId) return
+    setLoadingBatch(true)
+    try {
+      const loaded = await getPayrollBatch(batchId)
+      setUploadBatch(loaded)
+      syncPayslipUrl('upload', batchId)
+    } catch {
+      toast.error('Failed to load batch')
+    } finally {
+      setLoadingBatch(false)
+    }
+  }
+
+  const handleTabChange = (tab: TabId) => {
+    setActiveTab(tab)
+    syncPayslipUrl(tab, tab === 'upload' ? batch?.id : null)
+  }
 
   useEffect(() => {
     if (activeTab === 'history') {
@@ -415,6 +487,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
         toast.success(`New payslip batch saved for ${newBatch.payMonth || 'this period'}`)
       }
       void loadAllBatches()
+      syncPayslipUrl('upload', newBatch.id)
     } catch (error: unknown) {
       const dup = (
         error as Error & { duplicatePayPeriod?: { payMonth?: string; existingBatch: PayrollBatch } }
@@ -593,14 +666,14 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
       render: (r) => {
         if (r.sent) {
           return (
-            <span className="inline-flex items-center gap-1 text-sm font-semibold text-[var(--emerald-dark)]">
+            <span className="inline-flex items-center gap-1 text-sm font-semibold admin-payslips-text-brand">
               <CheckCircle2 className="h-4 w-4" /> Sent to dashboard
             </span>
           )
         }
         if (r.status === 'success') {
           return (
-            <span className="inline-flex items-center gap-1 text-sm font-semibold text-[#2f7d24]">
+            <span className="inline-flex items-center gap-1 text-sm font-semibold text-[#2f6b4f]">
               <CheckCircle2 className="h-4 w-4" /> Generated
             </span>
           )
@@ -675,7 +748,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
             </Button>
             <Button
               size="sm"
-              className="admin-dash-action-btn border-0"
+              className="admin-payslips-primary-btn border-0"
               disabled={r.sent || sendingId === r.empId}
               onClick={() => void handleSend(r.empId, r.fileName!, r.name, r.employeeDbId)}
             >
@@ -739,7 +812,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
         <div className="flex flex-wrap gap-2">
           <Button
             size="sm"
-            className="admin-dash-action-btn border-0"
+            className="admin-payslips-primary-btn border-0"
             disabled={sendingAll || unsentCount === 0}
             onClick={handleSendAll}
           >
@@ -820,8 +893,8 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
         striped={isAdminPayslips}
         empty={
           <div className={cn('py-10 text-center', isAdminPayslips && 'admin-payslip-empty')}>
-            <FileText className={cn('mx-auto mb-2 h-8 w-8', isAdminPayslips ? 'text-[var(--emerald-dark)]/40' : 'text-muted')} />
-            <p className={isAdminPayslips ? 'text-sm font-semibold text-[var(--emerald-dark)]' : 'text-muted'}>
+            <FileText className={cn('mx-auto mb-2 h-8 w-8', isAdminPayslips ? 'admin-payslips-text-brand-muted' : 'text-muted')} />
+            <p className={isAdminPayslips ? 'text-sm font-semibold admin-payslips-text-brand' : 'text-muted'}>
               No payslips generated yet.
             </p>
             <p className="mt-1 text-xs text-muted">Upload an Excel payroll file to generate payslips.</p>
@@ -834,54 +907,82 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <PageWrapper className={cn(isAdminPayslips ? 'relative z-10 py-2 font-body' : 'admin-page')}>
-      <div className={cn('crewiq-dashboard', isAdminPayslips && 'admin-payslips-view')}>
+    <PageWrapper
+      className={cn(
+        isAdminPayslips
+          ? 'admin-hub-page-wrap admin-payslips-page relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden py-3 font-body max-w-none'
+          : 'admin-page',
+      )}
+    >
+      <div
+        className={cn(
+          'crewiq-dashboard',
+          isAdminPayslips && 'admin-payslips-view relative flex min-h-0 flex-1 flex-col',
+        )}
+        {...(isAdminPayslips ? { 'data-admin-payslips': '' } : {})}
+      >
         {isAdminPayslips ? (
-          <div className="admin-payslips-shell animate-fadeIn">
-            <div className="admin-payslips-hero">
-              <div className="admin-payslips-hero-top">
-                <div className="min-w-0">
-                  <h1 className="admin-payslips-hero-title font-display">Payslip Management</h1>
-                  <p className="admin-payslips-hero-sub">Upload payroll, generate PDFs, and publish to employee dashboards</p>
-                </div>
-                <div className="admin-payslips-hero-actions" role="toolbar" aria-label="Payslip actions">
-                  {tabItems.map(({ id, label, icon: Icon }) => (
-                    <button
-                      key={id}
-                      type="button"
-                      title={label}
-                      aria-label={label}
-                      aria-pressed={activeTab === id}
-                      onClick={() => setActiveTab(id)}
-                      className={cn(
-                        'admin-payslips-hero-icon-btn',
-                        activeTab === id && 'admin-payslips-hero-icon-btn--active',
-                      )}
-                    >
-                      <Icon className="h-3.5 w-3.5 shrink-0" />
-                    </button>
-                  ))}
-                  <span className="admin-payslips-hero-actions-divider" aria-hidden />
-                  <button
-                    type="button"
-                    title="Download Template"
-                    aria-label="Download Template"
-                    className="admin-payslips-hero-icon-btn"
-                    onClick={() => void handleDownloadTemplate()}
-                  >
-                    <FileSpreadsheet className="h-3.5 w-3.5 shrink-0" />
-                  </button>
-                </div>
-              </div>
+          <>
+            <div className="dashboard-page-bg" aria-hidden>
+              <div className="dashboard-page-bg-gradient" />
+              <div className="dashboard-page-bg-pattern" />
             </div>
+            <div className="admin-payslips-shell relative z-10 flex min-h-0 flex-1 animate-fadeIn flex-col">
+              <header className="admin-payslips-hub-header shrink-0">
+                <div className="admin-payslips-hero-top">
+                  <div className="min-w-0">
+                    <h1 className="admin-payslips-hero-title font-display">Payslip Management Hub</h1>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <nav className="admin-payslips-tab-rail" aria-label="Payslip views">
+                      {tabItems.map(({ id, label, icon: Icon }) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => handleTabChange(id)}
+                          className={
+                            activeTab === id
+                              ? 'admin-payslips-tab-btn admin-payslips-tab-btn--active'
+                              : 'admin-payslips-tab-btn admin-payslips-tab-btn--inactive'
+                          }
+                        >
+                          <Icon className="admin-payslips-tab-icon shrink-0" aria-hidden />
+                          <span className="admin-payslips-tab-label">{label}</span>
+                        </button>
+                      ))}
+                    </nav>
+                    <button
+                      type="button"
+                      className="admin-payslips-template-btn"
+                      onClick={() => void handleDownloadTemplate()}
+                    >
+                      <FileSpreadsheet className="h-4 w-4 shrink-0" aria-hidden />
+                      Download Template
+                    </button>
+                  </div>
+                </div>
+                <div className="admin-payslips-metrics-band" role="group" aria-label="Payslip metrics">
+                  <div className="admin-payslips-metric-tile">
+                    <p className="admin-payslips-metric-label">History Batches</p>
+                    <p className="admin-payslips-metric-value font-display">{allBatches.length}</p>
+                  </div>
+                  <div className="admin-payslips-metric-tile">
+                    <p className="admin-payslips-metric-label">Generated</p>
+                    <p className="admin-payslips-metric-value font-display">
+                      {batch?.totalGenerated ?? '—'}
+                    </p>
+                  </div>
+                  <div className="admin-payslips-metric-tile">
+                    <p className="admin-payslips-metric-label">Pending Send</p>
+                    <p className="admin-payslips-metric-value font-display">{unsentCount}</p>
+                  </div>
+                </div>
+              </header>
 
             {activeTab === 'upload' && (
               <div className="admin-payslips-body-grid">
                 <aside className="admin-payslips-sidebar space-y-4">
                   <p className="admin-payslips-sidebar-title">Upload Payroll</p>
-                  <p className="text-xs font-medium leading-relaxed text-[var(--emerald-dark)]/80">
-                    Choose an Excel file from the template, then generate payslip PDFs for all employees.
-                  </p>
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -903,31 +1004,71 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
                     </span>
                   )}
                   <Button
-                    className="admin-dash-action-btn w-full border-0"
+                    className="admin-payslips-primary-btn w-full border-0"
                     onClick={handleUploadAndProcess}
                     disabled={uploading || !selectedFile}
                   >
                     {uploading ? <Loader className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
                     Upload & Generate
                   </Button>
-                  <div className="admin-payslips-tip-box rounded-lg p-3 text-xs font-medium leading-relaxed">
-                    <Sparkles className="mb-1.5 h-3.5 w-3.5 text-[var(--emerald-dark)]" />
-                    Upload the fulfillment file, review generated PDFs, then Send All to publish to employee dashboards.
-                  </div>
                 </aside>
 
-                <div className="admin-payslips-main-panel space-y-3">
-                  <div className="admin-payslips-panel-header">
-                    <div>
-                      <h2 className="font-display text-sm font-bold text-[var(--emerald-dark)]">Current Batch</h2>
-                      <p className="text-xs font-medium text-slate-600">
-                        {batch ? batch.payMonth || 'Active upload session' : 'No payroll file processed yet'}
-                      </p>
+                <div className="admin-payslips-main-panel">
+                  <div className="admin-payslips-main-fixed space-y-3">
+                    <div className="admin-payslips-panel-header">
+                      <div>
+                        <h2 className="font-display text-sm font-extrabold admin-payslips-text-brand">Current Batch</h2>
+                        <p className="text-xs font-medium text-slate-600">
+                          {batch ? batch.payMonth || 'Active upload session' : 'No payroll file processed yet'}
+                        </p>
+                      </div>
                     </div>
+                    {batchKpiCards}
+                    {periodBatches.length > 1 && (
+                      <div className="admin-payslip-batch-switcher space-y-2 rounded-xl border border-[rgba(47,107,79,0.2)] bg-[rgba(47,107,79,0.04)] p-3">
+                        <p className="text-xs font-semibold admin-payslips-text-brand">
+                          {batch?.payMonth} — {periodBatches.length} uploads for this period
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {periodBatches.map((b, index) => {
+                            const label =
+                              periodBatches.length > 1
+                                ? index === 0
+                                  ? 'Latest upload'
+                                  : `Earlier upload ${periodBatches.length - index}`
+                                : 'Current upload'
+                            return (
+                              <button
+                                key={b.id}
+                                type="button"
+                                disabled={loadingBatch}
+                                onClick={() => void handleSwitchBatch(b.id)}
+                                className={cn(
+                                  'rounded-lg px-3 py-1.5 text-left text-xs font-medium transition-colors',
+                                  batch?.id === b.id
+                                    ? 'admin-payslips-chip-active text-white shadow-sm'
+                                    : 'admin-payslips-chip-inactive border bg-white hover:bg-[rgba(47,107,79,0.08)]',
+                                )}
+                              >
+                                <span className="block font-semibold">{label}</span>
+                                <span className={cn('block text-[10px]', batch?.id === b.id ? 'text-white/85' : 'text-muted')}>
+                                  {new Date(b.uploadedAt).toLocaleDateString('en-IN', {
+                                    day: '2-digit',
+                                    month: 'short',
+                                    year: 'numeric',
+                                  })}
+                                  {' · '}
+                                  {b.totalSent ?? 0}/{b.totalGenerated} sent
+                                </span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {batchSummary}
                   </div>
-                  {batchKpiCards}
-                  {batchSummary}
-                  {payslipTable}
+                  <div className="admin-payslips-list-scroll">{payslipTable}</div>
                 </div>
               </div>
             )}
@@ -936,9 +1077,6 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
               <div className="admin-payslips-body-grid">
                 <aside className="admin-payslips-sidebar space-y-4">
                   <p className="admin-payslips-sidebar-title">Filter History</p>
-                  <p className="text-xs font-medium leading-relaxed text-[var(--emerald-dark)]/80">
-                    Select a year and month to browse past payroll uploads.
-                  </p>
                   <SelectField
                     label="Year"
                     value={historyYear}
@@ -959,7 +1097,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="w-full text-[var(--emerald-dark)]"
+                      className="w-full admin-payslips-text-brand"
                       onClick={() => {
                         setHistoryYear('')
                         setHistoryMonth('')
@@ -971,30 +1109,33 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
                 </aside>
 
                 <div className="admin-payslips-main-panel">
-                  <div className="admin-payslips-panel-header">
-                    <div>
-                      <h2 className="font-display text-sm font-bold text-[var(--emerald-dark)]">Payroll History</h2>
-                      <p className="text-xs font-medium text-slate-600">
-                        {historyPeriodSelected
-                          ? `${filteredBatches.length} batch${filteredBatches.length === 1 ? '' : 'es'} for ${CALENDAR_MONTHS[parseInt(historyMonth, 10) - 1] ?? historyMonth} ${historyYear}`
-                          : 'Select a period to view uploads'}
-                      </p>
+                  <div className="admin-payslips-main-fixed">
+                    <div className="admin-payslips-panel-header">
+                      <div>
+                        <h2 className="font-display text-sm font-extrabold admin-payslips-text-brand">Payroll History</h2>
+                        <p className="text-xs font-medium text-slate-600">
+                          {historyPeriodSelected
+                            ? `${filteredBatches.length} batch${filteredBatches.length === 1 ? '' : 'es'} for ${CALENDAR_MONTHS[parseInt(historyMonth, 10) - 1] ?? historyMonth} ${historyYear}`
+                            : 'Select a period to view uploads'}
+                        </p>
+                      </div>
                     </div>
                   </div>
 
+                  <div className="admin-payslips-list-scroll admin-payslips-list-scroll--scrollable">
                   {loadingHistory ? (
                     <div className="admin-payslip-empty flex min-h-[240px] items-center justify-center rounded-xl">
-                      <Loader className="h-5 w-5 animate-spin text-[var(--emerald-dark)]" />
+                      <Loader className="h-5 w-5 animate-spin admin-payslips-text-brand" />
                     </div>
                   ) : !historyPeriodSelected ? (
                     <div className="admin-payslip-empty flex min-h-[240px] flex-col items-center justify-center rounded-xl px-6 text-center">
-                      <History className="mb-2 h-8 w-8 text-[var(--emerald-dark)]/40" />
-                      <p className="text-sm font-semibold text-[var(--emerald-dark)]">Select year and month</p>
+                      <History className="mb-2 h-8 w-8 admin-payslips-text-brand-muted" />
+                      <p className="text-sm font-semibold admin-payslips-text-brand">Select year and month</p>
                       <p className="mt-1 text-xs text-muted">Use the sidebar filters to browse payroll history.</p>
                     </div>
                   ) : filteredBatches.length === 0 ? (
                     <div className="admin-payslip-empty flex min-h-[240px] flex-col items-center justify-center rounded-xl px-6 text-center">
-                      <p className="text-sm font-semibold text-[var(--emerald-dark)]">No payroll for this period</p>
+                      <p className="text-sm font-semibold admin-payslips-text-brand">No payroll for this period</p>
                       <p className="mt-1 text-xs text-muted">
                         No upload for {CALENDAR_MONTHS[parseInt(historyMonth, 10) - 1] ?? historyMonth} {historyYear}.
                       </p>
@@ -1018,13 +1159,13 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
                               onClick={() => setExpandedBatchId(isExpanded ? null : b.id)}
                             >
                               <div className="flex min-w-0 items-center gap-3">
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[rgba(38,107,28,0.12)]">
-                                  <FileText className="h-5 w-5 text-[var(--emerald-dark)]" />
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[rgba(47,107,79,0.12)]">
+                                  <FileText className="h-5 w-5 admin-payslips-text-brand" />
                                 </div>
                                 <div className="min-w-0">
                                   <p className="truncate font-semibold text-ink">{b.payMonth || 'Unknown Month'}</p>
                                   {uploadLabel ? (
-                                    <p className="text-xs font-medium text-[var(--emerald-dark)]">{uploadLabel}</p>
+                                    <p className="text-xs font-medium admin-payslips-text-brand">{uploadLabel}</p>
                                   ) : null}
                                   <p className="truncate text-xs text-muted">{b.originalFileName}</p>
                                   <p className="text-xs text-muted">
@@ -1043,11 +1184,11 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
                                     <p className="text-xs text-muted">employees</p>
                                   </span>
                                   <span className="text-center">
-                                    <p className="font-bold text-[var(--emerald-dark)]">{b.totalGenerated}</p>
+                                    <p className="font-bold admin-payslips-text-brand">{b.totalGenerated}</p>
                                     <p className="text-xs text-muted">generated</p>
                                   </span>
                                   <span className="text-center">
-                                    <p className="font-bold text-[#2f7d24]">{sentCount}</p>
+                                    <p className="font-bold text-[#2f6b4f]">{sentCount}</p>
                                     <p className="text-xs text-muted">sent</p>
                                   </span>
                                   {b.totalFailed > 0 && (
@@ -1065,8 +1206,8 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
                               </div>
                             </button>
                             {isExpanded && (
-                              <div className="border-t border-[rgba(38,107,28,0.1)]">
-                                <div className="flex justify-end gap-2 bg-[rgba(240,253,244,0.5)] p-3">
+                              <div className="border-t border-[rgba(47,107,79,0.1)]">
+                                <div className="flex justify-end gap-2 bg-[rgba(47,107,79,0.06)] p-3">
                                   {(b.totalGenerated ?? 0) > 0 && (
                                     <Button
                                       size="sm"
@@ -1093,7 +1234,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
                                     Download Excel
                                   </Button>
                                 </div>
-                                <div className="divide-y divide-[rgba(38,107,28,0.08)]">
+                                <div className="divide-y divide-[rgba(47,107,79,0.08)]">
                                   {b.results
                                     .filter((r) => r.status === 'success' && r.fileName)
                                     .map((r) => (
@@ -1110,7 +1251,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
                                         </div>
                                         <div className="flex shrink-0 items-center gap-1.5">
                                           {r.sent && (
-                                            <span className="mr-1 inline-flex items-center gap-1 text-xs font-semibold text-[var(--emerald-dark)]">
+                                            <span className="mr-1 inline-flex items-center gap-1 text-xs font-semibold admin-payslips-text-brand">
                                               <CheckCircle2 className="h-3 w-3" /> Sent
                                             </span>
                                           )}
@@ -1166,10 +1307,12 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
                       })}
                     </div>
                   )}
+                  </div>
                 </div>
               </div>
             )}
-          </div>
+            </div>
+          </>
         ) : (
           <>
             <header className="mb-6 flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1177,7 +1320,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
                 {tabItems.map(({ id, label, icon: Icon }) => (
                   <button
                     key={id}
-                    onClick={() => setActiveTab(id)}
+                    onClick={() => handleTabChange(id)}
                     className={cn(
                       'flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-all',
                       activeTab === id ? 'bg-white text-primary shadow-sm' : 'text-muted hover:text-ink',

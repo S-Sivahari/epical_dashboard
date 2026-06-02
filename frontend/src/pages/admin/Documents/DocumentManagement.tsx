@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { Upload, CheckCircle2, XCircle, FileText, Inbox, History, Sparkles } from 'lucide-react'
+import { Upload, CheckCircle2, XCircle, FileText, Inbox, History } from 'lucide-react'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
 import { Badge } from '@components/ui/Badge'
@@ -161,6 +161,10 @@ await load()
       toast.error('Provide a rejection reason')
       return
     }
+    if (reason.length > 500) {
+      toast.error('Rejection reason must be under 500 characters')
+      return
+    }
     setBusyId(rejectId)
     try {
       await rejectDocumentRequest(rejectId, reason)
@@ -181,15 +185,15 @@ setRejectOpen(false)
     <>
       {loading ? (
         <div className="admin-doc-loading flex min-h-[240px] items-center justify-center">
-          <p className="text-sm font-medium text-[var(--emerald-dark)]/70">Loading documents...</p>
+          <p className="text-sm font-medium admin-documents-text-brand-muted">Loading documents...</p>
         </div>
       ) : items.length === 0 ? (
         <div className="admin-doc-empty flex min-h-[280px] flex-col items-center justify-center px-6 text-center">
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-white/70 shadow-sm">
-            <FileText className="h-6 w-6 text-[var(--emerald-dark)]" />
+            <FileText className="h-6 w-6 admin-documents-text-brand" />
           </div>
-          <p className="text-sm font-semibold text-[var(--emerald-dark)]">No records in this view</p>
-          <p className="mt-1 max-w-md text-xs font-medium text-slate-600">
+          <p className="text-sm font-semibold admin-documents-text-brand">No records in this view</p>
+          <p className="mt-2 max-w-md text-sm font-medium leading-relaxed text-slate-600">
             Requests appear here after employees submit from Document Request.
           </p>
         </div>
@@ -207,7 +211,7 @@ setRejectOpen(false)
           </thead>
           <tbody>
             {items.map((row) => (
-              <tr key={row.id} className="admin-doc-row border-b border-[rgba(38,107,28,0.08)]">
+              <tr key={row.id} className="admin-doc-row">
                 <td className="px-4 py-3 align-top">
                   <p className="font-semibold text-ink">{row.documentName}</p>
                   <p className="text-xs text-muted">{row.documentType}</p>
@@ -284,7 +288,7 @@ setRejectOpen(false)
           </thead>
           <tbody>
             {items.map((row) => (
-              <tr key={row.id} className="admin-doc-row border-b border-[rgba(38,107,28,0.08)]">
+              <tr key={row.id} className="admin-doc-row">
                 <td className="px-4 py-3 align-top">
                   <p className="font-semibold text-ink">{row.documentName}</p>
                   <p className="text-xs text-muted">{row.documentType}</p>
@@ -330,7 +334,7 @@ setRejectOpen(false)
           </thead>
           <tbody>
             {items.map((row) => (
-              <tr key={row.id} className="admin-doc-row border-b border-[rgba(38,107,28,0.08)]">
+              <tr key={row.id} className="admin-doc-row">
                 <td className="whitespace-nowrap px-4 py-3 text-muted">
                   {formatWhen(row.processedAt || row.requestedAt)}
                 </td>
@@ -378,7 +382,18 @@ setRejectOpen(false)
   )
 
   const content = (
-    <div className={cn('crewiq-dashboard', !embedded && 'admin-documents-view')}>
+    <div
+      className={cn(
+        'crewiq-dashboard relative',
+        !embedded && 'admin-documents-view',
+      )}
+    >
+      {!embedded ? (
+        <div className="dashboard-page-bg" aria-hidden>
+          <div className="dashboard-page-bg-gradient" />
+          <div className="dashboard-page-bg-pattern" />
+        </div>
+      ) : null}
       <input
         ref={fileInputRef}
         type="file"
@@ -405,7 +420,7 @@ setRejectOpen(false)
           Reason for rejection
         </label>
         <textarea
-          className="mt-1 min-h-[100px] w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-ink outline-none focus:border-[var(--emerald-dark)] focus:ring-2 focus:ring-[rgba(38,107,28,0.12)]"
+          className="admin-documents-textarea mt-2 min-h-[6.5rem] w-full rounded-lg border px-3 py-2.5 text-sm text-ink shadow-sm outline-none"
           value={rejectReason}
           onChange={(ev) => setRejectReason(ev.target.value)}
           placeholder="e.g. Missing tax year information..."
@@ -426,86 +441,77 @@ setRejectOpen(false)
         </div>
       </Modal>
 
-      <div className={cn(!embedded && 'admin-documents-shell animate-fadeIn')}>
+      <div className={cn(!embedded && 'admin-documents-shell relative z-10 animate-fadeIn')}>
         {!embedded ? (
           <>
-            <div className="admin-documents-hero">
+            <header className="admin-documents-hub-header">
               <div className="admin-documents-hero-top">
                 <div className="min-w-0">
-                  <h1 className="admin-documents-hero-title font-display">Document Requests</h1>
-                  <p className="admin-documents-hero-sub">
-                    Review, fulfill, and track employee document requests
-                  </p>
+                  <h1 className="admin-documents-hero-title font-display">Document Requests Hub</h1>
                 </div>
-                <div className="admin-documents-tab-rail">
+                <nav className="admin-documents-tab-rail" aria-label="Document request views">
                   {tabConfig.map((t) => (
                     <button
                       key={t.key}
                       type="button"
                       onClick={() => setTab(t.key)}
-                      className={cn(
-                        'inline-flex items-center gap-1 rounded-[6px] px-2.5 py-1 text-[11px] font-bold transition-all duration-200',
-                        tab === t.key ? 'admin-dash-action-btn-sm text-white' : 'admin-documents-tab-inactive',
-                      )}
+                      className={
+                        tab === t.key
+                          ? 'admin-documents-tab-btn admin-documents-tab-btn--active'
+                          : 'admin-documents-tab-btn admin-documents-tab-btn--inactive'
+                      }
                     >
-                      <t.icon className="h-3 w-3 shrink-0" />
-                      {t.label}
-                      {tab === t.key && (
-                        <span className="rounded-full bg-white/20 px-1 py-px text-[9px] font-black tabular-nums leading-none">
-                          {total}
-                        </span>
-                      )}
+                      <t.icon className="admin-documents-tab-icon shrink-0" aria-hidden />
+                      <span className="admin-documents-tab-label">{t.label}</span>
+                      <span className="admin-documents-tab-count tabular-nums">
+                        {tab === t.key ? total : '—'}
+                      </span>
                     </button>
                   ))}
-                </div>
+                </nav>
               </div>
-              <div className="admin-documents-metrics-band">
-                <div className="admin-documents-metric-glass">
+              <div className="admin-documents-metrics-band" role="group" aria-label="Document metrics">
+                <div className="admin-documents-metric-tile">
                   <p className="admin-documents-metric-label">In This View</p>
                   <p className="admin-documents-metric-value font-display">{total}</p>
                 </div>
-                <div className="admin-documents-metric-glass">
+                <div className="admin-documents-metric-tile">
                   <p className="admin-documents-metric-label">On This Page</p>
                   <p className="admin-documents-metric-value font-display">{items.length}</p>
                 </div>
-                {tab === 'requested' && (
-                  <div className="admin-documents-metric-glass">
+                {tab === 'requested' ? (
+                  <div className="admin-documents-metric-tile">
                     <p className="admin-documents-metric-label">Awaiting Upload</p>
                     <p className="admin-documents-metric-value font-display">{pendingUploadCount}</p>
                   </div>
+                ) : (
+                  <div className="admin-documents-metric-tile admin-documents-metric-tile--muted" aria-hidden>
+                    <p className="admin-documents-metric-label">Awaiting Upload</p>
+                    <p className="admin-documents-metric-value font-display">—</p>
+                  </div>
                 )}
               </div>
-            </div>
+            </header>
 
             <div className="admin-documents-body-grid">
-              <aside className="admin-documents-sidebar space-y-4">
+              <aside className="admin-documents-sidebar">
                 <p className="admin-documents-sidebar-title">{activeTabMeta.label}</p>
-                <p className="text-xs font-medium leading-relaxed text-[var(--emerald-dark)]/80">
-                  {activeTabMeta.description}
-                </p>
-                <div className="admin-documents-stat-box rounded-lg p-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--emerald-dark)]/70">
-                    Total records
-                  </p>
-                  <p className="mt-1 font-display text-2xl font-bold tabular-nums text-[var(--emerald-dark)]">
+                <p className="admin-documents-sidebar-desc">{activeTabMeta.description}</p>
+                <div className="admin-documents-stat-box">
+                  <p className="admin-documents-stat-label">Total records</p>
+                  <p className="admin-documents-stat-value font-display tabular-nums">
                     {loading ? '—' : total}
                   </p>
                 </div>
-                {tab === 'requested' && (
-                  <div className="admin-documents-tip-box rounded-lg p-3 text-xs font-medium leading-relaxed">
-                    <Sparkles className="mb-1.5 h-3.5 w-3.5 text-[var(--emerald-dark)]" />
-                    Upload the fulfillment file first, then approve so the employee can download it.
-                  </div>
-                )}
               </aside>
 
               <div className="admin-documents-main-panel">
                 <div className="admin-documents-panel-header">
                   <div>
-                    <h2 className="font-display text-sm font-bold text-[var(--emerald-dark)]">
+                    <h2 className="admin-documents-panel-title font-display">
                       {activeTabMeta.label} Documents
                     </h2>
-                    <p className="text-xs font-medium text-slate-600">
+                    <p className="admin-documents-panel-sub">
                       {loading
                         ? 'Loading...'
                         : total === 0
@@ -514,9 +520,9 @@ setRejectOpen(false)
                     </p>
                   </div>
                 </div>
-                <div className="admin-doc-table-wrap overflow-auto">{tableShell}</div>
+                <div className="admin-doc-table-wrap">{tableShell}</div>
                 {!loading && total > 0 ? (
-                  <div className="admin-documents-pagination mt-3">
+                  <div className="admin-documents-pagination">
                     <PaginationBar total={total} page={page} pageSize={PAGE_SIZE} onPageChange={setPage} />
                   </div>
                 ) : null}
@@ -557,5 +563,5 @@ setRejectOpen(false)
   )
 
   if (embedded) return content
-  return <PageWrapper className="relative z-10 py-3 font-body">{content}</PageWrapper>
+  return <PageWrapper className="admin-hub-page-wrap relative z-10 py-3 font-body">{content}</PageWrapper>
 }

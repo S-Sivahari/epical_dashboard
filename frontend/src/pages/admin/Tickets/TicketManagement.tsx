@@ -97,8 +97,7 @@ function priorityPillClass(priority: string): string {
   }
 }
 
-const filterFieldClass =
-  'h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
+const filterFieldClass = 'admin-tickets-filter-input'
 
 export function TicketManagement() {
   const tickets = useTicketStore((s) => s.tickets)
@@ -261,7 +260,7 @@ export function TicketManagement() {
   const renderTicketCard = (statusCol: TicketStatus, ticket: Ticket) => (
     <article
       key={ticket.id}
-      className="mb-3 cursor-pointer rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm transition-all hover:border-slate-300 hover:shadow-md"
+      className="admin-tickets-card mb-3 cursor-pointer"
       onClick={() => openDetail(ticket.id)}
       role="button"
       tabIndex={0}
@@ -274,17 +273,19 @@ export function TicketManagement() {
     >
       <div className="mb-2 flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <h3 className="line-clamp-2 text-sm font-medium capitalize text-slate-800">{ticket.title}</h3>
-          <p className="mt-0.5 font-mono text-[10px] text-slate-400">{ticket.id}</p>
+          <h3 className="line-clamp-2 text-base font-semibold capitalize leading-snug text-slate-800">
+            {ticket.title}
+          </h3>
+          <p className="mt-1 font-mono text-xs text-slate-500">{ticket.id}</p>
         </div>
       </div>
 
-      <p className="text-xs text-slate-500">
-        <span className="font-medium text-slate-600">{ticket.employeeName}</span>
+      <p className="text-sm leading-relaxed text-slate-600">
+        <span className="font-semibold text-slate-700">{ticket.employeeName}</span>
         <span className="mx-1 text-slate-300">·</span>
-        <span className="font-mono">{ticket.employeeId}</span>
+        <span className="font-mono text-slate-600">{ticket.employeeId}</span>
       </p>
-      <p className="mt-1 text-xs text-slate-400">{formatCreatedAt(ticket.createdAt)}</p>
+      <p className="mt-1.5 text-sm text-slate-500">{formatCreatedAt(ticket.createdAt)}</p>
 
       <div
         className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3"
@@ -293,7 +294,7 @@ export function TicketManagement() {
       >
         <span
           className={cn(
-            'inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset',
+            'inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset',
             priorityPillClass(ticket.priority),
           )}
         >
@@ -305,7 +306,7 @@ export function TicketManagement() {
             size="sm"
             variant="secondary"
             type="button"
-            className="h-7 border-slate-200 bg-white px-2 text-[11px] text-slate-700 shadow-sm hover:bg-slate-50"
+            className="h-8 border-slate-200 bg-white px-2.5 text-xs text-slate-700 shadow-sm hover:bg-slate-50"
             onClick={() => openDetail(ticket.id)}
           >
             <Eye className="h-3.5 w-3.5" aria-hidden />
@@ -317,7 +318,7 @@ export function TicketManagement() {
               size="sm"
               type="button"
               disabled={moving !== null}
-              className="h-7 border-0 bg-emerald-600 px-2 text-[11px] text-white shadow-sm hover:bg-emerald-700"
+              className="h-8 border-0 bg-emerald-600 px-2.5 text-xs text-white shadow-sm hover:bg-emerald-700"
               onClick={() => void move(ticket.id, 'forward')}
               loading={isMoveForward(ticket.id)}
             >
@@ -332,7 +333,7 @@ export function TicketManagement() {
                 type="button"
                 disabled={moving !== null}
                 variant="secondary"
-                className="h-7 border-slate-200 bg-white px-2 text-[11px] text-slate-700 hover:bg-slate-50"
+                className="h-8 border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50"
                 onClick={() => void move(ticket.id, 'back')}
                 loading={isMoveBack(ticket.id)}
               >
@@ -342,7 +343,7 @@ export function TicketManagement() {
                 size="sm"
                 type="button"
                 disabled={moving !== null}
-                className="h-7 border-0 bg-emerald-600 px-2 text-[11px] text-white hover:bg-emerald-700"
+                className="h-8 border-0 bg-emerald-600 px-2.5 text-xs text-white hover:bg-emerald-700"
                 onClick={() => void move(ticket.id, 'forward')}
                 loading={isMoveForward(ticket.id)}
               >
@@ -417,83 +418,105 @@ export function TicketManagement() {
     )
   }
 
+  const openCount = statusCounts.Pending + statusCounts['In Progress']
+
   return (
-    <PageWrapper className="admin-tickets-page relative z-10 max-w-none px-0 py-0 font-body">
+    <PageWrapper className="admin-hub-page-wrap admin-tickets-page relative z-10 max-w-none px-0 py-0 font-body">
       <div
-        className="flex h-full min-h-0 flex-col bg-emerald-50/40"
+        className="crewiq-dashboard admin-tickets-view relative flex h-full min-h-0 flex-1 flex-col"
         data-admin-tickets
       >
-        <header className="shrink-0 border-b border-slate-200 bg-white px-4 py-3 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
-              <h1 className="text-base font-semibold tracking-tight text-slate-900">
-                Support Tickets
-              </h1>
-              <p className="mt-0.5 text-xs text-slate-500">
-                {loading
-                  ? 'Loading queue…'
-                  : `${narrowed.length} ticket${narrowed.length === 1 ? '' : 's'} matching filters`}
-              </p>
-            </div>
+        <div className="dashboard-page-bg" aria-hidden>
+          <div className="dashboard-page-bg-gradient" />
+          <div className="dashboard-page-bg-pattern" />
+        </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex flex-wrap items-center gap-1 rounded-lg border border-slate-200 bg-slate-50/80 p-0.5">
+        <div className="admin-tickets-shell relative z-10 flex min-h-0 flex-1 flex-col">
+          <header className="admin-tickets-hub-header shrink-0">
+            <div className="admin-tickets-hero-top">
+              <div className="min-w-0">
+                <h1 className="admin-tickets-hero-title font-display">Support Tickets Hub</h1>
+              </div>
+              <nav className="admin-tickets-tab-rail" aria-label="Ticket views">
                 {tabItems.map((tab) => (
                   <button
                     key={tab.id}
                     type="button"
                     onClick={() => setSectionFilter(tab.id)}
-                    className={cn(
-                      'inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold transition-colors',
+                    className={
                       sectionFilter === tab.id
-                        ? 'bg-white text-emerald-700 shadow-sm ring-1 ring-slate-200/80'
-                        : 'text-slate-600 hover:bg-white/80 hover:text-slate-900',
-                    )}
+                        ? 'admin-tickets-tab-btn admin-tickets-tab-btn--active'
+                        : 'admin-tickets-tab-btn admin-tickets-tab-btn--inactive'
+                    }
                   >
-                    <tab.icon className="h-3 w-3 shrink-0" />
-                    {tab.label}
-                    <span
-                      className={cn(
-                        'rounded-full px-1.5 py-px text-[9px] font-bold tabular-nums',
-                        sectionFilter === tab.id
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-slate-200/80 text-slate-600',
-                      )}
-                    >
+                    <tab.icon className="admin-tickets-tab-icon shrink-0" aria-hidden />
+                    <span className="admin-tickets-tab-label">{tab.label}</span>
+                    <span className="admin-tickets-tab-count tabular-nums">
                       {statusCounts[tab.id]}
                     </span>
                   </button>
                 ))}
+              </nav>
+            </div>
+            <div className="admin-tickets-metrics-band" role="group" aria-label="Ticket metrics">
+              <div className="admin-tickets-metric-tile">
+                <p className="admin-tickets-metric-label">Matching Filters</p>
+                <p className="admin-tickets-metric-value font-display">{narrowed.length}</p>
               </div>
+              <div className="admin-tickets-metric-tile">
+                <p className="admin-tickets-metric-label">Open Queue</p>
+                <p className="admin-tickets-metric-value font-display">{openCount}</p>
+              </div>
+              <div className="admin-tickets-metric-tile">
+                <p className="admin-tickets-metric-label">In Progress</p>
+                <p className="admin-tickets-metric-value font-display">
+                  {statusCounts['In Progress']}
+                </p>
+              </div>
+              <div className="admin-tickets-metric-tile">
+                <p className="admin-tickets-metric-label">Completed</p>
+                <p className="admin-tickets-metric-value font-display">{statusCounts.Completed}</p>
+              </div>
+            </div>
+          </header>
 
-              <div className="flex flex-wrap items-center gap-1.5">
+          <div className="admin-tickets-filter-bar shrink-0">
+            <div className="admin-tickets-filter-controls">
+              <label className="admin-tickets-filter-field admin-tickets-filter-field--search">
+                <span className="admin-tickets-filter-label">Search</span>
                 <div className="relative">
                   <Search
-                    className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
+                    className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
                     aria-hidden
                   />
                   <input
                     type="text"
                     aria-label="Search tickets"
                     autoComplete="off"
-                    className={cn(filterFieldClass, 'w-36 pl-7 sm:w-44')}
+                    className={cn(filterFieldClass, 'pl-8')}
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
-                    placeholder="Search…"
+                    placeholder="Title, employee, ID…"
                   />
                 </div>
+              </label>
+              <label className="admin-tickets-filter-field">
+                <span className="admin-tickets-filter-label">Employee ID</span>
                 <input
                   type="text"
                   aria-label="Employee ID"
                   autoComplete="off"
-                  className={cn(filterFieldClass, 'w-28')}
+                  className={filterFieldClass}
                   value={employeeIdFilter}
                   onChange={(e) => setEmployeeIdFilter(e.target.value)}
-                  placeholder="Employee ID"
+                  placeholder="Filter by ID"
                 />
+              </label>
+              <label className="admin-tickets-filter-field">
+                <span className="admin-tickets-filter-label">Priority</span>
                 <select
                   aria-label="Priority"
-                  className={cn(filterFieldClass, 'w-32 cursor-pointer')}
+                  className={cn(filterFieldClass, 'cursor-pointer')}
                   value={priority}
                   onChange={(e) => setPriority(e.target.value)}
                 >
@@ -503,54 +526,44 @@ export function TicketManagement() {
                   <option value="High">High</option>
                   <option value="Critical">Critical</option>
                 </select>
-                {hasActiveFilters && (
-                  <button
-                    type="button"
-                    className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
-                    onClick={clearFilters}
-                  >
-                    <X className="h-3 w-3" aria-hidden />
-                    Clear
-                  </button>
-                )}
+              </label>
+              {hasActiveFilters ? (
+                <button
+                  type="button"
+                  className="admin-tickets-filter-clear"
+                  onClick={clearFilters}
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden />
+                  Clear filters
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="admin-tickets-board flex min-h-0 flex-1 flex-col">
+            {loading && tickets.length === 0 ? (
+              <div className="admin-tickets-board-empty">
+                <p className="text-sm font-medium admin-tickets-text-brand-muted">Loading tickets…</p>
               </div>
-            </div>
+            ) : !loading && tickets.length === 0 ? (
+              <div className="admin-tickets-board-empty">
+                <TicketIcon className="mb-3 h-9 w-9 admin-tickets-text-brand opacity-40" aria-hidden />
+                <p className="text-sm font-semibold admin-tickets-text-brand">No tickets yet</p>
+                <p className="mt-2 max-w-sm text-sm font-medium leading-relaxed text-slate-600">
+                  Tickets appear when employees submit support requests.
+                </p>
+              </div>
+            ) : (
+              <div
+                className={cn(
+                  'admin-tickets-kanban-grid min-h-0 flex-1',
+                  visibleStatuses.length === 1 ? 'admin-tickets-kanban-grid--single' : '',
+                )}
+              >
+                {visibleStatuses.map((statusCol) => renderKanbanColumn(statusCol, columns[statusCol]))}
+              </div>
+            )}
           </div>
-        </header>
-
-        <div className="flex min-h-0 flex-1 flex-col px-3 py-3">
-          <div className="mb-2 flex shrink-0 items-center justify-end gap-1.5 text-[11px] font-medium text-emerald-700">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-            </span>
-            Live queue
-          </div>
-
-          {loading && tickets.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white">
-              <p className="text-sm font-medium text-slate-500">Loading tickets…</p>
-            </div>
-          ) : !loading && tickets.length === 0 ? (
-            <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-6 text-center">
-              <TicketIcon className="mb-2 h-8 w-8 text-slate-300" />
-              <p className="text-sm font-semibold text-slate-800">No tickets yet</p>
-              <p className="mt-1 max-w-xs text-xs text-slate-500">
-                Tickets appear when employees submit support requests.
-              </p>
-            </div>
-          ) : (
-            <div
-              className={cn(
-                'grid min-h-0 flex-1 gap-3',
-                visibleStatuses.length === 1
-                  ? 'grid-cols-1'
-                  : 'grid-cols-1 lg:grid-cols-3',
-              )}
-            >
-              {visibleStatuses.map((statusCol) => renderKanbanColumn(statusCol, columns[statusCol]))}
-            </div>
-          )}
         </div>
 
         <TicketDetailModal

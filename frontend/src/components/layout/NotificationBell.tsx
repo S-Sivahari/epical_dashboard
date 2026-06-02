@@ -1,11 +1,14 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { Bell } from 'lucide-react'
 import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { useNotificationStore, NOTIFICATION_POLL_MS } from '@store/notificationStore'
+import { useNotificationStore, NOTIFICATION_POLL_MS, type NotificationData } from '@store/notificationStore'
+import { getNotificationRoute } from '@utils/notificationNavigation'
 import { formatDistanceToNow } from 'date-fns'
 
 export function NotificationBell() {
+  const navigate = useNavigate()
   const {
     notifications,
     unreadCount,
@@ -27,6 +30,12 @@ export function NotificationBell() {
   }, [fetchUnreadCount, fetchUnreadCountSilent])
 
   const displayNotifications = notifications.slice(0, 5)
+
+  const handleNotificationClick = async (notification: NotificationData) => {
+    const route = getNotificationRoute(notification)
+    await deleteNotification(notification.id)
+    if (route) navigate(route)
+  }
 
   return (
     <DropdownMenu.Root
@@ -87,7 +96,7 @@ export function NotificationBell() {
                       className={`flex cursor-pointer items-start gap-3 px-4 py-3 transition-colors hover:bg-[var(--emerald-surface)] ${
                         !notification.isRead ? 'bg-[var(--emerald-surface)]' : 'bg-white'
                       }`}
-                      onClick={() => !notification.isRead && markAsRead(notification.id)}
+                      onClick={() => void handleNotificationClick(notification)}
                     >
                       <div
                         className={`mt-1 h-2 w-2 flex-shrink-0 rounded-full ${

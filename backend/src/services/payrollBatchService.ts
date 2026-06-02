@@ -319,6 +319,7 @@ export async function sendAllPayslipsInBatch(
   sent: number
   skipped: number
   failed: { empId: string; name: string; error: string }[]
+  sentRecords: EmployeePayslipRecord[]
 }> {
   const raw = await batchesCollection().findOne({ id: batchId })
   if (!raw) {
@@ -332,11 +333,12 @@ export async function sendAllPayslipsInBatch(
 
   let sent = 0
   const failed: { empId: string; name: string; error: string }[] = []
+  const sentRecords: EmployeePayslipRecord[] = []
 
   for (const r of toSend) {
     if (!r.fileName) continue
     try {
-      await sendPayslipToEmployee({
+      const { record } = await sendPayslipToEmployee({
         batchId,
         fileName: r.fileName,
         empId: r.empId,
@@ -344,6 +346,7 @@ export async function sendAllPayslipsInBatch(
         payPeriodKey: raw.payPeriodKey,
         employeeDbId: employeeDbIdByEmpId[r.empId],
       })
+      sentRecords.push(record)
       sent++
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Send failed'
@@ -356,7 +359,7 @@ export async function sendAllPayslipsInBatch(
   ).length
 
   const batch = await enrichBatchWithSentStatus(raw)
-  return { batch, sent, skipped, failed }
+  return { batch, sent, skipped, failed, sentRecords }
 }
 
 export function getPayslipFilePath(batchId: string, fileName: string): string {
