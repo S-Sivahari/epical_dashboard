@@ -11,14 +11,13 @@ import {
   parseISO,
 } from 'date-fns'
 import * as Tooltip from '@radix-ui/react-tooltip'
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { Badge } from '@components/ui/Badge'
 import { Modal } from '@components/ui/Modal'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
 import { DateInput } from '@components/shared/DateInput'
 import { getCalendarEntryBounds, validateIsoInRange } from '@/utils/dateValidation'
-import { Plus, Edit2, Trash2, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
+import { Plus, Edit2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { formatDate } from '@/utils/formatDate'
@@ -39,14 +38,6 @@ interface CompanyCalendarProps {
   variant?: 'default' | 'admin'
 }
 
-type ViewPreset = 'today' | 'week' | 'month'
-
-const VIEW_PRESET_OPTIONS: { id: ViewPreset; label: string }[] = [
-  { id: 'today', label: 'Today' },
- 
-  { id: 'month', label: 'This Month' },
-]
-
 function dateInViewMonth(dateStr: string, monthIdx: number, year: number): boolean {
   const d = parseISO(dateStr)
   return d.getMonth() === monthIdx && d.getFullYear() === year
@@ -63,7 +54,6 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
   const deleteCompanyCalendarEvent = useLeaveStore((s) => s.deleteCompanyCalendarEvent)
 
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [viewPreset, setViewPreset] = useState<ViewPreset>('month')
   const [eventDeleteConfirmOpen, setEventDeleteConfirmOpen] = useState(false)
   const [eventToDelete, setEventToDelete] = useState<CalendarSidebarEvent | null>(null)
   const [selectedDateStr, setSelectedDateStr] = useState<string | null>(null)
@@ -94,11 +84,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
   // Calendar logic
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1))
   const prevMonth = () => setCurrentDate(subMonths(currentDate, 1))
-  const applyViewPreset = (preset: ViewPreset) => {
-    setViewPreset(preset)
-    const now = new Date()
-    setCurrentDate(preset === 'month' ? startOfMonth(now) : now)
-  }
+  const goToToday = () => setCurrentDate(startOfMonth(new Date()))
 
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(monthStart)
@@ -263,8 +249,6 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
       .sort((a, b) => parseISO(a.from).getTime() - parseISO(b.from).getTime())
   }, [approvedLeaves, currentMonthIdx, currentYear, monthStart, monthEnd])
 
-  const viewPresetLabel = VIEW_PRESET_OPTIONS.find((o) => o.id === viewPreset)?.label ?? 'Today'
-
   return (
     <Tooltip.Provider delayDuration={300}>
       <div
@@ -342,47 +326,19 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                   )}
                 </div>
                 {isAdminCal ? (
-                  <DropdownMenu.Root>
-                    <DropdownMenu.Trigger asChild>
-                      <button
-                        type="button"
-                        className="inline-flex h-7 items-center gap-1 rounded-lg border border-white/25 bg-emerald-900/40 px-2 text-[11px] font-semibold text-white backdrop-blur-sm transition-colors hover:bg-emerald-800/50"
-                      >
-                        <span>{viewPresetLabel}</span>
-                        <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-90" aria-hidden />
-                      </button>
-                    </DropdownMenu.Trigger>
-                    <DropdownMenu.Portal>
-                      <DropdownMenu.Content
-                        className="z-[9999] min-w-[9.5rem] overflow-hidden rounded-lg border border-green-200/40 bg-emerald-50/90 p-1 shadow-md backdrop-blur-sm will-change-[opacity,transform]"
-                        side="bottom"
-                        sideOffset={6}
-                        align="start"
-                        collisionPadding={8}
-                      >
-                        {VIEW_PRESET_OPTIONS.map((option) => (
-                          <DropdownMenu.Item
-                            key={option.id}
-                            className={cn(
-                              'cursor-pointer rounded-md px-2.5 py-1.5 text-xs font-semibold text-emerald-900 outline-none transition-colors',
-                              viewPreset === option.id
-                                ? 'bg-emerald-700 text-white data-[highlighted]:bg-emerald-700 data-[highlighted]:text-white'
-                                : 'data-[highlighted]:bg-emerald-600/25 data-[highlighted]:text-emerald-950',
-                            )}
-                            onSelect={() => applyViewPreset(option.id)}
-                          >
-                            {option.label}
-                          </DropdownMenu.Item>
-                        ))}
-                      </DropdownMenu.Content>
-                    </DropdownMenu.Portal>
-                  </DropdownMenu.Root>
+                  <button
+                    type="button"
+                    className="inline-flex h-7 items-center rounded-lg border border-white/25 bg-emerald-900/40 px-2.5 text-[11px] font-semibold text-white backdrop-blur-sm transition-colors hover:bg-emerald-800/50"
+                    onClick={goToToday}
+                  >
+                    Today
+                  </button>
                 ) : (
                   <Button
                     size="sm"
                     variant="secondary"
                     className="h-8 px-3 text-xs"
-                    onClick={() => applyViewPreset('today')}
+                    onClick={goToToday}
                   >
                     Today
                   </Button>
@@ -629,248 +585,354 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
         {/* ── Right Column: Stacked Cards Column ───────────────────── */}
         <div
           className={cn(
-            'flex flex-col gap-3',
-            !isAdminCal && 'lg:col-span-1',
-            isAdminCal && 'admin-cal-sidebar h-full min-h-0 gap-1.5',
+            'flex min-h-0 flex-col',
+            !isAdminCal && 'lg:col-span-1 gap-3',
+            isAdminCal && 'admin-cal-sidebar h-full min-h-0',
           )}
         >
-
-          {/* Month Holidays */}
           <div
             className={cn(
-              'flex flex-col rounded-xl shadow-sm',
-              isAdminCal ? 'admin-cal-side-card min-h-0 flex-1 p-2' : 'h-[220px] border border-border bg-white p-3',
+              'flex h-full min-h-0 flex-col overflow-hidden rounded-xl shadow-sm',
+              isAdminCal
+                ? 'admin-cal-side-unified'
+                : 'border border-border bg-white',
             )}
           >
-            <div className={cn('mb-2 flex items-center justify-between flex-shrink-0', isAdminCal && 'admin-cal-side-head')}>
-              <div className="flex items-center gap-2">
-                <h3 className={cn(
-                  'font-display text-sm font-semibold',
-                  isAdminCal ? 'text-[var(--emerald-dark)]' : 'text-ink',
-                )}>
-                  {format(currentDate, 'MMM yyyy')} Holidays
-                </h3>
-                <span className={cn(
-                  'inline-flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold',
-                  isAdminCal ? 'admin-cal-count-badge' : 'bg-blue-100 text-blue-700',
-                )}>
-                  {sidebarHolidays.length}
-                </span>
-              </div>
-            </div>
-
-            {/* Legend inside Holidays card */}
-            <div
+            <header
               className={cn(
-                'mb-1.5 flex flex-shrink-0 gap-2 border-b border-border pb-1 text-[10px] font-medium',
-                isAdminCal && 'admin-cal-side-legend',
+                'flex-shrink-0 border-b px-3 py-2',
+                isAdminCal
+                  ? 'admin-cal-side-unified-title border-[rgba(20,83,45,0.1)]'
+                  : 'border-border',
               )}
             >
-              <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                <span className="text-muted">Public Holiday</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                <span className="text-muted">Company Holiday</span>
-              </div>
-            </div>
+              <h2
+                className={cn(
+                  'font-display text-sm font-bold tracking-tight',
+                  isAdminCal ? 'text-[var(--emerald-dark)]' : 'text-ink',
+                )}
+              >
+                {format(currentDate, 'MMMM yyyy')}
+              </h2>
+            </header>
 
-            {sidebarHolidays.length > 0 ? (
-              <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1 custom-scrollbar">
-                {sidebarHolidays
-                  .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime())
-                  .map((holiday) => {
-                    const dayName = format(parseISO(holiday.date), 'EEE')
-                    return (
+            <div
+              className={cn(
+                'flex min-h-0 flex-1 flex-col gap-2 overflow-hidden',
+                isAdminCal ? 'admin-cal-side-unified-body' : 'p-3',
+              )}
+            >
+              {/* Holidays */}
+              <section
+                className={cn(
+                  'flex flex-col rounded-lg',
+                  sidebarHolidays.length > 0 &&
+                    (isAdminCal
+                      ? 'admin-cal-side-section--active admin-cal-side-section--active-holidays admin-cal-side-section--scroll'
+                      : 'border border-emerald-100/90 bg-emerald-50/50 px-2 py-1.5'),
+                )}
+              >
+                <div className={cn('flex items-center gap-2', isAdminCal && 'admin-cal-side-section-head')}>
+                  <h3
+                    className={cn(
+                      'text-xs font-semibold',
+                      isAdminCal ? 'admin-cal-side-section-title' : 'text-ink',
+                    )}
+                  >
+                    Holidays
+                  </h3>
+                  <span
+                    className={cn(
+                      'inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold',
+                      isAdminCal ? 'admin-cal-count-badge' : 'bg-blue-100 text-blue-700',
+                    )}
+                  >
+                    {sidebarHolidays.length}
+                  </span>
+                </div>
+
+                <div
+                  className={cn(
+                    'mb-1 flex flex-shrink-0 gap-2 text-[10px] font-medium',
+                    isAdminCal ? 'admin-cal-side-legend' : 'border-b border-border pb-1 text-muted',
+                  )}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-2 w-2 rounded-full bg-green-500" />
+                    <span className="text-muted">Public Holiday</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-2 w-2 rounded-full bg-blue-500" />
+                    <span className="text-muted">Company Holiday</span>
+                  </div>
+                </div>
+
+                {sidebarHolidays.length > 0 ? (
+                  <div
+                    className={cn(
+                      'space-y-1 overflow-y-auto pr-1 custom-scrollbar',
+                      isAdminCal ? 'admin-cal-side-section-list' : 'max-h-28',
+                    )}
+                  >
+                    {[...sidebarHolidays]
+                      .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime())
+                      .map((holiday) => {
+                        const dayName = format(parseISO(holiday.date), 'EEE')
+                        return (
+                          <div
+                            key={holiday.id}
+                            className={cn(
+                              'group flex items-center justify-between rounded-lg border p-2 transition-all',
+                              isAdminCal
+                                ? 'admin-cal-list-item border-[rgba(38,107,28,0.12)] hover:border-[rgba(38,107,28,0.28)]'
+                                : 'border-border hover:border-primary/40 hover:shadow-sm',
+                            )}
+                          >
+                            <div className="flex min-w-0 flex-1 items-center gap-2">
+                              <div
+                                className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-xs font-bold text-white shadow-sm ${
+                                  holiday.type === 'National'
+                                    ? 'bg-green-500'
+                                    : holiday.type === 'Company'
+                                      ? 'bg-blue-500'
+                                      : 'bg-green-500'
+                                }`}
+                              >
+                                🎉
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <h4 className="truncate text-xs font-semibold text-ink">{holiday.title}</h4>
+                                <p className="text-[10px] text-muted">
+                                  {dayName} • {formatDate(holiday.date)}
+                                </p>
+                              </div>
+                            </div>
+                            <div
+                              className={cn(
+                                'ml-2 flex flex-shrink-0 gap-1 transition-opacity',
+                                isAdminCal ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+                              )}
+                            >
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="h-6 w-6 p-0"
+                                onClick={() => handleEditHoliday(holiday)}
+                              >
+                                <Edit2 className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="danger"
+                                className="h-6 w-6 p-0"
+                                onClick={() => {
+                                  setHolidayToDelete(holiday)
+                                  setDeleteConfirmOpen(true)
+                                }}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                  </div>
+                ) : (
+                  <div
+                    className={cn(
+                      'flex items-center justify-center gap-1.5 rounded-lg border border-dashed py-1.5 text-center',
+                      isAdminCal ? 'admin-cal-empty admin-cal-empty-compact' : 'border-border bg-surface/50 py-3',
+                    )}
+                  >
+                    <span className="text-sm opacity-50">📅</span>
+                    <p className="text-[10px] font-medium text-muted">No holidays this month</p>
+                  </div>
+                )}
+              </section>
+
+              <div
+                className={cn('flex-shrink-0', isAdminCal ? 'admin-cal-side-section-divider' : 'h-px bg-border')}
+                aria-hidden
+              />
+
+              {/* Company Events */}
+              <section
+                className={cn(
+                  'flex flex-col rounded-lg',
+                  sidebarEvents.length > 0 &&
+                    (isAdminCal
+                      ? 'admin-cal-side-section--active admin-cal-side-section--active-events admin-cal-side-section--scroll'
+                      : 'border border-amber-100/90 bg-amber-50/50 px-2 py-1.5'),
+                )}
+              >
+                <div className={cn('flex items-center gap-2', isAdminCal && 'admin-cal-side-section-head')}>
+                  <h3
+                    className={cn(
+                      'text-xs font-semibold',
+                      isAdminCal ? 'admin-cal-side-section-title' : 'text-ink',
+                    )}
+                  >
+                    Company Events
+                  </h3>
+                  <span
+                    className={cn(
+                      'inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold',
+                      isAdminCal
+                        ? 'admin-cal-count-badge admin-cal-count-badge-amber'
+                        : 'bg-amber-100 text-amber-700',
+                    )}
+                  >
+                    {sidebarEvents.length}
+                  </span>
+                </div>
+
+                {sidebarEvents.length > 0 ? (
+                  <div
+                    className={cn(
+                      'space-y-1 overflow-y-auto pr-1 custom-scrollbar',
+                      isAdminCal ? 'admin-cal-side-section-list' : 'max-h-28',
+                    )}
+                  >
+                    {[...sidebarEvents]
+                      .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime())
+                      .map((event) => (
+                        <div
+                          key={event.id}
+                          className={cn(
+                            'group flex items-center rounded-lg border p-2 transition-all',
+                            isAdminCal
+                              ? 'admin-cal-list-item border-[rgba(38,107,28,0.12)] hover:border-[rgba(38,107,28,0.28)]'
+                              : 'border-border hover:border-primary/40 hover:shadow-sm',
+                          )}
+                        >
+                          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-amber-100 to-amber-50 text-sm font-semibold text-amber-700 shadow-sm">
+                            📢
+                          </div>
+                          <div className="ml-2 min-w-0 flex-1">
+                            <h4 className="truncate text-xs font-semibold text-ink">{event.title}</h4>
+                            <p className="text-[10px] text-muted">
+                              {event.time || 'All day'} • {formatDate(event.date)}
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            className={cn(
+                              'ml-1 h-6 w-6 flex-shrink-0 p-0 transition-opacity',
+                              isAdminCal ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+                            )}
+                            onClick={() => {
+                              setEventToDelete(event)
+                              setEventDeleteConfirmOpen(true)
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <div
+                    className={cn(
+                      'flex flex-col items-center justify-center rounded-lg border border-dashed py-2 text-center',
+                      isAdminCal ? 'admin-cal-empty admin-cal-empty-compact' : 'border-border bg-surface/50 py-4',
+                    )}
+                  >
+                    <span className="text-base opacity-50">📢</span>
+                    <p className="text-[10px] font-medium text-muted">No events this month</p>
+                  </div>
+                )}
+              </section>
+
+              <div
+                className={cn('flex-shrink-0', isAdminCal ? 'admin-cal-side-section-divider' : 'h-px bg-border')}
+                aria-hidden
+              />
+
+              {/* Approved Leaves */}
+              <section
+                className={cn(
+                  'flex min-h-0 flex-col rounded-lg',
+                  sidebarLeaves.length > 0 &&
+                    (isAdminCal
+                      ? 'admin-cal-side-section--active admin-cal-side-section--active-leaves admin-cal-side-section--fills'
+                      : 'border border-lime-100/90 bg-lime-50/50 px-2 py-1.5'),
+                )}
+              >
+                <div className={cn('flex items-center gap-2', isAdminCal && 'admin-cal-side-section-head')}>
+                  <h3
+                    className={cn(
+                      'text-xs font-semibold',
+                      isAdminCal ? 'admin-cal-side-section-title' : 'text-ink',
+                    )}
+                  >
+                    Approved Leaves
+                  </h3>
+                  <span
+                    className={cn(
+                      'inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold',
+                      isAdminCal
+                        ? 'admin-cal-count-badge admin-cal-count-badge-lime'
+                        : 'bg-lime-100 text-lime-700',
+                    )}
+                  >
+                    {sidebarLeaves.length}
+                  </span>
+                </div>
+
+                {sidebarLeaves.length > 0 ? (
+                  <div
+                    className={cn(
+                      'min-h-0 space-y-1 overflow-y-auto pr-1 custom-scrollbar',
+                      isAdminCal ? 'admin-cal-side-section-list admin-cal-side-section-list--fills' : 'max-h-36',
+                    )}
+                  >
+                    {sidebarLeaves.map((leave) => (
                       <div
-                        key={holiday.id}
+                        key={leave.id}
                         className={cn(
-                          'group flex items-center justify-between p-2 rounded-lg border transition-all',
+                          'flex items-center rounded-lg border p-2 transition-all',
                           isAdminCal
                             ? 'admin-cal-list-item border-[rgba(38,107,28,0.12)] hover:border-[rgba(38,107,28,0.28)]'
                             : 'border-border hover:border-primary/40 hover:shadow-sm',
                         )}
                       >
-                        <div className="flex-1 flex items-center gap-2 min-w-0">
-                          <div className={`flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold text-white flex-shrink-0 shadow-sm ${
-                            holiday.type === 'National'
-                              ? 'bg-green-500'
-                              : holiday.type === 'Company'
-                              ? 'bg-blue-500'
-                              : holiday.type === 'Company Event'
-                              ? 'bg-orange-500'
-                              : 'bg-green-500'
-                          }`}>
-                            🎉
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-ink text-xs truncate">{holiday.title}</h4>
-                            <p className="text-[10px] text-muted">
-                              {dayName} • {formatDate(holiday.date)}
-                            </p>
-                          </div>
+                        <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-lime-100 to-lime-50 text-sm shadow-sm">
+                          ✈️
                         </div>
-                        <div className={cn(
-                          'flex gap-1 flex-shrink-0 ml-2 transition-opacity',
-                          isAdminCal ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
-                        )}>
-                          <Button size="sm" variant="secondary" className="h-6 w-6 p-0" onClick={() => handleEditHoliday(holiday)}>
-                            <Edit2 className="h-3 w-3" />
-                          </Button>
-                          <Button size="sm" variant="danger" className="h-6 w-6 p-0" onClick={() => { setHolidayToDelete(holiday); setDeleteConfirmOpen(true) }}>
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                        <div className="ml-2 min-w-0 flex-1">
+                          <h4 className="truncate text-xs font-semibold text-ink">{leave.employeeName}</h4>
+                          <p className="text-[10px] text-muted">
+                            {leave.type} • {leave.days}d
+                          </p>
+                        </div>
+                        <div className="ml-2 flex-shrink-0 text-right">
+                          <span className="block text-xs font-medium text-ink">
+                            {format(parseISO(leave.from), 'MMM d')}
+                          </span>
+                          {leave.days > 1 && (
+                            <span className="block text-[10px] leading-none text-muted">
+                              to {format(parseISO(leave.to), 'MMM d')}
+                            </span>
+                          )}
                         </div>
                       </div>
-                    )
-                  })}
-              </div>
-            ) : (
-              <div
-                className={cn(
-                  'flex flex-1 flex-col items-center justify-center rounded-lg border border-dashed text-center',
-                  isAdminCal ? 'admin-cal-empty py-2' : 'border-border bg-surface/50 p-4',
-                )}
-              >
-                <span className={cn('opacity-50', isAdminCal ? 'text-base' : 'mb-1 text-xl')}>📅</span>
-                <p className="text-muted text-[10px] font-medium">No holidays this month</p>
-              </div>
-            )}
-          </div>
-
-          {/* Company Events */}
-          <div
-            className={cn(
-              'flex flex-col rounded-xl shadow-sm',
-              isAdminCal ? 'admin-cal-side-card min-h-0 flex-1 p-2' : 'h-[220px] border border-border bg-white p-3',
-            )}
-          >
-            <div className={cn('mb-2 flex items-center justify-between flex-shrink-0', isAdminCal && 'admin-cal-side-head')}>
-              <div className="flex items-center gap-2">
-                <h3 className={cn(
-                  'font-display text-sm font-semibold',
-                  isAdminCal ? 'text-[var(--emerald-dark)]' : 'text-ink',
-                )}>
-                  Company Events
-                </h3>
-                <span className={cn(
-                  'inline-flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold',
-                  isAdminCal ? 'admin-cal-count-badge admin-cal-count-badge-amber' : 'bg-amber-100 text-amber-700',
-                )}>
-                  {sidebarEvents.length}
-                </span>
-              </div>
-            </div>
-
-            {sidebarEvents.length > 0 ? (
-              <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1 custom-scrollbar">
-                {sidebarEvents
-                  .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime())
-                  .map((event) => (
-                    <div
-                      key={event.id}
-                      className={cn(
-                        'group flex items-center p-2 rounded-lg border transition-all',
-                        isAdminCal
-                          ? 'admin-cal-list-item border-[rgba(38,107,28,0.12)] hover:border-[rgba(38,107,28,0.28)]'
-                          : 'border-border hover:border-primary/40 hover:shadow-sm',
-                      )}
-                    >
-                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-amber-100 to-amber-50 flex-shrink-0 text-sm shadow-sm font-semibold text-amber-700">
-                        📢
-                      </div>
-                      <div className="flex-1 ml-2 min-w-0">
-                        <h4 className="font-semibold text-ink text-xs truncate">{event.title}</h4>
-                        <p className="text-[10px] text-muted">{event.time || 'All day'} • {formatDate(event.date)}</p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        className={cn(
-                          'h-6 w-6 p-0 ml-1 flex-shrink-0 transition-opacity',
-                          isAdminCal ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
-                        )}
-                        onClick={() => { setEventToDelete(event); setEventDeleteConfirmOpen(true) }}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
-              </div>
-            ) : (
-              <div
-                className={cn(
-                  'flex flex-1 flex-col items-center justify-center rounded-lg border border-dashed text-center',
-                  isAdminCal ? 'admin-cal-empty py-2' : 'border-border bg-surface/50 p-4',
-                )}
-              >
-                <span className={cn('opacity-50', isAdminCal ? 'text-base' : 'mb-1 text-xl')}>📢</span>
-                <p className="text-muted text-[10px] font-medium">No events this month</p>
-              </div>
-            )}
-          </div>
-
-          {/* Approved Leaves */}
-          <div
-            className={cn(
-              'flex flex-col rounded-xl shadow-sm',
-              isAdminCal ? 'admin-cal-side-card min-h-0 flex-1 p-2' : 'h-[220px] border border-border bg-white p-3',
-            )}
-          >
-            <div className={cn('mb-2 flex items-center justify-between flex-shrink-0', isAdminCal && 'admin-cal-side-head')}>
-              <div className="flex items-center gap-2">
-                <h3 className={cn(
-                  'font-display text-sm font-semibold',
-                  isAdminCal ? 'text-[var(--emerald-dark)]' : 'text-ink',
-                )}>Approved Leaves</h3>
-                <span className={cn(
-                  'inline-flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold',
-                  isAdminCal ? 'admin-cal-count-badge admin-cal-count-badge-lime' : 'bg-lime-100 text-lime-700',
-                )}>
-                  {sidebarLeaves.length}
-                </span>
-              </div>
-            </div>
-            {sidebarLeaves.length > 0 ? (
-              <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1 custom-scrollbar">
-                {sidebarLeaves.map((leave) => (
+                    ))}
+                  </div>
+                ) : (
                   <div
-                    key={leave.id}
                     className={cn(
-                      'flex items-center p-2 rounded-lg border transition-all',
-                      isAdminCal
-                        ? 'admin-cal-list-item border-[rgba(38,107,28,0.12)] hover:border-[rgba(38,107,28,0.28)]'
-                        : 'border-border hover:border-primary/40 hover:shadow-sm',
+                      'flex flex-col items-center justify-center rounded-lg border border-dashed py-2 text-center',
+                      isAdminCal ? 'admin-cal-empty admin-cal-empty-compact' : 'border-border bg-surface/50 py-4',
                     )}
                   >
-                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-lime-100 to-lime-50 flex-shrink-0 text-sm shadow-sm">
-                      ✈️
-                    </div>
-                    <div className="flex-1 ml-2 min-w-0">
-                      <h4 className="font-semibold text-ink text-xs truncate">{leave.employeeName}</h4>
-                      <p className="text-[10px] text-muted">{leave.type} • {leave.days}d</p>
-                    </div>
-                    <div className="text-right ml-2 flex-shrink-0">
-                      <span className="text-xs font-medium text-ink block">{format(new Date(leave.from), 'MMM d')}</span>
-                      {leave.days > 1 && <span className="text-[10px] text-muted block leading-none">to {format(new Date(leave.to), 'MMM d')}</span>}
-                    </div>
+                    <span className="text-base opacity-50">🏖️</span>
+                    <p className="text-[10px] font-medium text-muted">No approved leaves this month</p>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div
-                className={cn(
-                  'flex flex-1 flex-col items-center justify-center rounded-lg border border-dashed text-center',
-                  isAdminCal ? 'admin-cal-empty py-2' : 'border-border bg-surface/50 p-4',
                 )}
-              >
-                <span className={cn('opacity-50', isAdminCal ? 'text-base' : 'mb-1 text-xl')}>🏖️</span>
-                <p className="text-muted text-[10px] font-medium">No approved leaves this month</p>
-              </div>
-            )}
+              </section>
+            </div>
           </div>
-
         </div>
       </div>
       </div>
