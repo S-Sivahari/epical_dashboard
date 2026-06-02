@@ -5,8 +5,8 @@ import type { CourseAnalyticsRow, TrainingAnalytics } from '@/services/analytics
 import { cn } from '@/utils/cn'
 
 const COLORS = {
-  completed: '#065F46',
-  inProgress: '#06C033',
+  completed: '#2f6b4f',
+  inProgress: '#3a8a62',
   notStarted: '#D1FAE5',
 } as const
 
@@ -163,7 +163,7 @@ export function CourseTrainingAnalyticsPanel({
   if (loading) {
     return (
       <div className="admin-analytics-chart-placeholder admin-training-placeholder">
-        <Loader2 className="h-6 w-6 animate-spin text-[#06C033]" />
+        <Loader2 className="h-6 w-6 animate-spin text-[#2f6b4f]" />
         <p className="text-sm font-medium text-slate-500">Loading training analytics…</p>
       </div>
     )
@@ -189,14 +189,6 @@ export function CourseTrainingAnalyticsPanel({
           <TrainingKpi label="Completed" value={summary.totalCompleted} />
           <TrainingKpi label="In Progress" value={summary.totalInProgress} />
           <TrainingKpi label="Not Started" value={summary.totalNotStarted} />
-        </div>
-        <div className="admin-training-mini-donut">
-          <DepartmentPieChart
-            data={summary.overallSlice}
-            height={88}
-            colors={PIE_COLORS}
-            variant="analytics"
-          />
         </div>
       </div>
 
@@ -243,6 +235,33 @@ export function CourseTrainingAnalyticsPanel({
             />
           ))
         )}
+      </div>
+
+      <div className="admin-training-chart-footer">
+        <p className="admin-training-chart-footer-label">Overall Completion</p>
+        <div className="admin-training-donut-stage">
+          <DepartmentPieChart
+            data={summary.overallSlice}
+            height={172}
+            colors={PIE_COLORS}
+            variant="analytics"
+          />
+        </div>
+        <div className="admin-training-donut-legend">
+          {summary.overallSlice.map((item, i) => (
+            <div key={item.name} className="admin-training-donut-legend-item">
+              <span
+                className={cn(
+                  'admin-training-donut-legend-dot',
+                  i === 2 && 'is-light',
+                )}
+                style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}
+              />
+              <span className="admin-training-donut-legend-label">{item.name}</span>
+              <span className="admin-training-donut-legend-value">{item.value}%</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )

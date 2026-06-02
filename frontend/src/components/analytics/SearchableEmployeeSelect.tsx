@@ -63,7 +63,7 @@ export function SearchableEmployeeSelect({
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <User className="h-4 w-4 shrink-0 text-[#06C033]" />
+        <User className="h-4 w-4 shrink-0 text-[#2f6b4f]" />
         <span className="truncate text-left">{loading ? 'Loading employees…' : selectedLabel}</span>
         {loading ? (
           <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-400" />

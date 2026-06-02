@@ -17,12 +17,12 @@ import { cn } from '@/utils/cn'
 const TABLE_PAGE_SIZE = 5
 
 const GREEN = {
-  primary: '#06C033',
-  dark: '#065F46',
-  medium: '#16A34A',
+  primary: '#2f6b4f',
+  dark: '#2f6b4f',
+  medium: '#3a8a62',
   light: '#86EFAC',
-  top: '#064E3B',
-  above: '#06C033',
+  top: '#1f4d38',
+  above: '#3a8a62',
   below: '#86EFAC',
 }
 
@@ -138,7 +138,7 @@ export function EmployeeComparisonChart({
               dataKey="totalHours"
               position="right"
               formatter={(v: number) => `${v} hrs`}
-              fill="#065F46"
+              fill={GREEN.dark}
               fontSize={11}
               fontWeight={700}
             />
@@ -180,7 +180,7 @@ export function EmployeeComparisonTable({ data }: { data: EmployeePerformanceRow
               <tr key={row.id}>
                 <td className="font-semibold text-slate-900">{row.name}</td>
                 <td className="text-slate-600">{row.employeeId}</td>
-                <td className="tabular-nums font-bold text-[#065F46]">{row.totalHours} hrs</td>
+                <td className="tabular-nums font-bold text-[#2f6b4f]">{row.totalHours} hrs</td>
                 <td className="tabular-nums">{row.totalWorkingDays}</td>
                 <td className="tabular-nums">{row.attendancePercent}%</td>
                 <td className="tabular-nums">{row.leaveDays}</td>
