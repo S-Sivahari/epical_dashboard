@@ -24,12 +24,13 @@ import {
 } from 'docx'
 import { writeFileSync } from 'fs'
 import { join } from 'path'
+import { formatPayslipTitleLabel } from './payslipDownloadName'
 
 // ============================================================================
 // THEME COLORS (same as Python version)
 // ============================================================================
 const COLORS = {
-  PRIMARY: '0E5E4E',
+  PRIMARY: '2F6B4F',
   PRIMARY_DK: '0A4136',
   PRIMARY_LT: 'C9E4DC',
   HEADER_TXT: 'FFFFFF',
@@ -378,7 +379,6 @@ export function buildPayslip(
   const payDate = company['Pay Date'] || ''
   const companyName = company['Company Name'] || '[COMPANY NAME]'
 
-  // Build address
   const addr = [
     company['Address Line 1'],
     company['Address Line 2'],
@@ -409,28 +409,10 @@ export function buildPayslip(
       text: companyName,
       bold: true,
       size: 32,
+      alignment: AlignmentType.CENTER,
       border: {
         bottom: { color: COLORS.PRIMARY, space: 1, style: BorderStyle.SINGLE, size: 6 },
       },
-      spacing: { after: 100 },
-    } as any)
-  )
-
-  sections.push(
-    new Paragraph({
-      text: `CIN: ${cin}    GSTIN: ${gstin}    PAN: ${cpan}`,
-      size: 14,
-      color: COLORS.MUTED,
-      spacing: { after: 50 },
-    } as any)
-  )
-
-  sections.push(
-    new Paragraph({
-      text: addr,
-      size: 14,
-      italic: true,
-      color: COLORS.MUTED,
       spacing: { after: 200 },
     } as any)
   )
@@ -440,9 +422,9 @@ export function buildPayslip(
   // =========================================================================
   sections.push(
     new Paragraph({
-      text: `PAYSLIP for the Pay Period of ${payMonth?.toString().toUpperCase()}`,
+      text: formatPayslipTitleLabel(payMonth),
       bold: true,
-      size: 28,
+      size: 20,
       alignment: AlignmentType.CENTER,
       shading: { fill: COLORS.PRIMARY },
       color: COLORS.HEADER_TXT,
@@ -540,9 +522,58 @@ export function buildPayslip(
   // =========================================================================
   sections.push(
     new Paragraph({
+      text: companyName,
+      bold: true,
+      size: 14,
+      alignment: AlignmentType.CENTER,
+      color: COLORS.MUTED,
+      spacing: { before: 100, after: 40 },
+    } as any)
+  )
+
+  sections.push(
+    new Paragraph({
+      text: [`CIN: ${cin}`, `GSTIN: ${gstin}`, `PAN: ${cpan}`, `Email: ${email}`].join(' | '),
+      size: 11,
+      alignment: AlignmentType.CENTER,
+      color: COLORS.MUTED,
+      spacing: { after: 40 },
+    } as any)
+  )
+
+  if (addr) {
+    sections.push(
+      new Paragraph({
+        text: addr,
+        size: 11,
+        alignment: AlignmentType.CENTER,
+        color: COLORS.MUTED,
+        spacing: { after: 40 },
+      } as any)
+    )
+  }
+
+  const contactParts = [
+    phone ? `Phone: ${phone}` : '',
+    website ? `Website: ${website}` : '',
+  ].filter(Boolean)
+  if (contactParts.length) {
+    sections.push(
+      new Paragraph({
+        text: contactParts.join(' | '),
+        size: 11,
+        alignment: AlignmentType.CENTER,
+        color: COLORS.MUTED,
+        spacing: { after: 40 },
+      } as any)
+    )
+  }
+
+  sections.push(
+    new Paragraph({
       text: `This is a computer-generated payslip and does not require a physical signature.`,
       italic: true,
-      size: 12,
+      size: 11,
       alignment: AlignmentType.CENTER,
       color: COLORS.MUTED,
       border: {

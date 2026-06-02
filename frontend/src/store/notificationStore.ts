@@ -43,7 +43,9 @@ export interface NotificationData {
   id: string
   recipientId: string
   recipientType: 'Employee' | 'Manager' | 'Admin'
-  type: 'LeaveSubmitted' | 'LeaveApproved' | 'LeaveRejected' | 'LeaveCancelled' | 'PayslipSent'
+  type: 'LeaveSubmitted' | 'LeaveApproved' | 'LeaveRejected' | 'LeaveCancelled'
+    | 'DocumentRequested' | 'DocumentApproved' | 'DocumentRejected'
+    | 'PayslipSent' | 'PayslipRegenerated'
     | 'HolidayAdded' | 'HolidayUpdated' | 'HolidayDeleted' | 'HolidaySkipped'
   title: string
   message: string

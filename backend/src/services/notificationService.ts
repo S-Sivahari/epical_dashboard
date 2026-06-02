@@ -1,4 +1,5 @@
 import { Collection } from 'mongodb';
+import { readFileSync } from 'fs';
 import { getDB } from '../config/db';
 import { Notification, CreateNotificationPayload } from '../models/Notification';
 import * as emailService from './emailService';
@@ -175,6 +176,28 @@ export async function getUnreadCountsByCategory(recipientId: string): Promise<{
   };
 }
 
+async function loadPayslipPdfAttachment(
+  batchId: string,
+  fileName: string,
+  employeeName: string,
+  payMonth?: string
+): Promise<emailService.EmailAttachment | undefined> {
+  try {
+    const { ensurePayslipPdfExists } = await import('./payrollBatchService');
+    const { formatPayslipDownloadFileName } = await import('./payslipDownloadName');
+    const filePath = await ensurePayslipPdfExists(batchId, fileName);
+    const content = readFileSync(filePath);
+    return {
+      filename: formatPayslipDownloadFileName(employeeName, payMonth),
+      content,
+      contentType: 'application/pdf',
+    };
+  } catch (error) {
+    console.warn('[Notification Service] Could not attach payslip PDF to email:', error);
+    return undefined;
+  }
+}
+
 /**
  * Resolves the recipient's email address and triggers the appropriate email template from emailService.
  * Admins and Managers only receive in-app notifications — emails are skipped for them.
@@ -278,15 +301,28 @@ async function triggerEmailNotification(notification: any): Promise<void> {
         status: leaveStatus,
         rejectionReason: leaveDetails ? leaveDetails.rejectionReason : undefined,
       });
-    } else if (notification.type === 'PayslipSent') {
-      await emailService.sendPayslipEmail({
-        recipientEmail,
-        recipientName,
-        employeeName: related.employeeName || recipientName,
-        employeeId: related.employeeId || '',
-        payMonth: related.payMonth || 'Payslip',
-        fileName: related.fileName || '',
-      });
+    } else if (notification.type === 'PayslipSent' || notification.type === 'PayslipRegenerated') {
+      let pdfAttachment: emailService.EmailAttachment | undefined;
+      if (related.batchId && related.fileName) {
+        pdfAttachment = await loadPayslipPdfAttachment(
+          related.batchId,
+          related.fileName,
+          related.employeeName || recipientName,
+          related.payMonth
+        );
+      }
+      await emailService.sendPayslipEmail(
+        {
+          recipientEmail,
+          recipientName,
+          employeeName: related.employeeName || recipientName,
+          employeeId: related.employeeId || '',
+          payMonth: related.payMonth || 'Payslip',
+          fileName: related.fileName || '',
+        },
+        undefined,
+        pdfAttachment
+      );
     } else if (
       notification.type === 'HolidayAdded' ||
       notification.type === 'HolidayUpdated' ||
