@@ -308,7 +308,7 @@ setRejectOpen(false)
                     type="button"
                     className="admin-doc-secondary-btn"
                     onClick={() =>
-                      void downloadDocumentPdf(row.id, `${row.documentName}.pdf`).catch(() =>
+                      void downloadDocumentPdf(row.id, row.documentName, row.documentType).catch(() =>
                         toast.error('Download failed'),
                       )
                     }
@@ -362,7 +362,7 @@ setRejectOpen(false)
                       type="button"
                       className="admin-doc-secondary-btn"
                       onClick={() =>
-                        void downloadDocumentPdf(row.id, `${row.documentName}.pdf`).catch(() =>
+                        void downloadDocumentPdf(row.id, row.documentName, row.documentType).catch(() =>
                           toast.error('Download failed'),
                         )
                       }

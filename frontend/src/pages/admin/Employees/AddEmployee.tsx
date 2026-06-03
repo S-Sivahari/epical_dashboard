@@ -32,6 +32,16 @@ const step1 = z.object({
   phone: z.string().min(10, 'Enter a valid phone number'),
   personalEmail: z.string().email('Enter a valid personal email'),
   companyEmail: z.union([z.string().email('Enter a valid company email'), z.literal('')]).optional(),
+}).superRefine((data, ctx) => {
+  const personal = data.personalEmail.trim().toLowerCase()
+  const company = (data.companyEmail ?? '').trim().toLowerCase()
+  if (company && personal === company) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Company email must be different from personal email',
+      path: ['companyEmail'],
+    })
+  }
 })
 
 const step2 = z.object({

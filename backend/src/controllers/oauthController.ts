@@ -7,8 +7,10 @@ import { getDB } from '../config/db';
 import {
   ensureUserAccountForEmployee,
   normalizeLoginEmail,
+  OAUTH_ONLY_EMPLOYEE_PASSWORD,
   resolveUserForOAuthLogin,
 } from '../utils/employeeAuth';
+import { EmployeeLoginError } from '../utils/employeeLoginRules';
 
 function oauthFailureRedirect(reason = 'auth_failed') {
   return `${env.FRONTEND_URL}/auth/login?error=${encodeURIComponent(reason)}`;
@@ -53,11 +55,22 @@ export async function loginWithOAuth(req: Request, res: Response) {
     }
 
     const normalizedEmail = normalizeLoginEmail(email);
-    const { user: existingUser, employee } = await resolveUserForOAuthLogin(normalizedEmail);
+    let existingUser: any = null;
+    let employee: any = null;
+    try {
+      const resolved = await resolveUserForOAuthLogin(normalizedEmail);
+      existingUser = resolved.user;
+      employee = resolved.employee;
+    } catch (err) {
+      if (err instanceof EmployeeLoginError) {
+        return res.status(err.status).json({ message: err.message });
+      }
+      throw err;
+    }
 
     if (!employee && !existingUser) {
       return res.status(401).json({
-        message: 'This email is not registered. Use admin@company.com for admin access or contact HR for employee registration.',
+        message: 'This email is not registered. Contact HR to be added as an employee.',
       });
     }
 
@@ -65,7 +78,7 @@ export async function loginWithOAuth(req: Request, res: Response) {
     let user = existingUser;
 
     if (!user && employee) {
-      user = await ensureUserAccountForEmployee(employee as any, '');
+      user = await ensureUserAccountForEmployee(employee as any, OAUTH_ONLY_EMPLOYEE_PASSWORD);
     }
 
     if (!user) {

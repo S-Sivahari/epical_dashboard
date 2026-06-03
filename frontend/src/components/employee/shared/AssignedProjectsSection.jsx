@@ -3,6 +3,7 @@ import { FolderKanban, Clock } from 'lucide-react'
 import { Badge } from '@components/employee/ui/badge'
 import { Progress } from '@components/employee/ui/progress'
 import api from '@services/api'
+import { cn } from '@pages/employee/lib/utils'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 
 function projectStatusLabel(status) {
@@ -63,7 +64,11 @@ function ProjectRow({ project }) {
   )
 }
 
-export function AssignedProjectsSection({ initialProjects = null, loading: loadingProp = false }) {
+export function AssignedProjectsSection({
+  initialProjects = null,
+  loading: loadingProp = false,
+  className,
+}) {
   const [projects, setProjects] = useState(initialProjects ?? [])
   const [loading, setLoading] = useState(initialProjects == null || loadingProp)
   const [error, setError] = useState(null)
@@ -122,10 +127,12 @@ export function AssignedProjectsSection({ initialProjects = null, loading: loadi
   }, [projects])
 
   return (
-    <InteractiveCard className={portalCardClass({ className: 'overflow-hidden p-4 sm:p-5' })}>
+    <InteractiveCard
+      className={portalCardClass({ className: cn('overflow-hidden p-4 sm:p-5', className) })}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
         <div className="flex min-w-0 items-center gap-2.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <div className="emp-dash-icon emp-dash-icon--violet" aria-hidden>
             <FolderKanban className="h-4 w-4" />
           </div>
           <div className="min-w-0">
@@ -182,7 +189,7 @@ export function AssignedProjectsSection({ initialProjects = null, loading: loadi
 
       {!loading && !error && projects.length > 0 && (
         <div className="mt-3 overflow-hidden rounded-lg border border-border">
-          <div className="hidden border-b border-border bg-slate-50/90 px-4 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted sm:grid sm:grid-cols-[minmax(0,1.6fr)_auto_minmax(6rem,8rem)_4rem_4.5rem] sm:gap-3">
+          <div className="hidden border-b border-border bg-[#f6f4fa]/90 px-4 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted sm:grid sm:grid-cols-[minmax(0,1.6fr)_auto_minmax(6rem,8rem)_4rem_4.5rem] sm:gap-3">
             <span>Project</span>
             <span>Status</span>
             <span>Progress</span>

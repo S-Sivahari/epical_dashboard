@@ -53,6 +53,7 @@ import {
   fetchExportLogo,
   scaleExportLogo,
 } from '@/utils/exportLogo'
+import { timesheetReportFileName } from '@/utils/exportFileName'
 import api from '@/services/api'
 import { getEmployees } from '@/services/employeeService'
 import { MOCK_EMPLOYEES } from '@/services/mockData'
@@ -1991,7 +1992,7 @@ export function ProjectManagement() {
     })
 
     const buffer = await workbook.xlsx.writeBuffer()
-    downloadExcelBuffer(buffer, `Timesheet_Report_${tsStartDate}_to_${tsEndDate}.xlsx`)
+    downloadExcelBuffer(buffer, timesheetReportFileName(tsStartDate, tsEndDate, 'xlsx'))
   }, [filteredTimesheets, tsStartDate, tsEndDate])
 
   const handleExportPDF = useCallback(async () => {
@@ -2239,7 +2240,7 @@ export function ProjectManagement() {
       doc.text('Confidential – EPICAL Timesheet Data', marginX, pageHeight - 24)
     }
 
-    doc.save(`Timesheet_Report_${tsStartDate}_to_${tsEndDate}.pdf`)
+    doc.save(timesheetReportFileName(tsStartDate, tsEndDate, 'pdf'))
   }, [filteredTimesheets, tsStartDate, tsEndDate])
 
   const clearTimesheetFilters = useCallback(() => {

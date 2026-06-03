@@ -61,7 +61,7 @@
     @apply border-primary/30 shadow-md;
     box-shadow:
       0 4px 6px -1px rgb(0 0 0 / 0.06),
-      0 0 0 1px rgb(16 185 129 / 0.06);
+      0 0 0 1px rgba(30, 90, 61, 0.08);
   }
   .employee-portal [data-portal-card][data-selected='true'],
   .employee-portal [data-portal-card]:focus-visible {
@@ -326,11 +326,13 @@
      Admin portal â€” Theme Recovery Pool
   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-  html:has(.admin-portal) {
+  html:has(.admin-portal),
+  html:has(.employee-portal) {
     font-size: 105%;
   }
 
-  .admin-portal {
+  .admin-portal,
+  .employee-portal {
     --dash-canvas: #e6ebe8;
     --dash-forest: #1a4329;
     --dash-mint-sage-header: #b8dcc8;
@@ -423,7 +425,8 @@
     color: var(--text-primary);
   }
 
-  .admin-portal .crewiq-dashboard {
+  .admin-portal .crewiq-dashboard,
+  .employee-portal .crewiq-dashboard {
     margin: 0 !important;
     background: var(--dash-canvas);
   }
@@ -1339,7 +1342,8 @@
   .employee-portal .admin-dashboard-view[data-employee-dashboard] {
     height: calc(100dvh - var(--admin-cmd-bar-h) - var(--admin-top-nav-h));
     max-height: calc(100dvh - var(--admin-cmd-bar-h) - var(--admin-top-nav-h));
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 }
 
@@ -1358,6 +1362,14 @@
   .employee-portal .admin-dashboard-view[data-employee-dashboard] .dashboard-main-grid {
     overflow: visible;
   }
+}
+
+.employee-portal .admin-dashboard-view[data-employee-dashboard] .dashboard-shell {
+  height: auto;
+  min-height: 0;
+  flex: 1;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .admin-dashboard-view {
@@ -1416,7 +1428,8 @@
   }
 }
 
-.admin-dashboard-view[data-admin-dashboard] .dashboard-shell {
+.admin-dashboard-view[data-admin-dashboard] .dashboard-shell,
+.admin-dashboard-view[data-employee-dashboard] .dashboard-shell {
   max-width: none;
   width: 100%;
   margin: 0;
@@ -1425,18 +1438,315 @@
 }
 
 @media (min-width: 768px) {
-  .admin-dashboard-view[data-admin-dashboard] .dashboard-shell {
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-shell,
+  .admin-dashboard-view[data-employee-dashboard] .dashboard-shell {
     padding: 0.625rem 0.5rem 0.75rem;
   }
 }
 
 @media (min-width: 1280px) {
-  .admin-dashboard-view[data-admin-dashboard] .dashboard-shell {
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-shell,
+  .admin-dashboard-view[data-employee-dashboard] .dashboard-shell {
     padding: 0.625rem 0.625rem 0.75rem;
   }
 }
 
+/* Employee dashboard banners — forest gradient + white text */
+.emp-dashboard-hero {
+  background: linear-gradient(135deg, #2f6b4f 0%, #1a4329 100%);
+  box-shadow: 0 4px 14px rgba(47, 107, 79, 0.28);
+  color: #ffffff;
+}
+
+.emp-announcement-gradient {
+  background: linear-gradient(90deg, #2f6b4f 0%, #1a4329 50%, #276749 100%);
+  color: #ffffff;
+}
+
+/* Dashboard / crewiq shell sets dark text — banners stay white on green */
+.crewiq-dashboard .emp-dashboard-hero,
+.crewiq-dashboard .emp-announcement-gradient,
+.employee-portal [data-employee-page] .emp-dashboard-hero,
+.employee-portal [data-employee-page] .emp-announcement-gradient,
+.admin-dashboard-view[data-employee-dashboard] .emp-dashboard-hero,
+.admin-dashboard-view[data-employee-dashboard] .emp-announcement-gradient {
+  color: #ffffff !important;
+}
+
+.crewiq-dashboard .emp-announcement-gradient h3,
+.crewiq-dashboard .emp-announcement-gradient p,
+.crewiq-dashboard .emp-announcement-gradient button,
+.crewiq-dashboard .emp-announcement-gradient svg,
+.crewiq-dashboard .emp-dashboard-hero h2,
+.crewiq-dashboard .emp-dashboard-hero h3,
+.crewiq-dashboard .emp-dashboard-hero p,
+.crewiq-dashboard .emp-dashboard-hero a,
+.crewiq-dashboard .emp-dashboard-hero span,
+.employee-portal [data-employee-page] .emp-announcement-gradient h3,
+.employee-portal [data-employee-page] .emp-announcement-gradient p,
+.employee-portal [data-employee-page] .emp-announcement-gradient button,
+.employee-portal [data-employee-page] .emp-announcement-gradient svg,
+.employee-portal [data-employee-page] .emp-dashboard-hero h2,
+.employee-portal [data-employee-page] .emp-dashboard-hero h3,
+.employee-portal [data-employee-page] .emp-dashboard-hero p,
+.employee-portal [data-employee-page] .emp-dashboard-hero a,
+.employee-portal [data-employee-page] .emp-dashboard-hero span,
+.admin-dashboard-view[data-employee-dashboard] .emp-announcement-gradient h3,
+.admin-dashboard-view[data-employee-dashboard] .emp-announcement-gradient p,
+.admin-dashboard-view[data-employee-dashboard] .emp-announcement-gradient button,
+.admin-dashboard-view[data-employee-dashboard] .emp-announcement-gradient svg,
+.admin-dashboard-view[data-employee-dashboard] .emp-dashboard-hero h2,
+.admin-dashboard-view[data-employee-dashboard] .emp-dashboard-hero p,
+.admin-dashboard-view[data-employee-dashboard] .emp-dashboard-hero a,
+.admin-dashboard-view[data-employee-dashboard] .emp-dashboard-hero span {
+  color: #ffffff !important;
+}
+
+.crewiq-dashboard .emp-announcement-gradient .text-white\/80,
+.crewiq-dashboard .emp-announcement-gradient .text-white\/90,
+.crewiq-dashboard .emp-dashboard-hero .text-white\/70,
+.crewiq-dashboard .emp-dashboard-hero .text-white\/75,
+.crewiq-dashboard .emp-dashboard-hero .text-white\/80,
+.crewiq-dashboard .emp-dashboard-hero .text-white\/90,
+.employee-portal [data-employee-page] .emp-announcement-gradient [class*='text-white'],
+.admin-dashboard-view[data-employee-dashboard] .emp-announcement-gradient [class*='text-white'] {
+  color: #ffffff !important;
+}
+
+.employee-portal [data-employee-page] .emp-announcement-gradient [class*='text-white\/'],
+.admin-dashboard-view[data-employee-dashboard] .emp-announcement-gradient [class*='text-white\/'] {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Employee portal — mild accent palette (all pages) */
+.employee-portal [data-employee-page] .emp-dashboard-hero,
+.admin-dashboard-view[data-employee-dashboard] .emp-dashboard-hero {
+  background: linear-gradient(128deg, #3a7d62 0%, #2f6b4f 45%, #1a4329 100%);
+}
+
+.employee-portal [data-employee-page] .emp-dashboard-hero::after,
+.admin-dashboard-view[data-employee-dashboard] .emp-dashboard-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 55% 80% at 100% 0%, rgba(147, 197, 253, 0.14) 0%, transparent 58%),
+    radial-gradient(ellipse 40% 60% at 0% 100%, rgba(254, 243, 199, 0.1) 0%, transparent 52%);
+}
+
+.employee-portal [data-employee-page] .emp-announcement-gradient,
+.admin-dashboard-view[data-employee-dashboard] .emp-announcement-gradient {
+  background: linear-gradient(
+    100deg,
+    #3d8f72 0%,
+    #2f6b4f 36%,
+    #1a4329 62%,
+    #2d5c48 88%,
+    #3a6b58 100%
+  );
+}
+
+.employee-portal [data-employee-page] .dashboard-page-bg-gradient {
+  background:
+    radial-gradient(ellipse 72% 48% at 6% 8%, rgba(186, 220, 200, 0.38) 0%, transparent 54%),
+    radial-gradient(ellipse 58% 42% at 94% 6%, rgba(191, 219, 254, 0.26) 0%, transparent 50%),
+    radial-gradient(ellipse 48% 38% at 88% 92%, rgba(254, 243, 199, 0.22) 0%, transparent 48%),
+    linear-gradient(180deg, var(--dash-canvas) 0%, #eef4f0 48%, var(--dash-canvas) 100%);
+}
+
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card,
+.admin-dashboard-view[data-employee-dashboard] [data-portal-card].emp-dash-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card::before,
+.admin-dashboard-view[data-employee-dashboard] [data-portal-card].emp-dash-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 0.75rem 0 0 0.75rem;
+}
+
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card--sage,
+.admin-dashboard-view[data-employee-dashboard] [data-portal-card].emp-dash-card--sage {
+  background: linear-gradient(145deg, #f0faf6 0%, #ffffff 44%) !important;
+  border-color: rgba(45, 122, 106, 0.22) !important;
+}
+
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card--sage::before,
+.admin-dashboard-view[data-employee-dashboard] [data-portal-card].emp-dash-card--sage::before {
+  background: linear-gradient(180deg, #6aab8f, #2f6b4f);
+}
+
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card--amber,
+.admin-dashboard-view[data-employee-dashboard] [data-portal-card].emp-dash-card--amber {
+  background: linear-gradient(145deg, #fffbeb 0%, #ffffff 44%) !important;
+  border-color: rgba(217, 169, 78, 0.28) !important;
+}
+
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card--amber::before,
+.admin-dashboard-view[data-employee-dashboard] [data-portal-card].emp-dash-card--amber::before {
+  background: linear-gradient(180deg, #e8c878, #c9922e);
+}
+
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card--sky,
+.admin-dashboard-view[data-employee-dashboard] [data-portal-card].emp-dash-card--sky {
+  background: linear-gradient(145deg, #f0f7fc 0%, #ffffff 44%) !important;
+  border-color: rgba(91, 143, 174, 0.24) !important;
+}
+
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card--sky::before,
+.admin-dashboard-view[data-employee-dashboard] [data-portal-card].emp-dash-card--sky::before {
+  background: linear-gradient(180deg, #8eb8d4, #4a7a9a);
+}
+
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card--violet,
+.admin-dashboard-view[data-employee-dashboard] [data-portal-card].emp-dash-card--violet {
+  background: linear-gradient(145deg, #f6f4fa 0%, #ffffff 44%) !important;
+  border-color: rgba(124, 108, 158, 0.22) !important;
+}
+
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card--violet::before,
+.admin-dashboard-view[data-employee-dashboard] [data-portal-card].emp-dash-card--violet::before {
+  background: linear-gradient(180deg, #b5a8cc, #6b5b8a);
+}
+
+.employee-portal [data-employee-page] .emp-dash-icon,
+.admin-dashboard-view[data-employee-dashboard] .emp-dash-icon {
+  display: flex;
+  height: 2.25rem;
+  width: 2.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+}
+
+.employee-portal [data-employee-page] .emp-dash-icon--sage,
+.admin-dashboard-view[data-employee-dashboard] .emp-dash-icon--sage {
+  background: rgba(47, 107, 79, 0.12);
+  color: #2d6b52;
+}
+
+.employee-portal [data-employee-page] .emp-dash-icon--amber,
+.admin-dashboard-view[data-employee-dashboard] .emp-dash-icon--amber {
+  background: rgba(201, 146, 46, 0.14);
+  color: #9a6f1f;
+}
+
+.employee-portal [data-employee-page] .emp-dash-icon--sky,
+.admin-dashboard-view[data-employee-dashboard] .emp-dash-icon--sky {
+  background: rgba(74, 122, 154, 0.12);
+  color: #3d6b8a;
+}
+
+.employee-portal [data-employee-page] .emp-dash-icon--violet,
+.admin-dashboard-view[data-employee-dashboard] .emp-dash-icon--violet {
+  background: rgba(107, 91, 138, 0.12);
+  color: #5c4f78;
+}
+
+.employee-portal [data-employee-page] .emp-stat-chip--teal,
+.admin-dashboard-view[data-employee-dashboard] .emp-stat-chip--teal {
+  border-color: rgba(125, 211, 192, 0.35);
+  background: rgba(15, 60, 50, 0.28);
+}
+
+.employee-portal [data-employee-page] .emp-stat-chip--amber,
+.admin-dashboard-view[data-employee-dashboard] .emp-stat-chip--amber {
+  border-color: rgba(252, 211, 77, 0.35);
+  background: rgba(68, 48, 12, 0.28);
+}
+
+.employee-portal [data-employee-page] .emp-stat-chip--blue,
+.admin-dashboard-view[data-employee-dashboard] .emp-stat-chip--blue {
+  border-color: rgba(147, 197, 253, 0.35);
+  background: rgba(20, 45, 72, 0.28);
+}
+
+.employee-portal [data-employee-page] .emp-stat-chip--violet,
+.admin-dashboard-view[data-employee-dashboard] .emp-stat-chip--violet {
+  border-color: rgba(196, 181, 253, 0.32);
+  background: rgba(46, 36, 68, 0.28);
+}
+
+.employee-portal [data-employee-page] .emp-leave-tint--casual,
+.admin-dashboard-view[data-employee-dashboard] .emp-leave-tint--casual {
+  background: linear-gradient(135deg, #f0faf6 0%, #ffffff 100%) !important;
+  border-color: rgba(61, 122, 106, 0.2) !important;
+}
+
+.employee-portal [data-employee-page] .emp-leave-tint--sick,
+.admin-dashboard-view[data-employee-dashboard] .emp-leave-tint--sick {
+  background: linear-gradient(135deg, #f0f7fc 0%, #ffffff 100%) !important;
+  border-color: rgba(91, 143, 174, 0.22) !important;
+}
+
+.employee-portal [data-employee-page] .emp-leave-tint--earned,
+.admin-dashboard-view[data-employee-dashboard] .emp-leave-tint--earned {
+  background: linear-gradient(135deg, #f6f4fa 0%, #ffffff 100%) !important;
+  border-color: rgba(124, 108, 158, 0.2) !important;
+}
+
+/* Page shell — padding on standard routes; full-bleed dashboard & calendar */
+.employee-portal [data-employee-page] > .emp-portal-page__content {
+  padding: 1rem;
+}
+
+@media (min-width: 768px) {
+  .employee-portal [data-employee-page] > .emp-portal-page__content {
+    padding: 1.25rem;
+  }
+}
+
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-dashboard]),
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]) {
+  padding: 0;
+}
+
+/* Default portal cards — soft tint on all employee pages */
+.employee-portal [data-employee-page] [data-portal-card]:not(.emp-dash-card):not(.emp-kpi-card):not(.emp-leave-apply-card):not(.emp-leave-balance-card):not(.emp-leave-pending-card):not(.emp-leave-history-card) {
+  background: linear-gradient(165deg, #fafdfb 0%, #ffffff 52%) !important;
+  border-color: rgba(45, 122, 106, 0.16) !important;
+}
+
+/* KPI stat row — rotating mild tones */
+.employee-portal [data-employee-page] [data-portal-card].emp-kpi-card--sage {
+  background: linear-gradient(165deg, #f0faf6 0%, #ffffff 55%) !important;
+  border-color: rgba(45, 122, 106, 0.2) !important;
+}
+
+.employee-portal [data-employee-page] [data-portal-card].emp-kpi-card--amber {
+  background: linear-gradient(165deg, #fffbeb 0%, #ffffff 55%) !important;
+  border-color: rgba(217, 169, 78, 0.24) !important;
+}
+
+.employee-portal [data-employee-page] [data-portal-card].emp-kpi-card--sky {
+  background: linear-gradient(165deg, #f0f7fc 0%, #ffffff 55%) !important;
+  border-color: rgba(91, 143, 174, 0.22) !important;
+}
+
+.employee-portal [data-employee-page] [data-portal-card].emp-kpi-card--violet {
+  background: linear-gradient(165deg, #f6f4fa 0%, #ffffff 55%) !important;
+  border-color: rgba(124, 108, 158, 0.2) !important;
+}
+
+.employee-portal [data-employee-page] .emp-page-header {
+  border-radius: 0.75rem;
+  border: 1px solid rgba(45, 122, 106, 0.18);
+  background: linear-gradient(135deg, #f0faf6 0%, #ffffff 70%);
+  padding: 1rem 1.25rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
 .admin-dashboard-view[data-admin-dashboard] .dashboard-page-bg-pattern,
+.employee-portal [data-employee-page] .dashboard-page-bg-pattern,
+.admin-dashboard-view[data-employee-dashboard] .dashboard-page-bg-pattern,
 .admin-news-view .dashboard-page-bg-pattern,
 .admin-documents-view .dashboard-page-bg-pattern,
 .admin-tickets-view .dashboard-page-bg-pattern,
@@ -11607,18 +11917,7 @@ input[type='number'] {
   background: var(--dash-canvas, #e6ebe8);
 }
 
-.employee-portal.cmd-portal .cmd-main > .relative {
-  padding: 1rem;
-}
-
-@media (min-width: 768px) {
-  .employee-portal.cmd-portal .cmd-main > .relative {
-    padding: 1.25rem;
-  }
-}
-
-.employee-portal.cmd-portal .cmd-main > .relative:has([data-employee-dashboard]),
-.employee-portal.cmd-portal .cmd-main > .relative:has([data-employee-calendar]) {
+.employee-portal.cmd-portal .cmd-main > .relative:has([data-employee-page]) {
   padding: 0;
 }
 

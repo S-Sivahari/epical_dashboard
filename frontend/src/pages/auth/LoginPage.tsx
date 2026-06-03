@@ -11,11 +11,14 @@ import { LoginTopBrand } from '@components/auth/LoginTopBrand'
 import { MicrochipHero } from '@components/auth/MicrochipHero'
 import { Button } from '@components/ui/Button'
 import { useAuthStore } from '@store/authStore'
-import { getGoogleClientId } from '@services/googleOAuthService'
 import { prefetchEmployeeDashboard } from '@/utils/prefetchEmployeeRoutes'
+import { getApiBaseUrl, getGoogleOAuthStartUrl } from '@/config/apiBase'
+import axios from 'axios'
 
-const googleClientId = getGoogleClientId()
-const googleSignInEnabled = googleClientId.endsWith('.apps.googleusercontent.com')
+type GoogleOAuthConfig = {
+  enabled?: boolean
+  redirectUri?: string
+}
 
 function GoogleMark() {
   return (
@@ -55,6 +58,22 @@ export function LoginPage() {
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [googleSignInEnabled, setGoogleSignInEnabled] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(`${getApiBaseUrl()}/auth/google/config`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: GoogleOAuthConfig | null) => {
+        if (!cancelled) setGoogleSignInEnabled(Boolean(data?.enabled))
+      })
+      .catch(() => {
+        if (!cancelled) setGoogleSignInEnabled(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -76,10 +95,11 @@ export function LoginPage() {
     const error = params.get('error')
     if (error) {
       window.history.replaceState({}, '', '/auth/login')
+      const decoded = decodeURIComponent(error)
       toast.error(
-        error === 'google_auth_failed'
-          ? 'Google sign-in failed or this email is not registered. Contact HR or use email/password.'
-          : 'Sign-in failed. Please try again.',
+        decoded === 'google_auth_failed'
+          ? 'Google sign-in failed. You must be added by an admin first, and deactivated accounts cannot sign in.'
+          : decoded,
       )
     }
   }, [completeOAuthRedirect, navigate])
@@ -106,15 +126,25 @@ export function LoginPage() {
       const userRole = useAuthStore.getState().role
       navigate(userRole === 'admin' ? '/admin' : '/employee', { replace: true })
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to sign in'
+      let message = 'Unable to sign in'
+      if (axios.isAxiosError(error)) {
+        if (!error.response) {
+          message =
+            'Cannot reach the API server. Run npm run dev from the project root and ensure the backend is on port 3000.'
+        } else {
+          const data = error.response.data as { error?: string } | undefined
+          message = data?.error ?? error.message
+        }
+      } else if (error instanceof Error) {
+        message = error.message
+      }
       toast.error(message)
     }
   })
 
   const handleGoogleRedirect = () => {
     setGoogleLoading(true)
-    const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api'
-    window.location.assign(`${apiBase}/auth/google`)
+    window.location.assign(getGoogleOAuthStartUrl())
   }
 
   return (

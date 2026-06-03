@@ -549,7 +549,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
 
   const handleDownloadTemplate = async () => {
     try {
-      await downloadPayrollTemplate(templateMeta?.name)
+      await downloadPayrollTemplate()
     } catch {
       toast.error('Failed to download template')
     }
@@ -758,7 +758,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
     }
     setDownloadingAll(true)
     try {
-      await downloadAllPayslipPdfs(targetBatch.id, targetBatch.payMonth)
+      await downloadAllPayslipPdfs(targetBatch.id, targetBatch.payMonth, targetBatch.payPeriodKey)
     } catch (error: unknown) {
       const message =
         error instanceof Error
@@ -1022,7 +1022,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
             size="sm"
             variant="secondary"
             className="admin-payslip-secondary-btn"
-            onClick={() => downloadUploadedExcel(batch.id, batch.originalFileName)}
+            onClick={() => downloadUploadedExcel(batch.id, batch.payMonth, batch.payPeriodKey)}
           >
             <FileSpreadsheet className="h-4 w-4" />
             Download Excel
@@ -1430,7 +1430,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
                                     size="sm"
                                     variant="secondary"
                                     className="admin-payslip-secondary-btn"
-                                    onClick={() => downloadUploadedExcel(b.id, b.originalFileName)}
+                                    onClick={() => downloadUploadedExcel(b.id, b.payMonth, b.payPeriodKey)}
                                   >
                                     <FileSpreadsheet className="h-3.5 w-3.5" />
                                     Download Excel

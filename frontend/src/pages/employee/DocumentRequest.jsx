@@ -492,7 +492,7 @@ export default function DocumentRequest() {
                             variant="outline"
                             className="gap-1 shrink-0"
                             onClick={() =>
-                              void downloadMyDocumentPdf(doc.id, `${doc.documentName}.pdf`).catch(
+                              void downloadMyDocumentPdf(doc.id, doc.documentName, doc.documentType).catch(
                                 () =>
                                   toast({
                                     title: 'Download failed',

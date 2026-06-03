@@ -807,22 +807,22 @@ export function roundPayrollAmount(value: number): number {
   return Math.round(value * 100) / 100
 }
 
-/** Resolve YTD for a payroll component from employee row or month fallback. */
+/** Resolve YTD: prefer FY cumulative map from payrollYtdService (Apr–Mar); Excel YTD columns are fallback only. */
 export function getComponentYtd(
   emp: Employee,
   componentName: string,
   monthAmount: number
 ): number {
   const ytdMap = emp['_componentYtd'] as Record<string, number> | undefined
-  if (ytdMap && componentName in ytdMap) {
-    return parseAmount(ytdMap[componentName])
+  if (ytdMap !== undefined) {
+    return roundPayrollAmount(ytdMap[componentName] ?? monthAmount)
   }
   for (const key of [`${componentName} YTD`, `YTD ${componentName}`, `${componentName} Ytd`]) {
     if (emp[key] !== undefined && emp[key] !== '') {
       return parseAmount(emp[key])
     }
   }
-  return monthAmount
+  return roundPayrollAmount(monthAmount)
 }
 
 export function resolvePaidDays(

@@ -9,7 +9,10 @@ import { connectDB, closeDB, getDB } from './config/db';
 import { env } from './config/env';
 import { initializePassport } from './config/oauth';
 
-import { removeDepartmentFromDatabase } from './services/employeeService';
+import {
+  normalizeEmployeesWithSameCompanyAndPersonalEmail,
+  removeDepartmentFromDatabase,
+} from './services/employeeService';
 import { purgeCancelledLeavesFromDatabase } from './services/leaveService';
 
 import { authMiddleware, requireRole } from './middleware/authMiddleware';
@@ -50,6 +53,7 @@ import {
   initLeaveMonthlyResetScheduler,
   stopLeaveMonthlyResetScheduler,
 } from './services/leaveMonthlyResetScheduler';
+import { ensureFinancialYearSnapshotReset } from './services/payrollYtdService';
 import { ensureAttendanceIndexes } from './utils/ensureAttendanceIndexes';
 
 const app = express();
@@ -102,6 +106,8 @@ if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
   initializePassport();
   app.use(passport.initialize());
   app.use(passport.session());
+  console.log(`✓ Google OAuth enabled — register this redirect URI in Google Cloud Console:`);
+  console.log(`  ${env.GOOGLE_CALLBACK_URL}`);
 } else {
   console.log('⚠ Google OAuth disabled (missing credentials)');
 }
@@ -319,6 +325,17 @@ export async function startServer() {
       );
     }
 
+    try {
+      const emailFixes = await normalizeEmployeesWithSameCompanyAndPersonalEmail();
+      if (emailFixes > 0) {
+        console.log(
+          `✓ Cleared duplicate company email on ${emailFixes} employee(s) where it matched personal email`,
+        );
+      }
+    } catch (err) {
+      console.warn('⚠ Employee email normalization skipped:', err);
+    }
+
     // Cleanup department field
     try {
       const removed = await removeDepartmentFromDatabase();
@@ -357,6 +374,12 @@ export async function startServer() {
     initLeaveMonthlyResetScheduler().catch((err) =>
       console.error('⚠ Leave monthly reset scheduler failed (non-fatal):', err)
     );
+
+    try {
+      await ensureFinancialYearSnapshotReset();
+    } catch (err) {
+      console.warn('⚠ Payroll FY snapshot reset skipped:', err);
+    }
   } catch (error) {
     console.error('✗ Failed to start server:', error);
     process.exit(1);

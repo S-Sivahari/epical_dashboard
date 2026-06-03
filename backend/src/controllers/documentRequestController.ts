@@ -174,10 +174,9 @@ export const documentRequestController = {
       }
 
       res.setHeader('Content-Type', raw.fulfillmentFile.contentType);
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="${encodeURIComponent(raw.fulfillmentFile.filename)}"`
-      );
+      const { documentDownloadFileName } = await import('../utils/exportFileName');
+      const downloadName = documentDownloadFileName(raw.documentName, raw.documentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
       res.send(buf);
     } catch {
       res.status(500).json({ error: 'Download failed' });

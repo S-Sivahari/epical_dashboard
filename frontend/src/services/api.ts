@@ -1,8 +1,8 @@
 import axios from 'axios'
-import { toast } from 'sonner'
+import { getApiBaseUrl } from '@/config/apiBase'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api',
+  baseURL: getApiBaseUrl(),
   withCredentials: true,
 })
 
@@ -57,20 +57,9 @@ api.interceptors.response.use(
         const pathname = window.location.pathname
         if (!isRedirecting && isProtectedAppRoute(pathname)) {
           isRedirecting = true
-          toast.error('Session expired. Please sign in again.')
           window.location.assign('/auth/login')
         }
       }
-    } else if (status && status >= 500) {
-      if (!isOptionalAuthRequest(url)) {
-        toast.error('Server error. Please try again later.')
-      }
-    } else if (status === 403) {
-      const message = err.response?.data?.error || 'You do not have permission for this action.'
-      toast.error(message)
-    } else if (status === 409) {
-      const message = err.response?.data?.error || 'Request could not be completed.'
-      toast.error(message)
     }
     return Promise.reject(err)
   },

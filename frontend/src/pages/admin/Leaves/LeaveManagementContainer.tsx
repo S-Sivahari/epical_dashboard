@@ -22,6 +22,7 @@ import {
   exportLeavesToPDF,
   type CompensationExportRow,
 } from '@/utils/exportLeaveReport'
+import { leaveExportFileName } from '@/utils/exportFileName'
 
 type TabType = 'requests' | 'compensation'
 
@@ -47,11 +48,6 @@ function formatLeaveActivityPhrase(type: string, status: string) {
   if (status === 'Approved') return `${typePhrase} approved`
   if (status === 'Rejected') return `${typePhrase} rejected`
   return `${typePhrase} requested`
-}
-
-function buildExportFilename(tab: TabType) {
-  const date = new Date().toISOString().slice(0, 10)
-  return `Leave_Management_${tab}_${date}`
 }
 
 function DonutChart({ segments }: { segments: { value: number; color: string }[] }) {
@@ -275,7 +271,7 @@ export function LeaveManagementContainer() {
   }, [activeTab, leaveFilters, compensationSearch])
 
   const handleExport = async (format: 'pdf' | 'excel') => {
-    const filename = buildExportFilename(activeTab)
+    const filename = leaveExportFileName(activeTab)
     const generatedBy = user?.name || 'Admin'
     try {
       setExporting(format)

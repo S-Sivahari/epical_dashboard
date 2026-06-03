@@ -7,6 +7,7 @@ import {
   FolderKanban,
   ArrowRight,
   FileText,
+  CalendarRange,
 } from 'lucide-react'
 import { ProfileCard } from '@components/employee/shared/ProfileCard'
 import { LeaveCard } from '@components/employee/shared/LeaveCard'
@@ -21,9 +22,15 @@ import { cn } from '@pages/employee/lib/utils'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 
 const LEAVE_COLORS = {
-  'Casual Leave': '#266b1c',
-  'Sick Leave': '#3b82f6',
-  'Earned Leave': '#8b5cf6',
+  'Casual Leave': '#3d7a6a',
+  'Sick Leave': '#4a7a9a',
+  'Earned Leave': '#6b5b8a',
+}
+
+const LEAVE_TINT = {
+  casual: 'emp-leave-tint--casual',
+  sick: 'emp-leave-tint--sick',
+  earned: 'emp-leave-tint--earned',
 }
 
 const CARD_CLASS = portalCardClass({ className: 'flex h-full min-h-0 flex-col overflow-hidden p-4 sm:p-5' })
@@ -57,13 +64,22 @@ function formatLeaveBalances(balanceData = {}) {
   ]
 }
 
-function SectionCard({ title, subtitle, action, children, className = '' }) {
+function SectionCard({ title, subtitle, action, children, className = '', tone, icon: Icon }) {
   return (
-    <InteractiveCard className={cn(CARD_CLASS, className)}>
+    <InteractiveCard
+      className={cn(CARD_CLASS, tone && `emp-dash-card emp-dash-card--${tone}`, className)}
+    >
       <div className="mb-3 flex flex-wrap items-start justify-between gap-2 border-b border-border pb-3">
-        <div className="min-w-0">
-          <h3 className="font-heading text-base font-semibold text-foreground">{title}</h3>
-          {subtitle ? <p className="mt-0.5 text-xs text-muted">{subtitle}</p> : null}
+        <div className="flex min-w-0 items-start gap-2.5">
+          {Icon ? (
+            <div className={cn('emp-dash-icon', tone && `emp-dash-icon--${tone}`)} aria-hidden>
+              <Icon className="h-4 w-4" />
+            </div>
+          ) : null}
+          <div className="min-w-0">
+            <h3 className="font-heading text-base font-semibold text-foreground">{title}</h3>
+            {subtitle ? <p className="mt-0.5 text-xs text-muted">{subtitle}</p> : null}
+          </div>
         </div>
         {action}
       </div>
@@ -179,24 +195,28 @@ export default function Dashboard() {
         value: `${monthlyHours}h`,
         icon: Clock,
         trend: `${weeklyHours}h this week`,
+        accent: 'teal',
       },
       {
         title: 'Pending Leave',
         value: String(pendingLeaves.length),
         icon: CalendarOff,
         trend: pendingLeaves.length ? 'Awaiting approval' : 'None pending',
+        accent: 'amber',
       },
       {
         title: 'Active Projects',
         value: String(projectCount),
         icon: FolderKanban,
         trend: projectCount ? 'Assigned to you' : 'None assigned',
+        accent: 'blue',
       },
       {
         title: 'Training',
         value: String(completedCourses),
         icon: BookOpen,
         trend: enrolledCourses > 0 ? `${enrolledCourses} in progress` : 'No enrollments',
+        accent: 'violet',
       },
     ],
     [
@@ -210,7 +230,8 @@ export default function Dashboard() {
   )
 
   return (
-    <div className="max-w-full space-y-4 overflow-x-hidden">
+    <div className="relative max-w-full" data-employee-dashboard>
+      <div className="dashboard-shell max-w-full space-y-4 overflow-x-hidden">
       <div className="space-y-3">
         <AnnouncementBanner compact />
 
@@ -233,6 +254,8 @@ export default function Dashboard() {
         ) : (
           <SectionCard
             className="h-full"
+            tone="sage"
+            icon={CalendarRange}
             title="Leave balance"
             subtitle="Remaining leave for the year"
             action={<SectionLink to="/employee/leave" label="Apply" />}
@@ -245,8 +268,9 @@ export default function Dashboard() {
                   used={lb.used}
                   total={lb.total}
                   remaining={lb.remaining}
-                  color={lb.color ?? LEAVE_COLORS[lb.type] ?? '#266b1c'}
+                  color={lb.color ?? LEAVE_COLORS[lb.type] ?? '#3d7a6a'}
                   embedded
+                  tintClass={LEAVE_TINT[lb.key]}
                   className="h-full min-h-0 py-3"
                 />
               ))}
@@ -254,9 +278,17 @@ export default function Dashboard() {
           </SectionCard>
         )}
 
-        {loading ? widgetSkeleton : <RecentLeaveRequestsCard className="h-full" leaves={leaves} />}
+        {loading ? (
+          widgetSkeleton
+        ) : (
+          <RecentLeaveRequestsCard className="h-full emp-dash-card emp-dash-card--amber" leaves={leaves} />
+        )}
 
-        {loading ? widgetSkeleton : <UpcomingHolidaysCard className="h-full" holidays={holidays} />}
+        {loading ? (
+          widgetSkeleton
+        ) : (
+          <UpcomingHolidaysCard className="h-full emp-dash-card emp-dash-card--sky" holidays={holidays} />
+        )}
       </div>
 
       {!loading && pendingDocs.length > 0 ? (
@@ -278,9 +310,11 @@ export default function Dashboard() {
       ) : null}
 
       <AssignedProjectsSection
+        className="emp-dash-card emp-dash-card--violet"
         initialProjects={assignedProjects}
         loading={loading && assignedProjects == null}
       />
+      </div>
     </div>
   )
 }

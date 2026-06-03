@@ -6,8 +6,10 @@ import { generateToken } from '../utils/generateToken';
 import {
   ADMIN_LOGIN_EMAIL,
   ensureUserAccountForEmployee,
+  normalizeLoginEmail,
   resolveUserForPasswordLogin,
 } from '../utils/employeeAuth';
+import { EmployeeLoginError } from '../utils/employeeLoginRules';
 import { env } from '../config/env';
 
 let userCollection: Collection<any> | null = null;
@@ -23,7 +25,26 @@ export async function loginUser(
   email: string,
   password: string
 ): Promise<{ token: string; user: Omit<User, 'passwordHash'>; role: string }> {
-  const { user, loginEmail } = await resolveUserForPasswordLogin(email);
+  const normalized = normalizeLoginEmail(email);
+  if (normalized !== ADMIN_LOGIN_EMAIL) {
+    throw Object.assign(
+      new Error('Employee accounts must sign in with Google. Use Continue with Google.'),
+      { status: 403 },
+    );
+  }
+
+  let user: any;
+  let loginEmail: string;
+  try {
+    const resolved = await resolveUserForPasswordLogin(email);
+    user = resolved.user;
+    loginEmail = resolved.loginEmail;
+  } catch (err) {
+    if (err instanceof EmployeeLoginError) {
+      throw Object.assign(new Error(err.message), { status: err.status });
+    }
+    throw err;
+  }
 
   if (!user) {
     throw Object.assign(new Error('Invalid email or password'), { status: 401 });
@@ -83,16 +104,6 @@ export async function seedDefaultUsers(): Promise<{ created: string[]; skipped: 
       role: 'Admin',
       designation: 'Administrator',
       joinedAt: '2019-04-01',
-    },
-    {
-      id: 'EMP-2024-0847',
-      name: 'Sarah Mitchell',
-      email: 'employee@company.com',
-      password: 'employee123',
-      role: 'Employee',
-      designation: 'Senior Product Designer',
-      joinedAt: '2021-03-15',
-      avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah',
     },
   ];
 
