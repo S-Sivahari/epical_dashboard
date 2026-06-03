@@ -46,6 +46,10 @@ import {
 
 // Scheduler
 import { initScheduler, stopScheduler } from './services/timesheetScheduler';
+import {
+  initLeaveMonthlyResetScheduler,
+  stopLeaveMonthlyResetScheduler,
+} from './services/leaveMonthlyResetScheduler';
 import { ensureAttendanceIndexes } from './utils/ensureAttendanceIndexes';
 
 const app = express();
@@ -350,6 +354,9 @@ export async function startServer() {
     initScheduler().catch((err) =>
       console.error('⚠ Scheduler init failed (non-fatal):', err)
     );
+    initLeaveMonthlyResetScheduler().catch((err) =>
+      console.error('⚠ Leave monthly reset scheduler failed (non-fatal):', err)
+    );
   } catch (error) {
     console.error('✗ Failed to start server:', error);
     process.exit(1);
@@ -360,6 +367,7 @@ process.on('SIGINT', async () => {
   console.log('\nShutting down gracefully...');
 
   stopScheduler();
+  stopLeaveMonthlyResetScheduler();
   await closeDB();
 
   process.exit(0);

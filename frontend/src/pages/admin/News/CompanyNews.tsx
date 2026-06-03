@@ -449,102 +449,104 @@ export function CompanyNews() {
                 </header>
 
                 <div className="admin-news-publish-body">
-                  <div className="admin-news-publish-fields">
-                    <Input
-                      label="Title"
-                      required
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      placeholder="e.g. Q2 Town Hall — June 12"
-                    />
-
-                    <label className="admin-news-publish-content-field">
-                      <span className="text-sm font-semibold text-slate-800">
-                        News Content <span className="text-danger">*</span>
-                      </span>
-                      <textarea
-                        className="admin-news-textarea admin-news-publish-textarea w-full resize-y rounded-lg border text-sm font-medium text-slate-800 shadow-sm outline-none transition-ui placeholder:text-slate-400"
-                        value={content}
-                        onChange={(e) => setContent(e.target.value)}
-                        placeholder="Write the full announcement. Include date, venue, and key details employees should know."
+                  <div className="admin-news-publish-columns">
+                    <div className="admin-news-publish-main">
+                      <Input
+                        label="Title"
+                        required
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder="e.g. Q2 Town Hall — June 12"
                       />
-                      <p className="text-xs leading-relaxed text-slate-500">
-                        {content.length} characters
-                      </p>
-                    </label>
-                  </div>
 
-                  <div className="admin-news-publish-assets grid lg:grid-cols-3">
-                    <Input
-                      label="Image URL (optional)"
-                      value={imageUrl}
-                      onChange={(e) => setImageUrl(e.target.value)}
-                      placeholder="https://example.com/image.jpg"
-                    />
-                    <label className="admin-news-publish-upload block lg:col-span-1">
-                      <span className="mb-2 block text-sm font-semibold leading-relaxed text-slate-800">
-                        Upload image (optional)
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        className="admin-news-file-input block w-full text-sm text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:px-3 file:py-2 file:text-sm file:font-bold"
-                        onChange={(e) => handleImageFileChange(e.target.files?.[0] ?? null)}
-                      />
-                      {imageFile && (
-                        <button
-                          type="button"
-                          className="text-xs font-semibold text-slate-500 hover:text-slate-800"
-                          onClick={() => handleImageFileChange(null)}
-                        >
-                          Remove selected file
-                        </button>
-                      )}
-                    </label>
-                    <Input
-                      label="Reference Link"
-                      value={link}
-                      onChange={(e) => setLink(e.target.value)}
-                      placeholder="https://example.com/read-more"
-                    />
-                  </div>
-                </div>
-
-                <div className="admin-news-publish-preview-band" aria-label="Live preview">
-                  <p className="admin-news-live-preview-label">Live Preview</p>
-                  <div className="admin-news-publish-preview-inner">
-                    <div className="admin-news-publish-preview-media shrink-0">
-                      {previewImageSrc ? (
-                        <img
-                          src={previewImageSrc}
-                          alt=""
-                          className="h-full w-full object-cover"
-                          onError={(e) => {
-                            ;(e.target as HTMLImageElement).style.display = 'none'
-                          }}
+                      <label className="admin-news-publish-content-field">
+                        <span className="text-sm font-semibold text-slate-800">
+                          News Content <span className="text-danger">*</span>
+                        </span>
+                        <textarea
+                          className="admin-news-textarea admin-news-publish-textarea w-full resize-y rounded-lg border text-sm font-medium text-slate-800 shadow-sm outline-none transition-ui placeholder:text-slate-400"
+                          value={content}
+                          onChange={(e) => setContent(e.target.value)}
+                          placeholder="Write the full announcement. Include date, venue, and key details employees should know."
                         />
-                      ) : (
-                        <div className="admin-news-preview-placeholder flex h-full min-h-[7rem] items-center justify-center">
-                          <Megaphone className="h-8 w-8 text-white/80" aria-hidden />
-                        </div>
-                      )}
-                    </div>
-                    <div className="admin-news-publish-preview-copy min-w-0 flex-1">
-                      <span className="admin-news-tag-pill inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider">
-                        <Megaphone className="h-2.5 w-2.5" aria-hidden />
-                        Company News
-                      </span>
-                      <h3 className="mt-2 line-clamp-2 font-display text-sm font-bold text-slate-800">
-                        {title.trim() || 'Announcement title'}
-                      </h3>
-                      <p className="mt-2 line-clamp-4 whitespace-pre-line text-sm font-medium text-slate-600">
-                        {contentPreview}
-                      </p>
-                      {link.trim() ? (
-                        <p className="truncate text-[10px] font-semibold admin-news-text-brand">
-                          {link}
+                        <p className="text-xs leading-relaxed text-slate-500">
+                          {content.length} characters
                         </p>
-                      ) : null}
+                      </label>
+                    </div>
+
+                    <div className="admin-news-publish-side">
+                      <Input
+                        label="Image URL (optional)"
+                        value={imageUrl}
+                        onChange={(e) => setImageUrl(e.target.value)}
+                        placeholder="https://example.com/image.jpg"
+                      />
+                      <label className="admin-news-publish-upload block">
+                        <span className="mb-2 block text-sm font-semibold leading-relaxed text-slate-800">
+                          Upload image (optional)
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="admin-news-file-input block w-full text-sm text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:px-3 file:py-2 file:text-sm file:font-bold"
+                          onChange={(e) => handleImageFileChange(e.target.files?.[0] ?? null)}
+                        />
+                        {imageFile && (
+                          <button
+                            type="button"
+                            className="text-xs font-semibold text-slate-500 hover:text-slate-800"
+                            onClick={() => handleImageFileChange(null)}
+                          >
+                            Remove selected file
+                          </button>
+                        )}
+                      </label>
+                      <Input
+                        label="Reference Link"
+                        value={link}
+                        onChange={(e) => setLink(e.target.value)}
+                        placeholder="https://example.com/read-more"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="admin-news-publish-image-row" aria-label="Image preview">
+                    <p className="admin-news-live-preview-label">Image preview</p>
+                    <div className="admin-news-publish-preview-inner admin-news-publish-preview-inner--image">
+                      <div className="admin-news-publish-preview-media shrink-0">
+                        {previewImageSrc ? (
+                          <img
+                            src={previewImageSrc}
+                            alt=""
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              ;(e.target as HTMLImageElement).style.display = 'none'
+                            }}
+                          />
+                        ) : (
+                          <div className="admin-news-preview-placeholder flex h-full min-h-[7rem] items-center justify-center">
+                            <Megaphone className="h-8 w-8 text-white/80" aria-hidden />
+                          </div>
+                        )}
+                      </div>
+                      <div className="admin-news-publish-preview-copy min-w-0 flex-1">
+                        <span className="admin-news-tag-pill inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider">
+                          <Megaphone className="h-2.5 w-2.5" aria-hidden />
+                          Company News
+                        </span>
+                        <h3 className="mt-2 line-clamp-2 font-display text-sm font-bold text-slate-800">
+                          {title.trim() || 'Announcement title'}
+                        </h3>
+                        <p className="mt-2 line-clamp-4 whitespace-pre-line text-sm font-medium text-slate-600">
+                          {contentPreview}
+                        </p>
+                        {link.trim() ? (
+                          <p className="truncate text-[10px] font-semibold admin-news-text-brand">
+                            {link}
+                          </p>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 </div>

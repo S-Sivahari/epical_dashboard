@@ -134,6 +134,15 @@ export async function enrollEmployee(payload: {
   const course = await coursesCol().findOne({ id: payload.courseId })
   if (!course) throw new Error('Course not found')
 
+  const existing = await enrollmentsCol().findOne({
+    courseId: payload.courseId,
+    employeeId: payload.employeeId,
+    status: 'Enrolled',
+  })
+  if (existing) {
+    return normalizeEnrollment(existing)
+  }
+
   const now = new Date()
   const enrollment: CourseEnrollment = {
     id: randomUUID(),

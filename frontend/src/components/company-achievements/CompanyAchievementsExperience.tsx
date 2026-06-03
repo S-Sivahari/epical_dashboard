@@ -86,6 +86,7 @@ function useBlobUrl(
     }
     let alive = true
     let objectUrl: string | null = null
+    setUrl(null)
     setLoading(true)
     void loader().then((blob) => {
       if (!alive) return
@@ -110,21 +111,26 @@ function useBlobUrl(
 function AchievementPhoto({
   achievementId,
   hasImage,
+  imageRevision,
   alt,
   className,
   employeePresentation,
 }: {
   achievementId: string
   hasImage: boolean
+  imageRevision?: string | null
   alt: string
   className?: string
   employeePresentation?: boolean
 }) {
   const load = useCallback(
-    () => (hasImage ? fetchAchievementImageBlob(achievementId) : Promise.resolve(null)),
-    [achievementId, hasImage]
+    () =>
+      hasImage
+        ? fetchAchievementImageBlob(achievementId, imageRevision)
+        : Promise.resolve(null),
+    [achievementId, hasImage, imageRevision]
   )
-  const { url, loading } = useBlobUrl(load, [achievementId, hasImage], hasImage)
+  const { url, loading } = useBlobUrl(load, [achievementId, hasImage, imageRevision], hasImage)
 
   const frame = employeePresentation ? 'rounded-xl border border-zinc-200/80 shadow-md' : 'rounded-2xl border border-border shadow-sm'
 
@@ -188,8 +194,8 @@ export function CompanyAchievementsExperience({
   const coverEnabled = !!(pageMeta?.hasCoverImage)
   const coverRevision = pageMeta?.updatedAt ?? ''
   const loadCover = useCallback(
-    () => (coverEnabled ? fetchCoverImageBlob() : Promise.resolve(null)),
-    [coverEnabled]
+    () => (coverEnabled ? fetchCoverImageBlob(coverRevision) : Promise.resolve(null)),
+    [coverEnabled, coverRevision]
   )
   const { url: coverUrl, loading: coverLoading } = useBlobUrl(loadCover, [coverRevision], coverEnabled)
 
@@ -311,9 +317,20 @@ export function CompanyAchievementsExperience({
   const [aTitle, setATitle] = useState('')
   const [aDesc, setADesc] = useState('')
   const [aFile, setAFile] = useState<File | null>(null)
+  const [aFilePreviewUrl, setAFilePreviewUrl] = useState<string | null>(null)
   const [aRemoveImage, setARemoveImage] = useState(false)
   const [aSaving, setASaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<CompanyAchievementRow | null>(null)
+
+  useEffect(() => {
+    if (!aFile) {
+      setAFilePreviewUrl(null)
+      return
+    }
+    const preview = URL.createObjectURL(aFile)
+    setAFilePreviewUrl(preview)
+    return () => URL.revokeObjectURL(preview)
+  }, [aFile])
 
   const openAdd = () => {
     setEditTarget(null)
@@ -624,6 +641,7 @@ export function CompanyAchievementsExperience({
                 <AchievementPhoto
                   achievementId={row.id}
                   hasImage={row.hasImage}
+                  imageRevision={row.updatedAt}
                   alt={row.title}
                   employeePresentation={ep}
                   className="aspect-[4/3] w-full max-h-[360px] lg:max-h-none"
@@ -813,9 +831,22 @@ export function CompanyAchievementsExperience({
               type="file"
               accept="image/jpeg,image/png,image/webp"
               className="mt-2 block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
-              onChange={(e) => setAFile(e.target.files?.[0] ?? null)}
+              onChange={(e) => {
+                setAFile(e.target.files?.[0] ?? null)
+                if (e.target.files?.[0]) setARemoveImage(false)
+              }}
             />
-            {editTarget?.hasImage && (
+            {aFilePreviewUrl && (
+              <div className="mt-3 overflow-hidden rounded-xl border border-border">
+                <img
+                  src={aFilePreviewUrl}
+                  alt="New image preview"
+                  className="aspect-[4/3] w-full object-cover"
+                />
+                <p className="bg-muted/30 px-3 py-1.5 text-xs text-muted">New image (not saved yet)</p>
+              </div>
+            )}
+            {editTarget?.hasImage && !aFilePreviewUrl && (
               <label className="mt-3 flex items-center gap-2 text-sm text-muted">
                 <input
                   type="checkbox"

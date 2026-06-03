@@ -6,7 +6,7 @@ import { Modal } from '@components/ui/Modal'
 import { formatDateTime } from '@/utils/formatDate'
 import type { Ticket, TicketStatus } from '@/types'
 import { getNextStatus, getPrevStatus, openTicketAttachment } from '@services/ticketService'
-import { ArrowLeft, ArrowRight, MessageSquare, Paperclip } from 'lucide-react'
+import { ArrowLeft, ArrowRight, MessageSquare, Paperclip, Trash2 } from 'lucide-react'
 
 export function priorityVariant(priority: string): 'neutral' | 'warning' | 'danger' | 'info' {
   if (priority === 'Critical' || priority === 'High') return 'danger'
@@ -27,6 +27,8 @@ export function TicketDetailModal({
   onClose,
   onUpdateStatus,
   onAddComment,
+  onDelete,
+  deleting,
   advancing,
 }: {
   ticket: Ticket | null
@@ -34,6 +36,8 @@ export function TicketDetailModal({
   onClose: () => void
   onUpdateStatus: (id: string, next: TicketStatus, remark?: string) => Promise<void>
   onAddComment: (id: string, text: string) => Promise<void>
+  onDelete?: () => void
+  deleting?: boolean
   advancing?: boolean
 }) {
   const [statusRemark, setStatusRemark] = useState('')
@@ -205,6 +209,26 @@ export function TicketDetailModal({
             </div>
           </div>
         )}
+
+        {onDelete ? (
+          <div className="admin-tickets-modal-section border-t border-red-200/60 pt-4">
+            <p className="admin-tickets-modal-label text-red-800">Danger zone</p>
+            <p className="mb-3 text-xs text-slate-600">
+              Permanently remove this ticket and its comments from the system.
+            </p>
+            <Button
+              size="sm"
+              variant="danger"
+              type="button"
+              className="admin-tickets-danger-btn"
+              disabled={deleting || advancing}
+              onClick={onDelete}
+            >
+              <Trash2 className="h-3.5 w-3.5" aria-hidden />
+              Delete ticket
+            </Button>
+          </div>
+        ) : null}
       </div>
     </Modal>
   )

@@ -6,8 +6,7 @@ import { Input } from '@components/ui/Input'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { DataTable, type Column } from '@components/tables/DataTable'
 import { useEmployees } from '@hooks/useEmployees'
-import { Search, Trash2, Edit2, ChevronDown, Plus, Eye, Check, MoreVertical, X } from 'lucide-react'
-import { useEmployeeStore } from '@store/employeeStore'
+import { Search, Trash2, Edit2, ChevronDown, Plus, Check } from 'lucide-react'
 import {
   listCompensation,
   createCompensation,
@@ -325,7 +324,7 @@ export function CompensationManagement({
   ]
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[270px_1fr_290px]">
+    <div className="admin-leaves-three-col">
       {/* ════════════════════════════════════════════════════════
           LEFT COLUMN — Compensation Insights
       ════════════════════════════════════════════════════════ */}

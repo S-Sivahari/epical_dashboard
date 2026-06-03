@@ -124,7 +124,8 @@ export const achievementController = {
 
   getAchievementImage: async (req: Request, res: Response): Promise<void> => {
     try {
-      const row = await achievementService.getAchievement(paramStr(req.params.id))
+      const achievementId = paramStr(req.params.id)
+      const row = await achievementService.getAchievement(achievementId)
       const img = row?.image
       if (!img?.data) {
         res.status(404).json({ error: 'No image' })
@@ -132,7 +133,10 @@ export const achievementController = {
       }
       const buffer = Buffer.from(img.data, 'base64')
       res.setHeader('Content-Type', img.contentType || 'image/jpeg')
-      res.setHeader('Cache-Control', 'private, max-age=600')
+      res.setHeader('Cache-Control', 'private, no-cache')
+      if (row?.updatedAt) {
+        res.setHeader('ETag', `"${achievementId}-${row.updatedAt.getTime()}"`)
+      }
       res.send(buffer)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load image'

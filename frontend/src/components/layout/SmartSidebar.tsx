@@ -1,5 +1,4 @@
 import {
-  BarChart3,
   BookOpen,
   Briefcase,
   CalendarCheck,
@@ -49,7 +48,6 @@ const navItems: {
   { to: ROUTES.PAYSLIPS, label: 'Payslips', icon: Receipt },
   { to: ROUTES.TRAINING, label: 'Training', icon: BookOpen },
   { to: ROUTES.ACHIEVEMENTS, label: 'Achievements', icon: Trophy },
-  { to: ROUTES.ANALYTICS, label: 'Analytics', icon: BarChart3 },
   { to: ROUTES.DOCUMENTS, label: 'Documents', icon: FileText, notificationKey: 'documents' },
   { to: ROUTES.NEWS, label: 'News', icon: Newspaper },
 ]

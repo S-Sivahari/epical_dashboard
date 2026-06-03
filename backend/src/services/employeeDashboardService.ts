@@ -133,6 +133,7 @@ export async function getEmployeeDashboardBundle(userId: string, userEmail?: str
 
   const balances = calculateBalances(leaves, employeeRecord.joinedAt as string | undefined, {
     compensationEarnedBonus: compBonus,
+    employeeAllocations: (employeeRecord as { leaveAllocations?: Record<string, number> }).leaveAllocations,
   });
 
   const sessionRows = monthSessions.map((s) => toFrontendTimesheetRow(s as any));

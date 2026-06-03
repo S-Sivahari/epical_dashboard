@@ -430,6 +430,7 @@ export function TrainingCourses() {
                             <Button
                               size="sm"
                               variant="danger"
+                              className="admin-training-danger-btn"
                               disabled={removingCourse === c.id}
                               onClick={() => void handleDeleteCourse(c.id)}
                             >

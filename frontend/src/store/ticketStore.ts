@@ -19,6 +19,7 @@ interface TicketState {
   updateStatus: (id: string, status: TicketStatus, remark?: string) => Promise<void>
   addComment: (id: string, text: string) => Promise<void>
   upsertTicket: (ticket: Ticket) => void
+  removeTicket: (id: string) => void
 }
 
 export const useTicketStore = create<TicketState>((set, get) => ({
@@ -73,5 +74,9 @@ export const useTicketStore = create<TicketState>((set, get) => ({
         ? get().tickets.map((t) => (t.id === ticket.id ? ticket : t))
         : [ticket, ...get().tickets],
     })
+  },
+
+  removeTicket: (id) => {
+    set({ tickets: get().tickets.filter((t) => t.id !== id) })
   },
 }))

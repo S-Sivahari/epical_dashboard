@@ -85,6 +85,7 @@ export interface LeaveRequest {
 export interface EmployeeLeaveSummary {
   employeeId: string
   employeeName?: string
+  allocations?: Record<string, number>
   balances: Array<{
     type: string
     total: number
