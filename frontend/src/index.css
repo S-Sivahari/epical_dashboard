@@ -4311,107 +4311,203 @@
   box-shadow: 0 2px 6px rgba(38, 107, 28, 0.12);
 }
 
-.admin-projects-view .projects-date-calendar {
-  border: 1px solid rgba(38, 107, 28, 0.2);
+/* Calendar Portal Container */
+.projects-date-calendar-portal {
+  pointer-events: none;
+  z-index: 10000;
+}
+
+.projects-date-calendar {
+  border: 1px solid rgba(38, 107, 28, 0.15);
+  background: #ffffff !important;
+  box-shadow: 
+    0 10px 25px -5px rgba(0, 0, 0, 0.05),
+    0 8px 16px -6px rgba(38, 107, 28, 0.04),
+    0 0 0 1px rgba(38, 107, 28, 0.05);
+  pointer-events: auto;
+  position: absolute;
+  isolation: isolate;
+  will-change: transform;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.projects-date-calendar * {
+  background-clip: padding-box;
+}
+
+.projects-date-calendar > div {
+  background: transparent;
+}
+
+/* Add subtle green tone to calendar grid container */
+.projects-date-calendar .flex-1.select-none {
   background: #ffffff;
-  box-shadow: 0 10px 35px -8px rgba(38, 107, 28, 0.2), 0 4px 12px rgba(38, 107, 28, 0.08);
+  padding: 1rem;
+  border-radius: 12px;
 }
 
-.admin-projects-view .projects-date-calendar-header {
-  background: linear-gradient(135deg, var(--emerald-dark) 0%, #1e5215 100%);
-  box-shadow: 0 2px 8px rgba(38, 107, 28, 0.2);
+/* Header styling with dark green gradient, white text */
+.projects-date-calendar-header {
+  background: linear-gradient(135deg, #1b4d14 0%, #2e7d24 100%) !important;
+  box-shadow: 0 4px 12px rgba(38, 107, 28, 0.15);
+  border-radius: 10px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-.admin-projects-view .projects-date-calendar-header .date-range-month-title {
+.projects-date-calendar-header .date-range-month-title {
   color: #ffffff !important;
-  font-weight: 800;
-  font-size: 14px;
+  font-weight: 800 !important;
+  font-size: 13px !important;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
-.admin-projects-view .projects-date-nav-btn {
-  color: rgba(255, 255, 255, 0.9);
+.projects-date-nav-btn {
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.1) !important;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.admin-projects-view .projects-date-nav-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+.projects-date-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.25) !important;
   color: #ffffff;
+  transform: scale(1.05);
 }
 
-.admin-projects-view .projects-date-weekdays {
-  padding: 0.375rem 0;
-  background: rgba(38, 107, 28, 0.06);
-  border-bottom: 1px solid rgba(38, 107, 28, 0.1);
+/* Weekday header row */
+.projects-date-weekdays {
+  padding: 0.4rem 0;
+  background: #f1f8f3 !important;
+  border-radius: 8px;
+  border-bottom: 1px solid rgba(38, 107, 28, 0.08);
+  margin-bottom: 0.5rem;
 }
 
-.admin-projects-view .projects-date-weekdays span {
-  color: var(--emerald-dark);
-  font-weight: 700;
-  font-size: 11px;
+.projects-date-weekdays span {
+  color: #2e7d24 !important;
+  font-weight: 700 !important;
+  font-size: 10.5px !important;
+  text-transform: uppercase;
 }
 
-.admin-projects-view .projects-date-day-current {
-  color: var(--emerald-dark);
-  font-weight: 600;
+/* Redesigned date cells */
+.projects-date-day {
+  height: 32px !important;
+  width: 32px !important;
+  border-radius: 8px !important;
+  font-size: 11px !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.admin-projects-view .projects-date-day-current:hover {
-  background: rgba(38, 107, 28, 0.1);
-  color: #1e5215;
+.projects-date-day-current {
+  color: #0f172a !important;
+  font-weight: 600 !important;
+  background: transparent;
 }
 
-.admin-projects-view .projects-date-day-muted {
-  color: rgba(38, 107, 28, 0.4);
-  font-weight: 500;
+.projects-date-day-current:hover {
+  background: #e8f5e9 !important;
+  color: #1b4d14 !important;
+  transform: translateY(-1px);
 }
 
-.admin-projects-view .projects-date-day-muted:hover {
-  background: rgba(38, 107, 28, 0.06);
-  color: var(--emerald-dark);
+.projects-date-day-muted {
+  color: #94a3b8 !important;
+  font-weight: 400 !important;
+  background: transparent;
 }
 
-.admin-projects-view .projects-date-day-selected {
-  background: var(--emerald-dark) !important;
+.projects-date-day-muted:hover {
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+}
+
+/* Selected Date with Premium Green Fill */
+.projects-date-day-selected {
+  background: #2e7d24 !important;
   color: #ffffff !important;
-  box-shadow: 0 2px 8px rgba(38, 107, 28, 0.25);
-  font-weight: 700;
+  box-shadow: 0 4px 10px rgba(46, 125, 36, 0.35) !important;
+  font-weight: 700 !important;
 }
 
-.admin-projects-view .projects-date-day-in-range {
-  background: rgba(38, 107, 28, 0.12) !important;
-  color: var(--emerald-dark) !important;
-  font-weight: 600;
-}
-
-.admin-projects-view .projects-date-hint {
-  color: #557557;
-  font-weight: 600;
-}
-
-.admin-projects-view .projects-date-divider {
-  background: linear-gradient(180deg, transparent, rgba(38, 107, 28, 0.2), transparent);
-  width: 2px;
-}
-
-.admin-projects-view .projects-date-presets .type-card-label-caps {
-  color: var(--emerald-dark);
-  font-weight: 800;
-}
-
-.admin-projects-view .projects-date-preset {
-  color: #3b5c3d;
-  font-weight: 600;
-}
-
-.admin-projects-view .projects-date-preset:hover {
-  background: rgba(38, 107, 28, 0.08);
-  color: var(--emerald-dark);
-}
-
-.admin-projects-view .projects-date-preset-active {
-  background: var(--emerald-dark);
+.projects-date-day-selected:hover {
+  background: #1b4d14 !important;
   color: #ffffff !important;
-  box-shadow: 0 2px 8px rgba(38, 107, 28, 0.25);
-  font-weight: 700;
+}
+
+/* In Range selection block style */
+.projects-date-day-in-range {
+  background: #e8f5e9 !important;
+  color: #2e7d24 !important;
+  border-radius: 0px !important;
+  font-weight: 600 !important;
+}
+
+/* Outline style for Today */
+.projects-date-day-today {
+  border: 1.5px solid #2e7d24 !important;
+  color: #2e7d24 !important;
+  font-weight: 700 !important;
+}
+
+/* Premium hint area */
+.projects-date-hint {
+  color: #475569 !important;
+  background: #f1f8f3 !important;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  font-weight: 500 !important;
+  border: 1px solid rgba(38, 107, 28, 0.06);
+}
+
+/* Presets Panel redesign */
+.projects-date-presets {
+  background: #f9fbf9 !important;
+  padding: 1rem;
+  border-left: 1px solid rgba(38, 107, 28, 0.08);
+  display: flex;
+  flex-direction: col;
+}
+
+.projects-date-presets .type-card-label-caps {
+  color: #1b4d14 !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+.projects-date-preset {
+  color: #475569 !important;
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  padding: 0.45rem 0.75rem !important;
+  border-radius: 6px !important;
+  background: transparent;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  text-align: left;
+}
+
+.projects-date-preset:hover {
+  background: #e8f5e9 !important;
+  color: #2e7d24 !important;
+  border-color: rgba(38, 107, 28, 0.08);
+}
+
+.projects-date-preset-active {
+  background: #2e7d24 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 6px rgba(46, 125, 36, 0.2) !important;
 }
 
 /* ── Admin Company Calendar — dashboard theme + 125% scale ── */

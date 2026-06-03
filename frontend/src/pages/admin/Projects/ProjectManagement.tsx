@@ -1,4 +1,5 @@
 import { memo, useMemo, useState, useCallback, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Avatar } from '@components/ui/Avatar'
 import { Badge } from '@components/ui/Badge'
@@ -331,6 +332,74 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
   const [tempStart, setTempStart] = useState<string | null>(startDate)
   const [tempEnd, setTempEnd] = useState<string | null>(endDate)
   const containerRef = useRef<HTMLDivElement>(null)
+  const calendarRef = useRef<HTMLDivElement>(null)
+  const [calendarPosition, setCalendarPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
+
+  const updateCalendarPosition = useCallback(() => {
+    if (containerRef.current && open) {
+      const rect = containerRef.current.getBoundingClientRect()
+      const viewportHeight = window.innerHeight
+      const viewportWidth = window.innerWidth
+      const calendarHeight = 450 // Approximate height of calendar popup
+      const calendarWidth = 520 // Approximate width
+      
+      let top = rect.bottom + 8
+      let left = rect.left
+      
+      // If calendar would overflow bottom of viewport, position it above the trigger
+      if (top + calendarHeight > viewportHeight - 20) {
+        top = rect.top - calendarHeight - 8
+        // If it would overflow top, just position at bottom with scroll
+        if (top < 20) {
+          top = rect.bottom + 8
+        }
+      }
+      
+      // Ensure calendar doesn't overflow left edge
+      if (left < 16) {
+        left = 16
+      }
+      
+      // Ensure calendar doesn't overflow right edge
+      if (left + calendarWidth > viewportWidth - 16) {
+        left = viewportWidth - calendarWidth - 16
+      }
+      
+      setCalendarPosition({ top, left })
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (open) {
+      updateCalendarPosition()
+      window.addEventListener('scroll', updateCalendarPosition, true)
+      window.addEventListener('resize', updateCalendarPosition)
+      return () => {
+        window.removeEventListener('scroll', updateCalendarPosition, true)
+        window.removeEventListener('resize', updateCalendarPosition)
+      }
+    }
+  }, [open, updateCalendarPosition])
+
+  // Handle clicks outside both the trigger and the calendar popup
+  useEffect(() => {
+    if (!open) return
+
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node
+      const isClickInsideContainer = containerRef.current?.contains(target)
+      const isClickInsideCalendar = calendarRef.current?.contains(target)
+      
+      if (!isClickInsideContainer && !isClickInsideCalendar) {
+        setOpen(false)
+        setTempStart(startDate)
+        setTempEnd(endDate)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [open, startDate, endDate])
 
   const applySingleDay = (dateStr: string) => {
     setTempStart(dateStr)
@@ -345,12 +414,6 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
     onChange(start, end, 'Custom')
     setOpen(false)
   }
-
-  useClickOutside(containerRef, () => {
-    setOpen(false)
-    setTempStart(startDate)
-    setTempEnd(endDate)
-  })
 
   useEffect(() => {
     if (open) {
@@ -407,6 +470,7 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
         break
     }
 
+    // Format as YYYY-MM-DD without timezone conversion issues
     const pad = (num: number) => String(num).padStart(2, '0')
     const format = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
     return { start: format(start), end: format(end) }
@@ -491,92 +555,107 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
         <ChevronDown className="h-3 w-3 text-[var(--emerald-dark)]/70 flex-shrink-0" />
       </button>
 
-      {open && (
-        <div className="projects-date-calendar date-range-popover absolute left-0 top-full z-50 mt-2 flex w-[92vw] flex-col gap-3 rounded-2xl p-3 shadow-2xl animate-fadeIn sm:w-auto sm:min-w-[500px] md:flex-row md:p-4">
-          {/* Calendar Grid */}
-          <div className="flex-1 select-none">
-            <div className="projects-date-calendar-header flex items-center justify-between mb-3 rounded-lg px-2 py-1.5">
-              <button type="button" onClick={handlePrevMonth} className="projects-date-nav-btn p-1 rounded-md">
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <span className="date-range-month-title type-calendar-month">
-                {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
-              </span>
-              <button type="button" onClick={handleNextMonth} className="projects-date-nav-btn p-1 rounded-md">
-                <ChevronRight className="h-4 w-4" />
-              </button>
+      {open && createPortal(
+        <div 
+          className="projects-date-calendar-portal fixed inset-0 z-[10000]"
+          style={{ pointerEvents: 'none' }}
+        >
+          {/* Calendar popup */}
+          <div 
+            ref={calendarRef}
+            className="projects-date-calendar date-range-popover absolute flex w-[92vw] flex-col gap-3 rounded-2xl p-3 shadow-2xl sm:w-auto sm:min-w-[500px] md:flex-row md:p-4"
+            style={{
+              top: `${calendarPosition.top}px`,
+              left: `${calendarPosition.left}px`,
+              pointerEvents: 'auto',
+            }}
+          >
+            {/* Calendar Grid */}
+            <div className="flex-1 select-none">
+              <div className="projects-date-calendar-header flex items-center justify-between mb-3 rounded-lg px-2 py-1.5">
+                <button type="button" onClick={handlePrevMonth} className="projects-date-nav-btn p-1 rounded-md">
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="date-range-month-title type-calendar-month">
+                  {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                </span>
+                <button type="button" onClick={handleNextMonth} className="projects-date-nav-btn p-1 rounded-md">
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="projects-date-weekdays type-calendar-weekday mb-1.5 grid grid-cols-7 gap-1 text-center">
+                {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
+                  <span key={d} className="py-1">
+                    {d}
+                  </span>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-7 gap-1 text-center text-xs">
+                {calendarCells.map((cell, idx) => {
+                  const isSelectedStart = tempStart && cell.dateString === tempStart
+                  const isSelectedEnd = tempEnd && cell.dateString === tempEnd
+                  const isSingleDay = tempStart && tempEnd && tempStart === tempEnd && cell.dateString === tempStart
+                  const isWithinRange =
+                    tempStart && tempEnd && tempStart !== tempEnd && cell.dateString > tempStart && cell.dateString < tempEnd
+
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={(e) => handleDayClick(cell.dateString, e)}
+                      title={`Filter logs for ${cell.dateString}. Shift+click a second date for a range.`}
+                      className={`
+                        projects-date-day h-7 w-7 rounded-lg flex items-center justify-center font-semibold transition-all
+                        ${cell.isCurrentMonth ? 'projects-date-day-current' : 'projects-date-day-muted'}
+                        ${isSingleDay || isSelectedStart || isSelectedEnd ? 'projects-date-day-selected' : ''}
+                        ${isWithinRange ? 'projects-date-day-in-range' : ''}
+                      `}
+                    >
+                      {cell.day}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="projects-date-hint mt-2.5 text-[10px] font-medium">
+                Click any date to filter that day. Hold Shift, click a start date, then another date for a custom range.
+              </p>
             </div>
 
-            <div className="projects-date-weekdays type-calendar-weekday mb-1.5 grid grid-cols-7 gap-1 text-center">
-              {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
-                <span key={d} className="py-1">
-                  {d}
-                </span>
+            {/* Divider */}
+            <div className="projects-date-divider hidden md:block" />
+
+            {/* Quick Presets Panel */}
+            <div className="projects-date-presets w-36 flex flex-col gap-0.5">
+              <p className="type-card-label-caps mb-2 text-[9px]">Quick Presets</p>
+              {[
+                'Today',
+                'Yesterday',
+                'This Week',
+                'Last Week',
+                'Past Two Weeks',
+                'This Month',
+                'Last Month',
+                'This Year',
+                'Last Year',
+              ].map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => handlePresetClick(p)}
+                  className={`
+                    projects-date-preset text-left px-2.5 py-1 rounded-lg text-xs font-semibold transition-all
+                    ${preset === p ? 'projects-date-preset-active' : ''}
+                  `}
+                >
+                  {p}
+                </button>
               ))}
             </div>
-
-            <div className="grid grid-cols-7 gap-1 text-center text-xs">
-              {calendarCells.map((cell, idx) => {
-                const isSelectedStart = tempStart && cell.dateString === tempStart
-                const isSelectedEnd = tempEnd && cell.dateString === tempEnd
-                const isSingleDay = tempStart && tempEnd && tempStart === tempEnd && cell.dateString === tempStart
-                const isWithinRange =
-                  tempStart && tempEnd && tempStart !== tempEnd && cell.dateString > tempStart && cell.dateString < tempEnd
-
-                return (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={(e) => handleDayClick(cell.dateString, e)}
-                    title={`Filter logs for ${cell.dateString}. Shift+click a second date for a range.`}
-                    className={`
-                      projects-date-day h-7 w-7 rounded-lg flex items-center justify-center font-semibold transition-all
-                      ${cell.isCurrentMonth ? 'projects-date-day-current' : 'projects-date-day-muted'}
-                      ${isSingleDay || isSelectedStart || isSelectedEnd ? 'projects-date-day-selected' : ''}
-                      ${isWithinRange ? 'projects-date-day-in-range' : ''}
-                    `}
-                  >
-                    {cell.day}
-                  </button>
-                )
-              })}
-            </div>
-            <p className="projects-date-hint mt-2.5 text-[10px] font-medium">
-              Click any date to filter that day. Hold Shift, click a start date, then another date for a custom range.
-            </p>
           </div>
-
-          {/* Divider */}
-          <div className="projects-date-divider hidden md:block" />
-
-          {/* Quick Presets Panel */}
-          <div className="projects-date-presets w-36 flex flex-col gap-0.5">
-            <p className="type-card-label-caps mb-2 text-[9px]">Quick Presets</p>
-            {[
-              'Today',
-              'Yesterday',
-              'This Week',
-              'Last Week',
-              'Past Two Weeks',
-              'This Month',
-              'Last Month',
-              'This Year',
-              'Last Year',
-            ].map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => handlePresetClick(p)}
-                className={`
-                  projects-date-preset text-left px-2.5 py-1 rounded-lg text-xs font-semibold transition-all
-                  ${preset === p ? 'projects-date-preset-active' : ''}
-                `}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
@@ -1177,15 +1256,23 @@ export function ProjectManagement() {
   const [form, setForm] = useState(emptyForm)
 
   // ── Timesheets Date Range Picker States ─────────────────────
-  // FIXED: Initialize with current month instead of hardcoded May dates
+  // FIXED: Initialize with current month using timezone-safe date formatting
   const getCurrentMonthDates = () => {
     const now = new Date()
-    const start = new Date(now.getFullYear(), now.getMonth(), 1)
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-    return {
-      start: start.toISOString().split('T')[0],
-      end: end.toISOString().split('T')[0]
-    }
+    const year = now.getFullYear()
+    const month = now.getMonth()
+    
+    // Get first day of current month
+    const startDay = 1
+    // Get last day of current month
+    const endDay = new Date(year, month + 1, 0).getDate()
+    
+    // Format as YYYY-MM-DD without timezone conversion
+    const pad = (num: number) => String(num).padStart(2, '0')
+    const start = `${year}-${pad(month + 1)}-${pad(startDay)}`
+    const end = `${year}-${pad(month + 1)}-${pad(endDay)}`
+    
+    return { start, end }
   }
   
   const initialDates = getCurrentMonthDates()
