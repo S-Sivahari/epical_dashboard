@@ -249,7 +249,7 @@ export function LeaveRequests({
                   <div
                     key={l.id}
                     onClick={() => openEmployeeProfile(l.employeeId, l.employeeName)}
-                    className="group flex cursor-pointer flex-col gap-3 rounded-xl bg-white border border-gray-200 p-4 transition-all hover:shadow-sm hover:border-emerald-300 sm:flex-row sm:items-center sm:justify-between"
+                    className="group flex cursor-pointer flex-col gap-3 rounded-xl bg-white border border-gray-200 border-b-2 border-b-gray-200/80 p-4 shadow-[0_3px_8px_rgba(0,0,0,0.03),_inset_0_1px_0_rgba(255,255,255,0.8)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(0,0,0,0.05),_inset_0_1px_0_rgba(255,255,255,0.8)] hover:border-emerald-200 hover:border-b-emerald-400 sm:flex-row sm:items-center sm:justify-between"
                     title="Click to view leave history and balances"
                   >
                     <div className="min-w-0 flex-1 space-y-1.5">
