@@ -7,14 +7,10 @@ import {
   Clock,
   FileText,
   CalendarOff,
-  BookOpen,
-  FolderKanban,
-  ArrowRight,
-  LogIn,
-  LogOut,
 } from 'lucide-react'
 import { EmployeePhotoAvatar } from '@components/employee/shared/EmployeePhotoAvatar'
 import { formatDate } from '@pages/employee/lib/utils'
+import { cn } from '@pages/employee/lib/utils'
 
 const quickLinks = [
   { to: '/employee/timesheet', label: 'Timesheet', icon: Clock },
@@ -29,21 +25,131 @@ function greeting() {
   return 'Good evening'
 }
 
-export function ProfileCard({ employee, profile, attendance, compact = false }) {
+function ProfileStatMini({ title, value, trend, icon: Icon, horizontal = false }) {
+  if (horizontal) {
+    return (
+      <div className="flex min-w-[5.25rem] flex-1 flex-col justify-center rounded-lg border border-white/20 bg-white/10 px-2 py-2 backdrop-blur-sm">
+        <p className="truncate text-[9px] font-semibold uppercase tracking-wide text-white/70">{title}</p>
+        <div className="mt-0.5 flex items-center justify-between gap-1">
+          <p className="text-base font-bold leading-none text-white">{value}</p>
+          {Icon ? <Icon className="h-3.5 w-3.5 shrink-0 text-white/80" /> : null}
+        </div>
+        {trend ? <p className="mt-0.5 truncate text-[9px] text-emerald-100/90">{trend}</p> : null}
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-lg border border-white/20 bg-white/10 p-2.5 backdrop-blur-sm">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-white/70">{title}</p>
+          <p className="mt-0.5 text-lg font-bold leading-none text-white">{value}</p>
+          {trend ? <p className="mt-1 truncate text-[10px] text-emerald-100/90">{trend}</p> : null}
+        </div>
+        {Icon ? (
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/15 text-white">
+            <Icon className="h-3.5 w-3.5" />
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+export function ProfileCard({
+  employee,
+  profile,
+  attendance,
+  compact = false,
+  horizontal = false,
+  stats = null,
+  statsLoading = false,
+  className,
+}) {
   if (!employee) return null
 
-  const firstName = employee.name?.split(' ')[0] ?? 'there'
   const employeeCode = profile?.employeeId ?? employee.id
   const roleLabel = profile?.designation ?? profile?.role ?? employee.designation
   const department = profile?.department
+
+  const statsRow = statsLoading ? (
+    <div className={cn('flex gap-2', horizontal ? 'min-w-0 flex-1' : 'mt-4 grid grid-cols-2 gap-2 border-t border-white/15 pt-4 sm:grid-cols-4')}>
+      {[1, 2, 3, 4].map((i) => (
+        <div
+          key={i}
+          className={cn('animate-pulse rounded-lg bg-white/10', horizontal ? 'h-14 min-w-[5.25rem] flex-1' : 'h-[4.25rem]')}
+        />
+      ))}
+    </div>
+  ) : Array.isArray(stats) && stats.length > 0 ? (
+    <div className={cn('flex gap-2', horizontal ? 'min-w-0 flex-1' : 'mt-4 grid grid-cols-2 gap-2 border-t border-white/15 pt-4 sm:grid-cols-4')}>
+      {stats.map((stat) => (
+        <ProfileStatMini key={stat.title} {...stat} horizontal={horizontal} />
+      ))}
+    </div>
+  ) : null
+
+  if (horizontal) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={cn(
+          'relative min-h-[6.5rem] min-w-0 flex-1 overflow-hidden rounded-xl bg-gradient-to-br from-emerald-700 via-primary to-teal-600 p-3 shadow-card sm:p-4',
+          className,
+        )}
+      >
+        <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10" />
+        <div className="relative flex h-full min-w-0 items-center gap-3">
+          <EmployeePhotoAvatar
+            employeeId={employee.id}
+            name={employee.name}
+            className="h-12 w-12 shrink-0 border-2 border-white/40 shadow-md sm:h-14 sm:w-14"
+            fallbackClassName="bg-white/20 text-lg text-white"
+          />
+
+          <div className="min-w-[7.5rem] shrink-0 sm:min-w-[9rem]">
+            <p className="truncate text-[11px] text-white/75">{greeting()},</p>
+            <h2 className="truncate font-heading text-base font-bold text-white sm:text-lg">{employee.name}</h2>
+            <p className="truncate text-[11px] text-white/70">{roleLabel ?? employeeCode}</p>
+            {attendance?.checkedIn && !attendance?.checkOutTime ? (
+              <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] text-white">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300" />
+                Checked in
+              </p>
+            ) : null}
+          </div>
+
+          {statsRow}
+
+          <div className="hidden shrink-0 gap-1 xl:flex">
+            {quickLinks.map(({ to, label, icon: Icon }) => (
+              <Link
+                key={to}
+                to={to}
+                title={label}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/25 bg-white/10 text-white transition-colors hover:bg-white/20"
+              >
+                <Icon className="h-3.5 w-3.5" />
+              </Link>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+    )
+  }
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`relative overflow-hidden rounded-xl bg-gradient-to-br from-emerald-700 via-primary to-teal-600 shadow-card ${
-        compact ? 'p-5 md:p-6' : 'rounded-2xl p-6 shadow-lg md:p-8'
-      }`}
+      className={cn(
+        `relative overflow-hidden rounded-xl bg-gradient-to-br from-emerald-700 via-primary to-teal-600 shadow-card ${
+          compact ? 'p-5 md:p-6' : 'rounded-2xl p-6 shadow-lg md:p-8'
+        }`,
+        className,
+      )}
     >
       <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10" />
       <div className="absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-white/5" />
@@ -115,6 +221,8 @@ export function ProfileCard({ employee, profile, attendance, compact = false }) 
           ))}
         </div>
       </div>
+
+      {statsRow}
     </motion.div>
   )
 }

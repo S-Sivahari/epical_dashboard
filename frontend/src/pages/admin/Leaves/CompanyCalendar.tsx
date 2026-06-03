@@ -315,9 +315,9 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
       >
       <div
         className={cn(
-          'grid w-full pr-4 pl-0',
+          'grid w-full pl-0 pr-0',
           useAdminLayout
-            ? 'admin-calendar-grid min-h-0 flex-1 grid-cols-1 gap-3 pb-0 lg:grid-cols-[minmax(0,1fr)_minmax(17rem,22rem)]'
+            ? 'admin-calendar-grid min-h-0 flex-1 grid-cols-1 gap-3 pb-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]'
             : 'grid-cols-1 gap-4 pb-4 lg:grid-cols-3 xl:grid-cols-4',
         )}
       >
@@ -658,10 +658,10 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
         >
           <div
             className={cn(
-              'flex h-full min-h-0 flex-col overflow-hidden rounded-xl shadow-sm',
+              'flex h-full min-h-0 w-full max-w-full flex-col rounded-xl shadow-sm',
               useAdminLayout
                 ? 'admin-cal-side-unified'
-                : 'border border-border bg-white',
+                : 'overflow-hidden border border-border bg-white',
             )}
           >
             <header

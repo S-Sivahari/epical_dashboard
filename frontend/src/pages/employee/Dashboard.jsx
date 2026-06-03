@@ -9,7 +9,6 @@ import {
   FileText,
 } from 'lucide-react'
 import { ProfileCard } from '@components/employee/shared/ProfileCard'
-import { KPIStatCard } from '@components/employee/shared/KPIStatCard'
 import { LeaveCard } from '@components/employee/shared/LeaveCard'
 import { AssignedProjectsSection } from '@components/employee/shared/AssignedProjectsSection'
 import { AnnouncementBanner } from '@components/employee/shared/AnnouncementBanner'
@@ -173,54 +172,60 @@ export default function Dashboard() {
 
   const widgetSkeleton = <InlineSkeleton className="min-h-[280px] h-full" />
 
+  const profileStats = useMemo(
+    () => [
+      {
+        title: 'Hours This Month',
+        value: `${monthlyHours}h`,
+        icon: Clock,
+        trend: `${weeklyHours}h this week`,
+      },
+      {
+        title: 'Pending Leave',
+        value: String(pendingLeaves.length),
+        icon: CalendarOff,
+        trend: pendingLeaves.length ? 'Awaiting approval' : 'None pending',
+      },
+      {
+        title: 'Active Projects',
+        value: String(projectCount),
+        icon: FolderKanban,
+        trend: projectCount ? 'Assigned to you' : 'None assigned',
+      },
+      {
+        title: 'Training',
+        value: String(completedCourses),
+        icon: BookOpen,
+        trend: enrolledCourses > 0 ? `${enrolledCourses} in progress` : 'No enrollments',
+      },
+    ],
+    [
+      monthlyHours,
+      weeklyHours,
+      pendingLeaves.length,
+      projectCount,
+      completedCourses,
+      enrolledCourses,
+    ],
+  )
+
   return (
     <div className="max-w-full space-y-4 overflow-x-hidden">
-      <AnnouncementBanner compact />
+      <div className="space-y-3">
+        <AnnouncementBanner compact />
 
-      <ProfileCard employee={employee} profile={profile} attendance={attendance} compact />
-
-      {loading ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
-            <InlineSkeleton key={i} className="h-24" />
-          ))}
-        </div>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <KPIStatCard
-            className="p-4"
-            title="Hours This Month"
-            value={`${monthlyHours}h`}
-            icon={Clock}
-            trend={`${weeklyHours}h this week`}
-          />
-          <KPIStatCard
-            className="p-4"
-            title="Pending Leave"
-            value={String(pendingLeaves.length)}
-            icon={CalendarOff}
-            trend={pendingLeaves.length ? 'Awaiting approval' : 'None pending'}
-          />
-          <KPIStatCard
-            className="p-4"
-            title="Active Projects"
-            value={String(projectCount)}
-            icon={FolderKanban}
-            trend={projectCount ? 'Assigned to you' : 'None assigned'}
-          />
-          <KPIStatCard
-            className="p-4"
-            title="Training"
-            value={String(completedCourses)}
-            icon={BookOpen}
-            trend={
-              enrolledCourses > 0
-                ? `${enrolledCourses} in progress`
-                : 'No enrollments'
-            }
+        <div className="overflow-x-auto pb-0.5">
+          <ProfileCard
+            employee={employee}
+            profile={profile}
+            attendance={attendance}
+            horizontal
+            stats={loading ? null : profileStats}
+            statsLoading={loading}
+            className="min-w-[36rem] sm:min-w-0"
           />
         </div>
-      )}
+      </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:items-stretch">
         {balancesLoading ? (

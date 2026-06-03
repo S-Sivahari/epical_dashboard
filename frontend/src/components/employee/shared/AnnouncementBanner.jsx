@@ -15,7 +15,7 @@ const GRADIENTS = [
   'from-emerald-700 to-green-500',
 ]
 
-export function AnnouncementBanner({ compact = false }) {
+export function AnnouncementBanner({ compact = false, inline = false, className }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [index, setIndex] = useState(0)
@@ -51,10 +51,11 @@ export function AnnouncementBanner({ compact = false }) {
       <div
         className={cn(
           'rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow-card',
-          compact ? 'p-4' : 'rounded-2xl p-6 md:p-8',
+          inline ? 'flex h-full w-44 shrink-0 items-center p-3 sm:w-48' : compact ? 'p-4' : 'rounded-2xl p-6 md:p-8',
+          className,
         )}
       >
-        <p className="text-sm text-white/80">Loading announcements...</p>
+        <p className="text-sm text-white/80">Loading...</p>
       </div>
     )
   }
@@ -69,7 +70,13 @@ export function AnnouncementBanner({ compact = false }) {
 
   return (
     <>
-      <div className={cn('relative overflow-hidden shadow-card', compact ? 'rounded-xl' : 'rounded-2xl')}>
+      <div
+        className={cn(
+          'relative overflow-hidden shadow-card',
+          inline ? 'h-full w-44 shrink-0 sm:w-52' : compact ? 'rounded-xl' : 'rounded-2xl',
+          className,
+        )}
+      >
         <AnimatePresence mode="wait">
           <motion.button
             key={current.id}
@@ -80,41 +87,48 @@ export function AnnouncementBanner({ compact = false }) {
             transition={{ duration: 0.4 }}
             onClick={() => setActive(current)}
             className={cn(
-              'w-full cursor-pointer bg-gradient-to-r text-left text-white',
-              compact ? 'p-4 md:p-5' : 'p-6 md:p-8',
+              'h-full w-full cursor-pointer bg-gradient-to-r text-left text-white',
+              inline ? 'flex items-center p-3' : compact ? 'p-4 md:p-5' : 'p-6 md:p-8',
               gradient,
             )}
           >
-            <div className="flex items-start gap-3">
+            <div className={cn('flex min-w-0 items-center gap-2.5', inline ? 'w-full' : 'items-start gap-3')}>
               <div
                 className={cn(
                   'flex shrink-0 items-center justify-center rounded-lg bg-white/20',
-                  compact ? 'h-9 w-9' : 'h-12 w-12 rounded-xl',
+                  inline ? 'h-8 w-8' : compact ? 'h-9 w-9' : 'h-12 w-12 rounded-xl',
                 )}
               >
-                <Megaphone className={compact ? 'h-4 w-4' : 'h-6 w-6'} />
+                <Megaphone className={inline ? 'h-3.5 w-3.5' : compact ? 'h-4 w-4' : 'h-6 w-6'} />
               </div>
-              <div className={cn('min-w-0 flex-1', items.length > 1 ? 'pr-14' : '')}>
-                <p className="text-[11px] font-medium uppercase tracking-wider text-white/80">
-                  Company announcements
+              <div className={cn('min-w-0 flex-1', !inline && items.length > 1 ? 'pr-14' : '')}>
+                <p
+                  className={cn(
+                    'font-medium uppercase tracking-wider text-white/80',
+                    inline ? 'text-[9px]' : 'text-[11px]',
+                  )}
+                >
+                  News
                 </p>
                 <h3
                   className={cn(
-                    'mt-0.5 font-display font-bold text-white',
-                    compact ? 'line-clamp-1 text-base md:text-lg' : 'text-xl md:text-2xl',
+                    'font-display font-bold text-white',
+                    inline ? 'line-clamp-2 text-xs leading-snug' : compact ? 'mt-0.5 line-clamp-1 text-base md:text-lg' : 'text-xl md:text-2xl',
                   )}
                 >
                   {current.title}
                 </h3>
-                <p className={cn('mt-1 text-white/90 line-clamp-2', compact ? 'text-xs' : 'text-sm')}>
-                  {excerpt}
-                </p>
+                {!inline ? (
+                  <p className={cn('mt-1 text-white/90 line-clamp-2', compact ? 'text-xs' : 'text-sm')}>
+                    {excerpt}
+                  </p>
+                ) : null}
               </div>
             </div>
           </motion.button>
         </AnimatePresence>
 
-        {items.length > 1 && (
+        {items.length > 1 && !inline ? (
           <>
             <div className="absolute bottom-4 right-4 flex gap-2">
               <button
@@ -158,7 +172,34 @@ export function AnnouncementBanner({ compact = false }) {
               ))}
             </div>
           </>
-        )}
+        ) : null}
+
+        {items.length > 1 && inline ? (
+          <div className="absolute bottom-2 right-2 flex gap-1">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setIndex((i) => (i - 1 + items.length) % items.length)
+              }}
+              className="rounded bg-white/20 p-1 hover:bg-white/30"
+              aria-label="Previous"
+            >
+              <ChevronLeft className="h-3 w-3 text-white" />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setIndex((i) => (i + 1) % items.length)
+              }}
+              className="rounded bg-white/20 p-1 hover:bg-white/30"
+              aria-label="Next"
+            >
+              <ChevronRight className="h-3 w-3 text-white" />
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <Dialog open={!!active} onOpenChange={() => setActive(null)}>
