@@ -1,5 +1,6 @@
 @import './styles/typography.css';
 @import './styles/employee-timesheet.css';
+@import './styles/employee-leave.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
