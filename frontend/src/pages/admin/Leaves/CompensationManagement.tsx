@@ -324,7 +324,7 @@ export function CompensationManagement({
   ]
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[270px_1fr_290px]">
+    <div className="admin-leaves-three-col">
       {/* ════════════════════════════════════════════════════════
           LEFT COLUMN — Compensation Insights
       ════════════════════════════════════════════════════════ */}

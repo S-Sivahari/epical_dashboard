@@ -1,4 +1,5 @@
 import { memo, useMemo, useState, useCallback, useRef, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Avatar } from '@components/ui/Avatar'
@@ -18,7 +19,9 @@ import {
   MAX_PROJECT_DESCRIPTION_WORDS,
 } from '@/lib/textLimits'
 import { stringToHue, stringToHueColor } from '@/utils/stringColor'
+import { Analytics } from '@pages/admin/Analytics/Analytics'
 import {
+  BarChart3,
   Clock,
   Search,
   X,
@@ -1054,9 +1057,30 @@ function EmployeeLeaderboard({
 /* ================================================================
    MAIN DASHBOARD COMPONENT
    ================================================================ */
+type ProjectsWorkspaceTab = 'projects' | 'timesheets' | 'analytics'
+
 export function ProjectManagement() {
+  const [searchParams, setSearchParams] = useSearchParams()
   // ── Core State ──────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<'projects' | 'timesheets'>('projects')
+  const [activeTab, setActiveTab] = useState<ProjectsWorkspaceTab>('projects')
+
+  const setWorkspaceTab = useCallback(
+    (tab: ProjectsWorkspaceTab) => {
+      setActiveTab(tab)
+      const next = new URLSearchParams(searchParams)
+      if (tab === 'projects') next.delete('tab')
+      else next.set('tab', tab)
+      setSearchParams(next, { replace: true })
+    },
+    [searchParams, setSearchParams],
+  )
+
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab === 'analytics' || tab === 'timesheets' || tab === 'projects') {
+      setActiveTab(tab)
+    }
+  }, [searchParams])
   const [allProjects, setAllProjects] = useState<Project[]>([])
   const [isAnimated, setIsAnimated] = useState(false)
   
@@ -2364,18 +2388,20 @@ export function ProjectManagement() {
             <p className="projects-sidebar-title">Workspace Navigation</p>
             
             {/* Create Project Button */}
-            <button
-              onClick={openCreateProject}
-              className="sidebar-create-btn mb-3"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Create Project</span>
-            </button>
+            {activeTab !== 'analytics' && (
+              <button
+                onClick={openCreateProject}
+                className="sidebar-create-btn mb-3"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Create Project</span>
+              </button>
+            )}
 
             {/* Navigation List */}
             <div className="sidebar-nav-list">
               <button
-                onClick={() => setActiveTab('projects')}
+                onClick={() => setWorkspaceTab('projects')}
                 className={`sidebar-nav-item ${activeTab === 'projects' ? 'active' : ''}`}
               >
                 <FolderOpen className="h-4 w-4" />
@@ -2383,12 +2409,20 @@ export function ProjectManagement() {
                 <span className="sidebar-nav-badge">{filteredProjects.length}</span>
               </button>
               <button
-                onClick={() => setActiveTab('timesheets')}
+                onClick={() => setWorkspaceTab('timesheets')}
                 className={`sidebar-nav-item ${activeTab === 'timesheets' ? 'active' : ''}`}
               >
                 <Clock className="h-4 w-4" />
                 <span className="flex-1 text-left">Timesheets</span>
                 <span className="sidebar-nav-badge">{filteredTimesheets.length}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setWorkspaceTab('analytics')}
+                className={`sidebar-nav-item ${activeTab === 'analytics' ? 'active' : ''}`}
+              >
+                <BarChart3 className="h-4 w-4" />
+                <span className="flex-1 text-left">Analytics</span>
               </button>
               <button
                 onClick={() => setArchivedModalOpen(true)}
@@ -2401,7 +2435,7 @@ export function ProjectManagement() {
             </div>
           </div>
 
-          <div className="border-t border-slate-100 my-3" />
+          {activeTab !== 'analytics' && <div className="border-t border-slate-100 my-3" />}
 
           {/* DYNAMIC FILTERS & SETTINGS SECTION */}
           {activeTab === 'projects' ? (
@@ -2627,7 +2661,11 @@ export function ProjectManagement() {
 
         {/* Unified main content panel */}
         <div className="projects-main-panel">
-          {activeTab === 'projects' ? (
+          {activeTab === 'analytics' ? (
+            <div className="projects-analytics-embed animate-fadeIn">
+              <Analytics />
+            </div>
+          ) : activeTab === 'projects' ? (
             <div className="space-y-5 animate-fadeIn">
               <div className="projects-main-header">
                 <div>

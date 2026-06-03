@@ -59,6 +59,8 @@ export interface Employee {
   };
   // Profile photo
   photo?: { filename: string; data: string; contentType: string; uploadedAt: Date };
+  /** Per-employee annual leave day allotments (admin-overridable). */
+  leaveAllocations?: Partial<Record<'Casual Leave' | 'Sick Leave' | 'Earned Leave', number>>;
   activityHistory?: EmployeeActivityEntry[];
   createdAt?: Date;
   updatedAt?: Date;

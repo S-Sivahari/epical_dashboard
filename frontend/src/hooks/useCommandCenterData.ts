@@ -185,7 +185,7 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
         title: 'Attendance below target',
         body: `Current attendance rate is ${attendanceRate}%. Consider reviewing department schedules and pending leave overlaps.`,
         action: 'View analytics',
-        route: '/admin/analytics',
+        route: '/admin/projects?tab=analytics',
       })
     } else {
       items.push({

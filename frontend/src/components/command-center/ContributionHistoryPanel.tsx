@@ -1,35 +1,9 @@
 import {
-  formatProjectMembers,
+  formatProjectAccessLabel,
   type ProjectContributionStatus,
   type ProjectTableRow,
 } from '@/pages/admin/Dashboard/dashboardChartUtils'
 import { cn } from '@/utils/cn'
-
-const STATUS_LEGEND: {
-  status: ProjectContributionStatus
-  label: string
-  dotClass: string
-  labelClass: string
-}[] = [
-  {
-    status: 'In Progress',
-    label: 'In progress',
-    dotClass: 'dashboard-contribution-dot--progress',
-    labelClass: 'dashboard-contribution-legend-label--progress',
-  },
-  {
-    status: 'Completed',
-    label: 'Completed',
-    dotClass: 'dashboard-contribution-dot--completed',
-    labelClass: 'dashboard-contribution-legend-label--completed',
-  },
-  {
-    status: 'Cancelled',
-    label: 'Cancelled',
-    dotClass: 'dashboard-contribution-dot--cancelled',
-    labelClass: 'dashboard-contribution-legend-label--cancelled',
-  },
-]
 
 function statusDotClass(status: ProjectContributionStatus): string {
   switch (status) {
@@ -42,14 +16,40 @@ function statusDotClass(status: ProjectContributionStatus): string {
   }
 }
 
-function ContributionStatusDot({ status }: { status: ProjectContributionStatus }) {
+function statusLabelClass(status: ProjectContributionStatus): string {
+  switch (status) {
+    case 'Completed':
+      return 'dashboard-contribution-status-label--completed'
+    case 'Cancelled':
+      return 'dashboard-contribution-status-label--cancelled'
+    default:
+      return 'dashboard-contribution-status-label--progress'
+  }
+}
+
+function statusLabel(status: ProjectContributionStatus): string {
+  switch (status) {
+    case 'Completed':
+      return 'Completed'
+    case 'Cancelled':
+      return 'Cancelled'
+    default:
+      return 'In progress'
+  }
+}
+
+function ContributionStatusCell({ status }: { status: ProjectContributionStatus }) {
+  const label = statusLabel(status)
   return (
-    <span
-      className={cn('dashboard-contribution-dot', statusDotClass(status))}
-      title={status}
-      aria-label={status}
-      role="img"
-    />
+    <span className="dashboard-contribution-status-cell">
+      <span
+        className={cn('dashboard-contribution-dot', statusDotClass(status))}
+        aria-hidden
+      />
+      <span className={cn('dashboard-contribution-status-label', statusLabelClass(status))}>
+        {label}
+      </span>
+    </span>
   )
 }
 
@@ -69,16 +69,6 @@ export function ContributionHistoryPanel({
           <h2 className="dashboard-panel-title">Contribution History</h2>
           <p className="dashboard-panel-subtitle">Hours logged by project for the selected period</p>
         </div>
-        <div className="dashboard-contribution-legend" aria-label="Project status legend">
-          {STATUS_LEGEND.map((item) => (
-            <span key={item.status} className="dashboard-contribution-legend-item">
-              <span className={cn('dashboard-contribution-dot', item.dotClass)} aria-hidden />
-              <span className={cn('dashboard-contribution-legend-label', item.labelClass)}>
-                {item.label}
-              </span>
-            </span>
-          ))}
-        </div>
       </header>
       <div className="dashboard-contribution-table-wrap min-h-0 flex-1 overflow-auto pb-4">
         <table className="dashboard-contribution-table">
@@ -86,8 +76,7 @@ export function ContributionHistoryPanel({
             <tr>
               <th>Project</th>
               <th>Client</th>
-              <th>Lead</th>
-              <th>Members</th>
+              <th>Access</th>
               <th className="dashboard-contribution-status-col">Status</th>
               <th className="text-right">Total Hours</th>
             </tr>
@@ -96,14 +85,14 @@ export function ContributionHistoryPanel({
             {loading ? (
               Array.from({ length: 4 }).map((_, i) => (
                 <tr key={`contrib-skeleton-${i}`}>
-                  <td colSpan={6}>
+                  <td colSpan={5}>
                     <div className="h-9 rounded-lg bg-slate-100 skeleton" />
                   </td>
                 </tr>
               ))
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="dashboard-contribution-empty">
+                <td colSpan={5} className="dashboard-contribution-empty">
                   No contribution data for this period.
                 </td>
               </tr>
@@ -112,12 +101,18 @@ export function ContributionHistoryPanel({
                 <tr key={row.id} className={index % 2 === 0 ? 'dashboard-contribution-row-even' : ''}>
                   <td className="dashboard-contribution-project">{row.project}</td>
                   <td className="dashboard-contribution-muted">{row.client}</td>
-                  <td className="dashboard-contribution-muted">{row.lead}</td>
-                  <td className="dashboard-contribution-members" title={row.members.join(', ')}>
-                    {formatProjectMembers(row.members)}
+                  <td
+                    className={cn(
+                      'dashboard-contribution-access',
+                      row.access === 'private'
+                        ? 'dashboard-contribution-access--private'
+                        : 'dashboard-contribution-access--public',
+                    )}
+                  >
+                    {formatProjectAccessLabel(row.access)}
                   </td>
                   <td className="dashboard-contribution-status-col">
-                    <ContributionStatusDot status={row.status} />
+                    <ContributionStatusCell status={row.status} />
                   </td>
                   <td className="dashboard-contribution-hours">{row.totalHours}h</td>
                 </tr>

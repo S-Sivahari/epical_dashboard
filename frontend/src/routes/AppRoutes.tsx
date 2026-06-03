@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { ROUTES } from '@constants/routes'
 
 import { PageLoading } from '@components/layout/PageLoading'
 
@@ -64,11 +65,6 @@ const TrainingCourses = lazy(async () => {
 const CompanyAchievements = lazy(async () => {
   const m = await import('@pages/admin/Achievements/CompanyAchievements')
   return { default: m.CompanyAchievements }
-})
-
-const Analytics = lazy(async () => {
-  const m = await import('@pages/admin/Analytics/Analytics')
-  return { default: m.Analytics }
 })
 
 const DocumentManagement = lazy(async () => {
@@ -214,7 +210,7 @@ export function AppRoutes() {
 
             <Route
               path="analytics"
-              element={<Analytics />}
+              element={<Navigate to={`${ROUTES.PROJECTS}?tab=analytics`} replace />}
             />
 
             <Route

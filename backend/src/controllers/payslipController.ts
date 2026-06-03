@@ -11,6 +11,7 @@ import {
 import {
   processPayrollUpload,
   findBatchByPayPeriod,
+  findBatchByPayPeriodKey,
   getPayrollBatch,
   getLatestPayrollBatch,
   listPayrollBatches,
@@ -227,10 +228,21 @@ export const payslipController = {
         req.body?.resendPayslips === 'true' ||
         req.body?.resendPayslips === '1'
 
+      const payYear = parseInt(String(req.body?.payYear ?? ''), 10)
+      const payMonthNum = parseInt(String(req.body?.payMonthNum ?? ''), 10)
+      const hasAdminPayPeriod =
+        Number.isFinite(payYear) && payMonthNum >= 1 && payMonthNum <= 12
+
       if (!replaceBatchId && !allowDuplicatePayPeriod) {
-        const { readMasterExcelFromBuffer } = await import('../services/payslipGenerator')
-        const { company } = await readMasterExcelFromBuffer(file.buffer)
-        const existing = await findBatchByPayPeriod(company)
+        let existing = null
+        if (hasAdminPayPeriod) {
+          const payPeriodKey = `${payYear}-${String(payMonthNum).padStart(2, '0')}`
+          existing = await findBatchByPayPeriodKey(payPeriodKey)
+        } else {
+          const { readMasterExcelFromBuffer } = await import('../services/payslipGenerator')
+          const { company } = await readMasterExcelFromBuffer(file.buffer)
+          existing = await findBatchByPayPeriod(company)
+        }
         if (existing) {
           const enriched = await getPayrollBatch(existing.id)
           res.status(409).json({
@@ -256,7 +268,12 @@ export const payslipController = {
         file.buffer,
         file.originalname,
         templateId as 'classic' | 'corporate' | 'minimal',
-        { replaceBatchId, resendPayslips, employeeDbIdByEmpId }
+        {
+          replaceBatchId,
+          resendPayslips,
+          employeeDbIdByEmpId,
+          ...(hasAdminPayPeriod ? { payYear, payMonthNum } : {}),
+        }
       )
       const { batch, replaced, resent } = uploadResult
       const structure = batch.salaryStructure ?? {}
@@ -453,6 +470,10 @@ export const payslipController = {
   sendAllPayslips: async (req: Request, res: Response): Promise<void> => {
     try {
       const { batchId, employeeDbIdByEmpId } = req.body
+      const resend =
+        req.body?.resend === true ||
+        req.body?.resend === 'true' ||
+        req.body?.resend === '1'
 
       if (!batchId) {
         res.status(400).json({ error: 'batchId is required' })
@@ -465,12 +486,8 @@ export const payslipController = {
         return
       }
 
-      const result = await sendAllPayslipsInBatch(
-        batchId,
-        employeeDbIdByEmpId ?? {}
-      )
+      const result = await sendAllPayslipsInBatch(batchId, employeeDbIdByEmpId ?? {}, { resend })
 
-      // Notify only for payslips sent in this request (not previously sent in batch)
       for (const rec of result.sentRecords) {
         await notifyAdminsAndEmployee({
           employeeDbId: String(rec.employeeDbId),
@@ -480,6 +497,7 @@ export const payslipController = {
           payslipId: String(rec.id),
           batchId: String(rec.batchId),
           fileName: String(rec.fileName),
+          regenerated: resend,
         })
       }
 

@@ -20,6 +20,11 @@ router.get(
   roleMiddleware('Admin'),
   leaveController.getEmployeeSummary
 );
+router.patch(
+  '/employee/:employeeId/allocations',
+  roleMiddleware('Admin'),
+  leaveController.updateEmployeeAllocations
+);
 
 // Leave requests
 router.get('/', leaveController.getAll);

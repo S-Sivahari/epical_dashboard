@@ -6,6 +6,34 @@ export const LEAVE_ALLOCATIONS = {
   'Sick Leave': 12,
 };
 
+export type LeaveAllocationType = 'Casual Leave' | 'Sick Leave' | 'Earned Leave';
+
+export function resolveLeaveAllocationTotals(
+  employeeAllocations?: Partial<Record<string, number>>,
+  joinedAt?: string,
+  refDate = new Date(),
+  compensationEarnedBonus = 0,
+): Record<LeaveAllocationType, number> {
+  const bonus = Math.max(0, Number(compensationEarnedBonus) || 0);
+  const earnedOverride = employeeAllocations?.['Earned Leave'];
+  const earnedTotal =
+    earnedOverride !== undefined && earnedOverride !== null && !Number.isNaN(Number(earnedOverride))
+      ? Math.max(0, Number(earnedOverride))
+      : calculateEarnedLeaveAllocation(joinedAt, refDate) + bonus;
+
+  return {
+    'Casual Leave': Math.max(
+      0,
+      Number(employeeAllocations?.['Casual Leave'] ?? LEAVE_ALLOCATIONS['Casual Leave']) || 0,
+    ),
+    'Sick Leave': Math.max(
+      0,
+      Number(employeeAllocations?.['Sick Leave'] ?? LEAVE_ALLOCATIONS['Sick Leave']) || 0,
+    ),
+    'Earned Leave': earnedTotal,
+  };
+}
+
 /** Calendar year suffix for yyyy-MM-dd id strings */
 export function leaveYear(dateStr: string): string {
   return dateStr.slice(0, 4);
@@ -63,26 +91,31 @@ export function calculateBalances(
   options?: {
     /** Extra Earned Leave days granted via approved compensation entries (same calendar year as balances). */
     compensationEarnedBonus?: number;
+    /** Admin-defined per-employee allotment overrides. */
+    employeeAllocations?: Partial<Record<string, number>>;
     /** Defaults to today; useful for reports. */
     refDate?: Date;
   },
 ) {
   const refDate = options?.refDate ?? new Date();
   const compensationBonus = Number(options?.compensationEarnedBonus ?? 0) || 0;
-  const earnedAlloc =
-    calculateEarnedLeaveAllocation(joinedAt, refDate) + Math.max(0, compensationBonus);
+  const totals = resolveLeaveAllocationTotals(
+    options?.employeeAllocations,
+    joinedAt,
+    refDate,
+    compensationBonus,
+  );
 
   const balances: Record<string, { total: number; used: number; remaining: number }> = {
-    'Casual Leave': { total: LEAVE_ALLOCATIONS['Casual Leave'], used: 0, remaining: LEAVE_ALLOCATIONS['Casual Leave'] },
-    'Sick Leave': { total: LEAVE_ALLOCATIONS['Sick Leave'], used: 0, remaining: LEAVE_ALLOCATIONS['Sick Leave'] },
-    'Earned Leave': { total: earnedAlloc, used: 0, remaining: earnedAlloc },
+    'Casual Leave': { total: totals['Casual Leave'], used: 0, remaining: totals['Casual Leave'] },
+    'Sick Leave': { total: totals['Sick Leave'], used: 0, remaining: totals['Sick Leave'] },
+    'Earned Leave': { total: totals['Earned Leave'], used: 0, remaining: totals['Earned Leave'] },
   };
 
   const calendarYear = String(refDate.getFullYear());
 
   employeeLeaves.forEach((leave) => {
-    // Year reset: usage only counts leaves whose period starts in the current calendar year
-    // (annual allocation for casual/sick is fixed per calendar year in this model).
+    // Usage counts approved leaves in the current calendar year (history is cleared monthly on the 1st).
     const leaveStartsInYear =
       typeof leave.from === 'string' && leave.from.length >= 4 && leaveYear(leave.from) === calendarYear;
     if (!leaveStartsInYear) return;
