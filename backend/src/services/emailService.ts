@@ -184,18 +184,25 @@ export async function sendCheckoutReminderEmail(params: ReminderEmailParams): Pr
   }
 }
 
+export interface EmailAttachment {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+}
+
 export interface SendEmailOptions {
   to: string;
   subject: string;
   html: string;
   text?: string;
+  attachments?: EmailAttachment[];
 }
 
 /**
  * Core sendEmail function that handles SMTP dispatch or mock logs.
  */
 export async function sendEmail(options: SendEmailOptions): Promise<boolean> {
-  const { to, subject, html, text } = options;
+  const { to, subject, html, text, attachments } = options;
 
   console.log(`[Email Service] Preparing to send email to: ${to} (Subject: "${subject}")`);
 
@@ -205,6 +212,9 @@ export async function sendEmail(options: SendEmailOptions): Promise<boolean> {
     console.log(`TO:       ${to}`);
     console.log(`SUBJECT:  ${subject}`);
     console.log(`TEXT:     ${text || 'No text fallback provided'}`);
+    if (attachments?.length) {
+      console.log(`ATTACHMENTS: ${attachments.map((a) => a.filename).join(', ')}`);
+    }
     console.log(`HTML BODY PREVIEW (first 300 chars):`);
     console.log(html.substring(0, 300) + '...');
     console.log(`----------------------------------------------------------------------`);
@@ -223,6 +233,11 @@ export async function sendEmail(options: SendEmailOptions): Promise<boolean> {
       subject,
       text: text || '',
       html,
+      attachments: attachments?.map((a) => ({
+        filename: a.filename,
+        content: a.content,
+        contentType: a.contentType ?? 'application/octet-stream',
+      })),
     };
 
     const info = await getTransporter().sendMail(mailOptions);
@@ -704,10 +719,13 @@ export interface PayslipNotificationData {
  */
 export async function sendPayslipEmail(
   data: PayslipNotificationData,
-  actionUrl?: string
+  actionUrl?: string,
+  pdfAttachment?: EmailAttachment
 ): Promise<boolean> {
   const subject = `[Epical EMS] Your Payslip for ${data.payMonth} is Ready`;
-  const message = `Your payslip for the pay period of <strong>${data.payMonth}</strong> has been published and is now available for download in your dashboard.`;
+  const message = pdfAttachment
+    ? `Your payslip for the pay period of <strong>${data.payMonth}</strong> is attached to this email. You can also download it anytime from your dashboard.`
+    : `Your payslip for the pay period of <strong>${data.payMonth}</strong> has been published and is now available for download in your dashboard.`;
 
   const details: DetailField[] = [
     { label: 'Employee Name', value: data.employeeName },
@@ -723,10 +741,21 @@ export async function sendPayslipEmail(
     details.push({ label: 'Document', value: data.fileName });
   }
 
-  const payslipUrl = actionUrl || `${env.FRONTEND_URL || 'http://localhost:5173'}/employee/payslips`;
+  const payslipUrl =
+    actionUrl ||
+    `${env.FRONTEND_URL || 'http://localhost:5173'}/employee/documents?tab=payslips`;
   const html = buildHtmlTemplate(data.recipientName, 'Payslip Available', message, details, payslipUrl);
 
-  const text = `Hi ${data.recipientName},\n\nYour payslip for ${data.payMonth} is now available.\n\n${data.employeeId ? `Employee ID: ${data.employeeId}\n` : ''}Pay Period: ${data.payMonth}\n${data.fileName ? `Document: ${data.fileName}\n` : ''}\nPlease log in to your dashboard to download your payslip.`;
+  const attachmentNote = pdfAttachment
+    ? '\nYour payslip PDF is attached to this email.\n'
+    : '\nPlease log in to your dashboard to download your payslip.\n';
+  const text = `Hi ${data.recipientName},\n\nYour payslip for ${data.payMonth} is now available.${attachmentNote}\n${data.employeeId ? `Employee ID: ${data.employeeId}\n` : ''}Pay Period: ${data.payMonth}\n${data.fileName ? `Document: ${data.fileName}\n` : ''}`;
 
-  return await sendEmail({ to: data.recipientEmail, subject, html, text });
+  return await sendEmail({
+    to: data.recipientEmail,
+    subject,
+    html,
+    text,
+    attachments: pdfAttachment ? [pdfAttachment] : undefined,
+  });
 }

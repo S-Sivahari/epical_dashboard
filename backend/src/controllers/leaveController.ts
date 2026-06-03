@@ -172,12 +172,17 @@ export const leaveController = {
     try {
       const { reason } = req.body;
       const { id } = req.params as { id: string };
-      if (!reason || reason.trim() === '') {
+      const trimmed = typeof reason === 'string' ? reason.trim() : '';
+      if (!trimmed) {
         res.status(400).json({ error: 'Rejection reason is required' });
         return;
       }
+      if (trimmed.length > 500) {
+        res.status(400).json({ error: 'Rejection reason must be under 500 characters' });
+        return;
+      }
       const actionBy = (req.user as any)?.name || (req.user as any)?.email || 'Admin';
-      const leave = await leaveService.updateLeaveStatus(req.params.id as string, 'Rejected', reason.trim(), actionBy);
+      const leave = await leaveService.updateLeaveStatus(id, 'Rejected', trimmed, actionBy);
       if (!leave) {
         res.status(404).json({ error: 'Leave not found' });
         return;
@@ -292,22 +297,37 @@ export const leaveController = {
   createHoliday: async (req: Request, res: Response): Promise<void> => {
     try {
       const { title, date, description, type } = req.body;
+      const titleText = String(title ?? '').trim();
+      const dateText = String(date ?? '').trim();
+      if (!titleText || !dateText) {
+        res.status(400).json({ error: 'Title and date are required' });
+        return;
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateText)) {
+        res.status(400).json({ error: 'Date must be YYYY-MM-DD' });
+        return;
+      }
 
       const holidayType = type || 'National';
       if (!isValidHolidayType(holidayType)) {
         res.status(400).json({ error: 'Invalid holiday type' });
         return;
       }
-      const holiday = await leaveService.createHoliday({ title, date, description, type: holidayType });
+      const holiday = await leaveService.createHoliday({
+        title: titleText,
+        date: dateText,
+        description,
+        type: holidayType,
+      });
 
       // Notify all active employees
       notifyAllEmployees({
         type: 'HolidayAdded',
         title: 'New Holiday Added',
-        message: `${title} on ${date} has been added to the company calendar as a ${holidayType} holiday.`,
+        message: `${titleText} on ${dateText} has been added to the company calendar as a ${holidayType} holiday.`,
         holidayId: holiday.id,
-        holidayTitle: title,
-        holidayDate: date,
+        holidayTitle: titleText,
+        holidayDate: dateText,
       });
 
       res.status(201).json(holiday);

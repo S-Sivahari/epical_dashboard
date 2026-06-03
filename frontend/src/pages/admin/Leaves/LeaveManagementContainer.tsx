@@ -271,35 +271,49 @@ export function LeaveManagementContainer() {
   }
 
   return (
-    <PageWrapper>
-      <div className="min-h-screen bg-[#f0f4f0]">
-
-        {/* ── Tab bar ──────────────────────────────────────────────── */}
-        <div className="flex items-center gap-1 border-b border-gray-200 bg-white px-5 pt-3 pb-0">
-          {([
-            { id: 'requests' as TabType, label: `Leave Requests (${pendingLeaves.length})` },
-            { id: 'compensation' as TabType, label: 'Compensation Management' },
-          ]).map((tab) => (
-            <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)}
-              className={`rounded-t-lg px-5 py-2.5 text-sm font-semibold transition-all border-b-2 -mb-px ${activeTab === tab.id
-                ? 'border-emerald-600 bg-emerald-600 text-white'
-                : 'border-transparent bg-gray-100 text-gray-600 hover:bg-emerald-50 hover:text-emerald-700'
-                }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+    <PageWrapper className="admin-hub-page-wrap relative z-10 py-3 font-body">
+      <div className="crewiq-dashboard admin-leaves-view relative">
+        <div className="dashboard-page-bg" aria-hidden>
+          <div className="dashboard-page-bg-gradient" />
+          <div className="dashboard-page-bg-pattern" />
         </div>
 
-        {/* ── Top filter bar (requests tab only) ───────────────────── */}
+        <div className="admin-leaves-shell relative z-10">
+          <header className="admin-leaves-hub-header">
+            <div className="admin-leaves-hero-top">
+              <div className="min-w-0">
+                <h1 className="admin-leaves-hero-title font-display">Leave Management Hub</h1>
+              </div>
+              <nav className="admin-leaves-tab-rail" aria-label="Leave views">
+                {([
+                  { id: 'requests' as TabType, label: `Leave Requests (${pendingLeaves.length})` },
+                  { id: 'compensation' as TabType, label: 'Compensation Management' },
+                ]).map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    className={
+                      activeTab === tab.id
+                        ? 'admin-leaves-tab-btn admin-leaves-tab-btn--active'
+                        : 'admin-leaves-tab-btn admin-leaves-tab-btn--inactive'
+                    }
+                  >
+                    <span className="admin-leaves-tab-label">{tab.label}</span>
+                  </button>
+                ))}
+              </nav>
+            </div>
+          </header>
+
         {activeTab === 'requests' && (
-          <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 bg-white px-5 py-2.5 shadow-sm">
+          <div className="admin-leaves-filter-bar">
             {/* Employee dropdown */}
             <div className="relative min-w-[160px] flex-1">
               <select
                 value={filterEmployee}
                 onChange={(e) => setFilterEmployee(e.target.value)}
-                className="h-9 w-full appearance-none rounded-lg border border-gray-200 bg-white pl-3 pr-8 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                className="admin-leaves-filter-input h-9 w-full appearance-none pl-3 pr-8"
               >
                 <option value="">All Employees</option>
                 {Array.from(new Set(visibleLeaves.map((l) => l.employeeName))).sort().map((n) => (
@@ -314,7 +328,7 @@ export function LeaveManagementContainer() {
               <select
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
-                className="h-9 w-full appearance-none rounded-lg border border-gray-200 bg-white pl-3 pr-8 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                className="admin-leaves-filter-input h-9 w-full appearance-none pl-3 pr-8"
               >
                 <option value="">All leave types</option>
                 {LEAVE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -324,24 +338,24 @@ export function LeaveManagementContainer() {
 
             {/* From date */}
             <input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)}
-              className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 min-w-[145px]"
+              className="admin-leaves-filter-input h-9 min-w-[145px] px-3"
             />
 
             {/* To date */}
             <input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)}
               min={filterFrom || undefined}
-              className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 min-w-[145px]"
+              className="admin-leaves-filter-input h-9 min-w-[145px] px-3"
             />
 
             <Button size="sm"
-              className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white border-none px-5 font-semibold shadow-sm"
+              className="admin-leaves-primary-btn h-9 border-none px-5 font-semibold shadow-sm"
               onClick={applySearch}
             >
               <Search className="h-3.5 w-3.5 mr-1.5" /> Search
             </Button>
 
             <Button size="sm" variant="secondary"
-              className="h-9 border-gray-200 bg-white text-gray-600 hover:bg-gray-50 font-semibold"
+              className="admin-leaves-secondary-btn h-9 font-semibold"
               onClick={resetSearch}
             >
               <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Reset
@@ -350,13 +364,13 @@ export function LeaveManagementContainer() {
             {/* Export buttons on right */}
             <div className="ml-auto flex items-center gap-1.5">
               <Button size="sm" variant="secondary"
-                className="h-9 border-gray-200 bg-white text-gray-600 hover:bg-gray-50 font-semibold"
+                className="admin-leaves-secondary-btn h-9 font-semibold"
                 onClick={() => void handleExport('pdf')} loading={exporting === 'pdf'}
               >
                 <FileText className="h-3.5 w-3.5 text-red-500 mr-1" /> PDF
               </Button>
               <Button size="sm" variant="secondary"
-                className="h-9 border-gray-200 bg-white text-gray-600 hover:bg-gray-50 font-semibold"
+                className="admin-leaves-secondary-btn h-9 font-semibold"
                 onClick={() => void handleExport('excel')} loading={exporting === 'excel'}
               >
                 <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600 mr-1" /> Excel
@@ -367,7 +381,7 @@ export function LeaveManagementContainer() {
 
         {/* ── Requests tab: 3-column layout ────────────────────────── */}
         {activeTab === 'requests' && (
-          <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-[270px_1fr_290px]">
+          <div className="admin-leaves-body-grid grid grid-cols-1 gap-4 lg:grid-cols-[270px_1fr_290px]">
 
             {/* ════════════════════════════════════════════════════════
                 LEFT COLUMN — Insights + Trend + Upcoming
@@ -375,8 +389,8 @@ export function LeaveManagementContainer() {
             <div className="flex flex-col gap-3">
 
               {/* Leave Status Insights */}
-              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                <h3 className="mb-3 text-sm font-bold text-gray-800">Leave Status Insights</h3>
+              <div className="admin-leaves-panel p-4">
+                <h3 className="admin-leaves-panel-title mb-3 text-sm font-bold">Leave Status Insights</h3>
 
                 {/* Donut + bar */}
                 <div className="flex items-center gap-3 mb-3">
@@ -411,14 +425,14 @@ export function LeaveManagementContainer() {
                 <div className="grid grid-cols-3 gap-2">
                   {([
                     { status: 'Pending', count: pendingLeaves.length, bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700', label: 'text-gray-500' },
-                    { status: 'Approved', count: approvedLeaves.length, bg: 'bg-emerald-600', border: 'border-emerald-600', text: 'text-white', label: 'text-white/80' },
+                    { status: 'Approved', count: approvedLeaves.length, bg: 'admin-leaves-status-approved', border: 'admin-leaves-status-approved-border', text: 'text-white', label: 'text-white/80' },
                     { status: 'Rejected', count: rejectedLeaves.length, bg: 'bg-red-50', border: 'border-red-100', text: 'text-red-600', label: 'text-gray-500' },
                   ] as const).map(({ status, count, bg, border, text, label }) => (
                     <button
                       key={status}
                       type="button"
                       onClick={() => setLeaveFilters((f) => ({ ...f, status }))}
-                      className={`flex flex-col items-center rounded-lg border p-2 transition-all hover:scale-105 ${bg} ${border} ${leaveFilters.status === status ? 'ring-2 ring-emerald-400' : ''}`}
+                      className={`flex flex-col items-center rounded-lg border p-2 transition-all hover:scale-105 ${bg} ${border} ${leaveFilters.status === status ? 'admin-leaves-status-ring' : ''}`}
                     >
                       <span className={`text-[10px] font-semibold uppercase ${label}`}>{status}</span>
                       <span className={`mt-1 text-xl font-bold ${text}`}>{count}</span>
@@ -428,10 +442,10 @@ export function LeaveManagementContainer() {
               </div>
 
               {/* Trend chart */}
-              <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+              <div className="admin-leaves-panel p-3">
                 <div className="flex items-center gap-1.5 mb-1.5">
-                  <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-                  <h3 className="text-xs font-bold text-gray-700">Leave Trend Over Time</h3>
+                  <TrendingUp className="h-3.5 w-3.5 admin-leaves-accent-icon" />
+                  <h3 className="admin-leaves-panel-title text-xs font-bold">Leave Trend Over Time</h3>
                 </div>
                 <TrendLine points={trendPoints} />
                 <div className="mt-1 flex justify-between text-[9px] text-gray-400">
@@ -443,8 +457,8 @@ export function LeaveManagementContainer() {
               </div>
 
               {/* Upcoming Leaves */}
-              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm flex-1">
-                <h3 className="mb-3 text-sm font-bold text-gray-800">Upcoming Leaves</h3>
+              <div className="admin-leaves-panel flex-1 p-4">
+                <h3 className="admin-leaves-panel-title mb-3 text-sm font-bold">Upcoming Leaves</h3>
                 {upcomingLeaves.length === 0 ? (
                   <p className="text-xs text-gray-400 py-4 text-center">No upcoming approved leaves.</p>
                 ) : (
@@ -471,15 +485,15 @@ export function LeaveManagementContainer() {
             {/* ════════════════════════════════════════════════════════
                 CENTER COLUMN — Full Leave Requests (real component)
             ════════════════════════════════════════════════════════ */}
-            <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+            <div className="admin-leaves-panel overflow-hidden">
               {searched && (filterEmployee || filterType || filterFrom || filterTo) && (
-                <div className="flex flex-wrap items-center gap-2 bg-emerald-50 border-b border-emerald-100 px-4 py-2">
-                  <span className="text-xs font-semibold text-emerald-700">Filtered:</span>
-                  {filterEmployee && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">{filterEmployee}</span>}
-                  {filterType && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">{filterType}</span>}
-                  {filterFrom && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">From: {filterFrom}</span>}
-                  {filterTo && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">To: {filterTo}</span>}
-                  <button type="button" onClick={resetSearch} className="ml-auto text-xs text-emerald-600 hover:underline font-semibold flex items-center gap-1">
+                <div className="admin-leaves-filter-chips flex flex-wrap items-center gap-2 px-4 py-2">
+                  <span className="text-xs font-semibold admin-leaves-text-brand">Filtered:</span>
+                  {filterEmployee && <span className="admin-leaves-chip">{filterEmployee}</span>}
+                  {filterType && <span className="admin-leaves-chip">{filterType}</span>}
+                  {filterFrom && <span className="admin-leaves-chip">From: {filterFrom}</span>}
+                  {filterTo && <span className="admin-leaves-chip">To: {filterTo}</span>}
+                  <button type="button" onClick={resetSearch} className="admin-leaves-link-btn ml-auto flex items-center gap-1 text-xs font-semibold">
                     <X className="h-3 w-3" /> Clear
                   </button>
                 </div>
@@ -493,9 +507,9 @@ export function LeaveManagementContainer() {
             <div className="flex flex-col gap-3">
 
               {/* Recent Activity Feed */}
-              <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col" style={{ maxHeight: '520px' }}>
-                <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 shrink-0">
-                  <h3 className="text-sm font-bold text-gray-800">Recent Activity Feed</h3>
+              <div className="admin-leaves-panel flex flex-col overflow-hidden" style={{ maxHeight: '520px' }}>
+                <div className="admin-leaves-panel-head flex shrink-0 items-center justify-between px-4 py-3">
+                  <h3 className="admin-leaves-panel-title text-sm font-bold">Recent Activity Feed</h3>
                   <button
                     type="button"
                     className="flex items-center gap-1 text-xs font-semibold text-red-600 hover:text-red-700 transition-colors"
@@ -589,8 +603,8 @@ export function LeaveManagementContainer() {
               </div>
 
               {/* Data Tools — compact filtered table */}
-              <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-                <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-3 py-2">
+              <div className="admin-leaves-panel overflow-hidden">
+                <div className="admin-leaves-panel-head flex items-center justify-between px-3 py-2">
                   <div className="flex items-center gap-1.5">
                     <span className="text-[10px] font-bold uppercase text-gray-500">Employee</span>
                   </div>
@@ -621,7 +635,7 @@ export function LeaveManagementContainer() {
 
               {/* Quick action buttons */}
               <Button size="sm" variant="secondary"
-                className="h-8 w-full border-gray-200 bg-white text-gray-700 hover:bg-gray-50 font-semibold text-xs"
+                className="admin-leaves-secondary-btn h-8 w-full text-xs font-semibold"
                 onClick={() => void handleExport('pdf')} loading={exporting === 'pdf'}
               >
                 <FileText className="h-3.5 w-3.5 text-red-500 mr-1" /> View Full Report (PDF)
@@ -633,7 +647,7 @@ export function LeaveManagementContainer() {
 
         {/* ── Compensation tab ─────────────────────────────────────── */}
         {activeTab === 'compensation' && (
-          <div className="m-4 rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="admin-leaves-panel admin-leaves-compensation-wrap overflow-hidden">
             <CompensationManagement
               onExportDataChange={setCompensationExportRows}
               onSearchChange={setCompensationSearch}
@@ -641,6 +655,7 @@ export function LeaveManagementContainer() {
           </div>
         )}
 
+        </div>
       </div>
 
       <ConfirmModal

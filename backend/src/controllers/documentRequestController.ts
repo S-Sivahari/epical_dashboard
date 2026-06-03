@@ -21,16 +21,23 @@ export const documentRequestController = {
         return;
       }
       const { documentType, documentName, reason } = req.body ?? {};
-      if (!documentType || !documentName || !reason) {
+      const type = String(documentType ?? '').trim();
+      const name = String(documentName ?? '').trim();
+      const reasonText = String(reason ?? '').trim();
+      if (!type || !name || !reasonText) {
         res.status(400).json({ error: 'documentType, documentName, and reason are required' });
+        return;
+      }
+      if (reasonText.length < 5) {
+        res.status(400).json({ error: 'Reason must be at least 5 characters' });
         return;
       }
       const profile = await getUserById(req.user.id);
       const fallbackName = profile?.name?.trim() || 'Employee';
       const created = await svc.createDocumentRequest(req.user.id, fallbackName, {
-        documentType,
-        documentName,
-        reason,
+        documentType: type,
+        documentName: name,
+        reason: reasonText,
       });
       res.status(201).json(created);
     } catch (err: any) {
@@ -115,8 +122,21 @@ export const documentRequestController = {
   reject: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params as { id: string };
-      const { rejectionReason } = req.body ?? {};
-      const updated = await svc.rejectDocumentRequest(id, await resolveAdminDisplayName(req), rejectionReason ?? '');
+      const rejectionReason =
+        typeof req.body?.rejectionReason === 'string' ? req.body.rejectionReason.trim() : '';
+      if (!rejectionReason) {
+        res.status(400).json({ error: 'Rejection reason is required' });
+        return;
+      }
+      if (rejectionReason.length > 500) {
+        res.status(400).json({ error: 'Rejection reason must be under 500 characters' });
+        return;
+      }
+      const updated = await svc.rejectDocumentRequest(
+        id,
+        await resolveAdminDisplayName(req),
+        rejectionReason
+      );
       if (!updated) {
         res.status(404).json({ error: 'Request not found or cannot be rejected' });
         return;

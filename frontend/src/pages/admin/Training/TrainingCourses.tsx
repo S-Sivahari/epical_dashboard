@@ -16,7 +16,6 @@ import {
   type Course,
   type CourseEnrollment,
 } from '@services/trainingService'
-import { cn } from '@/utils/cn'
 import {
   X,
   Search,
@@ -25,7 +24,6 @@ import {
   GraduationCap,
   Users,
   Award,
-  Sparkles,
   ExternalLink,
 } from 'lucide-react'
 
@@ -241,11 +239,11 @@ export function TrainingCourses() {
         loading={loadingEnrollments}
         empty={
           <div className="admin-training-empty flex min-h-[220px] flex-col items-center justify-center px-6 py-8 text-center">
-            <Users className="mb-2 h-8 w-8 text-[var(--emerald-dark)]/40" />
-            <p className="text-sm font-semibold text-[var(--emerald-dark)]">
+            <Users className="mb-2 h-8 w-8 admin-training-text-brand-muted" aria-hidden />
+            <p className="text-sm font-semibold admin-training-text-brand">
               {tab === 'completed' ? 'No completed enrollments yet' : 'No active enrollments'}
             </p>
-            <p className="mt-1 text-xs text-muted">Try adjusting your filters or add more courses.</p>
+            <p className="mt-1 text-sm text-slate-600">Try adjusting your filters or add more courses.</p>
           </div>
         }
       />
@@ -253,37 +251,34 @@ export function TrainingCourses() {
   )
 
   return (
-    <PageWrapper className="relative z-10 py-3 font-body">
-      <div className="crewiq-dashboard admin-training-view">
-        <div className="admin-training-shell animate-fadeIn">
-          {/* Hero */}
-          <div className="admin-training-hero">
+    <PageWrapper className="admin-hub-page-wrap relative z-10 py-3 font-body">
+      <div className="crewiq-dashboard admin-training-view relative">
+        <div className="dashboard-page-bg" aria-hidden>
+          <div className="dashboard-page-bg-gradient" />
+          <div className="dashboard-page-bg-pattern" />
+        </div>
+
+        <div className="admin-training-shell relative z-10 animate-fadeIn">
+          <header className="admin-training-hub-header">
             <div className="admin-training-hero-top">
               <div className="min-w-0">
-                <h1 className="admin-training-hero-title font-display">Training & Courses</h1>
-                <p className="admin-training-hero-sub">
-                  Manage courses, track enrollments, and monitor completions
-                </p>
+                <h1 className="admin-training-hero-title font-display">Training & Courses Hub</h1>
               </div>
-              <div className="admin-training-tab-rail">
+              <nav className="admin-training-tab-rail" aria-label="Training views">
                 {tabs.map((t) => (
                   <button
                     key={t.id}
                     type="button"
                     onClick={() => setTab(t.id)}
-                    className={cn(
-                      'inline-flex items-center gap-1 rounded-[6px] px-2.5 py-1 text-[11px] font-bold transition-all duration-200',
-                      tab === t.id ? 'admin-dash-action-btn-sm text-white' : 'admin-training-tab-inactive',
-                    )}
+                    className={
+                      tab === t.id
+                        ? 'admin-training-tab-btn admin-training-tab-btn--active'
+                        : 'admin-training-tab-btn admin-training-tab-btn--inactive'
+                    }
                   >
-                    <t.icon className="h-3 w-3 shrink-0" />
-                    {t.label}
-                    <span
-                      className={cn(
-                        'rounded-full px-1 py-px text-[9px] font-black tabular-nums leading-none',
-                        tab === t.id ? 'bg-white/20 text-white' : 'bg-white/15 text-white/80',
-                      )}
-                    >
+                    <t.icon className="admin-training-tab-icon shrink-0" aria-hidden />
+                    <span className="admin-training-tab-label">{t.label}</span>
+                    <span className="admin-training-tab-count tabular-nums">
                       {t.id === 'courses'
                         ? courses.length
                         : t.id === 'enrollment'
@@ -292,32 +287,28 @@ export function TrainingCourses() {
                     </span>
                   </button>
                 ))}
-              </div>
+              </nav>
             </div>
-            <div className="admin-training-metrics-band">
-              <div className="admin-training-metric-glass">
+            <div className="admin-training-metrics-band" role="group" aria-label="Training metrics">
+              <div className="admin-training-metric-tile">
                 <p className="admin-training-metric-label">Total Courses</p>
                 <p className="admin-training-metric-value font-display">{courses.length}</p>
               </div>
-              <div className="admin-training-metric-glass">
+              <div className="admin-training-metric-tile">
                 <p className="admin-training-metric-label">Active Enrollments</p>
                 <p className="admin-training-metric-value font-display">{enrolledTotal}</p>
               </div>
-              <div className="admin-training-metric-glass">
+              <div className="admin-training-metric-tile">
                 <p className="admin-training-metric-label">Completed</p>
                 <p className="admin-training-metric-value font-display">{completedTotal}</p>
               </div>
             </div>
-          </div>
+          </header>
 
-          {/* Courses tab */}
           {tab === 'courses' && (
             <div className="admin-training-body-grid">
               <aside className="admin-training-sidebar space-y-4">
                 <p className="admin-training-sidebar-title">Add New Course</p>
-                <p className="text-xs font-medium leading-relaxed text-[var(--emerald-dark)]/80">
-                  Create a course catalog entry employees can enroll in from their dashboard.
-                </p>
                 <Input
                   label="Course Title"
                   value={title}
@@ -343,23 +334,19 @@ export function TrainingCourses() {
                   placeholder="https://..."
                 />
                 <Button
-                  className="admin-dash-action-btn w-full border-0"
+                  className="admin-training-primary-btn w-full border-0"
                   onClick={() => void handleCreateCourse()}
                   disabled={savingCourse}
                 >
                   <PlusCircle className="h-4 w-4" />
                   {savingCourse ? 'Adding...' : 'Add Course'}
                 </Button>
-                <div className="admin-training-tip-box rounded-lg p-3 text-xs font-medium leading-relaxed">
-                  <Sparkles className="mb-1.5 h-3.5 w-3.5 text-[var(--emerald-dark)]" />
-                  Fill all fields including a valid link so employees can open the course directly.
-                </div>
               </aside>
 
               <div className="admin-training-main-panel space-y-4">
                 <div className="admin-training-panel-header">
                   <div>
-                    <h2 className="font-display text-sm font-bold text-[var(--emerald-dark)]">
+                    <h2 className="font-display text-sm font-extrabold admin-training-text-brand">
                       Course Catalog
                     </h2>
                     <p className="text-xs font-medium text-slate-600">
@@ -371,7 +358,10 @@ export function TrainingCourses() {
                 </div>
 
                 <div className="relative max-w-xl">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--emerald-dark)]" />
+                  <Search
+                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 admin-training-text-brand-muted"
+                    aria-hidden
+                  />
                   <Input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -382,20 +372,20 @@ export function TrainingCourses() {
 
                 {loadingCourses ? (
                   <div className="admin-training-empty flex min-h-[200px] items-center justify-center rounded-xl">
-                    <p className="text-sm font-medium text-[var(--emerald-dark)]/70">Loading courses...</p>
+                    <p className="text-sm font-medium admin-training-text-brand-muted">Loading courses...</p>
                   </div>
                 ) : courses.length === 0 ? (
                   <div className="admin-training-empty flex min-h-[220px] flex-col items-center justify-center rounded-xl px-6 text-center">
-                    <GraduationCap className="mb-2 h-8 w-8 text-[var(--emerald-dark)]/40" />
-                    <p className="text-sm font-semibold text-[var(--emerald-dark)]">No courses yet</p>
-                    <p className="mt-1 text-xs text-muted">Use the sidebar form to add your first course.</p>
+                    <GraduationCap className="mb-2 h-8 w-8 admin-training-text-brand-muted" aria-hidden />
+                    <p className="text-sm font-semibold admin-training-text-brand">No courses yet</p>
+                    <p className="mt-1 text-sm text-slate-600">Use the sidebar form to add your first course.</p>
                   </div>
                 ) : (
                   <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                     {courses.map((c) => (
                       <div key={c.id} className="admin-training-course-card space-y-2 rounded-xl p-4">
                         <div className="flex items-start justify-between gap-2">
-                          <p className="font-display text-sm font-bold text-[var(--emerald-dark)] line-clamp-2">
+                          <p className="font-display text-sm font-bold admin-training-text-brand line-clamp-2">
                             {c.title}
                           </p>
                           <Badge variant="neutral" className="shrink-0 text-[10px]">
@@ -436,18 +426,12 @@ export function TrainingCourses() {
             </div>
           )}
 
-          {/* Enrollment / Completed tabs */}
           {tab !== 'courses' && (
             <div className="admin-training-body-grid">
               <aside className="admin-training-sidebar space-y-4">
                 <p className="admin-training-sidebar-title">{activeTabMeta.label}</p>
-                <p className="text-xs font-medium leading-relaxed text-[var(--emerald-dark)]/80">
-                  {tab === 'enrollment'
-                    ? 'View employees currently enrolled in training courses.'
-                    : 'Review employees who have completed their courses.'}
-                </p>
                 <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-[var(--emerald-dark)]">
+                  <label className="mb-1.5 block text-xs font-semibold admin-training-text-brand">
                     Course
                   </label>
                   <select
@@ -473,7 +457,7 @@ export function TrainingCourses() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="w-full text-[var(--emerald-dark)]"
+                    className="w-full admin-training-text-brand"
                     onClick={() => {
                       setCourseFilter('')
                       setEmployeeFilter('')
@@ -487,7 +471,7 @@ export function TrainingCourses() {
               <div className="admin-training-main-panel">
                 <div className="admin-training-panel-header">
                   <div>
-                    <h2 className="font-display text-sm font-bold text-[var(--emerald-dark)]">
+                    <h2 className="font-display text-sm font-extrabold admin-training-text-brand">
                       {tab === 'enrollment' ? 'Active Enrollments' : 'Completed Training'}
                     </h2>
                     <p className="text-xs font-medium text-slate-600">
@@ -514,7 +498,7 @@ export function TrainingCourses() {
                 Cancel
               </Button>
               <Button
-                className="admin-dash-action-btn border-0"
+                className="admin-training-primary-btn border-0"
                 onClick={() => void handleUpdateCourse()}
                 disabled={updatingCourse}
               >
