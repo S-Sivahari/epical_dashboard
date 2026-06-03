@@ -62,6 +62,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
   const deleteHoliday = useLeaveStore((s) => s.deleteHoliday)
   const fetchHolidays = useLeaveStore((s) => s.fetchHolidays)
   const addCompanyCalendarEvent = useLeaveStore((s) => s.addCompanyCalendarEvent)
+  const updateCompanyCalendarEvent = useLeaveStore((s) => s.updateCompanyCalendarEvent)
   const deleteCompanyCalendarEvent = useLeaveStore((s) => s.deleteCompanyCalendarEvent)
 
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -72,6 +73,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
   const [isHolidayFormOpen, setIsHolidayFormOpen] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingKind, setEditingKind] = useState<'holiday' | 'calendarEvent' | null>(null)
   const [holidayToDelete, setHolidayToDelete] = useState<Holiday | null>(null)
 
   const dbSidebarEvents = useMemo(
@@ -89,6 +91,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
   // Holiday form state
   const [title, setTitle] = useState('')
   const [date, setDate] = useState('')
+  const [time, setTime] = useState('')
   const [description, setDescription] = useState('')
   const [type, setType] = useState<'National' | 'Company' | 'Optional' | 'Company Event'>('National')
 
@@ -172,9 +175,11 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
   const resetHolidayForm = () => {
     setTitle('')
     setDate('')
+    setTime('')
     setDescription('')
     setType('National')
     setEditingId(null)
+    setEditingKind(null)
   }
 
   const calendarBounds = getCalendarEntryBounds()
@@ -193,9 +198,23 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
 
     try {
       if (editingId) {
-        await updateHoliday(editingId, { title, date, description, type })
+        if (editingKind === 'calendarEvent') {
+          await updateCompanyCalendarEvent(editingId, {
+            title,
+            date,
+            description,
+            time: time.trim() || undefined,
+          })
+        } else {
+          await updateHoliday(editingId, { title, date, description, type })
+        }
       } else if (type === 'Company Event') {
-        await addCompanyCalendarEvent({ title, date, description })
+        await addCompanyCalendarEvent({
+          title,
+          date,
+          description,
+          time: time.trim() || undefined,
+        })
       } else {
         await addHoliday({ title, date, description, type })
       }
@@ -214,7 +233,20 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
     setDate(holiday.date)
     setDescription(holiday.description || '')
     setType(holiday.type)
+    setTime('')
     setEditingId(holiday.id)
+    setEditingKind('holiday')
+    setIsHolidayFormOpen(true)
+  }
+
+  const handleEditEvent = (event: CalendarSidebarEvent) => {
+    setTitle(event.title)
+    setDate(event.date)
+    setDescription(event.description || '')
+    setTime(event.time || '')
+    setType('Company Event')
+    setEditingId(event.id)
+    setEditingKind(event.holidayType ? 'holiday' : 'calendarEvent')
     setIsHolidayFormOpen(true)
   }
 
@@ -866,20 +898,32 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                             </p>
                           </div>
                           {canManage ? (
-                            <Button
-                              size="sm"
-                              variant="danger"
+                            <div
                               className={cn(
-                                'ml-1 h-6 w-6 flex-shrink-0 p-0 transition-opacity',
+                                'ml-1 flex flex-shrink-0 gap-1 transition-opacity',
                                 useAdminLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
                               )}
-                              onClick={() => {
-                                setEventToDelete(event)
-                                setEventDeleteConfirmOpen(true)
-                              }}
                             >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="h-6 w-6 p-0"
+                                onClick={() => handleEditEvent(event)}
+                              >
+                                <Edit2 className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="danger"
+                                className="h-6 w-6 p-0"
+                                onClick={() => {
+                                  setEventToDelete(event)
+                                  setEventDeleteConfirmOpen(true)
+                                }}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
                           ) : null}
                         </div>
                       ))}
@@ -1138,13 +1182,25 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value as 'National' | 'Company' | 'Optional' | 'Company Event')}
-                className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
+                disabled={editingKind === 'calendarEvent'}
+                className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow disabled:bg-surface/50 disabled:text-muted"
               >
                 <option value="National">Public Holiday</option>
                 <option value="Company">Company Holiday</option>
                 <option value="Company Event">Company Event</option>
               </select>
             </div>
+            {type === 'Company Event' && (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink">Time (Optional)</label>
+                <Input
+                  type="time"
+                  placeholder="HH:mm"
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                />
+              </div>
+            )}
             <div>
               <label className="mb-1.5 block text-sm font-medium text-ink">Description (Optional)</label>
               <textarea

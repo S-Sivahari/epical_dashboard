@@ -6,7 +6,6 @@ import { Badge } from '@components/ui/Badge'
 import { DataTable, type Column } from '@components/tables/DataTable'
 import { formatDate } from '@/utils/formatDate'
 import { toast } from 'sonner'
-import { Modal } from '@components/ui/Modal'
 import {
   listCourses,
   createCourse,
@@ -46,12 +45,7 @@ export function TrainingCourses() {
   const [loadingCourses, setLoadingCourses] = useState(false)
   const [savingCourse, setSavingCourse] = useState(false)
   const [removingCourse, setRemovingCourse] = useState<string | null>(null)
-  const [editingCourse, setEditingCourse] = useState<Course | null>(null)
-  const [editTitle, setEditTitle] = useState('')
-  const [editTopic, setEditTopic] = useState('')
-  const [editPlatform, setEditPlatform] = useState('')
-  const [editLink, setEditLink] = useState('')
-  const [updatingCourse, setUpdatingCourse] = useState(false)
+  const [editingCourseId, setEditingCourseId] = useState<string | null>(null)
 
   const [enrollments, setEnrollments] = useState<CourseEnrollment[]>([])
   const [loadingEnrollments, setLoadingEnrollments] = useState(false)
@@ -156,22 +150,42 @@ export function TrainingCourses() {
     }
   }, [tab, courseFilter, employeeFilter])
 
-  const handleCreateCourse = async () => {
+  const resetCourseForm = () => {
+    setTitle('')
+    setTopic('')
+    setPlatform('')
+    setLink('')
+    setEditingCourseId(null)
+  }
+
+  const handleSaveCourse = async () => {
     if (!title || !topic || !platform || !link) {
       toast.error('Fill all fields')
       return
     }
     setSavingCourse(true)
     try {
-      const created = await createCourse({ title, topic, platform, link })
-      setCourses((prev) => [created, ...prev])
-      setTitle('')
-      setTopic('')
-      setPlatform('')
-      setLink('')
+      if (editingCourseId) {
+        const updated = await updateCourse(editingCourseId, { title, topic, platform, link })
+        setCourses((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
+        setEnrollments((prev) =>
+          prev.map((e) =>
+            e.courseId === updated.id ? { ...e, courseTitle: updated.title, topic: updated.topic } : e,
+          ),
+        )
+        toast.success('Course updated')
+      } else {
+        const created = await createCourse({ title, topic, platform, link })
+        setCourses((prev) => [created, ...prev])
+        toast.success('Course added')
+      }
+      resetCourseForm()
     } catch (e: unknown) {
       const err = e as { response?: { data?: { error?: string } } }
-      toast.error(err?.response?.data?.error || 'Failed to add course')
+      toast.error(
+        err?.response?.data?.error ||
+          (editingCourseId ? 'Failed to update course' : 'Failed to add course'),
+      )
     } finally {
       setSavingCourse(false)
     }
@@ -183,6 +197,7 @@ export function TrainingCourses() {
       await deleteCourse(id)
       setCourses((prev) => prev.filter((c) => c.id !== id))
       setEnrollments((prev) => prev.filter((e) => e.courseId !== id))
+      if (editingCourseId === id) resetCourseForm()
       void refreshEnrollmentTotals()
     } catch (e: unknown) {
       const err = e as { response?: { data?: { error?: string } } }
@@ -193,52 +208,24 @@ export function TrainingCourses() {
   }
 
   const openEditCourse = (course: Course) => {
-    setEditingCourse(course)
-    setEditTitle(course.title)
-    setEditTopic(course.topic)
-    setEditPlatform(course.platform)
-    setEditLink(course.link)
-  }
-
-  const handleUpdateCourse = async () => {
-    if (!editingCourse) return
-    if (!editTitle || !editTopic || !editPlatform || !editLink) {
-      toast.error('Fill all fields')
-      return
-    }
-    setUpdatingCourse(true)
-    try {
-      const updated = await updateCourse(editingCourse.id, {
-        title: editTitle,
-        topic: editTopic,
-        platform: editPlatform,
-        link: editLink,
-      })
-      setCourses((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
-      setEnrollments((prev) =>
-        prev.map((e) =>
-          e.courseId === updated.id ? { ...e, courseTitle: updated.title, topic: updated.topic } : e,
-        ),
-      )
-      setEditingCourse(null)
-    } catch (e: unknown) {
-      const err = e as { response?: { data?: { error?: string } } }
-      toast.error(err?.response?.data?.error || 'Failed to update course')
-    } finally {
-      setUpdatingCourse(false)
-    }
+    setTab('courses')
+    setEditingCourseId(course.id)
+    setTitle(course.title)
+    setTopic(course.topic)
+    setPlatform(course.platform)
+    setLink(course.link)
   }
 
   const activeTabMeta = tabs.find((t) => t.id === tab)!
 
   const enrollmentTable = (
-    <div className="admin-training-table-wrap overflow-hidden">
+    <div className="admin-training-table-wrap">
       <DataTable
         columns={tab === 'completed' ? completedColumns : enrollmentColumns}
         data={enrollments}
         loading={loadingEnrollments}
         empty={
-          <div className="admin-training-empty flex min-h-[220px] flex-col items-center justify-center px-6 py-8 text-center">
+          <div className="admin-training-empty flex min-h-[160px] flex-col items-center justify-center px-4 py-6 text-center">
             <Users className="mb-2 h-8 w-8 admin-training-text-brand-muted" aria-hidden />
             <p className="text-sm font-semibold admin-training-text-brand">
               {tab === 'completed' ? 'No completed enrollments yet' : 'No active enrollments'}
@@ -251,7 +238,7 @@ export function TrainingCourses() {
   )
 
   return (
-    <PageWrapper className="admin-hub-page-wrap relative z-10 py-3 font-body">
+    <PageWrapper className="admin-hub-page-wrap relative z-10 py-2 font-body">
       <div className="crewiq-dashboard admin-training-view relative">
         <div className="dashboard-page-bg" aria-hidden>
           <div className="dashboard-page-bg-gradient" />
@@ -259,7 +246,7 @@ export function TrainingCourses() {
         </div>
 
         <div className="admin-training-shell relative z-10 animate-fadeIn">
-          <header className="admin-training-hub-header">
+          <header className="admin-training-hub-header shrink-0">
             <div className="admin-training-hero-top">
               <div className="min-w-0">
                 <h1 className="admin-training-hero-title font-display">Training & Courses Hub</h1>
@@ -308,7 +295,9 @@ export function TrainingCourses() {
           {tab === 'courses' && (
             <div className="admin-training-body-grid">
               <aside className="admin-training-sidebar space-y-4">
-                <p className="admin-training-sidebar-title">Add New Course</p>
+                <p className="admin-training-sidebar-title">
+                  {editingCourseId ? 'Edit Course' : 'Add New Course'}
+                </p>
                 <Input
                   label="Course Title"
                   value={title}
@@ -333,23 +322,40 @@ export function TrainingCourses() {
                   onChange={(e) => setLink(e.target.value)}
                   placeholder="https://..."
                 />
-                <Button
-                  className="admin-training-primary-btn w-full border-0"
-                  onClick={() => void handleCreateCourse()}
-                  disabled={savingCourse}
-                >
-                  <PlusCircle className="h-4 w-4" />
-                  {savingCourse ? 'Adding...' : 'Add Course'}
-                </Button>
+                <div className="flex flex-col gap-2">
+                  <Button
+                    className="admin-training-primary-btn w-full border-0"
+                    onClick={() => void handleSaveCourse()}
+                    disabled={savingCourse}
+                  >
+                    {editingCourseId ? (
+                      <Pencil className="h-4 w-4" />
+                    ) : (
+                      <PlusCircle className="h-4 w-4" />
+                    )}
+                    {savingCourse
+                      ? editingCourseId
+                        ? 'Saving...'
+                        : 'Adding...'
+                      : editingCourseId
+                        ? 'Save Changes'
+                        : 'Add Course'}
+                  </Button>
+                  {editingCourseId && (
+                    <Button variant="ghost" className="w-full admin-training-text-brand" onClick={resetCourseForm}>
+                      Cancel edit
+                    </Button>
+                  )}
+                </div>
               </aside>
 
-              <div className="admin-training-main-panel space-y-4">
-                <div className="admin-training-panel-header">
+              <div className="admin-training-main-panel">
+                <div className="admin-training-panel-fixed admin-training-panel-header">
                   <div>
-                    <h2 className="font-display text-sm font-extrabold admin-training-text-brand">
+                    <h2 className="font-display text-base font-extrabold admin-training-text-brand">
                       Course Catalog
                     </h2>
-                    <p className="text-xs font-medium text-slate-600">
+                    <p className="text-sm font-medium text-slate-600">
                       {loadingCourses
                         ? 'Loading...'
                         : `${courses.length} course${courses.length === 1 ? '' : 's'} available`}
@@ -357,7 +363,7 @@ export function TrainingCourses() {
                   </div>
                 </div>
 
-                <div className="relative max-w-xl">
+                <div className="admin-training-panel-fixed relative max-w-xl">
                   <Search
                     className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 admin-training-text-brand-muted"
                     aria-hidden
@@ -370,58 +376,71 @@ export function TrainingCourses() {
                   />
                 </div>
 
-                {loadingCourses ? (
-                  <div className="admin-training-empty flex min-h-[200px] items-center justify-center rounded-xl">
-                    <p className="text-sm font-medium admin-training-text-brand-muted">Loading courses...</p>
-                  </div>
-                ) : courses.length === 0 ? (
-                  <div className="admin-training-empty flex min-h-[220px] flex-col items-center justify-center rounded-xl px-6 text-center">
-                    <GraduationCap className="mb-2 h-8 w-8 admin-training-text-brand-muted" aria-hidden />
-                    <p className="text-sm font-semibold admin-training-text-brand">No courses yet</p>
-                    <p className="mt-1 text-sm text-slate-600">Use the sidebar form to add your first course.</p>
-                  </div>
-                ) : (
-                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    {courses.map((c) => (
-                      <div key={c.id} className="admin-training-course-card space-y-2 rounded-xl p-4">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="font-display text-sm font-bold admin-training-text-brand line-clamp-2">
-                            {c.title}
-                          </p>
-                          <Badge variant="neutral" className="shrink-0 text-[10px]">
-                            {c.platform}
-                          </Badge>
+                <div
+                  className="admin-training-catalog-scroll"
+                  role="region"
+                  aria-label="Course catalog list"
+                >
+                  {loadingCourses ? (
+                    <div className="admin-training-empty flex min-h-[140px] items-center justify-center rounded-xl">
+                      <p className="text-sm font-medium admin-training-text-brand-muted">Loading courses...</p>
+                    </div>
+                  ) : courses.length === 0 ? (
+                    <div className="admin-training-empty flex min-h-[160px] flex-col items-center justify-center rounded-xl px-4 text-center">
+                      <GraduationCap className="mb-2 h-8 w-8 admin-training-text-brand-muted" aria-hidden />
+                      <p className="text-sm font-semibold admin-training-text-brand">No courses yet</p>
+                      <p className="mt-1 text-sm text-slate-600">Use the sidebar form to add your first course.</p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-3">
+                      {courses.map((c) => (
+                        <div
+                          key={c.id}
+                          className={
+                            editingCourseId === c.id
+                              ? 'admin-training-course-card admin-training-course-card--editing space-y-2 rounded-xl p-4'
+                              : 'admin-training-course-card space-y-2 rounded-xl p-4'
+                          }
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="font-display text-base font-bold admin-training-text-brand line-clamp-2">
+                              {c.title}
+                            </p>
+                            <Badge variant="neutral" className="shrink-0 text-xs">
+                              {c.platform}
+                            </Badge>
+                          </div>
+                          <p className="text-sm font-medium text-slate-600">Topic: {c.topic}</p>
+                          <div className="flex flex-wrap gap-2 pt-2">
+                            <Button size="sm" variant="secondary" className="admin-training-secondary-btn" asChild>
+                              <a href={c.link} target="_blank" rel="noreferrer">
+                                <ExternalLink className="h-3.5 w-3.5" />
+                                View
+                              </a>
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="admin-training-secondary-btn"
+                              onClick={() => openEditCourse(c)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                              Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="danger"
+                              disabled={removingCourse === c.id}
+                              onClick={() => void handleDeleteCourse(c.id)}
+                            >
+                              {removingCourse === c.id ? 'Removing...' : 'Remove'}
+                            </Button>
+                          </div>
                         </div>
-                        <p className="text-xs font-medium text-slate-600">Topic: {c.topic}</p>
-                        <div className="flex flex-wrap gap-2 pt-2">
-                          <Button size="sm" variant="secondary" className="admin-training-secondary-btn" asChild>
-                            <a href={c.link} target="_blank" rel="noreferrer">
-                              <ExternalLink className="h-3.5 w-3.5" />
-                              View
-                            </a>
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            className="admin-training-secondary-btn"
-                            onClick={() => openEditCourse(c)}
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                            Edit
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            disabled={removingCourse === c.id}
-                            onClick={() => void handleDeleteCourse(c.id)}
-                          >
-                            {removingCourse === c.id ? 'Removing...' : 'Remove'}
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -431,13 +450,13 @@ export function TrainingCourses() {
               <aside className="admin-training-sidebar space-y-4">
                 <p className="admin-training-sidebar-title">{activeTabMeta.label}</p>
                 <div>
-                  <label className="mb-1.5 block text-xs font-semibold admin-training-text-brand">
+                  <label className="mb-1 block text-sm font-semibold admin-training-text-brand">
                     Course
                   </label>
                   <select
                     value={courseFilter}
                     onChange={(e) => setCourseFilter(e.target.value)}
-                    className="admin-training-select w-full rounded-lg border px-3 py-2 text-sm font-medium"
+                    className="admin-training-select w-full rounded-lg border px-3 py-2 text-base font-medium"
                   >
                     <option value="">All courses</option>
                     {courses.map((c) => (
@@ -469,44 +488,30 @@ export function TrainingCourses() {
               </aside>
 
               <div className="admin-training-main-panel">
-                <div className="admin-training-panel-header">
+                <div className="admin-training-panel-fixed admin-training-panel-header">
                   <div>
-                    <h2 className="font-display text-sm font-extrabold admin-training-text-brand">
+                    <h2 className="font-display text-base font-extrabold admin-training-text-brand">
                       {tab === 'enrollment' ? 'Active Enrollments' : 'Completed Training'}
                     </h2>
-                    <p className="text-xs font-medium text-slate-600">
+                    <p className="text-sm font-medium text-slate-600">
                       {loadingEnrollments
                         ? 'Loading...'
                         : `${enrollments.length} record${enrollments.length === 1 ? '' : 's'} in this view`}
                     </p>
                   </div>
                 </div>
-                {enrollmentTable}
+                <div
+                  className="admin-training-panel-scroll"
+                  role="region"
+                  aria-label={tab === 'enrollment' ? 'Active enrollments list' : 'Completed training list'}
+                >
+                  {enrollmentTable}
+                </div>
               </div>
             </div>
           )}
         </div>
 
-        <Modal isOpen={!!editingCourse} onClose={() => setEditingCourse(null)} title="Edit Course" size="lg">
-          <div className="grid gap-3 md:grid-cols-2">
-            <Input label="Course Title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
-            <Input label="Topic" value={editTopic} onChange={(e) => setEditTopic(e.target.value)} />
-            <Input label="Platform" value={editPlatform} onChange={(e) => setEditPlatform(e.target.value)} />
-            <Input label="Course Link" value={editLink} onChange={(e) => setEditLink(e.target.value)} />
-            <div className="md:col-span-2 flex justify-end gap-2 pt-2">
-              <Button variant="ghost" onClick={() => setEditingCourse(null)}>
-                Cancel
-              </Button>
-              <Button
-                className="admin-training-primary-btn border-0"
-                onClick={() => void handleUpdateCourse()}
-                disabled={updatingCourse}
-              >
-                {updatingCourse ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </div>
-          </div>
-        </Modal>
       </div>
     </PageWrapper>
   )

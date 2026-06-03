@@ -1,8 +1,12 @@
 import api from '@services/api'
+import type { AchievementPageColors } from '@/utils/achievementPageColors'
 
 export interface AchievementPageMeta {
   title: string
   subtitle: string
+  sectionTitle: string
+  sectionSubtitle: string
+  colors: AchievementPageColors
   hasCoverImage: boolean
   updatedAt: string | null
 }

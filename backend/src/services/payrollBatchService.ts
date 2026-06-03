@@ -60,6 +60,44 @@ export interface PayrollUploadOptions {
   replaceBatchId?: string
   resendPayslips?: boolean
   employeeDbIdByEmpId?: Record<string, string>
+  /** When set, batch and payslip PDFs use this calendar period instead of Excel Pay Month. */
+  payYear?: number
+  payMonthNum?: number
+}
+
+const CALENDAR_MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const
+
+export function buildPayPeriodFieldsFromCalendar(
+  year: number,
+  month: number
+): {
+  payMonth: string
+  payPeriodKey: string
+  payYear: number
+  payMonthNum: number
+} {
+  const safeMonth = Math.min(12, Math.max(1, month))
+  const payMonth = `${CALENDAR_MONTH_NAMES[safeMonth - 1]} ${year}`
+  const payPeriodKey = `${year}-${String(safeMonth).padStart(2, '0')}`
+  return {
+    payMonth,
+    payPeriodKey,
+    payYear: year,
+    payMonthNum: safeMonth,
+  }
 }
 
 export interface PayrollUploadResult {
@@ -75,7 +113,7 @@ export function buildPayPeriodFields(company: Company): {
   payMonthNum: number
 } {
   const period = parsePayPeriodFromCompany(company)
-  const payMonth = String(company['Pay Month'] || period.label).trim() || period.label
+  const payMonth = period.label
   const payPeriodKey = `${period.year}-${String(period.month).padStart(2, '0')}`
   return {
     payMonth,
@@ -94,9 +132,15 @@ export function batchPayPeriodKey(batch: PayrollBatch): string | null {
 /** Find existing batch for the same calendar month/year (newest first). */
 export async function findBatchByPayPeriod(company: Company): Promise<PayrollBatch | null> {
   const { payPeriodKey } = buildPayPeriodFields(company)
+  return findBatchByPayPeriodKey(payPeriodKey)
+}
+
+export async function findBatchByPayPeriodKey(payPeriodKey: string): Promise<PayrollBatch | null> {
+  const key = payPeriodKey.trim()
+  if (!key) return null
   const batches = await batchesCollection().find({}).sort({ uploadedAt: -1 }).toArray()
   for (const b of batches) {
-    if (batchPayPeriodKey(b) === payPeriodKey) return b
+    if (batchPayPeriodKey(b) === key) return b
   }
   return null
 }
@@ -147,7 +191,7 @@ export async function processPayrollUpload(
   templateId: TemplateId = 'classic',
   options: PayrollUploadOptions = {}
 ): Promise<PayrollUploadResult> {
-  const { company, structure, employees } = await readMasterExcelFromBuffer(buffer)
+  const { company: companyFromFile, structure, employees } = await readMasterExcelFromBuffer(buffer)
 
   if (employees.length === 0) {
     throw new Error(
@@ -155,7 +199,17 @@ export async function processPayrollUpload(
     )
   }
 
-  const periodFields = buildPayPeriodFields(company)
+  let company = companyFromFile
+  let periodFields = buildPayPeriodFields(company)
+  if (
+    options.payYear != null &&
+    options.payMonthNum != null &&
+    options.payMonthNum >= 1 &&
+    options.payMonthNum <= 12
+  ) {
+    periodFields = buildPayPeriodFieldsFromCalendar(options.payYear, options.payMonthNum)
+    company = { ...company, 'Pay Month': periodFields.payMonth }
+  }
   const replaceBatchId = options.replaceBatchId?.trim()
   const replaced = !!replaceBatchId
 
@@ -313,7 +367,8 @@ export function readBatchExcel(batchId: string): Buffer {
 
 export async function sendAllPayslipsInBatch(
   batchId: string,
-  employeeDbIdByEmpId: Record<string, string> = {}
+  employeeDbIdByEmpId: Record<string, string> = {},
+  options?: { resend?: boolean }
 ): Promise<{
   batch: PayrollBatch
   sent: number
@@ -326,9 +381,10 @@ export async function sendAllPayslipsInBatch(
     throw new Error('Payroll batch not found')
   }
 
+  const resend = options?.resend === true
   const flags = await listSentFlagsForBatch(batchId)
   const toSend = raw.results.filter(
-    (r) => r.status === 'success' && r.fileName && !flags[r.fileName]
+    (r) => r.status === 'success' && r.fileName && (resend || !flags[r.fileName])
   )
 
   let sent = 0
@@ -354,9 +410,9 @@ export async function sendAllPayslipsInBatch(
     }
   }
 
-  const skipped = raw.results.filter(
-    (r) => r.status === 'success' && r.fileName && flags[r.fileName]
-  ).length
+  const skipped = resend
+    ? 0
+    : raw.results.filter((r) => r.status === 'success' && r.fileName && flags[r.fileName]).length
 
   const batch = await enrichBatchWithSentStatus(raw)
   return { batch, sent, skipped, failed, sentRecords }

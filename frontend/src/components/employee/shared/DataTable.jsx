@@ -2,7 +2,14 @@ import { cn } from '@pages/employee/lib/utils'
 import { Badge, statusVariant } from '@components/employee/ui/badge'
 import { portalCardClass } from '@components/employee/shared/interactiveCard'
 
-export function DataTable({ columns, data, statusKey, compact = false, emptyMessage = 'No records found.' }) {
+export function DataTable({
+  columns,
+  data,
+  statusKey,
+  compact = false,
+  emptyMessage = 'No records found.',
+  tableTheme,
+}) {
   if (!data?.length) {
     return (
       <div className="rounded-lg border border-dashed border-border bg-surface/30 px-4 py-10 text-center text-sm text-muted">
@@ -18,9 +25,21 @@ export function DataTable({ columns, data, statusKey, compact = false, emptyMess
         portalCardClass({ className: 'w-full max-w-full overflow-x-auto rounded-lg bg-background/40 shadow-none' }),
       )}
     >
-      <table className={cn('w-full text-sm', compact ? 'min-w-0 table-auto' : 'min-w-[800px]')}>
+      <table
+        className={cn(
+          'w-full text-sm',
+          compact ? 'min-w-0 table-auto' : 'min-w-[800px]',
+          tableTheme === 'payslip-hub' && 'employee-payslip-table',
+        )}
+      >
         <thead>
-          <tr className="border-b border-border bg-slate-50/80">
+          <tr
+            className={cn(
+              tableTheme === 'payslip-hub'
+                ? 'employee-payslip-table-head'
+                : 'border-b border-border bg-slate-50/80',
+            )}
+          >
             {columns.map((col) => (
               <th key={col.key} className="type-table-head px-4 py-3 text-left">
                 {col.label}

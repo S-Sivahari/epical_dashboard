@@ -11,6 +11,8 @@ router.get('/', companyCalendarEventController.list);
 
 router.post('/', roleMiddleware('Admin'), companyCalendarEventController.create);
 
+router.put('/:id', roleMiddleware('Admin'), companyCalendarEventController.update);
+
 router.delete('/:id', roleMiddleware('Admin'), companyCalendarEventController.remove);
 
 export const companyCalendarEventRoutes = router;

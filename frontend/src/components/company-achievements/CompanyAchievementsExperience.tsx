@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ImageIcon, Loader2, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@components/ui/Button'
 import { Modal } from '@components/ui/Modal'
@@ -18,6 +18,57 @@ import {
 } from '@services/companyAchievementsService'
 import { toast } from 'sonner'
 import { cn } from '@/utils/cn'
+import {
+  DEFAULT_ACHIEVEMENT_PAGE_COLORS,
+  type AchievementPageColors,
+  isValidHexColor,
+  normalizeHexColor,
+  resolvePageColors,
+} from '@/utils/achievementPageColors'
+
+function TextColorField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+}) {
+  const pickerValue = isValidHexColor(value) ? value : '#000000'
+
+  return (
+    <div className="grid gap-1.5">
+      <span className="text-sm font-medium text-ink">{label}</span>
+      <div className="flex items-center gap-2">
+        <input
+          type="color"
+          value={pickerValue}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-10 w-12 shrink-0 cursor-pointer rounded-lg border border-border bg-white p-0.5"
+          aria-label={`${label} color picker`}
+        />
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={(e) => {
+            const next = normalizeHexColor(e.target.value, pickerValue)
+            if (next !== e.target.value) onChange(next)
+          }}
+          placeholder="#006400"
+          className="min-w-0 flex-1 rounded-lg border border-border px-3 py-2 font-mono text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+          spellCheck={false}
+        />
+        <span
+          className="h-10 w-10 shrink-0 rounded-lg border border-border"
+          style={{ backgroundColor: isValidHexColor(value) ? value : undefined }}
+          aria-hidden
+        />
+      </div>
+    </div>
+  )
+}
 
 function useBlobUrl(
   loader: () => Promise<Blob | null>,
@@ -167,45 +218,90 @@ export function CompanyAchievementsExperience({
     void refresh()
   }, [refresh])
 
-  // Cover modal
-  const [coverOpen, setCoverOpen] = useState(false)
+  const defaultSectionTitle = 'Our achievements'
+  const defaultSectionSubtitle = useMemo(
+    () =>
+      ep
+        ? 'Celebrating our greatest milestones and accomplishments.'
+        : 'Milestones and recognition that shape our culture.',
+    [ep]
+  )
+
+  // Page content modal (hero + section intro + cover)
+  const [pageEditOpen, setPageEditOpen] = useState(false)
   const [covTitle, setCovTitle] = useState('')
   const [covSubtitle, setCovSubtitle] = useState('')
+  const [secTitle, setSecTitle] = useState('')
+  const [secSubtitle, setSecSubtitle] = useState('')
   const [covClear, setCovClear] = useState(false)
-  const [covSaving, setCovSaving] = useState(false)
+  const [pageSaving, setPageSaving] = useState(false)
   const [covFile, setCovFile] = useState<File | null>(null)
+  const [pageColors, setPageColors] = useState<AchievementPageColors>(DEFAULT_ACHIEVEMENT_PAGE_COLORS)
+
+  const displayColors = useMemo(
+    () => resolvePageColors(pageMeta?.colors),
+    [pageMeta?.colors]
+  )
+
+  const setColorField = (key: keyof AchievementPageColors, value: string) => {
+    setPageColors((prev) => ({ ...prev, [key]: value }))
+  }
 
   useEffect(() => {
-    if (coverOpen && pageMeta) {
+    if (pageEditOpen && pageMeta) {
       setCovTitle(pageMeta.title || '')
       setCovSubtitle(pageMeta.subtitle || '')
+      setSecTitle(pageMeta.sectionTitle?.trim() || defaultSectionTitle)
+      setSecSubtitle(pageMeta.sectionSubtitle?.trim() || defaultSectionSubtitle)
+      setPageColors(resolvePageColors(pageMeta.colors))
       setCovClear(false)
       setCovFile(null)
     }
-  }, [coverOpen, pageMeta])
+  }, [pageEditOpen, pageMeta, defaultSectionTitle, defaultSectionSubtitle])
 
-  const saveCover = async () => {
+  const savePageContent = async () => {
     if (!covTitle.trim()) {
-      toast.error('Title is required')
+      toast.error('Hero title is required')
       return
     }
-    setCovSaving(true)
+    if (!secTitle.trim()) {
+      toast.error('Section title is required')
+      return
+    }
+    const normalized = resolvePageColors(pageColors)
+    const invalid = (Object.keys(normalized) as (keyof AchievementPageColors)[]).find(
+      (key) => !isValidHexColor(pageColors[key])
+    )
+    if (invalid) {
+      toast.error('Use valid hex colors (e.g. #006400)')
+      return
+    }
+    setPageSaving(true)
     try {
       const fd = new FormData()
       fd.append('title', covTitle.trim())
       fd.append('subtitle', covSubtitle.trim())
+      fd.append('sectionTitle', secTitle.trim())
+      fd.append('sectionSubtitle', secSubtitle.trim())
+      fd.append('heroTitleColor', normalized.heroTitle)
+      fd.append('heroSubtitleColor', normalized.heroSubtitle)
+      fd.append('sectionTitleColor', normalized.sectionTitle)
+      fd.append('sectionSubtitleColor', normalized.sectionSubtitle)
+      fd.append('itemTitleColor', normalized.itemTitle)
+      fd.append('itemDescriptionColor', normalized.itemDescription)
       if (covClear) fd.append('clearCover', 'true')
       if (covFile) fd.append('cover', covFile)
       const next = await updateAchievementPage(fd)
       setPageMeta(next)
-      setCoverOpen(false)
+      setPageEditOpen(false)
+      toast.success('Page content saved')
     } catch (e: unknown) {
       const msg =
         (e as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-        'Failed to save cover'
+        'Failed to save page content'
       toast.error(msg)
     } finally {
-      setCovSaving(false)
+      setPageSaving(false)
     }
   }
 
@@ -285,6 +381,9 @@ export function CompanyAchievementsExperience({
 
   const displayTitle = pageMeta?.title?.trim() || 'Company achievements'
   const displaySubtitle = pageMeta?.subtitle?.trim() || ''
+  const displaySectionTitle = pageMeta?.sectionTitle?.trim() || defaultSectionTitle
+  const displaySectionSubtitle =
+    pageMeta?.sectionSubtitle?.trim() || defaultSectionSubtitle
 
   return (
     <div
@@ -339,24 +438,17 @@ export function CompanyAchievementsExperience({
         />
         <div
           className={cn(
-            'relative z-10 flex flex-col px-6 sm:px-10 lg:px-16',
-            ep ? 'min-h-[min(520px,55vh)] items-center justify-center py-16 text-center' : 'min-h-[42vh] justify-end pb-12 pt-24'
+            'relative z-10 flex flex-col',
+            adminHub
+              ? 'admin-achievements-hero-content min-h-[38vh] justify-end'
+              : cn(
+                  'px-6 sm:px-10 lg:px-16',
+                  ep
+                    ? 'min-h-[min(520px,55vh)] items-center justify-center py-16 text-center'
+                    : 'min-h-[42vh] justify-end pb-12 pt-24'
+                )
           )}
         >
-          {editable && (
-            <div className={cn('absolute top-4 z-20 sm:right-8', ep ? 'right-4 sm:right-8' : 'right-4')}>
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                className="bg-white/95 shadow-md backdrop-blur"
-                onClick={() => setCoverOpen(true)}
-              >
-                <Pencil className="mr-1.5 h-4 w-4" />
-                Change cover
-              </Button>
-            </div>
-          )}
           {loading && !pageMeta ? (
             <div className="flex items-center gap-2 text-white/90">
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -366,22 +458,22 @@ export function CompanyAchievementsExperience({
             <>
               <h1
                 className={cn(
-                  'text-white',
                   ep
-                    ? 'max-w-5xl font-sans text-3xl font-bold uppercase tracking-[0.12em] sm:text-4xl md:text-5xl lg:text-6xl'
+                    ? 'max-w-5xl font-sans text-4xl font-bold uppercase tracking-[0.12em] sm:text-5xl md:text-6xl lg:text-7xl'
                     : 'font-display text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl'
                 )}
+                style={{ color: displayColors.heroTitle }}
               >
                 {displayTitle}
               </h1>
               {displaySubtitle ? (
                 <p
                   className={cn(
-                    'text-white/95',
                     ep
-                      ? 'mx-auto mt-5 max-w-2xl font-sans text-base font-normal leading-relaxed sm:text-lg'
+                      ? 'mx-auto mt-5 max-w-2xl font-sans text-lg font-normal leading-relaxed sm:text-xl'
                       : 'mt-3 max-w-2xl text-lg sm:text-xl'
                   )}
+                  style={{ color: displayColors.heroSubtitle }}
                 >
                   {displaySubtitle}
                 </p>
@@ -400,18 +492,24 @@ export function CompanyAchievementsExperience({
       {/* Section intro */}
       <div
         className={cn(
-          'px-4 sm:px-8 lg:px-12',
           adminHub
             ? 'admin-achievements-intro'
-            : ep
-              ? 'border-b border-zinc-100 bg-white py-14 lg:py-20'
-              : 'border-b border-border bg-muted/20 py-10'
+            : cn(
+                'px-4 sm:px-8 lg:px-12',
+                ep
+                  ? 'border-b border-zinc-100 bg-white py-14 lg:py-20'
+                  : 'border-b border-border bg-muted/20 py-10'
+              )
         )}
       >
         <div
           className={cn(
-            'mx-auto max-w-6xl',
-            ep ? 'text-center' : 'flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between'
+            adminHub
+              ? 'admin-achievements-intro-inner'
+              : cn(
+                  'mx-auto max-w-6xl',
+                  ep ? 'text-center' : 'flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between'
+                )
           )}
         >
           <div className={ep ? 'mx-auto max-w-2xl' : undefined}>
@@ -420,47 +518,69 @@ export function CompanyAchievementsExperience({
                 adminHub
                   ? 'admin-achievements-section-title font-display text-2xl font-extrabold'
                   : ep
-                    ? 'font-sans text-2xl font-bold tracking-tight text-[#006400] sm:text-3xl md:text-[2rem]'
-                    : 'font-display text-2xl font-semibold text-ink'
+                    ? 'font-sans text-3xl font-bold tracking-tight sm:text-4xl'
+                    : 'font-display text-2xl font-semibold'
               )}
+              style={{ color: displayColors.sectionTitle }}
             >
-              Our achievements
+              {displaySectionTitle}
             </h2>
-            {!adminHub && (
-              <p
-                className={cn(
-                  ep ? 'mt-4 font-sans text-sm text-zinc-500 sm:text-base' : 'mt-1 text-sm text-muted'
-                )}
-              >
-                {ep
-                  ? 'Celebrating our greatest milestones and accomplishments.'
-                  : 'Milestones and recognition that shape our culture.'}
-              </p>
-            )}
+            <p
+              className={cn(
+                adminHub ? 'mt-2 text-sm' : ep ? 'mt-4 font-sans text-base sm:text-lg' : 'mt-1 text-sm'
+              )}
+              style={{ color: displayColors.sectionSubtitle }}
+            >
+              {displaySectionSubtitle}
+            </p>
           </div>
           {editable && (
-            <Button
-              type="button"
-              onClick={openAdd}
+            <div
               className={cn(
-                'shrink-0',
-                adminHub && 'admin-achievements-primary-btn border-0',
+                'flex shrink-0 flex-wrap items-center gap-2',
                 ep && 'mx-auto mt-8 sm:mx-0 sm:mt-0'
               )}
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Add achievement
-            </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setPageEditOpen(true)}
+                className={adminHub ? 'admin-achievements-secondary-btn' : undefined}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit page
+              </Button>
+              <Button
+                type="button"
+                onClick={openAdd}
+                className={cn(
+                  adminHub && 'admin-achievements-primary-btn border-0',
+                )}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add achievement
+              </Button>
+            </div>
           )}
         </div>
       </div>
 
       {loading ? (
-        <div className="flex min-h-[200px] items-center justify-center py-20">
+        <div
+          className={cn(
+            'flex min-h-[200px] items-center justify-center py-20',
+            adminHub && 'admin-achievements-loading'
+          )}
+        >
           <Loader2 className="h-10 w-10 animate-spin text-muted" />
         </div>
       ) : rows.length === 0 ? (
-        <div className="mx-auto max-w-6xl px-4 py-20 text-center text-muted sm:px-8">
+        <div
+          className={cn(
+            'py-20 text-center text-muted',
+            adminHub ? 'admin-achievements-empty' : 'mx-auto max-w-6xl px-4 sm:px-8'
+          )}
+        >
           <p>No achievements published yet.</p>
           {editable && (
             <Button type="button" variant="secondary" className="mt-4" onClick={openAdd}>
@@ -469,19 +589,33 @@ export function CompanyAchievementsExperience({
           )}
         </div>
       ) : (
-        <div className={cn('mx-auto max-w-6xl', (ep || adminHub) && 'bg-white', adminHub && 'admin-achievements-list')}>
+        <div
+          className={cn(
+            adminHub ? 'w-full admin-achievements-list' : 'mx-auto max-w-6xl',
+            (ep || adminHub) && 'bg-white'
+          )}
+        >
           {rows.map((row, index) => (
             <article
               key={row.id}
               className={cn(
-                'grid gap-8 px-4 sm:px-8 lg:grid-cols-2 lg:px-12',
                 adminHub
-                  ? 'admin-achievements-row py-12 last:border-b-0 lg:gap-12 lg:py-14'
-                  : ep
-                    ? 'border-b border-zinc-100 py-14 last:border-b-0 lg:gap-16 lg:py-20'
-                    : 'border-b border-border py-14 last:border-b-0 lg:gap-12 lg:py-16'
+                  ? 'admin-achievements-row last:border-b-0'
+                  : cn(
+                      'grid gap-8 px-4 sm:px-8 lg:grid-cols-2 lg:px-12',
+                      ep
+                        ? 'border-b border-zinc-100 py-14 last:border-b-0 lg:gap-16 lg:py-20'
+                        : 'border-b border-border py-14 last:border-b-0 lg:gap-12 lg:py-16'
+                    )
               )}
             >
+              <div
+                className={cn(
+                  adminHub
+                    ? 'admin-achievements-row-inner grid gap-8 lg:grid-cols-2 lg:gap-12'
+                    : 'contents'
+                )}
+              >
               <div
                 className={`flex flex-col justify-center ${
                   index % 2 === 1 ? 'lg:order-2' : 'lg:order-1'
@@ -505,17 +639,19 @@ export function CompanyAchievementsExperience({
                     adminHub
                       ? 'admin-achievements-item-title font-display text-2xl font-bold lg:text-3xl'
                       : ep
-                        ? 'font-sans text-xl font-bold text-[#006400] sm:text-2xl lg:text-[1.75rem]'
-                        : 'font-display text-2xl font-semibold text-ink lg:text-3xl'
+                        ? 'font-sans text-2xl font-bold sm:text-3xl lg:text-4xl'
+                        : 'font-display text-2xl font-semibold lg:text-3xl'
                   )}
+                  style={{ color: displayColors.itemTitle }}
                 >
                   {row.title}
                 </h3>
                 <p
                   className={cn(
                     'mt-4 whitespace-pre-wrap leading-relaxed',
-                    ep ? 'font-sans text-sm text-zinc-600 sm:text-base' : 'text-base text-muted'
+                    ep ? 'font-sans text-base sm:text-lg' : 'text-base'
                   )}
+                  style={{ color: displayColors.itemDescription }}
                 >
                   {row.description}
                 </p>
@@ -532,43 +668,123 @@ export function CompanyAchievementsExperience({
                   </div>
                 )}
               </div>
+              </div>
             </article>
           ))}
         </div>
       )}
 
-      {/* Cover modal */}
-      <Modal isOpen={coverOpen} onClose={() => setCoverOpen(false)} title="Edit cover section" size="lg">
-        <div className="grid gap-4">
-          <Input label="Title" value={covTitle} onChange={(e) => setCovTitle(e.target.value)} />
-          <label className="text-sm font-medium text-ink">
-            Subtitle
-            <textarea
-              className="mt-1 min-h-[80px] w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-              value={covSubtitle}
-              onChange={(e) => setCovSubtitle(e.target.value)}
+      {/* Page content modal */}
+      <Modal
+        isOpen={pageEditOpen}
+        onClose={() => setPageEditOpen(false)}
+        title="Edit achievements page"
+        size="lg"
+      >
+        <div className="grid gap-6">
+          <div className="grid gap-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted">Hero banner</p>
+            <Input
+              label="Hero title"
+              value={covTitle}
+              onChange={(e) => setCovTitle(e.target.value)}
             />
-          </label>
-          <div>
-            <p className="text-sm font-medium text-ink">Cover image</p>
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="mt-2 block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
-              onChange={(e) => setCovFile(e.target.files?.[0] ?? null)}
-            />
-            <label className="mt-3 flex items-center gap-2 text-sm text-muted">
-              <input type="checkbox" checked={covClear} onChange={(e) => setCovClear(e.target.checked)} />
-              Remove existing cover image
+            <label className="text-sm font-medium text-ink">
+              Hero subtitle
+              <textarea
+                className="mt-1 min-h-[80px] w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                value={covSubtitle}
+                onChange={(e) => setCovSubtitle(e.target.value)}
+              />
             </label>
+            <TextColorField
+              label="Hero title color"
+              value={pageColors.heroTitle}
+              onChange={(v) => setColorField('heroTitle', v)}
+            />
+            <TextColorField
+              label="Hero subtitle color"
+              value={pageColors.heroSubtitle}
+              onChange={(v) => setColorField('heroSubtitle', v)}
+            />
+            <div>
+              <p className="text-sm font-medium text-ink">Cover image</p>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="mt-2 block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
+                onChange={(e) => setCovFile(e.target.files?.[0] ?? null)}
+              />
+              <label className="mt-3 flex items-center gap-2 text-sm text-muted">
+                <input type="checkbox" checked={covClear} onChange={(e) => setCovClear(e.target.checked)} />
+                Remove existing cover image
+              </label>
+            </div>
           </div>
+
+          <div className="grid gap-4 border-t border-border pt-6">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted">Achievements section</p>
+            <Input
+              label="Section title"
+              value={secTitle}
+              onChange={(e) => setSecTitle(e.target.value)}
+            />
+            <label className="text-sm font-medium text-ink">
+              Section description
+              <textarea
+                className="mt-1 min-h-[80px] w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                value={secSubtitle}
+                onChange={(e) => setSecSubtitle(e.target.value)}
+              />
+            </label>
+            <TextColorField
+              label="Section title color"
+              value={pageColors.sectionTitle}
+              onChange={(v) => setColorField('sectionTitle', v)}
+            />
+            <TextColorField
+              label="Section description color"
+              value={pageColors.sectionSubtitle}
+              onChange={(v) => setColorField('sectionSubtitle', v)}
+            />
+          </div>
+
+          <div className="grid gap-4 border-t border-border pt-6">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-bold uppercase tracking-wide text-muted">Achievement entries</p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setPageColors({ ...DEFAULT_ACHIEVEMENT_PAGE_COLORS })}
+              >
+                Reset colors to defaults
+              </Button>
+            </div>
+            <TextColorField
+              label="Achievement title color"
+              value={pageColors.itemTitle}
+              onChange={(v) => setColorField('itemTitle', v)}
+            />
+            <TextColorField
+              label="Achievement description color"
+              value={pageColors.itemDescription}
+              onChange={(v) => setColorField('itemDescription', v)}
+            />
+          </div>
+
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" type="button" onClick={() => setCoverOpen(false)}>
+            <Button variant="ghost" type="button" onClick={() => setPageEditOpen(false)}>
               Cancel
             </Button>
-            <Button type="button" disabled={covSaving} onClick={() => void saveCover()}>
-              {covSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Save
+            <Button
+              type="button"
+              disabled={pageSaving}
+              onClick={() => void savePageContent()}
+              className={adminHub ? 'admin-achievements-primary-btn border-0' : undefined}
+            >
+              {pageSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Save page
             </Button>
           </div>
         </div>

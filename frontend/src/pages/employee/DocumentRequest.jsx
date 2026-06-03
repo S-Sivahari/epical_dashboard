@@ -329,7 +329,7 @@ export default function DocumentRequest() {
   return (
     <div className="space-y-6">
       <div
-        className="inline-flex w-full max-w-lg rounded-xl border border-border bg-surface/60 p-1 shadow-sm sm:w-auto"
+        className="employee-documents-tab-rail inline-flex w-full max-w-lg rounded-xl border p-1 sm:w-auto"
         role="tablist"
         aria-label="Documents sections"
       >
@@ -343,10 +343,10 @@ export default function DocumentRequest() {
                 aria-selected={activeTab === tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  'flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 sm:flex-none sm:min-w-[10.5rem]',
+                  'employee-documents-tab-btn flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-200 sm:flex-none sm:min-w-[10.5rem]',
                   activeTab === tab.id
-                    ? 'bg-primary text-white shadow-sm'
-                    : 'text-muted hover:bg-card hover:text-foreground',
+                    ? 'employee-documents-tab-btn--active'
+                    : 'employee-documents-tab-btn--inactive',
                 )}
               >
                 <Icon className="h-4 w-4 shrink-0" />

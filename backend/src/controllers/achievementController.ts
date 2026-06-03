@@ -1,5 +1,6 @@
 import { Request, Response } from 'express'
 import * as achievementService from '../services/achievementService'
+import { parsePageColorsFromBody, resolvePageColors } from '../utils/achievementPageColors'
 
 function paramStr(v: string | string[] | undefined): string {
   if (typeof v === 'string') return v
@@ -20,9 +21,13 @@ export const achievementController = {
   getPageMeta: async (_req: Request, res: Response): Promise<void> => {
     try {
       const page = await achievementService.getPage()
+      const colors = resolvePageColors(page?.colors)
       res.json({
         title: page?.title?.trim() || 'Company Achievements',
         subtitle: page?.subtitle?.trim() || '',
+        sectionTitle: page?.sectionTitle?.trim() || 'Our achievements',
+        sectionSubtitle: page?.sectionSubtitle?.trim() || '',
+        colors,
         hasCoverImage: !!(page?.coverImage?.data && page?.coverImage?.contentType),
         updatedAt: page?.updatedAt?.toISOString() ?? null,
       })
@@ -55,24 +60,39 @@ export const achievementController = {
     try {
       const title = typeof req.body.title === 'string' ? req.body.title : ''
       const subtitle = typeof req.body.subtitle === 'string' ? req.body.subtitle : ''
+      const sectionTitle = typeof req.body.sectionTitle === 'string' ? req.body.sectionTitle : ''
+      const sectionSubtitle =
+        typeof req.body.sectionSubtitle === 'string' ? req.body.sectionSubtitle : ''
       const clearCover = req.body.clearCover === 'true' || req.body.clearCover === true
       const file = req.file
       const coverImage = file ? fileToBlob(file) : undefined
 
       if (!title.trim()) {
-        res.status(400).json({ error: 'Title is required' })
+        res.status(400).json({ error: 'Hero title is required' })
         return
       }
+      if (!sectionTitle.trim()) {
+        res.status(400).json({ error: 'Section title is required' })
+        return
+      }
+
+      const colors = parsePageColorsFromBody(req.body as Record<string, unknown>)
 
       const page = await achievementService.upsertPage({
         title,
         subtitle,
+        sectionTitle,
+        sectionSubtitle,
+        colors,
         coverImage,
         clearCover: clearCover && !file,
       })
       res.json({
         title: page.title,
         subtitle: page.subtitle,
+        sectionTitle: page.sectionTitle,
+        sectionSubtitle: page.sectionSubtitle,
+        colors: page.colors,
         hasCoverImage: !!(page.coverImage?.data),
         updatedAt: page.updatedAt.toISOString(),
       })
