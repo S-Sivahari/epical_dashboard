@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, LogOut } from 'lucide-react'
 import { CompanyLogo } from '@components/auth/CompanyLogo'
 import { Avatar } from '@components/ui/Avatar'
-import { CommandBarNewsMarquee } from '@components/layout/CommandBarNewsMarquee'
 import { NotificationBell } from '@components/layout/NotificationBell'
 import { useAuthStore } from '@store/authStore'
 import {
@@ -55,8 +54,6 @@ export function EmployeeCommandBar() {
             <ArrowLeft className="h-4 w-4" />
           </button>
         )}
-
-        <CommandBarNewsMarquee className="ml-1 min-w-0 flex-1" />
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
