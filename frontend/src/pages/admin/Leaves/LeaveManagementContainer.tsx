@@ -192,18 +192,7 @@ export function LeaveManagementContainer() {
       .slice(0, 10)
   }, [visibleLeaves])
 
-  // Data-tools table: respects the top-bar quick filters
-  const dataTableLeaves = useMemo(() => {
-    return visibleLeaves
-      .filter((l) => {
-        if (filterEmployee && !l.employeeName.toLowerCase().includes(filterEmployee.toLowerCase())) return false
-        if (filterType && l.type !== filterType) return false
-        if (filterFrom && l.from < filterFrom) return false
-        if (filterTo && l.to > filterTo) return false
-        return true
-      })
-      .slice(0, 6)
-  }, [visibleLeaves, filterEmployee, filterType, filterFrom, filterTo])
+
 
   // Export helpers
   const filteredLeaveRequests = useMemo(() => {
@@ -424,7 +413,7 @@ export function LeaveManagementContainer() {
                 {/* Status tiles — clickable to filter */}
                 <div className="grid grid-cols-3 gap-2">
                   {([
-                    { status: 'Pending', count: pendingLeaves.length, bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700', label: 'text-gray-500' },
+                    { status: 'Pending', count: pendingLeaves.length, bg: 'bg-amber-50', border: 'border-amber-200/80', text: 'text-amber-700', label: 'text-amber-600' },
                     { status: 'Approved', count: approvedLeaves.length, bg: 'admin-leaves-status-approved', border: 'admin-leaves-status-approved-border', text: 'text-white', label: 'text-white/80' },
                     { status: 'Rejected', count: rejectedLeaves.length, bg: 'bg-red-50', border: 'border-red-100', text: 'text-red-600', label: 'text-gray-500' },
                   ] as const).map(({ status, count, bg, border, text, label }) => (
@@ -432,7 +421,13 @@ export function LeaveManagementContainer() {
                       key={status}
                       type="button"
                       onClick={() => setLeaveFilters((f) => ({ ...f, status }))}
-                      className={`flex flex-col items-center rounded-lg border p-2 transition-all hover:scale-105 ${bg} ${border} ${leaveFilters.status === status ? 'admin-leaves-status-ring' : ''}`}
+                      className={`flex flex-col items-center rounded-lg border p-2 transition-all hover:scale-105 ${bg} ${border} ${
+                        leaveFilters.status === status
+                          ? status === 'Pending'
+                            ? 'ring-2 ring-amber-500/50'
+                            : 'admin-leaves-status-ring'
+                          : ''
+                      }`}
                     >
                       <span className={`text-[10px] font-semibold uppercase ${label}`}>{status}</span>
                       <span className={`mt-1 text-xl font-bold ${text}`}>{count}</span>
@@ -456,36 +451,13 @@ export function LeaveManagementContainer() {
                 </div>
               </div>
 
-              {/* Upcoming Leaves */}
-              <div className="admin-leaves-panel flex-1 p-4">
-                <h3 className="admin-leaves-panel-title mb-3 text-sm font-bold">Upcoming Leaves</h3>
-                {upcomingLeaves.length === 0 ? (
-                  <p className="text-xs text-gray-400 py-4 text-center">No upcoming approved leaves.</p>
-                ) : (
-                  <div className="space-y-2.5">
-                    {upcomingLeaves.map((l) => (
-                      <div key={l.id} className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700">
-                          {l.employeeName.split(' ').map((n) => n[0]).join('').slice(0, 2)}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-semibold text-gray-800 truncate">{l.employeeName}</p>
-                          <p className="text-[10px] text-gray-500">{l.type}</p>
-                          <p className="text-[10px] font-semibold text-emerald-700">{formatDate(l.from)}</p>
-                        </div>
-                        <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Approved</span>
-                        <MoreVertical className="h-3.5 w-3.5 shrink-0 text-gray-300" />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+
             </div>
 
             {/* ════════════════════════════════════════════════════════
                 CENTER COLUMN — Full Leave Requests (real component)
             ════════════════════════════════════════════════════════ */}
-            <div className="admin-leaves-panel overflow-hidden">
+            <div className="admin-leaves-panel flex flex-col overflow-y-auto" style={{ maxHeight: '572px' }}>
               {searched && (filterEmployee || filterType || filterFrom || filterTo) && (
                 <div className="admin-leaves-filter-chips flex flex-wrap items-center gap-2 px-4 py-2">
                   <span className="text-xs font-semibold admin-leaves-text-brand">Filtered:</span>
@@ -507,7 +479,7 @@ export function LeaveManagementContainer() {
             <div className="flex flex-col gap-3">
 
               {/* Recent Activity Feed */}
-              <div className="admin-leaves-panel flex flex-col overflow-hidden" style={{ maxHeight: '520px' }}>
+              <div className="admin-leaves-panel flex flex-col overflow-hidden" style={{ maxHeight: '280px' }}>
                 <div className="admin-leaves-panel-head flex shrink-0 items-center justify-between px-4 py-3">
                   <h3 className="admin-leaves-panel-title text-sm font-bold">Recent Activity Feed</h3>
                   <button
@@ -602,44 +574,32 @@ export function LeaveManagementContainer() {
                 )}
               </div>
 
-              {/* Data Tools — compact filtered table */}
-              <div className="admin-leaves-panel overflow-hidden">
-                <div className="admin-leaves-panel-head flex items-center justify-between px-3 py-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-bold uppercase text-gray-500">Employee</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-bold uppercase text-gray-500">Type</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-bold uppercase text-gray-500">Date</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-bold uppercase text-gray-500">Days</span>
-                  </div>
-                </div>
-                <div className="divide-y divide-gray-50">
-                  {dataTableLeaves.length === 0
-                    ? <p className="px-3 py-4 text-center text-xs text-gray-400">No records.</p>
-                    : dataTableLeaves.map((l) => (
-                      <div key={l.id} className="flex items-center justify-between gap-2 px-3 py-2 hover:bg-gray-50 text-[11px]">
-                        <span className="font-semibold text-gray-800 truncate flex-1 min-w-0">{l.employeeName}</span>
-                        <span className="text-gray-500 shrink-0 max-w-[70px] truncate">{l.type.replace(' Leave', '')}</span>
-                        <span className="text-gray-500 shrink-0">{formatDate(l.from)}</span>
-                        <span className="font-bold text-emerald-700 shrink-0">{l.days}d</span>
+              {/* Upcoming Leaves */}
+              <div className="admin-leaves-panel flex flex-col overflow-hidden p-4" style={{ maxHeight: '280px' }}>
+                <h3 className="admin-leaves-panel-title mb-3 text-sm font-bold shrink-0">Upcoming Leaves</h3>
+                {upcomingLeaves.length === 0 ? (
+                  <p className="text-xs text-gray-400 py-4 text-center">No upcoming approved leaves.</p>
+                ) : (
+                  <div className="space-y-2.5 overflow-y-auto flex-1 pr-1">
+                    {upcomingLeaves.map((l) => (
+                      <div key={l.id} className="flex items-center gap-2">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700">
+                          {l.employeeName.split(' ').map((n) => n[0]).join('').slice(0, 2)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-semibold text-gray-800 truncate">{l.employeeName}</p>
+                          <p className="text-[10px] text-gray-500">{l.type}</p>
+                          <p className="text-[10px] font-semibold text-emerald-700">{formatDate(l.from)}</p>
+                        </div>
+                        <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Approved</span>
+                        <MoreVertical className="h-3.5 w-3.5 shrink-0 text-gray-300" />
                       </div>
-                    ))
-                  }
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Quick action buttons */}
-              <Button size="sm" variant="secondary"
-                className="admin-leaves-secondary-btn h-8 w-full text-xs font-semibold"
-                onClick={() => void handleExport('pdf')} loading={exporting === 'pdf'}
-              >
-                <FileText className="h-3.5 w-3.5 text-red-500 mr-1" /> View Full Report (PDF)
-              </Button>
+
             </div>
 
           </div>
