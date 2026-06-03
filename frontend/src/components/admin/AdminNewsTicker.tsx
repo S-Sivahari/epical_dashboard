@@ -12,7 +12,7 @@ import { Input } from '@components/ui/Input'
 import { NewsImage } from '@components/NewsImage'
 import { NewsDetailModal } from '@components/news/NewsDetailModal'
 import { cn } from '@/utils/cn'
-import { Megaphone, Pencil } from 'lucide-react'
+import { Megaphone } from 'lucide-react'
 import { ROUTES } from '@/constants/routes'
 
 const CACHE_KEY = 'admin-news-ticker-v2'

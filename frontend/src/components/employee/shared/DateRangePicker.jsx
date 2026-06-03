@@ -143,15 +143,16 @@ export function DateRangePicker({ startDate, endDate, preset, onChange }) {
       </button>
 
       {open && (
-        <div className="date-range-popover absolute right-0 top-full z-50 mt-2 flex w-[92vw] flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-xl sm:w-auto sm:min-w-[500px] md:flex-row">
+        <div className="projects-date-calendar date-range-popover absolute right-0 top-full z-50 mt-2 flex w-[92vw] flex-col gap-3 rounded-2xl p-3 shadow-2xl sm:w-auto sm:min-w-[500px] md:flex-row md:p-4 bg-[#f0f9f0]">
+          {/* Calendar Grid */}
           <div className="flex-1 select-none">
-            <div className="mb-4 flex items-center justify-between">
+            <div className="projects-date-calendar-header flex items-center justify-between mb-3 rounded-lg px-2 py-1.5">
               <button
                 type="button"
                 onClick={() =>
                   setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))
                 }
-                className="rounded-lg p-1 text-muted hover:bg-slate-100"
+                className="projects-date-nav-btn p-1 rounded-md"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -163,13 +164,13 @@ export function DateRangePicker({ startDate, endDate, preset, onChange }) {
                 onClick={() =>
                   setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))
                 }
-                className="rounded-lg p-1 text-muted hover:bg-slate-100"
+                className="projects-date-nav-btn p-1 rounded-md"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="type-calendar-weekday mb-1 grid grid-cols-7 gap-1 text-center">
+            <div className="projects-date-weekdays type-calendar-weekday mb-1.5 grid grid-cols-7 gap-1 text-center">
               {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
                 <span key={d} className="py-1">
                   {d}
@@ -177,7 +178,7 @@ export function DateRangePicker({ startDate, endDate, preset, onChange }) {
               ))}
             </div>
 
-            <div className="type-calendar-day grid grid-cols-7 gap-1 text-center">
+            <div className="grid grid-cols-7 gap-1 text-center text-xs">
               {calendarCells.map((cell, idx) => {
                 const isSelectedStart = tempStart && cell.dateString === tempStart
                 const isSelectedEnd = tempEnd && cell.dateString === tempEnd
@@ -189,6 +190,9 @@ export function DateRangePicker({ startDate, endDate, preset, onChange }) {
                   tempStart !== tempEnd &&
                   cell.dateString > tempStart &&
                   cell.dateString < tempEnd
+                
+                const todayStr = new Date().toISOString().split('T')[0]
+                const isToday = cell.dateString === todayStr
 
                 return (
                   <button
@@ -196,10 +200,11 @@ export function DateRangePicker({ startDate, endDate, preset, onChange }) {
                     type="button"
                     onClick={(e) => handleDayClick(cell.dateString, e)}
                     className={`
-                      flex h-7 w-7 items-center justify-center rounded-lg font-semibold transition-all
-                      ${cell.isCurrentMonth ? 'text-foreground hover:bg-primary/10 hover:text-primary' : 'text-muted hover:bg-slate-100'}
-                      ${isSingleDay || isSelectedStart || isSelectedEnd ? 'bg-primary text-white shadow-sm hover:bg-primary hover:text-white' : ''}
-                      ${isWithinRange ? 'rounded-none bg-primary/10 text-primary' : ''}
+                      projects-date-day h-7 w-7 rounded-lg flex items-center justify-center font-semibold transition-all
+                      ${cell.isCurrentMonth ? 'projects-date-day-current' : 'projects-date-day-muted'}
+                      ${isSingleDay || isSelectedStart || isSelectedEnd ? 'projects-date-day-selected' : ''}
+                      ${isWithinRange ? 'projects-date-day-in-range' : ''}
+                      ${isToday && !(isSingleDay || isSelectedStart || isSelectedEnd) ? 'projects-date-day-today' : ''}
                     `}
                   >
                     {cell.day}
@@ -207,14 +212,15 @@ export function DateRangePicker({ startDate, endDate, preset, onChange }) {
                 )
               })}
             </div>
-            <p className="mt-3 text-[10px] font-medium text-muted">
+            <p className="projects-date-hint mt-3 text-[10px] font-medium">
               Click any date to filter that day. Hold Shift, click a start date, then another date for a custom range.
             </p>
           </div>
 
-          <div className="hidden border-l border-border md:block" />
+          <div className="hidden border-l border-emerald-200/50 md:block" />
 
-          <div className="flex w-full flex-col gap-0.5 md:w-36">
+          {/* Quick Presets Panel */}
+          <div className="projects-date-presets flex w-full flex-col gap-1 md:w-36">
             <p className="type-card-label-caps mb-2 text-[9px]">Quick Presets</p>
             {QUICK_PRESETS.map((p) => (
               <button
@@ -222,8 +228,8 @@ export function DateRangePicker({ startDate, endDate, preset, onChange }) {
                 type="button"
                 onClick={() => handlePresetClick(p)}
                 className={`
-                  rounded-lg px-2.5 py-1 text-left text-xs font-semibold transition-all
-                  ${preset === p ? 'bg-primary/10 font-bold text-primary' : 'text-muted hover:bg-slate-50 hover:text-foreground'}
+                  projects-date-preset rounded-lg px-2.5 py-1 text-left text-xs font-semibold transition-all
+                  ${preset === p ? 'projects-date-preset-active font-bold' : ''}
                 `}
               >
                 {p}

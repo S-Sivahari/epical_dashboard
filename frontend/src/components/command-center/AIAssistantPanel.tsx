@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Bot, ChevronDown, ChevronUp, Minimize2, Send, Sparkles, X } from 'lucide-react'
+import { Bot, ChevronUp, Minimize2, Send, Sparkles, X } from 'lucide-react'
 import { useDashboardStore } from '@store/dashboardStore'
 import { ROUTES } from '@constants/routes'
 import { cn } from '@/utils/cn'

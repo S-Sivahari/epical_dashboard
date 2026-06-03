@@ -1,4 +1,3 @@
-import { SkeletonBlock } from './shared'
 import {
   formatProjectMembers,
   type ProjectContributionStatus,

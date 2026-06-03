@@ -20,7 +20,7 @@ const now = new Date()
 const DEFAULT_YEAR = now.getFullYear()
 const DEFAULT_MONTH = now.getMonth() + 1
 
-function ChartPlaceholder({ message, loading }: { message: string; loading?: boolean }) {
+function ChartPlaceholder({ message = '', loading }: { message?: string; loading?: boolean }) {
   return (
     <div className="admin-analytics-chart-placeholder">
       {loading ? (
