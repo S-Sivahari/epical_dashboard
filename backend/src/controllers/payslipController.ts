@@ -535,9 +535,9 @@ export const payslipController = {
         return
       }
       const record = await getPayslipByIdForEmployee(
-        req.params.payslipId,
-        req.user.id,
-        req.user.email,
+        req.params.payslipId as string,
+        String(req.user.id),
+        String(req.user.email),
       )
       if (!record) {
         res.status(404).json({ error: 'Payslip not found' })

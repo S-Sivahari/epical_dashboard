@@ -77,7 +77,7 @@ export async function sendPayslipToEmployee(params: {
     )
   }
 
-  const loginEmails = getEmployeeLoginEmails(employee)
+  const loginEmails = getEmployeeLoginEmails(employee as any)
   const employeeEmail = loginEmails[0]
   if (!employeeEmail) {
     throw new Error('Employee has no email on file — cannot deliver payslip to dashboard')

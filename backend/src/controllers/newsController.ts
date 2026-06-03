@@ -3,7 +3,7 @@ import type { ParsedQs } from 'qs'
 import * as newsService from '../services/newsService'
 import { fetchTopHeadlinesByDate } from '../services/externalNewsService'
 
-function paramStr(v: string | string[] | ParsedQs | ParsedQs[] | undefined): string {
+function paramStr(v: any): string {
   if (typeof v === 'string') return v
   if (Array.isArray(v) && typeof v[0] === 'string') return v[0]
   return ''

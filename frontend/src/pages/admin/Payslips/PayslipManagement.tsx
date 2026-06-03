@@ -140,17 +140,7 @@ function batchMatchesPeriod(batch: PayrollBatch, year: number, month: number): b
   return period?.year === year && period?.month === month
 }
 
-/** Normalized YYYY-MM key — matches backend batchPayPeriodKey. */
-function batchPeriodKey(batch: PayrollBatch): string | null {
-  const key = batch.payPeriodKey?.trim()
-  if (key && /^\d{4}-\d{2}$/.test(key)) return key
-  if (batch.payYear != null && batch.payMonthNum != null) {
-    return `${batch.payYear}-${String(batch.payMonthNum).padStart(2, '0')}`
-  }
-  const period = parseBatchPayPeriod(batch)
-  if (!period) return null
-  return `${period.year}-${String(period.month).padStart(2, '0')}`
-}
+
 
 function formatBatchPeriodLabel(batch: PayrollBatch | null | undefined): string {
   if (!batch) return ''

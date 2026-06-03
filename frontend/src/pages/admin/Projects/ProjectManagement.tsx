@@ -1014,6 +1014,13 @@ function EmployeeLeaderboard({
       {sortedData.map((item, idx) => {
         const percent = maxHours > 0 ? (item.hours / maxHours) * 100 : 0
         const hue = item.hue ?? Math.round((idx * 137.5) % 360)
+
+        // 3D bar colours — front, top (lighter), right side (darker)
+        const frontBg = `hsl(${hue}, 70%, 48%)`
+        const topBg = `hsl(${hue}, 65%, 62%)`
+        const sideBg = `hsl(${hue}, 72%, 38%)`
+        const depth = 5 // px depth of the 3D extrusion
+
         return (
           <div
             key={item.name}
@@ -1031,14 +1038,59 @@ function EmployeeLeaderboard({
                     <span className="text-[10px] ml-0.5 font-semibold text-slate-450">h</span>
                   </span>
                 </div>
-                <div className="mt-1.5 h-[7px] w-full overflow-hidden rounded-full bg-surface/80 ring-1 ring-border">
+                {/* 3D Bar — matches PDF report style */}
+                <div className="relative mt-1.5 w-full" style={{ height: 12 + depth }}>
+                  {/* Track / background */}
                   <div
-                    className="h-full rounded-full transition-all duration-500 ease-out"
+                    className="absolute rounded-[3px]"
                     style={{
-                      width: `${percent}%`,
-                      background: `linear-gradient(90deg, hsl(${hue}, 70%, 48%) 0%, hsl(${hue}, 75%, 58%) 100%)`,
+                      left: 0,
+                      top: depth,
+                      width: '100%',
+                      height: 12,
+                      background: 'rgba(0,0,0,0.04)',
                     }}
                   />
+                  {percent > 0 && (
+                    <>
+                      {/* Front face */}
+                      <div
+                        className="absolute rounded-[3px] transition-all duration-500 ease-out"
+                        style={{
+                          left: 0,
+                          top: depth,
+                          width: `${percent}%`,
+                          height: 12,
+                          background: frontBg,
+                          boxShadow: `0 2px 6px hsla(${hue}, 70%, 48%, 0.35)`,
+                        }}
+                      />
+                      {/* Top face (parallelogram via clip-path) */}
+                      <div
+                        className="absolute transition-all duration-500 ease-out"
+                        style={{
+                          left: 0,
+                          top: 0,
+                          width: `calc(${percent}% + ${depth}px)`,
+                          height: depth,
+                          background: topBg,
+                          clipPath: `polygon(${depth}px 0%, 100% 0%, calc(100% - ${depth}px) 100%, 0% 100%)`,
+                        }}
+                      />
+                      {/* Right side face (parallelogram via clip-path) */}
+                      <div
+                        className="absolute transition-all duration-500 ease-out"
+                        style={{
+                          left: `${percent}%`,
+                          top: 0,
+                          width: depth,
+                          height: 12 + depth,
+                          background: sideBg,
+                          clipPath: `polygon(${depth}px 0%, ${depth}px ${depth}px, 0% 100%, 0% ${depth}px)`,
+                        }}
+                      />
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -1104,7 +1156,7 @@ export function ProjectManagement() {
 
   // ── Projects Pagination States ──────────────────────────────
   const [projectsCurrentPage, setProjectsCurrentPage] = useState(1)
-  const projectsPerPage = 9
+  const projectsPerPage = 12
 
   // ── Timesheets Pagination States ────────────────────────────
   const [timesheetsCurrentPage, setTimesheetsCurrentPage] = useState(1)
@@ -2238,141 +2290,207 @@ export function ProjectManagement() {
   return (
     <div className="crewiq-dashboard admin-projects-view">
       <div className="crewiq-dash-bg" aria-hidden />
-      <PageWrapper className="projects-page-wrapper relative z-10 py-3 font-body">
+      <PageWrapper className="projects-page-wrapper relative z-10 py-3 font-body !max-w-none w-full !px-4 lg:!px-8">
         <div className="projects-shell animate-fadeIn">
-          {/* Redesigned Compact Header with Dynamic Pie Chart */}
-          <div className="flex items-center justify-between gap-4 mb-3">
-            <div>
-              <h1 className="text-2xl font-extrabold text-[var(--emerald-dark)] leading-none mb-1">Projects & Timesheets</h1>
-              <p className="text-xs font-medium text-slate-600">
-                Manage projects, review logs, and track team hours in one place
-              </p>
-            </div>
-            
-            {/* Dynamic Pie Chart Status Summary */}
-            <div className="flex items-center gap-3 bg-white/80 rounded-xl border border-emerald-200/60 px-4 py-2.5 shadow-sm backdrop-blur-sm">
-              <div className="relative flex items-center justify-center" style={{ width: 68, height: 68 }}>
-                <svg width="68" height="68" viewBox="0 0 68 68" className="transform -rotate-90">
-                  {(() => {
-                    const total = projectMetrics.total || 1;
-                    const radius = 28;
-                    const circumference = 2 * Math.PI * radius;
-                    
-                    // Calculate percentages
-                    const progressPercent = (projectMetrics.inProgress / total) * 100;
-                    const completedPercent = (projectMetrics.completed / total) * 100;
-                    const cancelledPercent = (projectMetrics.cancelled / total) * 100;
-                    
-                    // Calculate dash arrays and offsets for pie segments
-                    const progressDash = (progressPercent / 100) * circumference;
-                    const completedDash = (completedPercent / 100) * circumference;
-                    const cancelledDash = (cancelledPercent / 100) * circumference;
-                    
-                    // Calculate offsets (each segment starts where previous ended)
-                    const progressOffset = 0;
-                    const completedOffset = -progressDash;
-                    const cancelledOffset = -(progressDash + completedDash);
-                    
-                    return (
-                      <>
-                        {/* Background circle */}
-                        <circle 
-                          cx="34" 
-                          cy="34" 
-                          r={radius} 
-                          fill="none" 
-                          stroke="rgba(38, 107, 28, 0.08)" 
-                          strokeWidth="11"
-                        />
-                        
-                        {/* Progress segment (Blue) */}
-                        {projectMetrics.inProgress > 0 && (
-                          <circle
-                            cx="34"
-                            cy="34"
-                            r={radius}
-                            fill="none"
-                            stroke="#3b82f6"
-                            strokeWidth="11"
-                            strokeDasharray={`${isAnimated ? progressDash : 0} ${circumference}`}
-                            strokeDashoffset={progressOffset}
-                            strokeLinecap="round"
-                            style={{ 
-                              transition: 'stroke-dasharray 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0.1s',
-                              filter: 'drop-shadow(0 2px 4px rgba(59, 130, 246, 0.3))'
-                            }}
+          
+          {/* Modern Enterprise Hero Section - Horizontal Layout with Dark Forest Green */}
+          <div className="projects-hero-section mb-6 rounded-2xl border border-white/20 bg-gradient-to-r from-[#1e5a3d] via-[#236b48] to-[#276749] px-8 py-5 shadow-lg">
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-6 lg:gap-12 xl:gap-16">
+              
+              {/* Left: Title */}
+              <div className="flex-1 lg:flex-[0_0_30%] text-center lg:text-left">
+                <h1 className="text-3xl font-black text-white leading-tight tracking-tight" style={{ color: '#FFFFFF' }}>
+                  Projects & Timesheets
+                </h1>
+              </div>
+              
+              {/* Vertical Separator */}
+              <div className="h-24 w-px bg-gradient-to-b from-transparent via-white/20 to-transparent"></div>
+              
+              {/* Center: Compact Donut Chart */}
+              <div className="flex items-center justify-center flex-shrink-0">
+                <div className="relative">
+                  <svg width="140" height="140" viewBox="0 0 140 140" className="transform -rotate-90">
+                    {(() => {
+                      const total = projectMetrics.total || 1;
+                      const radius = 55;
+                      const circumference = 2 * Math.PI * radius;
+                      
+                      const progressPercent = (projectMetrics.inProgress / total) * 100;
+                      const completedPercent = (projectMetrics.completed / total) * 100;
+                      const cancelledPercent = (projectMetrics.cancelled / total) * 100;
+                      
+                      const progressDash = (progressPercent / 100) * circumference;
+                      const completedDash = (completedPercent / 100) * circumference;
+                      const cancelledDash = (cancelledPercent / 100) * circumference;
+                      
+                      const progressOffset = 0;
+                      const completedOffset = -progressDash;
+                      const cancelledOffset = -(progressDash + completedDash);
+                      
+                      return (
+                        <>
+                          {/* Background ring */}
+                          <circle 
+                            cx="70" 
+                            cy="70" 
+                            r={radius} 
+                            fill="none" 
+                            stroke="rgba(38, 107, 28, 0.08)" 
+                            strokeWidth="18"
                           />
-                        )}
-                        
-                        {/* Completed segment (Green) */}
-                        {projectMetrics.completed > 0 && (
-                          <circle
-                            cx="34"
-                            cy="34"
-                            r={radius}
-                            fill="none"
-                            stroke="#22c55e"
-                            strokeWidth="11"
-                            strokeDasharray={`${isAnimated ? completedDash : 0} ${circumference}`}
-                            strokeDashoffset={completedOffset}
-                            strokeLinecap="round"
-                            style={{ 
-                              transition: 'stroke-dasharray 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0.3s',
-                              filter: 'drop-shadow(0 2px 4px rgba(34, 197, 94, 0.3))'
-                            }}
-                          />
-                        )}
-                        
-                        {/* Cancelled segment (Red) */}
-                        {projectMetrics.cancelled > 0 && (
-                          <circle
-                            cx="34"
-                            cy="34"
-                            r={radius}
-                            fill="none"
-                            stroke="#ef4444"
-                            strokeWidth="11"
-                            strokeDasharray={`${isAnimated ? cancelledDash : 0} ${circumference}`}
-                            strokeDashoffset={cancelledOffset}
-                            strokeLinecap="round"
-                            style={{ 
-                              transition: 'stroke-dasharray 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0.5s',
-                              filter: 'drop-shadow(0 2px 4px rgba(239, 68, 68, 0.3))'
-                            }}
-                          />
-                        )}
-                      </>
-                    );
-                  })()}
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-2xl font-black text-[var(--emerald-dark)] font-display leading-none">{projectMetrics.total}</span>
-                  <span className="text-[8px] font-bold uppercase tracking-wider text-slate-500 mt-0.5">Total</span>
+                          
+                          {/* In Progress segment (Blue) */}
+                          {projectMetrics.inProgress > 0 && (
+                            <circle
+                              cx="70"
+                              cy="70"
+                              r={radius}
+                              fill="none"
+                              stroke="#3b82f6"
+                              strokeWidth="18"
+                              strokeDasharray={`${isAnimated ? progressDash : 0} ${circumference}`}
+                              strokeDashoffset={progressOffset}
+                              strokeLinecap="round"
+                              className="transition-all duration-1000 ease-out"
+                              style={{ 
+                                filter: 'drop-shadow(0 2px 6px rgba(59, 130, 246, 0.4))'
+                              }}
+                            />
+                          )}
+                          
+                          {/* Completed segment (Green) */}
+                          {projectMetrics.completed > 0 && (
+                            <circle
+                              cx="70"
+                              cy="70"
+                              r={radius}
+                              fill="none"
+                              stroke="#22c55e"
+                              strokeWidth="18"
+                              strokeDasharray={`${isAnimated ? completedDash : 0} ${circumference}`}
+                              strokeDashoffset={completedOffset}
+                              strokeLinecap="round"
+                              className="transition-all duration-1000 ease-out delay-200"
+                              style={{ 
+                                filter: 'drop-shadow(0 2px 6px rgba(34, 197, 94, 0.4))'
+                              }}
+                            />
+                          )}
+                          
+                          {/* Cancelled segment (Red) */}
+                          {projectMetrics.cancelled > 0 && (
+                            <circle
+                              cx="70"
+                              cy="70"
+                              r={radius}
+                              fill="none"
+                              stroke="#ef4444"
+                              strokeWidth="18"
+                              strokeDasharray={`${isAnimated ? cancelledDash : 0} ${circumference}`}
+                              strokeDashoffset={cancelledOffset}
+                              strokeLinecap="round"
+                              className="transition-all duration-1000 ease-out delay-500"
+                              style={{ 
+                                filter: 'drop-shadow(0 2px 6px rgba(239, 68, 68, 0.4))'
+                              }}
+                            />
+                          )}
+                        </>
+                      );
+                    })()}
+                  </svg>
+                  
+                  {/* Center total count */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-4xl font-black text-white font-display leading-none tabular-nums">
+                      {projectMetrics.total}
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-white/80 mt-1">
+                      Total
+                    </span>
+                  </div>
                 </div>
               </div>
               
-              <div className="flex items-center gap-3 pl-3 border-l border-emerald-200/60">
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-1 mb-0.5">
-                    <div className="h-1.5 w-1.5 rounded-full bg-blue-500 shadow-sm"></div>
-                    <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500">Progress</span>
+              {/* Vertical Separator */}
+              <div className="h-24 w-px bg-gradient-to-b from-transparent via-white/20 to-transparent"></div>
+              
+              {/* Right: Status Metrics - Horizontal Row */}
+              <div className="flex-1 flex items-center gap-4">
+                
+                {/* In Progress */}
+                <div className="flex-1 group rounded-xl border border-blue-200/50 bg-white/80 p-3.5 shadow-sm transition-all hover:shadow-md hover:border-blue-300/70">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-2 w-2 rounded-full bg-blue-500 shadow-sm ring-2 ring-blue-200/50"></div>
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">In Progress</span>
+                    </div>
+                    <span className="text-2xl font-black text-blue-600 tabular-nums">{projectMetrics.inProgress}</span>
                   </div>
-                  <div className="text-xl font-black text-blue-600 tabular-nums">{projectMetrics.inProgress}</div>
-                </div>
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-1 mb-0.5">
-                    <div className="h-1.5 w-1.5 rounded-full bg-green-500 shadow-sm"></div>
-                    <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500">Done</span>
+                  <div className="relative h-1.5 rounded-full bg-blue-100/60 overflow-hidden">
+                    <div 
+                      className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 shadow-sm transition-all duration-1000 ease-out"
+                      style={{ 
+                        width: isAnimated ? `${(projectMetrics.inProgress / (projectMetrics.total || 1)) * 100}%` : '0%'
+                      }}
+                    ></div>
                   </div>
-                  <div className="text-xl font-black text-green-600 tabular-nums">{projectMetrics.completed}</div>
-                </div>
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-1 mb-0.5">
-                    <div className="h-1.5 w-1.5 rounded-full bg-red-500 shadow-sm"></div>
-                    <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500">Cancel</span>
+                  <div className="mt-1 text-right">
+                    <span className="text-[9px] font-bold text-blue-600/80 tabular-nums">
+                      {((projectMetrics.inProgress / (projectMetrics.total || 1)) * 100).toFixed(1)}%
+                    </span>
                   </div>
-                  <div className="text-xl font-black text-red-600 tabular-nums">{projectMetrics.cancelled}</div>
                 </div>
+                
+                {/* Completed */}
+                <div className="flex-1 group rounded-xl border border-green-200/50 bg-white/80 p-3.5 shadow-sm transition-all hover:shadow-md hover:border-green-300/70">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-2 w-2 rounded-full bg-green-500 shadow-sm ring-2 ring-green-200/50"></div>
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Completed</span>
+                    </div>
+                    <span className="text-2xl font-black text-green-600 tabular-nums">{projectMetrics.completed}</span>
+                  </div>
+                  <div className="relative h-1.5 rounded-full bg-green-100/60 overflow-hidden">
+                    <div 
+                      className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-green-500 to-green-600 shadow-sm transition-all duration-1000 ease-out delay-200"
+                      style={{ 
+                        width: isAnimated ? `${(projectMetrics.completed / (projectMetrics.total || 1)) * 100}%` : '0%'
+                      }}
+                    ></div>
+                  </div>
+                  <div className="mt-1 text-right">
+                    <span className="text-[9px] font-bold text-green-600/80 tabular-nums">
+                      {((projectMetrics.completed / (projectMetrics.total || 1)) * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+                
+                {/* Cancelled */}
+                <div className="flex-1 group rounded-xl border border-red-200/50 bg-white/80 p-3.5 shadow-sm transition-all hover:shadow-md hover:border-red-300/70">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-2 w-2 rounded-full bg-red-500 shadow-sm ring-2 ring-red-200/50"></div>
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Cancelled</span>
+                    </div>
+                    <span className="text-2xl font-black text-red-600 tabular-nums">{projectMetrics.cancelled}</span>
+                  </div>
+                  <div className="relative h-1.5 rounded-full bg-red-100/60 overflow-hidden">
+                    <div 
+                      className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-red-500 to-red-600 shadow-sm transition-all duration-1000 ease-out delay-500"
+                      style={{ 
+                        width: isAnimated ? `${(projectMetrics.cancelled / (projectMetrics.total || 1)) * 100}%` : '0%'
+                      }}
+                    ></div>
+                  </div>
+                  <div className="mt-1 text-right">
+                    <span className="text-[9px] font-bold text-red-600/80 tabular-nums">
+                      {((projectMetrics.cancelled / (projectMetrics.total || 1)) * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+                
               </div>
             </div>
           </div>
@@ -2404,7 +2522,7 @@ export function ProjectManagement() {
                 onClick={() => setWorkspaceTab('projects')}
                 className={`sidebar-nav-item ${activeTab === 'projects' ? 'active' : ''}`}
               >
-                <FolderOpen className="h-4 w-4" />
+                <FolderOpen className="h-4 w-4 mr-3" />
                 <span className="flex-1 text-left">Projects</span>
                 <span className="sidebar-nav-badge">{filteredProjects.length}</span>
               </button>
@@ -2412,7 +2530,7 @@ export function ProjectManagement() {
                 onClick={() => setWorkspaceTab('timesheets')}
                 className={`sidebar-nav-item ${activeTab === 'timesheets' ? 'active' : ''}`}
               >
-                <Clock className="h-4 w-4" />
+                <Clock className="h-4 w-4 mr-3" />
                 <span className="flex-1 text-left">Timesheets</span>
                 <span className="sidebar-nav-badge">{filteredTimesheets.length}</span>
               </button>
@@ -2421,14 +2539,14 @@ export function ProjectManagement() {
                 onClick={() => setWorkspaceTab('analytics')}
                 className={`sidebar-nav-item ${activeTab === 'analytics' ? 'active' : ''}`}
               >
-                <BarChart3 className="h-4 w-4" />
+                <BarChart3 className="h-4 w-4 mr-3" />
                 <span className="flex-1 text-left">Analytics</span>
               </button>
               <button
                 onClick={() => setArchivedModalOpen(true)}
                 className="sidebar-nav-item"
               >
-                <Archive className="h-4 w-4" />
+                <Archive className="h-4 w-4 mr-3" />
                 <span className="flex-1 text-left">Archived</span>
                 <span className="sidebar-nav-badge">{archivedCount}</span>
               </button>
@@ -2679,7 +2797,7 @@ export function ProjectManagement() {
               {viewMode === 'grid' ? (
                 <>
                   {filteredProjects.length > 0 ? (
-                    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid gap-4 grid-cols-3 w-full">
                       {currentProjects.map((p) => (
                         <ProjectCard
                           key={p.id}
@@ -2701,27 +2819,27 @@ export function ProjectManagement() {
                 <div className="projects-table-shell">
                   <div className="overflow-x-auto">
                     <table className="w-full border-collapse text-left">
-                      <thead>
-                        <tr className="border-b border-border bg-transparent">
-                          <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
+                      <thead className="sticky top-0 z-20 bg-white">
+                        <tr className="border-b border-border bg-white shadow-sm">
+                          <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600 bg-white">
                             Project Details
                           </th>
-                          <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
+                          <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600 bg-white">
                             Client
                           </th>
-                          <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
+                          <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600 bg-white">
                             Technology Node
                           </th>
-                          <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
+                          <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600 bg-white">
                             Access Control
                           </th>
-                          <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
+                          <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600 bg-white">
                             Visibility Scope
                           </th>
-                          <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
+                          <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600 bg-white">
                             Status
                           </th>
-                          <th className="px-5 py-3 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
+                          <th className="px-5 py-3 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600 bg-white">
                             Actions
                           </th>
                         </tr>
@@ -2794,9 +2912,6 @@ export function ProjectManagement() {
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
                 <div>
                   <h2 className="font-display text-lg font-bold text-[var(--emerald-dark)]">Timesheet Records</h2>
-                  <p className="text-xs font-medium text-slate-600 mt-0.5">
-                    {filteredTimesheets.length} log{filteredTimesheets.length === 1 ? '' : 's'} matching criteria
-                  </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -2860,13 +2975,13 @@ export function ProjectManagement() {
           {/* Analytics panels */}
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="projects-analytics-card">
-              <div className="projects-analytics-head mb-0 flex items-center justify-between gap-2 border-b-0 pb-0">
-                <h3 className="type-card-label-caps flex items-center gap-2 font-extrabold">
+              <div className="projects-analytics-head mb-0 flex items-center justify-between gap-2 border-b-0 pb-0 bg-gradient-to-r from-[#1e5a3d] via-[#236b48] to-[#276749] px-5 py-3 rounded-t-2xl">
+                <h3 className="type-card-label-caps flex items-center gap-2 font-extrabold text-white">
                   <span className="h-3.5 w-1 shrink-0 rounded-full bg-white/80" />
                   Aggregated Hours by Project
                 </h3>
                 {derivedHoursByProject.length > 0 && (
-                  <span className="text-xs text-slate-450 font-mono">
+                  <span className="text-xs text-white/90 font-mono font-bold">
                     {derivedHoursByProject.length} project{derivedHoursByProject.length === 1 ? '' : 's'}
                   </span>
                 )}
@@ -2939,13 +3054,13 @@ export function ProjectManagement() {
             </div>
 
             <div className="projects-analytics-card">
-              <div className="projects-analytics-head mb-0 flex items-center justify-between gap-2 border-b-0 pb-0">
-                <h3 className="type-card-label-caps flex items-center gap-2 font-extrabold">
+              <div className="projects-analytics-head mb-0 flex items-center justify-between gap-2 border-b-0 pb-0 bg-gradient-to-r from-[#1e5a3d] via-[#236b48] to-[#276749] px-5 py-3 rounded-t-2xl">
+                <h3 className="type-card-label-caps flex items-center gap-2 font-extrabold text-white">
                   <span className="h-3.5 w-1 shrink-0 rounded-full bg-white/80" />
                   Aggregated Hours by Employee
                 </h3>
                 {derivedLeaderboardData.length > 0 && (
-                  <span className="text-xs text-slate-450 font-mono">
+                  <span className="text-xs text-white/90 font-mono font-bold">
                     {derivedLeaderboardData.length} employee{derivedLeaderboardData.length === 1 ? '' : 's'}
                   </span>
                 )}
@@ -2962,13 +3077,13 @@ export function ProjectManagement() {
           <div className="projects-ts-table-wrap">
             <div className="max-h-[min(32rem,70vh)] overflow-auto timesheet-panel-scroll">
               <table className="w-full min-w-[640px] border-collapse text-left">
-                <thead className="sticky top-0 z-10">
-                  <tr className="border-b border-transparent bg-transparent">
-                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Employee</th>
-                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Project</th>
-                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Login Time</th>
-                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Logout Time</th>
-                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Duration</th>
+                <thead className="sticky top-0 z-10 bg-gradient-to-r from-[#1e5a3d] via-[#236b48] to-[#276749]">
+                  <tr className="border-b border-white/10">
+                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-white">Employee</th>
+                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-white">Project</th>
+                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-white">Login Time</th>
+                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-white">Logout Time</th>
+                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-white">Duration</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 text-sm">
