@@ -9,13 +9,9 @@ import { formatDate, formatDateTime } from '@/utils/formatDate'
 import { filterLeaves, excludeCancelledLeaves, type LeaveFilters } from '@/utils/leaveFilters'
 import * as leaveService from '@services/leaveService'
 
-import { X, ChevronLeft, ChevronRight, Check, ChevronDown, Search, AlertTriangle, ShieldCheck, UserCheck } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, Check, AlertTriangle, ShieldCheck, UserCheck } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { EmployeeLeaveProfileModal } from './EmployeeLeaveProfileModal'
-import { DateInput } from '@components/shared/DateInput'
-import { getFilterDateBounds } from '@/utils/dateValidation'
-
-const LEAVE_TYPES = ['Sick Leave', 'Casual Leave', 'Earned Leave']
 
 type StatusType = 'Pending' | 'Approved' | 'Rejected'
 
@@ -77,7 +73,6 @@ export function LeaveRequests({
   const [rejectionReason, setRejectionReason] = useState('')
   const [rejectionError, setRejectionError] = useState('')
   const rejectInputRef = useRef<HTMLTextAreaElement>(null)
-  const filterBounds = getFilterDateBounds()
 
   // Employee leave profile (click name on any status tab)
   const [profileEmployeeId, setProfileEmployeeId] = useState<string | null>(null)
@@ -97,8 +92,6 @@ export function LeaveRequests({
   }
 
 
-
-  const clearFilters = () => setFilters({ selectedEmployees: [], status: 'Pending', leaveType: '', dateFrom: '', dateTo: '' })
 
   const currentStatus = (filters.status as StatusType) || 'Pending'
 
@@ -203,194 +196,10 @@ export function LeaveRequests({
     }
   }
 
-  // Multi-select dropdown state
-  const [empDropOpen, setEmpDropOpen] = useState(false)
-  const [empSearch, setEmpSearch] = useState('')
-  const empDropRef = useRef<HTMLDivElement>(null)
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (empDropRef.current && !empDropRef.current.contains(e.target as Node)) {
-        setEmpDropOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  // Get unique employee names
-  const uniqueEmployeeNames = useMemo(() => {
-    return Array.from(new Set(leaves.map((l) => l.employeeName))).sort()
-  }, [leaves])
-
-  const filteredEmpNames = useMemo(() => {
-    if (!empSearch.trim()) return uniqueEmployeeNames
-    return uniqueEmployeeNames.filter((n) =>
-      n.toLowerCase().includes(empSearch.toLowerCase())
-    )
-  }, [uniqueEmployeeNames, empSearch])
-
-  const toggleEmployee = (name: string) => {
-    const current = filters.selectedEmployees || []
-    const next = current.includes(name)
-      ? current.filter((n) => n !== name)
-      : [...current, name]
-    setFilters({ ...filters, selectedEmployees: next })
-    setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
-  }
 
   return (
     <Tooltip.Provider delayDuration={300}>
       <div className="space-y-0">
-        {/* Filters */}
-        <div className="overflow-visible bg-white px-4 pt-4 pb-3 border-b border-gray-100">
-          <div className="flex flex-wrap items-center gap-3 overflow-visible">
-            <div className="relative min-w-[200px] flex-1" ref={empDropRef}>
-              <button
-                type="button"
-                onClick={() => setEmpDropOpen((v) => !v)}
-                className="flex h-10 w-full items-center justify-between gap-2 rounded-lg bg-surface/50 px-3 text-sm text-ink transition-colors hover:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
-              >
-                <span className="truncate text-left">
-                  {(filters.selectedEmployees?.length ?? 0) === 0
-                    ? 'All Employees'
-                    : `${filters.selectedEmployees.length} selected`}
-                </span>
-                <ChevronDown className={`h-4 w-4 shrink-0 text-muted transition-transform ${empDropOpen ? 'rotate-180' : ''}`} />
-              </button>
-
-              {empDropOpen && (
-                <div className="absolute z-50 mt-1 w-full min-w-[240px] overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-border/60">
-                  <div className="p-2">
-                    <div className="flex items-center gap-2 rounded-lg bg-surface/60 px-2.5 py-2">
-                      <Search className="h-4 w-4 shrink-0 text-muted" />
-                      <input
-                        type="text"
-                        placeholder="Search employees..."
-                        value={empSearch}
-                        onChange={(e) => setEmpSearch(e.target.value)}
-                        className="flex-1 bg-transparent text-sm outline-none"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between px-3 py-1.5 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFilters({ ...filters, selectedEmployees: [...uniqueEmployeeNames] })
-                        setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
-                      }}
-                      className="font-medium text-primary hover:underline"
-                    >
-                      Select all
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFilters({ ...filters, selectedEmployees: [] })
-                        setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
-                      }}
-                      className="text-muted hover:text-ink"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                  <div className="max-h-48 overflow-y-auto py-1">
-                    {filteredEmpNames.length === 0 ? (
-                      <p className="px-3 py-2 text-sm text-muted">No employees found</p>
-                    ) : (
-                      filteredEmpNames.map((name) => {
-                        const checked = (filters.selectedEmployees || []).includes(name)
-                        return (
-                          <button
-                            key={name}
-                            type="button"
-                            onClick={() => toggleEmployee(name)}
-                            className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors hover:bg-surface ${checked ? 'bg-primary/5 text-primary' : 'text-ink'}`}
-                          >
-                            <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${checked ? 'border-primary bg-primary' : 'border-border'}`}>
-                              {checked && <Check className="h-3 w-3 text-white" />}
-                            </span>
-                            <span className="truncate">{name}</span>
-                          </button>
-                        )
-                      })
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <select
-              value={filters.leaveType || ''}
-              onChange={(e) => {
-                setFilters({ ...filters, leaveType: e.target.value })
-                setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
-              }}
-              className="h-10 w-full rounded-lg bg-surface/50 px-3 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 sm:w-40"
-            >
-              <option value="">All leave types</option>
-              {LEAVE_TYPES.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-
-            <DateInput
-              value={filters.dateFrom || ''}
-              onChange={(iso) => {
-                const next: LeaveFilters = { ...filters, dateFrom: iso || undefined }
-                if (next.dateTo && iso && next.dateTo < iso) {
-                  next.dateTo = undefined
-                }
-                setFilters(next)
-                setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
-              }}
-              minDate={filterBounds.min}
-              maxDate={filters.dateTo || filterBounds.max}
-              placeholder="From (dd/mm/yyyy)"
-              className="h-10 rounded-lg bg-surface/50 sm:min-w-[10.5rem]"
-              title="Leave period from"
-              aria-label="Leave period from"
-            />
-            <DateInput
-              value={filters.dateTo || ''}
-              onChange={(iso) => {
-                setFilters({ ...filters, dateTo: iso || undefined })
-                setStatusPagination({ ...statusPagination, [currentStatus]: 1 })
-              }}
-              minDate={filters.dateFrom || filterBounds.min}
-              maxDate={filterBounds.max}
-              placeholder="To (dd/mm/yyyy)"
-              className="h-10 rounded-lg bg-surface/50 sm:min-w-[10.5rem]"
-              title="Leave period to"
-              aria-label="Leave period to"
-            />
-
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-10 shrink-0 text-muted">
-              <X className="h-4 w-4" />
-              Reset
-            </Button>
-          </div>
-
-          {(filters.selectedEmployees?.length ?? 0) > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {filters.selectedEmployees.map((name) => (
-                <span
-                  key={name}
-                  className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
-                >
-                  {name}
-                  <button type="button" onClick={() => toggleEmployee(name)} className="hover:opacity-70">
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-
         {/* Status tabs */}
         <div className="flex flex-wrap gap-2 bg-white px-4 py-3 border-b border-gray-100">
           {(['Pending', 'Approved', 'Rejected'] as StatusType[]).map((status) => {
@@ -402,8 +211,16 @@ export function LeaveRequests({
                 type="button"
                 onClick={() => setFilters({ ...filters, status })}
                 className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors ${active
-                  ? 'bg-primary text-white shadow-sm'
-                  : 'bg-white text-muted ring-1 ring-border/60 hover:text-ink'
+                  ? status === 'Pending'
+                    ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm'
+                    : status === 'Rejected'
+                      ? 'bg-red-600 hover:bg-red-700 text-white shadow-sm'
+                      : 'bg-primary text-white shadow-sm'
+                  : status === 'Pending'
+                    ? 'bg-white text-muted ring-1 ring-border/60 hover:text-amber-600 hover:border-amber-200 hover:ring-amber-200'
+                    : status === 'Rejected'
+                      ? 'bg-white text-muted ring-1 ring-border/60 hover:text-red-600 hover:ring-red-200'
+                      : 'bg-white text-muted ring-1 ring-border/60 hover:text-ink'
                   }`}
               >
                 {status}
@@ -434,7 +251,7 @@ export function LeaveRequests({
                   <div
                     key={l.id}
                     onClick={() => openEmployeeProfile(l.employeeId, l.employeeName)}
-                    className="group flex cursor-pointer flex-col gap-3 rounded-xl bg-white border border-gray-200 p-4 transition-all hover:shadow-sm hover:border-emerald-300 sm:flex-row sm:items-center sm:justify-between"
+                    className="group flex cursor-pointer flex-col gap-3 rounded-xl bg-white border border-gray-200 border-b-2 border-b-gray-200/80 p-4 shadow-[0_5px_15px_rgba(0,0,0,0.08),_inset_0_1px_0_rgba(255,255,255,0.8)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(0,0,0,0.12),_inset_0_1px_0_rgba(255,255,255,0.8)] hover:border-emerald-200 hover:border-b-emerald-400 sm:flex-row sm:items-center sm:justify-between"
                     title="Click to view leave history and balances"
                   >
                     <div className="min-w-0 flex-1 space-y-1.5">

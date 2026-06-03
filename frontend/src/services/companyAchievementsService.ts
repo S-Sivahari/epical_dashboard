@@ -1,8 +1,12 @@
 import api from '@services/api'
+import type { AchievementPageColors } from '@/utils/achievementPageColors'
 
 export interface AchievementPageMeta {
   title: string
   subtitle: string
+  sectionTitle: string
+  sectionSubtitle: string
+  colors: AchievementPageColors
   hasCoverImage: boolean
   updatedAt: string | null
 }
@@ -29,10 +33,11 @@ export async function updateAchievementPage(formData: FormData): Promise<Achieve
   return data
 }
 
-export async function fetchCoverImageBlob(): Promise<Blob | null> {
+export async function fetchCoverImageBlob(revision?: string | null): Promise<Blob | null> {
   try {
     const { data, status } = await api.get<Blob>('/company-achievements/page/cover-image', {
       responseType: 'blob',
+      params: revision ? { v: revision } : undefined,
     })
     if (status !== 200) return null
     return data
@@ -46,10 +51,14 @@ export async function listCompanyAchievements(): Promise<CompanyAchievementRow[]
   return data
 }
 
-export async function fetchAchievementImageBlob(id: string): Promise<Blob | null> {
+export async function fetchAchievementImageBlob(
+  id: string,
+  revision?: string | null
+): Promise<Blob | null> {
   try {
     const { data, status } = await api.get<Blob>(`/company-achievements/${id}/image`, {
       responseType: 'blob',
+      params: revision ? { v: revision } : undefined,
     })
     if (status !== 200) return null
     return data

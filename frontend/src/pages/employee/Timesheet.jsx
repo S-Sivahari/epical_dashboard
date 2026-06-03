@@ -456,7 +456,155 @@ export default function Timesheet() {
   }
 
   return (
-    <div className="emp-timesheet-page dashboard-surface">
+    <div className="emp-timesheet-page dashboard-surface space-y-4">
+      {/* Top analytics summary matches the sample image layout */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white rounded-xl border border-border p-4 shadow-sm">
+        <div>
+          <h1 className="text-2xl font-extrabold text-[var(--emerald-dark)] leading-none mb-1">Projects & Timesheets</h1>
+          <p className="text-xs font-medium text-slate-500">
+            Manage projects, review logs, and track team hours in one place
+          </p>
+        </div>
+
+        {/* Dynamic Pie Chart Status Summary */}
+        <div className="flex items-center gap-3">
+          <div className="relative flex items-center justify-center" style={{ width: 68, height: 68 }}>
+            <svg width="68" height="68" viewBox="0 0 68 68" className="transform -rotate-90">
+              {(() => {
+                const total = assignedTasks.length || 1;
+                const inProgressCount = assignedTasks.filter(t => t.status === 'in_progress' || t.status === 'pending_review' || t.status === 'Active' || !t.status).length;
+                const completedCount = assignedTasks.filter(t => t.status === 'completed' || t.status === 'Completed').length;
+                const cancelledCount = assignedTasks.filter(t => t.status === 'cancelled' || t.status === 'Cancelled').length;
+
+                const radius = 28;
+                const circumference = 2 * Math.PI * radius;
+                
+                const progressPercent = (inProgressCount / total) * 100;
+                const completedPercent = (completedCount / total) * 100;
+                const cancelledPercent = (cancelledCount / total) * 100;
+                
+                const progressDash = (progressPercent / 100) * circumference;
+                const completedDash = (completedPercent / 100) * circumference;
+                const cancelledDash = (cancelledPercent / 100) * circumference;
+                
+                const progressOffset = 0;
+                const completedOffset = -progressDash;
+                const cancelledOffset = -(progressDash + completedDash);
+                
+                return (
+                  <>
+                    <circle 
+                      cx="34" 
+                      cy="34" 
+                      r={radius} 
+                      fill="none" 
+                      stroke="rgba(38, 107, 28, 0.08)" 
+                      strokeWidth="11"
+                    />
+                    {inProgressCount > 0 && (
+                      <circle
+                        cx="34"
+                        cy="34"
+                        r={radius}
+                        fill="none"
+                        stroke="#3b82f6"
+                        strokeWidth="11"
+                        strokeDasharray={`${progressDash} ${circumference}`}
+                        strokeDashoffset={progressOffset}
+                        strokeLinecap="round"
+                        style={{ filter: 'drop-shadow(0 2px 4px rgba(59, 130, 246, 0.3))' }}
+                      />
+                    )}
+                    {completedCount > 0 && (
+                      <circle
+                        cx="34"
+                        cy="34"
+                        r={radius}
+                        fill="none"
+                        stroke="#22c55e"
+                        strokeWidth="11"
+                        strokeDasharray={`${completedDash} ${circumference}`}
+                        strokeDashoffset={completedOffset}
+                        strokeLinecap="round"
+                        style={{ filter: 'drop-shadow(0 2px 4px rgba(34, 197, 94, 0.3))' }}
+                      />
+                    )}
+                    {cancelledCount > 0 && (
+                      <circle
+                        cx="34"
+                        cy="34"
+                        r={radius}
+                        fill="none"
+                        stroke="#ef4444"
+                        strokeWidth="11"
+                        strokeDasharray={`${cancelledDash} ${circumference}`}
+                        strokeDashoffset={cancelledOffset}
+                        strokeLinecap="round"
+                        style={{ filter: 'drop-shadow(0 2px 4px rgba(239, 68, 68, 0.3))' }}
+                      />
+                    )}
+                  </>
+                );
+              })()}
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-2xl font-black text-[var(--emerald-dark)] font-display leading-none">
+                {assignedTasks.length}
+              </span>
+              <span className="text-[8px] font-bold uppercase tracking-wider text-slate-500 mt-0.5">Total</span>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3 pl-3 border-l border-emerald-200/60">
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-1 mb-0.5">
+                <div className="h-1.5 w-1.5 rounded-full bg-blue-500 shadow-sm"></div>
+                <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500">In Progress</span>
+              </div>
+              <div className="text-xl font-black text-blue-600 tabular-nums">
+                {assignedTasks.filter(t => t.status === 'in_progress' || t.status === 'pending_review' || t.status === 'Active' || !t.status).length}
+              </div>
+              <div className="h-1 w-16 bg-blue-100 rounded-full overflow-hidden mt-1">
+                <div 
+                  className="h-full bg-blue-500" 
+                  style={{ width: `${assignedTasks.length ? (assignedTasks.filter(t => t.status === 'in_progress' || t.status === 'pending_review' || t.status === 'Active' || !t.status).length / assignedTasks.length) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-1 mb-0.5">
+                <div className="h-1.5 w-1.5 rounded-full bg-green-500 shadow-sm"></div>
+                <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500">Completed</span>
+              </div>
+              <div className="text-xl font-black text-green-600 tabular-nums">
+                {assignedTasks.filter(t => t.status === 'completed' || t.status === 'Completed').length}
+              </div>
+              <div className="h-1 w-16 bg-green-100 rounded-full overflow-hidden mt-1">
+                <div 
+                  className="h-full bg-green-500" 
+                  style={{ width: `${assignedTasks.length ? (assignedTasks.filter(t => t.status === 'completed' || t.status === 'Completed').length / assignedTasks.length) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-1 mb-0.5">
+                <div className="h-1.5 w-1.5 rounded-full bg-red-500 shadow-sm"></div>
+                <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500">Cancelled</span>
+              </div>
+              <div className="text-xl font-black text-red-600 tabular-nums">
+                {assignedTasks.filter(t => t.status === 'cancelled' || t.status === 'Cancelled').length}
+              </div>
+              <div className="h-1 w-16 bg-red-100 rounded-full overflow-hidden mt-1">
+                <div 
+                  className="h-full bg-red-500" 
+                  style={{ width: `${assignedTasks.length ? (assignedTasks.filter(t => t.status === 'cancelled' || t.status === 'Cancelled').length / assignedTasks.length) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Row 1 — Summary cards */}
       <div className="emp-timesheet-summary-grid">
         <TimesheetSummaryCard

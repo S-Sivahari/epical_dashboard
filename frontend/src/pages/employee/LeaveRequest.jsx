@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useNavigate } from 'react-router-dom'
 import { Controller } from 'react-hook-form'
-import { Calendar, AlertTriangle, X, Clock, History, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react'
+import { AlertTriangle, X, Clock, History, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@pages/employee/lib/utils'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 import { Button } from '@components/employee/ui/button'
 import { Label } from '@components/employee/ui/label'
+import { Textarea } from '@components/employee/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/employee/ui/select'
 import { DataTable } from '@components/employee/shared/DataTable'
 import { SearchBar } from '@components/employee/shared/SearchBar'
@@ -53,6 +53,10 @@ const leaveSchema = z
         (v) => v >= leaveBounds.min && v <= leaveBounds.max,
         `Leave can only be applied from today up to ${leaveBounds.max.split('-').reverse().join('/')}`,
       ),
+    reason: z
+      .string()
+      .min(1, 'Please provide a reason for leave')
+      .max(500, 'Reason must be 500 characters or less'),
   })
   .superRefine((data, ctx) => {
     if (data.leaveDuration === 'Half Day') {
@@ -77,9 +81,9 @@ const halfDaySessions = ['First Half', 'Second Half']
 
 const CARD_CLASS = portalCardClass({ className: 'p-5 sm:p-6' })
 
-function SectionHeader({ icon: Icon, title, description, children }) {
+function SectionHeader({ icon: Icon, title, description, children, className }) {
   return (
-    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+    <div className={cn('mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4', className)}>
       <div className="flex min-w-0 items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Icon className="h-5 w-5" />
@@ -137,7 +141,6 @@ const columns = [
 ]
 
 export default function LeaveRequest() {
-  const navigate = useNavigate()
   const { requests, fetchRequests, addRequest } = useLeaveStore()
   const { toast } = useToast()
   const user = useAuthStore((s) => s.user)
@@ -165,6 +168,9 @@ export default function LeaveRequest() {
       leaveDuration: 'Full Day',
       type: '',
       halfDaySession: '',
+      fromDate: '',
+      toDate: '',
+      reason: '',
     },
   })
 
@@ -499,10 +505,17 @@ export default function LeaveRequest() {
         halfDaySession: data.leaveDuration === 'Half Day' ? data.halfDaySession : undefined,
         from: data.fromDate,
         to: data.toDate,
-        reason: '',
+        reason: data.reason.trim(),
       })
       toast({ title: 'Success', description: 'Leave request submitted successfully!' })
-      reset({ leaveDuration: 'Full Day', type: '', halfDaySession: '', fromDate: '', toDate: '' })
+      reset({
+        leaveDuration: 'Full Day',
+        type: '',
+        halfDaySession: '',
+        fromDate: '',
+        toDate: '',
+        reason: '',
+      })
       
       // Refresh balances and notifications after submission
       const newBalances = await leaveService.getBalances()
@@ -519,27 +532,16 @@ export default function LeaveRequest() {
   const visiblePageNumbers = getVisiblePageNumbers(currentPage, totalPages)
 
   return (
-    <div className="max-w-full space-y-5 overflow-x-hidden">
-      <div className="flex flex-wrap items-center justify-end gap-3">
-        <button
-          type="button"
-          onClick={() => navigate('/employee/calendar')}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary/90"
-          title="View Company Calendar"
-        >
-          <Calendar className="h-4 w-4" />
-          Company Calendar
-        </button>
-      </div>
-
-      <div className="grid gap-5 lg:grid-cols-2 lg:items-stretch">
+    <div className="emp-leave-page max-w-full space-y-5 overflow-x-hidden">
+      <div className="emp-leave-top">
+        <div className="emp-leave-top-grid">
         <InteractiveCard
           as="form"
           selectable={false}
           onSubmit={handleSubmit(onSubmit, onError)}
-          className={cn(CARD_CLASS, 'flex h-full flex-col space-y-4')}
+          className={cn(CARD_CLASS, 'emp-leave-apply-card flex h-full min-h-0 flex-col space-y-4')}
         >
-          <div>
+          <div className="emp-leave-apply-head">
             <h3 className="font-heading text-lg font-semibold text-foreground">Apply for leave</h3>
             <p className="mt-1 text-sm text-muted">Submit a new leave request for HR approval.</p>
           </div>
@@ -621,6 +623,17 @@ export default function LeaveRequest() {
             Dates must be in dd/mm/yyyy format. Leave can be applied from today up to{' '}
             {leaveBounds.max.split('-').reverse().join('/')}.
           </p>
+          <div className="emp-leave-reason-block rounded-xl border border-primary/10 bg-white/85 p-3 shadow-sm">
+            <Label htmlFor="leave-reason">Reason for leave *</Label>
+            <Textarea
+              id="leave-reason"
+              rows={3}
+              placeholder="Briefly explain why you are requesting leave…"
+              className="mt-1.5 min-h-[5rem] resize-y rounded-xl border-border bg-white"
+              {...register('reason')}
+            />
+            {errors.reason && <p className="mt-1 text-xs text-danger">{errors.reason.message}</p>}
+          </div>
           {holidayWarning && (
             <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
@@ -634,13 +647,14 @@ export default function LeaveRequest() {
           </div>
         </InteractiveCard>
 
-        <InteractiveCard className={cn(CARD_CLASS, 'flex h-full flex-col')}>
+        <div className="emp-leave-top-aside">
+        <InteractiveCard className={cn(CARD_CLASS, 'emp-leave-balance-card flex h-full min-h-0 flex-col')}>
           <SectionHeader
             icon={BarChart3}
             title="Leave balance"
-            description="Track used and remaining days by leave type"
+            description="Used & remaining"
           />
-          <div className="grid flex-1 auto-rows-fr gap-3">
+          <div className="emp-leave-balance-stack flex-1">
             {leaveBalances.map((lb) => (
               <LeaveCard
                 key={lb.key}
@@ -654,13 +668,13 @@ export default function LeaveRequest() {
             ))}
           </div>
         </InteractiveCard>
-      </div>
 
-      <InteractiveCard className={CARD_CLASS}>
+        <InteractiveCard className={cn(CARD_CLASS, 'emp-leave-pending-card flex h-full min-h-0 flex-col')}>
         <SectionHeader
           icon={Clock}
           title="Pending requests"
-          description="Requests awaiting HR approval — you can cancel while pending"
+          description="Awaiting HR approval"
+          className="emp-leave-section-head"
         />
         <DataTable
           columns={pendingColumns}
@@ -669,9 +683,12 @@ export default function LeaveRequest() {
           compact
           emptyMessage="No pending leave requests."
         />
-      </InteractiveCard>
+        </InteractiveCard>
+        </div>
+        </div>
+      </div>
 
-      <InteractiveCard className={CARD_CLASS}>
+      <InteractiveCard className={cn(CARD_CLASS, 'emp-leave-history-card')}>
         <SectionHeader
           icon={History}
           title="Leave history"
@@ -713,13 +730,15 @@ export default function LeaveRequest() {
           </div>
         </div>
 
-        <DataTable
-          columns={columns}
-          data={pagedHistory}
-          statusKey="status"
-          compact
-          emptyMessage="No leave history records match your filters."
-        />
+        <div className="emp-leave-history-scroll custom-scrollbar">
+          <DataTable
+            columns={columns}
+            data={pagedHistory}
+            statusKey="status"
+            compact
+            emptyMessage="No leave history records match your filters."
+          />
+        </div>
 
         {historyLeaves.length > 0 && (
           <div className="mt-4 flex flex-col gap-4 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">

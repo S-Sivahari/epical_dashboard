@@ -11,6 +11,14 @@ export async function createCompanyCalendarEvent(payload: Omit<CompanyCalendarEv
   return response.data as CompanyCalendarEvent
 }
 
+export async function updateCompanyCalendarEvent(
+  id: string,
+  payload: Partial<Omit<CompanyCalendarEvent, 'id'>>,
+) {
+  const response = await api.put(`/calendar-events/${id}`, payload)
+  return response.data as CompanyCalendarEvent
+}
+
 export async function deleteCompanyCalendarEvent(id: string) {
   await api.delete(`/calendar-events/${id}`)
 }

@@ -64,6 +64,7 @@ function hoursFromTimesheet(t: {
 }
 
 export type ProjectContributionStatus = 'In Progress' | 'Completed' | 'Cancelled'
+export type ProjectAccessType = 'public' | 'private'
 
 export type ProjectTableRow = {
   id: string
@@ -71,8 +72,17 @@ export type ProjectTableRow = {
   client: string
   lead: string
   members: string[]
+  access: ProjectAccessType
   totalHours: number
   status: ProjectContributionStatus
+}
+
+export function normalizeProjectAccess(accessType?: string): ProjectAccessType {
+  return accessType === 'private' ? 'private' : 'public'
+}
+
+export function formatProjectAccessLabel(access: ProjectAccessType): string {
+  return access === 'private' ? 'Private' : 'Public'
 }
 
 export function mapProjectContributionStatus(
@@ -102,6 +112,7 @@ type DashboardProject = {
   client?: string
   clientName?: string
   teamLead?: string
+  accessType?: string
   status?: string
   completionPercentage?: number
   completedTasks?: number
@@ -189,6 +200,7 @@ export function aggregateProjectTableRows(
       project: partial.project,
       client: partial.client,
       lead: partial.lead,
+      access: partial.access ?? existing?.access ?? 'public',
       totalHours: Math.round(hours * 10) / 10,
     })
   }
@@ -203,6 +215,7 @@ export function aggregateProjectTableRows(
         project: p.name || 'Untitled Project',
         client: p.client || '—',
         lead: p.teamLead || '—',
+        access: normalizeProjectAccess(p.accessType),
         totalHours: hours,
       })
     })
@@ -220,6 +233,7 @@ export function aggregateProjectTableRows(
       project: matched?.name || key,
       client: matched?.client || sampleTs?.client || '—',
       lead: matched?.teamLead || '—',
+      access: normalizeProjectAccess(matched?.accessType),
       totalHours: hours,
     })
   })
@@ -243,6 +257,7 @@ export function aggregateProjectTableRows(
     return {
       ...row,
       members: membersForRow(row),
+      access: normalizeProjectAccess(project?.accessType ?? row.access),
       status: mapProjectContributionStatus(project?.status),
     }
   })

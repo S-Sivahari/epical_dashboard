@@ -28,6 +28,9 @@ export function getNotificationRoute(notification: NotificationData): string | n
     case 'HolidayUpdated':
     case 'HolidayDeleted':
     case 'HolidaySkipped':
+    case 'CalendarEventAdded':
+    case 'CalendarEventUpdated':
+    case 'CalendarEventRemoved':
       return recipientType === 'Admin' ? '/admin/calendar' : '/employee/calendar'
     default:
       return null

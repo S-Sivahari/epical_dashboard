@@ -37,7 +37,7 @@ export function AdminTopNav() {
               className={cn('admin-top-nav-link relative', active && 'admin-top-nav-link-active')}
             >
               <span className="relative inline-flex shrink-0">
-                <Icon className="admin-top-nav-link-icon h-[1.125rem] w-[1.125rem]" strokeWidth={2} />
+                <Icon className="admin-top-nav-link-icon shrink-0" strokeWidth={2} />
                 {item.notificationKey ? (
                   <NotificationBadge count={notificationCount ?? 0} size="sm" className="-right-1 -top-1" />
                 ) : null}

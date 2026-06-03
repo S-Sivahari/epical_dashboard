@@ -1,6 +1,10 @@
 import { randomUUID } from 'crypto'
 import { getDB } from '../config/db'
 import type { AchievementImageBlob, AchievementItemDoc, AchievementPageDoc } from '../models/CompanyAchievement'
+import {
+  type AchievementPageColors,
+  resolvePageColors,
+} from '../utils/achievementPageColors'
 
 const PAGE_KEY = 'settings' as const
 
@@ -50,6 +54,9 @@ export async function getPage(): Promise<AchievementPageDoc | null> {
 export async function upsertPage(payload: {
   title: string
   subtitle: string
+  sectionTitle: string
+  sectionSubtitle: string
+  colors: AchievementPageColors
   coverImage?: AchievementImageBlob
   clearCover?: boolean
 }): Promise<AchievementPageDoc> {
@@ -65,6 +72,9 @@ export async function upsertPage(payload: {
     key: PAGE_KEY,
     title: payload.title.trim(),
     subtitle: payload.subtitle.trim(),
+    sectionTitle: payload.sectionTitle.trim(),
+    sectionSubtitle: payload.sectionSubtitle.trim(),
+    colors: resolvePageColors(payload.colors),
     coverImage,
     updatedAt: new Date(),
   }

@@ -7,9 +7,11 @@ function col() {
 }
 
 function toListItem(doc: News): NewsListItem {
-  const { _id, image, ...rest } = doc
+  const { _id, image, updatedAt, createdAt, ...rest } = doc
   return {
     ...rest,
+    createdAt: createdAt.toISOString(),
+    updatedAt: updatedAt.toISOString(),
     hasImage: !!(image?.data || rest.imageUrl?.trim()),
   }
 }
@@ -45,7 +47,7 @@ export async function createNews(payload: {
     title: payload.title.trim(),
     content: payload.content.trim(),
     excerpt: payload.content.trim().slice(0, 220),
-    imageUrl: payload.imageUrl?.trim() || undefined,
+    imageUrl: payload.image ? undefined : payload.imageUrl?.trim() || undefined,
     image: payload.image,
     link: payload.link?.trim(),
     publishedAt: resolvePublishedAt(payload.publishedAt),
@@ -110,6 +112,13 @@ export async function updateNews(
     image = payload.image
   }
 
+  const uploadedImage = !!payload.image
+  const imageUrl = uploadedImage
+    ? undefined
+    : payload.clearImage
+      ? undefined
+      : payload.imageUrl?.trim() || undefined
+
   const result = await col().findOneAndUpdate(
     { id },
     {
@@ -117,7 +126,7 @@ export async function updateNews(
         title: payload.title.trim(),
         content,
         excerpt: content.slice(0, 220),
-        imageUrl: payload.imageUrl?.trim() || undefined,
+        imageUrl,
         image,
         link: payload.link?.trim(),
         updatedAt: new Date(),

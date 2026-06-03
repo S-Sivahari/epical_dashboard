@@ -72,6 +72,20 @@ async function createIndexes(): Promise<void> {
   }
 }
 
+/** Create the same in-app notification for every admin user. */
+export async function notifyAllAdmins(
+  payload: Omit<CreateNotificationPayload, 'recipientId' | 'recipientType'>
+): Promise<void> {
+  const admins = await getDB().collection('users').find({ role: 'Admin' }).toArray();
+  for (const admin of admins) {
+    await createNotification({
+      ...payload,
+      recipientId: String(admin.id),
+      recipientType: 'Admin',
+    });
+  }
+}
+
 export async function createNotification(
   payload: CreateNotificationPayload
 ): Promise<Notification> {

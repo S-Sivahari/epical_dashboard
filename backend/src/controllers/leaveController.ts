@@ -95,6 +95,37 @@ export const leaveController = {
     }
   },
 
+  // PATCH /api/leaves/employee/:employeeId/allocations (Admin only)
+  updateEmployeeAllocations: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user || !isAdminRole(req.user.role)) {
+        res.status(403).json({ error: 'Forbidden: Admin access required' });
+        return;
+      }
+
+      const employeeId = Array.isArray(req.params.employeeId)
+        ? req.params.employeeId[0]
+        : req.params.employeeId;
+
+      if (!employeeId) {
+        res.status(400).json({ error: 'employeeId is required' });
+        return;
+      }
+
+      const body = req.body as Record<string, unknown>;
+      const allocations = await leaveService.updateEmployeeLeaveAllocations(employeeId, {
+        'Casual Leave': body['Casual Leave'] as number | undefined,
+        'Sick Leave': body['Sick Leave'] as number | undefined,
+        'Earned Leave': body['Earned Leave'] as number | undefined,
+      });
+      res.json({ allocations });
+    } catch (error: unknown) {
+      res.status(400).json({
+        error: error instanceof Error ? error.message : 'Failed to update leave allocations',
+      });
+    }
+  },
+
   // POST /api/leaves
   create: async (req: Request, res: Response): Promise<void> => {
     try {

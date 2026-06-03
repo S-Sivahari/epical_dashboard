@@ -101,7 +101,12 @@ export function DepartmentPieChart({
             stroke={isAnalytics ? '#ffffff' : 'none'}
             strokeWidth={isAnalytics ? 3 : 0}
             activeIndex={activeIndex}
-            activeShape={isAnalytics ? renderActiveShape : undefined}
+            activeShape={
+              isAnalytics
+                ? (props: unknown) =>
+                    renderActiveShape(props as Parameters<typeof renderActiveShape>[0])
+                : undefined
+            }
             onMouseEnter={(_, index) => setActiveIndex(index)}
             onMouseLeave={() => setActiveIndex(undefined)}
           >

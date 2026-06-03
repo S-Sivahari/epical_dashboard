@@ -6,7 +6,7 @@ export function NewsImage({
   className = '',
   alt = '',
 }: {
-  item: Pick<NewsItem, 'id' | 'imageUrl' | 'hasImage'>
+  item: Pick<NewsItem, 'id' | 'imageUrl' | 'hasImage' | 'updatedAt'>
   className?: string
   alt?: string
 }) {
@@ -30,7 +30,7 @@ export function NewsImage({
       cancelled = true
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
-  }, [item.id, item.imageUrl, item.hasImage])
+  }, [item.id, item.imageUrl, item.hasImage, item.updatedAt])
 
   if (!src) return null
 

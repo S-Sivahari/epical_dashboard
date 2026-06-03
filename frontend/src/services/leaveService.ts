@@ -18,6 +18,14 @@ export async function getEmployeeLeaveSummary(employeeId: string) {
   return response.data as EmployeeLeaveSummary
 }
 
+export async function updateEmployeeLeaveAllocations(
+  employeeId: string,
+  allocations: Partial<Record<'Casual Leave' | 'Sick Leave' | 'Earned Leave', number>>,
+) {
+  const response = await api.patch(`/leaves/employee/${employeeId}/allocations`, allocations)
+  return response.data as { allocations: Record<string, number> }
+}
+
 export async function createLeave(payload: {
   employeeId: string
   employeeName: string
