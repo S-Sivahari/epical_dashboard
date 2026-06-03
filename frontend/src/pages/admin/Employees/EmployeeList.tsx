@@ -11,6 +11,12 @@ import {
   Eye,
   Pencil,
   MoreVertical,
+  LayoutGrid,
+  Table,
+  Mail,
+  Calendar,
+  Briefcase,
+  ShieldCheck,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@components/ui/Button'
@@ -20,7 +26,7 @@ import { DataTable, type Column } from '@components/tables/DataTable'
 import { PaginationBar } from '@components/tables/Pagination'
 import { useEmployees } from '@hooks/useEmployees'
 import type { Employee } from '@/types'
-import { stringToHueColor } from '@/utils/stringColor'
+import { stringToHueColor, stringToHue } from '@/utils/stringColor'
 import { EmployeeAvatar } from '@components/ui/EmployeeAvatar'
 import { exportToExcel } from '@/utils/exportExcel'
 import { exportToPDF } from '@/utils/exportPDF'
@@ -43,6 +49,7 @@ const filterSelectClass =
   'employee-directory-filter-select h-10 w-full min-w-[9.5rem] cursor-pointer appearance-none pl-3 pr-9 text-sm font-medium'
 
 export function EmployeeList() {
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
   const {
     employees,
     loading,
@@ -370,6 +377,34 @@ export function EmployeeList() {
           </div>
 
           <div className="employee-directory-toolbar-actions">
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-1 border border-slate-200 rounded-lg p-0.5 bg-slate-50/50 mr-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setViewMode('grid')}
+                className={`p-1.5 rounded-md transition-all ${
+                  viewMode === 'grid'
+                    ? 'bg-white shadow-sm text-emerald-700'
+                    : 'text-slate-400 hover:text-slate-700'
+                }`}
+                title="Grid View"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                className={`p-1.5 rounded-md transition-all ${
+                  viewMode === 'table'
+                    ? 'bg-white shadow-sm text-emerald-700'
+                    : 'text-slate-400 hover:text-slate-700'
+                }`}
+                title="Table View"
+              >
+                <Table className="h-4 w-4" />
+              </button>
+            </div>
+
             <button
               type="button"
               className="employee-directory-export-btn"
@@ -399,26 +434,188 @@ export function EmployeeList() {
 
         <section className="employee-directory-table-section">
           <div className="employee-directory-table-head">
-            <h2 className="employee-directory-table-title">Employees List</h2>
+            <h2 className="employee-directory-table-title">
+              {viewMode === 'grid' ? 'Employee Active Directory' : 'Employees List'}
+            </h2>
           </div>
 
-          <DataTable
-            className="employee-list-table employee-directory-table"
-            columns={dataColumns}
-            data={employees}
-            loading={loading}
-            brandHeader
-            striped
-            sortColumn={sort.column}
-            sortDirection={sort.direction}
-            onSort={(key) => {
-              if (sort.column === key) {
-                setSort(key, sort.direction === 'asc' ? 'desc' : 'asc')
-              } else {
-                setSort(key, 'asc')
-              }
-            }}
-          />
+          {viewMode === 'grid' ? (
+            loading ? (
+              <div className="flex h-64 items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
+              </div>
+            ) : employees.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-slate-500">
+                <p className="text-sm font-medium">No employees found matching the filters.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {employees.map((e) => {
+                  const name = `${e.firstName} ${e.lastName || ''}`.trim()
+                  const initials = `${e.firstName?.[0] ?? ''}${e.lastName?.[0] ?? ''}`.toUpperCase()
+                  
+                  // Ring & Badge styling based on status
+                  let ringColor = 'border-emerald-600 ring-emerald-500/20 text-emerald-700 bg-emerald-50'
+                  let badgeColor = 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                  if (e.status === 'Notice Period') {
+                    ringColor = 'border-amber-500 ring-amber-500/20 text-amber-700 bg-amber-50'
+                    badgeColor = 'bg-amber-100 text-amber-700 border-amber-200'
+                  } else if (e.status === 'Deactivated' || e.status === 'Inactive') {
+                    ringColor = 'border-red-500 ring-red-500/20 text-red-700 bg-red-50'
+                    badgeColor = 'bg-red-100 text-red-700 border-red-200'
+                  }
+
+                  const hue = stringToHue(e.id || name)
+                  const startColor = `hsl(${hue} 75% 95%)`
+                  const borderColor = `hsl(${hue} 50% 86%)`
+
+                  return (
+                    <div
+                      key={e.id}
+                      className="group flex flex-col border rounded-2xl p-5 shadow-[0_4px_15px_rgba(0,0,0,0.02)] transition-all hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:-translate-y-1"
+                      style={{
+                        background: `linear-gradient(135deg, ${startColor} 0%, #ffffff 100%)`,
+                        borderColor: borderColor,
+                      }}
+                    >
+                      {/* Top Row: Avatar & Actions */}
+                      <div className="flex justify-between items-start">
+                        {/* Avatar / Initials container with status badge */}
+                        <div className="relative flex flex-col items-center">
+                          <div className={`relative flex items-center justify-center h-16 w-16 rounded-full border-2 ring-4 ${ringColor}`}>
+                            {e.avatarUrl ? (
+                              <img src={e.avatarUrl} alt={name} className="h-full w-full rounded-full object-cover" />
+                            ) : (
+                              <span className="text-xl font-bold">{initials}</span>
+                            )}
+                          </div>
+                          <span className={`absolute -bottom-2 rounded-full px-2.5 py-0.5 text-[9px] font-bold border uppercase tracking-wider ${badgeColor}`}>
+                            {e.status}
+                          </span>
+                        </div>
+
+                        {/* Top-Right Action menu */}
+                        <div className="flex items-center gap-1">
+                          <Link
+                            to={ROUTES.EMPLOYEE(e.id!)}
+                            className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-full transition-colors"
+                            title="View employee"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Link>
+                          <Link
+                            to={ROUTES.EMPLOYEE_EDIT(e.id!)}
+                            className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-full transition-colors"
+                            title="Edit employee"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Link>
+                          
+                          <DropdownMenu.Root>
+                            <DropdownMenu.Trigger asChild>
+                              <button
+                                type="button"
+                                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-50 rounded-full transition-colors disabled:opacity-50"
+                                title="Change account status"
+                                disabled={savingStatusId === e.id}
+                              >
+                                <MoreVertical className="h-4 w-4" strokeWidth={2} />
+                              </button>
+                            </DropdownMenu.Trigger>
+                            <DropdownMenu.Portal>
+                              <DropdownMenu.Content
+                                className="admin-navbar-menu z-50 min-w-[180px] p-1 bg-white border border-slate-100 shadow-lg rounded-xl"
+                                sideOffset={4}
+                                align="end"
+                              >
+                                <p className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                  Change status
+                                </p>
+                                {STATUS_OPTIONS.map((option) => (
+                                  <DropdownMenu.Item
+                                    key={option.value}
+                                    className="cursor-pointer rounded-lg px-3 py-2 text-sm text-slate-700 outline-none hover:bg-slate-50 data-[disabled]:opacity-50"
+                                    disabled={e.status === option.value || savingStatusId === e.id}
+                                    onSelect={() => requestStatusChange(e, option.value)}
+                                  >
+                                    {option.label}
+                                  </DropdownMenu.Item>
+                                ))}
+                              </DropdownMenu.Content>
+                            </DropdownMenu.Portal>
+                          </DropdownMenu.Root>
+                        </div>
+                      </div>
+
+                      {/* Employee Info */}
+                      <Link to={ROUTES.EMPLOYEE(e.id!)} className="block mt-5">
+                        <h3 className="text-base font-bold text-slate-800 hover:text-emerald-700 transition-colors truncate">
+                          {name}
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-0.5 truncate">{e.designation || 'Role'}</p>
+                      </Link>
+
+                      {/* Role/EPL and Type/EmploymentType badges */}
+                      <div className="grid grid-cols-2 gap-3 mt-4 pb-4 border-b border-slate-100/60">
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Role</span>
+                          <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 font-medium">
+                            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 mr-1.5 shrink-0" />
+                            <span className="truncate" title={e.employeeId}>{e.employeeId || 'N/A'}</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Type</span>
+                          <div className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50/50 px-2 py-1 text-xs text-slate-700 font-medium">
+                            <Briefcase className="h-3.5 w-3.5 text-slate-500 mr-1.5 shrink-0" />
+                            <span className="truncate">{e.employmentType}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Contact Info */}
+                      <div className="mt-4 space-y-2.5">
+                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Contact Info</h4>
+                        
+                        <div className="flex items-center text-xs text-slate-600 truncate">
+                          <Mail className="h-3.5 w-3.5 text-slate-400 mr-2 shrink-0" />
+                          <span className="truncate" title={e.email}>{e.email}</span>
+                        </div>
+                        
+                        <div className="flex items-center text-xs text-slate-600 truncate">
+                          <Mail className="h-3.5 w-3.5 text-slate-400 mr-2 shrink-0" />
+                          <span className="truncate" title={e.personalEmail}>{e.personalEmail || '—'}</span>
+                        </div>
+
+                        <div className="flex items-center text-xs text-slate-500">
+                          <Calendar className="h-3.5 w-3.5 text-slate-400 mr-2 shrink-0" />
+                          <span>{e.joinedAt ? `${new Date(e.joinedAt).getFullYear()} Join` : '—'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          ) : (
+            <DataTable
+              className="employee-list-table employee-directory-table"
+              columns={dataColumns}
+              data={employees}
+              loading={loading}
+              brandHeader
+              striped
+              sortColumn={sort.column}
+              sortDirection={sort.direction}
+              onSort={(key) => {
+                if (sort.column === key) {
+                  setSort(key, sort.direction === 'asc' ? 'desc' : 'asc')
+                } else {
+                  setSort(key, 'asc')
+                }
+              }}
+            />
+          )}
 
           {!loading && pagination.total > 0 ? (
             <div className="employee-directory-pagination">
