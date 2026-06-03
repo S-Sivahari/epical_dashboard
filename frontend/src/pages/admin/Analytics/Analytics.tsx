@@ -25,7 +25,7 @@ function ChartPlaceholder({ message, loading }: { message: string; loading?: boo
     <div className="admin-analytics-chart-placeholder">
       {loading ? (
         <>
-          <Loader2 className="h-6 w-6 animate-spin text-[#06C033]" />
+          <Loader2 className="h-6 w-6 animate-spin text-[#2f6b4f]" />
           <p className="text-sm font-medium text-slate-500">Loading analytics…</p>
         </>
       ) : (
@@ -136,12 +136,16 @@ export function Analytics() {
   }
 
   return (
-    <PageWrapper className="relative z-10 py-2 font-body">
-      <div className="crewiq-dashboard admin-analytics-view">
-        <div className="admin-analytics-shell animate-fadeIn">
-          <div className="admin-analytics-hero">
+    <PageWrapper className="admin-hub-page-wrap relative z-10 py-3 font-body">
+      <div className="crewiq-dashboard admin-analytics-view relative">
+        <div className="dashboard-page-bg" aria-hidden>
+          <div className="dashboard-page-bg-gradient" />
+          <div className="dashboard-page-bg-pattern" />
+        </div>
+        <div className="admin-analytics-shell relative z-10 animate-fadeIn">
+          <header className="admin-analytics-hub-header">
             <div className="admin-analytics-hero-top">
-              <h1 className="admin-analytics-hero-title font-display">Workforce Analytics</h1>
+              <h1 className="admin-analytics-hero-title font-display">Workforce Analytics Hub</h1>
               <Button
                 variant="secondary"
                 className="admin-analytics-export-btn h-7 gap-1 rounded-md px-2.5 text-[11px] font-bold"
@@ -153,9 +157,9 @@ export function Analytics() {
                 Export PDF
               </Button>
             </div>
-            <div className="admin-analytics-metrics-band">
+            <div className="admin-analytics-metrics-band" role="group" aria-label="Analytics metrics">
               {heroKpis.map((m) => (
-                <div key={m.label} className="admin-analytics-metric-glass">
+                <div key={m.label} className="admin-analytics-metric-tile">
                   <p className="admin-analytics-metric-label">{m.label}</p>
                   <p className="admin-analytics-metric-value font-display">
                     {dataLoading ? '—' : m.value}
@@ -163,7 +167,7 @@ export function Analytics() {
                 </div>
               ))}
             </div>
-          </div>
+          </header>
 
           <div className="admin-analytics-filters-bar">
             <SearchableEmployeeSelect
@@ -205,7 +209,7 @@ export function Analytics() {
           <div className="admin-analytics-main-panel">
             <div className="admin-analytics-panel-header">
               <div>
-                <h2 className="font-display text-sm font-bold text-[#065F1F]">
+                <h2 className="admin-analytics-panel-title font-display text-sm font-bold">
                   {isAllEmployees ? 'Team Performance Comparison' : 'Individual Performance'}
                 </h2>
                 <p className="text-xs font-medium text-slate-600">

@@ -101,10 +101,11 @@ export function buildPendingApprovals(
   pendingDocs.forEach((doc) => {
     tasks.push({
       id: `doc-${doc.id}`,
-      title: `Document Verification: ${doc.employeeName}`,
+      title: `Document Verification: ${doc.documentName} — ${doc.employeeName}`,
       requestedAgo: formatRequestedAgo(doc.requestedAt),
       kind: 'document',
       sourceId: doc.id,
+      hasFulfillmentFile: !!doc.hasFulfillmentFile,
     })
   })
 

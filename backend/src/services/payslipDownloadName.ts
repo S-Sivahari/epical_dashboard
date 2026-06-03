@@ -43,6 +43,15 @@ function monthYearFromPayMonth(payMonth: string): { month: string; year: string 
   }
 }
 
+/** Title bar label: "Payslip for May 2026" */
+export function formatPayslipTitleLabel(payMonth?: string | null): string {
+  const raw = String(payMonth ?? '').trim()
+  if (!raw) return 'Payslip'
+  const { month, year } = monthYearFromPayMonth(raw)
+  const monthTitle = month.charAt(0).toUpperCase() + month.slice(1)
+  return `Payslip for ${monthTitle} ${year}`
+}
+
 /** Browser download name: payslip_name_month_year.pdf */
 export function formatPayslipDownloadFileName(
   employeeName: string,

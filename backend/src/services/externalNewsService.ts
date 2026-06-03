@@ -30,31 +30,49 @@ function buildDateRange(date: string) {
   }
 }
 
+export const DEFAULT_EXTERNAL_NEWS_FILTERS = [
+  'Semiconductor',
+  'Chip Manufacturing',
+  'VLSI',
+  'Technology',
+  'Artificial Intelligence',
+] as const
+
+export type FetchHeadlinesOptions = {
+  limit?: number
+  filters?: string[]
+}
+
+function buildSearchQuery(filters: string[]): string {
+  const terms = filters.map((term) => term.trim()).filter(Boolean)
+  if (terms.length === 0) {
+    return DEFAULT_EXTERNAL_NEWS_FILTERS.map((term) => `"${term}"`).join(' OR ')
+  }
+  return terms.map((term) => `"${term}"`).join(' OR ')
+}
+
 export async function fetchTopHeadlinesByDate(
   date: string,
-  limit?: number
+  options?: FetchHeadlinesOptions
 ): Promise<ExternalNewsItem[]> {
   if (!env.GNEWS_API_KEY) {
     throw new Error('GNews API key is not configured')
   }
 
-  const queryTerms = [
-    'Semiconductor',
-    'Chip Manufacturing',
-    'VLSI',
-    'Technology',
-    'Artificial Intelligence',
-  ]
-  const query = queryTerms.map((term) => `"${term}"`).join(' OR ')
+  const filters =
+    options?.filters?.map((term) => term.trim()).filter(Boolean) ??
+    [...DEFAULT_EXTERNAL_NEWS_FILTERS]
+  const query = buildSearchQuery(filters)
+
+  const rawLimit = options?.limit ?? 10
+  const limit = Math.min(100, Math.max(1, Math.floor(Number(rawLimit) || 10)))
 
   const { from, to } = buildDateRange(date)
   const url = new URL('https://gnews.io/api/v4/top-headlines')
   url.searchParams.set('token', env.GNEWS_API_KEY)
   url.searchParams.set('q', query)
   url.searchParams.set('lang', 'en')
-  if (limit) {
-    url.searchParams.set('max', String(limit))
-  }
+  url.searchParams.set('max', String(limit))
   url.searchParams.set('sortBy', 'publishedAt')
   url.searchParams.set('from', from)
   url.searchParams.set('to', to)

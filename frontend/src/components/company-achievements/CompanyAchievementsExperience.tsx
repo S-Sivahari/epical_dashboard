@@ -118,12 +118,15 @@ export function CompanyAchievementsExperience({
   editable = false,
   bleedClassName = '',
   employeePresentation = false,
+  adminHub = false,
 }: {
   editable?: boolean
   /** Extra classes for full-bleed breakout (e.g. employee main padding) */
   bleedClassName?: string
   /** Match employee-facing reference: centered hero, #006400 titles, centered section intro */
   employeePresentation?: boolean
+  /** Admin portal hub shell — dash palette panels (not employee layout) */
+  adminHub?: boolean
 }) {
   const ep = employeePresentation
   const [pageMeta, setPageMeta] = useState<AchievementPageMeta | null>(null)
@@ -286,8 +289,10 @@ export function CompanyAchievementsExperience({
   return (
     <div
       className={cn(
-        'min-h-[calc(100vh-4rem)] w-full max-w-none text-ink',
-        ep ? 'bg-white' : 'bg-background',
+        'w-full max-w-none text-ink',
+        adminHub
+          ? 'admin-achievements-experience'
+          : cn('min-h-[calc(100vh-4rem)]', ep ? 'bg-white' : 'bg-background'),
         bleedClassName
       )}
     >
@@ -396,7 +401,11 @@ export function CompanyAchievementsExperience({
       <div
         className={cn(
           'px-4 sm:px-8 lg:px-12',
-          ep ? 'border-b border-zinc-100 bg-white py-14 lg:py-20' : 'border-b border-border bg-muted/20 py-10'
+          adminHub
+            ? 'admin-achievements-intro'
+            : ep
+              ? 'border-b border-zinc-100 bg-white py-14 lg:py-20'
+              : 'border-b border-border bg-muted/20 py-10'
         )}
       >
         <div
@@ -408,25 +417,37 @@ export function CompanyAchievementsExperience({
           <div className={ep ? 'mx-auto max-w-2xl' : undefined}>
             <h2
               className={cn(
-                ep
-                  ? 'font-sans text-2xl font-bold tracking-tight text-[#006400] sm:text-3xl md:text-[2rem]'
-                  : 'font-display text-2xl font-semibold text-ink'
+                adminHub
+                  ? 'admin-achievements-section-title font-display text-2xl font-extrabold'
+                  : ep
+                    ? 'font-sans text-2xl font-bold tracking-tight text-[#006400] sm:text-3xl md:text-[2rem]'
+                    : 'font-display text-2xl font-semibold text-ink'
               )}
             >
               Our achievements
             </h2>
-            <p
-              className={cn(
-                ep ? 'mt-4 font-sans text-sm text-zinc-500 sm:text-base' : 'mt-1 text-sm text-muted'
-              )}
-            >
-              {ep
-                ? 'Celebrating our greatest milestones and accomplishments.'
-                : 'Milestones and recognition that shape our culture.'}
-            </p>
+            {!adminHub && (
+              <p
+                className={cn(
+                  ep ? 'mt-4 font-sans text-sm text-zinc-500 sm:text-base' : 'mt-1 text-sm text-muted'
+                )}
+              >
+                {ep
+                  ? 'Celebrating our greatest milestones and accomplishments.'
+                  : 'Milestones and recognition that shape our culture.'}
+              </p>
+            )}
           </div>
           {editable && (
-            <Button type="button" onClick={openAdd} className={cn('shrink-0', ep && 'mx-auto mt-8 sm:mx-0 sm:mt-0')}>
+            <Button
+              type="button"
+              onClick={openAdd}
+              className={cn(
+                'shrink-0',
+                adminHub && 'admin-achievements-primary-btn border-0',
+                ep && 'mx-auto mt-8 sm:mx-0 sm:mt-0'
+              )}
+            >
               <Plus className="mr-2 h-4 w-4" />
               Add achievement
             </Button>
@@ -448,15 +469,17 @@ export function CompanyAchievementsExperience({
           )}
         </div>
       ) : (
-        <div className={cn('mx-auto max-w-6xl', ep && 'bg-white')}>
+        <div className={cn('mx-auto max-w-6xl', (ep || adminHub) && 'bg-white', adminHub && 'admin-achievements-list')}>
           {rows.map((row, index) => (
             <article
               key={row.id}
               className={cn(
                 'grid gap-8 px-4 sm:px-8 lg:grid-cols-2 lg:px-12',
-                ep
-                  ? 'border-b border-zinc-100 py-14 last:border-b-0 lg:gap-16 lg:py-20'
-                  : 'border-b border-border py-14 last:border-b-0 lg:gap-12 lg:py-16'
+                adminHub
+                  ? 'admin-achievements-row py-12 last:border-b-0 lg:gap-12 lg:py-14'
+                  : ep
+                    ? 'border-b border-zinc-100 py-14 last:border-b-0 lg:gap-16 lg:py-20'
+                    : 'border-b border-border py-14 last:border-b-0 lg:gap-12 lg:py-16'
               )}
             >
               <div
@@ -479,9 +502,11 @@ export function CompanyAchievementsExperience({
               >
                 <h3
                   className={cn(
-                    ep
-                      ? 'font-sans text-xl font-bold text-[#006400] sm:text-2xl lg:text-[1.75rem]'
-                      : 'font-display text-2xl font-semibold text-ink lg:text-3xl'
+                    adminHub
+                      ? 'admin-achievements-item-title font-display text-2xl font-bold lg:text-3xl'
+                      : ep
+                        ? 'font-sans text-xl font-bold text-[#006400] sm:text-2xl lg:text-[1.75rem]'
+                        : 'font-display text-2xl font-semibold text-ink lg:text-3xl'
                   )}
                 >
                   {row.title}

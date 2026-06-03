@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Play, Pause } from 'lucide-react'
+import { Play, Pause, Timer } from 'lucide-react'
 import { Button } from '@components/employee/ui/button'
-
 function stripPreview(description, { taskTitle, projectName } = {}) {
   let s = String(description || '').trim()
   if (!s) return ''
@@ -27,9 +26,6 @@ export function LiveSessionTimer({
   activeTask,
   pausedTasks,
   serverTimeSkew,
-  backendElapsedMs,
-  hasBackendElapsedData,
-  backendElapsedLastFetch,
 }) {
   const [elapsed, setElapsed] = useState('00:00:00')
 
@@ -49,25 +45,19 @@ export function LiveSessionTimer({
       }
 
       const elapsedMs = Math.max(0, now - checkInTime.getTime() - pausedMs)
-
       const totalSeconds = Math.floor(elapsedMs / 1000)
       const h = Math.floor(totalSeconds / 3600)
       const m = Math.floor((totalSeconds % 3600) / 60)
       const s = totalSeconds % 60
       setElapsed(
-        `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+        `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`,
       )
     }
 
     tick()
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
-  }, [
-    checkInTime,
-    activeTask,
-    pausedTasks,
-    serverTimeSkew,
-  ])
+  }, [checkInTime, activeTask, pausedTasks, serverTimeSkew])
 
   const sinceLabel = checkInTime.toLocaleTimeString([], {
     hour: '2-digit',
@@ -77,15 +67,15 @@ export function LiveSessionTimer({
   const isPaused = !activeTask && pausedTasks?.[0]
 
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-emerald-200/70 bg-gradient-to-b from-emerald-50/80 to-white px-4 py-6 text-center shadow-sm">
-      <p className="type-card-label-caps tracking-widest text-emerald-800/80">Active session</p>
-      <p className="type-metric-xl mt-2 text-emerald-700 sm:text-5xl">{elapsed}</p>
-      <p className="type-body mt-2">Since {sinceLabel}</p>
-      {isPaused && (
-        <span className="mt-3 inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-amber-800">
+    <div className="emp-ts-live-timer">
+      <p className="type-card-label-caps tracking-widest text-emerald-800/80">Live timer</p>
+      <p className="emp-ts-live-timer-value">{elapsed}</p>
+      <p className="type-body mt-1.5 text-sm text-slate-600">Since {sinceLabel}</p>
+      {isPaused ? (
+        <span className="mt-2.5 inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">
           Paused
         </span>
-      )}
+      ) : null}
     </div>
   )
 }
@@ -97,9 +87,6 @@ export function TimesheetLiveSessionPanel({
   pausedTasks,
   currentWorkTask,
   serverTimeSkew,
-  backendElapsedMs,
-  hasBackendElapsedData,
-  backendElapsedLastFetch,
   checkoutReview,
   submitting,
   onPause,
@@ -107,10 +94,14 @@ export function TimesheetLiveSessionPanel({
 }) {
   if (!checkedIn || !checkInTime) {
     return (
-      <div className="flex h-full min-h-[320px] flex-col items-center justify-center rounded-xl border border-dashed border-border bg-slate-50/50 px-6 text-center">
-        <p className="text-sm font-semibold text-muted">No active session</p>
-        <p className="mt-1 max-w-xs text-xs text-muted">
-          Select a project and check in to start tracking time. Work description is optional.
+      <div className="emp-ts-active-empty">
+        <div className="emp-ts-active-empty-icon">
+          <Timer className="h-7 w-7" strokeWidth={2} />
+        </div>
+        <p className="emp-ts-active-empty-title">No active session</p>
+        <p className="emp-ts-active-empty-text">
+          Select a project and check in to start tracking. Your live timer and task details will
+          appear here.
         </p>
       </div>
     )
@@ -124,32 +115,31 @@ export function TimesheetLiveSessionPanel({
     : ''
 
   return (
-    <div className="flex h-full min-h-[320px] flex-col gap-4">
+    <div className="flex h-full min-h-0 flex-col gap-3">
       <LiveSessionTimer
         checkInTime={checkInTime}
         activeTask={activeTask}
         pausedTasks={pausedTasks}
         serverTimeSkew={serverTimeSkew}
-        backendElapsedMs={backendElapsedMs}
-        hasBackendElapsedData={hasBackendElapsedData}
-        backendElapsedLastFetch={backendElapsedLastFetch}
       />
 
-      {currentWorkTask && !checkoutReview && (
-        <div className="flex flex-1 flex-col rounded-xl border border-border bg-white p-4 shadow-sm">
-          <p className="type-card-label-caps text-[10px] tracking-widest">Current project</p>
-          <p className="type-card-title mt-1.5">{currentWorkTask.project}</p>
+      {currentWorkTask && !checkoutReview ? (
+        <div className="flex min-h-0 flex-1 flex-col rounded-lg border border-emerald-200/50 bg-white p-3 shadow-sm">
+          <p className="type-card-label-caps text-[10px] tracking-widest text-emerald-800/75">
+            Current project
+          </p>
+          <p className="type-card-title mt-1 truncate">{currentWorkTask.project}</p>
           {descriptionPreview ? (
-            <div className="timesheet-panel-scroll mt-2 max-h-28 flex-1 overflow-y-auto rounded-lg border border-border/60 bg-slate-50/80 px-3 py-2">
-              <p className="type-body whitespace-pre-wrap break-words">
+            <div className="timesheet-panel-scroll mt-2 max-h-24 flex-1 overflow-y-auto rounded-md border border-slate-200/80 bg-slate-50/80 px-2.5 py-2">
+              <p className="text-xs leading-relaxed text-slate-700 whitespace-pre-wrap break-words">
                 {descriptionPreview}
               </p>
             </div>
           ) : (
-            <p className="mt-2 text-sm italic text-muted">No description added yet.</p>
+            <p className="mt-2 text-xs italic text-muted">No description added yet.</p>
           )}
 
-          <div className="mt-4 pt-1">
+          <div className="mt-auto pt-3">
             {activeTask ? (
               <Button
                 type="button"
@@ -165,14 +155,14 @@ export function TimesheetLiveSessionPanel({
                 type="button"
                 onClick={onResume}
                 disabled={submitting}
-                className="h-10 w-full gap-2"
+                className="emp-ts-btn-primary h-10 w-full gap-2"
               >
                 <Play className="h-4 w-4" /> Resume
               </Button>
             ) : null}
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   )
 }

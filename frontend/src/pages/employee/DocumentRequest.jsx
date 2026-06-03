@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -146,6 +147,7 @@ function mapRequestRow(row) {
 
 export default function DocumentRequest() {
   const { toast } = useToast()
+  const [searchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState('payslips')
   const [requests, setRequests] = useState([])
   const [reqLoading, setReqLoading] = useState(true)
@@ -188,6 +190,13 @@ export default function DocumentRequest() {
     void loadRequests()
     void loadPayslips()
   }, [loadRequests, loadPayslips])
+
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab === 'payslips' || tab === 'requests') {
+      setActiveTab(tab)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     const interval = setInterval(() => {

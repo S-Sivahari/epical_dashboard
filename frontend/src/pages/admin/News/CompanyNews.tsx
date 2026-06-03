@@ -1,5 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Megaphone, PlusCircle, Rss, Newspaper, CalendarDays, Sparkles } from 'lucide-react'
+import {
+  Megaphone,
+  Plus,
+  PlusCircle,
+  Rss,
+  Newspaper,
+  CalendarDays,
+  X,
+} from 'lucide-react'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
@@ -22,12 +30,12 @@ import { formatDate } from '@/utils/formatDate'
 
 const CACHE_KEY = 'admin-news-list-v1'
 
-type TabId = 'fetch' | 'publish' | 'current'
+type TabId = 'current' | 'publish' | 'fetch'
 
 const tabs: Array<{ id: TabId; label: string; icon: typeof Rss }> = [
-  { id: 'fetch', label: 'Fetch News', icon: Rss },
-  { id: 'publish', label: 'Publish News', icon: Megaphone },
-  { id: 'current', label: 'Current News', icon: Newspaper },
+  { id: 'current', label: 'Current Feed', icon: Newspaper },
+  { id: 'publish', label: 'Publish Console', icon: Megaphone },
+  { id: 'fetch', label: 'Fetch Streams', icon: Rss },
 ]
 
 const toDateInputValue = (date: Date) => {
@@ -37,14 +45,28 @@ const toDateInputValue = (date: Date) => {
   return `${year}-${month}-${day}`
 }
 
+const DEFAULT_FETCH_FILTERS = [
+  'Semiconductor',
+  'Chip Manufacturing',
+  'VLSI',
+  'Technology',
+  'Artificial Intelligence',
+]
+
+const FETCH_LIMIT_OPTIONS = [5, 10, 15, 20, 25, 30, 50] as const
+
 export function CompanyNews() {
-  const [activeTab, setActiveTab] = useState<TabId>('fetch')
+  const [activeTab, setActiveTab] = useState<TabId>('current')
   const [items, setItems] = useState<NewsItem[]>([])
   const [externalItems, setExternalItems] = useState<ExternalNewsItem[]>([])
   const [selectedExternal, setSelectedExternal] = useState<Set<string>>(new Set())
   const [fetchDate, setFetchDate] = useState(() => toDateInputValue(new Date()))
+  const [fetchLimit, setFetchLimit] = useState<number>(10)
+  const [fetchFilters, setFetchFilters] = useState<string[]>(() => [...DEFAULT_FETCH_FILTERS])
+  const [newFilterInput, setNewFilterInput] = useState('')
   const [fetchingExternal, setFetchingExternal] = useState(false)
   const [importingExternal, setImportingExternal] = useState(false)
+  const [importingLink, setImportingLink] = useState<string | null>(null)
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [imageUrl, setImageUrl] = useState('')
@@ -122,19 +144,63 @@ export function CompanyNews() {
     })
   }
 
+  const activeFetchFilters = fetchFilters.map((term) => term.trim()).filter(Boolean)
+
+  const addFetchFilter = (raw: string) => {
+    const term = raw.trim()
+    if (!term) return
+    setFetchFilters((prev) => {
+      const exists = prev.some((f) => f.toLowerCase() === term.toLowerCase())
+      if (exists) return prev
+      return [...prev, term]
+    })
+    setNewFilterInput('')
+  }
+
+  const removeFetchFilter = (index: number) => {
+    setFetchFilters((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const resetFetchFilters = () => {
+    setFetchFilters([...DEFAULT_FETCH_FILTERS])
+    setNewFilterInput('')
+  }
+
   const handleFetchExternal = async () => {
     if (!fetchDate) {
       return
     }
     setFetchingExternal(true)
     try {
-      const response = await fetchExternalNews(fetchDate)
+      const response = await fetchExternalNews({
+        date: fetchDate,
+        limit: fetchLimit,
+        filters: activeFetchFilters.length > 0 ? activeFetchFilters : undefined,
+      })
       setExternalItems(response.items)
       setSelectedExternal(new Set())
     } catch {
       // Handle error silently
     } finally {
       setFetchingExternal(false)
+    }
+  }
+
+  const importExternalItems = async (toImport: ExternalNewsItem[], linksToClear: Set<string>) => {
+    if (toImport.length === 0) return false
+    try {
+      const created = await importExternalNews(toImport)
+      setItems((prev) => [...created, ...prev])
+      setExternalItems((prev) => prev.filter((item) => !linksToClear.has(item.link)))
+      setSelectedExternal((prev) => {
+        const next = new Set(prev)
+        linksToClear.forEach((link) => next.delete(link))
+        return next
+      })
+      setActiveTab('current')
+      return true
+    } catch {
+      return false
     }
   }
 
@@ -145,14 +211,18 @@ export function CompanyNews() {
     }
     setImportingExternal(true)
     try {
-      const created = await importExternalNews(selected)
-      setItems((prev) => [...created, ...prev])
-      setExternalItems((prev) => prev.filter((item) => !selectedExternal.has(item.link)))
-      setSelectedExternal(new Set())
-    } catch {
-      // Handle error silently
+      await importExternalItems(selected, selectedExternal)
     } finally {
       setImportingExternal(false)
+    }
+  }
+
+  const handleImportOne = async (item: ExternalNewsItem) => {
+    setImportingLink(item.link)
+    try {
+      await importExternalItems([item], new Set([item.link]))
+    } finally {
+      setImportingLink(null)
     }
   }
 
@@ -248,37 +318,34 @@ export function CompanyNews() {
   const contentPreview = content.trim() || 'Your announcement content will appear here...'
 
   return (
-    <PageWrapper className="relative z-10 py-3 font-body">
-      <div className="crewiq-dashboard admin-news-view">
-        <div className="admin-news-shell animate-fadeIn">
-          {/* Hero — title, tabs, optional metrics */}
-          <div className="admin-news-hero">
+    <PageWrapper className="admin-hub-page-wrap relative z-10 py-3 font-body">
+      <div className="crewiq-dashboard admin-news-view relative">
+        <div className="dashboard-page-bg" aria-hidden>
+          <div className="dashboard-page-bg-gradient" />
+          <div className="dashboard-page-bg-pattern" />
+        </div>
+        <div className="admin-news-shell relative z-10 animate-fadeIn">
+          {/* Unified hub header — Deep Forest Green + view pills */}
+          <header className="admin-news-hub-header">
             <div className="admin-news-hero-top">
               <div className="min-w-0">
-                <h1 className="admin-news-hero-title font-display">Company News</h1>
-                <p className="admin-news-hero-sub">
-                  Fetch headlines, publish announcements, and manage what employees see
-                </p>
+                <h1 className="admin-news-hero-title font-display">Company News Curation Hub</h1>
               </div>
-              <div className="admin-news-tab-rail">
+              <nav className="admin-news-tab-rail" aria-label="News curation views">
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
                     type="button"
                     onClick={() => setActiveTab(tab.id)}
-                    className={`inline-flex items-center gap-1.5 rounded-[6px] px-2.5 py-1 text-[11px] font-bold transition-all duration-200 ${
+                    className={
                       activeTab === tab.id
-                        ? 'admin-dash-action-btn-sm text-white'
-                        : 'admin-news-tab-inactive'
-                    }`}
+                        ? 'admin-news-tab-btn admin-news-tab-btn--active'
+                        : 'admin-news-tab-btn admin-news-tab-btn--inactive'
+                    }
                   >
-                    <tab.icon className="h-3 w-3 shrink-0" />
-                    {tab.label}
-                    <span
-                      className={`rounded-full px-1 py-px text-[9px] font-black tabular-nums leading-none ${
-                        activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-white/15 text-white/80'
-                      }`}
-                    >
+                    <tab.icon className="admin-news-tab-icon shrink-0" aria-hidden />
+                    <span className="admin-news-tab-label">{tab.label}</span>
+                    <span className="admin-news-tab-count tabular-nums">
                       {tab.id === 'fetch'
                         ? externalItems.length
                         : tab.id === 'current'
@@ -287,103 +354,359 @@ export function CompanyNews() {
                     </span>
                   </button>
                 ))}
-              </div>
+              </nav>
             </div>
             {activeTab === 'current' && (
-              <div className="admin-news-metrics-band">
-                <div className="admin-news-metric-glass">
+              <div className="admin-news-metrics-band" role="group" aria-label="Feed metrics">
+                <div className="admin-news-metric-tile">
                   <p className="admin-news-metric-label">Published</p>
                   <p className="admin-news-metric-value font-display">{items.length}</p>
                 </div>
-                <div className="admin-news-metric-glass">
+                <div className="admin-news-metric-tile">
                   <p className="admin-news-metric-label">Fetched Today</p>
                   <p className="admin-news-metric-value font-display">{externalItems.length}</p>
                 </div>
-                <div className="admin-news-metric-glass">
+                <div className="admin-news-metric-tile">
                   <p className="admin-news-metric-label">Selected to Import</p>
                   <p className="admin-news-metric-value font-display">{selectedExternal.size}</p>
                 </div>
               </div>
             )}
-          </div>
+          </header>
 
-          {/* ── FETCH TAB ── */}
+          {/* ── CURRENT FEED MANAGER ── */}
+          {activeTab === 'current' && (
+            <section className="admin-news-current-view" aria-label="Current feed manager">
+              <div className="admin-news-feed-container">
+                <div className="admin-news-feed-toolbar">
+                  <div>
+                    <h2 className="font-display text-sm font-extrabold admin-news-panel-title">
+                      Published News
+                    </h2>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs font-semibold admin-news-text-brand">
+                    <CalendarDays className="h-3.5 w-3.5" aria-hidden />
+                    Manage &amp; edit below
+                  </div>
+                </div>
+
+                <div className="admin-news-feed-grid">
+                  {loading ? (
+                    Array.from({ length: 6 }).map((_, i) => (
+                      <div
+                        key={`news-skeleton-${i}`}
+                        className="admin-news-card-skeleton min-h-[260px] rounded-xl p-5"
+                      >
+                        <div className="space-y-3">
+                          <div className="h-4 w-3/4 rounded-full skeleton" />
+                          <div className="h-4 w-11/12 rounded-full skeleton" />
+                          <div className="h-4 w-10/12 rounded-full skeleton" />
+                          <div className="h-4 w-9/12 rounded-full skeleton" />
+                          <div className="h-3 w-24 rounded-full skeleton" />
+                        </div>
+                        <div className="mt-6 flex justify-end gap-2">
+                          <div className="h-8 w-20 rounded-lg skeleton" />
+                          <div className="h-8 w-20 rounded-lg skeleton" />
+                          <div className="h-8 w-20 rounded-lg skeleton" />
+                        </div>
+                      </div>
+                    ))
+                  ) : items.length === 0 ? (
+                    <div className="admin-news-feed-empty col-span-full flex min-h-[220px] flex-col items-center justify-center rounded-xl px-6 text-center">
+                      <Newspaper className="mb-2 h-8 w-8 admin-news-text-brand opacity-50" />
+                      <p className="text-sm font-semibold admin-news-text-brand">
+                        No news published yet
+                      </p>
+                      <p className="mt-1 text-xs text-slate-600">
+                        Open Publish Console to create your first announcement.
+                      </p>
+                    </div>
+                  ) : (
+                    items.map((n) => (
+                      <NewsCard
+                        key={n.id}
+                        item={n}
+                        variant="hub"
+                        onView={() => setPreview(n)}
+                        onEdit={() => openEdit(n)}
+                        onRemove={() => requestRemove(n)}
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* ── PUBLISH CONSOLE (full page) ── */}
+          {activeTab === 'publish' && (
+            <section className="admin-news-publish-page" aria-label="Publish console">
+              <div className="admin-news-publish-sheet">
+                <header className="admin-news-publish-form-head">
+                  <h2 className="font-display text-base font-extrabold admin-news-panel-title">
+                    Create Announcement
+                  </h2>
+                </header>
+
+                <div className="admin-news-publish-body">
+                  <div className="admin-news-publish-fields">
+                    <Input
+                      label="Title"
+                      required
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="e.g. Q2 Town Hall — June 12"
+                    />
+
+                    <label className="admin-news-publish-content-field">
+                      <span className="text-sm font-semibold text-slate-800">
+                        News Content <span className="text-danger">*</span>
+                      </span>
+                      <textarea
+                        className="admin-news-textarea admin-news-publish-textarea w-full resize-y rounded-lg border text-sm font-medium text-slate-800 shadow-sm outline-none transition-ui placeholder:text-slate-400"
+                        value={content}
+                        onChange={(e) => setContent(e.target.value)}
+                        placeholder="Write the full announcement. Include date, venue, and key details employees should know."
+                      />
+                      <p className="text-xs leading-relaxed text-slate-500">
+                        {content.length} characters
+                      </p>
+                    </label>
+                  </div>
+
+                  <div className="admin-news-publish-assets grid lg:grid-cols-3">
+                    <Input
+                      label="Image URL (optional)"
+                      value={imageUrl}
+                      onChange={(e) => setImageUrl(e.target.value)}
+                      placeholder="https://example.com/image.jpg"
+                    />
+                    <label className="admin-news-publish-upload block lg:col-span-1">
+                      <span className="mb-2 block text-sm font-semibold leading-relaxed text-slate-800">
+                        Upload image (optional)
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="admin-news-file-input block w-full text-sm text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:px-3 file:py-2 file:text-sm file:font-bold"
+                        onChange={(e) => handleImageFileChange(e.target.files?.[0] ?? null)}
+                      />
+                      {imageFile && (
+                        <button
+                          type="button"
+                          className="text-xs font-semibold text-slate-500 hover:text-slate-800"
+                          onClick={() => handleImageFileChange(null)}
+                        >
+                          Remove selected file
+                        </button>
+                      )}
+                    </label>
+                    <Input
+                      label="Reference Link"
+                      value={link}
+                      onChange={(e) => setLink(e.target.value)}
+                      placeholder="https://example.com/read-more"
+                    />
+                  </div>
+                </div>
+
+                <div className="admin-news-publish-preview-band" aria-label="Live preview">
+                  <p className="admin-news-live-preview-label">Live Preview</p>
+                  <div className="admin-news-publish-preview-inner">
+                    <div className="admin-news-publish-preview-media shrink-0">
+                      {previewImageSrc ? (
+                        <img
+                          src={previewImageSrc}
+                          alt=""
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            ;(e.target as HTMLImageElement).style.display = 'none'
+                          }}
+                        />
+                      ) : (
+                        <div className="admin-news-preview-placeholder flex h-full min-h-[7rem] items-center justify-center">
+                          <Megaphone className="h-8 w-8 text-white/80" aria-hidden />
+                        </div>
+                      )}
+                    </div>
+                    <div className="admin-news-publish-preview-copy min-w-0 flex-1">
+                      <span className="admin-news-tag-pill inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider">
+                        <Megaphone className="h-2.5 w-2.5" aria-hidden />
+                        Company News
+                      </span>
+                      <h3 className="mt-2 line-clamp-2 font-display text-sm font-bold text-slate-800">
+                        {title.trim() || 'Announcement title'}
+                      </h3>
+                      <p className="mt-2 line-clamp-4 whitespace-pre-line text-sm font-medium text-slate-600">
+                        {contentPreview}
+                      </p>
+                      {link.trim() ? (
+                        <p className="truncate text-[10px] font-semibold admin-news-text-brand">
+                          {link}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+
+                <footer className="admin-news-publish-actions">
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <Button type="button" variant="ghost" onClick={resetForm} disabled={saving}>
+                      Clear
+                    </Button>
+                    <Button
+                      className="admin-news-publish-btn border-0"
+                      onClick={() => void handleAdd()}
+                      disabled={saving || !title.trim() || !content.trim()}
+                    >
+                      <PlusCircle className="h-4 w-4" />
+                      {saving ? 'Publishing...' : 'Publish News'}
+                    </Button>
+                  </div>
+                </footer>
+              </div>
+            </section>
+          )}
+
+          {/* ── FETCH STREAMS ── */}
           {activeTab === 'fetch' && (
-            <div className="admin-news-body-grid">
-              <aside className="admin-news-sidebar space-y-4">
-                <p className="admin-news-sidebar-title">Fetch Headlines</p>
-                <p className="text-xs font-medium leading-relaxed text-[var(--emerald-dark)]/80">
-                  Pull the top 10 headlines for a date, then choose which items to publish.
-                </p>
-                <Input
-                  label="News date"
-                  type="date"
-                  value={fetchDate}
-                  onChange={(e) => setFetchDate(e.target.value)}
-                />
-                <div className="flex flex-col gap-2">
+            <section className="admin-news-fetch-page" aria-label="Fetch streams">
+              <div className="admin-news-fetch-bar">
+                <div className="admin-news-fetch-bar-controls">
+                  <label className="admin-news-fetch-bar-field">
+                    <span className="admin-news-fetch-bar-label">Date</span>
+                    <input
+                      type="date"
+                      value={fetchDate}
+                      onChange={(e) => setFetchDate(e.target.value)}
+                      className="admin-news-fetch-bar-input"
+                    />
+                  </label>
+                  <label className="admin-news-fetch-bar-field">
+                    <span className="admin-news-fetch-bar-label">Count</span>
+                    <select
+                      className="admin-news-fetch-bar-input admin-news-fetch-select"
+                      value={fetchLimit}
+                      onChange={(e) => setFetchLimit(Number(e.target.value))}
+                    >
+                      {FETCH_LIMIT_OPTIONS.map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <Button
-                    className="admin-dash-action-btn w-full border-0"
+                    className="admin-news-fetch-primary-btn shrink-0 border-0"
                     onClick={() => void handleFetchExternal()}
                     disabled={fetchingExternal}
                   >
                     <Rss className="h-4 w-4" />
-                    {fetchingExternal ? 'Fetching...' : 'Fetch Top 10'}
+                    {fetchingExternal ? 'Fetching...' : `Fetch ${fetchLimit}`}
                   </Button>
                   <Button
                     variant="secondary"
-                    className="admin-news-secondary-btn w-full"
+                    className="admin-news-secondary-btn shrink-0"
                     onClick={() => void handleImportExternal()}
                     disabled={importingExternal || selectedExternal.size === 0}
                   >
                     {importingExternal
                       ? 'Adding...'
-                      : `Add Selected (${selectedExternal.size})`}
+                      : `Add selected (${selectedExternal.size})`}
                   </Button>
                 </div>
-                <div className="admin-news-tip-box rounded-lg p-3 text-xs font-medium leading-relaxed">
-                  <Sparkles className="mb-1.5 h-3.5 w-3.5 text-[var(--emerald-dark)]" />
-                  Select headlines on the right, then import them as draft news items.
-                </div>
-              </aside>
 
-              <div className="admin-news-main-panel">
-                <div className="admin-news-panel-header">
-                  <div>
-                    <h2 className="font-display text-sm font-bold text-[var(--emerald-dark)]">
-                      Headline Preview
-                    </h2>
-                    <p className="text-xs font-medium text-slate-600">
-                      {externalItems.length > 0
-                        ? `${externalItems.length} headline${externalItems.length === 1 ? '' : 's'} · ${selectedExternal.size} selected`
-                        : 'No headlines loaded yet'}
-                    </p>
+                <div className="admin-news-fetch-filter-bar">
+                  <span className="admin-news-fetch-bar-label shrink-0">Filters</span>
+                  <div className="admin-news-fetch-filter-chips" role="list">
+                    {fetchFilters.length === 0 ? (
+                      <span className="text-xs font-medium text-slate-500">
+                        Add a keyword below to search
+                      </span>
+                    ) : (
+                      fetchFilters.map((term, index) => (
+                        <span
+                          key={`${term}-${index}`}
+                          role="listitem"
+                          className="admin-news-fetch-filter-pill"
+                        >
+                          <span className="max-w-[12rem] truncate">{term}</span>
+                          <button
+                            type="button"
+                            className="admin-news-fetch-filter-pill-remove"
+                            onClick={() => removeFetchFilter(index)}
+                            aria-label={`Remove filter ${term}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))
+                    )}
                   </div>
-                  {externalItems.length > 0 && (
-                    <button
+                  <div className="admin-news-fetch-filter-add">
+                    <input
+                      type="text"
+                      value={newFilterInput}
+                      onChange={(e) => setNewFilterInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          addFetchFilter(newFilterInput)
+                        }
+                      }}
+                      placeholder="Add keyword…"
+                      className="admin-news-fetch-filter-input min-w-[8rem] flex-1 rounded-lg border px-2.5 py-1.5 text-sm font-medium text-slate-800 shadow-sm outline-none"
+                    />
+                    <Button
                       type="button"
-                      onClick={() => setSelectedExternal(new Set(externalItems.map((i) => i.link)))}
-                      className="text-xs font-bold text-[var(--emerald-dark)] hover:text-[var(--green-600)]"
+                      size="sm"
+                      className="admin-news-fetch-primary-btn shrink-0 border-0 px-2.5"
+                      onClick={() => addFetchFilter(newFilterInput)}
+                      disabled={!newFilterInput.trim()}
+                      aria-label="Add filter"
                     >
-                      Select all
-                    </button>
-                  )}
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <button
+                    type="button"
+                    className="admin-news-fetch-reset shrink-0 text-xs font-bold admin-news-link hover:opacity-80"
+                    onClick={resetFetchFilters}
+                  >
+                    Reset
+                  </button>
                 </div>
+              </div>
 
+              <div className="admin-news-fetch-workspace">
                 {externalItems.length === 0 ? (
-                  <div className="admin-news-empty-state flex min-h-[280px] flex-col items-center justify-center rounded-xl px-6 text-center">
-                    <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-white/70 shadow-sm">
-                      <Rss className="h-6 w-6 text-[var(--emerald-dark)]" />
+                  <div className="admin-news-fetch-zero flex min-h-[320px] flex-col items-center justify-center px-8 text-center">
+                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50">
+                      <Rss className="h-7 w-7 text-slate-400" aria-hidden />
                     </div>
-                    <p className="text-sm font-semibold text-[var(--emerald-dark)]">
-                      Ready to fetch headlines
-                    </p>
-                    <p className="mt-1 max-w-sm text-xs font-medium text-slate-600">
-                      Pick a date in the sidebar and click Fetch Top 10 to preview external news here.
+                    <p className="max-w-md text-sm font-medium leading-relaxed text-slate-600">
+                      Ready to fetch headlines. Set date, count, and filters in the bar above, then
+                      run a search to preview external news here.
                     </p>
                   </div>
                 ) : (
-                  <div className="grid gap-3 md:grid-cols-2">
+                  <>
+                    <div className="admin-news-fetch-results-head mb-4 flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs font-semibold text-slate-600">
+                        {externalItems.length} headline{externalItems.length === 1 ? '' : 's'} ·{' '}
+                        {selectedExternal.size} selected
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedExternal(new Set(externalItems.map((i) => i.link)))
+                        }
+                        className="text-xs font-bold admin-news-link hover:opacity-80"
+                      >
+                        Select all
+                      </button>
+                    </div>
+                    <div className="admin-news-fetch-results-grid grid gap-4 md:grid-cols-2">
                     {externalItems.map((item) => {
                       const checked = selectedExternal.has(item.link)
                       return (
@@ -398,11 +721,11 @@ export function CompanyNews() {
                               type="checkbox"
                               checked={checked}
                               onChange={() => toggleExternalSelection(item.link)}
-                              className="mt-1 h-4 w-4 accent-[var(--emerald-dark)]"
+                              className="mt-1 h-4 w-4"
                               aria-label={`Select ${item.title}`}
                             />
                             <div className="min-w-0 flex-1 space-y-1">
-                              <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--emerald-dark)]/70">
+                              <p className="text-[10px] font-semibold uppercase tracking-wide admin-news-text-brand-muted">
                                 {formatDate(item.publishedAt)}
                                 {item.source ? ` · ${item.source}` : ''}
                               </p>
@@ -410,20 +733,31 @@ export function CompanyNews() {
                               <p className="line-clamp-3 text-xs font-medium text-slate-600">
                                 {item.content}
                               </p>
-                              <a
-                                href={item.link}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex text-xs font-bold text-[var(--emerald-dark)] hover:underline"
-                              >
-                                View source
-                              </a>
+                              <div className="flex flex-wrap items-center gap-2 pt-1">
+                                <a
+                                  href={item.link}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex text-xs font-bold admin-news-text-brand hover:underline"
+                                >
+                                  View source
+                                </a>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  className="admin-news-fetch-primary-btn border-0"
+                                  disabled={importingLink === item.link || importingExternal}
+                                  onClick={() => void handleImportOne(item)}
+                                >
+                                  {importingLink === item.link ? 'Adding...' : 'Add to feed'}
+                                </Button>
+                              </div>
                             </div>
                             {item.imageUrl ? (
                               <img
                                 src={item.imageUrl}
                                 alt=""
-                                className="h-16 w-20 shrink-0 rounded-lg object-cover ring-1 ring-[rgba(38,107,28,0.15)]"
+                                className="h-16 w-20 shrink-0 rounded-lg object-cover ring-1 ring-[rgba(26,67,41,0.15)]"
                                 loading="lazy"
                                 onError={(e) => {
                                   ;(e.target as HTMLImageElement).style.display = 'none'
@@ -434,202 +768,11 @@ export function CompanyNews() {
                         </div>
                       )
                     })}
-                  </div>
+                    </div>
+                  </>
                 )}
               </div>
-            </div>
-          )}
-
-          {/* ── PUBLISH TAB ── */}
-          {activeTab === 'publish' && (
-            <div className="admin-news-body-grid admin-news-publish-grid">
-              <div className="admin-news-main-panel space-y-5">
-                <div className="admin-news-panel-header border-b-0 pb-0">
-                  <div>
-                    <h2 className="font-display text-sm font-bold text-[var(--emerald-dark)]">
-                      Create Announcement
-                    </h2>
-                    <p className="text-xs font-medium text-slate-600">
-                      Published news appears on dashboards and the news ticker
-                    </p>
-                  </div>
-                </div>
-
-                <Input
-                  label="Title"
-                  required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Q2 Town Hall — June 12"
-                />
-
-                <label className="block space-y-1.5">
-                  <span className="text-sm font-medium text-ink">
-                    News Content <span className="text-danger">*</span>
-                  </span>
-                  <textarea
-                    className="admin-news-textarea min-h-[160px] w-full resize-y rounded-lg border px-3 py-2.5 text-sm font-medium text-ink shadow-sm outline-none transition-ui placeholder:text-muted"
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    placeholder="Write the full announcement. Include date, venue, and key details employees should know."
-                  />
-                  <p className="text-xs text-muted">{content.length} characters</p>
-                </label>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Input
-                      label="Image URL (optional)"
-                      value={imageUrl}
-                      onChange={(e) => setImageUrl(e.target.value)}
-                      placeholder="https://example.com/image.jpg"
-                    />
-                    <label className="block space-y-1.5">
-                      <span className="text-sm font-medium text-ink">Upload image (optional)</span>
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        className="admin-news-file-input block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:px-3 file:py-2 file:text-sm file:font-bold"
-                        onChange={(e) => handleImageFileChange(e.target.files?.[0] ?? null)}
-                      />
-                      {imageFile && (
-                        <button
-                          type="button"
-                          className="text-xs font-semibold text-muted hover:text-ink"
-                          onClick={() => handleImageFileChange(null)}
-                        >
-                          Remove selected file
-                        </button>
-                      )}
-                    </label>
-                  </div>
-                  <Input
-                    label="Reference Link"
-                    value={link}
-                    onChange={(e) => setLink(e.target.value)}
-                    placeholder="https://example.com/read-more"
-                  />
-                </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[rgba(38,107,28,0.12)] pt-4">
-                  <p className="text-xs font-medium text-slate-600">Required fields are marked with *</p>
-                  <div className="flex gap-2">
-                    <Button type="button" variant="ghost" onClick={resetForm} disabled={saving}>
-                      Clear
-                    </Button>
-                    <Button
-                      className="admin-dash-action-btn border-0"
-                      onClick={() => void handleAdd()}
-                      disabled={saving || !title.trim() || !content.trim()}
-                    >
-                      <PlusCircle className="h-4 w-4" />
-                      {saving ? 'Publishing...' : 'Publish News'}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              <aside className="admin-news-preview-panel">
-                <p className="admin-news-sidebar-title mb-3">Live Preview</p>
-                <div className="admin-news-panel flex overflow-hidden">
-                  <div className="min-w-0 flex-1">
-                    {previewImageSrc ? (
-                      <div className="aspect-[4/3] bg-slate-100">
-                        <img
-                          src={previewImageSrc}
-                          alt=""
-                          className="h-full w-full object-cover"
-                          onError={(e) => {
-                            ;(e.target as HTMLImageElement).style.display = 'none'
-                          }}
-                        />
-                      </div>
-                    ) : (
-                      <div className="flex aspect-[4/3] items-center justify-center bg-gradient-to-br from-[var(--emerald-dark)] to-[#266b1c]">
-                        <Megaphone className="h-10 w-10 text-white/80" />
-                      </div>
-                    )}
-                    <div className="space-y-2 p-3">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--emerald-dark)]">
-                        <Megaphone className="h-2.5 w-2.5" />
-                        Company News
-                      </span>
-                      <h3 className="line-clamp-2 font-display text-sm font-bold text-ink">
-                        {title.trim() || 'Announcement title'}
-                      </h3>
-                      <p className="line-clamp-6 whitespace-pre-line text-xs font-medium leading-relaxed text-slate-600">
-                        {contentPreview}
-                      </p>
-                      {link.trim() && (
-                        <p className="truncate text-[10px] font-semibold text-[var(--emerald-dark)]">
-                          {link}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="admin-news-panel-accent w-2 shrink-0 sm:w-2.5" aria-hidden />
-                </div>
-              </aside>
-            </div>
-          )}
-
-          {/* ── CURRENT TAB ── */}
-          {activeTab === 'current' && (
-            <div className="admin-news-main-panel admin-news-gallery-panel">
-              <div className="admin-news-panel-header">
-                <div>
-                  <h2 className="font-display text-sm font-bold text-[var(--emerald-dark)]">
-                    Published News
-                  </h2>
-                  <p className="text-xs font-medium text-slate-600">
-                    {items.length} announcement{items.length === 1 ? '' : 's'} live on employee dashboards
-                  </p>
-                </div>
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--emerald-dark)]">
-                  <CalendarDays className="h-3.5 w-3.5" />
-                  Manage & edit below
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {loading ? (
-                  Array.from({ length: 6 }).map((_, i) => (
-                    <div
-                      key={`news-skeleton-${i}`}
-                      className="admin-news-card-skeleton min-h-[260px] rounded-xl p-5"
-                    >
-                      <div className="space-y-3">
-                        <div className="h-4 w-3/4 rounded-full skeleton" />
-                        <div className="h-4 w-11/12 rounded-full skeleton" />
-                        <div className="h-4 w-10/12 rounded-full skeleton" />
-                        <div className="h-4 w-9/12 rounded-full skeleton" />
-                        <div className="h-3 w-24 rounded-full skeleton" />
-                      </div>
-                      <div className="mt-6 flex justify-end gap-2">
-                        <div className="h-8 w-20 rounded-lg skeleton" />
-                        <div className="h-8 w-20 rounded-lg skeleton" />
-                      </div>
-                    </div>
-                  ))
-                ) : items.length === 0 ? (
-                  <div className="admin-news-empty-state col-span-full flex min-h-[220px] flex-col items-center justify-center rounded-xl px-6 text-center">
-                    <Newspaper className="mb-2 h-8 w-8 text-[var(--emerald-dark)]/50" />
-                    <p className="text-sm font-semibold text-[var(--emerald-dark)]">No news published yet</p>
-                    <p className="mt-1 text-xs text-slate-600">Switch to Publish News to create your first announcement.</p>
-                  </div>
-                ) : (
-                  items.map((n) => (
-                    <NewsCard
-                      key={n.id}
-                      item={n}
-                      onView={() => setPreview(n)}
-                      onEdit={() => openEdit(n)}
-                      onRemove={() => requestRemove(n)}
-                    />
-                  ))
-                )}
-              </div>
-            </div>
+            </section>
           )}
         </div>
 

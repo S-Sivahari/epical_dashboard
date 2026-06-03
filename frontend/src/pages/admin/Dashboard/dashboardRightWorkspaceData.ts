@@ -6,6 +6,8 @@ export type PendingApprovalTask = {
   requestedAgo: string
   kind: PendingApprovalKind
   sourceId: string
+  /** Document requests only — must upload before approve */
+  hasFulfillmentFile?: boolean
 }
 
 export type SystemActivityEntry = {

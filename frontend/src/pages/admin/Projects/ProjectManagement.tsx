@@ -106,22 +106,6 @@ interface TimesheetLog {
   autoCheckedOut?: boolean
 }
 
-/* ================================================================
-   MOCK DATA
-   ================================================================ */
-const MOCK_EMPLOYEES = [
-  { id: 'E-1001', name: 'Asha Menon', team: 'Design', hue: 155 },
-  { id: 'E-1002', name: 'Rahul Verma', team: 'Verification', hue: 210 },
-  { id: 'E-1003', name: 'Meera Nair', team: 'Hardware', hue: 335 },
-  { id: 'E-1004', name: 'Amit Patel', team: 'R&D', hue: 35 },
-  { id: 'E-1005', name: 'Priya Das', team: 'Operations', hue: 270 },
-  { id: 'E-1006', name: 'Kiran Rao', team: 'Design', hue: 190 },
-  { id: 'E-1007', name: 'Sneha Iyer', team: 'Verification', hue: 10 },
-  { id: 'E-1008', name: 'Vikram Singh', team: 'R&D', hue: 60 },
-]
-
-// MOCK_TEAMS removed — was unused after teamFilterOptions cleanup
-
 
 /* ================================================================
    HELPER – Click-outside hook

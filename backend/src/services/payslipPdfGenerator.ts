@@ -11,6 +11,7 @@ import {
 } from "../config/paths";
 import type { Company, SalaryStructure, Employee } from "./payslipGenerator";
 import { buildPayslipPayrollSummary } from "./payslipGenerator";
+import { formatPayslipTitleLabel } from "./payslipDownloadName";
 
 export type TemplateId = "classic" | "corporate" | "minimal";
 
@@ -49,7 +50,7 @@ const LAYOUT = {
 
 /** Company header row (logo + company details). */
 const HEADER = {
-  height: 76,
+  height: 58,
   pad: 10,
   logoColShare: 0.3,
   border: "#cccccc",
@@ -59,18 +60,17 @@ const HEADER = {
   companyName: "#1a4d3a",
   metaText: "#444444",
   logoFontSize: 11,
-  companyNameFontSize: 20,
+  companyNameFontSize: 16,
   metaFontSize: 8,
 };
 
-/** Payslip title bar ("PAYSLIP for the Pay Period of …"). */
+/** Payslip title bar ("Payslip for May 2026"). */
 const TITLE_BAR = {
-  height: 28,
-  bg: "#0D5E4E",
+  height: 24,
+  bg: "#2f6b4f",
   text: "#ffffff",
   gapBelow: 4,
-  payslipFontSize: 12,
-  periodFontSize: 10,
+  fontSize: 10,
 };
 
 /** Pay summary row (pay date, working days, etc.). */
@@ -89,28 +89,28 @@ const PAY_SUMMARY = {
 
 /** Employee / Role / Location three-column block. */
 const EMP_INFO = {
-  headerBg: "#0D5E4E",
+  headerBg: "#2f6b4f",
   headerText: "#ffffff",
-  headerFontSize: 8.5,
-  headerH: 22,
-  rowH: 20,
-  labelW: 68,
+  headerFontSize: 7.5,
+  headerH: 16,
+  rowH: 14,
+  labelW: 62,
   labelBg: "#eaf3ed",
   labelColor: "#0d5e4e",
-  labelFontSize: 8,
+  labelFontSize: 7,
   valueBg: "#ffffff",
   valueColor: "#313b47",
-  valueFontSize: 8,
+  valueFontSize: 7,
   border: "#b9c9bf",
   borderWidth: 1,
   outerBorderWidth: 1,
-  padX: 8,
-  padY: 4,
+  padX: 5,
+  padY: 2,
 };
 
 /** Leave balance row (header + values). */
 const LEAVE_BALANCE = {
-  headerBg: "#0d5e4e",
+  headerBg: "#2f6b4f",
   headerText: "#ffffff",
   noteBg: "#ffffff",
   noteText: "#85919a",
@@ -126,7 +126,7 @@ const LEAVE_BALANCE = {
 const SALARY_TABLE_STYLE = {
   border: "#b7c8bb",
   borderWidth: 0.5,
-  sectionHeaderBg: "#0D5E4E",
+  sectionHeaderBg: "#2f6b4f",
   sectionHeaderText: "#ffffff",
   sectionHeaderFontSize: 9,
   sectionHeaderH: 22,
@@ -410,11 +410,41 @@ function drawSummaryCell(
 /** Company footer — fixed to page bottom. */
 function drawCompanyFooter(
   doc: InstanceType<typeof PDFDocument>,
-  companyName: string,
-  addressLine: string,
-  email: string,
+  company: Company,
 ): void {
-  const h = footerBlockHeight();
+  const companyName = safe(company["Company Name"], "Epical Layouts Pvt Ltd");
+  const regLine = [
+    `CIN: ${safe(company["CIN"])}`,
+    `GSTIN: ${safe(company["GSTIN"])}`,
+    `PAN: ${safe(company["Company PAN"])}`,
+    `Email: ${safe(company["Email"])}`,
+  ].join(" | ");
+  const addressLine = [
+    company["Address Line 1"],
+    company["Address Line 2"],
+    company["City"],
+    company["State"],
+    company["PIN"],
+  ]
+    .map((part) => safe(part))
+    .filter(Boolean)
+    .join(" ");
+  const phone = safe(company["Phone"]);
+  const website = safe(company["Website"]);
+  const contactParts = [
+    phone ? `Phone: ${phone}` : "",
+    website ? `Website: ${website}` : "",
+  ].filter(Boolean);
+
+  const metaLines: { text: string; italic?: boolean }[] = [{ text: regLine }];
+  if (addressLine) metaLines.push({ text: addressLine });
+  if (contactParts.length) metaLines.push({ text: contactParts.join(" | ") });
+  metaLines.push({
+    text: "This is a computer-generated payslip and does not require a physical signature.",
+    italic: true,
+  });
+
+  const h = footerBlockHeight(metaLines.length, true);
   const top = PAGE.bottom - h;
 
   doc.fillColor(FOOTER.bg);
@@ -437,33 +467,22 @@ function drawCompanyFooter(
       lineBreak: false,
       lineGap: 0,
     });
-
   y += FOOTER.nameSize + FOOTER.lineGap;
-  const contactParts = [addressLine, email ? `Email: ${email}` : ""].filter(Boolean);
-  const contactLine = contactParts.join("  |  ");
-  doc
-    .fontSize(FOOTER.metaSize)
-    .fillColor(FOOTER.metaColor)
-    .font(FONT.regular)
-    .text(contactLine, PAGE.left, y, {
-      width: PAGE.width,
-      align: "center",
-      lineBreak: false,
-      lineGap: 0,
-      ellipsis: true,
-    });
 
-  y += FOOTER.metaSize + FOOTER.lineGap;
-  doc
-    .fontSize(FOOTER.metaSize)
-    .fillColor(FOOTER.metaColor)
-    .font(FONT.italic)
-    .text(
-      "This is a computer-generated payslip and does not require a physical signature.",
-      PAGE.left,
-      y,
-      { width: PAGE.width, align: "center", lineBreak: false, lineGap: 0 },
-    );
+  for (const line of metaLines) {
+    doc
+      .fontSize(FOOTER.metaSize)
+      .fillColor(FOOTER.metaColor)
+      .font(line.italic ? FONT.italic : FONT.regular)
+      .text(line.text, PAGE.left, y, {
+        width: PAGE.width,
+        align: "center",
+        lineBreak: false,
+        lineGap: 0,
+        ellipsis: !line.italic,
+      });
+    y += FOOTER.metaSize + FOOTER.lineGap;
+  }
 
   doc.fillColor(COLORS.valueBold);
 }
@@ -580,9 +599,7 @@ function drawSalaryTableGrid(
 function drawBottomBand(
   doc: InstanceType<typeof PDFDocument>,
   netPay: number,
-  companyName: string,
-  addressLine: string,
-  email: string,
+  company: Company,
   compactLayout: boolean,
   bandY: number,
 ): void {
@@ -661,7 +678,7 @@ function drawBottomBand(
   doc.strokeColor(COLORS.borderLight).lineWidth(1);
 
   doc.fillColor(COLORS.valueBold);
-  drawCompanyFooter(doc, companyName, addressLine, email);
+  drawCompanyFooter(doc, company);
 }
 
 function tableFontSize(rowH: number): number {
@@ -684,7 +701,7 @@ const NET_PAY = {
   wordsLabelSize: 7.5,
   wordsValue: "#094136",
   wordsValueSize: 10,
-  labelBg: "#0d5e4e",
+  labelBg: "#2f6b4f",
   labelText: "#ffffff",
   labelTitleSize: 11,
   labelSubSize: 8,
@@ -700,20 +717,22 @@ const FOOTER = {
   borderWidth: 1,
   padY: 6,
   nameColor: "#144b40",
-  nameSize: 9,
+  nameSize: 8,
   metaColor: "#555555",
-  metaSize: 7.5,
+  metaSize: 6,
   lineGap: 2,
 };
 
-function footerBlockHeight(): number {
+function footerBlockHeight(metaLineCount = 4, includeName = true): number {
+  const nameLines = includeName ? 1 : 0;
+  const totalLines = nameLines + metaLineCount;
   return (
     FOOTER.padY * 2 +
     FOOTER.borderWidth +
-    FOOTER.lineGap * 2 +
-    FOOTER.nameSize +
-    FOOTER.metaSize * 2 +
-    4
+    FOOTER.lineGap * Math.max(0, totalLines - 1) +
+    FOOTER.nameSize * nameLines +
+    FOOTER.metaSize * metaLineCount +
+    2
   );
 }
 
@@ -781,7 +800,7 @@ function measureUniformLabelValueTableLayout(
   colW: number,
   baseLabelW: number,
   baseRowH: number,
-  opts?: { maxLabelShare?: number },
+  opts?: { maxLabelShare?: number; fixedLabelW?: number },
 ): { rowH: number; labelW: number } {
   const fontSize = EMP_INFO.labelFontSize;
   const padX = EMP_INFO.padX;
@@ -789,10 +808,12 @@ function measureUniformLabelValueTableLayout(
   const maxLabelW = Math.floor(colW * (opts?.maxLabelShare ?? 0.48));
 
   doc.font(FONT.bold).fontSize(fontSize);
-  let labelW = baseLabelW;
-  for (const cell of cells) {
-    const singleLineW = doc.widthOfString(cell.label) + padX * 2;
-    labelW = Math.max(labelW, Math.min(Math.ceil(singleLineW), maxLabelW));
+  let labelW = opts?.fixedLabelW ?? baseLabelW;
+  if (opts?.fixedLabelW === undefined) {
+    for (const cell of cells) {
+      const singleLineW = doc.widthOfString(cell.label) + padX * 2;
+      labelW = Math.max(labelW, Math.min(Math.ceil(singleLineW), maxLabelW));
+    }
   }
 
   let rowH = baseRowH;
@@ -896,7 +917,7 @@ function drawCellText(
 }
 
 const COLORS = {
-  sectionHeaderBg: "#1a4d2e",
+  sectionHeaderBg: "#2f6b4f",
   sectionHeaderText: "#ffffff",
   labelText: "#4a7c59",
   valueBold: "#1a4d2e",
@@ -905,7 +926,7 @@ const COLORS = {
   totalsRowBg: "#c8e6c9",
   border: "#b2dfdb",
   borderLight: "#b2dfdb",
-  netPayBg: "#1a4d2e",
+  netPayBg: "#2f6b4f",
   netPayText: "#ffffff",
   amountWordsBg: "#f1f8f2",
   white: "#ffffff",
@@ -1057,37 +1078,14 @@ function drawPayslipTitleBar(
   const h = TITLE_BAR.height;
   doc.rect(x, y, w, h).fill(TITLE_BAR.bg);
 
-  const seg1 = "PAYSLIP";
-  const seg2 = " for the Pay Period of ";
-  const seg3 = payMonth.toUpperCase();
-
-  doc.font(FONT.bold).fontSize(TITLE_BAR.payslipFontSize);
-  const w1 = doc.widthOfString(seg1);
-  doc.font(FONT.regular).fontSize(TITLE_BAR.periodFontSize);
-  const w2 = doc.widthOfString(seg2);
-  doc.font(FONT.bold).fontSize(TITLE_BAR.periodFontSize);
-  const w3 = doc.widthOfString(seg3);
-
-  const totalW = w1 + w2 + w3;
-  let tx = x + (w - totalW) / 2;
-  const ty12 = y + (h - TITLE_BAR.payslipFontSize) / 2 - 1;
-  const ty10 = ty12 + (TITLE_BAR.payslipFontSize - TITLE_BAR.periodFontSize) * 0.72;
+  const title = formatPayslipTitleLabel(payMonth);
+  const ty = y + (h - TITLE_BAR.fontSize) / 2 - 1;
 
   doc
     .fillColor(TITLE_BAR.text)
     .font(FONT.bold)
-    .fontSize(TITLE_BAR.payslipFontSize)
-    .text(seg1, tx, ty12, { lineBreak: false });
-  tx += w1;
-  doc
-    .font(FONT.regular)
-    .fontSize(TITLE_BAR.periodFontSize)
-    .text(seg2, tx, ty10, { lineBreak: false });
-  tx += w2;
-  doc
-    .font(FONT.bold)
-    .fontSize(TITLE_BAR.periodFontSize)
-    .text(seg3, tx, ty10, { lineBreak: false });
+    .fontSize(TITLE_BAR.fontSize)
+    .text(title, x, ty, { width: w, align: "center", lineBreak: false });
 
   doc.fillColor(COLORS.valueBold);
   return y + h;
@@ -1352,16 +1350,6 @@ export async function savePayslipAsPdf(
   const payMonth = safe(company["Pay Month"]);
   const payDate = safe(company["Pay Date"]);
   const companyName = safe(company["Company Name"], "Epical Layouts Pvt Ltd");
-  const addrParts = [
-    company["Address Line 1"],
-    company["Address Line 2"],
-    company["City"],
-    company["State"],
-    company["PIN"],
-  ]
-    .map((p) => safe(p))
-    .filter(Boolean);
-  const addr = addrParts.join(addrParts.length > 2 ? " " : ", ");
 
   const payroll = buildPayslipPayrollSummary(emp, structure, company);
   const { gross, grossYtd, totalDeductions, totalDedYtd, netPay, lopDays, paidDays, workingDays } =
@@ -1399,14 +1387,10 @@ export async function savePayslipAsPdf(
     const infoColW = PAGE.width - logoColW;
     const infoX = PAGE.left + logoColW;
     const pad = HEADER.pad;
-    const infoTextW = infoColW - pad * 2;
     const logoAreaX = PAGE.left + pad;
     const logoAreaW = logoColW - pad * 2;
     const logoAreaY = headerTop + pad;
     const logoAreaH = headerH - pad * 2;
-    const infoXPad = infoX + pad;
-    const infoAreaY = headerTop + pad;
-    const infoAreaH = headerH - pad * 2;
 
     doc.fillColor(HEADER.bg);
     doc.rect(PAGE.left, headerTop, PAGE.width, headerH).fill();
@@ -1445,39 +1429,18 @@ export async function savePayslipAsPdf(
         });
     }
 
-    const regLine = `CIN: ${safe(company["CIN"])}   GSTIN: ${safe(company["GSTIN"])}   PAN: ${safe(company["Company PAN"])}`;
     doc.save();
-    doc.rect(infoXPad, infoAreaY, infoTextW, infoAreaH).clip();
-    let infoY = infoAreaY;
-    doc
-      .fontSize(HEADER.companyNameFontSize)
-      .fillColor(HEADER.companyName)
-      .font(FONT.bold)
-      .text(companyName, infoXPad, infoY, {
-        width: infoTextW,
-        align: "left",
-        lineGap: 0,
-      });
-    infoY = doc.y + 1;
-    doc
-      .fontSize(HEADER.metaFontSize)
-      .fillColor(HEADER.metaText)
-      .font(FONT.regular)
-      .text(regLine, infoXPad, infoY, {
-        width: infoTextW,
-        align: "left",
-        lineGap: 0,
-      });
-    infoY = doc.y + 1;
-    doc
-      .fontSize(HEADER.metaFontSize)
-      .fillColor(HEADER.metaText)
-      .font(FONT.regular)
-      .text(addr, infoXPad, infoY, {
-        width: infoTextW,
-        align: "left",
-        lineGap: 0,
-      });
+    doc.font(FONT.bold).fontSize(HEADER.companyNameFontSize).fillColor(HEADER.companyName);
+    const companyNameH = doc.heightOfString(companyName, {
+      width: infoColW,
+      align: "center",
+    });
+    const companyNameY = headerTop + (headerH - companyNameH) / 2;
+    doc.text(companyName, infoX, companyNameY, {
+      width: infoColW,
+      align: "center",
+      lineGap: 0,
+    });
     doc.restore();
     doc.fillColor(COLORS.valueBold);
 
@@ -1548,15 +1511,45 @@ export async function savePayslipAsPdf(
     ];
 
     const allEmpCells = empBlocks.flatMap((block) => block);
+
+    const taxRegime = safe(
+      emp["Tax Regime"],
+      safe(company["Default Tax Regime"], "New"),
+    );
+    const pan = safe(emp["PAN"]);
+    const aadhaar = safe(emp["Aadhaar"], safe(emp["Aadhaar (last 4)"]));
+    const acNo = maskAccountNumber(
+      safe(emp["A/C No"], safe(emp["Account Number"])),
+    );
+    const bank = safe(emp["Bank"], safe(emp["Bank Name"]));
+    const ifscMode = formatIfscAndMode(emp);
+
+    const statCells: LabelValuePair[] = [
+      { label: "PAN", value: pan },
+      { label: "Aadhaar (last 4)", value: aadhaar },
+      { label: "Bank", value: bank },
+      { label: "Tax Regime", value: taxRegime },
+      { label: "A/C No.", value: acNo },
+      { label: "IFSC / Mode", value: ifscMode },
+    ];
+
+    const unifiedLabelW = measureUniformLabelValueTableLayout(
+      doc,
+      [...allEmpCells, ...statCells],
+      col3W,
+      EMP_INFO.labelW,
+      EMP_INFO.rowH,
+    ).labelW;
     const empLayout = measureUniformLabelValueTableLayout(
       doc,
       allEmpCells,
       col3W,
       EMP_INFO.labelW,
       EMP_INFO.rowH,
+      { fixedLabelW: unifiedLabelW },
     );
     const empRowH = empLayout.rowH;
-    const labelW = empLayout.labelW;
+    const labelW = unifiedLabelW;
     const empTableH = empSecH + empRowCount * empRowH;
     const empCellOpts = { style: "empInfo" as const, uniformText: true };
 
@@ -1621,35 +1614,16 @@ export async function savePayslipAsPdf(
     doc.fillColor(COLORS.valueBold);
     y += statSecH;
 
-    const taxRegime = safe(
-      emp["Tax Regime"],
-      safe(company["Default Tax Regime"], "New"),
-    );
-    const pan = safe(emp["PAN"]);
-    const aadhaar = safe(emp["Aadhaar"], safe(emp["Aadhaar (last 4)"]));
-    const acNo = maskAccountNumber(
-      safe(emp["A/C No"], safe(emp["Account Number"])),
-    );
-    const bank = safe(emp["Bank"], safe(emp["Bank Name"]));
-    const ifscMode = formatIfscAndMode(emp);
-
-    const statCells: LabelValuePair[] = [
-      { label: "PAN", value: pan },
-      { label: "Aadhaar (last 4)", value: aadhaar },
-      { label: "Bank", value: bank },
-      { label: "Tax Regime", value: taxRegime },
-      { label: "A/C No.", value: acNo },
-      { label: "IFSC / Mode", value: ifscMode },
-    ];
     const statLayout = measureUniformLabelValueTableLayout(
       doc,
       statCells,
       statColW,
       EMP_INFO.labelW,
       EMP_INFO.rowH,
+      { fixedLabelW: unifiedLabelW },
     );
     const statRowH = statLayout.rowH;
-    const statLabelW = statLayout.labelW;
+    const statLabelW = unifiedLabelW;
     const statTableH = statSecH + statRowH * 2;
     const statCellOpts = { style: "empInfo" as const, uniformText: true };
 
@@ -1923,9 +1897,7 @@ export async function savePayslipAsPdf(
     drawBottomBand(
       doc,
       netPay,
-      companyName,
-      addr,
-      safe(company["Email"]),
+      company,
       compactLayout,
       netPayBandY,
     );

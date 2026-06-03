@@ -1,33 +1,28 @@
 import { Suspense } from 'react'
 import { Outlet } from 'react-router-dom'
-import { Sidebar } from './Sidebar'
-import { Navbar } from './Navbar'
+import { LoginBackground } from '@components/auth/LoginBackground'
 import { PageLoading } from '@components/layout/PageLoading'
 import { PortalErrorBoundary } from '@components/employee/shared/PortalErrorBoundary'
-import { useUIStore } from '@store/employee/uiStore'
-import { cn } from '@pages/employee/lib/utils'
+import { EmployeeCommandBar } from './EmployeeCommandBar'
+import { EmployeeTopNav } from './EmployeeTopNav'
 
 export function AppLayout() {
-  const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed)
-
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar />
-      <div
-        className={cn(
-          'flex flex-1 flex-col overflow-hidden transition-[padding] duration-300 ease-in-out',
-          sidebarCollapsed ? 'lg:pl-[72px]' : 'lg:pl-[248px]',
-        )}
-      >
-        <Navbar />
-        <main className="employee-portal flex-1 overflow-y-auto p-4 md:p-5 lg:p-6">
+    <div className="employee-portal cmd-portal flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden font-body text-[var(--text-primary)]">
+      <div className="employee-portal-chrome relative z-20 shrink-0">
+        <EmployeeCommandBar />
+        <EmployeeTopNav />
+      </div>
+      <main className="cmd-main relative z-0 flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <LoginBackground variant="admin" />
+        <div className="relative z-[1] flex min-h-0 flex-1 flex-col">
           <PortalErrorBoundary>
             <Suspense fallback={<PageLoading />}>
               <Outlet />
             </Suspense>
           </PortalErrorBoundary>
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   )
 }

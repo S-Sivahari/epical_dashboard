@@ -311,6 +311,13 @@ export async function updateLeaveStatus(
     return existing as LeaveRequest;
   }
 
+  if (status === 'Rejected') {
+    const reason = rejectionReason?.trim();
+    if (!reason) {
+      throw new Error('Rejection reason is required');
+    }
+  }
+
   // If approving, validate the employee has sufficient balance
   if (status === 'Approved') {
     const leave = existing as LeaveRequest;

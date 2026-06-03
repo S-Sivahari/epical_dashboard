@@ -144,9 +144,24 @@ export const newsController = {
       return
     }
     const newsDate = requestedDate || toLocalDateKey(new Date())
+
+    const limitRaw = paramStr(req.query.limit)
+    const parsedLimit = limitRaw ? Number.parseInt(limitRaw, 10) : 10
+    const limit = Number.isFinite(parsedLimit)
+      ? Math.min(100, Math.max(1, parsedLimit))
+      : 10
+
+    const filtersRaw = paramStr(req.query.filters)
+    const filters = filtersRaw
+      ? filtersRaw
+          .split(',')
+          .map((term) => term.trim())
+          .filter(Boolean)
+      : undefined
+
     try {
-      const items = await fetchTopHeadlinesByDate(newsDate, 10)
-      res.json({ date: newsDate, items })
+      const items = await fetchTopHeadlinesByDate(newsDate, { limit, filters })
+      res.json({ date: newsDate, limit, filters: filters ?? [], items })
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to fetch external news'
       res.status(500).json({ error: message })

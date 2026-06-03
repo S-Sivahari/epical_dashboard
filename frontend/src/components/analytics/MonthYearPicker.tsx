@@ -32,7 +32,7 @@ export function MonthYearPicker({ year, month, onChange, id = 'analytics-period'
         Reporting Period
       </label>
       <div className="admin-analytics-period-wrap">
-        <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#06C033]" />
+        <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#2f6b4f]" />
         <input
           id={id}
           type="month"

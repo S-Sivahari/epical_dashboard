@@ -36,11 +36,11 @@ export function DashboardHome() {
       layout: 'minimal' as const,
     },
     {
-      label: 'Pending leaves',
-      value: data.pendingLeavesCount,
+      label: 'Pending tickets',
+      value: data.pendingTicketsCount,
       icon: ClipboardList,
       tone: 'amber' as const,
-      route: ROUTES.LEAVES,
+      route: ROUTES.TICKETS,
       layout: 'minimal' as const,
     },
     {

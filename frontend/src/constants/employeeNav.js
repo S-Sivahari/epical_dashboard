@@ -1,3 +1,5 @@
+import { getEmployeePageTitle } from '@constants/employeeNavigation'
+
 export const employeeNavItems = [
   {
     to: '/employee',
@@ -89,35 +91,8 @@ export const employeeNavGroups = [
 
 export function getEmployeePageHeader(pathname) {
   const normalized = pathname.replace(/\/+$/, '') || '/employee'
-
-  if (normalized === '/employee/profile') {
-    return {
-      title: 'My Profile',
-      showWelcomeSubtitle: false,
-    }
-  }
-
-  if (normalized === '/employee') {
-    return {
-      title: 'Employee Portal',
-      showWelcomeSubtitle: true,
-    }
-  }
-
-  const match = [...employeeNavItems]
-    .filter((item) => item.to !== '/employee')
-    .sort((a, b) => b.to.length - a.to.length)
-    .find((item) => normalized === item.to || normalized.startsWith(`${item.to}/`))
-
-  if (match) {
-    return {
-      title: match.headerTitle ?? match.label,
-      showWelcomeSubtitle: false,
-    }
-  }
-
   return {
-    title: 'Employee Portal',
+    title: getEmployeePageTitle(normalized),
     showWelcomeSubtitle: false,
   }
 }
