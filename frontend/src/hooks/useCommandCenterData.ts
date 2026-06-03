@@ -96,6 +96,7 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
     (d: DocumentRequestRecord) => d.status === 'Requested',
   ) as DocumentRequestRecord[]
   const pendingTickets = tickets.filter((t) => t.status === 'Pending' || t.status === 'In Progress')
+  const pendingTicketsCount = tickets.filter((t) => t.status === 'Pending').length
 
   const chartData = useMemo(
     () => aggregateChartData(timesheets, chartPeriod),
@@ -297,6 +298,7 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
     pendingRequestsCount: pendingLeaves.length + pendingDocs.length + pendingTickets.length,
     companyHealthScore,
     pendingLeavesCount: pendingLeaves.length,
+    pendingTicketsCount,
     chartData,
     chartPeriod,
     totalPeriodHours,
