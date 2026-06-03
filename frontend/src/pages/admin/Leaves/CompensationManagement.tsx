@@ -6,7 +6,7 @@ import { Input } from '@components/ui/Input'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { DataTable, type Column } from '@components/tables/DataTable'
 import { useEmployees } from '@hooks/useEmployees'
-import { Search, Trash2, Edit2, ChevronDown, Plus, Check } from 'lucide-react'
+import { Search, Trash2, Edit2, ChevronDown, Check } from 'lucide-react'
 import {
   listCompensation,
   createCompensation,

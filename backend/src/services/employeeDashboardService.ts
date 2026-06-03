@@ -141,13 +141,19 @@ export async function getEmployeeDashboardBundle(userId: string, userEmail?: str
 
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
+  const holidayWindowEnd = new Date(todayStart);
+  holidayWindowEnd.setDate(holidayWindowEnd.getDate() + 30);
   const upcomingHolidays = holidays
     .filter((h) => {
       const d = new Date(h.date);
-      return !Number.isNaN(d.getTime()) && d >= todayStart && !h.skipped;
+      return (
+        !Number.isNaN(d.getTime()) &&
+        d >= todayStart &&
+        d <= holidayWindowEnd &&
+        !h.skipped
+      );
     })
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .slice(0, 8);
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   return {
     profile: profile ? sanitizeEmployeeForDetail(profile) : null,

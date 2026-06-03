@@ -13,8 +13,6 @@ import { X, ChevronLeft, ChevronRight, Check, AlertTriangle, ShieldCheck, UserCh
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { EmployeeLeaveProfileModal } from './EmployeeLeaveProfileModal'
 
-const LEAVE_TYPES = ['Sick Leave', 'Casual Leave', 'Earned Leave']
-
 type StatusType = 'Pending' | 'Approved' | 'Rejected'
 
 const ITEMS_PER_PAGE = 8

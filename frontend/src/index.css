@@ -1,5 +1,6 @@
 @import './styles/typography.css';
 @import './styles/employee-timesheet.css';
+@import './styles/employee-leave.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -3440,7 +3441,7 @@
   display: inline-flex;
   height: 1.75rem;
   width: 1.75rem;
-  shrink: 0;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   border-radius: 0.5rem;
@@ -3468,7 +3469,7 @@
   display: inline-flex;
   height: 2rem;
   width: 2rem;
-  shrink: 0;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   border-radius: 0.625rem;
@@ -3943,135 +3944,73 @@
   padding: 0.25rem 0.5rem;
 }
 
-<<<<<<< HEAD
-/* ── Projects hub: full-width light green layout ── */
-=======
 /* â”€â”€ Projects hub: dark / light green layout â”€â”€ */
->>>>>>> 863cf38d8f3c341610d55594dbd7f4859b47d6e9
 .admin-portal .admin-projects-view.crewiq-dashboard {
-  background: linear-gradient(180deg, #f5faf6 0%, #edf4ee 100%);
-  min-height: 100vh;
-}
-
-/* Override PageWrapper max-width so the projects page fills the entire available area */
-.admin-projects-view .projects-page-wrapper {
-  max-width: 100% !important;
-  padding-left: 1.5rem;
-  padding-right: 1.5rem;
-}
-
-@media (min-width: 1280px) {
-  .admin-projects-view .projects-page-wrapper {
-    padding-left: 2rem;
-    padding-right: 2rem;
-  }
-}
-
-@media (min-width: 1536px) {
-  .admin-projects-view .projects-page-wrapper {
-    padding-left: 2.5rem;
-    padding-right: 2.5rem;
-  }
+  background: var(--dash-canvas);
 }
 
 .admin-projects-view .projects-shell {
   display: flex;
   flex-direction: column;
-  gap: 0.875rem;
-  padding-bottom: 2rem;
-  max-width: 100%;
-  width: 100%;
+  gap: 0.625rem;
+  padding-bottom: 1.5rem;
 }
 
-/* Page Header & Workspace Summary Layout */
-.admin-projects-view .projects-page-header {
+.admin-projects-view .projects-hero {
+  overflow: hidden;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(20, 83, 45, 0.35);
+  background: linear-gradient(135deg, #266b1c 0%, var(--emerald-dark) 42%, #266b1c 100%);
+  box-shadow: 0 6px 20px -8px rgba(20, 83, 45, 0.45);
+}
+
+.admin-projects-view .projects-hero-top {
   display: flex;
-  flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-start;
-  gap: 3.5rem;
-  padding: 0.25rem 0 0.5rem 0;
-  margin-bottom: 0;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  padding: 0.625rem 1rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-@media (max-width: 768px) {
-  .admin-projects-view .projects-page-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.75rem;
-  }
-}
-
-.admin-projects-view .projects-header-left {
-  flex: 0 1 auto;
-}
-
-.admin-projects-view .projects-header-title {
-  font-size: 1.75rem;
+.admin-projects-view .projects-hero-title {
+  font-size: 0.9375rem;
   font-weight: 800;
-  color: var(--emerald-dark);
   letter-spacing: -0.02em;
-  line-height: 1.1;
-  margin-bottom: 0.125rem;
+  line-height: 1.2;
+  color: #ffffff;
 }
 
-.admin-projects-view .projects-header-subtitle {
-  margin-top: 0.25rem;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: #64748b;
+.admin-projects-view .projects-hero-sub {
+  display: none;
 }
 
-/* Top Right Workspace Summary Panel */
-.admin-projects-view .workspace-summary-panel {
-  display: flex;
-  align-items: center;
-  gap: 1.75rem;
-  padding: 1.125rem 1.75rem;
-  background: linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(248,250,252,0.95) 100%);
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 16px;
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.04),
-    0 4px 16px rgba(59, 130, 246, 0.05);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  animation: panelSlideIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+.admin-projects-view .projects-tab-rail {
+  display: inline-flex;
+  gap: 0.125rem;
+  padding: 0.125rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.22);
 }
 
-@keyframes panelSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.admin-projects-view .projects-tab-inactive {
+  color: rgba(255, 255, 255, 0.78);
+  transition: background 0.18s ease, color 0.18s ease;
 }
 
-.admin-projects-view .workspace-summary-circle {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+.admin-projects-view .projects-tab-inactive:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
 }
 
-.admin-projects-view .workspace-summary-label {
-  font-size: 9px;
-  font-weight: 750;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #557557;
-}
-
-/* Metrics Band */
 .admin-projects-view .projects-metrics-band {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
-  margin-bottom: 0.5rem;
+  gap: 0.375rem;
+  padding: 0.375rem 1rem 0.5rem;
+  background: rgba(0, 0, 0, 0.14);
 }
 
 @media (max-width: 768px) {
@@ -4080,20 +4019,40 @@
   }
 }
 
-.admin-projects-view .metric-card {
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(38, 107, 28, 0.12);
-  border-radius: 14px;
-  box-shadow: 0 1px 2px rgba(38, 107, 28, 0.04), 0 4px 12px -2px rgba(38, 107, 28, 0.05);
-  padding: 1.25rem 1.5rem;
-  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease, border-color 0.22s ease;
+.admin-projects-view .projects-metric-glass {
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.625rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: background 0.2s ease;
 }
 
-.admin-projects-view .metric-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px -6px rgba(38, 107, 28, 0.12), 0 2px 6px rgba(38, 107, 28, 0.06);
-  border-color: rgba(38, 107, 28, 0.28);
-  background: #ffffff;
+.admin-projects-view .projects-metric-glass:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: none;
+}
+
+.admin-projects-view .projects-metric-label {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.admin-projects-view .projects-metric-value {
+  margin-top: 0.125rem;
+  font-size: 1.125rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-projects-view .projects-metric-sub {
+  display: none;
 }
 
 .admin-projects-view .projects-body-grid {
@@ -4105,283 +4064,141 @@
 
 @media (min-width: 1024px) {
   .admin-projects-view .projects-body-grid {
-    grid-template-columns: minmax(280px, 300px) minmax(0, 1fr);
-    align-items: stretch;
+    grid-template-columns: minmax(260px, 290px) minmax(0, 1fr);
   }
 }
 
-/* Premium Sidebar Layout */
 .admin-projects-view .projects-sidebar {
-  border-radius: 16px;
-  border: 1px solid rgba(38, 107, 28, 0.14);
-  background: rgba(255, 255, 255, 0.85);
-  padding: 1.5rem;
-  box-shadow: 0 4px 16px -4px rgba(38, 107, 28, 0.08);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  height: fit-content;
+  border-radius: 1rem;
+  border: 1px solid rgba(20, 83, 45, 0.22);
+  background: linear-gradient(180deg, var(--emerald-surface) 0%, rgba(220, 252, 231, 0.55) 100%);
+  padding: 1rem;
+  box-shadow: var(--shadow-card);
 }
 
 @media (min-width: 1024px) {
   .admin-projects-view .projects-sidebar {
     position: sticky;
-    top: 5rem;
-    align-self: start;
+    top: 4.5rem;
   }
 }
 
 .admin-projects-view .projects-sidebar-title {
+  margin-bottom: 0.75rem;
   font-size: 11px;
-  font-weight: 750;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #557557;
-  margin-bottom: 0.875rem;
-}
-
-/* Sidebar Navigation Option List */
-.admin-projects-view .sidebar-nav-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-}
-
-.admin-projects-view .sidebar-nav-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.625rem 0.875rem;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 650;
-  color: #3b5c3d;
-  transition: all 0.2s ease;
-}
-
-.admin-projects-view .sidebar-nav-item:hover {
-  background: rgba(38, 107, 28, 0.06);
   color: var(--emerald-dark);
 }
 
-.admin-projects-view .sidebar-nav-item.active {
-  background: rgba(38, 107, 28, 0.1);
-  color: var(--emerald-dark);
-}
-
-.admin-projects-view .sidebar-nav-badge {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 0.1875rem 0.5rem;
-  border-radius: 9999px;
-  background: rgba(38, 107, 28, 0.12);
-  color: var(--emerald-dark);
-}
-
-.admin-projects-view .sidebar-nav-item.active .sidebar-nav-badge {
-  background: var(--emerald-dark);
-  color: #ffffff;
-}
-
-/* Move Create Button inside Sidebar */
-.admin-projects-view .sidebar-create-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  background: var(--emerald-dark) !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 13px;
-  font-weight: 700;
-  border-radius: 10px;
-  height: 2.5rem;
-  box-shadow: 0 4px 12px rgba(38, 107, 28, 0.2);
-  transition: all 0.22s ease;
-}
-
-.admin-projects-view .sidebar-create-btn:hover {
-  background: #1e5215 !important;
-  box-shadow: 0 6px 16px rgba(38, 107, 28, 0.3);
-  transform: translateY(-1px);
-}
-
-.admin-projects-view .sidebar-create-btn:active {
-  transform: translateY(0);
-}
-
-/* Main Content Panel */
 .admin-projects-view .projects-main-panel {
-  min-height: 100%;
-  border-radius: 16px;
-  border: 1px solid rgba(38, 107, 28, 0.14);
-  background: rgba(255, 255, 255, 0.95);
-  padding: 1.75rem 2rem;
-  box-shadow: 0 4px 16px -4px rgba(38, 107, 28, 0.08);
-  display: flex;
-  flex-direction: column;
+  min-height: 420px;
+  border-radius: 1rem;
+  border: 1px solid rgba(20, 83, 45, 0.18);
+  background: linear-gradient(180deg, #ffffff 0%, rgba(240, 253, 244, 0.88) 100%);
+  padding: 1rem;
+  box-shadow: var(--shadow-card);
 }
 
 .admin-projects-view .projects-main-header {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid rgba(38, 107, 28, 0.12);
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid rgba(20, 83, 45, 0.12);
 }
 
-/* Modernized Grid Cards */
 .admin-projects-view .projects-card {
-  border: 1px solid rgba(16, 185, 129, 0.12);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.75);
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(20, 83, 45, 0.22);
+  border-left: 4px solid var(--emerald-dark);
+  background: linear-gradient(145deg, #ffffff 0%, var(--emerald-surface) 100%);
+  box-shadow: 0 2px 12px -4px rgba(20, 83, 45, 0.18);
 }
 
 .admin-projects-view .projects-card:hover {
-  border-color: rgba(16, 185, 129, 0.25);
-  box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.08), 0 8px 10px -6px rgba(16, 185, 129, 0.08);
-  transform: translateY(-2px);
-  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(20, 83, 45, 0.35);
+  box-shadow: 0 8px 24px -8px rgba(20, 83, 45, 0.28);
 }
 
-/* View Selector Options */
-.admin-projects-view .projects-view-toggle {
-  display: flex;
-  padding: 0.25rem;
-  border-radius: 10px;
-  border: 1px solid rgba(38, 107, 28, 0.16);
-  background: rgba(38, 107, 28, 0.05);
-  gap: 0.25rem;
-}
-
-.admin-projects-view .projects-view-toggle button {
-  flex: 1;
-  padding: 0.625rem 1rem;
-  font-size: 12px;
-  font-weight: 700;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-  color: #3b5c3d;
-  background: transparent;
-}
-
-.admin-projects-view .projects-view-toggle button:hover {
-  background: rgba(38, 107, 28, 0.08);
-  color: var(--emerald-dark);
-}
-
-.admin-projects-view .projects-view-toggle button.active {
-  background: var(--emerald-dark) !important;
-  color: #ffffff;
-  box-shadow: 0 2px 8px rgba(38, 107, 28, 0.25);
-}
-
-/* Styled Table View */
 .admin-projects-view .projects-table-shell {
   overflow: hidden;
-  border-radius: 12px;
-  border: 1px solid rgba(38, 107, 28, 0.14);
+  border-radius: 0.75rem;
+  border: 1px solid rgba(20, 83, 45, 0.22);
   background: #ffffff;
 }
 
-.admin-projects-view .projects-table-shell thead tr,
-.admin-projects-view .projects-ts-table-wrap thead tr {
-  background: rgba(38, 107, 28, 0.05);
-  border-bottom: 1px solid rgba(38, 107, 28, 0.14);
+.admin-projects-view .projects-table-shell thead tr {
+  background: linear-gradient(180deg, var(--emerald-dark) 0%, #1f5516 100%);
 }
 
-.admin-projects-view .projects-table-shell thead th,
-.admin-projects-view .projects-ts-table-wrap thead th {
-  color: #3b5c3d !important;
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: 9.5px;
-  letter-spacing: 0.05em;
-  padding: 0.75rem 1.25rem;
+.admin-projects-view .projects-table-shell thead th {
+  color: rgba(255, 255, 255, 0.92) !important;
 }
 
-.admin-projects-view .projects-table-shell tbody tr,
-.admin-projects-view .projects-ts-table-wrap tbody tr {
-  border-bottom: 1px solid rgba(38, 107, 28, 0.06);
-  transition: background-color 0.15s ease;
-}
-
-.admin-projects-view .projects-table-shell tbody tr:hover,
-.admin-projects-view .projects-ts-table-wrap tbody tr:hover {
-  background-color: rgba(38, 107, 28, 0.03);
-}
-
-.admin-projects-view .projects-table-shell tbody td,
-.admin-projects-view .projects-ts-table-wrap tbody td {
-  padding: 0.875rem 1.25rem;
-}
-
-/* Timesheets Filter Toolbar */
 .admin-projects-view .projects-ts-filters {
-  border-radius: 16px;
-  border: 1px solid rgba(38, 107, 28, 0.14);
-  background: rgba(255, 255, 255, 0.9);
-  padding: 1.5rem;
-  box-shadow: 0 4px 16px -4px rgba(38, 107, 28, 0.08);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  border-radius: 1rem;
+  border: 1px solid rgba(20, 83, 45, 0.22);
+  background: linear-gradient(180deg, var(--emerald-surface) 0%, rgba(187, 247, 208, 0.45) 100%);
+  padding: 1rem 1.25rem;
+  box-shadow: var(--shadow-card);
 }
 
-/* Analytics Panels styling */
 .admin-projects-view .projects-analytics-card {
   overflow: hidden;
-  border-radius: 16px;
-  border: 1px solid rgba(38, 107, 28, 0.14);
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 4px 16px -4px rgba(38, 107, 28, 0.08);
+  border-radius: 1rem;
+  border: 1px solid rgba(20, 83, 45, 0.25);
+  background: #ffffff;
+  box-shadow: var(--shadow-card);
 }
 
 .admin-projects-view .projects-analytics-head {
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid rgba(38, 107, 28, 0.1);
-  background: rgba(38, 107, 28, 0.03);
-  color: var(--emerald-dark);
+  padding: 0.875rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, var(--emerald-dark) 0%, #1f5516 100%);
+  color: #ffffff;
 }
 
 .admin-projects-view .projects-analytics-head h3 {
-  color: var(--emerald-dark) !important;
+  color: #ffffff !important;
 }
 
 .admin-projects-view .projects-analytics-head span {
-  color: #557557 !important;
+  color: rgba(255, 255, 255, 0.7) !important;
 }
 
 .admin-projects-view .projects-analytics-body {
   padding: 1.25rem;
-  background: #ffffff;
+  background: linear-gradient(180deg, rgba(240, 253, 244, 0.55) 0%, #ffffff 100%);
 }
 
 .admin-projects-view .projects-ts-table-wrap {
   overflow: hidden;
-  border-radius: 16px;
-  border: 1px solid rgba(38, 107, 28, 0.14);
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 4px 16px -4px rgba(38, 107, 28, 0.08);
+  border-radius: 1rem;
+  border: 1px solid rgba(20, 83, 45, 0.22);
+  background: linear-gradient(180deg, #ffffff 0%, rgba(240, 253, 244, 0.75) 100%);
+  box-shadow: var(--shadow-card);
+}
+
+.admin-projects-view .projects-ts-table-wrap thead tr {
+  background: linear-gradient(180deg, var(--emerald-dark) 0%, #1f5516 100%);
+}
+
+.admin-projects-view .projects-ts-table-wrap thead th {
+  color: rgba(255, 255, 255, 0.92) !important;
 }
 
 .admin-projects-view .projects-pagination-bar {
-  margin-top: 1.25rem;
-  padding: 0.75rem 1.25rem;
-  border-radius: 10px;
-  border: 1px solid rgba(38, 107, 28, 0.12);
-  background: rgba(38, 107, 28, 0.04);
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(20, 83, 45, 0.15);
+  background: var(--emerald-surface);
 }
 
-<<<<<<< HEAD
-/* Date range picker trigger */
-=======
 .admin-projects-view .projects-view-toggle {
   display: flex;
   padding: 0.2rem;
@@ -4391,218 +4208,118 @@
 }
 
 /* â”€â”€ Projects date-range calendar (green theme) â”€â”€ */
->>>>>>> 863cf38d8f3c341610d55594dbd7f4859b47d6e9
 .admin-projects-view .projects-date-trigger {
-  border-color: rgba(38, 107, 28, 0.24);
-  background: #ffffff;
-  box-shadow: 0 1px 3px rgba(38, 107, 28, 0.08);
-  color: var(--emerald-dark);
-  font-weight: 700;
+  border-color: rgba(20, 83, 45, 0.28);
+  background: linear-gradient(180deg, var(--emerald-surface) 0%, rgba(220, 252, 231, 0.75) 100%);
 }
 
 .admin-projects-view .projects-date-trigger:hover {
-  border-color: rgba(38, 107, 28, 0.4);
-  background: rgba(38, 107, 28, 0.04);
-  box-shadow: 0 2px 6px rgba(38, 107, 28, 0.12);
+  border-color: rgba(20, 83, 45, 0.4);
+  background: linear-gradient(180deg, rgba(220, 252, 231, 0.95) 0%, rgba(187, 247, 208, 0.55) 100%);
 }
 
-/* Calendar Portal Container */
-.projects-date-calendar-portal {
-  pointer-events: none;
-  z-index: 10000;
+.admin-projects-view .projects-date-calendar {
+  border: 1px solid rgba(20, 83, 45, 0.28);
+  background: linear-gradient(165deg, #ecfdf5 0%, #ffffff 48%, rgba(220, 252, 231, 0.55) 100%);
+  box-shadow: 0 14px 44px -14px rgba(20, 83, 45, 0.4);
 }
 
-.projects-date-calendar {
-  border: 1px solid rgba(38, 107, 28, 0.15);
-  background: #ffffff !important;
-  box-shadow: 
-    0 10px 25px -5px rgba(0, 0, 0, 0.05),
-    0 8px 16px -6px rgba(38, 107, 28, 0.04),
-    0 0 0 1px rgba(38, 107, 28, 0.05);
-  pointer-events: auto;
-  position: absolute;
-  isolation: isolate;
-  will-change: transform;
-  border-radius: 16px;
-  overflow: hidden;
+.admin-projects-view .projects-date-calendar-header {
+  background: linear-gradient(180deg, var(--emerald-dark) 0%, #1f5516 100%);
+  box-shadow: 0 2px 8px rgba(20, 83, 45, 0.25);
 }
 
-.projects-date-calendar * {
-  background-clip: padding-box;
-}
-
-.projects-date-calendar > div {
-  background: transparent;
-}
-
-/* Add subtle green tone to calendar grid container */
-.projects-date-calendar .flex-1.select-none {
-  background: #ffffff;
-  padding: 1rem;
-  border-radius: 12px;
-}
-
-/* Header styling with dark green gradient, white text */
-.projects-date-calendar-header {
-  background: linear-gradient(135deg, #1b4d14 0%, #2e7d24 100%) !important;
-  box-shadow: 0 4px 12px rgba(38, 107, 28, 0.15);
-  border-radius: 10px;
-  padding: 0.5rem 0.75rem;
-  margin-bottom: 0.875rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.projects-date-calendar-header .date-range-month-title {
+.admin-projects-view .projects-date-calendar-header .date-range-month-title {
   color: #ffffff !important;
-  font-weight: 800 !important;
-  font-size: 13px !important;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  font-weight: 700;
 }
 
-.projects-date-nav-btn {
-  color: rgba(255, 255, 255, 0.95);
-  background: rgba(255, 255, 255, 0.1) !important;
-  transition: all 0.2s ease;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+.admin-projects-view .projects-date-nav-btn {
+  color: rgba(255, 255, 255, 0.85);
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
-.projects-date-nav-btn:hover {
-  background: rgba(255, 255, 255, 0.25) !important;
+.admin-projects-view .projects-date-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
   color: #ffffff;
-  transform: scale(1.05);
 }
 
-/* Weekday header row */
-.projects-date-weekdays {
-  padding: 0.4rem 0;
-  background: #f1f8f3 !important;
-  border-radius: 8px;
-  border-bottom: 1px solid rgba(38, 107, 28, 0.08);
-  margin-bottom: 0.5rem;
+.admin-projects-view .projects-date-weekdays {
+  padding: 0.25rem 0;
+  border-radius: 0.5rem;
+  background: rgba(20, 83, 45, 0.07);
+  color: var(--emerald-dark) !important;
+  font-weight: 700;
 }
 
-.projects-date-weekdays span {
-  color: #2e7d24 !important;
-  font-weight: 700 !important;
-  font-size: 10.5px !important;
-  text-transform: uppercase;
+.admin-projects-view .projects-date-weekdays span {
+  color: var(--emerald-dark);
 }
 
-/* Redesigned date cells */
-.projects-date-day {
-  height: 32px !important;
-  width: 32px !important;
-  border-radius: 8px !important;
-  font-size: 11px !important;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.admin-projects-view .projects-date-day-current {
+  color: var(--emerald-dark);
 }
 
-.projects-date-day-current {
-  color: #0f172a !important;
-  font-weight: 600 !important;
-  background: transparent;
+.admin-projects-view .projects-date-day-current:hover {
+  background: rgba(187, 247, 208, 0.65);
+  color: #1f5516;
 }
 
-.projects-date-day-current:hover {
-  background: #e8f5e9 !important;
-  color: #1b4d14 !important;
-  transform: translateY(-1px);
+.admin-projects-view .projects-date-day-muted {
+  color: rgba(20, 83, 45, 0.38);
 }
 
-.projects-date-day-muted {
-  color: #94a3b8 !important;
-  font-weight: 400 !important;
-  background: transparent;
+.admin-projects-view .projects-date-day-muted:hover {
+  background: rgba(220, 252, 231, 0.55);
+  color: var(--emerald-dark);
 }
 
-.projects-date-day-muted:hover {
-  background: #f1f5f9 !important;
-  color: #475569 !important;
-}
-
-/* Selected Date with Premium Green Fill */
-.projects-date-day-selected {
-  background: #2e7d24 !important;
+.admin-projects-view .projects-date-day-selected {
+  background: linear-gradient(180deg, var(--emerald-dark) 0%, #1f5516 100%) !important;
   color: #ffffff !important;
-  box-shadow: 0 4px 10px rgba(46, 125, 36, 0.35) !important;
-  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(20, 83, 45, 0.35);
 }
 
-.projects-date-day-selected:hover {
-  background: #1b4d14 !important;
+.admin-projects-view .projects-date-day-in-range {
+  background: rgba(187, 247, 208, 0.55) !important;
+  color: var(--emerald-dark) !important;
+  border-radius: 0 !important;
+}
+
+.admin-projects-view .projects-date-hint {
+  color: rgba(20, 83, 45, 0.65);
+}
+
+.admin-projects-view .projects-date-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 0.25rem 0;
+  background: linear-gradient(180deg, transparent, rgba(20, 83, 45, 0.22), transparent);
+}
+
+.admin-projects-view .projects-date-presets {
+  padding-left: 0.25rem;
+}
+
+.admin-projects-view .projects-date-presets .type-card-label-caps {
+  color: var(--emerald-dark);
+  font-weight: 800;
+}
+
+.admin-projects-view .projects-date-preset {
+  color: rgba(20, 83, 45, 0.72);
+}
+
+.admin-projects-view .projects-date-preset:hover {
+  background: rgba(220, 252, 231, 0.65);
+  color: var(--emerald-dark);
+}
+
+.admin-projects-view .projects-date-preset-active {
+  background: linear-gradient(180deg, var(--emerald-dark) 0%, #1f5516 100%);
   color: #ffffff !important;
-}
-
-/* In Range selection block style */
-.projects-date-day-in-range {
-  background: #e8f5e9 !important;
-  color: #2e7d24 !important;
-  border-radius: 0px !important;
-  font-weight: 600 !important;
-}
-
-/* Outline style for Today */
-.projects-date-day-today {
-  border: 1.5px solid #2e7d24 !important;
-  color: #2e7d24 !important;
-  font-weight: 700 !important;
-}
-
-/* Premium hint area */
-.projects-date-hint {
-  color: #475569 !important;
-  background: #f1f8f3 !important;
-  padding: 0.5rem 0.75rem;
-  border-radius: 8px;
-  font-weight: 500 !important;
-  border: 1px solid rgba(38, 107, 28, 0.06);
-}
-
-/* Presets Panel redesign */
-.projects-date-presets {
-  background: #f9fbf9 !important;
-  padding: 1rem;
-  border-left: 1px solid rgba(38, 107, 28, 0.08);
-  display: flex;
-  flex-direction: col;
-}
-
-.projects-date-presets .type-card-label-caps {
-  color: #1b4d14 !important;
-  font-weight: 800 !important;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.5rem;
-}
-
-.projects-date-preset {
-  color: #475569 !important;
-  font-weight: 600 !important;
-  font-size: 11px !important;
-  padding: 0.45rem 0.75rem !important;
-  border-radius: 6px !important;
-  background: transparent;
-  transition: all 0.2s ease;
-  border: 1px solid transparent;
-  text-align: left;
-}
-
-.projects-date-preset:hover {
-  background: #e8f5e9 !important;
-  color: #2e7d24 !important;
-  border-color: rgba(38, 107, 28, 0.08);
-}
-
-.projects-date-preset-active {
-  background: #2e7d24 !important;
-  color: #ffffff !important;
-  font-weight: 700 !important;
-  box-shadow: 0 2px 6px rgba(46, 125, 36, 0.2) !important;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(20, 83, 45, 0.28);
 }
 
 /* â”€â”€ Admin Company Calendar â€” dashboard theme + 125% scale â”€â”€ */
@@ -11644,7 +11361,7 @@ input[type='number'] {
 
 .cmd-nav-icon-wrap {
   display: flex;
-  shrink: 0;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
 }

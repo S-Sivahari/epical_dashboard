@@ -15,7 +15,6 @@ export function NotificationBell() {
     fetchNotificationsSilent,
     fetchUnreadCount,
     fetchUnreadCountSilent,
-    markAsRead,
     markAllAsRead,
     deleteNotification,
   } = useNotificationStore()
