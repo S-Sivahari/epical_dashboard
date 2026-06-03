@@ -86,9 +86,11 @@ export function employeeToExportRow(employee: Employee): EmployeeExportRow {
   }
 }
 
+export const ACTIVE_DIRECTORY_REPORT_TITLE = 'Employee Active Directory Report'
+
 export const ACTIVE_DIRECTORY_REPORT_OPTIONS = {
-  reportTitle: 'Employee Details Report',
-  sheetName: 'Employee Details',
+  reportTitle: ACTIVE_DIRECTORY_REPORT_TITLE,
+  sheetName: 'Active Directory',
   employeePdfStyle: true,
 }
 
