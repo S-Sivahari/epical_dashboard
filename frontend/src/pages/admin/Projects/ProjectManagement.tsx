@@ -1156,7 +1156,7 @@ export function ProjectManagement() {
 
   // ── Projects Pagination States ──────────────────────────────
   const [projectsCurrentPage, setProjectsCurrentPage] = useState(1)
-  const projectsPerPage = 9
+  const projectsPerPage = 12
 
   // ── Timesheets Pagination States ────────────────────────────
   const [timesheetsCurrentPage, setTimesheetsCurrentPage] = useState(1)
@@ -2290,21 +2290,18 @@ export function ProjectManagement() {
   return (
     <div className="crewiq-dashboard admin-projects-view">
       <div className="crewiq-dash-bg" aria-hidden />
-      <PageWrapper className="projects-page-wrapper relative z-10 py-3 font-body">
+      <PageWrapper className="projects-page-wrapper relative z-10 py-3 font-body !max-w-none w-full !px-4 lg:!px-8">
         <div className="projects-shell animate-fadeIn">
           
           {/* Modern Enterprise Hero Section - Horizontal Layout with Dark Forest Green */}
           <div className="projects-hero-section mb-6 rounded-2xl border border-white/20 bg-gradient-to-r from-[#1e5a3d] via-[#236b48] to-[#276749] px-8 py-5 shadow-lg">
-            <div className="flex items-center justify-between gap-8">
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-6 lg:gap-12 xl:gap-16">
               
-              {/* Left: Title & Subtitle (35%) */}
-              <div className="flex-[0_0_35%]">
-                <h1 className="text-3xl font-black text-white leading-tight mb-1.5 tracking-tight" style={{ color: '#FFFFFF' }}>
+              {/* Left: Title */}
+              <div className="flex-1 lg:flex-[0_0_30%] text-center lg:text-left">
+                <h1 className="text-3xl font-black text-white leading-tight tracking-tight" style={{ color: '#FFFFFF' }}>
                   Projects & Timesheets
                 </h1>
-                <p className="text-sm font-medium text-emerald-50/90 leading-relaxed">
-                  Manage projects, review logs, and track team hours in one place
-                </p>
               </div>
               
               {/* Vertical Separator */}
@@ -2525,7 +2522,7 @@ export function ProjectManagement() {
                 onClick={() => setWorkspaceTab('projects')}
                 className={`sidebar-nav-item ${activeTab === 'projects' ? 'active' : ''}`}
               >
-                <FolderOpen className="h-4 w-4" />
+                <FolderOpen className="h-4 w-4 mr-3" />
                 <span className="flex-1 text-left">Projects</span>
                 <span className="sidebar-nav-badge">{filteredProjects.length}</span>
               </button>
@@ -2533,7 +2530,7 @@ export function ProjectManagement() {
                 onClick={() => setWorkspaceTab('timesheets')}
                 className={`sidebar-nav-item ${activeTab === 'timesheets' ? 'active' : ''}`}
               >
-                <Clock className="h-4 w-4" />
+                <Clock className="h-4 w-4 mr-3" />
                 <span className="flex-1 text-left">Timesheets</span>
                 <span className="sidebar-nav-badge">{filteredTimesheets.length}</span>
               </button>
@@ -2542,14 +2539,14 @@ export function ProjectManagement() {
                 onClick={() => setWorkspaceTab('analytics')}
                 className={`sidebar-nav-item ${activeTab === 'analytics' ? 'active' : ''}`}
               >
-                <BarChart3 className="h-4 w-4" />
+                <BarChart3 className="h-4 w-4 mr-3" />
                 <span className="flex-1 text-left">Analytics</span>
               </button>
               <button
                 onClick={() => setArchivedModalOpen(true)}
                 className="sidebar-nav-item"
               >
-                <Archive className="h-4 w-4" />
+                <Archive className="h-4 w-4 mr-3" />
                 <span className="flex-1 text-left">Archived</span>
                 <span className="sidebar-nav-badge">{archivedCount}</span>
               </button>
@@ -2800,7 +2797,7 @@ export function ProjectManagement() {
               {viewMode === 'grid' ? (
                 <>
                   {filteredProjects.length > 0 ? (
-                    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid gap-4 grid-cols-3 w-full">
                       {currentProjects.map((p) => (
                         <ProjectCard
                           key={p.id}
@@ -2915,9 +2912,6 @@ export function ProjectManagement() {
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
                 <div>
                   <h2 className="font-display text-lg font-bold text-[var(--emerald-dark)]">Timesheet Records</h2>
-                  <p className="text-xs font-medium text-slate-600 mt-0.5">
-                    {filteredTimesheets.length} log{filteredTimesheets.length === 1 ? '' : 's'} matching criteria
-                  </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -2981,13 +2975,13 @@ export function ProjectManagement() {
           {/* Analytics panels */}
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="projects-analytics-card">
-              <div className="projects-analytics-head mb-0 flex items-center justify-between gap-2 border-b-0 pb-0">
-                <h3 className="type-card-label-caps flex items-center gap-2 font-extrabold">
+              <div className="projects-analytics-head mb-0 flex items-center justify-between gap-2 border-b-0 pb-0 bg-gradient-to-r from-[#1e5a3d] via-[#236b48] to-[#276749] px-5 py-3 rounded-t-2xl">
+                <h3 className="type-card-label-caps flex items-center gap-2 font-extrabold text-white">
                   <span className="h-3.5 w-1 shrink-0 rounded-full bg-white/80" />
                   Aggregated Hours by Project
                 </h3>
                 {derivedHoursByProject.length > 0 && (
-                  <span className="text-xs text-slate-450 font-mono">
+                  <span className="text-xs text-white/90 font-mono font-bold">
                     {derivedHoursByProject.length} project{derivedHoursByProject.length === 1 ? '' : 's'}
                   </span>
                 )}
@@ -3060,13 +3054,13 @@ export function ProjectManagement() {
             </div>
 
             <div className="projects-analytics-card">
-              <div className="projects-analytics-head mb-0 flex items-center justify-between gap-2 border-b-0 pb-0">
-                <h3 className="type-card-label-caps flex items-center gap-2 font-extrabold">
+              <div className="projects-analytics-head mb-0 flex items-center justify-between gap-2 border-b-0 pb-0 bg-gradient-to-r from-[#1e5a3d] via-[#236b48] to-[#276749] px-5 py-3 rounded-t-2xl">
+                <h3 className="type-card-label-caps flex items-center gap-2 font-extrabold text-white">
                   <span className="h-3.5 w-1 shrink-0 rounded-full bg-white/80" />
                   Aggregated Hours by Employee
                 </h3>
                 {derivedLeaderboardData.length > 0 && (
-                  <span className="text-xs text-slate-450 font-mono">
+                  <span className="text-xs text-white/90 font-mono font-bold">
                     {derivedLeaderboardData.length} employee{derivedLeaderboardData.length === 1 ? '' : 's'}
                   </span>
                 )}
@@ -3083,13 +3077,13 @@ export function ProjectManagement() {
           <div className="projects-ts-table-wrap">
             <div className="max-h-[min(32rem,70vh)] overflow-auto timesheet-panel-scroll">
               <table className="w-full min-w-[640px] border-collapse text-left">
-                <thead className="sticky top-0 z-10">
-                  <tr className="border-b border-transparent bg-transparent">
-                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Employee</th>
-                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Project</th>
-                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Login Time</th>
-                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Logout Time</th>
-                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Duration</th>
+                <thead className="sticky top-0 z-10 bg-gradient-to-r from-[#1e5a3d] via-[#236b48] to-[#276749]">
+                  <tr className="border-b border-white/10">
+                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-white">Employee</th>
+                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-white">Project</th>
+                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-white">Login Time</th>
+                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-white">Logout Time</th>
+                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-white">Duration</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 text-sm">

@@ -4044,7 +4044,7 @@
 
 @media (min-width: 1024px) {
   .admin-projects-view .projects-body-grid {
-    grid-template-columns: minmax(260px, 290px) minmax(0, 1fr);
+    grid-template-columns: 310px minmax(0, 1fr);
   }
 }
 
@@ -4237,18 +4237,22 @@
 
 .admin-projects-view .projects-table-shell thead tr,
 .admin-projects-view .projects-ts-table-wrap thead tr {
-  background: rgba(38, 107, 28, 0.05);
-  border-bottom: 1px solid rgba(38, 107, 28, 0.14);
+  background: linear-gradient(to right, #1e5a3d, #236b48, #276749);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .admin-projects-view .projects-table-shell thead th,
 .admin-projects-view .projects-ts-table-wrap thead th {
-  color: #3b5c3d !important;
+  color: #ffffff !important;
   font-weight: 700;
   text-transform: uppercase;
   font-size: 9.5px;
   letter-spacing: 0.05em;
   padding: 0.75rem 1.25rem;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: transparent;
 }
 
 .admin-projects-view .projects-table-shell tbody tr,
@@ -4287,9 +4291,9 @@
 
 .admin-projects-view .projects-analytics-head {
   padding: 1rem 1.25rem;
-  border-bottom: 1px solid rgba(38, 107, 28, 0.1);
-  background: rgba(38, 107, 28, 0.03);
-  color: var(--emerald-dark);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(to right, #1e5a3d, #236b48, #276749);
+  color: #ffffff;
 }
 
 .admin-projects-view .projects-analytics-head h3 {
@@ -4297,7 +4301,8 @@
 }
 
 .admin-projects-view .projects-analytics-head span {
-  color: rgba(255, 255, 255, 0.7) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-weight: 700;
 }
 
 .admin-projects-view .projects-analytics-body {
