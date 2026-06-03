@@ -1,28 +1,28 @@
 /* Employee Leave Management — white wrapper + tinted panels */
 
 .emp-leave-page {
-  /* 20% reduction from 100% → render at 80% */
+  /* 20% smaller than default (100% → 80%) */
   --emp-leave-ui-scale: 0.8;
   --emp-leave-apply-bg: rgba(227, 247, 235, 1);
   --emp-leave-balance-bg: rgba(221, 246, 240, 1);
   --emp-leave-pending-bg: rgba(219, 245, 247, 1);
   --emp-leave-history-row-h: 2.75rem;
   box-sizing: border-box;
+  zoom: 0.8;
 }
 
-/* Uniform scale: fonts, padding, cards, inputs, tables, icons */
-@supports (zoom: 0.8) {
+/* Firefox / fallback when zoom is unsupported */
+@supports not (zoom: 1) {
   .emp-leave-page {
-    zoom: var(--emp-leave-ui-scale);
-  }
-}
-
-@supports not (zoom: 0.8) {
-  .emp-leave-page {
-    transform: scale(var(--emp-leave-ui-scale));
+    transform: scale(0.8);
     transform-origin: top left;
-    width: calc(100% / var(--emp-leave-ui-scale));
+    width: 125%;
+    max-width: 125%;
   }
+}
+
+.employee-portal .cmd-main > .relative:has(.emp-leave-page) {
+  overflow: visible;
 }
 
 /* White outer section wrapping the three top cards */
@@ -98,10 +98,6 @@
 
 .emp-leave-apply-head {
   padding-bottom: 0.25rem;
-}
-
-.emp-leave-cal-btn {
-  align-self: flex-start;
 }
 
 .emp-leave-reason-block textarea:focus-visible {

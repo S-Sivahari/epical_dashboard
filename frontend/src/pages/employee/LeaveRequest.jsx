@@ -2,9 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useNavigate } from 'react-router-dom'
 import { Controller } from 'react-hook-form'
-import { Calendar, AlertTriangle, X, Clock, History, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react'
+import { AlertTriangle, X, Clock, History, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@pages/employee/lib/utils'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 import { Button } from '@components/employee/ui/button'
@@ -142,7 +141,6 @@ const columns = [
 ]
 
 export default function LeaveRequest() {
-  const navigate = useNavigate()
   const { requests, fetchRequests, addRequest } = useLeaveStore()
   const { toast } = useToast()
   const user = useAuthStore((s) => s.user)
@@ -543,20 +541,9 @@ export default function LeaveRequest() {
           onSubmit={handleSubmit(onSubmit, onError)}
           className={cn(CARD_CLASS, 'emp-leave-apply-card flex h-full min-h-0 flex-col space-y-4')}
         >
-          <div className="emp-leave-apply-head flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <h3 className="font-heading text-lg font-semibold text-foreground">Apply for leave</h3>
-              <p className="mt-1 text-sm text-muted">Submit a new leave request for HR approval.</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => navigate('/employee/calendar')}
-              className="emp-leave-cal-btn inline-flex shrink-0 items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary/90"
-              title="View Company Calendar"
-            >
-              <Calendar className="h-4 w-4" />
-              Company Calendar
-            </button>
+          <div className="emp-leave-apply-head">
+            <h3 className="font-heading text-lg font-semibold text-foreground">Apply for leave</h3>
+            <p className="mt-1 text-sm text-muted">Submit a new leave request for HR approval.</p>
           </div>
           <div>
             <Label>Leave Type *</Label>
