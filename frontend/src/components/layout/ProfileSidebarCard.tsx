@@ -28,7 +28,7 @@ export function ProfileSidebarCard({
         <h2 className="mt-3 font-display text-lg font-semibold text-[#5e5873]">{name}</h2>
         {subtitle ? <p className="text-sm text-muted">{subtitle}</p> : null}
         {badge ? (
-          <Badge variant={badge.variant ?? 'primary'} className="mt-2">
+          <Badge variant={badge.variant === 'primary' ? 'info' : (badge.variant ?? 'info')} className="mt-2">
             {badge.label}
           </Badge>
         ) : null}

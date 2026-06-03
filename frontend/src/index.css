@@ -3438,7 +3438,7 @@
   display: inline-flex;
   height: 1.75rem;
   width: 1.75rem;
-  shrink: 0;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   border-radius: 0.5rem;
@@ -3466,7 +3466,7 @@
   display: inline-flex;
   height: 2rem;
   width: 2rem;
-  shrink: 0;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   border-radius: 0.625rem;
@@ -10555,7 +10555,7 @@ input[type='number'] {
 
 .cmd-nav-icon-wrap {
   display: flex;
-  shrink: 0;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
 }

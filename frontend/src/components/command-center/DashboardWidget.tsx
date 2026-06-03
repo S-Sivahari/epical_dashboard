@@ -44,8 +44,6 @@ export function DashboardWidget({
   return (
     <motion.div
       layout
-      draggable
-      onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       className={cn(
@@ -57,8 +55,13 @@ export function DashboardWidget({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04, duration: 0.4 }}
     >
-      <div className="cmd-widget-handle absolute right-3 top-3 z-10 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-        <GripVertical className="h-4 w-4 cursor-grab text-[var(--text-muted)]" title="Drag to reorder" />
+      <div
+        draggable
+        onDragStart={handleDragStart}
+        className="cmd-widget-handle absolute right-3 top-3 z-10 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100"
+        title="Drag to reorder"
+      >
+        <GripVertical className="h-4 w-4 cursor-grab text-[var(--text-muted)]" aria-hidden />
         <button
           type="button"
           onClick={() => toggleCollapsed(id)}

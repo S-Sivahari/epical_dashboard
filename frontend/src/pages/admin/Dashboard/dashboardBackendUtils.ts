@@ -122,7 +122,6 @@ export function buildUpcomingDeadlines(
   const weekInterval = { start: today, end: weekEnd }
   const items: { target: Date; label: string }[] = []
 
-  const weekEndLabel = format(weekEnd, 'MMM d')
   items.push({
     target: weekEnd,
     label: 'Timesheet cutoff — current period',

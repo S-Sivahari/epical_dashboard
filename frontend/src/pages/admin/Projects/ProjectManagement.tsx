@@ -156,8 +156,12 @@ function formatAdminDuration(hours: number | null): string {
   return `${hrs}h ${String(mins).padStart(2, '0')}m`
 }
 
+function employeeDisplayName(e: Employee): string {
+  return `${e.firstName} ${e.lastName || ''}`.trim()
+}
+
 /** Hours-by-project and employee leaderboard from filtered logs (export/PDF). */
-function buildTimesheetExportAnalytics(logs: TimesheetLog[]) {
+function buildTimesheetExportAnalytics(logs: TimesheetLog[], employees: Employee[]) {
   const byProject: Record<string, number> = {}
   const byEmployee: Record<string, { name: string; dept: string; hours: number }> = {}
 
@@ -171,14 +175,14 @@ function buildTimesheetExportAnalytics(logs: TimesheetLog[]) {
     ) || 0
     byProject[t.project] = (byProject[t.project] || 0) + hours
 
-    const emp = MOCK_EMPLOYEES.find((e) => e.id === t.employeeId)
+    const emp = employees.find((e) => e.id === t.employeeId || e.employeeId === t.employeeId)
     const existing = byEmployee[t.employeeId]
     if (existing) {
       existing.hours += hours
     } else {
       byEmployee[t.employeeId] = {
         name: t.employeeName,
-        dept: emp?.team ?? '—',
+        dept: emp?.department ?? '—',
         hours,
       }
     }
@@ -578,8 +582,7 @@ function AvatarGroup({ users, max = 3 }: { users: string[]; max?: number }) {
   return (
     <div className="flex -space-x-2 overflow-hidden">
       {visible.map((username) => {
-        const emp = MOCK_EMPLOYEES.find((e) => e.name === username)
-        const hue = emp ? emp.hue : 120
+        const hue = stringToHue(username)
         const initials = username
           .split(' ')
           .map((n) => n[0])
@@ -1458,10 +1461,10 @@ export function ProjectManagement() {
 
   // Mapper helper to link employee team to logical teams for filtering
   const getEmployeeTeam = useCallback((empName: string): string => {
-    const emp = MOCK_EMPLOYEES.find((e) => e.name === empName)
+    const emp = employees.find((e) => employeeDisplayName(e) === empName)
     if (!emp) return 'Design Team'
-    return `${emp.team} Team`
-  }, [])
+    return `${emp.department} Team`
+  }, [employees])
 
   // ── Timesheets Filtering Implementation ──────────────────────
   const filteredTimesheets = useMemo(() => {
@@ -1538,16 +1541,16 @@ export function ProjectManagement() {
         t.totalHours,
         t.totalPausedMs
       ) || 0
-      const empInfo = MOCK_EMPLOYEES.find((e) => e.id === t.employeeId)
+      const empInfo = employees.find((e) => e.id === t.employeeId || e.employeeId === t.employeeId)
       const employeeColorKey = t.employeeId || t.employeeName
       if (empMap[t.employeeName]) {
         empMap[t.employeeName].hours += hours
       } else {
         empMap[t.employeeName] = {
           name: t.employeeName,
-          dept: empInfo?.team ?? '—',
+          dept: empInfo?.department ?? '—',
           hours,
-          hue: empInfo?.hue ?? stringToHue(employeeColorKey),
+          hue: stringToHue(employeeColorKey),
         }
       }
     })
@@ -1602,7 +1605,7 @@ export function ProjectManagement() {
       return
     }
 
-    const { hoursByProject, leaderboard } = buildTimesheetExportAnalytics(filteredTimesheets)
+    const { hoursByProject, leaderboard } = buildTimesheetExportAnalytics(filteredTimesheets, employees)
     const workbook = new ExcelJS.Workbook()
     const sheet = workbook.addWorksheet('Timesheet Report')
 
@@ -1885,7 +1888,7 @@ export function ProjectManagement() {
       return
     }
 
-    const { hoursByProject, leaderboard } = buildTimesheetExportAnalytics(filteredTimesheets)
+    const { hoursByProject, leaderboard } = buildTimesheetExportAnalytics(filteredTimesheets, employees)
     
     // Sort leaderboard alphabetically matching the A-Z requirement
     const sortedLeaderboard = [...leaderboard].sort((a, b) => a.name.localeCompare(b.name))
@@ -2136,12 +2139,12 @@ export function ProjectManagement() {
 
   const tsEmployeeFilterOptions = useMemo(() => {
     const names = new Set<string>()
-    MOCK_EMPLOYEES.forEach((e) => names.add(e.name))
+    employees.forEach((e) => names.add(employeeDisplayName(e)))
     timesheets.forEach((t) => {
       if (t.employeeName) names.add(t.employeeName)
     })
     return [...names].sort().map((name) => ({ value: name, label: name }))
-  }, [timesheets])
+  }, [timesheets, employees])
 
   const tsProjectFilterOptions = useMemo(
     () =>
@@ -2819,7 +2822,7 @@ export function ProjectManagement() {
                 </thead>
                 <tbody className="divide-y divide-white/5 text-sm">
                   {currentTimesheets.map((t) => {
-                    const empInfo = MOCK_EMPLOYEES.find((e) => e.id === t.employeeId)
+                    const empInfo = employees.find((e) => e.id === t.employeeId || e.employeeId === t.employeeId)
                     const hours = calculateHours(
                       t.loginTime,
                       t.logoutTime,
