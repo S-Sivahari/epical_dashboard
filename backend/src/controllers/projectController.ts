@@ -237,6 +237,14 @@ export const projectController = {
         return;
       }
 
+      const techNodeStr = String(technologyNode).trim();
+      if (!/\d+nm/i.test(techNodeStr)) {
+        res.status(400).json({
+          error: 'Technology Node must include a process size followed by nm (e.g. 7nm FinFET, 28nm FD-SOI).'
+        });
+        return;
+      }
+
       const descriptionError = validateProjectDescription(String(description || ''));
       if (descriptionError) {
         res.status(400).json({ error: descriptionError });
@@ -273,6 +281,14 @@ export const projectController = {
 
       if (!name || !client || !technologyNode) {
         res.status(400).json({ error: 'Project Name, Client, and Technology Node are required' });
+        return;
+      }
+
+      const techNodeStr = String(technologyNode).trim();
+      if (!/\d+nm/i.test(techNodeStr)) {
+        res.status(400).json({
+          error: 'Technology Node must include a process size followed by nm (e.g. 7nm FinFET, 28nm FD-SOI).'
+        });
         return;
       }
 

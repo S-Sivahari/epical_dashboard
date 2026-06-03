@@ -52,6 +52,7 @@ import {
 } from '@/utils/exportLogo'
 import api from '@/services/api'
 import { getEmployees } from '@/services/employeeService'
+import { MOCK_EMPLOYEES } from '@/services/mockData'
 import type { Employee } from '@/types'
 import { cn } from '@/utils/cn'
 import {
@@ -107,23 +108,6 @@ interface TimesheetLog {
 }
 
 
-/* ================================================================
-   HELPER – Click-outside hook
-   ================================================================ */
-function useClickOutside(ref: React.RefObject<HTMLElement | null>, handler: () => void) {
-  useEffect(() => {
-    function listener(e: MouseEvent | TouchEvent) {
-      if (!ref.current || ref.current.contains(e.target as Node)) return
-      handler()
-    }
-    document.addEventListener('mousedown', listener)
-    document.addEventListener('touchstart', listener)
-    return () => {
-      document.removeEventListener('mousedown', listener)
-      document.removeEventListener('touchstart', listener)
-    }
-  }, [ref, handler])
-}
 
 /* ================================================================
    HELPER – Hours Calculation (with Overridden Hours respect)
@@ -179,7 +163,7 @@ function buildTimesheetExportAnalytics(logs: TimesheetLog[]) {
     } else {
       byEmployee[t.employeeId] = {
         name: t.employeeName,
-        dept: emp?.team ?? '—',
+        dept: emp?.department ?? '—',
         hours,
       }
     }
@@ -238,67 +222,6 @@ const formatDateTime = (isoString?: string): string => {
   return `${dateStr}, ${timeStr}`
 }
 
-/* ================================================================
-   COMPONENT – Metric Card (Redesigned with Emerald Theme)
-   ================================================================ */
-function MetricCard({
-  label,
-  value,
-  icon: Icon,
-  accentClass,
-  iconClassName,
-  secondaryText,
-  variant = 'default',
-}: {
-  label: string
-  value: string | number
-  icon: React.ElementType
-  accentClass: string
-  iconClassName: string
-  secondaryText?: string
-  variant?: 'default' | 'hero'
-}) {
-  if (variant === 'hero') {
-    return (
-      <div className="projects-metric-glass group">
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <p className="projects-metric-label">{label}</p>
-            <p className="projects-metric-value font-display">{value}</p>
-            {secondaryText ? <p className="projects-metric-sub">{secondaryText}</p> : null}
-          </div>
-          <span
-            className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/15 ring-1 ring-white/20 ${iconClassName}`}
-          >
-            <Icon className="h-3 w-3 text-white" strokeWidth={2} />
-          </span>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="metric-card group relative overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
-      <div className={`absolute inset-x-0 top-0 h-[2px] ${accentClass} opacity-80`} />
-      <div className="relative flex items-center justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-800">{label}</p>
-          <p className="metric-value mt-2 font-display text-2xl font-bold tabular-nums leading-none tracking-tight">
-            {value}
-          </p>
-          {secondaryText && (
-            <p className="mt-2 text-[11px] font-semibold text-slate-700">{secondaryText}</p>
-          )}
-        </div>
-        <span
-          className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg shadow-sm ring-1 ring-inset transition-all duration-300 group-hover:scale-105 group-hover:shadow-md ${iconClassName}`}
-        >
-          <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
-        </span>
-      </div>
-    </div>
-  )
-}
 
 /* ================================================================
    COMPONENT – Custom Date Range Picker (Linear/SaaS Style)
@@ -645,49 +568,6 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
   )
 }
 
-/* ================================================================
-   COMPONENT – Overlapping Avatar Group (Jira / Linear style)
-   ================================================================ */
-function AvatarGroup({ users, max = 3 }: { users: string[]; max?: number }) {
-  if (!users || users.length === 0) return null
-
-  const visible = users.slice(0, max)
-  const remaining = users.length - max
-
-  return (
-    <div className="flex -space-x-2 overflow-hidden">
-      {visible.map((username) => {
-        const emp = MOCK_EMPLOYEES.find((e) => e.name === username)
-        const hue = emp ? emp.hue : 120
-        const initials = username
-          .split(' ')
-          .map((n) => n[0])
-          .join('')
-          .slice(0, 2)
-          .toUpperCase()
-
-        return (
-          <div
-            key={username}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[rgba(39,39,42,0.88)] bg-[rgba(39,39,42,0.88)] text-[10px] font-bold shadow-sm ring-1 ring-[rgba(161,161,170,0.18)]"
-            style={{
-              background: `linear-gradient(135deg, hsl(${hue}, 80%, 96%) 0%, hsl(${hue}, 55%, 85%) 100%)`,
-              color: `hsl(${hue}, 85%, 28%)`,
-            }}
-            title={username}
-          >
-            {initials}
-          </div>
-        )
-      })}
-      {remaining > 0 && (
-        <div className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[rgba(39,39,42,0.88)] bg-[rgba(39,39,42,0.88)] text-[10px] font-black text-slate-600 shadow-sm ring-1 ring-[rgba(161,161,170,0.18)]">
-          +{remaining}
-        </div>
-      )}
-    </div>
-  )
-}
 
 /** Empty selection = no restriction. Non-empty = value must be in the list. */
 function matchesMultiFilter(selected: string[], value: string): boolean {
@@ -1206,6 +1086,7 @@ export function ProjectManagement() {
   const [modalOpen, setModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [techNodeError, setTechNodeError] = useState<string>('')
   const [employees, setEmployees] = useState<Employee[]>([])
 
 
@@ -1442,6 +1323,7 @@ export function ProjectManagement() {
       ...emptyForm,
     })
     setEditingId(null)
+    setTechNodeError('')
     setModalOpen(true)
   }, [])
 
@@ -1458,17 +1340,37 @@ export function ProjectManagement() {
       teamLead: p.teamLead || '',
       status: (p.status === 'Rejected' ? 'Cancelled' : p.status) as 'Active' | 'Completed' | 'Cancelled',
     })
+    setTechNodeError('')
     setModalOpen(true)
   }, [])
 
 
 
 
+  /** Validates that the technology node is EXACTLY in the format: (number)nm */
+  const validateTechNode = useCallback((value: string): string => {
+    if (!value.trim()) return 'Technology Node is required.'
+    
+    // Strict validation: must be exactly (number)nm format, nothing else
+    const strictPattern = /^\d+nm$/i
+    if (!strictPattern.test(value.trim())) {
+      return 'Technology Node must be exactly in the format: (number)nm (e.g., "7nm", "28nm", "5nm"). No additional text allowed.'
+    }
+    
+    return ''
+  }, [])
+
   const handleSaveProject = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault()
       if (!form.name.trim() || !form.client.trim() || !form.technologyNode.trim()) {
         toast.error('Please specify Project Name, Client, and Technology Node.')
+        return
+      }
+      const techErr = validateTechNode(form.technologyNode)
+      if (techErr) {
+        setTechNodeError(techErr)
+        toast.error(techErr)
         return
       }
 
@@ -1678,9 +1580,9 @@ export function ProjectManagement() {
       } else {
         empMap[t.employeeName] = {
           name: t.employeeName,
-          dept: empInfo?.team ?? '—',
+          dept: empInfo?.department ?? '—',
           hours,
-          hue: empInfo?.hue ?? stringToHue(employeeColorKey),
+          hue: (empInfo as any)?.hue ?? stringToHue(employeeColorKey),
         }
       }
     })
@@ -2269,7 +2171,7 @@ export function ProjectManagement() {
 
   const tsEmployeeFilterOptions = useMemo(() => {
     const names = new Set<string>()
-    MOCK_EMPLOYEES.forEach((e) => names.add(e.name))
+    MOCK_EMPLOYEES.forEach((e) => names.add(`${e.firstName} ${e.lastName ?? ''}`.trim()))
     timesheets.forEach((t) => {
       if (t.employeeName) names.add(t.employeeName)
     })
@@ -2303,24 +2205,6 @@ export function ProjectManagement() {
     tsEmployeeFilters.length > 0 ||
     tsProjectFilters.length > 0 ||
     tsStatusFilters.length > 0
-  // Segmented donut chart math
-  const targetCompleted = projectMetrics.total > 0 ? (projectMetrics.completed / projectMetrics.total) * 100 : 0
-  const targetInProgress = projectMetrics.total > 0 ? (projectMetrics.inProgress / projectMetrics.total) * 100 : 0
-  const targetCancelled = projectMetrics.total > 0 ? (projectMetrics.cancelled / projectMetrics.total) * 100 : 0
-
-  const compPct = isAnimated ? targetCompleted : 0
-  const progPct = isAnimated ? targetInProgress : 0
-  const cancPct = isAnimated ? targetCancelled : 0
-
-  const circumference = 2 * Math.PI * 26
-
-  const compDash = (compPct / 100) * circumference
-  const progDash = (progPct / 100) * circumference
-  const cancDash = (cancPct / 100) * circumference
-
-  const compOffset = 0
-  const progOffset = -compDash
-  const cancOffset = -(compDash + progDash)
 
   return (
     <div className="crewiq-dashboard admin-projects-view">
@@ -3194,7 +3078,7 @@ export function ProjectManagement() {
       <Modal
         isOpen={modalOpen}
         title={modalMode === 'create' ? 'Create New Project' : 'Edit Project Details'}
-        onClose={() => setModalOpen(false)}
+        onClose={() => { setModalOpen(false); setTechNodeError('') }}
         size="lg"
       >
         <form onSubmit={handleSaveProject} className="space-y-4 pt-1">
@@ -3218,11 +3102,41 @@ export function ProjectManagement() {
           <div className="w-full">
             <Input
               label="Technology Node"
-              placeholder="e.g. 7nm FinFET, 28nm FD-SOI"
+              placeholder="e.g., 7nm, 28nm, 5nm"
               value={form.technologyNode}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, technologyNode: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                let val = e.target.value
+                
+                // Remove any non-digit and non-nm characters
+                val = val.replace(/[^\dnm]/gi, '')
+                
+                // Ensure "nm" only appears at the end once
+                if (val.toLowerCase().includes('nm')) {
+                  const numericPart = val.replace(/nm/gi, '')
+                  val = numericPart + 'nm'
+                }
+                
+                // Limit to reasonable length (e.g., max 5 digits + "nm" = 7 chars)
+                if (val.length > 7) {
+                  val = val.slice(0, 7)
+                }
+                
+                setForm({ ...form, technologyNode: val })
+                
+                // Live-clear error once the user fixes the value
+                if (techNodeError && /^\d+nm$/i.test(val.trim())) {
+                  setTechNodeError('')
+                }
+              }}
+              onBlur={(e) => setTechNodeError(validateTechNode(e.target.value))}
+              error={techNodeError || undefined}
               required
             />
+            {!techNodeError && (
+              <p className="mt-1 text-[11px] text-slate-400">
+                Format: <span className="font-semibold text-slate-500">(number)nm</span> only — e.g., <span className="font-mono text-slate-600">7nm</span>, <span className="font-mono text-slate-600">28nm</span>, <span className="font-mono text-slate-600">5nm</span>
+              </p>
+            )}
           </div>
 
           <SelectField

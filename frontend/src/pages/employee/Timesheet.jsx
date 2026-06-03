@@ -456,8 +456,7 @@ export default function Timesheet() {
   }
 
   return (
-<<<<<<< HEAD
-    <div className="dashboard-surface space-y-4">
+    <div className="emp-timesheet-page dashboard-surface space-y-4">
       {/* Top analytics summary matches the sample image layout */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white rounded-xl border border-border p-4 shadow-sm">
         <div>
@@ -472,7 +471,6 @@ export default function Timesheet() {
           <div className="relative flex items-center justify-center" style={{ width: 68, height: 68 }}>
             <svg width="68" height="68" viewBox="0 0 68 68" className="transform -rotate-90">
               {(() => {
-                // Sum the counts dynamically from assignedTasks
                 const total = assignedTasks.length || 1;
                 const inProgressCount = assignedTasks.filter(t => t.status === 'in_progress' || t.status === 'pending_review' || t.status === 'Active' || !t.status).length;
                 const completedCount = assignedTasks.filter(t => t.status === 'completed' || t.status === 'Completed').length;
@@ -481,24 +479,20 @@ export default function Timesheet() {
                 const radius = 28;
                 const circumference = 2 * Math.PI * radius;
                 
-                // Calculate percentages
                 const progressPercent = (inProgressCount / total) * 100;
                 const completedPercent = (completedCount / total) * 100;
                 const cancelledPercent = (cancelledCount / total) * 100;
                 
-                // Calculate dash arrays and offsets for pie segments
                 const progressDash = (progressPercent / 100) * circumference;
                 const completedDash = (completedPercent / 100) * circumference;
                 const cancelledDash = (cancelledPercent / 100) * circumference;
                 
-                // Calculate offsets (each segment starts where previous ended)
                 const progressOffset = 0;
                 const completedOffset = -progressDash;
                 const cancelledOffset = -(progressDash + completedDash);
                 
                 return (
                   <>
-                    {/* Background circle */}
                     <circle 
                       cx="34" 
                       cy="34" 
@@ -507,8 +501,6 @@ export default function Timesheet() {
                       stroke="rgba(38, 107, 28, 0.08)" 
                       strokeWidth="11"
                     />
-                    
-                    {/* Progress segment (Blue) */}
                     {inProgressCount > 0 && (
                       <circle
                         cx="34"
@@ -520,13 +512,9 @@ export default function Timesheet() {
                         strokeDasharray={`${progressDash} ${circumference}`}
                         strokeDashoffset={progressOffset}
                         strokeLinecap="round"
-                        style={{ 
-                          filter: 'drop-shadow(0 2px 4px rgba(59, 130, 246, 0.3))'
-                        }}
+                        style={{ filter: 'drop-shadow(0 2px 4px rgba(59, 130, 246, 0.3))' }}
                       />
                     )}
-                    
-                    {/* Completed segment (Green) */}
                     {completedCount > 0 && (
                       <circle
                         cx="34"
@@ -538,13 +526,9 @@ export default function Timesheet() {
                         strokeDasharray={`${completedDash} ${circumference}`}
                         strokeDashoffset={completedOffset}
                         strokeLinecap="round"
-                        style={{ 
-                          filter: 'drop-shadow(0 2px 4px rgba(34, 197, 94, 0.3))'
-                        }}
+                        style={{ filter: 'drop-shadow(0 2px 4px rgba(34, 197, 94, 0.3))' }}
                       />
                     )}
-                    
-                    {/* Cancelled segment (Red) */}
                     {cancelledCount > 0 && (
                       <circle
                         cx="34"
@@ -556,9 +540,7 @@ export default function Timesheet() {
                         strokeDasharray={`${cancelledDash} ${circumference}`}
                         strokeDashoffset={cancelledOffset}
                         strokeLinecap="round"
-                        style={{ 
-                          filter: 'drop-shadow(0 2px 4px rgba(239, 68, 68, 0.3))'
-                        }}
+                        style={{ filter: 'drop-shadow(0 2px 4px rgba(239, 68, 68, 0.3))' }}
                       />
                     )}
                   </>
@@ -588,9 +570,6 @@ export default function Timesheet() {
                   style={{ width: `${assignedTasks.length ? (assignedTasks.filter(t => t.status === 'in_progress' || t.status === 'pending_review' || t.status === 'Active' || !t.status).length / assignedTasks.length) * 100 : 0}%` }}
                 />
               </div>
-              <span className="text-[9px] font-bold text-slate-500">
-                {assignedTasks.length ? ((assignedTasks.filter(t => t.status === 'in_progress' || t.status === 'pending_review' || t.status === 'Active' || !t.status).length / assignedTasks.length) * 100).toFixed(1) : 0}%
-              </span>
             </div>
             <div className="text-center">
               <div className="flex items-center justify-center gap-1 mb-0.5">
@@ -606,9 +585,6 @@ export default function Timesheet() {
                   style={{ width: `${assignedTasks.length ? (assignedTasks.filter(t => t.status === 'completed' || t.status === 'Completed').length / assignedTasks.length) * 100 : 0}%` }}
                 />
               </div>
-              <span className="text-[9px] font-bold text-slate-500">
-                {assignedTasks.length ? ((assignedTasks.filter(t => t.status === 'completed' || t.status === 'Completed').length / assignedTasks.length) * 100).toFixed(1) : 0}%
-              </span>
             </div>
             <div className="text-center">
               <div className="flex items-center justify-center gap-1 mb-0.5">
@@ -624,14 +600,11 @@ export default function Timesheet() {
                   style={{ width: `${assignedTasks.length ? (assignedTasks.filter(t => t.status === 'cancelled' || t.status === 'Cancelled').length / assignedTasks.length) * 100 : 0}%` }}
                 />
               </div>
-              <span className="text-[9px] font-bold text-slate-500">
-                {assignedTasks.length ? ((assignedTasks.filter(t => t.status === 'cancelled' || t.status === 'Cancelled').length / assignedTasks.length) * 100).toFixed(1) : 0}%
-              </span>
             </div>
           </div>
         </div>
-=======
-    <div className="emp-timesheet-page dashboard-surface">
+      </div>
+
       {/* Row 1 — Summary cards */}
       <div className="emp-timesheet-summary-grid">
         <TimesheetSummaryCard
@@ -655,7 +628,6 @@ export default function Timesheet() {
           hint={`${projectCount} project${projectCount === 1 ? '' : 's'} in range`}
           icon={FolderKanban}
         />
->>>>>>> 863cf38d8f3c341610d55594dbd7f4859b47d6e9
       </div>
 
       {/* Row 2 — Work session | Active session (50/50) */}
