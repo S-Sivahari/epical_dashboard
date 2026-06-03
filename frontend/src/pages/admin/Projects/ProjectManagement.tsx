@@ -1,4 +1,5 @@
 import { memo, useMemo, useState, useCallback, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Avatar } from '@components/ui/Avatar'
 import { Badge } from '@components/ui/Badge'
@@ -51,6 +52,7 @@ import {
 } from '@/utils/exportLogo'
 import api from '@/services/api'
 import { getEmployees } from '@/services/employeeService'
+import { MOCK_EMPLOYEES } from '@/services/mockData'
 import type { Employee } from '@/types'
 import { cn } from '@/utils/cn'
 import {
@@ -106,23 +108,6 @@ interface TimesheetLog {
 }
 
 
-/* ================================================================
-   HELPER – Click-outside hook
-   ================================================================ */
-function useClickOutside(ref: React.RefObject<HTMLElement | null>, handler: () => void) {
-  useEffect(() => {
-    function listener(e: MouseEvent | TouchEvent) {
-      if (!ref.current || ref.current.contains(e.target as Node)) return
-      handler()
-    }
-    document.addEventListener('mousedown', listener)
-    document.addEventListener('touchstart', listener)
-    return () => {
-      document.removeEventListener('mousedown', listener)
-      document.removeEventListener('touchstart', listener)
-    }
-  }, [ref, handler])
-}
 
 /* ================================================================
    HELPER – Hours Calculation (with Overridden Hours respect)
@@ -241,67 +226,6 @@ const formatDateTime = (isoString?: string): string => {
   return `${dateStr}, ${timeStr}`
 }
 
-/* ================================================================
-   COMPONENT – Metric Card (Redesigned with Emerald Theme)
-   ================================================================ */
-function MetricCard({
-  label,
-  value,
-  icon: Icon,
-  accentClass,
-  iconClassName,
-  secondaryText,
-  variant = 'default',
-}: {
-  label: string
-  value: string | number
-  icon: React.ElementType
-  accentClass: string
-  iconClassName: string
-  secondaryText?: string
-  variant?: 'default' | 'hero'
-}) {
-  if (variant === 'hero') {
-    return (
-      <div className="projects-metric-glass group">
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <p className="projects-metric-label">{label}</p>
-            <p className="projects-metric-value font-display">{value}</p>
-            {secondaryText ? <p className="projects-metric-sub">{secondaryText}</p> : null}
-          </div>
-          <span
-            className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/15 ring-1 ring-white/20 ${iconClassName}`}
-          >
-            <Icon className="h-3 w-3 text-white" strokeWidth={2} />
-          </span>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="metric-card group relative overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
-      <div className={`absolute inset-x-0 top-0 h-[2px] ${accentClass} opacity-80`} />
-      <div className="relative flex items-center justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-800">{label}</p>
-          <p className="metric-value mt-2 font-display text-2xl font-bold tabular-nums leading-none tracking-tight">
-            {value}
-          </p>
-          {secondaryText && (
-            <p className="mt-2 text-[11px] font-semibold text-slate-700">{secondaryText}</p>
-          )}
-        </div>
-        <span
-          className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg shadow-sm ring-1 ring-inset transition-all duration-300 group-hover:scale-105 group-hover:shadow-md ${iconClassName}`}
-        >
-          <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
-        </span>
-      </div>
-    </div>
-  )
-}
 
 /* ================================================================
    COMPONENT – Custom Date Range Picker (Linear/SaaS Style)
@@ -315,10 +239,78 @@ interface DateRangePickerProps {
 
 function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRangePickerProps) {
   const [open, setOpen] = useState(false)
-  const [currentMonth, setCurrentMonth] = useState<Date>(new Date(startDate || '2026-05-01'))
+  const [currentMonth, setCurrentMonth] = useState<Date>(new Date(startDate || new Date().toISOString().split('T')[0]))
   const [tempStart, setTempStart] = useState<string | null>(startDate)
   const [tempEnd, setTempEnd] = useState<string | null>(endDate)
   const containerRef = useRef<HTMLDivElement>(null)
+  const calendarRef = useRef<HTMLDivElement>(null)
+  const [calendarPosition, setCalendarPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
+
+  const updateCalendarPosition = useCallback(() => {
+    if (containerRef.current && open) {
+      const rect = containerRef.current.getBoundingClientRect()
+      const viewportHeight = window.innerHeight
+      const viewportWidth = window.innerWidth
+      const calendarHeight = 450 // Approximate height of calendar popup
+      const calendarWidth = 520 // Approximate width
+      
+      let top = rect.bottom + 8
+      let left = rect.left
+      
+      // If calendar would overflow bottom of viewport, position it above the trigger
+      if (top + calendarHeight > viewportHeight - 20) {
+        top = rect.top - calendarHeight - 8
+        // If it would overflow top, just position at bottom with scroll
+        if (top < 20) {
+          top = rect.bottom + 8
+        }
+      }
+      
+      // Ensure calendar doesn't overflow left edge
+      if (left < 16) {
+        left = 16
+      }
+      
+      // Ensure calendar doesn't overflow right edge
+      if (left + calendarWidth > viewportWidth - 16) {
+        left = viewportWidth - calendarWidth - 16
+      }
+      
+      setCalendarPosition({ top, left })
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (open) {
+      updateCalendarPosition()
+      window.addEventListener('scroll', updateCalendarPosition, true)
+      window.addEventListener('resize', updateCalendarPosition)
+      return () => {
+        window.removeEventListener('scroll', updateCalendarPosition, true)
+        window.removeEventListener('resize', updateCalendarPosition)
+      }
+    }
+  }, [open, updateCalendarPosition])
+
+  // Handle clicks outside both the trigger and the calendar popup
+  useEffect(() => {
+    if (!open) return
+
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node
+      const isClickInsideContainer = containerRef.current?.contains(target)
+      const isClickInsideCalendar = calendarRef.current?.contains(target)
+      
+      if (!isClickInsideContainer && !isClickInsideCalendar) {
+        setOpen(false)
+        setTempStart(startDate)
+        setTempEnd(endDate)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [open, startDate, endDate])
 
   const applySingleDay = (dateStr: string) => {
     setTempStart(dateStr)
@@ -334,24 +326,18 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
     setOpen(false)
   }
 
-  useClickOutside(containerRef, () => {
-    setOpen(false)
-    setTempStart(startDate)
-    setTempEnd(endDate)
-  })
-
   useEffect(() => {
     if (open) {
       setTempStart(startDate)
       setTempEnd(endDate)
-      setCurrentMonth(new Date(startDate || '2026-05-01'))
+      setCurrentMonth(new Date(startDate || new Date().toISOString().split('T')[0]))
     }
   }, [open, startDate, endDate])
 
   const getPresetDates = (selectedPreset: string): { start: string; end: string } => {
-    const today = new Date('2026-05-21') // Anchored system date
-    let start = new Date('2026-05-21')
-    let end = new Date('2026-05-21')
+    const today = new Date() // Use actual current date
+    let start = new Date()
+    let end = new Date()
 
     switch (selectedPreset) {
       case 'Today':
@@ -395,6 +381,7 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
         break
     }
 
+    // Format as YYYY-MM-DD without timezone conversion issues
     const pad = (num: number) => String(num).padStart(2, '0')
     const format = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
     return { start: format(start), end: format(end) }
@@ -479,139 +466,112 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
         <ChevronDown className="h-3 w-3 text-[var(--emerald-dark)]/70 flex-shrink-0" />
       </button>
 
-      {open && (
-        <div className="projects-date-calendar date-range-popover absolute left-0 top-full z-50 mt-2 flex w-[92vw] flex-col gap-3 rounded-2xl p-3 shadow-2xl animate-fadeIn sm:w-auto sm:min-w-[500px] md:flex-row md:p-4">
-          {/* Calendar Grid */}
-          <div className="flex-1 select-none">
-            <div className="projects-date-calendar-header flex items-center justify-between mb-3 rounded-lg px-2 py-1.5">
-              <button type="button" onClick={handlePrevMonth} className="projects-date-nav-btn p-1 rounded-md">
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <span className="date-range-month-title type-calendar-month">
-                {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
-              </span>
-              <button type="button" onClick={handleNextMonth} className="projects-date-nav-btn p-1 rounded-md">
-                <ChevronRight className="h-4 w-4" />
-              </button>
+      {open && createPortal(
+        <div 
+          className="projects-date-calendar-portal fixed inset-0 z-[10000]"
+          style={{ pointerEvents: 'none' }}
+        >
+          {/* Calendar popup */}
+          <div 
+            ref={calendarRef}
+            className="projects-date-calendar date-range-popover absolute flex w-[92vw] flex-col gap-3 rounded-2xl p-3 shadow-2xl sm:w-auto sm:min-w-[500px] md:flex-row md:p-4"
+            style={{
+              top: `${calendarPosition.top}px`,
+              left: `${calendarPosition.left}px`,
+              pointerEvents: 'auto',
+            }}
+          >
+            {/* Calendar Grid */}
+            <div className="flex-1 select-none">
+              <div className="projects-date-calendar-header flex items-center justify-between mb-3 rounded-lg px-2 py-1.5">
+                <button type="button" onClick={handlePrevMonth} className="projects-date-nav-btn p-1 rounded-md">
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="date-range-month-title type-calendar-month">
+                  {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                </span>
+                <button type="button" onClick={handleNextMonth} className="projects-date-nav-btn p-1 rounded-md">
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="projects-date-weekdays type-calendar-weekday mb-1.5 grid grid-cols-7 gap-1 text-center">
+                {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
+                  <span key={d} className="py-1">
+                    {d}
+                  </span>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-7 gap-1 text-center text-xs">
+                {calendarCells.map((cell, idx) => {
+                  const isSelectedStart = tempStart && cell.dateString === tempStart
+                  const isSelectedEnd = tempEnd && cell.dateString === tempEnd
+                  const isSingleDay = tempStart && tempEnd && tempStart === tempEnd && cell.dateString === tempStart
+                  const isWithinRange =
+                    tempStart && tempEnd && tempStart !== tempEnd && cell.dateString > tempStart && cell.dateString < tempEnd
+
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={(e) => handleDayClick(cell.dateString, e)}
+                      title={`Filter logs for ${cell.dateString}. Shift+click a second date for a range.`}
+                      className={`
+                        projects-date-day h-7 w-7 rounded-lg flex items-center justify-center font-semibold transition-all
+                        ${cell.isCurrentMonth ? 'projects-date-day-current' : 'projects-date-day-muted'}
+                        ${isSingleDay || isSelectedStart || isSelectedEnd ? 'projects-date-day-selected' : ''}
+                        ${isWithinRange ? 'projects-date-day-in-range' : ''}
+                      `}
+                    >
+                      {cell.day}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="projects-date-hint mt-2.5 text-[10px] font-medium">
+                Click any date to filter that day. Hold Shift, click a start date, then another date for a custom range.
+              </p>
             </div>
 
-            <div className="projects-date-weekdays type-calendar-weekday mb-1.5 grid grid-cols-7 gap-1 text-center">
-              {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
-                <span key={d} className="py-1">
-                  {d}
-                </span>
+            {/* Divider */}
+            <div className="projects-date-divider hidden md:block" />
+
+            {/* Quick Presets Panel */}
+            <div className="projects-date-presets w-36 flex flex-col gap-0.5">
+              <p className="type-card-label-caps mb-2 text-[9px]">Quick Presets</p>
+              {[
+                'Today',
+                'Yesterday',
+                'This Week',
+                'Last Week',
+                'Past Two Weeks',
+                'This Month',
+                'Last Month',
+                'This Year',
+                'Last Year',
+              ].map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => handlePresetClick(p)}
+                  className={`
+                    projects-date-preset text-left px-2.5 py-1 rounded-lg text-xs font-semibold transition-all
+                    ${preset === p ? 'projects-date-preset-active' : ''}
+                  `}
+                >
+                  {p}
+                </button>
               ))}
             </div>
-
-            <div className="grid grid-cols-7 gap-1 text-center text-xs">
-              {calendarCells.map((cell, idx) => {
-                const isSelectedStart = tempStart && cell.dateString === tempStart
-                const isSelectedEnd = tempEnd && cell.dateString === tempEnd
-                const isSingleDay = tempStart && tempEnd && tempStart === tempEnd && cell.dateString === tempStart
-                const isWithinRange =
-                  tempStart && tempEnd && tempStart !== tempEnd && cell.dateString > tempStart && cell.dateString < tempEnd
-
-                return (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={(e) => handleDayClick(cell.dateString, e)}
-                    title={`Filter logs for ${cell.dateString}. Shift+click a second date for a range.`}
-                    className={`
-                      projects-date-day h-7 w-7 rounded-lg flex items-center justify-center font-semibold transition-all
-                      ${cell.isCurrentMonth ? 'projects-date-day-current' : 'projects-date-day-muted'}
-                      ${isSingleDay || isSelectedStart || isSelectedEnd ? 'projects-date-day-selected' : ''}
-                      ${isWithinRange ? 'projects-date-day-in-range' : ''}
-                    `}
-                  >
-                    {cell.day}
-                  </button>
-                )
-              })}
-            </div>
-            <p className="projects-date-hint mt-2.5 text-[10px] font-medium">
-              Click any date to filter that day. Hold Shift, click a start date, then another date for a custom range.
-            </p>
           </div>
-
-          {/* Divider */}
-          <div className="projects-date-divider hidden md:block" />
-
-          {/* Quick Presets Panel */}
-          <div className="projects-date-presets w-36 flex flex-col gap-0.5">
-            <p className="type-card-label-caps mb-2 text-[9px]">Quick Presets</p>
-            {[
-              'Today',
-              'Yesterday',
-              'This Week',
-              'Last Week',
-              'Past Two Weeks',
-              'This Month',
-              'Last Month',
-              'This Year',
-              'Last Year',
-            ].map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => handlePresetClick(p)}
-                className={`
-                  projects-date-preset text-left px-2.5 py-1 rounded-lg text-xs font-semibold transition-all
-                  ${preset === p ? 'projects-date-preset-active' : ''}
-                `}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
 }
 
-/* ================================================================
-   COMPONENT – Overlapping Avatar Group (Jira / Linear style)
-   ================================================================ */
-function AvatarGroup({ users, max = 3 }: { users: string[]; max?: number }) {
-  if (!users || users.length === 0) return null
-
-  const visible = users.slice(0, max)
-  const remaining = users.length - max
-
-  return (
-    <div className="flex -space-x-2 overflow-hidden">
-      {visible.map((username) => {
-        const hue = stringToHue(username)
-        const initials = username
-          .split(' ')
-          .map((n) => n[0])
-          .join('')
-          .slice(0, 2)
-          .toUpperCase()
-
-        return (
-          <div
-            key={username}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[rgba(39,39,42,0.88)] bg-[rgba(39,39,42,0.88)] text-[10px] font-bold shadow-sm ring-1 ring-[rgba(161,161,170,0.18)]"
-            style={{
-              background: `linear-gradient(135deg, hsl(${hue}, 80%, 96%) 0%, hsl(${hue}, 55%, 85%) 100%)`,
-              color: `hsl(${hue}, 85%, 28%)`,
-            }}
-            title={username}
-          >
-            {initials}
-          </div>
-        )
-      })}
-      {remaining > 0 && (
-        <div className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[rgba(39,39,42,0.88)] bg-[rgba(39,39,42,0.88)] text-[10px] font-black text-slate-600 shadow-sm ring-1 ring-[rgba(161,161,170,0.18)]">
-          +{remaining}
-        </div>
-      )}
-    </div>
-  )
-}
 
 /** Empty selection = no restriction. Non-empty = value must be in the list. */
 function matchesMultiFilter(selected: string[], value: string): boolean {
@@ -802,11 +762,15 @@ const ProjectCard = memo(function ProjectCard({
   const isCancelled = project.status === 'Cancelled'
   const isRejected = project.status === 'Rejected'
 
-  // Visibility/scope summary
-  const visibilitySummary =
-    project.accessType === 'private'
-      ? `${project.visibleUsers.length} Users · Lead: ${project.teamLead || 'Not assigned'}`
-      : 'All Members'
+  const leadName = project.teamLead || 'Not assigned'
+  const memberCount = project.visibleUsers.length
+  const maxVisibleNames = 3
+  const visibleNames = project.visibleUsers.slice(0, maxVisibleNames)
+  const remainingCount = memberCount - maxVisibleNames
+
+  const membersText = memberCount > 0 
+    ? visibleNames.join(' • ') + (remainingCount > 0 ? ` • +${remainingCount} more` : '')
+    : (project.accessType === 'public' ? 'All Members' : 'None assigned')
 
   const projectInitial =
     project.name.charAt(project.name.indexOf(' ') + 1) || project.name.charAt(0)
@@ -814,95 +778,104 @@ const ProjectCard = memo(function ProjectCard({
   return (
     <div
       className={cn(
-        'projects-card group relative flex min-h-[190px] flex-col justify-between overflow-hidden rounded-xl p-5 transition-all duration-300 hover:-translate-y-0.5 animate-fadeIn',
-        isCompleted && 'border-[rgba(38,107,28,0.35)] bg-emerald-50/50',
+        'projects-card group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-emerald-500/10 bg-white/70 p-6 shadow-sm backdrop-blur-md transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-emerald-500/20 hover:shadow-emerald-500/5 animate-fadeIn',
+        isCompleted && 'border-emerald-500/20 bg-emerald-50/40',
       )}
     >
-      <div className="relative space-y-3.5">
+      <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-emerald-500/80 to-teal-500/80 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+      
+      <div className="flex flex-col h-full justify-between space-y-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 flex-1 items-start gap-3">
-            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-extrabold ring-1 bg-[var(--emerald-surface)] text-[var(--emerald-dark)] ring-[rgba(38,107,28,0.22)]">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-extrabold bg-gradient-to-br from-emerald-50 to-emerald-100/80 text-[var(--emerald-dark)] shadow-inner border border-emerald-500/10">
               {projectInitial}
             </span>
             <div className="min-w-0 flex-1">
               <h3 className={cn(
-                'text-[14px] font-bold leading-tight transition-colors font-display truncate',
-                isCompleted ? 'text-[var(--emerald-dark)] group-hover:text-[var(--green-600)]' : 'text-ink group-hover:text-[var(--emerald-dark)]'
+                'text-[15px] font-bold leading-snug transition-colors font-display truncate text-slate-800',
+                isCompleted ? 'text-[var(--emerald-dark)] group-hover:text-[var(--green-600)]' : 'group-hover:text-[var(--emerald-dark)]'
               )}>
                 {project.name}
               </h3>
-              <p className="mt-0.5 text-xs font-semibold text-slate-700 truncate">
+              <p className="mt-0.5 text-xs font-semibold text-slate-400 truncate">
                 {project.client}
               </p>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1.5">
             {isCancelled ? (
-              <Badge variant="neutral" className="border border-rose-500/25 bg-rose-500/10 px-1.5 py-0.5 text-[9px] font-bold text-rose-400 rounded-md">
+              <span className="inline-flex items-center rounded-md border border-rose-500/15 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-550">
                 Cancelled
-              </Badge>
+              </span>
             ) : isRejected ? (
-              <Badge variant="neutral" className="border border-rose-500/25 bg-rose-500/10 px-1.5 py-0.5 text-[9px] font-bold text-rose-400 rounded-md">
+              <span className="inline-flex items-center rounded-md border border-rose-500/15 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-550">
                 Rejected
-              </Badge>
+              </span>
             ) : isCompleted ? (
-              <Badge variant="success" className="border border-[rgba(38,107,28,0.18)] bg-[var(--emerald-surface)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--emerald-dark)] rounded-md">
+              <span className="inline-flex items-center rounded-md border border-emerald-500/15 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
                 Completed
-              </Badge>
+              </span>
             ) : (
-              <Badge variant="info" className="border border-blue-500/15 bg-blue-500/5 px-1.5 py-0.5 text-[9px] font-bold text-blue-400 rounded-md">
+              <span className="inline-flex items-center rounded-md border border-blue-500/15 bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-650">
                 In Progress
-              </Badge>
+              </span>
             )}
             {project.accessType === 'private' ? (
-              <Badge variant="warning" className="border border-amber-500/15 bg-amber-500/5 px-1.5 py-0.5 text-[9px] font-bold text-amber-400 rounded-md">
+              <span className="inline-flex items-center rounded-md border border-amber-500/15 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-600">
                 Private
-              </Badge>
+              </span>
             ) : (
-              <Badge variant="info" className="border border-sky-500/15 bg-sky-500/5 px-1.5 py-0.5 text-[9px] font-bold text-sky-400 rounded-md">
+              <span className="inline-flex items-center rounded-md border border-sky-500/15 bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-sky-650">
                 Public
-              </Badge>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between border-t border-border pt-3 text-xs">
-          <span className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-slate-600">Scope</span>
-          <span className="font-semibold text-slate-800 truncate max-w-[200px]" title={visibilitySummary}>{visibilitySummary}</span>
-        </div>
-
-        <div className="flex items-center justify-between gap-3 border-t border-border pt-3 mt-auto">
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-border bg-[var(--bg-input)] px-2 py-0.5 text-[10px] font-bold text-slate-700">
-              <Cpu className="h-3 w-3 shrink-0 text-[var(--emerald-dark)]" strokeWidth={2.5} />
-              <span className="truncate font-mono text-slate-800">{project.technologyNode}</span>
-            </span>
-            {project.accessType === 'private' && project.teamLead && (
-              <span className="inline-flex items-center rounded-md border border-[rgba(38,107,28,0.18)] bg-[var(--emerald-surface)] px-2 py-0.5 text-[10px] font-bold text-[var(--emerald-dark)] truncate max-w-[120px]" title={`Lead: ${project.teamLead}`}>
-                Lead: {project.teamLead.split(' ')[0]}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            {project.accessType === 'private' && project.visibleUsers.length > 0 && (
-              <AvatarGroup users={project.visibleUsers} max={2} />
-            )}
-            <div className="flex items-center border-l border-border pl-2 gap-0.5">
-              <button
-                onClick={onEdit}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-700 transition-colors hover:bg-emerald-50/50 hover:text-ink"
-                title="Edit Project"
-              >
-                <Edit2 className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={onDelete}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-700 transition-colors hover:bg-amber-500/10 hover:text-amber-400"
-                title="Archive Project"
-              >
-                <Archive className="h-3.5 w-3.5" />
-              </button>
-            </div>
+        </div>
+
+        {project.description && (
+          <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+            {project.description}
+          </p>
+        )}
+
+        <div className="project-members-section space-y-1.5 border-t border-slate-100 pt-3.5">
+          <div className="flex items-center text-xs">
+            <span className="font-semibold text-slate-400 w-16 shrink-0">Lead:</span>
+            <span className="font-bold text-slate-700 truncate">{leadName}</span>
+          </div>
+          <div className="flex items-baseline text-xs">
+            <span className="font-semibold text-slate-400 w-16 shrink-0">Members:</span>
+            <span className="font-medium text-slate-600 leading-normal truncate flex-1">
+              {membersText}
+              {memberCount > 0 && (
+                <span className="ml-1 text-[10px] text-slate-400 font-bold">({memberCount})</span>
+              )}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-3.5 mt-auto">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <span className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-emerald-500/10 bg-emerald-50/20 px-2.5 py-0.5 text-[10px] font-bold text-[var(--emerald-dark)] shadow-sm">
+              <Cpu className="h-3 w-3 shrink-0" strokeWidth={2.5} />
+              <span className="truncate font-mono">{project.technologyNode}</span>
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={onEdit}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 transition-all hover:bg-emerald-50 hover:text-[var(--emerald-dark)]"
+              title="Edit Project"
+            >
+              <Edit2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={onDelete}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 transition-all hover:bg-rose-50 hover:text-rose-500"
+              title="Archive Project"
+            >
+              <Archive className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
       </div>
@@ -960,18 +933,22 @@ const ProjectListRow = memo(function ProjectListRow({
         )}
       </td>
       <td className="px-5 py-4">
-        {project.accessType === 'private' ? (
-          <div className="flex items-center gap-2">
-            {project.teamLead && (
-              <span className="inline-flex items-center gap-1 rounded-lg border border-[rgba(38,107,28,0.22)] bg-[var(--emerald-surface)] px-2 py-0.5 text-[11px] font-bold text-[var(--emerald-dark)]">
-                Lead: {project.teamLead}
-              </span>
-            )}
-            <AvatarGroup users={project.visibleUsers} max={3} />
+        <div className="flex flex-col gap-1 text-xs">
+          <div className="flex items-center gap-1.5">
+            <span className="font-semibold text-slate-455 w-14">Lead:</span>
+            <span className="font-bold text-slate-700 truncate max-w-[150px]">{project.teamLead || 'Not assigned'}</span>
           </div>
-        ) : (
-          <span className="text-xs font-medium text-slate-600">All Members (Public)</span>
-        )}
+          <div className="flex items-center gap-1.5 text-slate-600">
+            <span className="font-semibold text-slate-455 w-14">Members:</span>
+            <span className="truncate max-w-[200px]" title={project.visibleUsers.join(' • ')}>
+              {project.visibleUsers.length > 0 
+                ? project.visibleUsers.slice(0, 2).join(' • ') + (project.visibleUsers.length > 2 ? ` • +${project.visibleUsers.length - 2} more` : '')
+                : (project.accessType === 'public' ? 'All Members' : 'None')
+              }
+              {project.visibleUsers.length > 0 && ` (${project.visibleUsers.length})`}
+            </span>
+          </div>
+        </div>
       </td>
       <td className="px-5 py-4">
         {isCancelled ? (
@@ -1081,6 +1058,12 @@ export function ProjectManagement() {
   // ── Core State ──────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<'projects' | 'timesheets'>('projects')
   const [allProjects, setAllProjects] = useState<Project[]>([])
+  const [isAnimated, setIsAnimated] = useState(false)
+  
+  useEffect(() => {
+    const timer = setTimeout(() => setIsAnimated(true), 200)
+    return () => clearTimeout(timer)
+  }, [])
   const [timesheets, setTimesheets] = useState<TimesheetLog[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -1107,6 +1090,7 @@ export function ProjectManagement() {
   const [modalOpen, setModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [techNodeError, setTechNodeError] = useState<string>('')
   const [employees, setEmployees] = useState<Employee[]>([])
 
 
@@ -1120,6 +1104,7 @@ export function ProjectManagement() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
   const [archivedModalOpen, setArchivedModalOpen] = useState(false)
+  const [archivedCount, setArchivedCount] = useState(0)
 
   const openAuditTrail = useCallback((id: string, name: string) => {
     setSelectedAuditProjectId(id)
@@ -1140,9 +1125,29 @@ export function ProjectManagement() {
   const [form, setForm] = useState(emptyForm)
 
   // ── Timesheets Date Range Picker States ─────────────────────
+  // FIXED: Initialize with current month using timezone-safe date formatting
+  const getCurrentMonthDates = () => {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = now.getMonth()
+    
+    // Get first day of current month
+    const startDay = 1
+    // Get last day of current month
+    const endDay = new Date(year, month + 1, 0).getDate()
+    
+    // Format as YYYY-MM-DD without timezone conversion
+    const pad = (num: number) => String(num).padStart(2, '0')
+    const start = `${year}-${pad(month + 1)}-${pad(startDay)}`
+    const end = `${year}-${pad(month + 1)}-${pad(endDay)}`
+    
+    return { start, end }
+  }
+  
+  const initialDates = getCurrentMonthDates()
   const [datePreset, setDatePreset] = useState<string>('This Month')
-  const [tsStartDate, setTsStartDate] = useState('2026-05-01')
-  const [tsEndDate, setTsEndDate] = useState('2026-05-31')
+  const [tsStartDate, setTsStartDate] = useState(initialDates.start)
+  const [tsEndDate, setTsEndDate] = useState(initialDates.end)
 
   // ── Timesheets Filters States ───────────────────────────────
   const [tsSearch, setTsSearch] = useState('')
@@ -1171,6 +1176,16 @@ export function ProjectManagement() {
     }
   }, [])
 
+  const fetchArchivedCount = useCallback(async () => {
+    try {
+      const res = await api.get('/projects/archived')
+      setArchivedCount(res.data.length)
+    } catch (err) {
+      console.error(err)
+      // Silently fail for count - not critical
+    }
+  }, [])
+
   const fetchTimesheetsData = useCallback(async () => {
     const params: Record<string, string> = {
       from: tsStartDate,
@@ -1188,19 +1203,18 @@ export function ProjectManagement() {
   }, [tsStartDate, tsEndDate, tsSearch])
 
   const refreshAllData = useCallback(async () => {
-    await Promise.all([fetchProjects(), fetchTimesheetsData()])
-  }, [fetchProjects, fetchTimesheetsData])
+    await Promise.all([fetchProjects(), fetchTimesheetsData(), fetchArchivedCount()])
+  }, [fetchProjects, fetchTimesheetsData, fetchArchivedCount])
 
   useEffect(() => {
     fetchProjects()
     fetchEmployees()
-  }, [fetchProjects, fetchEmployees])
+    fetchArchivedCount()
+  }, [fetchProjects, fetchEmployees, fetchArchivedCount])
 
   useEffect(() => {
-    if (activeTab === 'timesheets') {
-      fetchTimesheetsData()
-    }
-  }, [fetchTimesheetsData, activeTab])
+    fetchTimesheetsData()
+  }, [fetchTimesheetsData])
 
   // ── Derived Client / Project Lists for Filter Options ──────────
   const uniqueClients = useMemo(() => {
@@ -1302,6 +1316,7 @@ export function ProjectManagement() {
       total: projects.length,
       inProgress: projects.filter((p) => p.status === 'Active').length,
       completed: projects.filter((p) => p.status === 'Completed').length,
+      cancelled: projects.filter((p) => p.status === 'Cancelled').length,
     }
   }, [projects])
 
@@ -1312,6 +1327,7 @@ export function ProjectManagement() {
       ...emptyForm,
     })
     setEditingId(null)
+    setTechNodeError('')
     setModalOpen(true)
   }, [])
 
@@ -1328,17 +1344,37 @@ export function ProjectManagement() {
       teamLead: p.teamLead || '',
       status: (p.status === 'Rejected' ? 'Cancelled' : p.status) as 'Active' | 'Completed' | 'Cancelled',
     })
+    setTechNodeError('')
     setModalOpen(true)
   }, [])
 
 
 
 
+  /** Validates that the technology node is EXACTLY in the format: (number)nm */
+  const validateTechNode = useCallback((value: string): string => {
+    if (!value.trim()) return 'Technology Node is required.'
+    
+    // Strict validation: must be exactly (number)nm format, nothing else
+    const strictPattern = /^\d+nm$/i
+    if (!strictPattern.test(value.trim())) {
+      return 'Technology Node must be exactly in the format: (number)nm (e.g., "7nm", "28nm", "5nm"). No additional text allowed.'
+    }
+    
+    return ''
+  }, [])
+
   const handleSaveProject = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault()
       if (!form.name.trim() || !form.client.trim() || !form.technologyNode.trim()) {
         toast.error('Please specify Project Name, Client, and Technology Node.')
+        return
+      }
+      const techErr = validateTechNode(form.technologyNode)
+      if (techErr) {
+        setTechNodeError(techErr)
+        toast.error(techErr)
         return
       }
 
@@ -1550,13 +1586,13 @@ export function ProjectManagement() {
           name: t.employeeName,
           dept: empInfo?.department ?? '—',
           hours,
-          hue: stringToHue(employeeColorKey),
+          hue: (empInfo as any)?.hue ?? stringToHue(employeeColorKey),
         }
       }
     })
     return Object.values(empMap)
       .map(e => ({ ...e, hours: Math.round(e.hours * 10) / 10 }))
-  }, [filteredTimesheets])
+  }, [filteredTimesheets, employees])
 
   // ── Timesheets Pagination derived values ────────────────────
   const totalTimesheetsPages = Math.ceil(filteredTimesheets.length / timesheetsPerPage)
@@ -2140,6 +2176,7 @@ export function ProjectManagement() {
   const tsEmployeeFilterOptions = useMemo(() => {
     const names = new Set<string>()
     employees.forEach((e) => names.add(employeeDisplayName(e)))
+    MOCK_EMPLOYEES.forEach((e) => names.add(`${e.firstName} ${e.lastName ?? ''}`.trim()))
     timesheets.forEach((t) => {
       if (t.employeeName) names.add(t.employeeName)
     })
@@ -2173,538 +2210,614 @@ export function ProjectManagement() {
     tsEmployeeFilters.length > 0 ||
     tsProjectFilters.length > 0 ||
     tsStatusFilters.length > 0
+
   return (
     <div className="crewiq-dashboard admin-projects-view">
       <div className="crewiq-dash-bg" aria-hidden />
-      <PageWrapper className="relative z-10 py-3 font-body">
+      <PageWrapper className="projects-page-wrapper relative z-10 py-3 font-body">
         <div className="projects-shell animate-fadeIn">
-          {/* Dark green hero — title, tabs, actions, metrics */}
-          <div className="projects-hero sticky top-0 z-30">
-            <div className="projects-hero-top">
-              <div className="min-w-0">
-                <h1 className="projects-hero-title font-display">Projects & Timesheets</h1>
-                <p className="projects-hero-sub">
-                  Manage projects, review logs, and track team hours in one place
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="projects-tab-rail">
-                  {[
-                    { key: 'projects' as const, label: 'Projects', icon: FolderOpen, count: filteredProjects.length },
-                    { key: 'timesheets' as const, label: 'Timesheets', icon: Clock, count: filteredTimesheets.length },
-                  ].map((tab) => (
-                    <button
-                      key={tab.key}
-                      onClick={() => setActiveTab(tab.key)}
-                      className={`inline-flex items-center gap-1 rounded-[6px] px-2 py-1 text-[11px] font-bold transition-all duration-200 ${
-                        activeTab === tab.key
-                          ? 'admin-dash-action-btn-sm text-white'
-                          : 'projects-tab-inactive'
-                      }`}
-                    >
-                      <tab.icon className="h-3 w-3 shrink-0" />
-                      {tab.label}
-                      <span
-                        className={`rounded-full px-1 py-px text-[9px] font-black tabular-nums leading-none ${
-                          activeTab === tab.key ? 'bg-white/20 text-white' : 'bg-white/15 text-white/80'
-                        }`}
-                      >
-                        {tab.count}
-                      </span>
-                    </button>
-                  ))}
+          {/* Redesigned Compact Header with Dynamic Pie Chart */}
+          <div className="flex items-center justify-between gap-4 mb-3">
+            <div>
+              <h1 className="text-2xl font-extrabold text-[var(--emerald-dark)] leading-none mb-1">Projects & Timesheets</h1>
+              <p className="text-xs font-medium text-slate-600">
+                Manage projects, review logs, and track team hours in one place
+              </p>
+            </div>
+            
+            {/* Dynamic Pie Chart Status Summary */}
+            <div className="flex items-center gap-3 bg-white/80 rounded-xl border border-emerald-200/60 px-4 py-2.5 shadow-sm backdrop-blur-sm">
+              <div className="relative flex items-center justify-center" style={{ width: 68, height: 68 }}>
+                <svg width="68" height="68" viewBox="0 0 68 68" className="transform -rotate-90">
+                  {(() => {
+                    const total = projectMetrics.total || 1;
+                    const radius = 28;
+                    const circumference = 2 * Math.PI * radius;
+                    
+                    // Calculate percentages
+                    const progressPercent = (projectMetrics.inProgress / total) * 100;
+                    const completedPercent = (projectMetrics.completed / total) * 100;
+                    const cancelledPercent = (projectMetrics.cancelled / total) * 100;
+                    
+                    // Calculate dash arrays and offsets for pie segments
+                    const progressDash = (progressPercent / 100) * circumference;
+                    const completedDash = (completedPercent / 100) * circumference;
+                    const cancelledDash = (cancelledPercent / 100) * circumference;
+                    
+                    // Calculate offsets (each segment starts where previous ended)
+                    const progressOffset = 0;
+                    const completedOffset = -progressDash;
+                    const cancelledOffset = -(progressDash + completedDash);
+                    
+                    return (
+                      <>
+                        {/* Background circle */}
+                        <circle 
+                          cx="34" 
+                          cy="34" 
+                          r={radius} 
+                          fill="none" 
+                          stroke="rgba(38, 107, 28, 0.08)" 
+                          strokeWidth="11"
+                        />
+                        
+                        {/* Progress segment (Blue) */}
+                        {projectMetrics.inProgress > 0 && (
+                          <circle
+                            cx="34"
+                            cy="34"
+                            r={radius}
+                            fill="none"
+                            stroke="#3b82f6"
+                            strokeWidth="11"
+                            strokeDasharray={`${isAnimated ? progressDash : 0} ${circumference}`}
+                            strokeDashoffset={progressOffset}
+                            strokeLinecap="round"
+                            style={{ 
+                              transition: 'stroke-dasharray 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0.1s',
+                              filter: 'drop-shadow(0 2px 4px rgba(59, 130, 246, 0.3))'
+                            }}
+                          />
+                        )}
+                        
+                        {/* Completed segment (Green) */}
+                        {projectMetrics.completed > 0 && (
+                          <circle
+                            cx="34"
+                            cy="34"
+                            r={radius}
+                            fill="none"
+                            stroke="#22c55e"
+                            strokeWidth="11"
+                            strokeDasharray={`${isAnimated ? completedDash : 0} ${circumference}`}
+                            strokeDashoffset={completedOffset}
+                            strokeLinecap="round"
+                            style={{ 
+                              transition: 'stroke-dasharray 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0.3s',
+                              filter: 'drop-shadow(0 2px 4px rgba(34, 197, 94, 0.3))'
+                            }}
+                          />
+                        )}
+                        
+                        {/* Cancelled segment (Red) */}
+                        {projectMetrics.cancelled > 0 && (
+                          <circle
+                            cx="34"
+                            cy="34"
+                            r={radius}
+                            fill="none"
+                            stroke="#ef4444"
+                            strokeWidth="11"
+                            strokeDasharray={`${isAnimated ? cancelledDash : 0} ${circumference}`}
+                            strokeDashoffset={cancelledOffset}
+                            strokeLinecap="round"
+                            style={{ 
+                              transition: 'stroke-dasharray 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0.5s',
+                              filter: 'drop-shadow(0 2px 4px rgba(239, 68, 68, 0.3))'
+                            }}
+                          />
+                        )}
+                      </>
+                    );
+                  })()}
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-2xl font-black text-[var(--emerald-dark)] font-display leading-none">{projectMetrics.total}</span>
+                  <span className="text-[8px] font-bold uppercase tracking-wider text-slate-500 mt-0.5">Total</span>
                 </div>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {activeTab === 'projects' && (
-                    <>
-                      <Button
-                        onClick={() => setArchivedModalOpen(true)}
-                        className="flex h-7 items-center gap-1 rounded-md border border-white/20 bg-white/10 px-2.5 py-0 text-[11px] font-bold text-white transition-all hover:bg-white/20"
-                      >
-                        <Archive className="h-3 w-3" />
-                        <span className="hidden sm:inline">Archived</span>
-                      </Button>
-                      <Button
-                        onClick={openCreateProject}
-                        className="admin-dash-action-btn flex h-7 items-center gap-1 rounded-md px-2.5 py-0 text-[11px] font-bold"
-                      >
-                        <Plus className="h-3 w-3" />
-                        Create Project
-                      </Button>
-                    </>
-                  )}
-                  {activeTab === 'timesheets' && (
-                    <>
-                      <button
-                        onClick={handleExportPDF}
-                        className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-rose-300/30 bg-rose-500/20 px-2.5 text-[11px] font-bold text-rose-100 transition-all hover:bg-rose-500/30"
-                        title="Export timesheet data as PDF report"
-                      >
-                        <FileDown className="h-3 w-3 shrink-0" />
-                        <span>PDF Report</span>
-                      </button>
-                      <button
-                        onClick={handleExportExcel}
-                        className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-white/20 bg-white/10 px-2.5 text-[11px] font-bold text-white transition-all hover:bg-white/20"
-                        title="Export timesheet data as Excel spreadsheet"
-                      >
-                        <FileSpreadsheet className="h-3 w-3 shrink-0" />
-                        <span>Excel</span>
-                      </button>
-                    </>
-                  )}
+              </div>
+              
+              <div className="flex items-center gap-3 pl-3 border-l border-emerald-200/60">
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1 mb-0.5">
+                    <div className="h-1.5 w-1.5 rounded-full bg-blue-500 shadow-sm"></div>
+                    <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500">Progress</span>
+                  </div>
+                  <div className="text-xl font-black text-blue-600 tabular-nums">{projectMetrics.inProgress}</div>
+                </div>
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1 mb-0.5">
+                    <div className="h-1.5 w-1.5 rounded-full bg-green-500 shadow-sm"></div>
+                    <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500">Done</span>
+                  </div>
+                  <div className="text-xl font-black text-green-600 tabular-nums">{projectMetrics.completed}</div>
+                </div>
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1 mb-0.5">
+                    <div className="h-1.5 w-1.5 rounded-full bg-red-500 shadow-sm"></div>
+                    <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500">Cancel</span>
+                  </div>
+                  <div className="text-xl font-black text-red-600 tabular-nums">{projectMetrics.cancelled}</div>
                 </div>
               </div>
             </div>
-            {activeTab === 'projects' && (
-              <div className="projects-metrics-band">
-                <MetricCard
-                  variant="hero"
-                  label="Total Projects"
-                  value={projectMetrics.total}
-                  icon={FolderOpen}
-                  accentClass=""
-                  iconClassName=""
-                  secondaryText="All registered projects"
-                />
-                <MetricCard
-                  variant="hero"
-                  label="In Progress"
-                  value={projectMetrics.inProgress}
-                  icon={ArrowUpRight}
-                  accentClass=""
-                  iconClassName=""
-                  secondaryText="Currently active"
-                />
-                <MetricCard
-                  variant="hero"
-                  label="Completed"
-                  value={projectMetrics.completed}
-                  icon={CheckCircle2}
-                  accentClass=""
-                  iconClassName=""
-                  secondaryText="Successfully delivered"
-                />
-              </div>
-            )}
           </div>
 
       {/* ================================================================
            TAB 1 – PROJECTS
            ================================================================ */}
-      {activeTab === 'projects' && (
-        <div className="projects-body-grid">
-          {/* Light green sidebar — search & filters */}
-          <aside className="projects-sidebar space-y-3">
-            <p className="projects-sidebar-title">Search & Filters</p>
-            <div className="relative min-w-0">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--emerald-dark)]" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search projects, clients…"
-                className="admin-field h-9 w-full pl-9 pr-8 text-sm font-medium text-ink shadow-sm placeholder:text-ink/45"
-              />
-              {searchQuery ? (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-slate-700 hover:bg-white/60 hover:text-ink"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              ) : null}
-            </div>
-
+      {/* Unified grid layout holding the permanently visible sidebar on the left and the main content on the right */}
+      <div className="projects-body-grid">
+        {/* Left Sidebar with Navigation and Filters */}
+        <aside className="projects-sidebar space-y-4">
+          <div>
+            <p className="projects-sidebar-title">Workspace Navigation</p>
+            
+            {/* Create Project Button */}
             <button
-              type="button"
-              onClick={() => setShowFilters(!showFilters)}
-              className={`inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-bold transition-all ${
-                showFilters || activeFiltersCount > 0
-                  ? 'border-[rgba(38,107,28,0.35)] bg-white/80 text-[var(--emerald-dark)]'
-                  : 'border-[rgba(38,107,28,0.2)] bg-white/50 text-slate-800 hover:bg-white/70'
-              }`}
+              onClick={openCreateProject}
+              className="sidebar-create-btn mb-3"
             >
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-              {showFilters ? 'Hide Filters' : 'Show Filters'}
-              {activeFiltersCount > 0 ? (
-                <span className="admin-dash-action-btn-sm inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1 text-[10px] font-black text-white">
-                  {activeFiltersCount}
-                </span>
-              ) : null}
+              <Plus className="h-4 w-4" />
+              <span>Create Project</span>
             </button>
 
-            {showFilters ? (
-              <div className="space-y-3 rounded-lg border border-[rgba(38,107,28,0.15)] bg-white/55 p-3 animate-fadeIn">
-                <FilterCheckboxGroup
-                  label="Client Name"
-                  placeholder="All Clients"
-                  compact
-                  options={uniqueClients.map((c) => ({ value: c, label: c }))}
-                  selected={filterClients}
-                  onChange={setFilterClients}
+            {/* Navigation List */}
+            <div className="sidebar-nav-list">
+              <button
+                onClick={() => setActiveTab('projects')}
+                className={`sidebar-nav-item ${activeTab === 'projects' ? 'active' : ''}`}
+              >
+                <FolderOpen className="h-4 w-4" />
+                <span className="flex-1 text-left">Projects</span>
+                <span className="sidebar-nav-badge">{filteredProjects.length}</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('timesheets')}
+                className={`sidebar-nav-item ${activeTab === 'timesheets' ? 'active' : ''}`}
+              >
+                <Clock className="h-4 w-4" />
+                <span className="flex-1 text-left">Timesheets</span>
+                <span className="sidebar-nav-badge">{filteredTimesheets.length}</span>
+              </button>
+              <button
+                onClick={() => setArchivedModalOpen(true)}
+                className="sidebar-nav-item"
+              >
+                <Archive className="h-4 w-4" />
+                <span className="flex-1 text-left">Archived</span>
+                <span className="sidebar-nav-badge">{archivedCount}</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100 my-3" />
+
+          {/* DYNAMIC FILTERS & SETTINGS SECTION */}
+          {activeTab === 'projects' ? (
+            <div className="space-y-4">
+              <p className="projects-sidebar-title">Project Filters</p>
+              
+              {/* Search */}
+              <div className="relative min-w-0">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--emerald-dark)]" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search projects, clients…"
+                  className="admin-field h-9 w-full pl-9 pr-8 text-sm font-medium text-ink shadow-sm placeholder:text-ink/45"
                 />
-                <FilterCheckboxGroup
-                  label="Employee"
-                  placeholder="All Employees"
-                  compact
-                  options={uniqueEmployees.map((emp) => ({ value: emp, label: emp }))}
-                  selected={filterEmployees}
-                  onChange={setFilterEmployees}
-                />
-                <FilterCheckboxGroup
-                  label="Project Status"
-                  placeholder="All Statuses"
-                  compact
-                  options={[
-                    { value: 'Active', label: 'In Progress' },
-                    { value: 'Completed', label: 'Completed' },
-                    { value: 'Cancelled', label: 'Cancelled' },
-                  ]}
-                  selected={filterStatuses}
-                  onChange={setFilterStatuses}
-                />
-                <FilterCheckboxGroup
-                  label="Access Control"
-                  placeholder="All Access"
-                  compact
-                  options={[
-                    { value: 'public', label: 'Public' },
-                    { value: 'private', label: 'Private' },
-                  ]}
-                  selected={filterAccessTypes}
-                  onChange={setFilterAccessTypes}
-                />
-                {activeFiltersCount > 0 ? (
+                {searchQuery ? (
                   <button
-                    onClick={clearProjectsFilters}
-                    className="w-full text-center text-xs font-bold text-[var(--emerald-dark)] hover:text-[var(--green-600)] transition-colors"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-slate-700 hover:bg-white/60 hover:text-ink"
                   >
-                    Reset All Filters
+                    <X className="h-3.5 w-3.5" />
                   </button>
                 ) : null}
               </div>
-            ) : null}
 
-            <div className="rounded-lg border border-[rgba(38,107,28,0.12)] bg-white/45 p-3">
-              <p className="text-xs font-semibold text-slate-700 tabular-nums">
-                <span className="font-bold text-[var(--emerald-dark)]">{filteredProjects.length}</span>
-                <span className="text-slate-600"> / {projects.length} projects</span>
-              </p>
-              <div className="projects-view-toggle mt-2">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`flex-1 rounded-md p-2 transition-all ${
-                    viewMode === 'grid' ? 'admin-projects-green-solid shadow-sm' : 'text-slate-600 hover:text-ink'
-                  }`}
-                  title="Grid layout"
-                >
-                  <LayoutGrid className="mx-auto h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`flex-1 rounded-md p-2 transition-all ${
-                    viewMode === 'list' ? 'admin-projects-green-solid shadow-sm' : 'text-slate-600 hover:text-ink'
-                  }`}
-                  title="List layout"
-                >
-                  <List className="mx-auto h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          </aside>
+              {/* Show/Hide Filters Button */}
+              <button
+                type="button"
+                onClick={() => setShowFilters(!showFilters)}
+                className={`inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-bold transition-all ${
+                  showFilters || activeFiltersCount > 0
+                    ? 'border-[rgba(38,107,28,0.35)] bg-white/80 text-[var(--emerald-dark)]'
+                    : 'border-[rgba(38,107,28,0.2)] bg-white/50 text-slate-800 hover:bg-white/70'
+                }`}
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                Show Filters
+                {activeFiltersCount > 0 ? (
+                  <span className="admin-dash-action-btn-sm inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1 text-[10px] font-black text-white">
+                    {activeFiltersCount}
+                  </span>
+                ) : null}
+              </button>
 
-          {/* Main content panel */}
-          <div className="projects-main-panel">
-            <div className="projects-main-header">
-              <h2 className="font-display text-sm font-bold text-[var(--emerald-dark)]">Project Directory</h2>
-              <p className="text-xs font-medium text-slate-600">
-                {viewMode === 'grid' ? 'Grid view' : 'List view'} · {filteredProjects.length} result{filteredProjects.length === 1 ? '' : 's'}
-              </p>
-            </div>
-          {viewMode === 'grid' ? (
-            <>
-              {filteredProjects.length > 0 ? (
-                <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                  {currentProjects.map((p) => (
-                    <ProjectCard
-                      key={p.id}
-                      project={p}
-                      onEdit={() => openEditProject(p)}
-                      onDelete={() => handleDeleteProject(p)}
-
-                    />
-                  ))}
-                </div>
-              ) : (
-                <EmptyState
-                  message="No projects correspond to your search criteria."
-                  onClear={clearProjectsFilters}
-                  hasFilters={activeFiltersCount > 0 || !!searchQuery}
-                />
-              )}
-            </>
-          ) : (
-            <div className="projects-table-shell">
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-left">
-                  <thead>
-                    <tr className="border-b border-border bg-transparent">
-                      <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
-                        Project Details
-                      </th>
-                      <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
-                        Client
-                      </th>
-                      <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
-                        Technology Node
-                      </th>
-                      <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
-                        Access Control
-                      </th>
-                      <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
-                        Visibility Scope
-                      </th>
-                      <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
-                        Status
-                      </th>
-                      <th className="px-5 py-3 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5 text-sm">
-                    {currentProjects.map((p) => (
-                      <ProjectListRow
-                        key={p.id}
-                        project={p}
-                        onEdit={() => openEditProject(p)}
-                        onDelete={() => handleDeleteProject(p)}
-
-                      />
-                    ))}
-                    {filteredProjects.length === 0 && (
-                      <tr>
-                        <td colSpan={7} className="py-16 text-center text-slate-550 font-medium">
-                          No projects matched the selected filters.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Projects Pagination Controls */}
-          {totalProjectsPages > 1 && (
-            <div className="projects-pagination-bar flex flex-wrap items-center justify-between gap-3">
-              <span className="text-[11px] font-semibold text-slate-600">
-                Showing {indexOfFirstProject + 1}–{Math.min(indexOfLastProject, filteredProjects.length)} of {filteredProjects.length} projects
-              </span>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  disabled={projectsCurrentPage === 1}
-                  onClick={() => setProjectsCurrentPage((p) => Math.max(1, p - 1))}
-                  className="inline-flex h-7 items-center justify-center rounded-lg border border-border bg-[var(--bg-card)] px-3 text-[11px] font-bold text-slate-700 transition-all hover:bg-emerald-50/60 hover:text-ink disabled:opacity-40 disabled:pointer-events-none"
-                >
-                  Previous
-                </button>
-                {Array.from({ length: totalProjectsPages }, (_, i) => i + 1).map((page) => (
-                  <button
-                    key={page}
-                    type="button"
-                    onClick={() => setProjectsCurrentPage(page)}
-                    className={`inline-flex h-7 w-7 items-center justify-center rounded-lg text-[11px] font-black transition-all ${
-                      projectsCurrentPage === page
-                        ? 'admin-projects-green-solid shadow-sm'
-                        : 'border border-border bg-[var(--bg-card)] text-slate-700 hover:bg-emerald-50/60 hover:text-ink'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  disabled={projectsCurrentPage === totalProjectsPages}
-                  onClick={() => setProjectsCurrentPage((p) => Math.min(totalProjectsPages, p + 1))}
-                  className="inline-flex h-7 items-center justify-center rounded-lg border border-border bg-[var(--bg-card)] px-3 text-[11px] font-bold text-slate-700 transition-all hover:bg-emerald-50/60 hover:text-ink disabled:opacity-40 disabled:pointer-events-none"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
-          </div>
-        </div>
-      )}
-
-      {/* ================================================================
-           TAB 2 – TIMESHEETS (Manage Timesheets / Review Time Logs)
-           ================================================================ */}
-      {activeTab === 'timesheets' && (
-        <div className="space-y-4 pb-8 animate-fadeIn">
-          {/* Timesheets filter toolbar */}
-          <div className="projects-ts-filters">
-            <div className="flex flex-col gap-2">
-              <div className="grid grid-cols-1 items-center gap-2 md:grid-cols-2 xl:grid-cols-[minmax(11rem,1.4fr)_auto_minmax(8.5rem,1fr)_minmax(8.5rem,1fr)_minmax(7.5rem,0.9fr)_auto]">
-                <div className="relative min-w-0 md:col-span-2 xl:col-span-1">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
-                  <input
-                    type="text"
-                    value={tsSearch}
-                    onChange={(e) => setTsSearch(e.target.value)}
-                    placeholder="Search employees, projects…"
-                    className="admin-field h-9 w-full pl-9 pr-8 text-sm font-medium text-ink shadow-sm placeholder:text-ink/45"
+              {/* Filters Panel */}
+              {showFilters ? (
+                <div className="space-y-3 rounded-lg border border-[rgba(38,107,28,0.15)] bg-white/55 p-3 animate-fadeIn">
+                  <FilterCheckboxGroup
+                    label="Client Name"
+                    placeholder="All Clients"
+                    compact
+                    options={uniqueClients.map((c) => ({ value: c, label: c }))}
+                    selected={filterClients}
+                    onChange={setFilterClients}
                   />
-                  {tsSearch.trim() && (
-                    <button
-                      type="button"
-                      onClick={() => setTsSearch('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-slate-700 hover:bg-emerald-50/50 hover:text-ink"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-
-                <div className="shrink-0">
-                  <CustomDateRangePicker
-                    startDate={tsStartDate}
-                    endDate={tsEndDate}
-                    preset={datePreset}
-                    onChange={handleDateRangeChange}
-                  />
-                </div>
-
-                <div className="h-9 min-w-0">
                   <FilterCheckboxGroup
                     label="Employee"
                     placeholder="All Employees"
                     compact
-                    options={tsEmployeeFilterOptions}
-                    selected={tsEmployeeFilters}
-                    onChange={setTsEmployeeFilters}
+                    options={uniqueEmployees.map((emp) => ({ value: emp, label: emp }))}
+                    selected={filterEmployees}
+                    onChange={setFilterEmployees}
                   />
-                </div>
-
-                <div className="h-9 min-w-0">
                   <FilterCheckboxGroup
-                    label="Project"
-                    placeholder="All Projects"
-                    compact
-                    options={tsProjectFilterOptions}
-                    selected={tsProjectFilters}
-                    onChange={setTsProjectFilters}
-                  />
-                </div>
-
-                <div className="h-9 min-w-0">
-                  <FilterCheckboxGroup
-                    label="Status"
+                    label="Project Status"
                     placeholder="All Statuses"
                     compact
-                    options={tsStatusFilterOptions}
-                    selected={tsStatusFilters}
-                    onChange={setTsStatusFilters}
+                    options={[
+                      { value: 'Active', label: 'In Progress' },
+                      { value: 'Completed', label: 'Completed' },
+                      { value: 'Cancelled', label: 'Cancelled' },
+                    ]}
+                    selected={filterStatuses}
+                    onChange={setFilterStatuses}
                   />
-                </div>
-
-                <div className="flex items-center justify-end gap-2 xl:justify-end">
-                  <span className="inline-flex h-9 items-center rounded-lg border border-border bg-[var(--bg-input)] px-3 text-xs font-semibold tabular-nums text-slate-350">
-                    <span className="font-bold text-ink">{filteredTimesheets.length}</span>
-                    <span className="ml-1 text-slate-600">logs</span>
-                  </span>
-                  {hasActiveTimesheetFilters && (
+                  <FilterCheckboxGroup
+                    label="Access Control"
+                    placeholder="All Access"
+                    compact
+                    options={[
+                      { value: 'public', label: 'Public' },
+                      { value: 'private', label: 'Private' },
+                    ]}
+                    selected={filterAccessTypes}
+                    onChange={setFilterAccessTypes}
+                  />
+                  {activeFiltersCount > 0 ? (
                     <button
-                      type="button"
-                      onClick={clearTimesheetFilters}
-                      className="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg border border-border bg-[var(--bg-input)] px-2.5 text-xs font-bold text-slate-350 transition-colors hover:bg-emerald-50/60 hover:text-ink"
-                      title="Reset filters"
+                      onClick={clearProjectsFilters}
+                      className="w-full text-center text-xs font-bold text-[var(--emerald-dark)] hover:text-[var(--green-600)] transition-colors"
                     >
-                      <X className="h-3.5 w-3.5" />
+                      Reset All Filters
                     </button>
-                  )}
+                  ) : null}
+                </div>
+              ) : null}
+
+              {/* Project Health Overview */}
+              {!showFilters && (
+                <div className="rounded-lg border border-[rgba(38,107,28,0.12)] bg-white/45 p-3">
+                  <p className="workspace-summary-label mb-2">Quick Overview</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-slate-700">In Progress</span>
+                      <span className="font-bold text-blue-600">{projectMetrics.inProgress}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-slate-700">Completed</span>
+                      <span className="font-bold text-emerald-600">{projectMetrics.completed}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-slate-700">Cancelled</span>
+                      <span className="font-bold text-rose-600">{projectMetrics.cancelled}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* View Switcher */}
+              <div className="rounded-lg border border-[rgba(38,107,28,0.12)] bg-white/45 p-3">
+                <p className="text-xs font-semibold text-slate-700 tabular-nums mb-2">
+                  <span className="font-bold text-[var(--emerald-dark)]">{filteredProjects.length}</span>
+                  <span className="text-slate-600"> / {projects.length} projects</span>
+                </p>
+                <div className="projects-view-toggle">
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`flex-1 rounded-md p-2 transition-all ${
+                      viewMode === 'grid' ? 'admin-projects-green-solid shadow-sm' : 'text-slate-600 hover:text-ink'
+                    }`}
+                    title="Grid view"
+                  >
+                    <LayoutGrid className="mx-auto h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`flex-1 rounded-md p-2 transition-all ${
+                      viewMode === 'list' ? 'admin-projects-green-solid shadow-sm' : 'text-slate-600 hover:text-ink'
+                    }`}
+                    title="List view"
+                  >
+                    <List className="mx-auto h-4 w-4" />
+                  </button>
                 </div>
               </div>
             </div>
-
-            {hasActiveTimesheetFilters && (
-              <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-border pt-2.5">
-                <span className="text-[11px] font-bold uppercase tracking-wide text-slate-600">Active</span>
-
+          ) : (
+            <div className="space-y-4">
+              <p className="projects-sidebar-title">Timesheet Filters</p>
+              
+              {/* Search */}
+              <div className="relative min-w-0">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--emerald-dark)]" />
+                <input
+                  type="text"
+                  value={tsSearch}
+                  onChange={(e) => setTsSearch(e.target.value)}
+                  placeholder="Search logs…"
+                  className="admin-field h-9 w-full pl-9 pr-8 text-sm font-medium text-ink shadow-sm placeholder:text-ink/45"
+                />
                 {tsSearch.trim() && (
-                  <span className="inline-flex items-center gap-1 rounded-md border border-border bg-[var(--bg-input)] px-2 py-1 text-xs font-semibold text-slate-800">
-                    Search: &quot;{tsSearch}&quot;
-                    <button
-                      type="button"
-                      onClick={() => setTsSearch('')}
-                      className="text-slate-600 hover:text-slate-800"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setTsSearch('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-slate-700 hover:bg-emerald-50/50 hover:text-ink"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 )}
+              </div>
 
-                {tsEmployeeFilters.map((empName) => (
-                  <span
-                    key={empName}
-                    className="inline-flex items-center gap-1 rounded-md border border-[rgba(38,107,28,0.22)] bg-[var(--emerald-surface)] px-2 py-1 text-xs font-semibold text-[var(--emerald-dark)]"
-                  >
-                    {empName}
-                    <button
-                      type="button"
-                      onClick={() => setTsEmployeeFilters(tsEmployeeFilters.filter((name) => name !== empName))}
-                      className="text-[var(--emerald-dark)] hover:text-[var(--green-600)]"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                ))}
+              {/* Date Range Picker */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-600">Date Period</label>
+                <CustomDateRangePicker
+                  startDate={tsStartDate}
+                  endDate={tsEndDate}
+                  preset={datePreset}
+                  onChange={handleDateRangeChange}
+                />
+              </div>
 
-                {tsProjectFilters.map((proj) => (
-                  <span
-                    key={proj}
-                    className="inline-flex items-center gap-1 rounded-md border border-border bg-[var(--bg-input)] px-2 py-1 text-xs font-semibold text-slate-800"
-                  >
-                    {proj}
-                    <button
-                      type="button"
-                      onClick={() => setTsProjectFilters(tsProjectFilters.filter((p) => p !== proj))}
-                      className="text-slate-600 hover:text-slate-800"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                ))}
+              {/* Employee Filter */}
+              <FilterCheckboxGroup
+                label="Employee"
+                placeholder="All Employees"
+                options={tsEmployeeFilterOptions}
+                selected={tsEmployeeFilters}
+                onChange={setTsEmployeeFilters}
+              />
 
-                {tsStatusFilters.map((status) => (
-                  <span
-                    key={status}
-                    className="inline-flex items-center gap-1 rounded-md border border-blue-500/20 bg-blue-500/10 px-2 py-1 text-xs font-semibold text-blue-400"
-                  >
-                    {status}
-                    <button
-                      type="button"
-                      onClick={() => setTsStatusFilters(tsStatusFilters.filter((s) => s !== status))}
-                      className="text-blue-500/70 hover:text-blue-300"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                ))}
+              {/* Project Filter */}
+              <FilterCheckboxGroup
+                label="Project"
+                placeholder="All Projects"
+                options={tsProjectFilterOptions}
+                selected={tsProjectFilters}
+                onChange={setTsProjectFilters}
+              />
 
+              {/* Status Filter */}
+              <FilterCheckboxGroup
+                label="Status"
+                placeholder="All Statuses"
+                options={tsStatusFilterOptions}
+                selected={tsStatusFilters}
+                onChange={setTsStatusFilters}
+              />
+
+              {hasActiveTimesheetFilters && (
                 <button
                   type="button"
                   onClick={clearTimesheetFilters}
-                  className="ml-auto text-xs font-bold text-[var(--emerald-dark)] hover:text-[var(--green-600)]"
+                  className="w-full text-center text-xs font-bold text-[var(--emerald-dark)] hover:text-[var(--green-600)] transition-colors mt-2"
                 >
-                  Clear all
+                  Reset All Filters
                 </button>
+              )}
+            </div>
+          )}
+        </aside>
+
+        {/* Unified main content panel */}
+        <div className="projects-main-panel">
+          {activeTab === 'projects' ? (
+            <div className="space-y-5 animate-fadeIn">
+              <div className="projects-main-header">
+                <div>
+                  <h2 className="font-display text-lg font-bold text-[var(--emerald-dark)]">Project Directory</h2>
+                  <p className="text-xs font-medium text-slate-600 mt-0.5">
+                    {viewMode === 'grid' ? 'Grid view' : 'List view'} · {filteredProjects.length} result{filteredProjects.length === 1 ? '' : 's'}
+                  </p>
+                </div>
               </div>
-            )}
-          </div>
+              
+              {viewMode === 'grid' ? (
+                <>
+                  {filteredProjects.length > 0 ? (
+                    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                      {currentProjects.map((p) => (
+                        <ProjectCard
+                          key={p.id}
+                          project={p}
+                          onEdit={() => openEditProject(p)}
+                          onDelete={() => handleDeleteProject(p)}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <EmptyState
+                      message="No projects correspond to your search criteria."
+                      onClear={clearProjectsFilters}
+                      hasFilters={activeFiltersCount > 0 || !!searchQuery}
+                    />
+                  )}
+                </>
+              ) : (
+                <div className="projects-table-shell">
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-left">
+                      <thead>
+                        <tr className="border-b border-border bg-transparent">
+                          <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
+                            Project Details
+                          </th>
+                          <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
+                            Client
+                          </th>
+                          <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
+                            Technology Node
+                          </th>
+                          <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
+                            Access Control
+                          </th>
+                          <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
+                            Visibility Scope
+                          </th>
+                          <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
+                            Status
+                          </th>
+                          <th className="px-5 py-3 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5 text-sm">
+                        {currentProjects.map((p) => (
+                          <ProjectListRow
+                            key={p.id}
+                            project={p}
+                            onEdit={() => openEditProject(p)}
+                            onDelete={() => handleDeleteProject(p)}
+                          />
+                        ))}
+                        {filteredProjects.length === 0 && (
+                          <tr>
+                            <td colSpan={7} className="py-16 text-center text-slate-550 font-medium">
+                              No projects matched the selected filters.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Projects Pagination Controls */}
+              {totalProjectsPages > 1 && (
+                <div className="projects-pagination-bar flex flex-wrap items-center justify-between gap-3">
+                  <span className="text-[11px] font-semibold text-slate-600">
+                    Showing {indexOfFirstProject + 1}–{Math.min(indexOfLastProject, filteredProjects.length)} of {filteredProjects.length} projects
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      disabled={projectsCurrentPage === 1}
+                      onClick={() => setProjectsCurrentPage((p) => Math.max(1, p - 1))}
+                      className="inline-flex h-7 items-center justify-center rounded-lg border border-border bg-[var(--bg-card)] px-3 text-[11px] font-bold text-slate-700 transition-all hover:bg-emerald-50/60 hover:text-ink disabled:opacity-40 disabled:pointer-events-none"
+                    >
+                      Previous
+                    </button>
+                    {Array.from({ length: totalProjectsPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        type="button"
+                        onClick={() => setProjectsCurrentPage(page)}
+                        className={`inline-flex h-7 w-7 items-center justify-center rounded-lg text-[11px] font-black transition-all ${
+                          projectsCurrentPage === page
+                            ? 'admin-projects-green-solid shadow-sm'
+                            : 'border border-border bg-[var(--bg-card)] text-slate-700 hover:bg-emerald-50/60 hover:text-ink'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      disabled={projectsCurrentPage === totalProjectsPages}
+                      onClick={() => setProjectsCurrentPage((p) => Math.min(totalProjectsPages, p + 1))}
+                      className="inline-flex h-7 items-center justify-center rounded-lg border border-border bg-[var(--bg-card)] px-3 text-[11px] font-bold text-slate-700 transition-all hover:bg-emerald-50/60 hover:text-ink disabled:opacity-40 disabled:pointer-events-none"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-5 animate-fadeIn">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+                <div>
+                  <h2 className="font-display text-lg font-bold text-[var(--emerald-dark)]">Timesheet Records</h2>
+                  <p className="text-xs font-medium text-slate-600 mt-0.5">
+                    {filteredTimesheets.length} log{filteredTimesheets.length === 1 ? '' : 's'} matching criteria
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleExportExcel}
+                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[rgba(38,107,28,0.25)] bg-white px-3 text-xs font-bold text-[var(--emerald-dark)] transition-all hover:bg-emerald-50"
+                  >
+                    <FileSpreadsheet className="h-3.5 w-3.5 shrink-0" />
+                    <span>Export Excel</span>
+                  </button>
+                  <button
+                    onClick={handleExportPDF}
+                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 px-3 text-xs font-bold text-white shadow-sm transition-all hover:shadow-md"
+                  >
+                    <FileDown className="h-3.5 w-3.5 shrink-0" />
+                    <span>PDF Report</span>
+                  </button>
+                </div>
+              </div>
+
+              {hasActiveTimesheetFilters && (
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Active Filters:</span>
+                  {tsSearch.trim() && (
+                    <span className="inline-flex items-center gap-1 rounded-md border border-border bg-[var(--bg-input)] px-2 py-0.5 text-xs font-semibold text-slate-800">
+                      Search: "{tsSearch}"
+                      <button type="button" onClick={() => setTsSearch('')} className="text-slate-600 hover:text-slate-800">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  )}
+                  {tsEmployeeFilters.map((empName) => (
+                    <span key={empName} className="inline-flex items-center gap-1 rounded-md border border-[rgba(38,107,28,0.22)] bg-[var(--emerald-surface)] px-2 py-0.5 text-xs font-semibold text-[var(--emerald-dark)]">
+                      {empName}
+                      <button type="button" onClick={() => setTsEmployeeFilters(tsEmployeeFilters.filter((name) => name !== empName))} className="text-[var(--emerald-dark)] hover:text-[var(--green-600)]">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                  {tsProjectFilters.map((proj) => (
+                    <span key={proj} className="inline-flex items-center gap-1 rounded-md border border-border bg-[var(--bg-input)] px-2 py-0.5 text-xs font-semibold text-slate-800">
+                      {proj}
+                      <button type="button" onClick={() => setTsProjectFilters(tsProjectFilters.filter((p) => p !== proj))} className="text-slate-600 hover:text-slate-800">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                  {tsStatusFilters.map((status) => (
+                    <span key={status} className="inline-flex items-center gap-1 rounded-md border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-xs font-semibold text-blue-400">
+                      {status}
+                      <button type="button" onClick={() => setTsStatusFilters(tsStatusFilters.filter((s) => s !== status))} className="text-blue-500/70 hover:text-blue-300">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                  <button type="button" onClick={clearTimesheetFilters} className="text-xs font-bold text-[var(--emerald-dark)] hover:text-[var(--green-600)] ml-2">
+                    Clear all
+                  </button>
+                </div>
+              )}
 
           {/* Analytics panels */}
           <div className="grid gap-4 lg:grid-cols-2">
@@ -2958,8 +3071,9 @@ export function ProjectManagement() {
           )}
         </div>
       )}
-
-        </div>
+    </div>
+  </div>
+</div>
 
       {/* ================================================================
            MODALS (Forms)
@@ -2969,7 +3083,7 @@ export function ProjectManagement() {
       <Modal
         isOpen={modalOpen}
         title={modalMode === 'create' ? 'Create New Project' : 'Edit Project Details'}
-        onClose={() => setModalOpen(false)}
+        onClose={() => { setModalOpen(false); setTechNodeError('') }}
         size="lg"
       >
         <form onSubmit={handleSaveProject} className="space-y-4 pt-1">
@@ -2993,11 +3107,41 @@ export function ProjectManagement() {
           <div className="w-full">
             <Input
               label="Technology Node"
-              placeholder="e.g. 7nm FinFET, 28nm FD-SOI"
+              placeholder="e.g., 7nm, 28nm, 5nm"
               value={form.technologyNode}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, technologyNode: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                let val = e.target.value
+                
+                // Remove any non-digit and non-nm characters
+                val = val.replace(/[^\dnm]/gi, '')
+                
+                // Ensure "nm" only appears at the end once
+                if (val.toLowerCase().includes('nm')) {
+                  const numericPart = val.replace(/nm/gi, '')
+                  val = numericPart + 'nm'
+                }
+                
+                // Limit to reasonable length (e.g., max 5 digits + "nm" = 7 chars)
+                if (val.length > 7) {
+                  val = val.slice(0, 7)
+                }
+                
+                setForm({ ...form, technologyNode: val })
+                
+                // Live-clear error once the user fixes the value
+                if (techNodeError && /^\d+nm$/i.test(val.trim())) {
+                  setTechNodeError('')
+                }
+              }}
+              onBlur={(e) => setTechNodeError(validateTechNode(e.target.value))}
+              error={techNodeError || undefined}
               required
             />
+            {!techNodeError && (
+              <p className="mt-1 text-[11px] text-slate-400">
+                Format: <span className="font-semibold text-slate-500">(number)nm</span> only — e.g., <span className="font-mono text-slate-600">7nm</span>, <span className="font-mono text-slate-600">28nm</span>, <span className="font-mono text-slate-600">5nm</span>
+              </p>
+            )}
           </div>
 
           <SelectField
