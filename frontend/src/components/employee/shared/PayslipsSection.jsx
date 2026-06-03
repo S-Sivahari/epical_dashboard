@@ -409,7 +409,12 @@ export function PayslipsSection({ payslips, loading }) {
               </div>
             ) : (
               <>
-                <DataTable columns={payslipColumns} data={pagedPayslips} statusKey="status" />
+                <DataTable
+                  columns={payslipColumns}
+                  data={pagedPayslips}
+                  statusKey="status"
+                  tableTheme="payslip-hub"
+                />
 
                 <div className="mt-4 flex flex-col gap-4 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm text-muted">

@@ -1,5 +1,4 @@
 import {
-  BarChart3,
   BookOpen,
   Briefcase,
   CalendarCheck,
@@ -64,7 +63,6 @@ const groups: {
       { to: ROUTES.PAYSLIPS, label: 'Payslips', icon: Receipt },
       { to: ROUTES.TRAINING, label: 'Training & Courses', icon: BookOpen },
       { to: ROUTES.ACHIEVEMENTS, label: 'Company achievements', icon: Trophy },
-      { to: ROUTES.ANALYTICS, label: 'Analytics', icon: BarChart3 },
       {
         to: ROUTES.DOCUMENTS,
         label: 'Documents Request',

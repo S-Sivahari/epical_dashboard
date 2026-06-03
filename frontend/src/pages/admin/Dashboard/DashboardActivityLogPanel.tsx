@@ -103,7 +103,7 @@ export function DashboardActivityLogPanel({ className }: DashboardActivityLogPan
         'dashboard-workspace-panel dashboard-workspace-panel--mint dashboard-activity-panel',
         className,
       )}
-      aria-label="User activity log"
+      aria-label="Employee check-in and check-out activity"
     >
       <header className="dashboard-insight-panel-header dashboard-activity-header">
         <h3 className="dashboard-insight-panel-title">Activity log</h3>
@@ -152,7 +152,7 @@ export function DashboardActivityLogPanel({ className }: DashboardActivityLogPan
           </div>
         ) : entries.length === 0 ? (
           <p className="dashboard-workspace-empty dashboard-activity-empty">
-            No user activity recorded for this date.
+            No check-in or check-out activity for this date.
           </p>
         ) : (
           <ul className="dashboard-activity-timeline" role="list">

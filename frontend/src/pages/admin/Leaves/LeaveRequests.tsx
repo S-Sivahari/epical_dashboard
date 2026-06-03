@@ -13,8 +13,6 @@ import { X, ChevronLeft, ChevronRight, Check, AlertTriangle, ShieldCheck, UserCh
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { EmployeeLeaveProfileModal } from './EmployeeLeaveProfileModal'
 
-const LEAVE_TYPES = ['Sick Leave', 'Casual Leave', 'Earned Leave']
-
 type StatusType = 'Pending' | 'Approved' | 'Rejected'
 
 const ITEMS_PER_PAGE = 8
@@ -215,10 +213,14 @@ export function LeaveRequests({
                 className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors ${active
                   ? status === 'Pending'
                     ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm'
-                    : 'bg-primary text-white shadow-sm'
+                    : status === 'Rejected'
+                      ? 'bg-red-600 hover:bg-red-700 text-white shadow-sm'
+                      : 'bg-primary text-white shadow-sm'
                   : status === 'Pending'
                     ? 'bg-white text-muted ring-1 ring-border/60 hover:text-amber-600 hover:border-amber-200 hover:ring-amber-200'
-                    : 'bg-white text-muted ring-1 ring-border/60 hover:text-ink'
+                    : status === 'Rejected'
+                      ? 'bg-white text-muted ring-1 ring-border/60 hover:text-red-600 hover:ring-red-200'
+                      : 'bg-white text-muted ring-1 ring-border/60 hover:text-ink'
                   }`}
               >
                 {status}

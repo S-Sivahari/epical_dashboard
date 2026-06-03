@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { Modal } from '@components/ui/Modal'
 import { Button } from '@components/ui/Button'
-import { Badge } from '@components/ui/Badge'
 import { Spinner } from '@components/ui/Spinner'
 import api from '@/services/api'
 import { toast } from 'sonner'
@@ -12,7 +11,6 @@ import {
   Calendar,
   Layers,
   Cpu,
-  UserCheck,
   CheckCircle2,
 } from 'lucide-react'
 

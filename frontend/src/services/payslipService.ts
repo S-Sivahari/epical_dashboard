@@ -110,6 +110,8 @@ export interface UploadPayrollOptions {
   resendPayslips?: boolean
   allowDuplicatePayPeriod?: boolean
   employeeDbIdByEmpId?: Record<string, string>
+  payYear?: number
+  payMonthNum?: number
 }
 
 export interface UploadPayrollResult {
@@ -136,6 +138,10 @@ export async function uploadPayroll(
   }
   if (options.employeeDbIdByEmpId && Object.keys(options.employeeDbIdByEmpId).length > 0) {
     formData.append('employeeDbIdByEmpId', JSON.stringify(options.employeeDbIdByEmpId))
+  }
+  if (options.payYear != null && options.payMonthNum != null) {
+    formData.append('payYear', String(options.payYear))
+    formData.append('payMonthNum', String(options.payMonthNum))
   }
   const response = await api.post<UploadPayrollResult>(`${base}/upload`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
@@ -188,6 +194,14 @@ export async function openPayslipPdf(batchId: string, fileName: string): Promise
   return window.URL.createObjectURL(blob)
 }
 
+/** Blob object URL for merged batch PDF preview (caller should revoke when done). */
+export async function openMergedBatchPayslipPdf(batchId: string): Promise<string> {
+  const blob = await fetchPdfBlob(`${base}/batches/${batchId}/payslips/download-all`, {
+    timeout: 120000,
+  })
+  return window.URL.createObjectURL(blob)
+}
+
 export async function downloadAllPayslipPdfs(
   batchId: string,
   payMonth?: string
@@ -220,13 +234,16 @@ export async function downloadPayslipPdf(batchId: string, fileName: string, down
   window.URL.revokeObjectURL(url)
 }
 
-export async function downloadUploadedExcel(batchId: string, fileName: string): Promise<void> {
+export async function fetchUploadedExcelBlob(batchId: string): Promise<Blob> {
   const response = await api.get(`${base}/batches/${batchId}/excel`, { responseType: 'blob' })
-  const url = window.URL.createObjectURL(
-    new Blob([response.data], {
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    })
-  )
+  return new Blob([response.data], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
+}
+
+export async function downloadUploadedExcel(batchId: string, fileName: string): Promise<void> {
+  const blob = await fetchUploadedExcelBlob(batchId)
+  const url = window.URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
   link.setAttribute('download', fileName)
@@ -245,11 +262,13 @@ export interface SendAllPayslipsResult {
 
 export async function sendAllPayslipsToDashboard(
   batchId: string,
-  employeeDbIdByEmpId?: Record<string, string>
+  employeeDbIdByEmpId?: Record<string, string>,
+  options?: { resend?: boolean }
 ): Promise<SendAllPayslipsResult> {
   const response = await api.post<SendAllPayslipsResult>(`${base}/send-all`, {
     batchId,
     employeeDbIdByEmpId,
+    ...(options?.resend ? { resend: true } : {}),
   })
   return response.data
 }

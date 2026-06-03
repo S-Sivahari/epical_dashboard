@@ -24,6 +24,7 @@ interface LeaveState {
   deleteHoliday: (id: string) => Promise<void>
   skipHoliday: (id: string, reason?: string) => Promise<void>
   addCompanyCalendarEvent: (e: Omit<CompanyCalendarEvent, 'id'>) => Promise<void>
+  updateCompanyCalendarEvent: (id: string, e: Partial<Omit<CompanyCalendarEvent, 'id'>>) => Promise<void>
   deleteCompanyCalendarEvent: (id: string) => Promise<void>
 }
 
@@ -141,6 +142,10 @@ export const useLeaveStore = create<LeaveState>((set, get) => ({
   },
   addCompanyCalendarEvent: async (payload) => {
     await calendarEventService.createCompanyCalendarEvent(payload)
+    await get().fetchHolidays()
+  },
+  updateCompanyCalendarEvent: async (id, payload) => {
+    await calendarEventService.updateCompanyCalendarEvent(id, payload)
     await get().fetchHolidays()
   },
   deleteCompanyCalendarEvent: async (id) => {

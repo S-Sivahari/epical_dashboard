@@ -13,7 +13,10 @@ export type NotificationType =
   | 'HolidayAdded'
   | 'HolidayUpdated'
   | 'HolidayDeleted'
-  | 'HolidaySkipped';
+  | 'HolidaySkipped'
+  | 'CalendarEventAdded'
+  | 'CalendarEventUpdated'
+  | 'CalendarEventRemoved';
 
 export interface Notification {
   _id?: ObjectId;
@@ -35,6 +38,9 @@ export interface Notification {
     holidayId?: string;
     holidayTitle?: string;
     holidayDate?: string;
+    calendarEventId?: string;
+    calendarEventTitle?: string;
+    calendarEventDate?: string;
     skippedReason?: string;
     leaveType?: string;
     from?: string;
@@ -65,6 +71,9 @@ export interface CreateNotificationPayload {
     holidayId?: string;
     holidayTitle?: string;
     holidayDate?: string;
+    calendarEventId?: string;
+    calendarEventTitle?: string;
+    calendarEventDate?: string;
     skippedReason?: string;
     leaveType?: string;
     from?: string;

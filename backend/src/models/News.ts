@@ -20,6 +20,8 @@ export interface News {
   updatedAt: Date
 }
 
-export type NewsListItem = Omit<News, '_id' | 'image'> & {
+export type NewsListItem = Omit<News, '_id' | 'image' | 'updatedAt' | 'createdAt'> & {
   hasImage: boolean
+  createdAt: string
+  updatedAt: string
 }

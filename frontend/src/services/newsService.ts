@@ -9,6 +9,7 @@ export interface NewsItem {
   hasImage?: boolean
   link?: string
   publishedAt: string
+  updatedAt?: string
 }
 
 export interface ExternalNewsItem {
@@ -39,11 +40,12 @@ export async function listNews(limit?: number): Promise<NewsItem[]> {
   return data
 }
 
-export async function fetchNewsImageBlob(id: string): Promise<Blob | null> {
+export async function fetchNewsImageBlob(id: string, revision?: string | null): Promise<Blob | null> {
   try {
     const { data, status } = await api.get<Blob>(`/news/${id}/image`, {
       responseType: 'blob',
-      timeout: 10000, // 10 second timeout for images
+      timeout: 10000,
+      params: revision ? { v: revision } : undefined,
     })
     if (status !== 200) return null
     return data
@@ -52,10 +54,12 @@ export async function fetchNewsImageBlob(id: string): Promise<Blob | null> {
   }
 }
 
-export async function resolveNewsImageSrc(item: Pick<NewsItem, 'id' | 'imageUrl' | 'hasImage'>): Promise<string | null> {
+export async function resolveNewsImageSrc(
+  item: Pick<NewsItem, 'id' | 'imageUrl' | 'hasImage' | 'updatedAt'>
+): Promise<string | null> {
   if (item.imageUrl?.trim()) return item.imageUrl.trim()
   if (!item.hasImage) return null
-  const blob = await fetchNewsImageBlob(item.id)
+  const blob = await fetchNewsImageBlob(item.id, item.updatedAt)
   return blob ? URL.createObjectURL(blob) : null
 }
 
@@ -70,7 +74,7 @@ export async function createNews(payload: {
   fd.append('title', payload.title)
   fd.append('content', payload.content)
   if (payload.link?.trim()) fd.append('link', payload.link.trim())
-  if (payload.imageUrl?.trim()) fd.append('imageUrl', payload.imageUrl.trim())
+  if (payload.imageUrl?.trim() && !payload.imageFile) fd.append('imageUrl', payload.imageUrl.trim())
   if (payload.imageFile) fd.append('image', payload.imageFile)
 
   const { data } = await api.post<NewsItem>('/news', fd, {
@@ -95,7 +99,7 @@ export async function updateNews(
   fd.append('title', payload.title)
   fd.append('content', payload.content)
   if (payload.link?.trim()) fd.append('link', payload.link.trim())
-  if (payload.imageUrl?.trim()) fd.append('imageUrl', payload.imageUrl.trim())
+  if (payload.imageUrl?.trim() && !payload.imageFile) fd.append('imageUrl', payload.imageUrl.trim())
   if (payload.imageFile) fd.append('image', payload.imageFile)
   if (payload.clearImage) fd.append('clearImage', 'true')
 

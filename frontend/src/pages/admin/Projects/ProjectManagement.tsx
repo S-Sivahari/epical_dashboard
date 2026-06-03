@@ -1,4 +1,5 @@
 import { memo, useMemo, useState, useCallback, useRef, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Avatar } from '@components/ui/Avatar'
@@ -18,7 +19,9 @@ import {
   MAX_PROJECT_DESCRIPTION_WORDS,
 } from '@/lib/textLimits'
 import { stringToHue, stringToHueColor } from '@/utils/stringColor'
+import { Analytics } from '@pages/admin/Analytics/Analytics'
 import {
+  BarChart3,
   Clock,
   Search,
   X,
@@ -141,8 +144,12 @@ function formatAdminDuration(hours: number | null): string {
   return `${hrs}h ${String(mins).padStart(2, '0')}m`
 }
 
+function employeeDisplayName(e: Employee): string {
+  return `${e.firstName} ${e.lastName || ''}`.trim()
+}
+
 /** Hours-by-project and employee leaderboard from filtered logs (export/PDF). */
-function buildTimesheetExportAnalytics(logs: TimesheetLog[]) {
+function buildTimesheetExportAnalytics(logs: TimesheetLog[], employees: Employee[]) {
   const byProject: Record<string, number> = {}
   const byEmployee: Record<string, { name: string; dept: string; hours: number }> = {}
 
@@ -156,7 +163,7 @@ function buildTimesheetExportAnalytics(logs: TimesheetLog[]) {
     ) || 0
     byProject[t.project] = (byProject[t.project] || 0) + hours
 
-    const emp = MOCK_EMPLOYEES.find((e) => e.id === t.employeeId)
+    const emp = employees.find((e) => e.id === t.employeeId || e.employeeId === t.employeeId)
     const existing = byEmployee[t.employeeId]
     if (existing) {
       existing.hours += hours
@@ -1102,9 +1109,30 @@ function EmployeeLeaderboard({
 /* ================================================================
    MAIN DASHBOARD COMPONENT
    ================================================================ */
+type ProjectsWorkspaceTab = 'projects' | 'timesheets' | 'analytics'
+
 export function ProjectManagement() {
+  const [searchParams, setSearchParams] = useSearchParams()
   // ── Core State ──────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<'projects' | 'timesheets'>('projects')
+  const [activeTab, setActiveTab] = useState<ProjectsWorkspaceTab>('projects')
+
+  const setWorkspaceTab = useCallback(
+    (tab: ProjectsWorkspaceTab) => {
+      setActiveTab(tab)
+      const next = new URLSearchParams(searchParams)
+      if (tab === 'projects') next.delete('tab')
+      else next.set('tab', tab)
+      setSearchParams(next, { replace: true })
+    },
+    [searchParams, setSearchParams],
+  )
+
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab === 'analytics' || tab === 'timesheets' || tab === 'projects') {
+      setActiveTab(tab)
+    }
+  }, [searchParams])
   const [allProjects, setAllProjects] = useState<Project[]>([])
   const [isAnimated, setIsAnimated] = useState(false)
   
@@ -1545,10 +1573,10 @@ export function ProjectManagement() {
 
   // Mapper helper to link employee team to logical teams for filtering
   const getEmployeeTeam = useCallback((empName: string): string => {
-    const emp = MOCK_EMPLOYEES.find((e) => e.name === empName)
+    const emp = employees.find((e) => employeeDisplayName(e) === empName)
     if (!emp) return 'Design Team'
-    return `${emp.team} Team`
-  }, [])
+    return `${emp.department} Team`
+  }, [employees])
 
   // ── Timesheets Filtering Implementation ──────────────────────
   const filteredTimesheets = useMemo(() => {
@@ -1625,7 +1653,7 @@ export function ProjectManagement() {
         t.totalHours,
         t.totalPausedMs
       ) || 0
-      const empInfo = MOCK_EMPLOYEES.find((e) => e.id === t.employeeId)
+      const empInfo = employees.find((e) => e.id === t.employeeId || e.employeeId === t.employeeId)
       const employeeColorKey = t.employeeId || t.employeeName
       if (empMap[t.employeeName]) {
         empMap[t.employeeName].hours += hours
@@ -1640,7 +1668,7 @@ export function ProjectManagement() {
     })
     return Object.values(empMap)
       .map(e => ({ ...e, hours: Math.round(e.hours * 10) / 10 }))
-  }, [filteredTimesheets])
+  }, [filteredTimesheets, employees])
 
   // ── Timesheets Pagination derived values ────────────────────
   const totalTimesheetsPages = Math.ceil(filteredTimesheets.length / timesheetsPerPage)
@@ -1689,7 +1717,7 @@ export function ProjectManagement() {
       return
     }
 
-    const { hoursByProject, leaderboard } = buildTimesheetExportAnalytics(filteredTimesheets)
+    const { hoursByProject, leaderboard } = buildTimesheetExportAnalytics(filteredTimesheets, employees)
     const workbook = new ExcelJS.Workbook()
     const sheet = workbook.addWorksheet('Timesheet Report')
 
@@ -1972,7 +2000,7 @@ export function ProjectManagement() {
       return
     }
 
-    const { hoursByProject, leaderboard } = buildTimesheetExportAnalytics(filteredTimesheets)
+    const { hoursByProject, leaderboard } = buildTimesheetExportAnalytics(filteredTimesheets, employees)
     
     // Sort leaderboard alphabetically matching the A-Z requirement
     const sortedLeaderboard = [...leaderboard].sort((a, b) => a.name.localeCompare(b.name))
@@ -2223,12 +2251,13 @@ export function ProjectManagement() {
 
   const tsEmployeeFilterOptions = useMemo(() => {
     const names = new Set<string>()
+    employees.forEach((e) => names.add(employeeDisplayName(e)))
     MOCK_EMPLOYEES.forEach((e) => names.add(`${e.firstName} ${e.lastName ?? ''}`.trim()))
     timesheets.forEach((t) => {
       if (t.employeeName) names.add(t.employeeName)
     })
     return [...names].sort().map((name) => ({ value: name, label: name }))
-  }, [timesheets])
+  }, [timesheets, employees])
 
   const tsProjectFilterOptions = useMemo(
     () =>
@@ -2480,18 +2509,20 @@ export function ProjectManagement() {
             <p className="projects-sidebar-title">Workspace Navigation</p>
             
             {/* Create Project Button */}
-            <button
-              onClick={openCreateProject}
-              className="sidebar-create-btn mb-3"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Create Project</span>
-            </button>
+            {activeTab !== 'analytics' && (
+              <button
+                onClick={openCreateProject}
+                className="sidebar-create-btn mb-3"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Create Project</span>
+              </button>
+            )}
 
             {/* Navigation List */}
             <div className="sidebar-nav-list">
               <button
-                onClick={() => setActiveTab('projects')}
+                onClick={() => setWorkspaceTab('projects')}
                 className={`sidebar-nav-item ${activeTab === 'projects' ? 'active' : ''}`}
               >
                 <FolderOpen className="h-4 w-4" />
@@ -2499,12 +2530,20 @@ export function ProjectManagement() {
                 <span className="sidebar-nav-badge">{filteredProjects.length}</span>
               </button>
               <button
-                onClick={() => setActiveTab('timesheets')}
+                onClick={() => setWorkspaceTab('timesheets')}
                 className={`sidebar-nav-item ${activeTab === 'timesheets' ? 'active' : ''}`}
               >
                 <Clock className="h-4 w-4" />
                 <span className="flex-1 text-left">Timesheets</span>
                 <span className="sidebar-nav-badge">{filteredTimesheets.length}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setWorkspaceTab('analytics')}
+                className={`sidebar-nav-item ${activeTab === 'analytics' ? 'active' : ''}`}
+              >
+                <BarChart3 className="h-4 w-4" />
+                <span className="flex-1 text-left">Analytics</span>
               </button>
               <button
                 onClick={() => setArchivedModalOpen(true)}
@@ -2517,7 +2556,7 @@ export function ProjectManagement() {
             </div>
           </div>
 
-          <div className="border-t border-slate-100 my-3" />
+          {activeTab !== 'analytics' && <div className="border-t border-slate-100 my-3" />}
 
           {/* DYNAMIC FILTERS & SETTINGS SECTION */}
           {activeTab === 'projects' ? (
@@ -2743,7 +2782,11 @@ export function ProjectManagement() {
 
         {/* Unified main content panel */}
         <div className="projects-main-panel">
-          {activeTab === 'projects' ? (
+          {activeTab === 'analytics' ? (
+            <div className="projects-analytics-embed animate-fadeIn">
+              <Analytics />
+            </div>
+          ) : activeTab === 'projects' ? (
             <div className="space-y-5 animate-fadeIn">
               <div className="projects-main-header">
                 <div>
@@ -3051,7 +3094,7 @@ export function ProjectManagement() {
                 </thead>
                 <tbody className="divide-y divide-white/5 text-sm">
                   {currentTimesheets.map((t) => {
-                    const empInfo = MOCK_EMPLOYEES.find((e) => e.id === t.employeeId)
+                    const empInfo = employees.find((e) => e.id === t.employeeId || e.employeeId === t.employeeId)
                     const hours = calculateHours(
                       t.loginTime,
                       t.logoutTime,

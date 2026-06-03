@@ -1,6 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
 import {
-  BarChart3,
   BookOpen,
   Briefcase,
   CalendarCheck,
@@ -64,7 +63,6 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { to: ROUTES.PAYSLIPS, label: 'Payslips', navLabel: 'Payslips', icon: Receipt },
       { to: ROUTES.TRAINING, label: 'Training & Courses', navLabel: 'Training', icon: BookOpen },
       { to: ROUTES.ACHIEVEMENTS, label: 'Company achievements', navLabel: 'Achievements', icon: Trophy },
-      { to: ROUTES.ANALYTICS, label: 'Analytics', navLabel: 'Analytics', icon: BarChart3 },
       {
         to: ROUTES.DOCUMENTS,
         label: 'Documents Request',

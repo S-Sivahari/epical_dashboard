@@ -47,6 +47,7 @@ export interface NotificationData {
     | 'DocumentRequested' | 'DocumentApproved' | 'DocumentRejected'
     | 'PayslipSent' | 'PayslipRegenerated'
     | 'HolidayAdded' | 'HolidayUpdated' | 'HolidayDeleted' | 'HolidaySkipped'
+    | 'CalendarEventAdded' | 'CalendarEventUpdated' | 'CalendarEventRemoved'
   title: string
   message: string
   relatedData: {
@@ -61,6 +62,9 @@ export interface NotificationData {
     holidayId?: string
     holidayTitle?: string
     holidayDate?: string
+    calendarEventId?: string
+    calendarEventTitle?: string
+    calendarEventDate?: string
     skippedReason?: string
   }
   isRead: boolean

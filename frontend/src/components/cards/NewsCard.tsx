@@ -92,7 +92,7 @@ export function NewsCard({
         {onRemove && (
           <Button
             size="sm"
-            variant={isHub ? 'primary' : 'danger'}
+            variant="danger"
             className={isHub ? 'admin-news-btn-remove' : undefined}
             onClick={onRemove}
           >

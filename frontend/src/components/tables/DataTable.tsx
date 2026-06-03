@@ -22,6 +22,7 @@ export function DataTable<T extends { id?: string }>({
   className,
   brandHeader = false,
   striped = false,
+  tableTheme = 'directory',
 }: {
   columns: Column<T>[]
   data?: T[]
@@ -33,7 +34,10 @@ export function DataTable<T extends { id?: string }>({
   className?: string
   brandHeader?: boolean
   striped?: boolean
+  /** `payslip-hub` uses bb color (#2f6b4f) when rendered inside `.admin-payslips-view`. */
+  tableTheme?: 'directory' | 'payslip-hub'
 }) {
+  const isPayslipHubHeader = brandHeader && tableTheme === 'payslip-hub'
   if (loading) {
     return (
       <div
@@ -70,7 +74,9 @@ export function DataTable<T extends { id?: string }>({
           className={cn(
             'sticky top-0 z-10',
             brandHeader
-              ? 'employee-directory-thead bg-[#266b1c]'
+              ? isPayslipHubHeader
+                ? 'employee-directory-thead admin-payslip-hub-thead'
+                : 'employee-directory-thead bg-[#266b1c]'
               : 'bg-surface/95 backdrop-blur-sm',
           )}
         >
@@ -86,9 +92,15 @@ export function DataTable<T extends { id?: string }>({
                     : 'text-xs font-semibold uppercase tracking-wide text-ink',
                   c.className,
                   c.sortable && !brandHeader && 'cursor-pointer hover:bg-emerald-50/60',
-                  c.sortable && brandHeader && 'cursor-pointer hover:bg-[#1f5516]',
+                  c.sortable &&
+                    brandHeader &&
+                    (isPayslipHubHeader
+                      ? 'cursor-pointer hover:bg-white/10'
+                      : 'cursor-pointer hover:bg-[#1f5516]'),
                   !brandHeader && sortColumn === c.key && 'bg-emerald-50/40 text-primary',
-                  brandHeader && sortColumn === c.key && 'bg-[#1f5516]',
+                  brandHeader &&
+                    sortColumn === c.key &&
+                    (isPayslipHubHeader ? 'bg-white/15' : 'bg-[#1f5516]'),
                 )}
                 onClick={() => c.sortable && onSort?.(String(c.key))}
               >

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react'
 import { toast } from 'sonner'
 import {
   Eye,
@@ -9,16 +9,18 @@ import {
   LayoutGrid,
   X,
   Search,
+  Trash2,
 } from 'lucide-react'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
+import { ConfirmModal } from '@components/modals/ConfirmModal'
 import {
   TicketDetailModal,
 } from '@pages/admin/Tickets/TicketDetailModal'
 import type { Ticket, TicketStatus } from '@/types'
 import { cn } from '@/utils/cn'
 import { useTicketStore } from '@store/ticketStore'
-import { fetchTicketById, getNextStatus, getPrevStatus } from '@services/ticketService'
+import { deleteTicket, fetchTicketById, getNextStatus, getPrevStatus } from '@services/ticketService'
 import { formatDateTime } from '@/utils/formatDate'
 
 type SectionFilter = 'all' | TicketStatus
@@ -106,6 +108,7 @@ export function TicketManagement() {
   const fetchTicketsSilent = useTicketStore((s) => s.fetchTicketsSilent)
   const updateStatus = useTicketStore((s) => s.updateStatus)
   const addComment = useTicketStore((s) => s.addComment)
+  const removeTicket = useTicketStore((s) => s.removeTicket)
 
   const [q, setQ] = useState('')
   const [employeeIdFilter, setEmployeeIdFilter] = useState('')
@@ -116,6 +119,9 @@ export function TicketManagement() {
   const [detailOpen, setDetailOpen] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [detailTicket, setDetailTicket] = useState<Ticket | null>(null)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [ticketToDelete, setTicketToDelete] = useState<Ticket | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     void fetchTickets({
@@ -254,6 +260,36 @@ export function TicketManagement() {
     setPriority('all')
   }
 
+  const requestDelete = (ticket: Ticket, e?: MouseEvent) => {
+    e?.stopPropagation()
+    setTicketToDelete(ticket)
+    setDeleteConfirmOpen(true)
+  }
+
+  const handleDeleteTicket = async () => {
+    if (!ticketToDelete) return
+    setDeleting(true)
+    try {
+      await deleteTicket(ticketToDelete.id)
+      removeTicket(ticketToDelete.id)
+      if (selectedId === ticketToDelete.id) {
+        closeDetail()
+      }
+      setDeleteConfirmOpen(false)
+      setTicketToDelete(null)
+      toast.success('Ticket deleted')
+      await fetchTickets({
+        q: q.trim() || undefined,
+        priority: priority === 'all' ? undefined : priority,
+      })
+    } catch (error: unknown) {
+      const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error
+      toast.error(message || 'Failed to delete ticket')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const visibleStatuses =
     sectionFilter === 'all' ? BOARD_STATUSES : ([sectionFilter] as readonly TicketStatus[])
 
@@ -311,6 +347,17 @@ export function TicketManagement() {
           >
             <Eye className="h-3.5 w-3.5" aria-hidden />
             View
+          </Button>
+
+          <Button
+            size="sm"
+            variant="danger"
+            type="button"
+            className="admin-tickets-danger-btn h-8 px-2.5 text-xs"
+            onClick={(e) => requestDelete(ticket, e)}
+          >
+            <Trash2 className="h-3.5 w-3.5" aria-hidden />
+            Delete
           </Button>
 
           {statusCol === 'Pending' && (
@@ -486,14 +533,14 @@ export function TicketManagement() {
                 <span className="admin-tickets-filter-label">Search</span>
                 <div className="relative">
                   <Search
-                    className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
+                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
                     aria-hidden
                   />
                   <input
                     type="text"
                     aria-label="Search tickets"
                     autoComplete="off"
-                    className={cn(filterFieldClass, 'pl-8')}
+                    className={filterFieldClass}
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
                     placeholder="Title, employee, ID…"
@@ -572,7 +619,34 @@ export function TicketManagement() {
           onClose={closeDetail}
           onUpdateStatus={handleModalUpdateStatus}
           onAddComment={handleModalAddComment}
+          onDelete={
+            modalTicket
+              ? () => {
+                  setTicketToDelete(modalTicket)
+                  setDeleteConfirmOpen(true)
+                }
+              : undefined
+          }
+          deleting={deleting}
           advancing={!!moving}
+        />
+
+        <ConfirmModal
+          isOpen={deleteConfirmOpen}
+          title="Delete ticket?"
+          description={
+            ticketToDelete
+              ? `Permanently delete ticket ${ticketToDelete.id} (“${ticketToDelete.title}”)? This cannot be undone.`
+              : 'Permanently delete this ticket?'
+          }
+          confirmLabel={deleting ? 'Deleting...' : 'Delete'}
+          danger
+          onClose={() => {
+            if (deleting) return
+            setDeleteConfirmOpen(false)
+            setTicketToDelete(null)
+          }}
+          onConfirm={() => void handleDeleteTicket()}
         />
       </div>
     </PageWrapper>
