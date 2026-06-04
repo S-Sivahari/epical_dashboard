@@ -60,25 +60,3 @@ export async function openEmployeeDocument(
   window.open(url, '_blank', 'noopener,noreferrer')
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
-
-export async function fetchEmployeePhoto(employeeId: string): Promise<Blob | null> {
-  try {
-    const { data, status } = await api.get(`/employees/${employeeId}/photo`, {
-      responseType: 'blob',
-      validateStatus: (s) => s === 200 || s === 404,
-    })
-    if (status === 404) return null
-    return data
-  } catch {
-    return null
-  }
-}
-
-/** Legacy URL helper — img tags cannot send Authorization; prefer fetchEmployeePhoto + blob URL. */
-export function getDocumentUrl(employeeId: string, docType: string) {
-  return `${api.defaults.baseURL}/employees/${employeeId}/documents/${docType}`
-}
-
-export function getPhotoUrl(employeeId: string) {
-  return `${api.defaults.baseURL}/employees/${employeeId}/photo`
-}
