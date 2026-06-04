@@ -14,8 +14,12 @@ export function FileUpload({
   className?: string
 }) {
   return (
-    <div className={cn('flex items-center justify-center', className)}>
-      <label className="flex cursor-pointer items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-ui hover:bg-primary/90">
+    <label
+      className={cn(
+        'inline-flex w-full cursor-pointer items-center justify-center rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white transition-ui hover:bg-primary/90 sm:w-auto sm:justify-start',
+        className,
+      )}
+    >
         <UploadCloud className="mr-2 h-4 w-4" />
         Choose File
         <input
@@ -29,7 +33,6 @@ export function FileUpload({
           }}
         />
       </label>
-    </div>
   )
 }
 
