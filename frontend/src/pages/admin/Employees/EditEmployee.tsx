@@ -64,6 +64,16 @@ const editSchema = z.object({
   emergencyContactEmail: z.string().email('Valid email required'),
   emergencyContactRelation: z.string().min(1, 'Emergency contact relation is required'),
   emergencyContactAddress: z.string().min(1, 'Emergency contact address is required'),
+}).superRefine((data, ctx) => {
+  const personal = data.personalEmail.trim().toLowerCase()
+  const company = (data.companyEmail ?? '').trim().toLowerCase()
+  if (company && personal === company) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Company email must be different from personal email',
+      path: ['companyEmail'],
+    })
+  }
 })
 
 type FormValues = z.infer<typeof editSchema>

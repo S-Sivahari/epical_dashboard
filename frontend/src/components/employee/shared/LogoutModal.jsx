@@ -16,7 +16,7 @@ export function LogoutModal() {
   const navigate = useNavigate()
 
   const handleLogout = () => {
-    logout()
+    void logout()
     setLogoutModalOpen(false)
     navigate('/auth/login')
   }

@@ -47,7 +47,7 @@ function stripTaskLabelPrefix(taskText, { taskTitle, projectName } = {}) {
 
 const taskSchema = z.object({
   assignedTaskId: z.string().min(1, 'Select an assigned project'),
-  description: z.string().optional(),
+  description: z.string().optional().default(''),
 })
 
 const historyColumns = [
@@ -107,6 +107,7 @@ export default function Timesheet() {
     serverTimeSkew,
     sessionsLoading,
     projectWiseHours,
+    allTimeProjectWiseHours,
   } = useTimesheetStore()
   const { toast } = useToast()
   const defaultHistoryRange = getPresetDateRange('This Month')
@@ -439,11 +440,11 @@ export default function Timesheet() {
   }, [sessions, historyRange])
 
   const projectWiseTotal = useMemo(
-    () => (projectWiseHours ?? []).reduce((sum, p) => sum + (p.hours || 0), 0),
-    [projectWiseHours],
+    () => (allTimeProjectWiseHours ?? []).reduce((sum, p) => sum + (p.hours || 0), 0),
+    [allTimeProjectWiseHours],
   )
 
-  const projectCount = (projectWiseHours ?? []).length
+  const projectCount = (allTimeProjectWiseHours ?? []).length
   const historyHasMore = unifiedHistory.length > 3
 
   if (!initialized) {
@@ -457,16 +458,18 @@ export default function Timesheet() {
 
   return (
     <div className="emp-timesheet-page dashboard-surface space-y-4">
+<<<<<<< HEAD
+      {/* Top analytics summary - compact header without subtitle */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white rounded-xl border border-border p-3 shadow-sm">
+=======
       {/* Top analytics summary matches the sample image layout */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white rounded-xl border border-border p-4 shadow-sm">
+      <div className="emp-page-header flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+>>>>>>> 8036eae78374d6e65081dea27546abee4906ae09
         <div>
-          <h1 className="text-2xl font-extrabold text-[var(--emerald-dark)] leading-none mb-1">Projects & Timesheets</h1>
-          <p className="text-xs font-medium text-slate-500">
-            Manage projects, review logs, and track team hours in one place
-          </p>
+          <h1 className="text-xl font-extrabold text-[var(--emerald-dark)] leading-none">Projects & Timesheets</h1>
         </div>
 
-        {/* Dynamic Pie Chart Status Summary */}
+        {/* Dynamic Pie Chart Status Summary - No Progress Bars */}
         <div className="flex items-center gap-3">
           <div className="relative flex items-center justify-center" style={{ width: 68, height: 68 }}>
             <svg width="68" height="68" viewBox="0 0 68 68" className="transform -rotate-90">
@@ -559,54 +562,36 @@ export default function Timesheet() {
             <div className="text-center">
               <div className="flex items-center justify-center gap-1 mb-0.5">
                 <div className="h-1.5 w-1.5 rounded-full bg-blue-500 shadow-sm"></div>
-                <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500">In Progress</span>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">In Progress</span>
               </div>
               <div className="text-xl font-black text-blue-600 tabular-nums">
                 {assignedTasks.filter(t => t.status === 'in_progress' || t.status === 'pending_review' || t.status === 'Active' || !t.status).length}
-              </div>
-              <div className="h-1 w-16 bg-blue-100 rounded-full overflow-hidden mt-1">
-                <div 
-                  className="h-full bg-blue-500" 
-                  style={{ width: `${assignedTasks.length ? (assignedTasks.filter(t => t.status === 'in_progress' || t.status === 'pending_review' || t.status === 'Active' || !t.status).length / assignedTasks.length) * 100 : 0}%` }}
-                />
               </div>
             </div>
             <div className="text-center">
               <div className="flex items-center justify-center gap-1 mb-0.5">
                 <div className="h-1.5 w-1.5 rounded-full bg-green-500 shadow-sm"></div>
-                <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500">Completed</span>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Completed</span>
               </div>
               <div className="text-xl font-black text-green-600 tabular-nums">
                 {assignedTasks.filter(t => t.status === 'completed' || t.status === 'Completed').length}
-              </div>
-              <div className="h-1 w-16 bg-green-100 rounded-full overflow-hidden mt-1">
-                <div 
-                  className="h-full bg-green-500" 
-                  style={{ width: `${assignedTasks.length ? (assignedTasks.filter(t => t.status === 'completed' || t.status === 'Completed').length / assignedTasks.length) * 100 : 0}%` }}
-                />
               </div>
             </div>
             <div className="text-center">
               <div className="flex items-center justify-center gap-1 mb-0.5">
                 <div className="h-1.5 w-1.5 rounded-full bg-red-500 shadow-sm"></div>
-                <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500">Cancelled</span>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Cancelled</span>
               </div>
               <div className="text-xl font-black text-red-600 tabular-nums">
                 {assignedTasks.filter(t => t.status === 'cancelled' || t.status === 'Cancelled').length}
-              </div>
-              <div className="h-1 w-16 bg-red-100 rounded-full overflow-hidden mt-1">
-                <div 
-                  className="h-full bg-red-500" 
-                  style={{ width: `${assignedTasks.length ? (assignedTasks.filter(t => t.status === 'cancelled' || t.status === 'Cancelled').length / assignedTasks.length) * 100 : 0}%` }}
-                />
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Row 1 — Summary cards */}
-      <div className="emp-timesheet-summary-grid">
+      {/* Row 1 — Summary cards: Daily and Weekly Hours only */}
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
         <TimesheetSummaryCard
           variant="teal"
           title="Daily Hours Today"
@@ -621,27 +606,17 @@ export default function Timesheet() {
           hint="Mon – Sun this week"
           icon={CalendarDays}
         />
-        <TimesheetSummaryCard
-          variant="emerald"
-          title="Project Wise Hours"
-          value={`${projectWiseTotal.toFixed(1)}h`}
-          hint={`${projectCount} project${projectCount === 1 ? '' : 's'} in range`}
-          icon={FolderKanban}
-        />
       </div>
 
-      {/* Row 2 — Work session | Active session (50/50) */}
-      <div className="emp-timesheet-session-grid">
-        <section className="emp-timesheet-card emp-timesheet-session-panel">
-          <div className="emp-timesheet-card-header">
-            <h3 className="emp-timesheet-card-title">Work Session</h3>
-            <p className="emp-timesheet-card-sub">
-              Check in on an assigned project. Work description is optional.
-            </p>
+      {/* Row 2 — Work session | Active session (50/50) - Compact */}
+      <div className="grid gap-3 grid-cols-1 lg:grid-cols-2">
+        <section className="emp-timesheet-card p-3">
+          <div className="mb-3">
+            <h3 className="text-sm font-bold text-slate-900">Work Session</h3>
           </div>
-          <div className="emp-timesheet-card-body">
+          <div className="space-y-3">
             {!checkedIn && attendance?.autoCheckedOut && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-2">
                 <div className="flex items-center gap-2 text-xs font-semibold text-amber-800">
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                   Auto Checked-Out
@@ -653,13 +628,13 @@ export default function Timesheet() {
             )}
 
             <div className="space-y-1">
-              <Label className="text-xs font-bold text-slate-800">Assigned Project</Label>
+              <Label className="text-xs font-bold text-slate-800">Assigned Project *</Label>
               <Select
                 value={selectedTaskId}
                 onValueChange={(v) => setValue('assignedTaskId', v, { shouldValidate: true })}
                 disabled={checkedIn || checkoutReview || startableTasks.length === 0}
               >
-                <SelectTrigger className="h-10">
+                <SelectTrigger className="h-9">
                   <SelectValue
                     placeholder={
                       startableTasks.length === 0
@@ -677,43 +652,43 @@ export default function Timesheet() {
                 </SelectContent>
               </Select>
               {selectedTask?.description && !checkedIn && (
-                <p className="line-clamp-2 text-[11px] text-muted">{selectedTask.description}</p>
+                <p className="line-clamp-2 text-[10px] text-muted">{selectedTask.description}</p>
               )}
               {errors.assignedTaskId && !checkedIn && (
-                <p className="text-[11px] text-danger">{errors.assignedTaskId.message}</p>
+                <p className="text-[10px] text-danger">{errors.assignedTaskId.message}</p>
               )}
             </div>
 
-            <div className="flex min-h-0 flex-1 flex-col space-y-1">
+            <div className="space-y-1">
               <Label className="text-xs font-bold text-slate-800">
-                Work Description <span className="font-normal text-muted">(optional)</span>
+                Work Description <span className="font-normal text-muted text-[10px]">(optional)</span>
               </Label>
               <Textarea
-                className="min-h-[5.5rem] max-h-[min(14rem,28vh)] flex-1 resize-y text-sm leading-relaxed"
-                rows={4}
+                className="min-h-[4rem] max-h-[12rem] resize-y text-sm leading-relaxed"
+                rows={3}
                 {...register('description')}
-                placeholder="What are you working on?"
+                placeholder="Describe what you're working on (optional)..."
                 disabled={checkedIn && !checkoutReview}
               />
               {checkoutReview && (
-                <p className="text-[11px] font-medium text-amber-700">
-                  Add a summary if you like, then confirm check out.
+                <p className="text-[10px] font-medium text-amber-700">
+                  Update your work summary before checking out (optional).
                 </p>
               )}
-              {checkoutError && <p className="text-[11px] text-danger">{checkoutError}</p>}
+              {checkoutError && <p className="text-[10px] text-danger">{checkoutError}</p>}
             </div>
 
-            <div className="emp-timesheet-session-actions">
+            <div className="flex gap-2 pt-1">
               {checkoutReview ? (
                 <>
-                  <Button type="button" variant="outline" onClick={cancelCheckOut} disabled={submitting} className="h-10">
+                  <Button type="button" variant="outline" onClick={cancelCheckOut} disabled={submitting} className="h-9 flex-1">
                     Cancel
                   </Button>
                   <Button
                     type="button"
                     onClick={onConfirmCheckOut}
                     disabled={submitting}
-                    className="emp-ts-btn-primary h-10 gap-2"
+                    className="emp-ts-btn-primary h-9 gap-2 flex-1"
                   >
                     <LogOut className="h-4 w-4 shrink-0" />
                     Confirm Check Out
@@ -725,7 +700,7 @@ export default function Timesheet() {
                     type="button"
                     onClick={onCheckIn}
                     disabled={checkedIn || submitting || !canStartSession || startableTasks.length === 0}
-                    className="emp-ts-btn-primary h-10 gap-2"
+                    className="emp-ts-btn-primary h-9 gap-2 flex-1"
                   >
                     <LogIn className="h-4 w-4 shrink-0" /> Check In
                   </Button>
@@ -734,7 +709,7 @@ export default function Timesheet() {
                     variant="outline"
                     onClick={beginCheckOut}
                     disabled={!checkedIn || submitting}
-                    className="h-10 gap-2"
+                    className="h-9 gap-2 flex-1"
                   >
                     <LogOut className="h-4 w-4 shrink-0" /> Check Out
                   </Button>
@@ -744,12 +719,11 @@ export default function Timesheet() {
           </div>
         </section>
 
-        <section className="emp-timesheet-card emp-timesheet-session-panel">
-          <div className="emp-timesheet-card-header">
-            <h3 className="emp-timesheet-card-title">Active Session</h3>
-            <p className="emp-timesheet-card-sub">Live timer and current task details</p>
+        <section className="emp-timesheet-card p-3">
+          <div className="mb-3">
+            <h3 className="text-sm font-bold text-slate-900">Active Session</h3>
           </div>
-          <div className="emp-timesheet-card-body min-h-0 flex-1">
+          <div className="min-h-[200px]">
             <TimesheetLiveSessionPanel
               checkedIn={checkedIn}
               checkInTime={checkInTime}
@@ -766,59 +740,55 @@ export default function Timesheet() {
         </section>
       </div>
 
-      {/* Row 3 — Charts */}
-      <div className="emp-timesheet-charts-grid">
-        <section className="emp-timesheet-card emp-timesheet-chart-panel">
-          <div className="emp-timesheet-card-header flex items-center justify-between gap-2">
-            <h3 className="emp-timesheet-card-title">Weekly Hours</h3>
-            <span className="emp-timesheet-chart-meta">{totalWeekly.toFixed(1)}h total</span>
+      {/* Row 3 — Charts: Weekly Hours and Project Breakdown */}
+      <div className="grid gap-3 grid-cols-1 lg:grid-cols-2">
+        <section className="emp-timesheet-card p-3">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <h3 className="text-sm font-bold text-slate-900">Weekly Hours</h3>
+            <span className="text-xs font-bold text-slate-600 tabular-nums">{totalWeekly.toFixed(1)}h total</span>
           </div>
-          <div className="emp-timesheet-card-body">
-            <div className="emp-timesheet-chart-body" style={{ height: CHART_HEIGHT }}>
-              <Suspense
-                fallback={
-                  <div className="flex h-full items-center justify-center text-xs text-muted">
-                    Loading chart…
-                  </div>
-                }
-              >
-                <TimesheetWeeklyChart data={weeklyHours} height={CHART_HEIGHT} />
-              </Suspense>
-            </div>
+          <div style={{ height: CHART_HEIGHT }}>
+            <Suspense
+              fallback={
+                <div className="flex h-full items-center justify-center text-xs text-muted">
+                  Loading chart…
+                </div>
+              }
+            >
+              <TimesheetWeeklyChart data={weeklyHours} height={CHART_HEIGHT} />
+            </Suspense>
           </div>
         </section>
 
-        <section className="emp-timesheet-card emp-timesheet-chart-panel emp-timesheet-chart-panel--breakdown">
-          <div className="emp-timesheet-card-header flex items-center justify-between gap-2">
-            <h3 className="emp-timesheet-card-title">Project Breakdown</h3>
-            <span className="emp-timesheet-chart-meta">{projectWiseTotal.toFixed(1)}h</span>
+        <section className="emp-timesheet-card p-3">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <h3 className="text-sm font-bold text-slate-900">Project Breakdown</h3>
+            <span className="text-xs font-bold text-slate-600 tabular-nums">{projectWiseTotal.toFixed(1)}h total</span>
           </div>
-          <div className="emp-timesheet-card-body">
-            <div className="emp-timesheet-chart-body" style={{ minHeight: CHART_HEIGHT }}>
-              <Suspense
-                fallback={
-                  <div
-                    className="flex items-center justify-center text-xs text-muted"
-                    style={{ height: CHART_HEIGHT }}
-                  >
-                    Loading…
-                  </div>
-                }
-              >
-                <TimesheetProjectWiseChart data={projectWiseHours} />
-              </Suspense>
-            </div>
+          <div style={{ minHeight: CHART_HEIGHT }}>
+            <Suspense
+              fallback={
+                <div
+                  className="flex items-center justify-center text-xs text-muted"
+                  style={{ height: CHART_HEIGHT }}
+                >
+                  Loading…
+                </div>
+              }
+            >
+              <TimesheetProjectWiseChart data={allTimeProjectWiseHours} />
+            </Suspense>
           </div>
         </section>
       </div>
 
-      {/* Row 4 — Work history (fixed scroll) */}
-      <section className="emp-timesheet-card emp-timesheet-history">
-        <div className="emp-timesheet-history-header">
+      {/* Row 4 — Work History */}
+      <section className="emp-timesheet-card p-3">
+        <div className="flex items-center justify-between gap-3 mb-3">
           <div>
-            <h3 className="emp-timesheet-card-title">Work History</h3>
+            <h3 className="text-sm font-bold text-slate-900">Work History</h3>
             {unifiedHistory.length > 0 ? (
-              <p className="emp-timesheet-history-count">
+              <p className="text-xs text-slate-600 mt-0.5">
                 {unifiedHistory.length} log{unifiedHistory.length === 1 ? '' : 's'}
                 {historyHasMore ? ' — scroll for more' : ''}
               </p>
@@ -841,26 +811,25 @@ export default function Timesheet() {
         </div>
 
         {(isInitialLoading || sessionsLoading) && unifiedHistory.length === 0 ? (
-          <div className="space-y-2 p-3">
+          <div className="space-y-2">
             <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/80" />
             <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/60" />
             <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/60" />
           </div>
         ) : (
-          <div className="relative px-2 pb-2 pt-1 sm:px-3">
+          <div className="relative">
             {(isInitialLoading || sessionsLoading) && (
               <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/70 backdrop-blur-[1px]">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />
               </div>
             )}
-            <div className="emp-timesheet-history-scroll timesheet-panel-scroll rounded-lg border border-slate-200/80">
+            <div className="emp-timesheet-history-scroll timesheet-panel-scroll rounded-lg border border-slate-200/80 max-h-[400px] overflow-auto">
               <DataTable
                 columns={historyColumns}
                 data={unifiedHistory}
                 compact
                 emptyMessage="No work logs for this date range."
               />
-              {historyHasMore ? <div className="emp-timesheet-history-fade" aria-hidden /> : null}
             </div>
           </div>
         )}

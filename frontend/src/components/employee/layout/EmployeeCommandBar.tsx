@@ -20,7 +20,7 @@ export function EmployeeCommandBar() {
   const showBack = shouldShowEmployeeBackButton(pathname)
 
   const handleLogout = () => {
-    logout()
+    void logout()
     navigate('/auth/login')
   }
 

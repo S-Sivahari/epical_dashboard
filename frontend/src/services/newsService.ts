@@ -69,6 +69,7 @@ export async function createNews(payload: {
   imageUrl?: string
   link?: string
   imageFile?: File | null
+  publishedDate?: string
 }): Promise<NewsItem> {
   const fd = new FormData()
   fd.append('title', payload.title)
@@ -76,6 +77,9 @@ export async function createNews(payload: {
   if (payload.link?.trim()) fd.append('link', payload.link.trim())
   if (payload.imageUrl?.trim() && !payload.imageFile) fd.append('imageUrl', payload.imageUrl.trim())
   if (payload.imageFile) fd.append('image', payload.imageFile)
+  if (payload.publishedDate?.trim()) {
+    fd.append('publishedDate', payload.publishedDate.trim())
+  }
 
   const { data } = await api.post<NewsItem>('/news', fd, {
     headers: { 'Content-Type': 'multipart/form-data' },

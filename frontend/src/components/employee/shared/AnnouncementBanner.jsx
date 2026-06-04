@@ -8,13 +8,6 @@ import { NewsImage } from '@components/NewsImage'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@components/employee/ui/dialog'
 import { Button } from '@components/employee/ui/button'
 
-const GRADIENTS = [
-  'from-emerald-600 to-teal-500',
-  'from-green-600 to-emerald-500',
-  'from-teal-600 to-cyan-500',
-  'from-emerald-700 to-green-500',
-]
-
 export function AnnouncementBanner({ compact = false, inline = false, className }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
@@ -25,7 +18,6 @@ export function AnnouncementBanner({ compact = false, inline = false, className 
     const load = async () => {
       setLoading(true)
       try {
-        // Fetch only 10 most recent news items for better performance
         const data = await listNews(10)
         setItems(data)
         setIndex(0)
@@ -50,12 +42,12 @@ export function AnnouncementBanner({ compact = false, inline = false, className 
     return (
       <div
         className={cn(
-          'rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow-card',
+          'emp-announcement-gradient min-h-[4.5rem] rounded-xl !text-white shadow-card',
           inline ? 'flex h-full w-44 shrink-0 items-center p-3 sm:w-48' : compact ? 'p-4' : 'rounded-2xl p-6 md:p-8',
           className,
         )}
       >
-        <p className="text-sm text-white/80">Loading...</p>
+        <p className="text-sm !text-white/80">Loading...</p>
       </div>
     )
   }
@@ -65,15 +57,14 @@ export function AnnouncementBanner({ compact = false, inline = false, className 
   }
 
   const current = items[index]
-  const gradient = GRADIENTS[index % GRADIENTS.length]
   const excerpt = current.excerpt || current.content?.slice(0, 120) || ''
 
   return (
     <>
       <div
         className={cn(
-          'relative overflow-hidden shadow-card',
-          inline ? 'h-full w-44 shrink-0 sm:w-52' : compact ? 'rounded-xl' : 'rounded-2xl',
+          'emp-announcement-gradient relative min-h-[4.5rem] overflow-hidden rounded-xl !text-white shadow-card',
+          inline ? 'h-full w-44 shrink-0 sm:w-52' : compact ? '' : 'rounded-2xl',
           className,
         )}
       >
@@ -87,9 +78,8 @@ export function AnnouncementBanner({ compact = false, inline = false, className 
             transition={{ duration: 0.4 }}
             onClick={() => setActive(current)}
             className={cn(
-              'h-full w-full cursor-pointer bg-gradient-to-r text-left text-white',
+              'h-full w-full cursor-pointer border-0 bg-transparent text-left !text-white',
               inline ? 'flex items-center p-3' : compact ? 'p-4 md:p-5' : 'p-6 md:p-8',
-              gradient,
             )}
           >
             <div className={cn('flex min-w-0 items-center gap-2.5', inline ? 'w-full' : 'items-start gap-3')}>
@@ -99,12 +89,12 @@ export function AnnouncementBanner({ compact = false, inline = false, className 
                   inline ? 'h-8 w-8' : compact ? 'h-9 w-9' : 'h-12 w-12 rounded-xl',
                 )}
               >
-                <Megaphone className={inline ? 'h-3.5 w-3.5' : compact ? 'h-4 w-4' : 'h-6 w-6'} />
+                <Megaphone className={cn('text-white', inline ? 'h-3.5 w-3.5' : compact ? 'h-4 w-4' : 'h-6 w-6')} />
               </div>
               <div className={cn('min-w-0 flex-1', !inline && items.length > 1 ? 'pr-14' : '')}>
                 <p
                   className={cn(
-                    'font-medium uppercase tracking-wider text-white/80',
+                    'font-medium uppercase tracking-wider !text-white/80',
                     inline ? 'text-[9px]' : 'text-[11px]',
                   )}
                 >
@@ -112,14 +102,14 @@ export function AnnouncementBanner({ compact = false, inline = false, className 
                 </p>
                 <h3
                   className={cn(
-                    'font-display font-bold text-white',
+                    'font-display font-bold !text-white',
                     inline ? 'line-clamp-2 text-xs leading-snug' : compact ? 'mt-0.5 line-clamp-1 text-base md:text-lg' : 'text-xl md:text-2xl',
                   )}
                 >
                   {current.title}
                 </h3>
                 {!inline ? (
-                  <p className={cn('mt-1 text-white/90 line-clamp-2', compact ? 'text-xs' : 'text-sm')}>
+                  <p className={cn('mt-1 !text-white/90 line-clamp-2', compact ? 'text-xs' : 'text-sm')}>
                     {excerpt}
                   </p>
                 ) : null}
@@ -165,7 +155,7 @@ export function AnnouncementBanner({ compact = false, inline = false, className 
                   }}
                   className={cn(
                     'h-1.5 rounded-full transition-all',
-                    i === index ? 'w-6 bg-white' : 'w-1.5 bg-white/40'
+                    i === index ? 'w-6 bg-white' : 'w-1.5 bg-white/40',
                   )}
                   aria-label={`Go to slide ${i + 1}`}
                 />

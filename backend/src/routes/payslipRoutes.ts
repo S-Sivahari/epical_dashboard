@@ -60,14 +60,15 @@ payslipRoutes.get(
 // Admin: payslip send history
 payslipRoutes.get('/send-history', ...adminOnly, payslipController.getSendHistory)
 
-// Template management
-payslipRoutes.get('/template', payslipController.downloadTemplate)
-payslipRoutes.get('/template/meta', payslipController.getTemplateMeta)
-payslipRoutes.post('/template/upload', excelUpload.single('template'), payslipController.uploadCustomTemplate)
-payslipRoutes.get('/template/logo', payslipController.getCompanyLogo)
-payslipRoutes.get('/template/logo/meta', payslipController.getCompanyLogoMeta)
+// Template management (admin only)
+payslipRoutes.get('/template', ...adminOnly, payslipController.downloadTemplate)
+payslipRoutes.get('/template/meta', ...adminOnly, payslipController.getTemplateMeta)
+payslipRoutes.post('/template/upload', ...adminOnly, excelUpload.single('template'), payslipController.uploadCustomTemplate)
+payslipRoutes.get('/template/logo', ...adminOnly, payslipController.getCompanyLogo)
+payslipRoutes.get('/template/logo/meta', ...adminOnly, payslipController.getCompanyLogoMeta)
 payslipRoutes.post(
   '/template/logo/upload',
+  ...adminOnly,
   imageUpload.single('logo'),
   payslipController.uploadCompanyLogo
 )

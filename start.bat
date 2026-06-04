@@ -2,7 +2,7 @@
 setlocal
 
 echo ==========================================
-echo   F.L.O.W - HRMS Application Launcher
+echo   HRMS Application Launcher
 echo ==========================================
 echo.
 

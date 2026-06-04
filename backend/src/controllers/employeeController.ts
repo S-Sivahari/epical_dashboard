@@ -122,8 +122,12 @@ export const employeeController = {
   },
 
   // Create new employee
-  createEmployee: async (req: Request, res: Response): Promise<void> => {
+  createEmployee: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+      if (!isAdminRole(req.user?.role ?? '')) {
+        res.status(403).json({ error: 'Forbidden' });
+        return;
+      }
       const payload: CreateEmployeePayload = req.body;
 
         // Validate essential fields dynamically
@@ -165,6 +169,10 @@ export const employeeController = {
   // Update employee
   updateEmployee: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+      if (!isAdminRole(req.user?.role ?? '')) {
+        res.status(403).json({ error: 'Forbidden' });
+        return;
+      }
       const { id } = req.params as { id: string };
       const changedBy = req.user?.email || req.body?.changedBy || 'Admin';
       const employee = await employeeService.updateEmployee(id, req.body, { changedBy });
@@ -194,8 +202,12 @@ export const employeeController = {
   },
 
   // Delete employee (hard delete)
-  deleteEmployee: async (req: Request, res: Response): Promise<void> => {
+  deleteEmployee: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+      if (!isAdminRole(req.user?.role ?? '')) {
+        res.status(403).json({ error: 'Forbidden' });
+        return;
+      }
       const { id } = req.params as { id: string };
       const success = await employeeService.deleteEmployee(id);
 
@@ -214,6 +226,10 @@ export const employeeController = {
   // Update employee status (Deactivate/Archive)
   updateStatus: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+      if (!isAdminRole(req.user?.role ?? '')) {
+        res.status(403).json({ error: 'Forbidden' });
+        return;
+      }
       const { id } = req.params as { id: string };
       const { status, reason } = req.body as { status?: string; reason?: string };
 
@@ -241,8 +257,12 @@ export const employeeController = {
 
 
   // Search employees
-  searchEmployees: async (req: Request, res: Response): Promise<void> => {
+  searchEmployees: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+      if (!isAdminRole(req.user?.role ?? '')) {
+        res.status(403).json({ error: 'Forbidden' });
+        return;
+      }
       const { q } = req.query;
 
       if (!q) {
@@ -261,6 +281,10 @@ export const employeeController = {
   // Bulk update status for multiple employees
   bulkUpdateStatus: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+      if (!isAdminRole(req.user?.role ?? '')) {
+        res.status(403).json({ error: 'Forbidden' });
+        return;
+      }
       const { ids, status, reason } = req.body as { ids: string[]; status: string; reason?: string };
       if (!Array.isArray(ids) || ids.length === 0) {
         res.status(400).json({ error: 'ids must be a non-empty array' });

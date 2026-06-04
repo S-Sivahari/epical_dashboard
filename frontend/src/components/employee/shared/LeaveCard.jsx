@@ -3,7 +3,16 @@ import { Progress } from '@components/employee/ui/progress'
 import { cn } from '@pages/employee/lib/utils'
 import { portalCardClass } from '@components/employee/shared/interactiveCard'
 
-export function LeaveCard({ type, used, total, remaining: remainingProp, color, embedded = false, className }) {
+export function LeaveCard({
+  type,
+  used,
+  total,
+  remaining: remainingProp,
+  color,
+  embedded = false,
+  tintClass,
+  className,
+}) {
   const remaining =
     remainingProp != null
       ? remainingProp
@@ -19,7 +28,7 @@ export function LeaveCard({ type, used, total, remaining: remainingProp, color, 
       className={cn(
         'flex h-full flex-col p-4',
         embedded
-          ? portalCardClass({ subtle: true, className: 'shadow-none' })
+          ? portalCardClass({ subtle: true, className: cn('shadow-none', tintClass) })
           : portalCardClass({ className: 'shadow-card' }),
         className,
       )}

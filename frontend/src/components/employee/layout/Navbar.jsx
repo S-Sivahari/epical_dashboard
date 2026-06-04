@@ -63,7 +63,7 @@ export function Navbar() {
             <DropdownMenuItem
               className="gap-2 cursor-pointer text-danger focus:text-danger"
               onClick={() => {
-                logout()
+                void logout()
                 navigate('/auth/login')
               }}
             >

@@ -30,16 +30,16 @@ router.patch(
 router.get('/', leaveController.getAll);
 router.post('/', leaveController.create);
 router.delete('/all', roleMiddleware('Admin'), leaveController.deleteAll);
-router.patch('/:id/approve', leaveController.approve);
-router.patch('/:id/reject', leaveController.reject);
+router.patch('/:id/approve', roleMiddleware('Admin'), leaveController.approve);
+router.patch('/:id/reject', roleMiddleware('Admin'), leaveController.reject);
 router.patch('/:id/cancel', leaveController.cancel);
-router.delete('/:id', leaveController.delete);
+router.delete('/:id', roleMiddleware('Admin'), leaveController.delete);
 
-// Holidays
+// Holidays (prefer /api/holidays for admin writes; these mirror read access)
 router.get('/holidays', leaveController.getHolidays);
-router.post('/holidays', leaveController.createHoliday);
-router.put('/holidays/:id', leaveController.updateHoliday);
-router.patch('/holidays/:id/skip', leaveController.skipHoliday);
-router.delete('/holidays/:id', leaveController.deleteHoliday);
+router.post('/holidays', roleMiddleware('Admin'), leaveController.createHoliday);
+router.put('/holidays/:id', roleMiddleware('Admin'), leaveController.updateHoliday);
+router.patch('/holidays/:id/skip', roleMiddleware('Admin'), leaveController.skipHoliday);
+router.delete('/holidays/:id', roleMiddleware('Admin'), leaveController.deleteHoliday);
 
 export const leaveRoutes = router;

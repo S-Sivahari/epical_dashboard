@@ -32,6 +32,7 @@ import {
   exportLeavesToPDF,
   type CompensationExportRow,
 } from '@/utils/exportLeaveReport'
+import { leaveExportFileName } from '@/utils/exportFileName'
 
 type TabType = 'requests' | 'compensation'
 
@@ -278,7 +279,7 @@ export function LeaveManagementContainer() {
   }, [activeTab, leaveFilters, compensationSearch])
 
   const handleExport = async (format: 'pdf' | 'excel') => {
-    const filename = buildExportFilename(activeTab)
+    const filename = leaveExportFileName(activeTab)
     const generatedBy = user?.name || 'Admin'
     try {
       setExporting(format)

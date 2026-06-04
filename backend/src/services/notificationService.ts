@@ -240,7 +240,10 @@ async function triggerEmailNotification(notification: any): Promise<void> {
         { projection: { documents: 0, 'photo.data': 0 } }
       );
       if (employee) {
-        recipientEmail = employee.email;
+        recipientEmail =
+          (employee.email && String(employee.email).trim()) ||
+          (employee.personalEmail && String(employee.personalEmail).trim()) ||
+          '';
         recipientName = `${employee.firstName} ${employee.lastName}`;
       } else {
         // Fallback: Check users collection if not found in employees

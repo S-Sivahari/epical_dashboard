@@ -7,8 +7,10 @@ import bcrypt from 'bcryptjs';
 import {
   ensureUserAccountForEmployee,
   normalizeLoginEmail,
+  OAUTH_ONLY_EMPLOYEE_PASSWORD,
   resolveUserForOAuthLogin,
 } from '../utils/employeeAuth';
+import { EmployeeLoginError } from '../utils/employeeLoginRules';
 
 export function initializePassport() {
   passport.use(
@@ -28,18 +30,29 @@ export function initializePassport() {
           }
 
           const normalizedEmail = normalizeLoginEmail(email);
-          const { user: existingUser, employee } = await resolveUserForOAuthLogin(normalizedEmail);
+          let existingUser: any = null;
+          let employee: any = null;
+          try {
+            const resolved = await resolveUserForOAuthLogin(normalizedEmail);
+            existingUser = resolved.user;
+            employee = resolved.employee;
+          } catch (err) {
+            if (err instanceof EmployeeLoginError) {
+              return done(null, false, { message: err.message });
+            }
+            throw err;
+          }
 
           if (!employee && !existingUser) {
             return done(null, false, {
               message:
-                'This email is not registered. Contact HR for employee access or use admin@company.com for admin.',
+                'This email is not registered. Contact HR to be added as an employee, or use the admin sign-in.',
             });
           }
 
           let user = existingUser;
           if (!user && employee) {
-            user = await ensureUserAccountForEmployee(employee as any, '');
+            user = await ensureUserAccountForEmployee(employee as any, OAUTH_ONLY_EMPLOYEE_PASSWORD);
           }
 
           if (!user) {

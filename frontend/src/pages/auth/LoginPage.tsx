@@ -11,11 +11,14 @@ import { LoginTopBrand } from '@components/auth/LoginTopBrand'
 import { MicrochipHero } from '@components/auth/MicrochipHero'
 import { Button } from '@components/ui/Button'
 import { useAuthStore } from '@store/authStore'
-import { getGoogleClientId } from '@services/googleOAuthService'
 import { prefetchEmployeeDashboard } from '@/utils/prefetchEmployeeRoutes'
+import { getApiBaseUrl, getGoogleOAuthStartUrl } from '@/config/apiBase'
+import axios from 'axios'
 
-const googleClientId = getGoogleClientId()
-const googleSignInEnabled = googleClientId.endsWith('.apps.googleusercontent.com')
+type GoogleOAuthConfig = {
+  enabled?: boolean
+  redirectUri?: string
+}
 
 function GoogleMark() {
   return (
@@ -49,40 +52,59 @@ type FormValues = z.infer<typeof schema>
 
 export function LoginPage() {
   const login = useAuthStore((s) => s.login)
-  const completeOAuthRedirect = useAuthStore((s) => s.completeOAuthRedirect)
+  const hydrateSession = useAuthStore((s) => s.hydrateSession)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const role = useAuthStore((s) => s.role)
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [googleSignInEnabled, setGoogleSignInEnabled] = useState(false)
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const token = params.get('token')
+    let cancelled = false
+    fetch(`${getApiBaseUrl()}/auth/google/config`, { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: GoogleOAuthConfig | null) => {
+        if (!cancelled) setGoogleSignInEnabled(Boolean(data?.enabled))
+      })
+      .catch(() => {
+        if (!cancelled) setGoogleSignInEnabled(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
-    if (token) {
-      const oauthRole = params.get('role') ?? 'employee'
-      const email = params.get('email') ?? ''
-      const name = params.get('name') ?? email.split('@')[0]
-      const designation = params.get('designation') ?? undefined
+  useEffect(() => {
+    const queryParams = new URLSearchParams(window.location.search)
+    const oauthSuccess = queryParams.get('oauth') === 'success'
 
-      completeOAuthRedirect({ token, role: oauthRole, email, name, designation })
-      prefetchEmployeeDashboard()
+    if (oauthSuccess) {
       window.history.replaceState({}, '', '/auth/login')
-      navigate(oauthRole === 'admin' ? '/admin' : '/employee', { replace: true })
+      void (async () => {
+        try {
+          await hydrateSession()
+          const currentRole = useAuthStore.getState().role
+          prefetchEmployeeDashboard()
+          navigate(currentRole === 'admin' ? '/admin' : '/employee', { replace: true })
+        } catch {
+          toast.error('Google sign-in completed but session could not be loaded. Try again.')
+        }
+      })()
       return
     }
 
-    const error = params.get('error')
+    const error = queryParams.get('error')
     if (error) {
       window.history.replaceState({}, '', '/auth/login')
+      const decoded = decodeURIComponent(error)
       toast.error(
-        error === 'google_auth_failed'
-          ? 'Google sign-in failed or this email is not registered. Contact HR or use email/password.'
-          : 'Sign-in failed. Please try again.',
+        decoded === 'google_auth_failed'
+          ? 'Google sign-in failed. You must be added by an admin first, and deactivated accounts cannot sign in.'
+          : decoded,
       )
     }
-  }, [completeOAuthRedirect, navigate])
+  }, [hydrateSession, navigate])
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -106,29 +128,43 @@ export function LoginPage() {
       const userRole = useAuthStore.getState().role
       navigate(userRole === 'admin' ? '/admin' : '/employee', { replace: true })
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to sign in'
+      let message = 'Unable to sign in'
+      if (axios.isAxiosError(error)) {
+        if (!error.response) {
+          message =
+            'Cannot reach the API server. Run npm run dev from the project root and ensure the backend is on port 3000.'
+        } else {
+          const data = error.response.data as { error?: string } | undefined
+          message = data?.error ?? error.message
+        }
+      } else if (error instanceof Error) {
+        message = error.message
+      }
       toast.error(message)
     }
   })
 
   const handleGoogleRedirect = () => {
     setGoogleLoading(true)
-    const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api'
-    window.location.assign(`${apiBase}/auth/google`)
+    window.location.assign(getGoogleOAuthStartUrl())
   }
 
   return (
-    <div className="login-page relative">
+    <div className="login-page relative min-h-screen">
       <LoginBackground />
       <LoginTopBrand />
 
-      <div className="login-page-scaler relative">
-        <div className="relative z-10 grid min-h-screen grid-rows-[auto_1fr] lg:grid-cols-2 lg:grid-rows-1">
-          <div className="flex items-center justify-center px-4 py-10 lg:translate-x-10 lg:py-0 lg:pl-16 lg:pr-4">
-            <MicrochipHero />
+      <div className="login-page-scaler relative z-10 w-full">
+        <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
+          {/* Left — EMPWR branding (bottom-left, matching reference layout) */}
+          <div className="login-hero-column relative flex min-h-[38vh] flex-col justify-end px-4 pb-14 pt-24 sm:px-5 sm:pb-16 lg:block lg:min-h-screen lg:pb-0 lg:pt-0">
+            <div className="login-hero-copy w-full self-start lg:absolute lg:bottom-[16%] lg:left-5 xl:left-6">
+              <MicrochipHero />
+            </div>
           </div>
 
-          <div className="flex items-center justify-center px-4 pb-10 lg:py-0 lg:pr-12">
+          {/* Right — login card, vertically centered like reference */}
+          <div className="login-card-column flex items-center justify-center px-6 pb-16 sm:px-10 lg:justify-center lg:py-0 lg:pl-4 lg:pr-12 xl:pr-16">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -138,91 +174,98 @@ export function LoginPage() {
               <div className="login-glass rounded-2xl p-8">
                 <div className="login-card-content">
                   <div className="mb-5 text-center">
-                  <h2 className="login-card-title font-display text-lg font-semibold tracking-tight">
-                    Welcome back
-                  </h2>
-                  <p className="login-card-subtitle mt-1 text-xs">Sign in to your enterprise portal</p>
-                </div>
+                    <h2 className="login-card-title font-display text-lg font-semibold tracking-tight">
+                      Welcome back
+                    </h2>
+                    <p className="login-card-subtitle mt-1 text-xs">Sign in to your enterprise portal</p>
+                  </div>
 
                   <form className="space-y-4" onSubmit={onSubmit} noValidate>
-                  <div className="space-y-1">
-                    <label className="login-card-label text-xs font-medium">Email</label>
-                    <div className="relative">
-                      <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="email"
-                        autoComplete="email"
-                        placeholder="Enter your email"
-                        className={`login-input ${errors.email ? 'login-input-error' : ''}`}
-                        {...register('email')}
-                      />
-                    </div>
-                    {errors.email ? <p className="text-xs text-red-600">{errors.email.message}</p> : null}
-                  </div>
-
-                  {/* Password */}
-                  <div className="space-y-1">
-                    <label className="login-card-label text-xs font-medium">Password</label>
-                    <div className="relative">
-                      <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        autoComplete="current-password"
-                        placeholder="Enter your password"
-                        className={`login-input pr-10 ${errors.password ? 'login-input-error' : ''}`}
-                        {...register('password')}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword((p) => !p)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600"
-                        tabIndex={-1}
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                    {errors.password ? <p className="text-xs text-red-600">{errors.password.message}</p> : null}
-                  </div>
-
-                  <Button
-                    type="submit"
-                    className="login-btn-glow h-10 w-full rounded-lg text-sm font-semibold text-white"
-                    loading={isSubmitting}
-                  >
-                    Login
-                  </Button>
-                </form>
-
-                {googleSignInEnabled ? (
-                  <>
-                    <div className="relative my-5">
-                      <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-slate-200" />
+                    <div className="space-y-1">
+                      <label className="login-card-label text-xs font-medium" htmlFor="login-email">
+                        Email
+                      </label>
+                      <div className="relative">
+                        <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <input
+                          id="login-email"
+                          type="email"
+                          autoComplete="email"
+                          placeholder="Enter your email"
+                          className={`login-input ${errors.email ? 'login-input-error' : ''}`}
+                          {...register('email')}
+                        />
                       </div>
-                      <div className="relative flex justify-center text-xs">
-                        <span className="login-card-subtitle bg-[#f8fafc] px-3">
-                          Or continue with
-                        </span>
-                      </div>
+                      {errors.email ? <p className="text-xs text-red-400">{errors.email.message}</p> : null}
                     </div>
+
+                    <div className="space-y-1">
+                      <label className="login-card-label text-xs font-medium" htmlFor="login-password">
+                        Password
+                      </label>
+                      <div className="relative">
+                        <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <input
+                          id="login-password"
+                          type={showPassword ? 'text' : 'password'}
+                          autoComplete="current-password"
+                          placeholder="Enter your password"
+                          className={`login-input pr-10 ${errors.password ? 'login-input-error' : ''}`}
+                          {...register('password')}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((p) => !p)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-200"
+                          aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                      {errors.password ? (
+                        <p className="text-xs text-red-400">{errors.password.message}</p>
+                      ) : null}
+                    </div>
+
                     <Button
-                      type="button"
-                      variant="secondary"
-                      className="login-btn-secondary h-11 w-full gap-3 rounded-lg text-sm font-medium backdrop-blur-sm"
-                      loading={googleLoading}
-                      onClick={handleGoogleRedirect}
+                      type="submit"
+                      className="login-btn-glow h-10 w-full rounded-lg text-sm font-semibold text-white"
+                      loading={isSubmitting}
                     >
-                      <GoogleMark />
-                      Continue with Google
+                      Login
                     </Button>
-                  </>
-                ) : null}
+                  </form>
+
+                  {googleSignInEnabled ? (
+                    <>
+                      <div className="relative my-5">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t border-white/12" />
+                        </div>
+                        <div className="relative flex justify-center text-xs">
+                          <span className="login-card-subtitle login-card-divider px-3">
+                            Or continue with
+                          </span>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="login-btn-secondary h-11 w-full gap-3 rounded-lg text-sm font-medium"
+                        loading={googleLoading}
+                        onClick={handleGoogleRedirect}
+                      >
+                        <GoogleMark />
+                        Continue with Google
+                      </Button>
+                    </>
+                  ) : null}
+                </div>
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          </div>
         </div>
       </div>
-    </div>  
     </div>
   )
 }

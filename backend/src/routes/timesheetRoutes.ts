@@ -1,15 +1,12 @@
 import { Router } from 'express';
 import { timesheetController } from '../controllers/timesheetController';
 import { employeeTimesheetController } from '../controllers/employeeTimesheetController';
-import { authMiddleware } from '../middleware/authMiddleware';
+import { authMiddleware, requireRole } from '../middleware/authMiddleware';
 
 const router = Router();
+const adminOnly = requireRole('Admin');
 
 router.use(authMiddleware);
-
-router.get('/', timesheetController.getAll);
-router.get('/hours-by-project', timesheetController.getHoursByProject);
-router.get('/employee-hours', timesheetController.getEmployeeHours);
 
 router.get('/mine/bootstrap', employeeTimesheetController.getBootstrap);
 router.get('/mine/assigned-tasks', employeeTimesheetController.getMyAssignedTasks);
@@ -28,13 +25,16 @@ router.patch('/mine/pause-task', employeeTimesheetController.pauseActiveTask);
 router.patch('/mine/resume-task', employeeTimesheetController.resumeActiveTask);
 router.patch('/mine/complete-task', employeeTimesheetController.completeActiveTask);
 
-router.get('/auto-checkout-settings', employeeTimesheetController.getAutoCheckoutSettings);
-router.put('/auto-checkout-settings', employeeTimesheetController.updateAutoCheckoutSettings);
+router.get('/auto-checkout-settings', adminOnly, employeeTimesheetController.getAutoCheckoutSettings);
+router.put('/auto-checkout-settings', adminOnly, employeeTimesheetController.updateAutoCheckoutSettings);
 
-router.get('/:id', timesheetController.getById);
-router.post('/', timesheetController.create);
-router.put('/:id', timesheetController.update);
-router.patch('/:id/override', timesheetController.override);
-router.delete('/:id', timesheetController.delete);
+router.get('/', adminOnly, timesheetController.getAll);
+router.get('/hours-by-project', adminOnly, timesheetController.getHoursByProject);
+router.get('/employee-hours', adminOnly, timesheetController.getEmployeeHours);
+router.get('/:id', adminOnly, timesheetController.getById);
+router.post('/', adminOnly, timesheetController.create);
+router.put('/:id', adminOnly, timesheetController.update);
+router.patch('/:id/override', adminOnly, timesheetController.override);
+router.delete('/:id', adminOnly, timesheetController.delete);
 
 export const timesheetRoutes = router;
