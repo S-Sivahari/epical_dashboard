@@ -27,8 +27,16 @@ import {
   type NewsItem,
 } from '@services/newsService'
 import { formatDate } from '@/utils/formatDate'
+import {
+  isPastNewsDateInput,
+  maxPastNewsDateInputValue,
+  PAST_NEWS_DATE_HINT,
+  publishedAtIsoFromDateInput,
+  yesterdayDateInputValue,
+} from '@/utils/newsDateRules'
 
 const CACHE_KEY = 'admin-news-list-v1'
+const MAX_PAST_NEWS_DATE = maxPastNewsDateInputValue()
 
 type TabId = 'current' | 'publish' | 'fetch'
 
@@ -37,13 +45,6 @@ const tabs: Array<{ id: TabId; label: string; icon: typeof Rss }> = [
   { id: 'publish', label: 'Publish Console', icon: Megaphone },
   { id: 'fetch', label: 'Fetch Streams', icon: Rss },
 ]
-
-const toDateInputValue = (date: Date) => {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
 
 const DEFAULT_FETCH_FILTERS = [
   'Semiconductor',
@@ -60,7 +61,8 @@ export function CompanyNews() {
   const [items, setItems] = useState<NewsItem[]>([])
   const [externalItems, setExternalItems] = useState<ExternalNewsItem[]>([])
   const [selectedExternal, setSelectedExternal] = useState<Set<string>>(new Set())
-  const [fetchDate, setFetchDate] = useState(() => toDateInputValue(new Date()))
+  const [fetchDate, setFetchDate] = useState(() => yesterdayDateInputValue())
+  const [publishDate, setPublishDate] = useState(() => yesterdayDateInputValue())
   const [fetchLimit, setFetchLimit] = useState<number>(10)
   const [fetchFilters, setFetchFilters] = useState<string[]>(() => [...DEFAULT_FETCH_FILTERS])
   const [newFilterInput, setNewFilterInput] = useState('')
@@ -166,8 +168,11 @@ export function CompanyNews() {
     setNewFilterInput('')
   }
 
+  const clampPastNewsDate = (value: string) =>
+    !value || isPastNewsDateInput(value) ? value : MAX_PAST_NEWS_DATE
+
   const handleFetchExternal = async () => {
-    if (!fetchDate) {
+    if (!fetchDate || !isPastNewsDateInput(fetchDate)) {
       return
     }
     setFetchingExternal(true)
@@ -227,12 +232,19 @@ export function CompanyNews() {
   }
 
   const handleAdd = async () => {
-    if (!title || !content) {
+    if (!title || !content || !isPastNewsDateInput(publishDate)) {
       return
     }
     setSaving(true)
     try {
-      const item = await createNews({ title, content, imageUrl, link, imageFile })
+      const item = await createNews({
+        title,
+        content,
+        imageUrl,
+        link,
+        imageFile,
+        publishedDate: publishDate,
+      })
       setItems((prev) => [item, ...prev])
       resetForm()
     } catch {
@@ -311,6 +323,7 @@ export function CompanyNews() {
     setImageFile(null)
     setImagePreview(null)
     setLink('')
+    setPublishDate(yesterdayDateInputValue())
   }
 
   const previewImageSrc = imagePreview || imageUrl.trim() || null
@@ -476,6 +489,22 @@ export function CompanyNews() {
                     </div>
 
                     <div className="admin-news-publish-side">
+                      <label className="block space-y-1.5">
+                        <span className="text-sm font-semibold leading-relaxed text-slate-800">
+                          Publish date <span className="text-danger">*</span>
+                        </span>
+                        <input
+                          type="date"
+                          value={publishDate}
+                          max={MAX_PAST_NEWS_DATE}
+                          onChange={(e) => setPublishDate(clampPastNewsDate(e.target.value))}
+                          className="admin-news-fetch-bar-input w-full"
+                          required
+                        />
+                        <p className="admin-news-past-date-hint" role="note">
+                          {PAST_NEWS_DATE_HINT}
+                        </p>
+                      </label>
                       <Input
                         label="Image URL (optional)"
                         value={imageUrl}
@@ -541,6 +570,11 @@ export function CompanyNews() {
                         <p className="mt-2 line-clamp-4 whitespace-pre-line text-sm font-medium text-slate-600">
                           {contentPreview}
                         </p>
+                        <p className="mt-1 text-[10px] font-semibold text-slate-500">
+                          {isPastNewsDateInput(publishDate)
+                            ? `Publish date: ${formatDate(publishedAtIsoFromDateInput(publishDate))}`
+                            : PAST_NEWS_DATE_HINT}
+                        </p>
                         {link.trim() ? (
                           <p className="truncate text-[10px] font-semibold admin-news-text-brand">
                             {link}
@@ -559,7 +593,12 @@ export function CompanyNews() {
                     <Button
                       className="admin-news-publish-btn border-0"
                       onClick={() => void handleAdd()}
-                      disabled={saving || !title.trim() || !content.trim()}
+                      disabled={
+                        saving ||
+                        !title.trim() ||
+                        !content.trim() ||
+                        !isPastNewsDateInput(publishDate)
+                      }
                     >
                       <PlusCircle className="h-4 w-4" />
                       {saving ? 'Publishing...' : 'Publish News'}
@@ -574,13 +613,17 @@ export function CompanyNews() {
           {activeTab === 'fetch' && (
             <section className="admin-news-fetch-page" aria-label="Fetch streams">
               <div className="admin-news-fetch-bar">
+                <p className="admin-news-past-date-hint admin-news-past-date-hint--bar" role="note">
+                  {PAST_NEWS_DATE_HINT}
+                </p>
                 <div className="admin-news-fetch-bar-controls">
                   <label className="admin-news-fetch-bar-field">
                     <span className="admin-news-fetch-bar-label">Date</span>
                     <input
                       type="date"
                       value={fetchDate}
-                      onChange={(e) => setFetchDate(e.target.value)}
+                      max={MAX_PAST_NEWS_DATE}
+                      onChange={(e) => setFetchDate(clampPastNewsDate(e.target.value))}
                       className="admin-news-fetch-bar-input"
                     />
                   </label>
@@ -601,7 +644,7 @@ export function CompanyNews() {
                   <Button
                     className="admin-news-fetch-primary-btn shrink-0 border-0"
                     onClick={() => void handleFetchExternal()}
-                    disabled={fetchingExternal}
+                    disabled={fetchingExternal || !isPastNewsDateInput(fetchDate)}
                   >
                     <Rss className="h-4 w-4" />
                     {fetchingExternal ? 'Fetching...' : `Fetch ${fetchLimit}`}

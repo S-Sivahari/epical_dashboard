@@ -11,7 +11,7 @@ export function TimesheetProjectWiseChart({ data = [] }) {
     return (
       <div className="flex h-full min-h-[11rem] flex-col items-center justify-center rounded-lg border border-dashed border-border bg-slate-50/50 px-4 text-center">
         <FolderKanban className="mb-2 h-8 w-8 text-slate-300" />
-        <p className="type-body font-semibold text-muted">No project hours this week</p>
+        <p className="type-body font-semibold text-muted">No project hours recorded</p>
         <p className="type-body-sm mt-1">Hours appear after you log time on assigned projects.</p>
       </div>
     )
