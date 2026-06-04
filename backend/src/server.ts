@@ -4,9 +4,12 @@ import bodyParser from 'body-parser';
 import session from 'express-session';
 import cookieParser from 'cookie-parser';
 import passport from 'passport';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 
 import { connectDB, closeDB, getDB } from './config/db';
 import { env } from './config/env';
+import { validateProductionSecrets } from './config/validateSecurity';
 import { initializePassport } from './config/oauth';
 
 import {
@@ -16,6 +19,7 @@ import {
 import { purgeCancelledLeavesFromDatabase } from './services/leaveService';
 
 import { authMiddleware, requireRole } from './middleware/authMiddleware';
+import { csrfMiddleware } from './middleware/csrfMiddleware';
 import { formatMongoConnectionError, isMongoNetworkError } from './utils/mongoErrors';
 
 // Routes
@@ -56,7 +60,27 @@ import {
 import { ensureFinancialYearSnapshotReset } from './services/payrollYtdService';
 import { ensureAttendanceIndexes } from './utils/ensureAttendanceIndexes';
 
+validateProductionSecrets();
+
 const app = express();
+
+if (env.nodeEnv === 'production') {
+  app.set('trust proxy', 1);
+}
+
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  }),
+);
+
+const authRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: env.nodeEnv === 'production' ? 40 : 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Try again later.' },
+});
 
 // ── CORS Configuration ────────────────────────────────────────
 const allowedOrigins = env.CORS_ORIGIN.split(',')
@@ -74,18 +98,19 @@ app.use(
           if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
           } else {
-            callback(null, allowedOrigins[0] ?? true);
+            callback(new Error('Not allowed by CORS'));
           }
         },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
   })
 );
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(csrfMiddleware);
 
 // ── Session & Passport ────────────────────────────────────────
 app.use(
@@ -115,6 +140,10 @@ if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
 // ── Health check ──────────────────────────────────────────────
 app.get('/health', async (_req, res) => {
   try {
+    if (env.nodeEnv === 'production') {
+      res.json({ status: 'OK', timestamp: new Date().toISOString() });
+      return;
+    }
     const db = getDB();
     const employeeCount = await db.collection('employees').countDocuments();
 
@@ -127,15 +156,15 @@ app.get('/health', async (_req, res) => {
   } catch (error) {
     res.status(503).json({
       status: 'UNAVAILABLE',
-      error: error instanceof Error ? error.message : 'Database not ready',
+      error: env.nodeEnv === 'production' ? 'Database not ready' : error instanceof Error ? error.message : 'Database not ready',
       timestamp: new Date().toISOString(),
     });
   }
 });
 
 // ── API Routes ────────────────────────────────────────────────
-app.use('/api/auth', authRoutes);
-app.use('/api/auth', oauthRoutes);
+app.use('/api/auth', authRateLimiter, authRoutes);
+app.use('/api/auth', authRateLimiter, oauthRoutes);
 
 app.use('/api/dashboard', employeeDashboardRoutes);
 

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { hasRole, verifyToken } from '../utils/generateToken';
+import { readAuthTokenFromRequest } from '../utils/authCookie';
 
 declare global {
   namespace Express {
@@ -17,21 +18,19 @@ declare global {
 export type AuthRequest = Request;
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
-  const authHeader = req.headers.authorization;
+  const token = readAuthTokenFromRequest(req);
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    res.status(401).json({ error: 'Unauthorized: No token provided' });
+  if (!token) {
+    res.status(401).json({ error: 'Unauthorized: No session' });
     return;
   }
-
-  const token = authHeader.split(' ')[1];
 
   try {
     const decoded = verifyToken(token);
     req.user = decoded;
     next();
   } catch {
-    res.status(401).json({ error: 'Unauthorized: Invalid or expired token' });
+    res.status(401).json({ error: 'Unauthorized: Invalid or expired session' });
   }
 }
 

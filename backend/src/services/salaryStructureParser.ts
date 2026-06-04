@@ -162,7 +162,7 @@ export function isSalaryStructureSheetName(name: string): boolean {
   return underscored === 'salary_structure' || underscored === 'salarystructure'
 }
 
-function sheetToMatrix(ws: ExcelJS.Worksheet, minCols = 4): unknown[][] {
+export function sheetToMatrix(ws: ExcelJS.Worksheet, minCols = 4): unknown[][] {
   const matrix: unknown[][] = []
   const maxRow = ws.rowCount || 0
   let maxCol = minCols
@@ -263,7 +263,7 @@ function resolveMergedSection(
 }
 
 /**
- * Merge XLSX + ExcelJS parses. ExcelJS carries row fill (peach = deduction);
+ * Merge matrix + ExcelJS parses. ExcelJS carries row fill (peach = deduction);
  * when either source classifies a component as Deductions, keep it as Deductions.
  */
 export function mergeSalaryStructures(
@@ -284,7 +284,7 @@ export function mergeSalaryStructures(
   return merged
 }
 
-/** Combine tabular (XLSX) parse with ExcelJS style-aware parse. */
+/** Combine tabular matrix parse with ExcelJS style-aware parse. */
 export function combineSalaryStructureSources(
   fromNamedSheet: SalaryStructure,
   fromStyles: SalaryStructure,

@@ -6,6 +6,7 @@ const router = Router();
 
 // Public
 router.post('/login', authController.login);
+router.post('/logout', authController.logout);
 router.post('/seed', authController.seed);
 
 // Protected

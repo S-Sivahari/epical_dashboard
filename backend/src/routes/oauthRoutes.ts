@@ -1,10 +1,7 @@
 import { Router } from 'express';
 import passport from 'passport';
 import { env } from '../config/env';
-import {
-  handleGoogleCallback,
-  loginWithOAuth,
-} from '../controllers/oauthController';
+import { handleGoogleCallback } from '../controllers/oauthController';
 
 export const oauthRoutes = Router();
 
@@ -16,7 +13,6 @@ oauthRoutes.get('/google/config', (_req, res) => {
     enabled: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
     redirectUri: env.GOOGLE_CALLBACK_URL,
     frontendUrl: env.FRONTEND_URL,
-    clientId: env.GOOGLE_CLIENT_ID,
   });
 });
 
@@ -40,5 +36,3 @@ oauthRoutes.get('/google/callback', (req, res, next) => {
   })(req, res, next)
 });
 
-// Login with OAuth (direct verification from frontend)
-oauthRoutes.post('/oauth/login', loginWithOAuth);

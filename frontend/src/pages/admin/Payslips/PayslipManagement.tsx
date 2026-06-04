@@ -227,7 +227,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
     originalFileName?: string
   } | null>(null)
 
-  const [templateMeta, setTemplateMeta] = useState<TemplateMeta | null>(null)
+  const [, setTemplateMeta] = useState<TemplateMeta | null>(null)
 
   // PDF Preview modal
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
