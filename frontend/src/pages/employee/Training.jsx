@@ -144,9 +144,9 @@ export default function Training() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-3">
-        <KPIStatCard title="Available Courses" value={String(courses.length)} icon={BookOpen} />
-        <KPIStatCard title="Enrolled" value={String(enrolledCount)} icon={BookOpen} />
-        <KPIStatCard title="Completed" value={String(completedCount)} icon={CheckCircle2} />
+        <KPIStatCard title="Available Courses" value={String(courses.length)} icon={BookOpen} toneIndex={0} />
+        <KPIStatCard title="Enrolled" value={String(enrolledCount)} icon={BookOpen} toneIndex={1} />
+        <KPIStatCard title="Completed" value={String(completedCount)} icon={CheckCircle2} toneIndex={2} />
       </div>
 
       <div className="flex flex-wrap gap-2 border-b border-border pb-3">

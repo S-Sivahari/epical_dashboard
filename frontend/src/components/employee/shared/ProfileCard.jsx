@@ -25,10 +25,24 @@ function greeting() {
   return 'Good evening'
 }
 
-function ProfileStatMini({ title, value, trend, icon: Icon, horizontal = false }) {
+const STAT_ACCENT_CLASS = {
+  teal: 'emp-stat-chip--teal',
+  amber: 'emp-stat-chip--amber',
+  blue: 'emp-stat-chip--blue',
+  violet: 'emp-stat-chip--violet',
+}
+
+function ProfileStatMini({ title, value, trend, icon: Icon, horizontal = false, accent }) {
+  const accentClass = accent ? STAT_ACCENT_CLASS[accent] : null
+
   if (horizontal) {
     return (
-      <div className="flex min-w-[5.25rem] flex-1 flex-col justify-center rounded-lg border border-white/20 bg-white/10 px-2 py-2 backdrop-blur-sm">
+      <div
+        className={cn(
+          'flex min-w-[5.25rem] flex-1 flex-col justify-center rounded-lg border border-white/25 bg-black/10 px-2 py-2',
+          accentClass,
+        )}
+      >
         <p className="truncate text-[9px] font-semibold uppercase tracking-wide text-white/70">{title}</p>
         <div className="mt-0.5 flex items-center justify-between gap-1">
           <p className="text-base font-bold leading-none text-white">{value}</p>
@@ -40,7 +54,7 @@ function ProfileStatMini({ title, value, trend, icon: Icon, horizontal = false }
   }
 
   return (
-    <div className="rounded-lg border border-white/20 bg-white/10 p-2.5 backdrop-blur-sm">
+    <div className={cn('rounded-lg border border-white/25 bg-black/10 p-2.5', accentClass)}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-white/70">{title}</p>
@@ -48,7 +62,12 @@ function ProfileStatMini({ title, value, trend, icon: Icon, horizontal = false }
           {trend ? <p className="mt-1 truncate text-[10px] text-emerald-100/90">{trend}</p> : null}
         </div>
         {Icon ? (
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/15 text-white">
+          <div
+            className={cn(
+              'flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/15 text-white',
+              accentClass,
+            )}
+          >
             <Icon className="h-3.5 w-3.5" />
           </div>
         ) : null}
@@ -78,7 +97,7 @@ export function ProfileCard({
       {[1, 2, 3, 4].map((i) => (
         <div
           key={i}
-          className={cn('animate-pulse rounded-lg bg-white/10', horizontal ? 'h-14 min-w-[5.25rem] flex-1' : 'h-[4.25rem]')}
+          className={cn('animate-pulse rounded-lg bg-black/10', horizontal ? 'h-14 min-w-[5.25rem] flex-1' : 'h-[4.25rem]')}
         />
       ))}
     </div>
@@ -96,12 +115,11 @@ export function ProfileCard({
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         className={cn(
-          'relative min-h-[6.5rem] min-w-0 flex-1 overflow-hidden rounded-xl bg-gradient-to-br from-emerald-700 via-primary to-teal-600 p-3 shadow-card sm:p-4',
+          'emp-dashboard-hero relative min-h-[6.5rem] min-w-0 flex-1 overflow-hidden rounded-xl p-3 shadow-card sm:p-4',
           className,
         )}
       >
-        <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10" />
-        <div className="relative flex h-full min-w-0 items-center gap-3">
+        <div className="relative z-10 flex h-full min-w-0 items-center gap-3">
           <EmployeePhotoAvatar
             employeeId={employee.id}
             name={employee.name}
@@ -129,7 +147,7 @@ export function ProfileCard({
                 key={to}
                 to={to}
                 title={label}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/25 bg-white/10 text-white transition-colors hover:bg-white/20"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/30 bg-black/15 text-white transition-colors hover:bg-black/25"
               >
                 <Icon className="h-3.5 w-3.5" />
               </Link>
@@ -145,20 +163,18 @@ export function ProfileCard({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn(
-        `relative overflow-hidden rounded-xl bg-gradient-to-br from-emerald-700 via-primary to-teal-600 shadow-card ${
-          compact ? 'p-5 md:p-6' : 'rounded-2xl p-6 shadow-lg md:p-8'
-        }`,
+        'emp-dashboard-hero relative overflow-hidden rounded-xl shadow-card',
+        compact ? 'p-5 md:p-6' : 'rounded-2xl p-6 shadow-lg md:p-8',
         className,
       )}
     >
-      <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10" />
-      <div className="absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-white/5" />
       <div
-        className={`relative flex flex-col lg:flex-row lg:items-center lg:justify-between ${
-          compact ? 'gap-4' : 'gap-6'
-        }`}
+        className={cn(
+          'relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between',
+          compact ? 'gap-4' : 'gap-6',
+        )}
       >
-        <div className={`flex flex-col sm:flex-row sm:items-center ${compact ? 'gap-4' : 'gap-5'}`}>
+        <div className={cn('flex flex-col sm:flex-row sm:items-center', compact ? 'gap-4' : 'gap-5')}>
           <EmployeePhotoAvatar
             employeeId={employee.id}
             name={employee.name}
@@ -172,9 +188,7 @@ export function ProfileCard({
           <div className="min-w-0">
             <p className="text-sm font-medium text-white/80">{greeting()},</p>
             <h2
-              className={`font-heading font-bold text-white ${
-                compact ? 'text-xl md:text-2xl' : 'text-2xl md:text-3xl'
-              }`}
+              className={cn('font-heading font-bold text-white', compact ? 'text-xl md:text-2xl' : 'text-2xl md:text-3xl')}
             >
               {employee.name}
             </h2>

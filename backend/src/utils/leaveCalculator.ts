@@ -39,6 +39,19 @@ export function leaveYear(dateStr: string): string {
   return dateStr.slice(0, 4);
 }
 
+/** Calendar month yyyy-MM from yyyy-MM-dd */
+export function leaveMonth(dateStr: string): string {
+  return dateStr.length >= 7 ? dateStr.slice(0, 7) : '';
+}
+
+function currentLeaveMonthKey(refDate = new Date()): string {
+  const y = refDate.getFullYear();
+  const m = String(refDate.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
+
+const CASUAL_SICK_TYPES = new Set(['Casual Leave', 'Sick Leave']);
+
 /** Number of elapsed calendar months from join (or Jan) through current month, inclusive — used for Earned Leave accrual (0.5 day per month worked). */
 export function monthsWorkedInCurrentYear(joinedAt?: string, refDate = new Date()): number {
   const y = refDate.getFullYear();
@@ -113,20 +126,28 @@ export function calculateBalances(
   };
 
   const calendarYear = String(refDate.getFullYear());
+  const calendarMonth = currentLeaveMonthKey(refDate);
 
   employeeLeaves.forEach((leave) => {
-    // Usage counts approved leaves in the current calendar year (history is cleared monthly on the 1st).
-    const leaveStartsInYear =
-      typeof leave.from === 'string' && leave.from.length >= 4 && leaveYear(leave.from) === calendarYear;
-    if (!leaveStartsInYear) return;
+    if (leave.status !== 'Approved' || typeof leave.from !== 'string' || leave.from.length < 7) {
+      return;
+    }
 
-    if (leave.status === 'Approved') {
-      if (balances[leave.type]) {
-        balances[leave.type].used += leave.days;
-        balances[leave.type].remaining -= leave.days;
-      } else {
-        balances[leave.type] = { total: 0, used: leave.days, remaining: -leave.days };
-      }
+    const isEarned = leave.type === 'Earned Leave';
+    // Casual & sick: current calendar month only (resets monthly). Earned: current calendar year only.
+    if (isEarned) {
+      if (leaveYear(leave.from) !== calendarYear) return;
+    } else if (CASUAL_SICK_TYPES.has(leave.type)) {
+      if (leaveMonth(leave.from) !== calendarMonth) return;
+    } else if (leaveYear(leave.from) !== calendarYear) {
+      return;
+    }
+
+    if (balances[leave.type]) {
+      balances[leave.type].used += leave.days;
+      balances[leave.type].remaining -= leave.days;
+    } else {
+      balances[leave.type] = { total: 0, used: leave.days, remaining: -leave.days };
     }
   });
 

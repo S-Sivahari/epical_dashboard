@@ -127,7 +127,7 @@ export const leaveController = {
   },
 
   // POST /api/leaves
-  create: async (req: Request, res: Response): Promise<void> => {
+  create: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { employeeId, employeeName, type, leaveDuration, halfDaySession, from, to, reason } = req.body;
       if (!employeeId || !type || !leaveDuration || !from || !to) {
@@ -138,6 +138,16 @@ export const leaveController = {
         res.status(400).json({ error: 'Half-day session is required' });
         return;
       }
+
+      if (req.user && isEmployeeRole(req.user.role)) {
+        const own = await resolveEmployeeForAuthUser(req.user.id, req.user.email);
+        const ownId = own?.id ? String(own.id) : req.user.id;
+        if (String(employeeId) !== ownId && String(employeeId) !== req.user.id) {
+          res.status(403).json({ error: 'You can only submit leave requests for your own account.' });
+          return;
+        }
+      }
+
       const leave = await leaveService.createLeave({
         employeeId,
         employeeName: employeeName || 'Unknown',

@@ -11,11 +11,14 @@ import { LoginTopBrand } from '@components/auth/LoginTopBrand'
 import { MicrochipHero } from '@components/auth/MicrochipHero'
 import { Button } from '@components/ui/Button'
 import { useAuthStore } from '@store/authStore'
-import { getGoogleClientId } from '@services/googleOAuthService'
 import { prefetchEmployeeDashboard } from '@/utils/prefetchEmployeeRoutes'
+import { getApiBaseUrl, getGoogleOAuthStartUrl } from '@/config/apiBase'
+import axios from 'axios'
 
-const googleClientId = getGoogleClientId()
-const googleSignInEnabled = googleClientId.endsWith('.apps.googleusercontent.com')
+type GoogleOAuthConfig = {
+  enabled?: boolean
+  redirectUri?: string
+}
 
 function GoogleMark() {
   return (
@@ -49,40 +52,59 @@ type FormValues = z.infer<typeof schema>
 
 export function LoginPage() {
   const login = useAuthStore((s) => s.login)
-  const completeOAuthRedirect = useAuthStore((s) => s.completeOAuthRedirect)
+  const hydrateSession = useAuthStore((s) => s.hydrateSession)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const role = useAuthStore((s) => s.role)
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [googleSignInEnabled, setGoogleSignInEnabled] = useState(false)
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const token = params.get('token')
+    let cancelled = false
+    fetch(`${getApiBaseUrl()}/auth/google/config`, { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: GoogleOAuthConfig | null) => {
+        if (!cancelled) setGoogleSignInEnabled(Boolean(data?.enabled))
+      })
+      .catch(() => {
+        if (!cancelled) setGoogleSignInEnabled(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
-    if (token) {
-      const oauthRole = params.get('role') ?? 'employee'
-      const email = params.get('email') ?? ''
-      const name = params.get('name') ?? email.split('@')[0]
-      const designation = params.get('designation') ?? undefined
+  useEffect(() => {
+    const queryParams = new URLSearchParams(window.location.search)
+    const oauthSuccess = queryParams.get('oauth') === 'success'
 
-      completeOAuthRedirect({ token, role: oauthRole, email, name, designation })
-      prefetchEmployeeDashboard()
+    if (oauthSuccess) {
       window.history.replaceState({}, '', '/auth/login')
-      navigate(oauthRole === 'admin' ? '/admin' : '/employee', { replace: true })
+      void (async () => {
+        try {
+          await hydrateSession()
+          const currentRole = useAuthStore.getState().role
+          prefetchEmployeeDashboard()
+          navigate(currentRole === 'admin' ? '/admin' : '/employee', { replace: true })
+        } catch {
+          toast.error('Google sign-in completed but session could not be loaded. Try again.')
+        }
+      })()
       return
     }
 
-    const error = params.get('error')
+    const error = queryParams.get('error')
     if (error) {
       window.history.replaceState({}, '', '/auth/login')
+      const decoded = decodeURIComponent(error)
       toast.error(
-        error === 'google_auth_failed'
-          ? 'Google sign-in failed or this email is not registered. Contact HR or use email/password.'
-          : 'Sign-in failed. Please try again.',
+        decoded === 'google_auth_failed'
+          ? 'Google sign-in failed. You must be added by an admin first, and deactivated accounts cannot sign in.'
+          : decoded,
       )
     }
-  }, [completeOAuthRedirect, navigate])
+  }, [hydrateSession, navigate])
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -106,15 +128,25 @@ export function LoginPage() {
       const userRole = useAuthStore.getState().role
       navigate(userRole === 'admin' ? '/admin' : '/employee', { replace: true })
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to sign in'
+      let message = 'Unable to sign in'
+      if (axios.isAxiosError(error)) {
+        if (!error.response) {
+          message =
+            'Cannot reach the API server. Run npm run dev from the project root and ensure the backend is on port 3000.'
+        } else {
+          const data = error.response.data as { error?: string } | undefined
+          message = data?.error ?? error.message
+        }
+      } else if (error instanceof Error) {
+        message = error.message
+      }
       toast.error(message)
     }
   })
 
   const handleGoogleRedirect = () => {
     setGoogleLoading(true)
-    const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api'
-    window.location.assign(`${apiBase}/auth/google`)
+    window.location.assign(getGoogleOAuthStartUrl())
   }
 
   return (

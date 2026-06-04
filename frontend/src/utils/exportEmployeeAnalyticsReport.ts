@@ -9,6 +9,7 @@ import type {
 } from '@/services/analyticsService'
 import { employeeDisplayName } from '@/services/analyticsService'
 import { fetchExportLogo, scaleExportLogo } from '@/utils/exportLogo'
+import { employeeAnalyticsFileName } from '@/utils/exportFileName'
 
 const BRAND_GREEN: [number, number, number] = [6, 192, 51]
 
@@ -331,7 +332,12 @@ export async function exportEmployeeAnalyticsReport(payload: EmployeeAnalyticsRe
 
   drawFooters()
 
-  const safeName = pdfSafeText(empName).replace(/[^\w\s-]/g, '').replace(/\s+/g, '-')
-  const safeId = (employee.employeeId ?? employee.id ?? 'employee').replace(/[^\w-]/g, '')
-  doc.save(`employee-analytics-${safeId}-${safeName}.pdf`)
+  doc.save(
+    employeeAnalyticsFileName(
+      employee.employeeId ?? employee.id ?? 'employee',
+      empName,
+      periodLabel,
+      now,
+    ),
+  )
 }

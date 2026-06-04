@@ -1,4 +1,10 @@
 import api from '@services/api'
+import { getApiBaseUrl } from '@/config/apiBase'
+import {
+  formatAllPayslipsDownloadFileName,
+  payrollMasterTemplateFileName,
+  payrollUploadExcelFileName,
+} from '@/utils/exportFileName'
 
 export type TemplateId = 'classic' | 'corporate' | 'minimal'
 
@@ -90,7 +96,7 @@ export async function downloadPayrollTemplate(filename?: string): Promise<void> 
   const url = window.URL.createObjectURL(new Blob([response.data]))
   const link = document.createElement('a')
   link.href = url
-  link.setAttribute('download', filename || 'payroll_master_template.xlsx')
+  link.setAttribute('download', filename || payrollMasterTemplateFileName())
   document.body.appendChild(link)
   link.click()
   link.remove()
@@ -204,16 +210,16 @@ export async function openMergedBatchPayslipPdf(batchId: string): Promise<string
 
 export async function downloadAllPayslipPdfs(
   batchId: string,
-  payMonth?: string
+  payMonth?: string,
+  payPeriodKey?: string,
 ): Promise<void> {
   const blob = await fetchPdfBlob(`${base}/batches/${batchId}/payslips/download-all`, {
     timeout: 120000,
   })
-  const monthLabel = (payMonth || 'payslips').replace(/[^a-zA-Z0-9_-]/g, '_')
   const url = window.URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.setAttribute('download', `All_Payslips_${monthLabel}.pdf`)
+  link.setAttribute('download', formatAllPayslipsDownloadFileName(payMonth, payPeriodKey))
   document.body.appendChild(link)
   link.click()
   link.remove()
@@ -241,12 +247,16 @@ export async function fetchUploadedExcelBlob(batchId: string): Promise<Blob> {
   })
 }
 
-export async function downloadUploadedExcel(batchId: string, fileName: string): Promise<void> {
+export async function downloadUploadedExcel(
+  batchId: string,
+  payMonth?: string,
+  payPeriodKey?: string,
+): Promise<void> {
   const blob = await fetchUploadedExcelBlob(batchId)
   const url = window.URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.setAttribute('download', fileName)
+  link.setAttribute('download', payrollUploadExcelFileName(payMonth, payPeriodKey))
   document.body.appendChild(link)
   link.click()
   link.remove()
@@ -350,7 +360,7 @@ export interface CompanyLogoMeta {
 }
 
 export function getCompanyLogoPreviewUrl(cacheKey = Date.now()): string {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api'
+  const baseUrl = getApiBaseUrl()
   return `${baseUrl}/payslips/template/logo?t=${cacheKey}`
 }
 
@@ -396,7 +406,7 @@ export async function previewTemplate(filename?: string): Promise<void> {
   const url = window.URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.setAttribute('download', filename || 'payroll_template_preview.xlsx')
+  link.setAttribute('download', filename || payrollMasterTemplateFileName())
   document.body.appendChild(link)
   link.click()
   link.remove()

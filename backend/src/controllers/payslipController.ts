@@ -25,7 +25,12 @@ import {
   mergeBatchPayslipPdfs,
   type PayrollBatch,
 } from '../services/payrollBatchService'
-import { formatPayslipDownloadFileName } from '../services/payslipDownloadName'
+import {
+  formatAllPayslipsDownloadFileName,
+  formatPayslipDownloadFileName,
+  payrollMasterTemplateFileName,
+  payrollUploadExcelFileName,
+} from '../services/payslipDownloadName'
 import { AuthRequest } from '../middleware/authMiddleware'
 import {
   sendPayslipToEmployee,
@@ -102,13 +107,13 @@ export const payslipController = {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     if (existsSync(TEMPLATE_PATH)) {
       const meta = await templateMetaCollection().findOne({}, { sort: { uploadedAt: -1 } })
-      const name = meta?.name ?? PAYROLL_TEMPLATE_FILENAME
+      const name = payrollMasterTemplateFileName()
       res.setHeader('Content-Disposition', `attachment; filename="${name}"`)
       const buffer = readFileSync(TEMPLATE_PATH)
       res.send(buffer)
     } else {
       const buffer = await generatePayrollTemplateBuffer()
-      res.setHeader('Content-Disposition', `attachment; filename="${PAYROLL_TEMPLATE_FILENAME}"`)
+      res.setHeader('Content-Disposition', `attachment; filename="${payrollMasterTemplateFileName()}"`)
       res.send(buffer)
     }
   },
@@ -371,10 +376,8 @@ export const payslipController = {
           'Content-Type',
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
-        res.setHeader(
-          'Content-Disposition',
-          `attachment; filename="${batch.originalFileName || 'payroll.xlsx'}"`
-        )
+        const excelName = payrollUploadExcelFileName(batch.payMonth, batch.payPeriodKey)
+        res.setHeader('Content-Disposition', `attachment; filename="${excelName}"`)
         res.send(buffer)
       } catch (error: unknown) {
         // Excel file doesn't exist (old batch), return graceful error
@@ -661,8 +664,7 @@ export const payslipController = {
       }
 
       const buffer = await mergeBatchPayslipPdfs(batchId)
-      const monthLabel = (batch.payMonth || 'payslips').replace(/[^a-zA-Z0-9_-]/g, '_')
-      const filename = `All_Payslips_${monthLabel}.pdf`
+      const filename = formatAllPayslipsDownloadFileName(batch.payMonth, batch.payPeriodKey)
 
       res.setHeader('Content-Type', 'application/pdf')
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)

@@ -51,10 +51,12 @@ export default function NewsFeed() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Newspaper className="h-5 w-5" style={{ color: '#2f6b4f' }} />
-          <h2 className="font-heading text-xl font-semibold" style={{ color: '#2f6b4f' }}>Company News</h2>
+      <div className="emp-page-header flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="emp-dash-icon emp-dash-icon--sage" aria-hidden>
+            <Newspaper className="h-4 w-4" />
+          </div>
+          <h2 className="font-heading text-xl font-semibold text-[#2f6b4f]">Company News</h2>
           {items.length > 0 && (
             <span className="inline-flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold bg-emerald-100" style={{ color: '#2f6b4f' }}>
               {items.length}

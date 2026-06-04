@@ -27,7 +27,7 @@ export function generateToken(payload: {
   return jwt.sign(
     { ...payload, role: normalizeApiRole(payload.role) },
     env.jwtSecret,
-    { expiresIn: '7d' }
+    { expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] }
   );
 }
 

@@ -16,10 +16,10 @@ import { Badge } from '@components/employee/ui/badge'
 export const HOLIDAY_WINDOW_DAYS = 30
 
 const TYPE_STYLES = {
-  National: { accent: 'border-emerald-200 bg-emerald-50/80', dot: 'bg-emerald-500', badge: 'success', label: 'National' },
-  Company: { accent: 'border-blue-200 bg-blue-50/80', dot: 'bg-blue-500', badge: 'default', label: 'Company' },
+  National: { accent: 'border-[#a0c4ab]/60 bg-[#dff0e4]/80', dot: 'bg-[#276749]', badge: 'success', label: 'National' },
+  Company: { accent: 'border-[#a0c4ab]/50 bg-[#f4faf6]', dot: 'bg-[#2f6b4f]', badge: 'default', label: 'Company' },
   Optional: { accent: 'border-amber-200 bg-amber-50/80', dot: 'bg-amber-500', badge: 'warning', label: 'Optional' },
-  'Company Event': { accent: 'border-violet-200 bg-violet-50/80', dot: 'bg-violet-500', badge: 'secondary', label: 'Event' },
+  'Company Event': { accent: 'border-[#c1dac7]/70 bg-[#e8f2e6]/90', dot: 'bg-[#1e5a3d]', badge: 'secondary', label: 'Event' },
 }
 
 const CARD_CLASS = portalCardClass({ className: 'flex h-full min-h-0 flex-col overflow-hidden p-4 sm:p-5' })
@@ -118,7 +118,7 @@ export function UpcomingHolidaysCard({ holidays = [], className }) {
     <InteractiveCard className={cn(CARD_CLASS, className)}>
       <div className="mb-3 flex shrink-0 flex-wrap items-start justify-between gap-2 border-b border-border pb-3">
         <div className="flex min-w-0 items-start gap-2.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <div className="emp-dash-icon emp-dash-icon--sky" aria-hidden>
             <CalendarDays className="h-4 w-4" />
           </div>
           <div className="min-w-0">

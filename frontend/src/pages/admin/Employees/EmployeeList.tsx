@@ -118,7 +118,7 @@ export function EmployeeList() {
         return
       }
 
-      exportToExcel(exportData, filename, ACTIVE_DIRECTORY_EXPORT_HEADERS, exportOptions)
+      await exportToExcel(exportData, filename, ACTIVE_DIRECTORY_EXPORT_HEADERS, exportOptions)
       console.info('[Manage Employees] Exported Active Directory Excel:', filename, `(${exportData.length} employees)`)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Export failed'

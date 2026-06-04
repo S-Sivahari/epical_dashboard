@@ -17,7 +17,7 @@ import { checkEmployeeIdExists } from '@services/employeeService'
 
 const isValidDate = (value: string) => !Number.isNaN(Date.parse(value))
 
-const step1 = z.object({
+const step1Object = z.object({
   employeeId: z.string().min(1, 'Employee ID is required'),
   firstName: z.string().min(1, 'First name is required'),
   middleName: z.string().optional().or(z.literal('')),
@@ -33,6 +33,18 @@ const step1 = z.object({
   personalEmail: z.string().email('Enter a valid personal email'),
   companyEmail: z.union([z.string().email('Enter a valid company email'), z.literal('')]).optional(),
 })
+
+function refineDistinctEmails(data: { personalEmail: string; companyEmail?: string }, ctx: z.RefinementCtx) {
+  const personal = data.personalEmail.trim().toLowerCase()
+  const company = (data.companyEmail ?? '').trim().toLowerCase()
+  if (company && personal === company) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Company email must be different from personal email',
+      path: ['companyEmail'],
+    })
+  }
+}
 
 const step2 = z.object({
   bankName: z.string().optional(),
@@ -67,7 +79,11 @@ const step4 = z.object({
   emergencyContactAddress: z.string().min(1, 'Emergency contact address is required'),
 })
 
-const fullSchema = step1.merge(step2).merge(step3).merge(step4)
+const fullSchema = step1Object
+  .merge(step2)
+  .merge(step3)
+  .merge(step4)
+  .superRefine(refineDistinctEmails)
 type FullValues = z.infer<typeof fullSchema>
 
 const defaultValues: Partial<FullValues> = {

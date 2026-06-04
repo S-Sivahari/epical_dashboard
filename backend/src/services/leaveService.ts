@@ -3,7 +3,7 @@ import { getDB } from '../config/db';
 import { findEmployeeByLoginEmail, findUserForEmployee, resolveEmployeeForAuthUser } from '../utils/employeeAuth';
 import { LeaveRequest, CreateLeavePayload } from '../models/Leave';
 import { Holiday } from '../models/Holiday';
-import { getBusinessDays, calculateBalances, LEAVE_ALLOCATIONS } from '../utils/leaveCalculator';
+import { getBusinessDays, calculateBalances, leaveMonth, LEAVE_ALLOCATIONS } from '../utils/leaveCalculator';
 import type { Employee } from '../models/Employee';
 import * as notificationService from './notificationService';
 
@@ -154,7 +154,7 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
   const requestedDays = payload.leaveDuration === 'Half Day' ? 0.5 : actualBusinessDays;
 
   // 3. Fetch employee balances to validate (pass joinedAt for accurate earned leave)
-  const employeeLeaves = await getAllLeaves(payload.employeeId);
+  const employeeLeaves = await loadLeavesForBalance(payload.employeeId);
   const employeeDoc = await findEmployeeDoc(payload.employeeId);
   const compBonus = await getCompensationEarnedLeaveBonusForYear(
     employeeDoc?.id ? String(employeeDoc.id) : payload.employeeId,
@@ -207,12 +207,34 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
   return leave as LeaveRequest;
 }
 
+async function loadLeavesForBalance(employeeId: string, refDate = new Date()): Promise<LeaveRequest[]> {
+  const active = await getAllLeaves(employeeId);
+  const archivedEarned = await getArchivedEarnedLeavesForBalance(employeeId, refDate);
+  return [...active, ...archivedEarned];
+}
+
+async function getArchivedEarnedLeavesForBalance(employeeId: string, refDate = new Date()): Promise<LeaveRequest[]> {
+  const ids = await resolveLeaveEmployeeIds(employeeId);
+  const year = String(refDate.getFullYear());
+  const archiveCol = getDB().collection('leave_archives');
+  const docs = await archiveCol
+    .find({
+      employeeId: { $in: ids },
+      type: 'Earned Leave',
+      status: 'Approved',
+      from: { $regex: `^${year}` },
+    })
+    .toArray();
+  return docs as LeaveRequest[];
+}
+
 export async function getLeaveBalances(employeeId: string) {
   const leaves = await getAllLeaves(employeeId);
+  const archivedEarned = await getArchivedEarnedLeavesForBalance(employeeId);
   const employee = await findEmployeeDoc(employeeId);
   const canonicalId = employee?.id ? String(employee.id) : employeeId;
   const compBonus = await getCompensationEarnedLeaveBonusForYear(canonicalId);
-  return calculateBalances(leaves, employee?.joinedAt as string | undefined, {
+  return calculateBalances([...leaves, ...archivedEarned], employee?.joinedAt as string | undefined, {
     compensationEarnedBonus: compBonus,
     employeeAllocations: employeeAllocationOverrides(employee),
   });
@@ -255,10 +277,11 @@ function isApprovedLeaveActiveOnDate(leave: LeaveRequest, dateStr: string): bool
 
 export async function getEmployeeLeaveSummary(employeeId: string): Promise<EmployeeLeaveSummary> {
   const leaves = await getAllLeaves(employeeId);
+  const archivedEarned = await getArchivedEarnedLeavesForBalance(employeeId);
   const employee = await findEmployeeDoc(employeeId);
   const canonicalId = employee?.id ? String(employee.id) : employeeId;
   const compBonus = await getCompensationEarnedLeaveBonusForYear(canonicalId);
-  const balances = calculateBalances(leaves, employee?.joinedAt as string | undefined, {
+  const balances = calculateBalances([...leaves, ...archivedEarned], employee?.joinedAt as string | undefined, {
     compensationEarnedBonus: compBonus,
     employeeAllocations: employeeAllocationOverrides(employee),
   });
@@ -377,7 +400,7 @@ export async function updateLeaveStatus(
     const leave = existing as LeaveRequest;
 
     // Fetch employee leaves to calculate current balance
-    const employeeLeaves = await getAllLeaves(leave.employeeId);
+    const employeeLeaves = await loadLeavesForBalance(leave.employeeId);
     const employeeDoc = await getDB().collection('employees').findOne(
       { id: leave.employeeId },
       { projection: { documents: 0, 'photo.data': 0 } }
@@ -563,12 +586,61 @@ async function setLastLeaveMonthlyResetMonth(monthKey: string): Promise<void> {
     );
 }
 
-/** Clears all leave requests and related notifications; marks reset for current month. */
-export async function runMonthlyLeaveHistoryReset(): Promise<{ deletedCount: number; monthKey: string }> {
+/** True when leave starts before the given yyyy-MM month (May and earlier when cutoff is June). */
+function isLeaveBeforeMonth(leave: { from?: string }, cutoffMonthKey: string): boolean {
+  const startMonth = leaveMonth(String(leave.from ?? ''));
+  if (!startMonth || !cutoffMonthKey) return false;
+  return startMonth < cutoffMonthKey;
+}
+
+/**
+ * Archive and remove leave requests that start before the current month.
+ * Example: on 1 June, removes May and earlier; keeps June and future months.
+ */
+export async function archiveAndDeleteLeavesBeforeMonth(cutoffMonthKey: string): Promise<{
+  archivedCount: number;
+  deletedCount: number;
+}> {
+  const col = getLeaveCol();
+  const archiveCol = getDB().collection('leave_archives');
+  const allLeaves = (await col.find({}).toArray()) as LeaveRequest[];
+  const toArchive = allLeaves.filter((l) => isLeaveBeforeMonth(l, cutoffMonthKey));
+
+  if (!toArchive.length) {
+    return { archivedCount: 0, deletedCount: 0 };
+  }
+
+  const archivedAt = new Date();
+  const archiveMonth = cutoffMonthKey;
+  const docs = toArchive.map((doc) => {
+    const { _id, ...rest } = doc as LeaveRequest & { _id?: unknown };
+    return { ...rest, archiveMonth, archivedAt };
+  });
+  await archiveCol.insertMany(docs);
+
+  const ids = toArchive.map((l) => l.id).filter(Boolean);
+  const deleteResult = await col.deleteMany({ id: { $in: ids } });
+
+  if (ids.length) {
+    await getDB().collection('notifications').deleteMany({
+      type: { $in: ['LeaveSubmitted', 'LeaveApproved', 'LeaveRejected', 'LeaveCancelled'] },
+      'relatedData.leaveId': { $in: ids },
+    });
+  }
+
+  return { archivedCount: docs.length, deletedCount: deleteResult.deletedCount };
+}
+
+/** Archives then clears leave requests for prior months only (keeps current + future). */
+export async function runMonthlyLeaveHistoryReset(): Promise<{
+  deletedCount: number;
+  archivedCount: number;
+  monthKey: string;
+}> {
   const monthKey = currentLeaveResetMonthKey();
-  const result = await deleteAllLeaves();
+  const { archivedCount, deletedCount } = await archiveAndDeleteLeavesBeforeMonth(monthKey);
   await setLastLeaveMonthlyResetMonth(monthKey);
-  return { deletedCount: result.deletedCount, monthKey };
+  return { deletedCount, archivedCount, monthKey };
 }
 
 /** Runs on the 1st (or first server start in a new month if the 1st was missed). */
@@ -586,9 +658,9 @@ export async function ensureMonthlyLeaveHistoryReset(): Promise<{ ran: boolean; 
     return { ran: false };
   }
 
-  const { deletedCount } = await runMonthlyLeaveHistoryReset();
+  const { deletedCount, archivedCount } = await runMonthlyLeaveHistoryReset();
   console.log(
-    `[LeaveReset] Monthly history reset for ${monthKey}: removed ${deletedCount} leave record(s)`,
+    `[LeaveReset] Monthly reset for ${monthKey}: archived ${archivedCount}, removed ${deletedCount} leave(s) from prior months (current/future kept)`,
   );
   return { ran: true, deletedCount };
 }

@@ -2,9 +2,14 @@ import bcrypt from 'bcryptjs';
 import { Collection } from 'mongodb';
 import { getDB } from '../config/db';
 import { env } from '../config/env';
+import {
+  assertLoginEmailAllowedForEmployee,
+  EmployeeLoginError,
+} from './employeeLoginRules';
 
 export const ADMIN_LOGIN_EMAIL = (env.ADMIN_EMAIL || 'admin@company.com').toLowerCase().trim();
-export const DEFAULT_EMPLOYEE_PASSWORD = 'employee123';
+/** OAuth-only employees use an unusable password hash when a users row is provisioned. */
+export const OAUTH_ONLY_EMPLOYEE_PASSWORD = '';
 
 export function normalizeLoginEmail(email: string): string {
   return email.toLowerCase().trim();
@@ -174,7 +179,7 @@ export async function ensureUserAccountForEmployee(
     designation?: string;
     joinedAt?: string;
   },
-  password = DEFAULT_EMPLOYEE_PASSWORD,
+  password = OAUTH_ONLY_EMPLOYEE_PASSWORD,
 ) {
   const col = getUserCollection();
   const existing = await findUserForEmployee(employee);
@@ -194,10 +199,7 @@ export async function ensureUserAccountForEmployee(
     '';
   if (!loginEmail) return null;
 
-  const passwordHash =
-    password === ''
-      ? await bcrypt.hash('', 10)
-      : await bcrypt.hash(password ?? DEFAULT_EMPLOYEE_PASSWORD, 10);
+  const passwordHash = await bcrypt.hash(password ?? OAUTH_ONLY_EMPLOYEE_PASSWORD, 10);
   const name = `${employee.firstName || ''} ${employee.lastName || ''}`.trim() || 'Employee';
   const user = {
     id: employee.id,
@@ -233,15 +235,13 @@ export async function resolveUserForPasswordLogin(email: string) {
   const employee = await findEmployeeByLoginEmail(normalized);
 
   if (employee) {
-    const linkedUser = await findUserForEmployee(employee, normalized);
-    if (linkedUser) {
-      user = linkedUser;
-    } else if (!user) {
-      user = await ensureUserAccountForEmployee(employee);
-    }
+    throw new EmployeeLoginError(
+      'Employee accounts must sign in with Google. Use Continue with Google below.',
+      403,
+    );
   }
 
-  return { user, employee, loginEmail: normalized };
+  return { user, employee: null, loginEmail: normalized };
 }
 
 export async function resolveUserForOAuthLogin(email: string) {
@@ -256,9 +256,11 @@ export async function resolveUserForOAuthLogin(email: string) {
     return { user: null, employee: null };
   }
 
+  assertLoginEmailAllowedForEmployee(employee, normalized);
+
   let user = await findUserForEmployee(employee, normalized);
   if (!user) {
-    user = await ensureUserAccountForEmployee(employee, '');
+    user = await ensureUserAccountForEmployee(employee, OAUTH_ONLY_EMPLOYEE_PASSWORD);
   }
 
   return { user, employee };

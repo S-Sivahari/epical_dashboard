@@ -458,8 +458,13 @@ export default function Timesheet() {
 
   return (
     <div className="emp-timesheet-page dashboard-surface space-y-4">
+<<<<<<< HEAD
       {/* Top analytics summary - compact header without subtitle */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white rounded-xl border border-border p-3 shadow-sm">
+=======
+      {/* Top analytics summary matches the sample image layout */}
+      <div className="emp-page-header flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+>>>>>>> 8036eae78374d6e65081dea27546abee4906ae09
         <div>
           <h1 className="text-xl font-extrabold text-[var(--emerald-dark)] leading-none">Projects & Timesheets</h1>
         </div>

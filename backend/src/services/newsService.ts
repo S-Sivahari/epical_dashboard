@@ -1,6 +1,11 @@
 import { randomUUID } from 'crypto'
 import { getDB } from '../config/db'
 import type { News, NewsImageBlob, NewsListItem } from '../models/News'
+import {
+  assertPastNewsDateKey,
+  publishedAtFromDateKey,
+  yesterdayLocalDateKey,
+} from '../utils/newsDateRules'
 
 function col() {
   return getDB().collection<News>('news')
@@ -17,10 +22,26 @@ function toListItem(doc: News): NewsListItem {
 }
 
 function resolvePublishedAt(input?: string | Date): string {
-  if (!input) return new Date().toISOString()
+  if (!input) {
+    return publishedAtFromDateKey(yesterdayLocalDateKey())
+  }
+  if (typeof input === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input.trim())) {
+    return publishedAtFromDateKey(input.trim())
+  }
   const parsed = typeof input === 'string' ? new Date(input) : input
-  if (Number.isNaN(parsed.getTime())) return new Date().toISOString()
+  if (Number.isNaN(parsed.getTime())) {
+    return publishedAtFromDateKey(yesterdayLocalDateKey())
+  }
+  const dateKey = toLocalDateKeyFromInstant(parsed)
+  assertPastNewsDateKey(dateKey)
   return parsed.toISOString()
+}
+
+function toLocalDateKeyFromInstant(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 export async function listNews(limit?: number): Promise<NewsListItem[]> {

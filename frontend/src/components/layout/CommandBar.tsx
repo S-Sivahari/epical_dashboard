@@ -46,7 +46,7 @@ export function CommandBar() {
   const showBack = pathname.split('/').filter(Boolean).length > 2
 
   const handleLogout = () => {
-    logout()
+    void logout()
     navigate('/auth/login')
   }
 

@@ -3,10 +3,34 @@ import { getDB } from '../config/db';
 import { Employee, CreateEmployeePayload, UpdateEmployeePayload, EmployeeActivityEntry } from '../models/Employee';
 import { EmployeeAttendanceModel } from '../models/EmployeeAttendance';
 import * as emailService from './emailService';
-import { ensureUserAccountForEmployee } from '../utils/employeeAuth';
+import { ensureUserAccountForEmployee, normalizeLoginEmail } from '../utils/employeeAuth';
+import { assertPersonalAndCompanyEmailsDiffer } from '../utils/employeeLoginRules';
 import { sanitizeEmployeeForDetail, sanitizeEmployeeForList } from '../utils/sanitizeEmployee';
 
 let employeeCollection: Collection<any> | null = null;
+
+async function assertLoginEmailNotUsedByOtherEmployee(
+  email: string,
+  excludeEmployeeId?: string,
+): Promise<void> {
+  const normalized = normalizeLoginEmail(email);
+  if (!normalized) return;
+
+  const collection = getEmployeeCollection();
+  const query: Filter<Document> = {
+    $or: [{ email: normalized }, { personalEmail: normalized }],
+  };
+  if (excludeEmployeeId) {
+    query.id = { $ne: excludeEmployeeId };
+  }
+
+  const existing = await collection.findOne(query, { projection: { id: 1 } });
+  if (existing) {
+    const err: any = new Error('This email is already assigned to another employee.');
+    err.code = 'DUPLICATE_EMAIL';
+    throw err;
+  }
+}
 
 /** List queries — exclude binary blobs at the DB layer (not just in JSON). */
 const EMPLOYEE_LIST_PROJECTION = {
@@ -403,15 +427,14 @@ export async function createEmployee(payload: CreateEmployeePayload): Promise<Em
     throw err;
   }
 
+  assertPersonalAndCompanyEmailsDiffer(payload.personalEmail, payload.email);
+
   // ==== Duplicate checks ==== //
-  // Check for duplicate company email (only if company email provided)
+  if (payload.personalEmail) {
+    await assertLoginEmailNotUsedByOtherEmployee(payload.personalEmail);
+  }
   if (payload.email) {
-    const existing = await collection.findOne({ email: payload.email.trim().toLowerCase() });
-    if (existing) {
-      const err: any = new Error('An employee with this company email already exists.');
-      err.code = 'DUPLICATE_EMAIL';
-      throw err;
-    }
+    await assertLoginEmailNotUsedByOtherEmployee(payload.email);
   }
 
   // Check for duplicate employeeId
@@ -503,6 +526,24 @@ export async function updateEmployee(
   const existing = await getEmployeeById(id);
   if (!existing) return null;
 
+  const nextPersonal =
+    cleanPayload.personalEmail !== undefined
+      ? String(cleanPayload.personalEmail || '').trim().toLowerCase() || undefined
+      : existing.personalEmail;
+  const nextCompany =
+    cleanPayload.email !== undefined
+      ? String(cleanPayload.email || '').trim().toLowerCase() || undefined
+      : existing.email;
+
+  if (cleanPayload.personalEmail !== undefined) {
+    cleanPayload.personalEmail = nextPersonal;
+  }
+  assertPersonalAndCompanyEmailsDiffer(nextPersonal, nextCompany);
+
+  if (cleanPayload.personalEmail && cleanPayload.personalEmail !== existing.personalEmail) {
+    await assertLoginEmailNotUsedByOtherEmployee(cleanPayload.personalEmail, id);
+  }
+
   // Company email, once set on the employee profile, cannot be cleared
   if (existing.email && String(existing.email).trim() !== '') {
     const cleared =
@@ -522,12 +563,7 @@ export async function updateEmployee(
     const normalizedNewEmail = cleanPayload.email.trim().toLowerCase();
     // Only check if email is changing
     if (existing.email !== normalizedNewEmail) {
-      const dup = await collection.findOne({ email: normalizedNewEmail });
-      if (dup && dup.id !== id) {
-        const err: any = new Error('An employee with this company email already exists.');
-        err.code = 'DUPLICATE_EMAIL';
-        throw err;
-      }
+      await assertLoginEmailNotUsedByOtherEmployee(normalizedNewEmail, id);
     }
     cleanPayload.email = normalizedNewEmail;
   }
@@ -784,6 +820,30 @@ export async function getDailyActivityLog(dateStr: string): Promise<DailyActivit
 
   entries.sort((a, b) => b.sortAt - a.sortAt);
   return entries.slice(0, 80).map(({ sortAt: _sortAt, ...entry }) => entry);
+}
+
+/**
+ * Personal and company email must differ. If both are the same, clear company email
+ * so employees can log in with personal email until HR sets a distinct company address.
+ */
+export async function normalizeEmployeesWithSameCompanyAndPersonalEmail(): Promise<number> {
+  const collection = getEmployeeCollection();
+  const employees = await collection.find({}).project({ id: 1, email: 1, personalEmail: 1 }).toArray();
+  let fixed = 0;
+
+  for (const emp of employees) {
+    const company = emp.email ? normalizeLoginEmail(String(emp.email)) : '';
+    const personal = emp.personalEmail ? normalizeLoginEmail(String(emp.personalEmail)) : '';
+    if (company && personal && company === personal) {
+      await collection.updateOne(
+        { id: emp.id },
+        { $unset: { email: '' }, $set: { updatedAt: new Date() } },
+      );
+      fixed += 1;
+    }
+  }
+
+  return fixed;
 }
 
 /** Remove deprecated department field from all employee and user documents. */

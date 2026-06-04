@@ -1,5 +1,6 @@
 import api from './api'
 import type { DocumentRequestRecord } from '@/types'
+import { documentDownloadFileName } from '@/utils/exportFileName'
 
 export type AdminDocumentTab = 'Requested' | 'Approved' | 'History'
 
@@ -54,7 +55,11 @@ export async function rejectDocumentRequest(
   return data
 }
 
-export async function downloadDocumentPdf(id: string, suggestedName?: string): Promise<void> {
+export async function downloadDocumentPdf(
+  id: string,
+  suggestedName?: string,
+  documentType?: string,
+): Promise<void> {
   const res = await api.get(`/document-requests/${id}/download`, { responseType: 'blob' })
   const blob = res.data as Blob
   if (blob.type?.includes('application/json')) {
@@ -65,7 +70,8 @@ export async function downloadDocumentPdf(id: string, suggestedName?: string): P
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = suggestedName || `${id}.pdf`
+  const docLabel = suggestedName?.replace(/\.pdf$/i, '').trim() || 'document'
+  a.download = documentDownloadFileName(docLabel, documentType)
   a.target = '_blank'
   document.body.appendChild(a)
   a.click()
@@ -88,6 +94,10 @@ export async function fetchMyDocumentRequests(): Promise<DocumentRequestRecord[]
   return data
 }
 
-export async function downloadMyDocumentPdf(id: string, suggestedName?: string): Promise<void> {
-  return downloadDocumentPdf(id, suggestedName)
+export async function downloadMyDocumentPdf(
+  id: string,
+  suggestedName?: string,
+  documentType?: string,
+): Promise<void> {
+  return downloadDocumentPdf(id, suggestedName, documentType)
 }

@@ -1,7 +1,7 @@
 import ExcelJS from 'exceljs'
-import * as XLSX from 'xlsx'
 import type { Company } from './payslipGenerator'
 import { cellToString } from './salaryStructureParser'
+import { parseExcelSerialDate } from '../utils/excelWorkbook'
 
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const MONTHS_LONG = [
@@ -19,7 +19,6 @@ const MONTHS_LONG = [
   'December',
 ]
 
-/** Map common company-sheet labels → canonical field names. */
 const COMPANY_LABEL_ALIASES: Record<string, string> = {
   'pay month': 'Pay Month',
   'payroll month': 'Pay Month',
@@ -76,16 +75,14 @@ function formatFromDate(d: Date, label: string): string {
   return `${day}-${monShort}-${year}`
 }
 
-/** Convert Excel / JS date values to display strings for payslip fields. */
 export function formatCompanyFieldValue(val: unknown, canonicalLabel: string): string | number {
   if (val === null || val === undefined) return ''
   if (val instanceof Date && !Number.isNaN(val.getTime())) {
     return formatFromDate(val, canonicalLabel)
   }
   if (typeof val === 'number' && (isPayDateLabel(canonicalLabel) || isPayMonthLabel(canonicalLabel))) {
-    const dc = XLSX.SSF.parse_date_code(val)
-    if (dc) {
-      const d = new Date(Date.UTC(dc.y, dc.m - 1, dc.d))
+    const d = parseExcelSerialDate(val)
+    if (d) {
       return formatFromDate(d, canonicalLabel)
     }
   }
@@ -105,34 +102,12 @@ function setCompanyField(company: Company, rawLabel: string, rawValue: unknown):
   company[label] = formatted
 }
 
-/** Parse company sheet (label col A, value col B) using formatted cell text. */
-export function parseCompanySheetXlsx(ws: XLSX.WorkSheet): Company {
-  const company: Company = {}
-  const rows = XLSX.utils.sheet_to_json(ws, {
-    header: 1,
-    defval: '',
-    raw: false,
-  }) as unknown[][]
-
-  for (const row of rows) {
-    if (!row || row[0] === undefined || row[0] === null || row[0] === '') continue
-    const rawLabel = cellToString(row[0])
-    if (!rawLabel || SKIP_LABELS.has(rawLabel.toLowerCase())) continue
-    const rawVal = row[1]
-    if (rawVal === undefined || rawVal === null || rawVal === '') continue
-    setCompanyField(company, rawLabel, rawVal)
-  }
-
-  return finalizeCompany(company)
-}
-
-/** ExcelJS read — preserves dates and formatted text from the company sheet. */
 export async function parseCompanySheetExcelJS(buffer: Buffer): Promise<Company> {
   const company: Company = {}
   const wb = new ExcelJS.Workbook()
   await wb.xlsx.load(buffer as any)
 
-  let sheet =
+  const sheet =
     wb.getWorksheet('company') ??
     wb.worksheets.find((w) => w.name.trim().toLowerCase() === 'company') ??
     wb.worksheets.find((w) => w.name.toLowerCase().includes('company'))
@@ -150,18 +125,6 @@ export async function parseCompanySheetExcelJS(buffer: Buffer): Promise<Company>
   return finalizeCompany(company)
 }
 
-/** Prefer ExcelJS values for pay period fields; merge the rest from XLSX. */
-export function mergeCompanyRecords(xlsxCompany: Company, excelJsCompany: Company): Company {
-  const merged: Company = { ...xlsxCompany, ...excelJsCompany }
-  for (const key of ['Pay Month', 'Pay Date', 'Working Days', 'Default Tax Regime'] as const) {
-    const fromJs = excelJsCompany[key]
-    if (fromJs !== undefined && fromJs !== null && String(fromJs).trim() !== '') {
-      merged[key] = fromJs
-    }
-  }
-  return finalizeCompany(merged)
-}
-
 export function finalizeCompany(company: Company): Company {
   const out = { ...company }
 
@@ -175,22 +138,6 @@ export function finalizeCompany(company: Company): Company {
   return out
 }
 
-export async function readCompanyFromWorkbookBuffer(buffer: Buffer, wb: XLSX.WorkBook): Promise<Company> {
-  const sheetName =
-    wb.SheetNames.find((n) => n.trim().toLowerCase() === 'company') ??
-    wb.SheetNames.find((n) => n.toLowerCase().includes('company'))
-
-  let xlsxCompany: Company = {}
-  if (sheetName && wb.Sheets[sheetName]) {
-    xlsxCompany = parseCompanySheetXlsx(wb.Sheets[sheetName])
-  }
-
-  let excelJsCompany: Company = {}
-  try {
-    excelJsCompany = await parseCompanySheetExcelJS(buffer)
-  } catch {
-    /* optional */
-  }
-
-  return mergeCompanyRecords(xlsxCompany, excelJsCompany)
+export async function readCompanyFromWorkbookBuffer(buffer: Buffer): Promise<Company> {
+  return parseCompanySheetExcelJS(buffer)
 }
