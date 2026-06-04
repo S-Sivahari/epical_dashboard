@@ -156,18 +156,18 @@ export function LoginPage() {
 
       <div className="login-page-scaler relative z-10 w-full">
         <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
-          {/* Left — chip hero + EMPWR branding */}
-          <div className="flex items-center justify-center px-6 py-16 pt-24 sm:px-10 lg:justify-end lg:py-0 lg:pl-12 lg:pr-8 xl:pl-16 xl:pr-10">
+          {/* Left — EMPWR branding */}
+          <div className="login-hero-column flex items-center justify-center px-6 py-16 pt-24 sm:px-10 lg:justify-end lg:py-0 lg:pl-12 lg:pr-6 xl:pl-16 xl:pr-8">
             <MicrochipHero />
           </div>
 
-          {/* Right — login card */}
-          <div className="flex items-center justify-center px-6 pb-16 sm:px-10 lg:justify-start lg:py-0 lg:pl-8 lg:pr-12 xl:pl-10 xl:pr-16">
+          {/* Right — login card, vertically centered like reference */}
+          <div className="login-card-column flex items-center justify-center px-6 pb-16 sm:px-10 lg:justify-center lg:py-0 lg:pl-4 lg:pr-12 xl:pr-16">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.15, ease: 'easeOut' }}
-              className="login-card-shell w-full max-w-[380px]"
+              className="login-card-shell w-full max-w-sm"
             >
               <div className="login-glass rounded-2xl p-8">
                 <div className="login-card-content">
@@ -194,7 +194,7 @@ export function LoginPage() {
                           {...register('email')}
                         />
                       </div>
-                      {errors.email ? <p className="text-xs text-red-600">{errors.email.message}</p> : null}
+                      {errors.email ? <p className="text-xs text-red-400">{errors.email.message}</p> : null}
                     </div>
 
                     <div className="space-y-1">
@@ -214,14 +214,14 @@ export function LoginPage() {
                         <button
                           type="button"
                           onClick={() => setShowPassword((p) => !p)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-200"
                           aria-label={showPassword ? 'Hide password' : 'Show password'}
                         >
                           {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
                       </div>
                       {errors.password ? (
-                        <p className="text-xs text-red-600">{errors.password.message}</p>
+                        <p className="text-xs text-red-400">{errors.password.message}</p>
                       ) : null}
                     </div>
 
@@ -238,16 +238,18 @@ export function LoginPage() {
                     <>
                       <div className="relative my-5">
                         <div className="absolute inset-0 flex items-center">
-                          <div className="w-full border-t border-slate-200" />
+                          <div className="w-full border-t border-white/12" />
                         </div>
                         <div className="relative flex justify-center text-xs">
-                          <span className="login-card-subtitle bg-[#f8fafc] px-3">Or continue with</span>
+                          <span className="login-card-subtitle login-card-divider px-3">
+                            Or continue with
+                          </span>
                         </div>
                       </div>
                       <Button
                         type="button"
                         variant="secondary"
-                        className="login-btn-secondary h-11 w-full gap-3 rounded-lg text-sm font-medium backdrop-blur-sm"
+                        className="login-btn-secondary h-11 w-full gap-3 rounded-lg text-sm font-medium"
                         loading={googleLoading}
                         onClick={handleGoogleRedirect}
                       >
