@@ -1546,7 +1546,6 @@
     #3a6b58 100%
   );
 }
-
 .employee-portal [data-employee-page] .dashboard-page-bg-gradient {
   background:
     radial-gradient(ellipse 72% 48% at 6% 8%, rgba(186, 220, 200, 0.38) 0%, transparent 54%),
@@ -4255,6 +4254,72 @@
 }
 
 /* ── Projects hub: full-width light green layout ── */
+.admin-projects-view {
+  --admin-projects-font-scale: 1.125;
+}
+
+.admin-projects-view .text-xs {
+  font-size: calc(0.75rem * var(--admin-projects-font-scale)) !important;
+}
+
+.admin-projects-view .text-sm {
+  font-size: calc(0.875rem * var(--admin-projects-font-scale)) !important;
+}
+
+.admin-projects-view .text-base {
+  font-size: calc(1rem * var(--admin-projects-font-scale)) !important;
+}
+
+.admin-projects-view .text-lg {
+  font-size: calc(1.125rem * var(--admin-projects-font-scale)) !important;
+}
+
+.admin-projects-view .text-xl {
+  font-size: calc(1.25rem * var(--admin-projects-font-scale)) !important;
+}
+
+.admin-projects-view .text-2xl {
+  font-size: calc(1.5rem * var(--admin-projects-font-scale)) !important;
+}
+
+.admin-projects-view [class*='text-[9px]'] {
+  font-size: calc(9px * var(--admin-projects-font-scale)) !important;
+}
+
+.admin-projects-view [class*='text-[10px]'] {
+  font-size: calc(10px * var(--admin-projects-font-scale)) !important;
+}
+
+.admin-projects-view [class*='text-[11px]'] {
+  font-size: calc(11px * var(--admin-projects-font-scale)) !important;
+}
+
+.admin-projects-view [class*='text-[10.5px]'] {
+  font-size: calc(10.5px * var(--admin-projects-font-scale)) !important;
+}
+
+.admin-projects-view [class*='text-[15px]'] {
+  font-size: calc(15px * var(--admin-projects-font-scale)) !important;
+}
+
+.admin-projects-view .text-3xl {
+  font-size: calc(1.875rem * var(--admin-projects-font-scale)) !important;
+}
+
+.admin-projects-view .text-4xl {
+  font-size: calc(2.25rem * var(--admin-projects-font-scale)) !important;
+}
+
+.admin-projects-view .admin-field {
+  font-size: calc(0.875rem * var(--admin-projects-font-scale));
+}
+
+/* Date picker portal is outside .admin-projects-view — keep same scale */
+.projects-date-calendar-portal,
+.projects-date-calendar {
+  --admin-projects-font-scale: 1.125;
+}
+
 .admin-portal .admin-projects-view.crewiq-dashboard {
   background: var(--dash-canvas);
 }
@@ -4264,6 +4329,8 @@
   flex-direction: column;
   gap: 0.625rem;
   padding-bottom: 1.5rem;
+  font-size: calc(0.9375rem * var(--admin-projects-font-scale));
+  line-height: 1.55;
 }
 
 .admin-projects-view .projects-hero {
@@ -4285,7 +4352,7 @@
 }
 
 .admin-projects-view .projects-hero-title {
-  font-size: 0.9375rem;
+  font-size: calc(1.0625rem * var(--admin-projects-font-scale));
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.2;
@@ -4378,7 +4445,7 @@
 
 .admin-projects-view .projects-sidebar-title {
   margin-bottom: 0.75rem;
-  font-size: 11px;
+  font-size: calc(11px * var(--admin-projects-font-scale));
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -4399,7 +4466,7 @@
   justify-content: space-between;
   padding: 0.625rem 0.875rem;
   border-radius: 10px;
-  font-size: 13px;
+  font-size: calc(13px * var(--admin-projects-font-scale));
   font-weight: 650;
   color: #3b5c3d;
   transition: all 0.2s ease;
@@ -4416,7 +4483,7 @@
 }
 
 .admin-projects-view .sidebar-nav-badge {
-  font-size: 11px;
+  font-size: calc(11px * var(--admin-projects-font-scale));
   font-weight: 700;
   padding: 0.1875rem 0.5rem;
   border-radius: 9999px;
@@ -4439,7 +4506,7 @@
   background: var(--emerald-dark) !important;
   color: #ffffff !important;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 13px;
+  font-size: calc(13px * var(--admin-projects-font-scale));
   font-weight: 700;
   border-radius: 10px;
   height: 2.5rem;
@@ -4467,6 +4534,8 @@
   box-shadow: 0 4px 16px -4px rgba(38, 107, 28, 0.08);
   display: flex;
   flex-direction: column;
+  font-size: calc(0.9375rem * var(--admin-projects-font-scale));
+  line-height: 1.55;
 }
 
 .admin-projects-view .projects-main-header {
@@ -4507,7 +4576,7 @@
 .admin-projects-view .projects-view-toggle button {
   flex: 1;
   padding: 0.625rem 1rem;
-  font-size: 12px;
+  font-size: calc(12px * var(--admin-projects-font-scale));
   font-weight: 700;
   border-radius: 8px;
   transition: all 0.2s ease;
@@ -4556,7 +4625,7 @@
   color: #ffffff !important;
   font-weight: 700;
   text-transform: uppercase;
-  font-size: 9.5px;
+  font-size: calc(9.5px * var(--admin-projects-font-scale));
   letter-spacing: 0.05em;
   padding: 0.75rem 1.25rem;
   position: sticky;
@@ -4579,6 +4648,7 @@
 .admin-projects-view .projects-table-shell tbody td,
 .admin-projects-view .projects-ts-table-wrap tbody td {
   padding: 0.875rem 1.25rem;
+  font-size: calc(0.875rem * var(--admin-projects-font-scale));
 }
 
 .admin-projects-view .projects-ts-filters {
@@ -4733,7 +4803,7 @@
 .projects-date-weekdays span {
   color: #2e7d24 !important;
   font-weight: 700 !important;
-  font-size: 10.5px !important;
+  font-size: calc(10.5px * var(--admin-projects-font-scale)) !important;
   text-transform: uppercase;
 }
 
@@ -4742,7 +4812,7 @@
   height: 32px !important;
   width: 32px !important;
   border-radius: 8px !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--admin-projects-font-scale)) !important;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
@@ -4817,7 +4887,7 @@
 .projects-date-preset {
   color: #475569 !important;
   font-weight: 600 !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--admin-projects-font-scale, 1.125)) !important;
   padding: 0.45rem 0.75rem !important;
   border-radius: 6px !important;
   background: transparent;
@@ -8516,11 +8586,11 @@
 
 /* â”€â”€ Admin Payslips â€” dashboard dash palette (aligned with Documents) â”€â”€ */
 .admin-payslips-view {
-  /* bb color — hub header green (Payslip Management Hub bar) */
-  --bb-color: #06C033;
+  /* bb color — hub header green (aligned with News, Leaves, Documents) */
+  --bb-color: #2f6b4f;
   /* History Batches metric / history list — light sage surface */
-  --history-batch-bg: rgba(6, 192, 51, 0.12);
-  --history-batch-border: rgba(6, 192, 51, 0.2);
+  --history-batch-bg: rgba(47, 107, 79, 0.12);
+  --history-batch-border: rgba(47, 107, 79, 0.2);
   --dash-forest: #1a4329;
   --dash-forest-header: var(--bb-color);
   --dash-mint-sage-header: #b8dcc8;
@@ -8557,7 +8627,7 @@
   overflow: hidden;
   border-radius: 0.875rem;
   background: var(--bb-color);
-  box-shadow: 0 4px 14px rgba(6, 192, 51, 0.28);
+  box-shadow: 0 4px 14px rgba(47, 107, 79, 0.28);
 }
 
 .admin-payslips-view .admin-payslips-hero-top {
@@ -8819,7 +8889,7 @@
   min-height: 0;
   border-radius: 1rem;
   border: 1px solid var(--dash-border-green);
-  border-left: 4px solid var(--dash-forest, #1a4329);
+  border-left: 4px solid var(--bb-color);
   background: #ffffff;
   padding: var(--admin-payslips-pad-panel);
   box-shadow: 0 1px 3px rgba(26, 67, 41, 0.06);
@@ -8984,7 +9054,7 @@
 /* Employee documents — payslip tab rail + table header (match Payslip Management Hub) */
 .employee-documents-tab-rail {
   border-color: rgba(255, 255, 255, 0.22) !important;
-  background: #06c033 !important;
+  background: #2f6b4f !important;
   box-shadow: 0 4px 14px rgba(47, 107, 79, 0.28);
 }
 

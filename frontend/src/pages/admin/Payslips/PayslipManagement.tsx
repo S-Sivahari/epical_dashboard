@@ -826,7 +826,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
         }
         if (r.status === 'success') {
           return (
-            <span className="inline-flex items-center gap-1 text-sm font-semibold text-[#2f6b4f]">
+            <span className="inline-flex items-center gap-1 text-sm font-semibold admin-payslips-text-brand">
               <CheckCircle2 className="h-4 w-4" /> Generated
             </span>
           )
