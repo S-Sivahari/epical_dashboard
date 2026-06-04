@@ -231,26 +231,6 @@ export function CompensationManagement({
     }
   }
 
-  // ── Analytics data ────────────────────────────────────────────────────────
-  const totalDays = useMemo(() =>
-    compensationData.reduce((sum, item) => sum + item.days, 0), [compensationData]
-  )
-
-  const avgDays = useMemo(() =>
-    compensationData.length > 0 ? (totalDays / compensationData.length).toFixed(1) : 0,
-    [totalDays, compensationData.length]
-  )
-
-  const topEmployees = useMemo(() => {
-    const map: Record<string, number> = {}
-    compensationData.forEach(item => {
-      map[item.employeeName] = (map[item.employeeName] || 0) + item.days
-    })
-    return Object.entries(map)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5)
-  }, [compensationData])
-
   const recentActivity = useMemo(() => {
     return [...compensationData]
       .sort((a, b) => new Date(b.appliedDate).getTime() - new Date(a.appliedDate).getTime())
@@ -324,59 +304,8 @@ export function CompensationManagement({
   ]
 
   return (
-    <div className="admin-leaves-three-col">
-      {/* ════════════════════════════════════════════════════════
-          LEFT COLUMN — Compensation Insights
-      ════════════════════════════════════════════════════════ */}
-      <div className="flex flex-col gap-3">
-        {/* Compensation Summary */}
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <h3 className="mb-4 text-sm font-bold text-gray-800">Compensation Summary</h3>
-
-          <div className="grid grid-cols-2 gap-3 mb-4">
-            <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-emerald-50 to-white p-3">
-              <p className="text-xs text-gray-500 font-medium uppercase mb-1">Total Days</p>
-              <p className="text-2xl font-bold text-emerald-700">{totalDays}</p>
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-blue-50 to-white p-3">
-              <p className="text-xs text-gray-500 font-medium uppercase mb-1">Entries</p>
-              <p className="text-2xl font-bold text-blue-700">{compensationData.length}</p>
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-purple-50 to-white p-3 col-span-2">
-              <p className="text-xs text-gray-500 font-medium uppercase mb-1">Average/Entry</p>
-              <p className="text-xl font-bold text-purple-700">{avgDays} days</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Top Recipients */}
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm flex-1">
-          <h3 className="mb-3 text-sm font-bold text-gray-800">Top Recipients</h3>
-          {topEmployees.length === 0 ? (
-            <p className="text-xs text-gray-400 py-4 text-center">No compensation yet.</p>
-          ) : (
-            <div className="space-y-2.5">
-              {topEmployees.map(([name, daysVal], idx) => (
-                <div key={name} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700">
-                      {idx + 1}
-                    </span>
-                    <p className="text-xs font-semibold text-gray-800 truncate">{name}</p>
-                  </div>
-                  <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">
-                    {daysVal}d
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ════════════════════════════════════════════════════════
-          CENTER COLUMN — Add Form + Data Table
-      ════════════════════════════════════════════════════════ */}
+    <div className="admin-leaves-two-col">
+      {/* Add Form + Data Table */}
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col">
         {/* Add / Edit Form */}
         <div className="border-b border-gray-100 p-4 space-y-4 bg-gray-50">

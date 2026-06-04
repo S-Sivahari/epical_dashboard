@@ -8,12 +8,42 @@ export interface LeaveFilters {
   dateTo?: string              // filter by leave period end (YYYY-MM-DD)
 }
 
+function formatDateKey(d: Date) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+/** Current calendar month as YYYY-MM-DD (local), for monthly leave request views. */
+export function getCurrentMonthDateRange() {
+  const now = new Date()
+  const first = new Date(now.getFullYear(), now.getMonth(), 1)
+  const last = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+  return { from: formatDateKey(first), to: formatDateKey(last) }
+}
+
+export function getCurrentMonthKey() {
+  const now = new Date()
+  return `${now.getFullYear()}-${now.getMonth()}`
+}
+
+export function formatMonthLabel(monthStart: string) {
+  const d = new Date(`${monthStart}T12:00:00`)
+  return d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
+}
+
+/** True when a YYYY-MM-DD key falls within [from, to] inclusive. */
+export function isDateKeyInRange(dateKey: string, from: string, to: string) {
+  return dateKey >= from && dateKey <= to
+}
+
 export const defaultLeaveFilters: LeaveFilters = {
   selectedEmployees: [],
   status: 'All',
   leaveType: '',
-  dateFrom: '',
-  dateTo: '',
+  dateFrom: getCurrentMonthDateRange().from,
+  dateTo: getCurrentMonthDateRange().to,
 }
 
 /** True when leave period [from, to] overlaps filter range [dateFrom, dateTo]. */
