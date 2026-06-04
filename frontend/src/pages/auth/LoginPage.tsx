@@ -156,9 +156,11 @@ export function LoginPage() {
 
       <div className="login-page-scaler relative z-10 w-full">
         <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
-          {/* Left — EMPWR branding */}
-          <div className="login-hero-column flex items-center justify-center px-6 py-16 pt-24 sm:px-10 lg:justify-end lg:py-0 lg:pl-12 lg:pr-6 xl:pl-16 xl:pr-8">
-            <MicrochipHero />
+          {/* Left — EMPWR branding (bottom-left, matching reference layout) */}
+          <div className="login-hero-column relative flex min-h-[38vh] flex-col justify-end px-4 pb-14 pt-24 sm:px-5 sm:pb-16 lg:block lg:min-h-screen lg:pb-0 lg:pt-0">
+            <div className="login-hero-copy w-full self-start lg:absolute lg:bottom-[16%] lg:left-5 xl:left-6">
+              <MicrochipHero />
+            </div>
           </div>
 
           {/* Right — login card, vertically centered like reference */}
