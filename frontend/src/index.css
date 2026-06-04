@@ -8191,10 +8191,10 @@
 /* â”€â”€ Admin Payslips â€” dashboard dash palette (aligned with Documents) â”€â”€ */
 .admin-payslips-view {
   /* bb color — hub header green (Payslip Management Hub bar) */
-  --bb-color: #2f6b4f;
+  --bb-color: #06C033;
   /* History Batches metric / history list — light sage surface */
-  --history-batch-bg: rgba(47, 107, 79, 0.12);
-  --history-batch-border: rgba(47, 107, 79, 0.2);
+  --history-batch-bg: rgba(6, 192, 51, 0.12);
+  --history-batch-border: rgba(6, 192, 51, 0.2);
   --dash-forest: #1a4329;
   --dash-forest-header: var(--bb-color);
   --dash-mint-sage-header: #b8dcc8;
@@ -8231,7 +8231,7 @@
   overflow: hidden;
   border-radius: 0.875rem;
   background: var(--bb-color);
-  box-shadow: 0 4px 14px rgba(47, 107, 79, 0.28);
+  box-shadow: 0 4px 14px rgba(6, 192, 51, 0.28);
 }
 
 .admin-payslips-view .admin-payslips-hero-top {
@@ -8605,7 +8605,7 @@
 /* Employee documents — payslip tab rail + table header (match Payslip Management Hub) */
 .employee-documents-tab-rail {
   border-color: rgba(255, 255, 255, 0.22) !important;
-  background: #2f6b4f !important;
+  background: #06c033 !important;
   box-shadow: 0 4px 14px rgba(47, 107, 79, 0.28);
 }
 
