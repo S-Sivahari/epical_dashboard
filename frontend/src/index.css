@@ -155,10 +155,13 @@
   }
 
   .login-top-brand-link {
-    background: rgba(255, 255, 255, 0.88);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+    background: rgba(0, 0, 0, 0.48);
+    backdrop-filter: blur(22px) saturate(1.1);
+    -webkit-backdrop-filter: blur(22px) saturate(1.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 20px 56px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
 
   .login-top-brand {
@@ -171,7 +174,7 @@
     font-weight: 600;
     letter-spacing: 0.28em;
     text-transform: uppercase;
-    color: #000000;
+    color: #ffffff;
     transition: color 0.25s ease;
   }
 
@@ -183,7 +186,7 @@
   }
 
   .login-top-brand:hover .login-top-brand-text {
-    color: #1e5a3d;
+    color: #ffffff;
   }
 
   .login-top-brand img,
