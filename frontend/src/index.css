@@ -109,17 +109,56 @@
   .login-page {
     display: flex;
     min-height: 100dvh;
-    align-items: center;
+    align-items: stretch;
     justify-content: center;
     overflow: hidden;
-    background-color: #d4d8de;
+    background-color: #0a0f18;
   }
 
   .login-page-scaler {
-    width: 92.593%;
-    min-height: 92.593dvh;
-    transform: scale(1.08);
-    transform-origin: center center;
+    width: 100%;
+    min-height: 100dvh;
+    transform: none;
+  }
+
+  /* Full-screen HD login video background */
+  .login-video-bg__media {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center center;
+    transform: translateZ(0);
+  }
+
+  .login-video-bg__overlay-left {
+    background: linear-gradient(
+      90deg,
+      rgba(3, 8, 18, 0.55) 0%,
+      rgba(3, 8, 18, 0.28) 45%,
+      transparent 72%
+    );
+  }
+
+  .login-video-bg__overlay-right {
+    background: linear-gradient(
+      270deg,
+      rgba(3, 8, 18, 0.35) 0%,
+      rgba(3, 8, 18, 0.12) 40%,
+      transparent 65%
+    );
+  }
+
+  .login-video-bg__vignette {
+    background: radial-gradient(ellipse at center, transparent 45%, rgba(3, 8, 18, 0.45) 100%);
+  }
+
+  .login-top-brand-link {
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
   }
 
   .login-top-brand {
@@ -158,11 +197,13 @@
 
   .login-glass {
     position: relative;
-    background: rgba(248, 250, 252, 0.96);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
+    background: rgba(248, 250, 252, 0.97);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(148, 163, 184, 0.35);
-    box-shadow: 0 16px 48px rgba(15, 23, 42, 0.06);
+    box-shadow:
+      0 20px 56px rgba(0, 0, 0, 0.28),
+      0 8px 24px rgba(15, 23, 42, 0.12);
   }
 
   .login-card-content {

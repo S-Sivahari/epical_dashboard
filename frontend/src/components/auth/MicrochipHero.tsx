@@ -245,15 +245,15 @@ export function MicrochipHero() {
       </div>
 
       <div className="space-y-4">
-        <h1 className="font-display text-[2.025rem] font-extrabold tracking-tight text-slate-800 sm:text-[2.7rem] lg:text-[3.375rem]">
+        <h1 className="font-display text-[2.025rem] font-extrabold tracking-tight text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.45)] sm:text-[2.7rem] lg:text-[3.375rem]">
           {APP_SHORT_NAME}
           <motion.span
-            className="mt-2 block h-1 w-[3.6rem] rounded-full bg-[#14532d]"
+            className="mt-2 block h-1 w-[3.6rem] rounded-full bg-[#22c55e] shadow-[0_0_12px_rgba(34,197,94,0.5)]"
             animate={{ width: ['3.6rem', '4.5rem', '3.6rem'], opacity: [0.6, 0.9, 0.6] }}
             transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
           />
         </h1>
-        <p className="max-w-md text-[0.9rem] leading-relaxed text-slate-600 sm:text-[1.0125rem] lg:text-[1.125rem]">
+        <p className="max-w-md text-[0.9rem] leading-relaxed text-slate-200 drop-shadow-[0_1px_8px_rgba(0,0,0,0.4)] sm:text-[1.0125rem] lg:text-[1.125rem]">
           {APP_NAME}
         </p>
       </div>

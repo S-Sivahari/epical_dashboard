@@ -15,7 +15,7 @@ export function LoginTopBrand() {
         href={COMPANY_WEBSITE}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-center gap-2.5 transition-opacity hover:opacity-80 sm:gap-3"
+        className="login-top-brand-link flex items-center gap-2.5 rounded-xl px-2 py-1.5 transition-opacity hover:opacity-90 sm:gap-3 sm:px-3"
         aria-label="Epical Layouts — visit company website"
       >
         <CompanyLogo className="login-top-brand-logo h-[3.3rem] w-[3.3rem] shrink-0 sm:h-[3.85rem] sm:w-[3.85rem]" />
