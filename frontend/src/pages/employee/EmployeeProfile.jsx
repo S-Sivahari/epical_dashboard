@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
-import { FileText, ExternalLink } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Camera, FileText, ExternalLink } from 'lucide-react'
 import { useAuthStore } from '@store/authStore'
 import * as employeeService from '@services/employeeService'
-import { openEmployeeDocument } from '@services/uploadService'
+import { openEmployeeDocument, uploadPhoto } from '@services/uploadService'
 import { EmployeePhotoAvatar } from '@components/employee/shared/EmployeePhotoAvatar'
 import { Badge } from '@components/employee/ui/badge'
 import { useToast } from '@components/employee/shared/ToastProvider'
@@ -49,6 +49,9 @@ export default function EmployeeProfile() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
   const [openingDocKey, setOpeningDocKey] = useState(null)
+  const [photoVersion, setPhotoVersion] = useState(0)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const photoInputRef = useRef(null)
 
   useEffect(() => {
     if (!user?.id) {
@@ -107,6 +110,30 @@ export default function EmployeeProfile() {
   )
   const otherDocuments = documents.filter((doc) => !certificates.some((c) => c.key === doc.key))
 
+  const handlePhotoChange = async (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file || !employee?.id) return
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Invalid file', description: 'Please choose a JPG or PNG image.' })
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: 'File too large', description: 'Profile photo must be under 2 MB.' })
+      return
+    }
+    setUploadingPhoto(true)
+    try {
+      await uploadPhoto(employee.id, file)
+      setPhotoVersion((v) => v + 1)
+      toast({ title: 'Photo updated', description: 'Your profile picture has been saved.' })
+    } catch {
+      toast({ title: 'Upload failed', description: 'Could not update your profile photo.' })
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
   const previewDocument = async (doc) => {
     setOpeningDocKey(doc.key)
     try {
@@ -123,12 +150,31 @@ export default function EmployeeProfile() {
       <div className="grid gap-6 lg:grid-cols-3">
         <InteractiveCard className={portalCardClass({ className: 'h-max p-5' })}>
           <div className="flex flex-col items-center text-center">
-            <EmployeePhotoAvatar
-              employeeId={employee.id}
-              name={name}
-              className="h-24 w-24 border-4 border-primary/20"
-              fallbackClassName="bg-primary/10 text-primary text-xl"
-            />
+            <div className="relative">
+              <EmployeePhotoAvatar
+                employeeId={employee.id}
+                name={name}
+                photoVersion={photoVersion}
+                className="h-24 w-24 border-4 border-primary/20"
+                fallbackClassName="bg-primary/10 text-primary text-xl"
+              />
+              <button
+                type="button"
+                disabled={uploadingPhoto}
+                onClick={() => photoInputRef.current?.click()}
+                className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-primary text-white shadow-sm hover:bg-primary/90 disabled:opacity-60"
+                aria-label="Change profile photo"
+              >
+                <Camera className="h-4 w-4" />
+              </button>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={handlePhotoChange}
+              />
+            </div>
             <p className="mt-3 font-heading text-lg font-semibold">{name}</p>
             <p className="font-mono text-xs text-muted">{employee.employeeId}</p>
             <div className="mt-3">

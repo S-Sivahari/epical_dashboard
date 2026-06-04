@@ -8,8 +8,15 @@ export const useLeaveStore = create((set) => ({
   fetchRequests: async () => {
     set({ loading: true })
     try {
-      const data = await leaveService.getLeaves()
-      set({ requests: data, loading: false })
+      const [active, history] = await Promise.all([
+        leaveService.getLeaves(),
+        leaveService.getLeaveHistory(),
+      ])
+      const byId = new Map()
+      for (const row of [...active, ...history]) {
+        byId.set(row.id, row)
+      }
+      set({ requests: [...byId.values()], loading: false })
     } catch (err) {
       console.error(err)
       set({ loading: false })

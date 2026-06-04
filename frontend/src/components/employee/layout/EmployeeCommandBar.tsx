@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, LogOut } from 'lucide-react'
 import { CompanyLogo } from '@components/auth/CompanyLogo'
-import { Avatar } from '@components/ui/Avatar'
+import { EmployeePhotoAvatar } from '@components/employee/shared/EmployeePhotoAvatar'
 import { NotificationBell } from '@components/layout/NotificationBell'
 import { useAuthStore } from '@store/authStore'
 import {
@@ -59,12 +59,12 @@ export function EmployeeCommandBar() {
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
         <NotificationBell />
 
-        <Avatar
+        <EmployeePhotoAvatar
+          employeeId={user?.id}
           name={user?.name ?? 'Employee'}
-          src={user?.avatarUrl}
-          size="sm"
-          color="#266b1c"
-          className="cmd-profile-btn !ring-0"
+          fallbackSrc={user?.avatarUrl}
+          className="h-8 w-8 cmd-profile-btn shrink-0"
+          fallbackClassName="bg-[#266b1c] text-xs text-white"
         />
 
         <button

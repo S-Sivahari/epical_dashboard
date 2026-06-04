@@ -59,7 +59,10 @@ export async function getAllTickets(filters?: {
     query.$or = [{ title: re }, { employeeName: re }, { employeeId: re }];
   }
 
-  const tickets = await col.find(query).sort({ createdAt: -1 }).toArray();
+  const tickets = await col
+    .find(query, { projection: { 'attachment.data': 0 } })
+    .sort({ createdAt: -1 })
+    .toArray();
   return tickets as Ticket[];
 }
 

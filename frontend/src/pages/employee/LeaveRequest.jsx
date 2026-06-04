@@ -9,6 +9,13 @@ import { InteractiveCard, portalCardClass } from '@components/employee/shared/in
 import { Button } from '@components/employee/ui/button'
 import { Label } from '@components/employee/ui/label'
 import { Textarea } from '@components/employee/ui/textarea'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@components/employee/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/employee/ui/select'
 import { DataTable } from '@components/employee/shared/DataTable'
 import { SearchBar } from '@components/employee/shared/SearchBar'
@@ -27,6 +34,7 @@ import {
   leaveRangeError,
   parseIsoDate,
 } from '@/utils/dateValidation'
+import { canCancelLeave } from '@/utils/leaveFilters'
 
 const leaveBounds = getLeaveDateBounds()
 
@@ -134,6 +142,11 @@ const columns = [
             {row.rejectionReason}
           </div>
         ) : null}
+        {row.status === 'Cancelled' && row.cancelReason ? (
+          <div className="mt-1.5 max-w-[200px] rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] leading-snug text-slate-700">
+            {row.cancelReason}
+          </div>
+        ) : null}
       </div>
     ),
   },
@@ -182,8 +195,9 @@ export default function LeaveRequest() {
   const [conflictMessage, setConflictMessage] = useState('')
   const [holidayWarning, setHolidayWarning] = useState('')
 
-  // Cancel pending leave
   const [cancellingId, setCancellingId] = useState(null)
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false)
+  const [leaveToCancel, setLeaveToCancel] = useState(null)
 
   const normalizeDate = (date) => {
     if (!date) return ''
@@ -371,7 +385,8 @@ export default function LeaveRequest() {
     const matchStatus =
       statusFilter === 'all' ||
       r.status.toLowerCase() === statusFilter ||
-      (statusFilter === 'approved' && r.status === 'Approved')
+      (statusFilter === 'approved' && r.status === 'Approved') ||
+      (statusFilter === 'cancelled' && r.status === 'Cancelled')
     return matchSearch && matchStatus
   })
 
@@ -380,11 +395,26 @@ export default function LeaveRequest() {
     toast({ title: 'Validation error', description: 'Please complete all required fields before submitting.' })
   }
 
-  const handleCancel = async (leave) => {
-    setCancellingId(leave.id)
+  const handleCancelClick = (leave) => {
+    if (!canCancelLeave(leave)) {
+      toast({
+        title: 'Cannot cancel',
+        description: 'Approved leave that has already ended cannot be cancelled.',
+      })
+      return
+    }
+    setLeaveToCancel(leave)
+    setCancelConfirmOpen(true)
+  }
+
+  const handleCancelConfirm = async () => {
+    if (!leaveToCancel) return
+    setCancellingId(leaveToCancel.id)
     try {
-      await leaveService.cancelLeave(leave.id)
+      await leaveService.cancelLeave(leaveToCancel.id)
       toast({ title: 'Cancelled', description: 'Your leave request has been cancelled.' })
+      setCancelConfirmOpen(false)
+      setLeaveToCancel(null)
       fetchRequests()
     } catch (err) {
       toast({ title: 'Error', description: err?.response?.data?.error || 'Failed to cancel leave request' })
@@ -406,18 +436,21 @@ export default function LeaveRequest() {
       {
         key: 'actions',
         label: 'Action',
-        render: (row) => (
-          <button
-            type="button"
-            onClick={() => handleCancel(row)}
-            disabled={cancellingId === row.id}
-            className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60"
-            title="Cancel this request"
-          >
-            <X className="h-3.5 w-3.5" />
-            {cancellingId === row.id ? 'Cancelling…' : 'Cancel'}
-          </button>
-        ),
+        render: (row) =>
+          canCancelLeave(row) ? (
+            <button
+              type="button"
+              onClick={() => handleCancelClick(row)}
+              disabled={cancellingId === row.id}
+              className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60"
+              title="Cancel this request"
+            >
+              <X className="h-3.5 w-3.5" />
+              {cancellingId === row.id ? 'Cancelling…' : 'Cancel'}
+            </button>
+          ) : (
+            <span className="text-xs text-muted">—</span>
+          ),
       },
     ],
     [cancellingId],
@@ -692,7 +725,7 @@ export default function LeaveRequest() {
         <SectionHeader
           icon={History}
           title="Leave history"
-          description="Approved, rejected, and compensation credits on earned leave"
+          description="Approved, rejected, cancelled, and compensation credits on earned leave"
         >
           <SearchBar
             value={search}
@@ -710,6 +743,7 @@ export default function LeaveRequest() {
               { value: 'all', label: 'All Status' },
               { value: 'approved', label: 'Approved' },
               { value: 'rejected', label: 'Rejected' },
+              { value: 'cancelled', label: 'Cancelled' },
               { value: 'credited', label: 'Credited' },
             ]}
           />
@@ -796,6 +830,44 @@ export default function LeaveRequest() {
           </div>
         )}
       </InteractiveCard>
+
+      <Dialog
+        open={cancelConfirmOpen}
+        onOpenChange={(open) => {
+          setCancelConfirmOpen(open)
+          if (!open) setLeaveToCancel(null)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel leave request?</DialogTitle>
+            <DialogDescription>
+              {leaveToCancel
+                ? `This will cancel your ${leaveToCancel.type} request (${leaveToCancel.from} to ${leaveToCancel.to}).`
+                : 'This will cancel your leave request.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCancelConfirmOpen(false)
+                setLeaveToCancel(null)
+              }}
+              disabled={Boolean(cancellingId)}
+            >
+              Keep request
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => void handleCancelConfirm()}
+              disabled={Boolean(cancellingId)}
+            >
+              {cancellingId ? 'Cancelling…' : 'Yes, cancel'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

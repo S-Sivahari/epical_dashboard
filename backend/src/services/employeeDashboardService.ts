@@ -159,6 +159,9 @@ export async function getEmployeeDashboardBundle(userId: string, userEmail?: str
     profile: profile ? sanitizeEmployeeForDetail(profile) : null,
     balances,
     leaves: leaves.filter((l) => l.status !== 'Cancelled'),
+    leaveHistory: leaves.filter((l) =>
+      ['Approved', 'Rejected', 'Cancelled', 'Pending'].includes(l.status),
+    ),
     holidays: upcomingHolidays,
     documents,
     enrollments,

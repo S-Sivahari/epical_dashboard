@@ -110,6 +110,7 @@ export default function Dashboard() {
   const [profile, setProfile] = useState(null)
   const [balances, setBalances] = useState(() => formatLeaveBalances())
   const [leaves, setLeaves] = useState([])
+  const [leaveHistory, setLeaveHistory] = useState([])
   const [holidays, setHolidays] = useState([])
   const [documents, setDocuments] = useState([])
   const [enrollments, setEnrollments] = useState([])
@@ -161,6 +162,13 @@ export default function Dashboard() {
         setAssignedProjects(projects)
         setBalances(formatLeaveBalances(balanceData))
         setLeaves(Array.isArray(data.leaves) ? data.leaves : [])
+        setLeaveHistory(
+          Array.isArray(data.leaveHistory)
+            ? data.leaveHistory
+            : Array.isArray(data.leaves)
+              ? data.leaves
+              : [],
+        )
         setHolidays(Array.isArray(data.holidays) ? data.holidays : [])
         setDocuments(Array.isArray(data.documents) ? data.documents : [])
         setEnrollments(Array.isArray(data.enrollments) ? data.enrollments : [])
@@ -281,7 +289,10 @@ export default function Dashboard() {
         {loading ? (
           widgetSkeleton
         ) : (
-          <RecentLeaveRequestsCard className="h-full emp-dash-card emp-dash-card--amber" leaves={leaves} />
+          <RecentLeaveRequestsCard
+            className="h-full emp-dash-card emp-dash-card--amber"
+            leaves={leaveHistory.length ? leaveHistory : leaves}
+          />
         )}
 
         {loading ? (

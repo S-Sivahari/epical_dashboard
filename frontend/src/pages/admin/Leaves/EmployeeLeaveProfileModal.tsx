@@ -24,6 +24,8 @@ function getStatusBadgeVariant(status: LeaveRequest['status']) {
       return 'warning'
     case 'Rejected':
       return 'danger'
+    case 'Cancelled':
+      return 'neutral'
     default:
       return 'neutral'
   }

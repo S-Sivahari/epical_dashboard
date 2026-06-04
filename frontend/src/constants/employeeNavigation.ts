@@ -76,8 +76,8 @@ export const EMPLOYEE_NAV_ITEMS: EmployeeNavItem[] = [
   },
   {
     to: '/employee/help',
-    label: 'Help & Support',
-    navLabel: 'Help',
+    label: 'Employee Guide',
+    navLabel: 'Guide',
     icon: HelpCircle,
   },
   {
@@ -98,7 +98,7 @@ export const EMPLOYEE_ROUTE_TITLES: Record<string, string> = {
   '/employee/training': 'Training & Courses',
   '/employee/achievements': 'Company Achievements',
   '/employee/tickets': 'Raise Tickets',
-  '/employee/help': 'Help & Support',
+  '/employee/help': 'Employee Guide',
   '/employee/profile': 'My Profile',
 }
 

@@ -65,7 +65,7 @@ export function DataTable<T extends { id?: string }>({
   return (
     <div
       className={cn(
-        'admin-table-scroll max-h-[70vh] overflow-auto rounded-xl border border-border bg-white shadow-glass',
+        'admin-table-scroll table-scroll-x max-h-[70vh] overflow-x-auto overflow-y-auto rounded-xl border border-border bg-white shadow-glass',
         className,
       )}
     >

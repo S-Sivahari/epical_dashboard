@@ -1,0 +1,332 @@
+/**
+ * Viewport-fit layout system — no outer portal scroll by default;
+ * panels/columns/tables scroll internally. Long forms opt in via data-page-scrollable.
+ */
+
+:root {
+  --viewport-chrome-h: calc(var(--admin-cmd-bar-h, 4.25rem) + var(--admin-top-nav-h, 3.125rem));
+  --viewport-page-h: calc(100dvh - var(--viewport-chrome-h));
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  max-height: 100dvh;
+}
+
+/* ── Portal shells ── */
+.admin-portal.cmd-portal,
+.employee-portal.cmd-portal {
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+.admin-portal.cmd-portal .cmd-main,
+.employee-portal.cmd-portal .cmd-main {
+  overflow: hidden;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.admin-portal main > .relative,
+.employee-portal main > .relative {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+/* Long forms / reports — full main scroll */
+.admin-portal main:has([data-page-scrollable]),
+.employee-portal main:has([data-page-scrollable]) {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.admin-portal main:has([data-page-scrollable]) > .relative,
+.employee-portal main:has([data-page-scrollable]) > .relative {
+  height: auto;
+  max-height: none;
+  overflow: visible;
+}
+
+/* ── Admin hub pages (PageWrapper + *-view) ── */
+.admin-portal .admin-hub-page-wrap {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.admin-portal .admin-hub-page-wrap > .crewiq-dashboard[class*='-view'],
+.admin-portal main > .relative > .crewiq-dashboard[class*='-view'] {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+  width: 100%;
+}
+
+/* Dashboard — internal scroll (existing admin-dashboard-view rules kept in index.css) */
+.admin-portal main > .relative > .admin-dashboard-view[data-admin-dashboard] {
+  max-height: var(--viewport-page-h);
+}
+
+/* Employee portal page shell */
+.employee-portal [data-employee-page] {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  max-height: var(--viewport-page-h);
+  overflow: hidden;
+}
+
+.employee-portal [data-employee-page] > .emp-portal-page__content {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-page-scrollable]) {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* ── Hub shells (header fixed, body scrolls) ── */
+.admin-portal .admin-training-shell,
+.admin-portal .admin-news-shell,
+.admin-portal .admin-documents-shell,
+.admin-portal .admin-settings-shell,
+.admin-portal .admin-tickets-shell,
+.admin-portal .admin-payslips-shell,
+.admin-portal .admin-achievements-shell,
+.admin-portal .admin-analytics-shell {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.admin-portal .admin-training-body-grid,
+.admin-portal .admin-news-body-grid,
+.admin-portal .admin-documents-body-grid,
+.admin-portal .admin-tickets-body-grid,
+.admin-portal .admin-payslips-body-grid {
+  display: grid;
+  flex: 1 1 0;
+  min-height: 0;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17.5rem), 1fr));
+  gap: clamp(0.75rem, 1.5vw, 1rem);
+  align-items: stretch;
+  overflow: hidden;
+}
+
+@media (min-width: 1024px) {
+  .admin-portal .admin-training-body-grid {
+    grid-template-columns: minmax(15rem, 18.75rem) minmax(0, 1fr);
+  }
+}
+
+.admin-portal .admin-training-main-panel,
+.admin-portal .admin-training-sidebar {
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.admin-portal .admin-training-main-panel > .admin-training-panel-scroll,
+.admin-portal .admin-training-main-panel .admin-table-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: min(28rem, calc(var(--viewport-page-h) - 14rem));
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+/* Employee directory — viewport fit */
+.admin-portal .employee-directory-view.employee-pages {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  max-height: var(--viewport-page-h);
+  margin: 0 !important;
+  padding: clamp(0.5rem, 1.2vw, 0.75rem) clamp(0.5rem, 1.5vw, 1rem);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.admin-portal .employee-directory-view .employee-directory-shell {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.admin-portal .employee-directory-view .employee-directory-toolbar {
+  flex-shrink: 0;
+}
+
+.admin-portal .employee-directory-view .employee-directory-table-section {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-portal .employee-directory-view .employee-directory-table-section > .grid {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.admin-portal .employee-directory-view .employee-directory-table,
+.admin-portal .employee-directory-view .employee-directory-table .admin-table-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: 100%;
+  margin-bottom: 0.75rem;
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+/* Projects hub */
+.admin-portal .admin-projects-view {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  max-height: var(--viewport-page-h);
+  overflow: hidden;
+}
+
+.admin-portal .admin-projects-view .projects-shell {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.admin-portal .projects-body-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+}
+
+/* Table wrappers */
+.table-scroll-x,
+.admin-table-scroll,
+.admin-portal .admin-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.viewport-panel-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Leave hub three-column */
+.admin-leaves-view .admin-leaves-three-col {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .admin-leaves-view .admin-leaves-three-col {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-leaves-view .admin-leaves-three-col > .admin-leaves-col-panel:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 1280px) {
+  .admin-leaves-view .admin-leaves-three-col {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Nav — tighter at 1280px */
+@media (max-width: 1439px) {
+  .admin-top-nav-link {
+    padding-left: 0.3125rem;
+    padding-right: 0.3125rem;
+    font-size: clamp(0.8125rem, 1.1vw, 0.9375rem);
+  }
+
+  .admin-top-nav-link-text {
+    max-width: 6.5rem;
+  }
+}
+
+@media (min-width: 1280px) and (max-width: 1439px) {
+  .admin-top-nav-spread {
+    gap: 0.1875rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+}
+
+/* Responsive type scale on hub pages */
+@media (max-width: 1439px) {
+  .admin-portal .admin-hub-page-wrap {
+    font-size: clamp(0.875rem, 0.9vw + 0.7rem, 0.9375rem);
+  }
+}
+
+/* Employee sub-pages — scroll inside shell when content is tall */
+.employee-portal [data-employee-page] > .emp-portal-page__content {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-dashboard]),
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]),
+.employee-portal [data-employee-page] > .emp-portal-page__content:has(.emp-timesheet-page) {
+  overflow: hidden;
+}
+
+.employee-portal [data-employee-page] > .emp-portal-page__content:has(.emp-help-page) {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.employee-portal .emp-leave-history-scroll,
+.employee-portal .emp-timesheet-history-panel {
+  max-height: min(24rem, 40vh);
+  overflow-y: auto;
+  overflow-x: auto;
+  min-height: 0;
+}
+
+/* Auth / login — allow page scroll */
+.auth-layout-scroll,
+.login-page {
+  overflow-x: hidden;
+  overflow-y: auto;
+  height: auto;
+  max-height: none;
+}

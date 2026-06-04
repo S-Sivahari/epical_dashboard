@@ -38,6 +38,7 @@ async function createIndexes(database: Db): Promise<void> {
     await database.collection('employees').createIndex({ status: 1 })
     await database.collection('employees').createIndex({ email: 1 })
     await database.collection('employees').createIndex({ id: 1 })
+    await database.collection('employees').createIndex({ employeeId: 1 })
     await database.collection('employees').createIndex({ department: 1 })
     
     // Users collection
@@ -58,6 +59,8 @@ async function createIndexes(database: Db): Promise<void> {
     // Projects collection
     await database.collection('projects').createIndex({ status: 1 })
     await database.collection('projects').createIndex({ clientName: 1 })
+    await database.collection('assignedtasks').createIndex({ projectId: 1 })
+    await database.collection('notifications').createIndex({ recipientId: 1, createdAt: -1 })
     
     console.log('✓ Database indexes created')
   } catch (error) {

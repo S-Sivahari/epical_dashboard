@@ -175,7 +175,7 @@ export function EmployeeProfile() {
 
   if (loading) {
     return (
-      <div className="crewiq-dashboard employee-pages employee-directory-view">
+      <div className="crewiq-dashboard employee-pages employee-directory-view" data-page-scrollable>
         <div className="employee-directory-bg" aria-hidden>
           <div className="employee-directory-bg-gradient" />
           <div className="employee-directory-bg-leaves" />
@@ -195,7 +195,7 @@ export function EmployeeProfile() {
 
   if (loadError || !employee) {
     return (
-      <div className="crewiq-dashboard employee-pages employee-directory-view">
+      <div className="crewiq-dashboard employee-pages employee-directory-view" data-page-scrollable>
         <div className="employee-directory-bg" aria-hidden>
           <div className="employee-directory-bg-gradient" />
           <div className="employee-directory-bg-leaves" />
@@ -351,7 +351,7 @@ export function EmployeeProfile() {
   }
 
   return (
-    <div className="crewiq-dashboard employee-pages employee-directory-view">
+    <div className="crewiq-dashboard employee-pages employee-directory-view" data-page-scrollable>
       <div className="employee-directory-bg" aria-hidden>
         <div className="employee-directory-bg-gradient" style={tintBgStyle} />
         <div className="employee-directory-bg-leaves" />

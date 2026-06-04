@@ -331,13 +331,13 @@ export function CompanyNews() {
   const contentPreview = content.trim() || 'Your announcement content will appear here...'
 
   return (
-    <PageWrapper className="admin-hub-page-wrap relative z-10 py-3 font-body">
-      <div className="crewiq-dashboard admin-news-view relative">
+    <PageWrapper fillViewport className="admin-hub-page-wrap relative z-10 !py-3 font-body">
+      <div className="crewiq-dashboard admin-news-view relative flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="dashboard-page-bg" aria-hidden>
           <div className="dashboard-page-bg-gradient" />
           <div className="dashboard-page-bg-pattern" />
         </div>
-        <div className="admin-news-shell relative z-10 animate-fadeIn">
+        <div className="admin-news-shell relative z-10 flex min-h-0 flex-1 animate-fadeIn flex-col overflow-hidden">
           {/* Unified hub header — Deep Forest Green + view pills */}
           <header className="admin-news-hub-header">
             <div className="admin-news-hero-top">

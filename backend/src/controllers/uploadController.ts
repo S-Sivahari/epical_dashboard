@@ -84,12 +84,22 @@ export const uploadController = {
 
   uploadPhoto: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      if (!rejectUnlessAdmin(req, res)) return;
       const { id } = req.params as { id: string };
+      if (!(await rejectUnlessAdminOrSelf(req, res, id))) return;
       const file = (req as any).file;
 
       if (!file) {
         res.status(400).json({ error: 'No photo uploaded' });
+        return;
+      }
+
+      const allowedPhotoTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+      if (!allowedPhotoTypes.has(file.mimetype)) {
+        res.status(400).json({ error: 'Photo must be JPEG, PNG, or WebP' });
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        res.status(400).json({ error: 'Photo must be under 2 MB' });
         return;
       }
 
