@@ -6,9 +6,14 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ roles }: ProtectedRouteProps) {
+  const isHydrated = useAuthStore((s) => s.isHydrated)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const role = useAuthStore((s) => s.role)
   const location = useLocation()
+
+  if (!isHydrated) {
+    return null
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/auth/login" replace state={{ from: location }} />

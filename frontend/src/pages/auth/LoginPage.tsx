@@ -52,7 +52,7 @@ type FormValues = z.infer<typeof schema>
 
 export function LoginPage() {
   const login = useAuthStore((s) => s.login)
-  const completeOAuthRedirect = useAuthStore((s) => s.completeOAuthRedirect)
+  const hydrateSession = useAuthStore((s) => s.hydrateSession)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const role = useAuthStore((s) => s.role)
   const navigate = useNavigate()
@@ -62,7 +62,7 @@ export function LoginPage() {
 
   useEffect(() => {
     let cancelled = false
-    fetch(`${getApiBaseUrl()}/auth/google/config`)
+    fetch(`${getApiBaseUrl()}/auth/google/config`, { credentials: 'include' })
       .then((res) => (res.ok ? res.json() : null))
       .then((data: GoogleOAuthConfig | null) => {
         if (!cancelled) setGoogleSignInEnabled(Boolean(data?.enabled))
@@ -76,23 +76,25 @@ export function LoginPage() {
   }, [])
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const token = params.get('token')
+    const queryParams = new URLSearchParams(window.location.search)
+    const oauthSuccess = queryParams.get('oauth') === 'success'
 
-    if (token) {
-      const oauthRole = params.get('role') ?? 'employee'
-      const email = params.get('email') ?? ''
-      const name = params.get('name') ?? email.split('@')[0]
-      const designation = params.get('designation') ?? undefined
-
-      completeOAuthRedirect({ token, role: oauthRole, email, name, designation })
-      prefetchEmployeeDashboard()
+    if (oauthSuccess) {
       window.history.replaceState({}, '', '/auth/login')
-      navigate(oauthRole === 'admin' ? '/admin' : '/employee', { replace: true })
+      void (async () => {
+        try {
+          await hydrateSession()
+          const currentRole = useAuthStore.getState().role
+          prefetchEmployeeDashboard()
+          navigate(currentRole === 'admin' ? '/admin' : '/employee', { replace: true })
+        } catch {
+          toast.error('Google sign-in completed but session could not be loaded. Try again.')
+        }
+      })()
       return
     }
 
-    const error = params.get('error')
+    const error = queryParams.get('error')
     if (error) {
       window.history.replaceState({}, '', '/auth/login')
       const decoded = decodeURIComponent(error)
@@ -102,7 +104,7 @@ export function LoginPage() {
           : decoded,
       )
     }
-  }, [completeOAuthRedirect, navigate])
+  }, [hydrateSession, navigate])
 
   useEffect(() => {
     if (isAuthenticated) {

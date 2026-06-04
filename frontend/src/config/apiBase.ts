@@ -5,8 +5,7 @@
 export function getApiBaseUrl(): string {
   const configured = import.meta.env.VITE_API_BASE_URL?.trim()
   if (configured) return configured.replace(/\/$/, '')
-  if (import.meta.env.DEV) return '/api'
-  return 'http://localhost:3000/api'
+  return '/api'
 }
 
 /** Backend origin (port 3000) — matches Google Console redirect URI host. */

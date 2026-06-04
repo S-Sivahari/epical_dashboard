@@ -1,4 +1,5 @@
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs'
+import { downloadExcelBuffer } from '@/utils/exportLogo'
 
 export interface ExportExcelOptions {
   generatedBy?: string
@@ -18,15 +19,22 @@ function formatDateStr(d: string | Date | undefined | null): string {
   return `${String(date.getDate()).padStart(2, '0')}-${months[date.getMonth()]}-${date.getFullYear()}`
 }
 
+function columnWidthForKey(key: string): number {
+  if (key === 'email' || key === 'personalEmail') return 30
+  if (key === 'employeeId') return 15
+  if (key === 'address') return 40
+  return 20
+}
+
 /**
  * Exports data to an Excel (.xlsx) file with professional formatting.
  */
-export function exportToExcel<T extends Record<string, any>>(
+export async function exportToExcel<T extends Record<string, unknown>>(
   data: T[],
   filename: string,
   headers: { key: keyof T | string; label: string }[],
   options?: ExportExcelOptions,
-) {
+): Promise<void> {
   if (!data.length) return
 
   const now = new Date()
@@ -84,7 +92,7 @@ export function exportToExcel<T extends Record<string, any>>(
   data.forEach((row) => {
     aoa.push(
       headers.map((h) => {
-        let value: unknown = row[h.key]
+        let value: unknown = row[h.key as keyof T]
         if (h.key === 'joinedAt' || h.key === 'dob') {
           value = formatDateStr(value as string)
         } else if (h.key === 'pfEsi') {
@@ -103,17 +111,18 @@ export function exportToExcel<T extends Record<string, any>>(
   aoa.push([`System Generated Report | Generated on ${genDate} ${genTime}`])
   aoa.push(['------------------------------------------------------------'])
 
-  const worksheet = XLSX.utils.aoa_to_sheet(aoa)
+  const workbook = new ExcelJS.Workbook()
+  const sheet = workbook.addWorksheet(options?.sheetName ?? 'Employees')
 
-  worksheet['!cols'] = headers.map((h) => {
-    if (h.key === 'email' || h.key === 'personalEmail') return { wch: 30 }
-    if (h.key === 'employeeId') return { wch: 15 }
-    if (h.key === 'address') return { wch: 40 }
-    return { wch: 20 }
+  aoa.forEach((row) => {
+    sheet.addRow(row)
   })
 
-  const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, worksheet, options?.sheetName ?? 'Employees')
+  headers.forEach((h, i) => {
+    const col = sheet.getColumn(i + 1)
+    col.width = columnWidthForKey(String(h.key))
+  })
 
-  XLSX.writeFile(workbook, `${filename}.xlsx`)
+  const buffer = await workbook.xlsx.writeBuffer()
+  downloadExcelBuffer(buffer, `${filename}.xlsx`)
 }

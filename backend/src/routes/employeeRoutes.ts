@@ -1,43 +1,25 @@
 import { Router } from 'express';
 import { employeeController } from '../controllers/employeeController';
-import { authMiddleware } from '../middleware/authMiddleware';
+import { authMiddleware, requireRole } from '../middleware/authMiddleware';
 
 const router = Router();
+const adminOnly = requireRole('Admin');
 
 router.use(authMiddleware);
 
-// Get all employees with filtering and pagination
-router.get('/', employeeController.getAllEmployees);
-
-// Search employees
-router.get('/search', employeeController.searchEmployees);
-
-// Check if employee ID exists
-router.get('/check-id', employeeController.checkEmployeeId);
-
-// Daily user activity log for admin dashboard (must be before /:id)
-router.get('/daily-activity', employeeController.getDailyActivityLog);
-
-// Bulk update status for multiple employees
-router.patch('/bulk-status', employeeController.bulkUpdateStatus);
-
-// Logged-in employee's own profile (must be before /:id)
 router.get('/me', employeeController.getMyEmployee);
 
-// Get employee by ID
+router.get('/', adminOnly, employeeController.getAllEmployees);
+router.get('/search', adminOnly, employeeController.searchEmployees);
+router.get('/check-id', adminOnly, employeeController.checkEmployeeId);
+router.get('/daily-activity', adminOnly, employeeController.getDailyActivityLog);
+router.patch('/bulk-status', adminOnly, employeeController.bulkUpdateStatus);
+
 router.get('/:id', employeeController.getEmployeeById);
 
-// Create new employee
-router.post('/', employeeController.createEmployee);
-
-// Update employee
-router.put('/:id', employeeController.updateEmployee);
-
-// Update employee status (Deactivate/Archive)
-router.patch('/:id/status', employeeController.updateStatus);
-
-// Delete employee
-router.delete('/:id', employeeController.deleteEmployee);
-
+router.post('/', adminOnly, employeeController.createEmployee);
+router.put('/:id', adminOnly, employeeController.updateEmployee);
+router.patch('/:id/status', adminOnly, employeeController.updateStatus);
+router.delete('/:id', adminOnly, employeeController.deleteEmployee);
 
 export const employeeRoutes = router;

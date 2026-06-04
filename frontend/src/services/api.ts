@@ -6,10 +6,19 @@ const api = axios.create({
   withCredentials: true,
 })
 
+function readCsrfToken(): string | null {
+  if (typeof document === 'undefined') return null
+  const match = document.cookie.match(/(?:^|;\s*)hrms_csrf=([^;]*)/)
+  return match ? decodeURIComponent(match[1]) : null
+}
+
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('hrms_token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+  const method = (config.method ?? 'get').toLowerCase()
+  if (!['get', 'head', 'options'].includes(method)) {
+    const csrf = readCsrfToken()
+    if (csrf) {
+      config.headers.set('X-CSRF-Token', csrf)
+    }
   }
   return config
 })
@@ -33,32 +42,30 @@ function isProtectedAppRoute(pathname: string): boolean {
 
 api.interceptors.response.use(
   (res) => res,
-  (err: { response?: { status?: number; data?: { error?: string } }; config?: { url?: string; headers?: { Authorization?: string } } }) => {
+  (err: { response?: { status?: number }; config?: { url?: string } }) => {
     const status = err.response?.status
     const url = err.config?.url ?? ''
-    const hadAuth = Boolean(err.config?.headers?.Authorization)
 
     if (status === 401) {
-      if (url.includes('/auth/login')) {
+      if (url.includes('/auth/login') || url.includes('/auth/me')) {
         return Promise.reject(err)
       }
 
-      // Missing profile photo / optional asset — never wipe the session
       if (isOptionalAuthRequest(url)) {
         return Promise.reject(err)
       }
 
-      // Only clear session when we sent a token and the server rejected it (expired/invalid)
-      if (hadAuth) {
-        localStorage.removeItem('hrms_token')
-        localStorage.removeItem('hrms_role')
-        localStorage.removeItem('hrms_user')
-
-        const pathname = window.location.pathname
-        if (!isRedirecting && isProtectedAppRoute(pathname)) {
-          isRedirecting = true
+      const pathname = window.location.pathname
+      if (!isRedirecting && isProtectedAppRoute(pathname)) {
+        isRedirecting = true
+        import('@store/authStore').then(({ useAuthStore }) => {
+          useAuthStore.setState({
+            user: null,
+            role: null,
+            isAuthenticated: false,
+          })
           window.location.assign('/auth/login')
-        }
+        })
       }
     }
     return Promise.reject(err)
