@@ -78,6 +78,21 @@ export function excludeCancelledLeaves(leaves: LeaveRequest[]): LeaveRequest[] {
   return leaves.filter((l) => l.status !== 'Cancelled')
 }
 
+function todayLocalISO(): string {
+  const now = new Date()
+  return formatDateKey(now)
+}
+
+/** Pending always cancellable; approved only before the leave period ends. */
+export function canCancelLeave(leave: Pick<LeaveRequest, 'status' | 'to'>): boolean {
+  if (leave.status === 'Pending') return true
+  if (leave.status === 'Approved') {
+    const end = typeof leave.to === 'string' ? leave.to.slice(0, 10) : ''
+    return Boolean(end && end >= todayLocalISO())
+  }
+  return false
+}
+
 export function filterLeaves(leaves: LeaveRequest[], filters: LeaveFilters): LeaveRequest[] {
   return leaves.filter((l) => {
     const matchName =

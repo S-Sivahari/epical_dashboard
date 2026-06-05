@@ -21,8 +21,9 @@
   }
 }
 
-.employee-portal .cmd-main > .relative:has(.emp-leave-page) {
-  overflow: visible;
+.employee-portal [data-employee-page] > .emp-portal-page__content:has(.emp-leave-page) {
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* White outer section wrapping the three top cards */
@@ -56,23 +57,37 @@
 
 @media (min-width: 1024px) {
   .emp-leave-top-grid {
-    grid-template-columns: minmax(0, 0.44fr) minmax(0, 0.56fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 1.25rem;
+  }
+
+  .emp-leave-top-grid > * {
+    height: 100%;
+    min-height: 0;
   }
 }
 
-.emp-leave-top-aside {
-  display: grid;
-  gap: 1.25rem;
+.emp-leave-top-panel {
+  display: flex;
+  flex-direction: column;
   min-height: 0;
   min-width: 0;
+  height: 100%;
 }
 
-@media (min-width: 1024px) {
-  .emp-leave-top-aside {
-    grid-template-columns: minmax(0, 0.34fr) minmax(0, 0.66fr);
-    gap: 1.25rem;
-  }
+.emp-leave-pending-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.emp-leave-pending-body > .rounded-lg.border-dashed {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 8rem;
 }
 
 /* Per-panel tinted backgrounds */
@@ -94,6 +109,8 @@
   box-shadow: 0 1px 3px rgba(26, 67, 41, 0.06) !important;
   min-height: 0;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .emp-leave-apply-head {
@@ -109,6 +126,8 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  flex: 1;
+  min-height: 0;
 }
 
 .emp-leave-balance-card .emp-leave-balance-stack [data-portal-card] {

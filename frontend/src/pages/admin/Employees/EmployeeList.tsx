@@ -310,7 +310,7 @@ export function EmployeeList() {
   ]
 
   return (
-    <div className="crewiq-dashboard employee-pages employee-directory-view">
+    <div className="crewiq-dashboard employee-pages employee-directory-view" data-admin-employees>
       <div className="employee-directory-bg" aria-hidden>
         <div className="employee-directory-bg-gradient" />
         <div className="employee-directory-bg-leaves" />

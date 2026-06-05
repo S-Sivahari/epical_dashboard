@@ -36,7 +36,7 @@ import { leaveExportFileName } from '@/utils/exportFileName'
 
 type TabType = 'requests' | 'compensation'
 
-const LEAVE_TYPES = ['Sick Leave', 'Casual Leave', 'Earned Leave']
+const LEAVE_TYPES = ['Casual Leave', 'Sick Leave', 'Earned Leave', 'Compensation Leave']
 
 function formatLocalDate(d: Date) {
   const y = d.getFullYear()
@@ -122,8 +122,10 @@ function LeaveFeedRow({ badgeLabel, badgeClass, title, line2, line3, avatar, act
       {avatar}
       <div className="admin-leaves-feed-row-main">
         <p className="admin-leaves-feed-row-title">
-          <span className={cn('admin-leaves-feed-badge', badgeClass)}>{badgeLabel}</span>
-          {title}
+          <span className="admin-leaves-feed-row-title-inner">
+            <span className={cn('admin-leaves-feed-badge', badgeClass)}>{badgeLabel}</span>
+            <span className="admin-leaves-feed-row-title-text">{title}</span>
+          </span>
         </p>
         {line2 ? <p className="admin-leaves-feed-row-sub">{line2}</p> : null}
         {line3 ? <p className="admin-leaves-feed-row-meta">{line3}</p> : null}
@@ -257,15 +259,6 @@ export function LeaveManagementContainer() {
       .sort((a, b) => getLeaveActivityTimestamp(b) - getLeaveActivityTimestamp(a))
   }, [visibleLeaves, monthRange])
 
-  const activityFeedSummary = useMemo(() => {
-    const approved = activityFeed.filter((l) => l.status === 'Approved').length
-    const rejected = activityFeed.filter((l) => l.status === 'Rejected').length
-    const pending = activityFeed.filter((l) => l.status === 'Pending').length
-    return { approved, rejected, pending, total: activityFeed.length }
-  }, [activityFeed])
-
-
-
   // Export helpers
   const filteredLeaveRequests = useMemo(() => {
     const status = leaveFilters.status || 'Pending'
@@ -326,7 +319,7 @@ export function LeaveManagementContainer() {
   }
 
   return (
-    <PageWrapper className="admin-hub-page-wrap admin-leaves-page-wrap relative z-10 font-body">
+    <PageWrapper fillViewport className="admin-hub-page-wrap admin-leaves-page-wrap relative z-10 font-body !py-3">
       <div className="crewiq-dashboard admin-leaves-view relative flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="dashboard-page-bg" aria-hidden>
           <div className="dashboard-page-bg-gradient" />
@@ -454,13 +447,7 @@ export function LeaveManagementContainer() {
 
             <div className="admin-leaves-panel admin-leaves-upcoming-panel admin-leaves-feed-panel admin-leaves-bb-panel admin-leaves-col-panel">
               <div className="admin-leaves-col-panel-head">
-                <div>
-                  <h3 className="admin-leaves-col-panel-title">Upcoming Leaves</h3>
-                  <p className="admin-leaves-col-panel-meta">{monthLabel}</p>
-                </div>
-                {!loading && upcomingLeaves.length > 0 ? (
-                  <span className="admin-leaves-col-panel-metric">{upcomingLeaves.length} scheduled</span>
-                ) : null}
+                <h3 className="admin-leaves-col-panel-title">Upcoming Leaves</h3>
               </div>
               <div className="admin-leaves-scroll">
                 {upcomingLeaves.length === 0 ? (
@@ -483,7 +470,6 @@ export function LeaveManagementContainer() {
                           </>
                         }
                         line2={`${formatDate(l.from)} – ${formatDate(l.to)} · ${l.days}d`}
-                        line3={`Starts ${formatDate(l.from)}`}
                         avatar={
                           empAvatar?.avatarUrl ? (
                             <img src={empAvatar.avatarUrl} alt={l.employeeName} className="admin-leaves-feed-avatar" />
@@ -525,16 +511,7 @@ export function LeaveManagementContainer() {
 
             <div className="admin-leaves-panel admin-leaves-activity-feed admin-leaves-feed-panel admin-leaves-bb-panel admin-leaves-col-panel">
               <div className="admin-leaves-col-panel-head">
-                <div>
-                  <h3 className="admin-leaves-col-panel-title">Recent Activity</h3>
-                  <p className="admin-leaves-col-panel-meta">{monthLabel}</p>
-                </div>
-                {!loading && activityFeed.length > 0 ? (
-                  <span className="admin-leaves-col-panel-metric">
-                    {activityFeedSummary.approved} approved · {activityFeedSummary.rejected} rejected
-                    {activityFeedSummary.pending > 0 ? ` · ${activityFeedSummary.pending} pending` : ''}
-                  </span>
-                ) : null}
+                <h3 className="admin-leaves-col-panel-title">Recent Activity</h3>
               </div>
               <div className="admin-leaves-scroll">
                 {loading ? (

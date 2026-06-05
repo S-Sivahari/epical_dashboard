@@ -17,10 +17,10 @@ const imageUpload = multer({
   },
 })
 
-newsRoutes.get('/news', newsController.list)
+newsRoutes.get('/news', authMiddleware, newsController.list)
 newsRoutes.get('/news/external', authMiddleware, requireRole('Admin'), newsController.fetchExternal)
 newsRoutes.post('/news/import', authMiddleware, requireRole('Admin'), newsController.importExternal)
-newsRoutes.get('/news/:id/image', newsController.getImage)
+newsRoutes.get('/news/:id/image', authMiddleware, newsController.getImage)
 newsRoutes.post(
   '/news',
   authMiddleware,

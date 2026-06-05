@@ -71,6 +71,28 @@ export const leaveController = {
     }
   },
 
+  // GET /api/leaves/history — approved, rejected, and employee-cancelled (not active pending)
+  getHistory: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      let employeeId: string | undefined;
+
+      if (isEmployeeRole(req.user?.role ?? '')) {
+        const employee = await resolveEmployeeForAuthUser(req.user!.id, req.user!.email);
+        employeeId = employee?.id ? String(employee.id) : req.user!.id;
+      } else {
+        employeeId = (req.query.employeeId as string) || undefined;
+      }
+
+      const leaves = await leaveService.getAllLeaves(employeeId);
+      const history = leaves.filter((l) =>
+        ['Approved', 'Rejected', 'Cancelled'].includes(l.status),
+      );
+      res.json(history);
+    } catch {
+      res.status(500).json({ error: 'Failed to fetch leave history' });
+    }
+  },
+
   // GET /api/leaves/employee/:employeeId/summary (Admin only)
   getEmployeeSummary: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
@@ -239,7 +261,6 @@ export const leaveController = {
   cancel: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params as { id: string };
-      const { reason } = req.body;
       const leave = await leaveService.getLeaveById(id);
       if (!leave) {
         res.status(404).json({ error: 'Leave not found' });
@@ -249,8 +270,27 @@ export const leaveController = {
         res.status(400).json({ error: 'Only pending or approved leaves can be cancelled' });
         return;
       }
+
+      if (!leaveService.canCancelLeaveRequest(leave)) {
+        res.status(400).json({ error: 'Cannot cancel approved leave that has already ended.' });
+        return;
+      }
+
+      const isEmployee = req.user && isEmployeeRole(req.user.role);
+      if (isEmployee) {
+        const own = await resolveEmployeeForAuthUser(req.user!.id, req.user!.email);
+        const ownId = own?.id ? String(own.id) : req.user!.id;
+        const leaveOwner = String(leave.employeeId);
+        if (leaveOwner !== ownId && leaveOwner !== req.user!.id) {
+          res.status(403).json({ error: 'You can only cancel your own leave requests.' });
+          return;
+        }
+      }
+
       const cancelledBy = (req.user as any)?.name || (req.user as any)?.email || undefined;
-      const cancelledLeave = await leaveService.cancelLeave(id, reason?.trim(), cancelledBy);
+      const cancelledLeave = await leaveService.cancelLeave(id, undefined, cancelledBy, {
+        notifyAdmins: Boolean(isEmployee),
+      });
       if (!cancelledLeave) {
         res.status(500).json({ error: 'Failed to cancel leave' });
         return;
@@ -258,7 +298,10 @@ export const leaveController = {
       res.json(cancelledLeave);
     } catch (error: any) {
       console.error('Error cancelling leave:', error);
-      res.status(500).json({ error: error.message || 'Failed to cancel leave' });
+      const message = error.message || 'Failed to cancel leave';
+      const isClientError =
+        typeof message === 'string' && message.startsWith('Cannot cancel');
+      res.status(isClientError ? 400 : 500).json({ error: message });
     }
   },
 

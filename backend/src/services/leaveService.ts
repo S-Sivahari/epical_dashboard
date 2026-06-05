@@ -3,7 +3,16 @@ import { getDB } from '../config/db';
 import { findEmployeeByLoginEmail, findUserForEmployee, resolveEmployeeForAuthUser } from '../utils/employeeAuth';
 import { LeaveRequest, CreateLeavePayload } from '../models/Leave';
 import { Holiday } from '../models/Holiday';
-import { getBusinessDays, calculateBalances, leaveMonth, LEAVE_ALLOCATIONS } from '../utils/leaveCalculator';
+import {
+  getBusinessDays,
+  calculateBalances,
+  calculateMonthlyLopSummary,
+  computeCasualLeaveLopForRequest,
+  leaveMonth,
+  LEAVE_ALLOCATIONS,
+  resolveLeaveBalanceKey,
+  sumPendingLeaveDays,
+} from '../utils/leaveCalculator';
 import type { Employee } from '../models/Employee';
 import * as notificationService from './notificationService';
 
@@ -159,14 +168,45 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
   const compBonus = await getCompensationEarnedLeaveBonusForYear(
     employeeDoc?.id ? String(employeeDoc.id) : payload.employeeId,
   );
-  const balances = calculateBalances(employeeLeaves, employeeDoc?.joinedAt as string | undefined, {
+  const balanceOptions = {
     compensationEarnedBonus: compBonus,
     employeeAllocations: employeeAllocationOverrides(employeeDoc),
-  });
+  };
+  const balances = calculateBalances(employeeLeaves, employeeDoc?.joinedAt as string | undefined, balanceOptions);
 
-  const leaveBalance = balances[payload.type];
-  if (leaveBalance && leaveBalance.remaining < requestedDays) {
-    throw new Error(`Insufficient ${payload.type} balance. Remaining: ${leaveBalance.remaining}, Requested: ${requestedDays}`);
+  const balanceKey = resolveLeaveBalanceKey(payload.type);
+  const leaveBalance = balances[balanceKey];
+  let lopDays = 0;
+
+  if (payload.type === 'Sick Leave') {
+    const pendingSick = sumPendingLeaveDays(employeeLeaves, 'Sick Leave');
+    const availableSick = (leaveBalance?.remaining ?? 0) - pendingSick;
+    if (availableSick < requestedDays) {
+      throw new Error(
+        `Insufficient Sick Leave balance. Remaining: ${Math.max(0, availableSick)}, Requested: ${requestedDays}`,
+      );
+    }
+  } else if (payload.type === 'Casual Leave') {
+    const split = computeCasualLeaveLopForRequest(
+      requestedDays,
+      employeeLeaves,
+      employeeDoc?.joinedAt as string | undefined,
+      balanceOptions,
+    );
+    lopDays = split.lopDays;
+  } else if (leaveBalance && leaveBalance.remaining < requestedDays) {
+    const pendingSameType = sumPendingLeaveDays(
+      employeeLeaves,
+      payload.type,
+      undefined,
+      undefined,
+    );
+    const available = leaveBalance.remaining - pendingSameType;
+    if (available < requestedDays) {
+      throw new Error(
+        `Insufficient ${payload.type} balance. Remaining: ${Math.max(0, available)}, Requested: ${requestedDays}`,
+      );
+    }
   }
 
   const id = `L-${Date.now()}`;
@@ -178,6 +218,9 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
     createdAt: new Date(),
     updatedAt: new Date(),
   };
+  if (payload.type === 'Casual Leave' && lopDays > 0) {
+    leave.lopDays = lopDays;
+  }
   await col.insertOne(leave);
 
   // Create notification for manager/admin
@@ -228,16 +271,41 @@ async function getArchivedEarnedLeavesForBalance(employeeId: string, refDate = n
   return docs as LeaveRequest[];
 }
 
-export async function getLeaveBalances(employeeId: string) {
+export type LeaveBalanceRecord = {
+  total: number;
+  used: number;
+  remaining: number;
+  approved?: number;
+  pending?: number;
+};
+
+export async function getLeaveBalances(employeeId: string): Promise<Record<string, LeaveBalanceRecord>> {
   const leaves = await getAllLeaves(employeeId);
   const archivedEarned = await getArchivedEarnedLeavesForBalance(employeeId);
   const employee = await findEmployeeDoc(employeeId);
   const canonicalId = employee?.id ? String(employee.id) : employeeId;
   const compBonus = await getCompensationEarnedLeaveBonusForYear(canonicalId);
-  return calculateBalances([...leaves, ...archivedEarned], employee?.joinedAt as string | undefined, {
+  const balanceOptions = {
     compensationEarnedBonus: compBonus,
     employeeAllocations: employeeAllocationOverrides(employee),
-  });
+  };
+  const balances = calculateBalances([...leaves, ...archivedEarned], employee?.joinedAt as string | undefined, balanceOptions);
+  const lop = calculateMonthlyLopSummary(
+    leaves,
+    employee?.joinedAt as string | undefined,
+    balanceOptions,
+  );
+
+  return {
+    ...balances,
+    'LOP Days': {
+      total: 0,
+      used: lop.totalLopDays,
+      remaining: 0,
+      approved: lop.approvedLopDays,
+      pending: lop.pendingLopDays,
+    },
+  };
 }
 
 export interface LeaveTypeBalanceSummary {
@@ -271,6 +339,16 @@ function getTodayDateString(): string {
   return today.toISOString().split('T')[0];
 }
 
+/** Pending always cancellable; approved only while the leave period has not ended. */
+export function canCancelLeaveRequest(leave: Pick<LeaveRequest, 'status' | 'to'>): boolean {
+  if (leave.status === 'Pending') return true;
+  if (leave.status === 'Approved') {
+    const end = typeof leave.to === 'string' ? leave.to.slice(0, 10) : '';
+    return Boolean(end && end >= getTodayDateString());
+  }
+  return false;
+}
+
 function isApprovedLeaveActiveOnDate(leave: LeaveRequest, dateStr: string): boolean {
   return leave.status === 'Approved' && leave.from <= dateStr && dateStr <= leave.to;
 }
@@ -289,6 +367,7 @@ export async function getEmployeeLeaveSummary(employeeId: string): Promise<Emplo
     'Casual Leave': balances['Casual Leave']?.total ?? LEAVE_ALLOCATIONS['Casual Leave'],
     'Sick Leave': balances['Sick Leave']?.total ?? LEAVE_ALLOCATIONS['Sick Leave'],
     'Earned Leave': balances['Earned Leave']?.total ?? 0,
+    'Compensation Leave': balances['Compensation Leave']?.total ?? 0,
   };
   const currentYear = new Date().getFullYear().toString();
   const todayStr = getTodayDateString();
@@ -331,7 +410,9 @@ export async function getEmployeeLeaveSummary(employeeId: string): Promise<Emplo
     allocations: allocationDisplay,
     balances: balanceList,
     currentLeaves,
-    history: leaves.filter((l) => l.status !== 'Cancelled'),
+    history: leaves.filter((l) =>
+      ['Approved', 'Rejected', 'Cancelled', 'Pending'].includes(l.status),
+    ),
   };
 }
 
@@ -370,6 +451,7 @@ export async function updateEmployeeLeaveAllocations(
     'Casual Leave': totals['Casual Leave'].total,
     'Sick Leave': totals['Sick Leave'].total,
     'Earned Leave': totals['Earned Leave'].total,
+    'Compensation Leave': totals['Compensation Leave'].total,
   };
 }
 
@@ -383,7 +465,6 @@ export async function updateLeaveStatus(
   const existing = await col.findOne({ id });
   if (!existing) return null;
 
-  // Idempotent: only Pending leaves can be approved/rejected once
   if (existing.status !== 'Pending') {
     return existing as LeaveRequest;
   }
@@ -395,49 +476,70 @@ export async function updateLeaveStatus(
     }
   }
 
-  // If approving, validate the employee has sufficient balance
-  if (status === 'Approved') {
-    const leave = existing as LeaveRequest;
-
-    // Fetch employee leaves to calculate current balance
-    const employeeLeaves = await loadLeavesForBalance(leave.employeeId);
-    const employeeDoc = await getDB().collection('employees').findOne(
-      { id: leave.employeeId },
-      { projection: { documents: 0, 'photo.data': 0 } }
-    );
-    const compBonus = await getCompensationEarnedLeaveBonusForYear(leave.employeeId);
-    const balances = calculateBalances(employeeLeaves, (employeeDoc as Employee | null)?.joinedAt as string | undefined, {
-      compensationEarnedBonus: compBonus,
-      employeeAllocations: (employeeDoc as Employee | null)?.leaveAllocations,
-    });
-
-    const leaveBalance = balances[leave.type];
-    if (leaveBalance && leaveBalance.remaining < leave.days) {
-      throw new Error(
-        `Cannot approve: Insufficient ${leave.type} balance. ` +
-        `Remaining: ${leaveBalance.remaining}, Requested: ${leave.days}`
-      );
-    }
-  }
-
-  // Build update document
   const updateDoc: any = {
     status,
     updatedAt: new Date(),
   };
 
-  // Add rejection reason if rejecting
-  if (status === 'Rejected' && rejectionReason) {
-    updateDoc.rejectionReason = rejectionReason;
-  }
-
   if (status === 'Approved') {
+    const leave = existing as LeaveRequest;
+    const employeeLeaves = await loadLeavesForBalance(leave.employeeId);
+    const employeeDoc = await getDB().collection('employees').findOne(
+      { id: leave.employeeId },
+      { projection: { documents: 0, 'photo.data': 0 } },
+    );
+    const compBonus = await getCompensationEarnedLeaveBonusForYear(leave.employeeId);
+    const balanceOptions = {
+      compensationEarnedBonus: compBonus,
+      employeeAllocations: (employeeDoc as Employee | null)?.leaveAllocations,
+    };
+    const balances = calculateBalances(
+      employeeLeaves,
+      (employeeDoc as Employee | null)?.joinedAt as string | undefined,
+      balanceOptions,
+    );
+
+    if (leave.type === 'Sick Leave') {
+      const pendingSick = sumPendingLeaveDays(employeeLeaves, 'Sick Leave', undefined, leave.id);
+      const sickBalance = balances['Sick Leave'];
+      const availableSick = (sickBalance?.remaining ?? 0) - pendingSick;
+      if (availableSick < leave.days) {
+        throw new Error(
+          `Cannot approve: Insufficient Sick Leave balance. ` +
+          `Remaining: ${Math.max(0, availableSick)}, Requested: ${leave.days}`,
+        );
+      }
+    } else if (leave.type === 'Casual Leave') {
+      const split = computeCasualLeaveLopForRequest(
+        leave.days,
+        employeeLeaves,
+        (employeeDoc as Employee | null)?.joinedAt as string | undefined,
+        balanceOptions,
+        leave.id,
+      );
+      if (split.lopDays > 0) {
+        updateDoc.lopDays = split.lopDays;
+      }
+    } else {
+      const balanceKey = resolveLeaveBalanceKey(leave.type);
+      const leaveBalance = balances[balanceKey];
+      const pendingSameType = sumPendingLeaveDays(employeeLeaves, leave.type, undefined, leave.id);
+      const available = (leaveBalance?.remaining ?? 0) - pendingSameType;
+      if (available < leave.days) {
+        throw new Error(
+          `Cannot approve: Insufficient ${leave.type} balance. ` +
+          `Remaining: ${Math.max(0, available)}, Requested: ${leave.days}`,
+        );
+      }
+    }
+
     updateDoc.approvalDate = new Date();
     updateDoc.approvedAt = new Date();
     if (actionBy) updateDoc.approvedBy = actionBy;
   }
 
-  if (status === 'Rejected') {
+  if (status === 'Rejected' && rejectionReason) {
+    updateDoc.rejectionReason = rejectionReason;
     updateDoc.rejectedAt = new Date();
     if (actionBy) updateDoc.rejectedBy = actionBy;
   }
@@ -445,7 +547,7 @@ export async function updateLeaveStatus(
   const result = await col.findOneAndUpdate(
     { id, status: 'Pending' },
     { $set: updateDoc },
-    { returnDocument: 'after' }
+    { returnDocument: 'after' },
   );
 
   if (!result) {
@@ -453,7 +555,6 @@ export async function updateLeaveStatus(
   }
 
   if (result.status === status) {
-    // Create notification for employee (only when status actually changed)
     try {
       const notificationType = status === 'Approved' ? 'LeaveApproved' : 'LeaveRejected';
       const title = status === 'Approved' ? 'Leave Approved' : 'Leave Rejected';
@@ -476,19 +577,42 @@ export async function updateLeaveStatus(
       });
     } catch (error) {
       console.error(`Error creating ${status} notification:`, error);
-      // Don't throw - notification failure shouldn't break status update
     }
   }
 
   return result as LeaveRequest | null;
 }
 
-export async function cancelLeave(id: string, cancelReason?: string, cancelledBy?: string): Promise<LeaveRequest | null> {
+export async function cancelLeave(
+  id: string,
+  cancelReason?: string,
+  cancelledBy?: string,
+  options?: { notifyAdmins?: boolean },
+): Promise<LeaveRequest | null> {
   const col = getLeaveCol();
-  const result = await col.findOne({ id, status: { $in: ['Approved', 'Pending'] } });
-  if (!result) return null;
+  const existing = await col.findOne({ id, status: { $in: ['Approved', 'Pending'] } });
+  if (!existing) return null;
 
-  await col.deleteOne({ id });
+  if (!canCancelLeaveRequest(existing as LeaveRequest)) {
+    throw new Error('Cannot cancel approved leave that has already ended.');
+  }
+
+  const now = new Date();
+  const result = await col.findOneAndUpdate(
+    { id },
+    {
+      $set: {
+        status: 'Cancelled',
+        cancelReason: cancelReason?.trim() || undefined,
+        cancelledBy,
+        cancelledAt: now,
+        updatedAt: now,
+      },
+    },
+    { returnDocument: 'after' },
+  );
+
+  if (!result) return null;
 
   try {
     await notificationService.createNotification({
@@ -511,7 +635,31 @@ export async function cancelLeave(id: string, cancelReason?: string, cancelledBy
     console.error('Error creating cancellation notification:', error);
   }
 
-  return { ...result, status: 'Cancelled' } as LeaveRequest;
+  if (options?.notifyAdmins) {
+    try {
+      const userCollection = getDB().collection('users');
+      const admins = await userCollection.find({ role: 'Admin' }).toArray();
+      const reasonSuffix = cancelReason?.trim() ? ` Reason: ${cancelReason.trim()}` : '';
+      for (const admin of admins) {
+        await notificationService.createNotification({
+          recipientId: admin.id,
+          recipientType: 'Admin',
+          type: 'LeaveCancelled',
+          title: 'Leave Cancelled by Employee',
+          message: `${result.employeeName} cancelled their ${result.type} leave (${result.from} to ${result.to}).${reasonSuffix}`,
+          relatedData: {
+            leaveId: id,
+            employeeId: result.employeeId,
+            employeeName: result.employeeName,
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Error notifying admins about leave cancellation:', error);
+    }
+  }
+
+  return result as LeaveRequest;
 }
 
 export async function rejectLeaveWithReason(id: string, rejectionReason: string): Promise<LeaveRequest | null> {

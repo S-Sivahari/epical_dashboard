@@ -6,7 +6,7 @@ import * as leaveService from '../services/leaveService';
 import * as documentRequestService from '../services/documentRequestService';
 import { listEnrollments } from '../services/courseService';
 import { resolveEmployeeForAuthUser } from '../utils/employeeAuth';
-import { calculateBalances } from '../utils/leaveCalculator';
+import { calculateBalances, calculateMonthlyLopSummary } from '../utils/leaveCalculator';
 import { buildAssignmentIdentityTokens } from '../utils/assignedTaskSync';
 import {
   getAssignedProjectsForUser,
@@ -131,10 +131,26 @@ export async function getEmployeeDashboardBundle(userId: string, userEmail?: str
     ),
   ]);
 
-  const balances = calculateBalances(leaves, employeeRecord.joinedAt as string | undefined, {
+  const balanceOptions = {
     compensationEarnedBonus: compBonus,
     employeeAllocations: (employeeRecord as { leaveAllocations?: Record<string, number> }).leaveAllocations,
-  });
+  };
+  const balances = calculateBalances(leaves, employeeRecord.joinedAt as string | undefined, balanceOptions);
+  const lop = calculateMonthlyLopSummary(
+    leaves,
+    employeeRecord.joinedAt as string | undefined,
+    balanceOptions,
+  );
+  const balancesWithLop = {
+    ...balances,
+    'LOP Days': {
+      total: 0,
+      used: lop.totalLopDays,
+      remaining: 0,
+      approved: lop.approvedLopDays,
+      pending: lop.pendingLopDays,
+    },
+  };
 
   const sessionRows = monthSessions.map((s) => toFrontendTimesheetRow(s as any));
   const weekSessions = sessionRows.filter((s) => s.date && s.date >= weekFrom && s.date <= today);
@@ -157,8 +173,11 @@ export async function getEmployeeDashboardBundle(userId: string, userEmail?: str
 
   return {
     profile: profile ? sanitizeEmployeeForDetail(profile) : null,
-    balances,
+    balances: balancesWithLop,
     leaves: leaves.filter((l) => l.status !== 'Cancelled'),
+    leaveHistory: leaves.filter((l) =>
+      ['Approved', 'Rejected', 'Cancelled', 'Pending'].includes(l.status),
+    ),
     holidays: upcomingHolidays,
     documents,
     enrollments,

@@ -238,14 +238,14 @@ export function TrainingCourses() {
   )
 
   return (
-    <PageWrapper className="admin-hub-page-wrap relative z-10 py-2 font-body">
-      <div className="crewiq-dashboard admin-training-view relative">
+    <PageWrapper fillViewport className="admin-hub-page-wrap relative z-10 !py-2 font-body">
+      <div className="crewiq-dashboard admin-training-view relative flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="dashboard-page-bg" aria-hidden>
           <div className="dashboard-page-bg-gradient" />
           <div className="dashboard-page-bg-pattern" />
         </div>
 
-        <div className="admin-training-shell relative z-10 animate-fadeIn">
+        <div className="admin-training-shell relative z-10 flex min-h-0 flex-1 animate-fadeIn flex-col overflow-hidden">
           <header className="admin-training-hub-header shrink-0">
             <div className="admin-training-hero-top">
               <div className="min-w-0">

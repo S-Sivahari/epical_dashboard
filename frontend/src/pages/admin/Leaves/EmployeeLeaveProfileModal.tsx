@@ -12,6 +12,7 @@ const LEAVE_TYPE_COLORS: Record<string, string> = {
   'Casual Leave': 'border-green-200 bg-green-50',
   'Sick Leave': 'border-blue-200 bg-blue-50',
   'Earned Leave': 'border-violet-200 bg-violet-50',
+  'Compensation Leave': 'border-amber-200 bg-amber-50',
 }
 
 const ALLOCATION_TYPES = ['Casual Leave', 'Sick Leave', 'Earned Leave'] as const
@@ -24,6 +25,8 @@ function getStatusBadgeVariant(status: LeaveRequest['status']) {
       return 'warning'
     case 'Rejected':
       return 'danger'
+    case 'Cancelled':
+      return 'neutral'
     default:
       return 'neutral'
   }

@@ -126,10 +126,13 @@ export async function getUnreadNotifications(recipientId: string): Promise<Notif
   return notifications as Notification[];
 }
 
-export async function markAsRead(notificationId: string): Promise<Notification | null> {
+export async function markAsRead(
+  notificationId: string,
+  recipientId: string,
+): Promise<Notification | null> {
   const col = getNotificationCol();
   const result = await col.findOneAndUpdate(
-    { id: notificationId },
+    { id: notificationId, recipientId },
     { $set: { isRead: true, updatedAt: new Date() } },
     { returnDocument: 'after' }
   );
@@ -145,9 +148,12 @@ export async function markAllAsRead(recipientId: string): Promise<boolean> {
   return result.modifiedCount > 0;
 }
 
-export async function deleteNotification(notificationId: string): Promise<boolean> {
+export async function deleteNotification(
+  notificationId: string,
+  recipientId: string,
+): Promise<boolean> {
   const col = getNotificationCol();
-  const result = await col.deleteOne({ id: notificationId });
+  const result = await col.deleteOne({ id: notificationId, recipientId });
   return result.deletedCount > 0;
 }
 

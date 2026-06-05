@@ -385,7 +385,7 @@ setRejectOpen(false)
     <div
       className={cn(
         'crewiq-dashboard relative',
-        !embedded && 'admin-documents-view',
+        !embedded && 'admin-documents-view flex min-h-0 flex-1 flex-col overflow-hidden',
       )}
     >
       {!embedded ? (
@@ -441,7 +441,11 @@ setRejectOpen(false)
         </div>
       </Modal>
 
-      <div className={cn(!embedded && 'admin-documents-shell relative z-10 animate-fadeIn')}>
+      <div
+        className={cn(
+          !embedded && 'admin-documents-shell relative z-10 flex min-h-0 flex-1 animate-fadeIn flex-col overflow-hidden',
+        )}
+      >
         {!embedded ? (
           <>
             <header className="admin-documents-hub-header">
@@ -563,5 +567,9 @@ setRejectOpen(false)
   )
 
   if (embedded) return content
-  return <PageWrapper className="admin-hub-page-wrap relative z-10 py-3 font-body">{content}</PageWrapper>
+  return (
+    <PageWrapper fillViewport className="admin-hub-page-wrap relative z-10 !py-3 font-body">
+      {content}
+    </PageWrapper>
+  )
 }

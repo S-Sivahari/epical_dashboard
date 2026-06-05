@@ -4,7 +4,7 @@ import { PageLoading } from '@components/layout/PageLoading'
 
 export function AuthLayout() {
   return (
-    <div className="min-h-screen bg-surface">
+    <div className="auth-layout-scroll min-h-screen bg-surface">
       <Suspense fallback={<PageLoading />}>
         <Outlet />
       </Suspense>

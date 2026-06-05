@@ -139,11 +139,11 @@ export async function remove(req: AuthRequest, res: Response): Promise<void> {
 
     // Check if the employee has already used Earned Leave
     const balances = await leaveService.getLeaveBalances(entry.employeeId);
-    const earnedLeave = balances['Earned Leave'] || { total: 0, used: 0, remaining: 0 };
+    const compensationLeave = balances['Compensation Leave'] || { total: 0, used: 0, remaining: 0 };
 
-    if (earnedLeave.used > 0) {
+    if (compensationLeave.used > 0) {
       // "admin delete does nothing" - return success: true but skip deletion, and output a skipped message
-      res.json({ success: true, message: 'Delete did nothing because the employee has already used the earned leave.', skipped: true });
+      res.json({ success: true, message: 'Delete did nothing because the employee has already used the compensation leave.', skipped: true });
       return;
     }
 

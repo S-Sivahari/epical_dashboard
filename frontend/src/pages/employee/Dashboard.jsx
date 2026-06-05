@@ -25,12 +25,14 @@ const LEAVE_COLORS = {
   'Casual Leave': '#3d7a6a',
   'Sick Leave': '#4a7a9a',
   'Earned Leave': '#6b5b8a',
+  'Compensation Leave': '#c27803',
 }
 
 const LEAVE_TINT = {
   casual: 'emp-leave-tint--casual',
   sick: 'emp-leave-tint--sick',
   earned: 'emp-leave-tint--earned',
+  compensation: 'emp-leave-tint--compensation',
 }
 
 const CARD_CLASS = portalCardClass({ className: 'flex h-full min-h-0 flex-col overflow-hidden p-4 sm:p-5' })
@@ -60,6 +62,14 @@ function formatLeaveBalances(balanceData = {}) {
       total: balanceData['Earned Leave']?.total ?? 0,
       remaining: balanceData['Earned Leave']?.remaining ?? 0,
       color: LEAVE_COLORS['Earned Leave'],
+    },
+    {
+      key: 'compensation',
+      type: 'Compensation Leave',
+      used: balanceData['Compensation Leave']?.used ?? 0,
+      total: balanceData['Compensation Leave']?.total ?? 0,
+      remaining: balanceData['Compensation Leave']?.remaining ?? 0,
+      color: LEAVE_COLORS['Compensation Leave'],
     },
   ]
 }
@@ -110,6 +120,7 @@ export default function Dashboard() {
   const [profile, setProfile] = useState(null)
   const [balances, setBalances] = useState(() => formatLeaveBalances())
   const [leaves, setLeaves] = useState([])
+  const [leaveHistory, setLeaveHistory] = useState([])
   const [holidays, setHolidays] = useState([])
   const [documents, setDocuments] = useState([])
   const [enrollments, setEnrollments] = useState([])
@@ -161,6 +172,13 @@ export default function Dashboard() {
         setAssignedProjects(projects)
         setBalances(formatLeaveBalances(balanceData))
         setLeaves(Array.isArray(data.leaves) ? data.leaves : [])
+        setLeaveHistory(
+          Array.isArray(data.leaveHistory)
+            ? data.leaveHistory
+            : Array.isArray(data.leaves)
+              ? data.leaves
+              : [],
+        )
         setHolidays(Array.isArray(data.holidays) ? data.holidays : [])
         setDocuments(Array.isArray(data.documents) ? data.documents : [])
         setEnrollments(Array.isArray(data.enrollments) ? data.enrollments : [])
@@ -281,7 +299,10 @@ export default function Dashboard() {
         {loading ? (
           widgetSkeleton
         ) : (
-          <RecentLeaveRequestsCard className="h-full emp-dash-card emp-dash-card--amber" leaves={leaves} />
+          <RecentLeaveRequestsCard
+            className="h-full emp-dash-card emp-dash-card--amber"
+            leaves={leaveHistory.length ? leaveHistory : leaves}
+          />
         )}
 
         {loading ? (
