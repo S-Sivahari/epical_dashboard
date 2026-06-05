@@ -1471,10 +1471,9 @@
   overflow: visible;
 }
 
-/* Employee portal — command-center dashboard (same chrome heights as admin) */
+/* Employee portal — dashboard uses full-bleed padding */
 .employee-portal:has([data-employee-dashboard]) {
   padding: 0 !important;
-  overflow: hidden;
 }
 
 .employee-portal main:has([data-employee-dashboard]) > .relative {
@@ -1482,39 +1481,7 @@
   overflow: visible;
 }
 
-@media (min-width: 1024px) {
-  .employee-portal .admin-dashboard-view[data-employee-dashboard] {
-    height: calc(100dvh - var(--admin-cmd-bar-h) - var(--admin-top-nav-h));
-    max-height: calc(100dvh - var(--admin-cmd-bar-h) - var(--admin-top-nav-h));
-    overflow-x: hidden;
-    overflow-y: auto;
-  }
-}
-
-@media (max-width: 1023px) {
-  .employee-portal .admin-dashboard-view[data-employee-dashboard] {
-    height: auto;
-    max-height: none;
-    overflow-y: auto;
-  }
-
-  .employee-portal .admin-dashboard-view[data-employee-dashboard] .dashboard-shell {
-    height: auto;
-    overflow: visible;
-  }
-
-  .employee-portal .admin-dashboard-view[data-employee-dashboard] .dashboard-main-grid {
-    overflow: visible;
-  }
-}
-
-.employee-portal .admin-dashboard-view[data-employee-dashboard] .dashboard-shell {
-  height: auto;
-  min-height: 0;
-  flex: 1;
-  overflow-x: hidden;
-  overflow-y: auto;
-}
+/* Employee dashboard scroll — see viewport-layout.css ([data-employee-dashboard] is inside page shell) */
 
 .admin-dashboard-view {
   --dashboard-font-scale: 1.125;
@@ -1545,6 +1512,14 @@
   color: var(--dash-slate);
   background: var(--dash-canvas);
   -webkit-overflow-scrolling: touch;
+}
+
+/* Employee portal pages — cmd-main scrolls (not the page shell) */
+.employee-portal [data-employee-page].admin-dashboard-view {
+  flex: 1 1 auto;
+  height: auto;
+  max-height: none;
+  overflow: visible;
 }
 
 @media (max-width: 1023px) {
@@ -5792,8 +5767,6 @@
 .admin-portal .admin-payslips-view.crewiq-dashboard {
   margin: 0 !important;
   min-height: 0 !important;
-  max-height: 100%;
-  height: 100%;
   background: transparent;
 }
 

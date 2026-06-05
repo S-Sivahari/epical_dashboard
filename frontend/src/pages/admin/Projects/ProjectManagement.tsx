@@ -2291,7 +2291,10 @@ export function ProjectManagement() {
   return (
     <div className="crewiq-dashboard admin-projects-view" data-admin-projects>
       <div className="crewiq-dash-bg" aria-hidden />
-      <PageWrapper className="projects-page-wrapper relative z-10 py-3 font-body !max-w-none w-full !px-4 lg:!px-8">
+      <PageWrapper
+        fillViewport
+        className="projects-page-wrapper relative z-10 py-3 font-body !max-w-none w-full !px-4 lg:!px-8"
+      >
         <div className="projects-shell animate-fadeIn">
           
           {/* Modern Enterprise Hero Section - Horizontal Layout with Dark Forest Green */}
