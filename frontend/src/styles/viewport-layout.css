@@ -216,15 +216,22 @@ body,
   flex: 1 1 0;
   flex-direction: column;
   min-height: 0;
-  max-height: var(--viewport-page-h);
+  max-height: 100%;
   overflow: hidden;
 }
 
-.admin-portal .admin-projects-view .projects-shell {
+.admin-portal .admin-projects-view .projects-page-wrapper {
+  display: flex;
   flex: 1 1 0;
+  flex-direction: column;
   min-height: 0;
-  overflow-x: hidden;
   overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.admin-portal .admin-projects-view .projects-shell {
+  flex: 0 1 auto;
+  min-height: 0;
 }
 
 .admin-portal .projects-body-grid {
@@ -304,8 +311,7 @@ body,
 }
 
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-dashboard]),
-.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]),
-.employee-portal [data-employee-page] > .emp-portal-page__content:has(.emp-timesheet-page) {
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]) {
   overflow: hidden;
 }
 
