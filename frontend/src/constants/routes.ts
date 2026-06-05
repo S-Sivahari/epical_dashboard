@@ -8,6 +8,7 @@ export const ROUTES = {
   LEAVES: '/admin/leaves',
   PROJECTS: '/admin/projects',
   PROJECT_WORKSPACE: (id: string) => `/admin/projects/${id}`,
+  PROJECT_CELL: (projectId: string, cellId: string) => `/admin/projects/${projectId}/cells/${cellId}`,
   TIMESHEET: '/admin/timesheet',
   CALENDAR: '/admin/calendar',
   TRAINING: '/admin/training',

@@ -63,6 +63,11 @@ const ProjectWorkspace = lazy(async () => {
   return { default: m.ProjectWorkspace }
 })
 
+const ProjectCellPage = lazy(async () => {
+  const m = await import('@pages/admin/Projects/ProjectCellPage')
+  return { default: m.ProjectCellPage }
+})
+
 const AdminCompanyCalendarPage = lazy(() =>
   import('@pages/admin/Calendar/AdminCompanyCalendarPage')
 )
@@ -201,6 +206,7 @@ export function AppRoutes() {
             <Route path="timesheet" element={<ProjectManagement />} />
 
             <Route path="projects" element={<AdminProjectsPage />} />
+            <Route path="projects/:projectId/cells/:cellId" element={<ProjectCellPage />} />
             <Route path="projects/:projectId" element={<ProjectWorkspace />} />
 
             <Route

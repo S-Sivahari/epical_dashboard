@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  ArrowLeft, BookOpen, CheckCircle2, ChevronDown, GitBranch, History, Layers, LayoutGrid, MessageSquare, Plus, Search, Trash2, User, X,
+  ArrowLeft, BookOpen, CheckCircle2, ChevronDown, GitBranch, History, Layers, LayoutGrid, Plus, Search, Trash2, User, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageWrapper } from '@components/layout/PageWrapper'
@@ -12,24 +12,17 @@ import { Modal } from '@components/ui/Modal'
 import { ROUTES } from '@constants/routes'
 import { getEmployees } from '@services/employeeService'
 import {
-  addReviewMessage,
-  completeCell,
   createCell,
-  createCellReview,
   createLibrary,
   deleteCell,
   deleteLibrary,
-  fetchCellReviews,
   fetchDependencyGraph,
   fetchWorkspaceSummary,
-  updateCell,
-  updateCellStatus,
 } from '@/services/projectWorkspaceService'
 import { cn } from '@/utils/cn'
 import {
   CELL_STATUSES,
   CELL_TYPES,
-  type CellReview,
   type CellStatus,
   type DependencyGraph,
   type ProjectCell,
@@ -39,16 +32,11 @@ import {
 import type { Employee } from '@/types'
 import './adminProjects.css'
 import { DependencyGraphView } from './DependencyGraphView'
+import { STATUS_LABELS, cellDisplayStatus } from './projectWorkspaceUi'
 
 type DeleteTarget = { type: 'library' | 'cell'; id: string; name: string }
 type WorkspaceSection = 'home' | 'graph' | 'activity'
 type StatFilter = 'ready' | 'blocked' | 'unassigned' | null
-
-const STATUS_LABELS: Record<CellStatus, string> = {
-  ready: 'Ready',
-  in_progress: 'In Progress',
-  completed: 'Completed',
-}
 
 const FILTER_SELECT_CLASS =
   'admin-projects-filter-select h-10 w-full min-w-[9.5rem] cursor-pointer appearance-none pl-3 pr-9 text-sm font-medium'
@@ -58,11 +46,6 @@ const SECTION_ITEMS: { id: WorkspaceSection; label: string; icon: typeof LayoutG
   { id: 'graph', label: 'Dependency graph', icon: GitBranch },
   { id: 'activity', label: 'Activity log', icon: History },
 ]
-
-function cellDisplayStatus(cell: ProjectCell) {
-  if (cell.isBlocked && cell.status !== 'completed') return 'Blocked'
-  return STATUS_LABELS[cell.status]
-}
 
 function emptyCellForm(libraryId: string, technologyNode: string): Partial<ProjectCell> & { libraryId: string } {
   return {
@@ -82,6 +65,7 @@ function emptyCellForm(libraryId: string, technologyNode: string): Partial<Proje
 
 export function ProjectWorkspace() {
   const { projectId = '' } = useParams()
+  const navigate = useNavigate()
   const [summary, setSummary] = useState<WorkspaceSummary | null>(null)
   const [graph, setGraph] = useState<DependencyGraph | null>(null)
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -92,16 +76,8 @@ export function ProjectWorkspace() {
   const [libraryDesc, setLibraryDesc] = useState('')
   const [cellModal, setCellModal] = useState(false)
   const [cellForm, setCellForm] = useState<ReturnType<typeof emptyCellForm> | null>(null)
-  const [editingCellId, setEditingCellId] = useState<string | null>(null)
-  const [reviewModal, setReviewModal] = useState(false)
-  const [reviewCell, setReviewCell] = useState<ProjectCell | null>(null)
-  const [reviews, setReviews] = useState<CellReview[]>([])
-  const [reviewComment, setReviewComment] = useState('')
   const [viewTab, setViewTab] = useState<'layout' | 'symbol' | 'schematic'>('layout')
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
-  const [dependencyModal, setDependencyModal] = useState(false)
-  const [dependencyCell, setDependencyCell] = useState<ProjectCell | null>(null)
-  const [selectedDepIds, setSelectedDepIds] = useState<string[]>([])
   const [workspaceSection, setWorkspaceSection] = useState<WorkspaceSection>('home')
   const [filterSearch, setFilterSearch] = useState('')
   const [filterTypeSelect, setFilterTypeSelect] = useState<'all' | ProjectCell['cellType']>('all')
@@ -204,11 +180,6 @@ export function ProjectWorkspace() {
       .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
   }, [allCells, libraryNameById])
 
-  const dependencyOptions = useMemo(() => {
-    if (!dependencyCell) return []
-    return allCells.filter((c) => c.id !== dependencyCell.id)
-  }, [allCells, dependencyCell])
-
   const openCreateCell = () => {
     if (!summary || summary.libraries.length === 0) {
       toast.error('Create a library first')
@@ -216,40 +187,8 @@ export function ProjectWorkspace() {
     }
     const libraryId = activeLibraryId ?? summary.libraries[0]?.id
     if (!libraryId) return
-    setEditingCellId(null)
     setCellForm(emptyCellForm(libraryId, summary.project.technologyNode))
     setCellModal(true)
-  }
-
-  const openEditCell = (cell: ProjectCell) => {
-    setEditingCellId(cell.id)
-    setCellForm({ ...cell, libraryId: cell.libraryId })
-    setCellModal(true)
-  }
-
-  const openDependencies = (cell: ProjectCell) => {
-    setDependencyCell(cell)
-    setSelectedDepIds(cell.dependencyCellIds ?? [])
-    setDependencyModal(true)
-  }
-
-  const toggleDependency = (depId: string) => {
-    setSelectedDepIds((prev) =>
-      prev.includes(depId) ? prev.filter((id) => id !== depId) : [...prev, depId],
-    )
-  }
-
-  const saveDependencies = async () => {
-    if (!projectId || !dependencyCell) return
-    try {
-      await updateCell(projectId, dependencyCell.id, { dependencyCellIds: selectedDepIds })
-      toast.success(selectedDepIds.length ? 'Dependencies updated' : 'Dependencies cleared')
-      setDependencyModal(false)
-      setDependencyCell(null)
-      await reload()
-    } catch {
-      toast.error('Failed to update dependencies')
-    }
   }
 
   const saveCell = async () => {
@@ -258,15 +197,9 @@ export function ProjectWorkspace() {
       return
     }
     try {
-      if (editingCellId) {
-        await updateCell(projectId, editingCellId, cellForm)
-        toast.success('Cell updated')
-        setActiveLibraryId(cellForm.libraryId)
-      } else {
-        await createCell(projectId, cellForm.libraryId, { ...cellForm, name: cellForm.name || 'Untitled' })
-        toast.success('Cell created')
-        setActiveLibraryId(cellForm.libraryId)
-      }
+      await createCell(projectId, cellForm.libraryId, { ...cellForm, name: cellForm.name || 'Untitled' })
+      toast.success('Cell created')
+      setActiveLibraryId(cellForm.libraryId)
       setCellModal(false)
       await reload()
     } catch {
@@ -281,30 +214,6 @@ export function ProjectWorkspace() {
     setLibraryName('')
     setLibraryDesc('')
     await reload()
-  }
-
-  const openReviews = async (cell: ProjectCell) => {
-    setReviewCell(cell)
-    setReviewModal(true)
-    const list = await fetchCellReviews(projectId, cell.id)
-    setReviews(list)
-  }
-
-  const requestReview = async () => {
-    if (!reviewCell) return
-    await createCellReview(projectId, reviewCell.id, reviewComment || 'Review requested')
-    setReviewComment('')
-    const list = await fetchCellReviews(projectId, reviewCell.id)
-    setReviews(list)
-    toast.success('Review request sent')
-    await reload()
-  }
-
-  const postReviewReply = async (reviewId: string, body: string) => {
-    if (!reviewCell || !body.trim()) return
-    await addReviewMessage(projectId, reviewCell.id, reviewId, body)
-    const list = await fetchCellReviews(projectId, reviewCell.id)
-    setReviews(list)
   }
 
   const handleConfirmDelete = async () => {
@@ -558,12 +467,24 @@ export function ProjectWorkspace() {
                         <th>Type</th>
                         <th>Assigned</th>
                         <th>Status</th>
-                        <th style={{ textAlign: 'right' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {displayedCells.map((cell) => (
-                        <tr key={cell.id}>
+                        <tr
+                          key={cell.id}
+                          className="admin-projects-table-row-clickable"
+                          onClick={() => navigate(ROUTES.PROJECT_CELL(projectId, cell.id))}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              navigate(ROUTES.PROJECT_CELL(projectId, cell.id))
+                            }
+                          }}
+                          tabIndex={0}
+                          role="link"
+                          aria-label={`Open ${cell.name}`}
+                        >
                           <td style={{ fontWeight: 600 }}>{cell.name}</td>
                           <td>{cell.cellType}</td>
                           <td>{cell.assignedEmployeeName || '—'}</td>
@@ -578,49 +499,11 @@ export function ProjectWorkspace() {
                               {cellDisplayStatus(cell)}
                             </span>
                           </td>
-                          <td style={{ textAlign: 'right' }}>
-                            <div className="flex flex-wrap justify-end gap-1">
-                              <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={() => openEditCell(cell)}>Edit</Button>
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                className="h-7 text-xs"
-                                onClick={() => openDependencies(cell)}
-                              >
-                                <GitBranch className="mr-1 h-3 w-3" />
-                                {cell.dependencyCellIds?.length ? 'Edit deps' : 'Add deps'}
-                              </Button>
-                              <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={() => void openReviews(cell)}>
-                                <MessageSquare className="h-3 w-3" />
-                              </Button>
-                              {cell.status !== 'completed' && (
-                                <Button
-                                  size="sm"
-                                  className="h-7 text-xs"
-                                  onClick={async () => {
-                                    await completeCell(projectId, cell.id)
-                                    toast.success('Cell completed')
-                                    await reload()
-                                  }}
-                                >
-                                  Complete
-                                </Button>
-                              )}
-                              <button
-                                type="button"
-                                className="admin-projects-icon-btn admin-projects-icon-btn--danger"
-                                title={`Delete ${cell.name}`}
-                                onClick={() => setDeleteTarget({ type: 'cell', id: cell.id, name: cell.name })}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          </td>
                         </tr>
                       ))}
                       {displayedCells.length === 0 && (
                         <tr>
-                          <td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                          <td colSpan={4} style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
                             No cells in this library.
                           </td>
                         </tr>
@@ -681,7 +564,7 @@ export function ProjectWorkspace() {
         </div>
       </Modal>
 
-      <Modal isOpen={cellModal && !!cellForm} title={editingCellId ? 'Edit cell' : 'New cell'} onClose={() => setCellModal(false)}>
+      <Modal isOpen={cellModal && !!cellForm} title="New cell" onClose={() => setCellModal(false)}>
         {cellForm && (
           <div className="grid max-h-[70vh] gap-3 overflow-y-auto pr-1">
             <div>
@@ -742,25 +625,6 @@ export function ProjectWorkspace() {
                 ))}
               </select>
             </label>
-            {editingCellId && (
-              <label className="text-sm font-medium">Workflow status
-                <select
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  value={cellForm.status}
-                  onChange={async (e) => {
-                    const status = e.target.value as CellStatus
-                    await updateCellStatus(projectId, editingCellId, status)
-                    setCellForm((f) => f && { ...f, status })
-                    toast.success('Status updated')
-                    await reload()
-                  }}
-                >
-                  {(['ready', 'in_progress'] as const).map((s) => (
-                    <option key={s} value={s}>{STATUS_LABELS[s]}</option>
-                  ))}
-                </select>
-              </label>
-            )}
             <div>
               <p className="admin-projects-field-label">Views</p>
               <div className="admin-projects-pill-rail mb-2">
@@ -790,69 +654,6 @@ export function ProjectWorkspace() {
         )}
       </Modal>
 
-      <Modal
-        isOpen={dependencyModal && !!dependencyCell}
-        title={dependencyCell?.dependencyCellIds?.length ? `Edit dependencies — ${dependencyCell?.name}` : `Add dependencies — ${dependencyCell?.name}`}
-        onClose={() => {
-          setDependencyModal(false)
-          setDependencyCell(null)
-        }}
-      >
-        {dependencyCell && (
-          <div className="grid gap-3">
-            <p className="text-sm text-slate-600">
-              Select which cells <strong>{dependencyCell.name}</strong> must wait for. Links appear in the dependency graph below.
-            </p>
-            <div className="admin-projects-dep-pick">
-              {dependencyOptions.length === 0 ? (
-                <p className="px-2 py-4 text-sm text-slate-500">No other cells available to depend on.</p>
-              ) : (
-                dependencyOptions.map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => toggleDependency(option.id)}
-                    className={cn(
-                      'admin-projects-dep-option',
-                      selectedDepIds.includes(option.id) && 'is-selected',
-                    )}
-                  >
-                    <span className={cn(
-                      'admin-projects-dep-check',
-                      selectedDepIds.includes(option.id) && 'is-selected',
-                    )}
-                    />
-                    <span className="min-w-0 flex-1 text-left">
-                      <span className="block font-semibold text-slate-900">{option.name}</span>
-                      <span className="block text-xs text-slate-500">
-                        {libraryNameById.get(option.libraryId) || 'Library'} · {option.cellType} · {STATUS_LABELS[option.status]}
-                      </span>
-                    </span>
-                  </button>
-                ))
-              )}
-            </div>
-            {selectedDepIds.length > 0 && (
-              <p className="text-xs font-semibold text-emerald-800">
-                {selectedDepIds.length} dependenc{selectedDepIds.length === 1 ? 'y' : 'ies'} selected
-              </p>
-            )}
-            <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setDependencyModal(false)
-                  setDependencyCell(null)
-                }}
-              >
-                Cancel
-              </Button>
-              <Button onClick={() => void saveDependencies()}>Save dependencies</Button>
-            </div>
-          </div>
-        )}
-      </Modal>
-
       <ConfirmModal
         isOpen={!!deleteTarget}
         title={deleteTarget?.type === 'library' ? 'Delete library' : 'Delete cell'}
@@ -866,43 +667,6 @@ export function ProjectWorkspace() {
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => void handleConfirmDelete()}
       />
-
-      <Modal isOpen={reviewModal && !!reviewCell} title={`Reviews — ${reviewCell?.name}`} onClose={() => setReviewModal(false)}>
-        <div className="space-y-3">
-          <div className="flex gap-2">
-            <Input className="flex-1" placeholder="Request review or add comment…" value={reviewComment} onChange={(e) => setReviewComment(e.target.value)} />
-            <Button onClick={() => void requestReview()}>Request review</Button>
-          </div>
-          {reviews.map((review) => (
-            <div key={review.id} className="rounded-lg border border-slate-200 p-3">
-              <p className="text-xs font-semibold text-slate-500">
-                {review.initiatedByName} · stage {review.stageAtRequest} · {review.status}
-              </p>
-              <ul className="mt-2 space-y-2">
-                {review.messages.map((msg, i) => (
-                  <li key={i} className="rounded bg-slate-50 px-2 py-1.5 text-sm">
-                    <span className="font-semibold">{msg.authorName}</span> ({msg.authorRole}): {msg.body}
-                  </li>
-                ))}
-              </ul>
-              {review.status === 'open' && (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="mt-2"
-                  onClick={() => {
-                    const body = window.prompt('Reply')
-                    if (body) void postReviewReply(review.id, body)
-                  }}
-                >
-                  Reply
-                </Button>
-              )}
-            </div>
-          ))}
-          {reviews.length === 0 && <p className="text-sm text-slate-500">No reviews yet.</p>}
-        </div>
-      </Modal>
     </PageWrapper>
   )
 }
