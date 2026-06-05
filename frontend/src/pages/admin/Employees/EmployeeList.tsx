@@ -27,6 +27,7 @@ import { PaginationBar } from '@components/tables/Pagination'
 import { useEmployees } from '@hooks/useEmployees'
 import type { Employee } from '@/types'
 import { stringToHueColor, stringToHue } from '@/utils/stringColor'
+import { getEmployeeAvatarUrl } from '@/utils/getAvatarUrl'
 import { EmployeeAvatar } from '@components/ui/EmployeeAvatar'
 import { exportToExcel } from '@/utils/exportExcel'
 import { exportToPDF } from '@/utils/exportPDF'
@@ -483,8 +484,8 @@ export function EmployeeList() {
                         {/* Avatar / Initials container with status badge */}
                         <div className="relative flex flex-col items-center">
                           <div className={`relative flex items-center justify-center h-16 w-16 rounded-full border-2 ring-4 ${ringColor}`}>
-                            {e.avatarUrl ? (
-                              <img src={e.avatarUrl} alt={name} className="h-full w-full rounded-full object-cover" />
+                            {getEmployeeAvatarUrl(e) ? (
+                              <img src={getEmployeeAvatarUrl(e)} alt={name} className="h-full w-full rounded-full object-cover" />
                             ) : (
                               <span className="text-xl font-bold">{initials}</span>
                             )}

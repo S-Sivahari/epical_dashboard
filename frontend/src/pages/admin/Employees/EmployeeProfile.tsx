@@ -5,10 +5,10 @@ import { Button } from '@components/ui/Button'
 import { Modal } from '@components/ui/Modal'
 import * as employeeService from '@services/employeeService'
 import { openEmployeeDocument } from '@/services/uploadService'
-import * as leaveService from '@services/leaveService'
-import type { Employee, EmployeeActivityEntry, EmployeeLeaveSummary } from '@/types'
+import type { Employee, EmployeeActivityEntry } from '@/types'
 import { formatDate } from '@/utils/formatDate'
 import { stringToHue } from '@/utils/stringColor'
+import { getEmployeeAvatarUrl } from '@/utils/getAvatarUrl'
 
 import {
   FileText,
@@ -21,8 +21,6 @@ import {
   Phone,
   Eye,
   EyeOff,
-  Leaf,
-  Users,
   Landmark,
   User,
   CheckCircle,
@@ -126,7 +124,6 @@ export function EmployeeProfile() {
   const [statusReasonError, setStatusReasonError] = useState('')
   const [savingStatus, setSavingStatus] = useState(false)
   const [showAadhaar, setShowAadhaar] = useState(false)
-  const [leaveSummary, setLeaveSummary] = useState<EmployeeLeaveSummary | null>(null)
   const reasonInputRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
@@ -144,16 +141,6 @@ export function EmployeeProfile() {
         if (!cancelled) {
           setEmployee(e)
           setDocuments(documentListFromEmployee(e as Record<string, unknown>))
-        }
-
-        // Fetch leave summary
-        try {
-          const summaryData = await leaveService.getEmployeeLeaveSummary(id)
-          if (!cancelled) {
-            setLeaveSummary(summaryData)
-          }
-        } catch (err) {
-          console.error('[EmployeeProfile] Failed to fetch leave summary:', err)
         }
       } catch (err) {
         if (!cancelled) {
@@ -318,24 +305,7 @@ export function EmployeeProfile() {
     statusClass = 'bg-red-50 text-[#b91c1c] border-red-200'
   }
 
-  // Leave summary metrics
-  const todayStr = new Date().toISOString().split('T')[0]
-  const currentYear = new Date().getFullYear().toString()
-  
-  const totalLeavesTaken = leaveSummary
-    ? leaveSummary.balances.reduce((sum, b) => sum + b.used, 0)
-    : 0
-  const totalLeavesAllocated = leaveSummary
-    ? leaveSummary.balances.reduce((sum, b) => sum + b.total, 0)
-    : 0
-  const leavesPercentage = totalLeavesAllocated > 0
-    ? Math.round((totalLeavesTaken / totalLeavesAllocated) * 100)
-    : 0
-  const leavesTakenYTD = leaveSummary
-    ? leaveSummary.history
-        .filter((l) => l.status === 'Approved' && l.from.startsWith(currentYear) && l.from <= todayStr)
-        .reduce((sum, l) => sum + l.days, 0)
-    : 0
+
 
   const hue = stringToHue(employee.id || name)
   const tintBgStyle = {
@@ -349,6 +319,8 @@ export function EmployeeProfile() {
   const initialsStyle = {
     color: `hsl(${hue} 60% 40%)`
   }
+
+  const avatarUrl = getEmployeeAvatarUrl(employee)
 
   return (
     <div className="crewiq-dashboard employee-pages employee-directory-view" data-page-scrollable>
@@ -364,8 +336,8 @@ export function EmployeeProfile() {
             <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-[0_4px_15px_rgba(0,0,0,0.01)] flex flex-col items-center text-center">
               {/* Profile image / large avatar */}
               <div className="relative flex items-center justify-center h-28 w-28 rounded-full border-2 overflow-hidden" style={avatarRingStyle}>
-                {employee.avatarUrl ? (
-                  <img src={employee.avatarUrl} alt={name} className="h-full w-full object-cover" />
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={name} className="h-full w-full object-cover" />
                 ) : (
                   <span className="text-3xl font-bold" style={initialsStyle}>
                     {`${employee.firstName?.[0] ?? ''}${employee.lastName?.[0] ?? ''}`.toUpperCase()}
@@ -493,32 +465,11 @@ export function EmployeeProfile() {
 
                     {/* Quick Summary Card (Spans 1 column) */}
                     <ProfileCard title="Quick Summary" className="lg:col-span-1 h-full">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-4">
-                          <SummaryItem
-                            label="Joining Date"
-                            value={formatDate(employee.joinedAt)}
-                            icon={<Calendar className="h-4 w-4" />}
-                          />
-                          <SummaryItem
-                            label="Total Leaves taken"
-                            value={String(totalLeavesTaken)}
-                            icon={<Leaf className="h-4 w-4" />}
-                          />
-                        </div>
-                        <div className="space-y-4">
-                          <SummaryItem
-                            label="Total Leaves taken %"
-                            value={`${leavesPercentage}%`}
-                            icon={<Leaf className="h-4 w-4" />}
-                          />
-                          <SummaryItem
-                            label="Leaves taken YTD"
-                            value={String(leavesTakenYTD)}
-                            icon={<Users className="h-4 w-4" />}
-                          />
-                        </div>
-                      </div>
+                      <SummaryItem
+                        label="Joining Date"
+                        value={formatDate(employee.joinedAt)}
+                        icon={<Calendar className="h-4 w-4" />}
+                      />
                     </ProfileCard>
                   </div>
 

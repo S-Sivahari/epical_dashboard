@@ -184,6 +184,7 @@ app.use('/api', newsRoutes);
 app.use('/api', achievementRoutes);
 app.use('/api', uploadRoutes);
 
+// Employee routes after upload routes so /:id doesn't catch /employees/:id/photo
 app.use('/api/employees', employeeRoutes);
 
 // ── Stats endpoint (admin dashboard) ─────────────────────────
