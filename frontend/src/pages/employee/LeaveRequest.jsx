@@ -20,7 +20,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DataTable } from '@components/employee/shared/DataTable'
 import { SearchBar } from '@components/employee/shared/SearchBar'
 import { FilterDropdown } from '@components/employee/shared/FilterDropdown'
-import { LeaveCard } from '@components/employee/shared/LeaveCard'
 import { useLeaveStore } from '@store/employee/leaveStore'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { useAuthStore } from '@store/authStore'
@@ -143,6 +142,14 @@ function formatLeaveBalances(data = {}) {
   })
 
   return items
+}
+
+const BALANCE_SHORT_LABELS = {
+  casual: 'Casual',
+  sick: 'Sick',
+  earned: 'Earned',
+  compensation: 'Comp',
+  lop: 'LOP',
 }
 
 function currentMonthPrefix() {
@@ -676,14 +683,169 @@ export default function LeaveRequest() {
   const visiblePageNumbers = getVisiblePageNumbers(currentPage, totalPages)
 
   return (
-    <div className="emp-leave-page max-w-full space-y-5 overflow-x-hidden">
-      <div className="emp-leave-top">
-        <div className="emp-leave-top-grid">
+    <div
+      className="emp-leave-page flex min-h-0 flex-1 flex-col overflow-hidden"
+      data-employee-leave
+    >
+      <div className="emp-leave-top flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="emp-leave-upper">
+          <div className="emp-leave-column emp-leave-column--left">
+        <InteractiveCard className={cn(CARD_CLASS, 'emp-leave-top-panel emp-leave-balance-card')}>
+          <SectionHeader
+            icon={BarChart3}
+            title="Leave balance"
+            description="Monthly casual/sick/LOP · yearly earned leave"
+            className="emp-leave-balance-head"
+          />
+          <div className="emp-leave-balance-grid">
+            {leaveBalances.map((lb) => (
+              <div
+                key={lb.key}
+                className={cn(
+                  'emp-leave-balance-tile',
+                  lb.isLop && 'emp-leave-balance-tile--lop',
+                )}
+                style={{ '--balance-accent': lb.color }}
+              >
+                <span className="emp-leave-balance-tile__label">
+                  {BALANCE_SHORT_LABELS[lb.key] ?? lb.type}
+                </span>
+                {lb.isLop ? (
+                  <span className="emp-leave-balance-tile__num emp-leave-balance-tile__num--lop">{lb.used}</span>
+                ) : (
+                  <div className="emp-leave-balance-tile__stats">
+                    <span className="emp-leave-balance-tile__stat">
+                      <span className="emp-leave-balance-tile__num">{lb.used}</span>
+                      <span className="emp-leave-balance-tile__meta">used</span>
+                    </span>
+                    <span className="emp-leave-balance-tile__stat">
+                      <span className="emp-leave-balance-tile__num">{lb.remaining}</span>
+                      <span className="emp-leave-balance-tile__meta">left</span>
+                    </span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </InteractiveCard>
+
+        <InteractiveCard className={cn(CARD_CLASS, 'emp-leave-history-card emp-leave-top-panel flex min-h-0 flex-1 flex-col overflow-hidden')}>
+        <SectionHeader
+          icon={History}
+          title="Leave history"
+          description="Approved, rejected, cancelled, and compensation leave credits"
+        >
+          <SearchBar
+            value={search}
+            onChange={setSearch}
+            placeholder="Search leave history…"
+            className="w-full min-w-0 sm:max-w-xs"
+          />
+        </SectionHeader>
+
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <FilterDropdown
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[
+              { value: 'all', label: 'All Status' },
+              { value: 'approved', label: 'Approved' },
+              { value: 'rejected', label: 'Rejected' },
+              { value: 'cancelled', label: 'Cancelled' },
+              { value: 'credited', label: 'Credited' },
+            ]}
+          />
+          <div className="flex items-center gap-2 sm:ml-auto">
+            <span className="text-xs text-muted">Rows per page</span>
+            <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+              <SelectTrigger className="h-9 w-[90px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[5, 10, 15, 20].map((n) => (
+                  <SelectItem key={n} value={String(n)}>
+                    {n}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="emp-leave-history-scroll custom-scrollbar">
+          <DataTable
+            columns={columns}
+            data={pagedHistory}
+            statusKey="status"
+            compact
+            emptyMessage="No leave history records match your filters."
+          />
+        </div>
+
+        {historyLeaves.length > 0 && (
+          <div className="emp-leave-history-footer mt-4 flex shrink-0 flex-col gap-4 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted">
+              Showing {(currentPage - 1) * pageSize + 1}–
+              {Math.min(currentPage * pageSize, historyLeaves.length)} of {historyLeaves.length} records
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1"
+                disabled={currentPage === 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </Button>
+              <div className="flex items-center gap-1">
+                {visiblePageNumbers.map((pageNum, index) => {
+                  const prevPage = visiblePageNumbers[index - 1]
+                  const showEllipsis = prevPage != null && pageNum - prevPage > 1
+                  return (
+                    <span key={pageNum} className="flex items-center gap-1">
+                      {showEllipsis && <span className="px-1 text-sm text-muted">…</span>}
+                      <button
+                        type="button"
+                        onClick={() => setPage(pageNum)}
+                        className={cn(
+                          'flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-sm font-medium transition-colors',
+                          pageNum === currentPage
+                            ? 'bg-primary text-white shadow-sm'
+                            : 'text-muted hover:bg-surface hover:text-foreground',
+                        )}
+                        aria-label={`Page ${pageNum}`}
+                        aria-current={pageNum === currentPage ? 'page' : undefined}
+                      >
+                        {pageNum}
+                      </button>
+                    </span>
+                  )
+                })}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1"
+                disabled={currentPage >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </InteractiveCard>
+          </div>
+
+          <div className="emp-leave-column emp-leave-column--right">
         <InteractiveCard
           as="form"
           selectable={false}
           onSubmit={handleSubmit(onSubmit, onError)}
-          className={cn(CARD_CLASS, 'emp-leave-apply-card emp-leave-top-panel flex h-full min-h-0 flex-col space-y-4')}
+          className={cn(CARD_CLASS, 'emp-leave-apply-card emp-leave-top-panel flex h-full min-h-0 flex-1 flex-col space-y-4')}
         >
           <div className="emp-leave-apply-head">
             <h3 className="font-heading text-lg font-semibold text-foreground">Apply for leave</h3>
@@ -808,173 +970,28 @@ export default function LeaveRequest() {
           </div>
         </InteractiveCard>
 
-        <InteractiveCard className={cn(CARD_CLASS, 'emp-leave-top-panel emp-leave-balance-card flex h-full min-h-0 flex-col')}>
-          <SectionHeader
-            icon={BarChart3}
-            title="Leave balance"
-            description="Monthly casual/sick/LOP · yearly earned leave"
-          />
-          <div className="emp-leave-balance-stack min-h-0 flex-1 overflow-y-auto">
-            {leaveBalances.map((lb) =>
-              lb.isLop ? (
-                <div
-                  key={lb.key}
-                  data-portal-card=""
-                  className={cn(
-                    'flex h-full flex-col rounded-xl border border-red-200/80 bg-red-50/70 p-3',
-                    portalCardClass({ subtle: true, className: 'shadow-none' }),
-                  )}
-                >
-                  <div className="mb-1 flex items-center justify-between">
-                    <span className="font-heading text-sm font-semibold text-red-900">LOP Days (this month)</span>
-                    <span className="text-xs font-semibold text-red-700">{lb.used} day{lb.used === 1 ? '' : 's'}</span>
-                  </div>
-                  <p className="text-[11px] text-red-800/80">Loss of Pay from casual leave beyond balance. Resets each month.</p>
-                </div>
-              ) : (
-                <LeaveCard
-                  key={lb.key}
-                  type={lb.type}
-                  used={lb.used}
-                  total={lb.total}
-                  remaining={lb.remaining}
-                  color={lb.color}
-                  embedded
-                />
-              ),
-            )}
+        {pendingLeaves.length > 0 ? (
+          <InteractiveCard className={cn(CARD_CLASS, 'emp-leave-top-panel emp-leave-pending-card flex shrink-0 flex-col')}>
+            <SectionHeader
+              icon={Clock}
+              title="Pending request"
+              description="Awaiting HR approval"
+              className="emp-leave-section-head"
+            />
+            <div className="emp-leave-pending-body">
+              <DataTable
+                columns={pendingColumns}
+                data={pendingLeaves}
+                statusKey="status"
+                compact
+                emptyMessage="No pending leave requests."
+              />
+            </div>
+          </InteractiveCard>
+        ) : null}
           </div>
-        </InteractiveCard>
-
-        <InteractiveCard className={cn(CARD_CLASS, 'emp-leave-top-panel emp-leave-pending-card flex h-full min-h-0 flex-col')}>
-        <SectionHeader
-          icon={Clock}
-          title="Pending requests"
-          description="Awaiting HR approval"
-          className="emp-leave-section-head"
-        />
-        <div className="emp-leave-pending-body min-h-0 flex-1">
-        <DataTable
-          columns={pendingColumns}
-          data={pendingLeaves}
-          statusKey="status"
-          compact
-          emptyMessage="No pending leave requests."
-        />
-        </div>
-        </InteractiveCard>
         </div>
       </div>
-
-      <InteractiveCard className={cn(CARD_CLASS, 'emp-leave-history-card')}>
-        <SectionHeader
-          icon={History}
-          title="Leave history"
-          description="Approved, rejected, cancelled, and compensation leave credits"
-        >
-          <SearchBar
-            value={search}
-            onChange={setSearch}
-            placeholder="Search leave history…"
-            className="w-full min-w-0 sm:max-w-xs"
-          />
-        </SectionHeader>
-
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <FilterDropdown
-            value={statusFilter}
-            onChange={setStatusFilter}
-            options={[
-              { value: 'all', label: 'All Status' },
-              { value: 'approved', label: 'Approved' },
-              { value: 'rejected', label: 'Rejected' },
-              { value: 'cancelled', label: 'Cancelled' },
-              { value: 'credited', label: 'Credited' },
-            ]}
-          />
-          <div className="flex items-center gap-2 sm:ml-auto">
-            <span className="text-xs text-muted">Rows per page</span>
-            <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
-              <SelectTrigger className="h-9 w-[90px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[5, 10, 15, 20].map((n) => (
-                  <SelectItem key={n} value={String(n)}>
-                    {n}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="emp-leave-history-scroll custom-scrollbar">
-          <DataTable
-            columns={columns}
-            data={pagedHistory}
-            statusKey="status"
-            compact
-            emptyMessage="No leave history records match your filters."
-          />
-        </div>
-
-        {historyLeaves.length > 0 && (
-          <div className="mt-4 flex flex-col gap-4 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted">
-              Showing {(currentPage - 1) * pageSize + 1}–
-              {Math.min(currentPage * pageSize, historyLeaves.length)} of {historyLeaves.length} records
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1"
-                disabled={currentPage === 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Previous
-              </Button>
-              <div className="flex items-center gap-1">
-                {visiblePageNumbers.map((pageNum, index) => {
-                  const prevPage = visiblePageNumbers[index - 1]
-                  const showEllipsis = prevPage != null && pageNum - prevPage > 1
-                  return (
-                    <span key={pageNum} className="flex items-center gap-1">
-                      {showEllipsis && <span className="px-1 text-sm text-muted">…</span>}
-                      <button
-                        type="button"
-                        onClick={() => setPage(pageNum)}
-                        className={cn(
-                          'flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-sm font-medium transition-colors',
-                          pageNum === currentPage
-                            ? 'bg-primary text-white shadow-sm'
-                            : 'text-muted hover:bg-surface hover:text-foreground',
-                        )}
-                        aria-label={`Page ${pageNum}`}
-                        aria-current={pageNum === currentPage ? 'page' : undefined}
-                      >
-                        {pageNum}
-                      </button>
-                    </span>
-                  )
-                })}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1"
-                disabled={currentPage >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              >
-                Next
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        )}
-      </InteractiveCard>
 
       <Dialog
         open={cancelConfirmOpen}

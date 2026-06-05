@@ -34,7 +34,8 @@ body,
 /* Viewport-fit pages — internal panel scroll only (cmd-main does not scroll) */
 .admin-portal.cmd-portal .cmd-main:has([data-admin-dashboard]),
 .admin-portal.cmd-portal .cmd-main:has([data-admin-calendar]),
-.employee-portal.cmd-portal .cmd-main:has([data-employee-calendar]) {
+.employee-portal.cmd-portal .cmd-main:has([data-employee-calendar]),
+.employee-portal.cmd-portal .cmd-main:has([data-employee-leave]) {
   overflow: hidden;
 }
 
@@ -298,13 +299,15 @@ body,
 }
 
 /* Calendar only — viewport-fit with internal panel scroll */
-.employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-calendar]) {
+.employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-calendar]),
+.employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-leave]) {
   flex: 1 1 0;
   max-height: var(--viewport-page-h);
   overflow: hidden;
 }
 
-.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]) {
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]),
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-leave]) {
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
@@ -312,7 +315,6 @@ body,
   overflow: hidden;
 }
 
-.employee-portal .emp-leave-history-scroll,
 .employee-portal .emp-timesheet-history-panel {
   max-height: min(24rem, 40vh);
   overflow-y: auto;

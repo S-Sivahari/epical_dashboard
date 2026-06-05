@@ -5139,14 +5139,16 @@
   overflow: hidden;
 }
 
-.employee-portal main:has([data-employee-calendar]) {
+.employee-portal main:has([data-employee-calendar]),
+.employee-portal main:has([data-employee-leave]) {
   overflow: hidden;
   flex: 1 1 0;
   min-height: 0;
   max-height: calc(100dvh - var(--admin-cmd-bar-h) - var(--admin-top-nav-h));
 }
 
-.employee-portal main:has([data-employee-calendar]) > .relative {
+.employee-portal main:has([data-employee-calendar]) > .relative,
+.employee-portal main:has([data-employee-leave]) > .relative {
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
