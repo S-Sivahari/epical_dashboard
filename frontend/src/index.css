@@ -11571,12 +11571,32 @@ input[type='number'] {
 }
 
 /* â”€â”€ Employee Active Directory page â”€â”€ */
+.admin-portal .crewiq-dashboard.employee-directory-view,
+.employee-portal .crewiq-dashboard.employee-directory-view {
+  background: #ffffff !important;
+}
+
+.admin-portal.cmd-portal .cmd-main:has(.employee-directory-view),
+.employee-portal.cmd-portal .cmd-main:has(.employee-directory-view) {
+  background: #ffffff;
+}
+
+.admin-portal.cmd-portal .cmd-main:has(.employee-directory-view) > .pointer-events-none,
+.employee-portal.cmd-portal .cmd-main:has(.employee-directory-view) > .pointer-events-none {
+  background: #ffffff !important;
+}
+
+.admin-portal.cmd-portal .cmd-main:has(.employee-directory-view) > .pointer-events-none > div,
+.employee-portal.cmd-portal .cmd-main:has(.employee-directory-view) > .pointer-events-none > div {
+  display: none;
+}
+
 .employee-directory-view {
   position: relative;
   min-height: 100%;
   margin: 0 !important;
   padding: 0.75rem 0.625rem 1.5rem;
-  background: transparent;
+  background: #ffffff;
 }
 
 @media (min-width: 768px) {
@@ -11596,14 +11616,14 @@ input[type='number'] {
 .employee-directory-bg-gradient {
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(165deg, rgba(232, 242, 230, 0.65) 0%, rgba(248, 250, 248, 0.95) 42%, rgba(241, 247, 240, 0.98) 100%);
+  background: #ffffff;
 }
 
 .employee-directory-bg-leaves {
   position: absolute;
   inset: 0;
-  opacity: 0.22;
+  opacity: 0;
+  display: none;
   background-image:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120' fill='none'%3E%3Cpath d='M18 92c14-28 34-44 58-52-8 18-10 36-4 52-24-2-42 2-54 0z' stroke='%23266b1c' stroke-width='1.2' opacity='0.35'/%3E%3Cpath d='M78 24c-8 16-8 32 0 46 12-10 20-24 22-46-8 2-16 2-22 0z' stroke='%233a912d' stroke-width='1.1' opacity='0.28'/%3E%3C/svg%3E");
   background-size: 140px 140px;
@@ -11618,7 +11638,7 @@ input[type='number'] {
   margin: 0 auto;
   border-radius: 1rem;
   border: 1px solid rgba(30, 90, 61, 0.1);
-  background: rgba(255, 255, 255, 0.97);
+  background: #ffffff;
   box-shadow: 0 4px 24px rgba(30, 90, 61, 0.07);
   overflow: hidden;
 }
