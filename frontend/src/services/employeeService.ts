@@ -85,9 +85,9 @@ export async function updateEmployeeStatus(
   reason?: string,
   changedBy?: string,
 ) {
-  const response = await api.put(`/employees/${id}`, {
+  const response = await api.patch(`/employees/${id}/status`, {
     status,
-    statusChangeReason: reason,
+    reason,
     changedBy,
   })
   return response.data as Employee

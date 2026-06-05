@@ -11591,22 +11591,25 @@ input[type='number'] {
   position: relative;
   min-height: 100%;
   margin: 0 !important;
-  padding: 0.75rem 0.625rem 1.5rem;
+  padding: 0.75rem 0.625rem 5.75rem;
   background: transparent;
 }
 
 @media (min-width: 768px) {
   .employee-form-view {
-    padding: 1rem 1rem 2rem;
+    padding: 1rem 1rem 5.75rem;
   }
 }
 
 .employee-form-view .employee-directory-shell {
-  min-height: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
 }
 
 .employee-form-body {
   width: 100%;
+  flex: 1 1 auto;
   padding: 1.25rem 1.25rem 0;
 }
 
@@ -11625,6 +11628,7 @@ input[type='number'] {
 .employee-form {
   width: 100%;
   max-width: none;
+  padding-bottom: 5.5rem;
 }
 
 .employee-form-sections {
@@ -11696,14 +11700,10 @@ input[type='number'] {
   white-space: nowrap;
 }
 
-.employee-form-doc-tile--certificates {
-  grid-column: 1 / -1;
-}
-
-@media (min-width: 1100px) {
-  .employee-form-doc-tile--certificates {
-    grid-column: span 2;
-  }
+.employee-form-doc-tile-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .employee-form-doc-uploaded {
@@ -11779,11 +11779,16 @@ input[type='number'] {
 }
 
 .employee-form-action-bar {
-  flex-shrink: 0;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 45;
   border-top: 1px solid rgba(30, 90, 61, 0.1);
   background: rgba(255, 255, 255, 0.98);
   padding: 1rem 1.25rem;
   box-shadow: 0 -4px 16px rgba(30, 90, 61, 0.06);
+  backdrop-filter: blur(8px);
 }
 
 @media (min-width: 768px) {
@@ -11827,6 +11832,58 @@ input[type='number'] {
 
 .employee-profile-content {
   padding: 1.25rem 1.25rem 1.5rem;
+}
+
+/* Employee profile detail pages (admin + employee portal) */
+.employee-profile-detail-page .ep-profile-card-header {
+  background-color: #2d6a4f;
+  border-bottom: 1px solid #245a42;
+}
+
+.employee-profile-detail-page .ep-profile-card-header .ep-profile-card-title {
+  color: #ffffff;
+}
+
+.employee-profile-detail-page .ep-profile-card-title {
+  font-size: 0.8125rem;
+}
+
+.employee-profile-detail-page .ep-profile-address-btn {
+  cursor: pointer;
+  text-align: left;
+  transition: color 0.15s ease;
+}
+
+.employee-profile-detail-page .ep-profile-address-btn:hover {
+  color: #2d6a4f;
+}
+
+.employee-profile-detail-page .ep-profile-label {
+  font-size: 0.75rem;
+}
+
+.employee-profile-detail-page .ep-profile-value {
+  font-size: 0.9375rem;
+}
+
+.employee-profile-detail-page .ep-profile-name {
+  font-size: 1.125rem;
+}
+
+.employee-profile-detail-page .ep-profile-meta {
+  font-size: 0.875rem;
+}
+
+.employee-profile-detail-page .ep-profile-tab {
+  font-size: 0.8125rem;
+}
+
+.employee-profile-detail-page .ep-profile-status {
+  font-size: 0.6875rem;
+}
+
+.employee-profile-detail-page .ep-profile-doc-meta {
+  font-size: 0.75rem;
 }
 
 @media (min-width: 768px) {

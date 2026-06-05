@@ -1043,12 +1043,12 @@ export function EditEmployee() {
               </div>
             ))}
 
-            <div className="employee-form-doc-tile employee-form-doc-tile--certificates">
+            <div className="employee-form-doc-tile">
               <div className="employee-form-doc-tile-header">
                 <p className="employee-form-doc-tile-label">Certificates</p>
                 <p className="employee-form-doc-tile-limit">2MB</p>
               </div>
-              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+              <div className="employee-form-doc-tile-controls">
                 <SelectField
                   value={selectedCertificateKey}
                   onChange={(event) =>
@@ -1307,6 +1307,7 @@ export function EditEmployee() {
         </div>
           </form>
         </div>
+      </div>
 
       <div className="employee-form-action-bar">
         <div className="employee-form-action-bar-inner">
@@ -1322,7 +1323,6 @@ export function EditEmployee() {
             Save Changes
           </Button>
         </div>
-      </div>
       </div>
 
       {/* ── File Size Help Modal ────────────────────────────────────────────────── */}

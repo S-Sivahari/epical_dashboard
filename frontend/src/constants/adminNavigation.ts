@@ -133,7 +133,19 @@ export function getAdminPageTitle(pathname: string): string {
   return APP_SHORT_NAME
 }
 
+export function isAdminEmployeeProfilePath(pathname: string): boolean {
+  const parts = pathname.split('/').filter(Boolean)
+  return (
+    parts[0] === 'admin' &&
+    parts[1] === 'employees' &&
+    parts.length === 3 &&
+    parts[2] !== 'add'
+  )
+}
+
 export function shouldShowAdminBackButton(pathname: string): boolean {
   const parts = pathname.split('/').filter(Boolean)
-  return parts.length > 2
+  if (parts.length <= 2) return false
+  if (isAdminEmployeeProfilePath(pathname)) return false
+  return true
 }
