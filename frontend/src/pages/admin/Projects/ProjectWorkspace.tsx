@@ -268,42 +268,42 @@ export function ProjectWorkspace() {
         </div>
 
         <div className="admin-projects-workspace-shell relative z-10">
-          <header className="admin-projects-workspace-head">
-            <div className="min-w-0">
-              <Link to={ROUTES.PROJECTS} className="admin-projects-back-btn">
-                <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-                All projects
-              </Link>
-              <h1 className="admin-projects-head-title">{project.name}</h1>
-              <p className="admin-projects-workspace-meta">
-                {project.client} · {project.accessType === 'public' ? 'Public' : 'Private'} · Lead: {project.teamLead || '—'}
-              </p>
-            </div>
-            <div className="admin-projects-workspace-head-actions">
-              <nav className="admin-projects-section-rail" aria-label="Workspace sections">
-                {SECTION_ITEMS.map(({ id, label, icon: Icon }) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setWorkspaceSection(id)}
-                    className={cn(
-                      'admin-projects-section-btn',
-                      workspaceSection === id ? 'admin-projects-section-btn--active' : 'admin-projects-section-btn--inactive',
-                    )}
-                  >
-                    <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                    {label}
-                  </button>
-                ))}
-              </nav>
-              <div className="admin-projects-progress-pill">
-                <span>Progress</span>
-                <strong>{project.completionPercentage}%</strong>
+          <div className="admin-projects-workspace-chrome">
+            <header className="admin-projects-workspace-head">
+              <div className="min-w-0">
+                <Link to={ROUTES.PROJECTS} className="admin-projects-back-btn">
+                  <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+                  All projects
+                </Link>
+                <h1 className="admin-projects-head-title">{project.name}</h1>
+                <p className="admin-projects-workspace-meta">
+                  {project.client} · {project.accessType === 'public' ? 'Public' : 'Private'} · Lead: {project.teamLead || '—'}
+                </p>
               </div>
-            </div>
-          </header>
+              <div className="admin-projects-workspace-head-actions">
+                <nav className="admin-projects-section-rail" aria-label="Workspace sections">
+                  {SECTION_ITEMS.map(({ id, label, icon: Icon }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setWorkspaceSection(id)}
+                      className={cn(
+                        'admin-projects-section-btn',
+                        workspaceSection === id ? 'admin-projects-section-btn--active' : 'admin-projects-section-btn--inactive',
+                      )}
+                    >
+                      <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                      {label}
+                    </button>
+                  ))}
+                </nav>
+                <div className="admin-projects-progress-pill">
+                  <span>Progress</span>
+                  <strong>{project.completionPercentage}%</strong>
+                </div>
+              </div>
+            </header>
 
-          <div className="admin-projects-workspace-body">
             <div className="admin-projects-stats-row">
               {[
                 { label: 'Libraries', value: stats.libraryCount, icon: BookOpen, filter: null as StatFilter },
@@ -331,7 +331,9 @@ export function ProjectWorkspace() {
                 </button>
               ))}
             </div>
+          </div>
 
+          <div className="admin-projects-workspace-scroll">
             {workspaceSection === 'home' && (
             <div className="admin-projects-workspace-grid">
               <aside className="admin-projects-libraries-panel">
@@ -597,7 +599,6 @@ export function ProjectWorkspace() {
             <label className="text-sm font-medium">Description
               <textarea className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" value={cellForm.description || ''} onChange={(e) => setCellForm((f) => f && { ...f, description: e.target.value })} />
             </label>
-            <Input label="Technology node" value={cellForm.technologyNode || ''} onChange={(e) => setCellForm((f) => f && { ...f, technologyNode: e.target.value })} />
             <label className="text-sm font-medium">Complexity
               <select className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" value={cellForm.complexity} onChange={(e) => setCellForm((f) => f && { ...f, complexity: e.target.value as ProjectCell['complexity'] })}>
                 <option value="Low">Low</option>

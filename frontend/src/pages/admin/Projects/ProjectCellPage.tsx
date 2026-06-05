@@ -34,8 +34,8 @@ import './adminProjects.css'
 
 type CellTab = 'details' | 'dependencies' | 'reviews'
 
-const TAB_ITEMS: { id: CellTab; label: string; icon: typeof Pencil }[] = [
-  { id: 'details', label: 'Edit', icon: Pencil },
+const TAB_ITEMS: { id: CellTab; label: string; icon: typeof Layers }[] = [
+  { id: 'details', label: 'Details', icon: Layers },
   { id: 'dependencies', label: 'Dependencies', icon: GitBranch },
   { id: 'reviews', label: 'Reviews', icon: MessageSquare },
 ]
@@ -47,6 +47,7 @@ export function ProjectCellPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<CellTab>('details')
+  const [isEditing, setIsEditing] = useState(false)
   const [cellForm, setCellForm] = useState<ProjectCell | null>(null)
   const [viewTab, setViewTab] = useState<'layout' | 'symbol' | 'schematic'>('layout')
   const [selectedDepIds, setSelectedDepIds] = useState<string[]>([])
@@ -114,12 +115,18 @@ export function ProjectCellPage() {
     )
   }
 
+  const cancelEdit = () => {
+    if (cell) setCellForm(cell)
+    setIsEditing(false)
+  }
+
   const saveCell = async () => {
     if (!projectId || !cellForm) return
     setSaving(true)
     try {
       await updateCell(projectId, cellForm.id, cellForm)
       toast.success('Cell updated')
+      setIsEditing(false)
       await reload()
     } catch {
       toast.error('Failed to save cell')
@@ -265,7 +272,11 @@ export function ProjectCellPage() {
                       'admin-projects-cell-tab-btn',
                       activeTab === tab.id && 'is-active',
                     )}
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => {
+                      setActiveTab(tab.id)
+                      setIsEditing(false)
+                      if (cell) setCellForm(cell)
+                    }}
                   >
                     <Icon className="h-3.5 w-3.5" aria-hidden />
                     {tab.label}
@@ -275,8 +286,90 @@ export function ProjectCellPage() {
             </nav>
 
             <div className="admin-projects-cell-page-panel">
-              {activeTab === 'details' && (
+              {activeTab === 'details' && !isEditing && (
+                <div className="admin-projects-cell-details">
+                  <div className="admin-projects-cell-details-head">
+                    <h2 className="admin-projects-cell-details-title">Cell details</h2>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="h-8"
+                      onClick={() => setIsEditing(true)}
+                    >
+                      <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                      Edit
+                    </Button>
+                  </div>
+                  <dl className="admin-projects-cell-details-grid">
+                    <div className="admin-projects-cell-details-item">
+                      <dt>Library</dt>
+                      <dd>{activeLibrary?.name || '—'}</dd>
+                    </div>
+                    <div className="admin-projects-cell-details-item">
+                      <dt>Cell name</dt>
+                      <dd>{cell.name}</dd>
+                    </div>
+                    <div className="admin-projects-cell-details-item">
+                      <dt>Cell type</dt>
+                      <dd>{cell.cellType}</dd>
+                    </div>
+                    <div className="admin-projects-cell-details-item admin-projects-cell-details-item--full">
+                      <dt>Description</dt>
+                      <dd>{cell.description?.trim() || '—'}</dd>
+                    </div>
+                    <div className="admin-projects-cell-details-item">
+                      <dt>Complexity</dt>
+                      <dd>{cell.complexity}</dd>
+                    </div>
+                    <div className="admin-projects-cell-details-item">
+                      <dt>Estimated effort (hours)</dt>
+                      <dd>{cell.estimatedEffort ?? 0}</dd>
+                    </div>
+                    <div className="admin-projects-cell-details-item">
+                      <dt>Assigned employee</dt>
+                      <dd>{cell.assignedEmployeeName?.trim() || 'Unassigned'}</dd>
+                    </div>
+                    <div className="admin-projects-cell-details-item">
+                      <dt>Workflow status</dt>
+                      <dd>
+                        <span className={cn(
+                          'admin-projects-status-chip',
+                          cell.isBlocked && 'is-blocked',
+                          cell.isReady && 'is-ready',
+                          cell.status === 'completed' && 'is-completed',
+                          cell.status === 'in_progress' && !cell.isBlocked && 'is-progress',
+                        )}>
+                          {cellDisplayStatus(cell)}
+                        </span>
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="admin-projects-cell-details-views">
+                    <p className="admin-projects-field-label">Views</p>
+                    <div className="admin-projects-pill-rail mb-2">
+                      {(['layout', 'symbol', 'schematic'] as const).map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => setViewTab(v)}
+                          className={cn('admin-projects-pill-btn', viewTab === v && 'is-active')}
+                        >
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="admin-projects-cell-details-view-text">
+                      {cell.views?.[viewTab]?.trim() || '—'}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'details' && isEditing && (
                 <div className="admin-projects-cell-form">
+                  <div className="admin-projects-cell-details-head">
+                    <h2 className="admin-projects-cell-details-title">Edit cell</h2>
+                  </div>
                   <div>
                     <p className="admin-projects-field-label">Target library</p>
                     <div className="admin-projects-library-pick">
@@ -315,7 +408,6 @@ export function ProjectCellPage() {
                       onChange={(e) => setCellForm((f) => f && { ...f, description: e.target.value })}
                     />
                   </label>
-                  <Input label="Technology node" value={cellForm.technologyNode || ''} onChange={(e) => setCellForm((f) => f && { ...f, technologyNode: e.target.value })} />
                   <label className="text-sm font-medium">Complexity
                     <select
                       className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
@@ -393,6 +485,9 @@ export function ProjectCellPage() {
                     />
                   </div>
                   <div className="admin-projects-cell-form-actions">
+                    <Button variant="secondary" onClick={cancelEdit} disabled={saving}>
+                      Cancel
+                    </Button>
                     <Button onClick={() => void saveCell()} disabled={saving}>
                       {saving ? 'Saving…' : 'Save changes'}
                     </Button>

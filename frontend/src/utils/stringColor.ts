@@ -15,3 +15,8 @@ export function stringToHue(seed: string): number {
 export function stringToHueColor(seed: string) {
   return `hsl(${stringToHue(seed)} 62% 42%)`
 }
+
+/** Light row-hover tint matching the avatar hue for a seed string. */
+export function stringToHueHoverBg(seed: string, alpha = 0.48): string {
+  return `hsl(${stringToHue(seed)} 68% 88% / ${alpha})`
+}

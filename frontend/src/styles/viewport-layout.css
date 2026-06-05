@@ -125,7 +125,8 @@ body,
 .admin-portal .admin-tickets-shell,
 .admin-portal .admin-payslips-shell,
 .admin-portal .admin-achievements-shell,
-.admin-portal .admin-analytics-shell {
+.admin-portal .admin-analytics-shell,
+.admin-portal .admin-projects-workspace-shell {
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
