@@ -292,15 +292,8 @@ body,
   overflow: visible;
 }
 
-.employee-portal [data-employee-page] [data-employee-dashboard],
-.employee-portal [data-employee-page] .emp-timesheet-page {
-  overflow: visible;
-}
-
-/* Calendar only — viewport-fit with internal panel scroll */
-.employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-calendar]) {
-  flex: 1 1 0;
-  max-height: var(--viewport-page-h);
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-dashboard]),
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]) {
   overflow: hidden;
 }
 

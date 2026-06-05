@@ -1829,7 +1829,8 @@
 }
 
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-dashboard]),
-.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]) {
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]),
+.employee-portal [data-employee-page] > .emp-portal-page__content:has(.emp-timesheet-page) {
   padding: 0;
 }
 
@@ -4564,7 +4565,8 @@
 @media (min-width: 1024px) {
   .admin-projects-view .projects-sidebar {
     position: sticky;
-    top: 4.5rem;
+    top: 1rem;
+    align-self: flex-start;
   }
 }
 
@@ -11959,6 +11961,12 @@ input[type='number'] {
   font-size: 0.8125rem;
 }
 
+.employee-profile-detail-page .ep-profile-tab--active {
+  background-color: #2d6a4f;
+  color: #ffffff;
+  box-shadow: 0 1px 4px rgba(30, 90, 61, 0.28);
+}
+
 .employee-profile-detail-page .ep-profile-status {
   font-size: 0.6875rem;
 }
@@ -12797,6 +12805,34 @@ input[type='number'] {
   background: rgba(255, 255, 255, 0.96);
   box-shadow: var(--shadow-elevated);
   backdrop-filter: blur(20px);
+}
+
+.notification-dropdown-panel {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.notification-dropdown-item {
+  transition: background-color 0.15s ease;
+}
+
+.notification-dropdown-item--unread {
+  background: rgba(220, 252, 231, 0.62);
+}
+
+.notification-dropdown-item--unread:hover {
+  background: rgba(187, 247, 208, 0.72);
+}
+
+.notification-dropdown-item--read:hover {
+  background: rgba(248, 250, 252, 0.85);
+}
+
+.notification-dropdown-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .cmd-dropdown-item {

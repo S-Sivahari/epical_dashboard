@@ -480,7 +480,7 @@ export function EmployeeProfile() {
                     className={cn(
                       "ep-profile-tab flex-1 sm:flex-initial rounded-lg px-4 py-1.5 text-xs font-bold transition-all text-center whitespace-nowrap",
                       activeTab === tab.id
-                        ? "bg-white text-slate-800 shadow-sm"
+                        ? "ep-profile-tab--active"
                         : "text-slate-500 hover:text-slate-800"
                     )}
                   >
@@ -594,7 +594,7 @@ export function EmployeeProfile() {
                     </ProfileCard>
 
                     {/* Column 3 (Spans 1 column): Payment Details card */}
-                    <ProfileCard title="Payment Details" className="lg:col-span-1 h-full">
+                    <ProfileCard title="Bank Details" className="lg:col-span-1 h-full">
                        <div className="space-y-4">
                          <ProfileCardItem
                            label="CTC (ANNUAL)"
