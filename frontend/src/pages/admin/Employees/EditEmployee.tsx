@@ -675,7 +675,6 @@ export function EditEmployee() {
             ]}
           />
           <h1 className="employee-directory-title">Edit Employee</h1>
-          <p className="employee-directory-subtitle">{employeeName}</p>
         </header>
 
         <div className="employee-form-body">
