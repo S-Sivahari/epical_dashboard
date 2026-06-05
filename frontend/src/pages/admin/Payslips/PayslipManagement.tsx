@@ -578,6 +578,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
     file: File,
     options?: {
       replaceBatchId?: string
+      allowDuplicatePayPeriod?: boolean
       resendPayslips?: boolean
     },
   ) => {
@@ -585,6 +586,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
     try {
       const result = await uploadPayroll(file, {
         replaceBatchId: options?.replaceBatchId,
+        allowDuplicatePayPeriod: options?.allowDuplicatePayPeriod,
         resendPayslips: options?.resendPayslips,
         employeeDbIdByEmpId: options?.resendPayslips ? buildEmployeeDbIdMap() : undefined,
       })
@@ -635,6 +637,13 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
     await runPayrollUpload(selectedFile, {
       replaceBatchId: replaceConfirm.existingBatchId,
       resendPayslips: false,
+    })
+  }
+
+  const handleConfirmAddAnotherUpload = async () => {
+    if (!selectedFile || !replaceConfirm) return
+    await runPayrollUpload(selectedFile, {
+      allowDuplicatePayPeriod: true,
     })
   }
 
@@ -1481,12 +1490,14 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
           title="Payslip already exists for this month"
           description={
             replaceConfirm
-              ? `Payroll for ${replaceConfirm.payMonth} already includes one or more of these employee ID(s). Replace the existing upload to regenerate payslips for those employees${replaceConfirm.originalFileName ? ` (${replaceConfirm.originalFileName})` : ''}.`
+              ? `Payroll for ${replaceConfirm.payMonth} already includes one or more of these employee ID(s). Replace the existing upload to regenerate payslips for those employees${replaceConfirm.originalFileName ? ` (${replaceConfirm.originalFileName})` : ''}, or add another upload to keep both batches and switch between them.`
               : ''
           }
           confirmLabel="Replace & regenerate"
+          secondaryLabel="Add another upload"
           onClose={() => setReplaceConfirm(null)}
           onConfirm={handleConfirmReplace}
+          onSecondary={handleConfirmAddAnotherUpload}
         />
       </div>
     </PageWrapper>

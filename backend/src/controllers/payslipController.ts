@@ -224,6 +224,10 @@ export const payslipController = {
 
       const templateId = (req.body?.templateId as string) || 'classic'
       const replaceBatchId = String(req.body?.replaceBatchId || '').trim() || undefined
+      const allowDuplicatePayPeriod =
+        req.body?.allowDuplicatePayPeriod === true ||
+        req.body?.allowDuplicatePayPeriod === 'true' ||
+        req.body?.allowDuplicatePayPeriod === '1'
       const resendPayslips =
         req.body?.resendPayslips === true ||
         req.body?.resendPayslips === 'true' ||
@@ -233,7 +237,7 @@ export const payslipController = {
       const parsed = await readMasterExcelFromBuffer(file.buffer)
 
       let appendToBatchId: string | undefined
-      if (!replaceBatchId) {
+      if (!replaceBatchId && !allowDuplicatePayPeriod) {
         const existing = await findBatchByPayPeriod(parsed.company)
         if (existing) {
           const enriched = await getPayrollBatch(existing.id)

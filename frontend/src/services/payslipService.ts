@@ -113,6 +113,7 @@ export interface DuplicatePayPeriodError {
 export interface UploadPayrollOptions {
   templateId?: TemplateId
   replaceBatchId?: string
+  allowDuplicatePayPeriod?: boolean
   resendPayslips?: boolean
   employeeDbIdByEmpId?: Record<string, string>
 }
@@ -134,6 +135,9 @@ export async function uploadPayroll(
   formData.append('templateId', options.templateId ?? 'classic')
   if (options.replaceBatchId) {
     formData.append('replaceBatchId', options.replaceBatchId)
+  }
+  if (options.allowDuplicatePayPeriod) {
+    formData.append('allowDuplicatePayPeriod', 'true')
   }
   if (options.resendPayslips) {
     formData.append('resendPayslips', 'true')
