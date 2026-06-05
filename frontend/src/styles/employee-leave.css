@@ -21,8 +21,9 @@
   }
 }
 
-.employee-portal .cmd-main > .relative:has(.emp-leave-page) {
-  overflow: visible;
+.employee-portal [data-employee-page] > .emp-portal-page__content:has(.emp-leave-page) {
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* White outer section wrapping the three top cards */

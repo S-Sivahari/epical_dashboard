@@ -6,7 +6,7 @@ import { Input } from '@components/ui/Input'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { DataTable, type Column } from '@components/tables/DataTable'
 import { useEmployees } from '@hooks/useEmployees'
-import { Search, Trash2, Edit2, ChevronDown, Check } from 'lucide-react'
+import { Search, Trash2, Edit2, ChevronDown } from 'lucide-react'
 import {
   listCompensation,
   createCompensation,
@@ -231,12 +231,6 @@ export function CompensationManagement({
     }
   }
 
-  const recentActivity = useMemo(() => {
-    return [...compensationData]
-      .sort((a, b) => new Date(b.appliedDate).getTime() - new Date(a.appliedDate).getTime())
-      .slice(0, 10)
-  }, [compensationData])
-
   // ── Table columns ──────────────────────────────────────────────────────────
   const columns: Column<CompensationEntry>[] = [
     {
@@ -304,15 +298,16 @@ export function CompensationManagement({
   ]
 
   return (
-    <div className="admin-leaves-two-col">
-      {/* Add Form + Data Table */}
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col">
+    <div className="admin-comp-layout">
+      <div className="admin-comp-main-panel rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col min-h-0">
         {/* Add / Edit Form */}
-        <div className="border-b border-gray-100 p-4 space-y-4 bg-gray-50">
-          <h3 className="text-sm font-bold text-gray-800">
-            {editingId ? 'Edit Compensation Entry' : 'Add Compensation'}
-          </h3>
-          <div className="space-y-4">
+        <div className="border-b border-gray-100">
+          <div className="admin-comp-section-head">
+            <h3 className="admin-comp-section-title">
+              {editingId ? 'Edit Compensation Entry' : 'Add Compensation'}
+            </h3>
+          </div>
+          <div className="admin-comp-form-body space-y-4">
             {/* Employee multi-select */}
             {!editingId && (
               <div>
@@ -435,9 +430,9 @@ export function CompensationManagement({
               </div>
             )}
 
-            {/* Days & Reason fields */}
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
+            {/* Days, Reason & submit — one row */}
+            <div className="admin-comp-form-row grid gap-3 items-end">
+              <div className="min-w-0">
                 <label className="mb-2 block text-xs font-medium text-gray-700">
                   Days <span className="text-red-500">*</span>
                 </label>
@@ -451,7 +446,7 @@ export function CompensationManagement({
                   className="h-9 text-sm"
                 />
               </div>
-              <div>
+              <div className="min-w-0">
                 <label className="mb-2 block text-xs font-medium text-gray-700">
                   Reason <span className="text-red-500">*</span>
                 </label>
@@ -462,24 +457,28 @@ export function CompensationManagement({
                   className="h-9 text-sm"
                 />
               </div>
-            </div>
-
-            <div className="flex gap-2 justify-end pt-2">
-              {editingId && (
-                <Button variant="secondary" size="sm" onClick={resetForm} disabled={submitting} className="h-9">
-                  Cancel
+              <div className="admin-comp-form-actions flex shrink-0 gap-2">
+                {editingId && (
+                  <Button variant="secondary" size="sm" onClick={resetForm} disabled={submitting} className="h-9">
+                    Cancel
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  onClick={handleSubmit}
+                  disabled={submitting}
+                  className="h-9 whitespace-nowrap bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {submitting ? 'Saving…' : editingId ? 'Update' : 'Add Entry'}
                 </Button>
-              )}
-              <Button size="sm" onClick={handleSubmit} disabled={submitting} className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white">
-                {submitting ? 'Saving…' : editingId ? 'Update' : 'Add Entry'}
-              </Button>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Search & Table */}
-        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 bg-white">
-          <h3 className="text-sm font-bold text-gray-800">Compensation Entries</h3>
+        <div className="admin-comp-section-head">
+          <h3 className="admin-comp-section-title">Compensation Entries</h3>
           <div className="relative w-40">
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
             <Input
@@ -494,72 +493,16 @@ export function CompensationManagement({
           </div>
         </div>
 
-        {/* Table */}
-        <div className="flex-1 overflow-hidden">
+        {/* Table — fixed height, scroll inside */}
+        <div className="admin-comp-entries-scroll min-h-0 flex-1">
           <DataTable
             columns={columns}
             data={filteredData}
             loading={loading}
             empty="No compensation entries."
+            className="admin-comp-entries-table"
           />
         </div>
-      </div>
-
-      {/* ════════════════════════════════════════════════════════
-          RIGHT COLUMN — Recent Activity
-      ════════════════════════════════════════════════════════ */}
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col" style={{ maxHeight: '520px' }}>
-        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 shrink-0">
-          <h3 className="text-sm font-bold text-gray-800">Recent Activity</h3>
-        </div>
-
-        {loading ? (
-          <div className="flex flex-1 items-center justify-center py-8">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-600" />
-          </div>
-        ) : recentActivity.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center py-8 text-xs text-gray-400">No activity yet.</div>
-        ) : (
-          <div className="overflow-y-auto flex-1 divide-y divide-gray-50">
-            {recentActivity.map((item) => (
-              <div key={item.id} className="flex items-start gap-2.5 px-3 py-3 hover:bg-gray-50/60 transition-colors">
-                <div className="mt-0.5 shrink-0">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100">
-                    <Check className="h-3 w-3 text-emerald-700" />
-                  </span>
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-semibold text-gray-800 leading-snug">
-                    <span className="text-emerald-700">{item.employeeName}</span>
-                    {` added ${item.days}d compensation`}
-                  </p>
-                  <p className="text-[10px] text-gray-500 mt-0.5">{item.reason}</p>
-                  <p className="text-[9px] text-gray-400 mt-0.5">
-                    {new Date(item.appliedDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                  </p>
-                </div>
-
-                <div className="flex gap-1 shrink-0">
-                  <button
-                    type="button"
-                    className="flex items-center gap-1 rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-gray-600 hover:bg-gray-50"
-                    onClick={() => handleEdit(item)}
-                  >
-                    <Edit2 className="h-2.5 w-2.5" /> Edit
-                  </button>
-                  <button
-                    type="button"
-                    className="flex items-center gap-1 rounded border border-red-100 bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-600 hover:bg-red-100"
-                    onClick={() => openDeleteConfirm(item)}
-                  >
-                    <Trash2 className="h-2.5 w-2.5" /> Delete
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* ── Delete Confirm ────────────────────────────────────────────────── */}

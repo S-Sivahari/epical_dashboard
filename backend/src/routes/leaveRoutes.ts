@@ -27,6 +27,7 @@ router.patch(
 );
 
 // Leave requests
+router.get('/history', leaveController.getHistory);
 router.get('/', leaveController.getAll);
 router.post('/', leaveController.create);
 router.delete('/all', roleMiddleware('Admin'), leaveController.deleteAll);

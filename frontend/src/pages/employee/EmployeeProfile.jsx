@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { useEffect, useState } from 'react'
 import {
   FileText,
@@ -19,6 +20,15 @@ import { useAuthStore } from '@store/authStore'
 import * as employeeService from '@services/employeeService'
 import { openEmployeeDocument } from '@services/uploadService'
 import { uploadPhoto } from '@services/uploadService'
+=======
+import { useEffect, useRef, useState } from 'react'
+import { Camera, FileText, ExternalLink } from 'lucide-react'
+import { useAuthStore } from '@store/authStore'
+import * as employeeService from '@services/employeeService'
+import { openEmployeeDocument, uploadPhoto } from '@services/uploadService'
+import { EmployeePhotoAvatar } from '@components/employee/shared/EmployeePhotoAvatar'
+import { Badge } from '@components/employee/ui/badge'
+>>>>>>> login_change
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { formatDate } from '@pages/employee/lib/utils'
 import { documentListFromEmployee } from '@/utils/employeeDocuments'
@@ -91,10 +101,16 @@ export default function EmployeeProfile() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
   const [openingDocKey, setOpeningDocKey] = useState(null)
+<<<<<<< HEAD
   const [activeTab, setActiveTab] = useState('details')
   const [showAadhaar, setShowAadhaar] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [photoVersion, setPhotoVersion] = useState(0)
+=======
+  const [photoVersion, setPhotoVersion] = useState(0)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const photoInputRef = useRef(null)
+>>>>>>> login_change
 
   useEffect(() => {
     if (!user?.id) {
@@ -179,8 +195,37 @@ export default function EmployeeProfile() {
     .slice()
     .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
 
+<<<<<<< HEAD
   const handleOpenDocument = async (docKey, docName) => {
     setOpeningDocKey(docKey)
+=======
+  const handlePhotoChange = async (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file || !employee?.id) return
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Invalid file', description: 'Please choose a JPG or PNG image.' })
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: 'File too large', description: 'Profile photo must be under 2 MB.' })
+      return
+    }
+    setUploadingPhoto(true)
+    try {
+      await uploadPhoto(employee.id, file)
+      setPhotoVersion((v) => v + 1)
+      toast({ title: 'Photo updated', description: 'Your profile picture has been saved.' })
+    } catch {
+      toast({ title: 'Upload failed', description: 'Could not update your profile photo.' })
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
+  const previewDocument = async (doc) => {
+    setOpeningDocKey(doc.key)
+>>>>>>> login_change
     try {
       await openEmployeeDocument(user.id, docKey, docName)
     } catch {
@@ -250,6 +295,7 @@ export default function EmployeeProfile() {
   const avatarUrl = getEmployeeAvatarUrl(employee, photoVersion || undefined)
 
   return (
+<<<<<<< HEAD
     <div className="crewiq-dashboard employee-pages employee-directory-view">
       <div className="employee-directory-bg" aria-hidden>
         <div className="employee-directory-bg-gradient" style={tintBgStyle} />
@@ -293,6 +339,61 @@ export default function EmployeeProfile() {
               <h2 className="mt-4 text-base font-bold text-slate-800 truncate w-full">{name}</h2>
               <p className="text-xs text-slate-500 font-medium mt-0.5 truncate w-full">
                 {employee.designation || employee.role || 'Designation'}
+=======
+    <div className="space-y-6">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <InteractiveCard className={portalCardClass({ className: 'h-max p-5' })}>
+          <div className="flex flex-col items-center text-center">
+            <div className="relative">
+              <EmployeePhotoAvatar
+                employeeId={employee.id}
+                name={name}
+                photoVersion={photoVersion}
+                className="h-24 w-24 border-4 border-primary/20"
+                fallbackClassName="bg-primary/10 text-primary text-xl"
+              />
+              <button
+                type="button"
+                disabled={uploadingPhoto}
+                onClick={() => photoInputRef.current?.click()}
+                className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-primary text-white shadow-sm hover:bg-primary/90 disabled:opacity-60"
+                aria-label="Change profile photo"
+              >
+                <Camera className="h-4 w-4" />
+              </button>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={handlePhotoChange}
+              />
+            </div>
+            <p className="mt-3 font-heading text-lg font-semibold">{name}</p>
+            <p className="font-mono text-xs text-muted">{employee.employeeId}</p>
+            <div className="mt-3">
+              <Badge variant={statusVariant(employee.status)}>{employee.status}</Badge>
+            </div>
+            <div className="mt-4 w-full space-y-2 text-left text-sm text-muted">
+              <p>
+                <span className="font-medium text-foreground">Email:</span> {employee.email}
+              </p>
+              {employee.personalEmail ? (
+                <p>
+                  <span className="font-medium text-foreground">Personal:</span> {employee.personalEmail}
+                </p>
+              ) : null}
+              {employee.phone ? (
+                <p>
+                  <span className="font-medium text-foreground">Phone:</span> {employee.phone}
+                </p>
+              ) : null}
+              <p>
+                <span className="font-medium text-foreground">Role:</span> {employee.role}
+              </p>
+              <p>
+                <span className="font-medium text-foreground">Joined:</span> {formatDate(employee.joinedAt)}
+>>>>>>> login_change
               </p>
               
               <div className="mt-3.5">

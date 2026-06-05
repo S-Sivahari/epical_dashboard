@@ -9,7 +9,7 @@ export function TimesheetProjectWiseChart({ data = [] }) {
 
   if (data.length === 0) {
     return (
-      <div className="flex h-full min-h-[11rem] flex-col items-center justify-center rounded-lg border border-dashed border-border bg-slate-50/50 px-4 text-center">
+      <div className="flex min-h-[8rem] flex-col items-center justify-center rounded-lg border border-dashed border-border bg-slate-50/50 px-4 py-6 text-center">
         <FolderKanban className="mb-2 h-8 w-8 text-slate-300" />
         <p className="type-body font-semibold text-muted">No project hours recorded</p>
         <p className="type-body-sm mt-1">Hours appear after you log time on assigned projects.</p>
@@ -18,7 +18,7 @@ export function TimesheetProjectWiseChart({ data = [] }) {
   }
 
   return (
-    <div className="timesheet-panel-scroll flex h-full max-h-[13.75rem] flex-col gap-2 overflow-y-auto pr-1">
+    <div className="timesheet-panel-scroll flex flex-col gap-2 overflow-y-auto pr-1" style={{ maxHeight: 'calc(100vh - 600px)', minHeight: '200px' }}>
       {data.map((item) => {
         const pct = Math.min(100, Math.round((item.hours / maxHours) * 100))
         return (

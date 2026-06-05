@@ -1,0 +1,172 @@
+/**
+ * Step-by-step guides for every area of the employee portal.
+ * Wording reflects current app behaviour (leave balances, timesheet, documents, etc.).
+ */
+
+export const employeePortalGuideIntro =
+  'Use the topics below to learn how each part of the portal works. Pick a section to see steps, tips, and a direct link to that page.'
+
+export const employeePortalGuideSections = [
+  {
+    key: 'dashboard',
+    title: 'Dashboard',
+    summary: 'Your home view — profile, leave snapshot, projects, news, and quick links.',
+    linkTo: '/employee',
+    linkLabel: 'Dashboard',
+    steps: [
+      'Open Dashboard from the top navigation (first item).',
+      'Review your profile card, leave balance summary, and KPIs such as monthly hours and assigned projects.',
+      'Check announcements and upcoming holidays without leaving the page.',
+      'Use the quick links on each card to jump to Leave, Timesheet, Documents, or other sections.',
+    ],
+  },
+  {
+    key: 'timesheet',
+    title: 'Timesheet & attendance',
+    summary: 'Check in, log work on assigned tasks, pause or resume, and check out for the day.',
+    linkTo: '/employee/timesheet',
+    linkLabel: 'Timesheet',
+    steps: [
+      'Go to Timesheet and select an assigned project task from the dropdown (tasks come from projects assigned to you).',
+      'Add an optional work note, then tap Check In — the timer starts for that task.',
+      'While checked in you can Pause or Resume the active task, or switch work by completing the current session first.',
+      'Tap Check Out, review your summary note, and confirm — your session is saved for admin review.',
+      'Scroll to Session History and use the date filter to see past entries and project-wise hours.',
+    ],
+    notes: [
+      'You must pick a task before check-in. If you have no assigned tasks, ask your manager or HR to assign work on a project.',
+      'Only one active check-in per day is expected; complete checkout before ending your workday.',
+    ],
+  },
+  {
+    key: 'apply-leave',
+    title: 'Apply for leave',
+    summary: 'Request Casual, Sick, or Earned leave — full day or half day.',
+    linkTo: '/employee/leave',
+    linkLabel: 'Leave Request',
+    steps: [
+      'Open Leave Request and check your balance cards (Casual, Sick, Earned) at the top.',
+      'In Apply Leave, choose leave type, Full Day or Half Day, and dates. Half-day must be a single working day with First or Second half selected.',
+      'Enter a reason (required) and submit. The request appears under Pending until HR approves or rejects it.',
+      'You can cancel a pending request from the Pending table if your plans change (before it is approved).',
+      'Approved leave shows in History; active approved leave may also appear on the dashboard leave card.',
+    ],
+    notes: [
+      'Only working days count — weekends and company holidays in the range are excluded automatically.',
+      'Dates must be today or in the future, within the allowed booking window shown on the form.',
+    ],
+  },
+  {
+    key: 'leave-balances',
+    title: 'Leave balances & when leave is blocked',
+    summary: 'How balances work, pending days, and what happens if you have no leave left.',
+    linkTo: '/employee/leave',
+    linkLabel: 'Leave Request',
+    steps: [
+      'Each type has Total, Used, Pending, and Remaining. Pending is leave you applied for but HR has not approved yet.',
+      'When you submit, the system compares Remaining to the business days you requested (0.5 for half-day).',
+      'If Remaining is less than requested days, submission fails with an insufficient balance message — the request is not created.',
+      'If HR approves a request but your balance was used up by other approvals in the meantime, approval can fail on the admin side; your status stays Pending or may be rejected with a reason.',
+      'Casual and Sick leave usage is counted for the current calendar month; balances refresh at the start of each month.',
+      'Earned leave is tracked for the calendar year. Extra earned days from compensation appear in your Earned total.',
+    ],
+    notes: [
+      'Applying for leave when balance is zero: the form will not accept the request until you have enough remaining days (or HR adjusts your allocation).',
+      'Pending days do not reduce Remaining until approved, but they help you see what is already waiting for review.',
+      'View Compensation Leave on the same page to see HR-credited earned days and reasons.',
+    ],
+  },
+  {
+    key: 'company-calendar',
+    title: 'Company calendar',
+    summary: 'Holidays, events, and who is on approved leave.',
+    linkTo: '/employee/calendar',
+    linkLabel: 'Company Calendar',
+    steps: [
+      'Open Company Calendar from the navigation bar.',
+      'Browse the month view for public holidays and company events.',
+      'See colleagues on approved leave for a given day (names shown per policy).',
+      'Use this when planning your own leave dates to avoid clashes with team coverage.',
+    ],
+  },
+  {
+    key: 'documents',
+    title: 'Documents & payslips',
+    summary: 'Request HR documents and download payslips when published.',
+    linkTo: '/employee/documents',
+    linkLabel: 'Documents',
+    steps: [
+      'Go to Documents. Use the tabs for Document Requests, My Documents, or Payslips.',
+      'To request a document: choose type, enter a clear document name and reason, then submit.',
+      'Track status in Request History — Pending, Approved, or Rejected (rejection may include a reason).',
+      'When approved, download the PDF from My Documents or from the approved row where download is offered.',
+      'Under Payslips, filter by period, preview or download salary slips once HR has published them for your account.',
+    ],
+    notes: [
+      'Request history refreshes automatically so you can wait for approval without reloading the page.',
+    ],
+  },
+  {
+    key: 'training',
+    title: 'Training & courses',
+    summary: 'Enrolled courses, progress, and suggested learning.',
+    linkTo: '/employee/training',
+    linkLabel: 'Training',
+    steps: [
+      'Open Training & Courses to see courses assigned or available to you.',
+      'Continue in-progress courses and track completion percentage on each card.',
+      'Suggested courses may appear for optional enrollment depending on HR setup.',
+      'Finish required compliance or role-based training before deadlines set by your manager.',
+    ],
+  },
+  {
+    key: 'achievements',
+    title: 'Company achievements',
+    summary: 'Awards and milestones recorded for you by the company.',
+    linkTo: '/employee/achievements',
+    linkLabel: 'Achievements',
+    steps: [
+      'Open Company Achievements to view recognition entries on your record.',
+      'Each card shows title, date, and description added by HR or admin.',
+      'This section is read-only; contact HR if an achievement is missing or incorrect.',
+    ],
+  },
+  {
+    key: 'raise-ticket',
+    title: 'Raise a support ticket',
+    summary: 'Report IT or workplace issues to the admin team.',
+    linkTo: '/employee/tickets',
+    linkLabel: 'Raise Tickets',
+    steps: [
+      'Open Raise Tickets from the navigation bar.',
+      'Enter a short title, a detailed description, and priority (Low, Medium, or High).',
+      'Submit — the ticket appears immediately in Ticket History.',
+      'Check Status (Pending, In Progress, Completed) and Admin Remarks for updates.',
+      'The list auto-refreshes about every 30 seconds; you can also reload the page.',
+    ],
+  },
+  {
+    key: 'profile',
+    title: 'My profile',
+    summary: 'View your employment details synced from HR.',
+    linkTo: '/employee/profile',
+    linkLabel: 'My Profile',
+    steps: [
+      'Click your avatar in the command bar or open My Profile from the navigation.',
+      'Review name, employee ID, designation, join date, and contact details on file.',
+      'Profile data is maintained by HR — use Raise Tickets or speak with HR to request corrections.',
+    ],
+  },
+  {
+    key: 'sign-in',
+    title: 'Signing in',
+    summary: 'How to access the employee portal securely.',
+    linkTo: '/employee',
+    linkLabel: 'Dashboard',
+    steps: [
+      'From the login page, use Continue with Google with your company Gmail registered with HR.',
+      'There is no separate portal password; only approved company accounts can sign in.',
+      'If sign-in fails, confirm you are using the correct Google account or contact HR to link your employee record.',
+    ],
+  },
+]

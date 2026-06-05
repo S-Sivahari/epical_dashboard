@@ -271,6 +271,16 @@ function getTodayDateString(): string {
   return today.toISOString().split('T')[0];
 }
 
+/** Pending always cancellable; approved only while the leave period has not ended. */
+export function canCancelLeaveRequest(leave: Pick<LeaveRequest, 'status' | 'to'>): boolean {
+  if (leave.status === 'Pending') return true;
+  if (leave.status === 'Approved') {
+    const end = typeof leave.to === 'string' ? leave.to.slice(0, 10) : '';
+    return Boolean(end && end >= getTodayDateString());
+  }
+  return false;
+}
+
 function isApprovedLeaveActiveOnDate(leave: LeaveRequest, dateStr: string): boolean {
   return leave.status === 'Approved' && leave.from <= dateStr && dateStr <= leave.to;
 }
@@ -331,7 +341,9 @@ export async function getEmployeeLeaveSummary(employeeId: string): Promise<Emplo
     allocations: allocationDisplay,
     balances: balanceList,
     currentLeaves,
-    history: leaves.filter((l) => l.status !== 'Cancelled'),
+    history: leaves.filter((l) =>
+      ['Approved', 'Rejected', 'Cancelled', 'Pending'].includes(l.status),
+    ),
   };
 }
 
@@ -483,12 +495,36 @@ export async function updateLeaveStatus(
   return result as LeaveRequest | null;
 }
 
-export async function cancelLeave(id: string, cancelReason?: string, cancelledBy?: string): Promise<LeaveRequest | null> {
+export async function cancelLeave(
+  id: string,
+  cancelReason?: string,
+  cancelledBy?: string,
+  options?: { notifyAdmins?: boolean },
+): Promise<LeaveRequest | null> {
   const col = getLeaveCol();
-  const result = await col.findOne({ id, status: { $in: ['Approved', 'Pending'] } });
-  if (!result) return null;
+  const existing = await col.findOne({ id, status: { $in: ['Approved', 'Pending'] } });
+  if (!existing) return null;
 
-  await col.deleteOne({ id });
+  if (!canCancelLeaveRequest(existing as LeaveRequest)) {
+    throw new Error('Cannot cancel approved leave that has already ended.');
+  }
+
+  const now = new Date();
+  const result = await col.findOneAndUpdate(
+    { id },
+    {
+      $set: {
+        status: 'Cancelled',
+        cancelReason: cancelReason?.trim() || undefined,
+        cancelledBy,
+        cancelledAt: now,
+        updatedAt: now,
+      },
+    },
+    { returnDocument: 'after' },
+  );
+
+  if (!result) return null;
 
   try {
     await notificationService.createNotification({
@@ -511,7 +547,31 @@ export async function cancelLeave(id: string, cancelReason?: string, cancelledBy
     console.error('Error creating cancellation notification:', error);
   }
 
-  return { ...result, status: 'Cancelled' } as LeaveRequest;
+  if (options?.notifyAdmins) {
+    try {
+      const userCollection = getDB().collection('users');
+      const admins = await userCollection.find({ role: 'Admin' }).toArray();
+      const reasonSuffix = cancelReason?.trim() ? ` Reason: ${cancelReason.trim()}` : '';
+      for (const admin of admins) {
+        await notificationService.createNotification({
+          recipientId: admin.id,
+          recipientType: 'Admin',
+          type: 'LeaveCancelled',
+          title: 'Leave Cancelled by Employee',
+          message: `${result.employeeName} cancelled their ${result.type} leave (${result.from} to ${result.to}).${reasonSuffix}`,
+          relatedData: {
+            leaveId: id,
+            employeeId: result.employeeId,
+            employeeName: result.employeeName,
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Error notifying admins about leave cancellation:', error);
+    }
+  }
+
+  return result as LeaveRequest;
 }
 
 export async function rejectLeaveWithReason(id: string, rejectionReason: string): Promise<LeaveRequest | null> {

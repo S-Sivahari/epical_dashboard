@@ -44,8 +44,8 @@ export const employeeNavItems = [
   },
   {
     to: '/employee/help',
-    label: 'Help & Support',
-    headerTitle: 'Help & Support',
+    label: 'Employee Guide',
+    headerTitle: 'Employee Guide',
   },
   {
     to: '/employee/profile',
@@ -80,7 +80,7 @@ export const employeeNavGroups = [
     label: 'Support',
     items: [
       { to: '/employee/tickets', label: 'Raise Tickets' },
-      { to: '/employee/help', label: 'Help & Support' },
+      { to: '/employee/help', label: 'Employee Guide' },
     ],
   },
   {

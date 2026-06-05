@@ -468,7 +468,7 @@ export function TicketManagement() {
   const openCount = statusCounts.Pending + statusCounts['In Progress']
 
   return (
-    <PageWrapper className="admin-hub-page-wrap admin-tickets-page relative z-10 max-w-none px-0 py-0 font-body">
+    <PageWrapper fillViewport className="admin-hub-page-wrap admin-tickets-page relative z-10 max-w-none !px-0 !py-0 font-body">
       <div
         className="crewiq-dashboard admin-tickets-view relative flex h-full min-h-0 flex-1 flex-col"
         data-admin-tickets
