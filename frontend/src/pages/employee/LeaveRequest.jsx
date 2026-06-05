@@ -83,9 +83,71 @@ const leaveSchema = z
     }
   })
 
-const leaveTypes = ['Sick Leave', 'Casual Leave', 'Earned Leave']
+const leaveTypes = ['Casual Leave', 'Sick Leave', 'Earned Leave', 'Compensation Leave']
 const leaveDurations = ['Full Day', 'Half Day']
 const halfDaySessions = ['First Half', 'Second Half']
+
+const LEAVE_BALANCE_COLORS = {
+  'Casual Leave': '#266b1c',
+  'Sick Leave': '#3b82f6',
+  'Earned Leave': '#8b5cf6',
+  'Compensation Leave': '#d97706',
+  'LOP Days': '#dc2626',
+}
+
+function formatLeaveBalances(data = {}) {
+  const items = [
+    {
+      key: 'casual',
+      type: 'Casual Leave',
+      used: data['Casual Leave']?.used || 0,
+      total: data['Casual Leave']?.total || 12,
+      remaining: data['Casual Leave']?.remaining ?? Math.max(0, (data['Casual Leave']?.total || 12) - (data['Casual Leave']?.used || 0)),
+      color: LEAVE_BALANCE_COLORS['Casual Leave'],
+    },
+    {
+      key: 'sick',
+      type: 'Sick Leave',
+      used: data['Sick Leave']?.used || 0,
+      total: data['Sick Leave']?.total || 12,
+      remaining: data['Sick Leave']?.remaining ?? Math.max(0, (data['Sick Leave']?.total || 12) - (data['Sick Leave']?.used || 0)),
+      color: LEAVE_BALANCE_COLORS['Sick Leave'],
+    },
+    {
+      key: 'earned',
+      type: 'Earned Leave',
+      used: data['Earned Leave']?.used || 0,
+      total: data['Earned Leave']?.total || 0,
+      remaining: data['Earned Leave']?.remaining ?? 0,
+      color: LEAVE_BALANCE_COLORS['Earned Leave'],
+    },
+    {
+      key: 'compensation',
+      type: 'Compensation Leave',
+      used: data['Compensation Leave']?.used || 0,
+      total: data['Compensation Leave']?.total || 0,
+      remaining: data['Compensation Leave']?.remaining ?? 0,
+      color: LEAVE_BALANCE_COLORS['Compensation Leave'],
+    },
+  ]
+
+  const lopUsed = data['LOP Days']?.used ?? 0
+  items.push({
+    key: 'lop',
+    type: 'LOP Days',
+    used: lopUsed,
+    total: Math.max(lopUsed, 1),
+    remaining: 0,
+    color: LEAVE_BALANCE_COLORS['LOP Days'],
+    isLop: true,
+  })
+
+  return items
+}
+
+function currentMonthPrefix() {
+  return new Date().toISOString().slice(0, 7)
+}
 
 const CARD_CLASS = portalCardClass({ className: 'p-5 sm:p-6' })
 
@@ -120,12 +182,23 @@ function formatAppliedDate(value) {
   return date.toLocaleDateString()
 }
 
+function formatLeaveDayCount(row) {
+  if (typeof row.days === 'string' && String(row.days).startsWith('+')) return row.days
+  if (row.leaveDuration === 'Half Day') return 0.5
+  const days = Number(row.days)
+  return Number.isNaN(days) ? row.days : days
+}
+
 const columns = [
   { key: 'type', label: 'Leave Type' },
-  { key: 'leaveDuration', label: 'Duration' },
   { key: 'from', label: 'Start Date' },
   { key: 'to', label: 'End Date' },
-  { key: 'days', label: 'Days' },
+  { key: 'days', label: 'Days', render: (row) => formatLeaveDayCount(row) },
+  {
+    key: 'lopDays',
+    label: 'LOP',
+    render: (row) => (row.lopDays > 0 ? `${row.lopDays}d` : '—'),
+  },
   {
     key: 'createdAt',
     label: 'Applied',
@@ -191,6 +264,53 @@ export default function LeaveRequest() {
   const fromDate = watch('fromDate')
   const toDate = watch('toDate')
   const halfDaySession = watch('halfDaySession')
+  const selectedLeaveType = watch('type')
+
+  const monthPrefix = currentMonthPrefix()
+
+  const pendingSickDays = useMemo(
+    () =>
+      requests
+        .filter(
+          (r) =>
+            r.status === 'Pending' &&
+            r.type === 'Sick Leave' &&
+            typeof r.from === 'string' &&
+            r.from.startsWith(monthPrefix),
+        )
+        .reduce((sum, r) => sum + (Number(r.days) || 0), 0),
+    [requests, monthPrefix],
+  )
+
+  const sickBalanceRemaining = useMemo(() => {
+    const sick = leaveBalances.find((lb) => lb.key === 'sick')
+    if (!sick) return 0
+    const remaining = sick.remaining ?? Math.max(0, sick.total - sick.used)
+    return Math.max(0, remaining - pendingSickDays)
+  }, [leaveBalances, pendingSickDays])
+
+  const availableLeaveTypes = useMemo(
+    () => leaveTypes.filter((t) => t !== 'Sick Leave' || sickBalanceRemaining > 0),
+    [sickBalanceRemaining],
+  )
+
+  const casualBalanceRemaining = useMemo(() => {
+    const casual = leaveBalances.find((lb) => lb.key === 'casual')
+    if (!casual) return 0
+    const pendingCasual = requests
+      .filter(
+        (r) =>
+          r.status === 'Pending' &&
+          r.type === 'Casual Leave' &&
+          typeof r.from === 'string' &&
+          r.from.startsWith(monthPrefix),
+      )
+      .reduce((sum, r) => sum + (Number(r.days) || 0), 0)
+    const remaining = casual.remaining ?? Math.max(0, casual.total - casual.used)
+    return Math.max(0, remaining - pendingCasual)
+  }, [leaveBalances, requests, monthPrefix])
+
+  const showLopNotice = selectedLeaveType === 'Casual Leave' && casualBalanceRemaining <= 0
 
   const [conflictMessage, setConflictMessage] = useState('')
   const [holidayWarning, setHolidayWarning] = useState('')
@@ -275,12 +395,7 @@ export default function LeaveRequest() {
     
     // Fetch Balances
     leaveService.getBalances().then((data) => {
-      const formatted = [
-        { key: 'casual', type: 'Casual Leave', used: data['Casual Leave']?.used || 0, total: data['Casual Leave']?.total || 12, color: '#266b1c' },
-        { key: 'sick', type: 'Sick Leave', used: data['Sick Leave']?.used || 0, total: data['Sick Leave']?.total || 12, color: '#3b82f6' },
-        { key: 'earned', type: 'Earned Leave', used: data['Earned Leave']?.used || 0, total: data['Earned Leave']?.total || 0, color: '#8b5cf6' },
-      ]
-      setLeaveBalances(formatted)
+      setLeaveBalances(formatLeaveBalances(data))
     }).catch(console.error)
 
     // Fetch Holidays
@@ -298,12 +413,7 @@ export default function LeaveRequest() {
 
     const balanceInterval = setInterval(() => {
       leaveService.getBalances().then((data) => {
-        const formatted = [
-          { key: 'casual', type: 'Casual Leave', used: data['Casual Leave']?.used || 0, total: data['Casual Leave']?.total || 12, color: '#266b1c' },
-          { key: 'sick', type: 'Sick Leave', used: data['Sick Leave']?.used || 0, total: data['Sick Leave']?.total || 12, color: '#3b82f6' },
-          { key: 'earned', type: 'Earned Leave', used: data['Earned Leave']?.used || 0, total: data['Earned Leave']?.total || 0, color: '#8b5cf6' },
-        ]
-        setLeaveBalances(formatted)
+        setLeaveBalances(formatLeaveBalances(data))
       }).catch(console.error)
     }, 5000)
 
@@ -317,6 +427,12 @@ export default function LeaveRequest() {
       clearInterval(compensationInterval)
     }
   }, [fetchRequests])
+
+  useEffect(() => {
+    if (selectedLeaveType === 'Sick Leave' && sickBalanceRemaining <= 0) {
+      setValue('type', '', { shouldValidate: true })
+    }
+  }, [selectedLeaveType, sickBalanceRemaining, setValue])
 
   useEffect(() => {
     if (leaveDuration === 'Half Day' && fromDate) {
@@ -428,10 +544,9 @@ export default function LeaveRequest() {
   const pendingColumns = useMemo(
     () => [
       { key: 'type', label: 'Leave Type' },
-      { key: 'leaveDuration', label: 'Duration' },
       { key: 'from', label: 'Start Date' },
       { key: 'to', label: 'End Date' },
-      { key: 'days', label: 'Days' },
+      { key: 'days', label: 'Days', render: (row) => formatLeaveDayCount(row) },
       { key: 'status', label: 'Status' },
       {
         key: 'actions',
@@ -461,7 +576,7 @@ export default function LeaveRequest() {
       compensationEntries.map((entry) => ({
         id: `comp-${entry.id}`,
         recordKind: 'compensation',
-        type: 'Earned Leave (Compensation)',
+        type: 'Compensation Leave',
         leaveDuration: '—',
         from: entry.appliedDate,
         to: entry.appliedDate,
@@ -552,11 +667,7 @@ export default function LeaveRequest() {
       
       // Refresh balances and notifications after submission
       const newBalances = await leaveService.getBalances()
-      setLeaveBalances([
-        { key: 'casual', type: 'Casual Leave', used: newBalances['Casual Leave']?.used || 0, total: newBalances['Casual Leave']?.total || 12, color: '#266b1c' },
-        { key: 'sick', type: 'Sick Leave', used: newBalances['Sick Leave']?.used || 0, total: newBalances['Sick Leave']?.total || 12, color: '#3b82f6' },
-        { key: 'earned', type: 'Earned Leave', used: newBalances['Earned Leave']?.used || 0, total: newBalances['Earned Leave']?.total || 0, color: '#8b5cf6' },
-      ])
+      setLeaveBalances(formatLeaveBalances(newBalances))
     } catch (error) {
       toast({ title: 'Error', description: error.response?.data?.error || 'Failed to submit leave request' })
     }
@@ -572,7 +683,7 @@ export default function LeaveRequest() {
           as="form"
           selectable={false}
           onSubmit={handleSubmit(onSubmit, onError)}
-          className={cn(CARD_CLASS, 'emp-leave-apply-card flex h-full min-h-0 flex-col space-y-4')}
+          className={cn(CARD_CLASS, 'emp-leave-apply-card emp-leave-top-panel flex h-full min-h-0 flex-col space-y-4')}
         >
           <div className="emp-leave-apply-head">
             <h3 className="font-heading text-lg font-semibold text-foreground">Apply for leave</h3>
@@ -583,9 +694,12 @@ export default function LeaveRequest() {
             <Select value={watch('type')} onValueChange={(v) => setValue('type', v)}>
               <SelectTrigger className="mt-1"><SelectValue placeholder="Select type" /></SelectTrigger>
               <SelectContent>
-                {leaveTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                {availableLeaveTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
               </SelectContent>
             </Select>
+            {sickBalanceRemaining <= 0 && (
+              <p className="mt-1 text-xs text-muted">Sick leave balance exhausted for this month — sick leave cannot be applied.</p>
+            )}
             {errors.type && <p className="mt-1 text-xs text-danger">{errors.type.message}</p>}
           </div>
           <div>
@@ -667,6 +781,20 @@ export default function LeaveRequest() {
             />
             {errors.reason && <p className="mt-1 text-xs text-danger">{errors.reason.message}</p>}
           </div>
+          {showLopNotice && (
+            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-600" />
+              <span>
+                Your casual leave balance is used up this month. You can still apply, but all days will be counted as{' '}
+                <strong>LOP (Loss of Pay)</strong>. LOP resets each month.
+              </span>
+            </div>
+          )}
+          {selectedLeaveType === 'Casual Leave' && casualBalanceRemaining > 0 && (
+            <p className="text-xs text-muted">
+              {casualBalanceRemaining} casual day{casualBalanceRemaining === 1 ? '' : 's'} left this month. Extra days beyond this will be LOP.
+            </p>
+          )}
           {holidayWarning && (
             <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
@@ -680,35 +808,52 @@ export default function LeaveRequest() {
           </div>
         </InteractiveCard>
 
-        <div className="emp-leave-top-aside">
-        <InteractiveCard className={cn(CARD_CLASS, 'emp-leave-balance-card flex h-full min-h-0 flex-col')}>
+        <InteractiveCard className={cn(CARD_CLASS, 'emp-leave-top-panel emp-leave-balance-card flex h-full min-h-0 flex-col')}>
           <SectionHeader
             icon={BarChart3}
             title="Leave balance"
-            description="Used & remaining"
+            description="Monthly casual/sick/LOP · yearly earned leave"
           />
-          <div className="emp-leave-balance-stack flex-1">
-            {leaveBalances.map((lb) => (
-              <LeaveCard
-                key={lb.key}
-                type={lb.type}
-                used={lb.used}
-                total={lb.total}
-                color={lb.color}
-                embedded
-                className="h-full"
-              />
-            ))}
+          <div className="emp-leave-balance-stack min-h-0 flex-1 overflow-y-auto">
+            {leaveBalances.map((lb) =>
+              lb.isLop ? (
+                <div
+                  key={lb.key}
+                  data-portal-card=""
+                  className={cn(
+                    'flex h-full flex-col rounded-xl border border-red-200/80 bg-red-50/70 p-3',
+                    portalCardClass({ subtle: true, className: 'shadow-none' }),
+                  )}
+                >
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="font-heading text-sm font-semibold text-red-900">LOP Days (this month)</span>
+                    <span className="text-xs font-semibold text-red-700">{lb.used} day{lb.used === 1 ? '' : 's'}</span>
+                  </div>
+                  <p className="text-[11px] text-red-800/80">Loss of Pay from casual leave beyond balance. Resets each month.</p>
+                </div>
+              ) : (
+                <LeaveCard
+                  key={lb.key}
+                  type={lb.type}
+                  used={lb.used}
+                  total={lb.total}
+                  remaining={lb.remaining}
+                  color={lb.color}
+                  embedded
+                />
+              ),
+            )}
           </div>
         </InteractiveCard>
 
-        <InteractiveCard className={cn(CARD_CLASS, 'emp-leave-pending-card flex h-full min-h-0 flex-col')}>
+        <InteractiveCard className={cn(CARD_CLASS, 'emp-leave-top-panel emp-leave-pending-card flex h-full min-h-0 flex-col')}>
         <SectionHeader
           icon={Clock}
           title="Pending requests"
           description="Awaiting HR approval"
           className="emp-leave-section-head"
         />
+        <div className="emp-leave-pending-body min-h-0 flex-1">
         <DataTable
           columns={pendingColumns}
           data={pendingLeaves}
@@ -716,8 +861,8 @@ export default function LeaveRequest() {
           compact
           emptyMessage="No pending leave requests."
         />
-        </InteractiveCard>
         </div>
+        </InteractiveCard>
         </div>
       </div>
 
@@ -725,7 +870,7 @@ export default function LeaveRequest() {
         <SectionHeader
           icon={History}
           title="Leave history"
-          description="Approved, rejected, cancelled, and compensation credits on earned leave"
+          description="Approved, rejected, cancelled, and compensation leave credits"
         >
           <SearchBar
             value={search}

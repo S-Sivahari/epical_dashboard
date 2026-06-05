@@ -165,7 +165,6 @@ export function TicketManagement() {
 
   const statusCounts = useMemo(
     () => ({
-      all: tickets.length,
       Pending: tickets.filter((t) => t.status === 'Pending').length,
       'In Progress': tickets.filter((t) => t.status === 'In Progress').length,
       Completed: tickets.filter((t) => t.status === 'Completed').length,
@@ -468,16 +467,6 @@ export function TicketManagement() {
             <div className="admin-tickets-hero-top">
               <div className="min-w-0">
                 <h1 className="admin-tickets-hero-title font-display">Support Tickets Hub</h1>
-              </div>
-              <div
-                className="admin-tickets-tab-rail admin-tickets-tab-rail--single"
-                aria-label="Ticket view"
-              >
-                <span className="admin-tickets-tab-btn admin-tickets-tab-btn--active">
-                  <TicketIcon className="admin-tickets-tab-icon shrink-0" aria-hidden />
-                  <span className="admin-tickets-tab-label">All</span>
-                  <span className="admin-tickets-tab-count tabular-nums">{statusCounts.all}</span>
-                </span>
               </div>
             </div>
             <div className="admin-tickets-metrics-band" role="group" aria-label="Ticket metrics">
