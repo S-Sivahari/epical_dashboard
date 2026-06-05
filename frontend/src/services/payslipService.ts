@@ -114,15 +114,14 @@ export interface UploadPayrollOptions {
   templateId?: TemplateId
   replaceBatchId?: string
   resendPayslips?: boolean
-  allowDuplicatePayPeriod?: boolean
   employeeDbIdByEmpId?: Record<string, string>
-  payYear?: number
-  payMonthNum?: number
 }
 
 export interface UploadPayrollResult {
   batch: PayrollBatch
   replaced?: boolean
+  appended?: boolean
+  addedCount?: number
   resentCount?: number
 }
 
@@ -139,15 +138,8 @@ export async function uploadPayroll(
   if (options.resendPayslips) {
     formData.append('resendPayslips', 'true')
   }
-  if (options.allowDuplicatePayPeriod) {
-    formData.append('allowDuplicatePayPeriod', 'true')
-  }
   if (options.employeeDbIdByEmpId && Object.keys(options.employeeDbIdByEmpId).length > 0) {
     formData.append('employeeDbIdByEmpId', JSON.stringify(options.employeeDbIdByEmpId))
-  }
-  if (options.payYear != null && options.payMonthNum != null) {
-    formData.append('payYear', String(options.payYear))
-    formData.append('payMonthNum', String(options.payMonthNum))
   }
   const response = await api.post<UploadPayrollResult>(`${base}/upload`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },

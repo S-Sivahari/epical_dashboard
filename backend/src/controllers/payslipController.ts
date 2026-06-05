@@ -11,7 +11,7 @@ import {
 import {
   processPayrollUpload,
   findBatchByPayPeriod,
-  findBatchByPayPeriodKey,
+  findOverlappingEmpIds,
   getPayrollBatch,
   getLatestPayrollBatch,
   listPayrollBatches,
@@ -224,39 +224,33 @@ export const payslipController = {
 
       const templateId = (req.body?.templateId as string) || 'classic'
       const replaceBatchId = String(req.body?.replaceBatchId || '').trim() || undefined
-      const allowDuplicatePayPeriod =
-        req.body?.allowDuplicatePayPeriod === true ||
-        req.body?.allowDuplicatePayPeriod === 'true' ||
-        req.body?.allowDuplicatePayPeriod === '1'
       const resendPayslips =
         req.body?.resendPayslips === true ||
         req.body?.resendPayslips === 'true' ||
         req.body?.resendPayslips === '1'
 
-      const payYear = parseInt(String(req.body?.payYear ?? ''), 10)
-      const payMonthNum = parseInt(String(req.body?.payMonthNum ?? ''), 10)
-      const hasAdminPayPeriod =
-        Number.isFinite(payYear) && payMonthNum >= 1 && payMonthNum <= 12
+      const { readMasterExcelFromBuffer } = await import('../services/payslipGenerator')
+      const parsed = await readMasterExcelFromBuffer(file.buffer)
 
-      if (!replaceBatchId && !allowDuplicatePayPeriod) {
-        let existing = null
-        if (hasAdminPayPeriod) {
-          const payPeriodKey = `${payYear}-${String(payMonthNum).padStart(2, '0')}`
-          existing = await findBatchByPayPeriodKey(payPeriodKey)
-        } else {
-          const { readMasterExcelFromBuffer } = await import('../services/payslipGenerator')
-          const { company } = await readMasterExcelFromBuffer(file.buffer)
-          existing = await findBatchByPayPeriod(company)
-        }
+      let appendToBatchId: string | undefined
+      if (!replaceBatchId) {
+        const existing = await findBatchByPayPeriod(parsed.company)
         if (existing) {
           const enriched = await getPayrollBatch(existing.id)
-          res.status(409).json({
-            code: 'DUPLICATE_PAY_PERIOD',
-            error: `A payroll upload already exists for ${existing.payMonth || 'this pay period'}.`,
-            payMonth: existing.payMonth,
-            existingBatch: enriched,
-          })
-          return
+          if (enriched) {
+            const overlap = findOverlappingEmpIds(enriched, parsed.employees)
+            if (overlap.length > 0) {
+              res.status(409).json({
+                code: 'DUPLICATE_PAY_PERIOD',
+                error: `Payroll for ${existing.payMonth || 'this pay period'} already includes employee ID(s): ${overlap.slice(0, 5).join(', ')}${overlap.length > 5 ? '…' : ''}.`,
+                payMonth: existing.payMonth,
+                existingBatch: enriched,
+                overlappingEmpIds: overlap,
+              })
+              return
+            }
+            appendToBatchId = existing.id
+          }
         }
       }
 
@@ -275,9 +269,9 @@ export const payslipController = {
         templateId as 'classic' | 'corporate' | 'minimal',
         {
           replaceBatchId,
+          appendToBatchId,
           resendPayslips,
           employeeDbIdByEmpId,
-          ...(hasAdminPayPeriod ? { payYear, payMonthNum } : {}),
         }
       )
       const { batch, replaced, resent } = uploadResult
