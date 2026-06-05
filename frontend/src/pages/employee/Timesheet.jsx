@@ -458,140 +458,150 @@ export default function Timesheet() {
 
   return (
     <div className="emp-timesheet-page dashboard-surface" data-page-scrollable>
-      {/* Page Header with Task Summary */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white rounded-xl border border-border p-3 shadow-sm mb-4">
+      {/* Page Header with Task Summary - Dark Green Bar */}
+      <div className="flex flex-col gap-3 rounded-xl p-4 md:p-5 mb-3" style={{ background: 'linear-gradient(135deg, #2d6a4f 0%, #1b4332 100%)' }}>
         <div>
-          <h1 className="text-xl font-extrabold text-[var(--emerald-dark)] leading-none">Projects & Timesheets</h1>
+          <h1 className="text-xl md:text-2xl font-extrabold leading-none" style={{ color: '#ffffff' }}>Projects & Timesheets</h1>
         </div>
 
-        {/* Dynamic Pie Chart Status Summary */}
-        <div className="flex items-center gap-3">
-          <div className="relative flex items-center justify-center" style={{ width: 68, height: 68 }}>
-            <svg width="68" height="68" viewBox="0 0 68 68" className="transform -rotate-90">
-              {(() => {
-                const total = assignedTasks.length || 1;
-                const inProgressCount = assignedTasks.filter(t => t.status === 'in_progress' || t.status === 'pending_review' || t.status === 'Active' || !t.status).length;
-                const completedCount = assignedTasks.filter(t => t.status === 'completed' || t.status === 'Completed').length;
-                const cancelledCount = assignedTasks.filter(t => t.status === 'cancelled' || t.status === 'Cancelled').length;
+        {/* Task Status Cards - Horizontal Row */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {(() => {
+            const total = assignedTasks.length;
+            const inProgressCount = assignedTasks.filter(t => t.status === 'in_progress' || t.status === 'pending_review' || t.status === 'Active' || !t.status).length;
+            const completedCount = assignedTasks.filter(t => t.status === 'completed' || t.status === 'Completed').length;
+            const cancelledCount = assignedTasks.filter(t => t.status === 'cancelled' || t.status === 'Cancelled').length;
+            
+            return (
+              <>
+                {/* Total Card with Pie Chart */}
+                <div className="bg-white/95 backdrop-blur-sm rounded-xl p-4 shadow-md flex flex-col items-center justify-center">
+                  <div className="relative flex items-center justify-center mb-2" style={{ width: 64, height: 64 }}>
+                    <svg width="64" height="64" viewBox="0 0 64 64" className="transform -rotate-90">
+                      {(() => {
+                        const radius = 28;
+                        const circumference = 2 * Math.PI * radius;
+                        const safeTotal = total || 1;
+                        
+                        const progressPercent = (inProgressCount / safeTotal) * 100;
+                        const completedPercent = (completedCount / safeTotal) * 100;
+                        const cancelledPercent = (cancelledCount / safeTotal) * 100;
+                        
+                        const progressDash = (progressPercent / 100) * circumference;
+                        const completedDash = (completedPercent / 100) * circumference;
+                        const cancelledDash = (cancelledPercent / 100) * circumference;
+                        
+                        const progressOffset = 0;
+                        const completedOffset = -progressDash;
+                        const cancelledOffset = -(progressDash + completedDash);
+                        
+                        return (
+                          <>
+                            <circle 
+                              cx="32" 
+                              cy="32" 
+                              r={radius} 
+                              fill="none" 
+                              stroke="rgba(148, 163, 184, 0.2)" 
+                              strokeWidth="8"
+                            />
+                            {inProgressCount > 0 && (
+                              <circle
+                                cx="32"
+                                cy="32"
+                                r={radius}
+                                fill="none"
+                                stroke="#3b82f6"
+                                strokeWidth="8"
+                                strokeDasharray={`${progressDash} ${circumference}`}
+                                strokeDashoffset={progressOffset}
+                                strokeLinecap="round"
+                              />
+                            )}
+                            {completedCount > 0 && (
+                              <circle
+                                cx="32"
+                                cy="32"
+                                r={radius}
+                                fill="none"
+                                stroke="#22c55e"
+                                strokeWidth="8"
+                                strokeDasharray={`${completedDash} ${circumference}`}
+                                strokeDashoffset={completedOffset}
+                                strokeLinecap="round"
+                              />
+                            )}
+                            {cancelledCount > 0 && (
+                              <circle
+                                cx="32"
+                                cy="32"
+                                r={radius}
+                                fill="none"
+                                stroke="#ef4444"
+                                strokeWidth="8"
+                                strokeDasharray={`${cancelledDash} ${circumference}`}
+                                strokeDashoffset={cancelledOffset}
+                                strokeLinecap="round"
+                              />
+                            )}
+                          </>
+                        );
+                      })()}
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-3xl font-black text-slate-700 leading-none">
+                        {total}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Total</span>
+                </div>
 
-                const radius = 28;
-                const circumference = 2 * Math.PI * radius;
-                
-                const progressPercent = (inProgressCount / total) * 100;
-                const completedPercent = (completedCount / total) * 100;
-                const cancelledPercent = (cancelledCount / total) * 100;
-                
-                const progressDash = (progressPercent / 100) * circumference;
-                const completedDash = (completedPercent / 100) * circumference;
-                const cancelledDash = (cancelledPercent / 100) * circumference;
-                
-                const progressOffset = 0;
-                const completedOffset = -progressDash;
-                const cancelledOffset = -(progressDash + completedDash);
-                
-                return (
-                  <>
-                    <circle 
-                      cx="34" 
-                      cy="34" 
-                      r={radius} 
-                      fill="none" 
-                      stroke="rgba(38, 107, 28, 0.08)" 
-                      strokeWidth="11"
-                    />
-                    {inProgressCount > 0 && (
-                      <circle
-                        cx="34"
-                        cy="34"
-                        r={radius}
-                        fill="none"
-                        stroke="#3b82f6"
-                        strokeWidth="11"
-                        strokeDasharray={`${progressDash} ${circumference}`}
-                        strokeDashoffset={progressOffset}
-                        strokeLinecap="round"
-                        style={{ filter: 'drop-shadow(0 2px 4px rgba(59, 130, 246, 0.3))' }}
-                      />
-                    )}
-                    {completedCount > 0 && (
-                      <circle
-                        cx="34"
-                        cy="34"
-                        r={radius}
-                        fill="none"
-                        stroke="#22c55e"
-                        strokeWidth="11"
-                        strokeDasharray={`${completedDash} ${circumference}`}
-                        strokeDashoffset={completedOffset}
-                        strokeLinecap="round"
-                        style={{ filter: 'drop-shadow(0 2px 4px rgba(34, 197, 94, 0.3))' }}
-                      />
-                    )}
-                    {cancelledCount > 0 && (
-                      <circle
-                        cx="34"
-                        cy="34"
-                        r={radius}
-                        fill="none"
-                        stroke="#ef4444"
-                        strokeWidth="11"
-                        strokeDasharray={`${cancelledDash} ${circumference}`}
-                        strokeDashoffset={cancelledOffset}
-                        strokeLinecap="round"
-                        style={{ filter: 'drop-shadow(0 2px 4px rgba(239, 68, 68, 0.3))' }}
-                      />
-                    )}
-                  </>
-                );
-              })()}
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-black text-[var(--emerald-dark)] font-display leading-none">
-                {assignedTasks.length}
-              </span>
-              <span className="text-[8px] font-bold uppercase tracking-wider text-slate-500 mt-0.5">Total</span>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3 pl-3 border-l border-emerald-200/60">
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-1 mb-0.5">
-                <div className="h-1.5 w-1.5 rounded-full bg-blue-500 shadow-sm"></div>
-                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">In Progress</span>
-              </div>
-              <div className="text-xl font-black text-blue-600 tabular-nums">
-                {assignedTasks.filter(t => t.status === 'in_progress' || t.status === 'pending_review' || t.status === 'Active' || !t.status).length}
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-1 mb-0.5">
-                <div className="h-1.5 w-1.5 rounded-full bg-green-500 shadow-sm"></div>
-                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Completed</span>
-              </div>
-              <div className="text-xl font-black text-green-600 tabular-nums">
-                {assignedTasks.filter(t => t.status === 'completed' || t.status === 'Completed').length}
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-1 mb-0.5">
-                <div className="h-1.5 w-1.5 rounded-full bg-red-500 shadow-sm"></div>
-                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Cancelled</span>
-              </div>
-              <div className="text-xl font-black text-red-600 tabular-nums">
-                {assignedTasks.filter(t => t.status === 'cancelled' || t.status === 'Cancelled').length}
-              </div>
-            </div>
-          </div>
+                {/* In Progress Card */}
+                <div className="bg-white/95 backdrop-blur-sm rounded-xl p-4 shadow-md">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-2.5 w-2.5 rounded-full bg-blue-500"></div>
+                    <span className="text-xs font-bold uppercase tracking-wide text-slate-600">In Progress</span>
+                  </div>
+                  <div className="text-4xl font-black text-blue-600 tabular-nums">
+                    {inProgressCount}
+                  </div>
+                </div>
+
+                {/* Completed Card */}
+                <div className="bg-white/95 backdrop-blur-sm rounded-xl p-4 shadow-md">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-2.5 w-2.5 rounded-full bg-green-500"></div>
+                    <span className="text-xs font-bold uppercase tracking-wide text-slate-600">Completed</span>
+                  </div>
+                  <div className="text-4xl font-black text-green-600 tabular-nums">
+                    {completedCount}
+                  </div>
+                </div>
+
+                {/* Cancelled Card */}
+                <div className="bg-white/95 backdrop-blur-sm rounded-xl p-4 shadow-md">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-2.5 w-2.5 rounded-full bg-red-500"></div>
+                    <span className="text-xs font-bold uppercase tracking-wide text-slate-600">Cancelled</span>
+                  </div>
+                  <div className="text-4xl font-black text-red-600 tabular-nums">
+                    {cancelledCount}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </div>
       </div>
 
       {/* Main Dashboard Grid Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4 lg:grid-rows-[auto] lg:items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3 lg:grid-rows-[auto] lg:items-stretch">
         
         {/* LEFT COLUMN */}
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           {/* Compact Stat Cards Row */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2.5">
             <TimesheetSummaryCard
               variant="teal"
               title="Daily Hours Today"
@@ -607,31 +617,31 @@ export default function Timesheet() {
           </div>
 
           {/* Work Session Card - Project and Description Only */}
-          <section className="emp-timesheet-card p-4">
-            <div className="mb-3">
+          <section className="emp-timesheet-card p-3">
+            <div className="mb-2.5">
               <h3 className="text-sm font-bold text-slate-900">Work Session</h3>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {!checkedIn && attendance?.autoCheckedOut && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-2">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-amber-800">
-                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-800">
+                    <AlertTriangle className="h-3 w-3 shrink-0" />
                     Auto Checked-Out
                   </div>
-                  <p className="mt-0.5 text-[11px] text-amber-700">
+                  <p className="mt-0.5 text-[10px] text-amber-700">
                     Your previous session was closed by the system.
                   </p>
                 </div>
               )}
 
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 <Label className="text-xs font-bold text-slate-800">Assigned Project *</Label>
                 <Select
                   value={selectedTaskId}
                   onValueChange={(v) => setValue('assignedTaskId', v, { shouldValidate: true })}
                   disabled={checkedIn || checkoutReview || startableTasks.length === 0}
                 >
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className="h-8 text-xs">
                     <SelectValue
                       placeholder={
                         startableTasks.length === 0
@@ -649,36 +659,36 @@ export default function Timesheet() {
                   </SelectContent>
                 </Select>
                 {selectedTask?.description && !checkedIn && (
-                  <p className="line-clamp-2 text-[10px] text-muted">{selectedTask.description}</p>
+                  <p className="line-clamp-2 text-[9px] text-muted mt-1">{selectedTask.description}</p>
                 )}
                 {errors.assignedTaskId && !checkedIn && (
-                  <p className="text-[10px] text-danger">{errors.assignedTaskId.message}</p>
+                  <p className="text-[9px] text-danger mt-1">{errors.assignedTaskId.message}</p>
                 )}
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 <Label className="text-xs font-bold text-slate-800">Work Description *</Label>
                 <Textarea
-                  className="min-h-[4rem] max-h-[12rem] resize-y text-sm leading-relaxed"
-                  rows={3}
+                  className="min-h-[3.5rem] max-h-[10rem] resize-y text-xs leading-relaxed"
+                  rows={2}
                   {...register('description')}
                   placeholder="Describe what you're working on..."
                   disabled={checkedIn && !checkoutReview}
                 />
                 {checkoutReview && (
-                  <p className="text-[10px] font-medium text-amber-700">
+                  <p className="text-[9px] font-medium text-amber-700 mt-1">
                     Update your work summary before checking out.
                   </p>
                 )}
-                {checkoutError && <p className="text-[10px] text-danger">{checkoutError}</p>}
+                {checkoutError && <p className="text-[9px] text-danger mt-1">{checkoutError}</p>}
               </div>
             </div>
           </section>
 
           {/* Wrapper for Active Session + Buttons to match right column height */}
-          <div className="flex flex-col gap-4 flex-1">
+          <div className="flex flex-col gap-3 flex-1">
             {/* Active Session Status Card */}
-            <section className="emp-timesheet-card p-4 flex-1">
+            <section className="emp-timesheet-card p-3 flex-1">
               <div className="mb-2">
                 <h3 className="text-sm font-bold text-slate-900">Active Session</h3>
               </div>
@@ -697,20 +707,20 @@ export default function Timesheet() {
             </section>
 
             {/* Check In/Check Out Buttons - Always at bottom */}
-            <section className="emp-timesheet-card p-4">
+            <section className="emp-timesheet-card p-2.5">
               <div className="flex gap-2">
                 {checkoutReview ? (
                   <>
-                    <Button type="button" variant="outline" onClick={cancelCheckOut} disabled={submitting} className="h-9 flex-1">
+                    <Button type="button" variant="outline" onClick={cancelCheckOut} disabled={submitting} className="h-8 flex-1 text-xs">
                       Cancel
                     </Button>
                     <Button
                       type="button"
                       onClick={onConfirmCheckOut}
                       disabled={submitting}
-                      className="emp-ts-btn-primary h-9 gap-2 flex-1"
+                      className="emp-ts-btn-primary h-8 gap-1.5 flex-1 text-xs"
                     >
-                      <LogOut className="h-4 w-4 shrink-0" />
+                      <LogOut className="h-3.5 w-3.5 shrink-0" />
                       Confirm Check Out
                     </Button>
                   </>
@@ -720,18 +730,18 @@ export default function Timesheet() {
                       type="button"
                       onClick={onCheckIn}
                       disabled={checkedIn || submitting || !canStartSession || startableTasks.length === 0}
-                      className="emp-ts-btn-primary h-9 gap-2 flex-1"
+                      className="emp-ts-btn-primary h-8 gap-1.5 flex-1 text-xs"
                     >
-                      <LogIn className="h-4 w-4 shrink-0" /> Check In
+                      <LogIn className="h-3.5 w-3.5 shrink-0" /> Check In
                     </Button>
                     <Button
                       type="button"
                       variant="outline"
                       onClick={beginCheckOut}
                       disabled={!checkedIn || submitting}
-                      className="h-9 gap-2 flex-1"
+                      className="h-8 gap-1.5 flex-1 text-xs"
                     >
-                      <LogOut className="h-4 w-4 shrink-0" /> Check Out
+                      <LogOut className="h-3.5 w-3.5 shrink-0" /> Check Out
                     </Button>
                   </>
                 )}
@@ -783,8 +793,8 @@ export default function Timesheet() {
       </div>
 
       {/* Work History - Full Width Bottom Section */}
-      <section className="emp-timesheet-card p-4 overflow-visible">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+      <section className="emp-timesheet-card overflow-visible">
+        <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200/80 rounded-t-[0.875rem] p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
             <h3 className="text-sm font-bold text-slate-900">Work History</h3>
             {unifiedHistory.length > 0 && (
@@ -811,29 +821,32 @@ export default function Timesheet() {
           </div>
         </div>
 
-        {(isInitialLoading || sessionsLoading) && unifiedHistory.length === 0 ? (
-          <div className="space-y-2">
-            <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/80" />
-            <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/60" />
-            <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/60" />
-          </div>
-        ) : (
-          <div className="relative">
-            {(isInitialLoading || sessionsLoading) && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/70 backdrop-blur-[1px]">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
-              </div>
-            )}
-            <div className="emp-timesheet-history-scroll timesheet-panel-scroll rounded-lg border border-slate-200/80 max-h-[450px] overflow-auto">
-              <DataTable
-                columns={historyColumns}
-                data={unifiedHistory}
-                compact
-                emptyMessage="No work logs for this date range."
-              />
+        <div className="p-4">
+          {(isInitialLoading || sessionsLoading) && unifiedHistory.length === 0 ? (
+            <div className="space-y-2">
+              <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/80" />
+              <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/60" />
+              <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/60" />
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="relative">
+              {(isInitialLoading || sessionsLoading) && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/70 backdrop-blur-[1px]">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                </div>
+              )}
+              <div className="emp-timesheet-history-scroll timesheet-panel-scroll rounded-lg border border-slate-200/80 max-h-[450px] overflow-auto">
+                <DataTable
+                  columns={historyColumns}
+                  data={unifiedHistory}
+                  compact
+                  stickyHeader={true}
+                  emptyMessage="No work logs for this date range."
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </section>
     </div>
   )

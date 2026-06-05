@@ -2425,73 +2425,34 @@ export function ProjectManagement() {
                 
                 {/* In Progress */}
                 <div className="flex-1 group rounded-xl border border-blue-200/50 bg-white/80 p-3.5 shadow-sm transition-all hover:shadow-md hover:border-blue-300/70">
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <div className="h-2 w-2 rounded-full bg-blue-500 shadow-sm ring-2 ring-blue-200/50"></div>
                       <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">In Progress</span>
                     </div>
                     <span className="text-2xl font-black text-blue-600 tabular-nums">{projectMetrics.inProgress}</span>
                   </div>
-                  <div className="relative h-1.5 rounded-full bg-blue-100/60 overflow-hidden">
-                    <div 
-                      className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 shadow-sm transition-all duration-1000 ease-out"
-                      style={{ 
-                        width: isAnimated ? `${(projectMetrics.inProgress / (projectMetrics.total || 1)) * 100}%` : '0%'
-                      }}
-                    ></div>
-                  </div>
-                  <div className="mt-1 text-right">
-                    <span className="text-[9px] font-bold text-blue-600/80 tabular-nums">
-                      {((projectMetrics.inProgress / (projectMetrics.total || 1)) * 100).toFixed(1)}%
-                    </span>
-                  </div>
                 </div>
                 
                 {/* Completed */}
                 <div className="flex-1 group rounded-xl border border-green-200/50 bg-white/80 p-3.5 shadow-sm transition-all hover:shadow-md hover:border-green-300/70">
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <div className="h-2 w-2 rounded-full bg-green-500 shadow-sm ring-2 ring-green-200/50"></div>
                       <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Completed</span>
                     </div>
                     <span className="text-2xl font-black text-green-600 tabular-nums">{projectMetrics.completed}</span>
                   </div>
-                  <div className="relative h-1.5 rounded-full bg-green-100/60 overflow-hidden">
-                    <div 
-                      className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-green-500 to-green-600 shadow-sm transition-all duration-1000 ease-out delay-200"
-                      style={{ 
-                        width: isAnimated ? `${(projectMetrics.completed / (projectMetrics.total || 1)) * 100}%` : '0%'
-                      }}
-                    ></div>
-                  </div>
-                  <div className="mt-1 text-right">
-                    <span className="text-[9px] font-bold text-green-600/80 tabular-nums">
-                      {((projectMetrics.completed / (projectMetrics.total || 1)) * 100).toFixed(1)}%
-                    </span>
-                  </div>
                 </div>
                 
                 {/* Cancelled */}
                 <div className="flex-1 group rounded-xl border border-red-200/50 bg-white/80 p-3.5 shadow-sm transition-all hover:shadow-md hover:border-red-300/70">
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <div className="h-2 w-2 rounded-full bg-red-500 shadow-sm ring-2 ring-red-200/50"></div>
                       <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Cancelled</span>
                     </div>
                     <span className="text-2xl font-black text-red-600 tabular-nums">{projectMetrics.cancelled}</span>
-                  </div>
-                  <div className="relative h-1.5 rounded-full bg-red-100/60 overflow-hidden">
-                    <div 
-                      className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-red-500 to-red-600 shadow-sm transition-all duration-1000 ease-out delay-500"
-                      style={{ 
-                        width: isAnimated ? `${(projectMetrics.cancelled / (projectMetrics.total || 1)) * 100}%` : '0%'
-                      }}
-                    ></div>
-                  </div>
-                  <div className="mt-1 text-right">
-                    <span className="text-[9px] font-bold text-red-600/80 tabular-nums">
-                      {((projectMetrics.cancelled / (projectMetrics.total || 1)) * 100).toFixed(1)}%
-                    </span>
                   </div>
                 </div>
                 
