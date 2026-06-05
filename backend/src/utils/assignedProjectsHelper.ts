@@ -1,6 +1,7 @@
 import { ProjectModel } from '../models/Project';
 import { TimesheetModel } from '../models/Timesheet';
 import {
+  buildAssignedProjectsFilter,
   buildAssignmentIdentityTokens,
   ensureAssignedTasksForEmployee,
 } from './assignedTaskSync';
@@ -82,13 +83,7 @@ export async function getAssignedProjectsForUser(
     }).catch((err) => console.error('Background assigned-task sync failed:', err));
   }
 
-  const assignedProjects = await ProjectModel.find({
-    $or: [
-      { accessType: 'public' },
-      { allowedUsers: { $in: assignmentTokens } },
-      { teamLead: { $in: assignmentTokens } },
-    ],
-  })
+  const assignedProjects = await ProjectModel.find(buildAssignedProjectsFilter(assignmentTokens))
     .sort({ createdAt: -1 })
     .lean();
 
@@ -113,15 +108,9 @@ export async function getAssignedProjectsForUser(
 
   return assignedProjects.map((p) => {
     const base = toFrontendProject(p as any);
-    const allowed = p.allowedUsers || [];
-    let assignmentRole: 'Team Lead' | 'Member' | 'Public' = 'Public';
+    let assignmentRole: 'Team Lead' | 'Member' = 'Member';
     if (p.teamLead && assignmentTokens.includes(p.teamLead)) {
       assignmentRole = 'Team Lead';
-    } else if (
-      p.accessType === 'private' &&
-      allowed.some((allowedUser: string) => assignmentTokens.includes(allowedUser))
-    ) {
-      assignmentRole = 'Member';
     }
 
     return {

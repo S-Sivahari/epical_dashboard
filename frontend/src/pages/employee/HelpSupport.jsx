@@ -15,6 +15,7 @@ import { useTicketStore } from '@store/ticketStore'
 import { formatDateTime } from '@/utils/formatDate'
 import { cn } from '@pages/employee/lib/utils'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
+import { useFormSessionDraft } from '@hooks/useFormSessionDraft'
 
 const PAGE_SIZE = 6
 const POLL_MS = 30000
@@ -93,8 +94,15 @@ export default function RaiseTickets() {
   const [page, setPage] = useState(1)
   const { toast } = useToast()
 
+  const ticketFormDefaults = { title: '', description: '', priority: '' }
+
   const { register, handleSubmit, setValue, watch, reset, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(ticketSchema),
+    defaultValues: ticketFormDefaults,
+  })
+
+  const { clearDraft } = useFormSessionDraft('employee-ticket-raise', { reset, watch }, {
+    defaultValues: ticketFormDefaults,
   })
 
   useEffect(() => {
@@ -154,7 +162,8 @@ export default function RaiseTickets() {
         priority: data.priority,
       })
       toast({ title: 'Ticket created', description: 'Support team will respond within 24 hours.' })
-      reset()
+      clearDraft()
+      reset(ticketFormDefaults)
       setPage(1)
     } catch (error) {
       const message = error?.response?.data?.error || 'Could not submit your ticket. Please try again.'
@@ -174,7 +183,7 @@ export default function RaiseTickets() {
           <SectionHeader
             icon={Ticket}
             title="Raise a ticket"
-            description="Submit IT or HR issues for the support team"
+            description="Submit IT or workplace issues for the admin team"
           />
           <div className="flex flex-1 flex-col space-y-3">
             <div>

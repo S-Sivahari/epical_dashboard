@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FolderKanban, Clock } from 'lucide-react'
 import { Badge } from '@components/employee/ui/badge'
-import { Progress } from '@components/employee/ui/progress'
 import api from '@services/api'
 import { cn } from '@pages/employee/lib/utils'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
@@ -18,11 +17,8 @@ function statusBadgeVariant(status) {
 }
 
 function ProjectRow({ project }) {
-  const completion = project.completionPercentage ?? 0
-  const showProgress = (project.totalTasks ?? 0) > 0
-
   return (
-    <li className="grid grid-cols-[minmax(0,1.4fr)_auto_minmax(5rem,7rem)_3.5rem] items-center gap-2 px-3 py-2.5 text-xs sm:grid-cols-[minmax(0,1.6fr)_auto_minmax(6rem,8rem)_4rem_4.5rem] sm:gap-3 sm:px-4">
+    <li className="grid grid-cols-[minmax(0,1.4fr)_auto_3.5rem] items-center gap-2 px-3 py-2.5 text-xs sm:grid-cols-[minmax(0,1.6fr)_auto_4rem_4.5rem] sm:gap-3 sm:px-4">
       <div className="min-w-0">
         <p className="truncate font-semibold text-foreground" title={project.name}>
           {project.name}
@@ -38,20 +34,6 @@ function ProjectRow({ project }) {
       <Badge variant={statusBadgeVariant(project.status)} className="shrink-0 text-[10px]">
         {projectStatusLabel(project.status)}
       </Badge>
-
-      <div className="min-w-0">
-        {showProgress ? (
-          <>
-            <div className="mb-0.5 flex justify-between text-[10px] text-muted">
-              <span>Tasks</span>
-              <span className="font-semibold text-foreground">{completion}%</span>
-            </div>
-            <Progress value={completion} className="h-1.5" />
-          </>
-        ) : (
-          <span className="text-[10px] text-muted">No tasks</span>
-        )}
-      </div>
 
       <span className="hidden text-right font-semibold text-foreground sm:block">
         {project.myHours > 0 ? `${project.myHours}h` : '—'}
@@ -115,15 +97,8 @@ export function AssignedProjectsSection({
   const summary = useMemo(() => {
     const totalHours = projects.reduce((sum, p) => sum + (p.myHours ?? 0), 0)
     const active = projects.filter((p) => p.status === 'Active').length
-    const withTasks = projects.filter((p) => (p.totalTasks ?? 0) > 0)
-    const avgCompletion =
-      withTasks.length > 0
-        ? Math.round(
-            withTasks.reduce((sum, p) => sum + (p.completionPercentage ?? 0), 0) / withTasks.length,
-          )
-        : 0
 
-    return { totalHours, active, avgCompletion }
+    return { totalHours, active }
   }, [projects])
 
   return (
@@ -151,14 +126,6 @@ export function AssignedProjectsSection({
                   <Clock className="h-3 w-3" />
                   <span className="font-semibold text-foreground">{summary.totalHours}h</span> logged
                 </span>
-                {summary.avgCompletion > 0 ? (
-                  <>
-                    <span aria-hidden>·</span>
-                    <span>
-                      <span className="font-semibold text-foreground">{summary.avgCompletion}%</span> avg progress
-                    </span>
-                  </>
-                ) : null}
               </p>
             ) : (
               <p className="mt-0.5 text-xs text-muted">Projects you can access</p>
@@ -189,10 +156,9 @@ export function AssignedProjectsSection({
 
       {!loading && !error && projects.length > 0 && (
         <div className="mt-3 overflow-hidden rounded-lg border border-border">
-          <div className="hidden border-b border-border bg-[#f6f4fa]/90 px-4 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted sm:grid sm:grid-cols-[minmax(0,1.6fr)_auto_minmax(6rem,8rem)_4rem_4.5rem] sm:gap-3">
+          <div className="hidden border-b border-border bg-[#f6f4fa]/90 px-4 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted sm:grid sm:grid-cols-[minmax(0,1.6fr)_auto_4rem_4.5rem] sm:gap-3">
             <span>Project</span>
             <span>Status</span>
-            <span>Progress</span>
             <span className="text-right">Hours</span>
             <span className="text-right">Role</span>
           </div>

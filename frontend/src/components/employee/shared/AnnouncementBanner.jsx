@@ -63,7 +63,7 @@ export function AnnouncementBanner({ compact = false, inline = false, className 
     <>
       <div
         className={cn(
-          'emp-announcement-gradient relative min-h-[4.5rem] overflow-hidden rounded-xl !text-white shadow-card',
+          'emp-announcement-gradient relative flex min-h-[4.5rem] flex-col overflow-hidden rounded-xl !text-white shadow-card',
           inline ? 'h-full w-44 shrink-0 sm:w-52' : compact ? '' : 'rounded-2xl',
           className,
         )}
@@ -78,8 +78,9 @@ export function AnnouncementBanner({ compact = false, inline = false, className 
             transition={{ duration: 0.4 }}
             onClick={() => setActive(current)}
             className={cn(
-              'h-full w-full cursor-pointer border-0 bg-transparent text-left !text-white',
-              inline ? 'flex items-center p-3' : compact ? 'p-4 md:p-5' : 'p-6 md:p-8',
+              'w-full cursor-pointer border-0 bg-transparent text-left !text-white',
+              inline ? 'flex flex-1 items-center p-3' : compact ? 'p-4 md:p-5' : 'p-6 md:p-8',
+              items.length > 1 && !inline ? 'pb-2' : 'h-full',
             )}
           >
             <div className={cn('flex min-w-0 items-center gap-2.5', inline ? 'w-full' : 'items-start gap-3')}>
@@ -91,7 +92,7 @@ export function AnnouncementBanner({ compact = false, inline = false, className 
               >
                 <Megaphone className={cn('text-white', inline ? 'h-3.5 w-3.5' : compact ? 'h-4 w-4' : 'h-6 w-6')} />
               </div>
-              <div className={cn('min-w-0 flex-1', !inline && items.length > 1 ? 'pr-14' : '')}>
+              <div className="min-w-0 flex-1">
                 <p
                   className={cn(
                     'font-medium uppercase tracking-wider !text-white/80',
@@ -119,8 +120,25 @@ export function AnnouncementBanner({ compact = false, inline = false, className 
         </AnimatePresence>
 
         {items.length > 1 && !inline ? (
-          <>
-            <div className="absolute bottom-4 right-4 flex gap-2">
+          <div className="flex shrink-0 items-center justify-between gap-3 px-4 pb-3 pt-1 md:px-5">
+            <div className="flex gap-1.5">
+              {items.map((item, i) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIndex(i)
+                  }}
+                  className={cn(
+                    'h-1.5 rounded-full transition-all',
+                    i === index ? 'w-6 bg-white' : 'w-1.5 bg-white/40',
+                  )}
+                  aria-label={`Go to slide ${i + 1}`}
+                />
+              ))}
+            </div>
+            <div className="flex gap-2">
               <button
                 type="button"
                 onClick={(e) => {
@@ -144,24 +162,7 @@ export function AnnouncementBanner({ compact = false, inline = false, className 
                 <ChevronRight className="h-4 w-4 text-white" />
               </button>
             </div>
-            <div className="absolute bottom-4 left-6 flex gap-1.5">
-              {items.map((item, i) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setIndex(i)
-                  }}
-                  className={cn(
-                    'h-1.5 rounded-full transition-all',
-                    i === index ? 'w-6 bg-white' : 'w-1.5 bg-white/40',
-                  )}
-                  aria-label={`Go to slide ${i + 1}`}
-                />
-              ))}
-            </div>
-          </>
+          </div>
         ) : null}
 
         {items.length > 1 && inline ? (

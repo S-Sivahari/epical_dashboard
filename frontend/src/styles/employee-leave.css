@@ -1,35 +1,41 @@
-/* Employee Leave Management — white wrapper + tinted panels */
+/* Employee Leave Management — full-page viewport layout */
 
 .emp-leave-page {
-  /* 20% smaller than default (100% → 80%) */
-  --emp-leave-ui-scale: 0.8;
   --emp-leave-apply-bg: rgba(227, 247, 235, 1);
   --emp-leave-balance-bg: rgba(221, 246, 240, 1);
   --emp-leave-pending-bg: rgba(219, 245, 247, 1);
   --emp-leave-history-row-h: 2.75rem;
   box-sizing: border-box;
-  zoom: 0.8;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  min-height: 0;
 }
 
-/* Firefox / fallback when zoom is unsupported */
-@supports not (zoom: 1) {
-  .emp-leave-page {
-    transform: scale(0.8);
-    transform-origin: top left;
-    width: 125%;
-    max-width: 125%;
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-leave]) {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-leave]) {
+    padding: 1rem;
   }
 }
 
-.employee-portal [data-employee-page] > .emp-portal-page__content:has(.emp-leave-page) {
-  overflow-x: hidden;
-  overflow-y: auto;
-}
-
-/* White outer section wrapping the three top cards */
+/* White shell — fills available page height */
 .emp-leave-top {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
   border-radius: 1rem;
-  padding: 1rem;
+  padding: 0.875rem;
   background: #ffffff;
   border: 1px solid rgba(38, 107, 28, 0.1);
   box-shadow:
@@ -39,32 +45,66 @@
 
 @media (min-width: 640px) {
   .emp-leave-top {
-    padding: 1.25rem;
+    padding: 1rem;
   }
 }
 
 @media (min-width: 1024px) {
   .emp-leave-top {
-    padding: 1.5rem;
+    padding: 1.125rem;
   }
 }
 
-.emp-leave-top-grid {
+.emp-leave-upper {
   display: grid;
-  gap: 1.25rem;
+  flex: 1 1 0;
+  gap: 1rem;
+  min-height: 0;
+  overflow: hidden;
   align-items: stretch;
 }
 
 @media (min-width: 1024px) {
-  .emp-leave-top-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1.25rem;
+  .emp-leave-upper {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1rem;
   }
+}
 
-  .emp-leave-top-grid > * {
-    height: 100%;
-    min-height: 0;
+@media (max-width: 1023px) {
+  .emp-leave-upper {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
+}
+
+.emp-leave-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.emp-leave-column--left > .emp-leave-balance-card {
+  flex: 0 0 auto;
+}
+
+.emp-leave-column--left > .emp-leave-history-card {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.emp-leave-column--right > .emp-leave-apply-card {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.emp-leave-column--right > .emp-leave-pending-card {
+  flex: 0 0 auto;
+  max-height: 38%;
+  min-height: 0;
 }
 
 .emp-leave-top-panel {
@@ -72,22 +112,21 @@
   flex-direction: column;
   min-height: 0;
   min-width: 0;
-  height: 100%;
+  overflow: hidden;
 }
 
 .emp-leave-pending-body {
   display: flex;
   flex-direction: column;
-  flex: 1;
   min-height: 0;
+  overflow-x: auto;
 }
 
 .emp-leave-pending-body > .rounded-lg.border-dashed {
-  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 8rem;
+  min-height: 4rem;
 }
 
 /* Per-panel tinted backgrounds */
@@ -95,26 +134,28 @@
   background: var(--emp-leave-apply-bg) !important;
   border-color: rgba(38, 107, 28, 0.14) !important;
   box-shadow: 0 1px 3px rgba(26, 67, 41, 0.06) !important;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .emp-leave-balance-card {
   background: var(--emp-leave-balance-bg) !important;
   border-color: rgba(38, 107, 28, 0.14) !important;
   box-shadow: 0 1px 3px rgba(26, 67, 41, 0.06) !important;
+  overflow: visible;
 }
 
 .emp-leave-pending-card {
   background: var(--emp-leave-pending-bg) !important;
   border-color: rgba(38, 107, 28, 0.14) !important;
   box-shadow: 0 1px 3px rgba(26, 67, 41, 0.06) !important;
-  min-height: 0;
-  min-width: 0;
   display: flex;
   flex-direction: column;
 }
 
 .emp-leave-apply-head {
   padding-bottom: 0.25rem;
+  flex-shrink: 0;
 }
 
 .emp-leave-reason-block textarea:focus-visible {
@@ -122,35 +163,110 @@
   outline-offset: 1px;
 }
 
-.emp-leave-balance-card .emp-leave-balance-stack {
+.emp-leave-form-row {
+  align-items: start;
+}
+
+.emp-leave-form-row > div {
+  min-width: 0;
+}
+
+/* Compact square balance tiles — used & left */
+.emp-leave-balance-head {
+  margin-bottom: 0.75rem !important;
+  padding-bottom: 0.75rem !important;
+}
+
+.emp-leave-balance-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.625rem;
+  overflow: visible;
+}
+
+@media (max-width: 639px) {
+  .emp-leave-balance-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.emp-leave-balance-tile {
+  aspect-ratio: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  flex: 1;
-  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.625rem 0.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--balance-accent, #266b1c) 28%, transparent);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 1px 2px rgba(26, 67, 41, 0.05);
+  text-align: center;
+  min-width: 0;
 }
 
-.emp-leave-balance-card .emp-leave-balance-stack [data-portal-card] {
-  padding: 0.75rem 0.875rem;
-  background: rgba(255, 255, 255, 0.72) !important;
+.emp-leave-balance-tile--lop {
+  border-color: rgba(220, 38, 38, 0.35);
+  background: rgba(254, 242, 242, 0.9);
 }
 
-.emp-leave-balance-card .emp-leave-balance-stack .font-heading {
+.emp-leave-balance-tile__label {
   font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--balance-accent, #266b1c);
+  line-height: 1.1;
 }
 
-.emp-leave-pending-card [data-portal-card] {
-  background: rgba(255, 255, 255, 0.65) !important;
-  border: 1px solid rgba(38, 107, 28, 0.08) !important;
-  box-shadow: none !important;
+.emp-leave-balance-tile--lop .emp-leave-balance-tile__label {
+  color: #b91c1c;
+}
+
+.emp-leave-balance-tile__stats {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.emp-leave-balance-tile__stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.emp-leave-balance-tile__num {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 1.375rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #0f172a;
+}
+
+.emp-leave-balance-tile__meta {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.emp-leave-balance-tile__num--lop {
+  color: #b91c1c;
 }
 
 .emp-leave-pending-card .emp-leave-section-head {
-  margin-bottom: 0.75rem;
-  padding-bottom: 0.75rem;
+  margin-bottom: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+  flex-shrink: 0;
 }
 
-/* Leave history — scroll after ~4 data rows */
+/* Leave history — left column, internal scroll */
 .emp-leave-history-card {
   background: #ffffff !important;
   border-color: rgba(38, 107, 28, 0.12) !important;
@@ -159,11 +275,17 @@
     0 4px 14px rgba(26, 67, 41, 0.08) !important;
 }
 
+.emp-leave-history-card > :not(.emp-leave-history-scroll) {
+  flex-shrink: 0;
+}
+
 .emp-leave-history-scroll {
-  max-height: calc(var(--emp-leave-history-row-h) * 4 + 2.85rem);
+  flex: 1 1 0;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: auto;
   border-radius: 0.75rem;
+  -webkit-overflow-scrolling: touch;
 }
 
 .emp-leave-history-scroll table tbody tr {
@@ -172,6 +294,10 @@
 
 .emp-leave-history-scroll [data-portal-card] {
   background: rgba(255, 255, 255, 0.9) !important;
+}
+
+.emp-leave-history-footer {
+  flex-shrink: 0;
 }
 
 @media (min-width: 1024px) {

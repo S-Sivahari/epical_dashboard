@@ -796,7 +796,7 @@ const ProjectCard = memo(function ProjectCard({
 
   const membersText = memberCount > 0 
     ? visibleNames.join(' • ') + (remainingCount > 0 ? ` • +${remainingCount} more` : '')
-    : (project.accessType === 'public' ? 'All Members' : 'None assigned')
+    : 'None assigned'
 
   const projectInitial =
     project.name.charAt(project.name.indexOf(' ') + 1) || project.name.charAt(0)
@@ -970,7 +970,7 @@ const ProjectListRow = memo(function ProjectListRow({
             <span className="flex-1 break-words leading-relaxed" title={project.visibleUsers.join(' • ')}>
               {project.visibleUsers.length > 0 
                 ? project.visibleUsers.slice(0, 2).join(' • ') + (project.visibleUsers.length > 2 ? ` • +${project.visibleUsers.length - 2} more` : '')
-                : (project.accessType === 'public' ? 'All Members' : 'None')
+                : 'None'
               }
               {project.visibleUsers.length > 0 && ` (${project.visibleUsers.length})`}
             </span>
@@ -1723,7 +1723,7 @@ export function ProjectManagement() {
             technologyNode: form.technologyNode.trim(),
             accessType: form.accessType,
             description: form.description.trim(),
-            visibleUsers: form.accessType === 'private' ? form.visibleUsers : [],
+            visibleUsers: form.visibleUsers,
             teamLead: form.teamLead.trim() || undefined,
           })
           await refreshAllData()
@@ -1739,7 +1739,7 @@ export function ProjectManagement() {
             accessType: form.accessType,
             description: form.description.trim(),
             status: form.status,
-            visibleUsers: form.accessType === 'private' ? form.visibleUsers : [],
+            visibleUsers: form.visibleUsers,
             teamLead: form.teamLead.trim() || undefined,
           })
           if (oldProjectName && oldProjectName !== newProjectName) {
@@ -3514,12 +3514,11 @@ export function ProjectManagement() {
               setForm({
                 ...form,
                 accessType,
-                visibleUsers: accessType === 'private' ? form.visibleUsers : [],
               })
             }}
             options={[
-              { value: 'public', label: 'Public — Visible system-wide to all employees' },
-              { value: 'private', label: 'Private — Access restricted specifically by user/team' },
+              { value: 'public', label: 'Public — Allotted members can access this project' },
+              { value: 'private', label: 'Private — Restricted to allotted members only' },
             ]}
           />
 
@@ -3538,17 +3537,14 @@ export function ProjectManagement() {
             ]}
           />
 
-          {/* Conditional private security rules */}
-          {form.accessType === 'private' && (
-            <div className="grid gap-4 sm:grid-cols-2 rounded-2xl border border-border bg-emerald-50/40 p-4 animate-fadeIn">
-              <CheckboxList
-                label="Allowed Users"
-                items={employees.map((e) => `${e.firstName} ${e.lastName || ''}`.trim())}
-                selected={form.visibleUsers}
-                onChange={(next) => setForm({ ...form, visibleUsers: next })}
-              />
-            </div>
-          )}
+          <div className="grid gap-4 sm:grid-cols-2 rounded-2xl border border-border bg-emerald-50/40 p-4 animate-fadeIn">
+            <CheckboxList
+              label="Allotted Members"
+              items={employees.map((e) => `${e.firstName} ${e.lastName || ''}`.trim())}
+              selected={form.visibleUsers}
+              onChange={(next) => setForm({ ...form, visibleUsers: next })}
+            />
+          </div>
 
           <div>
             <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-700">

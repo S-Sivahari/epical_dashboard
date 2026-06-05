@@ -179,7 +179,7 @@ export function CompensationManagement({
         const entries = selectedEmployees.map((empId) => {
           const emp = employees.find((e) => e.id === empId)!
           return {
-            employeeId: String(emp.employeeId || emp.id),
+            employeeId: String(emp.id),
             employeeName: `${emp.firstName} ${emp.lastName ?? ''}`.trim(),
             days: parseFloat(days),
             reason,
@@ -238,8 +238,8 @@ export function CompensationManagement({
       header: 'Employee',
       render: (item) => (
         <div>
-          <span className="font-medium text-gray-800 block">{item.employeeName}</span>
-          <span className="text-xs text-gray-500">{item.employeeId}</span>
+          <span className="font-medium text-gray-800 block text-[0.9375rem]">{item.employeeName}</span>
+          <span className="text-sm text-gray-500">{item.employeeId}</span>
         </div>
       ),
     },
@@ -255,13 +255,13 @@ export function CompensationManagement({
     {
       key: 'reason',
       header: 'Reason',
-      render: (item) => <span className="text-sm text-gray-600">{item.reason}</span>,
+      render: (item) => <span className="text-[0.9375rem] text-gray-600">{item.reason}</span>,
     },
     {
       key: 'appliedDate',
       header: 'Date',
       render: (item) => (
-        <span className="text-sm text-gray-600">
+        <span className="text-[0.9375rem] text-gray-600">
           {new Date(item.appliedDate).toLocaleDateString('en-IN', {
             day: '2-digit',
             month: 'short',
@@ -273,7 +273,7 @@ export function CompensationManagement({
     {
       key: 'createdBy',
       header: 'Created By',
-      render: (item) => <span className="text-xs text-gray-600">{item.createdBy}</span>,
+      render: (item) => <span className="text-sm text-gray-600">{item.createdBy}</span>,
     },
     {
       key: 'id',
@@ -288,7 +288,7 @@ export function CompensationManagement({
             variant="danger"
             onClick={() => openDeleteConfirm(item)}
             title="Delete"
-            className="h-8 px-2"
+            className="admin-comp-delete-btn h-8 px-2"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>

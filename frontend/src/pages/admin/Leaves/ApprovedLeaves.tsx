@@ -11,25 +11,20 @@ import { formatDate } from '@/utils/formatDate'
 import { filterLeaves, type LeaveFilters } from '@/utils/leaveFilters'
 
 export function ApprovedLeaves({ filters }: { filters: LeaveFilters }) {
-  const { leaves, loading, rejectLeave } = useLeaves()
+  const { leaves, loading, cancelLeave } = useLeaves()
   const [cancelModalOpen, setCancelModalOpen] = useState(false)
   const [leaveToCancel, setLeaveToCancel] = useState<LeaveRequest | null>(null)
-  const [cancelReason, setCancelReason] = useState('')
 
   const handleConfirmCancel = async () => {
     if (!leaveToCancel) return
-    if (!cancelReason.trim()) {
-      toast.error('Rejection reason is required')
-      return
-    }
     try {
-      await rejectLeave(leaveToCancel.id, cancelReason)
-} catch {
-      toast.error('Failed to reject leave')
+      await cancelLeave(leaveToCancel.id)
+      toast.success('Approved leave cancelled')
+    } catch {
+      toast.error('Failed to cancel leave')
     } finally {
       setCancelModalOpen(false)
       setLeaveToCancel(null)
-      setCancelReason('')
     }
   }
 
@@ -99,11 +94,10 @@ export function ApprovedLeaves({ filters }: { filters: LeaveFilters }) {
       render: (l) =>
         l.status === 'Approved' && getComplexStatus(l) !== 'Completed' ? (
           <button
-            title="Reject Leave"
+            title="Cancel leave"
             className="p-2 text-danger hover:bg-danger/10 rounded-full transition-colors"
             onClick={() => {
               setLeaveToCancel(l)
-              setCancelReason('')
               setCancelModalOpen(true)
             }}
           >
@@ -119,47 +113,29 @@ export function ApprovedLeaves({ filters }: { filters: LeaveFilters }) {
 
       <Modal
         isOpen={cancelModalOpen}
-        title="Reject Approved Leave"
+        title="Cancel approved leave"
         size="sm"
         onClose={() => {
           setCancelModalOpen(false)
           setLeaveToCancel(null)
-          setCancelReason('')
         }}
       >
         <div className="space-y-4">
           <p className="text-sm text-muted">
-            Are you sure you want to reject this approved leave? This will update the status immediately.
+            This will revoke an already approved leave and restore the employee&apos;s balance.
           </p>
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Rejection Reason <span className="text-danger">*</span>
-            </label>
-            <textarea
-              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-              rows={3}
-              placeholder="Enter reason for rejection..."
-              value={cancelReason}
-              onChange={(e) => setCancelReason(e.target.value)}
-            />
-          </div>
           <div className="flex justify-end gap-2 pt-4">
             <Button
               variant="secondary"
               onClick={() => {
                 setCancelModalOpen(false)
                 setLeaveToCancel(null)
-                setCancelReason('')
               }}
             >
               Close
             </Button>
-            <Button
-              variant="danger"
-              onClick={handleConfirmCancel}
-              disabled={!cancelReason.trim()}
-            >
-              Reject Leave
+            <Button variant="danger" onClick={handleConfirmCancel}>
+              Cancel leave
             </Button>
           </div>
         </div>

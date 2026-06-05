@@ -177,7 +177,7 @@ export function RecentLeaveRequestsCard({ leaves = [], className }) {
               <Clock className="h-3.5 w-3.5 shrink-0 text-amber-600" />
               <span>
                 <span className="font-semibold">{pendingCount}</span> request
-                {pendingCount === 1 ? '' : 's'} awaiting approval
+                {pendingCount === 1 ? '' : 's'} awaiting admin approval
               </span>
             </div>
           ) : (

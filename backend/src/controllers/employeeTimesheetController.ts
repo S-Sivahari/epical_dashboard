@@ -8,7 +8,7 @@ import { getDB } from '../config/db';
 import { getUserById } from '../services/authService';
 import { resolveEmployeeForAuthUser } from '../utils/employeeAuth';
 import { syncProjectForTimesheet, getTimesheetWorkflowStatus } from '../utils/syncProject';
-import { buildAssignmentIdentityTokens, ensureAssignedTasksForEmployee } from '../utils/assignedTaskSync';
+import { buildAssignedProjectsFilter, buildAssignmentIdentityTokens, ensureAssignedTasksForEmployee } from '../utils/assignedTaskSync';
 import { openAttendanceFilter } from '../utils/attendanceQueries';
 import { computeTotalHoursDecimal } from '../utils/durationFormat';
 import { getAutoCheckoutSettings, updateAutoCheckoutSettings } from '../services/autoCheckoutService';
@@ -370,8 +370,15 @@ async function fetchActiveTaskPayload(employee: ResolvedEmployee) {
 
 async function fetchAssignedTasksForEmployee(employee: ResolvedEmployee) {
   const recentApprovedCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const allottedProjects = await ProjectModel.find(buildAssignedProjectsFilter(employee.identityTokens), {
+    _id: 1,
+  }).lean();
+  const allottedProjectIds = allottedProjects.map((p) => p._id);
+  if (allottedProjectIds.length === 0) return [];
+
   const tasks = await AssignedTaskModel.find({
     $and: [
+      { projectId: { $in: allottedProjectIds } },
       {
         $or: [
           { employeeId: { $in: employee.identityTokens } },

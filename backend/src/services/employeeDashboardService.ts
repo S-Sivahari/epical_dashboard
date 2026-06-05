@@ -96,7 +96,7 @@ export async function getEmployeeDashboardBundle(userId: string, userEmail?: str
   const [
     profile,
     leaves,
-    compBonus,
+    compCredits,
     holidays,
     documents,
     enrollments,
@@ -107,7 +107,7 @@ export async function getEmployeeDashboardBundle(userId: string, userEmail?: str
   ] = await Promise.all([
     getEmployeeProfileById(employeeDbId),
     leaveService.getAllLeaves(employeeDbId),
-    leaveService.getCompensationEarnedLeaveBonusForYear(employeeDbId),
+    leaveService.getCompensationLeaveCreditsForYear(employeeDbId),
     leaveService.getAllHolidays(),
     documentRequestService.listForEmployee(userId),
     listEnrollments({ employee: employeeDbId }),
@@ -132,7 +132,7 @@ export async function getEmployeeDashboardBundle(userId: string, userEmail?: str
   ]);
 
   const balanceOptions = {
-    compensationEarnedBonus: compBonus,
+    compensationLeaveCredits: compCredits,
     employeeAllocations: (employeeRecord as { leaveAllocations?: Record<string, number> }).leaveAllocations,
   };
   const balances = calculateBalances(leaves, employeeRecord.joinedAt as string | undefined, balanceOptions);

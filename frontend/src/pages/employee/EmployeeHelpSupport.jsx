@@ -39,7 +39,7 @@ const guideIcons = {
 }
 
 export default function EmployeeHelpSupport() {
-  const [activeKey, setActiveKey] = useState('apply-leave')
+  const [activeKey, setActiveKey] = useState(null)
 
   const toggleGuide = (key) => {
     setActiveKey((prev) => (prev === key ? null : key))
@@ -68,9 +68,9 @@ export default function EmployeeHelpSupport() {
           </div>
           <p className="text-sm leading-relaxed text-muted">
             <span className="font-medium text-foreground">Leave tip:</span> If your balance is
-            exhausted, new requests are blocked at submit time. Pending requests still await HR
+            exhausted, new requests are blocked at submit time. Pending requests await admin
             approval and only deduct balance once approved. Casual and Sick balances reset each
-            calendar month; Earned leave follows the calendar year plus any compensation credits.
+            calendar month; Earned leave accrues through the calendar year. Compensation leave starts at zero and increases only when admin credits it.
           </p>
         </div>
       </InteractiveCard>

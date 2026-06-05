@@ -5,6 +5,7 @@ import {
   CalendarCheck,
   CalendarDays,
   FileText,
+  HelpCircle,
   LayoutGrid,
   Newspaper,
   Receipt,
@@ -72,6 +73,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       },
       { to: ROUTES.NEWS, label: 'Manage News', navLabel: 'News', icon: Newspaper },
       { to: ROUTES.TICKETS, label: 'Tickets', navLabel: 'Tickets', icon: Ticket },
+      { to: ROUTES.HELP, label: 'Admin Guide', navLabel: 'Guide', icon: HelpCircle },
     ],
   },
 ]
@@ -95,6 +97,7 @@ export const ADMIN_ROUTE_TITLES: Record<string, string> = {
   [ROUTES.TICKETS]: 'Ticket management',
   [ROUTES.PAYSLIPS]: 'Manage Payslips',
   [ROUTES.SETTINGS]: 'Settings',
+  [ROUTES.HELP]: 'Admin Guide',
 }
 
 const ADMIN_ROUTE_PREFIXES = Object.entries(ADMIN_ROUTE_TITLES).sort(
