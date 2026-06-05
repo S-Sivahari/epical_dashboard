@@ -11,7 +11,7 @@ import { Modal } from '@components/ui/Modal'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
 
 import { ProjectAuditTrailModal } from '@components/modals/ProjectAuditTrailModal'
-import { ArchivedProjectsModal } from '@components/modals/ArchivedProjectsModal'
+import { Spinner } from '@components/ui/Spinner'
 import { toast } from 'sonner'
 import {
   countWords,
@@ -43,6 +43,8 @@ import {
   SlidersHorizontal,
   ArrowUpRight,
   Edit2,
+  RefreshCw,
+  Layers,
 } from 'lucide-react'
 import { formatDate } from '@/utils/formatDate'
 import ExcelJS from 'exceljs'
@@ -80,6 +82,26 @@ interface Project {
   completedTasks?: number
   totalTasks?: number
   completionPercentage?: number
+}
+
+interface ArchivedProjectSummary {
+  id: string
+  originalProjectId: string
+  name: string
+  client: string
+  technologyNode: string
+  accessType: 'public' | 'private'
+  status: 'Active' | 'Completed' | 'Rejected'
+  description: string
+  visibleUsers: string[]
+  teamLead?: string
+  completedTasks: number
+  totalTasks: number
+  completionPercentage: number
+  archivedAt: string
+  originalCreatedAt: string
+  tasksCount: number
+  timesheetsCount: number
 }
 
 interface TimesheetLog {
@@ -779,109 +801,110 @@ const ProjectCard = memo(function ProjectCard({
   const projectInitial =
     project.name.charAt(project.name.indexOf(' ') + 1) || project.name.charAt(0)
 
+  const statusLabel = isCancelled
+    ? 'Cancelled'
+    : isRejected
+      ? 'Rejected'
+      : isCompleted
+        ? 'Completed'
+        : 'In Progress'
+
+  let ringColor = 'border-blue-500 ring-blue-500/20 text-blue-700 bg-blue-50'
+  let badgeColor = 'bg-blue-100 text-blue-700 border-blue-200'
+  if (isCompleted) {
+    ringColor = 'border-emerald-600 ring-emerald-500/20 text-emerald-700 bg-emerald-50'
+    badgeColor = 'bg-emerald-100 text-emerald-700 border-emerald-200'
+  } else if (isCancelled || isRejected) {
+    ringColor = 'border-red-500 ring-red-500/20 text-red-700 bg-red-50'
+    badgeColor = 'bg-red-100 text-red-700 border-red-200'
+  }
+
+  const hue = stringToHue(project.id || project.name)
+  const startColor = `hsl(${hue} 75% 95%)`
+  const borderColor = `hsl(${hue} 50% 86%)`
+
   return (
     <div
-      className={cn(
-        'projects-card group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-emerald-500/10 bg-white/70 p-6 shadow-sm backdrop-blur-md transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-emerald-500/20 hover:shadow-emerald-500/5 animate-fadeIn',
-        isCompleted && 'border-emerald-500/20 bg-emerald-50/40',
-      )}
+      className="projects-card group flex min-w-0 flex-col gap-4 rounded-2xl border p-5 shadow-[0_4px_15px_rgba(0,0,0,0.02)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] animate-fadeIn"
+      style={{
+        background: `linear-gradient(135deg, ${startColor} 0%, #ffffff 100%)`,
+        borderColor,
+      }}
     >
-      <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-emerald-500/80 to-teal-500/80 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-      
-      <div className="flex flex-col h-full justify-between space-y-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-extrabold bg-gradient-to-br from-emerald-50 to-emerald-100/80 text-[var(--emerald-dark)] shadow-inner border border-emerald-500/10">
-              {projectInitial}
-            </span>
-            <div className="min-w-0 flex-1">
-              <h3 className={cn(
-                'text-[15px] font-bold leading-snug transition-colors font-display truncate text-slate-800',
-                isCompleted ? 'text-[var(--emerald-dark)] group-hover:text-[var(--green-600)]' : 'group-hover:text-[var(--emerald-dark)]'
-              )}>
-                {project.name}
-              </h3>
-              <p className="mt-0.5 text-xs font-semibold text-slate-400 truncate">
-                {project.client}
-              </p>
-            </div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex shrink-0 flex-col items-center gap-2">
+          <div
+            className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 ring-4 ${ringColor}`}
+          >
+            <span className="text-xl font-bold">{projectInitial}</span>
           </div>
-          <div className="flex shrink-0 items-center gap-1.5">
-            {isCancelled ? (
-              <span className="inline-flex items-center rounded-md border border-rose-500/15 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-550">
-                Cancelled
-              </span>
-            ) : isRejected ? (
-              <span className="inline-flex items-center rounded-md border border-rose-500/15 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-550">
-                Rejected
-              </span>
-            ) : isCompleted ? (
-              <span className="inline-flex items-center rounded-md border border-emerald-500/15 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-                Completed
-              </span>
-            ) : (
-              <span className="inline-flex items-center rounded-md border border-blue-500/15 bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-650">
-                In Progress
-              </span>
-            )}
-            {project.accessType === 'private' ? (
-              <span className="inline-flex items-center rounded-md border border-amber-500/15 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-600">
-                Private
-              </span>
-            ) : (
-              <span className="inline-flex items-center rounded-md border border-sky-500/15 bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-sky-650">
-                Public
-              </span>
-            )}
-          </div>
+          <span
+            className={`max-w-[6.5rem] whitespace-nowrap rounded-full border px-2.5 py-0.5 text-center text-[9px] font-bold uppercase tracking-wider ${badgeColor}`}
+          >
+            {statusLabel}
+          </span>
         </div>
 
-        {project.description && (
-          <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
-            {project.description}
-          </p>
-        )}
-
-        <div className="project-members-section space-y-2 border-t border-slate-100 pt-4">
-          <div className="flex items-start">
-            <span className="font-semibold text-slate-400 w-20 shrink-0 text-xs">Lead:</span>
-            <span className="font-bold text-slate-700 text-xs flex-1 break-words">{leadName}</span>
-          </div>
-          <div className="flex items-start">
-            <span className="font-semibold text-slate-400 w-20 shrink-0 text-xs">Members:</span>
-            <span className="font-medium text-slate-600 text-xs flex-1 break-words leading-relaxed">
-              {membersText}
-              {memberCount > 0 && (
-                <span className="ml-1 text-[10px] text-slate-400 font-bold">({memberCount})</span>
-              )}
-            </span>
-          </div>
+        <div className="flex shrink-0 items-start gap-1 pt-1">
+          <button
+            type="button"
+            onClick={onEdit}
+            className="rounded-full p-1.5 text-slate-600 transition-colors hover:bg-emerald-50 hover:text-emerald-700"
+            title="Edit Project"
+            aria-label="Edit Project"
+          >
+            <Edit2 className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            className="rounded-full p-1.5 text-slate-600 transition-colors hover:bg-amber-50 hover:text-amber-600"
+            title="Archive Project"
+            aria-label="Archive Project"
+          >
+            <Archive className="h-4 w-4" />
+          </button>
         </div>
+      </div>
 
-        <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-3.5 mt-auto">
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <span className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-emerald-500/10 bg-emerald-50/20 px-2.5 py-0.5 text-[10px] font-bold text-[var(--emerald-dark)] shadow-sm">
-              <Cpu className="h-3 w-3 shrink-0" strokeWidth={2.5} />
-              <span className="truncate font-mono">{project.technologyNode}</span>
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={onEdit}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 transition-all hover:bg-emerald-50 hover:text-[var(--emerald-dark)]"
-              title="Edit Project"
-            >
-              <Edit2 className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={onDelete}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 transition-all hover:bg-rose-50 hover:text-rose-500"
-              title="Archive Project"
-            >
-              <Archive className="h-3.5 w-3.5" />
-            </button>
-          </div>
+      <div className="min-w-0">
+        <h3 className="truncate text-base font-bold leading-snug text-slate-800 transition-colors group-hover:text-emerald-700">
+          {project.name}
+        </h3>
+        <p className="mt-1 truncate text-xs leading-relaxed text-slate-500">{project.client}</p>
+      </div>
+
+      {project.description && (
+        <p className="line-clamp-2 text-xs leading-relaxed text-slate-600">{project.description}</p>
+      )}
+
+      <div className="flex flex-col gap-2 border-b border-slate-100/60 pb-4">
+        <div className="flex w-full min-w-0 items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700">
+          {project.accessType === 'private' ? (
+            <Lock className="mr-1.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+          ) : (
+            <Globe className="mr-1.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
+          )}
+          <span className="min-w-0 truncate">{project.accessType === 'private' ? 'Private' : 'Public'}</span>
         </div>
+        <div className="flex w-full min-w-0 items-center rounded-lg border border-slate-200 bg-slate-50/50 px-2.5 py-1.5 text-xs font-medium text-slate-700">
+          <Cpu className="mr-1.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+          <span className="min-w-0 truncate font-mono" title={project.technologyNode}>
+            {project.technologyNode}
+          </span>
+        </div>
+      </div>
+
+      <div className="project-members-section grid grid-cols-[auto_1fr] items-start gap-x-3 gap-y-2.5 text-xs text-slate-600">
+        <span className="shrink-0 font-bold leading-relaxed text-slate-400">Lead:</span>
+        <span className="min-w-0 break-words font-medium leading-relaxed text-slate-700">{leadName}</span>
+        <span className="shrink-0 font-bold leading-relaxed text-slate-400">Members:</span>
+        <span className="min-w-0 break-words font-medium leading-relaxed text-slate-700">
+          {membersText}
+          {memberCount > 0 && (
+            <span className="ml-1 font-semibold text-slate-400">({memberCount})</span>
+          )}
+        </span>
       </div>
     </div>
   )
@@ -907,7 +930,7 @@ const ProjectListRow = memo(function ProjectListRow({
     project.name.charAt(project.name.indexOf(' ') + 1) || project.name.charAt(0)
 
   return (
-    <tr className={cn('group transition-colors border-b border-border hover:bg-emerald-50/50', isCompleted ? 'bg-emerald-50/60' : '')}>
+    <tr className={cn('projects-list-row group transition-colors border-b border-border hover:bg-emerald-50/50', isCompleted ? 'bg-emerald-50/60' : '')}>
       <td className="px-5 py-4">
         <div className="flex items-center gap-3">
           <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--emerald-surface)] text-sm font-extrabold text-[var(--emerald-dark)] ring-1 ring-[rgba(38,107,28,0.22)]">
@@ -1108,9 +1131,189 @@ function EmployeeLeaderboard({
 }
 
 /* ================================================================
+   COMPONENT – Archived Projects (inline workspace view)
+   ================================================================ */
+function ArchivedProjectsPanel({
+  archivedProjects,
+  loading,
+  restoringId,
+  onRestore,
+}: {
+  archivedProjects: ArchivedProjectSummary[]
+  loading: boolean
+  restoringId: string | null
+  onRestore: (id: string, name: string) => Promise<void>
+}) {
+  const sortedList = useMemo(
+    () =>
+      [...archivedProjects].sort(
+        (a, b) => new Date(b.archivedAt).getTime() - new Date(a.archivedAt).getTime(),
+      ),
+    [archivedProjects],
+  )
+
+  const formatArchivedDate = (isoString: string) => {
+    const d = new Date(isoString)
+    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+  }
+
+  return (
+    <div className="animate-fadeIn space-y-5">
+      <div className="projects-main-header !mb-0">
+        <div>
+          <h2 className="projects-section-heading">Archived Projects</h2>
+          <p className="projects-section-subheading">
+            Review legacy projects and restore them to the active directory when needed.
+          </p>
+        </div>
+        {!loading && sortedList.length > 0 && (
+          <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-bold tabular-nums text-emerald-700">
+            {sortedList.length} archived
+          </span>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-20">
+          <Spinner className="text-[var(--emerald-dark)]" />
+          <p className="mt-3 text-sm font-medium text-slate-500">Loading archived projects…</p>
+        </div>
+      ) : sortedList.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 py-16 text-center">
+          <Archive className="mb-3 h-12 w-12 text-slate-300" />
+          <p className="text-base font-bold text-slate-700">No archived projects found</p>
+          <p className="mt-1 max-w-sm px-4 text-sm font-medium text-slate-500">
+            Projects you archive from the active workspace will appear here.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {sortedList.map((p) => {
+            const initial = p.name.charAt(p.name.indexOf(' ') + 1) || p.name.charAt(0)
+            const isRestoring = restoringId === p.id
+            const memberCount = p.visibleUsers.length
+            const visibleNames = p.visibleUsers.slice(0, 2)
+            const remainingCount = memberCount - 2
+            const membersText =
+              memberCount > 0
+                ? visibleNames.join(', ') + (remainingCount > 0 ? ` +${remainingCount} more` : '')
+                : p.accessType === 'public'
+                  ? 'All Members'
+                  : 'None'
+
+            return (
+              <article key={p.id} className="projects-archived-card">
+                <div className="absolute inset-y-4 left-0 w-1 rounded-full bg-emerald-400" />
+                <div className="flex flex-col gap-4 pl-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-sm font-extrabold text-emerald-700">
+                      {initial}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="projects-card-title truncate">{p.name}</h3>
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        {p.status === 'Completed' ? (
+                          <span className="projects-status-badge projects-status-badge--completed">
+                            <CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />
+                            Completed
+                          </span>
+                        ) : (
+                          <span className="projects-status-badge projects-status-badge--progress">
+                            {p.status === 'Active' ? 'In Progress' : p.status}
+                          </span>
+                        )}
+                        <span
+                          className={cn(
+                            'projects-access-badge',
+                            p.accessType === 'private'
+                              ? 'projects-access-badge--private'
+                              : 'projects-access-badge--public',
+                          )}
+                        >
+                          {p.accessType === 'private' ? 'Private' : 'Public'}
+                        </span>
+                      </div>
+                      <p className="projects-card-client mt-1">Client: {p.client}</p>
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={() => void onRestore(p.id, p.name)}
+                    disabled={isRestoring}
+                    className="flex min-h-[44px] items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-50 px-4 text-sm font-bold text-[var(--emerald-dark)] hover:bg-emerald-100/80 disabled:opacity-60"
+                  >
+                    <RefreshCw className={cn('h-4 w-4', isRestoring && 'animate-spin')} />
+                    Restore
+                  </Button>
+                </div>
+
+                {p.description ? (
+                  <p className="mt-3 break-words pl-2 text-sm leading-relaxed text-slate-600">
+                    {p.description}
+                  </p>
+                ) : (
+                  <p className="mt-3 pl-2 text-sm italic text-slate-400">No description provided.</p>
+                )}
+
+                <div className="mt-4 grid grid-cols-2 gap-3 pl-2 sm:grid-cols-4">
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/30 px-3 py-2.5">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-600">Tech Node</p>
+                    <p className="mt-1 flex items-center gap-1.5 truncate text-sm font-semibold text-slate-700">
+                      <Cpu className="h-4 w-4 shrink-0 text-[var(--emerald-dark)]" />
+                      {p.technologyNode || '—'}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/30 px-3 py-2.5">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-600">Tasks</p>
+                    <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+                      <Layers className="h-4 w-4 shrink-0 text-emerald-600" />
+                      {p.tasksCount} assigned
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/30 px-3 py-2.5">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-600">Timesheets</p>
+                    <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+                      <Clock className="h-4 w-4 shrink-0 text-emerald-600" />
+                      {p.timesheetsCount} logs
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/30 px-3 py-2.5">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-600">Archived Date</p>
+                    <p className="mt-1 flex items-center gap-1.5 truncate text-sm font-semibold text-slate-700">
+                      <CalendarIcon className="h-4 w-4 shrink-0 text-emerald-600" />
+                      {formatArchivedDate(p.archivedAt)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-col gap-2 border-t border-slate-100 pt-4 pl-2">
+                  <div className="flex items-start gap-2">
+                    <span className="projects-card-meta-label">Lead:</span>
+                    <span className="projects-card-meta-value break-words">{p.teamLead || 'Not assigned'}</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="projects-card-meta-label">Members:</span>
+                    <span className="projects-card-meta-value break-words">
+                      {membersText}
+                      {memberCount > 0 && (
+                        <span className="ml-1 text-xs font-semibold text-slate-400">({memberCount})</span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ================================================================
    MAIN DASHBOARD COMPONENT
    ================================================================ */
-type ProjectsWorkspaceTab = 'projects' | 'timesheets' | 'analytics'
+type ProjectsWorkspaceTab = 'projects' | 'timesheets' | 'analytics' | 'archived'
 
 export function ProjectManagement() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -1130,7 +1333,12 @@ export function ProjectManagement() {
 
   useEffect(() => {
     const tab = searchParams.get('tab')
-    if (tab === 'analytics' || tab === 'timesheets' || tab === 'projects') {
+    if (
+      tab === 'analytics' ||
+      tab === 'timesheets' ||
+      tab === 'projects' ||
+      tab === 'archived'
+    ) {
       setActiveTab(tab)
     }
   }, [searchParams])
@@ -1180,8 +1388,10 @@ export function ProjectManagement() {
   // ── Project Archiving & Delete Confirmation States ──────────────
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
-  const [archivedModalOpen, setArchivedModalOpen] = useState(false)
-  const [archivedCount, setArchivedCount] = useState(0)
+  const [archivedProjects, setArchivedProjects] = useState<ArchivedProjectSummary[]>([])
+  const [loadingArchived, setLoadingArchived] = useState(false)
+  const [restoringArchivedId, setRestoringArchivedId] = useState<string | null>(null)
+  const archivedCount = archivedProjects.length
 
   const openAuditTrail = useCallback((id: string, name: string) => {
     setSelectedAuditProjectId(id)
@@ -1253,13 +1463,16 @@ export function ProjectManagement() {
     }
   }, [])
 
-  const fetchArchivedCount = useCallback(async () => {
+  const fetchArchivedProjects = useCallback(async () => {
+    setLoadingArchived(true)
     try {
       const res = await api.get('/projects/archived')
-      setArchivedCount(res.data.length)
+      setArchivedProjects(res.data)
     } catch (err) {
       console.error(err)
-      // Silently fail for count - not critical
+      toast.error('Failed to load archived projects.')
+    } finally {
+      setLoadingArchived(false)
     }
   }, [])
 
@@ -1280,14 +1493,48 @@ export function ProjectManagement() {
   }, [tsStartDate, tsEndDate, tsSearch])
 
   const refreshAllData = useCallback(async () => {
-    await Promise.all([fetchProjects(), fetchTimesheetsData(), fetchArchivedCount()])
-  }, [fetchProjects, fetchTimesheetsData, fetchArchivedCount])
+    await Promise.all([fetchProjects(), fetchTimesheetsData(), fetchArchivedProjects()])
+  }, [fetchProjects, fetchTimesheetsData, fetchArchivedProjects])
+
+  const handleRestoreArchivedProject = useCallback(
+    async (id: string, name: string) => {
+      if (
+        !window.confirm(
+          `Restore "${name}"? It will return to the active projects list with its archived history.`,
+        )
+      ) {
+        return
+      }
+      setRestoringArchivedId(id)
+      try {
+        await api.post(`/projects/archived/${id}/restore`)
+        await Promise.all([fetchArchivedProjects(), fetchProjects()])
+        toast.success(`Restored "${name}" successfully.`)
+      } catch (err: unknown) {
+        console.error(err)
+        const message =
+          err && typeof err === 'object' && 'response' in err
+            ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
+            : undefined
+        toast.error(message || 'Failed to restore project.')
+      } finally {
+        setRestoringArchivedId(null)
+      }
+    },
+    [fetchArchivedProjects, fetchProjects],
+  )
 
   useEffect(() => {
     fetchProjects()
     fetchEmployees()
-    fetchArchivedCount()
-  }, [fetchProjects, fetchEmployees, fetchArchivedCount])
+    void fetchArchivedProjects()
+  }, [fetchProjects, fetchEmployees, fetchArchivedProjects])
+
+  useEffect(() => {
+    if (activeTab === 'archived') {
+      void fetchArchivedProjects()
+    }
+  }, [activeTab, fetchArchivedProjects])
 
   useEffect(() => {
     fetchTimesheetsData()
@@ -2298,14 +2545,12 @@ export function ProjectManagement() {
         <div className="projects-shell animate-fadeIn">
           
           {/* Modern Enterprise Hero Section - Horizontal Layout with Dark Forest Green */}
-          <div className="projects-hero-section mb-6 rounded-2xl border border-white/20 bg-gradient-to-r from-[#1e5a3d] via-[#236b48] to-[#276749] px-8 py-5 shadow-lg">
-            <div className="flex flex-col lg:flex-row items-center justify-between gap-6 lg:gap-12 xl:gap-16">
+          <div className="projects-hero-section mb-6 rounded-2xl border shadow-lg">
+            <div className="flex flex-col items-center justify-between gap-6 lg:flex-row lg:gap-12 xl:gap-16">
               
               {/* Left: Title */}
-              <div className="flex-1 lg:flex-[0_0_30%] text-center lg:text-left">
-                <h1 className="text-3xl font-black text-white leading-tight tracking-tight" style={{ color: '#FFFFFF' }}>
-                  Projects & Timesheets
-                </h1>
+              <div className="flex-1 text-center lg:flex-[0_0_30%] lg:text-left">
+                <h1 className="projects-hero-heading">Projects & Timesheets</h1>
               </div>
               
               {/* Vertical Separator */}
@@ -2407,12 +2652,8 @@ export function ProjectManagement() {
                   
                   {/* Center total count */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-4xl font-black text-white font-display leading-none tabular-nums">
-                      {projectMetrics.total}
-                    </span>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-white/80 mt-1">
-                      Total
-                    </span>
+                    <span className="projects-hero-donut-total">{projectMetrics.total}</span>
+                    <span className="projects-hero-donut-label">Total</span>
                   </div>
                 </div>
               </div>
@@ -2421,41 +2662,36 @@ export function ProjectManagement() {
               <div className="h-24 w-px bg-gradient-to-b from-transparent via-white/20 to-transparent"></div>
               
               {/* Right: Status Metrics - Horizontal Row */}
-              <div className="flex-1 flex items-center gap-4">
-                
-                {/* In Progress */}
-                <div className="flex-1 group rounded-xl border border-blue-200/50 bg-white/80 p-3.5 shadow-sm transition-all hover:shadow-md hover:border-blue-300/70">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <div className="h-2 w-2 rounded-full bg-blue-500 shadow-sm ring-2 ring-blue-200/50"></div>
-                      <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">In Progress</span>
-                    </div>
-                    <span className="text-2xl font-black text-blue-600 tabular-nums">{projectMetrics.inProgress}</span>
+              <div className="flex flex-1 flex-wrap items-stretch gap-4">
+                <div className="projects-hero-stat-card">
+                  <div className="flex items-center gap-2">
+                    <span className="projects-hero-stat-dot projects-hero-stat-dot--progress" />
+                    <span className="projects-hero-stat-label">In Progress</span>
                   </div>
+                  <span className="projects-hero-stat-value projects-hero-stat-value--progress">
+                    {projectMetrics.inProgress}
+                  </span>
                 </div>
-                
-                {/* Completed */}
-                <div className="flex-1 group rounded-xl border border-green-200/50 bg-white/80 p-3.5 shadow-sm transition-all hover:shadow-md hover:border-green-300/70">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <div className="h-2 w-2 rounded-full bg-green-500 shadow-sm ring-2 ring-green-200/50"></div>
-                      <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Completed</span>
-                    </div>
-                    <span className="text-2xl font-black text-green-600 tabular-nums">{projectMetrics.completed}</span>
+
+                <div className="projects-hero-stat-card">
+                  <div className="flex items-center gap-2">
+                    <span className="projects-hero-stat-dot projects-hero-stat-dot--completed" />
+                    <span className="projects-hero-stat-label">Completed</span>
                   </div>
+                  <span className="projects-hero-stat-value projects-hero-stat-value--completed">
+                    {projectMetrics.completed}
+                  </span>
                 </div>
-                
-                {/* Cancelled */}
-                <div className="flex-1 group rounded-xl border border-red-200/50 bg-white/80 p-3.5 shadow-sm transition-all hover:shadow-md hover:border-red-300/70">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <div className="h-2 w-2 rounded-full bg-red-500 shadow-sm ring-2 ring-red-200/50"></div>
-                      <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Cancelled</span>
-                    </div>
-                    <span className="text-2xl font-black text-red-600 tabular-nums">{projectMetrics.cancelled}</span>
+
+                <div className="projects-hero-stat-card">
+                  <div className="flex items-center gap-2">
+                    <span className="projects-hero-stat-dot projects-hero-stat-dot--cancelled" />
+                    <span className="projects-hero-stat-label">Cancelled</span>
                   </div>
+                  <span className="projects-hero-stat-value projects-hero-stat-value--cancelled">
+                    {projectMetrics.cancelled}
+                  </span>
                 </div>
-                
               </div>
             </div>
           </div>
@@ -2468,13 +2704,12 @@ export function ProjectManagement() {
         {/* Left Sidebar with Navigation and Filters */}
         <aside className="projects-sidebar space-y-4">
           <div>
-            <p className="projects-sidebar-title">Workspace Navigation</p>
-            
             {/* Create Project Button */}
-            {activeTab !== 'analytics' && (
+            {activeTab !== 'analytics' && activeTab !== 'archived' && (
               <button
+                type="button"
                 onClick={openCreateProject}
-                className="sidebar-create-btn mb-3"
+                className="sidebar-create-btn"
               >
                 <Plus className="h-4 w-4" />
                 <span>Create Project</span>
@@ -2484,18 +2719,20 @@ export function ProjectManagement() {
             {/* Navigation List */}
             <div className="sidebar-nav-list">
               <button
+                type="button"
                 onClick={() => setWorkspaceTab('projects')}
                 className={`sidebar-nav-item ${activeTab === 'projects' ? 'active' : ''}`}
               >
-                <FolderOpen className="h-4 w-4 mr-3" />
+                <FolderOpen className="h-4 w-4" />
                 <span className="flex-1 text-left">Projects</span>
                 <span className="sidebar-nav-badge">{filteredProjects.length}</span>
               </button>
               <button
+                type="button"
                 onClick={() => setWorkspaceTab('timesheets')}
                 className={`sidebar-nav-item ${activeTab === 'timesheets' ? 'active' : ''}`}
               >
-                <Clock className="h-4 w-4 mr-3" />
+                <Clock className="h-4 w-4" />
                 <span className="flex-1 text-left">Timesheets</span>
                 <span className="sidebar-nav-badge">{filteredTimesheets.length}</span>
               </button>
@@ -2504,21 +2741,24 @@ export function ProjectManagement() {
                 onClick={() => setWorkspaceTab('analytics')}
                 className={`sidebar-nav-item ${activeTab === 'analytics' ? 'active' : ''}`}
               >
-                <BarChart3 className="h-4 w-4 mr-3" />
+                <BarChart3 className="h-4 w-4" />
                 <span className="flex-1 text-left">Analytics</span>
               </button>
               <button
-                onClick={() => setArchivedModalOpen(true)}
-                className="sidebar-nav-item"
+                type="button"
+                onClick={() => setWorkspaceTab('archived')}
+                className={`sidebar-nav-item ${activeTab === 'archived' ? 'active' : ''}`}
               >
-                <Archive className="h-4 w-4 mr-3" />
+                <Archive className="h-4 w-4 shrink-0" />
                 <span className="flex-1 text-left">Archived</span>
                 <span className="sidebar-nav-badge">{archivedCount}</span>
               </button>
             </div>
           </div>
 
-          {activeTab !== 'analytics' && <div className="border-t border-slate-100 my-3" />}
+          {activeTab !== 'analytics' && activeTab !== 'archived' && (
+            <div className="my-3 border-t border-slate-100" />
+          )}
 
           {/* DYNAMIC FILTERS & SETTINGS SECTION */}
           {activeTab === 'projects' ? (
@@ -2527,18 +2767,18 @@ export function ProjectManagement() {
               
               {/* Search */}
               <div className="relative min-w-0">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--emerald-dark)]" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-[var(--emerald-dark)]" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search projects, clients…"
-                  className="admin-field h-9 w-full pl-9 pr-8 text-sm font-medium text-ink shadow-sm placeholder:text-ink/45"
+                  className="admin-field projects-search-input pl-9 pr-8 font-medium text-ink shadow-sm"
                 />
                 {searchQuery ? (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-slate-700 hover:bg-white/60 hover:text-ink"
+                    className="absolute right-2.5 top-1/2 z-10 -translate-y-1/2 rounded-md p-0.5 text-slate-700 hover:bg-white/60 hover:text-ink"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -2549,7 +2789,7 @@ export function ProjectManagement() {
               <button
                 type="button"
                 onClick={() => setShowFilters(!showFilters)}
-                className={`inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-bold transition-all ${
+                className={`projects-show-filters-btn inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 transition-all ${
                   showFilters || activeFiltersCount > 0
                     ? 'border-[rgba(38,107,28,0.35)] bg-white/80 text-[var(--emerald-dark)]'
                     : 'border-[rgba(38,107,28,0.2)] bg-white/50 text-slate-800 hover:bg-white/70'
@@ -2622,15 +2862,15 @@ export function ProjectManagement() {
                 <div className="rounded-lg border border-[rgba(38,107,28,0.12)] bg-white/45 p-3">
                   <p className="workspace-summary-label mb-2">Quick Overview</p>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="workspace-overview-row flex items-center justify-between">
                       <span className="font-semibold text-slate-700">In Progress</span>
                       <span className="font-bold text-blue-600">{projectMetrics.inProgress}</span>
                     </div>
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="workspace-overview-row flex items-center justify-between">
                       <span className="font-semibold text-slate-700">Completed</span>
                       <span className="font-bold text-emerald-600">{projectMetrics.completed}</span>
                     </div>
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="workspace-overview-row flex items-center justify-between">
                       <span className="font-semibold text-slate-700">Cancelled</span>
                       <span className="font-bold text-rose-600">{projectMetrics.cancelled}</span>
                     </div>
@@ -2640,7 +2880,7 @@ export function ProjectManagement() {
 
               {/* View Switcher */}
               <div className="rounded-lg border border-[rgba(38,107,28,0.12)] bg-white/45 p-3">
-                <p className="text-xs font-semibold text-slate-700 tabular-nums mb-2">
+                <p className="projects-view-count font-semibold text-slate-700 tabular-nums mb-2">
                   <span className="font-bold text-[var(--emerald-dark)]">{filteredProjects.length}</span>
                   <span className="text-slate-600"> / {projects.length} projects</span>
                 </p>
@@ -2666,25 +2906,25 @@ export function ProjectManagement() {
                 </div>
               </div>
             </div>
-          ) : (
+          ) : activeTab === 'timesheets' ? (
             <div className="space-y-4">
               <p className="projects-sidebar-title">Timesheet Filters</p>
               
               {/* Search */}
               <div className="relative min-w-0">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--emerald-dark)]" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-[var(--emerald-dark)]" />
                 <input
                   type="text"
                   value={tsSearch}
                   onChange={(e) => setTsSearch(e.target.value)}
                   placeholder="Search logs…"
-                  className="admin-field h-9 w-full pl-9 pr-8 text-sm font-medium text-ink shadow-sm placeholder:text-ink/45"
+                  className="admin-field projects-search-input pl-9 pr-8 font-medium text-ink shadow-sm"
                 />
                 {tsSearch.trim() && (
                   <button
                     type="button"
                     onClick={() => setTsSearch('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-slate-700 hover:bg-emerald-50/50 hover:text-ink"
+                    className="absolute right-2.5 top-1/2 z-10 -translate-y-1/2 rounded-md p-0.5 text-slate-700 hover:bg-emerald-50/50 hover:text-ink"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -2739,30 +2979,35 @@ export function ProjectManagement() {
                 </button>
               )}
             </div>
-          )}
+          ) : null}
         </aside>
 
         {/* Unified main content panel */}
         <div className="projects-main-panel">
           {activeTab === 'analytics' ? (
             <div className="projects-analytics-embed animate-fadeIn">
-              <Analytics />
+              <Analytics embedded />
             </div>
+          ) : activeTab === 'archived' ? (
+            <ArchivedProjectsPanel
+              archivedProjects={archivedProjects}
+              loading={loadingArchived}
+              restoringId={restoringArchivedId}
+              onRestore={handleRestoreArchivedProject}
+            />
           ) : activeTab === 'projects' ? (
-            <div className="space-y-5 animate-fadeIn">
-              <div className="projects-main-header">
-                <div>
-                  <h2 className="font-display text-lg font-bold text-[var(--emerald-dark)]">Project Directory</h2>
-                  <p className="text-xs font-medium text-slate-600 mt-0.5">
-                    {viewMode === 'grid' ? 'Grid view' : 'List view'} · {filteredProjects.length} result{filteredProjects.length === 1 ? '' : 's'}
-                  </p>
-                </div>
+            <div className="projects-directory-section animate-fadeIn">
+              <div className="projects-directory-table-head">
+                <h2 className="projects-directory-table-title">Project Directory</h2>
+                <p className="projects-directory-table-subtitle">
+                  {viewMode === 'grid' ? 'Grid view' : 'List view'} · {filteredProjects.length} result{filteredProjects.length === 1 ? '' : 's'}
+                </p>
               </div>
               
               {viewMode === 'grid' ? (
                 <>
                   {filteredProjects.length > 0 ? (
-                    <div className="grid gap-4 grid-cols-3 w-full">
+                    <div className="projects-grid grid-cols-1 gap-6 p-6 sm:grid-cols-2 xl:grid-cols-3">
                       {currentProjects.map((p) => (
                         <ProjectCard
                           key={p.id}
@@ -2876,7 +3121,7 @@ export function ProjectManagement() {
             <div className="space-y-5 animate-fadeIn">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
                 <div>
-                  <h2 className="font-display text-lg font-bold text-[var(--emerald-dark)]">Timesheet Records</h2>
+                  <h2 className="projects-section-heading">Timesheet Records</h2>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -3044,16 +3289,18 @@ export function ProjectManagement() {
               <table className="w-full min-w-[640px] border-collapse text-left">
                 <thead className="sticky top-0 z-10 bg-gradient-to-r from-[#1e5a3d] via-[#236b48] to-[#276749]">
                   <tr className="border-b border-white/10">
-                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-white">Employee</th>
-                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-white">Project</th>
-                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-white">Login Time</th>
-                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-white">Logout Time</th>
-                    <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-white">Duration</th>
+                    <th className="px-5 py-3 font-bold uppercase text-white">Employee</th>
+                    <th className="px-5 py-3 font-bold uppercase text-white">Project</th>
+                    <th className="px-5 py-3 font-bold uppercase text-white">Login Time</th>
+                    <th className="px-5 py-3 font-bold uppercase text-white">Logout Time</th>
+                    <th className="px-5 py-3 font-bold uppercase text-white">Duration</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5 text-sm">
+                <tbody className="divide-y divide-slate-200/70 text-sm">
                   {currentTimesheets.map((t) => {
                     const empInfo = employees.find((e) => e.id === t.employeeId || e.employeeId === t.employeeId)
+                    const employeeColorKey =
+                      empInfo?.id || empInfo?.employeeId || t.employeeId || t.employeeName
                     const hours = calculateHours(
                       t.loginTime,
                       t.logoutTime,
@@ -3065,18 +3312,14 @@ export function ProjectManagement() {
                     return (
                       <tr
                         key={t.id}
-                        className="group transition-colors hover:bg-emerald-50/50"
+                        className="group transition-colors"
                       >
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-3">
                             <Avatar
                               name={t.employeeName}
                               size="sm"
-                              color={
-                                empInfo
-                                  ? `hsl(${empInfo.hue},55%,45%)`
-                                  : stringToHueColor(t.employeeId || t.employeeName)
-                              }
+                              color={stringToHueColor(employeeColorKey)}
                             />
                             <div className="min-w-0">
                               <p className="truncate font-bold text-ink leading-tight">
@@ -3399,12 +3642,6 @@ export function ProjectManagement() {
         />
       )}
 
-      {/* Archived Projects Browser Modal */}
-      <ArchivedProjectsModal
-        isOpen={archivedModalOpen}
-        onClose={() => setArchivedModalOpen(false)}
-        onRefreshActiveProjects={refreshAllData}
-      />
       </PageWrapper>
     </div>
   )

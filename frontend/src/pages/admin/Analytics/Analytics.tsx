@@ -26,10 +26,10 @@ function ChartPlaceholder({ message = '', loading }: { message?: string; loading
       {loading ? (
         <>
           <Loader2 className="h-6 w-6 animate-spin text-[#2f6b4f]" />
-          <p className="text-sm font-medium text-slate-500">Loading analytics…</p>
+          <p className="text-sm font-semibold text-slate-700">Loading analytics…</p>
         </>
       ) : (
-        <p className="text-sm font-medium text-slate-500">{message}</p>
+        <p className="text-sm font-semibold text-slate-700">{message}</p>
       )}
     </div>
   )
@@ -53,7 +53,7 @@ function SummaryStat({
   )
 }
 
-export function Analytics() {
+export function Analytics({ embedded = false }: { embedded?: boolean }) {
   const user = useAuthStore((s) => s.user)
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | 'all'>('all')
   const [periodPreset, setPeriodPreset] = useState<AnalyticsPeriodPreset>('month')
@@ -135,25 +135,28 @@ export function Analytics() {
     }
   }
 
-  return (
-    <PageWrapper fillViewport className="admin-hub-page-wrap relative z-10 !py-3 font-body">
-      <div className="crewiq-dashboard admin-analytics-view relative flex min-h-0 flex-1 flex-col overflow-hidden">
+  const analyticsBody = (
+    <div
+      className={`crewiq-dashboard admin-analytics-view relative flex min-h-0 flex-1 flex-col overflow-hidden${embedded ? ' admin-analytics-view--embedded' : ''}`}
+    >
+      {!embedded && (
         <div className="dashboard-page-bg" aria-hidden>
           <div className="dashboard-page-bg-gradient" />
           <div className="dashboard-page-bg-pattern" />
         </div>
-        <div className="admin-analytics-shell relative z-10 flex min-h-0 flex-1 animate-fadeIn flex-col overflow-y-auto overflow-x-hidden">
+      )}
+      <div className="admin-analytics-shell relative z-10 flex min-h-0 flex-1 animate-fadeIn flex-col overflow-y-auto overflow-x-hidden">
           <header className="admin-analytics-hub-header">
             <div className="admin-analytics-hero-top">
               <h1 className="admin-analytics-hero-title font-display">Workforce Analytics Hub</h1>
               <Button
                 variant="secondary"
-                className="admin-analytics-export-btn h-7 gap-1 rounded-md px-2.5 text-[11px] font-bold"
+                className="admin-analytics-export-btn gap-1.5 rounded-lg px-3.5 text-sm font-bold"
                 loading={exporting}
                 disabled={exporting || employeesLoading}
                 onClick={() => void handleExportPdf()}
               >
-                <FileText className="h-3 w-3" />
+                <FileText className="h-4 w-4" />
                 Export PDF
               </Button>
             </div>
@@ -194,7 +197,7 @@ export function Analytics() {
                 disabled={!filtersActive || dataLoading}
                 aria-label="Clear all filters"
               >
-                <RotateCcw className="h-3.5 w-3.5" />
+                <RotateCcw className="h-4 w-4" />
                 Clear filters
               </button>
             </div>
@@ -209,10 +212,10 @@ export function Analytics() {
           <div className="admin-analytics-main-panel">
             <div className="admin-analytics-panel-header">
               <div>
-                <h2 className="admin-analytics-panel-title font-display text-sm font-bold">
+                <h2 className="admin-analytics-panel-title font-display">
                   {isAllEmployees ? 'Team Performance Comparison' : 'Individual Performance'}
                 </h2>
-                <p className="text-xs font-medium text-slate-600">
+                <p className="admin-analytics-panel-subtitle">
                   {periodLabel}
                   {!isAllEmployees && selectedEmployee && (
                     <>
@@ -245,7 +248,7 @@ export function Analytics() {
                   <div className="admin-analytics-chart-card admin-analytics-chart-card--performance">
                     <div className="admin-analytics-chart-head">
                       <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4 shrink-0 text-white/90" />
+                        <Users className="h-5 w-5 shrink-0 text-white" />
                         <div className="min-w-0">
                           <h3 className="admin-analytics-chart-title font-display">
                             Team Performance Analysis
@@ -315,7 +318,16 @@ export function Analytics() {
             )}
           </div>
         </div>
-      </div>
+    </div>
+  )
+
+  if (embedded) {
+    return analyticsBody
+  }
+
+  return (
+    <PageWrapper fillViewport className="admin-hub-page-wrap relative z-10 !py-3 font-body">
+      {analyticsBody}
     </PageWrapper>
   )
 }
