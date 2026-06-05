@@ -87,6 +87,7 @@ export default function RaiseTickets() {
   const user = useAuthStore((s) => s.user)
   const tickets = useTicketStore((s) => s.tickets)
   const loading = useTicketStore((s) => s.loading)
+  const initialized = useTicketStore((s) => s.initialized)
   const fetchTickets = useTicketStore((s) => s.fetchTickets)
   const fetchTicketsSilent = useTicketStore((s) => s.fetchTicketsSilent)
   const createTicket = useTicketStore((s) => s.createTicket)
@@ -110,7 +111,9 @@ export default function RaiseTickets() {
     void fetchTickets().catch(() => {
       toast({ title: 'Failed to load tickets', description: 'Please refresh the page.', variant: 'destructive' })
     })
-  }, [user, fetchTickets, toast])
+  }, [user, fetchTickets])
+
+  const ticketsLoading = !initialized || loading
 
   useEffect(() => {
     if (!user) return
@@ -233,7 +236,7 @@ export default function RaiseTickets() {
           />
 
           <div className="flex min-h-0 flex-1 flex-col">
-            {loading && displayTickets.length === 0 ? (
+            {ticketsLoading && displayTickets.length === 0 ? (
               <div className="flex flex-1 items-center justify-center gap-2 py-12 text-sm text-muted">
                 <Loader className="h-5 w-5 animate-spin text-primary" />
                 Loading tickets…

@@ -94,6 +94,7 @@ export function CompanyNews() {
   const [fetchingExternal, setFetchingExternal] = useState(false)
   const [importingExternal, setImportingExternal] = useState(false)
   const [importingLink, setImportingLink] = useState<string | null>(null)
+  const [importError, setImportError] = useState<string | null>(null)
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [imageUrl, setImageUrl] = useState('')
@@ -237,6 +238,7 @@ export function CompanyNews() {
 
   const importExternalItems = async (toImport: ExternalNewsItem[], linksToClear: Set<string>) => {
     if (toImport.length === 0) return false
+    setImportError(null)
     try {
       const created = await importExternalNews(toImport)
       setItems((prev) => [...created, ...prev])
@@ -248,7 +250,11 @@ export function CompanyNews() {
       })
       setNewsTab('current')
       return true
-    } catch {
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        'Failed to add selected headlines to the feed.'
+      setImportError(message)
       return false
     }
   }
@@ -831,6 +837,12 @@ export function CompanyNews() {
                   </button>
                 </div>
               </div>
+
+              {importError ? (
+                <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  {importError}
+                </p>
+              ) : null}
 
               <div className="admin-news-fetch-workspace">
                 {externalItems.length === 0 ? (

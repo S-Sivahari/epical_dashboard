@@ -15,6 +15,7 @@ import {
   countEmployeesJoinedThisMonth,
 } from '@/pages/admin/Dashboard/dashboardBackendUtils'
 import { fetchAdminDocumentRequests } from '@services/documentRequestService'
+import * as ticketService from '@services/ticketService'
 import type { DocumentRequestRecord, LeaveRequest } from '@/types'
 
 export interface DepartmentStats {
@@ -33,6 +34,8 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
   const [allEmployees, setAllEmployees] = useState<any[]>([])
   const notifications = useNotificationStore((s) => s.notifications)
   const tickets = useTicketStore((s) => s.tickets)
+  const ticketsLoading = useTicketStore((s) => s.loading)
+  const ticketsInitialized = useTicketStore((s) => s.initialized)
 
   const [timesheets, setTimesheets] = useState<any[]>([])
   const [projects, setProjects] = useState<any[]>([])
@@ -43,7 +46,6 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
 
   useEffect(() => {
     void useEmployeeStore.getState().fetchEmployees()
-    void useTicketStore.getState().fetchTickets()
     void useNotificationStore.getState().fetchNotificationsSilent()
   }, [])
 
@@ -52,7 +54,7 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
       try {
         setLoading(true)
         const { from, to } = getChartRange(chartPeriod)
-        const [tsRes, projRes, empHoursRes, docRes, batchRes, empRes] = await Promise.all([
+        const [tsRes, projRes, empHoursRes, docRes, batchRes, empRes, ticketList] = await Promise.all([
           api.get('/timesheets', { params: { from, to } }),
           api.get('/projects', { params: { syncCompletion: true } }),
           api.get('/timesheets/employee-hours', { params: { from, to } }),
@@ -64,6 +66,7 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
           })),
           api.get('/payslips/batches').catch(() => ({ data: [] })),
           api.get('/employees', { params: { pageSize: 500, page: 1 } }).catch(() => ({ data: { employees: [] } })),
+          ticketService.getTickets().catch(() => []),
         ])
         setTimesheets(tsRes.data || [])
         setProjects(projRes.data || [])
@@ -71,6 +74,12 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
         const docPayload = docRes as { items?: DocumentRequestRecord[] }
         setDocumentRequests(Array.isArray(docPayload.items) ? docPayload.items : [])
         setPayslipBatches(batchRes.data || [])
+        useTicketStore.setState({
+          tickets: Array.isArray(ticketList) ? ticketList : [],
+          loading: false,
+          initialized: true,
+          error: null,
+        })
         const empPayload = empRes.data?.data ?? empRes.data?.employees ?? empRes.data ?? []
         setAllEmployees(Array.isArray(empPayload) ? empPayload : [])
         const total = empRes.data?.total
@@ -308,5 +317,6 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
     allEmployees,
     pendingApprovalTasks,
     employeesAddedThisMonth,
+    ticketsLoading: loading || (!ticketsInitialized && ticketsLoading),
   }
 }

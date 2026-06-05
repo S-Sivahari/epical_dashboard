@@ -3,9 +3,6 @@
  * Wording reflects current app behaviour (leave balances, timesheet, documents, etc.).
  */
 
-export const employeePortalGuideIntro =
-  'Use the topics below to learn how each part of the portal works. Pick a section to see steps, tips, and a direct link to that page.'
-
 export const employeePortalGuideSections = [
   {
     key: 'dashboard',

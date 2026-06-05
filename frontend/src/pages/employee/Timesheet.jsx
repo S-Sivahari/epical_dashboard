@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { LogIn, LogOut, Loader2, AlertTriangle, Clock, CalendarDays, FolderKanban } from 'lucide-react'
+import { LogIn, LogOut, Loader2, AlertTriangle } from 'lucide-react'
 import { Button } from '@components/employee/ui/button'
 import { Label } from '@components/employee/ui/label'
 import { Textarea } from '@components/employee/ui/textarea'
@@ -14,7 +14,6 @@ import { formatSessionDuration, formatDurationFromMs } from '@utils/durationForm
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { formatDateKey, getPresetDateRange, getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
 import { TimesheetLiveSessionPanel } from '@pages/employee/TimesheetLiveSessionPanel'
-import { TimesheetSummaryCard } from '@pages/employee/TimesheetSummaryCard'
 
 const TimesheetWeeklyChart = lazy(() =>
   import('@pages/employee/TimesheetWeeklyChart').then((m) => ({ default: m.TimesheetWeeklyChart })),
@@ -204,6 +203,25 @@ export default function Timesheet() {
     () => assignedTasks.filter((t) => t.status !== 'completed'),
     [assignedTasks],
   )
+
+  const taskStatusCounts = useMemo(() => {
+    const total = assignedTasks.length
+    const inProgress = assignedTasks.filter(
+      (t) =>
+        t.status === 'in_progress' ||
+        t.status === 'pending_review' ||
+        t.status === 'Active' ||
+        !t.status,
+    ).length
+    const completed = assignedTasks.filter(
+      (t) => t.status === 'completed' || t.status === 'Completed',
+    ).length
+    const cancelled = assignedTasks.filter(
+      (t) => t.status === 'cancelled' || t.status === 'Cancelled',
+    ).length
+
+    return { total, inProgress, completed, cancelled }
+  }, [assignedTasks])
   const selectedTask = startableTasks.find((t) => t.id === selectedTaskId)
   const currentWorkTask = activeTask || pausedTasks[0] || null
 
@@ -439,13 +457,43 @@ export default function Timesheet() {
     return Array.from(deduped.values()).sort((a, b) => b.sortAt - a.sortAt)
   }, [sessions, historyRange])
 
-  const projectWiseTotal = useMemo(
-    () => (allTimeProjectWiseHours ?? []).reduce((sum, p) => sum + (p.hours || 0), 0),
-    [allTimeProjectWiseHours],
-  )
+  const projectBreakdown = useMemo(() => {
+    const hoursByProjectId = new Map()
+    const hoursByProjectName = new Map()
+    ;(allTimeProjectWiseHours ?? []).forEach((row) => {
+      if (row.projectId) hoursByProjectId.set(String(row.projectId), row)
+      if (row.project) hoursByProjectName.set(String(row.project).trim(), row)
+    })
 
-  const projectCount = (allTimeProjectWiseHours ?? []).length
-  const historyHasMore = unifiedHistory.length > 3
+    const seen = new Set()
+    const rows = []
+    for (const task of startableTasks) {
+      const projectId = task.projectId ? String(task.projectId) : ''
+      const projectName = String(task.projectName || '').trim()
+      const key = projectId || projectName
+      if (!key || seen.has(key)) continue
+      seen.add(key)
+
+      const hoursRow =
+        (projectId && hoursByProjectId.get(projectId)) ||
+        (projectName && hoursByProjectName.get(projectName)) ||
+        null
+
+      rows.push({
+        projectId: projectId || hoursRow?.projectId || '',
+        project: projectName || hoursRow?.project || 'Unknown',
+        hours: hoursRow?.hours ?? 0,
+        sessions: hoursRow?.sessions ?? 0,
+      })
+    }
+
+    return rows.sort((a, b) => b.hours - a.hours || a.project.localeCompare(b.project))
+  }, [startableTasks, allTimeProjectWiseHours])
+
+  const projectWiseTotal = useMemo(
+    () => projectBreakdown.reduce((sum, p) => sum + (p.hours || 0), 0),
+    [projectBreakdown],
+  )
 
   if (!initialized) {
     return (
@@ -458,170 +506,42 @@ export default function Timesheet() {
 
   return (
     <div className="emp-timesheet-page dashboard-surface" data-page-scrollable>
-      {/* Page Header with Task Summary - Dark Green Bar */}
-      <div className="flex flex-col gap-3 rounded-xl p-4 md:p-5 mb-3" style={{ background: 'linear-gradient(135deg, #2d6a4f 0%, #1b4332 100%)' }}>
-        <div>
-          <h1 className="text-xl md:text-2xl font-extrabold leading-none" style={{ color: '#ffffff' }}>Projects & Timesheets</h1>
-        </div>
-
-        {/* Task Status Cards - Horizontal Row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {(() => {
-            const total = assignedTasks.length;
-            const inProgressCount = assignedTasks.filter(t => t.status === 'in_progress' || t.status === 'pending_review' || t.status === 'Active' || !t.status).length;
-            const completedCount = assignedTasks.filter(t => t.status === 'completed' || t.status === 'Completed').length;
-            const cancelledCount = assignedTasks.filter(t => t.status === 'cancelled' || t.status === 'Cancelled').length;
-            
-            return (
-              <>
-                {/* Total Card with Pie Chart */}
-                <div className="bg-white/95 backdrop-blur-sm rounded-xl p-4 shadow-md flex flex-col items-center justify-center">
-                  <div className="relative flex items-center justify-center mb-2" style={{ width: 64, height: 64 }}>
-                    <svg width="64" height="64" viewBox="0 0 64 64" className="transform -rotate-90">
-                      {(() => {
-                        const radius = 28;
-                        const circumference = 2 * Math.PI * radius;
-                        const safeTotal = total || 1;
-                        
-                        const progressPercent = (inProgressCount / safeTotal) * 100;
-                        const completedPercent = (completedCount / safeTotal) * 100;
-                        const cancelledPercent = (cancelledCount / safeTotal) * 100;
-                        
-                        const progressDash = (progressPercent / 100) * circumference;
-                        const completedDash = (completedPercent / 100) * circumference;
-                        const cancelledDash = (cancelledPercent / 100) * circumference;
-                        
-                        const progressOffset = 0;
-                        const completedOffset = -progressDash;
-                        const cancelledOffset = -(progressDash + completedDash);
-                        
-                        return (
-                          <>
-                            <circle 
-                              cx="32" 
-                              cy="32" 
-                              r={radius} 
-                              fill="none" 
-                              stroke="rgba(148, 163, 184, 0.2)" 
-                              strokeWidth="8"
-                            />
-                            {inProgressCount > 0 && (
-                              <circle
-                                cx="32"
-                                cy="32"
-                                r={radius}
-                                fill="none"
-                                stroke="#3b82f6"
-                                strokeWidth="8"
-                                strokeDasharray={`${progressDash} ${circumference}`}
-                                strokeDashoffset={progressOffset}
-                                strokeLinecap="round"
-                              />
-                            )}
-                            {completedCount > 0 && (
-                              <circle
-                                cx="32"
-                                cy="32"
-                                r={radius}
-                                fill="none"
-                                stroke="#22c55e"
-                                strokeWidth="8"
-                                strokeDasharray={`${completedDash} ${circumference}`}
-                                strokeDashoffset={completedOffset}
-                                strokeLinecap="round"
-                              />
-                            )}
-                            {cancelledCount > 0 && (
-                              <circle
-                                cx="32"
-                                cy="32"
-                                r={radius}
-                                fill="none"
-                                stroke="#ef4444"
-                                strokeWidth="8"
-                                strokeDasharray={`${cancelledDash} ${circumference}`}
-                                strokeDashoffset={cancelledOffset}
-                                strokeLinecap="round"
-                              />
-                            )}
-                          </>
-                        );
-                      })()}
-                    </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-3xl font-black text-slate-700 leading-none">
-                        {total}
-                      </span>
-                    </div>
-                  </div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Total</span>
-                </div>
-
-                {/* In Progress Card */}
-                <div className="bg-white/95 backdrop-blur-sm rounded-xl p-4 shadow-md">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="h-2.5 w-2.5 rounded-full bg-blue-500"></div>
-                    <span className="text-xs font-bold uppercase tracking-wide text-slate-600">In Progress</span>
-                  </div>
-                  <div className="text-4xl font-black text-blue-600 tabular-nums">
-                    {inProgressCount}
-                  </div>
-                </div>
-
-                {/* Completed Card */}
-                <div className="bg-white/95 backdrop-blur-sm rounded-xl p-4 shadow-md">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="h-2.5 w-2.5 rounded-full bg-green-500"></div>
-                    <span className="text-xs font-bold uppercase tracking-wide text-slate-600">Completed</span>
-                  </div>
-                  <div className="text-4xl font-black text-green-600 tabular-nums">
-                    {completedCount}
-                  </div>
-                </div>
-
-                {/* Cancelled Card */}
-                <div className="bg-white/95 backdrop-blur-sm rounded-xl p-4 shadow-md">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="h-2.5 w-2.5 rounded-full bg-red-500"></div>
-                    <span className="text-xs font-bold uppercase tracking-wide text-slate-600">Cancelled</span>
-                  </div>
-                  <div className="text-4xl font-black text-red-600 tabular-nums">
-                    {cancelledCount}
-                  </div>
-                </div>
-              </>
-            );
-          })()}
+      <div className="emp-timesheet-hero">
+        <h1 className="emp-timesheet-hero-title">Projects & Timesheets</h1>
+        <div className="emp-timesheet-hero-stats">
+          <div className="emp-timesheet-hero-stat">
+            <span className="emp-timesheet-hero-stat-label">Total</span>
+            <span className="emp-timesheet-hero-stat-value">{taskStatusCounts.total}</span>
+          </div>
+          <div className="emp-timesheet-hero-stat emp-timesheet-hero-stat--blue">
+            <span className="emp-timesheet-hero-stat-dot" aria-hidden />
+            <span className="emp-timesheet-hero-stat-label">In Progress</span>
+            <span className="emp-timesheet-hero-stat-value">{taskStatusCounts.inProgress}</span>
+          </div>
+          <div className="emp-timesheet-hero-stat emp-timesheet-hero-stat--green">
+            <span className="emp-timesheet-hero-stat-dot" aria-hidden />
+            <span className="emp-timesheet-hero-stat-label">Completed</span>
+            <span className="emp-timesheet-hero-stat-value">{taskStatusCounts.completed}</span>
+          </div>
+          <div className="emp-timesheet-hero-stat emp-timesheet-hero-stat--red">
+            <span className="emp-timesheet-hero-stat-dot" aria-hidden />
+            <span className="emp-timesheet-hero-stat-label">Cancelled</span>
+            <span className="emp-timesheet-hero-stat-value">{taskStatusCounts.cancelled}</span>
+          </div>
         </div>
       </div>
 
       {/* Main Dashboard Grid Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3 lg:grid-rows-[auto] lg:items-stretch">
+      <div className="mb-3 grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
         
-        {/* LEFT COLUMN */}
+        {/* LEFT COLUMN — Work Session + Work History */}
         <div className="flex flex-col gap-3">
-          {/* Compact Stat Cards Row */}
-          <div className="grid grid-cols-2 gap-2.5">
-            <TimesheetSummaryCard
-              variant="teal"
-              title="Today Hours"
-              value={formatDurationFromMs(todayHoursMs)}
-              icon={Clock}
-            />
-            <TimesheetSummaryCard
-              variant="turquoise"
-              title="Weekly Hours"
-              value={`${totalWeekly.toFixed(1)}h`}
-              icon={CalendarDays}
-            />
-          </div>
-
-          {/* Work Session Card - Project and Description Only */}
-          <section className="emp-timesheet-card p-3">
-            <div className="mb-2.5">
-              <h3 className="text-sm font-bold text-slate-900">Work Session</h3>
+          {/* Work Session — form, live timer when checked in, and actions */}
+          <section className="emp-timesheet-card flex flex-col">
+            <div className="emp-timesheet-card-header">
+              <h3 className="emp-timesheet-card-title">Work Session</h3>
             </div>
-            <div className="space-y-2.5">
+            <div className="emp-timesheet-card-body flex flex-col gap-2.5">
               {!checkedIn && attendance?.autoCheckedOut && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-1.5">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-800">
@@ -634,81 +554,83 @@ export default function Timesheet() {
                 </div>
               )}
 
-              <div className="space-y-0.5">
-                <Label className="text-xs font-bold text-slate-800">Assigned Project *</Label>
-                <Select
-                  value={selectedTaskId}
-                  onValueChange={(v) => setValue('assignedTaskId', v, { shouldValidate: true })}
-                  disabled={checkedIn || checkoutReview || startableTasks.length === 0}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue
-                      placeholder={
-                        startableTasks.length === 0
-                          ? 'No projects assigned — contact admin'
-                          : 'Select assigned project'
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[200px] overflow-y-auto">
-                    {startableTasks.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>
-                        {t.projectName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {selectedTask?.description && !checkedIn && (
-                  <p className="line-clamp-2 text-[9px] text-muted mt-1">{selectedTask.description}</p>
-                )}
-                {errors.assignedTaskId && !checkedIn && (
-                  <p className="text-[9px] text-danger mt-1">{errors.assignedTaskId.message}</p>
-                )}
-              </div>
-
-              <div className="space-y-0.5">
-                <Label className="text-xs font-bold text-slate-800">Work Description *</Label>
-                <Textarea
-                  className="min-h-[3.5rem] max-h-[10rem] resize-y text-xs leading-relaxed"
-                  rows={2}
-                  {...register('description')}
-                  placeholder="Describe what you're working on..."
-                  disabled={checkedIn && !checkoutReview}
+              {checkedIn && checkInTime ? (
+                <TimesheetLiveSessionPanel
+                  checkedIn={checkedIn}
+                  checkInTime={checkInTime}
+                  activeTask={activeTask}
+                  pausedTasks={pausedTasks}
+                  currentWorkTask={currentWorkTask}
+                  serverTimeSkew={serverTimeSkew}
+                  checkoutReview={checkoutReview}
+                  submitting={submitting}
+                  onPause={() => activeTask && onPauseTask(activeTask.timesheetId)}
+                  onResume={() => pausedTasks[0] && onResumeTask(pausedTasks[0].timesheetId)}
                 />
-                {checkoutReview && (
-                  <p className="text-[9px] font-medium text-amber-700 mt-1">
-                    Update your work summary before checking out.
-                  </p>
-                )}
-                {checkoutError && <p className="text-[9px] text-danger mt-1">{checkoutError}</p>}
-              </div>
-            </div>
-          </section>
+              ) : null}
 
-          {/* Wrapper for Active Session + Buttons to match right column height */}
-          <div className="flex flex-col gap-3 flex-1">
-            {/* Active Session Status Card */}
-            <section className="emp-timesheet-card p-3 flex-1">
-              <div className="mb-2">
-                <h3 className="text-sm font-bold text-slate-900">Active Session</h3>
-              </div>
-              <TimesheetLiveSessionPanel
-                checkedIn={checkedIn}
-                checkInTime={checkInTime}
-                activeTask={activeTask}
-                pausedTasks={pausedTasks}
-                currentWorkTask={currentWorkTask}
-                serverTimeSkew={serverTimeSkew}
-                checkoutReview={checkoutReview}
-                submitting={submitting}
-                onPause={() => activeTask && onPauseTask(activeTask.timesheetId)}
-                onResume={() => pausedTasks[0] && onResumeTask(pausedTasks[0].timesheetId)}
-              />
-            </section>
+              {!checkedIn || checkoutReview ? (
+                <>
+                  {!checkedIn ? (
+                    <div className="space-y-0.5">
+                      <Label className="text-xs font-bold text-slate-800">Assigned Project *</Label>
+                      <Select
+                        value={selectedTaskId}
+                        onValueChange={(v) => setValue('assignedTaskId', v, { shouldValidate: true })}
+                        disabled={checkoutReview || startableTasks.length === 0}
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue
+                            placeholder={
+                              startableTasks.length === 0
+                                ? 'No projects assigned — contact admin'
+                                : 'Select assigned project'
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[200px] overflow-y-auto">
+                          {startableTasks.map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              {t.projectName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {selectedTask?.description && !checkoutReview && (
+                        <p className="line-clamp-2 text-[9px] text-muted mt-1">{selectedTask.description}</p>
+                      )}
+                      {errors.assignedTaskId && (
+                        <p className="text-[9px] text-danger mt-1">{errors.assignedTaskId.message}</p>
+                      )}
+                    </div>
+                  ) : null}
 
-            {/* Check In/Check Out Buttons - Always at bottom */}
-            <section className="emp-timesheet-card p-2.5">
-              <div className="flex gap-2">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-bold text-slate-800">
+                      {checkoutReview ? 'Work Summary *' : 'Work Description *'}
+                    </Label>
+                    <Textarea
+                      className="min-h-[3.5rem] max-h-[10rem] resize-y text-xs leading-relaxed"
+                      rows={2}
+                      {...register('description')}
+                      placeholder={
+                        checkoutReview
+                          ? 'Update your work summary before checking out…'
+                          : "Describe what you're working on..."
+                      }
+                      disabled={checkedIn && !checkoutReview}
+                    />
+                    {checkoutReview && (
+                      <p className="text-[9px] font-medium text-amber-700 mt-1">
+                        Update your work summary before checking out.
+                      </p>
+                    )}
+                    {checkoutError && <p className="text-[9px] text-danger mt-1">{checkoutError}</p>}
+                  </div>
+                </>
+              ) : null}
+
+              <div className="flex gap-2 border-t border-slate-200/80 pt-2.5">
                 {checkoutReview ? (
                   <>
                     <Button type="button" variant="outline" onClick={cancelCheckOut} disabled={submitting} className="h-8 flex-1 text-xs">
@@ -746,19 +668,78 @@ export default function Timesheet() {
                   </>
                 )}
               </div>
-            </section>
-          </div>
+            </div>
+          </section>
+
+          {/* Work History */}
+          <section className="emp-timesheet-card emp-timesheet-history-panel flex flex-col overflow-visible">
+            <div className="emp-timesheet-history-header flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
+              <h3 className="emp-timesheet-card-title">Work History</h3>
+              <div className="relative z-20 shrink-0">
+                <DateRangePicker
+                  startDate={historyStart}
+                  endDate={historyEnd}
+                  preset={historyPreset}
+                  onChange={(start, end, preset) => {
+                    setHistoryStart(start)
+                    setHistoryEnd(end)
+                    setHistoryPreset(preset)
+                    void Promise.all([
+                      useTimesheetStore.getState().refreshSessionsForRange({ from: start, to: end }),
+                      useTimesheetStore.getState().refreshProjectWiseHours({ from: start, to: end }),
+                    ])
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="emp-timesheet-card-body flex flex-col p-3">
+              {(isInitialLoading || sessionsLoading) && unifiedHistory.length === 0 ? (
+                <div className="space-y-2">
+                  <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/80" />
+                  <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/60" />
+                  <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/60" />
+                </div>
+              ) : (
+                <div className="relative flex flex-col">
+                  {(isInitialLoading || sessionsLoading) && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/70 backdrop-blur-[1px]">
+                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                    </div>
+                  )}
+                  <div className="emp-timesheet-history-scroll timesheet-panel-scroll min-h-[12rem] overflow-auto rounded-lg border border-slate-200/80">
+                    <DataTable
+                      columns={historyColumns}
+                      data={unifiedHistory}
+                      compact
+                      stickyHeader={true}
+                      emptyMessage="No work logs for this date range."
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
         </div>
 
         {/* RIGHT COLUMN */}
         <div className="flex flex-col gap-4">
           {/* Weekly Hours Chart - Primary Visual */}
-          <section className="emp-timesheet-card p-4">
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <h3 className="text-sm font-bold text-slate-900">Weekly Hours</h3>
-              <span className="text-xs font-bold text-slate-600 tabular-nums">{totalWeekly.toFixed(1)}h total</span>
+          <section className="emp-timesheet-card">
+            <div className="emp-timesheet-card-header">
+              <h3 className="emp-timesheet-card-title">Weekly Hours</h3>
+              <div className="emp-timesheet-chart-header-stats">
+                <div className="emp-timesheet-chart-stat">
+                  <span className="emp-timesheet-chart-stat-label">Today</span>
+                  <span className="emp-timesheet-chart-stat-value">{formatDurationFromMs(todayHoursMs)}</span>
+                </div>
+                <div className="emp-timesheet-chart-stat">
+                  <span className="emp-timesheet-chart-stat-label">This week</span>
+                  <span className="emp-timesheet-chart-stat-value">{totalWeekly.toFixed(1)}h</span>
+                </div>
+              </div>
             </div>
-            <div style={{ height: 280 }}>
+            <div className="emp-timesheet-card-body" style={{ height: 280 }}>
               <Suspense
                 fallback={
                   <div className="flex h-full items-center justify-center text-xs text-muted">
@@ -771,13 +752,13 @@ export default function Timesheet() {
             </div>
           </section>
 
-          {/* Project Breakdown Chart - Grows to match left column */}
-          <section className="emp-timesheet-card p-4 flex-1">
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <h3 className="text-sm font-bold text-slate-900">Project Breakdown</h3>
-              <span className="text-xs font-bold text-slate-600 tabular-nums">{projectWiseTotal.toFixed(1)}h total</span>
+          {/* Project Breakdown Chart */}
+          <section className="emp-timesheet-card">
+            <div className="emp-timesheet-card-header">
+              <h3 className="emp-timesheet-card-title">Project Breakdown</h3>
+              <span className="emp-timesheet-chart-meta">{projectWiseTotal.toFixed(1)}h total</span>
             </div>
-            <div>
+            <div className="emp-timesheet-card-body">
               <Suspense
                 fallback={
                   <div className="flex min-h-[200px] items-center justify-center text-xs text-muted">
@@ -785,69 +766,19 @@ export default function Timesheet() {
                   </div>
                 }
               >
-                <TimesheetProjectWiseChart data={allTimeProjectWiseHours} />
+                <TimesheetProjectWiseChart
+                  data={projectBreakdown}
+                  emptyHint={
+                    startableTasks.length === 0
+                      ? 'No projects assigned yet — contact your admin.'
+                      : 'Hours appear after you log time on assigned projects.'
+                  }
+                />
               </Suspense>
             </div>
           </section>
         </div>
       </div>
-
-      {/* Work History - Full Width Bottom Section */}
-      <section className="emp-timesheet-card overflow-visible">
-        <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200/80 rounded-t-[0.875rem] p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-bold text-slate-900">Work History</h3>
-            {unifiedHistory.length > 0 && (
-              <p className="text-xs text-slate-600 mt-0.5">
-                {unifiedHistory.length} log{unifiedHistory.length === 1 ? '' : 's'} in selected range
-              </p>
-            )}
-          </div>
-          <div className="flex-shrink-0 relative z-20">
-            <DateRangePicker
-              startDate={historyStart}
-              endDate={historyEnd}
-              preset={historyPreset}
-              onChange={(start, end, preset) => {
-                setHistoryStart(start)
-                setHistoryEnd(end)
-                setHistoryPreset(preset)
-                void Promise.all([
-                  useTimesheetStore.getState().refreshSessionsForRange({ from: start, to: end }),
-                  useTimesheetStore.getState().refreshProjectWiseHours({ from: start, to: end }),
-                ])
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="p-4">
-          {(isInitialLoading || sessionsLoading) && unifiedHistory.length === 0 ? (
-            <div className="space-y-2">
-              <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/80" />
-              <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/60" />
-              <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/60" />
-            </div>
-          ) : (
-            <div className="relative">
-              {(isInitialLoading || sessionsLoading) && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/70 backdrop-blur-[1px]">
-                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                </div>
-              )}
-              <div className="emp-timesheet-history-scroll timesheet-panel-scroll rounded-lg border border-slate-200/80 max-h-[450px] overflow-auto">
-                <DataTable
-                  columns={historyColumns}
-                  data={unifiedHistory}
-                  compact
-                  stickyHeader={true}
-                  emptyMessage="No work logs for this date range."
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
     </div>
   )
 }

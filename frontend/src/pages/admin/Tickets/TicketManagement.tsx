@@ -94,6 +94,7 @@ const filterFieldClass = 'admin-tickets-filter-input'
 export function TicketManagement() {
   const tickets = useTicketStore((s) => s.tickets)
   const loading = useTicketStore((s) => s.loading)
+  const initialized = useTicketStore((s) => s.initialized)
   const fetchTickets = useTicketStore((s) => s.fetchTickets)
   const fetchTicketsSilent = useTicketStore((s) => s.fetchTicketsSilent)
   const updateStatus = useTicketStore((s) => s.updateStatus)
@@ -111,6 +112,7 @@ export function TicketManagement() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [ticketToDelete, setTicketToDelete] = useState<Ticket | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const ticketsLoading = !initialized || loading
 
   useEffect(() => {
     void fetchTickets({
@@ -552,11 +554,11 @@ export function TicketManagement() {
           </div>
 
           <div className="admin-tickets-board flex min-h-0 flex-1 flex-col">
-            {loading && tickets.length === 0 ? (
+            {ticketsLoading && tickets.length === 0 ? (
               <div className="admin-tickets-board-empty">
                 <p className="text-sm font-medium admin-tickets-text-brand-muted">Loading tickets…</p>
               </div>
-            ) : !loading && tickets.length === 0 ? (
+            ) : !ticketsLoading && tickets.length === 0 ? (
               <div className="admin-tickets-board-empty">
                 <TicketIcon className="mb-3 h-9 w-9 admin-tickets-text-brand opacity-40" aria-hidden />
                 <p className="text-sm font-semibold admin-tickets-text-brand">No tickets yet</p>

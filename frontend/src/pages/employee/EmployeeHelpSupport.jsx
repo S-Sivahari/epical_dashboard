@@ -17,10 +17,7 @@ import {
   ArrowRight,
   Info,
 } from 'lucide-react'
-import {
-  employeePortalGuideIntro,
-  employeePortalGuideSections,
-} from '@pages/employee/data/employeePortalGuide'
+import { employeePortalGuideSections } from '@pages/employee/data/employeePortalGuide'
 import { cn } from '@pages/employee/lib/utils'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 
@@ -52,13 +49,10 @@ export default function EmployeeHelpSupport() {
       className="emp-help-page w-full space-y-6 pb-8"
       data-page-scrollable
     >
-      <header className="space-y-1">
+      <header>
         <h2 className="font-heading text-2xl font-semibold text-foreground sm:text-3xl">
           Employee Portal Guide
         </h2>
-        <p className="max-w-3xl text-sm leading-relaxed text-muted sm:text-base">
-          {employeePortalGuideIntro}
-        </p>
       </header>
 
       <InteractiveCard className={portalCardClass({ className: 'p-4 sm:p-5' })}>

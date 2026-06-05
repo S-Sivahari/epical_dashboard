@@ -1,6 +1,6 @@
 /**
  * Portal layout — cmd-main scrolls by default for tall pages.
- * Viewport-fit (internal panel scroll only): admin/employee dashboard, calendars, timesheet.
+ * Viewport-fit (internal panel scroll only): admin/employee dashboard, calendars, leave.
  */
 
 :root {
@@ -35,7 +35,8 @@ body,
 .admin-portal.cmd-portal .cmd-main:has([data-admin-dashboard]),
 .admin-portal.cmd-portal .cmd-main:has([data-admin-calendar]),
 .employee-portal.cmd-portal .cmd-main:has([data-employee-calendar]),
-.employee-portal.cmd-portal .cmd-main:has([data-employee-leave]) {
+.employee-portal.cmd-portal .cmd-main:has([data-employee-leave]),
+.employee-portal.cmd-portal .cmd-main:has([data-employee-dashboard]) {
   overflow: hidden;
 }
 
@@ -327,21 +328,21 @@ body,
   overflow: visible;
 }
 
-/* Employee dashboard — grow with content; cmd-main is the scroll container */
-.employee-portal [data-employee-page]:has([data-employee-dashboard]) {
-  flex: 0 1 auto;
-  height: auto;
+/* Long pages (timesheet, help, etc.) — grow with content; cmd-main scrolls */
+.employee-portal [data-employee-page]:has([data-page-scrollable]) {
+  flex: 1 1 auto;
+  max-height: none;
   overflow: visible;
 }
 
-.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-dashboard]) {
-  flex: 0 1 auto;
-  height: auto;
+.employee-portal [data-employee-page]:has([data-page-scrollable]) > .emp-portal-page__content {
+  flex: 1 1 auto;
   min-height: auto;
   overflow: visible;
 }
 
-/* Calendar only — viewport-fit with internal panel scroll */
+/* Employee dashboard, calendar, leave — viewport-fit with internal panel scroll */
+.employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-dashboard]),
 .employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-calendar]),
 .employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-leave]) {
   flex: 1 1 0;
@@ -349,6 +350,7 @@ body,
   overflow: hidden;
 }
 
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-dashboard]),
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]),
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-leave]) {
   display: flex;
@@ -358,11 +360,81 @@ body,
   overflow: hidden;
 }
 
-.employee-portal .emp-timesheet-history-panel {
-  max-height: min(24rem, 40vh);
-  overflow-y: auto;
-  overflow-x: auto;
+[data-employee-dashboard] .emp-dash-widgets-grid {
+  display: grid;
   min-height: 0;
+  flex: 1 1 0;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  [data-employee-dashboard] .emp-dash-widgets-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  }
+}
+
+[data-employee-dashboard] .emp-dash-widgets-col {
+  display: grid;
+  min-height: 0;
+  gap: 0.75rem;
+  overflow: hidden;
+}
+
+[data-employee-dashboard] .emp-dash-widgets-col--left {
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+}
+
+[data-employee-dashboard] .emp-dash-widgets-col--right {
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+[data-employee-dashboard] .emp-dash-widget-slot {
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+[data-employee-dashboard] .emp-dash-widget-slot > * {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+}
+
+[data-employee-dashboard] .emp-dash-widget-body {
+  min-height: 0;
+  flex: 1 1 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 767px) {
+  [data-employee-dashboard] .emp-dash-widgets-grid {
+    overflow-y: auto;
+  }
+
+  [data-employee-dashboard] .emp-dash-widgets-col--left,
+  [data-employee-dashboard] .emp-dash-widgets-col--right {
+    grid-template-rows: none;
+    grid-auto-rows: minmax(11rem, auto);
+  }
+
+  [data-employee-dashboard] .emp-dash-widget-slot {
+    min-height: 11rem;
+  }
+}
+
+.employee-portal .emp-timesheet-history-panel {
+  min-height: 0;
+  overflow: visible;
+}
+
+.employee-portal .emp-timesheet-history-panel .emp-timesheet-history-header {
+  overflow: visible;
+  z-index: 5;
 }
 
 /* Auth / login — bounded scroll container (root is not height-locked) */

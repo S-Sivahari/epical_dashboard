@@ -6,7 +6,6 @@ import {
   CalendarOff,
   FolderKanban,
   ArrowRight,
-  FileText,
   CalendarRange,
 } from 'lucide-react'
 import { ProfileCard } from '@components/employee/shared/ProfileCard'
@@ -15,6 +14,7 @@ import { AssignedProjectsSection } from '@components/employee/shared/AssignedPro
 import { DashboardWorkInsights } from '@components/employee/shared/DashboardWorkInsights'
 import { AnnouncementBanner } from '@components/employee/shared/AnnouncementBanner'
 import { UpcomingHolidaysCard } from '@components/employee/shared/UpcomingHolidaysCard'
+import { DashboardDocumentRequests } from '@components/employee/shared/DashboardDocumentRequests'
 import { useAuthStore } from '@store/authStore'
 import { fetchEmployeeDashboard } from '@services/employeeDashboardService'
 import * as leaveService from '@services/leaveService'
@@ -37,27 +37,49 @@ const LEAVE_TINT = {
 }
 
 const CARD_CLASS = portalCardClass({ className: 'flex h-full min-h-0 flex-col overflow-hidden p-4 sm:p-5' })
+const COMPACT_CARD_CLASS = portalCardClass({
+  className: 'flex h-full min-h-0 flex-col overflow-hidden p-3',
+})
 
-function SectionCard({ title, subtitle, action, children, className = '', tone, icon: Icon }) {
+function SectionCard({ title, subtitle, action, children, className = '', tone, icon: Icon, compact = false, to }) {
+  const cardClass = compact ? COMPACT_CARD_CLASS : CARD_CLASS
+
   return (
     <InteractiveCard
-      className={cn(CARD_CLASS, tone && `emp-dash-card emp-dash-card--${tone}`, className)}
+      to={to}
+      className={cn(cardClass, tone && `emp-dash-card emp-dash-card--${tone}`, className)}
     >
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-2 border-b border-border pb-3">
-        <div className="flex min-w-0 items-start gap-2.5">
+      <div
+        className={cn(
+          'flex shrink-0 flex-wrap items-start justify-between gap-2 border-b border-border',
+          compact ? 'mb-2 pb-2' : 'mb-3 pb-3',
+        )}
+      >
+        <div className="flex min-w-0 items-start gap-2">
           {Icon ? (
-            <div className={cn('emp-dash-icon', tone && `emp-dash-icon--${tone}`)} aria-hidden>
-              <Icon className="h-4 w-4" />
+            <div
+              className={cn(
+                'emp-dash-icon',
+                tone && `emp-dash-icon--${tone}`,
+                compact && 'h-7 w-7',
+              )}
+              aria-hidden
+            >
+              <Icon className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
             </div>
           ) : null}
           <div className="min-w-0">
-            <h3 className="font-heading text-base font-semibold text-foreground">{title}</h3>
+            <h3 className={cn('font-heading font-semibold text-foreground', compact ? 'text-sm' : 'text-base')}>
+              {title}
+            </h3>
             {subtitle ? <p className="mt-0.5 text-xs text-muted">{subtitle}</p> : null}
           </div>
         </div>
         {action}
       </div>
-      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+      <div className="emp-dash-widget-body flex min-h-0 flex-1 flex-col">
+        {children}
+      </div>
     </InteractiveCard>
   )
 }
@@ -144,11 +166,10 @@ export default function Dashboard() {
   }, [employee?.id])
 
   const pendingLeaves = useMemo(() => leaves.filter((l) => l.status === 'Pending'), [leaves])
-  const pendingDocs = useMemo(() => documents.filter((d) => d.status === 'Requested'), [documents])
   const enrolledCourses = enrollments.filter((e) => e.status === 'Enrolled').length
   const completedCourses = enrollments.filter((e) => e.status === 'Completed').length
 
-  const widgetSkeleton = <InlineSkeleton className="min-h-[280px] h-full" />
+  const widgetSkeleton = <InlineSkeleton className="h-full min-h-0 rounded-xl" />
 
   const profileStats = useMemo(
     () => [
@@ -158,6 +179,7 @@ export default function Dashboard() {
         icon: Clock,
         trend: `${weeklyHours}h this week`,
         accent: 'sage',
+        to: '/employee/timesheet',
       },
       {
         title: 'Pending Leave',
@@ -165,6 +187,7 @@ export default function Dashboard() {
         icon: CalendarOff,
         trend: pendingLeaves.length ? 'Awaiting admin approval' : 'None pending',
         accent: 'sage',
+        to: '/employee/leave',
       },
       {
         title: 'Active Projects',
@@ -172,13 +195,22 @@ export default function Dashboard() {
         icon: FolderKanban,
         trend: projectCount ? 'Assigned to you' : 'None assigned',
         accent: 'sage',
+        to: '/employee/timesheet',
       },
       {
         title: 'Training',
         value: String(completedCourses),
         icon: BookOpen,
-        trend: enrolledCourses > 0 ? `${enrolledCourses} in progress` : 'No enrollments',
+        trend:
+          completedCourses > 0 && enrolledCourses > 0
+            ? `${completedCourses} completed · ${enrolledCourses} in progress`
+            : completedCourses > 0
+              ? `${completedCourses} completed`
+              : enrolledCourses > 0
+                ? `${enrolledCourses} in progress`
+                : 'No enrollments',
         accent: 'sage',
+        to: '/employee/training',
       },
     ],
     [
@@ -192,87 +224,101 @@ export default function Dashboard() {
   )
 
   return (
-    <div className="relative max-w-full pb-6" data-employee-dashboard data-page-scrollable>
-      <div className="dashboard-shell max-w-full space-y-4 overflow-x-hidden">
-      <div className="space-y-3">
-        <AnnouncementBanner compact />
+    <div
+      className="relative flex h-full min-h-0 max-w-full flex-1 flex-col overflow-hidden"
+      data-employee-dashboard
+    >
+      <div className="dashboard-shell flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+        <div className="shrink-0 space-y-2">
+          <AnnouncementBanner compact />
 
-        <div className="overflow-x-auto pb-0.5">
-          <ProfileCard
-            employee={employee}
-            profile={profile}
-            attendance={attendance}
-            horizontal
-            stats={loading ? null : profileStats}
-            statsLoading={loading}
-            className="min-w-[36rem] sm:min-w-0"
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:items-stretch">
-        <div className="flex flex-col gap-4 md:col-span-1">
-          {loading ? (
-            widgetSkeleton
-          ) : (
-            <SectionCard
-              tone="sage"
-              icon={CalendarRange}
-              title="Leave balance"
-              action={<SectionLink to="/employee/leave" label="Apply" />}
-            >
-              <div className="grid flex-1 auto-rows-fr gap-2">
-                {balances.map((lb) => (
-                  <LeaveCard
-                    key={lb.key}
-                    type={lb.type}
-                    used={lb.used}
-                    total={lb.total}
-                    remaining={lb.remaining}
-                    color={lb.color ?? LEAVE_COLORS[lb.type] ?? '#3d7a6a'}
-                    embedded
-                    tintClass={LEAVE_TINT[lb.key]}
-                    className="h-full min-h-0 py-3"
-                  />
-                ))}
-              </div>
-            </SectionCard>
-          )}
-
-          {loading ? (
-            widgetSkeleton
-          ) : (
-            <UpcomingHolidaysCard className="emp-dash-card emp-dash-card--sky" holidays={holidays} />
-          )}
-        </div>
-
-        <div className="flex flex-col gap-4 md:col-span-2">
-          <DashboardWorkInsights />
-          <AssignedProjectsSection
-            className="emp-dash-card emp-dash-card--violet"
-            initialProjects={assignedProjects}
-            loading={loading && assignedProjects == null}
-          />
-        </div>
-      </div>
-
-      {!loading && pendingDocs.length > 0 ? (
-        <div
-          data-portal-card=""
-          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200/80 bg-amber-50/80 px-4 py-3 shadow-sm transition-[border-color,box-shadow] duration-200 hover:border-amber-300 hover:shadow-md"
-        >
-          <div className="flex min-w-0 items-center gap-2">
-            <FileText className="h-4 w-4 shrink-0 text-amber-700" />
-            <p className="text-sm text-amber-900">
-              <span className="font-medium">{pendingDocs.length}</span> document request
-              {pendingDocs.length === 1 ? '' : 's'} pending admin review
-            </p>
+          <div className="overflow-x-auto pb-0.5">
+            <ProfileCard
+              employee={employee}
+              profile={profile}
+              attendance={attendance}
+              horizontal
+              stats={loading ? null : profileStats}
+              statsLoading={loading}
+              className="min-w-[36rem] sm:min-w-0"
+            />
           </div>
-          <Link to="/employee/documents" className="text-xs font-medium text-primary hover:underline">
-            View documents
-          </Link>
         </div>
-      ) : null}
+
+        <div className="emp-dash-widgets-grid">
+          <div className="emp-dash-widgets-col emp-dash-widgets-col--left">
+            <div className="emp-dash-widget-slot">
+              {loading ? (
+                widgetSkeleton
+              ) : (
+                <SectionCard
+                  compact
+                  to="/employee/leave"
+                  tone="sage"
+                  icon={CalendarRange}
+                  title="Leave balance"
+                  action={<SectionLink to="/employee/leave" label="Apply" />}
+                >
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {balances.map((lb) => (
+                      <LeaveCard
+                        key={lb.key}
+                        compact
+                        type={lb.type}
+                        used={lb.used}
+                        total={lb.total}
+                        remaining={lb.remaining}
+                        color={lb.color ?? LEAVE_COLORS[lb.type] ?? '#3d7a6a'}
+                        tintClass={LEAVE_TINT[lb.key]}
+                      />
+                    ))}
+                  </div>
+                </SectionCard>
+              )}
+            </div>
+
+            <div className="emp-dash-widget-slot">
+              {loading ? (
+                widgetSkeleton
+              ) : (
+                <UpcomingHolidaysCard
+                  compact
+                  fill
+                  className="emp-dash-card emp-dash-card--sky"
+                  holidays={holidays}
+                />
+              )}
+            </div>
+
+            <div className="emp-dash-widget-slot">
+              {loading ? (
+                widgetSkeleton
+              ) : (
+                <DashboardDocumentRequests
+                  compact
+                  fill
+                  className="emp-dash-card emp-dash-card--amber"
+                  documents={documents}
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="emp-dash-widgets-col emp-dash-widgets-col--right">
+            <div className="emp-dash-widget-slot">
+              <DashboardWorkInsights compact fill />
+            </div>
+            <div className="emp-dash-widget-slot">
+              <AssignedProjectsSection
+                compact
+                fill
+                className="emp-dash-card emp-dash-card--violet"
+                initialProjects={assignedProjects}
+                loading={loading && assignedProjects == null}
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )

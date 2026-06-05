@@ -38,6 +38,7 @@ export function DashboardHome() {
     {
       label: 'Pending tickets',
       value: data.pendingTicketsCount,
+      itemLoading: data.ticketsLoading,
       icon: ClipboardList,
       tone: 'amber' as const,
       route: ROUTES.TICKETS,

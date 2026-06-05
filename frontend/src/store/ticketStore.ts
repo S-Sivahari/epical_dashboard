@@ -5,6 +5,7 @@ import * as ticketService from '@services/ticketService'
 interface TicketState {
   tickets: Ticket[]
   loading: boolean
+  initialized: boolean
   error: string | null
   fetchTickets: (filters?: ticketService.TicketFilters) => Promise<void>
   fetchTicketsSilent: (filters?: ticketService.TicketFilters) => Promise<void>
@@ -22,18 +23,28 @@ interface TicketState {
   removeTicket: (id: string) => void
 }
 
+let fetchSeq = 0
+
 export const useTicketStore = create<TicketState>((set, get) => ({
   tickets: [],
   loading: false,
+  initialized: false,
   error: null,
 
   fetchTickets: async (filters) => {
+    const seq = ++fetchSeq
     set({ loading: true, error: null })
     try {
       const tickets = await ticketService.getTickets(filters)
-      set({ tickets, loading: false })
+      if (seq !== fetchSeq) return
+      set({ tickets, loading: false, initialized: true })
     } catch (error: any) {
-      set({ loading: false, error: error?.response?.data?.error || 'Failed to fetch tickets' })
+      if (seq !== fetchSeq) return
+      set({
+        loading: false,
+        initialized: true,
+        error: error?.response?.data?.error || 'Failed to fetch tickets',
+      })
       throw error
     }
   },
@@ -41,7 +52,7 @@ export const useTicketStore = create<TicketState>((set, get) => ({
   fetchTicketsSilent: async (filters) => {
     try {
       const tickets = await ticketService.getTickets(filters)
-      set({ tickets })
+      set({ tickets, initialized: true })
     } catch (error) {
       console.error('Failed to refresh tickets:', error)
     }
@@ -49,7 +60,7 @@ export const useTicketStore = create<TicketState>((set, get) => ({
 
   createTicket: async (payload) => {
     const ticket = await ticketService.createTicket(payload)
-    set({ tickets: [ticket, ...get().tickets] })
+    set({ tickets: [ticket, ...get().tickets], initialized: true })
     return ticket
   },
 
@@ -73,6 +84,7 @@ export const useTicketStore = create<TicketState>((set, get) => ({
       tickets: get().tickets.some((t) => t.id === ticket.id)
         ? get().tickets.map((t) => (t.id === ticket.id ? ticket : t))
         : [ticket, ...get().tickets],
+      initialized: true,
     })
   },
 

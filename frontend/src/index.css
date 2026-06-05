@@ -1514,8 +1514,8 @@
   -webkit-overflow-scrolling: touch;
 }
 
-/* Employee portal pages — cmd-main scrolls (not the page shell) */
-.employee-portal [data-employee-page].admin-dashboard-view {
+/* Employee portal pages — default grow with content; dashboard/calendar/leave are viewport-fit */
+.employee-portal [data-employee-page].admin-dashboard-view:not(:has([data-employee-dashboard])):not(:has([data-employee-calendar])):not(:has([data-employee-leave])) {
   flex: 1 1 auto;
   height: auto;
   max-height: none;
@@ -7114,12 +7114,13 @@
 }
 
 .admin-documents-view .admin-doc-table thead tr {
-  background: var(--dash-forest-header, #2f6b4f);
+  background: #f8faf9;
+  border-bottom: 1px solid var(--dash-border-green);
 }
 
 .admin-documents-view .admin-doc-table thead th {
   padding: 0.75rem 1rem !important;
-  color: rgba(255, 255, 255, 0.92) !important;
+  color: #0f172a !important;
   line-height: 1.4;
 }
 

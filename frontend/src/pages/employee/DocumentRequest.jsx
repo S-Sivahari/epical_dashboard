@@ -318,7 +318,7 @@ export default function DocumentRequest() {
         reason: data.reason,
       })
       toast({
-        title: 'Request submitted',
+        title: 'Document requested successfully',
         description: `${data.name} is pending admin review.`,
       })
       clearDraft()
@@ -385,9 +385,6 @@ export default function DocumentRequest() {
               >
                 <div>
                   <h3 className="font-heading text-lg font-semibold">Request document</h3>
-                  <p className="mt-1 text-sm text-muted">
-                    Submit a new request for admin-issued documents such as certificates or letters.
-                  </p>
                 </div>
                 <div>
                   <Label htmlFor="doc-request-type">Document type *</Label>
@@ -465,7 +462,6 @@ export default function DocumentRequest() {
                   </div>
                   <div>
                     <h3 className="font-heading text-lg font-semibold">Approved downloads</h3>
-                    <p className="mt-1 text-sm text-muted">Documents admin has finalized for you</p>
                   </div>
                 </div>
 
@@ -525,9 +521,6 @@ export default function DocumentRequest() {
                   <CalendarDays className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                   <div>
                     <h3 className="font-heading text-lg font-semibold">Request history</h3>
-                    <p className="text-sm text-muted">
-                      Track request dates, statuses, and admin responses
-                    </p>
                   </div>
                 </div>
                 <SearchBar

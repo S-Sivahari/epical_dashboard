@@ -108,6 +108,18 @@ export async function deleteCourse(id: string): Promise<boolean> {
 
 // ── Enrollments ─────────────────────────────────────────────────
 
+export async function getEnrollmentById(id: string): Promise<CourseEnrollment | null> {
+  const trimmed = id.trim()
+  if (!trimmed) return null
+
+  let doc = await enrollmentsCol().findOne({ id: trimmed })
+  if (!doc && ObjectId.isValid(trimmed)) {
+    doc = await enrollmentsCol().findOne({ _id: new ObjectId(trimmed) })
+  }
+
+  return doc ? normalizeEnrollment(doc) : null
+}
+
 export async function listEnrollments(filters: {
   courseId?: string
   employee?: string

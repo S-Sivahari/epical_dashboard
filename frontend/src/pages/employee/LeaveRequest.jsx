@@ -101,17 +101,30 @@ function currentMonthPrefix() {
   return new Date().toISOString().slice(0, 7)
 }
 
-const CARD_CLASS = portalCardClass({ className: 'p-5 sm:p-6' })
+const CARD_CLASS = portalCardClass({ className: 'emp-leave-card' })
 
-function SectionHeader({ icon: Icon, title, description, children, className }) {
+function SectionHeader({ icon: Icon, title, description, children, className, noBorder = false, compact = false }) {
   return (
-    <div className={cn('mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4', className)}>
-      <div className="flex min-w-0 items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          <Icon className="h-5 w-5" />
+    <div
+      className={cn(
+        'flex flex-wrap items-center justify-between gap-3',
+        noBorder ? 'mb-2 border-b-0 pb-0' : 'mb-5 border-b border-border pb-4',
+        className,
+      )}
+    >
+      <div className={cn('flex min-w-0 items-start', compact ? 'gap-2' : 'gap-3')}>
+        <div
+          className={cn(
+            'flex shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary',
+            compact ? 'h-8 w-8' : 'h-10 w-10',
+          )}
+        >
+          <Icon className={compact ? 'h-4 w-4' : 'h-5 w-5'} />
         </div>
         <div className="min-w-0">
-          <h3 className="font-heading text-lg font-semibold text-foreground">{title}</h3>
+          <h3 className={cn('font-heading font-semibold text-foreground', compact ? 'text-base' : 'text-lg')}>
+            {title}
+          </h3>
           {description ? <p className="mt-0.5 text-sm text-muted">{description}</p> : null}
         </div>
       </div>
@@ -156,19 +169,19 @@ const columns = [
     label: 'Applied',
     render: (row) => (
       <div className="min-w-[6.5rem]">
-        <span className="text-muted">{formatAppliedDate(row.createdAt)}</span>
+        <span>{formatAppliedDate(row.createdAt)}</span>
         {row.recordKind === 'compensation' && row.reason ? (
-          <div className="mt-1.5 max-w-[200px] rounded-md border border-primary/20 bg-primary/5 px-2 py-1.5 text-[11px] leading-snug text-foreground">
+          <div className="emp-leave-history-note mt-1.5 max-w-[200px] rounded-md border border-border bg-slate-50 px-2 py-1.5 text-[11px] leading-snug">
             {row.reason}
           </div>
         ) : null}
         {row.status === 'Rejected' && row.rejectionReason ? (
-          <div className="mt-1.5 max-w-[200px] rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-[11px] leading-snug text-red-900">
+          <div className="emp-leave-history-note mt-1.5 max-w-[200px] rounded-md border border-border bg-slate-50 px-2 py-1.5 text-[11px] leading-snug">
             {row.rejectionReason}
           </div>
         ) : null}
         {row.status === 'Cancelled' && row.cancelReason ? (
-          <div className="mt-1.5 max-w-[200px] rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] leading-snug text-slate-700">
+          <div className="emp-leave-history-note mt-1.5 max-w-[200px] rounded-md border border-border bg-slate-50 px-2 py-1.5 text-[11px] leading-snug">
             {row.cancelReason}
           </div>
         ) : null}
@@ -184,6 +197,8 @@ export default function LeaveRequest() {
   const user = useAuthStore((s) => s.user)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [historyFromDate, setHistoryFromDate] = useState('')
+  const [historyToDate, setHistoryToDate] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
 
@@ -654,26 +669,38 @@ export default function LeaveRequest() {
   )
 
   const historyLeaves = useMemo(() => {
+    const matchesHistoryDateRange = (row) => {
+      if (!historyFromDate && !historyToDate) return true
+      const rowDate = normalizeDate(row.from) || normalizeDate(row.createdAt)
+      if (!rowDate) return true
+      if (historyFromDate && rowDate < historyFromDate) return false
+      if (historyToDate && rowDate > historyToDate) return false
+      return true
+    }
+
     const leaveRows = filtered
       .filter((r) => r.status !== 'Pending')
       .map((r) => ({ ...r, recordKind: 'leave' }))
+      .filter(matchesHistoryDateRange)
 
     const term = search.trim().toLowerCase()
-    const compRows = compensationHistoryRows.filter((entry) => {
-      const matchSearch =
-        !term ||
-        entry.type.toLowerCase().includes(term) ||
-        (entry.reason && entry.reason.toLowerCase().includes(term))
-      const matchStatus = statusFilter === 'all' || statusFilter === 'credited'
-      return matchSearch && matchStatus
-    })
+    const compRows = compensationHistoryRows
+      .filter((entry) => {
+        const matchSearch =
+          !term ||
+          entry.type.toLowerCase().includes(term) ||
+          (entry.reason && entry.reason.toLowerCase().includes(term))
+        const matchStatus = statusFilter === 'all' || statusFilter === 'credited'
+        return matchSearch && matchStatus
+      })
+      .filter(matchesHistoryDateRange)
 
     return [...leaveRows, ...compRows].sort((a, b) => {
       const da = new Date(a.createdAt || a.from || 0).getTime()
       const db = new Date(b.createdAt || b.from || 0).getTime()
       return db - da
     })
-  }, [filtered, compensationHistoryRows, search, statusFilter])
+  }, [filtered, compensationHistoryRows, search, statusFilter, historyFromDate, historyToDate])
 
   const totalPages = Math.max(1, Math.ceil(historyLeaves.length / pageSize))
   const currentPage = Math.min(page, totalPages)
@@ -681,7 +708,7 @@ export default function LeaveRequest() {
 
   useEffect(() => {
     setPage(1)
-  }, [search, statusFilter, pageSize])
+  }, [search, statusFilter, historyFromDate, historyToDate, pageSize])
 
   const onSubmit = async (data) => {
     console.log('Leave request submitted', data)
@@ -748,152 +775,66 @@ export default function LeaveRequest() {
       <div className="emp-leave-top flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="emp-leave-upper">
           <div className="emp-leave-column emp-leave-column--left">
-        <InteractiveCard className={cn(CARD_CLASS, 'emp-leave-top-panel emp-leave-balance-card')}>
-          <SectionHeader
-            icon={BarChart3}
-            title="Leave balance"
-            className="emp-leave-balance-head"
-          />
-          <div className="emp-leave-balance-grid">
-            {leaveBalances.map((lb) => (
-              <div
-                key={lb.key}
-                className={cn(
-                  'emp-leave-balance-tile',
-                  lb.isLop && 'emp-leave-balance-tile--lop',
-                )}
-                style={{ '--balance-accent': lb.color }}
-              >
-                <span className="emp-leave-balance-tile__label">
-                  {BALANCE_SHORT_LABELS[lb.key] ?? lb.type}
-                </span>
-                {lb.isLop ? (
-                  <span className="emp-leave-balance-tile__num emp-leave-balance-tile__num--lop">{lb.used}</span>
-                ) : (
-                  <div className="emp-leave-balance-tile__stats">
-                    <span className="emp-leave-balance-tile__stat">
-                      <span className="emp-leave-balance-tile__num">{lb.used}</span>
-                      <span className="emp-leave-balance-tile__meta">used</span>
+            <InteractiveCard className={cn(CARD_CLASS, 'emp-leave-top-panel emp-leave-balance-card')}>
+              <SectionHeader
+                icon={BarChart3}
+                title="Leave balance"
+                noBorder
+                compact
+                className="emp-leave-balance-head"
+              />
+              <div className="emp-leave-balance-grid">
+                {leaveBalances.map((lb) => (
+                  <div
+                    key={lb.key}
+                    className={cn(
+                      'emp-leave-balance-tile',
+                      lb.isLop && 'emp-leave-balance-tile--lop',
+                    )}
+                    style={{ '--balance-accent': lb.color }}
+                  >
+                    <span className="emp-leave-balance-tile__label">
+                      {BALANCE_SHORT_LABELS[lb.key] ?? lb.type}
                     </span>
-                    <span className="emp-leave-balance-tile__stat">
-                      <span className="emp-leave-balance-tile__num">{lb.remaining}</span>
-                      <span className="emp-leave-balance-tile__meta">left</span>
-                    </span>
+                    {lb.isLop ? (
+                      <>
+                        <span className="emp-leave-balance-tile__num emp-leave-balance-tile__num--lop">{lb.used}</span>
+                        <span className="emp-leave-balance-tile__meta">taken</span>
+                      </>
+                    ) : (
+                      <div className="emp-leave-balance-tile__stats">
+                        <span className="emp-leave-balance-tile__stat">
+                          <span className="emp-leave-balance-tile__num">{lb.used}</span>
+                          <span className="emp-leave-balance-tile__meta">used</span>
+                        </span>
+                        <span className="emp-leave-balance-tile__stat">
+                          <span className="emp-leave-balance-tile__num">{lb.remaining}</span>
+                          <span className="emp-leave-balance-tile__meta">left</span>
+                        </span>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </InteractiveCard>
-
-        <InteractiveCard className={cn(CARD_CLASS, 'emp-leave-history-card emp-leave-top-panel flex min-h-0 flex-1 flex-col overflow-hidden')}>
-        <SectionHeader
-          icon={History}
-          title="Leave history"
-        >
-          <SearchBar
-            value={search}
-            onChange={setSearch}
-            placeholder="Search leave history…"
-            className="w-full min-w-0 sm:max-w-xs"
-          />
-        </SectionHeader>
-
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <FilterDropdown
-            value={statusFilter}
-            onChange={setStatusFilter}
-            options={[
-              { value: 'all', label: 'All Status' },
-              { value: 'approved', label: 'Approved' },
-              { value: 'rejected', label: 'Rejected' },
-              { value: 'cancelled', label: 'Cancelled' },
-              { value: 'credited', label: 'Credited' },
-            ]}
-          />
-          <div className="flex items-center gap-2 sm:ml-auto">
-            <span className="text-xs text-muted">Rows per page</span>
-            <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
-              <SelectTrigger className="h-9 w-[90px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[5, 10, 15, 20].map((n) => (
-                  <SelectItem key={n} value={String(n)}>
-                    {n}
-                  </SelectItem>
                 ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="emp-leave-history-scroll custom-scrollbar">
-          <DataTable
-            columns={columns}
-            data={pagedHistory}
-            statusKey="status"
-            compact
-            emptyMessage="No leave history records match your filters."
-          />
-        </div>
-
-        {historyLeaves.length > 0 && (
-          <div className="emp-leave-history-footer mt-4 flex shrink-0 flex-col gap-4 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted">
-              Showing {(currentPage - 1) * pageSize + 1}–
-              {Math.min(currentPage * pageSize, historyLeaves.length)} of {historyLeaves.length} records
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1"
-                disabled={currentPage === 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Previous
-              </Button>
-              <div className="flex items-center gap-1">
-                {visiblePageNumbers.map((pageNum, index) => {
-                  const prevPage = visiblePageNumbers[index - 1]
-                  const showEllipsis = prevPage != null && pageNum - prevPage > 1
-                  return (
-                    <span key={pageNum} className="flex items-center gap-1">
-                      {showEllipsis && <span className="px-1 text-sm text-muted">…</span>}
-                      <button
-                        type="button"
-                        onClick={() => setPage(pageNum)}
-                        className={cn(
-                          'flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-sm font-medium transition-colors',
-                          pageNum === currentPage
-                            ? 'bg-primary text-white shadow-sm'
-                            : 'text-muted hover:bg-surface hover:text-foreground',
-                        )}
-                        aria-label={`Page ${pageNum}`}
-                        aria-current={pageNum === currentPage ? 'page' : undefined}
-                      >
-                        {pageNum}
-                      </button>
-                    </span>
-                  )
-                })}
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1"
-                disabled={currentPage >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              >
-                Next
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        )}
-      </InteractiveCard>
+            </InteractiveCard>
+
+            <InteractiveCard className={cn(CARD_CLASS, 'emp-leave-top-panel emp-leave-pending-card flex min-h-0 flex-col')}>
+              <SectionHeader
+                icon={Clock}
+                title="Pending requests"
+                compact
+                className="emp-leave-section-head"
+              />
+              <div className="emp-leave-pending-body">
+                <DataTable
+                  columns={pendingColumns}
+                  data={pendingLeaves}
+                  statusKey="status"
+                  compact
+                  emptyMessage="No pending leave requests."
+                />
+              </div>
+            </InteractiveCard>
           </div>
 
           <div className="emp-leave-column emp-leave-column--right">
@@ -901,37 +842,37 @@ export default function LeaveRequest() {
           as="form"
           selectable={false}
           onSubmit={handleSubmit(onSubmit, onError)}
-          className={cn(CARD_CLASS, 'emp-leave-apply-card emp-leave-top-panel flex h-full min-h-0 flex-1 flex-col space-y-4')}
+          className={cn(CARD_CLASS, 'emp-leave-apply-card emp-leave-top-panel emp-leave-form-stack flex w-full flex-col')}
         >
           <div className="emp-leave-apply-head">
-            <h3 className="font-heading text-lg font-semibold text-foreground">Apply for leave</h3>
+            <h3 className="font-heading font-semibold text-foreground">Apply for leave</h3>
           </div>
           <div>
             <Label>Leave Type *</Label>
             <Select value={watch('type')} onValueChange={(v) => setValue('type', v)}>
-              <SelectTrigger className="mt-1"><SelectValue placeholder="Select type" /></SelectTrigger>
+              <SelectTrigger className="emp-leave-control mt-1"><SelectValue placeholder="Select type" /></SelectTrigger>
               <SelectContent>
                 {availableLeaveTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
               </SelectContent>
             </Select>
             {errors.type && <p className="mt-1 text-xs text-danger">{errors.type.message}</p>}
           </div>
-          <div className="emp-leave-reason-block rounded-xl border border-primary/10 bg-white/85 p-3 shadow-sm">
+          <div className="emp-leave-reason-block rounded-xl border border-primary/10 bg-white/85 shadow-sm">
             <Label htmlFor="leave-reason">Reason for leave *</Label>
             <Textarea
               id="leave-reason"
-              rows={3}
+              rows={2}
               placeholder="Briefly explain why you are requesting leave…"
-              className="mt-1.5 min-h-[5rem] resize-y rounded-xl border-border bg-white"
+              className="mt-1.5 resize-y rounded-xl border-border bg-white"
               {...register('reason')}
             />
             {errors.reason && <p className="mt-1 text-xs text-danger">{errors.reason.message}</p>}
           </div>
-          <div className="emp-leave-form-row grid gap-3 sm:grid-cols-3">
+          <div className="emp-leave-form-row grid md:grid-cols-2 xl:grid-cols-3">
             <div>
               <Label>Leave Duration *</Label>
               <Select value={watch('leaveDuration')} onValueChange={(v) => setValue('leaveDuration', v)}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder="Select duration" /></SelectTrigger>
+                <SelectTrigger className="emp-leave-control mt-1"><SelectValue placeholder="Select duration" /></SelectTrigger>
                 <SelectContent>
                   {leaveDurations.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                 </SelectContent>
@@ -945,7 +886,7 @@ export default function LeaveRequest() {
                 control={control}
                 render={({ field }) => (
                   <DateInput
-                    className="mt-1 rounded-xl"
+                    className="emp-leave-control mt-1 rounded-xl"
                     value={field.value || ''}
                     onChange={field.onChange}
                     minDate={leaveBounds.min}
@@ -962,7 +903,7 @@ export default function LeaveRequest() {
                 control={control}
                 render={({ field }) => (
                   <DateInput
-                    className="mt-1 rounded-xl"
+                    className="emp-leave-control mt-1 rounded-xl"
                     value={field.value || ''}
                     onChange={field.onChange}
                     minDate={leaveBounds.min}
@@ -978,7 +919,7 @@ export default function LeaveRequest() {
             <div>
               <Label>Half-day Session *</Label>
               <Select value={watch('halfDaySession')} onValueChange={(v) => setValue('halfDaySession', v)}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder="Select session" /></SelectTrigger>
+                <SelectTrigger className="emp-leave-control mt-1"><SelectValue placeholder="Select session" /></SelectTrigger>
                 <SelectContent>
                   {halfDaySessions.map((session) => (
                     <SelectItem key={session} value={session}>{session}</SelectItem>
@@ -989,7 +930,7 @@ export default function LeaveRequest() {
             </div>
           )}
           {showLopNotice && (
-            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+            <div className="emp-leave-inline-alert flex items-start rounded-lg border border-red-200 bg-red-50 text-red-800">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-600" />
               <span>
                 This request will be recorded as <strong>LOP (Loss of Pay)</strong> and added to your LOP count.
@@ -997,13 +938,13 @@ export default function LeaveRequest() {
             </div>
           )}
           {selectedLeaveType === 'Casual Leave' && casualBalanceRemaining <= 0 && (
-            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <div className="emp-leave-inline-alert flex items-start rounded-lg border border-amber-200 bg-amber-50 text-amber-800">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
               <span>Your casual leave balance is used up. Select <strong>LOP</strong> to apply unpaid leave.</span>
             </div>
           )}
           {selectedLeaveType === 'Earned Leave' && earnedBalanceRemaining <= 0 && (
-            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <div className="emp-leave-inline-alert flex items-start rounded-lg border border-amber-200 bg-amber-50 text-amber-800">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
               <span>Your earned leave balance is used up. Select <strong>LOP</strong> to apply unpaid leave.</span>
             </div>
@@ -1014,42 +955,176 @@ export default function LeaveRequest() {
             </p>
           )}
           {selectedLeaveType === 'Casual Leave' && isCasualSameDay && (
-            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <div className="emp-leave-inline-alert flex items-start rounded-lg border border-amber-200 bg-amber-50 text-amber-800">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
               <span>Same-day leave cannot be casual. Select <strong>LOP</strong> instead.</span>
             </div>
           )}
           {holidayWarning && (
-            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <div className="emp-leave-inline-alert flex items-start rounded-lg border border-amber-200 bg-amber-50 text-amber-800">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
               <span>{holidayWarning}</span>
             </div>
           )}
           <div className="mt-auto pt-1">
-            <Button type="submit" disabled={isSubmitting} className="w-full">
+            <Button type="submit" disabled={isSubmitting} className="emp-leave-submit-btn w-full">
               {isSubmitting ? 'Submitting…' : 'Submit Request'}
             </Button>
           </div>
         </InteractiveCard>
-
-        <InteractiveCard className={cn(CARD_CLASS, 'emp-leave-top-panel emp-leave-pending-card flex shrink-0 flex-col')}>
-          <SectionHeader
-            icon={Clock}
-            title="Pending requests"
-            className="emp-leave-section-head"
-          />
-          <div className="emp-leave-pending-body">
-            <DataTable
-              columns={pendingColumns}
-              data={pendingLeaves}
-              statusKey="status"
-              compact
-              emptyMessage="No pending leave requests."
-            />
-          </div>
-        </InteractiveCard>
           </div>
         </div>
+
+        <InteractiveCard className={cn(CARD_CLASS, 'emp-leave-history-card emp-leave-top-panel flex min-h-0 flex-1 flex-col overflow-hidden')}>
+          <div className="emp-leave-history-toolbar">
+            <div className="emp-leave-history-toolbar__title">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary" aria-hidden>
+                <History className="h-4 w-4" />
+              </div>
+              <h3 className="font-heading text-base font-semibold text-foreground">Leave history</h3>
+            </div>
+
+            <FilterDropdown
+              value={statusFilter}
+              onChange={setStatusFilter}
+              options={[
+                { value: 'all', label: 'All Status' },
+                { value: 'approved', label: 'Approved' },
+                { value: 'rejected', label: 'Rejected' },
+                { value: 'cancelled', label: 'Cancelled' },
+                { value: 'credited', label: 'Credited' },
+              ]}
+            />
+
+            <div className="emp-leave-history-toolbar__date">
+              <span className="emp-leave-history-toolbar__date-label">From date</span>
+              <DateInput
+                className="emp-leave-control rounded-xl"
+                value={historyFromDate}
+                onChange={setHistoryFromDate}
+                minDate="2000-01-01"
+                maxDate={leaveBounds.max}
+                placeholder="dd/mm/yyyy"
+              />
+            </div>
+
+            <div className="emp-leave-history-toolbar__date">
+              <span className="emp-leave-history-toolbar__date-label">To date</span>
+              <DateInput
+                className="emp-leave-control rounded-xl"
+                value={historyToDate}
+                onChange={setHistoryToDate}
+                minDate={historyFromDate || '2000-01-01'}
+                maxDate={leaveBounds.max}
+                placeholder="dd/mm/yyyy"
+              />
+            </div>
+
+            {(historyFromDate || historyToDate) && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="emp-leave-history-toolbar__clear h-9 shrink-0"
+                onClick={() => {
+                  setHistoryFromDate('')
+                  setHistoryToDate('')
+                }}
+              >
+                Clear
+              </Button>
+            )}
+
+            <SearchBar
+              value={search}
+              onChange={setSearch}
+              placeholder="Search leave history…"
+              className="emp-leave-history-toolbar__search"
+            />
+
+            <div className="emp-leave-history-toolbar__page-size">
+              <span className="emp-leave-history-toolbar__page-size-label">Rows per page</span>
+              <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                <SelectTrigger className="h-9 w-[4.5rem]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[5, 10, 15, 20].map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {n}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="emp-leave-history-scroll custom-scrollbar">
+            <DataTable
+              columns={columns}
+              data={pagedHistory}
+              statusKey="status"
+              compact
+              emptyMessage="No leave history records match your filters."
+            />
+          </div>
+
+          {historyLeaves.length > 0 && (
+            <div className="emp-leave-history-footer flex shrink-0 flex-col gap-3 border-t border-border sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted">
+                Showing {(currentPage - 1) * pageSize + 1}–
+                {Math.min(currentPage * pageSize, historyLeaves.length)} of {historyLeaves.length} records
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                  disabled={currentPage === 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                  {visiblePageNumbers.map((pageNum, index) => {
+                    const prevPage = visiblePageNumbers[index - 1]
+                    const showEllipsis = prevPage != null && pageNum - prevPage > 1
+                    return (
+                      <span key={pageNum} className="flex items-center gap-1">
+                        {showEllipsis && <span className="px-1 text-sm text-muted">…</span>}
+                        <button
+                          type="button"
+                          onClick={() => setPage(pageNum)}
+                          className={cn(
+                            'flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-sm font-medium transition-colors',
+                            pageNum === currentPage
+                              ? 'bg-primary text-white shadow-sm'
+                              : 'text-muted hover:bg-surface hover:text-foreground',
+                          )}
+                          aria-label={`Page ${pageNum}`}
+                          aria-current={pageNum === currentPage ? 'page' : undefined}
+                        >
+                          {pageNum}
+                        </button>
+                      </span>
+                    )
+                  })}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </InteractiveCard>
       </div>
 
       <Dialog open={exceedDialogOpen} onOpenChange={setExceedDialogOpen}>

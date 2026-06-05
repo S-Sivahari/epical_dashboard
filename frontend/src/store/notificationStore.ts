@@ -48,6 +48,7 @@ export interface NotificationData {
     | 'PayslipSent' | 'PayslipRegenerated'
     | 'HolidayAdded' | 'HolidayUpdated' | 'HolidayDeleted' | 'HolidaySkipped'
     | 'CalendarEventAdded' | 'CalendarEventUpdated' | 'CalendarEventRemoved'
+    | 'TicketSubmitted' | 'TicketStatusUpdated' | 'TicketCommentAdded'
   title: string
   message: string
   relatedData: {
@@ -66,6 +67,9 @@ export interface NotificationData {
     calendarEventTitle?: string
     calendarEventDate?: string
     skippedReason?: string
+    ticketId?: string
+    ticketTitle?: string
+    ticketStatus?: string
   }
   isRead: boolean
   createdAt: string

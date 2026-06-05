@@ -51,14 +51,14 @@ function buildSearchQuery(filters: string[]): string {
   return terms.map((term) => `"${term}"`).join(' OR ')
 }
 
-function mapGNewsArticles(articles: GNewsArticle[]): ExternalNewsItem[] {
+function mapGNewsArticles(articles: GNewsArticle[], fallbackDate: string): ExternalNewsItem[] {
   return articles.flatMap((article) => {
     const title = (article.title ?? '').trim()
     const link = (article.url ?? '').trim()
     if (!title || !link) return []
     const content = (article.description ?? article.content ?? '').trim() || title
     const imageUrl = article.image?.trim() || ''
-    const publishedAt = article.publishedAt ?? new Date().toISOString()
+    const publishedAt = article.publishedAt ?? `${fallbackDate}T12:00:00Z`
     const source = article.source?.name?.trim() || ''
     const item: ExternalNewsItem = {
       title,
@@ -97,7 +97,7 @@ async function fetchTopHeadlinesPage(
 
   const payload = (await response.json()) as GNewsResponse
   const articles = Array.isArray(payload.articles) ? payload.articles : []
-  return mapGNewsArticles(articles)
+  return mapGNewsArticles(articles, date)
 }
 
 export async function fetchTopHeadlinesByDate(

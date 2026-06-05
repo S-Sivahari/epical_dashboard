@@ -1,41 +1,85 @@
 /* Employee Leave Management — full-page viewport layout */
 
 .emp-leave-page {
+  --els: 0.9;
   --emp-leave-apply-bg: rgba(227, 247, 235, 1);
   --emp-leave-balance-bg: rgba(221, 246, 240, 1);
   --emp-leave-pending-bg: rgba(219, 245, 247, 1);
-  --emp-leave-history-row-h: 2.75rem;
+  --emp-leave-history-row-h: calc(2.75rem * var(--els));
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
   height: 100%;
   min-height: 0;
+  font-size: calc(1rem * var(--els));
+}
+
+.emp-leave-card {
+  padding: calc(1rem * var(--els)) !important;
+}
+
+@media (min-width: 640px) {
+  .emp-leave-card {
+    padding: calc(1.25rem * var(--els)) !important;
+  }
+}
+
+.emp-leave-page .emp-leave-form-stack > * + * {
+  margin-top: calc(0.75rem * var(--els));
+}
+
+.emp-leave-page label {
+  font-size: calc(0.875rem * var(--els));
+}
+
+.emp-leave-page .emp-leave-control,
+.emp-leave-page input:not([type='checkbox']):not([type='radio']),
+.emp-leave-page textarea,
+.emp-leave-page button[role='combobox'] {
+  min-height: calc(2.25rem * var(--els)) !important;
+  height: calc(2.25rem * var(--els));
+  font-size: calc(0.875rem * var(--els)) !important;
+}
+
+.emp-leave-page textarea {
+  min-height: calc(3.6rem * var(--els));
+  height: auto !important;
+}
+
+.emp-leave-page .emp-leave-reason-block {
+  padding: calc(0.75rem * var(--els));
+}
+
+.emp-leave-page .emp-leave-form-row {
+  gap: calc(0.75rem * var(--els));
 }
 
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-leave]) {
+  --els: 0.9;
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  padding: 0.75rem;
+  padding: calc(0.75rem * var(--els));
 }
 
 @media (min-width: 768px) {
   .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-leave]) {
-    padding: 1rem;
+    padding: calc(1rem * var(--els));
   }
 }
 
-/* White shell — fills available page height */
+/* White shell — fills available page height; only history table scrolls inside */
 .emp-leave-top {
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
+  gap: calc(0.75rem * var(--els));
   min-height: 0;
   overflow: hidden;
-  border-radius: 1rem;
-  padding: 0.875rem;
+  border-radius: calc(1rem * var(--els));
+  padding: calc(0.75rem * var(--els));
   background: #ffffff;
   border: 1px solid rgba(38, 107, 28, 0.1);
   box-shadow:
@@ -45,66 +89,72 @@
 
 @media (min-width: 640px) {
   .emp-leave-top {
-    padding: 1rem;
+    padding: calc(1rem * var(--els));
   }
 }
 
 @media (min-width: 1024px) {
   .emp-leave-top {
-    padding: 1.125rem;
+    padding: calc(1.125rem * var(--els));
   }
 }
 
 .emp-leave-upper {
   display: grid;
-  flex: 1 1 0;
-  gap: 1rem;
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  gap: calc(0.75rem * var(--els));
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
   align-items: stretch;
 }
 
 @media (min-width: 1024px) {
   .emp-leave-upper {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 1rem;
+    grid-template-columns: minmax(calc(16rem * var(--els)), 0.78fr) minmax(calc(22rem * var(--els)), 1.22fr);
+    gap: calc(1rem * var(--els));
   }
 }
 
 @media (max-width: 1023px) {
   .emp-leave-upper {
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow: visible;
   }
 }
 
 .emp-leave-column {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: calc(0.75rem * var(--els));
   min-height: 0;
   min-width: 0;
-  overflow: hidden;
+}
+
+.emp-leave-column--right {
+  overflow: visible;
 }
 
 .emp-leave-column--left > .emp-leave-balance-card {
   flex: 0 0 auto;
+  width: 100%;
 }
 
-.emp-leave-column--left > .emp-leave-history-card {
-  flex: 1 1 0;
-  min-height: 0;
+.emp-leave-column--left > .emp-leave-pending-card {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: calc(5.5rem * var(--els));
 }
 
 .emp-leave-column--right > .emp-leave-apply-card {
-  flex: 1 1 0;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
   min-height: 0;
 }
 
-.emp-leave-column--right > .emp-leave-pending-card {
-  flex: 0 0 auto;
-  max-height: 38%;
-  min-height: 0;
+.emp-leave-top > .emp-leave-history-card {
+  flex: 1 1 0;
+  min-height: calc(10rem * var(--els));
 }
 
 .emp-leave-top-panel {
@@ -118,15 +168,16 @@
 .emp-leave-pending-body {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   min-height: 0;
-  overflow-x: auto;
+  overflow: visible;
 }
 
 .emp-leave-pending-body > .rounded-lg.border-dashed {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 4rem;
+  min-height: calc(4rem * var(--els));
 }
 
 /* Per-panel tinted backgrounds */
@@ -134,6 +185,12 @@
   background: var(--emp-leave-apply-bg) !important;
   border-color: rgba(38, 107, 28, 0.14) !important;
   box-shadow: 0 1px 3px rgba(26, 67, 41, 0.06) !important;
+  overflow: visible;
+}
+
+.emp-leave-apply-card.emp-leave-top-panel {
+  min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -143,6 +200,9 @@
   border-color: rgba(38, 107, 28, 0.14) !important;
   box-shadow: 0 1px 3px rgba(26, 67, 41, 0.06) !important;
   overflow: visible;
+  flex-shrink: 0;
+  height: auto;
+  padding-top: calc(0.75rem * var(--els)) !important;
 }
 
 .emp-leave-pending-card {
@@ -154,8 +214,12 @@
 }
 
 .emp-leave-apply-head {
-  padding-bottom: 0.25rem;
+  padding-bottom: calc(0.25rem * var(--els));
   flex-shrink: 0;
+}
+
+.emp-leave-apply-head h3 {
+  font-size: calc(1.125rem * var(--els));
 }
 
 .emp-leave-reason-block textarea:focus-visible {
@@ -171,50 +235,67 @@
   min-width: 0;
 }
 
-/* Compact square balance tiles — used & left */
+/* Balance tiles — used & left */
 .emp-leave-balance-head {
-  margin-bottom: 0.75rem !important;
-  padding-bottom: 0.75rem !important;
+  margin-bottom: calc(0.375rem * var(--els)) !important;
+  margin-top: calc(-0.125rem * var(--els)) !important;
+  padding-bottom: 0 !important;
+  border-bottom: none !important;
+}
+
+.emp-leave-balance-head h3 {
+  font-size: calc(1rem * var(--els));
+}
+
+.emp-leave-balance-head .h-8 {
+  height: calc(2rem * var(--els));
+  width: calc(2rem * var(--els));
 }
 
 .emp-leave-balance-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.625rem;
+  gap: calc(0.75rem * var(--els));
   overflow: visible;
 }
 
-@media (max-width: 639px) {
+@media (max-width: 1023px) {
   .emp-leave-balance-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
+@media (max-width: 639px) {
+  .emp-leave-balance-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .emp-leave-balance-tile {
-  aspect-ratio: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.375rem;
-  padding: 0.625rem 0.5rem;
-  border-radius: 0.75rem;
+  gap: calc(0.5rem * var(--els));
+  padding: calc(0.875rem * var(--els)) calc(0.625rem * var(--els));
+  border-radius: calc(0.875rem * var(--els));
   border: 1px solid color-mix(in srgb, var(--balance-accent, #266b1c) 28%, transparent);
-  background: rgba(255, 255, 255, 0.78);
-  box-shadow: 0 1px 2px rgba(26, 67, 41, 0.05);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 2px 6px rgba(26, 67, 41, 0.07);
   text-align: center;
   min-width: 0;
+  min-height: calc(6.5rem * var(--els));
 }
 
 .emp-leave-balance-tile--lop {
   border-color: rgba(220, 38, 38, 0.35);
-  background: rgba(254, 242, 242, 0.9);
+  background: rgba(254, 242, 242, 0.92);
 }
 
 .emp-leave-balance-tile__label {
-  font-size: 0.8125rem;
+  font-size: calc(0.875rem * var(--els));
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--balance-accent, #266b1c);
   line-height: 1.1;
@@ -228,7 +309,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.75rem;
+  gap: calc(1rem * var(--els));
   width: 100%;
 }
 
@@ -236,23 +317,23 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.125rem;
+  gap: calc(0.2rem * var(--els));
   min-width: 0;
 }
 
 .emp-leave-balance-tile__num {
   font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 1.375rem;
+  font-size: calc(1.625rem * var(--els));
   font-weight: 800;
   line-height: 1;
   color: #0f172a;
 }
 
 .emp-leave-balance-tile__meta {
-  font-size: 0.6875rem;
+  font-size: calc(0.6875rem * var(--els));
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   color: #64748b;
 }
 
@@ -261,18 +342,133 @@
 }
 
 .emp-leave-pending-card .emp-leave-section-head {
-  margin-bottom: 0.5rem !important;
-  padding-bottom: 0.5rem !important;
+  margin-bottom: calc(0.375rem * var(--els)) !important;
+  padding-bottom: calc(0.375rem * var(--els)) !important;
   flex-shrink: 0;
 }
 
-/* Leave history — left column, internal scroll */
+.emp-leave-pending-card .emp-leave-section-head h3 {
+  font-size: calc(1rem * var(--els));
+}
+
+.emp-leave-pending-card .emp-leave-section-head .h-8 {
+  height: calc(2rem * var(--els));
+  width: calc(2rem * var(--els));
+}
+
+/* Leave history toolbar — single horizontal row */
+.emp-leave-history-toolbar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: calc(0.5rem * var(--els));
+  margin-bottom: calc(0.75rem * var(--els));
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.emp-leave-history-toolbar__title {
+  display: flex;
+  align-items: center;
+  gap: calc(0.5rem * var(--els));
+  flex-shrink: 0;
+  margin-right: calc(0.25rem * var(--els));
+}
+
+.emp-leave-history-toolbar__title h3 {
+  font-size: calc(1rem * var(--els));
+}
+
+.emp-leave-history-toolbar__title .h-8 {
+  height: calc(2rem * var(--els));
+  width: calc(2rem * var(--els));
+}
+
+.emp-leave-history-toolbar__date {
+  display: flex;
+  align-items: center;
+  gap: calc(0.375rem * var(--els));
+  flex-shrink: 0;
+}
+
+.emp-leave-history-toolbar__date-label {
+  font-size: calc(0.6875rem * var(--els));
+  font-weight: 600;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.emp-leave-history-toolbar__date > div {
+  width: calc(11rem * var(--els));
+  min-width: calc(11rem * var(--els));
+  flex-shrink: 0;
+}
+
+.emp-leave-history-toolbar__date input {
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box;
+  padding-right: calc(2.25rem * var(--els)) !important;
+}
+
+.emp-leave-history-toolbar__search {
+  flex: 1 1 calc(10rem * var(--els));
+  min-width: calc(9rem * var(--els));
+  max-width: calc(14rem * var(--els));
+}
+
+.emp-leave-history-toolbar__search input {
+  height: calc(2.25rem * var(--els));
+  font-size: calc(0.8125rem * var(--els));
+}
+
+.emp-leave-history-toolbar__page-size {
+  display: flex;
+  align-items: center;
+  gap: calc(0.375rem * var(--els));
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.emp-leave-history-toolbar__page-size-label {
+  font-size: calc(0.6875rem * var(--els));
+  font-weight: 600;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.emp-leave-history-toolbar .w-\[160px\] {
+  width: calc(7.5rem * var(--els));
+  min-width: calc(7.5rem * var(--els));
+  height: calc(2.25rem * var(--els));
+  font-size: calc(0.8125rem * var(--els));
+}
+
+.emp-leave-history-toolbar__clear {
+  height: calc(2.25rem * var(--els)) !important;
+  font-size: calc(0.8125rem * var(--els)) !important;
+}
+
+.emp-leave-history-toolbar__page-size .h-9 {
+  height: calc(2.25rem * var(--els));
+}
+
+.emp-leave-history-toolbar__page-size .w-\[4\.5rem\] {
+  width: calc(4.05rem * var(--els));
+}
+
+/* Leave history — full width below upper panels */
 .emp-leave-history-card {
   background: #ffffff !important;
   border-color: rgba(38, 107, 28, 0.12) !important;
   box-shadow:
     0 1px 2px rgba(26, 67, 41, 0.06),
     0 4px 14px rgba(26, 67, 41, 0.08) !important;
+  display: flex;
+  flex-direction: column;
 }
 
 .emp-leave-history-card > :not(.emp-leave-history-scroll) {
@@ -284,7 +480,8 @@
   min-height: 0;
   overflow-y: auto;
   overflow-x: auto;
-  border-radius: 0.75rem;
+  border-radius: calc(0.75rem * var(--els));
+  font-size: calc(0.875rem * var(--els));
   -webkit-overflow-scrolling: touch;
 }
 
@@ -298,6 +495,82 @@
 
 .emp-leave-history-footer {
   flex-shrink: 0;
+  margin-top: calc(1rem * var(--els)) !important;
+  padding-top: calc(1rem * var(--els)) !important;
+  font-size: calc(0.875rem * var(--els));
+}
+
+.emp-leave-history-footer .h-8 {
+  height: calc(2rem * var(--els));
+  min-width: calc(2rem * var(--els));
+}
+
+.emp-leave-page .emp-leave-submit-btn {
+  min-height: calc(2.5rem * var(--els));
+  font-size: calc(0.875rem * var(--els));
+}
+
+.emp-leave-pending-body table,
+.emp-leave-history-scroll table {
+  font-size: calc(0.8125rem * var(--els));
+}
+
+.emp-leave-pending-body th,
+.emp-leave-pending-body td,
+.emp-leave-history-scroll th,
+.emp-leave-history-scroll td {
+  padding: calc(0.5rem * var(--els)) calc(0.625rem * var(--els));
+}
+
+/* Pending requests — black headers, gray row data */
+.emp-leave-pending-body table thead th {
+  color: #0f172a !important;
+  font-size: calc(0.8125rem * var(--els)) !important;
+  font-weight: 700 !important;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.emp-leave-pending-body table tbody td {
+  color: #64748b !important;
+  font-weight: 500 !important;
+}
+
+/* Leave history — black larger headers, gray row data */
+.emp-leave-history-scroll table thead th {
+  color: #0f172a !important;
+  font-size: calc(0.875rem * var(--els)) !important;
+  font-weight: 700 !important;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.emp-leave-history-scroll table tbody td {
+  color: #64748b !important;
+  font-weight: 500 !important;
+}
+
+.emp-leave-history-scroll table tbody td .text-muted,
+.emp-leave-history-scroll table tbody td .emp-leave-history-note {
+  color: #64748b !important;
+}
+
+.emp-leave-pending-body table tbody td .rounded-full,
+.emp-leave-history-scroll table tbody td .rounded-full {
+  background-color: transparent !important;
+  color: #64748b !important;
+  font-weight: 500 !important;
+  padding: 0 !important;
+}
+
+.emp-leave-page .emp-leave-inline-alert {
+  padding: calc(0.5rem * var(--els)) calc(0.75rem * var(--els));
+  font-size: calc(0.75rem * var(--els));
+  gap: calc(0.5rem * var(--els));
+}
+
+.emp-leave-history-footer {
+  gap: calc(1rem * var(--els));
 }
 
 @media (min-width: 1024px) {
