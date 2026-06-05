@@ -5816,8 +5816,12 @@
   padding-bottom: 0;
 }
 
-/* Hub header — dashboard panel green (#2f6b4f) */
+/* Hub header — sticky so co-tabs stay reachable while scrolling */
 .admin-news-view .admin-news-hub-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  flex-shrink: 0;
   overflow: hidden;
   border-radius: 0.875rem;
   background: var(--dash-forest-header, #2f6b4f);
