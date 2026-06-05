@@ -12,6 +12,7 @@ import {
 import { ProfileCard } from '@components/employee/shared/ProfileCard'
 import { LeaveCard } from '@components/employee/shared/LeaveCard'
 import { AssignedProjectsSection } from '@components/employee/shared/AssignedProjectsSection'
+import { DashboardWorkInsights } from '@components/employee/shared/DashboardWorkInsights'
 import { AnnouncementBanner } from '@components/employee/shared/AnnouncementBanner'
 import { UpcomingHolidaysCard } from '@components/employee/shared/UpcomingHolidaysCard'
 import { useAuthStore } from '@store/authStore'
@@ -177,7 +178,7 @@ export default function Dashboard() {
         value: String(completedCourses),
         icon: BookOpen,
         trend: enrolledCourses > 0 ? `${enrolledCourses} in progress` : 'No enrollments',
-        accent: 'violet',
+        accent: 'sage',
       },
     ],
     [
@@ -191,7 +192,7 @@ export default function Dashboard() {
   )
 
   return (
-    <div className="relative max-w-full" data-employee-dashboard>
+    <div className="relative max-w-full pb-6" data-employee-dashboard data-page-scrollable>
       <div className="dashboard-shell max-w-full space-y-4 overflow-x-hidden">
       <div className="space-y-3">
         <AnnouncementBanner compact />
@@ -209,8 +210,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:items-start">
-        <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:items-stretch">
+        <div className="flex flex-col gap-4 md:col-span-1">
           {loading ? (
             widgetSkeleton
           ) : (
@@ -244,6 +245,15 @@ export default function Dashboard() {
             <UpcomingHolidaysCard className="emp-dash-card emp-dash-card--sky" holidays={holidays} />
           )}
         </div>
+
+        <div className="flex flex-col gap-4 md:col-span-2">
+          <DashboardWorkInsights />
+          <AssignedProjectsSection
+            className="emp-dash-card emp-dash-card--violet"
+            initialProjects={assignedProjects}
+            loading={loading && assignedProjects == null}
+          />
+        </div>
       </div>
 
       {!loading && pendingDocs.length > 0 ? (
@@ -263,12 +273,6 @@ export default function Dashboard() {
           </Link>
         </div>
       ) : null}
-
-      <AssignedProjectsSection
-        className="emp-dash-card emp-dash-card--violet"
-        initialProjects={assignedProjects}
-        loading={loading && assignedProjects == null}
-      />
       </div>
     </div>
   )

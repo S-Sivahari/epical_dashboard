@@ -36,6 +36,7 @@ import { useToast } from '@components/employee/shared/ToastProvider'
 import { PayslipsSection } from '@components/employee/shared/PayslipsSection'
 import { cn } from '@pages/employee/lib/utils'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
+import { useFormSessionDraft } from '@hooks/useFormSessionDraft'
 
 const POLL_INTERVAL_MS = 5000
 const HISTORY_PAGE_SIZE = 10
@@ -222,6 +223,13 @@ export default function DocumentRequest() {
     else void loadRequests(true)
   }, [activeTab, loadPayslips, loadRequests])
 
+  const documentFormDefaults = {
+    type: '',
+    otherDocumentType: '',
+    name: '',
+    reason: '',
+  }
+
   const {
     register,
     handleSubmit,
@@ -231,12 +239,11 @@ export default function DocumentRequest() {
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(schema),
-    defaultValues: {
-      type: '',
-      otherDocumentType: '',
-      name: '',
-      reason: '',
-    },
+    defaultValues: documentFormDefaults,
+  })
+
+  const { clearDraft } = useFormSessionDraft('employee-document-request', { reset, watch }, {
+    defaultValues: documentFormDefaults,
   })
 
   const filteredRequests = useMemo(() => {
@@ -314,7 +321,8 @@ export default function DocumentRequest() {
         title: 'Request submitted',
         description: `${data.name} is pending admin review.`,
       })
-      reset()
+      clearDraft()
+      reset(documentFormDefaults)
       await loadRequests()
       setHistoryPage(1)
     } catch (err) {

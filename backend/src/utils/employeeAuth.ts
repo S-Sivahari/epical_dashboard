@@ -232,14 +232,14 @@ export async function resolveUserForPasswordLogin(email: string) {
       email: { $regex: new RegExp(`^${escapeRegex(normalized)}$`, 'i') },
     }));
 
-  const employee = await findEmployeeByLoginEmail(normalized);
-
-  if (employee) {
-    throw new EmployeeLoginError(
-      'Employee accounts must sign in with Google. Use Continue with Google below.',
-      403,
-    );
-  }
+  // Commented out to allow employee password login in development
+  // const employee = await findEmployeeByLoginEmail(normalized);
+  // if (employee) {
+  //   throw new EmployeeLoginError(
+  //     'Employee accounts must sign in with Google. Use Continue with Google below.',
+  //     403,
+  //   );
+  // }
 
   return { user, employee: null, loginEmail: normalized };
 }

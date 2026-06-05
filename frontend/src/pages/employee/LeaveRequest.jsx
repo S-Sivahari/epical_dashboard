@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { Controller } from 'react-hook-form'
 import { AlertTriangle, X, Clock, History, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@pages/employee/lib/utils'
+import { useFormSessionDraft } from '@hooks/useFormSessionDraft'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 import { Button } from '@components/employee/ui/button'
 import { Label } from '@components/employee/ui/label'
@@ -199,16 +200,22 @@ export default function LeaveRequest() {
     }
   }
 
+  const leaveFormDefaults = {
+    leaveDuration: 'Full Day',
+    type: '',
+    halfDaySession: '',
+    fromDate: '',
+    toDate: '',
+    reason: '',
+  }
+
   const { control, register, handleSubmit, setValue, watch, reset, setError, clearErrors, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(leaveSchema),
-    defaultValues: {
-      leaveDuration: 'Full Day',
-      type: '',
-      halfDaySession: '',
-      fromDate: '',
-      toDate: '',
-      reason: '',
-    },
+    defaultValues: leaveFormDefaults,
+  })
+
+  const { clearDraft } = useFormSessionDraft('employee-leave-apply', { reset, watch }, {
+    defaultValues: leaveFormDefaults,
   })
 
   const leaveDuration = watch('leaveDuration')
@@ -720,14 +727,8 @@ export default function LeaveRequest() {
         reason: data.reason.trim(),
       })
       toast({ title: 'Success', description: 'Leave request submitted successfully!' })
-      reset({
-        leaveDuration: 'Full Day',
-        type: '',
-        halfDaySession: '',
-        fromDate: '',
-        toDate: '',
-        reason: '',
-      })
+      clearDraft()
+      reset(leaveFormDefaults)
       
       // Refresh balances and notifications after submission
       const newBalances = await leaveService.getBalances()

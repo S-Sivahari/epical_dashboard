@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 import { User, Lock, Eye, EyeOff } from 'lucide-react'
 import { useAuthStore } from '@store/authStore'
+import { useFormSessionDraft } from '@hooks/useFormSessionDraft'
 import { prefetchEmployeeDashboard } from '@/utils/prefetchEmployeeRoutes'
 import { getApiBaseUrl, getGoogleOAuthStartUrl } from '@/config/apiBase'
 import axios from 'axios'
@@ -114,15 +115,22 @@ export function LoginPage() {
   const {
     register,
     handleSubmit,
+    reset,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { email: '', password: '' },
   })
 
+  const { clearDraft } = useFormSessionDraft('auth-login', { reset, watch }, {
+    defaultValues: { email: '', password: '' },
+  })
+
   const onSubmit = handleSubmit(async (values) => {
     try {
       await login(values.email, values.password)
+      clearDraft()
       prefetchEmployeeDashboard()
       const userRole = useAuthStore.getState().role
       navigate(userRole === 'admin' ? '/admin' : '/employee', { replace: true })

@@ -14,6 +14,7 @@ import { documentListFromEmployee } from '@/utils/employeeDocuments'
 import { useEmployeeStore } from '@store/employeeStore'
 import { useAuthStore } from '@store/authStore'
 import { useUnsavedChangesGuard } from '@hooks/useUnsavedChangesGuard'
+import { useFormSessionDraft } from '@hooks/useFormSessionDraft'
 import { deleteDocument, openEmployeeDocument, uploadDocuments, uploadPhoto } from '@services/uploadService'
 import { ExternalLink, FileText, Trash2, HelpCircle, X } from 'lucide-react'
 
@@ -343,6 +344,11 @@ export function EditEmployee() {
     mode: 'onTouched',
   })
   const { reset, formState } = form
+  const draftKey = `admin-edit-employee:${id ?? ''}`
+  const { clearDraft, readDraft } = useFormSessionDraft(draftKey, {
+    reset,
+    watch: form.watch,
+  }, { skipHydrate: true })
 
   const hasPendingFiles =
     Object.values(documentFiles).some((files) => files.length > 0) || !!photoFile
@@ -367,7 +373,8 @@ export function EditEmployee() {
         if (cancelled) return
 
         setEmployeeName(`${e.firstName} ${e.lastName ?? ''}`.trim())
-        const formValues = employeeToFormValues(e)
+        const savedDraft = readDraft()
+        const formValues = savedDraft ?? employeeToFormValues(e)
         reset(formValues)
         setCopyAddressChecked(
           formValues.permanentAddress.trim() !== '' &&
@@ -603,6 +610,7 @@ export function EditEmployee() {
       } else {
 }
 
+      clearDraft()
       allowNavigation()
       navigate('/admin/employees')
     } catch (err: any) {

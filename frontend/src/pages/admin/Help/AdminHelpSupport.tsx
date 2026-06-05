@@ -32,7 +32,7 @@ const guideIcons: Record<string, typeof BookOpen> = {
 }
 
 export function AdminHelpSupport() {
-  const [activeKey, setActiveKey] = useState<string | null>('leaves')
+  const [activeKey, setActiveKey] = useState<string | null>(null)
 
   const toggleGuide = (key: string) => {
     setActiveKey((prev) => (prev === key ? null : key))

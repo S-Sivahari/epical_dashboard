@@ -12,6 +12,7 @@ import {
 import type { Company, SalaryStructure, Employee } from "./payslipGenerator";
 import { buildPayslipPayrollSummary } from "./payslipGenerator";
 import { formatPayslipTitleLabel } from "./payslipDownloadName";
+import { formatLeaveBalanceDisplay } from "./payslipEmployeeEnrichment";
 
 export type TemplateId = "classic" | "corporate" | "minimal";
 
@@ -1690,10 +1691,10 @@ export async function savePayslipAsPdf(
 
     const leaveValues = [
       "Available as on month-end",
-      safe(emp["EL Balance"], safe(emp["Earned Leave"], "0")),
-      safe(emp["CL Balance"], safe(emp["Casual Leave"], "0")),
-      safe(emp["SL Balance"], safe(emp["Sick Leave"], "0")),
-      safe(emp["Comp Off"], safe(emp["COMP OFF"], "0")),
+      formatLeaveBalanceDisplay(emp["EL Balance"]),
+      formatLeaveBalanceDisplay(emp["CL Balance"]),
+      formatLeaveBalanceDisplay(emp["SL Balance"]),
+      formatLeaveBalanceDisplay(emp["Comp Off"]),
     ];
     lx = PAGE.left;
     leaveCols.forEach((col, i) => {

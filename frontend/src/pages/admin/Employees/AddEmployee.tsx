@@ -14,6 +14,7 @@ import { useEmployeeStore } from '@store/employeeStore'
 import type { Employee } from '@/types'
 import { uploadDocuments, uploadPhoto } from '@services/uploadService'
 import { checkEmployeeIdExists } from '@services/employeeService'
+import { useFormSessionDraft } from '@hooks/useFormSessionDraft'
 
 const isValidDate = (value: string) => !Number.isNaN(Date.parse(value))
 
@@ -151,6 +152,13 @@ export function AddEmployee() {
     resolver: zodResolver(fullSchema),
     defaultValues: defaultValues as FullValues,
     mode: 'onTouched',
+  })
+
+  const { clearDraft } = useFormSessionDraft('admin-add-employee', {
+    reset: form.reset,
+    watch: form.watch,
+  }, {
+    defaultValues: defaultValues as FullValues,
   })
 
   const [documentFiles, setDocumentFiles] = useState<Record<DocKey, File | null>>({
@@ -452,9 +460,9 @@ export function AddEmployee() {
 
       if (uploadIssues) {
         toast.warning('Employee added, but some files failed to upload. Edit the profile to retry.')
-      } else {
-}
+      }
 
+      clearDraft()
       navigate('/admin/employees')
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Could not create employee'

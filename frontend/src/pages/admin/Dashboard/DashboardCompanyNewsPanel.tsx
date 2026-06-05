@@ -5,7 +5,6 @@ import { ROUTES } from '@constants/routes'
 import { cn } from '@/utils/cn'
 import { formatDate } from '@/utils/formatDate'
 import {
-  DASHBOARD_COMPANY_NEWS_FALLBACK,
   type CompanyNewsCategory,
   type DashboardCompanyNewsItem,
 } from './dashboardCompanyNewsData'
@@ -37,7 +36,7 @@ type DashboardCompanyNewsPanelProps = {
 
 export function DashboardCompanyNewsPanel({ className }: DashboardCompanyNewsPanelProps) {
   const navigate = useNavigate()
-  const [items, setItems] = useState<DashboardCompanyNewsItem[]>(DASHBOARD_COMPANY_NEWS_FALLBACK)
+  const [items, setItems] = useState<DashboardCompanyNewsItem[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -45,13 +44,9 @@ export function DashboardCompanyNewsPanel({ className }: DashboardCompanyNewsPan
       setLoading(true)
       try {
         const data = await listNews(3)
-        if (data.length > 0) {
-          setItems(data.slice(0, 3).map(toPanelItem))
-        } else {
-          setItems(DASHBOARD_COMPANY_NEWS_FALLBACK)
-        }
+        setItems(data.slice(0, 3).map(toPanelItem))
       } catch {
-        setItems(DASHBOARD_COMPANY_NEWS_FALLBACK)
+        setItems([])
       } finally {
         setLoading(false)
       }
@@ -74,6 +69,8 @@ export function DashboardCompanyNewsPanel({ className }: DashboardCompanyNewsPan
               <div key={i} className="h-20 rounded-lg bg-slate-100 skeleton" />
             ))}
           </div>
+        ) : displayItems.length === 0 ? (
+          <p className="dashboard-workspace-empty p-3">No news published yet.</p>
         ) : (
           displayItems.map((item, index) => (
             <article

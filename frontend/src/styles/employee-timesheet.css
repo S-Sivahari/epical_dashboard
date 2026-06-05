@@ -5,6 +5,15 @@
   flex-direction: column;
   gap: 0.75rem;
   font-family: var(--font-body);
+  padding: 0.75rem;
+  padding-bottom: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .emp-timesheet-page {
+    padding: 1rem;
+    padding-bottom: 1.5rem;
+  }
 }
 
 /* ── Summary cards (equal width / height) ── */
@@ -160,6 +169,11 @@
   border: 1px solid rgba(38, 107, 28, 0.12);
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 2px 12px rgba(38, 107, 28, 0.06);
+}
+
+/* Allow overflow for Work History section to show date picker dropdown */
+.emp-timesheet-card:has(.emp-timesheet-history-scroll) {
+  overflow: visible;
 }
 
 .emp-timesheet-card-header {
@@ -383,12 +397,8 @@
 }
 
 .emp-timesheet-history-scroll {
-  --emp-ts-history-row-h: 2.75rem;
-  --emp-ts-history-head-h: 2.5rem;
-  --emp-ts-history-visible-rows: 3;
-  max-height: calc(
-    var(--emp-ts-history-head-h) + var(--emp-ts-history-visible-rows) * var(--emp-ts-history-row-h)
-  );
+  position: relative;
+  max-height: 450px;
   overflow-x: auto;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -396,24 +406,34 @@
 
 .emp-timesheet-history-scroll table {
   min-width: 640px;
+  width: 100%;
 }
 
 .emp-timesheet-history-scroll thead {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 10;
+  background: rgba(248, 250, 252, 0.98);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .emp-timesheet-history-scroll thead th {
-  height: var(--emp-ts-history-head-h);
-  padding: 0.5rem 0.75rem;
+  padding: 0.75rem;
   font-size: 0.6875rem;
-  background: #f1f5f9;
+  background: rgba(248, 250, 252, 0.98);
+  position: sticky;
+  top: 0;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #475569;
+  border-bottom: 2px solid rgba(38, 107, 28, 0.15);
 }
 
 .emp-timesheet-history-scroll tbody td {
-  height: var(--emp-ts-history-row-h);
-  padding: 0.5rem 0.75rem;
+  padding: 0.625rem 0.75rem;
   font-size: 0.8125rem;
   vertical-align: middle;
 }

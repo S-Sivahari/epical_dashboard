@@ -39,7 +39,7 @@ const guideIcons = {
 }
 
 export default function EmployeeHelpSupport() {
-  const [activeKey, setActiveKey] = useState('apply-leave')
+  const [activeKey, setActiveKey] = useState(null)
 
   const toggleGuide = (key) => {
     setActiveKey((prev) => (prev === key ? null : key))
