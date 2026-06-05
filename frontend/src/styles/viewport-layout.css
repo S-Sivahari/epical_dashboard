@@ -292,11 +292,28 @@ body,
   overflow: visible;
 }
 
-.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-dashboard]),
-.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]) {
-  overflow: hidden;
+/* Employee dashboard — grow with content; cmd-main is the scroll container */
+.employee-portal [data-employee-page]:has([data-employee-dashboard]) {
+  flex: 0 1 auto;
+  height: auto;
+  overflow: visible;
 }
 
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-dashboard]) {
+  flex: 0 1 auto;
+  height: auto;
+  min-height: auto;
+  overflow: visible;
+}
+
+.employee-portal main > .relative:has([data-employee-dashboard]) {
+  flex: 0 1 auto;
+  height: auto;
+  max-height: none;
+  overflow: visible;
+}
+
+/* Calendar stays viewport-fit with internal panel scroll */
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]) {
   display: flex;
   flex: 1 1 0;
