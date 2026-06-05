@@ -167,7 +167,21 @@
 
 .admin-projects-stat {
   padding: 0.5rem 1rem;
+  border: none;
   border-right: 1px solid rgba(26, 67, 41, 0.08);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.admin-projects-stat:hover {
+  background: rgba(236, 253, 245, 0.65);
+}
+
+.admin-projects-stat--active {
+  background: rgba(38, 107, 28, 0.1);
+  box-shadow: inset 0 -2px 0 var(--dash-forest-header, #2f6b4f);
 }
 
 .admin-projects-stat:last-child {
@@ -666,6 +680,272 @@
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 1.25rem;
   color: #fff;
+}
+
+.admin-projects-workspace-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.625rem;
+}
+
+.admin-projects-section-rail {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.125rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.admin-projects-section-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 0.4375rem;
+  padding: 0.4375rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.admin-projects-section-btn--active {
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  background: #fff;
+  color: var(--dash-forest-header, #2f6b4f);
+}
+
+.admin-projects-section-btn--inactive {
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.admin-projects-section-btn--inactive:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.admin-projects-filter-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 1rem;
+  border-bottom: 1px solid rgba(26, 67, 41, 0.1);
+  background: #f4faf6;
+}
+
+.admin-projects-filter-search-wrap {
+  position: relative;
+  min-width: min(100%, 14rem);
+  flex: 1 1 14rem;
+}
+
+.admin-projects-filter-search-icon {
+  pointer-events: none;
+  position: absolute;
+  left: 0.875rem;
+  top: 50%;
+  height: 1rem;
+  width: 1rem;
+  transform: translateY(-50%);
+  color: #1e5a3d;
+}
+
+.admin-projects-filter-search-input {
+  height: 2.5rem;
+  width: 100%;
+  border-radius: 0.625rem;
+  border: 1px solid rgba(30, 90, 61, 0.18);
+  background: rgba(232, 242, 230, 0.55);
+  padding: 0 2.25rem 0 2.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #1e293b;
+  box-shadow: 0 1px 2px rgba(30, 90, 61, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.admin-projects-filter-search-input::placeholder {
+  color: #94a3b8;
+}
+
+.admin-projects-filter-search-input:focus {
+  outline: none;
+  border-color: rgba(30, 90, 61, 0.42);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(30, 90, 61, 0.12);
+}
+
+.admin-projects-filter-search-clear {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  display: inline-flex;
+  transform: translateY(-50%);
+  border: none;
+  border-radius: 0.375rem;
+  padding: 0.25rem;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.admin-projects-filter-search-clear:hover {
+  background: rgba(30, 90, 61, 0.08);
+  color: #1a4712;
+}
+
+.admin-projects-filter-select-wrap {
+  position: relative;
+  min-width: 9.5rem;
+  flex: 0 1 10.5rem;
+}
+
+.admin-projects-filter-select {
+  border-radius: 0.625rem;
+  border: 1px solid rgba(30, 90, 61, 0.2);
+  background: rgba(232, 242, 230, 0.55);
+  color: #1a4712;
+  box-shadow: 0 1px 2px rgba(30, 90, 61, 0.04);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.admin-projects-filter-select:focus {
+  outline: none;
+  border-color: rgba(30, 90, 61, 0.42);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(30, 90, 61, 0.1);
+}
+
+.admin-projects-filter-select-icon {
+  pointer-events: none;
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  height: 1rem;
+  width: 1rem;
+  transform: translateY(-50%);
+  color: #1e5a3d;
+}
+
+.admin-projects-status-chip {
+  display: inline-block;
+  border-radius: 9999px;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.admin-projects-status-chip.is-ready {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.admin-projects-status-chip.is-progress {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.admin-projects-status-chip.is-completed {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.admin-projects-status-chip.is-blocked {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.admin-projects-section-panel {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: #fff;
+}
+
+.admin-projects-section-panel--graph,
+.admin-projects-section-panel--activity {
+  padding: 0.75rem 1rem;
+}
+
+.admin-projects-section-panel--graph .dep-graph-canvas-wrap {
+  flex: 1 1 0;
+}
+
+.admin-projects-activity-list {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.admin-projects-activity-empty {
+  margin: 0;
+  padding: 1.5rem 0;
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+.admin-projects-activity-item {
+  border-radius: 0.5rem;
+  border: 1px solid rgba(26, 67, 41, 0.12);
+  background: #f8faf9;
+  padding: 0.625rem 0.75rem;
+}
+
+.admin-projects-activity-item-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.admin-projects-activity-cell {
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.admin-projects-activity-lib {
+  border-radius: 9999px;
+  padding: 0.0625rem 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  background: rgba(38, 107, 28, 0.1);
+  color: var(--dash-forest-header, #2f6b4f);
+}
+
+.admin-projects-activity-time {
+  margin-left: auto;
+  font-size: 0.625rem;
+  color: #64748b;
+}
+
+.admin-projects-activity-action {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  color: var(--dash-forest-header, #2f6b4f);
+}
+
+.admin-projects-activity-detail,
+.admin-projects-activity-user {
+  margin: 0.125rem 0 0;
+  font-size: 0.75rem;
+  color: #475569;
 }
 
 @media (max-width: 1023px) {

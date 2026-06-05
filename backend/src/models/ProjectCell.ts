@@ -1,24 +1,8 @@
 import { Schema, model, Document, Types } from 'mongoose';
 
-export const CELL_TYPES = [
-  'Inverter',
-  'Current Mirror',
-  'Differential Pair',
-  'Comparator',
-  'Bandgap',
-  'OTA',
-  'Other',
-] as const;
+export const CELL_TYPES = ['block', 'IOP', 'ESD', 'TOP'] as const;
 
-export const CELL_STATUSES = [
-  'not_started',
-  'in_progress',
-  'drc',
-  'lvs',
-  'review',
-  'completed',
-  'blocked',
-] as const;
+export const CELL_STATUSES = ['ready', 'in_progress', 'completed'] as const;
 
 export type CellStatus = (typeof CELL_STATUSES)[number];
 export type CellType = (typeof CELL_TYPES)[number];
@@ -42,14 +26,14 @@ export interface ProjectCell extends Document {
   libraryId: Types.ObjectId;
   name: string;
   description: string;
-  cellType: CellType;
+  cellType: string;
   technologyNode: string;
   complexity: 'Low' | 'Medium' | 'High';
   estimatedEffort: number;
   assignedEmployeeId?: string;
   assignedEmployeeName?: string;
   dependencyCellIds: Types.ObjectId[];
-  status: CellStatus;
+  status: string;
   views: CellViews;
   activityLog: CellActivityEntry[];
   createdBy?: string;
@@ -63,14 +47,14 @@ const ProjectCellSchema = new Schema<ProjectCell>(
     libraryId: { type: Schema.Types.ObjectId, ref: 'ProjectLibrary', required: true, index: true },
     name: { type: String, required: true, trim: true },
     description: { type: String, default: '' },
-    cellType: { type: String, enum: CELL_TYPES, default: 'Other' },
+    cellType: { type: String, default: 'block' },
     technologyNode: { type: String, default: '' },
     complexity: { type: String, enum: ['Low', 'Medium', 'High'], default: 'Medium' },
     estimatedEffort: { type: Number, default: 0 },
     assignedEmployeeId: { type: String },
     assignedEmployeeName: { type: String },
     dependencyCellIds: [{ type: Schema.Types.ObjectId, ref: 'ProjectCell' }],
-    status: { type: String, enum: CELL_STATUSES, default: 'not_started' },
+    status: { type: String, default: 'ready' },
     views: {
       layout: { type: String, default: '' },
       symbol: { type: String, default: '' },
@@ -91,5 +75,6 @@ const ProjectCellSchema = new Schema<ProjectCell>(
 );
 
 ProjectCellSchema.index({ projectId: 1, libraryId: 1 });
+ProjectCellSchema.index({ projectId: 1, name: 1 });
 
 export const ProjectCellModel = model<ProjectCell>('ProjectCell', ProjectCellSchema);
