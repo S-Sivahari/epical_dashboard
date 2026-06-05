@@ -11959,6 +11959,12 @@ input[type='number'] {
   font-size: 0.8125rem;
 }
 
+.employee-profile-detail-page .ep-profile-tab--active {
+  background-color: #2d6a4f;
+  color: #ffffff;
+  box-shadow: 0 1px 4px rgba(30, 90, 61, 0.28);
+}
+
 .employee-profile-detail-page .ep-profile-status {
   font-size: 0.6875rem;
 }
