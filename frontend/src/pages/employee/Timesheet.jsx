@@ -604,7 +604,7 @@ export default function Timesheet() {
           <div className="grid grid-cols-2 gap-2.5">
             <TimesheetSummaryCard
               variant="teal"
-              title="Daily Hours Today"
+              title="Today Hours"
               value={formatDurationFromMs(todayHoursMs)}
               icon={Clock}
             />
