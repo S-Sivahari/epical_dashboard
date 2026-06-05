@@ -23,6 +23,18 @@ async function assertProject(projectId: string) {
   return ProjectModel.findById(projectId);
 }
 
+function normalizeCellType(value: string): string {
+  if ((CELL_TYPES as readonly string[]).includes(value)) return value;
+  return 'block';
+}
+
+function normalizeStatus(value: string): CellStatus {
+  if (value === 'in_progress' || value === 'drc' || value === 'lvs' || value === 'review') return 'in_progress';
+  if (value === 'completed') return 'completed';
+  if ((CELL_STATUSES as readonly string[]).includes(value)) return value as CellStatus;
+  return 'ready';
+}
+
 function toLibrary(doc: any) {
   return {
     id: doc._id.toString(),
@@ -41,14 +53,14 @@ function toCell(doc: any, dependencyMeta?: { isBlocked: boolean; isReady: boolea
     libraryId: doc.libraryId.toString(),
     name: doc.name,
     description: doc.description || '',
-    cellType: doc.cellType,
+    cellType: normalizeCellType(doc.cellType || 'block'),
     technologyNode: doc.technologyNode || '',
     complexity: doc.complexity,
     estimatedEffort: doc.estimatedEffort ?? 0,
     assignedEmployeeId: doc.assignedEmployeeId || '',
     assignedEmployeeName: doc.assignedEmployeeName || '',
     dependencyCellIds: (doc.dependencyCellIds || []).map((id: Types.ObjectId) => id.toString()),
-    status: doc.status,
+    status: normalizeStatus(doc.status || 'ready'),
     views: doc.views || { layout: '', symbol: '', schematic: '' },
     activityLog: doc.activityLog || [],
     isBlocked: dependencyMeta?.isBlocked ?? false,
@@ -94,33 +106,13 @@ async function computeDependencyMeta(projectId: Types.ObjectId, cell: any) {
   );
   const deps = (cell.dependencyCellIds || []).map((id: Types.ObjectId) => id.toString());
   const isBlocked = deps.length > 0 && deps.some((depId: string) => !completedIds.has(depId));
-  const isReady =
-    !isBlocked &&
-    (cell.status === 'not_started' || cell.status === 'blocked') &&
-    deps.every((depId: string) => completedIds.has(depId));
+  const status = normalizeStatus(cell.status || 'ready');
+  const isReady = !isBlocked && status === 'ready';
   return { isBlocked, isReady };
 }
 
-async function refreshBlockedStatuses(projectId: Types.ObjectId) {
-  const cells = await ProjectCellModel.find({ projectId });
-  const completedIds = new Set(
-    cells.filter((c) => c.status === 'completed').map((c) => c._id.toString()),
-  );
-
-  for (const cell of cells) {
-    if (cell.status === 'completed') continue;
-    const deps = (cell.dependencyCellIds || []).map((id) => id.toString());
-    const blocked = deps.some((depId) => !completedIds.has(depId));
-    const nextStatus: CellStatus = blocked
-      ? 'blocked'
-      : cell.status === 'blocked'
-        ? 'not_started'
-        : cell.status;
-    if (nextStatus !== cell.status) {
-      cell.status = nextStatus;
-      await cell.save();
-    }
-  }
+async function refreshBlockedStatuses(_projectId: Types.ObjectId) {
+  /* Dependency blocking is derived at read time via computeDependencyMeta */
 }
 
 export const projectWorkspaceController = {
@@ -311,14 +303,14 @@ export const projectWorkspaceController = {
         libraryId: library._id,
         name: name.trim(),
         description: description?.trim() || '',
-        cellType: CELL_TYPES.includes(cellType) ? cellType : 'Other',
+        cellType: CELL_TYPES.includes(cellType) ? cellType : 'block',
         technologyNode: technologyNode?.trim() || project.technologyNode || '',
         complexity: ['Low', 'Medium', 'High'].includes(complexity) ? complexity : 'Medium',
         estimatedEffort: Number(estimatedEffort) || 0,
         assignedEmployeeId: assignedEmployeeId || undefined,
         assignedEmployeeName: assignedEmployeeName || undefined,
         dependencyCellIds: deps,
-        status: deps.length > 0 ? 'blocked' : 'not_started',
+        status: 'ready',
         views: views || { layout: '', symbol: '', schematic: '' },
         activityLog: [
           {
@@ -405,7 +397,8 @@ export const projectWorkspaceController = {
       const projectId = paramId(req.params.projectId);
       const cellId = paramId(req.params.cellId);
       const { status } = req.body;
-      if (!CELL_STATUSES.includes(status) || status === 'completed') {
+      const nextStatus = normalizeStatus(status);
+      if (!CELL_STATUSES.includes(nextStatus) || nextStatus === 'completed') {
         res.status(400).json({ error: 'Invalid status. Use complete endpoint for completed.' });
         return;
       }
@@ -417,17 +410,17 @@ export const projectWorkspaceController = {
       }
 
       const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
-      if (meta.isBlocked && status === 'in_progress') {
+      if (meta.isBlocked && nextStatus === 'in_progress') {
         res.status(400).json({ error: 'Cell is blocked by incomplete dependencies' });
         return;
       }
 
       const actor = actorFromReq(req);
-      const prev = cell.status;
-      cell.status = status;
+      const prev = normalizeStatus(cell.status);
+      cell.status = nextStatus;
       cell.activityLog.push({
         action: 'status_change',
-        detail: `${prev} → ${status}`,
+        detail: `${prev} → ${nextStatus}`,
         userId: actor.userId,
         userName: actor.userName,
         at: new Date(),

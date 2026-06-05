@@ -1,22 +1,6 @@
-export const CELL_TYPES = [
-  'Inverter',
-  'Current Mirror',
-  'Differential Pair',
-  'Comparator',
-  'Bandgap',
-  'OTA',
-  'Other',
-] as const
+export const CELL_TYPES = ['block', 'IOP', 'ESD', 'TOP'] as const
 
-export const CELL_STATUSES = [
-  'not_started',
-  'in_progress',
-  'drc',
-  'lvs',
-  'review',
-  'completed',
-  'blocked',
-] as const
+export const CELL_STATUSES = ['ready', 'in_progress', 'completed'] as const
 
 export type CellType = (typeof CELL_TYPES)[number]
 export type CellStatus = (typeof CELL_STATUSES)[number]

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
-  ArrowLeft, BookOpen, CheckCircle2, GitBranch, Layers, MessageSquare, Plus, Trash2, User,
+  ArrowLeft, BookOpen, CheckCircle2, ChevronDown, GitBranch, History, Layers, LayoutGrid, MessageSquare, Plus, Search, Trash2, User, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageWrapper } from '@components/layout/PageWrapper'
@@ -38,17 +38,30 @@ import {
 } from '@/types/projectWorkspace'
 import type { Employee } from '@/types'
 import './adminProjects.css'
+import { DependencyGraphView } from './DependencyGraphView'
 
 type DeleteTarget = { type: 'library' | 'cell'; id: string; name: string }
+type WorkspaceSection = 'home' | 'graph' | 'activity'
+type StatFilter = 'ready' | 'blocked' | 'unassigned' | null
 
 const STATUS_LABELS: Record<CellStatus, string> = {
-  not_started: 'Not Started',
+  ready: 'Ready',
   in_progress: 'In Progress',
-  drc: 'DRC',
-  lvs: 'LVS',
-  review: 'Review',
   completed: 'Completed',
-  blocked: 'Blocked',
+}
+
+const FILTER_SELECT_CLASS =
+  'admin-projects-filter-select h-10 w-full min-w-[9.5rem] cursor-pointer appearance-none pl-3 pr-9 text-sm font-medium'
+
+const SECTION_ITEMS: { id: WorkspaceSection; label: string; icon: typeof LayoutGrid }[] = [
+  { id: 'home', label: 'Home', icon: LayoutGrid },
+  { id: 'graph', label: 'Dependency graph', icon: GitBranch },
+  { id: 'activity', label: 'Activity log', icon: History },
+]
+
+function cellDisplayStatus(cell: ProjectCell) {
+  if (cell.isBlocked && cell.status !== 'completed') return 'Blocked'
+  return STATUS_LABELS[cell.status]
 }
 
 function emptyCellForm(libraryId: string, technologyNode: string): Partial<ProjectCell> & { libraryId: string } {
@@ -56,7 +69,7 @@ function emptyCellForm(libraryId: string, technologyNode: string): Partial<Proje
     libraryId,
     name: '',
     description: '',
-    cellType: 'Other',
+    cellType: 'block',
     technologyNode,
     complexity: 'Medium',
     estimatedEffort: 0,
@@ -89,6 +102,11 @@ export function ProjectWorkspace() {
   const [dependencyModal, setDependencyModal] = useState(false)
   const [dependencyCell, setDependencyCell] = useState<ProjectCell | null>(null)
   const [selectedDepIds, setSelectedDepIds] = useState<string[]>([])
+  const [workspaceSection, setWorkspaceSection] = useState<WorkspaceSection>('home')
+  const [filterSearch, setFilterSearch] = useState('')
+  const [filterTypeSelect, setFilterTypeSelect] = useState<'all' | ProjectCell['cellType']>('all')
+  const [filterStatusSelect, setFilterStatusSelect] = useState<'all' | CellStatus | 'blocked'>('all')
+  const [statFilter, setStatFilter] = useState<StatFilter>(null)
 
   const reload = useCallback(async () => {
     if (!projectId) return
@@ -119,8 +137,36 @@ export function ProjectWorkspace() {
 
   const displayedCells = useMemo(() => {
     if (!summary || !activeLibraryId) return []
-    return summary.cells.filter((c) => c.libraryId === activeLibraryId)
-  }, [summary, activeLibraryId])
+    let cells = summary.cells.filter((c) => c.libraryId === activeLibraryId)
+    if (statFilter === 'ready') cells = cells.filter((c) => c.isReady)
+    if (statFilter === 'blocked') cells = cells.filter((c) => c.isBlocked)
+    if (statFilter === 'unassigned') cells = cells.filter((c) => !c.assignedEmployeeId)
+    const q = filterSearch.trim().toLowerCase()
+    if (q) cells = cells.filter((c) => c.name.toLowerCase().includes(q))
+    if (filterTypeSelect !== 'all') cells = cells.filter((c) => c.cellType === filterTypeSelect)
+    if (filterStatusSelect === 'blocked') cells = cells.filter((c) => c.isBlocked)
+    else if (filterStatusSelect !== 'all') {
+      cells = cells.filter((c) => c.status === filterStatusSelect && !c.isBlocked)
+    }
+    return cells
+  }, [summary, activeLibraryId, statFilter, filterSearch, filterTypeSelect, filterStatusSelect])
+
+  const applyStatFilter = (filter: StatFilter) => {
+    setFilterSearch('')
+    setFilterTypeSelect('all')
+    if (filter === 'ready') setFilterStatusSelect('ready')
+    else if (filter === 'blocked') setFilterStatusSelect('blocked')
+    else setFilterStatusSelect('all')
+    setStatFilter((prev) => (prev === filter ? null : filter))
+    setWorkspaceSection('home')
+  }
+
+  const clearFilters = () => {
+    setFilterSearch('')
+    setFilterTypeSelect('all')
+    setFilterStatusSelect('all')
+    setStatFilter(null)
+  }
 
   const libraryCellCounts = useMemo(() => {
     const counts = new Map<string, number>()
@@ -144,6 +190,19 @@ export function ProjectWorkspace() {
   }, [summary?.libraries])
 
   const allCells = summary?.cells ?? []
+
+  const activityEntries = useMemo(() => {
+    return allCells
+      .flatMap((cell) =>
+        (cell.activityLog ?? []).map((entry) => ({
+          ...entry,
+          cellId: cell.id,
+          cellName: cell.name,
+          libraryName: libraryNameById.get(cell.libraryId) || '—',
+        })),
+      )
+      .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+  }, [allCells, libraryNameById])
 
   const dependencyOptions = useMemo(() => {
     if (!dependencyCell) return []
@@ -311,30 +370,60 @@ export function ProjectWorkspace() {
                 {project.client} · {project.accessType === 'public' ? 'Public' : 'Private'} · Lead: {project.teamLead || '—'}
               </p>
             </div>
-            <div className="admin-projects-progress-pill">
-              <span>Progress</span>
-              <strong>{project.completionPercentage}%</strong>
+            <div className="admin-projects-workspace-head-actions">
+              <nav className="admin-projects-section-rail" aria-label="Workspace sections">
+                {SECTION_ITEMS.map(({ id, label, icon: Icon }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setWorkspaceSection(id)}
+                    className={cn(
+                      'admin-projects-section-btn',
+                      workspaceSection === id ? 'admin-projects-section-btn--active' : 'admin-projects-section-btn--inactive',
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    {label}
+                  </button>
+                ))}
+              </nav>
+              <div className="admin-projects-progress-pill">
+                <span>Progress</span>
+                <strong>{project.completionPercentage}%</strong>
+              </div>
             </div>
           </header>
 
           <div className="admin-projects-workspace-body">
             <div className="admin-projects-stats-row">
               {[
-                { label: 'Libraries', value: stats.libraryCount, icon: BookOpen },
-                { label: 'Cells', value: stats.cellCount, icon: Layers },
-                { label: 'Ready', value: stats.readyCells, icon: CheckCircle2 },
-                { label: 'Blocked', value: stats.blockedCells, icon: GitBranch },
-                { label: 'Unassigned', value: stats.unassignedCells, icon: User },
-              ].map(({ label, value, icon: Icon }) => (
-                <div key={label} className="admin-projects-stat">
+                { label: 'Libraries', value: stats.libraryCount, icon: BookOpen, filter: null as StatFilter },
+                { label: 'Cells', value: stats.cellCount, icon: Layers, filter: null },
+                { label: 'Ready', value: stats.readyCells, icon: CheckCircle2, filter: 'ready' as StatFilter },
+                { label: 'Blocked', value: stats.blockedCells, icon: GitBranch, filter: 'blocked' as StatFilter },
+                { label: 'Unassigned', value: stats.unassignedCells, icon: User, filter: 'unassigned' as StatFilter },
+              ].map(({ label, value, icon: Icon, filter }) => (
+                <button
+                  key={label}
+                  type="button"
+                  className={cn(
+                    'admin-projects-stat',
+                    filter && statFilter === filter && 'admin-projects-stat--active',
+                  )}
+                  onClick={() => {
+                    if (label === 'Libraries' || label === 'Cells') clearFilters()
+                    else if (filter) applyStatFilter(filter)
+                  }}
+                >
                   <div className="admin-projects-stat-label">
                     <Icon className="h-3.5 w-3.5" /> {label}
                   </div>
                   <p className="admin-projects-stat-value">{value}</p>
-                </div>
+                </button>
               ))}
             </div>
 
+            {workspaceSection === 'home' && (
             <div className="admin-projects-workspace-grid">
               <aside className="admin-projects-libraries-panel">
                 <p className="admin-projects-libraries-head">Libraries</p>
@@ -350,7 +439,11 @@ export function ProjectWorkspace() {
                     <div key={lib.id} className="admin-projects-library-row">
                       <button
                         type="button"
-                        onClick={() => setActiveLibraryId(lib.id)}
+                        onClick={() => {
+                          setActiveLibraryId(lib.id)
+                          clearFilters()
+                          setWorkspaceSection('home')
+                        }}
                         className={cn(
                           'admin-projects-library-nav',
                           activeLibraryId === lib.id && 'is-active',
@@ -393,6 +486,70 @@ export function ProjectWorkspace() {
                   </button>
                 </div>
 
+                <div className="admin-projects-filter-toolbar">
+                  <div className="admin-projects-filter-search-wrap">
+                    <Search className="admin-projects-filter-search-icon" strokeWidth={2} aria-hidden />
+                    <input
+                      type="text"
+                      value={filterSearch}
+                      onChange={(e) => {
+                        setFilterSearch(e.target.value)
+                        setStatFilter(null)
+                      }}
+                      placeholder="Search by cell name..."
+                      className="admin-projects-filter-search-input"
+                      aria-label="Search cells by name"
+                    />
+                    {filterSearch ? (
+                      <button
+                        type="button"
+                        className="admin-projects-filter-search-clear"
+                        onClick={() => setFilterSearch('')}
+                        aria-label="Clear search"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <div className="admin-projects-filter-select-wrap">
+                    <select
+                      value={filterTypeSelect}
+                      onChange={(e) => {
+                        setFilterTypeSelect(e.target.value as 'all' | ProjectCell['cellType'])
+                        setStatFilter(null)
+                      }}
+                      className={FILTER_SELECT_CLASS}
+                      aria-label="Filter by cell type"
+                    >
+                      <option value="all">All types</option>
+                      {CELL_TYPES.map((type) => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="admin-projects-filter-select-icon" aria-hidden />
+                  </div>
+
+                  <div className="admin-projects-filter-select-wrap">
+                    <select
+                      value={filterStatusSelect}
+                      onChange={(e) => {
+                        setFilterStatusSelect(e.target.value as 'all' | CellStatus | 'blocked')
+                        setStatFilter(null)
+                      }}
+                      className={FILTER_SELECT_CLASS}
+                      aria-label="Filter by status"
+                    >
+                      <option value="all">All statuses</option>
+                      {CELL_STATUSES.map((status) => (
+                        <option key={status} value={status}>{STATUS_LABELS[status]}</option>
+                      ))}
+                      <option value="blocked">Blocked</option>
+                    </select>
+                    <ChevronDown className="admin-projects-filter-select-icon" aria-hidden />
+                  </div>
+                </div>
+
                 <div className="admin-projects-cells-table-wrap">
                   <table className="admin-projects-table">
                     <thead>
@@ -412,13 +569,13 @@ export function ProjectWorkspace() {
                           <td>{cell.assignedEmployeeName || '—'}</td>
                           <td>
                             <span className={cn(
-                              'rounded-full px-2 py-0.5 text-xs font-semibold',
-                              cell.status === 'completed' && 'bg-emerald-100 text-emerald-800',
-                              cell.status === 'blocked' && 'bg-red-100 text-red-800',
-                              cell.isReady && 'bg-sky-100 text-sky-800',
-                              !['completed', 'blocked'].includes(cell.status) && !cell.isReady && 'bg-amber-50 text-amber-800',
+                              'admin-projects-status-chip',
+                              cell.isBlocked && 'is-blocked',
+                              cell.isReady && 'is-ready',
+                              cell.status === 'completed' && 'is-completed',
+                              cell.status === 'in_progress' && !cell.isBlocked && 'is-progress',
                             )}>
-                              {cell.isReady ? 'Ready' : STATUS_LABELS[cell.status]}
+                              {cellDisplayStatus(cell)}
                             </span>
                           </td>
                           <td style={{ textAlign: 'right' }}>
@@ -471,63 +628,42 @@ export function ProjectWorkspace() {
                     </tbody>
                   </table>
                 </div>
-
-                <div className="admin-projects-graph-section">
-                  <h2 className="admin-projects-graph-title">Dependency graph</h2>
-                  {graph && graph.nodes.length > 0 ? (
-                    <>
-                      {graph.edges.length > 0 && (
-                        <div className="admin-projects-graph-flow">
-                          {graph.edges.map((edge) => {
-                            const from = graph.nodes.find((n) => n.id === edge.from)?.name ?? '—'
-                            const to = graph.nodes.find((n) => n.id === edge.to)?.name ?? '—'
-                            return (
-                              <span key={`${edge.from}-${edge.to}`} className="admin-projects-graph-edge">
-                                {from} <span aria-hidden>→</span> {to}
-                              </span>
-                            )
-                          })}
-                        </div>
-                      )}
-                      <div className="admin-projects-graph-grid">
-                        {graph.nodes.map((node) => {
-                          const incoming = graph.edges.filter((e) => e.to === node.id)
-                          const outgoing = graph.edges.filter((e) => e.from === node.id)
-                          return (
-                            <div
-                              key={node.id}
-                              className={cn(
-                                'admin-projects-graph-node',
-                                incoming.length > 0 && 'has-deps',
-                                node.isBlocked && 'is-blocked',
-                                node.isReady && 'is-ready',
-                              )}
-                            >
-                              <p className="admin-projects-graph-node-name">{node.name}</p>
-                              <p className="admin-projects-graph-node-status">{STATUS_LABELS[node.status]}</p>
-                              {incoming.length > 0 && (
-                                <p className="admin-projects-graph-node-meta">
-                                  Depends on: {incoming.map((e) => graph.nodes.find((n) => n.id === e.from)?.name).filter(Boolean).join(', ')}
-                                </p>
-                              )}
-                              {outgoing.length > 0 && (
-                                <p className="admin-projects-graph-node-meta">
-                                  Blocks: {outgoing.map((e) => graph.nodes.find((n) => n.id === e.to)?.name).filter(Boolean).join(', ')}
-                                </p>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </>
-                  ) : (
-                    <p style={{ margin: 0, fontSize: '0.8125rem', color: '#64748b' }}>
-                      Add cells with dependencies to see the graph.
-                    </p>
-                  )}
-                </div>
               </section>
             </div>
+            )}
+
+            {workspaceSection === 'graph' && (
+              <div className="admin-projects-section-panel admin-projects-section-panel--graph">
+                <h2 className="admin-projects-graph-title">Dependency graph</h2>
+                {graph ? <DependencyGraphView graph={graph} /> : null}
+              </div>
+            )}
+
+            {workspaceSection === 'activity' && (
+              <div className="admin-projects-section-panel admin-projects-section-panel--activity">
+                <h2 className="admin-projects-graph-title">Activity log</h2>
+                <div className="admin-projects-activity-list">
+                  {activityEntries.length === 0 ? (
+                    <p className="admin-projects-activity-empty">No activity recorded yet.</p>
+                  ) : (
+                    activityEntries.map((entry, index) => (
+                      <div key={`${entry.cellId}-${entry.at}-${index}`} className="admin-projects-activity-item">
+                        <div className="admin-projects-activity-item-head">
+                          <span className="admin-projects-activity-cell">{entry.cellName}</span>
+                          <span className="admin-projects-activity-lib">{entry.libraryName}</span>
+                          <time className="admin-projects-activity-time">
+                            {new Date(entry.at).toLocaleString()}
+                          </time>
+                        </div>
+                        <p className="admin-projects-activity-action">{entry.action.replace(/_/g, ' ')}</p>
+                        {entry.detail && <p className="admin-projects-activity-detail">{entry.detail}</p>}
+                        {entry.userName && <p className="admin-projects-activity-user">by {entry.userName}</p>}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -619,7 +755,7 @@ export function ProjectWorkspace() {
                     await reload()
                   }}
                 >
-                  {CELL_STATUSES.filter((s) => s !== 'completed').map((s) => (
+                  {(['ready', 'in_progress'] as const).map((s) => (
                     <option key={s} value={s}>{STATUS_LABELS[s]}</option>
                   ))}
                 </select>
