@@ -457,13 +457,14 @@ export default function Timesheet() {
   }
 
   return (
-    <div className="emp-timesheet-page dashboard-surface space-y-4">
-      <div className="emp-page-header flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+    <div className="emp-timesheet-page dashboard-surface" data-page-scrollable>
+      {/* Page Header with Task Summary */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white rounded-xl border border-border p-3 shadow-sm mb-4">
         <div>
           <h1 className="text-xl font-extrabold text-[var(--emerald-dark)] leading-none">Projects & Timesheets</h1>
         </div>
 
-        {/* Dynamic Pie Chart Status Summary - No Progress Bars */}
+        {/* Dynamic Pie Chart Status Summary */}
         <div className="flex items-center gap-3">
           <div className="relative flex items-center justify-center" style={{ width: 68, height: 68 }}>
             <svg width="68" height="68" viewBox="0 0 68 68" className="transform -rotate-90">
@@ -584,224 +585,230 @@ export default function Timesheet() {
         </div>
       </div>
 
-      {/* Row 1 — Summary cards: Daily and Weekly Hours only */}
-      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-        <TimesheetSummaryCard
-          variant="teal"
-          title="Daily Hours Today"
-          value={formatDurationFromMs(todayHoursMs)}
-          hint="Attendance today"
-          icon={Clock}
-        />
-        <TimesheetSummaryCard
-          variant="turquoise"
-          title="Weekly Hours"
-          value={`${totalWeekly.toFixed(1)}h`}
-          hint="Mon – Sun this week"
-          icon={CalendarDays}
-        />
-      </div>
-
-      {/* Row 2 — Work session | Active session (50/50) - Compact */}
-      <div className="grid gap-3 grid-cols-1 lg:grid-cols-2">
-        <section className="emp-timesheet-card p-3">
-          <div className="mb-3">
-            <h3 className="text-sm font-bold text-slate-900">Work Session</h3>
-          </div>
-          <div className="space-y-3">
-            {!checkedIn && attendance?.autoCheckedOut && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-2">
-                <div className="flex items-center gap-2 text-xs font-semibold text-amber-800">
-                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                  Auto Checked-Out
-                </div>
-                <p className="mt-0.5 text-[11px] text-amber-700">
-                  Your previous session was closed by the system.
-                </p>
-              </div>
-            )}
-
-            <div className="space-y-1">
-              <Label className="text-xs font-bold text-slate-800">Assigned Project *</Label>
-              <Select
-                value={selectedTaskId}
-                onValueChange={(v) => setValue('assignedTaskId', v, { shouldValidate: true })}
-                disabled={checkedIn || checkoutReview || startableTasks.length === 0}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue
-                    placeholder={
-                      startableTasks.length === 0
-                        ? 'No projects assigned — contact admin'
-                        : 'Select assigned project'
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent className="max-h-[200px] overflow-y-auto">
-                  {startableTasks.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.projectName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {selectedTask?.description && !checkedIn && (
-                <p className="line-clamp-2 text-[10px] text-muted">{selectedTask.description}</p>
-              )}
-              {errors.assignedTaskId && !checkedIn && (
-                <p className="text-[10px] text-danger">{errors.assignedTaskId.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs font-bold text-slate-800">
-                Work Description <span className="font-normal text-muted text-[10px]">(optional)</span>
-              </Label>
-              <Textarea
-                className="min-h-[4rem] max-h-[12rem] resize-y text-sm leading-relaxed"
-                rows={3}
-                {...register('description')}
-                placeholder="Describe what you're working on (optional)..."
-                disabled={checkedIn && !checkoutReview}
-              />
-              {checkoutReview && (
-                <p className="text-[10px] font-medium text-amber-700">
-                  Update your work summary before checking out (optional).
-                </p>
-              )}
-              {checkoutError && <p className="text-[10px] text-danger">{checkoutError}</p>}
-            </div>
-
-            <div className="flex gap-2 pt-1">
-              {checkoutReview ? (
-                <>
-                  <Button type="button" variant="outline" onClick={cancelCheckOut} disabled={submitting} className="h-9 flex-1">
-                    Cancel
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={onConfirmCheckOut}
-                    disabled={submitting}
-                    className="emp-ts-btn-primary h-9 gap-2 flex-1"
-                  >
-                    <LogOut className="h-4 w-4 shrink-0" />
-                    Confirm Check Out
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button
-                    type="button"
-                    onClick={onCheckIn}
-                    disabled={checkedIn || submitting || !canStartSession || startableTasks.length === 0}
-                    className="emp-ts-btn-primary h-9 gap-2 flex-1"
-                  >
-                    <LogIn className="h-4 w-4 shrink-0" /> Check In
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={beginCheckOut}
-                    disabled={!checkedIn || submitting}
-                    className="h-9 gap-2 flex-1"
-                  >
-                    <LogOut className="h-4 w-4 shrink-0" /> Check Out
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-        </section>
-
-        <section className="emp-timesheet-card p-3">
-          <div className="mb-3">
-            <h3 className="text-sm font-bold text-slate-900">Active Session</h3>
-          </div>
-          <div className="min-h-[200px]">
-            <TimesheetLiveSessionPanel
-              checkedIn={checkedIn}
-              checkInTime={checkInTime}
-              activeTask={activeTask}
-              pausedTasks={pausedTasks}
-              currentWorkTask={currentWorkTask}
-              serverTimeSkew={serverTimeSkew}
-              checkoutReview={checkoutReview}
-              submitting={submitting}
-              onPause={() => activeTask && onPauseTask(activeTask.timesheetId)}
-              onResume={() => pausedTasks[0] && onResumeTask(pausedTasks[0].timesheetId)}
+      {/* Main Dashboard Grid Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4 lg:grid-rows-[auto] lg:items-stretch">
+        
+        {/* LEFT COLUMN */}
+        <div className="flex flex-col gap-4">
+          {/* Compact Stat Cards Row */}
+          <div className="grid grid-cols-2 gap-3">
+            <TimesheetSummaryCard
+              variant="teal"
+              title="Daily Hours Today"
+              value={formatDurationFromMs(todayHoursMs)}
+              icon={Clock}
+            />
+            <TimesheetSummaryCard
+              variant="turquoise"
+              title="Weekly Hours"
+              value={`${totalWeekly.toFixed(1)}h`}
+              icon={CalendarDays}
             />
           </div>
-        </section>
-      </div>
 
-      {/* Row 3 — Charts: Weekly Hours and Project Breakdown */}
-      <div className="grid gap-3 grid-cols-1 lg:grid-cols-2">
-        <section className="emp-timesheet-card p-3">
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <h3 className="text-sm font-bold text-slate-900">Weekly Hours</h3>
-            <span className="text-xs font-bold text-slate-600 tabular-nums">{totalWeekly.toFixed(1)}h total</span>
-          </div>
-          <div style={{ height: CHART_HEIGHT }}>
-            <Suspense
-              fallback={
-                <div className="flex h-full items-center justify-center text-xs text-muted">
-                  Loading chart…
+          {/* Work Session Card - Project and Description Only */}
+          <section className="emp-timesheet-card p-4">
+            <div className="mb-3">
+              <h3 className="text-sm font-bold text-slate-900">Work Session</h3>
+            </div>
+            <div className="space-y-3">
+              {!checkedIn && attendance?.autoCheckedOut && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-2">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-amber-800">
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                    Auto Checked-Out
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-amber-700">
+                    Your previous session was closed by the system.
+                  </p>
                 </div>
-              }
-            >
-              <TimesheetWeeklyChart data={weeklyHours} height={CHART_HEIGHT} />
-            </Suspense>
-          </div>
-        </section>
+              )}
 
-        <section className="emp-timesheet-card p-3">
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <h3 className="text-sm font-bold text-slate-900">Project Breakdown</h3>
-            <span className="text-xs font-bold text-slate-600 tabular-nums">{projectWiseTotal.toFixed(1)}h total</span>
-          </div>
-          <div style={{ minHeight: CHART_HEIGHT }}>
-            <Suspense
-              fallback={
-                <div
-                  className="flex items-center justify-center text-xs text-muted"
-                  style={{ height: CHART_HEIGHT }}
+              <div className="space-y-1">
+                <Label className="text-xs font-bold text-slate-800">Assigned Project *</Label>
+                <Select
+                  value={selectedTaskId}
+                  onValueChange={(v) => setValue('assignedTaskId', v, { shouldValidate: true })}
+                  disabled={checkedIn || checkoutReview || startableTasks.length === 0}
                 >
-                  Loading…
-                </div>
-              }
-            >
-              <TimesheetProjectWiseChart data={allTimeProjectWiseHours} />
-            </Suspense>
+                  <SelectTrigger className="h-9">
+                    <SelectValue
+                      placeholder={
+                        startableTasks.length === 0
+                          ? 'No projects assigned — contact admin'
+                          : 'Select assigned project'
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[200px] overflow-y-auto">
+                    {startableTasks.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.projectName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedTask?.description && !checkedIn && (
+                  <p className="line-clamp-2 text-[10px] text-muted">{selectedTask.description}</p>
+                )}
+                {errors.assignedTaskId && !checkedIn && (
+                  <p className="text-[10px] text-danger">{errors.assignedTaskId.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-bold text-slate-800">Work Description *</Label>
+                <Textarea
+                  className="min-h-[4rem] max-h-[12rem] resize-y text-sm leading-relaxed"
+                  rows={3}
+                  {...register('description')}
+                  placeholder="Describe what you're working on..."
+                  disabled={checkedIn && !checkoutReview}
+                />
+                {checkoutReview && (
+                  <p className="text-[10px] font-medium text-amber-700">
+                    Update your work summary before checking out.
+                  </p>
+                )}
+                {checkoutError && <p className="text-[10px] text-danger">{checkoutError}</p>}
+              </div>
+            </div>
+          </section>
+
+          {/* Wrapper for Active Session + Buttons to match right column height */}
+          <div className="flex flex-col gap-4 flex-1">
+            {/* Active Session Status Card */}
+            <section className="emp-timesheet-card p-4 flex-1">
+              <div className="mb-2">
+                <h3 className="text-sm font-bold text-slate-900">Active Session</h3>
+              </div>
+              <TimesheetLiveSessionPanel
+                checkedIn={checkedIn}
+                checkInTime={checkInTime}
+                activeTask={activeTask}
+                pausedTasks={pausedTasks}
+                currentWorkTask={currentWorkTask}
+                serverTimeSkew={serverTimeSkew}
+                checkoutReview={checkoutReview}
+                submitting={submitting}
+                onPause={() => activeTask && onPauseTask(activeTask.timesheetId)}
+                onResume={() => pausedTasks[0] && onResumeTask(pausedTasks[0].timesheetId)}
+              />
+            </section>
+
+            {/* Check In/Check Out Buttons - Always at bottom */}
+            <section className="emp-timesheet-card p-4">
+              <div className="flex gap-2">
+                {checkoutReview ? (
+                  <>
+                    <Button type="button" variant="outline" onClick={cancelCheckOut} disabled={submitting} className="h-9 flex-1">
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={onConfirmCheckOut}
+                      disabled={submitting}
+                      className="emp-ts-btn-primary h-9 gap-2 flex-1"
+                    >
+                      <LogOut className="h-4 w-4 shrink-0" />
+                      Confirm Check Out
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      type="button"
+                      onClick={onCheckIn}
+                      disabled={checkedIn || submitting || !canStartSession || startableTasks.length === 0}
+                      className="emp-ts-btn-primary h-9 gap-2 flex-1"
+                    >
+                      <LogIn className="h-4 w-4 shrink-0" /> Check In
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={beginCheckOut}
+                      disabled={!checkedIn || submitting}
+                      className="h-9 gap-2 flex-1"
+                    >
+                      <LogOut className="h-4 w-4 shrink-0" /> Check Out
+                    </Button>
+                  </>
+                )}
+              </div>
+            </section>
           </div>
-        </section>
+        </div>
+
+        {/* RIGHT COLUMN */}
+        <div className="flex flex-col gap-4">
+          {/* Weekly Hours Chart - Primary Visual */}
+          <section className="emp-timesheet-card p-4">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h3 className="text-sm font-bold text-slate-900">Weekly Hours</h3>
+              <span className="text-xs font-bold text-slate-600 tabular-nums">{totalWeekly.toFixed(1)}h total</span>
+            </div>
+            <div style={{ height: 280 }}>
+              <Suspense
+                fallback={
+                  <div className="flex h-full items-center justify-center text-xs text-muted">
+                    Loading chart…
+                  </div>
+                }
+              >
+                <TimesheetWeeklyChart data={weeklyHours} height={280} />
+              </Suspense>
+            </div>
+          </section>
+
+          {/* Project Breakdown Chart - Grows to match left column */}
+          <section className="emp-timesheet-card p-4 flex-1">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h3 className="text-sm font-bold text-slate-900">Project Breakdown</h3>
+              <span className="text-xs font-bold text-slate-600 tabular-nums">{projectWiseTotal.toFixed(1)}h total</span>
+            </div>
+            <div>
+              <Suspense
+                fallback={
+                  <div className="flex min-h-[200px] items-center justify-center text-xs text-muted">
+                    Loading…
+                  </div>
+                }
+              >
+                <TimesheetProjectWiseChart data={allTimeProjectWiseHours} />
+              </Suspense>
+            </div>
+          </section>
+        </div>
       </div>
 
-      {/* Row 4 — Work History */}
-      <section className="emp-timesheet-card p-3">
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <div>
+      {/* Work History - Full Width Bottom Section */}
+      <section className="emp-timesheet-card p-4 overflow-visible">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+          <div className="min-w-0 flex-1">
             <h3 className="text-sm font-bold text-slate-900">Work History</h3>
-            {unifiedHistory.length > 0 ? (
+            {unifiedHistory.length > 0 && (
               <p className="text-xs text-slate-600 mt-0.5">
-                {unifiedHistory.length} log{unifiedHistory.length === 1 ? '' : 's'}
-                {historyHasMore ? ' — scroll for more' : ''}
+                {unifiedHistory.length} log{unifiedHistory.length === 1 ? '' : 's'} in selected range
               </p>
-            ) : null}
+            )}
           </div>
-          <DateRangePicker
-            startDate={historyStart}
-            endDate={historyEnd}
-            preset={historyPreset}
-            onChange={(start, end, preset) => {
-              setHistoryStart(start)
-              setHistoryEnd(end)
-              setHistoryPreset(preset)
-              void Promise.all([
-                useTimesheetStore.getState().refreshSessionsForRange({ from: start, to: end }),
-                useTimesheetStore.getState().refreshProjectWiseHours({ from: start, to: end }),
-              ])
-            }}
-          />
+          <div className="flex-shrink-0 relative z-20">
+            <DateRangePicker
+              startDate={historyStart}
+              endDate={historyEnd}
+              preset={historyPreset}
+              onChange={(start, end, preset) => {
+                setHistoryStart(start)
+                setHistoryEnd(end)
+                setHistoryPreset(preset)
+                void Promise.all([
+                  useTimesheetStore.getState().refreshSessionsForRange({ from: start, to: end }),
+                  useTimesheetStore.getState().refreshProjectWiseHours({ from: start, to: end }),
+                ])
+              }}
+            />
+          </div>
         </div>
 
         {(isInitialLoading || sessionsLoading) && unifiedHistory.length === 0 ? (
@@ -817,7 +824,7 @@ export default function Timesheet() {
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />
               </div>
             )}
-            <div className="emp-timesheet-history-scroll timesheet-panel-scroll rounded-lg border border-slate-200/80 max-h-[400px] overflow-auto">
+            <div className="emp-timesheet-history-scroll timesheet-panel-scroll rounded-lg border border-slate-200/80 max-h-[450px] overflow-auto">
               <DataTable
                 columns={historyColumns}
                 data={unifiedHistory}

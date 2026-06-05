@@ -842,14 +842,14 @@ const ProjectCard = memo(function ProjectCard({
           </p>
         )}
 
-        <div className="project-members-section space-y-1.5 border-t border-slate-100 pt-3.5">
-          <div className="flex items-center text-xs">
-            <span className="font-semibold text-slate-400 w-16 shrink-0">Lead:</span>
-            <span className="font-bold text-slate-700 truncate">{leadName}</span>
+        <div className="project-members-section space-y-2 border-t border-slate-100 pt-4">
+          <div className="flex items-start">
+            <span className="font-semibold text-slate-400 w-20 shrink-0 text-xs">Lead:</span>
+            <span className="font-bold text-slate-700 text-xs flex-1 break-words">{leadName}</span>
           </div>
-          <div className="flex items-baseline text-xs">
-            <span className="font-semibold text-slate-400 w-16 shrink-0">Members:</span>
-            <span className="font-medium text-slate-600 leading-normal truncate flex-1">
+          <div className="flex items-start">
+            <span className="font-semibold text-slate-400 w-20 shrink-0 text-xs">Members:</span>
+            <span className="font-medium text-slate-600 text-xs flex-1 break-words leading-relaxed">
               {membersText}
               {memberCount > 0 && (
                 <span className="ml-1 text-[10px] text-slate-400 font-bold">({memberCount})</span>
@@ -937,14 +937,14 @@ const ProjectListRow = memo(function ProjectListRow({
         )}
       </td>
       <td className="px-5 py-4">
-        <div className="flex flex-col gap-1 text-xs">
-          <div className="flex items-center gap-1.5">
-            <span className="font-semibold text-slate-455 w-14">Lead:</span>
-            <span className="font-bold text-slate-700 truncate max-w-[150px]">{project.teamLead || 'Not assigned'}</span>
+        <div className="flex flex-col gap-1.5 text-xs">
+          <div className="flex items-start gap-2">
+            <span className="font-semibold text-slate-455 w-20 shrink-0">Lead:</span>
+            <span className="font-bold text-slate-700 flex-1 break-words">{project.teamLead || 'Not assigned'}</span>
           </div>
-          <div className="flex items-center gap-1.5 text-slate-600">
-            <span className="font-semibold text-slate-455 w-14">Members:</span>
-            <span className="truncate max-w-[200px]" title={project.visibleUsers.join(' • ')}>
+          <div className="flex items-start gap-2 text-slate-600">
+            <span className="font-semibold text-slate-455 w-20 shrink-0">Members:</span>
+            <span className="flex-1 break-words leading-relaxed" title={project.visibleUsers.join(' • ')}>
               {project.visibleUsers.length > 0 
                 ? project.visibleUsers.slice(0, 2).join(' • ') + (project.visibleUsers.length > 2 ? ` • +${project.visibleUsers.length - 2} more` : '')
                 : (project.accessType === 'public' ? 'All Members' : 'None')
@@ -2289,7 +2289,7 @@ export function ProjectManagement() {
     tsStatusFilters.length > 0
 
   return (
-    <div className="crewiq-dashboard admin-projects-view" data-admin-projects>
+    <div className="crewiq-dashboard admin-projects-view">
       <div className="crewiq-dash-bg" aria-hidden />
       <PageWrapper
         fillViewport
