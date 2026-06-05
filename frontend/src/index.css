@@ -1471,10 +1471,9 @@
   overflow: visible;
 }
 
-/* Employee portal — command-center dashboard (same chrome heights as admin) */
+/* Employee portal — dashboard scrolls via data-page-scrollable on dashboard root */
 .employee-portal:has([data-employee-dashboard]) {
   padding: 0 !important;
-  overflow: hidden;
 }
 
 .employee-portal main:has([data-employee-dashboard]) > .relative {
@@ -1482,38 +1481,10 @@
   overflow: visible;
 }
 
-@media (min-width: 1024px) {
-  .employee-portal .admin-dashboard-view[data-employee-dashboard] {
-    height: calc(100dvh - var(--admin-cmd-bar-h) - var(--admin-top-nav-h));
-    max-height: calc(100dvh - var(--admin-cmd-bar-h) - var(--admin-top-nav-h));
-    overflow-x: hidden;
-    overflow-y: auto;
-  }
-}
-
-@media (max-width: 1023px) {
-  .employee-portal .admin-dashboard-view[data-employee-dashboard] {
-    height: auto;
-    max-height: none;
-    overflow-y: auto;
-  }
-
-  .employee-portal .admin-dashboard-view[data-employee-dashboard] .dashboard-shell {
-    height: auto;
-    overflow: visible;
-  }
-
-  .employee-portal .admin-dashboard-view[data-employee-dashboard] .dashboard-main-grid {
-    overflow: visible;
-  }
-}
-
-.employee-portal .admin-dashboard-view[data-employee-dashboard] .dashboard-shell {
+.employee-portal [data-employee-page]:has([data-page-scrollable]) .dashboard-shell {
   height: auto;
   min-height: 0;
-  flex: 1;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: visible;
 }
 
 .admin-dashboard-view {
@@ -5110,13 +5081,15 @@
 }
 
 .admin-portal main:has([data-admin-calendar]) {
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   flex: 1 1 0;
   min-height: 0;
   max-height: calc(100dvh - var(--admin-cmd-bar-h) - var(--admin-top-nav-h));
   padding-left: 1rem;
   padding-right: 1rem;
   box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
 }
 
 .admin-portal main:has([data-admin-calendar]) > .relative {
@@ -5125,7 +5098,7 @@
   flex-direction: column;
   min-height: 0;
   overflow-x: visible;
-  overflow-y: hidden;
+  overflow-y: auto;
   padding-left: calc(0.375rem * var(--calendar-font-scale));
   padding-right: calc(0.375rem * var(--calendar-font-scale));
   box-sizing: border-box;
@@ -5139,7 +5112,7 @@
   max-width: none !important;
   min-height: 0;
   overflow-x: visible;
-  overflow-y: hidden;
+  overflow-y: auto;
   padding-top: 0.625rem !important;
   padding-bottom: 0.5rem !important;
   padding-left: 1.25rem !important;
@@ -5148,6 +5121,8 @@
 }
 
 .admin-portal .admin-hub-page-wrap.admin-calendar-page {
+  overflow-x: visible;
+  overflow-y: auto;
   padding-left: 1.25rem !important;
   padding-right: 1.25rem !important;
 }
@@ -5200,7 +5175,7 @@
 }
 
 .admin-calendar-view .admin-calendar-grid {
-  flex: 1 1 0;
+  flex: 1 1 auto;
   min-height: 0;
   width: 100%;
   max-width: 100%;
@@ -5541,8 +5516,14 @@
 }
 
 .admin-calendar-view .admin-cal-side-unified-body {
+  flex: 1 1 auto;
+  min-height: 0;
   padding: calc(0.5rem * var(--calendar-font-scale)) calc(0.625rem * var(--calendar-font-scale));
   gap: calc(0.5rem * var(--calendar-font-scale));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .admin-calendar-view .admin-cal-side-section-head {
@@ -5591,9 +5572,9 @@
 }
 
 .admin-calendar-view .admin-cal-side-section-list {
-  max-height: min(calc(9rem * var(--calendar-font-scale)), 28vh);
+  max-height: none;
   min-height: 0;
-  overflow-y: auto;
+  overflow: visible;
 }
 
 .admin-calendar-view .admin-cal-side-section-list--fills {

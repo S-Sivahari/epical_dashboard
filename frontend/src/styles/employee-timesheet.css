@@ -2,18 +2,13 @@
 
 .emp-timesheet-page {
   display: flex;
-  flex: 1 1 0;
   flex-direction: column;
   gap: 0.75rem;
+  width: 100%;
   min-height: 0;
-  max-height: 100%;
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: visible;
   font-family: var(--font-body);
-}
-
-.employee-portal [data-employee-page] > .emp-portal-page__content:has(.emp-timesheet-page) {
-  overflow: hidden;
 }
 
 /* ── Summary cards (equal width / height) ── */
@@ -394,7 +389,7 @@
 .emp-timesheet-history-scroll {
   --emp-ts-history-row-h: 2.75rem;
   --emp-ts-history-head-h: 2.5rem;
-  --emp-ts-history-visible-rows: 3;
+  --emp-ts-history-visible-rows: 5;
   max-height: calc(
     var(--emp-ts-history-head-h) + var(--emp-ts-history-visible-rows) * var(--emp-ts-history-row-h)
   );

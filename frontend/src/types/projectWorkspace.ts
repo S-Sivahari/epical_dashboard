@@ -1,0 +1,105 @@
+export const CELL_TYPES = [
+  'Inverter',
+  'Current Mirror',
+  'Differential Pair',
+  'Comparator',
+  'Bandgap',
+  'OTA',
+  'Other',
+] as const
+
+export const CELL_STATUSES = [
+  'not_started',
+  'in_progress',
+  'drc',
+  'lvs',
+  'review',
+  'completed',
+  'blocked',
+] as const
+
+export type CellType = (typeof CELL_TYPES)[number]
+export type CellStatus = (typeof CELL_STATUSES)[number]
+
+export interface AdminProjectRow {
+  id: string
+  name: string
+  client: string
+  technologyNode: string
+  accessType: 'public' | 'private'
+  status: string
+  teamLead?: string
+  completionPercentage?: number
+}
+
+export interface ProjectLibrary {
+  id: string
+  projectId: string
+  name: string
+  description: string
+}
+
+export interface CellViews {
+  layout: string
+  symbol: string
+  schematic: string
+}
+
+export interface ProjectCell {
+  id: string
+  projectId: string
+  libraryId: string
+  name: string
+  description: string
+  cellType: CellType
+  technologyNode: string
+  complexity: 'Low' | 'Medium' | 'High'
+  estimatedEffort: number
+  assignedEmployeeId: string
+  assignedEmployeeName: string
+  dependencyCellIds: string[]
+  status: CellStatus
+  views: CellViews
+  isBlocked: boolean
+  isReady: boolean
+  activityLog: { action: string; detail?: string; userName?: string; at: string }[]
+}
+
+export interface WorkspaceSummary {
+  project: {
+    id: string
+    name: string
+    client: string
+    accessType: 'public' | 'private'
+    teamLead: string
+    technologyNode: string
+    description: string
+    status: string
+    completionPercentage: number
+  }
+  libraries: ProjectLibrary[]
+  cells: ProjectCell[]
+  stats: {
+    libraryCount: number
+    cellCount: number
+    completedCells: number
+    blockedCells: number
+    readyCells: number
+    unassignedCells: number
+    openReviews: number
+  }
+}
+
+export interface DependencyGraph {
+  nodes: { id: string; name: string; status: CellStatus; libraryId: string; isBlocked: boolean; isReady: boolean }[]
+  edges: { from: string; to: string }[]
+}
+
+export interface CellReview {
+  id: string
+  cellId: string
+  stageAtRequest: string
+  status: 'open' | 'resolved'
+  initiatedByName: string
+  messages: { authorName: string; authorRole: string; body: string; at: string }[]
+}

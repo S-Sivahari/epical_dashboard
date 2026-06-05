@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { projectController } from '../controllers/projectController';
+import { projectWorkspaceController } from '../controllers/projectWorkspaceController';
 import { authMiddleware, requireRole } from '../middleware/authMiddleware';
 
 const router = Router();
@@ -15,6 +16,22 @@ router.get('/archived/:id', adminOnly, projectController.getArchivedProjectById)
 router.delete('/archived/:id', adminOnly, projectController.deleteArchivedProject);
 router.post('/archived/:id/restore', adminOnly, projectController.restoreProject);
 router.post('/:id/archive', adminOnly, projectController.archiveProject);
+router.get('/:projectId/workspace', adminOnly, projectWorkspaceController.getWorkspaceSummary);
+router.get('/:projectId/dependency-graph', adminOnly, projectWorkspaceController.getDependencyGraph);
+router.get('/:projectId/libraries', adminOnly, projectWorkspaceController.listLibraries);
+router.post('/:projectId/libraries', adminOnly, projectWorkspaceController.createLibrary);
+router.put('/:projectId/libraries/:libraryId', adminOnly, projectWorkspaceController.updateLibrary);
+router.delete('/:projectId/libraries/:libraryId', adminOnly, projectWorkspaceController.deleteLibrary);
+router.get('/:projectId/libraries/:libraryId/cells', adminOnly, projectWorkspaceController.listCells);
+router.post('/:projectId/libraries/:libraryId/cells', adminOnly, projectWorkspaceController.createCell);
+router.put('/:projectId/cells/:cellId', adminOnly, projectWorkspaceController.updateCell);
+router.delete('/:projectId/cells/:cellId', adminOnly, projectWorkspaceController.deleteCell);
+router.patch('/:projectId/cells/:cellId/status', adminOnly, projectWorkspaceController.updateCellStatus);
+router.patch('/:projectId/cells/:cellId/complete', adminOnly, projectWorkspaceController.completeCell);
+router.get('/:projectId/cells/:cellId/reviews', adminOnly, projectWorkspaceController.listCellReviews);
+router.post('/:projectId/cells/:cellId/reviews', adminOnly, projectWorkspaceController.createCellReview);
+router.post('/:projectId/cells/:cellId/reviews/:reviewId/messages', adminOnly, projectWorkspaceController.addReviewMessage);
+
 router.get('/:id/assigned-tasks', adminOnly, projectController.getProjectAssignedTasks);
 router.get('/:id/audit-trail', adminOnly, projectController.getAuditTrail);
 router.get('/:id', adminOnly, projectController.getById);

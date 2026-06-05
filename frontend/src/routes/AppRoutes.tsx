@@ -53,6 +53,16 @@ const ProjectManagement = lazy(async () => {
   return { default: m.ProjectManagement }
 })
 
+const AdminProjectsPage = lazy(async () => {
+  const m = await import('@pages/admin/Projects/AdminProjectsPage')
+  return { default: m.AdminProjectsPage }
+})
+
+const ProjectWorkspace = lazy(async () => {
+  const m = await import('@pages/admin/Projects/ProjectWorkspace')
+  return { default: m.ProjectWorkspace }
+})
+
 const AdminCompanyCalendarPage = lazy(() =>
   import('@pages/admin/Calendar/AdminCompanyCalendarPage')
 )
@@ -188,10 +198,10 @@ export function AppRoutes() {
               element={<LeaveManagementDashboard />}
             />
 
-            <Route
-              path="projects"
-              element={<ProjectManagement />}
-            />
+            <Route path="timesheet" element={<ProjectManagement />} />
+
+            <Route path="projects" element={<AdminProjectsPage />} />
+            <Route path="projects/:projectId" element={<ProjectWorkspace />} />
 
             <Route
               path="calendar"
@@ -210,7 +220,7 @@ export function AppRoutes() {
 
             <Route
               path="analytics"
-              element={<Navigate to={`${ROUTES.PROJECTS}?tab=analytics`} replace />}
+              element={<Navigate to={`${ROUTES.TIMESHEET}?tab=analytics`} replace />}
             />
 
             <Route

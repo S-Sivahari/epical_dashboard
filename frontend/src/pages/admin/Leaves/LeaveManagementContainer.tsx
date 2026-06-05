@@ -53,11 +53,6 @@ function formatLeaveActivityPhrase(type: string, status: string) {
   return `${typePhrase} requested`
 }
 
-function buildExportFilename(tab: TabType) {
-  const date = new Date().toISOString().slice(0, 10)
-  return `Leave_Management_${tab}_${date}`
-}
-
 function getTodayDateKey() {
   return formatLocalDate(new Date())
 }
@@ -493,7 +488,7 @@ export function LeaveManagementContainer() {
               </div>
             </div>
 
-            <div className="admin-leaves-panel admin-leaves-col-panel flex min-h-0 flex-col">
+            <div className="admin-leaves-panel admin-leaves-col-panel flex min-h-0 flex-1 flex-col">
               {searched && (filterEmployee || filterType || filterFrom || filterTo) && (
                 <div className="admin-leaves-filter-chips flex shrink-0 flex-wrap items-center gap-2 px-2 py-1.5">
                   <span className="text-xs font-bold admin-leaves-text-brand">Filtered:</span>

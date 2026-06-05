@@ -185,7 +185,7 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
         title: 'Attendance below target',
         body: `Current attendance rate is ${attendanceRate}%. Consider reviewing department schedules and pending leave overlaps.`,
         action: 'View analytics',
-        route: '/admin/projects?tab=analytics',
+        route: '/admin/timesheet?tab=analytics',
       })
     } else {
       items.push({
@@ -194,7 +194,7 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
         title: 'Strong attendance this period',
         body: `${attendanceRate}% of employees logged time. Trend is stable compared to last week.`,
         action: 'View timesheets',
-        route: '/admin/projects',
+        route: '/admin/timesheet',
       })
     }
     if (payrollStatus.status === 'attention') {
@@ -212,8 +212,8 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
       type: 'info' as const,
       title: 'Employee engagement signal',
       body: `${activeProjects.length} active projects with ${totalPeriodHours}h logged ${chartPeriod.toLowerCase()}. Cross-team collaboration is ${activeProjects.length > 2 ? 'healthy' : 'moderate'}.`,
-      action: 'Open projects',
-      route: '/admin/projects',
+      action: 'Open timesheets',
+      route: '/admin/timesheet',
     })
     return items
   }, [

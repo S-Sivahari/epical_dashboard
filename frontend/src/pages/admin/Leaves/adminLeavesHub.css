@@ -62,6 +62,42 @@
   align-content: stretch;
 }
 
+/* Stacked hub — page scrolls; each panel keeps a capped internal scroll */
+@media (max-width: 1279px) {
+  .admin-portal .cmd-main:has(.admin-leaves-page-wrap) {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .admin-portal .admin-hub-page-wrap.admin-leaves-page-wrap {
+    height: auto;
+    max-height: none;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .admin-leaves-view .admin-leaves-shell {
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-leaves-view .admin-leaves-three-col {
+    overflow: visible;
+    align-content: start;
+  }
+
+  .admin-leaves-view .admin-leaves-three-col > .admin-leaves-col-panel {
+    height: auto;
+    max-height: min(28rem, 52vh);
+  }
+
+  .admin-leaves-view .admin-leaves-compensation-wrap {
+    overflow-y: auto;
+  }
+}
+
 .admin-leaves-view .admin-leaves-compensation-wrap {
   flex: 1;
   min-height: 0;
@@ -217,8 +253,14 @@
   flex-direction: column;
   height: 100%;
   max-height: 100%;
-  min-height: 0;
+  min-height: 12rem;
   overflow: hidden;
+}
+
+@media (min-width: 1280px) {
+  .admin-leaves-view .admin-leaves-three-col > .admin-leaves-col-panel {
+    min-height: 0;
+  }
 }
 
 .admin-leaves-view .admin-leaves-col-panel-head {

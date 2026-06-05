@@ -565,7 +565,7 @@ export default function LeaveRequest() {
   const visiblePageNumbers = getVisiblePageNumbers(currentPage, totalPages)
 
   return (
-    <div className="emp-leave-page max-w-full space-y-5 overflow-x-hidden">
+    <div className="emp-leave-page max-w-full space-y-5 overflow-x-hidden pb-8" data-page-scrollable>
       <div className="emp-leave-top">
         <div className="emp-leave-top-grid">
         <InteractiveCard

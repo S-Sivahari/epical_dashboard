@@ -457,7 +457,7 @@ export default function Timesheet() {
   }
 
   return (
-    <div className="emp-timesheet-page dashboard-surface space-y-4">
+    <div className="emp-timesheet-page dashboard-surface space-y-4 pb-8" data-page-scrollable>
       <div className="emp-page-header flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
         <div>
           <h1 className="text-xl font-extrabold text-[var(--emerald-dark)] leading-none">Projects & Timesheets</h1>

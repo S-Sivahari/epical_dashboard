@@ -21,10 +21,7 @@
   }
 }
 
-.employee-portal [data-employee-page] > .emp-portal-page__content:has(.emp-leave-page) {
-  overflow-x: hidden;
-  overflow-y: auto;
-}
+/* Leave page scroll — via data-page-scrollable on .emp-leave-page */
 
 /* White outer section wrapping the three top cards */
 .emp-leave-top {

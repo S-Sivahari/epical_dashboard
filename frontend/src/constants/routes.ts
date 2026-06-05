@@ -7,6 +7,8 @@ export const ROUTES = {
   EMPLOYEE_EDIT: (id: string) => `/admin/employees/${id}/edit`,
   LEAVES: '/admin/leaves',
   PROJECTS: '/admin/projects',
+  PROJECT_WORKSPACE: (id: string) => `/admin/projects/${id}`,
+  TIMESHEET: '/admin/timesheet',
   CALENDAR: '/admin/calendar',
   TRAINING: '/admin/training',
   ACHIEVEMENTS: '/admin/achievements',

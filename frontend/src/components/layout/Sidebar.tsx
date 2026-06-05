@@ -53,7 +53,8 @@ const groups: {
   {
     label: 'Work',
     items: [
-      { to: ROUTES.PROJECTS, label: 'Projects / Timesheet', icon: Briefcase },
+      { to: ROUTES.TIMESHEET, label: 'Projects & Timesheets', icon: Briefcase },
+      { to: ROUTES.PROJECTS, label: 'Projects', icon: Briefcase },
       { to: ROUTES.CALENDAR, label: 'Company Calendar', icon: CalendarDays },
     ],
   },

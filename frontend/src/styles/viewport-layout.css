@@ -104,6 +104,17 @@ body,
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-page-scrollable]) {
   overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Scrollable employee routes — grow with content; main column scrolls */
+.employee-portal [data-employee-page]:has([data-page-scrollable]) {
+  flex: 1 1 auto;
+  max-height: none;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
 }
 
 /* ── Hub shells (header fixed, body scrolls) ── */
@@ -303,9 +314,7 @@ body,
   overflow-y: auto;
 }
 
-.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-dashboard]),
-.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]),
-.employee-portal [data-employee-page] > .emp-portal-page__content:has(.emp-timesheet-page) {
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]):not(:has([data-page-scrollable])) {
   overflow: hidden;
 }
 
