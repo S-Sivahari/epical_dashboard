@@ -783,9 +783,9 @@ export default function Timesheet() {
       </div>
 
       {/* Work History - Full Width Bottom Section */}
-      <section className="emp-timesheet-card p-4">
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <div>
+      <section className="emp-timesheet-card p-4 overflow-visible">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+          <div className="min-w-0 flex-1">
             <h3 className="text-sm font-bold text-slate-900">Work History</h3>
             {unifiedHistory.length > 0 && (
               <p className="text-xs text-slate-600 mt-0.5">
@@ -793,20 +793,22 @@ export default function Timesheet() {
               </p>
             )}
           </div>
-          <DateRangePicker
-            startDate={historyStart}
-            endDate={historyEnd}
-            preset={historyPreset}
-            onChange={(start, end, preset) => {
-              setHistoryStart(start)
-              setHistoryEnd(end)
-              setHistoryPreset(preset)
-              void Promise.all([
-                useTimesheetStore.getState().refreshSessionsForRange({ from: start, to: end }),
-                useTimesheetStore.getState().refreshProjectWiseHours({ from: start, to: end }),
-              ])
-            }}
-          />
+          <div className="flex-shrink-0 relative z-20">
+            <DateRangePicker
+              startDate={historyStart}
+              endDate={historyEnd}
+              preset={historyPreset}
+              onChange={(start, end, preset) => {
+                setHistoryStart(start)
+                setHistoryEnd(end)
+                setHistoryPreset(preset)
+                void Promise.all([
+                  useTimesheetStore.getState().refreshSessionsForRange({ from: start, to: end }),
+                  useTimesheetStore.getState().refreshProjectWiseHours({ from: start, to: end }),
+                ])
+              }}
+            />
+          </div>
         </div>
 
         {(isInitialLoading || sessionsLoading) && unifiedHistory.length === 0 ? (

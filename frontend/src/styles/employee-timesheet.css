@@ -171,6 +171,11 @@
   box-shadow: 0 2px 12px rgba(38, 107, 28, 0.06);
 }
 
+/* Allow overflow for Work History section to show date picker dropdown */
+.emp-timesheet-card:has(.emp-timesheet-history-scroll) {
+  overflow: visible;
+}
+
 .emp-timesheet-card-header {
   border-bottom: 1px solid rgba(38, 107, 28, 0.08);
   background: linear-gradient(180deg, #f8faf9 0%, #f4faf6 100%);
