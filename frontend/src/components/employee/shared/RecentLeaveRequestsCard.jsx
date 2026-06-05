@@ -11,6 +11,7 @@ const LEAVE_TYPE_META = {
   'Casual Leave': { initial: 'C', soft: 'bg-[#3d7a6a]/12 text-[#2d6b52]' },
   'Sick Leave': { initial: 'S', soft: 'bg-[#4a7a9a]/12 text-[#3d6b8a]' },
   'Earned Leave': { initial: 'E', soft: 'bg-[#6b5b8a]/12 text-[#5c4f78]' },
+  'Compensation Leave': { initial: 'P', soft: 'bg-[#c27803]/12 text-[#9a5f02]' },
 }
 
 const STATUS_META = {

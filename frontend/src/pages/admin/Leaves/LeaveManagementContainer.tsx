@@ -36,7 +36,7 @@ import { leaveExportFileName } from '@/utils/exportFileName'
 
 type TabType = 'requests' | 'compensation'
 
-const LEAVE_TYPES = ['Sick Leave', 'Casual Leave', 'Earned Leave']
+const LEAVE_TYPES = ['Casual Leave', 'Sick Leave', 'Earned Leave', 'Compensation Leave']
 
 function formatLocalDate(d: Date) {
   const y = d.getFullYear()

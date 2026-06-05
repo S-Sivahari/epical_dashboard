@@ -1811,6 +1811,12 @@
   border-color: rgba(124, 108, 158, 0.2) !important;
 }
 
+.employee-portal [data-employee-page] .emp-leave-tint--compensation,
+.admin-dashboard-view[data-employee-dashboard] .emp-leave-tint--compensation {
+  background: linear-gradient(135deg, #fef6eb 0%, #ffffff 100%) !important;
+  border-color: rgba(194, 120, 3, 0.22) !important;
+}
+
 /* Page shell — padding on standard routes; full-bleed dashboard & calendar */
 .employee-portal [data-employee-page] > .emp-portal-page__content {
   padding: 1rem;
