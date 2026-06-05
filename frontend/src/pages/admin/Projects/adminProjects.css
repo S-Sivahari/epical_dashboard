@@ -746,19 +746,26 @@
 }
 
 /* Compact rows — fit ~6 projects without scrolling the table body */
-.admin-projects-directory-view .admin-projects-directory-table table {
-  font-size: 0.8125rem;
+.admin-projects-directory-view .admin-projects-directory-table {
+  --projects-table-font: 0.8125rem;
+}
+
+.admin-projects-directory-view .admin-projects-directory-table table,
+.admin-projects-directory-view .admin-projects-directory-table thead th,
+.admin-projects-directory-view .admin-projects-directory-table tbody td,
+.admin-projects-directory-view .admin-projects-directory-table .employee-directory-employee-link p,
+.admin-projects-directory-view .admin-projects-directory-table .employee-directory-status-badge,
+.admin-projects-directory-view .admin-projects-directory-table tbody .inline-flex.rounded-full {
+  font-size: var(--projects-table-font) !important;
 }
 
 .admin-projects-directory-view .admin-projects-directory-table .employee-directory-thead th {
   padding: 0.5rem 0.875rem !important;
-  font-size: 0.75rem !important;
 }
 
 .admin-projects-directory-view .admin-projects-directory-table tbody td {
   padding: 0.35rem 0.875rem !important;
   vertical-align: middle;
-  font-size: 0.8125rem;
 }
 
 .admin-projects-directory-view .admin-projects-directory-table .employee-directory-employee-link {
@@ -775,21 +782,8 @@
   line-height: 1.2;
 }
 
-.admin-projects-directory-view .admin-projects-directory-table .employee-directory-employee-link p:first-child {
-  font-size: 0.8125rem;
-}
-
-.admin-projects-directory-view .admin-projects-directory-table .employee-directory-employee-link p:last-child {
-  font-size: 0.6875rem;
-}
-
 .admin-projects-directory-view .admin-projects-directory-table .employee-directory-status-badge {
   padding: 0.125rem 0.5rem;
-  font-size: 0.6875rem;
-}
-
-.admin-projects-directory-view .admin-projects-directory-table tbody .inline-flex.rounded-full {
-  font-size: 0.6875rem;
 }
 
 .admin-projects-dashboard-shell {

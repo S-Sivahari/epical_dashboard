@@ -200,8 +200,6 @@ export function ProjectsDashboard() {
 
               </p>
 
-              <p className="truncate text-xs font-medium text-slate-500">{p.id}</p>
-
             </div>
 
           </Link>
@@ -222,7 +220,7 @@ export function ProjectsDashboard() {
 
         render: (p) => (
 
-          <span className="text-sm text-slate-700">
+          <span className="text-slate-700">
 
             {p.client || <span className="text-slate-400">—</span>}
 
@@ -246,7 +244,7 @@ export function ProjectsDashboard() {
 
             className={cn(
 
-              'inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold',
+              'inline-flex items-center gap-1 rounded-full border px-3 py-1 font-semibold',
 
               p.accessType === 'public'
 
@@ -288,7 +286,7 @@ export function ProjectsDashboard() {
 
         render: (p) => (
 
-          <span className="text-sm text-slate-700">
+          <span className="text-slate-700">
 
             {p.teamLead || <span className="text-slate-400">—</span>}
 
@@ -316,7 +314,7 @@ export function ProjectsDashboard() {
 
               variant={progress >= 75 ? 'success' : progress >= 40 ? 'info' : 'neutral'}
 
-              className="employee-directory-status-badge px-3 py-1 text-xs font-semibold"
+              className="employee-directory-status-badge px-3 py-1 font-semibold"
 
             >
 
