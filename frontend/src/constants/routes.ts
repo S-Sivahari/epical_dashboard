@@ -16,4 +16,5 @@ export const ROUTES = {
   TICKETS: '/admin/tickets',
   PAYSLIPS: '/admin/payslips',
   SETTINGS: '/admin/settings',
+  HELP: '/admin/help',
 } as const

@@ -14,10 +14,10 @@ import { LeaveCard } from '@components/employee/shared/LeaveCard'
 import { AssignedProjectsSection } from '@components/employee/shared/AssignedProjectsSection'
 import { AnnouncementBanner } from '@components/employee/shared/AnnouncementBanner'
 import { UpcomingHolidaysCard } from '@components/employee/shared/UpcomingHolidaysCard'
-import { RecentLeaveRequestsCard } from '@components/employee/shared/RecentLeaveRequestsCard'
 import { useAuthStore } from '@store/authStore'
 import { fetchEmployeeDashboard } from '@services/employeeDashboardService'
 import * as leaveService from '@services/leaveService'
+import { formatLeaveBalances } from '@/utils/leaveBalances'
 import { cn } from '@pages/employee/lib/utils'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 
@@ -36,43 +36,6 @@ const LEAVE_TINT = {
 }
 
 const CARD_CLASS = portalCardClass({ className: 'flex h-full min-h-0 flex-col overflow-hidden p-4 sm:p-5' })
-
-function formatLeaveBalances(balanceData = {}) {
-  return [
-    {
-      key: 'casual',
-      type: 'Casual Leave',
-      used: balanceData['Casual Leave']?.used ?? 0,
-      total: balanceData['Casual Leave']?.total ?? 12,
-      remaining: balanceData['Casual Leave']?.remaining ?? 12,
-      color: LEAVE_COLORS['Casual Leave'],
-    },
-    {
-      key: 'sick',
-      type: 'Sick Leave',
-      used: balanceData['Sick Leave']?.used ?? 0,
-      total: balanceData['Sick Leave']?.total ?? 12,
-      remaining: balanceData['Sick Leave']?.remaining ?? 12,
-      color: LEAVE_COLORS['Sick Leave'],
-    },
-    {
-      key: 'earned',
-      type: 'Earned Leave',
-      used: balanceData['Earned Leave']?.used ?? 0,
-      total: balanceData['Earned Leave']?.total ?? 0,
-      remaining: balanceData['Earned Leave']?.remaining ?? 0,
-      color: LEAVE_COLORS['Earned Leave'],
-    },
-    {
-      key: 'compensation',
-      type: 'Compensation Leave',
-      used: balanceData['Compensation Leave']?.used ?? 0,
-      total: balanceData['Compensation Leave']?.total ?? 0,
-      remaining: balanceData['Compensation Leave']?.remaining ?? 0,
-      color: LEAVE_COLORS['Compensation Leave'],
-    },
-  ]
-}
 
 function SectionCard({ title, subtitle, action, children, className = '', tone, icon: Icon }) {
   return (
@@ -116,11 +79,8 @@ function InlineSkeleton({ className = '' }) {
 export default function Dashboard() {
   const employee = useAuthStore((s) => s.user)
   const [loading, setLoading] = useState(true)
-  const [balancesLoading, setBalancesLoading] = useState(true)
-  const [profile, setProfile] = useState(null)
   const [balances, setBalances] = useState(() => formatLeaveBalances())
   const [leaves, setLeaves] = useState([])
-  const [leaveHistory, setLeaveHistory] = useState([])
   const [holidays, setHolidays] = useState([])
   const [documents, setDocuments] = useState([])
   const [enrollments, setEnrollments] = useState([])
@@ -129,30 +89,7 @@ export default function Dashboard() {
   const [weeklyHours, setWeeklyHours] = useState(0)
   const [projectCount, setProjectCount] = useState(0)
   const [assignedProjects, setAssignedProjects] = useState(null)
-
-  useEffect(() => {
-    if (!employee?.id) return
-
-    let cancelled = false
-    setBalancesLoading(true)
-
-    leaveService
-      .getBalances()
-      .then((data) => {
-        if (!cancelled) setBalances(formatLeaveBalances(data))
-      })
-      .catch((error) => {
-        console.error('[Dashboard] leave balances failed:', error)
-        if (!cancelled) setBalances(formatLeaveBalances())
-      })
-      .finally(() => {
-        if (!cancelled) setBalancesLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [employee?.id])
+  const [profile, setProfile] = useState(null)
 
   useEffect(() => {
     if (!employee?.id) return
@@ -172,13 +109,6 @@ export default function Dashboard() {
         setAssignedProjects(projects)
         setBalances(formatLeaveBalances(balanceData))
         setLeaves(Array.isArray(data.leaves) ? data.leaves : [])
-        setLeaveHistory(
-          Array.isArray(data.leaveHistory)
-            ? data.leaveHistory
-            : Array.isArray(data.leaves)
-              ? data.leaves
-              : [],
-        )
         setHolidays(Array.isArray(data.holidays) ? data.holidays : [])
         setDocuments(Array.isArray(data.documents) ? data.documents : [])
         setEnrollments(Array.isArray(data.enrollments) ? data.enrollments : [])
@@ -199,6 +129,19 @@ export default function Dashboard() {
     }
   }, [employee?.id])
 
+  useEffect(() => {
+    if (!employee?.id) return
+
+    const balanceInterval = setInterval(() => {
+      leaveService
+        .getBalances()
+        .then((data) => setBalances(formatLeaveBalances(data)))
+        .catch((error) => console.error('[Dashboard] leave balances refresh failed:', error))
+    }, 60_000)
+
+    return () => clearInterval(balanceInterval)
+  }, [employee?.id])
+
   const pendingLeaves = useMemo(() => leaves.filter((l) => l.status === 'Pending'), [leaves])
   const pendingDocs = useMemo(() => documents.filter((d) => d.status === 'Requested'), [documents])
   const enrolledCourses = enrollments.filter((e) => e.status === 'Enrolled').length
@@ -213,21 +156,21 @@ export default function Dashboard() {
         value: `${monthlyHours}h`,
         icon: Clock,
         trend: `${weeklyHours}h this week`,
-        accent: 'teal',
+        accent: 'sage',
       },
       {
         title: 'Pending Leave',
         value: String(pendingLeaves.length),
         icon: CalendarOff,
-        trend: pendingLeaves.length ? 'Awaiting approval' : 'None pending',
-        accent: 'amber',
+        trend: pendingLeaves.length ? 'Awaiting admin approval' : 'None pending',
+        accent: 'sage',
       },
       {
         title: 'Active Projects',
         value: String(projectCount),
         icon: FolderKanban,
         trend: projectCount ? 'Assigned to you' : 'None assigned',
-        accent: 'blue',
+        accent: 'sage',
       },
       {
         title: 'Training',
@@ -266,50 +209,41 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:items-stretch">
-        {balancesLoading ? (
-          widgetSkeleton
-        ) : (
-          <SectionCard
-            className="h-full"
-            tone="sage"
-            icon={CalendarRange}
-            title="Leave balance"
-            subtitle="Remaining leave for the year"
-            action={<SectionLink to="/employee/leave" label="Apply" />}
-          >
-            <div className="grid flex-1 auto-rows-fr gap-2">
-              {balances.map((lb) => (
-                <LeaveCard
-                  key={lb.key}
-                  type={lb.type}
-                  used={lb.used}
-                  total={lb.total}
-                  remaining={lb.remaining}
-                  color={lb.color ?? LEAVE_COLORS[lb.type] ?? '#3d7a6a'}
-                  embedded
-                  tintClass={LEAVE_TINT[lb.key]}
-                  className="h-full min-h-0 py-3"
-                />
-              ))}
-            </div>
-          </SectionCard>
-        )}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:items-start">
+        <div className="flex flex-col gap-4">
+          {loading ? (
+            widgetSkeleton
+          ) : (
+            <SectionCard
+              tone="sage"
+              icon={CalendarRange}
+              title="Leave balance"
+              action={<SectionLink to="/employee/leave" label="Apply" />}
+            >
+              <div className="grid flex-1 auto-rows-fr gap-2">
+                {balances.map((lb) => (
+                  <LeaveCard
+                    key={lb.key}
+                    type={lb.type}
+                    used={lb.used}
+                    total={lb.total}
+                    remaining={lb.remaining}
+                    color={lb.color ?? LEAVE_COLORS[lb.type] ?? '#3d7a6a'}
+                    embedded
+                    tintClass={LEAVE_TINT[lb.key]}
+                    className="h-full min-h-0 py-3"
+                  />
+                ))}
+              </div>
+            </SectionCard>
+          )}
 
-        {loading ? (
-          widgetSkeleton
-        ) : (
-          <RecentLeaveRequestsCard
-            className="h-full emp-dash-card emp-dash-card--amber"
-            leaves={leaveHistory.length ? leaveHistory : leaves}
-          />
-        )}
-
-        {loading ? (
-          widgetSkeleton
-        ) : (
-          <UpcomingHolidaysCard className="h-full emp-dash-card emp-dash-card--sky" holidays={holidays} />
-        )}
+          {loading ? (
+            widgetSkeleton
+          ) : (
+            <UpcomingHolidaysCard className="emp-dash-card emp-dash-card--sky" holidays={holidays} />
+          )}
+        </div>
       </div>
 
       {!loading && pendingDocs.length > 0 ? (
@@ -321,7 +255,7 @@ export default function Dashboard() {
             <FileText className="h-4 w-4 shrink-0 text-amber-700" />
             <p className="text-sm text-amber-900">
               <span className="font-medium">{pendingDocs.length}</span> document request
-              {pendingDocs.length === 1 ? '' : 's'} pending HR review
+              {pendingDocs.length === 1 ? '' : 's'} pending admin review
             </p>
           </div>
           <Link to="/employee/documents" className="text-xs font-medium text-primary hover:underline">

@@ -82,7 +82,10 @@ export interface LeaveRequest {
   createdAt?: string
   updatedAt?: string
   approvalDate?: string
+  approvedAt?: string
   approvedBy?: string
+  rejectedAt?: string
+  rejectedBy?: string
 }
 
 /** Employee leave rollup for admin profile modal (`GET /leaves/employee/:id/summary`). */

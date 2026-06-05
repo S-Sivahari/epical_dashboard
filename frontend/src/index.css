@@ -1775,6 +1775,12 @@
   background: rgba(15, 60, 50, 0.28);
 }
 
+.employee-portal [data-employee-page] .emp-stat-chip--sage,
+.admin-dashboard-view[data-employee-dashboard] .emp-stat-chip--sage {
+  border-color: rgba(106, 171, 143, 0.42);
+  background: rgba(30, 90, 61, 0.34);
+}
+
 .employee-portal [data-employee-page] .emp-stat-chip--amber,
 .admin-dashboard-view[data-employee-dashboard] .emp-stat-chip--amber {
   border-color: rgba(252, 211, 77, 0.35);
@@ -9802,6 +9808,32 @@
   }
 }
 
+.admin-settings-view.admin-help-view .admin-settings-hero-title {
+  font-size: 1.44375rem;
+}
+
+@media (min-width: 640px) {
+  .admin-settings-view.admin-help-view .admin-settings-hero-title {
+    font-size: 1.58125rem;
+  }
+}
+
+.admin-settings-view.admin-help-view .admin-help-topic-btn {
+  border-color: var(--dash-border-green);
+  background: #ffffff;
+  color: var(--dash-forest, #1a4329);
+}
+
+.admin-settings-view.admin-help-view .admin-help-topic-btn:hover {
+  background: #f4faf6;
+}
+
+.admin-settings-view.admin-help-view .admin-help-topic-btn--active {
+  border-color: var(--dash-forest-header, #2f6b4f);
+  background: #f4faf6;
+  box-shadow: 0 1px 3px rgba(26, 67, 41, 0.08);
+}
+
 .admin-settings-view .admin-settings-body {
   display: flex;
   flex-direction: column;
@@ -10498,7 +10530,7 @@
 
 @media (min-width: 1280px) {
   .admin-leaves-view .admin-leaves-three-col {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: minmax(11rem, 0.62fr) minmax(0, 1.48fr) minmax(10rem, 0.9fr);
     align-items: stretch;
   }
 }
@@ -11935,6 +11967,7 @@ input[type='number'] {
   cursor: pointer;
   text-align: left;
   transition: color 0.15s ease;
+  color: #64748b;
 }
 
 .employee-profile-detail-page .ep-profile-address-btn:hover {
@@ -11943,22 +11976,33 @@ input[type='number'] {
 
 .employee-profile-detail-page .ep-profile-label {
   font-size: 0.75rem;
+  color: #000000;
 }
 
 .employee-profile-detail-page .ep-profile-value {
   font-size: 0.9375rem;
+  color: #64748b;
 }
 
 .employee-profile-detail-page .ep-profile-name {
-  font-size: 1.125rem;
+  font-size: 1.25rem;
 }
 
 .employee-profile-detail-page .ep-profile-meta {
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
 }
 
 .employee-profile-detail-page .ep-profile-tab {
-  font-size: 0.8125rem;
+  font-size: 0.894rem;
+}
+
+.employee-profile-detail-page .ep-profile-tab--active {
+  background-color: #2d6a4f;
+  color: #ffffff;
+}
+
+.employee-profile-detail-page .ep-profile-id {
+  font-size: 0.9375rem;
 }
 
 .employee-profile-detail-page .ep-profile-status {
@@ -12169,8 +12213,6 @@ input[type='number'] {
 
 .employee-directory-view .employee-directory-table {
   margin: 0.75rem 1.25rem 0;
-  max-height: none;
-  overflow: hidden;
   border: 1px solid rgba(30, 90, 61, 0.12);
   border-radius: 0.75rem;
   box-shadow: none;
@@ -12182,8 +12224,11 @@ input[type='number'] {
   }
 }
 
-.employee-directory-view .employee-directory-table .admin-table-scroll {
+.employee-directory-view .employee-directory-table.admin-table-scroll {
+  overflow-x: auto;
+  overflow-y: auto;
   max-height: calc(100dvh - 22rem);
+  -webkit-overflow-scrolling: touch;
 }
 
 .employee-directory-thead th {

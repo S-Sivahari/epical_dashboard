@@ -34,26 +34,27 @@ export const employeePortalGuideSections = [
       'Scroll to Session History and use the date filter to see past entries and project-wise hours.',
     ],
     notes: [
-      'You must pick a task before check-in. If you have no assigned tasks, ask your manager or HR to assign work on a project.',
+      'You must pick a task before check-in. If you have no assigned tasks, ask your manager or admin to assign work on a project.',
       'Only one active check-in per day is expected; complete checkout before ending your workday.',
     ],
   },
   {
     key: 'apply-leave',
     title: 'Apply for leave',
-    summary: 'Request Casual, Sick, or Earned leave — full day or half day.',
+    summary: 'Request Casual, Sick, Earned, Compensation, or LOP — full day or half day.',
     linkTo: '/employee/leave',
     linkLabel: 'Leave Request',
     steps: [
-      'Open Leave Request and check your balance cards (Casual, Sick, Earned) at the top.',
-      'In Apply Leave, choose leave type, Full Day or Half Day, and dates. Half-day must be a single working day with First or Second half selected.',
-      'Enter a reason (required) and submit. The request appears under Pending until HR approves or rejects it.',
-      'You can cancel a pending request from the Pending table if your plans change (before it is approved).',
-      'Approved leave shows in History; active approved leave may also appear on the dashboard leave card.',
+      'Open Leave Request and check your balance tiles at the top.',
+      'In Apply for leave, choose type, reason, duration, and dates. Half-day must be a single working day with First or Second half selected.',
+      'Enter a reason (required) and submit. The request appears under Pending requests until admin approves or rejects it.',
+      'You can cancel a pending request from the Pending table if your plans change (no reason required).',
+      'Approved, rejected, and cancelled leave show in Leave history; rejection may include a reason from admin.',
     ],
     notes: [
       'Only working days count — weekends and company holidays in the range are excluded automatically.',
-      'Dates must be today or in the future, within the allowed booking window shown on the form.',
+      'Dates must be today or within the allowed booking window shown on the form (up to 45 days ahead).',
+      'Casual leave must be applied before your leave date; same-day leave must be submitted as LOP.',
     ],
   },
   {
@@ -63,17 +64,17 @@ export const employeePortalGuideSections = [
     linkTo: '/employee/leave',
     linkLabel: 'Leave Request',
     steps: [
-      'Each type has Total, Used, Pending, and Remaining. Pending is leave you applied for but HR has not approved yet.',
-      'When you submit, the system compares Remaining to the business days you requested (0.5 for half-day).',
-      'If Remaining is less than requested days, submission fails with an insufficient balance message — the request is not created.',
-      'If HR approves a request but your balance was used up by other approvals in the meantime, approval can fail on the admin side; your status stays Pending or may be rejected with a reason.',
+      'Each type shows used and left (LOP shows count only). Pending is leave you applied for but admin has not approved yet.',
+      'When you submit, the system compares remaining balance to the business days you requested (0.5 for half-day).',
+      'If remaining is less than requested days, submission fails with an insufficient balance message — the request is not created.',
+      'If admin approves but your balance was used up by other approvals in the meantime, approval can fail; your status may stay Pending or become Rejected with a reason.',
       'Casual and Sick leave usage is counted for the current calendar month; balances refresh at the start of each month.',
-      'Earned leave is tracked for the calendar year. Extra earned days from compensation appear in your Earned total.',
+      'Earned leave is tracked for the calendar year (0.5 days per month). Compensation leave comes from admin credits.',
     ],
     notes: [
-      'Applying for leave when balance is zero: the form will not accept the request until you have enough remaining days (or HR adjusts your allocation).',
-      'Pending days do not reduce Remaining until approved, but they help you see what is already waiting for review.',
-      'View Compensation Leave on the same page to see HR-credited earned days and reasons.',
+      'Applying when balance is zero: sick and compensation types are hidden; casual and earned stay visible but cannot be submitted — use LOP. If requested days exceed casual or earned balance, submit separate casual/earned and LOP requests.',
+      'Pending days do not reduce your left count until approved, but pending sick days are reserved when you apply.',
+      'Compensation credits from admin appear in your Compensation balance on the same page.',
     ],
   },
   {
@@ -92,7 +93,7 @@ export const employeePortalGuideSections = [
   {
     key: 'documents',
     title: 'Documents & payslips',
-    summary: 'Request HR documents and download payslips when published.',
+    summary: 'Request documents and download payslips when published.',
     linkTo: '/employee/documents',
     linkLabel: 'Documents',
     steps: [
@@ -100,10 +101,10 @@ export const employeePortalGuideSections = [
       'To request a document: choose type, enter a clear document name and reason, then submit.',
       'Track status in Request History — Pending, Approved, or Rejected (rejection may include a reason).',
       'When approved, download the PDF from My Documents or from the approved row where download is offered.',
-      'Under Payslips, filter by period, preview or download salary slips once HR has published them for your account.',
+      'Under Payslips, filter by period, preview or download salary slips once admin has published them for your account.',
     ],
     notes: [
-      'Request history refreshes automatically so you can wait for approval without reloading the page.',
+      'Request history refreshes automatically so you can wait for admin approval without reloading the page.',
     ],
   },
   {
@@ -115,7 +116,7 @@ export const employeePortalGuideSections = [
     steps: [
       'Open Training & Courses to see courses assigned or available to you.',
       'Continue in-progress courses and track completion percentage on each card.',
-      'Suggested courses may appear for optional enrollment depending on HR setup.',
+      'Suggested courses may appear for optional enrollment depending on admin setup.',
       'Finish required compliance or role-based training before deadlines set by your manager.',
     ],
   },
@@ -127,8 +128,8 @@ export const employeePortalGuideSections = [
     linkLabel: 'Achievements',
     steps: [
       'Open Company Achievements to view recognition entries on your record.',
-      'Each card shows title, date, and description added by HR or admin.',
-      'This section is read-only; contact HR if an achievement is missing or incorrect.',
+      'Each card shows title, date, and description added by admin.',
+      'This section is read-only; raise a ticket if an achievement is missing or incorrect.',
     ],
   },
   {
@@ -148,13 +149,13 @@ export const employeePortalGuideSections = [
   {
     key: 'profile',
     title: 'My profile',
-    summary: 'View your employment details synced from HR.',
+    summary: 'View your employment details on file.',
     linkTo: '/employee/profile',
     linkLabel: 'My Profile',
     steps: [
       'Click your avatar in the command bar or open My Profile from the navigation.',
       'Review name, employee ID, designation, join date, and contact details on file.',
-      'Profile data is maintained by HR — use Raise Tickets or speak with HR to request corrections.',
+      'Profile data is maintained by admin — use Raise Tickets to request corrections.',
     ],
   },
   {
@@ -164,9 +165,9 @@ export const employeePortalGuideSections = [
     linkTo: '/employee',
     linkLabel: 'Dashboard',
     steps: [
-      'From the login page, use Continue with Google with your company Gmail registered with HR.',
+      'From the login page, use Continue with Google with your company Gmail registered with admin.',
       'There is no separate portal password; only approved company accounts can sign in.',
-      'If sign-in fails, confirm you are using the correct Google account or contact HR to link your employee record.',
+      'If sign-in fails, confirm you are using the correct Google account or contact admin to link your employee record.',
     ],
   },
 ]

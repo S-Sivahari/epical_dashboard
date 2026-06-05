@@ -12,7 +12,6 @@ import {
 } from '@/pages/admin/Dashboard/dashboardChartUtils'
 import {
   buildPendingApprovals,
-  buildUpcomingDeadlines,
   countEmployeesJoinedThisMonth,
 } from '@/pages/admin/Dashboard/dashboardBackendUtils'
 import { fetchAdminDocumentRequests } from '@services/documentRequestService'
@@ -230,16 +229,6 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
     [pendingLeaves, pendingDocs],
   )
 
-  const upcomingDeadlines = useMemo(
-    () =>
-      buildUpcomingDeadlines(
-        allEmployees,
-        payslipBatches,
-        holidays.map((h) => ({ date: h.date, name: h.title })),
-      ),
-    [allEmployees, payslipBatches, holidays],
-  )
-
   const employeesAddedThisMonth = useMemo(
     () => countEmployeesJoinedThisMonth(allEmployees),
     [allEmployees],
@@ -318,7 +307,6 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
     pendingTickets,
     allEmployees,
     pendingApprovalTasks,
-    upcomingDeadlines,
     employeesAddedThisMonth,
   }
 }

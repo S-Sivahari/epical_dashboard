@@ -90,34 +90,52 @@ export async function createUser(payload: CreateUserPayload): Promise<Omit<User,
   return safeUser;
 }
 
-export async function seedDefaultUsers(): Promise<{ created: string[]; skipped: string[] }> {
+function defaultAdminPayload(): CreateUserPayload {
+  return {
+    id: 'ADM-1',
+    name: env.ADMIN_NAME || 'Epical Admin',
+    email: ADMIN_LOGIN_EMAIL,
+    password: env.ADMIN_PASSWORD || 'admin123',
+    role: 'Admin',
+    designation: 'Administrator',
+    joinedAt: '2019-04-01',
+  };
+}
+
+/** Create the default admin account or sync its display name from env. */
+export async function ensureDefaultAdminUser(): Promise<{ created: boolean; updated: boolean }> {
   const col = getUserCollection();
-  const created: string[] = [];
-  const skipped: string[] = [];
+  const admin = defaultAdminPayload();
+  const existing = await col.findOne({ email: admin.email });
 
-  const defaults: CreateUserPayload[] = [
-    {
-      id: 'ADM-1',
-      name: env.ADMIN_NAME || 'Admin User',
-      email: ADMIN_LOGIN_EMAIL,
-      password: env.ADMIN_PASSWORD || 'admin123',
-      role: 'Admin',
-      designation: 'Administrator',
-      joinedAt: '2019-04-01',
-    },
-  ];
-
-  for (const u of defaults) {
-    const existing = await col.findOne({ email: u.email });
-    if (existing) {
-      skipped.push(u.email);
-    } else {
-      await createUser(u);
-      created.push(u.email);
-    }
+  if (!existing) {
+    await createUser(admin);
+    return { created: true, updated: false };
   }
 
-  return { created, skipped };
+  if (existing.name !== admin.name) {
+    await col.updateOne(
+      { email: admin.email },
+      { $set: { name: admin.name, updatedAt: new Date() } },
+    );
+    return { created: false, updated: true };
+  }
+
+  return { created: false, updated: false };
+}
+
+export async function seedDefaultUsers(): Promise<{ created: string[]; skipped: string[]; updated: string[] }> {
+  const created: string[] = [];
+  const skipped: string[] = [];
+  const updated: string[] = [];
+
+  const admin = defaultAdminPayload();
+  const result = await ensureDefaultAdminUser();
+  if (result.created) created.push(admin.email);
+  else if (result.updated) updated.push(admin.email);
+  else skipped.push(admin.email);
+
+  return { created, skipped, updated };
 }
 
 export { ensureUserAccountForEmployee };

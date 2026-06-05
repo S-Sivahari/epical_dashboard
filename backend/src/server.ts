@@ -16,7 +16,6 @@ import {
   normalizeEmployeesWithSameCompanyAndPersonalEmail,
   removeDepartmentFromDatabase,
 } from './services/employeeService';
-import { purgeCancelledLeavesFromDatabase } from './services/leaveService';
 
 import { authMiddleware, requireRole } from './middleware/authMiddleware';
 import { csrfMiddleware } from './middleware/csrfMiddleware';
@@ -43,7 +42,7 @@ import { achievementRoutes } from './routes/achievementRoutes';
 import { employeeDashboardRoutes } from './routes/employeeDashboardRoutes';
 
 // Seed helpers
-import { seedDefaultUsers } from './services/authService';
+import { ensureDefaultAdminUser, seedDefaultUsers } from './services/authService';
 import { seedLeaves, seedHolidays } from './services/leaveService';
 import { seedTickets } from './services/ticketService';
 import {
@@ -336,6 +335,17 @@ export async function startServer() {
 
     await ensureAttendanceIndexes();
 
+    try {
+      const adminSync = await ensureDefaultAdminUser();
+      if (adminSync.created) {
+        console.log('✓ Created default admin account');
+      } else if (adminSync.updated) {
+        console.log('✓ Synced default admin display name');
+      }
+    } catch (err) {
+      console.warn('⚠ Default admin account sync skipped:', err);
+    }
+
     // Payslip indexes
     const { ensurePayslipStorageIndexes } = await import(
       './services/payslipStorageService'
@@ -377,19 +387,6 @@ export async function startServer() {
       }
     } catch (err) {
       console.warn('⚠ Department field cleanup skipped:', err);
-    }
-
-    // Cleanup cancelled leaves
-    try {
-      const purgedCount = await purgeCancelledLeavesFromDatabase();
-
-      if (purgedCount > 0) {
-        console.log(
-          `✓ Purged ${purgedCount} legacy cancelled leave request(s) from database`
-        );
-      }
-    } catch (err) {
-      console.warn('⚠ Purging cancelled leaves skipped:', err);
     }
 
     app.listen(env.port, () => {

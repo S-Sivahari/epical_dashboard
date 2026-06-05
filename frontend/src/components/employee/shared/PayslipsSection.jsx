@@ -341,7 +341,7 @@ export function PayslipsSection({ payslips, loading }) {
             <div>
               <h3 className="font-heading text-lg font-semibold">Payslip history</h3>
               <p className="mt-1 text-sm text-muted">
-                Payroll records issued by HR — search, filter, and download your payslips
+                Payroll records issued by admin — search, filter, and download your payslips
               </p>
             </div>
           </div>
@@ -363,7 +363,7 @@ export function PayslipsSection({ payslips, loading }) {
             </div>
             <p className="font-heading text-lg font-semibold text-foreground">No payslips yet</p>
             <p className="mt-2 max-w-md text-sm text-muted">
-              Your payslip history will appear here once HR sends them from Payslip Management.
+              Your payslip history will appear here once admin publishes them from Payslip Management.
               Records update automatically when new payslips are issued.
             </p>
           </div>

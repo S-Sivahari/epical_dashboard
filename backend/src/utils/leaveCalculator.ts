@@ -8,6 +8,8 @@ export const LEAVE_ALLOCATIONS = {
 
 export const EARNED_LEAVE_ACCRUAL_PER_MONTH = 0.5;
 
+export const LOP_LEAVE_TYPE = 'LOP';
+
 export type LeaveAllocationType =
   | 'Casual Leave'
   | 'Sick Leave'
@@ -15,10 +17,12 @@ export type LeaveAllocationType =
   | 'Compensation Leave';
 
 export interface LeaveBalanceOptions {
-  /** Extra Earned Leave days granted via approved compensation entries (same calendar year as balances). */
+  /** Admin-credited compensation leave days for the calendar year (from compensation entries only). */
+  compensationLeaveCredits?: number;
+  /** @deprecated Use compensationLeaveCredits */
   compensationEarnedBonus?: number;
-  /** Admin-defined per-employee allotment overrides. */
-  employeeAllocations?: Partial<Record<string, number>>;
+  /** Admin-defined per-employee allotment overrides (Casual, Sick, Earned only — not Compensation). */
+  employeeAllocations?: Partial<Record<'Casual Leave' | 'Sick Leave' | 'Earned Leave', number>>;
   /** Defaults to today; useful for reports. */
   refDate?: Date;
 }
@@ -31,16 +35,36 @@ export interface LopSummary {
 
 /** Map leave request type to the balance bucket that should be checked or debited. */
 export function resolveLeaveBalanceKey(type: string): string {
+  if (type === LOP_LEAVE_TYPE) return LOP_LEAVE_TYPE;
   return type;
+}
+
+export function isoDateFromRef(refDate = new Date()): string {
+  const y = refDate.getFullYear();
+  const m = String(refDate.getMonth() + 1).padStart(2, '0');
+  const d = String(refDate.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/** Casual leave must be applied before the leave date; same-day start dates are LOP. */
+export function isCasualSameDayLeave(fromDate: string, refDate = new Date()): boolean {
+  if (!fromDate || fromDate.length < 10) return false;
+  return fromDate.slice(0, 10) === isoDateFromRef(refDate);
+}
+
+function resolveCompensationLeaveCredits(options?: LeaveBalanceOptions): number {
+  const raw =
+    options?.compensationLeaveCredits ?? options?.compensationEarnedBonus ?? 0;
+  return Math.max(0, Number(raw) || 0);
 }
 
 export function resolveLeaveAllocationTotals(
   employeeAllocations?: Partial<Record<string, number>>,
   joinedAt?: string,
   refDate = new Date(),
-  compensationEarnedBonus = 0,
+  compensationLeaveCredits = 0,
 ): Record<LeaveAllocationType, number> {
-  const bonus = Math.max(0, Number(compensationEarnedBonus) || 0);
+  const credits = Math.max(0, Number(compensationLeaveCredits) || 0);
   const earnedOverride = employeeAllocations?.['Earned Leave'];
   const earnedTotal =
     earnedOverride !== undefined && earnedOverride !== null && !Number.isNaN(Number(earnedOverride))
@@ -57,7 +81,7 @@ export function resolveLeaveAllocationTotals(
       Number(employeeAllocations?.['Sick Leave'] ?? LEAVE_ALLOCATIONS['Sick Leave']) || 0,
     ),
     'Earned Leave': earnedTotal,
-    'Compensation Leave': bonus,
+    'Compensation Leave': credits,
   };
 }
 
@@ -164,13 +188,18 @@ export function computeCasualLeaveLopForRequest(
   joinedAt?: string,
   options?: LeaveBalanceOptions,
   excludeLeaveId?: string,
+  fromDate?: string,
 ): { paidDays: number; lopDays: number } {
   const refDate = options?.refDate ?? new Date();
+  if (fromDate && isCasualSameDayLeave(fromDate, refDate)) {
+    return { paidDays: 0, lopDays: requestedDays };
+  }
+  const compensationCredits = resolveCompensationLeaveCredits(options);
   const totals = resolveLeaveAllocationTotals(
     options?.employeeAllocations,
     joinedAt,
     refDate,
-    Number(options?.compensationEarnedBonus ?? 0) || 0,
+    compensationCredits,
   );
   const casualTotal = totals['Casual Leave'];
   const consumed = casualCreditUsedThisMonth(employeeLeaves, refDate, excludeLeaveId);
@@ -193,8 +222,15 @@ export function calculateMonthlyLopSummary(
   let pendingLopDays = 0;
 
   for (const leave of employeeLeaves) {
-    if (leave.type !== 'Casual Leave') continue;
     if (!isLeaveInCurrentMonth(leave, calendarMonth)) continue;
+
+    if (leave.type === LOP_LEAVE_TYPE) {
+      if (leave.status === 'Approved') approvedLopDays += leave.days;
+      else if (leave.status === 'Pending') pendingLopDays += leave.days;
+      continue;
+    }
+
+    if (leave.type !== 'Casual Leave') continue;
 
     if (leave.status === 'Approved') {
       approvedLopDays += Number(leave.lopDays ?? 0) || 0;
@@ -212,6 +248,7 @@ export function calculateMonthlyLopSummary(
           joinedAt,
           options,
           leave.id,
+          leave.from,
         );
         pendingLopDays += lopDays;
       }
@@ -251,12 +288,12 @@ export function calculateBalances(
   options?: LeaveBalanceOptions,
 ) {
   const refDate = options?.refDate ?? new Date();
-  const compensationBonus = Number(options?.compensationEarnedBonus ?? 0) || 0;
+  const compensationCredits = resolveCompensationLeaveCredits(options);
   const totals = resolveLeaveAllocationTotals(
     options?.employeeAllocations,
     joinedAt,
     refDate,
-    compensationBonus,
+    compensationCredits,
   );
 
   const balances: Record<string, { total: number; used: number; remaining: number }> = {
@@ -277,6 +314,8 @@ export function calculateBalances(
     if (leave.status !== 'Approved' || typeof leave.from !== 'string' || leave.from.length < 7) {
       return;
     }
+
+    if (leave.type === LOP_LEAVE_TYPE) return;
 
     const balanceKey = resolveLeaveBalanceKey(leave.type);
     const isYearlyType = balanceKey === 'Earned Leave' || balanceKey === 'Compensation Leave';

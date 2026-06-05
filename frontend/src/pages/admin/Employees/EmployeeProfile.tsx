@@ -69,7 +69,7 @@ function ProfileCard({ title, children, className }: { title: string; children: 
   return (
     <div className={cn("rounded-2xl border border-slate-100 bg-white shadow-[0_4px_15px_rgba(0,0,0,0.01)] overflow-hidden flex flex-col", className)}>
       <div className="ep-profile-card-header px-4 py-2.5">
-        <h4 className="ep-profile-card-title text-xs font-bold uppercase tracking-wider">{title}</h4>
+        <h4 className="ep-profile-card-title text-xs font-bold">{title}</h4>
       </div>
       <div className="p-4 space-y-3.5 flex-1">
         {children}
@@ -89,18 +89,18 @@ function ProfileAddressItem({ label, value }: { label: string; value?: string })
 
   return (
     <div className="min-w-0">
-      <span className="ep-profile-label block text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</span>
+      <span className="ep-profile-label block font-semibold">{label}</span>
       {text && isLong ? (
         <button
           type="button"
           onClick={() => setExpanded((open) => !open)}
-          className="ep-profile-address-btn ep-profile-value mt-0.5 block w-full text-xs font-semibold text-slate-700"
+          className="ep-profile-address-btn ep-profile-value mt-0.5 block w-full font-semibold"
           title={expanded ? 'Click to collapse' : 'Click to view full address'}
         >
           {display}
         </button>
       ) : (
-        <span className="ep-profile-value mt-0.5 block text-xs font-semibold text-slate-700">{display}</span>
+        <span className="ep-profile-value mt-0.5 block font-semibold">{display}</span>
       )}
     </div>
   )
@@ -110,8 +110,8 @@ function ProfileCardItem({ label, value, icon, action }: { label: string; value?
   return (
     <div className="flex justify-between items-center min-w-0 gap-2">
       <div className="min-w-0 flex-1">
-        <span className="ep-profile-label block text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</span>
-        <span className="ep-profile-value block text-xs font-semibold text-slate-700 truncate mt-0.5" title={typeof value === 'string' ? value : undefined}>
+        <span className="ep-profile-label block font-semibold">{label}</span>
+        <span className="ep-profile-value block font-semibold truncate mt-0.5" title={typeof value === 'string' ? value : undefined}>
           {value || '—'}
         </span>
       </div>
@@ -393,8 +393,8 @@ export function EmployeeProfile() {
                 )}
               </div>
               <h2 className="ep-profile-name mt-4 text-base font-bold text-slate-800 truncate w-full">{name}</h2>
-              <p className="ep-profile-meta text-xs text-slate-500 font-medium mt-0.5 truncate w-full">
-                {employee.designation || employee.role || 'Designation'}
+              <p className="ep-profile-meta text-slate-600 font-medium mt-1 truncate w-full">
+                {employee.employmentType || '—'}
               </p>
               
               <div className="mt-3.5">
@@ -406,14 +406,14 @@ export function EmployeeProfile() {
               </div>
               
               {/* Buttons */}
-              <div className="mt-6 w-full flex flex-col gap-2.5">
-                <Button asChild variant="secondary" className="w-full text-xs font-semibold h-9 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50">
+              <div className="mt-6 w-full flex flex-row gap-2">
+                <Button asChild variant="secondary" className="flex-1 min-w-0 text-sm font-bold h-10 border border-slate-200 bg-white text-black hover:bg-slate-50 px-2">
                   <Link to={ROUTES.EMPLOYEE_EDIT(employee.id!)}>
                     Edit Profile
                   </Link>
                 </Button>
                 
-                <div className="relative w-full">
+                <div className="relative flex-1 min-w-0">
                   <button
                     ref={statusBtnRef}
                     type="button"
@@ -421,7 +421,7 @@ export function EmployeeProfile() {
                     disabled={savingStatus}
                     aria-expanded={showStatusMenu}
                     aria-haspopup="menu"
-                    className="inline-flex h-9 w-full items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+                    className="inline-flex h-10 w-full items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-black transition-colors hover:bg-slate-50 disabled:opacity-50"
                   >
                     Change Status
                     <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', showStatusMenu && 'rotate-180')} />
@@ -480,7 +480,7 @@ export function EmployeeProfile() {
                     className={cn(
                       "ep-profile-tab flex-1 sm:flex-initial rounded-lg px-4 py-1.5 text-xs font-bold transition-all text-center whitespace-nowrap",
                       activeTab === tab.id
-                        ? "bg-white text-slate-800 shadow-sm"
+                        ? "ep-profile-tab--active bg-[#2d6a4f] text-white shadow-sm"
                         : "text-slate-500 hover:text-slate-800"
                     )}
                   >
@@ -517,26 +517,26 @@ export function EmployeeProfile() {
                   <ProfileCard title="Personal Details">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                       <div className="flex flex-col gap-4">
-                        <ProfileCardItem label="FIRST NAME" value={employee.firstName} />
-                        <ProfileCardItem label="PERSONAL EMAIL" value={employee.personalEmail} />
-                        <ProfileCardItem label="COMPANY EMAIL" value={employee.email} />
+                        <ProfileCardItem label="First name" value={employee.firstName} />
+                        <ProfileCardItem label="Personal email" value={employee.personalEmail} />
+                        <ProfileCardItem label="Company email" value={employee.email} />
                       </div>
                       <div className="flex flex-col gap-4">
-                        <ProfileCardItem label="MIDDLE NAME" value={employee.middleName} />
-                        <ProfileCardItem label="GENDER" value={employee.gender} />
+                        <ProfileCardItem label="Middle name" value={employee.middleName} />
+                        <ProfileCardItem label="Gender" value={employee.gender} />
                         <ProfileCardItem
-                          label="DATE OF BIRTH"
+                          label="Date of birth"
                           value={employee.dob ? formatDate(employee.dob) : 'Not provided'}
                         />
                       </div>
                       <div className="flex flex-col gap-4 sm:col-span-2 lg:col-span-1">
-                        <ProfileCardItem label="LAST NAME" value={employee.lastName} />
+                        <ProfileCardItem label="Last name" value={employee.lastName} />
                         <ProfileAddressItem
-                          label="ADDRESS"
+                          label="Address"
                           value={employee.permanentAddress || employee.address}
                         />
                         <ProfileAddressItem
-                          label="COMMUNICATION ADDRESS"
+                          label="Communication address"
                           value={employee.communicationAddress}
                         />
                       </div>
@@ -549,20 +549,20 @@ export function EmployeeProfile() {
                     <div className="lg:col-span-2 flex flex-col gap-6 h-full">
                       <ProfileCard title="Job Details">
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                          <ProfileCardItem label="EMPLOYEE ID" value={employee.employeeId} />
+                          <ProfileCardItem label="Employee ID" value={employee.employeeId} />
                           <ProfileCardItem label="PAN" value={employee.pan || 'Not Provided'} />
-                          <ProfileCardItem label="JOINING DATE" value={formatDate(employee.joinedAt)} />
+                          <ProfileCardItem label="Joining date" value={formatDate(employee.joinedAt)} />
                           
-                          <ProfileCardItem label="ROLE" value={employee.role} />
-                          <ProfileCardItem label="EMPLOYMENT TYPE" value={employee.employmentType} />
-                          <ProfileCardItem label="STATUS" value={employee.status} />
+                          <ProfileCardItem label="Role" value={employee.role} />
+                          <ProfileCardItem label="Employment type" value={employee.employmentType} />
+                          <ProfileCardItem label="Status" value={employee.status} />
                         </div>
                       </ProfileCard>
 
                       <ProfileCard title="ID Proof" className="flex-1">
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                           <ProfileCardItem
-                            label="AADHAAR"
+                            label="Aadhaar"
                             value={showAadhaar ? employee.aadhaar : maskValue(employee.aadhaar, 8, 4)}
                             action={
                               employee.aadhaar ? (
@@ -577,7 +577,7 @@ export function EmployeeProfile() {
                             }
                           />
                           <ProfileCardItem label="PAN" value={employee.pan || 'Not Provided'} />
-                          <ProfileCardItem label="PASSPORT" value={employee.passport || 'Not Provided'} />
+                          <ProfileCardItem label="Passport" value={employee.passport || 'Not Provided'} />
                         </div>
                       </ProfileCard>
                     </div>
@@ -585,34 +585,34 @@ export function EmployeeProfile() {
                     {/* Column 2 (Spans 1 column): Emergency Contact card */}
                     <ProfileCard title="Emergency Contact" className="lg:col-span-1 h-full">
                       <div className="space-y-4">
-                        <ProfileCardItem label="NAME" value={employee.emergencyContact?.name} />
-                        <ProfileCardItem label="PHONE" value={employee.emergencyContact?.phone} icon={<Phone className="h-3.5 w-3.5" />} />
-                        <ProfileCardItem label="EMAIL" value={employee.emergencyContact?.email} icon={<Mail className="h-3.5 w-3.5" />} />
-                        <ProfileCardItem label="RELATION" value={employee.emergencyContact?.relation} />
-                        <ProfileCardItem label="ADDRESS" value={employee.emergencyContact?.address || employee.emergencyContact?.relation ? '—' : undefined} />
+                        <ProfileCardItem label="Name" value={employee.emergencyContact?.name} />
+                        <ProfileCardItem label="Phone" value={employee.emergencyContact?.phone} icon={<Phone className="h-3.5 w-3.5" />} />
+                        <ProfileCardItem label="Email" value={employee.emergencyContact?.email} icon={<Mail className="h-3.5 w-3.5" />} />
+                        <ProfileCardItem label="Relation" value={employee.emergencyContact?.relation} />
+                        <ProfileCardItem label="Address" value={employee.emergencyContact?.address || employee.emergencyContact?.relation ? '—' : undefined} />
                       </div>
                     </ProfileCard>
 
-                    {/* Column 3 (Spans 1 column): Payment Details card */}
-                    <ProfileCard title="Payment Details" className="lg:col-span-1 h-full">
+                    {/* Column 3 (Spans 1 column): Bank Details card */}
+                    <ProfileCard title="Bank Details" className="lg:col-span-1 h-full">
                        <div className="space-y-4">
                          <ProfileCardItem
-                           label="CTC (ANNUAL)"
+                           label="CTC (annual)"
                            value={employee.ctc ? `₹${employee.ctc.toLocaleString('en-IN')}` : 'Not provided'}
                            icon={<Landmark className="h-3.5 w-3.5 text-emerald-600" />}
                          />
                          <ProfileCardItem
-                           label="BANK NAME"
+                           label="Bank name"
                            value={employee.bankName}
                            icon={<Landmark className="h-3.5 w-3.5 text-emerald-600" />}
                          />
                          <ProfileCardItem
-                           label="ACCOUNT NUMBER"
+                           label="Account number"
                            value={employee.accountNumber ? maskValue(employee.accountNumber, 8, 4) : 'Not provided'}
                            icon={<CreditCard className="h-3.5 w-3.5 text-emerald-600" />}
                          />
                          <ProfileCardItem
-                           label="IFSC CODE"
+                           label="IFSC code"
                            value={employee.ifsc || 'Not provided'}
                            icon={<Hash className="h-3.5 w-3.5 text-emerald-600" />}
                          />
@@ -622,7 +622,7 @@ export function EmployeeProfile() {
                            icon={<User className="h-3.5 w-3.5 text-emerald-600" />}
                          />
                          <ProfileCardItem
-                           label="PF/ESI STATUS"
+                           label="PF/ESI status"
                            value={employee.pfEsi === 'on' ? 'Enabled' : employee.pfEsi === 'off' ? 'Disabled' : 'Not provided'}
                            icon={<CheckCircle className="h-3.5 w-3.5 text-emerald-600" />}
                          />
@@ -633,8 +633,7 @@ export function EmployeeProfile() {
               )}
 
               {activeTab === 'documents' && (
-                <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-[0_4px_15px_rgba(0,0,0,0.01)]">
-                  <h3 className="text-xs font-bold text-slate-500 mb-4 uppercase tracking-wider">Documents</h3>
+                <ProfileCard title="Documents">
                   {documents.length > 0 ? (
                     <div className="grid gap-4 sm:grid-cols-2">
                       {documents.map((doc) => (
@@ -669,7 +668,7 @@ export function EmployeeProfile() {
                       <p className="mt-3 text-sm font-medium text-slate-400">No documents uploaded yet.</p>
                     </div>
                   )}
-                </div>
+                </ProfileCard>
               )}
 
             </div>

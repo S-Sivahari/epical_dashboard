@@ -26,6 +26,7 @@ function greeting() {
 }
 
 const STAT_ACCENT_CLASS = {
+  sage: 'emp-stat-chip--sage',
   teal: 'emp-stat-chip--teal',
   amber: 'emp-stat-chip--amber',
   blue: 'emp-stat-chip--blue',

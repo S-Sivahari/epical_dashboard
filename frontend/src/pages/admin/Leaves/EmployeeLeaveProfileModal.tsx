@@ -200,6 +200,9 @@ export function EmployeeLeaveProfileModal({
 
           <section>
             <h3 className="text-sm font-semibold text-ink mb-3">Leave balances (this month)</h3>
+            <p className="text-xs text-muted mb-3">
+              Compensation leave starts at 0 and increases only when credited under Compensation Management.
+            </p>
             <div className="grid gap-2 sm:grid-cols-3">
               {summary.balances.map((b) => (
                 <div

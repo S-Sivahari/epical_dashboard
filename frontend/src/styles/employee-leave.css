@@ -163,6 +163,14 @@
   outline-offset: 1px;
 }
 
+.emp-leave-form-row {
+  align-items: start;
+}
+
+.emp-leave-form-row > div {
+  min-width: 0;
+}
+
 /* Compact square balance tiles — used & left */
 .emp-leave-balance-head {
   margin-bottom: 0.75rem !important;

@@ -123,7 +123,6 @@ export function UpcomingHolidaysCard({ holidays = [], className }) {
           </div>
           <div className="min-w-0">
             <h3 className="font-heading text-base font-semibold text-foreground">Upcoming holidays</h3>
-            <p className="mt-0.5 text-xs text-muted">Next {HOLIDAY_WINDOW_DAYS} days</p>
           </div>
         </div>
         <Link

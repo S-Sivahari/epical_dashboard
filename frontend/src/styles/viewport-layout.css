@@ -192,10 +192,44 @@ body,
   overflow: visible;
 }
 
-.admin-portal .employee-directory-view .employee-directory-table,
-.admin-portal .employee-directory-view .employee-directory-table .admin-table-scroll {
+.admin-portal .employee-directory-view .employee-directory-table.admin-table-scroll {
   margin-bottom: 0.75rem;
   overflow-x: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Employee directory list view — toolbar stays fixed, table scrolls inside */
+.admin-portal.cmd-portal .cmd-main:has([data-admin-employees][data-view-mode='list']) {
+  overflow: hidden;
+}
+
+.admin-portal .employee-directory-view[data-admin-employees][data-view-mode='list'] {
+  flex: 1 1 0;
+  max-height: var(--viewport-page-h);
+  overflow: hidden;
+}
+
+.admin-portal .employee-directory-view[data-view-mode='list'] .employee-directory-shell {
+  overflow: hidden;
+}
+
+.admin-portal .employee-directory-view[data-view-mode='list'] .employee-directory-table-section {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-portal .employee-directory-view[data-view-mode='list'] .employee-directory-table-head,
+.admin-portal .employee-directory-view[data-view-mode='list'] .employee-directory-pagination {
+  flex-shrink: 0;
+}
+
+.admin-portal .employee-directory-view[data-view-mode='list'] .employee-directory-table.admin-table-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: none;
+  margin-bottom: 0;
 }
 
 /* Projects & other standalone admin views — page scroll via cmd-main */
@@ -254,7 +288,7 @@ body,
 
 @media (min-width: 1280px) {
   .admin-leaves-view .admin-leaves-three-col {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: minmax(11rem, 0.62fr) minmax(0, 1.48fr) minmax(10rem, 0.9fr);
   }
 }
 

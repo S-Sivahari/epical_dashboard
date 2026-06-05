@@ -1,5 +1,5 @@
 const ISO_DATE_REGEX = /^(\d{4})-(\d{2})-(\d{2})$/
-export const LEAVE_MAX_ADVANCE_DAYS = 90
+export const LEAVE_MAX_ADVANCE_DAYS = 45
 
 function pad2(n: number): string {
   return String(n).padStart(2, '0')

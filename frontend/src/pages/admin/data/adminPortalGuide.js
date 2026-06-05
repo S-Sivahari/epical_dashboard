@@ -1,0 +1,122 @@
+/**
+ * Step-by-step guides for the admin portal.
+ */
+
+export const adminPortalGuideSections = [
+  {
+    key: 'dashboard',
+    title: 'Dashboard',
+    summary: 'Overview, pending approvals queue, activity, and company news.',
+    linkTo: '/admin',
+    linkLabel: 'Dashboard',
+    steps: [
+      'Open Dashboard from the top navigation.',
+      'Review KPIs and charts on the left — headcount, attendance, leave trends.',
+      'Use the Pending approvals queue on the right to approve or reject leave and document requests.',
+      'Rejecting always requires a reason; the employee sees it in their portal.',
+      'Scroll activity and news panels for recent changes across the company.',
+    ],
+  },
+  {
+    key: 'leaves',
+    title: 'Leave management',
+    summary: 'Approve, reject, revoke, and manage compensation credits.',
+    linkTo: '/admin/leaves',
+    linkLabel: 'Manage Leaves',
+    steps: [
+      'Leave Requests tab shows Pending, Approved, and Rejected for the current month.',
+      'Pending — approve or reject (reason required). Employee applications appear here immediately.',
+      'Approved — revoke with reason if plans change; revoked leaves move to Rejected and balance is restored.',
+      'Rejected — includes both rejected applications and revoked approved leaves for the month.',
+      'Approved column (left) lists all approved leaves in the month; Recent Activity shows applies, approvals, rejections, and employee cancellations.',
+      'Compensation tab — credit compensation leave days to employees; they can use them once credited.',
+    ],
+    notes: [
+      'You cannot revoke approved leave that has already ended (past end date).',
+      'Employee-cancelled pending requests appear in Recent Activity, not in the status tabs.',
+    ],
+  },
+  {
+    key: 'employees',
+    title: 'Employees',
+    summary: 'Add, edit, and view employee profiles and leave allocations.',
+    linkTo: '/admin/employees',
+    linkLabel: 'Manage Employees',
+    steps: [
+      'Browse the employee list and open a profile for full details.',
+      'Add Employee to onboard someone new — set join date for earned-leave accrual.',
+      'Edit employee to update role, contact, photo, and optional per-person leave allotments.',
+      'From an employee profile or leave hub, open leave summary to see balances and history.',
+    ],
+  },
+  {
+    key: 'projects',
+    title: 'Projects & timesheets',
+    summary: 'Projects, task assignment, and timesheet review.',
+    linkTo: '/admin/projects',
+    linkLabel: 'Projects',
+    steps: [
+      'Create and manage projects; assign employees to tasks.',
+      'Employees check in on assigned tasks from their Timesheet page.',
+      'Review submitted sessions, approvals, and analytics from the Projects hub.',
+    ],
+  },
+  {
+    key: 'documents',
+    title: 'Document requests',
+    summary: 'Fulfill employee document requests and upload files.',
+    linkTo: '/admin/documents',
+    linkLabel: 'Documents',
+    steps: [
+      'Review requested documents in the queue.',
+      'Upload the fulfillment file before approving a request.',
+      'Approve or reject with a reason; rejected requests are visible to the employee.',
+    ],
+  },
+  {
+    key: 'payslips',
+    title: 'Payslips',
+    summary: 'Upload and publish payslip batches for employees.',
+    linkTo: '/admin/payslips',
+    linkLabel: 'Payslips',
+    steps: [
+      'Create or open a payslip batch for a pay period.',
+      'Upload PDFs per employee and publish when ready.',
+      'Employees download payslips from their Documents page after publication.',
+    ],
+  },
+  {
+    key: 'calendar',
+    title: 'Company calendar',
+    summary: 'Holidays and company events visible to everyone.',
+    linkTo: '/admin/calendar',
+    linkLabel: 'Calendar',
+    steps: [
+      'Add national, company, or optional holidays.',
+      'Skip a holiday when it is a working day for your team.',
+      'Employees see the same calendar when planning leave.',
+    ],
+  },
+  {
+    key: 'tickets',
+    title: 'Tickets',
+    summary: 'Employee support tickets and status updates.',
+    linkTo: '/admin/tickets',
+    linkLabel: 'Tickets',
+    steps: [
+      'View open tickets in the kanban board.',
+      'Update status and reply as issues are handled.',
+    ],
+  },
+  {
+    key: 'news',
+    title: 'Company news',
+    summary: 'Announcements shown on employee and admin dashboards.',
+    linkTo: '/admin/news',
+    linkLabel: 'News',
+    steps: [
+      'Publish news items with title, body, and optional image.',
+      'Active items appear in the dashboard marquee and news panels.',
+    ],
+  },
+]
