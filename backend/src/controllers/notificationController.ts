@@ -99,6 +99,21 @@ export const notificationController = {
     }
   },
 
+  // DELETE /api/notifications/all - Delete all notifications for current user
+  deleteAll: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user?.id) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+      const deletedCount = await notificationService.deleteAllNotifications(req.user.id);
+      res.json({ success: true, deletedCount });
+    } catch (error) {
+      console.error('Delete all notifications error:', error);
+      res.status(500).json({ error: 'Failed to delete all notifications' });
+    }
+  },
+
   // DELETE /api/notifications/:id - Delete notification
   delete: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
