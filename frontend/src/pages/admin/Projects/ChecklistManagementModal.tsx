@@ -61,12 +61,14 @@ export function ChecklistManagementModal({
   }
 
   const save = async () => {
-    const trimmedItems = items.map((i) => i.itemName.trim()).filter(Boolean)
+    const trimmedRows = items
+      .map((i) => ({ id: i.id, itemName: i.itemName.trim() }))
+      .filter((i) => i.itemName)
     if (!name.trim()) {
       toast.error('Checklist name is required')
       return
     }
-    if (!trimmedItems.length) {
+    if (!trimmedRows.length) {
       toast.error('Add at least one checklist item')
       return
     }
@@ -75,9 +77,9 @@ export function ChecklistManagementModal({
       const payload = {
         name: name.trim(),
         description: description.trim(),
-        items: trimmedItems.map((itemName, idx) => ({
-          ...(items[idx]?.id ? { id: items[idx].id } : {}),
-          itemName,
+        items: trimmedRows.map((row) => ({
+          ...(row.id ? { id: row.id } : {}),
+          itemName: row.itemName,
         })),
       }
       if (editingId) {
@@ -201,11 +203,11 @@ export function ChecklistManagementModal({
               </div>
             </div>
             <div className="flex flex-wrap gap-2 pt-2">
-              <Button onClick={() => void save()} disabled={saving}>
+              <Button type="button" onClick={() => void save()} disabled={saving} loading={saving}>
                 {editingId ? 'Save changes' : 'Create checklist'}
               </Button>
               {editingId ? (
-                <Button variant="secondary" onClick={resetForm}>
+                <Button type="button" variant="secondary" onClick={resetForm}>
                   Cancel edit
                 </Button>
               ) : null}
