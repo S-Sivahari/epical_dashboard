@@ -14,6 +14,51 @@ export interface AdminProjectRow {
   status: string
   teamLead?: string
   completionPercentage?: number
+  checklistName?: string
+  checklistStatus?: 'Applied' | 'Partial' | 'Not Applied'
+  checklistCompletionPercentage?: number
+  checklistLastUpdated?: string
+  checklistTotalCells?: number
+  checklistAppliedCells?: number
+}
+
+export type ProjectChecklistStatus = 'Applied' | 'Partial' | 'Not Applied'
+export type CellChecklistStatus = 'Applied' | 'Pending' | 'Not Assigned'
+
+export interface ChecklistItem {
+  id: string
+  itemName: string
+  order: number
+}
+
+export interface Checklist {
+  id: string
+  name: string
+  description: string
+  items: ChecklistItem[]
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface ProjectChecklistSummary {
+  checklistId: string
+  checklistName: string
+  checklistDescription: string
+  status: ProjectChecklistStatus
+  completionPercentage: number
+  totalCells: number
+  appliedCells: number
+  lastUpdated?: string
+  itemCount: number
+  selectedItemIds: string[]
+  selectedItems: { id: string; itemName: string }[]
+}
+
+export interface ChecklistImportResult {
+  imported: number
+  updated: number
+  failed: number
+  errors: { row: number; projectName: string; message: string }[]
 }
 
 export interface ProjectLibrary {

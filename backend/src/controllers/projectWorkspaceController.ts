@@ -4,6 +4,10 @@ import { ProjectModel } from '../models/Project';
 import { ProjectLibraryModel } from '../models/ProjectLibrary';
 import { ProjectCellModel, CELL_STATUSES, CELL_TYPES, type CellStatus } from '../models/ProjectCell';
 import { CellReviewModel } from '../models/CellReview';
+import {
+  syncChecklistMappingsForCell,
+  removeChecklistMappingsForCell,
+} from '../services/checklistService';
 
 function paramId(value: string | string[]): string {
   return Array.isArray(value) ? value[0] : value;
@@ -325,6 +329,7 @@ export const projectWorkspaceController = {
       });
 
       await syncProjectProgress(project._id);
+      await syncChecklistMappingsForCell(project._id, cell._id);
       const meta = await computeDependencyMeta(project._id, cell);
       res.status(201).json(toCell(cell, meta));
     } catch (err) {
@@ -581,6 +586,7 @@ export const projectWorkspaceController = {
         { $pull: { dependencyCellIds: cellObjectId } },
       );
       await CellReviewModel.deleteMany({ cellId: cellObjectId });
+      await removeChecklistMappingsForCell(cellObjectId);
       await ProjectCellModel.findByIdAndDelete(cellObjectId);
 
       await refreshBlockedStatuses(projectObjectId);

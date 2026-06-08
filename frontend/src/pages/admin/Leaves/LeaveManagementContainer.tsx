@@ -63,14 +63,13 @@ function formatLeaveActivityPhrase(type: string, status: string, leave?: LeaveRe
   return `${typePhrase} applied`
 }
 
-<<<<<<< HEAD
 function getTodayDateKey() {
   return formatLocalDate(new Date())
-=======
+}
+
 function buildExportFilename(tab: TabType) {
   const date = new Date().toISOString().slice(0, 10)
   return `Leave_Management_${tab}_${date}`
->>>>>>> 0a573bb29886ee0397e101edc348fcacadd85519
 }
 
 function getActivityDateKey(leave: {

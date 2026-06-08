@@ -24,13 +24,10 @@
   }
 }
 
-<<<<<<< HEAD
 /* Leave page scroll — via data-page-scrollable on .emp-leave-page */
-=======
 .emp-leave-page .emp-leave-form-stack > * + * {
   margin-top: calc(0.75rem * var(--els));
 }
->>>>>>> 0a573bb29886ee0397e101edc348fcacadd85519
 
 .emp-leave-page label {
   font-size: calc(0.875rem * var(--els));

@@ -4,22 +4,16 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-<<<<<<< HEAD
   width: 100%;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: visible;
-=======
->>>>>>> 0a573bb29886ee0397e101edc348fcacadd85519
   font-family: var(--font-body);
   padding: 0.75rem;
   padding-bottom: 2rem;
-  min-height: 0;
   overflow: visible;
 }
 
-<<<<<<< HEAD
-=======
 @media (min-width: 768px) {
   .emp-timesheet-page {
     padding: 1rem;
@@ -111,7 +105,6 @@
   background: #f87171;
 }
 
->>>>>>> 0a573bb29886ee0397e101edc348fcacadd85519
 /* ── Summary cards (equal width / height) ── */
 .emp-timesheet-summary-grid {
   display: grid;
@@ -578,16 +571,13 @@
 }
 
 .emp-timesheet-history-scroll {
-<<<<<<< HEAD
   --emp-ts-history-row-h: 2.75rem;
   --emp-ts-history-head-h: 2.5rem;
   --emp-ts-history-visible-rows: 5;
   max-height: calc(
     var(--emp-ts-history-head-h) + var(--emp-ts-history-visible-rows) * var(--emp-ts-history-row-h)
   );
-=======
   position: relative;
->>>>>>> 0a573bb29886ee0397e101edc348fcacadd85519
   overflow-x: auto;
   overflow-y: auto;
   overscroll-behavior: contain;

@@ -768,11 +768,6 @@ export default function LeaveRequest() {
   const visiblePageNumbers = getVisiblePageNumbers(currentPage, totalPages)
 
   return (
-<<<<<<< HEAD
-    <div className="emp-leave-page max-w-full space-y-5 overflow-x-hidden pb-8" data-page-scrollable>
-      <div className="emp-leave-top">
-        <div className="emp-leave-top-grid">
-=======
     <div
       className="emp-leave-page flex min-h-0 flex-1 flex-col overflow-hidden"
       data-employee-leave
@@ -843,7 +838,6 @@ export default function LeaveRequest() {
           </div>
 
           <div className="emp-leave-column emp-leave-column--right">
->>>>>>> 0a573bb29886ee0397e101edc348fcacadd85519
         <InteractiveCard
           as="form"
           selectable={false}

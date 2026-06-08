@@ -224,12 +224,6 @@ export default function Dashboard() {
   )
 
   return (
-<<<<<<< HEAD
-    <div className="relative max-w-full pb-8" data-employee-dashboard data-page-scrollable>
-      <div className="dashboard-shell max-w-full space-y-4 overflow-x-hidden">
-      <div className="space-y-3">
-        <AnnouncementBanner compact />
-=======
     <div
       className="relative flex h-full min-h-0 max-w-full flex-1 flex-col overflow-hidden"
       data-employee-dashboard
@@ -237,7 +231,6 @@ export default function Dashboard() {
       <div className="dashboard-shell flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
         <div className="shrink-0 space-y-2">
           <AnnouncementBanner compact />
->>>>>>> 0a573bb29886ee0397e101edc348fcacadd85519
 
           <div className="overflow-x-auto pb-0.5">
             <ProfileCard

@@ -1471,11 +1471,7 @@
   overflow: visible;
 }
 
-<<<<<<< HEAD
 /* Employee portal — dashboard scrolls via data-page-scrollable on dashboard root */
-=======
-/* Employee portal — dashboard uses full-bleed padding */
->>>>>>> 0a573bb29886ee0397e101edc348fcacadd85519
 .employee-portal:has([data-employee-dashboard]) {
   padding: 0 !important;
 }
@@ -1485,15 +1481,13 @@
   overflow: visible;
 }
 
-<<<<<<< HEAD
 .employee-portal [data-employee-page]:has([data-page-scrollable]) .dashboard-shell {
   height: auto;
   min-height: 0;
   overflow: visible;
 }
-=======
+
 /* Employee dashboard scroll — see viewport-layout.css ([data-employee-dashboard] is inside page shell) */
->>>>>>> 0a573bb29886ee0397e101edc348fcacadd85519
 
 .admin-dashboard-view {
   --dashboard-font-scale: 1.125;

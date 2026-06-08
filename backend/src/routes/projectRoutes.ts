@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { projectController } from '../controllers/projectController';
 import { projectWorkspaceController } from '../controllers/projectWorkspaceController';
+import { checklistController } from '../controllers/checklistController';
 import { authMiddleware, requireRole } from '../middleware/authMiddleware';
 
 const router = Router();
@@ -10,6 +11,8 @@ router.use(authMiddleware);
 
 router.get('/assigned/me', projectController.getAssignedForCurrentUser);
 
+router.get('/checklist-report', adminOnly, checklistController.exportReport);
+
 router.get('/', adminOnly, projectController.getAll);
 router.get('/archived', adminOnly, projectController.getArchivedProjects);
 router.get('/archived/:id', adminOnly, projectController.getArchivedProjectById);
@@ -17,6 +20,9 @@ router.delete('/archived/:id', adminOnly, projectController.deleteArchivedProjec
 router.post('/archived/:id/restore', adminOnly, projectController.restoreProject);
 router.post('/:id/archive', adminOnly, projectController.archiveProject);
 router.get('/:projectId/workspace', adminOnly, projectWorkspaceController.getWorkspaceSummary);
+router.get('/:projectId/checklist', adminOnly, checklistController.getProjectChecklist);
+router.post('/:projectId/checklist/apply-all', adminOnly, checklistController.applyToAll);
+router.get('/:projectId/cells/:cellId/checklist', adminOnly, checklistController.getCellChecklist);
 router.get('/:projectId/dependency-graph', adminOnly, projectWorkspaceController.getDependencyGraph);
 router.get('/:projectId/libraries', adminOnly, projectWorkspaceController.listLibraries);
 router.post('/:projectId/libraries', adminOnly, projectWorkspaceController.createLibrary);

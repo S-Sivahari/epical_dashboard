@@ -109,7 +109,6 @@ body,
   overflow: visible;
 }
 
-<<<<<<< HEAD
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-page-scrollable]) {
   overflow-x: hidden;
   overflow-y: auto;
@@ -126,10 +125,7 @@ body,
   overflow: visible;
 }
 
-/* ── Hub shells (header fixed, body scrolls) ── */
-=======
 /* Hub shells — grow with content; cmd-main is the scroll container */
->>>>>>> 0a573bb29886ee0397e101edc348fcacadd85519
 .admin-portal .admin-training-shell,
 .admin-portal .admin-news-shell,
 .admin-portal .admin-documents-shell,
@@ -138,11 +134,8 @@ body,
 .admin-portal .admin-payslips-shell,
 .admin-portal .admin-achievements-shell,
 .admin-portal .admin-analytics-shell,
-<<<<<<< HEAD
-.admin-portal .admin-projects-workspace-shell {
-=======
+.admin-portal .admin-projects-workspace-shell,
 .admin-portal .admin-leaves-shell {
->>>>>>> 0a573bb29886ee0397e101edc348fcacadd85519
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -374,17 +367,14 @@ body,
   overflow: hidden;
 }
 
-<<<<<<< HEAD
-.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]):not(:has([data-page-scrollable])) {
-=======
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-page-scrollable]),
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]):not(:has([data-page-scrollable])),
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-dashboard]),
-.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]),
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-leave]) {
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
   min-height: 0;
->>>>>>> 0a573bb29886ee0397e101edc348fcacadd85519
   overflow: hidden;
 }
 
