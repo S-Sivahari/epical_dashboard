@@ -1763,17 +1763,73 @@
   border-top: 1px solid rgba(26, 67, 41, 0.08);
 }
 
-.admin-projects-cell-details-view-text {
-  margin: 0;
+.admin-projects-cell-details-view-box {
   min-height: 5rem;
   border-radius: 0.625rem;
   border: 1px solid rgba(30, 90, 61, 0.14);
   background: rgba(232, 242, 230, 0.35);
   padding: 0.75rem 0.875rem;
-  font-size: 0.875rem;
-  line-height: 1.5;
-  color: #334155;
-  white-space: pre-wrap;
+}
+
+.admin-projects-cell-details-view-box .admin-projects-workflow-panel.is-embedded {
+  max-width: none;
+  gap: 0.625rem;
+}
+
+.admin-projects-cell-details-views > .admin-projects-workflow-panel.is-embedded {
+  margin-top: 1rem;
+  max-width: none;
+}
+
+.admin-projects-view-status-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+  align-items: center;
+  min-height: 3rem;
+}
+
+.admin-projects-view-status-btn {
+  flex: 1 1 7rem;
+  min-width: 7rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(30, 90, 61, 0.18);
+  background: #fff;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #475569;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-projects-view-status-btn:hover:not(:disabled) {
+  border-color: rgba(30, 90, 61, 0.35);
+}
+
+.admin-projects-view-status-btn.is-active.is-not-started {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #475569;
+  box-shadow: inset 0 0 0 1px #94a3b8;
+}
+
+.admin-projects-view-status-btn.is-active.is-progress {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #b45309;
+  box-shadow: inset 0 0 0 1px #f59e0b;
+}
+
+.admin-projects-view-status-btn.is-active.is-completed {
+  background: #dcfce7;
+  border-color: #22c55e;
+  color: #15803d;
+  box-shadow: inset 0 0 0 1px #22c55e;
+}
+
+.admin-projects-view-status-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .admin-projects-cell-deps-intro {

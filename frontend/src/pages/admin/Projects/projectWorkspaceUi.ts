@@ -53,3 +53,8 @@ export function workflowStageStatusClass(status: WorkflowStageStatus) {
   if (status === 'in_progress') return 'is-progress'
   return 'is-not-started'
 }
+
+export function normalizeViewStatus(value?: string): WorkflowStageStatus {
+  if (value === 'in_progress' || value === 'completed') return value
+  return 'not_started'
+}
