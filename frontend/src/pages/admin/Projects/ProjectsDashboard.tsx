@@ -10,8 +10,7 @@ import { ROUTES } from '@constants/routes'
 import api from '@/services/api'
 import { cn } from '@/utils/cn'
 import { stringToHueColor, stringToHueHoverBg } from '@/utils/stringColor'
-import type { AdminProjectRow, ProjectChecklistStatus, ProjectChecklistSummary } from '@/types/projectWorkspace'
-import { AssignChecklistModal } from './ProjectChecklistImportExport'
+import type { AdminProjectRow } from '@/types/projectWorkspace'
 import './adminProjects.css'
 
 type SortKey =
@@ -19,16 +18,7 @@ type SortKey =
   | 'client'
   | 'accessType'
   | 'teamLead'
-  | 'checklistName'
-  | 'checklistCompletionPercentage'
-  | 'checklistLastUpdated'
   | 'completionPercentage'
-
-function checklistBadgeVariant(status?: ProjectChecklistStatus): 'success' | 'warning' | 'neutral' {
-  if (status === 'Applied') return 'success'
-  if (status === 'Partial') return 'warning'
-  return 'neutral'
-}
 
 export function ProjectsDashboard() {
   const [searchParams] = useSearchParams()
@@ -40,7 +30,6 @@ export function ProjectsDashboard() {
   const [pageSize, setPageSize] = useState(10)
   const [sortColumn, setSortColumn] = useState<SortKey>('name')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
-  const [assignTarget, setAssignTarget] = useState<AdminProjectRow | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -69,8 +58,7 @@ export function ProjectsDashboard() {
         !q ||
         p.name.toLowerCase().includes(q) ||
         p.client.toLowerCase().includes(q) ||
-        (p.teamLead || '').toLowerCase().includes(q) ||
-        (p.checklistName || '').toLowerCase().includes(q)
+        (p.teamLead || '').toLowerCase().includes(q)
 
       return matchesSearch
     })
@@ -81,22 +69,13 @@ export function ProjectsDashboard() {
     const dir = sortDirection === 'asc' ? 1 : -1
 
     list.sort((a, b) => {
-      if (sortColumn === 'checklistCompletionPercentage' || sortColumn === 'completionPercentage') {
-        const aVal = a[sortColumn] ?? 0
-        const bVal = b[sortColumn] ?? 0
+      if (sortColumn === 'completionPercentage') {
+        const aVal = a.completionPercentage ?? 0
+        const bVal = b.completionPercentage ?? 0
         return (aVal - bVal) * dir
       }
-      if (sortColumn === 'checklistLastUpdated') {
-        const aTime = a.checklistLastUpdated ? new Date(a.checklistLastUpdated).getTime() : 0
-        const bTime = b.checklistLastUpdated ? new Date(b.checklistLastUpdated).getTime() : 0
-        return (aTime - bTime) * dir
-      }
-      const aVal = String(
-        sortColumn === 'checklistName' ? a.checklistName ?? '' : a[sortColumn as keyof AdminProjectRow] ?? '',
-      ).toLowerCase()
-      const bVal = String(
-        sortColumn === 'checklistName' ? b.checklistName ?? '' : b[sortColumn as keyof AdminProjectRow] ?? '',
-      ).toLowerCase()
+      const aVal = String(a[sortColumn as keyof AdminProjectRow] ?? '').toLowerCase()
+      const bVal = String(b[sortColumn as keyof AdminProjectRow] ?? '').toLowerCase()
       return aVal.localeCompare(bVal) * dir
     })
 
@@ -165,36 +144,6 @@ export function ProjectsDashboard() {
         ),
       },
       {
-        key: 'checklistName',
-        header: 'Checklist',
-        sortable: true,
-        className: 'min-w-[11rem]',
-        render: (p) => {
-          const status = p.checklistStatus || 'Not Applied'
-          return (
-            <button
-              type="button"
-              className="admin-projects-checklist-cell text-left"
-              onClick={(e) => {
-                e.stopPropagation()
-                setAssignTarget(p)
-              }}
-              title="Click to assign or change checklist"
-            >
-              <p className="truncate font-semibold text-slate-800">
-                {p.checklistName || <span className="font-normal text-slate-400">Not assigned</span>}
-              </p>
-              <Badge
-                variant={checklistBadgeVariant(status)}
-                className="admin-projects-checklist-badge mt-1 px-2 py-0.5 text-[0.6875rem] font-semibold"
-              >
-                {status}
-              </Badge>
-            </button>
-          )
-        },
-      },
-      {
         key: 'completionPercentage',
         header: 'Progress',
         sortable: true,
@@ -245,25 +194,6 @@ export function ProjectsDashboard() {
     }
   }
 
-  const handleChecklistAssigned = (projectId: string, summary: ProjectChecklistSummary) => {
-    setProjects((prev) =>
-      prev.map((p) =>
-        p.id === projectId
-          ? {
-              ...p,
-              checklistName: summary.checklistName,
-              checklistStatus: summary.status as ProjectChecklistStatus,
-              checklistCompletionPercentage: summary.completionPercentage,
-              checklistLastUpdated: summary.lastUpdated,
-              checklistTotalCells: summary.totalCells,
-              checklistAppliedCells: summary.appliedCells,
-            }
-          : p,
-      ),
-    )
-    void load()
-  }
-
   if (tab) {
     return <Navigate to={`${ROUTES.TIMESHEET}?${searchParams.toString()}`} replace />
   }
@@ -296,7 +226,7 @@ export function ProjectsDashboard() {
               <Search className="h-4 w-4" aria-hidden />
               <input
                 type="search"
-                placeholder="Search by project, client, checklist, or team lead…"
+                placeholder="Search by project, client, or team lead…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 aria-label="Search projects"
@@ -344,19 +274,6 @@ export function ProjectsDashboard() {
           </section>
         </div>
       </div>
-
-      {assignTarget ? (
-        <AssignChecklistModal
-          isOpen={Boolean(assignTarget)}
-          projectId={assignTarget.id}
-          projectName={assignTarget.name}
-          onClose={() => setAssignTarget(null)}
-          onAssigned={(summary) => {
-            handleChecklistAssigned(assignTarget.id, summary)
-            setAssignTarget(null)
-          }}
-        />
-      ) : null}
     </PageWrapper>
   )
 }

@@ -6,7 +6,10 @@ import { ProjectCellModel, CELL_STATUSES, CELL_TYPES, type CellStatus } from '..
 import { CellReviewModel } from '../models/CellReview';
 import {
   CELL_WORKFLOW_STAGES,
+  applyWorkflowStageUpdate,
+  canCompleteCell,
   defaultCellWorkflow,
+  isReviewStageKey,
   isValidStageKey,
   normalizeCellWorkflow,
   normalizeWorkflowStageStatus,
@@ -18,17 +21,18 @@ import {
   syncChecklistMappingsForCell,
   removeChecklistMappingsForCell,
 } from '../services/checklistService';
+import { isAdminRole } from '../utils/generateToken';
 
 function paramId(value: string | string[]): string {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function actorFromReq(req: Request) {
+function actorFromReq(req: Request): { userId: string; userName: string; role: 'Admin' | 'Employee' } {
   const user = (req as any).user;
   return {
     userId: user?.id || user?._id?.toString() || 'admin',
     userName: user?.name || user?.email || 'Admin',
-    role: (user?.role === 'Admin' ? 'Admin' : 'Employee') as 'Admin' | 'Employee',
+    role: isAdminRole(user?.role || '') ? 'Admin' : 'Employee',
   };
 }
 
@@ -470,13 +474,16 @@ export const projectWorkspaceController = {
         return;
       }
 
+      const workflow = normalizeCellWorkflow(cell.workflow);
+      if (!canCompleteCell(workflow)) {
+        res.status(400).json({
+          error: 'Cell cannot be completed until all workflow stages are done and both reviews are approved',
+        });
+        return;
+      }
+
       const prev = cell.status;
       cell.status = 'completed';
-      cell.workflow = normalizeCellWorkflow(cell.workflow).map((stage) => ({
-        ...stage,
-        status: 'completed' as WorkflowStageStatus,
-        updatedAt: new Date(),
-      }));
       cell.activityLog.push({
         action: 'completed',
         detail: `Marked completed by ${actor.userName}`,
@@ -639,24 +646,17 @@ export const projectWorkspaceController = {
         return;
       }
 
-      const workflow = normalizeCellWorkflow(cell.workflow);
+      const actor = actorFromReq(req);
       const stageMeta = CELL_WORKFLOW_STAGES.find((s) => s.key === stageKey);
-      const stageIndex = workflow.findIndex((s) => s.stageKey === stageKey);
-      if (stageIndex < 0) {
-        res.status(404).json({ error: 'Workflow stage not found on cell' });
+      const prevWorkflow = normalizeCellWorkflow(cell.workflow);
+      const prevStatus = prevWorkflow.find((s) => s.stageKey === stageKey)?.status ?? 'not_started';
+      const result = applyWorkflowStageUpdate(cell.workflow, stageKey, nextStatus, actor.role);
+      if (!result.ok) {
+        res.status(400).json({ error: result.error });
         return;
       }
 
-      const prevStatus = workflow[stageIndex].status;
-      workflow[stageIndex] = {
-        ...workflow[stageIndex],
-        stageLabel: stageMeta?.label || workflow[stageIndex].stageLabel,
-        status: nextStatus,
-        updatedAt: new Date(),
-      };
-
-      const actor = actorFromReq(req);
-      cell.workflow = workflow;
+      cell.workflow = result.workflow;
       cell.activityLog.push({
         action: 'workflow_update',
         detail: `${stageMeta?.label || stageKey}: ${prevStatus} → ${nextStatus}`,
@@ -664,7 +664,30 @@ export const projectWorkspaceController = {
         userName: actor.userName,
         at: new Date(),
       });
+
+      if (
+        isReviewStageKey(stageKey) &&
+        nextStatus === 'approved' &&
+        stageKey === 'review_2' &&
+        canCompleteCell(result.workflow) &&
+        cell.status !== 'completed'
+      ) {
+        cell.status = 'completed';
+        cell.activityLog.push({
+          action: 'completed',
+          detail: `Cell completed after ${stageMeta?.label || stageKey} approval`,
+          userId: actor.userId,
+          userName: actor.userName,
+          at: new Date(),
+        });
+      }
+
       await cell.save();
+
+      if (cell.status === 'completed') {
+        await refreshBlockedStatuses(new Types.ObjectId(projectId));
+        await syncProjectProgress(new Types.ObjectId(projectId));
+      }
 
       const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
       res.json(toCell(cell, meta));
