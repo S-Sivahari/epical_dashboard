@@ -59,8 +59,6 @@ import {
 import { ensureFinancialYearSnapshotReset } from './services/payrollYtdService';
 import { ensureAttendanceIndexes } from './utils/ensureAttendanceIndexes';
 
-validateProductionSecrets();
-
 const app = express();
 
 if (env.nodeEnv === 'production') {
@@ -323,6 +321,7 @@ app.use(
 // ── Start server ──────────────────────────────────────────────
 export async function startServer() {
   try {
+    validateProductionSecrets();
     const db = await connectDB();
 
     const employeeCount = await db
