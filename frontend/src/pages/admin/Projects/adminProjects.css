@@ -2170,11 +2170,6 @@
   gap: 0.625rem;
 }
 
-.admin-projects-cell-details-views > .admin-projects-workflow-panel.is-embedded {
-  margin-top: 1rem;
-  max-width: none;
-}
-
 .admin-projects-view-status-btns {
   display: flex;
   flex-wrap: wrap;
@@ -2357,6 +2352,36 @@
   color: #15803d;
 }
 
+.admin-projects-workflow-stage-chip.is-pending-review {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.admin-projects-workflow-stage-chip.is-rejected {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.admin-projects-workflow-stage-chip.is-locked {
+  background: #e2e8f0;
+  color: #94a3b8;
+}
+
+.admin-projects-workflow-stage.is-locked {
+  opacity: 0.85;
+}
+
+.admin-projects-workflow-review-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.admin-projects-workflow-stage-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
 .admin-projects-workflow-stage-select {
   height: 2.25rem;
   width: 100%;
@@ -2367,6 +2392,14 @@
   font-size: 0.8125rem;
   font-weight: 600;
   color: #1a4712;
+  cursor: pointer;
+}
+
+.admin-projects-workflow-stage-select:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  background: #f8fafc;
+  color: #64748b;
 }
 
 .admin-projects-workflow-compact {
