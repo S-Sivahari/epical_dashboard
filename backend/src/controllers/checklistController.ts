@@ -15,8 +15,15 @@ import {
   getProjectChecklistSummary,
   recalcProjectChecklistProgress,
   syncChecklistMappingsForCell,
+  getProjectCellsChecklist,
+  updateCellChecklistItemResponse,
   actorName,
 } from '../services/checklistService';
+import {
+  buildChecklistTemplateExportRows,
+  importChecklistTemplateRows,
+  resyncMappingsAfterChecklistDefinitionChange,
+} from '../services/checklistTemplateService';
 
 function toChecklistDto(c: any) {
   return {
@@ -112,6 +119,7 @@ export const checklistController = {
       }
 
       await doc.save();
+      await resyncMappingsAfterChecklistDefinitionChange(doc._id);
       res.json(toChecklistDto(doc));
     } catch (err) {
       console.error('[checklist] update', err);
@@ -178,6 +186,15 @@ export const checklistController = {
     }
   },
 
+  getProjectCellsChecklist: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const data = await getProjectCellsChecklist(paramId(req.params.projectId));
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to fetch cell checklists' });
+    }
+  },
+
   applyToAll: async (req: Request, res: Response): Promise<void> => {
     try {
       const userId = req.user?.id || '';
@@ -196,6 +213,92 @@ export const checklistController = {
       res.json(rows);
     } catch (err) {
       res.status(500).json({ error: 'Failed to build export data' });
+    }
+  },
+
+  exportTemplate: async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const rows = await buildChecklistTemplateExportRows();
+      res.json(rows);
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to build checklist template' });
+    }
+  },
+
+  importTemplate: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const rows = req.body?.rows;
+      if (!Array.isArray(rows) || rows.length === 0) {
+        res.status(400).json({ error: 'rows array is required' });
+        return;
+      }
+      const result = await importChecklistTemplateRows(rows, actorName(req));
+      res.json(result);
+    } catch (err) {
+      console.error('[checklist] importTemplate', err);
+      res.status(500).json({ error: 'Import failed' });
+    }
+  },
+
+  parseTemplateUpload: async (req: Request, res: Response): Promise<void> => {
+    try {
+      if (!req.file?.buffer) {
+        res.status(400).json({ error: 'No file uploaded' });
+        return;
+      }
+
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(req.file.buffer as unknown as ExcelJS.Buffer);
+      const sheet = wb.worksheets[0];
+      if (!sheet) {
+        res.status(400).json({ error: 'Worksheet not found' });
+        return;
+      }
+
+      const headerRow = sheet.getRow(1);
+      const headers: string[] = [];
+      headerRow.eachCell((cell, col) => {
+        headers[col - 1] = String(cell.value ?? '').trim();
+      });
+
+      const normalizeKey = (h: string) => h.toLowerCase().replace(/\s+/g, '');
+      const keyMap = new Map(headers.map((h) => [normalizeKey(h), h]));
+
+      const getVal = (row: ExcelJS.Row, ...candidates: string[]) => {
+        for (const c of candidates) {
+          const header = keyMap.get(normalizeKey(c)) ?? c;
+          const idx = headers.indexOf(header);
+          if (idx >= 0) {
+            const cell = row.getCell(idx + 1);
+            return cell.value != null ? String(cell.value).trim() : '';
+          }
+        }
+        return '';
+      };
+
+      const rows: Record<string, unknown>[] = [];
+      sheet.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return;
+        const checklistName = getVal(row, 'Checklist Name', 'checklistName');
+        if (!checklistName) return;
+        rows.push({
+          checklistName,
+          description: getVal(row, 'Description', 'description'),
+          itemName: getVal(row, 'Item Name', 'itemName'),
+          itemOrder: getVal(row, 'Item Order', 'itemOrder'),
+        });
+      });
+
+      if (!rows.length) {
+        res.status(400).json({ error: 'No valid checklist rows found in file' });
+        return;
+      }
+
+      const result = await importChecklistTemplateRows(rows, actorName(req));
+      res.json(result);
+    } catch (err) {
+      console.error('[checklist] parseTemplateUpload', err);
+      res.status(500).json({ error: 'Failed to parse Excel file' });
     }
   },
 
@@ -388,28 +491,82 @@ export const checklistController = {
       const cid = paramId(cellId);
       const entries = await CellChecklistMappingModel.find({ projectId: pid, cellId: cid }).sort({ itemName: 1 });
       const assignment = await ProjectChecklistModel.findOne({ projectId: pid });
+      const checklist = assignment
+        ? await ChecklistModel.findById(assignment.checklistId).lean()
+        : null;
 
-      const allApplied = entries.length > 0 && entries.every((e) => e.status === 'Applied');
-      const anyApplied = entries.some((e) => e.status === 'Applied');
+      const allApplied = entries.length > 0 && entries.every((e) => e.response === 'yes');
       let cellStatus: 'Applied' | 'Pending' | 'Not Assigned' = 'Not Assigned';
       if (!assignment) cellStatus = 'Not Assigned';
       else if (allApplied) cellStatus = 'Applied';
-      else if (anyApplied || entries.some((e) => e.status === 'Pending')) cellStatus = 'Pending';
+      else if (entries.some((e) => e.response)) cellStatus = 'Pending';
+      else if (entries.length > 0) cellStatus = 'Pending';
 
       res.json({
         checklistId: assignment ? String(assignment.checklistId) : null,
+        checklistName: checklist?.name ?? '',
         cellStatus,
         items: entries.map((e) => ({
           id: e._id.toString(),
           checklistItemId: e.checklistItemId.toString(),
           itemName: e.itemName,
           status: e.status,
+          response: e.response ?? null,
+          comment: e.comment ?? '',
           appliedBy: e.appliedByName || e.appliedBy || '',
           appliedDate: e.appliedDate,
         })),
       });
     } catch (err) {
       res.status(500).json({ error: 'Failed to fetch cell checklist' });
+    }
+  },
+
+  updateCellChecklistItem: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { projectId, cellId, mappingId } = req.params;
+      const { response, comment } = req.body;
+      await updateCellChecklistItemResponse(
+        paramId(projectId),
+        paramId(cellId),
+        paramId(mappingId),
+        { response, comment },
+        req.user?.id || '',
+        actorName(req),
+      );
+
+      const pid = paramId(projectId);
+      const cid = paramId(cellId);
+      const entries = await CellChecklistMappingModel.find({ projectId: pid, cellId: cid }).sort({ itemName: 1 });
+      const assignment = await ProjectChecklistModel.findOne({ projectId: pid });
+      const checklist = assignment
+        ? await ChecklistModel.findById(assignment.checklistId).lean()
+        : null;
+
+      const allApplied = entries.length > 0 && entries.every((e) => e.response === 'yes');
+      let cellStatus: 'Applied' | 'Pending' | 'Not Assigned' = 'Not Assigned';
+      if (!assignment) cellStatus = 'Not Assigned';
+      else if (allApplied) cellStatus = 'Applied';
+      else if (entries.some((e) => e.response)) cellStatus = 'Pending';
+      else if (entries.length > 0) cellStatus = 'Pending';
+
+      res.json({
+        checklistId: assignment ? String(assignment.checklistId) : null,
+        checklistName: checklist?.name ?? '',
+        cellStatus,
+        items: entries.map((e) => ({
+          id: e._id.toString(),
+          checklistItemId: e.checklistItemId.toString(),
+          itemName: e.itemName,
+          status: e.status,
+          response: e.response ?? null,
+          comment: e.comment ?? '',
+          appliedBy: e.appliedByName || e.appliedBy || '',
+          appliedDate: e.appliedDate,
+        })),
+      });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Failed to update checklist item' });
     }
   },
 };

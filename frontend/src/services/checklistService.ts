@@ -2,7 +2,11 @@ import api from '@/services/api'
 import type {
   Checklist,
   ChecklistImportResult,
+  ChecklistTemplateImportResult,
+  ChecklistTemplateRow,
+  CellChecklistDetail,
   ProjectChecklistSummary,
+  ProjectCellsChecklistResponse,
 } from '@/types/projectWorkspace'
 
 export async function fetchChecklists(): Promise<Checklist[]> {
@@ -45,6 +49,15 @@ export async function assignChecklistToProject(
   return data
 }
 
+export async function fetchProjectCellsChecklist(
+  projectId: string,
+): Promise<ProjectCellsChecklistResponse> {
+  const { data } = await api.get<ProjectCellsChecklistResponse>(
+    `/projects/${projectId}/checklist/cells`,
+  )
+  return data
+}
+
 export async function fetchProjectChecklist(projectId: string): Promise<ProjectChecklistSummary | null> {
   const { data } = await api.get<ProjectChecklistSummary | null>(`/projects/${projectId}/checklist`)
   return data
@@ -75,6 +88,22 @@ export async function fetchChecklistExportRows(): Promise<ChecklistExportRow[]> 
   return Array.isArray(data) ? data : []
 }
 
+export async function fetchChecklistTemplateRows(): Promise<ChecklistTemplateRow[]> {
+  const { data } = await api.get<ChecklistTemplateRow[]>('/checklists/export-template')
+  return Array.isArray(data) ? data : []
+}
+
+export async function importChecklistTemplateFile(file: File): Promise<ChecklistTemplateImportResult> {
+  const form = new FormData()
+  form.append('file', file)
+  const { data } = await api.post<ChecklistTemplateImportResult>(
+    '/checklists/import-template-file',
+    form,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  )
+  return data
+}
+
 export async function importChecklistRows(
   rows: Record<string, unknown>[],
 ): Promise<ChecklistImportResult> {
@@ -82,19 +111,23 @@ export async function importChecklistRows(
   return data
 }
 
-export async function fetchCellChecklist(projectId: string, cellId: string) {
-  const { data } = await api.get<{
-    checklistId: string | null
-    cellStatus: 'Applied' | 'Pending' | 'Not Assigned'
-    items: {
-      id: string
-      checklistItemId: string
-      itemName: string
-      status: string
-      appliedBy: string
-      appliedDate?: string
-    }[]
-  }>(`/projects/${projectId}/cells/${cellId}/checklist`)
+export async function fetchCellChecklist(projectId: string, cellId: string): Promise<CellChecklistDetail> {
+  const { data } = await api.get<CellChecklistDetail>(
+    `/projects/${projectId}/cells/${cellId}/checklist`,
+  )
+  return data
+}
+
+export async function updateCellChecklistItem(
+  projectId: string,
+  cellId: string,
+  mappingId: string,
+  payload: { response: 'yes' | 'no' | 'not_applicable'; comment?: string },
+): Promise<CellChecklistDetail> {
+  const { data } = await api.patch<CellChecklistDetail>(
+    `/projects/${projectId}/cells/${cellId}/checklist/${mappingId}`,
+    payload,
+  )
   return data
 }
 

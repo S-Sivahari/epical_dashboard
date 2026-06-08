@@ -19,6 +19,8 @@ import {
   updateCellStatus,
 } from '@/services/projectWorkspaceService'
 import { fetchCellChecklist } from '@/services/checklistService'
+import { CellChecklistResponses } from './CellChecklistResponses'
+import type { CellChecklistDetail } from '@/types/projectWorkspace'
 import { Badge } from '@components/ui/Badge'
 import { cn } from '@/utils/cn'
 import {
@@ -58,7 +60,7 @@ export function ProjectCellPage() {
   const [reviewComment, setReviewComment] = useState('')
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [cellChecklist, setCellChecklist] = useState<Awaited<ReturnType<typeof fetchCellChecklist>> | null>(null)
+  const [cellChecklist, setCellChecklist] = useState<CellChecklistDetail | null>(null)
 
   const reload = useCallback(async () => {
     if (!projectId || !cellId) return
@@ -356,41 +358,15 @@ export function ProjectCellPage() {
                       <p className="text-sm text-slate-500">No checklist assigned to this project.</p>
                     ) : (
                       <>
-                        <div className="mb-3 flex items-center gap-2">
-                          <Badge
-                            variant={
-                              cellChecklist.cellStatus === 'Applied'
-                                ? 'success'
-                                : cellChecklist.cellStatus === 'Pending'
-                                  ? 'warning'
-                                  : 'neutral'
-                            }
-                            className="px-2.5 py-0.5 font-semibold"
-                          >
-                            {cellChecklist.cellStatus}
-                          </Badge>
-                        </div>
-                        <ul className="admin-projects-cell-checklist-list">
-                          {cellChecklist.items.map((item) => (
-                            <li key={item.id} className="admin-projects-cell-checklist-row">
-                              <span className="font-medium text-slate-800">{item.itemName}</span>
-                              <Badge
-                                variant={item.status === 'Applied' ? 'success' : item.status === 'Pending' ? 'warning' : 'neutral'}
-                                className="px-2 py-0.5 text-[0.6875rem] font-semibold"
-                              >
-                                {item.status}
-                              </Badge>
-                              {item.appliedBy ? (
-                                <span className="text-xs text-slate-500">
-                                  {item.appliedBy}
-                                  {item.appliedDate
-                                    ? ` · ${new Date(item.appliedDate).toLocaleDateString()}`
-                                    : ''}
-                                </span>
-                              ) : null}
-                            </li>
-                          ))}
-                        </ul>
+                        <p className="mb-3 text-sm font-semibold text-slate-800">
+                          {cellChecklist.checklistName || 'Assigned checklist'}
+                        </p>
+                        <CellChecklistResponses
+                          projectId={projectId}
+                          cellId={cellId}
+                          checklist={cellChecklist}
+                          onUpdated={setCellChecklist}
+                        />
                       </>
                     )}
                   </div>
