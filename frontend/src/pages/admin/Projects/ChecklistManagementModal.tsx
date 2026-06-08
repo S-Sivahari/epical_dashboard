@@ -9,10 +9,11 @@ import {
   deleteChecklist,
   fetchChecklists,
   fetchChecklistTemplateRows,
-  importChecklistTemplateFile,
+  importChecklistTemplateRows,
   updateChecklist,
 } from '@/services/checklistService'
 import { exportToExcel } from '@/utils/exportExcel'
+import { parseChecklistTemplateExcel } from '@/utils/parseChecklistTemplateExcel'
 import type { Checklist, ChecklistTemplateImportResult } from '@/types/projectWorkspace'
 import { cn } from '@/utils/cn'
 
@@ -102,7 +103,8 @@ export function ChecklistManagementModal({
     setImporting(true)
     setImportResult(null)
     try {
-      const result = await importChecklistTemplateFile(file)
+      const rows = await parseChecklistTemplateExcel(file)
+      const result = await importChecklistTemplateRows(rows)
       setImportResult(result)
       const saved = result.created + result.updated
       if (result.failed === 0 && saved > 0) {
@@ -117,12 +119,18 @@ export function ChecklistManagementModal({
       resetForm()
       const next = await fetchChecklists()
       setChecklists(next)
+      if (next.length > 0) {
+        startEdit(next[next.length - 1])
+      }
       onChanged?.()
       if (saved > 0 && result.failed === 0) {
         setImportOpen(false)
       }
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+      const msg =
+        err instanceof Error
+          ? err.message
+          : (err as { response?: { data?: { error?: string } } })?.response?.data?.error
       toast.error(msg || 'Import failed')
     } finally {
       setImporting(false)

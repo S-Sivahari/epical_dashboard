@@ -93,13 +93,21 @@ export async function fetchChecklistTemplateRows(): Promise<ChecklistTemplateRow
   return Array.isArray(data) ? data : []
 }
 
+export async function importChecklistTemplateRows(
+  rows: ChecklistTemplateRow[],
+): Promise<ChecklistTemplateImportResult> {
+  const { data } = await api.post<ChecklistTemplateImportResult>('/checklists/import-template', {
+    rows,
+  })
+  return data
+}
+
 export async function importChecklistTemplateFile(file: File): Promise<ChecklistTemplateImportResult> {
   const form = new FormData()
   form.append('file', file)
   const { data } = await api.post<ChecklistTemplateImportResult>(
     '/checklists/import-template-file',
     form,
-    { headers: { 'Content-Type': 'multipart/form-data' } },
   )
   return data
 }
@@ -134,8 +142,6 @@ export async function updateCellChecklistItem(
 export async function importChecklistFile(file: File): Promise<ChecklistImportResult> {
   const form = new FormData()
   form.append('file', file)
-  const { data } = await api.post<ChecklistImportResult>('/checklists/import-file', form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
+  const { data } = await api.post<ChecklistImportResult>('/checklists/import-file', form)
   return data
 }

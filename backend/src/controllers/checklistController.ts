@@ -77,6 +77,14 @@ function findChecklistTemplateHeaderRow(sheet: ExcelJS.Worksheet): number {
   return headerRowNumber;
 }
 
+function isValidChecklistImportName(name: string): boolean {
+  const trimmed = name.trim();
+  if (!trimmed || trimmed === '—' || trimmed === '-') return false;
+  if (/^-+$/.test(trimmed)) return false;
+  if (/confidential|system generated report|generated on/i.test(trimmed)) return false;
+  return true;
+}
+
 export const checklistController = {
   list: async (_req: Request, res: Response): Promise<void> => {
     try {
@@ -304,28 +312,35 @@ export const checklistController = {
       });
 
       const normalizeKey = (h: string) => h.toLowerCase().replace(/\s+/g, '');
-      const keyMap = new Map(headers.map((h) => [normalizeKey(h), h]));
 
-      const getVal = (row: ExcelJS.Row, ...candidates: string[]) => {
-        for (const c of candidates) {
-          const header = keyMap.get(normalizeKey(c)) ?? c;
-          const idx = headers.indexOf(header);
-          if (idx >= 0) {
-            return excelCellText(row.getCell(idx + 1).value);
+      const columnIndex = (...candidates: string[]): number => {
+        for (let i = 0; i < headers.length; i += 1) {
+          const headerNorm = normalizeKey(headers[i] ?? '');
+          if (!headerNorm) continue;
+          for (const candidate of candidates) {
+            if (headerNorm === normalizeKey(candidate)) return i;
           }
         }
-        return '';
+        return -1;
+      };
+
+      const getVal = (row: ExcelJS.Row, ...candidates: string[]) => {
+        const idx = columnIndex(...candidates);
+        if (idx < 0) return '';
+        return excelCellText(row.getCell(idx + 1).value);
       };
 
       const rows: Record<string, unknown>[] = [];
       sheet.eachRow((row, rowNumber) => {
         if (rowNumber <= headerRowNumber) return;
         const checklistName = getVal(row, 'Checklist Name', 'checklistName');
-        if (!checklistName) return;
+        if (!isValidChecklistImportName(checklistName)) return;
+        const itemName = getVal(row, 'Item Name', 'itemName');
+        if (!itemName || itemName === '—') return;
         rows.push({
           checklistName,
           description: getVal(row, 'Description', 'description'),
-          itemName: getVal(row, 'Item Name', 'itemName'),
+          itemName,
           itemOrder: getVal(row, 'Item Order', 'itemOrder'),
         });
       });
