@@ -5,6 +5,7 @@ import {
   CalendarOff,
   Clock,
   FileText,
+  FolderKanban,
   HelpCircle,
   LayoutGrid,
   Ticket,
@@ -35,6 +36,12 @@ export const EMPLOYEE_NAV_ITEMS: EmployeeNavItem[] = [
     label: 'Timesheet',
     navLabel: 'Timesheet',
     icon: Clock,
+  },
+  {
+    to: '/employee/projects',
+    label: 'Projects',
+    navLabel: 'Projects',
+    icon: FolderKanban,
   },
   {
     to: '/employee/leave',
@@ -92,6 +99,7 @@ export const EMPLOYEE_NAV_ITEMS: EmployeeNavItem[] = [
 export const EMPLOYEE_ROUTE_TITLES: Record<string, string> = {
   '/employee': 'Dashboard',
   '/employee/timesheet': 'Timesheet',
+  '/employee/projects': 'Projects',
   '/employee/leave': 'Leave Request',
   '/employee/calendar': 'Company Calendar',
   '/employee/documents': 'Documents',

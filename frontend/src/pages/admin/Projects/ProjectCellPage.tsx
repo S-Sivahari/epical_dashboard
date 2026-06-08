@@ -15,6 +15,7 @@ import {
   deleteCell,
   fetchCellReviews,
   fetchWorkspaceSummary,
+  resolveCellReview,
   updateCell,
   updateCellStatus,
 } from '@/services/projectWorkspaceService'
@@ -22,8 +23,10 @@ import { cn } from '@/utils/cn'
 import {
   CELL_STATUSES,
   CELL_TYPES,
+  LAYOUT_STAGE_LABELS,
   type CellReview,
   type CellStatus,
+  type LayoutStage,
   type ProjectCell,
   type ProjectLibrary,
   type WorkspaceSummary,
@@ -164,6 +167,30 @@ export function ProjectCellPage() {
     await addReviewMessage(projectId, cellId, reviewId, body)
     const list = await fetchCellReviews(projectId, cellId)
     setReviews(list)
+  }
+
+  const resolveReview = async (
+    reviewId: string,
+    outcome: 'approved' | 'rejected',
+    returnToStage?: LayoutStage,
+  ) => {
+    if (!projectId || !cellId) return
+    setSaving(true)
+    try {
+      await resolveCellReview(projectId, cellId, reviewId, {
+        outcome,
+        returnToStage,
+        comment: outcome === 'approved' ? 'Approved' : `Rejected — returned to ${returnToStage}`,
+      })
+      const list = await fetchCellReviews(projectId, cellId)
+      setReviews(list)
+      toast.success(outcome === 'approved' ? 'Review approved' : 'Review rejected')
+      await reload()
+    } catch {
+      toast.error('Failed to resolve review')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleComplete = async () => {
@@ -554,33 +581,68 @@ export function ProjectCellPage() {
                     />
                     <Button onClick={() => void requestReview()}>Request review</Button>
                   </div>
-                  {reviews.map((review) => (
-                    <div key={review.id} className="rounded-lg border border-slate-200 p-3">
-                      <p className="text-xs font-semibold text-slate-500">
-                        {review.initiatedByName} · stage {review.stageAtRequest} · {review.status}
-                      </p>
-                      <ul className="mt-2 space-y-2">
-                        {review.messages.map((msg, i) => (
-                          <li key={i} className="rounded bg-slate-50 px-2 py-1.5 text-sm">
-                            <span className="font-semibold">{msg.authorName}</span> ({msg.authorRole}): {msg.body}
-                          </li>
-                        ))}
-                      </ul>
-                      {review.status === 'open' && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="mt-2"
-                          onClick={() => {
-                            const body = window.prompt('Reply')
-                            if (body) void postReviewReply(review.id, body)
-                          }}
-                        >
-                          Reply
-                        </Button>
-                      )}
-                    </div>
-                  ))}
+                  {reviews.map((review) => {
+                    const returnOptions: LayoutStage[] =
+                      review.reviewPoint === 'r2'
+                        ? ['routing', 'floor_plan']
+                        : review.reviewPoint === 'r1'
+                          ? ['floor_plan']
+                          : []
+                    return (
+                      <div key={review.id} className="rounded-lg border border-slate-200 p-3">
+                        <p className="text-xs font-semibold text-slate-500">
+                          {review.initiatedByName}
+                          {review.reviewPoint ? ` · ${review.reviewPoint.toUpperCase()}` : ''}
+                          {' · '}
+                          {review.stageAtRequest}
+                          {' · '}
+                          {review.outcome || review.status}
+                        </p>
+                        <ul className="mt-2 space-y-2">
+                          {review.messages.map((msg, i) => (
+                            <li key={i} className="rounded bg-slate-50 px-2 py-1.5 text-sm">
+                              <span className="font-semibold">{msg.authorName}</span> ({msg.authorRole}): {msg.body}
+                            </li>
+                          ))}
+                        </ul>
+                        {review.status === 'open' && review.reviewPoint ? (
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <Button
+                              size="sm"
+                              disabled={saving}
+                              onClick={() => void resolveReview(review.id, 'approved')}
+                            >
+                              Approve
+                            </Button>
+                            {returnOptions.map((stage) => (
+                              <Button
+                                key={stage}
+                                size="sm"
+                                variant="secondary"
+                                disabled={saving}
+                                onClick={() => void resolveReview(review.id, 'rejected', stage)}
+                              >
+                                Reject → {LAYOUT_STAGE_LABELS[stage]}
+                              </Button>
+                            ))}
+                          </div>
+                        ) : null}
+                        {review.status === 'open' && !review.reviewPoint ? (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="mt-2"
+                            onClick={() => {
+                              const body = window.prompt('Reply')
+                              if (body) void postReviewReply(review.id, body)
+                            }}
+                          >
+                            Reply
+                          </Button>
+                        ) : null}
+                      </div>
+                    )
+                  })}
                   {reviews.length === 0 && (
                     <p className="flex items-center gap-2 text-sm text-slate-500">
                       <Layers className="h-4 w-4" />

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { projectController } from '../controllers/projectController';
 import { projectWorkspaceController } from '../controllers/projectWorkspaceController';
+import { employeeProjectController } from '../controllers/employeeProjectController';
 import { authMiddleware, requireRole } from '../middleware/authMiddleware';
 
 const router = Router();
@@ -9,6 +10,12 @@ const adminOnly = requireRole('Admin');
 router.use(authMiddleware);
 
 router.get('/assigned/me', projectController.getAssignedForCurrentUser);
+router.get('/:projectId/mine/workspace', employeeProjectController.getMyWorkspace);
+router.get('/:projectId/mine/dependency-graph', employeeProjectController.getMyDependencyGraph);
+router.get('/:projectId/cells/:cellId/mine', employeeProjectController.getMyCell);
+router.patch('/:projectId/cells/:cellId/mine/workflow', employeeProjectController.updateWorkflow);
+router.post('/:projectId/cells/:cellId/mine/reviews', employeeProjectController.requestReview);
+router.get('/:projectId/cells/:cellId/mine/reviews', employeeProjectController.listMyCellReviews);
 
 router.get('/', adminOnly, projectController.getAll);
 router.get('/archived', adminOnly, projectController.getArchivedProjects);
@@ -31,6 +38,7 @@ router.patch('/:projectId/cells/:cellId/complete', adminOnly, projectWorkspaceCo
 router.get('/:projectId/cells/:cellId/reviews', adminOnly, projectWorkspaceController.listCellReviews);
 router.post('/:projectId/cells/:cellId/reviews', adminOnly, projectWorkspaceController.createCellReview);
 router.post('/:projectId/cells/:cellId/reviews/:reviewId/messages', adminOnly, projectWorkspaceController.addReviewMessage);
+router.patch('/:projectId/cells/:cellId/reviews/:reviewId/resolve', adminOnly, projectWorkspaceController.resolveCellReview);
 
 router.get('/:id/assigned-tasks', adminOnly, projectController.getProjectAssignedTasks);
 router.get('/:id/audit-trail', adminOnly, projectController.getAuditTrail);

@@ -148,6 +148,18 @@ const EmployeeProfilePage = lazy(() =>
   import('@pages/employee/EmployeeProfile')
 )
 
+const EmployeeProjects = lazy(() =>
+  import('@pages/employee/EmployeeProjects')
+)
+
+const EmployeeProjectWorkspace = lazy(() =>
+  import('@pages/employee/EmployeeProjectWorkspace')
+)
+
+const EmployeeCellWorkflow = lazy(() =>
+  import('@pages/employee/EmployeeCellWorkflow')
+)
+
 // ── Not Found ────────────────────────────────────────────────
 const NotFound = lazy(async () => {
   const m = await import('@pages/NotFound')
@@ -265,6 +277,12 @@ export function AppRoutes() {
               path="timesheet"
               element={<EmployeeTimesheet />}
             />
+
+            <Route path="projects">
+              <Route index element={<EmployeeProjects />} />
+              <Route path=":projectId" element={<EmployeeProjectWorkspace />} />
+              <Route path=":projectId/cells/:cellId" element={<EmployeeCellWorkflow />} />
+            </Route>
 
             <Route
               path="leave"

@@ -6,6 +6,7 @@ const prefetchers = {
       import('@pages/employee/Timesheet'),
       import('@pages/employee/TimesheetWeeklyChart'),
     ]),
+  '/employee/projects': () => import('@pages/employee/EmployeeProjects'),
   '/employee/leave': () => import('@pages/employee/LeaveRequest'),
   '/employee/calendar': () => import('@pages/employee/CompanyCalendar'),
   '/employee/documents': () => import('@pages/employee/DocumentRequest'),

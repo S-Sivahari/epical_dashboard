@@ -1,4 +1,5 @@
 import { Schema, model, Document, Types } from 'mongoose';
+import { type CellViewWorkflow } from '../utils/cellWorkflow';
 
 export const CELL_TYPES = ['block', 'IOP', 'ESD', 'TOP'] as const;
 
@@ -21,6 +22,8 @@ export interface CellViews {
   schematic: string;
 }
 
+export type { CellViewWorkflow };
+
 export interface ProjectCell extends Document {
   projectId: Types.ObjectId;
   libraryId: Types.ObjectId;
@@ -35,6 +38,7 @@ export interface ProjectCell extends Document {
   dependencyCellIds: Types.ObjectId[];
   status: string;
   views: CellViews;
+  viewWorkflow: CellViewWorkflow;
   activityLog: CellActivityEntry[];
   createdBy?: string;
   createdAt: Date;
@@ -59,6 +63,23 @@ const ProjectCellSchema = new Schema<ProjectCell>(
       layout: { type: String, default: '' },
       symbol: { type: String, default: '' },
       schematic: { type: String, default: '' },
+    },
+    viewWorkflow: {
+      style: {
+        status: { type: String, enum: ['not_started', 'in_progress', 'completed'], default: 'not_started' },
+      },
+      symbol: {
+        status: { type: String, enum: ['not_started', 'in_progress', 'completed'], default: 'not_started' },
+      },
+      layout: {
+        stage: {
+          type: String,
+          enum: ['floor_plan', 'drc_r1', 'routing', 'drc', 'lvs_r2'],
+          default: 'floor_plan',
+        },
+        status: { type: String, enum: ['not_started', 'in_progress', 'completed'], default: 'not_started' },
+        pendingReview: { type: String, enum: ['r1', 'r2', null], default: null },
+      },
     },
     activityLog: [
       {

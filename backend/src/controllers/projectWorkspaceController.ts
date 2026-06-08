@@ -4,6 +4,15 @@ import { ProjectModel } from '../models/Project';
 import { ProjectLibraryModel } from '../models/ProjectLibrary';
 import { ProjectCellModel, CELL_STATUSES, CELL_TYPES, type CellStatus } from '../models/ProjectCell';
 import { CellReviewModel } from '../models/CellReview';
+import {
+  applyReviewApproval,
+  applyReviewRejection,
+  defaultViewWorkflow,
+  normalizeViewWorkflow,
+  returnOptionsForReview,
+  type LayoutStage,
+  type ReviewPoint,
+} from '../utils/cellWorkflow';
 
 function paramId(value: string | string[]): string {
   return Array.isArray(value) ? value[0] : value;
@@ -62,6 +71,7 @@ function toCell(doc: any, dependencyMeta?: { isBlocked: boolean; isReady: boolea
     dependencyCellIds: (doc.dependencyCellIds || []).map((id: Types.ObjectId) => id.toString()),
     status: normalizeStatus(doc.status || 'ready'),
     views: doc.views || { layout: '', symbol: '', schematic: '' },
+    viewWorkflow: normalizeViewWorkflow(doc.viewWorkflow),
     activityLog: doc.activityLog || [],
     isBlocked: dependencyMeta?.isBlocked ?? false,
     isReady: dependencyMeta?.isReady ?? false,
@@ -76,7 +86,12 @@ function toReview(doc: any) {
     projectId: doc.projectId.toString(),
     cellId: doc.cellId.toString(),
     stageAtRequest: doc.stageAtRequest,
+    reviewPoint: doc.reviewPoint || null,
+    outcome: doc.outcome || 'pending',
+    returnToStage: doc.returnToStage || null,
     status: doc.status,
+    resolvedByName: doc.resolvedByName || null,
+    resolvedAt: doc.resolvedAt || null,
     initiatedBy: doc.initiatedBy,
     initiatedByName: doc.initiatedByName,
     assignedEmployeeId: doc.assignedEmployeeId || '',
@@ -312,6 +327,7 @@ export const projectWorkspaceController = {
         dependencyCellIds: deps,
         status: 'ready',
         views: views || { layout: '', symbol: '', schematic: '' },
+        viewWorkflow: defaultViewWorkflow(),
         activityLog: [
           {
             action: 'created',
@@ -525,10 +541,13 @@ export const projectWorkspaceController = {
       }
 
       const actor = actorFromReq(req);
+      const workflow = normalizeViewWorkflow(cell.viewWorkflow);
       const review = await CellReviewModel.create({
         projectId: new Types.ObjectId(projectId),
         cellId: cell._id,
-        stageAtRequest: cell.status,
+        stageAtRequest: workflow.layout.stage,
+        reviewPoint: workflow.layout.pendingReview || undefined,
+        outcome: 'pending',
         initiatedBy: actor.userId,
         initiatedByName: actor.userName,
         assignedEmployeeId: cell.assignedEmployeeId,
@@ -545,7 +564,7 @@ export const projectWorkspaceController = {
 
       cell.activityLog.push({
         action: 'review_requested',
-        detail: `Review requested at stage ${cell.status}`,
+        detail: `Review requested at layout stage ${workflow.layout.stage}`,
         userId: actor.userId,
         userName: actor.userName,
         at: new Date(),
@@ -589,6 +608,94 @@ export const projectWorkspaceController = {
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: 'Failed to delete cell' });
+    }
+  },
+
+  resolveCellReview: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const cellId = paramId(req.params.cellId);
+      const reviewId = paramId(req.params.reviewId);
+      const { outcome, returnToStage, comment } = req.body as {
+        outcome?: 'approved' | 'rejected';
+        returnToStage?: LayoutStage;
+        comment?: string;
+      };
+
+      if (outcome !== 'approved' && outcome !== 'rejected') {
+        res.status(400).json({ error: 'outcome must be approved or rejected' });
+        return;
+      }
+
+      const review = await CellReviewModel.findOne({ _id: reviewId, projectId, cellId, status: 'open' });
+      if (!review) {
+        res.status(404).json({ error: 'Open review not found' });
+        return;
+      }
+
+      const cell = await ProjectCellModel.findOne({ _id: cellId, projectId });
+      if (!cell) {
+        res.status(404).json({ error: 'Cell not found' });
+        return;
+      }
+
+      const reviewPoint = review.reviewPoint;
+      if (reviewPoint !== 'r1' && reviewPoint !== 'r2') {
+        res.status(400).json({ error: 'Review point is required to resolve this review' });
+        return;
+      }
+
+      if (outcome === 'rejected') {
+        const options = returnOptionsForReview(reviewPoint);
+        if (!returnToStage || !options.includes(returnToStage)) {
+          res.status(400).json({
+            error: `returnToStage is required. Allowed: ${options.join(', ')}`,
+            allowedReturnStages: options,
+          });
+          return;
+        }
+      }
+
+      const actor = actorFromReq(req);
+      const workflow = normalizeViewWorkflow(cell.viewWorkflow);
+      let nextWorkflow = workflow;
+
+      if (outcome === 'approved') {
+        nextWorkflow = applyReviewApproval(workflow, reviewPoint);
+      } else {
+        nextWorkflow = applyReviewRejection(workflow, reviewPoint, returnToStage!);
+      }
+
+      cell.viewWorkflow = nextWorkflow;
+      review.status = 'resolved';
+      review.outcome = outcome;
+      review.returnToStage = outcome === 'rejected' ? returnToStage : undefined;
+      review.resolvedBy = actor.userId;
+      review.resolvedByName = actor.userName;
+      review.resolvedAt = new Date();
+
+      if (comment?.trim()) {
+        review.messages.push({
+          authorId: actor.userId,
+          authorName: actor.userName,
+          authorRole: actor.role,
+          body: comment.trim(),
+          at: new Date(),
+        });
+      }
+
+      cell.activityLog.push({
+        action: 'review_resolved',
+        detail: `${reviewPoint.toUpperCase()} ${outcome}${outcome === 'rejected' ? ` → ${returnToStage}` : ''}`,
+        userId: actor.userId,
+        userName: actor.userName,
+        at: new Date(),
+      });
+
+      await Promise.all([cell.save(), review.save()]);
+      res.json({ cell: toCell(cell), review: toReview(review) });
+    } catch (err: any) {
+      res.status(400).json({ error: err?.message || 'Failed to resolve review' });
     }
   },
 

@@ -1,5 +1,12 @@
 import api from '@/services/api'
-import type { CellReview, DependencyGraph, ProjectCell, ProjectLibrary, WorkspaceSummary } from '@/types/projectWorkspace'
+import type {
+  CellReview,
+  DependencyGraph,
+  LayoutStage,
+  ProjectCell,
+  ProjectLibrary,
+  WorkspaceSummary,
+} from '@/types/projectWorkspace'
 
 export async function fetchWorkspaceSummary(projectId: string) {
   const { data } = await api.get<WorkspaceSummary>(`/projects/${projectId}/workspace`)
@@ -67,6 +74,19 @@ export async function addReviewMessage(projectId: string, cellId: string, review
   const { data } = await api.post<CellReview>(
     `/projects/${projectId}/cells/${cellId}/reviews/${reviewId}/messages`,
     { body },
+  )
+  return data
+}
+
+export async function resolveCellReview(
+  projectId: string,
+  cellId: string,
+  reviewId: string,
+  payload: { outcome: 'approved' | 'rejected'; returnToStage?: LayoutStage; comment?: string },
+) {
+  const { data } = await api.patch<{ cell: ProjectCell; review: CellReview }>(
+    `/projects/${projectId}/cells/${cellId}/reviews/${reviewId}/resolve`,
+    payload,
   )
   return data
 }
