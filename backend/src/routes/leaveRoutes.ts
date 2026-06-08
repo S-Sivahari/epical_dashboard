@@ -33,6 +33,7 @@ router.post('/', leaveController.create);
 router.delete('/all', roleMiddleware('Admin'), leaveController.deleteAll);
 router.patch('/:id/approve', roleMiddleware('Admin'), leaveController.approve);
 router.patch('/:id/reject', roleMiddleware('Admin'), leaveController.reject);
+router.patch('/:id/revoke', roleMiddleware('Admin'), leaveController.revoke);
 router.patch('/:id/cancel', leaveController.cancel);
 router.delete('/:id', roleMiddleware('Admin'), leaveController.delete);
 

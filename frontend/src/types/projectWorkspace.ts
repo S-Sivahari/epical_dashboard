@@ -2,8 +2,35 @@ export const CELL_TYPES = ['block', 'IOP', 'ESD', 'TOP'] as const
 
 export const CELL_STATUSES = ['ready', 'in_progress', 'completed'] as const
 
+export const CELL_WORKFLOW_STAGE_KEYS = [
+  'floor_plan',
+  'drc_review_1',
+  'routing',
+  'drc',
+  'lvs_review_2',
+] as const
+
+export const WORKFLOW_STAGE_STATUSES = ['not_started', 'in_progress', 'completed'] as const
+
+export const CELL_WORKFLOW_STAGES = [
+  { key: 'floor_plan', label: 'Floor Plan' },
+  { key: 'drc_review_1', label: 'DRC' },
+  { key: 'routing', label: 'Routing' },
+  { key: 'drc', label: 'DRC' },
+  { key: 'lvs_review_2', label: 'LVS' },
+] as const
+
 export type CellType = (typeof CELL_TYPES)[number]
 export type CellStatus = (typeof CELL_STATUSES)[number]
+export type CellWorkflowStageKey = (typeof CELL_WORKFLOW_STAGE_KEYS)[number]
+export type WorkflowStageStatus = (typeof WORKFLOW_STAGE_STATUSES)[number]
+
+export interface CellWorkflowStage {
+  stageKey: CellWorkflowStageKey
+  stageLabel: string
+  status: WorkflowStageStatus
+  updatedAt?: string
+}
 
 export interface AdminProjectRow {
   id: string
@@ -14,6 +41,102 @@ export interface AdminProjectRow {
   status: string
   teamLead?: string
   completionPercentage?: number
+  checklistName?: string
+  checklistStatus?: 'Applied' | 'Partial' | 'Not Applied'
+  checklistCompletionPercentage?: number
+  checklistLastUpdated?: string
+  checklistTotalCells?: number
+  checklistAppliedCells?: number
+}
+
+export type ProjectChecklistStatus = 'Applied' | 'Partial' | 'Not Applied'
+export type CellChecklistStatus = 'Applied' | 'Pending' | 'Not Assigned'
+
+export interface ChecklistItem {
+  id: string
+  itemName: string
+  order: number
+}
+
+export interface Checklist {
+  id: string
+  name: string
+  description: string
+  items: ChecklistItem[]
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface ProjectChecklistSummary {
+  checklistId: string
+  checklistName: string
+  checklistDescription: string
+  status: ProjectChecklistStatus
+  completionPercentage: number
+  totalCells: number
+  appliedCells: number
+  lastUpdated?: string
+  itemCount: number
+  selectedItemIds: string[]
+  selectedItems: { id: string; itemName: string }[]
+}
+
+export type CellChecklistItemResponse = 'yes' | 'no' | 'not_applicable'
+
+export interface CellChecklistItem {
+  id: string
+  checklistItemId: string
+  itemName: string
+  status: string
+  response: CellChecklistItemResponse | null
+  comment: string
+  appliedBy: string
+  appliedDate?: string
+}
+
+export interface CellChecklistDetail {
+  checklistId: string | null
+  checklistName: string
+  cellStatus: CellChecklistStatus
+  items: CellChecklistItem[]
+}
+
+export interface CellChecklistRowSummary {
+  cellId: string
+  checklistName: string
+  cellStatus: CellChecklistStatus
+  appliedCount: number
+  answeredCount: number
+  totalCount: number
+  items: CellChecklistItem[]
+}
+
+export interface ProjectCellsChecklistResponse {
+  checklistId: string | null
+  checklistName: string
+  cells: CellChecklistRowSummary[]
+}
+
+export interface ChecklistImportResult {
+  imported: number
+  updated: number
+  failed: number
+  errors: { row: number; projectName: string; message: string }[]
+}
+
+export interface ChecklistTemplateImportResult {
+  imported: number
+  created: number
+  updated: number
+  failed: number
+  errors: { row: number; checklistName: string; message: string }[]
+}
+
+export interface ChecklistTemplateRow {
+  checklistName: string
+  description: string
+  itemName: string
+  itemOrder: number
 }
 
 export interface ProjectLibrary {
@@ -81,6 +204,10 @@ export interface ProjectCell {
   assignedEmployeeName: string
   dependencyCellIds: string[]
   status: CellStatus
+  workflow: CellWorkflowStage[]
+  workflowCompletedStages: number
+  workflowTotalStages: number
+  currentWorkflowStage: string
   views: CellViews
   viewWorkflow: CellViewWorkflow
   isBlocked: boolean

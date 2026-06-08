@@ -3,7 +3,7 @@ import { addDays, format, parseISO, startOfDay } from 'date-fns'
 export const DD_MM_YYYY_REGEX = /^(\d{2})\/(\d{2})\/(\d{4})$/
 export const ISO_DATE_REGEX = /^(\d{4})-(\d{2})-(\d{2})$/
 
-export const LEAVE_MAX_ADVANCE_DAYS = 90
+export const LEAVE_MAX_ADVANCE_DAYS = 45
 
 export type DateParseResult =
   | { valid: true; iso: string }

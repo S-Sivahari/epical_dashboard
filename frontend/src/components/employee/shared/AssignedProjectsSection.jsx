@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FolderKanban, Clock } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { FolderKanban, Clock, ArrowRight } from 'lucide-react'
 import { Badge } from '@components/employee/ui/badge'
-import { Progress } from '@components/employee/ui/progress'
 import api from '@services/api'
 import { cn } from '@pages/employee/lib/utils'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
@@ -17,12 +17,18 @@ function statusBadgeVariant(status) {
   return 'warning'
 }
 
-function ProjectRow({ project }) {
-  const completion = project.completionPercentage ?? 0
-  const showProgress = (project.totalTasks ?? 0) > 0
-
+function ProjectRow({ project, compact = false }) {
   return (
-    <li className="grid grid-cols-[minmax(0,1.4fr)_auto_minmax(5rem,7rem)_3.5rem] items-center gap-2 px-3 py-2.5 text-xs sm:grid-cols-[minmax(0,1.6fr)_auto_minmax(6rem,8rem)_4rem_4.5rem] sm:gap-3 sm:px-4">
+    <li
+      className={cn(
+        'grid grid-cols-[minmax(0,1.4fr)_auto_3.5rem] items-center gap-2 text-xs sm:grid-cols-[minmax(0,1.6fr)_auto_4rem_4.5rem] sm:gap-3',
+        compact ? 'px-2 py-1.5 sm:px-3' : 'px-3 py-2.5 sm:px-4',
+      )}
+    >
+      <Link
+        to={`/employee/projects/${project.id}`}
+        className="col-span-full grid grid-cols-subgrid items-center gap-2 sm:col-span-4 sm:gap-3 hover:bg-[#f6f4fa]/80"
+      >
       <div className="min-w-0">
         <p className="truncate font-semibold text-foreground" title={project.name}>
           {project.name}
@@ -39,20 +45,6 @@ function ProjectRow({ project }) {
         {projectStatusLabel(project.status)}
       </Badge>
 
-      <div className="min-w-0">
-        {showProgress ? (
-          <>
-            <div className="mb-0.5 flex justify-between text-[10px] text-muted">
-              <span>Tasks</span>
-              <span className="font-semibold text-foreground">{completion}%</span>
-            </div>
-            <Progress value={completion} className="h-1.5" />
-          </>
-        ) : (
-          <span className="text-[10px] text-muted">No tasks</span>
-        )}
-      </div>
-
       <span className="hidden text-right font-semibold text-foreground sm:block">
         {project.myHours > 0 ? `${project.myHours}h` : '—'}
       </span>
@@ -60,6 +52,7 @@ function ProjectRow({ project }) {
       <span className="truncate text-right text-[10px] font-medium text-muted">
         {project.assignmentRole}
       </span>
+      </Link>
     </li>
   )
 }
@@ -68,6 +61,8 @@ export function AssignedProjectsSection({
   initialProjects = null,
   loading: loadingProp = false,
   className,
+  compact = false,
+  fill = false,
 }) {
   const [projects, setProjects] = useState(initialProjects ?? [])
   const [loading, setLoading] = useState(initialProjects == null || loadingProp)
@@ -115,29 +110,40 @@ export function AssignedProjectsSection({
   const summary = useMemo(() => {
     const totalHours = projects.reduce((sum, p) => sum + (p.myHours ?? 0), 0)
     const active = projects.filter((p) => p.status === 'Active').length
-    const withTasks = projects.filter((p) => (p.totalTasks ?? 0) > 0)
-    const avgCompletion =
-      withTasks.length > 0
-        ? Math.round(
-            withTasks.reduce((sum, p) => sum + (p.completionPercentage ?? 0), 0) / withTasks.length,
-          )
-        : 0
 
-    return { totalHours, active, avgCompletion }
+    return { totalHours, active }
   }, [projects])
 
   return (
     <InteractiveCard
-      className={portalCardClass({ className: cn('overflow-hidden p-4 sm:p-5', className) })}
+      to="/employee/projects"
+      className={portalCardClass({
+        className: cn(
+          compact
+            ? 'flex h-full min-h-0 flex-col overflow-hidden p-3'
+            : 'overflow-hidden p-4 sm:p-5',
+          className,
+        ),
+      })}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div className="emp-dash-icon emp-dash-icon--violet" aria-hidden>
-            <FolderKanban className="h-4 w-4" />
+      <div
+        className={cn(
+          'flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border',
+          compact ? 'pb-2' : 'pb-3',
+        )}
+      >
+        <div className="flex min-w-0 items-center gap-2">
+          <div
+            className={cn('emp-dash-icon emp-dash-icon--violet', compact && 'h-7 w-7')}
+            aria-hidden
+          >
+            <FolderKanban className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
           </div>
           <div className="min-w-0">
-            <h3 className="font-heading text-base font-semibold text-foreground">My assigned projects</h3>
-            {!loading && projects.length > 0 ? (
+            <h3 className={cn('font-heading font-semibold text-foreground', compact ? 'text-sm' : 'text-base')}>
+              My assigned projects
+            </h3>
+            {!loading && projects.length > 0 && !compact ? (
               <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted">
                 <span>
                   <span className="font-semibold text-foreground">{projects.length}</span> total
@@ -151,58 +157,75 @@ export function AssignedProjectsSection({
                   <Clock className="h-3 w-3" />
                   <span className="font-semibold text-foreground">{summary.totalHours}h</span> logged
                 </span>
-                {summary.avgCompletion > 0 ? (
-                  <>
-                    <span aria-hidden>·</span>
-                    <span>
-                      <span className="font-semibold text-foreground">{summary.avgCompletion}%</span> avg progress
-                    </span>
-                  </>
-                ) : null}
+              </p>
+            ) : !loading && projects.length > 0 && compact ? (
+              <p className="mt-0.5 text-[11px] text-muted">
+                {projects.length} project{projects.length === 1 ? '' : 's'} · {summary.totalHours}h logged
               </p>
             ) : (
               <p className="mt-0.5 text-xs text-muted">Projects you can access</p>
             )}
           </div>
         </div>
+        <Link
+          to="/employee/projects"
+          className={cn(
+            'inline-flex shrink-0 items-center gap-1 font-medium text-primary hover:underline',
+            compact ? 'text-[10px]' : 'text-xs',
+          )}
+        >
+          Open workspace <ArrowRight className={compact ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
+        </Link>
       </div>
 
-      {loading && (
-        <div className="mt-3 space-y-2">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-12 animate-pulse rounded-lg bg-slate-100" />
-          ))}
-        </div>
-      )}
-
-      {!loading && error && (
-        <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-4 text-center text-sm text-amber-800">
-          {error}
-        </p>
-      )}
-
-      {!loading && !error && projects.length === 0 && (
-        <p className="mt-3 rounded-lg border border-dashed border-border px-3 py-6 text-center text-sm text-muted">
-          No projects assigned yet.
-        </p>
-      )}
-
-      {!loading && !error && projects.length > 0 && (
-        <div className="mt-3 overflow-hidden rounded-lg border border-border">
-          <div className="hidden border-b border-border bg-[#f6f4fa]/90 px-4 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted sm:grid sm:grid-cols-[minmax(0,1.6fr)_auto_minmax(6rem,8rem)_4rem_4.5rem] sm:gap-3">
-            <span>Project</span>
-            <span>Status</span>
-            <span>Progress</span>
-            <span className="text-right">Hours</span>
-            <span className="text-right">Role</span>
-          </div>
-          <ul className="divide-y divide-border">
-            {projects.map((project) => (
-              <ProjectRow key={project.id} project={project} />
+      <div
+        className={cn(
+          fill && 'emp-dash-widget-body min-h-0 flex-1',
+          compact && !fill && 'mt-2',
+          !compact && 'mt-3',
+        )}
+      >
+        {loading && (
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className={cn('animate-pulse rounded-lg bg-slate-100', compact ? 'h-8' : 'h-12')} />
             ))}
-          </ul>
-        </div>
-      )}
+          </div>
+        )}
+
+        {!loading && error && (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-center text-sm text-amber-800">
+            {error}
+          </p>
+        )}
+
+        {!loading && !error && projects.length === 0 && (
+          <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-sm text-muted">
+            No projects assigned yet.
+          </p>
+        )}
+
+        {!loading && !error && projects.length > 0 && (
+          <div
+            className={cn(
+              'overflow-hidden rounded-lg border border-border',
+              !fill && compact && 'max-h-36 overflow-y-auto overscroll-contain',
+            )}
+          >
+            <div className="hidden border-b border-border bg-[#f6f4fa]/90 px-4 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted sm:grid sm:grid-cols-[minmax(0,1.6fr)_auto_4rem_4.5rem] sm:gap-3">
+              <span>Project</span>
+              <span>Status</span>
+              <span className="text-right">Hours</span>
+              <span className="text-right">Role</span>
+            </div>
+            <ul className="divide-y divide-border">
+              {projects.map((project) => (
+                <ProjectRow key={project.id} project={project} compact={compact} />
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
     </InteractiveCard>
   )
 }

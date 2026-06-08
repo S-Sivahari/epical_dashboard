@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, CheckCircle2, GitBranch, Layers, MessageSquare, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, GitBranch, Layers, ListChecks, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
@@ -19,6 +19,10 @@ import {
   updateCell,
   updateCellStatus,
 } from '@/services/projectWorkspaceService'
+import { fetchCellChecklist } from '@/services/checklistService'
+import { CellChecklistResponses } from './CellChecklistResponses'
+import type { CellChecklistDetail } from '@/types/projectWorkspace'
+import { Badge } from '@components/ui/Badge'
 import { cn } from '@/utils/cn'
 import {
   CELL_STATUSES,
@@ -33,14 +37,15 @@ import {
 } from '@/types/projectWorkspace'
 import type { Employee } from '@/types'
 import { STATUS_LABELS, cellDisplayStatus } from './projectWorkspaceUi'
+import { CellWorkflowPanel } from './CellWorkflowPanel'
 import './adminProjects.css'
 
-type CellTab = 'details' | 'dependencies' | 'reviews'
+type CellTab = 'details' | 'workflow' | 'dependencies'
 
 const TAB_ITEMS: { id: CellTab; label: string; icon: typeof Layers }[] = [
   { id: 'details', label: 'Details', icon: Layers },
+  { id: 'workflow', label: 'Workflow', icon: ListChecks },
   { id: 'dependencies', label: 'Dependencies', icon: GitBranch },
-  { id: 'reviews', label: 'Reviews', icon: MessageSquare },
 ]
 
 export function ProjectCellPage() {
@@ -58,19 +63,22 @@ export function ProjectCellPage() {
   const [reviewComment, setReviewComment] = useState('')
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [cellChecklist, setCellChecklist] = useState<CellChecklistDetail | null>(null)
 
   const reload = useCallback(async () => {
     if (!projectId || !cellId) return
     setLoading(true)
     try {
-      const [ws, empsRes, reviewList] = await Promise.all([
+      const [ws, empsRes, reviewList, checklistData] = await Promise.all([
         fetchWorkspaceSummary(projectId),
         getEmployees({ status: 'Active', pageSize: 500 }),
         fetchCellReviews(projectId, cellId),
+        fetchCellChecklist(projectId, cellId).catch(() => null),
       ])
       setSummary(ws)
       setEmployees(empsRes.data ?? [])
       setReviews(reviewList)
+      setCellChecklist(checklistData)
       const cell = ws.cells.find((c) => c.id === cellId)
       if (cell) {
         setCellForm(cell)
@@ -357,7 +365,7 @@ export function ProjectCellPage() {
                       <dd>{cell.assignedEmployeeName?.trim() || 'Unassigned'}</dd>
                     </div>
                     <div className="admin-projects-cell-details-item">
-                      <dt>Workflow status</dt>
+                      <dt>Cell status</dt>
                       <dd>
                         <span className={cn(
                           'admin-projects-status-chip',
@@ -371,6 +379,24 @@ export function ProjectCellPage() {
                       </dd>
                     </div>
                   </dl>
+                  <div className="admin-projects-cell-checklist-section">
+                    <p className="admin-projects-field-label">Checklist</p>
+                    {!cellChecklist?.checklistId ? (
+                      <p className="text-sm text-slate-500">No checklist assigned to this project.</p>
+                    ) : (
+                      <>
+                        <p className="mb-3 text-sm font-semibold text-slate-800">
+                          {cellChecklist.checklistName || 'Assigned checklist'}
+                        </p>
+                        <CellChecklistResponses
+                          projectId={projectId}
+                          cellId={cellId}
+                          checklist={cellChecklist}
+                          onUpdated={setCellChecklist}
+                        />
+                      </>
+                    )}
+                  </div>
                   <div className="admin-projects-cell-details-views">
                     <p className="admin-projects-field-label">Views</p>
                     <div className="admin-projects-pill-rail mb-2">
@@ -520,6 +546,22 @@ export function ProjectCellPage() {
                     </Button>
                   </div>
                 </div>
+              )}
+
+              {activeTab === 'workflow' && (
+                <CellWorkflowPanel
+                  projectId={projectId}
+                  cell={cell}
+                  reviews={reviews}
+                  reviewComment={reviewComment}
+                  onReviewCommentChange={setReviewComment}
+                  onRequestReview={requestReview}
+                  onPostReviewReply={postReviewReply}
+                  onUpdated={(updated) => {
+                    setCellForm(updated)
+                    void reload()
+                  }}
+                />
               )}
 
               {activeTab === 'dependencies' && (

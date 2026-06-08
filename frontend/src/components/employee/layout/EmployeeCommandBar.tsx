@@ -5,6 +5,7 @@ import { CompanyLogo } from '@components/auth/CompanyLogo'
 import { EmployeePhotoAvatar } from '@components/employee/shared/EmployeePhotoAvatar'
 import { NotificationBell } from '@components/layout/NotificationBell'
 import { useAuthStore } from '@store/authStore'
+import { useMyEmployeeAvatar } from '@hooks/useMyEmployeeAvatar'
 import {
   getEmployeePageTitle,
   shouldShowEmployeeBackButton,
@@ -15,6 +16,7 @@ export function EmployeeCommandBar() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
+  const avatarUrl = useMyEmployeeAvatar()
 
   const pageTitle = useMemo(() => getEmployeePageTitle(pathname), [pathname])
   const showBack = shouldShowEmployeeBackButton(pathname)
@@ -62,7 +64,7 @@ export function EmployeeCommandBar() {
         <EmployeePhotoAvatar
           employeeId={user?.id}
           name={user?.name ?? 'Employee'}
-          fallbackSrc={user?.avatarUrl}
+          fallbackSrc={avatarUrl ?? user?.avatarUrl}
           className="h-8 w-8 cmd-profile-btn shrink-0"
           fallbackClassName="bg-[#266b1c] text-xs text-white"
         />

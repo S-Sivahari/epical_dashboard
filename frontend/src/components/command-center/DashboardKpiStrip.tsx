@@ -14,6 +14,8 @@ export type DashboardKpiItem = {
   notificationCount?: number
   /** Secondary line under label (e.g. hires this month) */
   hint?: string
+  /** When set, overrides strip-level loading for this card */
+  itemLoading?: boolean
   /** Same card size as default; colored icon, black count + label only */
   layout?: 'default' | 'minimal'
 }
@@ -70,6 +72,7 @@ export function DashboardKpiStrip({
       {items.map((item) => {
         const Icon = item.icon
         const tone = toneStyles[item.tone]
+        const itemLoading = item.itemLoading ?? loading
         if (item.layout === 'minimal') {
           return (
             <button
@@ -80,13 +83,13 @@ export function DashboardKpiStrip({
                 'dashboard-kpi-card dashboard-kpi-card--link dashboard-kpi-card--minimal',
                 `dashboard-kpi-card--tone-${item.tone}`,
               )}
-              aria-label={`${item.label}: ${loading ? 'loading' : item.value}`}
+              aria-label={`${item.label}: ${itemLoading ? 'loading' : item.value}`}
             >
               <span className={cn('dashboard-kpi-icon', tone.iconBg, tone.iconColor)}>
                 <Icon className="h-5 w-5" strokeWidth={2} />
               </span>
               <p className="dashboard-kpi-value dashboard-kpi-value--black">
-                {loading ? '—' : item.value}
+                {itemLoading ? '—' : item.value}
               </p>
               <p className="dashboard-kpi-label dashboard-kpi-label--black">{item.label}</p>
               {item.hint ? (
@@ -102,7 +105,7 @@ export function DashboardKpiStrip({
             type="button"
             onClick={() => navigate(item.route)}
             className="dashboard-kpi-card dashboard-kpi-card--link"
-            aria-label={`${item.label}: ${loading ? 'loading' : item.value}. ${item.trend ?? item.subtext ?? ''}`}
+            aria-label={`${item.label}: ${itemLoading ? 'loading' : item.value}. ${item.trend ?? item.subtext ?? ''}`}
           >
             <span className={cn('dashboard-kpi-icon relative', tone.iconBg, tone.iconColor)}>
               <Icon className="h-5 w-5" strokeWidth={2} />
@@ -115,7 +118,7 @@ export function DashboardKpiStrip({
               ) : null}
             </span>
             <p className={cn('dashboard-kpi-value', tone.value)}>
-              {loading ? '—' : item.value}
+              {itemLoading ? '—' : item.value}
             </p>
             <p className={cn('dashboard-kpi-label', tone.label)}>{item.label}</p>
             {item.trend ? (

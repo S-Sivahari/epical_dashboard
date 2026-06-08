@@ -1,5 +1,5 @@
 import { Schema, model, Document, Types } from 'mongoose';
-import { type CellViewWorkflow } from '../utils/cellWorkflow';
+import { type CellViewWorkflow, type CellWorkflowStage } from '../utils/cellWorkflow';
 
 export const CELL_TYPES = ['block', 'IOP', 'ESD', 'TOP'] as const;
 
@@ -37,6 +37,7 @@ export interface ProjectCell extends Document {
   assignedEmployeeName?: string;
   dependencyCellIds: Types.ObjectId[];
   status: string;
+  workflow: CellWorkflowStage[];
   views: CellViews;
   viewWorkflow: CellViewWorkflow;
   activityLog: CellActivityEntry[];
@@ -59,6 +60,14 @@ const ProjectCellSchema = new Schema<ProjectCell>(
     assignedEmployeeName: { type: String },
     dependencyCellIds: [{ type: Schema.Types.ObjectId, ref: 'ProjectCell' }],
     status: { type: String, default: 'ready' },
+    workflow: [
+      {
+        stageKey: { type: String, required: true },
+        stageLabel: { type: String, required: true },
+        status: { type: String, default: 'not_started' },
+        updatedAt: { type: Date },
+      },
+    ],
     views: {
       layout: { type: String, default: '' },
       symbol: { type: String, default: '' },

@@ -121,6 +121,10 @@ export async function generatePayrollTemplateBuffer(): Promise<Buffer> {
     'PT',
     'TDS',
     'Loan Recovery',
+    'EL Balance',
+    'CL Balance',
+    'SL Balance',
+    'Comp Off',
   ]
   const headerRow = empSheet.getRow(4)
   empHeaders.forEach((h, i) => {
@@ -157,6 +161,10 @@ export async function generatePayrollTemplateBuffer(): Promise<Buffer> {
       '',
       '',
       '',
+      18,
+      7,
+      7,
+      2,
     ],
     [
       'E-1002',
@@ -185,6 +193,10 @@ export async function generatePayrollTemplateBuffer(): Promise<Buffer> {
       '',
       '',
       '',
+      12,
+      5,
+      5,
+      0,
     ],
   ]
   sampleEmployees.forEach((row, idx) => {

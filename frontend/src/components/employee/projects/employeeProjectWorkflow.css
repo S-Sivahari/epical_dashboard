@@ -13,6 +13,44 @@
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
+.emp-wf-project-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid #eef2f6;
+}
+
+.emp-wf-project-picker-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.emp-wf-project-select {
+  min-width: min(100%, 18rem);
+  flex: 1;
+  max-width: 28rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.65rem;
+  background: #f8fafc;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.emp-wf-project-select:focus {
+  outline: 2px solid #93c5fd;
+  outline-offset: 1px;
+  border-color: #2563eb;
+}
+
 .emp-wf-project-rail {
   display: flex;
   flex-wrap: wrap;

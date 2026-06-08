@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   BookOpen,
   CheckCircle2,
@@ -30,6 +31,7 @@ const SECTION_ITEMS = [
 ]
 
 export function EmployeeProjectBoardPage({ routeProjectId = null }) {
+  const navigate = useNavigate()
   const [projects, setProjects] = useState([])
   const [selectedProjectId, setSelectedProjectId] = useState(routeProjectId)
   const [workspace, setWorkspace] = useState(null)
@@ -161,6 +163,12 @@ export function EmployeeProjectBoardPage({ routeProjectId = null }) {
     }
   }
 
+  const handleProjectChange = (projectId) => {
+    if (!projectId) return
+    setSelectedProjectId(projectId)
+    navigate(`/employee/projects/${projectId}`, { replace: true })
+  }
+
   const handleRequestReview = async (cell) => {
     if (!selectedProjectId || !cell.isAssignedToMe) return
     setSavingId(cell.id)
@@ -181,18 +189,25 @@ export function EmployeeProjectBoardPage({ routeProjectId = null }) {
   return (
     <div className="emp-wf-page">
       <div className="emp-wf-surface">
-        {projects.length > 1 ? (
-          <div className="emp-wf-project-rail">
-            {projects.map((project) => (
-              <button
-                key={project.id}
-                type="button"
-                className={cn('emp-wf-project-btn', selectedProjectId === project.id && 'is-active')}
-                onClick={() => setSelectedProjectId(project.id)}
-              >
-                {project.name}
-              </button>
-            ))}
+        {projects.length > 0 ? (
+          <div className="emp-wf-project-picker">
+            <label htmlFor="emp-wf-project-select" className="emp-wf-project-picker-label">
+              Project
+            </label>
+            <select
+              id="emp-wf-project-select"
+              className="emp-wf-project-select"
+              value={selectedProjectId || ''}
+              onChange={(e) => handleProjectChange(e.target.value)}
+              aria-label="Choose project"
+            >
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                  {project.client ? ` · ${project.client}` : ''}
+                </option>
+              ))}
+            </select>
           </div>
         ) : null}
 

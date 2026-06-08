@@ -50,16 +50,16 @@ const DASHBOARD_GREEN = {
 }
 
 const ANALYTICS_GREEN = {
-  primary: '#06C033',
-  mid: '#05a82b',
-  deep: '#048522',
-  bright: '#39D353',
-  hover: '#2ecc4a',
+  primary: '#15803d',
+  mid: '#166534',
+  deep: '#14532d',
+  bright: '#22c55e',
+  hover: '#16a34a',
   axis: '#0f172a',
-  axisMuted: '#64748b',
-  label: '#06C033',
-  grid: 'rgba(6, 192, 51, 0.1)',
-  cursor: 'rgba(6, 192, 51, 0.12)',
+  axisMuted: '#334155',
+  label: '#14532d',
+  grid: 'rgba(15, 23, 42, 0.1)',
+  cursor: 'rgba(21, 128, 61, 0.14)',
 }
 
 export function HoursBarChart({
@@ -229,7 +229,7 @@ export function HoursBarChart({
           <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
           <XAxis
             dataKey="name"
-            tick={{ fill: axisColor, fontSize: isAnalytics ? 11 : 11, fontWeight: isAnalytics || isDashboard ? 600 : 500 }}
+            tick={{ fill: axisColor, fontSize: isAnalytics ? 12 : 11, fontWeight: isAnalytics || isDashboard ? 600 : 500 }}
             axisLine={false}
             tickLine={false}
             label={
@@ -239,7 +239,7 @@ export function HoursBarChart({
             }
           />
           <YAxis
-            tick={{ fill: axisColor, fontSize: 10, fontWeight: isAnalytics || isDashboard ? 500 : 400 }}
+            tick={{ fill: axisColor, fontSize: isAnalytics ? 11 : 10, fontWeight: isAnalytics || isDashboard ? 600 : 400 }}
             axisLine={false}
             tickLine={false}
             width={isAnalytics ? 32 : 36}

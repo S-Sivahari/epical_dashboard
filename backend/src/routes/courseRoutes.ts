@@ -13,7 +13,7 @@ courseRoutes.put('/courses/:id', requireRole('Admin'), courseController.updateCo
 courseRoutes.delete('/courses/:id', requireRole('Admin'), courseController.deleteCourse)
 
 // Enrollments (specific paths before any future /courses/:id variants)
-courseRoutes.get('/courses/enrollments', requireRole('Admin'), courseController.listEnrollments)
-courseRoutes.post('/courses/enrollments', requireRole('Admin'), courseController.enrollEmployee)
-courseRoutes.patch('/courses/enrollments/:id/complete', requireRole('Admin'), courseController.completeEnrollment)
+courseRoutes.get('/courses/enrollments', courseController.listEnrollments)
+courseRoutes.post('/courses/enrollments', courseController.enrollEmployee)
+courseRoutes.patch('/courses/enrollments/:id/complete', courseController.completeEnrollment)
 courseRoutes.delete('/courses/enrollments/:id', requireRole('Admin'), courseController.deleteEnrollment)

@@ -3,7 +3,18 @@ import { getDB } from '../config/db';
 import { findEmployeeByLoginEmail, findUserForEmployee, resolveEmployeeForAuthUser } from '../utils/employeeAuth';
 import { LeaveRequest, CreateLeavePayload } from '../models/Leave';
 import { Holiday } from '../models/Holiday';
-import { getBusinessDays, calculateBalances, leaveMonth, LEAVE_ALLOCATIONS } from '../utils/leaveCalculator';
+import {
+  getBusinessDays,
+  calculateBalances,
+  calculateMonthlyLopSummary,
+  computeCasualLeaveLopForRequest,
+  isCasualSameDayLeave,
+  LOP_LEAVE_TYPE,
+  leaveMonth,
+  LEAVE_ALLOCATIONS,
+  resolveLeaveBalanceKey,
+  sumPendingLeaveDays,
+} from '../utils/leaveCalculator';
 import type { Employee } from '../models/Employee';
 import * as notificationService from './notificationService';
 
@@ -77,10 +88,10 @@ function employeeAllocationOverrides(employee: Employee | null | undefined) {
   return employee?.leaveAllocations;
 }
 
-/** Sum active compensation entry days credited in the calendar year toward Earned Leave for this employee */
-export async function getCompensationEarnedLeaveBonusForYear(
+/** Sum active admin compensation credits for the calendar year (Compensation Leave balance only). */
+export async function getCompensationLeaveCreditsForYear(
   employeeDbId: string,
-  calendarYear = new Date().getFullYear()
+  calendarYear = new Date().getFullYear(),
 ): Promise<number> {
   const ids = await resolveLeaveEmployeeIds(employeeDbId);
 
@@ -101,6 +112,24 @@ export async function getCompensationEarnedLeaveBonusForYear(
     if (!Number.isNaN(d)) sum += d;
   }
   return sum;
+}
+
+/** @deprecated Use getCompensationLeaveCreditsForYear */
+export async function getCompensationEarnedLeaveBonusForYear(
+  employeeDbId: string,
+  calendarYear = new Date().getFullYear(),
+): Promise<number> {
+  return getCompensationLeaveCreditsForYear(employeeDbId, calendarYear);
+}
+
+function leaveBalanceOptions(
+  employee: Employee | null | undefined,
+  compensationLeaveCredits: number,
+) {
+  return {
+    compensationLeaveCredits,
+    employeeAllocations: employeeAllocationOverrides(employee),
+  };
 }
 
 // ── Leave Requests ──────────────────────────────────────────────
@@ -156,17 +185,66 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
   // 3. Fetch employee balances to validate (pass joinedAt for accurate earned leave)
   const employeeLeaves = await loadLeavesForBalance(payload.employeeId);
   const employeeDoc = await findEmployeeDoc(payload.employeeId);
-  const compBonus = await getCompensationEarnedLeaveBonusForYear(
+  const compCredits = await getCompensationLeaveCreditsForYear(
     employeeDoc?.id ? String(employeeDoc.id) : payload.employeeId,
   );
-  const balances = calculateBalances(employeeLeaves, employeeDoc?.joinedAt as string | undefined, {
-    compensationEarnedBonus: compBonus,
-    employeeAllocations: employeeAllocationOverrides(employeeDoc),
-  });
+  const balanceOptions = leaveBalanceOptions(employeeDoc, compCredits);
+  const balances = calculateBalances(employeeLeaves, employeeDoc?.joinedAt as string | undefined, balanceOptions);
 
-  const leaveBalance = balances[payload.type];
-  if (leaveBalance && leaveBalance.remaining < requestedDays) {
-    throw new Error(`Insufficient ${payload.type} balance. Remaining: ${leaveBalance.remaining}, Requested: ${requestedDays}`);
+  const balanceKey = resolveLeaveBalanceKey(payload.type);
+  const leaveBalance = balances[balanceKey];
+  let lopDays = 0;
+
+  if (payload.type === LOP_LEAVE_TYPE) {
+    lopDays = requestedDays;
+  } else if (payload.type === 'Sick Leave') {
+    const pendingSick = sumPendingLeaveDays(employeeLeaves, 'Sick Leave');
+    const availableSick = (leaveBalance?.remaining ?? 0) - pendingSick;
+    if (availableSick < requestedDays) {
+      throw new Error(
+        `Insufficient Sick Leave balance. Remaining: ${Math.max(0, availableSick)}, Requested: ${requestedDays}`,
+      );
+    }
+  } else if (payload.type === 'Casual Leave') {
+    if (isCasualSameDayLeave(payload.from)) {
+      throw new Error(
+        'Casual leave must be applied before your leave date. Please submit same-day leave as LOP.',
+      );
+    }
+    const split = computeCasualLeaveLopForRequest(
+      requestedDays,
+      employeeLeaves,
+      employeeDoc?.joinedAt as string | undefined,
+      balanceOptions,
+      undefined,
+      payload.from,
+    );
+    if (split.lopDays > 0) {
+      const paid = split.paidDays;
+      const excess = split.lopDays;
+      if (paid <= 0) {
+        throw new Error(
+          'Your casual leave balance is used up for this month. Please apply as LOP instead.',
+        );
+      }
+      throw new Error(
+        `Your request is for ${requestedDays} day${requestedDays === 1 ? '' : 's'} but only ${paid} casual day${paid === 1 ? '' : 's'} ${paid === 1 ? 'is' : 'are'} available. ` +
+          `Please apply for ${paid} casual day${paid === 1 ? '' : 's'} and ${excess} LOP day${excess === 1 ? '' : 's'} as separate requests.`,
+      );
+    }
+  } else if (leaveBalance && leaveBalance.remaining < requestedDays) {
+    const pendingSameType = sumPendingLeaveDays(
+      employeeLeaves,
+      payload.type,
+      undefined,
+      undefined,
+    );
+    const available = leaveBalance.remaining - pendingSameType;
+    if (available < requestedDays) {
+      throw new Error(
+        `Insufficient ${payload.type} balance. Remaining: ${Math.max(0, available)}, Requested: ${requestedDays}`,
+      );
+    }
   }
 
   const id = `L-${Date.now()}`;
@@ -178,7 +256,32 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
     createdAt: new Date(),
     updatedAt: new Date(),
   };
+  if (lopDays > 0) {
+    leave.lopDays = lopDays;
+  }
   await col.insertOne(leave);
+
+  if (lopDays > 0) {
+    try {
+      await notificationService.createNotification({
+        recipientId: payload.employeeId,
+        recipientType: 'Employee',
+        type: 'LeaveLop',
+        title: 'LOP days recorded',
+        message:
+          payload.type === LOP_LEAVE_TYPE
+            ? `Your LOP leave request (${payload.from} to ${payload.to}) will add ${lopDays} LOP day${lopDays === 1 ? '' : 's'} once approved.`
+            : `Your casual leave request includes ${lopDays} LOP day${lopDays === 1 ? '' : 's'} because it was applied for the same day or exceeds your casual balance.`,
+        relatedData: {
+          leaveId: id,
+          employeeId: payload.employeeId,
+          lopDays,
+        },
+      });
+    } catch (error) {
+      console.error('Error creating LOP notification:', error);
+    }
+  }
 
   // Create notification for manager/admin
   try {
@@ -228,16 +331,38 @@ async function getArchivedEarnedLeavesForBalance(employeeId: string, refDate = n
   return docs as LeaveRequest[];
 }
 
-export async function getLeaveBalances(employeeId: string) {
+export type LeaveBalanceRecord = {
+  total: number;
+  used: number;
+  remaining: number;
+  approved?: number;
+  pending?: number;
+};
+
+export async function getLeaveBalances(employeeId: string): Promise<Record<string, LeaveBalanceRecord>> {
   const leaves = await getAllLeaves(employeeId);
   const archivedEarned = await getArchivedEarnedLeavesForBalance(employeeId);
   const employee = await findEmployeeDoc(employeeId);
   const canonicalId = employee?.id ? String(employee.id) : employeeId;
-  const compBonus = await getCompensationEarnedLeaveBonusForYear(canonicalId);
-  return calculateBalances([...leaves, ...archivedEarned], employee?.joinedAt as string | undefined, {
-    compensationEarnedBonus: compBonus,
-    employeeAllocations: employeeAllocationOverrides(employee),
-  });
+  const compCredits = await getCompensationLeaveCreditsForYear(canonicalId);
+  const balanceOptions = leaveBalanceOptions(employee, compCredits);
+  const balances = calculateBalances([...leaves, ...archivedEarned], employee?.joinedAt as string | undefined, balanceOptions);
+  const lop = calculateMonthlyLopSummary(
+    leaves,
+    employee?.joinedAt as string | undefined,
+    balanceOptions,
+  );
+
+  return {
+    ...balances,
+    'LOP Days': {
+      total: 0,
+      used: lop.totalLopDays,
+      remaining: 0,
+      approved: lop.approvedLopDays,
+      pending: lop.pendingLopDays,
+    },
+  };
 }
 
 export interface LeaveTypeBalanceSummary {
@@ -290,15 +415,13 @@ export async function getEmployeeLeaveSummary(employeeId: string): Promise<Emplo
   const archivedEarned = await getArchivedEarnedLeavesForBalance(employeeId);
   const employee = await findEmployeeDoc(employeeId);
   const canonicalId = employee?.id ? String(employee.id) : employeeId;
-  const compBonus = await getCompensationEarnedLeaveBonusForYear(canonicalId);
-  const balances = calculateBalances([...leaves, ...archivedEarned], employee?.joinedAt as string | undefined, {
-    compensationEarnedBonus: compBonus,
-    employeeAllocations: employeeAllocationOverrides(employee),
-  });
+  const compCredits = await getCompensationLeaveCreditsForYear(canonicalId);
+  const balances = calculateBalances([...leaves, ...archivedEarned], employee?.joinedAt as string | undefined, leaveBalanceOptions(employee, compCredits));
   const allocationDisplay: Record<string, number> = {
     'Casual Leave': balances['Casual Leave']?.total ?? LEAVE_ALLOCATIONS['Casual Leave'],
     'Sick Leave': balances['Sick Leave']?.total ?? LEAVE_ALLOCATIONS['Sick Leave'],
     'Earned Leave': balances['Earned Leave']?.total ?? 0,
+    'Compensation Leave': balances['Compensation Leave']?.total ?? 0,
   };
   const currentYear = new Date().getFullYear().toString();
   const todayStr = getTodayDateString();
@@ -372,9 +495,9 @@ export async function updateEmployeeLeaveAllocations(
     .collection('employees')
     .updateOne({ id: String(employee.id) }, { $set: { leaveAllocations: next, updatedAt: new Date() } });
 
-  const compBonus = await getCompensationEarnedLeaveBonusForYear(String(employee.id));
+  const compCredits = await getCompensationLeaveCreditsForYear(String(employee.id));
   const totals = calculateBalances([], employee.joinedAt as string | undefined, {
-    compensationEarnedBonus: compBonus,
+    ...leaveBalanceOptions(employee, compCredits),
     employeeAllocations: next,
   });
 
@@ -382,6 +505,7 @@ export async function updateEmployeeLeaveAllocations(
     'Casual Leave': totals['Casual Leave'].total,
     'Sick Leave': totals['Sick Leave'].total,
     'Earned Leave': totals['Earned Leave'].total,
+    'Compensation Leave': totals['Compensation Leave'].total,
   };
 }
 
@@ -395,9 +519,8 @@ export async function updateLeaveStatus(
   const existing = await col.findOne({ id });
   if (!existing) return null;
 
-  // Idempotent: only Pending leaves can be approved/rejected once
   if (existing.status !== 'Pending') {
-    return existing as LeaveRequest;
+    throw new Error('Only pending leave requests can be approved or rejected');
   }
 
   if (status === 'Rejected') {
@@ -407,49 +530,76 @@ export async function updateLeaveStatus(
     }
   }
 
-  // If approving, validate the employee has sufficient balance
-  if (status === 'Approved') {
-    const leave = existing as LeaveRequest;
-
-    // Fetch employee leaves to calculate current balance
-    const employeeLeaves = await loadLeavesForBalance(leave.employeeId);
-    const employeeDoc = await getDB().collection('employees').findOne(
-      { id: leave.employeeId },
-      { projection: { documents: 0, 'photo.data': 0 } }
-    );
-    const compBonus = await getCompensationEarnedLeaveBonusForYear(leave.employeeId);
-    const balances = calculateBalances(employeeLeaves, (employeeDoc as Employee | null)?.joinedAt as string | undefined, {
-      compensationEarnedBonus: compBonus,
-      employeeAllocations: (employeeDoc as Employee | null)?.leaveAllocations,
-    });
-
-    const leaveBalance = balances[leave.type];
-    if (leaveBalance && leaveBalance.remaining < leave.days) {
-      throw new Error(
-        `Cannot approve: Insufficient ${leave.type} balance. ` +
-        `Remaining: ${leaveBalance.remaining}, Requested: ${leave.days}`
-      );
-    }
-  }
-
-  // Build update document
   const updateDoc: any = {
     status,
     updatedAt: new Date(),
   };
 
-  // Add rejection reason if rejecting
-  if (status === 'Rejected' && rejectionReason) {
-    updateDoc.rejectionReason = rejectionReason;
-  }
-
   if (status === 'Approved') {
+    const leave = existing as LeaveRequest;
+    const employeeLeaves = await loadLeavesForBalance(leave.employeeId);
+    const employeeDoc = await getDB().collection('employees').findOne(
+      { id: leave.employeeId },
+      { projection: { documents: 0, 'photo.data': 0 } },
+    );
+    const compCredits = await getCompensationLeaveCreditsForYear(leave.employeeId);
+    const balanceOptions = {
+      ...leaveBalanceOptions(employeeDoc as Employee | null, compCredits),
+      employeeAllocations: (employeeDoc as Employee | null)?.leaveAllocations,
+    };
+    const balances = calculateBalances(
+      employeeLeaves,
+      (employeeDoc as Employee | null)?.joinedAt as string | undefined,
+      balanceOptions,
+    );
+
+    if (leave.type === 'Sick Leave') {
+      const pendingSick = sumPendingLeaveDays(employeeLeaves, 'Sick Leave', undefined, leave.id);
+      const sickBalance = balances['Sick Leave'];
+      const availableSick = (sickBalance?.remaining ?? 0) - pendingSick;
+      if (availableSick < leave.days) {
+        throw new Error(
+          `Cannot approve: Insufficient Sick Leave balance. ` +
+          `Remaining: ${Math.max(0, availableSick)}, Requested: ${leave.days}`,
+        );
+      }
+    } else if (leave.type === LOP_LEAVE_TYPE) {
+      updateDoc.lopDays = leave.days;
+    } else if (leave.type === 'Casual Leave') {
+      const split = computeCasualLeaveLopForRequest(
+        leave.days,
+        employeeLeaves,
+        (employeeDoc as Employee | null)?.joinedAt as string | undefined,
+        balanceOptions,
+        leave.id,
+        leave.from,
+      );
+      if (split.lopDays > 0) {
+        throw new Error(
+          `Cannot approve: only ${split.paidDays} casual day${split.paidDays === 1 ? '' : 's'} available. ` +
+            `Employee must submit separate casual and LOP requests.`,
+        );
+      }
+    } else {
+      const balanceKey = resolveLeaveBalanceKey(leave.type);
+      const leaveBalance = balances[balanceKey];
+      const pendingSameType = sumPendingLeaveDays(employeeLeaves, leave.type, undefined, leave.id);
+      const available = (leaveBalance?.remaining ?? 0) - pendingSameType;
+      if (available < leave.days) {
+        throw new Error(
+          `Cannot approve: Insufficient ${leave.type} balance. ` +
+          `Remaining: ${Math.max(0, available)}, Requested: ${leave.days}`,
+        );
+      }
+    }
+
     updateDoc.approvalDate = new Date();
     updateDoc.approvedAt = new Date();
     if (actionBy) updateDoc.approvedBy = actionBy;
   }
 
-  if (status === 'Rejected') {
+  if (status === 'Rejected' && rejectionReason) {
+    updateDoc.rejectionReason = rejectionReason;
     updateDoc.rejectedAt = new Date();
     if (actionBy) updateDoc.rejectedBy = actionBy;
   }
@@ -457,15 +607,14 @@ export async function updateLeaveStatus(
   const result = await col.findOneAndUpdate(
     { id, status: 'Pending' },
     { $set: updateDoc },
-    { returnDocument: 'after' }
+    { returnDocument: 'after' },
   );
 
-  if (!result) {
-    return (await col.findOne({ id })) as LeaveRequest | null;
+  if (!result || result.status !== status) {
+    throw new Error('Leave request is no longer pending');
   }
 
   if (result.status === status) {
-    // Create notification for employee (only when status actually changed)
     try {
       const notificationType = status === 'Approved' ? 'LeaveApproved' : 'LeaveRejected';
       const title = status === 'Approved' ? 'Leave Approved' : 'Leave Rejected';
@@ -488,7 +637,6 @@ export async function updateLeaveStatus(
       });
     } catch (error) {
       console.error(`Error creating ${status} notification:`, error);
-      // Don't throw - notification failure shouldn't break status update
     }
   }
 
@@ -569,6 +717,69 @@ export async function cancelLeave(
     } catch (error) {
       console.error('Error notifying admins about leave cancellation:', error);
     }
+  }
+
+  return result as LeaveRequest;
+}
+
+/** Admin revokes an approved leave with reason — moves to Rejected and restores balance. */
+export async function revokeApprovedLeave(
+  id: string,
+  rejectionReason: string,
+  actionBy?: string,
+): Promise<LeaveRequest | null> {
+  const col = getLeaveCol();
+  const existing = await col.findOne({ id, status: 'Approved' });
+  if (!existing) return null;
+
+  if (!canCancelLeaveRequest(existing as LeaveRequest)) {
+    throw new Error('Cannot revoke approved leave that has already ended.');
+  }
+
+  const reason = rejectionReason?.trim();
+  if (!reason) {
+    throw new Error('Rejection reason is required');
+  }
+  if (reason.length > 500) {
+    throw new Error('Rejection reason must be under 500 characters');
+  }
+
+  const now = new Date();
+  const result = await col.findOneAndUpdate(
+    { id, status: 'Approved' },
+    {
+      $set: {
+        status: 'Rejected',
+        rejectionReason: reason,
+        rejectedAt: now,
+        rejectedBy: actionBy,
+        updatedAt: now,
+      },
+    },
+    { returnDocument: 'after' },
+  );
+
+  if (!result) return null;
+
+  try {
+    await notificationService.createNotification({
+      recipientId: result.employeeId,
+      recipientType: 'Employee',
+      type: 'LeaveRejected',
+      title: 'Approved Leave Revoked',
+      message: `Your approved ${result.type} leave (${result.from} to ${result.to}) was revoked. Reason: ${reason}`,
+      relatedData: {
+        leaveId: id,
+        employeeId: result.employeeId,
+        employeeName: result.employeeName,
+        leaveType: result.type,
+        from: result.from,
+        to: result.to,
+        days: result.days,
+      },
+    });
+  } catch (error) {
+    console.error('Error creating revoke notification:', error);
   }
 
   return result as LeaveRequest;

@@ -10,6 +10,7 @@ export function LeaveCard({
   remaining: remainingProp,
   color,
   embedded = false,
+  compact = false,
   tintClass,
   className,
 }) {
@@ -20,6 +21,24 @@ export function LeaveCard({
         ? Math.max(0, total - used)
         : 0
   const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0
+  const shortType = type.replace(' Leave', '').replace(' Days', '')
+
+  if (compact) {
+    return (
+      <div
+        className={cn(
+          'flex items-center justify-between gap-2 rounded-lg border border-border/70 bg-white/90 px-2 py-1.5',
+          tintClass,
+          className,
+        )}
+      >
+        <span className="truncate text-[11px] font-medium text-foreground">{shortType}</span>
+        <span className="shrink-0 text-xs font-bold tabular-nums" style={{ color }}>
+          {remaining}
+        </span>
+      </div>
+    )
+  }
 
   return (
     <motion.div

@@ -107,6 +107,11 @@ const Settings = lazy(async () => {
   return { default: m.Settings }
 })
 
+const AdminHelpSupport = lazy(async () => {
+  const m = await import('@pages/admin/Help/AdminHelpSupport')
+  return { default: m.AdminHelpSupport }
+})
+
 // ── Employee Pages ────────────────────────────────────────────
 const EmployeeDashboardPage = lazy(() =>
   import('@pages/employee/Dashboard')
@@ -265,6 +270,8 @@ export function AppRoutes() {
               path="settings"
               element={<Settings />}
             />
+
+            <Route path="help" element={<AdminHelpSupport />} />
           </Route>
         </Route>
 

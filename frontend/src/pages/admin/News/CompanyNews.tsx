@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Megaphone,
   Plus,
@@ -56,8 +57,32 @@ const DEFAULT_FETCH_FILTERS = [
 
 const FETCH_LIMIT_OPTIONS = [5, 10, 15, 20, 25, 30, 50] as const
 
+const NEWS_TAB_IDS: TabId[] = ['current', 'publish', 'fetch']
+
+function isNewsTab(value: string | null): value is TabId {
+  return value !== null && NEWS_TAB_IDS.includes(value as TabId)
+}
+
 export function CompanyNews() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState<TabId>('current')
+
+  const setNewsTab = useCallback(
+    (tab: TabId) => {
+      setActiveTab(tab)
+      const next = new URLSearchParams(searchParams)
+      if (tab === 'current') next.delete('tab')
+      else next.set('tab', tab)
+      setSearchParams(next)
+    },
+    [searchParams, setSearchParams],
+  )
+
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (isNewsTab(tab)) setActiveTab(tab)
+    else if (!tab) setActiveTab('current')
+  }, [searchParams])
   const [items, setItems] = useState<NewsItem[]>([])
   const [externalItems, setExternalItems] = useState<ExternalNewsItem[]>([])
   const [selectedExternal, setSelectedExternal] = useState<Set<string>>(new Set())
@@ -69,6 +94,7 @@ export function CompanyNews() {
   const [fetchingExternal, setFetchingExternal] = useState(false)
   const [importingExternal, setImportingExternal] = useState(false)
   const [importingLink, setImportingLink] = useState<string | null>(null)
+  const [importError, setImportError] = useState<string | null>(null)
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [imageUrl, setImageUrl] = useState('')
@@ -87,7 +113,9 @@ export function CompanyNews() {
   const [editClearImage, setEditClearImage] = useState(false)
   const [editLink, setEditLink] = useState('')
   const [updating, setUpdating] = useState(false)
+  const [selectedFeedIds, setSelectedFeedIds] = useState<Set<string>>(new Set())
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [deleteMode, setDeleteMode] = useState<'single' | 'bulk'>('single')
   const [itemToDelete, setItemToDelete] = useState<NewsItem | null>(null)
   const [deleting, setDeleting] = useState(false)
 
@@ -146,6 +174,23 @@ export function CompanyNews() {
     })
   }
 
+  const toggleFeedSelection = (id: string) => {
+    setSelectedFeedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const selectAllFeed = () => {
+    setSelectedFeedIds(new Set(items.map((item) => item.id)))
+  }
+
+  const clearFeedSelection = () => {
+    setSelectedFeedIds(new Set())
+  }
+
   const activeFetchFilters = fetchFilters.map((term) => term.trim()).filter(Boolean)
 
   const addFetchFilter = (raw: string) => {
@@ -193,6 +238,7 @@ export function CompanyNews() {
 
   const importExternalItems = async (toImport: ExternalNewsItem[], linksToClear: Set<string>) => {
     if (toImport.length === 0) return false
+    setImportError(null)
     try {
       const created = await importExternalNews(toImport)
       setItems((prev) => [...created, ...prev])
@@ -202,9 +248,13 @@ export function CompanyNews() {
         linksToClear.forEach((link) => next.delete(link))
         return next
       })
-      setActiveTab('current')
+      setNewsTab('current')
       return true
-    } catch {
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        'Failed to add selected headlines to the feed.'
+      setImportError(message)
       return false
     }
   }
@@ -247,6 +297,7 @@ export function CompanyNews() {
       })
       setItems((prev) => [item, ...prev])
       resetForm()
+      setNewsTab('current')
     } catch {
       // Handle error silently
     } finally {
@@ -255,13 +306,28 @@ export function CompanyNews() {
   }
 
   const handleRemove = async () => {
-    if (!itemToDelete) return
     setDeleting(true)
     try {
-      await deleteNews(itemToDelete.id)
-      setItems((prev) => prev.filter((n) => n.id !== itemToDelete.id))
+      if (deleteMode === 'bulk') {
+        const ids = Array.from(selectedFeedIds)
+        if (ids.length === 0) return
+        await Promise.all(ids.map((id) => deleteNews(id)))
+        setItems((prev) => prev.filter((n) => !selectedFeedIds.has(n.id)))
+        clearFeedSelection()
+      } else {
+        if (!itemToDelete) return
+        await deleteNews(itemToDelete.id)
+        setItems((prev) => prev.filter((n) => n.id !== itemToDelete.id))
+        setSelectedFeedIds((prev) => {
+          if (!prev.has(itemToDelete.id)) return prev
+          const next = new Set(prev)
+          next.delete(itemToDelete.id)
+          return next
+        })
+        setItemToDelete(null)
+      }
       setDeleteConfirmOpen(false)
-      setItemToDelete(null)
+      setDeleteMode('single')
     } catch {
       // Handle error silently
     } finally {
@@ -270,7 +336,15 @@ export function CompanyNews() {
   }
 
   const requestRemove = (item: NewsItem) => {
+    setDeleteMode('single')
     setItemToDelete(item)
+    setDeleteConfirmOpen(true)
+  }
+
+  const requestBulkRemove = () => {
+    if (selectedFeedIds.size === 0) return
+    setDeleteMode('bulk')
+    setItemToDelete(null)
     setDeleteConfirmOpen(true)
   }
 
@@ -349,7 +423,7 @@ export function CompanyNews() {
                   <button
                     key={tab.id}
                     type="button"
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => setNewsTab(tab.id)}
                     className={
                       activeTab === tab.id
                         ? 'admin-news-tab-btn admin-news-tab-btn--active'
@@ -396,10 +470,48 @@ export function CompanyNews() {
                     <h2 className="font-display text-sm font-extrabold admin-news-panel-title">
                       Published News
                     </h2>
+                    {selectedFeedIds.size > 0 ? (
+                      <p className="mt-1 text-xs font-semibold text-slate-600">
+                        {selectedFeedIds.size} selected
+                      </p>
+                    ) : null}
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs font-semibold admin-news-text-brand">
-                    <CalendarDays className="h-3.5 w-3.5" aria-hidden />
-                    Manage &amp; edit below
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {items.length > 0 ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={selectAllFeed}
+                          className="text-xs font-bold admin-news-link hover:opacity-80"
+                        >
+                          Select all
+                        </button>
+                        {selectedFeedIds.size > 0 ? (
+                          <button
+                            type="button"
+                            onClick={clearFeedSelection}
+                            className="text-xs font-bold text-slate-500 hover:text-slate-700"
+                          >
+                            Clear
+                          </button>
+                        ) : null}
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="danger"
+                          className="admin-news-btn-remove shrink-0"
+                          onClick={requestBulkRemove}
+                          disabled={selectedFeedIds.size === 0 || deleting}
+                        >
+                          Remove selected ({selectedFeedIds.size})
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-1.5 text-xs font-semibold admin-news-text-brand">
+                        <CalendarDays className="h-3.5 w-3.5" aria-hidden />
+                        Manage &amp; edit below
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -440,6 +552,9 @@ export function CompanyNews() {
                         key={n.id}
                         item={n}
                         variant="hub"
+                        selectable
+                        selected={selectedFeedIds.has(n.id)}
+                        onToggleSelect={() => toggleFeedSelection(n.id)}
                         onView={() => setPreview(n)}
                         onEdit={() => openEdit(n)}
                         onRemove={() => requestRemove(n)}
@@ -723,6 +838,12 @@ export function CompanyNews() {
                 </div>
               </div>
 
+              {importError ? (
+                <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  {importError}
+                </p>
+              ) : null}
+
               <div className="admin-news-fetch-workspace">
                 {externalItems.length === 0 ? (
                   <div className="admin-news-fetch-zero flex min-h-[320px] flex-col items-center justify-center px-8 text-center">
@@ -924,17 +1045,22 @@ export function CompanyNews() {
 
       <ConfirmModal
         isOpen={deleteConfirmOpen}
-        title="Remove news?"
+        title={deleteMode === 'bulk' ? 'Remove selected news?' : 'Remove news?'}
         description={
-          itemToDelete
-            ? `Are you sure you want to remove "${itemToDelete.title}"? This announcement will no longer appear on dashboards or the news ticker.`
-            : 'Are you sure you want to remove this news item?'
+          deleteMode === 'bulk'
+            ? `Remove ${selectedFeedIds.size} selected announcement${
+                selectedFeedIds.size === 1 ? '' : 's'
+              }? They will no longer appear on dashboards or the news ticker.`
+            : itemToDelete
+              ? `Are you sure you want to remove "${itemToDelete.title}"? This announcement will no longer appear on dashboards or the news ticker.`
+              : 'Are you sure you want to remove this news item?'
         }
         confirmLabel={deleting ? 'Removing...' : 'Remove'}
         danger
         onClose={() => {
           if (deleting) return
           setDeleteConfirmOpen(false)
+          setDeleteMode('single')
           setItemToDelete(null)
         }}
         onConfirm={() => void handleRemove()}

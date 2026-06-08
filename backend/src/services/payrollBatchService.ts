@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync, existsSync, readFileSync, unlinkSync, rmSync, readdirSync, statSync } from 'fs'
 import { join, resolve } from 'path'
 import { randomUUID } from 'crypto'
+import ExcelJS from 'exceljs'
 import { PDFDocument } from 'pdf-lib'
 import { getDB } from '../config/db'
 import { PAYROLL_UPLOADS_ROOT } from '../config/paths'
@@ -58,11 +59,10 @@ export interface PayrollBatch {
 
 export interface PayrollUploadOptions {
   replaceBatchId?: string
+  /** Merge new employees into an existing batch for the same pay period. */
+  appendToBatchId?: string
   resendPayslips?: boolean
   employeeDbIdByEmpId?: Record<string, string>
-  /** When set, batch and payslip PDFs use this calendar period instead of Excel Pay Month. */
-  payYear?: number
-  payMonthNum?: number
 }
 
 const CALENDAR_MONTH_NAMES = [
@@ -103,6 +103,8 @@ export function buildPayPeriodFieldsFromCalendar(
 export interface PayrollUploadResult {
   batch: PayrollBatch
   replaced: boolean
+  appended?: boolean
+  addedCount?: number
   resent: EmployeePayslipRecord[]
 }
 
@@ -143,6 +145,85 @@ export async function findBatchByPayPeriodKey(payPeriodKey: string): Promise<Pay
     if (batchPayPeriodKey(b) === key) return b
   }
   return null
+}
+
+function normalizePayrollEmpId(value: unknown): string {
+  return String(value ?? '').trim().toUpperCase()
+}
+
+export function collectBatchEmpIds(batch: PayrollBatch): Set<string> {
+  return new Set(
+    batch.results.map((r) => normalizePayrollEmpId(r.empId)).filter(Boolean),
+  )
+}
+
+/** Emp IDs present in both the existing batch and a new upload. */
+export function findOverlappingEmpIds(
+  existing: PayrollBatch,
+  employees: Employee[],
+): string[] {
+  const existingIds = collectBatchEmpIds(existing)
+  const overlap: string[] = []
+  for (const emp of employees) {
+    const id = normalizePayrollEmpId(emp['Emp ID'])
+    if (id && existingIds.has(id)) {
+      overlap.push(String(emp['Emp ID']))
+    }
+  }
+  return overlap
+}
+
+function findEmployeeWorksheet(wb: ExcelJS.Workbook): ExcelJS.Worksheet | undefined {
+  return (
+    wb.getWorksheet('employee') ??
+    wb.worksheets.find((w) => w.name.trim().toLowerCase() === 'employee') ??
+    wb.worksheets.find((w) => w.name.toLowerCase().includes('employee'))
+  )
+}
+
+async function appendEmployeesToStoredExcel(batchId: string, newBuffer: Buffer): Promise<void> {
+  const excelPath = getExcelPath(batchId)
+  if (!existsSync(excelPath)) {
+    writeFileSync(excelPath, newBuffer)
+    return
+  }
+
+  const existingBuffer = readFileSync(excelPath)
+  const { employees: newEmployees } = await readMasterExcelFromBuffer(newBuffer)
+  const { employees: existingEmployees } = await readMasterExcelFromBuffer(existingBuffer)
+  const existingIds = new Set(
+    existingEmployees.map((e) => normalizePayrollEmpId(e['Emp ID'])).filter(Boolean),
+  )
+
+  const wb = new ExcelJS.Workbook()
+  await wb.xlsx.load(existingBuffer as unknown as ExcelJS.Buffer)
+  const sheet = findEmployeeWorksheet(wb)
+  if (!sheet) {
+    writeFileSync(excelPath, newBuffer)
+    return
+  }
+
+  let headerRowNum = 4
+  sheet.eachRow((row, rowNumber) => {
+    if (String(row.getCell(1).value ?? '').trim().toLowerCase() === 'emp id') {
+      headerRowNum = rowNumber
+    }
+  })
+
+  const headers: string[] = []
+  sheet.getRow(headerRowNum).eachCell({ includeEmpty: true }, (cell, colNumber) => {
+    headers[colNumber - 1] = String(cell.value ?? '').trim()
+  })
+
+  for (const emp of newEmployees) {
+    const id = normalizePayrollEmpId(emp['Emp ID'])
+    if (!id || existingIds.has(id)) continue
+    const rowData = headers.map((h) => (h ? (emp[h] ?? '') : ''))
+    sheet.addRow(rowData)
+    existingIds.add(id)
+  }
+
+  writeFileSync(excelPath, Buffer.from(await wb.xlsx.writeBuffer()))
 }
 
 function clearPayslipPdfFiles(batchId: string): void {
@@ -199,18 +280,94 @@ export async function processPayrollUpload(
     )
   }
 
-  let company = companyFromFile
-  let periodFields = buildPayPeriodFields(company)
-  if (
-    options.payYear != null &&
-    options.payMonthNum != null &&
-    options.payMonthNum >= 1 &&
-    options.payMonthNum <= 12
-  ) {
-    periodFields = buildPayPeriodFieldsFromCalendar(options.payYear, options.payMonthNum)
-    company = { ...company, 'Pay Month': periodFields.payMonth }
-  }
+  const company = companyFromFile
+  const periodFields = buildPayPeriodFields(company)
+  const appendBatchId = options.appendToBatchId?.trim()
   const replaceBatchId = options.replaceBatchId?.trim()
+
+  if (appendBatchId && replaceBatchId) {
+    throw new Error('Cannot append and replace in the same upload')
+  }
+
+  if (appendBatchId) {
+    const existing = await batchesCollection().findOne({ id: appendBatchId })
+    if (!existing) {
+      throw new Error('Payroll batch to append to was not found')
+    }
+
+    const existingIds = collectBatchEmpIds(existing)
+    const employeesToAdd = employees.filter((emp) => {
+      const id = normalizePayrollEmpId(emp['Emp ID'])
+      return id && !existingIds.has(id)
+    })
+
+    if (employeesToAdd.length === 0) {
+      throw new Error('All employees in this file are already in the payroll batch for this month')
+    }
+
+    const overlap = findOverlappingEmpIds(existing, employees)
+    if (overlap.length > 0) {
+      throw new Error(
+        `Employee ID(s) already in this pay period: ${overlap.slice(0, 5).join(', ')}${overlap.length > 5 ? '…' : ''}`,
+      )
+    }
+
+    ensureBatchDirs(appendBatchId)
+    await appendEmployeesToStoredExcel(appendBatchId, buffer)
+
+    const payslipsDir = getPayslipsDir(appendBatchId)
+    const newResults: PayslipResult[] = []
+
+    for (const emp of employeesToAdd) {
+      const empId = String(emp['Emp ID'] || 'Unknown')
+      const name = String(emp['Name'] || '')
+      try {
+        const fileName = payslipFileNameForEmpId(empId)
+        const prepared = await prepareEmployeeForPayslip(company, structure, emp, appendBatchId)
+        const filePath = join(payslipsDir, fileName)
+        await savePayslipAsPdf(company, structure, prepared, filePath, templateId)
+        await upsertPayslipPdf({
+          batchId: appendBatchId,
+          fileName,
+          empId,
+          payPeriodKey: periodFields.payPeriodKey,
+          pdfBuffer: readFileSync(filePath),
+        })
+        newResults.push({ empId, name, status: 'success', fileName })
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Generation failed'
+        newResults.push({ empId, name, status: 'error', error: message })
+      }
+    }
+
+    const mergedResults = [...existing.results, ...newResults]
+    const batchDoc: PayrollBatch = {
+      ...existing,
+      originalFileName: `${existing.originalFileName} + ${originalFileName}`,
+      uploadedAt: new Date(),
+      payMonth: periodFields.payMonth,
+      payPeriodKey: periodFields.payPeriodKey,
+      payYear: periodFields.payYear,
+      payMonthNum: periodFields.payMonthNum,
+      templateId,
+      employeeCount: mergedResults.length,
+      totalGenerated: mergedResults.filter((r) => r.status === 'success').length,
+      totalFailed: mergedResults.filter((r) => r.status === 'error').length,
+      results: mergedResults,
+      salaryStructure: structure,
+    }
+
+    await batchesCollection().updateOne({ id: appendBatchId }, { $set: batchDoc })
+    const batch = await enrichBatchWithSentStatus(batchDoc)
+    return {
+      batch,
+      replaced: false,
+      appended: true,
+      addedCount: employeesToAdd.length,
+      resent: [],
+    }
+  }
+
   const replaced = !!replaceBatchId
 
   let id: string = randomUUID()

@@ -75,12 +75,19 @@ async function assertProjectAccess(projectId: string, tokens: string[]) {
   const project = await ProjectModel.findById(projectId);
   if (!project) return null;
 
-  const allowed =
+  const hasMembership =
     project.accessType === 'public' ||
     tokens.includes(project.teamLead || '') ||
     (project.allowedUsers || []).some((u: string) => tokens.includes(u));
 
-  return allowed ? project : null;
+  if (hasMembership) return project;
+
+  const hasAssignedCells = await ProjectCellModel.exists({
+    projectId: project._id,
+    assignedEmployeeId: { $in: tokens },
+  });
+
+  return hasAssignedCells ? project : null;
 }
 
 async function assertAssignedCell(projectId: string, cellId: string, tokens: string[]) {

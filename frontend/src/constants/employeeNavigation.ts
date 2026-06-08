@@ -140,6 +140,8 @@ export function getEmployeePageTitle(pathname: string): string {
 }
 
 export function shouldShowEmployeeBackButton(pathname: string): boolean {
-  const parts = pathname.split('/').filter(Boolean)
+  const normalized = pathname.replace(/\/$/, '') || '/'
+  if (normalized === '/employee/profile') return false
+  const parts = normalized.split('/').filter(Boolean)
   return parts.length > 2
 }

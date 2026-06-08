@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  ArrowLeft, BookOpen, CheckCircle2, ChevronDown, GitBranch, History, Layers, LayoutGrid, Plus, Search, Trash2, User, X,
+  ArrowLeft, BookOpen, CheckCircle2, ChevronDown, ClipboardCheck, GitBranch, History, Layers, LayoutGrid, ListChecks, Plus, Search, Trash2, User, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageWrapper } from '@components/layout/PageWrapper'
@@ -19,6 +19,16 @@ import {
   fetchDependencyGraph,
   fetchWorkspaceSummary,
 } from '@/services/projectWorkspaceService'
+import {
+  applyChecklistToAll,
+  fetchProjectChecklist,
+  fetchProjectCellsChecklist,
+} from '@/services/checklistService'
+import type {
+  CellChecklistDetail,
+  CellChecklistRowSummary,
+  ProjectChecklistSummary,
+} from '@/types/projectWorkspace'
 import { cn } from '@/utils/cn'
 import {
   CELL_STATUSES,
@@ -32,10 +42,13 @@ import {
 import type { Employee } from '@/types'
 import './adminProjects.css'
 import { DependencyGraphView } from './DependencyGraphView'
+import { WorkspaceCellChecklist } from './WorkspaceCellChecklist'
+import { CellWorkflowPanel } from './CellWorkflowPanel'
+import { ProjectWorkflowOverview } from './ProjectWorkflowOverview'
 import { STATUS_LABELS, cellDisplayStatus } from './projectWorkspaceUi'
 
 type DeleteTarget = { type: 'library' | 'cell'; id: string; name: string }
-type WorkspaceSection = 'home' | 'graph' | 'activity'
+type WorkspaceSection = 'home' | 'workflow' | 'graph' | 'activity'
 type StatFilter = 'ready' | 'blocked' | 'unassigned' | null
 
 const FILTER_SELECT_CLASS =
@@ -43,6 +56,7 @@ const FILTER_SELECT_CLASS =
 
 const SECTION_ITEMS: { id: WorkspaceSection; label: string; icon: typeof LayoutGrid }[] = [
   { id: 'home', label: 'Home', icon: LayoutGrid },
+  { id: 'workflow', label: 'Workflow', icon: ListChecks },
   { id: 'graph', label: 'Dependency graph', icon: GitBranch },
   { id: 'activity', label: 'Activity log', icon: History },
 ]
@@ -83,19 +97,35 @@ export function ProjectWorkspace() {
   const [filterTypeSelect, setFilterTypeSelect] = useState<'all' | ProjectCell['cellType']>('all')
   const [filterStatusSelect, setFilterStatusSelect] = useState<'all' | CellStatus | 'blocked'>('all')
   const [statFilter, setStatFilter] = useState<StatFilter>(null)
+  const [projectChecklist, setProjectChecklist] = useState<ProjectChecklistSummary | null>(null)
+  const [cellChecklistById, setCellChecklistById] = useState<Map<string, CellChecklistRowSummary>>(
+    () => new Map(),
+  )
+  const [projectChecklistId, setProjectChecklistId] = useState<string | null>(null)
+  const [applyAllConfirm, setApplyAllConfirm] = useState(false)
+  const [applyingAll, setApplyingAll] = useState(false)
 
   const reload = useCallback(async () => {
     if (!projectId) return
     setLoading(true)
     try {
-      const [ws, dg, empsRes] = await Promise.all([
+      const [ws, dg, empsRes, checklist, cellChecklists] = await Promise.all([
         fetchWorkspaceSummary(projectId),
         fetchDependencyGraph(projectId),
         getEmployees({ status: 'Active', pageSize: 500 }),
+        fetchProjectChecklist(projectId).catch(() => null),
+        fetchProjectCellsChecklist(projectId).catch(() => ({
+          checklistId: null,
+          checklistName: '',
+          cells: [] as CellChecklistRowSummary[],
+        })),
       ])
       setSummary(ws)
       setGraph(dg)
       setEmployees(empsRes.data ?? [])
+      setProjectChecklist(checklist)
+      setProjectChecklistId(cellChecklists.checklistId)
+      setCellChecklistById(new Map(cellChecklists.cells.map((row) => [row.cellId, row])))
       setActiveLibraryId((prev) => {
         if (prev && ws.libraries.some((lib) => lib.id === prev)) return prev
         return ws.libraries[0]?.id ?? null
@@ -237,6 +267,42 @@ export function ProjectWorkspace() {
     }
   }
 
+  const handleCellChecklistUpdated = (cellId: string, data: CellChecklistDetail) => {
+    setCellChecklistById((prev) => {
+      const next = new Map(prev)
+      next.set(cellId, {
+        cellId,
+        checklistName: data.checklistName,
+        cellStatus: data.cellStatus,
+        appliedCount: data.items.filter((i) => i.response === 'yes').length,
+        answeredCount: data.items.filter((i) => i.response).length,
+        totalCount: data.items.length,
+        items: data.items,
+      })
+      return next
+    })
+  }
+
+  const handleApplyChecklistToAll = async () => {
+    if (!projectId) return
+    setApplyingAll(true)
+    try {
+      const summary = await applyChecklistToAll(projectId)
+      setProjectChecklist(summary)
+      const cellChecklists = await fetchProjectCellsChecklist(projectId)
+      setProjectChecklistId(cellChecklists.checklistId)
+      setCellChecklistById(new Map(cellChecklists.cells.map((row) => [row.cellId, row])))
+      setApplyAllConfirm(false)
+      toast.success('Checklist successfully applied to all project cells.')
+      await reload()
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+      toast.error(msg || 'Failed to apply checklist')
+    } finally {
+      setApplyingAll(false)
+    }
+  }
+
   if (loading && !summary) {
     return (
       <PageWrapper className="admin-hub-page-wrap py-8 text-center text-slate-500" data-page-scrollable>
@@ -281,6 +347,17 @@ export function ProjectWorkspace() {
                 </p>
               </div>
               <div className="admin-projects-workspace-head-actions">
+                {projectChecklist ? (
+                  <button
+                    type="button"
+                    className="admin-projects-apply-all-btn"
+                    disabled={applyingAll || stats.cellCount === 0}
+                    onClick={() => setApplyAllConfirm(true)}
+                  >
+                    <ClipboardCheck className="h-3.5 w-3.5" />
+                    Apply Checklist To All
+                  </button>
+                ) : null}
                 <nav className="admin-projects-section-rail" aria-label="Workspace sections">
                   {SECTION_ITEMS.map(({ id, label, icon: Icon }) => (
                     <button
@@ -467,12 +544,16 @@ export function ProjectWorkspace() {
                       <tr>
                         <th>Name</th>
                         <th>Type</th>
+                        <th>Checklist</th>
                         <th>Assigned</th>
                         <th>Status</th>
+                        <th>Workflow</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {displayedCells.map((cell) => (
+                      {displayedCells.map((cell) => {
+                        const cellChecklist = cellChecklistById.get(cell.id)
+                        return (
                         <tr
                           key={cell.id}
                           className="admin-projects-table-row-clickable"
@@ -489,6 +570,18 @@ export function ProjectWorkspace() {
                         >
                           <td style={{ fontWeight: 600 }}>{cell.name}</td>
                           <td>{cell.cellType}</td>
+                          <td>
+                            {cellChecklist ? (
+                              <WorkspaceCellChecklist
+                                projectId={projectId}
+                                row={cellChecklist}
+                                checklistId={projectChecklistId}
+                                onUpdated={handleCellChecklistUpdated}
+                              />
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
                           <td>{cell.assignedEmployeeName || '—'}</td>
                           <td>
                             <span className={cn(
@@ -501,11 +594,15 @@ export function ProjectWorkspace() {
                               {cellDisplayStatus(cell)}
                             </span>
                           </td>
+                          <td onClick={(e) => e.stopPropagation()}>
+                            <CellWorkflowPanel projectId={projectId} cell={cell} compact />
+                          </td>
                         </tr>
-                      ))}
+                        )
+                      })}
                       {displayedCells.length === 0 && (
                         <tr>
-                          <td colSpan={4} style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                          <td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
                             No cells in this library.
                           </td>
                         </tr>
@@ -515,6 +612,20 @@ export function ProjectWorkspace() {
                 </div>
               </section>
             </div>
+            )}
+
+            {workspaceSection === 'workflow' && (
+              <div className="admin-projects-section-panel admin-projects-section-panel--workflow">
+                <h2 className="admin-projects-graph-title">Cell workflow overview</h2>
+                <p className="admin-projects-workflow-section-intro">
+                  Track Floor Plan, DRC, Routing, and LVS stages independently for every cell in this project.
+                </p>
+                <ProjectWorkflowOverview
+                  projectId={projectId}
+                  cells={allCells}
+                  libraryNameById={libraryNameById}
+                />
+              </div>
             )}
 
             {workspaceSection === 'graph' && (
@@ -667,6 +778,15 @@ export function ProjectWorkspace() {
         danger
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => void handleConfirmDelete()}
+      />
+
+      <ConfirmModal
+        isOpen={applyAllConfirm}
+        title="Apply checklist to all cells"
+        description="Apply this checklist to all cells in this project?"
+        confirmLabel="Apply"
+        onClose={() => setApplyAllConfirm(false)}
+        onConfirm={() => void handleApplyChecklistToAll()}
       />
     </PageWrapper>
   )

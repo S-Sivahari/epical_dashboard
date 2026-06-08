@@ -4,6 +4,7 @@ import * as newsService from '../services/newsService'
 import { fetchTopHeadlinesByDate } from '../services/externalNewsService'
 import {
   assertPastNewsDateKey,
+  normalizeExternalNewsDateKey,
   normalizeNewsDateInput,
   yesterdayLocalDateKey,
 } from '../utils/newsDateRules'
@@ -214,23 +215,28 @@ export const newsController = {
           const imageUrl = trimOrEmpty(item.imageUrl)
           const publishedAt = trimOrEmpty(item.publishedAt)
           if (!title || !content || !link) return null
+
+          let publishedDateKey: string | undefined
           if (publishedAt) {
-            try {
-              assertPastNewsDateKey(
-                /^\d{4}-\d{2}-\d{2}$/.test(publishedAt)
-                  ? publishedAt
-                  : toLocalDateKeyFromBodyInstant(publishedAt),
-              )
-            } catch {
-              return null
+            if (/^\d{4}-\d{2}-\d{2}$/.test(publishedAt)) {
+              try {
+                assertPastNewsDateKey(publishedAt)
+                publishedDateKey = publishedAt
+              } catch {
+                return null
+              }
+            } else {
+              publishedDateKey = normalizeExternalNewsDateKey(publishedAt) ?? undefined
+              if (!publishedDateKey) return null
             }
           }
+
           return {
             title,
             content,
             link,
             imageUrl: imageUrl || undefined,
-            publishedAt: publishedAt || undefined,
+            publishedAt: publishedDateKey,
           }
         })
         .filter(Boolean)
