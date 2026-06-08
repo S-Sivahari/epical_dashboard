@@ -22,6 +22,7 @@ interface AuthState {
   hydrateSession: () => Promise<void>
   applySession: (user: AuthUser, role: string) => void
   logout: () => Promise<void>
+  patchUser: (partial: Partial<AuthUser>) => void
 }
 
 function clearLegacyAuthStorage(): void {
@@ -80,5 +81,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       /* clear client state even if network fails */
     }
     set({ user: null, role: null, isAuthenticated: false })
+  },
+
+  patchUser: (partial) => {
+    set((state) => {
+      if (!state.user) return state
+      return { user: { ...state.user, ...partial } }
+    })
   },
 }))

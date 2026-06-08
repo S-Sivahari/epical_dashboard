@@ -8,7 +8,10 @@ import { formatDate, formatDateTime } from '@/utils/formatDate'
 import {
   filterLeaves,
   excludeCancelledLeaves,
+  canCancelLeave,
+  isRevokedApprovedLeave,
   formatMonthLabel,
+  formatLeaveDayCount,
   getCurrentMonthDateRange,
   getCurrentMonthKey,
   type LeaveFilters,
@@ -43,7 +46,7 @@ export function LeaveRequests({
   onFiltersChange: (f: LeaveFilters) => void
   monthLabel?: string
 }) {
-  const { leaves, loading, approveLeave, rejectLeave } = useLeaves()
+  const { leaves, loading, approveLeave, rejectLeave, revokeApprovedLeave } = useLeaves()
 
   const visibleLeaves = useMemo(() => excludeCancelledLeaves(leaves), [leaves])
 
@@ -65,6 +68,12 @@ export function LeaveRequests({
   // Rejection Modal State
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false)
   const [leaveToReject, setLeaveToReject] = useState<string | null>(null)
+  const [isRevokeModalOpen, setIsRevokeModalOpen] = useState(false)
+  const [leaveToRevoke, setLeaveToRevoke] = useState<string | null>(null)
+  const [revokeReason, setRevokeReason] = useState('')
+  const [revokeError, setRevokeError] = useState('')
+  const [revoking, setRevoking] = useState(false)
+  const revokeInputRef = useRef<HTMLTextAreaElement>(null)
   const [rejectionReason, setRejectionReason] = useState('')
   const [rejectionError, setRejectionError] = useState('')
   const rejectInputRef = useRef<HTMLTextAreaElement>(null)
@@ -176,8 +185,51 @@ export function LeaveRequests({
     try {
       await rejectLeave(leaveToReject!, trimmedReason)
       setIsRejectModalOpen(false)
-    } catch {
-      toast.error('Failed to reject leave')
+      setLeaveToReject(null)
+      toast.success('Leave request rejected')
+    } catch (err: unknown) {
+      const message = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+      toast.error(message || 'Failed to reject leave')
+    }
+  }
+
+  const openRevokeModal = (id: string) => {
+    setLeaveToRevoke(id)
+    setRevokeReason('')
+    setRevokeError('')
+    setIsRevokeModalOpen(true)
+  }
+
+  useEffect(() => {
+    if (isRevokeModalOpen && revokeInputRef.current) {
+      setTimeout(() => revokeInputRef.current?.focus(), 50)
+    }
+  }, [isRevokeModalOpen])
+
+  const handleRevokeConfirm = async () => {
+    if (!leaveToRevoke) return
+    const trimmed = revokeReason.trim()
+    if (!trimmed) {
+      setRevokeError('Rejection reason is required.')
+      return
+    }
+    if (trimmed.length > 500) {
+      setRevokeError('Rejection reason must be under 500 characters.')
+      return
+    }
+    setRevoking(true)
+    setRevokeError('')
+    try {
+      await revokeApprovedLeave(leaveToRevoke, trimmed)
+      setIsRevokeModalOpen(false)
+      setLeaveToRevoke(null)
+      setRevokeReason('')
+      toast.success('Approved leave revoked')
+    } catch (err: unknown) {
+      const message = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+      toast.error(message || 'Failed to revoke leave')
+    } finally {
+      setRevoking(false)
     }
   }
 
@@ -204,6 +256,7 @@ export function LeaveRequests({
       await approveLeave(leaveToApprove.id)
       setIsApproveModalOpen(false)
       setLeaveToApprove(null)
+      toast.success('Leave request approved')
     } catch (err: any) {
       toast.error(err?.response?.data?.error || 'Failed to approve leave')
     }
@@ -216,10 +269,22 @@ export function LeaveRequests({
     return 'admin-leaves-status-pill'
   }
 
-  const approvedCell = (l: (typeof paginatedLeaves)[number]) => {
-    const approvedTs = toTimestamp(l.approvalDate ?? l.updatedAt)
-    if (l.status === 'Approved' && approvedTs) {
-      return <span className="admin-leaves-req-approved">{formatDateTime(approvedTs)}</span>
+  const activityCell = (l: (typeof paginatedLeaves)[number]) => {
+    if (l.status === 'Approved') {
+      const approvedTs = toTimestamp(l.approvalDate ?? l.approvedAt ?? l.updatedAt)
+      if (approvedTs) {
+        return <span className="admin-leaves-req-approved">{formatDateTime(approvedTs)}</span>
+      }
+    }
+    if (l.status === 'Rejected') {
+      const rejectedTs = toTimestamp(l.rejectedAt ?? l.updatedAt)
+      if (rejectedTs) {
+        return (
+          <span className="admin-leaves-req-approved admin-leaves-req-approved--muted">
+            {isRevokedApprovedLeave(l) ? 'Revoked' : 'Rejected'} {formatDateTime(rejectedTs)}
+          </span>
+        )
+      }
     }
     if (l.status === 'Pending' && toTimestamp(l.createdAt)) {
       return (
@@ -230,6 +295,9 @@ export function LeaveRequests({
     }
     return <span className="admin-leaves-req-approved admin-leaves-req-approved--muted">—</span>
   }
+
+  const activityColumnLabel =
+    currentStatus === 'Rejected' ? 'Rejected' : currentStatus === 'Pending' ? 'Applied' : 'Approved'
 
   return (
     <Tooltip.Provider delayDuration={300}>
@@ -268,7 +336,10 @@ export function LeaveRequests({
               <thead>
                 <tr>
                   <th>Request</th>
-                  <th>Approved</th>
+                  {currentStatus === 'Approved' && (
+                    <th className="admin-leaves-days-col">Days</th>
+                  )}
+                  <th>{activityColumnLabel}</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -282,14 +353,27 @@ export function LeaveRequests({
                     <td>
                       <div className="admin-leaves-req-employee">{l.employeeName}</div>
                       <div className="admin-leaves-req-detail">
-                        {l.type} · {formatDate(l.from)} – {formatDate(l.to)} · {l.days}d
+                        {l.type} · {formatDate(l.from)} – {formatDate(l.to)}
+                        {currentStatus !== 'Approved' ? ` · ${formatLeaveDayCount(l)}` : ''}
                         {l.reason ? ` · ${l.reason}` : ''}
+                        {l.status === 'Rejected' && l.rejectionReason
+                          ? ` · Reason: ${l.rejectionReason}`
+                          : ''}
                       </div>
                     </td>
-                    <td>{approvedCell(l)}</td>
+                    {currentStatus === 'Approved' && (
+                      <td className="admin-leaves-days-col">
+                        <span className="admin-leaves-days-badge" title="Leave duration">
+                          {formatLeaveDayCount(l)}
+                        </span>
+                      </td>
+                    )}
+                    <td>{activityCell(l)}</td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-between gap-2">
-                        <span className={statusPillClass(l.status)}>{l.status}</span>
+                        <span className={statusPillClass(l.status)}>
+                          {l.status === 'Rejected' && isRevokedApprovedLeave(l) ? 'Revoked' : l.status}
+                        </span>
                         <div className="admin-leaves-row-actions">
                           {l.status === 'Pending' && (
                             <>
@@ -331,21 +415,21 @@ export function LeaveRequests({
                               </Tooltip.Root>
                             </>
                           )}
-                          {l.status === 'Approved' && (
+                          {l.status === 'Approved' && canCancelLeave(l) && (
                             <Tooltip.Root>
                               <Tooltip.Trigger asChild>
                                 <button
                                   type="button"
                                   className="admin-leaves-row-action-btn admin-leaves-row-action-btn--danger"
-                                  onClick={() => openRejectModal(l.id)}
-                                  aria-label="Reject"
+                                  onClick={() => openRevokeModal(l.id)}
+                                  aria-label="Revoke approved leave"
                                 >
                                   <X className="h-3.5 w-3.5" />
                                 </button>
                               </Tooltip.Trigger>
                               <Tooltip.Portal>
                                 <Tooltip.Content className="z-[100] rounded-md bg-ink px-2 py-1 text-xs text-white shadow-md">
-                                  Reject
+                                  Revoke
                                   <Tooltip.Arrow className="fill-ink" />
                                 </Tooltip.Content>
                               </Tooltip.Portal>
@@ -495,16 +579,9 @@ export function LeaveRequests({
               rows={4}
               maxLength={250}
             />
-            <div className="flex justify-between items-center mt-1">
-              {rejectionError ? (
-                <span className="text-xs font-medium text-red-500">{rejectionError}</span>
-              ) : (
-                <span className="text-xs text-muted">A valid reason is required.</span>
-              )}
-              <span className={`text-xs font-medium ${rejectionReason.length >= 250 ? 'text-red-500' : 'text-muted'}`}>
-                {rejectionReason.length}/250
-              </span>
-            </div>
+            {rejectionError ? (
+              <p className="mt-1 text-xs font-medium text-red-500">{rejectionError}</p>
+            ) : null}
           </div>
 
           <div className="flex justify-end gap-3 pt-2 border-t border-border">
@@ -519,6 +596,64 @@ export function LeaveRequests({
               onClick={handleRejectConfirm}
             >
               Confirm Rejection
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isRevokeModalOpen}
+        onClose={() => {
+          if (revoking) return
+          setIsRevokeModalOpen(false)
+          setLeaveToRevoke(null)
+          setRevokeReason('')
+          setRevokeError('')
+        }}
+        title="Revoke Approved Leave"
+        size="md"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted">
+            This will move the leave to Rejected and restore the employee&apos;s balance.
+          </p>
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-ink">
+              Reason <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              ref={revokeInputRef}
+              value={revokeReason}
+              onChange={(e) => {
+                setRevokeReason(e.target.value)
+                if (revokeError) setRevokeError('')
+              }}
+              placeholder="Provide a reason for the employee…"
+              className={`w-full resize-none rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${
+                revokeError ? 'border-red-500 focus:ring-red-200' : 'border-border focus:ring-primary/30'
+              }`}
+              rows={4}
+              maxLength={500}
+            />
+            {revokeError ? (
+              <p className="mt-1 text-xs font-medium text-red-500">{revokeError}</p>
+            ) : null}
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="secondary"
+              disabled={revoking}
+              onClick={() => {
+                setIsRevokeModalOpen(false)
+                setLeaveToRevoke(null)
+                setRevokeReason('')
+                setRevokeError('')
+              }}
+            >
+              Keep Approved
+            </Button>
+            <Button variant="danger" disabled={revoking} onClick={() => void handleRevokeConfirm()}>
+              {revoking ? 'Revoking…' : 'Revoke leave'}
             </Button>
           </div>
         </div>

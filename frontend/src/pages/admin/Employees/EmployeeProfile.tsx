@@ -1,28 +1,25 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+import { createPortal } from 'react-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '@components/ui/Button'
 import { Modal } from '@components/ui/Modal'
 import * as employeeService from '@services/employeeService'
 import { openEmployeeDocument } from '@/services/uploadService'
-import * as leaveService from '@services/leaveService'
-import type { Employee, EmployeeActivityEntry, EmployeeLeaveSummary } from '@/types'
+import type { Employee } from '@/types'
 import { formatDate } from '@/utils/formatDate'
 import { stringToHue } from '@/utils/stringColor'
+import { getEmployeeAvatarUrl } from '@/utils/getAvatarUrl'
 
 import {
   FileText,
   FileSpreadsheet,
   ExternalLink,
-  History,
   ChevronDown,
-  Calendar,
+  ChevronLeft,
   Mail,
   Phone,
   Eye,
   EyeOff,
-  Leaf,
-  Users,
   Landmark,
   User,
   CheckCircle,
@@ -43,12 +40,11 @@ import { useAuthStore } from '@store/authStore'
 import { ROUTES } from '@constants/routes'
 import { cn } from '@/utils/cn'
 
-type ProfileTab = 'details' | 'documents' | 'activity'
+type ProfileTab = 'details' | 'documents'
 
 const PROFILE_TABS: { id: ProfileTab; label: string }[] = [
   { id: 'details', label: 'Details' },
   { id: 'documents', label: 'Documents' },
-  { id: 'activity', label: 'Activity History' },
 ]
 
 const STATUS_OPTIONS: { value: Employee['status']; label: string }[] = [
@@ -72,8 +68,8 @@ const maskValue = (value?: string, prefixLength = 8, suffixLength = 4) => {
 function ProfileCard({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
   return (
     <div className={cn("rounded-2xl border border-slate-100 bg-white shadow-[0_4px_15px_rgba(0,0,0,0.01)] overflow-hidden flex flex-col", className)}>
-      <div className="bg-slate-50/75 border-b border-slate-100 px-4 py-2.5">
-        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">{title}</h4>
+      <div className="ep-profile-card-header px-4 py-2.5">
+        <h4 className="ep-profile-card-title text-xs font-bold">{title}</h4>
       </div>
       <div className="p-4 space-y-3.5 flex-1">
         {children}
@@ -82,12 +78,40 @@ function ProfileCard({ title, children, className }: { title: string; children: 
   )
 }
 
+const ADDRESS_PREVIEW_LENGTH = 48
+
+function ProfileAddressItem({ label, value }: { label: string; value?: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const text = value?.trim() || ''
+  const isLong = text.length > ADDRESS_PREVIEW_LENGTH
+  const display =
+    !text ? '—' : expanded || !isLong ? text : `${text.slice(0, ADDRESS_PREVIEW_LENGTH)}…`
+
+  return (
+    <div className="min-w-0">
+      <span className="ep-profile-label block font-semibold">{label}</span>
+      {text && isLong ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((open) => !open)}
+          className="ep-profile-address-btn ep-profile-value mt-0.5 block w-full font-semibold"
+          title={expanded ? 'Click to collapse' : 'Click to view full address'}
+        >
+          {display}
+        </button>
+      ) : (
+        <span className="ep-profile-value mt-0.5 block font-semibold">{display}</span>
+      )}
+    </div>
+  )
+}
+
 function ProfileCardItem({ label, value, icon, action }: { label: string; value?: React.ReactNode; icon?: React.ReactNode; action?: React.ReactNode }) {
   return (
     <div className="flex justify-between items-center min-w-0 gap-2">
       <div className="min-w-0 flex-1">
-        <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</span>
-        <span className="block text-xs font-semibold text-slate-700 truncate mt-0.5" title={typeof value === 'string' ? value : undefined}>
+        <span className="ep-profile-label block font-semibold">{label}</span>
+        <span className="ep-profile-value block font-semibold truncate mt-0.5" title={typeof value === 'string' ? value : undefined}>
           {value || '—'}
         </span>
       </div>
@@ -97,22 +121,9 @@ function ProfileCardItem({ label, value, icon, action }: { label: string; value?
   )
 }
 
-function SummaryItem({ label, value, icon }: { label: string; value: React.ReactNode; icon: React.ReactNode }) {
-  return (
-    <div className="flex items-start gap-3">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-        {icon}
-      </div>
-      <div className="min-w-0">
-        <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</span>
-        <span className="block text-xs font-semibold text-slate-700 mt-0.5">{value}</span>
-      </div>
-    </div>
-  )
-}
-
 export function EmployeeProfile() {
   const { id = '' } = useParams()
+  const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const [employee, setEmployee] = useState<Employee | null>(null)
   const [loading, setLoading] = useState(true)
@@ -125,9 +136,38 @@ export function EmployeeProfile() {
   const [statusChangeReason, setStatusChangeReason] = useState('')
   const [statusReasonError, setStatusReasonError] = useState('')
   const [savingStatus, setSavingStatus] = useState(false)
+  const [showStatusMenu, setShowStatusMenu] = useState(false)
+  const [statusMenuRect, setStatusMenuRect] = useState<{ top: number; left: number; width: number } | null>(null)
   const [showAadhaar, setShowAadhaar] = useState(false)
-  const [leaveSummary, setLeaveSummary] = useState<EmployeeLeaveSummary | null>(null)
   const reasonInputRef = useRef<HTMLTextAreaElement>(null)
+  const statusBtnRef = useRef<HTMLButtonElement>(null)
+
+  const updateStatusMenuRect = () => {
+    const rect = statusBtnRef.current?.getBoundingClientRect()
+    if (rect) {
+      setStatusMenuRect({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+    }
+  }
+
+  const toggleStatusMenu = () => {
+    if (showStatusMenu) {
+      setShowStatusMenu(false)
+      return
+    }
+    updateStatusMenuRect()
+    setShowStatusMenu(true)
+  }
+
+  useEffect(() => {
+    if (!showStatusMenu) return
+    const onReposition = () => updateStatusMenuRect()
+    window.addEventListener('scroll', onReposition, true)
+    window.addEventListener('resize', onReposition)
+    return () => {
+      window.removeEventListener('scroll', onReposition, true)
+      window.removeEventListener('resize', onReposition)
+    }
+  }, [showStatusMenu])
 
   useEffect(() => {
     if (!id) {
@@ -144,16 +184,6 @@ export function EmployeeProfile() {
         if (!cancelled) {
           setEmployee(e)
           setDocuments(documentListFromEmployee(e as Record<string, unknown>))
-        }
-
-        // Fetch leave summary
-        try {
-          const summaryData = await leaveService.getEmployeeLeaveSummary(id)
-          if (!cancelled) {
-            setLeaveSummary(summaryData)
-          }
-        } catch (err) {
-          console.error('[EmployeeProfile] Failed to fetch leave summary:', err)
         }
       } catch (err) {
         if (!cancelled) {
@@ -219,7 +249,7 @@ export function EmployeeProfile() {
     )
   }
 
-  const name = `${employee.firstName} ${employee.lastName ?? ''}`.trim()
+  const name = [employee.firstName, employee.middleName, employee.lastName].filter(Boolean).join(' ').trim()
   const fileName = individualExportFilename(employee.firstName, employee.lastName)
   const exportRow = employeeToExportRow(employee)
   const exportOptions = {
@@ -227,13 +257,6 @@ export function EmployeeProfile() {
     employeeDetailMode: true,
     ...INDIVIDUAL_EMPLOYEE_REPORT_OPTIONS,
   }
-
-  const activityHistory = (employee.activityHistory ?? [])
-    .slice()
-    .sort(
-      (a: EmployeeActivityEntry, b: EmployeeActivityEntry) =>
-        new Date(b.at).getTime() - new Date(a.at).getTime(),
-    )
 
   const handleOpenDocument = async (docKey: string, docName: string) => {
     setOpeningDocKey(docKey)
@@ -266,11 +289,12 @@ export function EmployeeProfile() {
 
   const requestStatusChange = (status: Employee['status']) => {
     if (!employee || employee.status === status) return
+    setShowStatusMenu(false)
     setPendingStatus(status)
     setStatusChangeReason('')
     setStatusReasonError('')
     setStatusModalOpen(true)
-    setTimeout(() => reasonInputRef.current?.focus(), 50)
+    setTimeout(() => reasonInputRef.current?.focus(), 100)
   }
 
   const confirmStatusChange = async () => {
@@ -281,26 +305,29 @@ export function EmployeeProfile() {
       return
     }
 
-    setStatusModalOpen(false)
     setSavingStatus(true)
     try {
-      const updated = await employeeService.updateEmployeeStatus(
+      await employeeService.updateEmployeeStatus(
         employee.id!,
         pendingStatus,
         reason,
         user?.email || user?.name,
       )
-      setEmployee(updated)
-      toast.success('Employee status updated')
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not update status'
-      setStatusReasonError(message)
-      toast.error(message)
-      setStatusModalOpen(true)
-    } finally {
-      setSavingStatus(false)
+      const refreshed = await employeeService.getEmployee(id)
+      setEmployee(refreshed)
+      setStatusModalOpen(false)
       setPendingStatus(null)
       setStatusChangeReason('')
+      setStatusReasonError('')
+      toast.success('Employee status updated')
+    } catch (err) {
+      const message =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+        (err instanceof Error ? err.message : 'Could not update status')
+      setStatusReasonError(message)
+      toast.error(message)
+    } finally {
+      setSavingStatus(false)
     }
   }
 
@@ -318,24 +345,7 @@ export function EmployeeProfile() {
     statusClass = 'bg-red-50 text-[#b91c1c] border-red-200'
   }
 
-  // Leave summary metrics
-  const todayStr = new Date().toISOString().split('T')[0]
-  const currentYear = new Date().getFullYear().toString()
-  
-  const totalLeavesTaken = leaveSummary
-    ? leaveSummary.balances.reduce((sum, b) => sum + b.used, 0)
-    : 0
-  const totalLeavesAllocated = leaveSummary
-    ? leaveSummary.balances.reduce((sum, b) => sum + b.total, 0)
-    : 0
-  const leavesPercentage = totalLeavesAllocated > 0
-    ? Math.round((totalLeavesTaken / totalLeavesAllocated) * 100)
-    : 0
-  const leavesTakenYTD = leaveSummary
-    ? leaveSummary.history
-        .filter((l) => l.status === 'Approved' && l.from.startsWith(currentYear) && l.from <= todayStr)
-        .reduce((sum, l) => sum + l.days, 0)
-    : 0
+
 
   const hue = stringToHue(employee.id || name)
   const tintBgStyle = {
@@ -350,6 +360,8 @@ export function EmployeeProfile() {
     color: `hsl(${hue} 60% 40%)`
   }
 
+  const avatarUrl = getEmployeeAvatarUrl(employee)
+
   return (
     <div className="crewiq-dashboard employee-pages employee-directory-view" data-page-scrollable>
       <div className="employee-directory-bg" aria-hidden>
@@ -357,68 +369,99 @@ export function EmployeeProfile() {
         <div className="employee-directory-bg-leaves" />
       </div>
 
-      <div className="employee-directory-shell bg-slate-50/35">
+      <div className="employee-directory-shell employee-profile-detail-page bg-slate-50/35">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 p-6">
           {/* Left Column: Sidebar Card */}
           <div className="lg:col-span-1 flex flex-col gap-6">
-            <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-[0_4px_15px_rgba(0,0,0,0.01)] flex flex-col items-center text-center">
+            <div className="relative rounded-2xl border border-slate-100 bg-white p-6 shadow-[0_4px_15px_rgba(0,0,0,0.01)] flex flex-col items-center text-center">
+              <button
+                type="button"
+                onClick={() => navigate(ROUTES.EMPLOYEES)}
+                className="ep-profile-back-btn absolute left-4 top-4 flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition-colors hover:bg-slate-50"
+                aria-label="Back to employees"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
               {/* Profile image / large avatar */}
               <div className="relative flex items-center justify-center h-28 w-28 rounded-full border-2 overflow-hidden" style={avatarRingStyle}>
-                {employee.avatarUrl ? (
-                  <img src={employee.avatarUrl} alt={name} className="h-full w-full object-cover" />
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={name} className="h-full w-full object-cover" />
                 ) : (
                   <span className="text-3xl font-bold" style={initialsStyle}>
                     {`${employee.firstName?.[0] ?? ''}${employee.lastName?.[0] ?? ''}`.toUpperCase()}
                   </span>
                 )}
               </div>
-              <h2 className="mt-4 text-base font-bold text-slate-800 truncate w-full">{name}</h2>
-              <p className="text-xs text-slate-500 font-medium mt-0.5 truncate w-full">
-                {employee.designation || employee.role || 'Designation'}
+              <h2 className="ep-profile-name mt-4 text-base font-bold text-slate-800 truncate w-full">{name}</h2>
+              <p className="ep-profile-meta text-slate-600 font-medium mt-1 truncate w-full">
+                {employee.employmentType || '—'}
               </p>
               
               <div className="mt-3.5">
                 {/* Status Badge */}
-                <div className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider ${statusClass}`}>
+                <div className={`ep-profile-status inline-flex items-center gap-1.5 rounded-full border px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider ${statusClass}`}>
                   <span className={`h-1.5 w-1.5 rounded-full ${statusDot}`} />
                   {employee.status}
                 </div>
               </div>
               
               {/* Buttons */}
-              <div className="mt-6 w-full flex flex-col gap-2.5">
-                <Button asChild variant="secondary" className="w-full text-xs font-semibold h-9 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50">
+              <div className="mt-6 w-full flex flex-row gap-2">
+                <Button asChild variant="secondary" className="flex-1 min-w-0 text-sm font-bold h-10 border border-slate-200 bg-white text-black hover:bg-slate-50 px-2">
                   <Link to={ROUTES.EMPLOYEE_EDIT(employee.id!)}>
                     Edit Profile
                   </Link>
                 </Button>
                 
-                <DropdownMenu.Root>
-                  <DropdownMenu.Trigger asChild>
-                    <Button variant="secondary" className="w-full text-xs font-semibold h-9 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 gap-1" disabled={savingStatus}>
-                      Change Status
-                      <ChevronDown className="h-3.5 w-3.5" />
-                    </Button>
-                  </DropdownMenu.Trigger>
-                  <DropdownMenu.Portal>
-                    <DropdownMenu.Content
-                      className="admin-navbar-menu z-50 min-w-[185px] p-1 bg-white border border-slate-100 shadow-md rounded-xl"
-                      sideOffset={4}
-                      align="center"
-                    >
-                      {STATUS_OPTIONS.map((option) => (
-                        <DropdownMenu.Item
-                          key={option.value}
-                          className="cursor-pointer rounded-lg px-3 py-2 text-sm text-slate-700 outline-none hover:bg-slate-50 data-[disabled]:opacity-50"
-                          disabled={employee.status === option.value || savingStatus}
-                          onSelect={() => requestStatusChange(option.value)}
-                        >
-                          {option.label}
-                        </DropdownMenu.Item>
-                      ))}
-                    </DropdownMenu.Content>
-                  </DropdownMenu.Portal>
-                </DropdownMenu.Root>
+                <div className="relative flex-1 min-w-0">
+                  <button
+                    ref={statusBtnRef}
+                    type="button"
+                    onClick={toggleStatusMenu}
+                    disabled={savingStatus}
+                    aria-expanded={showStatusMenu}
+                    aria-haspopup="menu"
+                    className="inline-flex h-10 w-full items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-black transition-colors hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Change Status
+                    <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', showStatusMenu && 'rotate-180')} />
+                  </button>
+                  {showStatusMenu && statusMenuRect
+                    ? createPortal(
+                        <>
+                          <button
+                            type="button"
+                            className="fixed inset-0 z-[90] cursor-default bg-transparent"
+                            aria-label="Close status menu"
+                            onClick={() => setShowStatusMenu(false)}
+                          />
+                          <div
+                            role="menu"
+                            className="fixed z-[100] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+                            style={{
+                              top: statusMenuRect.top,
+                              left: statusMenuRect.left,
+                              width: statusMenuRect.width,
+                            }}
+                          >
+                            {STATUS_OPTIONS.map((option) => (
+                              <button
+                                key={option.value}
+                                type="button"
+                                role="menuitem"
+                                disabled={employee.status === option.value || savingStatus}
+                                onClick={() => requestStatusChange(option.value)}
+                                className="block w-full px-3 py-2.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+                        </>,
+                        document.body,
+                      )
+                    : null}
+                </div>
               </div>
             </div>
           </div>
@@ -435,9 +478,9 @@ export function EmployeeProfile() {
                     type="button"
                     onClick={() => setActiveTab(tab.id)}
                     className={cn(
-                      "flex-1 sm:flex-initial rounded-lg px-4 py-1.5 text-xs font-bold transition-all text-center whitespace-nowrap",
+                      "ep-profile-tab flex-1 sm:flex-initial rounded-lg px-4 py-1.5 text-xs font-bold transition-all text-center whitespace-nowrap",
                       activeTab === tab.id
-                        ? "bg-white text-slate-800 shadow-sm"
+                        ? "ep-profile-tab--active bg-[#2d6a4f] text-white shadow-sm"
                         : "text-slate-500 hover:text-slate-800"
                     )}
                   >
@@ -454,7 +497,7 @@ export function EmployeeProfile() {
                   onClick={() => void handleExportPdf()}
                 >
                   <FileText className="h-3.5 w-3.5 text-red-600" />
-                  Export As...
+                  PDF
                 </button>
                 <button
                   type="button"
@@ -471,77 +514,55 @@ export function EmployeeProfile() {
             <div className="min-h-[400px]">
               {activeTab === 'details' && (
                 <div className="flex flex-col gap-6">
-                  {/* Row 1: Personal Details & Quick Summary */}
-                  <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-stretch">
-                    {/* Personal Details Card (Wide, spans 3 columns) */}
-                    <ProfileCard title="Personal Details" className="lg:col-span-3 h-full">
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <ProfileCardItem label="FIRST NAME" value={employee.firstName} />
-                        <ProfileCardItem label="LAST NAME" value={employee.lastName} />
-                        <ProfileCardItem label="DOB OF BIRTH" value={employee.dob ? formatDate(employee.dob) : 'Not provided'} />
-                        
-                        <ProfileCardItem label="PERSONAL EMAIL" value={employee.personalEmail} icon={<Mail className="h-3.5 w-3.5" />} />
-                        <ProfileCardItem label="GENDER" value={employee.gender} />
-                        <ProfileCardItem label="COMPANY EMAIL" value={employee.email} icon={<Mail className="h-3.5 w-3.5" />} />
-                        
-                        <div className="sm:col-span-2">
-                          <ProfileCardItem label="ADDRESS" value={employee.permanentAddress || employee.address} />
-                        </div>
-                        <ProfileCardItem label="COMMUNICATION ADDRESS" value={employee.communicationAddress} />
+                  <ProfileCard title="Personal Details">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="flex flex-col gap-4">
+                        <ProfileCardItem label="First name" value={employee.firstName} />
+                        <ProfileCardItem label="Personal email" value={employee.personalEmail} />
+                        <ProfileCardItem label="Company email" value={employee.email} />
                       </div>
-                    </ProfileCard>
-
-                    {/* Quick Summary Card (Spans 1 column) */}
-                    <ProfileCard title="Quick Summary" className="lg:col-span-1 h-full">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-4">
-                          <SummaryItem
-                            label="Joining Date"
-                            value={formatDate(employee.joinedAt)}
-                            icon={<Calendar className="h-4 w-4" />}
-                          />
-                          <SummaryItem
-                            label="Total Leaves taken"
-                            value={String(totalLeavesTaken)}
-                            icon={<Leaf className="h-4 w-4" />}
-                          />
-                        </div>
-                        <div className="space-y-4">
-                          <SummaryItem
-                            label="Total Leaves taken %"
-                            value={`${leavesPercentage}%`}
-                            icon={<Leaf className="h-4 w-4" />}
-                          />
-                          <SummaryItem
-                            label="Leaves taken YTD"
-                            value={String(leavesTakenYTD)}
-                            icon={<Users className="h-4 w-4" />}
-                          />
-                        </div>
+                      <div className="flex flex-col gap-4">
+                        <ProfileCardItem label="Middle name" value={employee.middleName} />
+                        <ProfileCardItem label="Gender" value={employee.gender} />
+                        <ProfileCardItem
+                          label="Date of birth"
+                          value={employee.dob ? formatDate(employee.dob) : 'Not provided'}
+                        />
                       </div>
-                    </ProfileCard>
-                  </div>
+                      <div className="flex flex-col gap-4 sm:col-span-2 lg:col-span-1">
+                        <ProfileCardItem label="Last name" value={employee.lastName} />
+                        <ProfileAddressItem
+                          label="Address"
+                          value={employee.permanentAddress || employee.address}
+                        />
+                        <ProfileAddressItem
+                          label="Communication address"
+                          value={employee.communicationAddress}
+                        />
+                      </div>
+                    </div>
+                  </ProfileCard>
 
-                  {/* Row 2: Bottom Grid */}
+                  {/* Bottom Grid */}
                   <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-stretch">
                     {/* Column 1 (Wide, spans 2 columns): Job Details + ID Proof stack */}
                     <div className="lg:col-span-2 flex flex-col gap-6 h-full">
                       <ProfileCard title="Job Details">
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                          <ProfileCardItem label="EMPLOYEE ID" value={employee.employeeId} />
+                          <ProfileCardItem label="Employee ID" value={employee.employeeId} />
                           <ProfileCardItem label="PAN" value={employee.pan || 'Not Provided'} />
-                          <ProfileCardItem label="JOINING DATE" value={formatDate(employee.joinedAt)} />
+                          <ProfileCardItem label="Joining date" value={formatDate(employee.joinedAt)} />
                           
-                          <ProfileCardItem label="ROLE" value={employee.role} />
-                          <ProfileCardItem label="EMPLOYMENT TYPE" value={employee.employmentType} />
-                          <ProfileCardItem label="STATUS" value={employee.status} />
+                          <ProfileCardItem label="Role" value={employee.role} />
+                          <ProfileCardItem label="Employment type" value={employee.employmentType} />
+                          <ProfileCardItem label="Status" value={employee.status} />
                         </div>
                       </ProfileCard>
 
                       <ProfileCard title="ID Proof" className="flex-1">
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                           <ProfileCardItem
-                            label="AADHAAR"
+                            label="Aadhaar"
                             value={showAadhaar ? employee.aadhaar : maskValue(employee.aadhaar, 8, 4)}
                             action={
                               employee.aadhaar ? (
@@ -556,7 +577,7 @@ export function EmployeeProfile() {
                             }
                           />
                           <ProfileCardItem label="PAN" value={employee.pan || 'Not Provided'} />
-                          <ProfileCardItem label="PASSPORT" value={employee.passport || 'Not Provided'} />
+                          <ProfileCardItem label="Passport" value={employee.passport || 'Not Provided'} />
                         </div>
                       </ProfileCard>
                     </div>
@@ -564,34 +585,34 @@ export function EmployeeProfile() {
                     {/* Column 2 (Spans 1 column): Emergency Contact card */}
                     <ProfileCard title="Emergency Contact" className="lg:col-span-1 h-full">
                       <div className="space-y-4">
-                        <ProfileCardItem label="NAME" value={employee.emergencyContact?.name} />
-                        <ProfileCardItem label="PHONE" value={employee.emergencyContact?.phone} icon={<Phone className="h-3.5 w-3.5" />} />
-                        <ProfileCardItem label="EMAIL" value={employee.emergencyContact?.email} icon={<Mail className="h-3.5 w-3.5" />} />
-                        <ProfileCardItem label="RELATION" value={employee.emergencyContact?.relation} />
-                        <ProfileCardItem label="ADDRESS" value={employee.emergencyContact?.address || employee.emergencyContact?.relation ? '—' : undefined} />
+                        <ProfileCardItem label="Name" value={employee.emergencyContact?.name} />
+                        <ProfileCardItem label="Phone" value={employee.emergencyContact?.phone} icon={<Phone className="h-3.5 w-3.5" />} />
+                        <ProfileCardItem label="Email" value={employee.emergencyContact?.email} icon={<Mail className="h-3.5 w-3.5" />} />
+                        <ProfileCardItem label="Relation" value={employee.emergencyContact?.relation} />
+                        <ProfileCardItem label="Address" value={employee.emergencyContact?.address || employee.emergencyContact?.relation ? '—' : undefined} />
                       </div>
                     </ProfileCard>
 
-                    {/* Column 3 (Spans 1 column): Payment Details card */}
-                    <ProfileCard title="Payment Details" className="lg:col-span-1 h-full">
+                    {/* Column 3 (Spans 1 column): Bank Details card */}
+                    <ProfileCard title="Bank Details" className="lg:col-span-1 h-full">
                        <div className="space-y-4">
                          <ProfileCardItem
-                           label="CTC (ANNUAL)"
+                           label="CTC (annual)"
                            value={employee.ctc ? `₹${employee.ctc.toLocaleString('en-IN')}` : 'Not provided'}
                            icon={<Landmark className="h-3.5 w-3.5 text-emerald-600" />}
                          />
                          <ProfileCardItem
-                           label="BANK NAME"
+                           label="Bank name"
                            value={employee.bankName}
                            icon={<Landmark className="h-3.5 w-3.5 text-emerald-600" />}
                          />
                          <ProfileCardItem
-                           label="ACCOUNT NUMBER"
+                           label="Account number"
                            value={employee.accountNumber ? maskValue(employee.accountNumber, 8, 4) : 'Not provided'}
                            icon={<CreditCard className="h-3.5 w-3.5 text-emerald-600" />}
                          />
                          <ProfileCardItem
-                           label="IFSC CODE"
+                           label="IFSC code"
                            value={employee.ifsc || 'Not provided'}
                            icon={<Hash className="h-3.5 w-3.5 text-emerald-600" />}
                          />
@@ -601,7 +622,7 @@ export function EmployeeProfile() {
                            icon={<User className="h-3.5 w-3.5 text-emerald-600" />}
                          />
                          <ProfileCardItem
-                           label="PF/ESI STATUS"
+                           label="PF/ESI status"
                            value={employee.pfEsi === 'on' ? 'Enabled' : employee.pfEsi === 'off' ? 'Disabled' : 'Not provided'}
                            icon={<CheckCircle className="h-3.5 w-3.5 text-emerald-600" />}
                          />
@@ -612,8 +633,7 @@ export function EmployeeProfile() {
               )}
 
               {activeTab === 'documents' && (
-                <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-[0_4px_15px_rgba(0,0,0,0.01)]">
-                  <h3 className="text-xs font-bold text-slate-500 mb-4 uppercase tracking-wider">Documents</h3>
+                <ProfileCard title="Documents">
                   {documents.length > 0 ? (
                     <div className="grid gap-4 sm:grid-cols-2">
                       {documents.map((doc) => (
@@ -624,7 +644,7 @@ export function EmployeeProfile() {
                           <FileText className="h-5 w-5 shrink-0 text-emerald-600" />
                           <div className="flex-1 min-w-0">
                             <p className="truncate text-xs font-bold text-slate-700">{doc.name}</p>
-                            <p className="text-[10px] text-slate-400 capitalize mt-0.5">{doc.key.replace(/([A-Z])/g, ' $1').trim()}</p>
+                            <p className="ep-profile-doc-meta text-[10px] text-slate-400 capitalize mt-0.5">{doc.key.replace(/([A-Z])/g, ' $1').trim()}</p>
                           </div>
                           <button
                             type="button"
@@ -648,52 +668,9 @@ export function EmployeeProfile() {
                       <p className="mt-3 text-sm font-medium text-slate-400">No documents uploaded yet.</p>
                     </div>
                   )}
-                </div>
+                </ProfileCard>
               )}
 
-              {activeTab === 'activity' && (
-                <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-[0_4px_15px_rgba(0,0,0,0.01)]">
-                  <h3 className="text-xs font-bold text-slate-500 mb-4 uppercase tracking-wider">Activity History</h3>
-                  {activityHistory.length > 0 ? (
-                    <div className="space-y-4">
-                      {activityHistory.map((entry, index) => (
-                        <div
-                          key={`${entry.at}-${entry.type}-${index}`}
-                          className="rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3"
-                        >
-                          <div className="flex items-start gap-3">
-                            <History className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="text-xs font-bold text-slate-700">{entry.summary}</p>
-                                <span className={cn(
-                                  "rounded px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider border",
-                                  entry.type === 'status_change'
-                                    ? "bg-amber-50 text-amber-700 border-amber-100"
-                                    : "bg-slate-50 text-slate-600 border-slate-200"
-                                )}>
-                                  {entry.type === 'status_change' ? 'Status change' : 'Profile edit'}
-                                </span>
-                              </div>
-                              {entry.reason ? (
-                                <p className="mt-1.5 text-xs text-slate-500">Reason: {entry.reason}</p>
-                              ) : null}
-                              <p className="mt-2 text-[10px] text-slate-400 font-medium">
-                                {entry.by} · {formatDate(entry.at)}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-16 text-center rounded-xl border border-dashed border-slate-200 bg-slate-50/30">
-                      <History className="h-10 w-10 text-slate-300" />
-                      <p className="mt-3 text-sm font-medium text-slate-400">No activity recorded yet.</p>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -701,24 +678,32 @@ export function EmployeeProfile() {
 
       <Modal
         isOpen={statusModalOpen}
-        onClose={() => setStatusModalOpen(false)}
+        onClose={() => {
+          if (savingStatus) return
+          setStatusModalOpen(false)
+          setPendingStatus(null)
+          setStatusChangeReason('')
+          setStatusReasonError('')
+        }}
         title="Confirm Status Change"
         size="sm"
-        className="admin-modal"
+        theme="light"
+        elevated
+        className="z-[110]"
       >
         {employee && pendingStatus ? (
           <div className="space-y-4">
-            <p className="text-sm text-[#a1a1aa]">
+            <p className="text-sm text-slate-600">
               You are about to change{' '}
-              <span className="font-semibold text-white">{name}</span>
+              <span className="font-semibold text-slate-900">{name}</span>
               's status from{' '}
-              <span className="font-semibold text-white">{employee.status}</span>
+              <span className="font-semibold text-slate-900">{employee.status}</span>
               {' '}to{' '}
-              <span className="font-semibold text-white">{pendingStatus}</span>.
+              <span className="font-semibold text-slate-900">{pendingStatus}</span>.
             </p>
             <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-white">
-                Reason <span className="text-[#f87171]">*</span>
+              <label className="block text-sm font-medium text-slate-800">
+                Reason <span className="text-red-500">*</span>
               </label>
               <textarea
                 ref={reasonInputRef}
@@ -728,17 +713,28 @@ export function EmployeeProfile() {
                   if (statusReasonError) setStatusReasonError('')
                 }}
                 placeholder="Provide a reason for this status change..."
-                className={`admin-field w-full resize-none px-3 py-2 text-sm transition-shadow ${
-                  statusReasonError ? 'border-[#f87171] focus:ring-[#f87171]/20' : 'focus:ring-[#266b1c]/30'
+                className={`w-full resize-none rounded-lg border px-3 py-2 text-sm text-slate-800 transition-shadow focus:outline-none focus:ring-2 ${
+                  statusReasonError
+                    ? 'border-red-400 focus:ring-red-200'
+                    : 'border-slate-200 focus:ring-emerald-200'
                 }`}
                 rows={3}
               />
               {statusReasonError ? (
-                <p className="text-xs font-medium text-[#f87171]">{statusReasonError}</p>
+                <p className="text-xs font-medium text-red-600">{statusReasonError}</p>
               ) : null}
             </div>
-            <div className="flex justify-end gap-3 border-t border-[rgba(161,161,170,0.18)] pt-2">
-              <Button variant="secondary" onClick={() => setStatusModalOpen(false)}>
+            <div className="flex justify-end gap-3 border-t border-slate-200 pt-2">
+              <Button
+                variant="secondary"
+                disabled={savingStatus}
+                onClick={() => {
+                  setStatusModalOpen(false)
+                  setPendingStatus(null)
+                  setStatusChangeReason('')
+                  setStatusReasonError('')
+                }}
+              >
                 Cancel
               </Button>
               <Button onClick={() => void confirmStatusChange()} loading={savingStatus}>

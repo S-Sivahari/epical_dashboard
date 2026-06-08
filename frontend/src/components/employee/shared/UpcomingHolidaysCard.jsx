@@ -111,11 +111,64 @@ function HolidayRow({ holiday }) {
   )
 }
 
-export function UpcomingHolidaysCard({ holidays = [], className }) {
-  const upcoming = useMemo(() => filterUpcomingHolidays(holidays), [holidays])
+function CompactHolidayRow({ holiday }) {
+  const date = parseHolidayDate(holiday.date)
+  if (!date) return null
 
   return (
-    <InteractiveCard className={cn(CARD_CLASS, className)}>
+    <li className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-white/80 px-2.5 py-1.5 text-xs">
+      <span className="shrink-0 font-medium tabular-nums text-muted">{format(date, 'MMM d')}</span>
+      <span className="min-w-0 truncate text-foreground">{holiday.title}</span>
+    </li>
+  )
+}
+
+export function UpcomingHolidaysCard({ holidays = [], className, compact = false, fill = false }) {
+  const upcoming = useMemo(() => filterUpcomingHolidays(holidays), [holidays])
+  const cardClass = compact
+    ? portalCardClass({ className: 'flex h-full min-h-0 flex-col overflow-hidden p-3' })
+    : CARD_CLASS
+
+  if (compact) {
+    return (
+      <InteractiveCard to="/employee/calendar" className={cn(cardClass, className)}>
+        <div className="mb-2 flex shrink-0 items-center justify-between gap-2 border-b border-border pb-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="emp-dash-icon emp-dash-icon--sky h-7 w-7" aria-hidden>
+              <CalendarDays className="h-3.5 w-3.5" />
+            </div>
+            <h3 className="font-heading text-sm font-semibold text-foreground">Upcoming holidays</h3>
+          </div>
+          <Link
+            to="/employee/calendar"
+            className="inline-flex shrink-0 items-center gap-0.5 text-[10px] font-medium text-primary hover:underline"
+          >
+            Calendar <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
+
+        <div className={cn(fill && 'emp-dash-widget-body min-h-0 flex-1')}>
+          {upcoming.length === 0 ? (
+            <p className="py-2 text-center text-xs text-muted">No upcoming holidays</p>
+          ) : (
+            <ul
+              className={cn(
+                'space-y-1.5 pr-0.5',
+                fill ? 'min-h-0' : 'max-h-44 overflow-y-auto overscroll-contain',
+              )}
+            >
+              {upcoming.map((holiday) => (
+                <CompactHolidayRow key={holiday.id ?? holiday.date} holiday={holiday} />
+              ))}
+            </ul>
+          )}
+        </div>
+      </InteractiveCard>
+    )
+  }
+
+  return (
+    <InteractiveCard to="/employee/calendar" className={cn(CARD_CLASS, className)}>
       <div className="mb-3 flex shrink-0 flex-wrap items-start justify-between gap-2 border-b border-border pb-3">
         <div className="flex min-w-0 items-start gap-2.5">
           <div className="emp-dash-icon emp-dash-icon--sky" aria-hidden>
@@ -123,7 +176,6 @@ export function UpcomingHolidaysCard({ holidays = [], className }) {
           </div>
           <div className="min-w-0">
             <h3 className="font-heading text-base font-semibold text-foreground">Upcoming holidays</h3>
-            <p className="mt-0.5 text-xs text-muted">Next {HOLIDAY_WINDOW_DAYS} days</p>
           </div>
         </div>
         <Link

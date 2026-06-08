@@ -200,13 +200,13 @@ setRejectOpen(false)
       ) : tab === 'requested' ? (
         <table className="admin-doc-table min-w-full border-collapse text-left text-sm">
           <thead className="sticky top-0 z-[1]">
-            <tr className="text-[11px] font-semibold uppercase tracking-wide">
-              <th className="px-4 py-3">Document</th>
-              <th className="px-4 py-3">Employee / ID</th>
-              <th className="px-4 py-3">Reason</th>
-              <th className="px-4 py-3">Requested</th>
-              <th className="px-4 py-3">Fulfillment file</th>
-              <th className="min-w-[200px] px-4 py-3 text-right">Actions</th>
+            <tr className="text-[11px] font-semibold uppercase tracking-wide text-slate-900">
+              <th className="px-4 py-3 text-slate-900">Document</th>
+              <th className="px-4 py-3 text-slate-900">Employee / ID</th>
+              <th className="px-4 py-3 text-slate-900">Reason</th>
+              <th className="px-4 py-3 text-slate-900">Requested</th>
+              <th className="px-4 py-3 text-slate-900">Fulfillment file</th>
+              <th className="min-w-[200px] px-4 py-3 text-right text-slate-900">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -278,12 +278,12 @@ setRejectOpen(false)
       ) : tab === 'approved' ? (
         <table className="admin-doc-table min-w-full border-collapse text-left text-sm">
           <thead className="sticky top-0 z-[1]">
-            <tr className="text-[11px] font-semibold uppercase tracking-wide">
-              <th className="px-4 py-3">Document</th>
-              <th className="px-4 py-3">Employee / ID</th>
-              <th className="px-4 py-3">Reason</th>
-              <th className="px-4 py-3">Processed</th>
-              <th className="min-w-[120px] px-4 py-3 text-right">Actions</th>
+            <tr className="text-[11px] font-semibold uppercase tracking-wide text-slate-900">
+              <th className="px-4 py-3 text-slate-900">Document</th>
+              <th className="px-4 py-3 text-slate-900">Employee / ID</th>
+              <th className="px-4 py-3 text-slate-900">Reason</th>
+              <th className="px-4 py-3 text-slate-900">Processed</th>
+              <th className="min-w-[120px] px-4 py-3 text-right text-slate-900">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -323,13 +323,13 @@ setRejectOpen(false)
       ) : (
         <table className="admin-doc-table min-w-full border-collapse text-left text-sm">
           <thead className="sticky top-0 z-[1]">
-            <tr className="text-[11px] font-semibold uppercase tracking-wide">
-              <th className="px-4 py-3">When</th>
-              <th className="px-4 py-3">Document</th>
-              <th className="px-4 py-3">Employee</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Rejection reason</th>
-              <th className="px-4 py-3 text-right">Download</th>
+            <tr className="text-[11px] font-semibold uppercase tracking-wide text-slate-900">
+              <th className="px-4 py-3 text-slate-900">When</th>
+              <th className="px-4 py-3 text-slate-900">Document</th>
+              <th className="px-4 py-3 text-slate-900">Employee</th>
+              <th className="px-4 py-3 text-slate-900">Status</th>
+              <th className="px-4 py-3 text-slate-900">Rejection reason</th>
+              <th className="px-4 py-3 text-right text-slate-900">Download</th>
             </tr>
           </thead>
           <tbody>

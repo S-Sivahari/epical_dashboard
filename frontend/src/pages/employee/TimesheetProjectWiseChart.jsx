@@ -1,24 +1,26 @@
 import { useMemo } from 'react'
 import { FolderKanban } from 'lucide-react'
 
-export function TimesheetProjectWiseChart({ data = [] }) {
+export function TimesheetProjectWiseChart({ data = [], emptyHint }) {
   const maxHours = useMemo(
     () => (data.length > 0 ? Math.max(...data.map((d) => d.hours), 0.1) : 1),
-    [data]
+    [data],
   )
 
   if (data.length === 0) {
     return (
-      <div className="flex h-full min-h-[11rem] flex-col items-center justify-center rounded-lg border border-dashed border-border bg-slate-50/50 px-4 text-center">
+      <div className="flex min-h-[8rem] flex-col items-center justify-center rounded-lg border border-dashed border-border bg-slate-50/50 px-4 py-6 text-center">
         <FolderKanban className="mb-2 h-8 w-8 text-slate-300" />
-        <p className="type-body font-semibold text-muted">No project hours recorded</p>
-        <p className="type-body-sm mt-1">Hours appear after you log time on assigned projects.</p>
+        <p className="type-body font-semibold text-muted">No assigned projects</p>
+        <p className="type-body-sm mt-1">
+          {emptyHint || 'Hours appear after you log time on assigned projects.'}
+        </p>
       </div>
     )
   }
 
   return (
-    <div className="timesheet-panel-scroll flex h-full max-h-[13.75rem] flex-col gap-2 overflow-y-auto pr-1">
+    <div className="emp-timesheet-breakdown-list">
       {data.map((item) => {
         const pct = Math.min(100, Math.round((item.hours / maxHours) * 100))
         return (
@@ -27,10 +29,10 @@ export function TimesheetProjectWiseChart({ data = [] }) {
             className="rounded-lg border border-border/80 bg-slate-50/40 px-3 py-2.5 transition-colors hover:bg-slate-50"
           >
             <div className="flex items-baseline justify-between gap-2">
-              <p className="type-body min-w-0 truncate font-semibold text-foreground" title={item.project}>
+              <p className="min-w-0 truncate text-sm font-semibold text-foreground" title={item.project}>
                 {item.project}
               </p>
-              <span className="type-metric-inline shrink-0 text-teal-700">
+              <span className="shrink-0 text-sm font-bold tabular-nums text-teal-700">
                 {item.hours.toFixed(1)}h
               </span>
             </div>

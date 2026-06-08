@@ -317,7 +317,9 @@ export async function getEmployeeById(
   const findOptions = options?.includeBlobs ? {} : { projection: { documents: 0, 'photo.data': 0 } };
 
   let employee = await collection.findOne({ id: trimmed }, findOptions);
-  if (employee) return employee as Employee;
+  if (employee) {
+    return employee as Employee;
+  }
 
   employee = await collection.findOne({
     $or: [{ employeeId: trimmed.toUpperCase() }, { employeeId: trimmed }],
@@ -634,7 +636,9 @@ export async function updateEmployee(
   // Try updating by custom id first (MongoDB v6: returns document directly)
   let result = await collection.findOneAndUpdate({ id }, updateDoc as any, { returnDocument: 'after' });
 
-  if (result) return result as Employee;
+  if (result) {
+    return result as Employee;
+  }
 
   // Try updating by MongoDB ObjectId
   if (ObjectId.isValid(id)) {
@@ -643,7 +647,9 @@ export async function updateEmployee(
       updateDoc as any,
       { returnDocument: 'after' },
     );
-    if (result) return result as Employee;
+    if (result) {
+      return result as Employee;
+    }
   }
 
   return null;

@@ -26,30 +26,85 @@ function greeting() {
 }
 
 const STAT_ACCENT_CLASS = {
+  sage: 'emp-stat-chip--sage',
   teal: 'emp-stat-chip--teal',
   amber: 'emp-stat-chip--amber',
   blue: 'emp-stat-chip--blue',
   violet: 'emp-stat-chip--violet',
 }
 
-function ProfileStatMini({ title, value, trend, icon: Icon, horizontal = false, accent }) {
+function ProfileStatMini({ title, value, trend, icon: Icon, horizontal = false, accent, to }) {
   const accentClass = accent ? STAT_ACCENT_CLASS[accent] : null
+  const statClassName = cn(
+    horizontal
+      ? 'flex min-w-[6.75rem] flex-col justify-center rounded-xl border border-white/25 bg-black/10 px-3 py-2.5 transition-colors sm:min-w-[7.5rem]'
+      : 'flex min-w-[5.25rem] flex-1 flex-col justify-center rounded-lg border border-white/25 bg-black/10 px-2 py-2 transition-colors',
+    to && 'cursor-pointer hover:bg-black/20',
+    accentClass,
+  )
 
   if (horizontal) {
+    const content = (
+      <>
+        <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-white/75 sm:text-[11px]">
+          {title}
+        </p>
+        <p className="mt-1 text-lg font-bold leading-none text-white sm:text-xl">{value}</p>
+        {trend ? (
+          <p className="mt-1 truncate text-[10px] text-emerald-100/90 sm:text-[11px]">{trend}</p>
+        ) : null}
+      </>
+    )
+
+    if (to) {
+      return (
+        <Link to={to} className={statClassName} title={`Go to ${title}`}>
+          {content}
+        </Link>
+      )
+    }
+
     return (
-      <div
+      <div className={statClassName}>
+        {content}
+      </div>
+    )
+  }
+
+  const verticalContent = (
+    <>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-white/70">{title}</p>
+          <p className="mt-0.5 text-lg font-bold leading-none text-white">{value}</p>
+          {trend ? <p className="mt-1 truncate text-[10px] text-emerald-100/90">{trend}</p> : null}
+        </div>
+        {Icon ? (
+          <div
+            className={cn(
+              'flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/15 text-white',
+              accentClass,
+            )}
+          >
+            <Icon className="h-3.5 w-3.5" />
+          </div>
+        ) : null}
+      </div>
+    </>
+  )
+
+  if (to) {
+    return (
+      <Link
+        to={to}
+        title={`Go to ${title}`}
         className={cn(
-          'flex min-w-[5.25rem] flex-1 flex-col justify-center rounded-lg border border-white/25 bg-black/10 px-2 py-2',
+          'block rounded-lg border border-white/25 bg-black/10 p-2.5 transition-colors hover:bg-black/20',
           accentClass,
         )}
       >
-        <p className="truncate text-[9px] font-semibold uppercase tracking-wide text-white/70">{title}</p>
-        <div className="mt-0.5 flex items-center justify-between gap-1">
-          <p className="text-base font-bold leading-none text-white">{value}</p>
-          {Icon ? <Icon className="h-3.5 w-3.5 shrink-0 text-white/80" /> : null}
-        </div>
-        {trend ? <p className="mt-0.5 truncate text-[9px] text-emerald-100/90">{trend}</p> : null}
-      </div>
+        {verticalContent}
+      </Link>
     )
   }
 
@@ -93,16 +148,29 @@ export function ProfileCard({
   const department = profile?.department
 
   const statsRow = statsLoading ? (
-    <div className={cn('flex gap-2', horizontal ? 'min-w-0 flex-1' : 'mt-4 grid grid-cols-2 gap-2 border-t border-white/15 pt-4 sm:grid-cols-4')}>
+    <div
+      className={cn(
+        'flex gap-2',
+        horizontal ? 'ml-auto shrink-0 justify-end gap-2.5' : 'mt-4 grid grid-cols-2 gap-2 border-t border-white/15 pt-4 sm:grid-cols-4',
+      )}
+    >
       {[1, 2, 3, 4].map((i) => (
         <div
           key={i}
-          className={cn('animate-pulse rounded-lg bg-black/10', horizontal ? 'h-14 min-w-[5.25rem] flex-1' : 'h-[4.25rem]')}
+          className={cn(
+            'animate-pulse rounded-lg bg-black/10',
+            horizontal ? 'h-16 min-w-[6.75rem] sm:min-w-[7.5rem]' : 'h-[4.25rem]',
+          )}
         />
       ))}
     </div>
   ) : Array.isArray(stats) && stats.length > 0 ? (
-    <div className={cn('flex gap-2', horizontal ? 'min-w-0 flex-1' : 'mt-4 grid grid-cols-2 gap-2 border-t border-white/15 pt-4 sm:grid-cols-4')}>
+    <div
+      className={cn(
+        'flex gap-2',
+        horizontal ? 'ml-auto shrink-0 justify-end gap-2.5' : 'mt-4 grid grid-cols-2 gap-2 border-t border-white/15 pt-4 sm:grid-cols-4',
+      )}
+    >
       {stats.map((stat) => (
         <ProfileStatMini key={stat.title} {...stat} horizontal={horizontal} />
       ))}
@@ -115,44 +183,33 @@ export function ProfileCard({
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         className={cn(
-          'emp-dashboard-hero relative min-h-[6.5rem] min-w-0 flex-1 overflow-hidden rounded-xl p-3 shadow-card sm:p-4',
+          'emp-dashboard-hero relative min-h-[7rem] min-w-0 flex-1 overflow-hidden rounded-xl p-3 shadow-card sm:min-h-[7.5rem] sm:p-4',
           className,
         )}
       >
-        <div className="relative z-10 flex h-full min-w-0 items-center gap-3">
-          <EmployeePhotoAvatar
-            employeeId={employee.id}
-            name={employee.name}
-            className="h-12 w-12 shrink-0 border-2 border-white/40 shadow-md sm:h-14 sm:w-14"
-            fallbackClassName="bg-white/20 text-lg text-white"
-          />
+        <div className="relative z-10 flex h-full min-w-0 items-center gap-3 sm:gap-4">
+          <div className="flex min-w-0 shrink-0 items-center gap-3">
+            <EmployeePhotoAvatar
+              employeeId={employee.id}
+              name={employee.name}
+              className="h-14 w-14 shrink-0 border-2 border-white/40 shadow-md sm:h-16 sm:w-16"
+              fallbackClassName="bg-white/20 text-lg text-white sm:text-xl"
+            />
 
-          <div className="min-w-[7.5rem] shrink-0 sm:min-w-[9rem]">
-            <p className="truncate text-[11px] text-white/75">{greeting()},</p>
-            <h2 className="truncate font-heading text-base font-bold text-white sm:text-lg">{employee.name}</h2>
-            <p className="truncate text-[11px] text-white/70">{roleLabel ?? employeeCode}</p>
-            {attendance?.checkedIn && !attendance?.checkOutTime ? (
-              <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] text-white">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300" />
-                Checked in
-              </p>
-            ) : null}
+            <div className="min-w-[8rem] shrink-0 sm:min-w-[10rem]">
+              <p className="truncate text-xs text-white/80 sm:text-sm">{greeting()},</p>
+              <h2 className="truncate font-heading text-xl font-bold text-white sm:text-2xl">{employee.name}</h2>
+              <p className="truncate text-xs text-white/75 sm:text-sm">{roleLabel ?? employeeCode}</p>
+              {attendance?.checkedIn && !attendance?.checkOutTime ? (
+                <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] text-white sm:text-xs">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300" />
+                  Checked in
+                </p>
+              ) : null}
+            </div>
           </div>
 
           {statsRow}
-
-          <div className="hidden shrink-0 gap-1 xl:flex">
-            {quickLinks.map(({ to, label, icon: Icon }) => (
-              <Link
-                key={to}
-                to={to}
-                title={label}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/30 bg-black/15 text-white transition-colors hover:bg-black/25"
-              >
-                <Icon className="h-3.5 w-3.5" />
-              </Link>
-            ))}
-          </div>
         </div>
       </motion.div>
     )

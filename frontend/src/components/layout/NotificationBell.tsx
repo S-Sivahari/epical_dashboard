@@ -17,6 +17,7 @@ export function NotificationBell() {
     fetchUnreadCountSilent,
     markAllAsRead,
     deleteNotification,
+    deleteAllNotifications,
   } = useNotificationStore()
 
   useEffect(() => {
@@ -58,23 +59,34 @@ export function NotificationBell() {
       </DropdownMenu.Trigger>
 
       <DropdownMenu.Portal>
-        <DropdownMenu.Content className="cmd-dropdown z-50 w-96 overflow-hidden" sideOffset={6} align="end">
+        <DropdownMenu.Content className="cmd-dropdown notification-dropdown-panel z-50 w-96 overflow-hidden" sideOffset={6} align="end">
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
           >
             <div className="border-b border-[var(--border-subtle)] px-4 py-3">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <h3 className="font-semibold text-[var(--text-primary)]">Notifications</h3>
-                {unreadCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => markAllAsRead()}
-                    className="text-xs font-medium text-[var(--text-link)] hover:text-[var(--text-link-hover)] hover:underline"
-                  >
-                    Mark all as read
-                  </button>
+                {notifications.length > 0 && (
+                  <div className="notification-dropdown-actions">
+                    {unreadCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => void markAllAsRead()}
+                        className="text-xs font-medium text-[var(--text-link)] hover:text-[var(--text-link-hover)] hover:underline"
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => void deleteAllNotifications()}
+                      className="text-xs font-medium text-red-600 hover:text-red-700 hover:underline"
+                    >
+                      Clear all
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -92,8 +104,10 @@ export function NotificationBell() {
                       initial={{ opacity: 0, x: 12 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: i * 0.04, duration: 0.25 }}
-                      className={`flex cursor-pointer items-start gap-3 px-4 py-3 transition-colors hover:bg-[var(--emerald-surface)] ${
-                        !notification.isRead ? 'bg-[var(--emerald-surface)]' : 'bg-white'
+                      className={`notification-dropdown-item flex cursor-pointer items-start gap-3 px-4 py-3 ${
+                        !notification.isRead
+                          ? 'notification-dropdown-item--unread'
+                          : 'notification-dropdown-item--read'
                       }`}
                       onClick={() => void handleNotificationClick(notification)}
                     >

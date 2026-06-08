@@ -248,7 +248,7 @@ export const employeeController = {
         return;
       }
 
-      res.json(employee);
+      res.json(sanitizeEmployeeForDetail(employee));
     } catch (error) {
       console.error('Error updating employee status:', error);
       res.status(500).json({ error: 'Failed to update employee status' });

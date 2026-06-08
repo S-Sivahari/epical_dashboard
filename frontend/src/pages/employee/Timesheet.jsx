@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { LogIn, LogOut, Loader2, AlertTriangle, Clock, CalendarDays, FolderKanban } from 'lucide-react'
+import { LogIn, LogOut, Loader2, AlertTriangle } from 'lucide-react'
 import { Button } from '@components/employee/ui/button'
 import { Label } from '@components/employee/ui/label'
 import { Textarea } from '@components/employee/ui/textarea'
@@ -14,7 +14,6 @@ import { formatSessionDuration, formatDurationFromMs } from '@utils/durationForm
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { formatDateKey, getPresetDateRange, getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
 import { TimesheetLiveSessionPanel } from '@pages/employee/TimesheetLiveSessionPanel'
-import { TimesheetSummaryCard } from '@pages/employee/TimesheetSummaryCard'
 
 const TimesheetWeeklyChart = lazy(() =>
   import('@pages/employee/TimesheetWeeklyChart').then((m) => ({ default: m.TimesheetWeeklyChart })),
@@ -204,6 +203,25 @@ export default function Timesheet() {
     () => assignedTasks.filter((t) => t.status !== 'completed'),
     [assignedTasks],
   )
+
+  const taskStatusCounts = useMemo(() => {
+    const total = assignedTasks.length
+    const inProgress = assignedTasks.filter(
+      (t) =>
+        t.status === 'in_progress' ||
+        t.status === 'pending_review' ||
+        t.status === 'Active' ||
+        !t.status,
+    ).length
+    const completed = assignedTasks.filter(
+      (t) => t.status === 'completed' || t.status === 'Completed',
+    ).length
+    const cancelled = assignedTasks.filter(
+      (t) => t.status === 'cancelled' || t.status === 'Cancelled',
+    ).length
+
+    return { total, inProgress, completed, cancelled }
+  }, [assignedTasks])
   const selectedTask = startableTasks.find((t) => t.id === selectedTaskId)
   const currentWorkTask = activeTask || pausedTasks[0] || null
 
@@ -439,13 +457,43 @@ export default function Timesheet() {
     return Array.from(deduped.values()).sort((a, b) => b.sortAt - a.sortAt)
   }, [sessions, historyRange])
 
-  const projectWiseTotal = useMemo(
-    () => (allTimeProjectWiseHours ?? []).reduce((sum, p) => sum + (p.hours || 0), 0),
-    [allTimeProjectWiseHours],
-  )
+  const projectBreakdown = useMemo(() => {
+    const hoursByProjectId = new Map()
+    const hoursByProjectName = new Map()
+    ;(allTimeProjectWiseHours ?? []).forEach((row) => {
+      if (row.projectId) hoursByProjectId.set(String(row.projectId), row)
+      if (row.project) hoursByProjectName.set(String(row.project).trim(), row)
+    })
 
-  const projectCount = (allTimeProjectWiseHours ?? []).length
-  const historyHasMore = unifiedHistory.length > 3
+    const seen = new Set()
+    const rows = []
+    for (const task of startableTasks) {
+      const projectId = task.projectId ? String(task.projectId) : ''
+      const projectName = String(task.projectName || '').trim()
+      const key = projectId || projectName
+      if (!key || seen.has(key)) continue
+      seen.add(key)
+
+      const hoursRow =
+        (projectId && hoursByProjectId.get(projectId)) ||
+        (projectName && hoursByProjectName.get(projectName)) ||
+        null
+
+      rows.push({
+        projectId: projectId || hoursRow?.projectId || '',
+        project: projectName || hoursRow?.project || 'Unknown',
+        hours: hoursRow?.hours ?? 0,
+        sessions: hoursRow?.sessions ?? 0,
+      })
+    }
+
+    return rows.sort((a, b) => b.hours - a.hours || a.project.localeCompare(b.project))
+  }, [startableTasks, allTimeProjectWiseHours])
+
+  const projectWiseTotal = useMemo(
+    () => projectBreakdown.reduce((sum, p) => sum + (p.hours || 0), 0),
+    [projectBreakdown],
+  )
 
   if (!initialized) {
     return (
@@ -457,377 +505,287 @@ export default function Timesheet() {
   }
 
   return (
+<<<<<<< HEAD
     <div className="emp-timesheet-page dashboard-surface space-y-4 pb-8" data-page-scrollable>
       <div className="emp-page-header flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
         <div>
           <h1 className="text-xl font-extrabold text-[var(--emerald-dark)] leading-none">Projects & Timesheets</h1>
+=======
+    <div className="emp-timesheet-page dashboard-surface" data-page-scrollable>
+      <div className="emp-timesheet-hero">
+        <h1 className="emp-timesheet-hero-title">Projects & Timesheets</h1>
+        <div className="emp-timesheet-hero-stats">
+          <div className="emp-timesheet-hero-stat">
+            <span className="emp-timesheet-hero-stat-label">Total</span>
+            <span className="emp-timesheet-hero-stat-value">{taskStatusCounts.total}</span>
+          </div>
+          <div className="emp-timesheet-hero-stat emp-timesheet-hero-stat--blue">
+            <span className="emp-timesheet-hero-stat-dot" aria-hidden />
+            <span className="emp-timesheet-hero-stat-label">In Progress</span>
+            <span className="emp-timesheet-hero-stat-value">{taskStatusCounts.inProgress}</span>
+          </div>
+          <div className="emp-timesheet-hero-stat emp-timesheet-hero-stat--green">
+            <span className="emp-timesheet-hero-stat-dot" aria-hidden />
+            <span className="emp-timesheet-hero-stat-label">Completed</span>
+            <span className="emp-timesheet-hero-stat-value">{taskStatusCounts.completed}</span>
+          </div>
+          <div className="emp-timesheet-hero-stat emp-timesheet-hero-stat--red">
+            <span className="emp-timesheet-hero-stat-dot" aria-hidden />
+            <span className="emp-timesheet-hero-stat-label">Cancelled</span>
+            <span className="emp-timesheet-hero-stat-value">{taskStatusCounts.cancelled}</span>
+          </div>
+>>>>>>> 0a573bb29886ee0397e101edc348fcacadd85519
         </div>
+      </div>
 
-        {/* Dynamic Pie Chart Status Summary - No Progress Bars */}
-        <div className="flex items-center gap-3">
-          <div className="relative flex items-center justify-center" style={{ width: 68, height: 68 }}>
-            <svg width="68" height="68" viewBox="0 0 68 68" className="transform -rotate-90">
-              {(() => {
-                const total = assignedTasks.length || 1;
-                const inProgressCount = assignedTasks.filter(t => t.status === 'in_progress' || t.status === 'pending_review' || t.status === 'Active' || !t.status).length;
-                const completedCount = assignedTasks.filter(t => t.status === 'completed' || t.status === 'Completed').length;
-                const cancelledCount = assignedTasks.filter(t => t.status === 'cancelled' || t.status === 'Cancelled').length;
+      {/* Main Dashboard Grid Layout */}
+      <div className="mb-3 grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
+        
+        {/* LEFT COLUMN — Work Session + Work History */}
+        <div className="flex flex-col gap-3">
+          {/* Work Session — form, live timer when checked in, and actions */}
+          <section className="emp-timesheet-card flex flex-col">
+            <div className="emp-timesheet-card-header">
+              <h3 className="emp-timesheet-card-title">Work Session</h3>
+            </div>
+            <div className="emp-timesheet-card-body flex flex-col gap-2.5">
+              {!checkedIn && attendance?.autoCheckedOut && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-800">
+                    <AlertTriangle className="h-3 w-3 shrink-0" />
+                    Auto Checked-Out
+                  </div>
+                  <p className="mt-0.5 text-[10px] text-amber-700">
+                    Your previous session was closed by the system.
+                  </p>
+                </div>
+              )}
 
-                const radius = 28;
-                const circumference = 2 * Math.PI * radius;
-                
-                const progressPercent = (inProgressCount / total) * 100;
-                const completedPercent = (completedCount / total) * 100;
-                const cancelledPercent = (cancelledCount / total) * 100;
-                
-                const progressDash = (progressPercent / 100) * circumference;
-                const completedDash = (completedPercent / 100) * circumference;
-                const cancelledDash = (cancelledPercent / 100) * circumference;
-                
-                const progressOffset = 0;
-                const completedOffset = -progressDash;
-                const cancelledOffset = -(progressDash + completedDash);
-                
-                return (
-                  <>
-                    <circle 
-                      cx="34" 
-                      cy="34" 
-                      r={radius} 
-                      fill="none" 
-                      stroke="rgba(38, 107, 28, 0.08)" 
-                      strokeWidth="11"
+              {checkedIn && checkInTime ? (
+                <TimesheetLiveSessionPanel
+                  checkedIn={checkedIn}
+                  checkInTime={checkInTime}
+                  activeTask={activeTask}
+                  pausedTasks={pausedTasks}
+                  currentWorkTask={currentWorkTask}
+                  serverTimeSkew={serverTimeSkew}
+                  checkoutReview={checkoutReview}
+                  submitting={submitting}
+                  onPause={() => activeTask && onPauseTask(activeTask.timesheetId)}
+                  onResume={() => pausedTasks[0] && onResumeTask(pausedTasks[0].timesheetId)}
+                />
+              ) : null}
+
+              {!checkedIn || checkoutReview ? (
+                <>
+                  {!checkedIn ? (
+                    <div className="space-y-0.5">
+                      <Label className="text-xs font-bold text-slate-800">Assigned Project *</Label>
+                      <Select
+                        value={selectedTaskId}
+                        onValueChange={(v) => setValue('assignedTaskId', v, { shouldValidate: true })}
+                        disabled={checkoutReview || startableTasks.length === 0}
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue
+                            placeholder={
+                              startableTasks.length === 0
+                                ? 'No projects assigned — contact admin'
+                                : 'Select assigned project'
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[200px] overflow-y-auto">
+                          {startableTasks.map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              {t.projectName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {selectedTask?.description && !checkoutReview && (
+                        <p className="line-clamp-2 text-[9px] text-muted mt-1">{selectedTask.description}</p>
+                      )}
+                      {errors.assignedTaskId && (
+                        <p className="text-[9px] text-danger mt-1">{errors.assignedTaskId.message}</p>
+                      )}
+                    </div>
+                  ) : null}
+
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-bold text-slate-800">
+                      {checkoutReview ? 'Work Summary *' : 'Work Description *'}
+                    </Label>
+                    <Textarea
+                      className="min-h-[3.5rem] max-h-[10rem] resize-y text-xs leading-relaxed"
+                      rows={2}
+                      {...register('description')}
+                      placeholder={
+                        checkoutReview
+                          ? 'Update your work summary before checking out…'
+                          : "Describe what you're working on..."
+                      }
+                      disabled={checkedIn && !checkoutReview}
                     />
-                    {inProgressCount > 0 && (
-                      <circle
-                        cx="34"
-                        cy="34"
-                        r={radius}
-                        fill="none"
-                        stroke="#3b82f6"
-                        strokeWidth="11"
-                        strokeDasharray={`${progressDash} ${circumference}`}
-                        strokeDashoffset={progressOffset}
-                        strokeLinecap="round"
-                        style={{ filter: 'drop-shadow(0 2px 4px rgba(59, 130, 246, 0.3))' }}
-                      />
+                    {checkoutReview && (
+                      <p className="text-[9px] font-medium text-amber-700 mt-1">
+                        Update your work summary before checking out.
+                      </p>
                     )}
-                    {completedCount > 0 && (
-                      <circle
-                        cx="34"
-                        cy="34"
-                        r={radius}
-                        fill="none"
-                        stroke="#22c55e"
-                        strokeWidth="11"
-                        strokeDasharray={`${completedDash} ${circumference}`}
-                        strokeDashoffset={completedOffset}
-                        strokeLinecap="round"
-                        style={{ filter: 'drop-shadow(0 2px 4px rgba(34, 197, 94, 0.3))' }}
-                      />
-                    )}
-                    {cancelledCount > 0 && (
-                      <circle
-                        cx="34"
-                        cy="34"
-                        r={radius}
-                        fill="none"
-                        stroke="#ef4444"
-                        strokeWidth="11"
-                        strokeDasharray={`${cancelledDash} ${circumference}`}
-                        strokeDashoffset={cancelledOffset}
-                        strokeLinecap="round"
-                        style={{ filter: 'drop-shadow(0 2px 4px rgba(239, 68, 68, 0.3))' }}
-                      />
-                    )}
+                    {checkoutError && <p className="text-[9px] text-danger mt-1">{checkoutError}</p>}
+                  </div>
+                </>
+              ) : null}
+
+              <div className="flex gap-2 border-t border-slate-200/80 pt-2.5">
+                {checkoutReview ? (
+                  <>
+                    <Button type="button" variant="outline" onClick={cancelCheckOut} disabled={submitting} className="h-8 flex-1 text-xs">
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={onConfirmCheckOut}
+                      disabled={submitting}
+                      className="emp-ts-btn-primary h-8 gap-1.5 flex-1 text-xs"
+                    >
+                      <LogOut className="h-3.5 w-3.5 shrink-0" />
+                      Confirm Check Out
+                    </Button>
                   </>
-                );
-              })()}
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-black text-[var(--emerald-dark)] font-display leading-none">
-                {assignedTasks.length}
-              </span>
-              <span className="text-[8px] font-bold uppercase tracking-wider text-slate-500 mt-0.5">Total</span>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3 pl-3 border-l border-emerald-200/60">
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-1 mb-0.5">
-                <div className="h-1.5 w-1.5 rounded-full bg-blue-500 shadow-sm"></div>
-                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">In Progress</span>
-              </div>
-              <div className="text-xl font-black text-blue-600 tabular-nums">
-                {assignedTasks.filter(t => t.status === 'in_progress' || t.status === 'pending_review' || t.status === 'Active' || !t.status).length}
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-1 mb-0.5">
-                <div className="h-1.5 w-1.5 rounded-full bg-green-500 shadow-sm"></div>
-                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Completed</span>
-              </div>
-              <div className="text-xl font-black text-green-600 tabular-nums">
-                {assignedTasks.filter(t => t.status === 'completed' || t.status === 'Completed').length}
+                ) : (
+                  <>
+                    <Button
+                      type="button"
+                      onClick={onCheckIn}
+                      disabled={checkedIn || submitting || !canStartSession || startableTasks.length === 0}
+                      className="emp-ts-btn-primary h-8 gap-1.5 flex-1 text-xs"
+                    >
+                      <LogIn className="h-3.5 w-3.5 shrink-0" /> Check In
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={beginCheckOut}
+                      disabled={!checkedIn || submitting}
+                      className="h-8 gap-1.5 flex-1 text-xs"
+                    >
+                      <LogOut className="h-3.5 w-3.5 shrink-0" /> Check Out
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-1 mb-0.5">
-                <div className="h-1.5 w-1.5 rounded-full bg-red-500 shadow-sm"></div>
-                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Cancelled</span>
-              </div>
-              <div className="text-xl font-black text-red-600 tabular-nums">
-                {assignedTasks.filter(t => t.status === 'cancelled' || t.status === 'Cancelled').length}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+          </section>
 
-      {/* Row 1 — Summary cards: Daily and Weekly Hours only */}
-      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-        <TimesheetSummaryCard
-          variant="teal"
-          title="Daily Hours Today"
-          value={formatDurationFromMs(todayHoursMs)}
-          hint="Attendance today"
-          icon={Clock}
-        />
-        <TimesheetSummaryCard
-          variant="turquoise"
-          title="Weekly Hours"
-          value={`${totalWeekly.toFixed(1)}h`}
-          hint="Mon – Sun this week"
-          icon={CalendarDays}
-        />
-      </div>
+          {/* Work History */}
+          <section className="emp-timesheet-card emp-timesheet-history-panel flex flex-col overflow-visible">
+            <div className="emp-timesheet-history-header flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
+              <h3 className="emp-timesheet-card-title">Work History</h3>
+              <div className="relative z-20 shrink-0">
+                <DateRangePicker
+                  startDate={historyStart}
+                  endDate={historyEnd}
+                  preset={historyPreset}
+                  onChange={(start, end, preset) => {
+                    setHistoryStart(start)
+                    setHistoryEnd(end)
+                    setHistoryPreset(preset)
+                    void Promise.all([
+                      useTimesheetStore.getState().refreshSessionsForRange({ from: start, to: end }),
+                      useTimesheetStore.getState().refreshProjectWiseHours({ from: start, to: end }),
+                    ])
+                  }}
+                />
+              </div>
+            </div>
 
-      {/* Row 2 — Work session | Active session (50/50) - Compact */}
-      <div className="grid gap-3 grid-cols-1 lg:grid-cols-2">
-        <section className="emp-timesheet-card p-3">
-          <div className="mb-3">
-            <h3 className="text-sm font-bold text-slate-900">Work Session</h3>
-          </div>
-          <div className="space-y-3">
-            {!checkedIn && attendance?.autoCheckedOut && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-2">
-                <div className="flex items-center gap-2 text-xs font-semibold text-amber-800">
-                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                  Auto Checked-Out
+            <div className="emp-timesheet-card-body flex flex-col p-3">
+              {(isInitialLoading || sessionsLoading) && unifiedHistory.length === 0 ? (
+                <div className="space-y-2">
+                  <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/80" />
+                  <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/60" />
+                  <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/60" />
                 </div>
-                <p className="mt-0.5 text-[11px] text-amber-700">
-                  Your previous session was closed by the system.
-                </p>
-              </div>
-            )}
-
-            <div className="space-y-1">
-              <Label className="text-xs font-bold text-slate-800">Assigned Project *</Label>
-              <Select
-                value={selectedTaskId}
-                onValueChange={(v) => setValue('assignedTaskId', v, { shouldValidate: true })}
-                disabled={checkedIn || checkoutReview || startableTasks.length === 0}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue
-                    placeholder={
-                      startableTasks.length === 0
-                        ? 'No projects assigned — contact admin'
-                        : 'Select assigned project'
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent className="max-h-[200px] overflow-y-auto">
-                  {startableTasks.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.projectName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {selectedTask?.description && !checkedIn && (
-                <p className="line-clamp-2 text-[10px] text-muted">{selectedTask.description}</p>
-              )}
-              {errors.assignedTaskId && !checkedIn && (
-                <p className="text-[10px] text-danger">{errors.assignedTaskId.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs font-bold text-slate-800">
-                Work Description <span className="font-normal text-muted text-[10px]">(optional)</span>
-              </Label>
-              <Textarea
-                className="min-h-[4rem] max-h-[12rem] resize-y text-sm leading-relaxed"
-                rows={3}
-                {...register('description')}
-                placeholder="Describe what you're working on (optional)..."
-                disabled={checkedIn && !checkoutReview}
-              />
-              {checkoutReview && (
-                <p className="text-[10px] font-medium text-amber-700">
-                  Update your work summary before checking out (optional).
-                </p>
-              )}
-              {checkoutError && <p className="text-[10px] text-danger">{checkoutError}</p>}
-            </div>
-
-            <div className="flex gap-2 pt-1">
-              {checkoutReview ? (
-                <>
-                  <Button type="button" variant="outline" onClick={cancelCheckOut} disabled={submitting} className="h-9 flex-1">
-                    Cancel
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={onConfirmCheckOut}
-                    disabled={submitting}
-                    className="emp-ts-btn-primary h-9 gap-2 flex-1"
-                  >
-                    <LogOut className="h-4 w-4 shrink-0" />
-                    Confirm Check Out
-                  </Button>
-                </>
               ) : (
-                <>
-                  <Button
-                    type="button"
-                    onClick={onCheckIn}
-                    disabled={checkedIn || submitting || !canStartSession || startableTasks.length === 0}
-                    className="emp-ts-btn-primary h-9 gap-2 flex-1"
-                  >
-                    <LogIn className="h-4 w-4 shrink-0" /> Check In
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={beginCheckOut}
-                    disabled={!checkedIn || submitting}
-                    className="h-9 gap-2 flex-1"
-                  >
-                    <LogOut className="h-4 w-4 shrink-0" /> Check Out
-                  </Button>
-                </>
+                <div className="relative flex flex-col">
+                  {(isInitialLoading || sessionsLoading) && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/70 backdrop-blur-[1px]">
+                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                    </div>
+                  )}
+                  <div className="emp-timesheet-history-scroll timesheet-panel-scroll min-h-[12rem] overflow-auto rounded-lg border border-slate-200/80">
+                    <DataTable
+                      columns={historyColumns}
+                      data={unifiedHistory}
+                      compact
+                      stickyHeader={true}
+                      emptyMessage="No work logs for this date range."
+                    />
+                  </div>
+                </div>
               )}
             </div>
-          </div>
-        </section>
-
-        <section className="emp-timesheet-card p-3">
-          <div className="mb-3">
-            <h3 className="text-sm font-bold text-slate-900">Active Session</h3>
-          </div>
-          <div className="min-h-[200px]">
-            <TimesheetLiveSessionPanel
-              checkedIn={checkedIn}
-              checkInTime={checkInTime}
-              activeTask={activeTask}
-              pausedTasks={pausedTasks}
-              currentWorkTask={currentWorkTask}
-              serverTimeSkew={serverTimeSkew}
-              checkoutReview={checkoutReview}
-              submitting={submitting}
-              onPause={() => activeTask && onPauseTask(activeTask.timesheetId)}
-              onResume={() => pausedTasks[0] && onResumeTask(pausedTasks[0].timesheetId)}
-            />
-          </div>
-        </section>
-      </div>
-
-      {/* Row 3 — Charts: Weekly Hours and Project Breakdown */}
-      <div className="grid gap-3 grid-cols-1 lg:grid-cols-2">
-        <section className="emp-timesheet-card p-3">
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <h3 className="text-sm font-bold text-slate-900">Weekly Hours</h3>
-            <span className="text-xs font-bold text-slate-600 tabular-nums">{totalWeekly.toFixed(1)}h total</span>
-          </div>
-          <div style={{ height: CHART_HEIGHT }}>
-            <Suspense
-              fallback={
-                <div className="flex h-full items-center justify-center text-xs text-muted">
-                  Loading chart…
-                </div>
-              }
-            >
-              <TimesheetWeeklyChart data={weeklyHours} height={CHART_HEIGHT} />
-            </Suspense>
-          </div>
-        </section>
-
-        <section className="emp-timesheet-card p-3">
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <h3 className="text-sm font-bold text-slate-900">Project Breakdown</h3>
-            <span className="text-xs font-bold text-slate-600 tabular-nums">{projectWiseTotal.toFixed(1)}h total</span>
-          </div>
-          <div style={{ minHeight: CHART_HEIGHT }}>
-            <Suspense
-              fallback={
-                <div
-                  className="flex items-center justify-center text-xs text-muted"
-                  style={{ height: CHART_HEIGHT }}
-                >
-                  Loading…
-                </div>
-              }
-            >
-              <TimesheetProjectWiseChart data={allTimeProjectWiseHours} />
-            </Suspense>
-          </div>
-        </section>
-      </div>
-
-      {/* Row 4 — Work History */}
-      <section className="emp-timesheet-card p-3">
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900">Work History</h3>
-            {unifiedHistory.length > 0 ? (
-              <p className="text-xs text-slate-600 mt-0.5">
-                {unifiedHistory.length} log{unifiedHistory.length === 1 ? '' : 's'}
-                {historyHasMore ? ' — scroll for more' : ''}
-              </p>
-            ) : null}
-          </div>
-          <DateRangePicker
-            startDate={historyStart}
-            endDate={historyEnd}
-            preset={historyPreset}
-            onChange={(start, end, preset) => {
-              setHistoryStart(start)
-              setHistoryEnd(end)
-              setHistoryPreset(preset)
-              void Promise.all([
-                useTimesheetStore.getState().refreshSessionsForRange({ from: start, to: end }),
-                useTimesheetStore.getState().refreshProjectWiseHours({ from: start, to: end }),
-              ])
-            }}
-          />
+          </section>
         </div>
 
-        {(isInitialLoading || sessionsLoading) && unifiedHistory.length === 0 ? (
-          <div className="space-y-2">
-            <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/80" />
-            <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/60" />
-            <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/60" />
-          </div>
-        ) : (
-          <div className="relative">
-            {(isInitialLoading || sessionsLoading) && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/70 backdrop-blur-[1px]">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+        {/* RIGHT COLUMN */}
+        <div className="flex flex-col gap-4">
+          {/* Weekly Hours Chart - Primary Visual */}
+          <section className="emp-timesheet-card">
+            <div className="emp-timesheet-card-header">
+              <h3 className="emp-timesheet-card-title">Weekly Hours</h3>
+              <div className="emp-timesheet-chart-header-stats">
+                <div className="emp-timesheet-chart-stat">
+                  <span className="emp-timesheet-chart-stat-label">Today</span>
+                  <span className="emp-timesheet-chart-stat-value">{formatDurationFromMs(todayHoursMs)}</span>
+                </div>
+                <div className="emp-timesheet-chart-stat">
+                  <span className="emp-timesheet-chart-stat-label">This week</span>
+                  <span className="emp-timesheet-chart-stat-value">{totalWeekly.toFixed(1)}h</span>
+                </div>
               </div>
-            )}
-            <div className="emp-timesheet-history-scroll timesheet-panel-scroll rounded-lg border border-slate-200/80 max-h-[400px] overflow-auto">
-              <DataTable
-                columns={historyColumns}
-                data={unifiedHistory}
-                compact
-                emptyMessage="No work logs for this date range."
-              />
             </div>
-          </div>
-        )}
-      </section>
+            <div className="emp-timesheet-card-body" style={{ height: 280 }}>
+              <Suspense
+                fallback={
+                  <div className="flex h-full items-center justify-center text-xs text-muted">
+                    Loading chart…
+                  </div>
+                }
+              >
+                <TimesheetWeeklyChart data={weeklyHours} height={280} />
+              </Suspense>
+            </div>
+          </section>
+
+          {/* Project Breakdown Chart */}
+          <section className="emp-timesheet-card">
+            <div className="emp-timesheet-card-header">
+              <h3 className="emp-timesheet-card-title">Project Breakdown</h3>
+              <span className="emp-timesheet-chart-meta">{projectWiseTotal.toFixed(1)}h total</span>
+            </div>
+            <div className="emp-timesheet-card-body">
+              <Suspense
+                fallback={
+                  <div className="flex min-h-[200px] items-center justify-center text-xs text-muted">
+                    Loading…
+                  </div>
+                }
+              >
+                <TimesheetProjectWiseChart
+                  data={projectBreakdown}
+                  emptyHint={
+                    startableTasks.length === 0
+                      ? 'No projects assigned yet — contact your admin.'
+                      : 'Hours appear after you log time on assigned projects.'
+                  }
+                />
+              </Suspense>
+            </div>
+          </section>
+        </div>
+      </div>
     </div>
   )
 }

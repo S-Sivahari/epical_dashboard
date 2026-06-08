@@ -2,7 +2,13 @@ import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { employeeToExportRow } from '@/constants/employeeExport'
 import type { Employee } from '@/types'
-import { PDF_LOGO_MAX_WIDTH, drawPdfLogoLeft, fetchExportLogo, scaleExportLogo, EXPORT_LOGO_PATH } from '@/utils/exportLogo'
+import {
+  PDF_LOGO_MAX_WIDTH,
+  PDF_LOGO_MAX_WIDTH_COMPACT,
+  fetchExportLogo,
+  logoImageFormat,
+  scaleExportLogo,
+} from '@/utils/exportLogo'
 
 const BRAND_GREEN: [number, number, number] = [16, 185, 129]
 
@@ -205,7 +211,7 @@ export async function exportToPDF<T extends Record<string, any>>(
       const textMidY = (textTop + textBottom) / 2
       const logoTop = textMidY - lh / 2
 
-      doc.addImage(logo.dataUrl, 'JPEG', groupLeft, logoTop, lw, lh)
+      doc.addImage(logo.dataUrl, logoImageFormat(logo.dataUrl), groupLeft, logoTop, lw, lh)
 
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(companyFontPt)
@@ -222,27 +228,37 @@ export async function exportToPDF<T extends Record<string, any>>(
       doc.setTextColor(30, 41, 59)
       doc.text(reportTitleStr, textLeft, reportBaseline)
       y = Math.max(logoTop + lh, reportBaseline + reportDescApprox) + 14
-    } else {
-      y = employeeStyle && logo ? drawPdfLogoLeft(doc, logo, 40, 14) : 38
+    } else if (employeeStyle && logo) {
+      const scaled = scaleExportLogo(logo.width, logo.height, PDF_LOGO_MAX_WIDTH_COMPACT)
+      const logoX = 40
+      const logoY = 20
+      const gap = 10
+      doc.addImage(logo.dataUrl, logoImageFormat(logo.dataUrl), logoX, logoY, scaled.width, scaled.height)
 
+      const textLeft = logoX + scaled.width + gap
+      const companyBaseline = logoY + scaled.height * 0.58
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(16)
+      drawEpicalBrandedText(
+        doc,
+        { before: 'EP', after: 'AL LAYOUTS PVT LTD' },
+        textLeft,
+        companyBaseline,
+        'left',
+        pageWidth,
+      )
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(11)
+      doc.setTextColor(30, 41, 59)
+      const reportBaseline = companyBaseline + 15
+      doc.text(reportTitleStr, textLeft, reportBaseline)
+      y = Math.max(logoY + scaled.height, reportBaseline + 4) + 10
+    } else {
+      y = 38
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(18)
-      if (employeeStyle && logo) {
-        const scaled = scaleExportLogo(logo.width, logo.height, 48)
-        const format = EXPORT_LOGO_PATH.endsWith('.png') ? 'PNG' : 'JPEG'
-        doc.addImage(logo.dataUrl, format, 40, 20, scaled.width, scaled.height)
-        textX = 40 + scaled.width + 12
-        y = 20
-        align = 'left'
-      }
-
-      if (align === 'center') {
-        drawEpicalBrandedText(doc, { before: 'EP', after: 'AL LAYOUTS PVT LTD' }, 40, y, 'center', pageWidth)
-        y += 18
-      } else {
-        drawEpicalBrandedText(doc, { before: 'EP', after: 'AL LAYOUTS PVT LTD' }, textX, y + 16, 'left', pageWidth)
-        y += 32
-      }
+      drawEpicalBrandedText(doc, { before: 'EP', after: 'AL LAYOUTS PVT LTD' }, 40, y, 'center', pageWidth)
+      y += 18
 
       if (!employeeStyle) {
         doc.setFont('helvetica', 'normal')
@@ -261,11 +277,7 @@ export async function exportToPDF<T extends Record<string, any>>(
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(12)
       doc.setTextColor(30, 41, 59)
-      if (align === 'center') {
-        doc.text(reportTitleStr, pageWidth / 2, y, { align: 'center' })
-      } else {
-        doc.text(reportTitleStr, textX, y, { align: 'left' })
-      }
+      doc.text(reportTitleStr, pageWidth / 2, y, { align: 'center' })
       y += 14
     }
 

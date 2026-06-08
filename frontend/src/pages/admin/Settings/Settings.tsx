@@ -32,7 +32,7 @@ export function Settings() {
               <p className="admin-settings-panel-text">
                 All users sign in with Google (Gmail). There is no portal password to change.
                 If someone cannot access their account, ask them to use the same company Gmail
-                registered in HR, or contact IT to verify their employee record email.
+                registered with admin, or contact IT to verify their employee record email.
               </p>
             </section>
 

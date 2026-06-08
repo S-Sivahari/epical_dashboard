@@ -260,8 +260,8 @@ export const projectController = {
         accessType: accessType || 'public',
         status: 'Active', // new projects always default to Active
         description: normalizeProjectDescription(String(description || '')),
-        allowedUsers: accessType === 'private' ? (visibleUsers || []) : [],
-        teamLead: accessType === 'private' && teamLead ? String(teamLead).trim() : undefined,
+        allowedUsers: Array.isArray(visibleUsers) ? visibleUsers : [],
+        teamLead: teamLead ? String(teamLead).trim() : undefined,
         createdBy: username,
       });
 
@@ -311,8 +311,8 @@ export const projectController = {
       project.technologyNode = technologyNode.trim();
       project.accessType = accessType;
       project.description = normalizeProjectDescription(String(description || ''));
-      project.allowedUsers = accessType === 'private' ? (visibleUsers || []) : [];
-      project.teamLead = accessType === 'private' && teamLead ? String(teamLead).trim() : undefined;
+      project.allowedUsers = Array.isArray(visibleUsers) ? visibleUsers : [];
+      project.teamLead = teamLead ? String(teamLead).trim() : undefined;
 
       const isTerminalStatus = status && ['Completed', 'Cancelled'].includes(status);
       if (isTerminalStatus) {

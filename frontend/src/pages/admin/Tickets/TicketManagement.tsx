@@ -6,7 +6,6 @@ import {
   Clock,
   Loader2,
   CheckCircle2,
-  LayoutGrid,
   X,
   Search,
   Trash2,
@@ -22,8 +21,6 @@ import { cn } from '@/utils/cn'
 import { useTicketStore } from '@store/ticketStore'
 import { deleteTicket, fetchTicketById, getNextStatus, getPrevStatus } from '@services/ticketService'
 import { formatDateTime } from '@/utils/formatDate'
-
-type SectionFilter = 'all' | TicketStatus
 
 const BOARD_STATUSES = ['Pending', 'In Progress', 'Completed'] as const
 
@@ -68,13 +65,6 @@ const COLUMN_META: Record<
   },
 }
 
-const tabItems: Array<{ id: SectionFilter; label: string; icon: typeof TicketIcon }> = [
-  { id: 'all', label: 'All', icon: LayoutGrid },
-  { id: 'Pending', label: 'Pending', icon: Clock },
-  { id: 'In Progress', label: 'In Progress', icon: Loader2 },
-  { id: 'Completed', label: 'Completed', icon: CheckCircle2 },
-]
-
 function formatCreatedAt(raw: Ticket['createdAt']): string {
   if (!raw) return '—'
   try {
@@ -104,6 +94,7 @@ const filterFieldClass = 'admin-tickets-filter-input'
 export function TicketManagement() {
   const tickets = useTicketStore((s) => s.tickets)
   const loading = useTicketStore((s) => s.loading)
+  const initialized = useTicketStore((s) => s.initialized)
   const fetchTickets = useTicketStore((s) => s.fetchTickets)
   const fetchTicketsSilent = useTicketStore((s) => s.fetchTicketsSilent)
   const updateStatus = useTicketStore((s) => s.updateStatus)
@@ -113,7 +104,6 @@ export function TicketManagement() {
   const [q, setQ] = useState('')
   const [employeeIdFilter, setEmployeeIdFilter] = useState('')
   const [priority, setPriority] = useState('all')
-  const [sectionFilter, setSectionFilter] = useState<SectionFilter>('all')
   const [moving, setMoving] = useState<{ id: string; dir: 'forward' | 'back' } | null>(null)
 
   const [detailOpen, setDetailOpen] = useState(false)
@@ -122,6 +112,7 @@ export function TicketManagement() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [ticketToDelete, setTicketToDelete] = useState<Ticket | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const ticketsLoading = !initialized || loading
 
   useEffect(() => {
     void fetchTickets({
@@ -162,10 +153,9 @@ export function TicketManagement() {
     const empNeedle = employeeIdFilter.trim().toLowerCase()
     return tickets.filter((t) => {
       if (empNeedle && !t.employeeId.toLowerCase().includes(empNeedle)) return false
-      if (sectionFilter !== 'all' && t.status !== sectionFilter) return false
       return true
     })
-  }, [tickets, employeeIdFilter, sectionFilter])
+  }, [tickets, employeeIdFilter])
 
   const columns = useMemo(() => {
     return {
@@ -177,7 +167,6 @@ export function TicketManagement() {
 
   const statusCounts = useMemo(
     () => ({
-      all: tickets.length,
       Pending: tickets.filter((t) => t.status === 'Pending').length,
       'In Progress': tickets.filter((t) => t.status === 'In Progress').length,
       Completed: tickets.filter((t) => t.status === 'Completed').length,
@@ -289,9 +278,6 @@ export function TicketManagement() {
       setDeleting(false)
     }
   }
-
-  const visibleStatuses =
-    sectionFilter === 'all' ? BOARD_STATUSES : ([sectionFilter] as readonly TicketStatus[])
 
   const renderTicketCard = (statusCol: TicketStatus, ticket: Ticket) => (
     <article
@@ -484,26 +470,6 @@ export function TicketManagement() {
               <div className="min-w-0">
                 <h1 className="admin-tickets-hero-title font-display">Support Tickets Hub</h1>
               </div>
-              <nav className="admin-tickets-tab-rail" aria-label="Ticket views">
-                {tabItems.map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setSectionFilter(tab.id)}
-                    className={
-                      sectionFilter === tab.id
-                        ? 'admin-tickets-tab-btn admin-tickets-tab-btn--active'
-                        : 'admin-tickets-tab-btn admin-tickets-tab-btn--inactive'
-                    }
-                  >
-                    <tab.icon className="admin-tickets-tab-icon shrink-0" aria-hidden />
-                    <span className="admin-tickets-tab-label">{tab.label}</span>
-                    <span className="admin-tickets-tab-count tabular-nums">
-                      {statusCounts[tab.id]}
-                    </span>
-                  </button>
-                ))}
-              </nav>
             </div>
             <div className="admin-tickets-metrics-band" role="group" aria-label="Ticket metrics">
               <div className="admin-tickets-metric-tile">
@@ -588,11 +554,11 @@ export function TicketManagement() {
           </div>
 
           <div className="admin-tickets-board flex min-h-0 flex-1 flex-col">
-            {loading && tickets.length === 0 ? (
+            {ticketsLoading && tickets.length === 0 ? (
               <div className="admin-tickets-board-empty">
                 <p className="text-sm font-medium admin-tickets-text-brand-muted">Loading tickets…</p>
               </div>
-            ) : !loading && tickets.length === 0 ? (
+            ) : !ticketsLoading && tickets.length === 0 ? (
               <div className="admin-tickets-board-empty">
                 <TicketIcon className="mb-3 h-9 w-9 admin-tickets-text-brand opacity-40" aria-hidden />
                 <p className="text-sm font-semibold admin-tickets-text-brand">No tickets yet</p>
@@ -601,13 +567,8 @@ export function TicketManagement() {
                 </p>
               </div>
             ) : (
-              <div
-                className={cn(
-                  'admin-tickets-kanban-grid min-h-0 flex-1',
-                  visibleStatuses.length === 1 ? 'admin-tickets-kanban-grid--single' : '',
-                )}
-              >
-                {visibleStatuses.map((statusCol) => renderKanbanColumn(statusCol, columns[statusCol]))}
+              <div className="admin-tickets-kanban-grid min-h-0 flex-1">
+                {BOARD_STATUSES.map((statusCol) => renderKanbanColumn(statusCol, columns[statusCol]))}
               </div>
             )}
           </div>

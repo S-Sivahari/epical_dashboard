@@ -59,6 +59,10 @@ export async function cancelLeave(id: string) {
   await api.patch(`/leaves/${id}/cancel`, {})
 }
 
+export async function revokeApprovedLeave(id: string, reason: string) {
+  await api.patch(`/leaves/${id}/revoke`, { reason })
+}
+
 export async function deleteAllLeaves(): Promise<{ deletedCount: number }> {
   const response = await api.delete('/leaves/all')
   return response.data as { deletedCount: number }

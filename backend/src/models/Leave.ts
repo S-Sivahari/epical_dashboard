@@ -14,6 +14,8 @@ export interface LeaveRequest {
   from: string;
   to: string;
   days: number;
+  /** Days counted as Loss of Pay (casual leave beyond monthly balance). */
+  lopDays?: number;
   reason: string;
   status: LeaveStatus;
   rejectionReason?: string;

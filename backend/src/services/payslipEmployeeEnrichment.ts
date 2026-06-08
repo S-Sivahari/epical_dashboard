@@ -1,5 +1,86 @@
 import type { Employee } from './payslipGenerator'
 import { findEmployeeByPayrollEmpId } from './employeePayslipService'
+import { getLeaveBalances } from './leaveService'
+
+const LEAVE_BALANCE_FIELDS = {
+  'EL Balance': {
+    excelKeys: ['EL Balance', 'Earned Leave (EL)', 'Earned Leave', 'EL', 'EL Bal'],
+    dbType: 'Earned Leave',
+  },
+  'CL Balance': {
+    excelKeys: ['CL Balance', 'Casual Leave (CL)', 'Casual Leave', 'CL', 'CL Bal'],
+    dbType: 'Casual Leave',
+  },
+  'SL Balance': {
+    excelKeys: ['SL Balance', 'Sick Leave (SL)', 'Sick Leave', 'SL', 'SL Bal'],
+    dbType: 'Sick Leave',
+  },
+  'Comp Off': {
+    excelKeys: ['Comp Off', 'COMP OFF', 'Comp Off Balance', 'Compensation Leave', 'Compensatory Off'],
+    dbType: 'Compensation Leave',
+  },
+} as const
+
+function pickEmployeeField(emp: Employee, keys: string[]): unknown {
+  for (const key of keys) {
+    const val = emp[key]
+    if (val !== undefined && val !== null && String(val).trim() !== '') return val
+  }
+  const lowerKeys = new Set(keys.map((k) => k.toLowerCase()))
+  for (const [key, val] of Object.entries(emp)) {
+    if (!lowerKeys.has(key.toLowerCase())) continue
+    if (val !== undefined && val !== null && String(val).trim() !== '') return val
+  }
+  return undefined
+}
+
+export function formatLeaveBalanceDisplay(value: unknown): string {
+  if (value === undefined || value === null || String(value).trim() === '') return '0'
+  const n = parseFloat(String(value))
+  if (!Number.isNaN(n)) {
+    if (Number.isInteger(n)) return String(n)
+    return String(Number(n.toFixed(1)))
+  }
+  return String(value).trim()
+}
+
+/**
+ * Resolve leave balances for payslip: Excel employee row first, then HR leave system.
+ */
+export async function enrichPayrollEmployeeLeaveBalances(emp: Employee): Promise<Employee> {
+  const empId = String(emp['Emp ID'] || '').trim()
+  let dbBalances: Awaited<ReturnType<typeof getLeaveBalances>> | null = null
+
+  const loadDbBalances = async () => {
+    if (dbBalances || !empId) return dbBalances
+    try {
+      dbBalances = await getLeaveBalances(empId)
+    } catch (error) {
+      console.warn(`Failed to load leave balances for ${empId}:`, error)
+      dbBalances = {}
+    }
+    return dbBalances
+  }
+
+  const next: Employee = { ...emp }
+
+  for (const [canonicalKey, config] of Object.entries(LEAVE_BALANCE_FIELDS)) {
+    const fromExcel = pickEmployeeField(emp, [...config.excelKeys])
+    if (fromExcel !== undefined) {
+      next[canonicalKey] = formatLeaveBalanceDisplay(fromExcel)
+      continue
+    }
+
+    const balances = await loadDbBalances()
+    const remaining = balances?.[config.dbType]?.remaining
+    next[canonicalKey] =
+      remaining !== undefined && remaining !== null
+        ? formatLeaveBalanceDisplay(remaining)
+        : '0'
+  }
+
+  return next
+}
 
 function coalesceStr(...values: unknown[]): string {
   for (const v of values) {
