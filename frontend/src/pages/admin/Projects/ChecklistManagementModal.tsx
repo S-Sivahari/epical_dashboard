@@ -104,18 +104,26 @@ export function ChecklistManagementModal({
     try {
       const result = await importChecklistTemplateFile(file)
       setImportResult(result)
-      if (result.failed === 0) {
+      const saved = result.created + result.updated
+      if (result.failed === 0 && saved > 0) {
         toast.success(`Imported ${result.created} new, updated ${result.updated} checklist(s)`)
-      } else {
+      } else if (saved > 0) {
         toast.warning(
           `Created: ${result.created}, Updated: ${result.updated}, Failed: ${result.failed}`,
         )
+      } else {
+        toast.error('No checklists were imported. Check the error details below.')
       }
       resetForm()
-      await load()
+      const next = await fetchChecklists()
+      setChecklists(next)
       onChanged?.()
-    } catch {
-      toast.error('Import failed')
+      if (saved > 0 && result.failed === 0) {
+        setImportOpen(false)
+      }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+      toast.error(msg || 'Import failed')
     } finally {
       setImporting(false)
     }
