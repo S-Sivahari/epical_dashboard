@@ -151,6 +151,49 @@
   border-color: rgba(38, 107, 28, 0.35);
 }
 
+.admin-projects-toolbar-select-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.admin-projects-toolbar-select {
+  height: 2.25rem;
+  min-width: 11.5rem;
+  padding: 0 2rem 0 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(26, 67, 41, 0.2);
+  background: #fff;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #1a4712;
+  appearance: none;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.admin-projects-toolbar-select:hover {
+  background: #f0faf4;
+  border-color: rgba(38, 107, 28, 0.35);
+}
+
+.admin-projects-toolbar-select:focus {
+  outline: none;
+  border-color: rgba(38, 107, 28, 0.35);
+  box-shadow: 0 0 0 3px rgba(30, 90, 61, 0.1);
+}
+
+.admin-projects-toolbar-select-icon {
+  pointer-events: none;
+  position: absolute;
+  right: 0.625rem;
+  top: 50%;
+  height: 0.875rem;
+  width: 0.875rem;
+  transform: translateY(-50%);
+  color: #1a4712;
+  opacity: 0.7;
+}
+
 .admin-projects-dropdown {
   position: absolute;
   right: 0;
@@ -290,6 +333,197 @@
 
 .admin-projects-assign-question-row:hover {
   background: #e8f5ee;
+}
+
+.admin-projects-checklist-manage-toolbar {
+  margin-bottom: 1rem;
+  padding-bottom: 0.875rem;
+  border-bottom: 1px solid rgba(26, 67, 41, 0.12);
+}
+
+.admin-projects-checklist-manage-hint {
+  margin: 0 0 0.625rem;
+  font-size: 0.8125rem;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.admin-projects-checklist-manage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.admin-projects-checklist-responses-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.admin-projects-checklist-response-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(26, 67, 41, 0.12);
+  background: #fff;
+}
+
+.admin-projects-checklist-responses.is-compact .admin-projects-checklist-response-item {
+  flex-wrap: wrap;
+  padding: 0.5rem 0.625rem;
+}
+
+.admin-projects-checklist-response-question {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.admin-projects-checklist-response-options {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.375rem;
+}
+
+.admin-projects-checklist-response-btn {
+  min-width: 2.75rem;
+  height: 1.75rem;
+  padding: 0 0.625rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(26, 67, 41, 0.2);
+  background: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #475569;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.admin-projects-checklist-response-btn:hover:not(:disabled) {
+  background: #f0faf4;
+  border-color: rgba(38, 107, 28, 0.35);
+  color: #1a4712;
+}
+
+.admin-projects-checklist-response-btn.is-selected.is-yes {
+  background: #e8f2e6;
+  border-color: #266b1c;
+  color: #1a4712;
+}
+
+.admin-projects-checklist-response-btn.is-selected.is-no {
+  background: #fef2f2;
+  border-color: #f87171;
+  color: #b91c1c;
+}
+
+.admin-projects-checklist-response-btn.is-selected.is-na {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #475569;
+}
+
+.admin-projects-checklist-response-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.admin-projects-checklist-response-comment {
+  flex-basis: 100%;
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.admin-projects-checklist-comment-box {
+  flex-basis: 100%;
+  margin-top: 0.625rem;
+  padding-top: 0.625rem;
+  border-top: 1px dashed rgba(26, 67, 41, 0.15);
+}
+
+.admin-projects-checklist-comment-label {
+  margin: 0 0 0.375rem;
+  font-size: 0.75rem;
+  color: #475569;
+}
+
+.admin-projects-checklist-comment-input {
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(26, 67, 41, 0.18);
+  padding: 0.5rem 0.625rem;
+  font-size: 0.8125rem;
+  resize: vertical;
+}
+
+.admin-projects-checklist-comment-input:focus {
+  outline: none;
+  border-color: #266b1c;
+  box-shadow: 0 0 0 2px rgba(38, 107, 28, 0.15);
+}
+
+.admin-projects-checklist-comment-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.admin-projects-workspace-checklist {
+  position: relative;
+  min-width: 9rem;
+  max-width: 14rem;
+}
+
+.admin-projects-workspace-checklist-trigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.375rem;
+  border-radius: 0.375rem;
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+}
+
+.admin-projects-workspace-checklist-trigger:hover {
+  background: #f0faf4;
+  border-color: rgba(38, 107, 28, 0.15);
+}
+
+.admin-projects-workspace-checklist-popover {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 0.25rem);
+  z-index: 30;
+  width: min(18rem, 70vw);
+  padding: 0.5rem;
+  border-radius: 0.625rem;
+  border: 1px solid rgba(26, 67, 41, 0.15);
+  background: #fff;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
+}
+
+.admin-projects-cell-checklist-inline {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  min-width: 0;
+  max-width: 11rem;
+}
+
+.admin-projects-cell-checklist-inline .truncate {
+  max-width: 100%;
 }
 
 .admin-projects-cell-checklist-section {

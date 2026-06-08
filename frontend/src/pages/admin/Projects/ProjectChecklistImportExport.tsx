@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, Download, Upload } from 'lucide-react'
+import { Download, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { Modal } from '@components/ui/Modal'
 import { Button } from '@components/ui/Button'
@@ -28,7 +28,6 @@ const EXPORT_HEADERS = [
 ]
 
 export function ProjectChecklistImportExport({ onImported }: { onImported?: () => void }) {
-  const [downloadOpen, setDownloadOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -36,7 +35,6 @@ export function ProjectChecklistImportExport({ onImported }: { onImported?: () =
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleExport = async () => {
-    setDownloadOpen(false)
     try {
       const rows = await fetchChecklistExportRows()
       if (!rows.length) {
@@ -102,32 +100,14 @@ export function ProjectChecklistImportExport({ onImported }: { onImported?: () =
   return (
     <>
       <div className="admin-projects-toolbar-actions">
-        <div className="relative">
-          <button
-            type="button"
-            className="admin-projects-toolbar-btn"
-            onClick={() => setDownloadOpen((o) => !o)}
-          >
-            <Download className="h-4 w-4" />
-            Download
-            <ChevronDown className="h-3.5 w-3.5 opacity-70" />
-          </button>
-          {downloadOpen ? (
-            <>
-              <button
-                type="button"
-                className="fixed inset-0 z-10 cursor-default"
-                aria-label="Close menu"
-                onClick={() => setDownloadOpen(false)}
-              />
-              <div className="admin-projects-dropdown">
-                <button type="button" onClick={() => void handleExport()}>
-                  Export Project Checklist Report (.xlsx)
-                </button>
-              </div>
-            </>
-          ) : null}
-        </div>
+        <button
+          type="button"
+          className="admin-projects-toolbar-btn"
+          onClick={() => void handleExport()}
+        >
+          <Download className="h-4 w-4" />
+          Download
+        </button>
 
         <button
           type="button"

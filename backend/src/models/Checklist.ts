@@ -76,6 +76,8 @@ export const ProjectChecklistModel = model<ProjectChecklistDocument>(
   projectChecklistSchema,
 );
 
+export type CellChecklistResponse = 'yes' | 'no' | 'not_applicable';
+
 export interface CellChecklistMappingDocument extends Document {
   projectId: Types.ObjectId;
   cellId: Types.ObjectId;
@@ -83,6 +85,8 @@ export interface CellChecklistMappingDocument extends Document {
   checklistItemId: Types.ObjectId;
   itemName: string;
   status: CellChecklistStatus;
+  response?: CellChecklistResponse | null;
+  comment?: string;
   appliedBy?: string;
   appliedByName?: string;
   appliedDate?: Date;
@@ -102,9 +106,12 @@ const cellChecklistMappingSchema = new Schema<CellChecklistMappingDocument>(
       enum: ['Applied', 'Pending', 'Not Assigned'],
       default: 'Not Assigned',
     },
-    appliedBy: { type: String },
-    appliedByName: { type: String },
-    appliedDate: { type: Date },
+    response: {
+      type: String,
+      enum: ['yes', 'no', 'not_applicable', null],
+      default: null,
+    },
+    comment: { type: String, default: '' },
   },
   { timestamps: true },
 );

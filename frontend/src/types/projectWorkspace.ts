@@ -81,11 +81,62 @@ export interface ProjectChecklistSummary {
   selectedItems: { id: string; itemName: string }[]
 }
 
+export type CellChecklistItemResponse = 'yes' | 'no' | 'not_applicable'
+
+export interface CellChecklistItem {
+  id: string
+  checklistItemId: string
+  itemName: string
+  status: string
+  response: CellChecklistItemResponse | null
+  comment: string
+  appliedBy: string
+  appliedDate?: string
+}
+
+export interface CellChecklistDetail {
+  checklistId: string | null
+  checklistName: string
+  cellStatus: CellChecklistStatus
+  items: CellChecklistItem[]
+}
+
+export interface CellChecklistRowSummary {
+  cellId: string
+  checklistName: string
+  cellStatus: CellChecklistStatus
+  appliedCount: number
+  answeredCount: number
+  totalCount: number
+  items: CellChecklistItem[]
+}
+
+export interface ProjectCellsChecklistResponse {
+  checklistId: string | null
+  checklistName: string
+  cells: CellChecklistRowSummary[]
+}
+
 export interface ChecklistImportResult {
   imported: number
   updated: number
   failed: number
   errors: { row: number; projectName: string; message: string }[]
+}
+
+export interface ChecklistTemplateImportResult {
+  imported: number
+  created: number
+  updated: number
+  failed: number
+  errors: { row: number; checklistName: string; message: string }[]
+}
+
+export interface ChecklistTemplateRow {
+  checklistName: string
+  description: string
+  itemName: string
+  itemOrder: number
 }
 
 export interface ProjectLibrary {

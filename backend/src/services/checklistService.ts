@@ -21,6 +21,62 @@ function resolveSelectedItems(
   return allItems.filter((item) => idSet.has(item._id.toString()));
 }
 
+function mapResponseToStatus(response: 'yes' | 'no' | 'not_applicable'): CellChecklistStatus {
+  return response === 'yes' ? 'Applied' : 'Pending';
+}
+
+function deriveCellStatusFromEntries(
+  entries: Array<{ response?: string | null; status?: string }>,
+): 'Applied' | 'Pending' | 'Not Assigned' {
+  if (!entries.length) return 'Not Assigned';
+  const allAnswered = entries.every((e) => e.response);
+  const allYes = entries.every((e) => e.response === 'yes');
+  if (allYes) return 'Applied';
+  if (allAnswered) return 'Pending';
+  if (entries.some((e) => e.response)) return 'Pending';
+  return 'Not Assigned';
+}
+
+export async function updateCellChecklistItemResponse(
+  projectId: string,
+  cellId: string,
+  mappingId: string,
+  payload: { response: 'yes' | 'no' | 'not_applicable'; comment?: string },
+  actorId: string,
+  actorNameStr: string,
+) {
+  if (!Types.ObjectId.isValid(projectId) || !Types.ObjectId.isValid(cellId) || !Types.ObjectId.isValid(mappingId)) {
+    throw new Error('Invalid id');
+  }
+
+  const { response, comment } = payload;
+  if (!['yes', 'no', 'not_applicable'].includes(response)) {
+    throw new Error('Invalid response');
+  }
+
+  if ((response === 'no' || response === 'not_applicable') && !comment?.trim()) {
+    throw new Error('A comment is required for No and Not Applicable');
+  }
+
+  const entry = await CellChecklistMappingModel.findOne({
+    _id: mappingId,
+    projectId,
+    cellId,
+  });
+  if (!entry) throw new Error('Checklist item not found');
+
+  entry.response = response;
+  entry.comment = response === 'yes' ? '' : (comment?.trim() || '');
+  entry.status = mapResponseToStatus(response);
+  entry.appliedBy = actorId;
+  entry.appliedByName = actorNameStr;
+  entry.appliedDate = new Date();
+  await entry.save();
+
+  await recalcProjectChecklistProgress(new Types.ObjectId(projectId));
+  return entry;
+}
+
 export async function recalcProjectChecklistProgress(projectId: Types.ObjectId): Promise<void> {
   const assignment = await ProjectChecklistModel.findOne({ projectId });
   if (!assignment) return;
@@ -66,9 +122,11 @@ export async function recalcProjectChecklistProgress(projectId: Types.ObjectId):
       checklistId: assignment.checklistId,
     });
     if (itemCount === 0) continue;
-    const allApplied =
-      entries.length >= itemCount && entries.every((e) => e.status === 'Applied');
-    if (allApplied) appliedCells += 1;
+    const allAnswered =
+      entries.length >= itemCount && entries.every((e) => Boolean(e.response));
+    const allYes =
+      entries.length >= itemCount && entries.every((e) => e.response === 'yes');
+    if (allYes || allAnswered) appliedCells += 1;
   }
 
   assignment.appliedCells = appliedCells;
@@ -150,6 +208,8 @@ export async function assignChecklistToProject(
     checklistItemId: Types.ObjectId;
     itemName: string;
     status: CellChecklistStatus;
+    response: 'yes' | null;
+    comment: string;
     appliedBy?: string;
     appliedByName?: string;
     appliedDate?: Date;
@@ -164,6 +224,8 @@ export async function assignChecklistToProject(
         checklistItemId: item._id,
         itemName: item.itemName,
         status: applyToAll ? ('Applied' as CellChecklistStatus) : ('Pending' as CellChecklistStatus),
+        response: applyToAll ? ('yes' as const) : null,
+        comment: '',
         appliedBy: applyToAll ? options?.actorId || actor : actor,
         appliedByName: actor,
         appliedDate: applyToAll ? now : undefined,
@@ -222,6 +284,8 @@ export async function applyChecklistToAllCells(
     {
       $set: {
         status: 'Applied',
+        response: 'yes',
+        comment: '',
         appliedBy: actorId,
         appliedByName: actorNameStr,
         appliedDate: now,
@@ -260,6 +324,129 @@ export async function getProjectChecklistSummary(projectId: string) {
       itemName: item.itemName,
     })),
   };
+}
+
+export async function getProjectCellsChecklist(projectId: string) {
+  if (!Types.ObjectId.isValid(projectId)) {
+    return { checklistId: null, checklistName: '', cells: [] as CellChecklistRowSummary[] };
+  }
+
+  const projectOid = new Types.ObjectId(projectId);
+  const assignment = await ProjectChecklistModel.findOne({ projectId: projectOid }).lean();
+  const checklist = assignment
+    ? await ChecklistModel.findById(assignment.checklistId).lean()
+    : null;
+
+  const checklistName = checklist?.name ?? '';
+  const checklistId = assignment ? String(assignment.checklistId) : null;
+
+  const cells = await ProjectCellModel.find({ projectId: projectOid }).lean();
+
+  if (assignment && cells.length > 0) {
+    const existingCellIds = new Set(
+      (await CellChecklistMappingModel.distinct('cellId', {
+        projectId: projectOid,
+        checklistId: assignment.checklistId,
+      })).map(String),
+    );
+    for (const cell of cells) {
+      if (!existingCellIds.has(String(cell._id))) {
+        await syncChecklistMappingsForCell(projectOid, cell._id);
+      }
+    }
+  }
+
+  const entries = assignment
+    ? await CellChecklistMappingModel.find({
+        projectId: projectOid,
+        checklistId: assignment.checklistId,
+      }).lean()
+    : [];
+
+  const entriesByCell = new Map<string, typeof entries>();
+  for (const entry of entries) {
+    const key = String(entry.cellId);
+    const list = entriesByCell.get(key) ?? [];
+    list.push(entry);
+    entriesByCell.set(key, list);
+  }
+
+  type CellChecklistRowSummary = {
+    cellId: string;
+    checklistName: string;
+    cellStatus: 'Applied' | 'Pending' | 'Not Assigned';
+    appliedCount: number;
+    answeredCount: number;
+    totalCount: number;
+    items: Array<{
+      id: string;
+      checklistItemId: string;
+      itemName: string;
+      status: string;
+      response: string | null;
+      comment: string;
+      appliedBy: string;
+      appliedDate?: Date;
+    }>;
+  };
+
+  const mapEntryItems = (cellEntries: typeof entries) =>
+    cellEntries.map((e) => ({
+      id: String(e._id),
+      checklistItemId: String(e.checklistItemId),
+      itemName: e.itemName,
+      status: e.status,
+      response: e.response ?? null,
+      comment: e.comment ?? '',
+      appliedBy: e.appliedByName || e.appliedBy || '',
+      appliedDate: e.appliedDate,
+    }));
+
+  const cellSummaries: CellChecklistRowSummary[] = cells.map((cell) => {
+    const cellId = String(cell._id);
+    const cellEntries = entriesByCell.get(cellId) ?? [];
+
+    if (!assignment || !checklistName) {
+      return {
+        cellId,
+        checklistName: '',
+        cellStatus: 'Not Assigned' as const,
+        appliedCount: 0,
+        answeredCount: 0,
+        totalCount: 0,
+        items: [],
+      };
+    }
+
+    if (cellEntries.length === 0) {
+      return {
+        cellId,
+        checklistName,
+        cellStatus: 'Pending' as const,
+        appliedCount: 0,
+        answeredCount: 0,
+        totalCount: 0,
+        items: [],
+      };
+    }
+
+    const appliedCount = cellEntries.filter((e) => e.response === 'yes').length;
+    const answeredCount = cellEntries.filter((e) => e.response).length;
+    const totalCount = cellEntries.length;
+    const cellStatus = deriveCellStatusFromEntries(cellEntries);
+
+    return {
+      cellId,
+      checklistName,
+      cellStatus,
+      appliedCount,
+      answeredCount,
+      totalCount,
+      items: mapEntryItems(cellEntries),
+    };
+  });
+
+  return { checklistId, checklistName, cells: cellSummaries };
 }
 
 export async function enrichProjectsWithChecklist<T extends { id: string }>(

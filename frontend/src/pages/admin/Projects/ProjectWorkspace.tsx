@@ -22,8 +22,13 @@ import {
 import {
   applyChecklistToAll,
   fetchProjectChecklist,
+  fetchProjectCellsChecklist,
 } from '@/services/checklistService'
-import type { ProjectChecklistSummary } from '@/types/projectWorkspace'
+import type {
+  CellChecklistDetail,
+  CellChecklistRowSummary,
+  ProjectChecklistSummary,
+} from '@/types/projectWorkspace'
 import { cn } from '@/utils/cn'
 import {
   CELL_STATUSES,
@@ -37,6 +42,7 @@ import {
 import type { Employee } from '@/types'
 import './adminProjects.css'
 import { DependencyGraphView } from './DependencyGraphView'
+import { WorkspaceCellChecklist } from './WorkspaceCellChecklist'
 import { CellWorkflowPanel } from './CellWorkflowPanel'
 import { ProjectWorkflowOverview } from './ProjectWorkflowOverview'
 import { STATUS_LABELS, cellDisplayStatus } from './projectWorkspaceUi'
@@ -92,6 +98,10 @@ export function ProjectWorkspace() {
   const [filterStatusSelect, setFilterStatusSelect] = useState<'all' | CellStatus | 'blocked'>('all')
   const [statFilter, setStatFilter] = useState<StatFilter>(null)
   const [projectChecklist, setProjectChecklist] = useState<ProjectChecklistSummary | null>(null)
+  const [cellChecklistById, setCellChecklistById] = useState<Map<string, CellChecklistRowSummary>>(
+    () => new Map(),
+  )
+  const [projectChecklistId, setProjectChecklistId] = useState<string | null>(null)
   const [applyAllConfirm, setApplyAllConfirm] = useState(false)
   const [applyingAll, setApplyingAll] = useState(false)
 
@@ -99,16 +109,23 @@ export function ProjectWorkspace() {
     if (!projectId) return
     setLoading(true)
     try {
-      const [ws, dg, empsRes, checklist] = await Promise.all([
+      const [ws, dg, empsRes, checklist, cellChecklists] = await Promise.all([
         fetchWorkspaceSummary(projectId),
         fetchDependencyGraph(projectId),
         getEmployees({ status: 'Active', pageSize: 500 }),
         fetchProjectChecklist(projectId).catch(() => null),
+        fetchProjectCellsChecklist(projectId).catch(() => ({
+          checklistId: null,
+          checklistName: '',
+          cells: [] as CellChecklistRowSummary[],
+        })),
       ])
       setSummary(ws)
       setGraph(dg)
       setEmployees(empsRes.data ?? [])
       setProjectChecklist(checklist)
+      setProjectChecklistId(cellChecklists.checklistId)
+      setCellChecklistById(new Map(cellChecklists.cells.map((row) => [row.cellId, row])))
       setActiveLibraryId((prev) => {
         if (prev && ws.libraries.some((lib) => lib.id === prev)) return prev
         return ws.libraries[0]?.id ?? null
@@ -250,12 +267,31 @@ export function ProjectWorkspace() {
     }
   }
 
+  const handleCellChecklistUpdated = (cellId: string, data: CellChecklistDetail) => {
+    setCellChecklistById((prev) => {
+      const next = new Map(prev)
+      next.set(cellId, {
+        cellId,
+        checklistName: data.checklistName,
+        cellStatus: data.cellStatus,
+        appliedCount: data.items.filter((i) => i.response === 'yes').length,
+        answeredCount: data.items.filter((i) => i.response).length,
+        totalCount: data.items.length,
+        items: data.items,
+      })
+      return next
+    })
+  }
+
   const handleApplyChecklistToAll = async () => {
     if (!projectId) return
     setApplyingAll(true)
     try {
       const summary = await applyChecklistToAll(projectId)
       setProjectChecklist(summary)
+      const cellChecklists = await fetchProjectCellsChecklist(projectId)
+      setProjectChecklistId(cellChecklists.checklistId)
+      setCellChecklistById(new Map(cellChecklists.cells.map((row) => [row.cellId, row])))
       setApplyAllConfirm(false)
       toast.success('Checklist successfully applied to all project cells.')
       await reload()
@@ -508,13 +544,16 @@ export function ProjectWorkspace() {
                       <tr>
                         <th>Name</th>
                         <th>Type</th>
+                        <th>Checklist</th>
                         <th>Assigned</th>
                         <th>Status</th>
                         <th>Workflow</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {displayedCells.map((cell) => (
+                      {displayedCells.map((cell) => {
+                        const cellChecklist = cellChecklistById.get(cell.id)
+                        return (
                         <tr
                           key={cell.id}
                           className="admin-projects-table-row-clickable"
@@ -531,6 +570,18 @@ export function ProjectWorkspace() {
                         >
                           <td style={{ fontWeight: 600 }}>{cell.name}</td>
                           <td>{cell.cellType}</td>
+                          <td>
+                            {cellChecklist ? (
+                              <WorkspaceCellChecklist
+                                projectId={projectId}
+                                row={cellChecklist}
+                                checklistId={projectChecklistId}
+                                onUpdated={handleCellChecklistUpdated}
+                              />
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
                           <td>{cell.assignedEmployeeName || '—'}</td>
                           <td>
                             <span className={cn(
@@ -547,10 +598,11 @@ export function ProjectWorkspace() {
                             <CellWorkflowPanel projectId={projectId} cell={cell} compact />
                           </td>
                         </tr>
-                      ))}
+                        )
+                      })}
                       {displayedCells.length === 0 && (
                         <tr>
-                          <td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                          <td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
                             No cells in this library.
                           </td>
                         </tr>

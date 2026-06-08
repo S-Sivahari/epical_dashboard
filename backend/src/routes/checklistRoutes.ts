@@ -12,9 +12,12 @@ router.use(adminOnly);
 
 router.get('/', checklistController.list);
 router.get('/export-report', checklistController.exportReport);
+router.get('/export-template', checklistController.exportTemplate);
 router.post('/', checklistController.create);
 router.post('/import', checklistController.importReport);
 router.post('/import-file', upload.single('file'), checklistController.parseUpload);
+router.post('/import-template', checklistController.importTemplate);
+router.post('/import-template-file', upload.single('file'), checklistController.parseTemplateUpload);
 router.post('/assign', checklistController.assignToProject);
 router.get('/:id', checklistController.getById);
 router.put('/:id', checklistController.update);

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
-import { Briefcase, ClipboardList, Eye, Globe, Lock, Search } from 'lucide-react'
+import { Briefcase, ChevronDown, ClipboardList, Eye, Globe, Lock, Search } from 'lucide-react'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { DataTable, type Column } from '@components/tables/DataTable'
 import { PaginationBar } from '@components/tables/Pagination'
@@ -315,9 +315,9 @@ export function ProjectsDashboard() {
               />
             </div>
 
-            <div className="admin-projects-filter-select-wrap">
+            <div className="admin-projects-toolbar-select-wrap">
               <select
-                className="admin-projects-filter-select"
+                className="admin-projects-toolbar-select"
                 value={checklistFilter}
                 onChange={(e) => setChecklistFilter(e.target.value as ChecklistFilter)}
                 aria-label="Filter by checklist status"
@@ -327,6 +327,7 @@ export function ProjectsDashboard() {
                 <option value="Partial">Partial</option>
                 <option value="Not Applied">Not Applied</option>
               </select>
+              <ChevronDown className="admin-projects-toolbar-select-icon" aria-hidden />
             </div>
 
             <button
