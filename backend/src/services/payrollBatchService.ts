@@ -196,7 +196,7 @@ async function appendEmployeesToStoredExcel(batchId: string, newBuffer: Buffer):
   )
 
   const wb = new ExcelJS.Workbook()
-  await wb.xlsx.load(existingBuffer as ExcelJS.Buffer)
+  await wb.xlsx.load(existingBuffer as unknown as ExcelJS.Buffer)
   const sheet = findEmployeeWorksheet(wb)
   if (!sheet) {
     writeFileSync(excelPath, newBuffer)

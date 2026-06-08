@@ -68,8 +68,7 @@ function getTodayDateKey() {
 }
 
 function buildExportFilename(tab: TabType) {
-  const date = new Date().toISOString().slice(0, 10)
-  return `Leave_Management_${tab}_${date}`
+  return leaveExportFileName(tab)
 }
 
 function getActivityDateKey(leave: {
@@ -143,7 +142,9 @@ function formatLeaveActivityWhen(leave: {
         : leave.status === 'Cancelled'
           ? 'Cancelled'
           : 'Applied'
-  return `${prefix} ${formatDateTime(raw)}`
+  const activityDate = getActivityDateKey(leave)
+  const todaySuffix = activityDate === getTodayDateKey() ? ' · Today' : ''
+  return `${prefix} ${formatDateTime(raw)}${todaySuffix}`
 }
 
 type LeaveFeedRowProps = {
@@ -333,7 +334,7 @@ export function LeaveManagementContainer() {
   }, [activeTab, leaveFilters, compensationSearch])
 
   const handleExport = async (format: 'pdf' | 'excel') => {
-    const filename = leaveExportFileName(activeTab)
+    const filename = buildExportFilename(activeTab)
     const generatedBy = user?.name || 'Admin'
     try {
       setExporting(format)

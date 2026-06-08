@@ -1,9 +1,15 @@
+import { Request } from 'express';
 import { Types } from 'mongoose';
 import { ChecklistModel, ProjectChecklistModel, CellChecklistMappingModel } from '../models/Checklist';
 import { ProjectCellModel } from '../models/ProjectCell';
 import { ProjectModel } from '../models/Project';
 import type { CellChecklistStatus, ProjectChecklistStatus } from '../models/Checklist';
 import type { ChecklistDocument, ProjectChecklistDocument } from '../models/Checklist';
+
+export function actorName(req: Request): string {
+  const user = (req as { user?: { name?: string; email?: string } }).user;
+  return user?.name || user?.email || 'Admin';
+}
 
 function resolveSelectedItems(
   checklist: ChecklistDocument | { items: { _id: Types.ObjectId; itemName: string }[] },
@@ -185,7 +191,7 @@ export async function getProjectChecklistSummary(projectId: string) {
   const checklist = await ChecklistModel.findById(assignment.checklistId).lean();
   if (!checklist) return null;
 
-  const selectedItems = resolveSelectedItems(checklist as ChecklistDocument, assignment.selectedItemIds);
+  const selectedItems = resolveSelectedItems(checklist, assignment.selectedItemIds);
 
   return {
     checklistId: String(assignment.checklistId),
@@ -314,4 +320,3 @@ export async function removeChecklistMappingsForCell(cellId: Types.ObjectId): Pr
   await recalcProjectChecklistProgress(projectId);
 }
 
-export { actorName };
