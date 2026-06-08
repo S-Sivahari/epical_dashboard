@@ -389,10 +389,11 @@ export async function startServer() {
       console.warn('⚠ Department field cleanup skipped:', err);
     }
 
-    app.listen(env.port, () => {
-      console.log(`✓ Server running on http://localhost:${env.port}`);
-      console.log(`✓ API base:    http://localhost:${env.port}/api`);
-      console.log(`✓ Seed data:   POST http://localhost:${env.port}/api/seed`);
+    // Force it to read the environment variable directly, falling back to 3000
+    const port = Number(process.env.PORT) || 3000;
+
+    app.listen(port, '0.0.0.0', () => {
+      console.log(`✓ Server running on port ${port}`);
     });
 
     initScheduler().catch((err) =>
