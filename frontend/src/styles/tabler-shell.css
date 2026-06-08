@@ -1,0 +1,105 @@
+/* Tabler layout shell — structure only; portals keep existing component markup inside page-body */
+
+.empwr-admin.page,
+.empwr-employee.page {
+  min-height: 100vh;
+}
+
+.empwr-admin .navbar-vertical {
+  width: 15rem;
+}
+
+.empwr-admin .page-wrapper,
+.empwr-employee .page-wrapper {
+  min-height: 100vh;
+}
+
+.empwr-admin .page-body,
+.empwr-employee .page-body {
+  flex: 1;
+  background: var(--bg-canvas, var(--tblr-body-bg));
+}
+
+.empwr-admin.admin-portal .page-wrapper {
+  background: var(--bg-canvas, #f8faf8);
+}
+
+.empwr-admin.admin-portal .admin-navbar {
+  background: var(--tblr-bg-surface, #fff);
+  border-bottom: 1px solid var(--tblr-border-color, rgba(0, 0, 0, 0.08));
+}
+
+.empwr-admin.admin-portal .admin-sidebar.navbar-vertical {
+  background: #1a2e18;
+}
+
+.empwr-admin .navbar-vertical .nav-link.active,
+.empwr-admin .navbar-vertical .nav-link[aria-current='page'] {
+  font-weight: 600;
+}
+
+.empwr-employee .navbar-vertical {
+  width: 15rem;
+}
+
+.empwr-employee .navbar-vertical.navbar-collapsed {
+  width: 4.5rem;
+}
+
+.empwr-admin .empwr-page-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.empwr-admin .empwr-page-content {
+  position: relative;
+  z-index: 1;
+}
+
+.empwr-list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.empwr-filters-card .card-title {
+  margin-bottom: 0.75rem;
+}
+
+.empwr-bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  border-radius: var(--tblr-border-radius);
+  border: 1px solid var(--tblr-border-color);
+  background: var(--tblr-bg-surface);
+}
+
+@media (max-width: 991.98px) {
+  .empwr-admin .navbar-vertical.show,
+  .empwr-employee .navbar-vertical.show {
+    transform: translateX(0);
+  }
+
+  .empwr-admin .navbar-vertical,
+  .empwr-employee .navbar-vertical {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 1030;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease-in-out;
+  }
+
+  .empwr-employee .navbar-vertical:not(.show) {
+    transform: translateX(-100%);
+  }
+}

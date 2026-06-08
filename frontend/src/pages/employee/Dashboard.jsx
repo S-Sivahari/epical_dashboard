@@ -1,0 +1,325 @@
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import {
+  BookOpen,
+  Clock,
+  CalendarOff,
+  FolderKanban,
+  ArrowRight,
+  CalendarRange,
+} from 'lucide-react'
+import { ProfileCard } from '@components/employee/shared/ProfileCard'
+import { LeaveCard } from '@components/employee/shared/LeaveCard'
+import { AssignedProjectsSection } from '@components/employee/shared/AssignedProjectsSection'
+import { DashboardWorkInsights } from '@components/employee/shared/DashboardWorkInsights'
+import { AnnouncementBanner } from '@components/employee/shared/AnnouncementBanner'
+import { UpcomingHolidaysCard } from '@components/employee/shared/UpcomingHolidaysCard'
+import { DashboardDocumentRequests } from '@components/employee/shared/DashboardDocumentRequests'
+import { useAuthStore } from '@store/authStore'
+import { fetchEmployeeDashboard } from '@services/employeeDashboardService'
+import * as leaveService from '@services/leaveService'
+import { formatLeaveBalances } from '@/utils/leaveBalances'
+import { cn } from '@pages/employee/lib/utils'
+import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
+
+const LEAVE_COLORS = {
+  'Casual Leave': '#3d7a6a',
+  'Sick Leave': '#4a7a9a',
+  'Earned Leave': '#6b5b8a',
+  'Compensation Leave': '#c27803',
+}
+
+const LEAVE_TINT = {
+  casual: 'emp-leave-tint--casual',
+  sick: 'emp-leave-tint--sick',
+  earned: 'emp-leave-tint--earned',
+  compensation: 'emp-leave-tint--compensation',
+}
+
+const CARD_CLASS = portalCardClass({ className: 'flex h-full min-h-0 flex-col overflow-hidden p-4 sm:p-5' })
+const COMPACT_CARD_CLASS = portalCardClass({
+  className: 'flex h-full min-h-0 flex-col overflow-hidden p-3',
+})
+
+function SectionCard({ title, subtitle, action, children, className = '', tone, icon: Icon, compact = false, to }) {
+  const cardClass = compact ? COMPACT_CARD_CLASS : CARD_CLASS
+
+  return (
+    <InteractiveCard
+      to={to}
+      className={cn(cardClass, tone && `emp-dash-card emp-dash-card--${tone}`, className)}
+    >
+      <div
+        className={cn(
+          'flex shrink-0 flex-wrap items-start justify-between gap-2 border-b border-border',
+          compact ? 'mb-2 pb-2' : 'mb-3 pb-3',
+        )}
+      >
+        <div className="flex min-w-0 items-start gap-2">
+          {Icon ? (
+            <div
+              className={cn(
+                'emp-dash-icon',
+                tone && `emp-dash-icon--${tone}`,
+                compact && 'h-7 w-7',
+              )}
+              aria-hidden
+            >
+              <Icon className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
+            </div>
+          ) : null}
+          <div className="min-w-0">
+            <h3 className={cn('font-heading font-semibold text-foreground', compact ? 'text-sm' : 'text-base')}>
+              {title}
+            </h3>
+            {subtitle ? <p className="mt-0.5 text-xs text-muted">{subtitle}</p> : null}
+          </div>
+        </div>
+        {action}
+      </div>
+      <div className="emp-dash-widget-body flex min-h-0 flex-1 flex-col">
+        {children}
+      </div>
+    </InteractiveCard>
+  )
+}
+
+function SectionLink({ to, label }) {
+  return (
+    <Link
+      to={to}
+      className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:underline"
+    >
+      {label} <ArrowRight className="h-3.5 w-3.5" />
+    </Link>
+  )
+}
+
+function InlineSkeleton({ className = '' }) {
+  return <div className={cn('animate-pulse rounded-xl bg-slate-100', className)} />
+}
+
+export default function Dashboard() {
+  const employee = useAuthStore((s) => s.user)
+  const [loading, setLoading] = useState(true)
+  const [balances, setBalances] = useState(() => formatLeaveBalances())
+  const [leaves, setLeaves] = useState([])
+  const [holidays, setHolidays] = useState([])
+  const [documents, setDocuments] = useState([])
+  const [enrollments, setEnrollments] = useState([])
+  const [attendance, setAttendance] = useState(null)
+  const [monthlyHours, setMonthlyHours] = useState(0)
+  const [weeklyHours, setWeeklyHours] = useState(0)
+  const [projectCount, setProjectCount] = useState(0)
+  const [assignedProjects, setAssignedProjects] = useState(null)
+  const [profile, setProfile] = useState(null)
+
+  useEffect(() => {
+    if (!employee?.id) return
+
+    let cancelled = false
+
+    async function load() {
+      setLoading(true)
+      try {
+        const data = await fetchEmployeeDashboard()
+        if (cancelled) return
+
+        const balanceData = data.balances ?? {}
+        const projects = Array.isArray(data.projects) ? data.projects : []
+
+        setProfile(data.profile ?? null)
+        setAssignedProjects(projects)
+        setBalances(formatLeaveBalances(balanceData))
+        setLeaves(Array.isArray(data.leaves) ? data.leaves : [])
+        setHolidays(Array.isArray(data.holidays) ? data.holidays : [])
+        setDocuments(Array.isArray(data.documents) ? data.documents : [])
+        setEnrollments(Array.isArray(data.enrollments) ? data.enrollments : [])
+        setAttendance(data.attendance ?? null)
+        setMonthlyHours(Number(data.monthlyHours) || 0)
+        setWeeklyHours(Number(data.weeklyHours) || 0)
+        setProjectCount(projects.length)
+      } catch (error) {
+        console.error('[Dashboard] load failed:', error)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [employee?.id])
+
+  useEffect(() => {
+    if (!employee?.id) return
+
+    const balanceInterval = setInterval(() => {
+      leaveService
+        .getBalances()
+        .then((data) => setBalances(formatLeaveBalances(data)))
+        .catch((error) => console.error('[Dashboard] leave balances refresh failed:', error))
+    }, 60_000)
+
+    return () => clearInterval(balanceInterval)
+  }, [employee?.id])
+
+  const pendingLeaves = useMemo(() => leaves.filter((l) => l.status === 'Pending'), [leaves])
+  const enrolledCourses = enrollments.filter((e) => e.status === 'Enrolled').length
+  const completedCourses = enrollments.filter((e) => e.status === 'Completed').length
+
+  const widgetSkeleton = <InlineSkeleton className="h-full min-h-0 rounded-xl" />
+
+  const profileStats = useMemo(
+    () => [
+      {
+        title: 'Hours This Month',
+        value: `${monthlyHours}h`,
+        icon: Clock,
+        trend: `${weeklyHours}h this week`,
+        accent: 'sage',
+        to: '/employee/timesheet',
+      },
+      {
+        title: 'Pending Leave',
+        value: String(pendingLeaves.length),
+        icon: CalendarOff,
+        trend: pendingLeaves.length ? 'Awaiting admin approval' : 'None pending',
+        accent: 'sage',
+        to: '/employee/leave',
+      },
+      {
+        title: 'Active Projects',
+        value: String(projectCount),
+        icon: FolderKanban,
+        trend: projectCount ? 'Assigned to you' : 'None assigned',
+        accent: 'sage',
+        to: '/employee/timesheet',
+      },
+      {
+        title: 'Training',
+        value: String(completedCourses),
+        icon: BookOpen,
+        trend:
+          completedCourses > 0 && enrolledCourses > 0
+            ? `${completedCourses} completed · ${enrolledCourses} in progress`
+            : completedCourses > 0
+              ? `${completedCourses} completed`
+              : enrolledCourses > 0
+                ? `${enrolledCourses} in progress`
+                : 'No enrollments',
+        accent: 'sage',
+        to: '/employee/training',
+      },
+    ],
+    [
+      monthlyHours,
+      weeklyHours,
+      pendingLeaves.length,
+      projectCount,
+      completedCourses,
+      enrolledCourses,
+    ],
+  )
+
+  return (
+    <div
+      className="relative flex h-full min-h-0 max-w-full flex-1 flex-col overflow-hidden"
+      data-employee-dashboard
+    >
+      <div className="dashboard-shell flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+        <div className="shrink-0 space-y-2">
+          <AnnouncementBanner compact />
+
+          <div className="overflow-x-auto pb-0.5">
+            <ProfileCard
+              employee={employee}
+              profile={profile}
+              attendance={attendance}
+              horizontal
+              stats={loading ? null : profileStats}
+              statsLoading={loading}
+              className="min-w-[36rem] sm:min-w-0"
+            />
+          </div>
+        </div>
+
+        <div className="emp-dash-widgets-grid">
+          <div className="emp-dash-widgets-col emp-dash-widgets-col--left">
+            <div className="emp-dash-widget-slot">
+              {loading ? (
+                widgetSkeleton
+              ) : (
+                <SectionCard
+                  compact
+                  to="/employee/leave"
+                  tone="sage"
+                  icon={CalendarRange}
+                  title="Leave balance"
+                  action={<SectionLink to="/employee/leave" label="Apply" />}
+                >
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {balances.map((lb) => (
+                      <LeaveCard
+                        key={lb.key}
+                        compact
+                        type={lb.type}
+                        used={lb.used}
+                        total={lb.total}
+                        remaining={lb.remaining}
+                        color={lb.color ?? LEAVE_COLORS[lb.type] ?? '#3d7a6a'}
+                        tintClass={LEAVE_TINT[lb.key]}
+                      />
+                    ))}
+                  </div>
+                </SectionCard>
+              )}
+            </div>
+
+            <div className="emp-dash-widget-slot">
+              {loading ? (
+                widgetSkeleton
+              ) : (
+                <UpcomingHolidaysCard
+                  compact
+                  fill
+                  className="emp-dash-card emp-dash-card--sky"
+                  holidays={holidays}
+                />
+              )}
+            </div>
+
+            <div className="emp-dash-widget-slot">
+              {loading ? (
+                widgetSkeleton
+              ) : (
+                <DashboardDocumentRequests
+                  compact
+                  fill
+                  className="emp-dash-card emp-dash-card--amber"
+                  documents={documents}
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="emp-dash-widgets-col emp-dash-widgets-col--right">
+            <div className="emp-dash-widget-slot">
+              <DashboardWorkInsights compact fill />
+            </div>
+            <div className="emp-dash-widget-slot">
+              <AssignedProjectsSection
+                compact
+                fill
+                className="emp-dash-card emp-dash-card--violet"
+                initialProjects={assignedProjects}
+                loading={loading && assignedProjects == null}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
