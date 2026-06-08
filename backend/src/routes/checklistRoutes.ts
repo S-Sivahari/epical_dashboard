@@ -11,6 +11,8 @@ router.use(authMiddleware);
 router.use(adminOnly);
 
 router.get('/', checklistController.list);
+router.get('/cell-types', checklistController.listCellTypeDefinitions);
+router.get('/cell-types/:cellType', checklistController.getCellTypeDefinition);
 router.get('/export-report', checklistController.exportReport);
 router.get('/export-template', checklistController.exportTemplate);
 router.post('/', checklistController.create);

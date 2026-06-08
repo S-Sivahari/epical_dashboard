@@ -59,7 +59,7 @@ export async function parseChecklistTemplateExcel(file: File): Promise<Checklist
   const headerRowNumber = findChecklistTemplateHeaderRow(sheet)
   if (!headerRowNumber) {
     throw new Error(
-      'Could not find header row. Expected columns: Checklist Name, Description, Item Name, Item Order',
+      'Could not find header row. Expected columns: Checklist Name, Cell Type, Description, Item Name, Item Order',
     )
   }
 
@@ -91,7 +91,9 @@ export async function parseChecklistTemplateExcel(file: File): Promise<Checklist
     if (rowNumber <= headerRowNumber) return
 
     const checklistName = getVal(row, 'Checklist Name', 'checklistName')
-    if (!isValidChecklistName(checklistName)) return
+    const cellType = getVal(row, 'Cell Type', 'cellType')
+    if (!checklistName && !cellType) return
+    if (checklistName && !isValidChecklistName(checklistName)) return
 
     const itemName = getVal(row, 'Item Name', 'itemName')
     if (!itemName || itemName === '—') return
@@ -101,6 +103,7 @@ export async function parseChecklistTemplateExcel(file: File): Promise<Checklist
 
     rows.push({
       checklistName,
+      cellType,
       description: getVal(row, 'Description', 'description'),
       itemName,
       itemOrder: Number.isFinite(parsedOrder) && parsedOrder > 0 ? parsedOrder : rows.length + 1,

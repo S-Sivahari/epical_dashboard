@@ -62,6 +62,7 @@ export interface Checklist {
   id: string
   name: string
   description: string
+  cellType?: string
   items: ChecklistItem[]
   createdAt?: string
   updatedAt?: string
@@ -97,6 +98,7 @@ export interface CellChecklistItem {
 export interface CellChecklistDetail {
   checklistId: string | null
   checklistName: string
+  cellType?: string
   cellStatus: CellChecklistStatus
   items: CellChecklistItem[]
 }
@@ -124,6 +126,13 @@ export interface ChecklistImportResult {
   errors: { row: number; projectName: string; message: string }[]
 }
 
+export interface ProjectChecklistImportResult {
+  imported: number
+  updated: number
+  failed: number
+  errors: { row: number; cellName: string; message: string }[]
+}
+
 export interface ChecklistTemplateImportResult {
   imported: number
   created: number
@@ -134,9 +143,20 @@ export interface ChecklistTemplateImportResult {
 
 export interface ChecklistTemplateRow {
   checklistName: string
+  cellType: string
   description: string
   itemName: string
   itemOrder: number
+}
+
+export interface CellTypeChecklistDefinition {
+  cellType: CellType
+  checklistName: string
+  description: string
+  items: ChecklistItem[]
+  importedFromExcel: boolean
+  lastImportedAt?: string
+  lastImportedBy?: string
 }
 
 export interface ProjectLibrary {

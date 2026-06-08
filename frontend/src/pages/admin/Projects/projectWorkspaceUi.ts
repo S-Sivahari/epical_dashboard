@@ -1,10 +1,18 @@
 import {
   CELL_WORKFLOW_STAGES,
+  type CellType,
   type CellWorkflowStage,
   type CellStatus,
   type ProjectCell,
   type WorkflowStageStatus,
 } from '@/types/projectWorkspace'
+
+export const CELL_TYPE_LABELS: Record<CellType, string> = {
+  block: 'BLOCK',
+  IOP: 'IO',
+  ESD: 'ESD',
+  TOP: 'TOP',
+}
 
 export const STATUS_LABELS: Record<CellStatus, string> = {
   ready: 'In Progress',

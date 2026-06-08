@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  Archive, ArrowLeft, BookOpen, CheckCircle2, ChevronDown, GitBranch, History, Layers, LayoutGrid, ListChecks, Plus, Search, Trash2, User, X,
+  Archive, ArrowLeft, BookOpen, CheckCircle2, ChevronDown, ClipboardList, GitBranch, History, Layers, LayoutGrid, ListChecks, Plus, Search, Trash2, User, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageWrapper } from '@components/layout/PageWrapper'
@@ -33,10 +33,11 @@ import './adminProjects.css'
 import { DependencyGraphView } from './DependencyGraphView'
 import { CellWorkflowPanel } from './CellWorkflowPanel'
 import { ProjectWorkflowOverview } from './ProjectWorkflowOverview'
-import { CELL_STATUS_FILTER_OPTIONS, STATUS_LABELS, cellDisplayStatus } from './projectWorkspaceUi'
+import { ProjectWorkspaceChecklistTab } from './ProjectWorkspaceChecklistTab'
+import { CELL_STATUS_FILTER_OPTIONS, CELL_TYPE_LABELS, STATUS_LABELS, cellDisplayStatus } from './projectWorkspaceUi'
 
 type DeleteTarget = { type: 'library' | 'cell'; id: string; name: string }
-type WorkspaceSection = 'home' | 'workflow' | 'graph' | 'activity'
+type WorkspaceSection = 'home' | 'workflow' | 'graph' | 'activity' | 'checklist'
 type StatFilter = 'complete' | 'archive' | 'unassigned' | null
 
 const FILTER_SELECT_CLASS =
@@ -47,6 +48,7 @@ const SECTION_ITEMS: { id: WorkspaceSection; label: string; icon: typeof LayoutG
   { id: 'workflow', label: 'Workflow', icon: ListChecks },
   { id: 'graph', label: 'Dependency graph', icon: GitBranch },
   { id: 'activity', label: 'Activity log', icon: History },
+  { id: 'checklist', label: 'Checklist', icon: ClipboardList },
 ]
 
 function emptyCellForm(libraryId: string, technologyNode: string): Partial<ProjectCell> & { libraryId: string } {
@@ -464,7 +466,7 @@ export function ProjectWorkspace() {
                     >
                       <option value="all">All types</option>
                       {CELL_TYPES.map((type) => (
-                        <option key={type} value={type}>{type}</option>
+                        <option key={type} value={type}>{CELL_TYPE_LABELS[type]}</option>
                       ))}
                     </select>
                     <ChevronDown className="admin-projects-filter-select-icon" aria-hidden />
@@ -522,7 +524,7 @@ export function ProjectWorkspace() {
                           {showAllCells ? (
                             <td>{libraryNameById.get(cell.libraryId) || '—'}</td>
                           ) : null}
-                          <td>{cell.cellType}</td>
+                          <td>{CELL_TYPE_LABELS[cell.cellType] ?? cell.cellType}</td>
                           <td>{cell.assignedEmployeeName || '—'}</td>
                           <td>
                             <span className={cn(
@@ -600,6 +602,17 @@ export function ProjectWorkspace() {
                 </div>
               </div>
             )}
+
+            {workspaceSection === 'checklist' && (
+              <div className="admin-projects-section-panel admin-projects-section-panel--checklist">
+                <ProjectWorkspaceChecklistTab
+                  projectId={projectId}
+                  projectName={project.name}
+                  cells={allCells}
+                  libraryNameById={libraryNameById}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -644,7 +657,9 @@ export function ProjectWorkspace() {
             <Input label="Cell name" value={cellForm.name || ''} onChange={(e) => setCellForm((f) => f && { ...f, name: e.target.value })} />
             <label className="text-sm font-medium">Cell type
               <select className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" value={cellForm.cellType} onChange={(e) => setCellForm((f) => f && { ...f, cellType: e.target.value as ProjectCell['cellType'] })}>
-                {CELL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                {CELL_TYPES.map((t) => (
+                  <option key={t} value={t}>{CELL_TYPE_LABELS[t]}</option>
+                ))}
               </select>
             </label>
             <label className="text-sm font-medium">Description

@@ -366,6 +366,7 @@ export const projectWorkspaceController = {
       }
 
       const actor = actorFromReq(req);
+      const previousCellType = cell.cellType;
       const fields = [
         'name', 'description', 'cellType', 'technologyNode', 'complexity',
         'estimatedEffort', 'assignedEmployeeId', 'assignedEmployeeName', 'views',
@@ -373,7 +374,11 @@ export const projectWorkspaceController = {
 
       for (const field of fields) {
         if (req.body[field] !== undefined) {
-          (cell as any)[field] = req.body[field];
+          if (field === 'cellType') {
+            cell.cellType = CELL_TYPES.includes(req.body.cellType) ? req.body.cellType : 'block';
+          } else {
+            (cell as any)[field] = req.body[field];
+          }
         }
       }
 
@@ -405,6 +410,11 @@ export const projectWorkspaceController = {
       });
 
       await cell.save();
+
+      if (req.body.cellType !== undefined && cell.cellType !== previousCellType) {
+        await syncChecklistMappingsForCell(new Types.ObjectId(projectId), cell._id);
+      }
+
       await refreshBlockedStatuses(new Types.ObjectId(projectId));
       const refreshed = await ProjectCellModel.findById(cellId);
       const meta = refreshed ? await computeDependencyMeta(new Types.ObjectId(projectId), refreshed) : { isBlocked: false, isReady: false };

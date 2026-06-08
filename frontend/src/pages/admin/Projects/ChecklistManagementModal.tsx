@@ -16,11 +16,14 @@ import { exportToExcel } from '@/utils/exportExcel'
 import { parseChecklistTemplateExcel } from '@/utils/parseChecklistTemplateExcel'
 import type { Checklist, ChecklistTemplateImportResult } from '@/types/projectWorkspace'
 import { cn } from '@/utils/cn'
+import { CELL_TYPE_LABELS } from './projectWorkspaceUi'
+import type { CellType } from '@/types/projectWorkspace'
 
 type ItemDraft = { id?: string; itemName: string }
 
 const TEMPLATE_HEADERS = [
   { key: 'checklistName', label: 'Checklist Name' },
+  { key: 'cellType', label: 'Cell Type' },
   { key: 'description', label: 'Description' },
   { key: 'itemName', label: 'Item Name' },
   { key: 'itemOrder', label: 'Item Order' },
@@ -255,7 +258,12 @@ export function ChecklistManagementModal({
                       onClick={() => startEdit(cl)}
                     >
                       <p className="truncate text-sm font-semibold text-slate-800">{cl.name}</p>
-                      <p className="text-xs text-slate-500">{cl.items.length} items</p>
+                      <p className="text-xs text-slate-500">
+                        {cl.cellType
+                          ? `${CELL_TYPE_LABELS[cl.cellType as CellType] ?? cl.cellType} type · `
+                          : ''}
+                        {cl.items.length} items
+                      </p>
                     </button>
                     <button
                       type="button"
@@ -344,8 +352,9 @@ export function ChecklistManagementModal({
         size="md"
       >
         <p className="mb-3 text-sm text-slate-600">
-          Upload the checklist Excel template. Existing checklists with the same name will be updated;
-          new names will be created.
+          Upload the checklist Excel template. Rows with a <strong>Cell Type</strong> (BLOCK, IO,
+          ESD, TOP) are saved to MongoDB and fetched automatically when a cell of that type is
+          opened. Other rows update checklists by name.
         </p>
         <div
           className={cn(

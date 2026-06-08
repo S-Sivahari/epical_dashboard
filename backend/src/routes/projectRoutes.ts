@@ -22,6 +22,8 @@ router.post('/:id/archive', adminOnly, projectController.archiveProject);
 router.get('/:projectId/workspace', adminOnly, projectWorkspaceController.getWorkspaceSummary);
 router.get('/:projectId/checklist', adminOnly, checklistController.getProjectChecklist);
 router.get('/:projectId/checklist/cells', adminOnly, checklistController.getProjectCellsChecklist);
+router.get('/:projectId/checklist/export', adminOnly, checklistController.exportProjectCellChecklist);
+router.post('/:projectId/checklist/import', adminOnly, checklistController.importProjectCellChecklist);
 router.post('/:projectId/checklist/apply-all', adminOnly, checklistController.applyToAll);
 router.get('/:projectId/cells/:cellId/checklist', adminOnly, checklistController.getCellChecklist);
 router.patch('/:projectId/cells/:cellId/checklist/:mappingId', adminOnly, checklistController.updateCellChecklistItem);
