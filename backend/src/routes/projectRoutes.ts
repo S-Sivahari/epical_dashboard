@@ -27,6 +27,7 @@ router.post('/:projectId/libraries/:libraryId/cells', adminOnly, projectWorkspac
 router.put('/:projectId/cells/:cellId', adminOnly, projectWorkspaceController.updateCell);
 router.delete('/:projectId/cells/:cellId', adminOnly, projectWorkspaceController.deleteCell);
 router.patch('/:projectId/cells/:cellId/status', adminOnly, projectWorkspaceController.updateCellStatus);
+router.patch('/:projectId/cells/:cellId/workflow/:stageKey', adminOnly, projectWorkspaceController.updateWorkflowStage);
 router.patch('/:projectId/cells/:cellId/complete', adminOnly, projectWorkspaceController.completeCell);
 router.get('/:projectId/cells/:cellId/reviews', adminOnly, projectWorkspaceController.listCellReviews);
 router.post('/:projectId/cells/:cellId/reviews', adminOnly, projectWorkspaceController.createCellReview);

@@ -1,5 +1,13 @@
 import api from '@/services/api'
-import type { CellReview, DependencyGraph, ProjectCell, ProjectLibrary, WorkspaceSummary } from '@/types/projectWorkspace'
+import type {
+  CellReview,
+  CellWorkflowStageKey,
+  DependencyGraph,
+  ProjectCell,
+  ProjectLibrary,
+  WorkflowStageStatus,
+  WorkspaceSummary,
+} from '@/types/projectWorkspace'
 
 export async function fetchWorkspaceSummary(projectId: string) {
   const { data } = await api.get<WorkspaceSummary>(`/projects/${projectId}/workspace`)
@@ -45,6 +53,19 @@ export async function deleteCell(projectId: string, cellId: string) {
 
 export async function updateCellStatus(projectId: string, cellId: string, status: string) {
   const { data } = await api.patch<ProjectCell>(`/projects/${projectId}/cells/${cellId}/status`, { status })
+  return data
+}
+
+export async function updateWorkflowStage(
+  projectId: string,
+  cellId: string,
+  stageKey: CellWorkflowStageKey,
+  status: WorkflowStageStatus,
+) {
+  const { data } = await api.patch<ProjectCell>(
+    `/projects/${projectId}/cells/${cellId}/workflow/${stageKey}`,
+    { status },
+  )
   return data
 }
 

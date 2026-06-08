@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  ArrowLeft, BookOpen, CheckCircle2, ChevronDown, GitBranch, History, Layers, LayoutGrid, Plus, Search, Trash2, User, X,
+  ArrowLeft, BookOpen, CheckCircle2, ChevronDown, GitBranch, History, Layers, LayoutGrid, ListChecks, Plus, Search, Trash2, User, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageWrapper } from '@components/layout/PageWrapper'
@@ -32,10 +32,12 @@ import {
 import type { Employee } from '@/types'
 import './adminProjects.css'
 import { DependencyGraphView } from './DependencyGraphView'
+import { CellWorkflowPanel } from './CellWorkflowPanel'
+import { ProjectWorkflowOverview } from './ProjectWorkflowOverview'
 import { STATUS_LABELS, cellDisplayStatus } from './projectWorkspaceUi'
 
 type DeleteTarget = { type: 'library' | 'cell'; id: string; name: string }
-type WorkspaceSection = 'home' | 'graph' | 'activity'
+type WorkspaceSection = 'home' | 'workflow' | 'graph' | 'activity'
 type StatFilter = 'ready' | 'blocked' | 'unassigned' | null
 
 const FILTER_SELECT_CLASS =
@@ -43,6 +45,7 @@ const FILTER_SELECT_CLASS =
 
 const SECTION_ITEMS: { id: WorkspaceSection; label: string; icon: typeof LayoutGrid }[] = [
   { id: 'home', label: 'Home', icon: LayoutGrid },
+  { id: 'workflow', label: 'Workflow', icon: ListChecks },
   { id: 'graph', label: 'Dependency graph', icon: GitBranch },
   { id: 'activity', label: 'Activity log', icon: History },
 ]
@@ -469,6 +472,7 @@ export function ProjectWorkspace() {
                         <th>Type</th>
                         <th>Assigned</th>
                         <th>Status</th>
+                        <th>Workflow</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -501,11 +505,14 @@ export function ProjectWorkspace() {
                               {cellDisplayStatus(cell)}
                             </span>
                           </td>
+                          <td onClick={(e) => e.stopPropagation()}>
+                            <CellWorkflowPanel projectId={projectId} cell={cell} compact />
+                          </td>
                         </tr>
                       ))}
                       {displayedCells.length === 0 && (
                         <tr>
-                          <td colSpan={4} style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                          <td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
                             No cells in this library.
                           </td>
                         </tr>
@@ -515,6 +522,20 @@ export function ProjectWorkspace() {
                 </div>
               </section>
             </div>
+            )}
+
+            {workspaceSection === 'workflow' && (
+              <div className="admin-projects-section-panel admin-projects-section-panel--workflow">
+                <h2 className="admin-projects-graph-title">Cell workflow overview</h2>
+                <p className="admin-projects-workflow-section-intro">
+                  Track Floor Plan, DRC, Routing, and LVS stages independently for every cell in this project.
+                </p>
+                <ProjectWorkflowOverview
+                  projectId={projectId}
+                  cells={allCells}
+                  libraryNameById={libraryNameById}
+                />
+              </div>
             )}
 
             {workspaceSection === 'graph' && (
