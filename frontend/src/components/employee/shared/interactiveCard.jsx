@@ -1,4 +1,5 @@
 import { forwardRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { cn } from '@pages/employee/lib/utils'
 
 /**
@@ -53,14 +54,18 @@ export const InteractiveCard = forwardRef(function InteractiveCard(
     defaultSelected = false,
     onSelectedChange,
     onClick,
+    to,
     subtle = false,
     ...rest
   },
   ref,
 ) {
+  const navigate = useNavigate()
   const [internalSelected, setInternalSelected] = useState(defaultSelected)
   const isControlled = selectedProp !== undefined
   const selected = isControlled ? selectedProp : internalSelected
+  const isNavigable = Boolean(to)
+  const effectiveSelectable = isNavigable ? false : selectable
 
   function toggleSelected() {
     const next = !selected
@@ -70,12 +75,23 @@ export const InteractiveCard = forwardRef(function InteractiveCard(
 
   function handleClick(e) {
     onClick?.(e)
-    if (!selectable || e.defaultPrevented || isInteractiveClickTarget(e.target)) return
+    if (e.defaultPrevented || isInteractiveClickTarget(e.target)) return
+    if (isNavigable) {
+      navigate(to)
+      return
+    }
+    if (!effectiveSelectable) return
     toggleSelected()
   }
 
   function handleKeyDown(e) {
-    if (!selectable) return
+    if (e.defaultPrevented || isInteractiveClickTarget(e.target)) return
+    if (isNavigable && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault()
+      navigate(to)
+      return
+    }
+    if (!effectiveSelectable) return
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
       toggleSelected()
@@ -85,12 +101,17 @@ export const InteractiveCard = forwardRef(function InteractiveCard(
   return (
     <Tag
       ref={ref}
-      tabIndex={selectable ? 0 : undefined}
+      tabIndex={isNavigable || effectiveSelectable ? 0 : undefined}
+      role={isNavigable ? 'link' : undefined}
       data-portal-card=""
-      data-selected={selected ? 'true' : undefined}
+      data-selected={effectiveSelectable && selected ? 'true' : undefined}
       onClick={handleClick}
-      onKeyDown={selectable ? handleKeyDown : undefined}
-      className={portalCardClass({ selected: selectable && selected, className, subtle })}
+      onKeyDown={isNavigable || effectiveSelectable ? handleKeyDown : undefined}
+      className={portalCardClass({
+        selected: effectiveSelectable && selected,
+        className: cn(isNavigable && 'cursor-pointer', className),
+        subtle,
+      })}
       {...rest}
     >
       {children}

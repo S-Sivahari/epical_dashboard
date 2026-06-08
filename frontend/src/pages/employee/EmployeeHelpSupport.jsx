@@ -17,10 +17,7 @@ import {
   ArrowRight,
   Info,
 } from 'lucide-react'
-import {
-  employeePortalGuideIntro,
-  employeePortalGuideSections,
-} from '@pages/employee/data/employeePortalGuide'
+import { employeePortalGuideSections } from '@pages/employee/data/employeePortalGuide'
 import { cn } from '@pages/employee/lib/utils'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 
@@ -39,7 +36,7 @@ const guideIcons = {
 }
 
 export default function EmployeeHelpSupport() {
-  const [activeKey, setActiveKey] = useState('apply-leave')
+  const [activeKey, setActiveKey] = useState(null)
 
   const toggleGuide = (key) => {
     setActiveKey((prev) => (prev === key ? null : key))
@@ -52,13 +49,10 @@ export default function EmployeeHelpSupport() {
       className="emp-help-page w-full space-y-6 pb-8"
       data-page-scrollable
     >
-      <header className="space-y-1">
+      <header>
         <h2 className="font-heading text-2xl font-semibold text-foreground sm:text-3xl">
           Employee Portal Guide
         </h2>
-        <p className="max-w-3xl text-sm leading-relaxed text-muted sm:text-base">
-          {employeePortalGuideIntro}
-        </p>
       </header>
 
       <InteractiveCard className={portalCardClass({ className: 'p-4 sm:p-5' })}>
@@ -68,9 +62,9 @@ export default function EmployeeHelpSupport() {
           </div>
           <p className="text-sm leading-relaxed text-muted">
             <span className="font-medium text-foreground">Leave tip:</span> If your balance is
-            exhausted, new requests are blocked at submit time. Pending requests still await HR
+            exhausted, new requests are blocked at submit time. Pending requests await admin
             approval and only deduct balance once approved. Casual and Sick balances reset each
-            calendar month; Earned leave follows the calendar year plus any compensation credits.
+            calendar month; Earned leave accrues through the calendar year. Compensation leave starts at zero and increases only when admin credits it.
           </p>
         </div>
       </InteractiveCard>

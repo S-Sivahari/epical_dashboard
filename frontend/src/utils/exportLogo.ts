@@ -1,10 +1,17 @@
-export const EXPORT_LOGO_PATH = '/logo.jpeg'
+/** Chip logo — PNG keeps edges sharp in PDF exports (JPEG smears fine detail). */
+export const EXPORT_LOGO_PATH = '/pic/epical-chip-logo.png?v=3'
 export const PDF_LOGO_MAX_WIDTH = 72
+/** Compact logo for employee detail / directory PDF headers */
+export const PDF_LOGO_MAX_WIDTH_COMPACT = 38
 
 export interface ExportLogoAsset {
   dataUrl: string
   width: number
   height: number
+}
+
+export function logoImageFormat(dataUrl: string): 'PNG' | 'JPEG' {
+  return dataUrl.includes('image/png') ? 'PNG' : 'JPEG'
 }
 
 export function scaleExportLogo(width: number, height: number, maxWidth: number) {
@@ -18,10 +25,10 @@ let logoCache: ExportLogoAsset | null = null
 export async function fetchExportLogo(): Promise<ExportLogoAsset | null> {
   if (logoCache) return logoCache
   try {
-    const res = await fetch(`${EXPORT_LOGO_PATH}?t=${Date.now()}`)
+    const res = await fetch(EXPORT_LOGO_PATH)
     if (!res.ok) return null
     const buffer = await res.arrayBuffer()
-    const contentType = EXPORT_LOGO_PATH.endsWith('.png') ? 'image/png' : 'image/jpeg'
+    const contentType = res.headers.get('content-type') ?? 'image/png'
     const blob = new Blob([buffer], { type: contentType })
     const dataUrl = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader()
@@ -50,8 +57,7 @@ export function drawPdfLogoLeft(
   topY = 14,
 ): number {
   const { width, height } = scaleExportLogo(logo.width, logo.height, PDF_LOGO_MAX_WIDTH)
-  const format = EXPORT_LOGO_PATH.endsWith('.png') ? 'PNG' : 'JPEG'
-  doc.addImage(logo.dataUrl, format, leftX, topY, width, height)
+  doc.addImage(logo.dataUrl, logoImageFormat(logo.dataUrl), leftX, topY, width, height)
   return topY + height + 10
 }
 

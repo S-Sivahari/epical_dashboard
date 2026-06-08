@@ -14,6 +14,10 @@ import {
   workflowCompletedCount,
   type WorkflowStageStatus,
 } from '../utils/cellWorkflow';
+import {
+  syncChecklistMappingsForCell,
+  removeChecklistMappingsForCell,
+} from '../services/checklistService';
 
 function paramId(value: string | string[]): string {
   return Array.isArray(value) ? value[0] : value;
@@ -342,6 +346,7 @@ export const projectWorkspaceController = {
       });
 
       await syncProjectProgress(project._id);
+      await syncChecklistMappingsForCell(project._id, cell._id);
       const meta = await computeDependencyMeta(project._id, cell);
       res.status(201).json(toCell(cell, meta));
     } catch (err) {
@@ -603,6 +608,7 @@ export const projectWorkspaceController = {
         { $pull: { dependencyCellIds: cellObjectId } },
       );
       await CellReviewModel.deleteMany({ cellId: cellObjectId });
+      await removeChecklistMappingsForCell(cellObjectId);
       await ProjectCellModel.findByIdAndDelete(cellObjectId);
 
       await refreshBlockedStatuses(projectObjectId);

@@ -117,7 +117,8 @@ export const uploadController = {
         return;
       }
 
-      res.json({ message: 'Photo uploaded successfully', photo: employee.photo });
+      const hasPhoto = Boolean((employee as any).photo?.data || (employee as any).photo?.filename);
+      res.json({ message: 'Photo uploaded successfully', hasPhoto });
     } catch (error: any) {
       console.error('Error uploading photo:', error);
       res.status(500).json({ error: error?.message ?? 'Failed to upload photo' });
@@ -181,9 +182,27 @@ export const uploadController = {
         return;
       }
 
-      const buffer = Buffer.from(employee.photo.data, 'base64');
-      res.setHeader('Content-Type', employee.photo.contentType);
-      res.setHeader('Content-Disposition', `inline; filename="${employee.photo.filename}"`);
+      const photoData = (employee.photo as any).data;
+      const photoFilename = (employee.photo as any).filename;
+      const photoContentType = (employee.photo as any).contentType;
+
+      if (!photoData) {
+        res.status(500).json({ error: 'Photo data is corrupted or missing' });
+        return;
+      }
+
+      let buffer: Buffer;
+      try {
+        buffer = Buffer.from(photoData, 'base64');
+      } catch {
+        res.status(500).json({ error: 'Failed to process photo data' });
+        return;
+      }
+
+      res.setHeader('Content-Type', photoContentType || 'image/jpeg');
+      res.setHeader('Content-Disposition', `inline; filename="${photoFilename}"`);
+      res.setHeader('Content-Length', buffer.length);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
       res.send(buffer);
     } catch (error: any) {
       console.error('Error fetching photo:', error);

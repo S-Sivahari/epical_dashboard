@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  ArrowLeft, BookOpen, CheckCircle2, ChevronDown, GitBranch, History, Layers, LayoutGrid, ListChecks, Plus, Search, Trash2, User, X,
+  ArrowLeft, BookOpen, CheckCircle2, ChevronDown, ClipboardCheck, GitBranch, History, Layers, LayoutGrid, ListChecks, Plus, Search, Trash2, User, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageWrapper } from '@components/layout/PageWrapper'
@@ -19,6 +19,11 @@ import {
   fetchDependencyGraph,
   fetchWorkspaceSummary,
 } from '@/services/projectWorkspaceService'
+import {
+  applyChecklistToAll,
+  fetchProjectChecklist,
+} from '@/services/checklistService'
+import type { ProjectChecklistSummary } from '@/types/projectWorkspace'
 import { cn } from '@/utils/cn'
 import {
   CELL_STATUSES,
@@ -86,19 +91,24 @@ export function ProjectWorkspace() {
   const [filterTypeSelect, setFilterTypeSelect] = useState<'all' | ProjectCell['cellType']>('all')
   const [filterStatusSelect, setFilterStatusSelect] = useState<'all' | CellStatus | 'blocked'>('all')
   const [statFilter, setStatFilter] = useState<StatFilter>(null)
+  const [projectChecklist, setProjectChecklist] = useState<ProjectChecklistSummary | null>(null)
+  const [applyAllConfirm, setApplyAllConfirm] = useState(false)
+  const [applyingAll, setApplyingAll] = useState(false)
 
   const reload = useCallback(async () => {
     if (!projectId) return
     setLoading(true)
     try {
-      const [ws, dg, empsRes] = await Promise.all([
+      const [ws, dg, empsRes, checklist] = await Promise.all([
         fetchWorkspaceSummary(projectId),
         fetchDependencyGraph(projectId),
         getEmployees({ status: 'Active', pageSize: 500 }),
+        fetchProjectChecklist(projectId).catch(() => null),
       ])
       setSummary(ws)
       setGraph(dg)
       setEmployees(empsRes.data ?? [])
+      setProjectChecklist(checklist)
       setActiveLibraryId((prev) => {
         if (prev && ws.libraries.some((lib) => lib.id === prev)) return prev
         return ws.libraries[0]?.id ?? null
@@ -240,6 +250,23 @@ export function ProjectWorkspace() {
     }
   }
 
+  const handleApplyChecklistToAll = async () => {
+    if (!projectId) return
+    setApplyingAll(true)
+    try {
+      const summary = await applyChecklistToAll(projectId)
+      setProjectChecklist(summary)
+      setApplyAllConfirm(false)
+      toast.success('Checklist successfully applied to all project cells.')
+      await reload()
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+      toast.error(msg || 'Failed to apply checklist')
+    } finally {
+      setApplyingAll(false)
+    }
+  }
+
   if (loading && !summary) {
     return (
       <PageWrapper className="admin-hub-page-wrap py-8 text-center text-slate-500" data-page-scrollable>
@@ -284,6 +311,17 @@ export function ProjectWorkspace() {
                 </p>
               </div>
               <div className="admin-projects-workspace-head-actions">
+                {projectChecklist ? (
+                  <button
+                    type="button"
+                    className="admin-projects-apply-all-btn"
+                    disabled={applyingAll || stats.cellCount === 0}
+                    onClick={() => setApplyAllConfirm(true)}
+                  >
+                    <ClipboardCheck className="h-3.5 w-3.5" />
+                    Apply Checklist To All
+                  </button>
+                ) : null}
                 <nav className="admin-projects-section-rail" aria-label="Workspace sections">
                   {SECTION_ITEMS.map(({ id, label, icon: Icon }) => (
                     <button
@@ -688,6 +726,15 @@ export function ProjectWorkspace() {
         danger
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => void handleConfirmDelete()}
+      />
+
+      <ConfirmModal
+        isOpen={applyAllConfirm}
+        title="Apply checklist to all cells"
+        description="Apply this checklist to all cells in this project?"
+        confirmLabel="Apply"
+        onClose={() => setApplyAllConfirm(false)}
+        onConfirm={() => void handleApplyChecklistToAll()}
       />
     </PageWrapper>
   )

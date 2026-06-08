@@ -14,6 +14,7 @@ import { documentListFromEmployee } from '@/utils/employeeDocuments'
 import { useEmployeeStore } from '@store/employeeStore'
 import { useAuthStore } from '@store/authStore'
 import { useUnsavedChangesGuard } from '@hooks/useUnsavedChangesGuard'
+import { useFormSessionDraft } from '@hooks/useFormSessionDraft'
 import { deleteDocument, openEmployeeDocument, uploadDocuments, uploadPhoto } from '@services/uploadService'
 import { ExternalLink, FileText, Trash2, HelpCircle, X } from 'lucide-react'
 
@@ -343,6 +344,11 @@ export function EditEmployee() {
     mode: 'onTouched',
   })
   const { reset, formState } = form
+  const draftKey = `admin-edit-employee:${id ?? ''}`
+  const { clearDraft, readDraft } = useFormSessionDraft(draftKey, {
+    reset,
+    watch: form.watch,
+  }, { skipHydrate: true })
 
   const hasPendingFiles =
     Object.values(documentFiles).some((files) => files.length > 0) || !!photoFile
@@ -367,7 +373,8 @@ export function EditEmployee() {
         if (cancelled) return
 
         setEmployeeName(`${e.firstName} ${e.lastName ?? ''}`.trim())
-        const formValues = employeeToFormValues(e)
+        const savedDraft = readDraft()
+        const formValues = savedDraft ?? employeeToFormValues(e)
         reset(formValues)
         setCopyAddressChecked(
           formValues.permanentAddress.trim() !== '' &&
@@ -603,6 +610,7 @@ export function EditEmployee() {
       } else {
 }
 
+      clearDraft()
       allowNavigation()
       navigate('/admin/employees')
     } catch (err: any) {
@@ -675,14 +683,13 @@ export function EditEmployee() {
             ]}
           />
           <h1 className="employee-directory-title">Edit Employee</h1>
-          <p className="employee-directory-subtitle">{employeeName}</p>
         </header>
 
         <div className="employee-form-body">
           <form ref={formRef} id="edit-employee-form" className="employee-form pb-8" onSubmit={onSubmit}>
             <div className="employee-form-sections">
-          {/* ── Section 1: Personal Details — left ─────────────────────────────── */}
-          <div className="employee-form-card">
+          {/* Personal Details — full width */}
+          <div className="employee-form-card employee-form-card--full">
             <h3 className="employee-form-card-title">Personal Details</h3>
             <div className="employee-form-fields employee-form-fields--2">
               <Input
@@ -748,17 +755,19 @@ export function EditEmployee() {
             </div>
 
             {/* Address Section */}
-            <div className="mt-8 border-t border-border pt-6">
+            <div className="mt-6 border-t border-border pt-5">
               <h3 className="employee-form-card-title">Address Details</h3>
-              <div className="employee-form-fields mt-4">
-                <Input
-                  label="Permanent Address"
-                  required
-                  error={form.formState.errors.permanentAddress?.message}
-                  {...form.register('permanentAddress')}
-                />
-                <div className="flex items-end gap-3">
-                  <div className="flex-1">
+              <div className="employee-form-fields employee-form-fields--2 mt-4">
+                <div className="employee-form-field-span-2">
+                  <Input
+                    label="Permanent Address"
+                    required
+                    error={form.formState.errors.permanentAddress?.message}
+                    {...form.register('permanentAddress')}
+                  />
+                </div>
+                <div className="employee-form-field-span-2 flex flex-col gap-3 sm:flex-row sm:items-end">
+                  <div className="min-w-0 flex-1">
                     <Input
                       label="Communication Address"
                       required
@@ -766,7 +775,7 @@ export function EditEmployee() {
                       {...form.register('communicationAddress')}
                     />
                   </div>
-                  <div className="flex items-center gap-2 pb-2">
+                  <div className="flex shrink-0 items-center gap-2 pb-2">
                     <input
                       type="checkbox"
                       id="copyAddressEdit"
@@ -793,10 +802,10 @@ export function EditEmployee() {
             </div>
           </div>
 
-          {/* ── Section 2: Account Details ──────────────────────────────── */}
+          {/* Account Details */}
           <div className="employee-form-card">
             <h3 className="employee-form-card-title">Account Details</h3>
-            <div className="employee-form-fields">
+            <div className="employee-form-fields employee-form-fields--2">
               <Input
                 label="Bank name"
                 error={form.formState.errors.bankName?.message}
@@ -829,10 +838,10 @@ export function EditEmployee() {
             </div>
           </div>
 
-          {/* ── Section 3: Joining Details ──────────────────────────────── */}
+          {/* Joining Details */}
           <div className="employee-form-card">
             <h3 className="employee-form-card-title">Joining Details</h3>
-            <div className="employee-form-fields">
+            <div className="employee-form-fields employee-form-fields--2">
               <Input
                 label="Joining date"
                 type="date"
@@ -871,10 +880,10 @@ export function EditEmployee() {
             </div>
           </div>
 
-          {/* ── Section 4: ID Proof — right ─────────────────────────────────────── */}
+          {/* ID Proof */}
           <div className="employee-form-card">
             <h3 className="employee-form-card-title">ID Proof</h3>
-            <div className="employee-form-fields">
+            <div className="employee-form-fields employee-form-fields--2">
               <Input
                 label="Aadhaar number"
                 error={form.formState.errors.aadhaar?.message}
@@ -894,10 +903,10 @@ export function EditEmployee() {
             </div>
           </div>
 
-          {/* ── Section 5: Emergency Contact — left ────────────────────────────── */}
+          {/* Emergency Contact */}
           <div className="employee-form-card">
             <h3 className="employee-form-card-title">Emergency Contact Details</h3>
-            <div className="employee-form-fields">
+            <div className="employee-form-fields employee-form-fields--2">
               <Input
                 label="Name"
                 required
@@ -932,7 +941,7 @@ export function EditEmployee() {
             </div>
           </div>
 
-            <div className="employee-form-card">
+            <div className="employee-form-card employee-form-card--full">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="employee-form-card-title mb-0">Employee Documents</h3>
             <button
@@ -944,13 +953,15 @@ export function EditEmployee() {
               <HelpCircle className="h-5 w-5" />
             </button>
           </div>
-          <div className="employee-form-doc-stack">
+          <div className="employee-form-doc-grid">
             {(Object.entries(DOCUMENT_TYPES) as [StandardDocKey, string][])
               .filter(([key]) => key !== 'agreement')
               .map(([key, label]) => (
-              <div key={key} className="rounded-xl border border-border bg-surface p-4">
-                <p className="mb-3 font-medium text-ink">{label}</p>
-                <p className="text-xs text-muted mb-3">2MB</p>
+              <div key={key} className="employee-form-doc-tile">
+                <div className="employee-form-doc-tile-header">
+                  <p className="employee-form-doc-tile-label">{label}</p>
+                  <p className="employee-form-doc-tile-limit">2MB</p>
+                </div>
                 
                 <FileUpload
                   accept=".pdf,.jpg,.jpeg,.png"
@@ -963,45 +974,47 @@ export function EditEmployee() {
                 
                 {/* Display existing documents */}
                 {existingDocuments[key] ? (
-                  <div className="mt-3 rounded-lg border border-border bg-white px-3 py-2">
-                    <div className="flex items-start gap-3">
-                      <FileText className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-ink">
-                          {existingDocuments[key]?.name}
-                        </p>
-                        <p className="text-xs text-muted">Uploaded</p>
-                      </div>
-                      {existingDocuments[key]?.url ? (
+                  <div className="employee-form-doc-uploaded">
+                    <div className="rounded-lg border border-border bg-white px-3 py-2">
+                      <div className="flex items-start gap-3">
+                        <FileText className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-ink">
+                            {existingDocuments[key]?.name}
+                          </p>
+                          <p className="text-xs text-muted">Uploaded</p>
+                        </div>
+                        {existingDocuments[key]?.url ? (
+                          <button
+                            type="button"
+                            disabled={openingExistingDocKey === key}
+                            onClick={() => void handleOpenExistingDocument(key)}
+                            className="shrink-0 rounded p-1 text-primary hover:bg-primary/10 transition-ui disabled:opacity-50"
+                            title="View document"
+                          >
+                            {openingExistingDocKey === key ? (
+                              <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                            ) : (
+                              <ExternalLink className="h-4 w-4" />
+                            )}
+                          </button>
+                        ) : null}
                         <button
                           type="button"
-                          disabled={openingExistingDocKey === key}
-                          onClick={() => void handleOpenExistingDocument(key)}
-                          className="shrink-0 rounded p-1 text-primary hover:bg-primary/10 transition-ui disabled:opacity-50"
-                          title="View document"
+                          className="shrink-0 rounded p-1 text-danger hover:bg-danger/10 transition-ui"
+                          title="Delete document"
+                          onClick={() => void deleteExistingDocument(key)}
                         >
-                          {openingExistingDocKey === key ? (
-                            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                          ) : (
-                            <ExternalLink className="h-4 w-4" />
-                          )}
+                          <Trash2 className="h-4 w-4" />
                         </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        className="shrink-0 rounded p-1 text-danger hover:bg-danger/10 transition-ui"
-                        title="Delete document"
-                        onClick={() => void deleteExistingDocument(key)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      </div>
                     </div>
                   </div>
                 ) : null}
 
                 {/* Display newly uploaded documents */}
                 {documentFiles[key].length > 0 ? (
-                  <div className="mt-3 space-y-2">
+                  <div className="employee-form-doc-uploaded space-y-2">
                     {documentFiles[key].map((file) => (
                       <div key={file.name} className="rounded-lg border border-border bg-white px-3 py-2">
                         <div className="flex items-start gap-3">
@@ -1037,36 +1050,35 @@ export function EditEmployee() {
               </div>
             ))}
 
-            <div className="rounded-xl border border-border bg-surface p-4 h-full flex flex-col">
-              <div className="mb-3 flex items-start justify-between gap-3">
-                <p className="font-medium text-ink">Certificates</p>
-                <p className="text-xs text-muted">2MB</p>
+            <div className="employee-form-doc-tile">
+              <div className="employee-form-doc-tile-header">
+                <p className="employee-form-doc-tile-label">Certificates</p>
+                <p className="employee-form-doc-tile-limit">2MB</p>
               </div>
-              <SelectField
-                value={selectedCertificateKey}
-                onChange={(event) =>
-                  setSelectedCertificateKey(event.target.value as CertificateDocKey)
-                }
-                options={CERTIFICATE_OPTIONS.map((option) => ({
-                  value: option.key,
-                  label: option.label,
-                }))}
-              />
-              
-              <div className="mt-3">
+              <div className="employee-form-doc-tile-controls">
+                <SelectField
+                  value={selectedCertificateKey}
+                  onChange={(event) =>
+                    setSelectedCertificateKey(event.target.value as CertificateDocKey)
+                  }
+                  options={CERTIFICATE_OPTIONS.map((option) => ({
+                    value: option.key,
+                    label: option.label,
+                  }))}
+                />
                 <FileUpload
                   accept=".pdf,.jpg,.jpeg,.png"
                   onUpload={(files) => handleDocumentUpload(selectedCertificateKey, files)}
                 />
-                {documentErrors[selectedCertificateKey] ? (
-                  <p className="mt-2 text-xs text-danger">{documentErrors[selectedCertificateKey]}</p>
-                ) : null}
               </div>
+              {documentErrors[selectedCertificateKey] ? (
+                <p className="mt-2 text-xs text-danger">{documentErrors[selectedCertificateKey]}</p>
+              ) : null}
               
               {(existingDocuments[selectedCertificateKey] || documentFiles[selectedCertificateKey].length > 0) ? (
-                <div className="mt-3 pt-3 border-t border-border flex-1 overflow-hidden flex flex-col">
+                <div className="employee-form-doc-uploaded">
                   <p className="text-xs font-medium text-muted mb-2 uppercase">Uploaded</p>
-                  <div className="space-y-2 overflow-y-auto flex-1">
+                  <div className="grid gap-2 sm:grid-cols-2">
                     {/* Display existing certificate for selected category */}
                     {existingDocuments[selectedCertificateKey] ? (
                       <div className="rounded-lg border border-border bg-white px-3 py-2">
@@ -1142,9 +1154,11 @@ export function EditEmployee() {
             </div>
 
             {/* Agreement Document */}
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <p className="mb-3 font-medium text-ink">{DOCUMENT_TYPES.agreement}</p>
-              <p className="text-xs text-muted mb-3">2MB</p>
+            <div className="employee-form-doc-tile">
+              <div className="employee-form-doc-tile-header">
+                <p className="employee-form-doc-tile-label">{DOCUMENT_TYPES.agreement}</p>
+                <p className="employee-form-doc-tile-limit">2MB</p>
+              </div>
               
               <FileUpload
                 accept=".pdf,.jpg,.jpeg,.png"
@@ -1157,45 +1171,47 @@ export function EditEmployee() {
               
               {/* Display existing document */}
               {existingDocuments.agreement ? (
-                <div className="mt-3 rounded-lg border border-border bg-white px-3 py-2">
-                  <div className="flex items-start gap-3">
-                    <FileText className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-ink">
-                        {existingDocuments.agreement?.name}
-                      </p>
-                      <p className="text-xs text-muted">Uploaded</p>
-                    </div>
-                    {existingDocuments.agreement?.url ? (
+                <div className="employee-form-doc-uploaded">
+                  <div className="rounded-lg border border-border bg-white px-3 py-2">
+                    <div className="flex items-start gap-3">
+                      <FileText className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-ink">
+                          {existingDocuments.agreement?.name}
+                        </p>
+                        <p className="text-xs text-muted">Uploaded</p>
+                      </div>
+                      {existingDocuments.agreement?.url ? (
+                        <button
+                          type="button"
+                          disabled={openingExistingDocKey === 'agreement'}
+                          onClick={() => void handleOpenExistingDocument('agreement')}
+                          className="shrink-0 rounded p-1 text-primary hover:bg-primary/10 transition-ui disabled:opacity-50"
+                          title="View document"
+                        >
+                          {openingExistingDocKey === 'agreement' ? (
+                            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                          ) : (
+                            <ExternalLink className="h-4 w-4" />
+                          )}
+                        </button>
+                      ) : null}
                       <button
                         type="button"
-                        disabled={openingExistingDocKey === 'agreement'}
-                        onClick={() => void handleOpenExistingDocument('agreement')}
-                        className="shrink-0 rounded p-1 text-primary hover:bg-primary/10 transition-ui disabled:opacity-50"
-                        title="View document"
+                        className="shrink-0 rounded p-1 text-danger hover:bg-danger/10 transition-ui"
+                        title="Delete document"
+                        onClick={() => void deleteExistingDocument('agreement')}
                       >
-                        {openingExistingDocKey === 'agreement' ? (
-                          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                        ) : (
-                          <ExternalLink className="h-4 w-4" />
-                        )}
+                        <Trash2 className="h-4 w-4" />
                       </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      className="shrink-0 rounded p-1 text-danger hover:bg-danger/10 transition-ui"
-                      title="Delete document"
-                      onClick={() => void deleteExistingDocument('agreement')}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    </div>
                   </div>
                 </div>
               ) : null}
 
               {/* Display newly uploaded documents */}
               {documentFiles.agreement.length > 0 ? (
-                <div className="mt-3 space-y-2">
+                <div className="employee-form-doc-uploaded space-y-2">
                   {documentFiles.agreement.map((file) => (
                     <div key={file.name} className="rounded-lg border border-border bg-white px-3 py-2">
                       <div className="flex items-start gap-3">
@@ -1230,31 +1246,35 @@ export function EditEmployee() {
               ) : null}
             </div>
 
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <div className="mb-5 flex items-start justify-between gap-3">
-                <p className="font-medium text-ink">Profile Photo</p>
-                <p className="text-xs text-muted">1MB</p>
+            <div className="employee-form-doc-tile">
+              <div className="employee-form-doc-tile-header">
+                <p className="employee-form-doc-tile-label">Profile Photo</p>
+                <p className="employee-form-doc-tile-limit">1MB</p>
               </div>
               <FileUpload accept=".jpg,.jpeg,.png" onUpload={handlePhotoUpload} />
               {photoPreview ? (
-                <div className="mt-4 rounded-lg border border-border bg-white p-3 text-center">
-                  <img
-                    src={photoPreview}
-                    alt="Profile preview"
-                    className="mx-auto h-20 w-20 rounded-full border border-border object-cover"
-                  />
-                  <p className="mt-2 truncate text-xs text-ink">{photoFile?.name}</p>
-                  <button
-                    type="button"
-                    className="mt-2 text-xs font-medium text-danger hover:underline"
-                    onClick={() => {
-                      setPhotoFile(null)
-                      setPhotoPreview(null)
-                      setPhotoError(null)
-                    }}
-                  >
-                    Remove
-                  </button>
+                <div className="employee-form-doc-uploaded">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={photoPreview}
+                      alt="Profile preview"
+                      className="h-14 w-14 shrink-0 rounded-full border border-border object-cover"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs text-ink">{photoFile?.name}</p>
+                      <button
+                        type="button"
+                        className="mt-1 text-xs font-medium text-danger hover:underline"
+                        onClick={() => {
+                          setPhotoFile(null)
+                          setPhotoPreview(null)
+                          setPhotoError(null)
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ) : null}
               {photoError ? <p className="mt-2 text-xs text-danger">{photoError}</p> : null}
@@ -1294,6 +1314,7 @@ export function EditEmployee() {
         </div>
           </form>
         </div>
+      </div>
 
       <div className="employee-form-action-bar">
         <div className="employee-form-action-bar-inner">
@@ -1309,7 +1330,6 @@ export function EditEmployee() {
             Save Changes
           </Button>
         </div>
-      </div>
       </div>
 
       {/* ── File Size Help Modal ────────────────────────────────────────────────── */}

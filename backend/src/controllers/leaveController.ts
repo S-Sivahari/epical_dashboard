@@ -65,7 +65,11 @@ export const leaveController = {
       }
 
       const leaves = await leaveService.getAllLeaves(employeeId);
-      res.json(leaves.filter((l) => l.status !== 'Cancelled'));
+      if (isEmployeeRole(req.user?.role ?? '')) {
+        res.json(leaves.filter((l) => l.status === 'Pending'));
+        return;
+      }
+      res.json(leaves);
     } catch {
       res.status(500).json({ error: 'Failed to fetch leaves' });
     }
@@ -257,6 +261,34 @@ export const leaveController = {
     }
   },
 
+  // PATCH /api/leaves/:id/revoke — admin revokes approved leave with reason → Rejected
+  revoke: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const { reason } = req.body;
+      const { id } = req.params as { id: string };
+      const trimmed = typeof reason === 'string' ? reason.trim() : '';
+      if (!trimmed) {
+        res.status(400).json({ error: 'Rejection reason is required' });
+        return;
+      }
+      const actionBy = (req.user as any)?.name || (req.user as any)?.email || 'Admin';
+      const leave = await leaveService.revokeApprovedLeave(id, trimmed, actionBy);
+      if (!leave) {
+        res.status(404).json({ error: 'Approved leave not found' });
+        return;
+      }
+      res.json(leave);
+    } catch (error: any) {
+      console.error('Error revoking leave:', error);
+      const message = error.message || 'Failed to revoke leave';
+      const isClientError =
+        typeof message === 'string' &&
+        (message.startsWith('Cannot revoke') ||
+          message.startsWith('Rejection reason'));
+      res.status(isClientError ? 400 : 500).json({ error: message });
+    }
+  },
+
   // PATCH /api/leaves/:id/cancel
   cancel: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
@@ -266,18 +298,14 @@ export const leaveController = {
         res.status(404).json({ error: 'Leave not found' });
         return;
       }
-      if (!['Approved', 'Pending'].includes(leave.status)) {
-        res.status(400).json({ error: 'Only pending or approved leaves can be cancelled' });
-        return;
-      }
-
-      if (!leaveService.canCancelLeaveRequest(leave)) {
-        res.status(400).json({ error: 'Cannot cancel approved leave that has already ended.' });
-        return;
-      }
-
       const isEmployee = req.user && isEmployeeRole(req.user.role);
+      const isAdmin = req.user && isAdminRole(req.user.role);
+
       if (isEmployee) {
+        if (leave.status !== 'Pending') {
+          res.status(400).json({ error: 'You can only cancel pending leave requests.' });
+          return;
+        }
         const own = await resolveEmployeeForAuthUser(req.user!.id, req.user!.email);
         const ownId = own?.id ? String(own.id) : req.user!.id;
         const leaveOwner = String(leave.employeeId);
@@ -285,11 +313,17 @@ export const leaveController = {
           res.status(403).json({ error: 'You can only cancel your own leave requests.' });
           return;
         }
+      } else if (!isAdmin) {
+        res.status(403).json({ error: 'Forbidden' });
+        return;
+      } else {
+        res.status(400).json({ error: 'Use revoke for approved leaves or reject for pending requests.' });
+        return;
       }
 
       const cancelledBy = (req.user as any)?.name || (req.user as any)?.email || undefined;
       const cancelledLeave = await leaveService.cancelLeave(id, undefined, cancelledBy, {
-        notifyAdmins: Boolean(isEmployee),
+        notifyAdmins: true,
       });
       if (!cancelledLeave) {
         res.status(500).json({ error: 'Failed to cancel leave' });

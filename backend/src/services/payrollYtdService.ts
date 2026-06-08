@@ -1,7 +1,7 @@
 import { getDB } from '../config/db'
 import type { Company, Employee, SalaryStructure } from './payslipGenerator'
 import { buildDeductionsData, buildEarningsData } from './payslipGenerator'
-import { enrichPayrollEmployeeFromDb } from './payslipEmployeeEnrichment'
+import { enrichPayrollEmployeeFromDb, enrichPayrollEmployeeLeaveBalances } from './payslipEmployeeEnrichment'
 
 const MONTH_PATTERNS: { re: RegExp; month: number }[] = [
   { re: /\bjanuary\b/i, month: 1 },
@@ -130,7 +130,9 @@ export function parsePayPeriodFromCompany(company: Company): PayPeriod {
   }
 
   if (month === null) {
-    month = new Date().getMonth() + 1
+    throw new Error(
+      'Could not determine pay month from the Excel company sheet. Set "Pay Month" (e.g. April 2026) or a valid "Pay Date".'
+    )
   }
 
   const fiscalYearStart = getFiscalYearStart(year, month)
@@ -326,7 +328,7 @@ export async function prepareEmployeeForPayslip(
   emp: Employee,
   batchId: string
 ): Promise<Employee> {
-  const enriched = await enrichPayrollEmployeeFromDb(emp)
+  const enriched = await enrichPayrollEmployeeLeaveBalances(await enrichPayrollEmployeeFromDb(emp))
   const period = parsePayPeriodFromCompany(company)
   const components = collectComponentAmounts(enriched, structure)
   const employeeId = String(enriched['Emp ID'] || '').trim()

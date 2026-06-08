@@ -9,6 +9,7 @@ export function DataTable({
   compact = false,
   emptyMessage = 'No records found.',
   tableTheme,
+  stickyHeader = false,
 }) {
   if (!data?.length) {
     return (
@@ -22,7 +23,8 @@ export function DataTable({
     <div
       data-portal-card=""
       className={cn(
-        portalCardClass({ className: 'w-full max-w-full overflow-x-auto rounded-lg bg-background/40 shadow-none' }),
+        portalCardClass({ className: 'w-full max-w-full rounded-lg bg-background/40 shadow-none' }),
+        stickyHeader && 'overflow-visible',
       )}
     >
       <table
@@ -32,16 +34,20 @@ export function DataTable({
           tableTheme === 'payslip-hub' && 'employee-payslip-table',
         )}
       >
-        <thead>
+        <thead className={stickyHeader ? 'sticky top-0 z-10' : ''}>
           <tr
             className={cn(
               tableTheme === 'payslip-hub'
                 ? 'employee-payslip-table-head'
                 : 'border-b border-border bg-slate-50/80',
+              stickyHeader && 'bg-slate-50/98 backdrop-blur-sm',
             )}
           >
             {columns.map((col) => (
-              <th key={col.key} className="type-table-head px-4 py-3 text-left">
+              <th key={col.key} className={cn(
+                "type-table-head px-4 py-3 text-left",
+                stickyHeader && "bg-slate-50/98 sticky top-0"
+              )}>
                 {col.label}
               </th>
             ))}

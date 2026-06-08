@@ -14,6 +14,7 @@ import { useEmployeeStore } from '@store/employeeStore'
 import type { Employee } from '@/types'
 import { uploadDocuments, uploadPhoto } from '@services/uploadService'
 import { checkEmployeeIdExists } from '@services/employeeService'
+import { useFormSessionDraft } from '@hooks/useFormSessionDraft'
 
 const isValidDate = (value: string) => !Number.isNaN(Date.parse(value))
 
@@ -151,6 +152,13 @@ export function AddEmployee() {
     resolver: zodResolver(fullSchema),
     defaultValues: defaultValues as FullValues,
     mode: 'onTouched',
+  })
+
+  const { clearDraft } = useFormSessionDraft('admin-add-employee', {
+    reset: form.reset,
+    watch: form.watch,
+  }, {
+    defaultValues: defaultValues as FullValues,
   })
 
   const [documentFiles, setDocumentFiles] = useState<Record<DocKey, File | null>>({
@@ -452,9 +460,9 @@ export function AddEmployee() {
 
       if (uploadIssues) {
         toast.warning('Employee added, but some files failed to upload. Edit the profile to retry.')
-      } else {
-}
+      }
 
+      clearDraft()
       navigate('/admin/employees')
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Could not create employee'
@@ -479,8 +487,8 @@ export function AddEmployee() {
         <div className="employee-form-body">
           <form ref={formRef} id="add-employee-form" className="employee-form pb-8" onSubmit={onSubmit}>
             <div className="employee-form-sections">
-          {/* Section 1: Personal Details — left column */}
-          <div className="employee-form-card">
+          {/* Personal Details — full width */}
+          <div className="employee-form-card employee-form-card--full">
             <h3 className="employee-form-card-title">Personal Details</h3>
             <div className="employee-form-fields employee-form-fields--2">
               <Input
@@ -548,17 +556,19 @@ export function AddEmployee() {
             </div>
 
             {/* Address Section */}
-            <div className="mt-8 border-t border-border pt-6">
+            <div className="mt-6 border-t border-border pt-5">
               <h3 className="employee-form-card-title">Address Details</h3>
-              <div className="employee-form-fields mt-4">
-                <Input
-                  label="Permanent Address"
-                  required
-                  error={form.formState.errors.permanentAddress?.message}
-                  {...form.register('permanentAddress')}
-                />
-                <div className="flex items-end gap-3">
-                  <div className="flex-1">
+              <div className="employee-form-fields employee-form-fields--2 mt-4">
+                <div className="employee-form-field-span-2">
+                  <Input
+                    label="Permanent Address"
+                    required
+                    error={form.formState.errors.permanentAddress?.message}
+                    {...form.register('permanentAddress')}
+                  />
+                </div>
+                <div className="employee-form-field-span-2 flex flex-col gap-3 sm:flex-row sm:items-end">
+                  <div className="min-w-0 flex-1">
                     <Input
                       label="Communication Address"
                       required
@@ -566,7 +576,7 @@ export function AddEmployee() {
                       {...form.register('communicationAddress')}
                     />
                   </div>
-                  <div className="flex items-center gap-2 pb-2">
+                  <div className="flex shrink-0 items-center gap-2 pb-2">
                     <input
                       type="checkbox"
                       id="copyAddress"
@@ -589,10 +599,10 @@ export function AddEmployee() {
             </div>
           </div>
 
-          {/* Section 2: Account Details — right column */}
+          {/* Account Details */}
           <div className="employee-form-card">
             <h3 className="employee-form-card-title">Account Details</h3>
-            <div className="employee-form-fields">
+            <div className="employee-form-fields employee-form-fields--2">
               <Input
                 label="Bank name"
                 error={form.formState.errors.bankName?.message}
@@ -625,10 +635,10 @@ export function AddEmployee() {
             </div>
           </div>
 
-          {/* Section 3: Joining Details — left column */}
+          {/* Joining Details */}
           <div className="employee-form-card">
             <h3 className="employee-form-card-title">Joining Details</h3>
-            <div className="employee-form-fields">
+            <div className="employee-form-fields employee-form-fields--2">
               <Input
                 label="Joining date"
                 type="date"
@@ -668,10 +678,10 @@ export function AddEmployee() {
             </div>
           </div>
 
-          {/* Section 4: ID Proof — right column */}
+          {/* ID Proof */}
           <div className="employee-form-card">
             <h3 className="employee-form-card-title">ID Proof</h3>
-            <div className="employee-form-fields">
+            <div className="employee-form-fields employee-form-fields--2">
               <Input
                 label="Aadhaar number"
                 error={form.formState.errors.aadhaar?.message}
@@ -691,10 +701,10 @@ export function AddEmployee() {
             </div>
           </div>
 
-          {/* Section 5: Emergency Contact — left column */}
+          {/* Emergency Contact */}
           <div className="employee-form-card">
             <h3 className="employee-form-card-title">Emergency Contact Details</h3>
-            <div className="employee-form-fields">
+            <div className="employee-form-fields employee-form-fields--2">
               <Input
                 label="Name"
                 required
@@ -729,7 +739,7 @@ export function AddEmployee() {
             </div>
           </div>
 
-            <div className="employee-form-card">
+            <div className="employee-form-card employee-form-card--full">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="employee-form-card-title mb-0">Employee Documents</h3>
             <button
@@ -741,25 +751,22 @@ export function AddEmployee() {
               <HelpCircle className="h-5 w-5" />
             </button>
           </div>
-          
-          {/* Row 1: Aadhaar, PAN, Offer Letter */}
-          <div className="employee-form-doc-stack">
-            {['aadhaar', 'pan', 'offerLetter'].map((key) => {
-              const docKey = key as DocKey
+
+          <div className="employee-form-doc-grid">
+            {(['aadhaar', 'pan', 'offerLetter'] as const).map((docKey) => {
               const label = DOCUMENT_TYPES[docKey]
               return (
-                <div key={key} className="rounded-xl border border-border bg-surface p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <p className="font-medium text-ink">{label}</p>
-                    <p className="text-xs text-muted">2MB</p>
+                <div key={docKey} className="employee-form-doc-tile">
+                  <div className="employee-form-doc-tile-header">
+                    <p className="employee-form-doc-tile-label">{label}</p>
+                    <p className="employee-form-doc-tile-limit">2MB</p>
                   </div>
                   <FileUpload
                     accept=".pdf,.jpg,.jpeg,.png"
                     onUpload={(files) => handleDocumentUpload(docKey, files)}
                   />
-                  
                   {documentFiles[docKey] ? (
-                    <div className="mt-4 pt-4 border-t border-border">
+                    <div className="employee-form-doc-uploaded">
                       <p className="text-xs font-medium text-muted mb-2 uppercase">Uploaded</p>
                       <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-white px-3 py-2">
                         <span className="truncate text-xs text-ink flex-1">{documentFiles[docKey]?.name}</span>
@@ -790,43 +797,38 @@ export function AddEmployee() {
                 </div>
               )
             })}
-          </div>
 
-          {/* Row 2: Certificates, Agreement Document, Profile Photo */}
-          <div className="employee-form-doc-stack mt-4">
-            {/* Certificates */}
-            <div className="rounded-xl border border-border bg-surface p-4 h-full flex flex-col">
-              <div className="flex items-start justify-between mb-3">
-                <p className="font-medium text-ink">Certificates</p>
-                <p className="text-xs text-muted">2MB</p>
+            <div className="employee-form-doc-tile">
+              <div className="employee-form-doc-tile-header">
+                <p className="employee-form-doc-tile-label">Certificates</p>
+                <p className="employee-form-doc-tile-limit">2MB</p>
               </div>
-              <SelectField
-                value={selectedCertificateCategory}
-                onChange={(event) =>
-                  setSelectedCertificateCategory(event.target.value as CertificateCategory)
-                }
-                options={CERTIFICATE_CATEGORIES.map((category) => ({
-                  value: category,
-                  label: category,
-                }))}
-              />
-              <div className="mt-3">
+              <div className="employee-form-doc-tile-controls">
+                <SelectField
+                  value={selectedCertificateCategory}
+                  onChange={(event) =>
+                    setSelectedCertificateCategory(event.target.value as CertificateCategory)
+                  }
+                  options={CERTIFICATE_CATEGORIES.map((category) => ({
+                    value: category,
+                    label: category,
+                  }))}
+                />
                 <FileUpload
                   accept=".pdf,.jpg,.jpeg,.png"
                   multiple={selectedCertificateCategory === 'Other Options'}
                   onUpload={(files) => handleCertificateUpload(selectedCertificateCategory, files)}
                 />
-                {certificateErrors[selectedCertificateCategory] ? (
-                  <p className="text-xs text-danger mt-2">
-                    {certificateErrors[selectedCertificateCategory]}
-                  </p>
-                ) : null}
               </div>
-              
-              {Object.entries(certificateFiles).some(([_, files]) => files.length > 0) ? (
-                <div className="mt-4 pt-4 border-t border-border flex-1 overflow-hidden flex flex-col">
+              {certificateErrors[selectedCertificateCategory] ? (
+                <p className="text-xs text-danger mt-2">
+                  {certificateErrors[selectedCertificateCategory]}
+                </p>
+              ) : null}
+              {Object.entries(certificateFiles).some(([, files]) => files.length > 0) ? (
+                <div className="employee-form-doc-uploaded">
                   <p className="text-xs font-medium text-muted mb-2 uppercase">Uploaded</p>
-                  <div className="space-y-2 overflow-y-auto flex-1">
+                  <div className="grid gap-2 sm:grid-cols-2">
                     {Object.entries(certificateFiles).map(([category, files]) =>
                       files.map((file) => (
                         <div
@@ -862,26 +864,24 @@ export function AddEmployee() {
                             </button>
                           </div>
                         </div>
-                      ))
+                      )),
                     )}
                   </div>
                 </div>
               ) : null}
             </div>
 
-            {/* Agreement Document */}
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <div className="flex items-start justify-between mb-3">
-                <p className="font-medium text-ink">{DOCUMENT_TYPES.agreement}</p>
-                <p className="text-xs text-muted">2MB</p>
+            <div className="employee-form-doc-tile">
+              <div className="employee-form-doc-tile-header">
+                <p className="employee-form-doc-tile-label">{DOCUMENT_TYPES.agreement}</p>
+                <p className="employee-form-doc-tile-limit">2MB</p>
               </div>
               <FileUpload
                 accept=".pdf,.jpg,.jpeg,.png"
                 onUpload={(files) => handleDocumentUpload('agreement', files)}
               />
-              
               {documentFiles.agreement ? (
-                <div className="mt-4 pt-4 border-t border-border">
+                <div className="employee-form-doc-uploaded">
                   <p className="text-xs font-medium text-muted mb-2 uppercase">Uploaded</p>
                   <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-white px-3 py-2">
                     <span className="truncate text-xs text-ink">{documentFiles.agreement?.name}</span>
@@ -913,34 +913,37 @@ export function AddEmployee() {
               ) : null}
             </div>
 
-            {/* Profile Photo */}
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <div className="flex items-start justify-between mb-3">
-                <p className="font-medium text-ink">Profile Photo</p>
-                <p className="text-xs text-muted">1MB</p>
+            <div className="employee-form-doc-tile">
+              <div className="employee-form-doc-tile-header">
+                <p className="employee-form-doc-tile-label">Profile Photo</p>
+                <p className="employee-form-doc-tile-limit">1MB</p>
               </div>
               <FileUpload accept=".jpg,.jpeg,.png" onUpload={handlePhotoUpload} />
               {photoFile ? (
-                <div className="mt-4 pt-4 border-t border-border text-center">
-                  {photoPreview ? (
-                    <img
-                      src={photoPreview}
-                      alt="Profile preview"
-                      className="mx-auto h-20 w-20 rounded-full object-cover border border-border"
-                    />
-                  ) : null}
-                  <p className="mt-2 text-xs text-ink truncate">Selected: {photoFile.name}</p>
-                  <button
-                    type="button"
-                    className="text-xs font-medium text-danger hover:underline mt-2"
-                    onClick={() => {
-                      setPhotoFile(null)
-                      setPhotoPreview(null)
-                      setPhotoError(null)
-                    }}
-                  >
-                    Delete
-                  </button>
+                <div className="employee-form-doc-uploaded">
+                  <div className="flex items-center gap-3">
+                    {photoPreview ? (
+                      <img
+                        src={photoPreview}
+                        alt="Profile preview"
+                        className="h-14 w-14 shrink-0 rounded-full object-cover border border-border"
+                      />
+                    ) : null}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs text-ink truncate">{photoFile.name}</p>
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-danger hover:underline mt-1"
+                        onClick={() => {
+                          setPhotoFile(null)
+                          setPhotoPreview(null)
+                          setPhotoError(null)
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ) : null}
               {photoError ? <p className="text-xs text-danger mt-2">{photoError}</p> : null}
@@ -950,6 +953,7 @@ export function AddEmployee() {
             </div>
           </form>
         </div>
+      </div>
 
       <div className="employee-form-action-bar">
         <div className="employee-form-action-bar-inner">
@@ -965,7 +969,6 @@ export function AddEmployee() {
             Create Employee
           </Button>
         </div>
-      </div>
       </div>
 
       {/* ── Preview Modal ────────────────────────────────────────────────── */}

@@ -9,7 +9,7 @@ import { formatDistanceToNow } from 'date-fns'
 
 export function NotificationDropdown() {
   const navigate = useNavigate()
-  const { notifications, unreadCount, fetchNotifications, fetchNotificationsSilent, fetchUnreadCount, fetchUnreadCountSilent, markAsRead, markAllAsRead, deleteNotification } = useNotificationStore()
+  const { notifications, unreadCount, fetchNotifications, fetchNotificationsSilent, fetchUnreadCount, fetchUnreadCountSilent, markAsRead, markAllAsRead, deleteNotification, deleteAllNotifications } = useNotificationStore()
 
   useEffect(() => {
     fetchUnreadCount()
@@ -42,13 +42,24 @@ export function NotificationDropdown() {
           )}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80 p-0">
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+      <DropdownMenuContent align="end" className="notification-dropdown-panel w-80 border border-border p-0 shadow-lg">
+        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
           <span className="font-heading font-semibold">Notifications</span>
-          {unreadCount > 0 && (
-            <button type="button" onClick={() => markAllAsRead()} className="text-xs text-primary hover:underline">
-              Mark all as read
-            </button>
+          {notifications.length > 0 && (
+            <div className="notification-dropdown-actions">
+              {unreadCount > 0 && (
+                <button type="button" onClick={() => void markAllAsRead()} className="text-xs text-primary hover:underline">
+                  Mark all read
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => void deleteAllNotifications()}
+                className="text-xs font-medium text-red-600 hover:text-red-700 hover:underline"
+              >
+                Clear all
+              </button>
+            </div>
           )}
         </div>
         <div className="max-h-80 overflow-y-auto">
@@ -61,9 +72,10 @@ export function NotificationDropdown() {
               {notifications.slice(0, 5).map((n) => (
                 <div
                   key={n.id}
-                  className={`flex items-start gap-3 px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer ${
-                    !n.isRead ? 'bg-primary/5' : ''
-                  }`}
+                  className={cn(
+                    'notification-dropdown-item flex cursor-pointer items-start gap-3 px-4 py-3',
+                    !n.isRead ? 'notification-dropdown-item--unread' : 'notification-dropdown-item--read',
+                  )}
                   onClick={() => void handleNotificationClick(n)}
                 >
                   <div

@@ -14,9 +14,10 @@ function stripFileData(file: StoredFile | undefined) {
 /** List/detail JSON — never include base64 blobs (use upload routes for files). */
 export function sanitizeEmployeeForList(employee: Employee): Record<string, unknown> {
   const { photo, documents, ...rest } = employee as Employee & { _id?: unknown };
+  const hasPhoto = Boolean(photo?.data || photo?.filename);
   return {
     ...rest,
-    hasPhoto: Boolean(photo?.data || photo?.filename),
+    hasPhoto,
   };
 }
 
@@ -31,9 +32,11 @@ export function sanitizeEmployeeForDetail(employee: Employee): Record<string, un
     }
   }
 
+  const hasPhoto = Boolean(photo?.data || photo?.filename);
+
   return {
     ...rest,
-    hasPhoto: Boolean(photo?.data || photo?.filename),
+    hasPhoto,
     documents: Object.keys(docMeta).length > 0 ? docMeta : undefined,
   };
 }

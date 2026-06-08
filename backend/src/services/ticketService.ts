@@ -8,6 +8,7 @@ import {
   TicketAttachment,
 } from '../models/Ticket';
 import { syncProjectStatus } from '../utils/syncProject';
+import * as notificationService from './notificationService';
 
 let ticketCollection: Collection<any> | null = null;
 
@@ -60,7 +61,7 @@ export async function getAllTickets(filters?: {
   }
 
   const tickets = await col
-    .find(query, { projection: { 'attachment.data': 0 } })
+    .find(query, { projection: { attachment: 0 } })
     .sort({ createdAt: -1 })
     .toArray();
   return tickets as Ticket[];
@@ -88,6 +89,24 @@ export async function createTicket(payload: CreateTicketPayload): Promise<Ticket
     updatedAt: new Date(),
   };
   await col.insertOne(ticket);
+
+  try {
+    await notificationService.notifyAllAdmins({
+      type: 'TicketSubmitted',
+      title: 'New Support Ticket',
+      message: `${payload.employeeName} submitted "${payload.title}" (${payload.priority} priority)`,
+      relatedData: {
+        employeeId: payload.employeeId,
+        employeeName: payload.employeeName,
+        ticketId: id,
+        ticketTitle: payload.title,
+      },
+      relatedId: id,
+    });
+  } catch (error) {
+    console.error('[Ticket Service] Failed to notify admins about new ticket:', error);
+  }
+
   return ticket as Ticket;
 }
 
@@ -131,6 +150,28 @@ export async function updateTicketStatus(
     await syncProjectStatus(ticket.projectId);
   }
 
+  if (result) {
+    try {
+      await notificationService.createNotification({
+        recipientId: ticket.employeeId,
+        recipientType: 'Employee',
+        type: 'TicketStatusUpdated',
+        title: 'Ticket status updated',
+        message: `Your ticket "${ticket.title}" is now ${status}.`,
+        relatedData: {
+          employeeId: ticket.employeeId,
+          employeeName: ticket.employeeName,
+          ticketId: ticket.id,
+          ticketTitle: ticket.title,
+          ticketStatus: status,
+        },
+        relatedId: ticket.id,
+      });
+    } catch (error) {
+      console.error('[Ticket Service] Failed to notify employee about status update:', error);
+    }
+  }
+
   return result as Ticket | null;
 }
 
@@ -145,6 +186,9 @@ export async function addTicketComment(
     createdAt: new Date(),
   };
 
+  const existing = (await col.findOne({ id })) as Ticket | null;
+  if (!existing) return null;
+
   const result = await col.findOneAndUpdate(
     { id },
     {
@@ -153,6 +197,28 @@ export async function addTicketComment(
     } as any,
     { returnDocument: 'after' }
   );
+
+  if (result && payload.authorRole === 'Admin') {
+    try {
+      await notificationService.createNotification({
+        recipientId: existing.employeeId,
+        recipientType: 'Employee',
+        type: 'TicketCommentAdded',
+        title: 'New reply on your ticket',
+        message: `Admin replied on "${existing.title}": ${payload.text.trim().slice(0, 120)}`,
+        relatedData: {
+          employeeId: existing.employeeId,
+          employeeName: existing.employeeName,
+          ticketId: existing.id,
+          ticketTitle: existing.title,
+          ticketStatus: existing.status,
+        },
+        relatedId: existing.id,
+      });
+    } catch (error) {
+      console.error('[Ticket Service] Failed to notify employee about ticket comment:', error);
+    }
+  }
 
   return result as Ticket | null;
 }

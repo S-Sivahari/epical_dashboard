@@ -1,0 +1,149 @@
+import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
+import { Loader2, BarChart3, ArrowRight } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { useTimesheetStore } from '@store/employee/timesheetStore'
+import { getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
+import { cn } from '@pages/employee/lib/utils'
+import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
+
+const TimesheetWeeklyChart = lazy(() =>
+  import('@pages/employee/TimesheetWeeklyChart').then((m) => ({ default: m.TimesheetWeeklyChart })),
+)
+
+const CARD_CLASS = portalCardClass({ className: 'overflow-hidden p-4 sm:p-5' })
+
+function hoursFromMs(ms) {
+  return Math.round((ms / 3600000) * 10) / 10
+}
+
+function getDayKey(date) {
+  return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]
+}
+
+function segmentHours(seg, checkedIn, liveNow) {
+  const isOpen = checkedIn && !seg.checkOutTime
+  const startMs = new Date(seg.checkInTime).getTime()
+  const endMs = seg.checkOutTime ? new Date(seg.checkOutTime).getTime() : isOpen ? liveNow : startMs
+  return hoursFromMs(Math.max(0, endMs - startMs))
+}
+
+export function DashboardWorkInsights({ className, compact = false, fill = false }) {
+  const { checkedIn, attendanceHistory, initialized, hydrate, serverTimeSkew } = useTimesheetStore()
+  const [liveNow, setLiveNow] = useState(() => Date.now() + (serverTimeSkew || 0))
+  const chartHeight = fill ? '100%' : compact ? 160 : 220
+  const cardClass = compact
+    ? portalCardClass({ className: 'flex h-full min-h-0 flex-col overflow-hidden p-3' })
+    : CARD_CLASS
+
+  useEffect(() => {
+    void hydrate()
+  }, [hydrate])
+
+  useEffect(() => {
+    if (!checkedIn) return undefined
+    const tick = () => setLiveNow(Date.now() + (serverTimeSkew || 0))
+    tick()
+    const id = setInterval(tick, 15000)
+    return () => clearInterval(id)
+  }, [checkedIn, serverTimeSkew])
+
+  const weekRange = useMemo(() => getWeekRange(), [liveNow])
+
+  const weeklyHours = useMemo(() => {
+    const byDay = {}
+    const chartDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+    attendanceHistory.forEach((seg) => {
+      if (!isDateInRange(seg.date, weekRange.start, weekRange.end)) return
+      const key = getDayKey(new Date(`${seg.date}T12:00:00`))
+      byDay[key] = (byDay[key] || 0) + segmentHours(seg, checkedIn, liveNow)
+    })
+
+    return chartDays.map((day) => ({
+      day,
+      hours: Math.round((byDay[day] || 0) * 10) / 10,
+      target: 8,
+    }))
+  }, [attendanceHistory, checkedIn, liveNow, weekRange])
+
+  const totalWeekly = weeklyHours.reduce((sum, row) => sum + row.hours, 0)
+  const chartLoading = !initialized
+
+  return (
+    <InteractiveCard
+      to="/employee/timesheet"
+      className={cn(cardClass, 'emp-dash-card emp-dash-card--sage flex flex-col', className)}
+    >
+      <div
+        className={cn(
+          'flex shrink-0 flex-wrap items-start justify-between gap-2 border-b border-border',
+          compact ? 'mb-2 pb-2' : 'mb-3 pb-3',
+        )}
+      >
+        <div className="flex min-w-0 items-start gap-2">
+          <div
+            className={cn('emp-dash-icon emp-dash-icon--sage', compact && 'h-7 w-7')}
+            aria-hidden
+          >
+            <BarChart3 className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
+          </div>
+          <div className="min-w-0">
+            <h3 className={cn('font-heading font-semibold text-foreground', compact ? 'text-sm' : 'text-base')}>
+              Weekly hours
+            </h3>
+            {!compact ? (
+              <p className="mt-0.5 text-xs text-muted">
+                {chartLoading ? 'Loading…' : `${totalWeekly.toFixed(1)}h logged this week`}
+              </p>
+            ) : (
+              <p className="mt-0.5 text-[11px] text-muted">
+                {chartLoading ? 'Loading…' : `${totalWeekly.toFixed(1)}h this week`}
+              </p>
+            )}
+          </div>
+        </div>
+        <Link
+          to="/employee/timesheet"
+          className={cn(
+            'inline-flex shrink-0 items-center gap-1 font-medium text-primary hover:underline',
+            compact ? 'text-[10px]' : 'text-xs',
+          )}
+        >
+          Timesheet <ArrowRight className={compact ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
+        </Link>
+      </div>
+
+      <div
+        className={cn(
+          'min-h-0 flex-1',
+          fill && 'emp-dash-widget-body',
+        )}
+        style={fill ? undefined : { minHeight: chartHeight }}
+      >
+        {chartLoading ? (
+          <div
+            className="flex h-full min-h-[8rem] items-center justify-center"
+            style={fill ? undefined : { minHeight: chartHeight }}
+          >
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : (
+          <Suspense
+            fallback={
+              <div
+                className="flex h-full min-h-[8rem] items-center justify-center text-xs text-muted"
+                style={fill ? undefined : { minHeight: chartHeight }}
+              >
+                Loading chart…
+              </div>
+            }
+          >
+            <div className={fill ? 'h-full min-h-[8rem]' : undefined} style={fill ? undefined : { height: chartHeight }}>
+              <TimesheetWeeklyChart data={weeklyHours} height={chartHeight} />
+            </div>
+          </Suspense>
+        )}
+      </div>
+    </InteractiveCard>
+  )
+}

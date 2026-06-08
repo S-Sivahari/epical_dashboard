@@ -48,6 +48,7 @@ export interface NotificationData {
     | 'PayslipSent' | 'PayslipRegenerated'
     | 'HolidayAdded' | 'HolidayUpdated' | 'HolidayDeleted' | 'HolidaySkipped'
     | 'CalendarEventAdded' | 'CalendarEventUpdated' | 'CalendarEventRemoved'
+    | 'TicketSubmitted' | 'TicketStatusUpdated' | 'TicketCommentAdded'
   title: string
   message: string
   relatedData: {
@@ -66,6 +67,9 @@ export interface NotificationData {
     calendarEventTitle?: string
     calendarEventDate?: string
     skippedReason?: string
+    ticketId?: string
+    ticketTitle?: string
+    ticketStatus?: string
   }
   isRead: boolean
   createdAt: string
@@ -85,6 +89,7 @@ interface NotificationState {
   markAsRead: (notificationId: string) => Promise<void>
   markAllAsRead: () => Promise<void>
   deleteNotification: (notificationId: string) => Promise<void>
+  deleteAllNotifications: () => Promise<void>
   clearNotifications: () => void
 }
 
@@ -193,6 +198,15 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       set({ notifications, unreadCount })
     } catch (error) {
       console.error('Error deleting notification:', error)
+    }
+  },
+
+  deleteAllNotifications: async () => {
+    try {
+      await api.delete('/notifications/all')
+      set({ notifications: [], unreadCount: 0, lastUnreadCount: 0, lastNotificationCount: 0 })
+    } catch (error) {
+      console.error('Error deleting all notifications:', error)
     }
   },
 

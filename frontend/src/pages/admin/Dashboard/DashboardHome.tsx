@@ -38,6 +38,7 @@ export function DashboardHome() {
     {
       label: 'Pending tickets',
       value: data.pendingTicketsCount,
+      itemLoading: data.ticketsLoading,
       icon: ClipboardList,
       tone: 'amber' as const,
       route: ROUTES.TICKETS,
@@ -72,11 +73,7 @@ export function DashboardHome() {
         <div className="dashboard-main-grid min-h-0 flex-1">
           <aside className="dashboard-left-column min-h-0">
             <DashboardKpiStrip items={kpiItems} loading={data.loading} variant="column" />
-            <DashboardLeftInsights
-              totalEmployees={data.totalEmployees}
-              upcomingDeadlines={data.upcomingDeadlines}
-              className="dashboard-left-insights-column min-h-0 flex-1"
-            />
+            <DashboardLeftInsights className="dashboard-left-insights-column min-h-0 flex-1" />
           </aside>
 
           <div className="dashboard-center-column min-h-0">

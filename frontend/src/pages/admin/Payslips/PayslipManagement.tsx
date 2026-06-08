@@ -169,17 +169,42 @@ function formatBatchTitleLabel(batch: PayrollBatch | null | undefined): string {
   return period ? `${period} Payroll Batch` : 'Payroll Batch'
 }
 
-function currentCalendarPeriod(): { year: string; month: string } {
-  const now = new Date()
-  return { year: String(now.getFullYear()), month: String(now.getMonth() + 1) }
-}
-
 function countUnsentInBatch(b: PayrollBatch): number {
   return b.results.filter((r) => r.status === 'success' && r.fileName && !r.sent).length
 }
 
 function countGeneratedInBatch(b: PayrollBatch): number {
   return b.results.filter((r) => r.status === 'success' && r.fileName).length
+}
+
+function batchEmpIdSet(batch: PayrollBatch): Set<string> {
+  return new Set(
+    batch.results.map((r) => String(r.empId).trim().toUpperCase()).filter(Boolean),
+  )
+}
+
+function batchesShareEmployeeIds(a: PayrollBatch, b: PayrollBatch): boolean {
+  const idsA = batchEmpIdSet(a)
+  for (const id of batchEmpIdSet(b)) {
+    if (idsA.has(id)) return true
+  }
+  return false
+}
+
+function batchPeriodKey(batch: PayrollBatch): string {
+  if (batch.payPeriodKey) return batch.payPeriodKey
+  const period = parseBatchPayPeriod(batch)
+  if (period) return `${period.year}-${String(period.month).padStart(2, '0')}`
+  return batch.id
+}
+
+function sortBatchesNewestFirst(a: PayrollBatch, b: PayrollBatch): number {
+  const pa = parseBatchPayPeriod(a)
+  const pb = parseBatchPayPeriod(b)
+  const ka = pa ? pa.year * 100 + pa.month : 0
+  const kb = pb ? pb.year * 100 + pb.month : 0
+  if (kb !== ka) return kb - ka
+  return new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
 }
 
 function sendingKeyFor(batchId: string, empId: string): string {
@@ -216,8 +241,6 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
     name: string
   } | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [uploadPayYear, setUploadPayYear] = useState(() => currentCalendarPeriod().year)
-  const [uploadPayMonth, setUploadPayMonth] = useState(() => currentCalendarPeriod().month)
   const [replaceConfirm, setReplaceConfirm] = useState<{
     payMonth: string
     existingBatchId: string
@@ -352,39 +375,40 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
     }
   }, [searchParams, batch?.id, setUploadBatch])
 
-  const uploadYearOptions = useMemo(() => {
-    const years = new Set<number>()
-    const currentYear = new Date().getFullYear()
-    years.add(currentYear)
-    years.add(currentYear - 1)
-    years.add(currentYear + 1)
-    for (const b of allBatches) {
-      const period = parseBatchPayPeriod(b)
-      if (period) years.add(period.year)
-    }
-    return [...years]
-      .sort((a, b) => b - a)
-      .map((y) => ({ value: String(y), label: String(y) }))
-  }, [allBatches])
-
-  const uploadMonthOptions = useMemo(
-    () =>
-      CALENDAR_MONTHS.map((name, index) => ({
-        value: String(index + 1),
-        label: name,
-      })),
-    [],
-  )
-
   const uploadBatchesFlat = useMemo(() => {
-    return [...allBatches].sort((a, b) => {
-      const pa = parseBatchPayPeriod(a)
-      const pb = parseBatchPayPeriod(b)
-      const ka = pa ? pa.year * 100 + pa.month : 0
-      const kb = pb ? pb.year * 100 + pb.month : 0
-      if (kb !== ka) return kb - ka
-      return new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
-    })
+    const sorted = [...allBatches].sort(sortBatchesNewestFirst)
+    const byPeriod = new Map<string, PayrollBatch[]>()
+
+    for (const batch of sorted) {
+      const key = batchPeriodKey(batch)
+      const group = byPeriod.get(key)
+      if (group) group.push(batch)
+      else byPeriod.set(key, [batch])
+    }
+
+    const visible: PayrollBatch[] = []
+    for (const group of byPeriod.values()) {
+      if (group.length === 1) {
+        visible.push(group[0])
+        continue
+      }
+
+      const hasOverlap = group.some((a, i) =>
+        group.some((b, j) => i < j && batchesShareEmployeeIds(a, b)),
+      )
+
+      if (hasOverlap) {
+        visible.push(...group.sort(sortBatchesNewestFirst))
+      } else {
+        visible.push(
+          group.reduce((best, current) =>
+            (current.results?.length ?? 0) > (best.results?.length ?? 0) ? current : best,
+          ),
+        )
+      }
+    }
+
+    return visible.sort(sortBatchesNewestFirst)
   }, [allBatches])
 
   const handleSwitchBatch = async (batchId: string) => {
@@ -411,14 +435,6 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
       void loadAllBatches()
     }
   }, [activeTab, loadAllBatches])
-
-  useEffect(() => {
-    if (!batch) return
-    const period = parseBatchPayPeriod(batch)
-    if (!period) return
-    setUploadPayYear(String(period.year))
-    setUploadPayMonth(String(period.month))
-  }, [batch?.id])
 
   const historyMonthOptions = useMemo(() => {
     const months = new Set<number>()
@@ -558,38 +574,21 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
     setSelectedFile(file)
   }
 
-  const uploadPeriodFields = () => {
-    const payYear = parseInt(uploadPayYear, 10)
-    const payMonthNum = parseInt(uploadPayMonth, 10)
-    if (Number.isNaN(payYear) || Number.isNaN(payMonthNum) || payMonthNum < 1 || payMonthNum > 12) {
-      return null
-    }
-    return { payYear, payMonthNum }
-  }
-
   const runPayrollUpload = async (
     file: File,
     options?: {
       replaceBatchId?: string
-      resendPayslips?: boolean
       allowDuplicatePayPeriod?: boolean
+      resendPayslips?: boolean
     },
   ) => {
-    const period = uploadPeriodFields()
-    if (!period) {
-      toast.error('Select a valid payroll month and year')
-      return
-    }
-
     setUploading(true)
     try {
       const result = await uploadPayroll(file, {
         replaceBatchId: options?.replaceBatchId,
-        resendPayslips: options?.resendPayslips,
         allowDuplicatePayPeriod: options?.allowDuplicatePayPeriod,
+        resendPayslips: options?.resendPayslips,
         employeeDbIdByEmpId: options?.resendPayslips ? buildEmployeeDbIdMap() : undefined,
-        payYear: period.payYear,
-        payMonthNum: period.payMonthNum,
       })
       const newBatch = result.batch
       setUploadBatch(newBatch)
@@ -599,8 +598,10 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
 
       if (newBatch.totalFailed > 0) {
         toast.warning(`${newBatch.totalFailed} payslip(s) failed to generate`)
-      } else if (options?.allowDuplicatePayPeriod) {
-        toast.success(`New payslip batch saved for ${formatBatchPeriodLabel(newBatch) || 'this period'}`)
+      } else if (result.appended) {
+        toast.success(
+          `Added ${result.addedCount ?? 0} employee(s) to ${formatBatchPeriodLabel(newBatch) || 'this payroll batch'}`,
+        )
       }
       void loadAllBatches()
       syncPayslipUrl('upload', newBatch.id)
@@ -639,9 +640,11 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
     })
   }
 
-  const handleGenerateNew = async () => {
+  const handleConfirmAddAnotherUpload = async () => {
     if (!selectedFile || !replaceConfirm) return
-    await runPayrollUpload(selectedFile, { allowDuplicatePayPeriod: true })
+    await runPayrollUpload(selectedFile, {
+      allowDuplicatePayPeriod: true,
+    })
   }
 
   const handleDeleteBatch = async () => {
@@ -1144,18 +1147,10 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
                           <strong className="min-w-0 flex-1 truncate">{selectedFile.name}</strong>
                         </div>
                       )}
-                      <SelectField
-                        label="Payroll month"
-                        value={uploadPayMonth}
-                        onChange={(e) => setUploadPayMonth(e.target.value)}
-                        options={uploadMonthOptions}
-                      />
-                      <SelectField
-                        label="Payroll year"
-                        value={uploadPayYear}
-                        onChange={(e) => setUploadPayYear(e.target.value)}
-                        options={uploadYearOptions}
-                      />
+                      <p className="text-xs admin-payslips-text-muted">
+                        Pay month is taken from the <strong>Pay Month</strong> field in your Excel
+                        company sheet.
+                      </p>
                       <Button
                         className="admin-payslips-primary-btn w-full border-0"
                         onClick={handleUploadAndProcess}
@@ -1495,14 +1490,14 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
           title="Payslip already exists for this month"
           description={
             replaceConfirm
-              ? `Payroll for ${replaceConfirm.payMonth} was already uploaded${replaceConfirm.originalFileName ? ` (${replaceConfirm.originalFileName})` : ''}. Replace overwrites that upload, or add another upload and keep both in History.`
+              ? `Payroll for ${replaceConfirm.payMonth} already includes one or more of these employee ID(s). Replace the existing upload to regenerate payslips for those employees${replaceConfirm.originalFileName ? ` (${replaceConfirm.originalFileName})` : ''}, or add another upload to keep both batches and switch between them.`
               : ''
           }
           confirmLabel="Replace & regenerate"
           secondaryLabel="Add another upload"
           onClose={() => setReplaceConfirm(null)}
           onConfirm={handleConfirmReplace}
-          onSecondary={handleGenerateNew}
+          onSecondary={handleConfirmAddAnotherUpload}
         />
       </div>
     </PageWrapper>

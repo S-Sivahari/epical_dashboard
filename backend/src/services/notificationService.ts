@@ -157,6 +157,12 @@ export async function deleteNotification(
   return result.deletedCount > 0;
 }
 
+export async function deleteAllNotifications(recipientId: string): Promise<number> {
+  const col = getNotificationCol();
+  const result = await col.deleteMany({ recipientId });
+  return result.deletedCount;
+}
+
 export async function getUnreadCount(recipientId: string): Promise<number> {
   const col = getNotificationCol();
   return await col.countDocuments({ recipientId, isRead: false });

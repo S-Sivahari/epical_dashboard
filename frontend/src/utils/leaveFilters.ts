@@ -93,6 +93,39 @@ export function canCancelLeave(leave: Pick<LeaveRequest, 'status' | 'to'>): bool
   return false
 }
 
+function toDateKey(value: unknown): string | null {
+  if (!value) return null
+  const d = value instanceof Date ? value : new Date(String(value))
+  if (Number.isNaN(d.getTime())) return null
+  return formatDateKey(d)
+}
+
+/** When a rejected leave was last actioned (reject pending or revoke approved). */
+export function getLeaveRejectionDateKey(leave: LeaveRequest): string | null {
+  if (leave.status !== 'Rejected') return null
+  return toDateKey(leave.rejectedAt ?? leave.updatedAt ?? leave.createdAt)
+}
+
+/** True if a rejected leave was previously approved (admin revoked). */
+export function isRevokedApprovedLeave(leave: LeaveRequest): boolean {
+  return leave.status === 'Rejected' && Boolean(leave.approvalDate ?? leave.approvedAt ?? leave.approvedBy)
+}
+
+function leaveMatchesMonthFilter(leave: LeaveRequest, filters: LeaveFilters): boolean {
+  const { dateFrom, dateTo } = filters
+  const periodMatch = leavePeriodOverlapsRange(leave.from, leave.to, dateFrom, dateTo)
+
+  if (leave.status !== 'Rejected' || !dateFrom || !dateTo) {
+    return periodMatch
+  }
+
+  const rejectionKey = getLeaveRejectionDateKey(leave)
+  const rejectionMatch =
+    rejectionKey != null && isDateKeyInRange(rejectionKey, dateFrom, dateTo)
+
+  return periodMatch || rejectionMatch
+}
+
 export function filterLeaves(leaves: LeaveRequest[], filters: LeaveFilters): LeaveRequest[] {
   return leaves.filter((l) => {
     const matchName =
@@ -102,7 +135,18 @@ export function filterLeaves(leaves: LeaveRequest[], filters: LeaveFilters): Lea
     const matchType =
       !filters.leaveType ||
       l.type === filters.leaveType
-    const matchDate = leavePeriodOverlapsRange(l.from, l.to, filters.dateFrom, filters.dateTo)
+    const matchDate = leaveMatchesMonthFilter(l, filters)
     return matchName && matchStatus && matchType && matchDate
   })
+}
+
+/** Compact day count for leave tables and feeds (e.g. 3d, 0.5d). */
+export function formatLeaveDayCount(leave: {
+  days?: number
+  leaveDuration?: string
+}): string {
+  if (leave.leaveDuration === 'Half Day') return '0.5d'
+  const days = Number(leave.days)
+  if (Number.isNaN(days)) return '—'
+  return `${days}d`
 }

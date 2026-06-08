@@ -18,6 +18,8 @@ import {
   updateCell,
   updateCellStatus,
 } from '@/services/projectWorkspaceService'
+import { fetchCellChecklist } from '@/services/checklistService'
+import { Badge } from '@components/ui/Badge'
 import { cn } from '@/utils/cn'
 import {
   CELL_STATUSES,
@@ -56,19 +58,22 @@ export function ProjectCellPage() {
   const [reviewComment, setReviewComment] = useState('')
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [cellChecklist, setCellChecklist] = useState<Awaited<ReturnType<typeof fetchCellChecklist>> | null>(null)
 
   const reload = useCallback(async () => {
     if (!projectId || !cellId) return
     setLoading(true)
     try {
-      const [ws, empsRes, reviewList] = await Promise.all([
+      const [ws, empsRes, reviewList, checklistData] = await Promise.all([
         fetchWorkspaceSummary(projectId),
         getEmployees({ status: 'Active', pageSize: 500 }),
         fetchCellReviews(projectId, cellId),
+        fetchCellChecklist(projectId, cellId).catch(() => null),
       ])
       setSummary(ws)
       setEmployees(empsRes.data ?? [])
       setReviews(reviewList)
+      setCellChecklist(checklistData)
       const cell = ws.cells.find((c) => c.id === cellId)
       if (cell) {
         setCellForm(cell)
@@ -345,6 +350,50 @@ export function ProjectCellPage() {
                       </dd>
                     </div>
                   </dl>
+                  <div className="admin-projects-cell-checklist-section">
+                    <p className="admin-projects-field-label">Checklist</p>
+                    {!cellChecklist?.checklistId ? (
+                      <p className="text-sm text-slate-500">No checklist assigned to this project.</p>
+                    ) : (
+                      <>
+                        <div className="mb-3 flex items-center gap-2">
+                          <Badge
+                            variant={
+                              cellChecklist.cellStatus === 'Applied'
+                                ? 'success'
+                                : cellChecklist.cellStatus === 'Pending'
+                                  ? 'warning'
+                                  : 'neutral'
+                            }
+                            className="px-2.5 py-0.5 font-semibold"
+                          >
+                            {cellChecklist.cellStatus}
+                          </Badge>
+                        </div>
+                        <ul className="admin-projects-cell-checklist-list">
+                          {cellChecklist.items.map((item) => (
+                            <li key={item.id} className="admin-projects-cell-checklist-row">
+                              <span className="font-medium text-slate-800">{item.itemName}</span>
+                              <Badge
+                                variant={item.status === 'Applied' ? 'success' : item.status === 'Pending' ? 'warning' : 'neutral'}
+                                className="px-2 py-0.5 text-[0.6875rem] font-semibold"
+                              >
+                                {item.status}
+                              </Badge>
+                              {item.appliedBy ? (
+                                <span className="text-xs text-slate-500">
+                                  {item.appliedBy}
+                                  {item.appliedDate
+                                    ? ` · ${new Date(item.appliedDate).toLocaleDateString()}`
+                                    : ''}
+                                </span>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+                  </div>
                   <div className="admin-projects-cell-details-views">
                     <p className="admin-projects-field-label">Views</p>
                     <div className="admin-projects-pill-rail mb-2">

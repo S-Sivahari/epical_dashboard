@@ -44,3 +44,25 @@ export function publishedAtFromDateKey(dateKey: string): string {
   assertPastNewsDateKey(dateKey);
   return new Date(`${normalizeNewsDateInput(dateKey)!}T12:00:00`).toISOString();
 }
+
+export function toUtcDateKey(date: Date): string {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function utcDateKeyFromIsoInstant(iso: string): string | null {
+  const trimmed = iso.trim();
+  if (!trimmed) return null;
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return toUtcDateKey(parsed);
+}
+
+/** External feeds publish UTC instants — validate by UTC calendar day, not server local time. */
+export function normalizeExternalNewsDateKey(iso: string): string | null {
+  const utcKey = utcDateKeyFromIsoInstant(iso);
+  if (!utcKey || !isPastNewsDateKey(utcKey)) return null;
+  return utcKey;
+}

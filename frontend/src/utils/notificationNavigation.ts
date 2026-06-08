@@ -32,6 +32,11 @@ export function getNotificationRoute(notification: NotificationData): string | n
     case 'CalendarEventUpdated':
     case 'CalendarEventRemoved':
       return recipientType === 'Admin' ? '/admin/calendar' : '/employee/calendar'
+    case 'TicketSubmitted':
+      return '/admin/tickets'
+    case 'TicketStatusUpdated':
+    case 'TicketCommentAdded':
+      return '/employee/tickets'
     default:
       return null
   }
