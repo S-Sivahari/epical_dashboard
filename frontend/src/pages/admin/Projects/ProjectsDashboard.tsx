@@ -10,7 +10,7 @@ import { ROUTES } from '@constants/routes'
 import api from '@/services/api'
 import { cn } from '@/utils/cn'
 import { stringToHueColor, stringToHueHoverBg } from '@/utils/stringColor'
-import type { AdminProjectRow, ProjectChecklistStatus } from '@/types/projectWorkspace'
+import type { AdminProjectRow, ProjectChecklistStatus, ProjectChecklistSummary } from '@/types/projectWorkspace'
 import { ChecklistManagementModal } from './ChecklistManagementModal'
 import {
   AssignChecklistModal,
@@ -183,7 +183,6 @@ export function ProjectsDashboard() {
         className: 'min-w-[11rem]',
         render: (p) => {
           const status = p.checklistStatus || 'Not Applied'
-          const pct = p.checklistCompletionPercentage ?? 0
           return (
             <button
               type="button"
@@ -203,7 +202,6 @@ export function ProjectsDashboard() {
               >
                 {status}
               </Badge>
-              <p className="mt-0.5 text-xs font-semibold text-emerald-800">{pct}%</p>
             </button>
           )
         },
@@ -257,6 +255,25 @@ export function ProjectsDashboard() {
       setSortColumn(col)
       setSortDirection('asc')
     }
+  }
+
+  const handleChecklistAssigned = (projectId: string, summary: ProjectChecklistSummary) => {
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id === projectId
+          ? {
+              ...p,
+              checklistName: summary.checklistName,
+              checklistStatus: summary.status as ProjectChecklistStatus,
+              checklistCompletionPercentage: summary.completionPercentage,
+              checklistLastUpdated: summary.lastUpdated,
+              checklistTotalCells: summary.totalCells,
+              checklistAppliedCells: summary.appliedCells,
+            }
+          : p,
+      ),
+    )
+    void load()
   }
 
   if (tab) {
@@ -373,7 +390,10 @@ export function ProjectsDashboard() {
           projectId={assignTarget.id}
           projectName={assignTarget.name}
           onClose={() => setAssignTarget(null)}
-          onAssigned={() => void load()}
+          onAssigned={(summary) => {
+            handleChecklistAssigned(assignTarget.id, summary)
+            setAssignTarget(null)
+          }}
         />
       ) : null}
     </PageWrapper>

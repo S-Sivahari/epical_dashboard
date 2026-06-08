@@ -15,6 +15,10 @@ function resolveSelectedItems(
   return allItems.filter((item) => idSet.has(item._id.toString()));
 }
 
+export function actorName(req: { user?: { name?: string; email?: string } }): string {
+  return req.user?.name || req.user?.email || 'Admin';
+}
+
 export async function recalcProjectChecklistProgress(projectId: Types.ObjectId): Promise<void> {
   const assignment = await ProjectChecklistModel.findOne({ projectId });
   if (!assignment) return;
@@ -23,19 +27,34 @@ export async function recalcProjectChecklistProgress(projectId: Types.ObjectId):
   const totalCells = cells.length;
   assignment.totalCells = totalCells;
 
-  if (totalCells === 0) {
-    assignment.appliedCells = 0;
-    assignment.completionPercentage = 0;
-    assignment.status = 'Not Applied';
-    await assignment.save();
-    return;
-  }
-
   const checklist = await ChecklistModel.findById(assignment.checklistId);
   const selectedItems = checklist
     ? resolveSelectedItems(checklist, assignment.selectedItemIds)
     : [];
   const itemCount = selectedItems.length;
+
+  if (totalCells === 0) {
+    assignment.appliedCells = 0;
+    if (itemCount === 0) {
+      assignment.completionPercentage = 0;
+      assignment.status = 'Not Applied';
+    } else {
+      const appliedMappings = await CellChecklistMappingModel.countDocuments({
+        projectId,
+        checklistId: assignment.checklistId,
+        status: 'Applied',
+      });
+      if (appliedMappings > 0) {
+        assignment.completionPercentage = 100;
+        assignment.status = 'Applied';
+      } else {
+        assignment.completionPercentage = 0;
+        assignment.status = 'Not Applied';
+      }
+    }
+    await assignment.save();
+    return;
+  }
 
   let appliedCells = 0;
   for (const cell of cells) {
@@ -64,7 +83,12 @@ export async function recalcProjectChecklistProgress(projectId: Types.ObjectId):
 export async function assignChecklistToProject(
   projectId: string,
   checklistId: string,
-  options?: { actor?: string; selectedItemIds?: string[] },
+  options?: {
+    actor?: string;
+    actorId?: string;
+    selectedItemIds?: string[];
+    applyToAll?: boolean;
+  },
 ): Promise<void> {
   if (!Types.ObjectId.isValid(projectId) || !Types.ObjectId.isValid(checklistId)) {
     throw new Error('Invalid project or checklist id');
@@ -115,6 +139,8 @@ export async function assignChecklistToProject(
 
   const selectedItems = resolveSelectedItems(checklist, selectedIds);
   const cells = await ProjectCellModel.find({ projectId: projectOid });
+  const applyToAll = options?.applyToAll ?? false;
+  const now = new Date();
   const bulk: {
     projectId: Types.ObjectId;
     cellId: Types.ObjectId;
@@ -124,6 +150,7 @@ export async function assignChecklistToProject(
     status: CellChecklistStatus;
     appliedBy?: string;
     appliedByName?: string;
+    appliedDate?: Date;
   }[] = [];
 
   for (const cell of cells) {
@@ -134,9 +161,10 @@ export async function assignChecklistToProject(
         checklistId: checklistOid,
         checklistItemId: item._id,
         itemName: item.itemName,
-        status: 'Pending' as CellChecklistStatus,
-        appliedBy: actor,
+        status: applyToAll ? ('Applied' as CellChecklistStatus) : ('Pending' as CellChecklistStatus),
+        appliedBy: applyToAll ? options?.actorId || actor : actor,
         appliedByName: actor,
+        appliedDate: applyToAll ? now : undefined,
       });
     }
   }
@@ -146,6 +174,18 @@ export async function assignChecklistToProject(
   }
 
   await recalcProjectChecklistProgress(projectOid);
+
+  if (applyToAll && cells.length === 0) {
+    await ProjectChecklistModel.findOneAndUpdate(
+      { projectId: projectOid },
+      {
+        status: 'Applied',
+        completionPercentage: 100,
+        totalCells: 0,
+        appliedCells: 0,
+      },
+    );
+  }
 }
 
 export async function applyChecklistToAllCells(
@@ -159,7 +199,22 @@ export async function applyChecklistToAllCells(
   const assignment = await ProjectChecklistModel.findOne({ projectId: projectOid });
   if (!assignment) throw new Error('No checklist assigned to this project');
 
+  const cells = await ProjectCellModel.find({ projectId: projectOid });
   const now = new Date();
+
+  if (cells.length === 0) {
+    await ProjectChecklistModel.findOneAndUpdate(
+      { projectId: projectOid },
+      {
+        status: 'Applied',
+        completionPercentage: 100,
+        totalCells: 0,
+        appliedCells: 0,
+      },
+    );
+    return { updated: 0 };
+  }
+
   const result = await CellChecklistMappingModel.updateMany(
     { projectId: projectOid, checklistId: assignment.checklistId },
     {
@@ -185,7 +240,10 @@ export async function getProjectChecklistSummary(projectId: string) {
   const checklist = await ChecklistModel.findById(assignment.checklistId).lean();
   if (!checklist) return null;
 
-  const selectedItems = resolveSelectedItems(checklist as ChecklistDocument, assignment.selectedItemIds);
+  const selectedItems = resolveSelectedItems(
+    checklist as { items: { _id: Types.ObjectId; itemName: string }[] },
+    assignment.selectedItemIds,
+  );
 
   return {
     checklistId: String(assignment.checklistId),
@@ -313,5 +371,3 @@ export async function removeChecklistMappingsForCell(cellId: Types.ObjectId): Pr
   await CellChecklistMappingModel.deleteMany({ cellId });
   await recalcProjectChecklistProgress(projectId);
 }
-
-export { actorName };

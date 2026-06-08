@@ -150,9 +150,11 @@ export const checklistController = {
       }
       await assignChecklistToProject(projectId, checklistId, {
         actor: actorName(req),
+        actorId: req.user?.id || '',
         selectedItemIds: Array.isArray(selectedItemIds) ? selectedItemIds : undefined,
+        applyToAll: Boolean(applyToAll),
       });
-      if (applyToAll) {
+      if (applyToAll && (await ProjectCellModel.countDocuments({ projectId })) > 0) {
         const userId = req.user?.id || '';
         await applyChecklistToAllCells(projectId, userId, actorName(req));
       }

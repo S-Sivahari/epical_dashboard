@@ -11,7 +11,7 @@ import {
   fetchProjectChecklist,
   importChecklistFile,
 } from '@/services/checklistService'
-import type { Checklist, ChecklistImportResult } from '@/types/projectWorkspace'
+import type { Checklist, ChecklistImportResult, ProjectChecklistSummary } from '@/types/projectWorkspace'
 import { cn } from '@/utils/cn'
 
 const EXPORT_HEADERS = [
@@ -228,7 +228,7 @@ export function AssignChecklistModal({
   projectId: string
   projectName: string
   onClose: () => void
-  onAssigned: () => void
+  onAssigned: (summary: ProjectChecklistSummary) => void
 }) {
   const [checklists, setChecklists] = useState<Checklist[]>([])
   const [selectedId, setSelectedId] = useState('')
@@ -292,7 +292,7 @@ export function AssignChecklistModal({
     }
     setLoading(true)
     try {
-      await assignChecklistToProject(projectId, selectedId, {
+      const summary = await assignChecklistToProject(projectId, selectedId, {
         applyToAll,
         selectedItemIds,
       })
@@ -301,7 +301,7 @@ export function AssignChecklistModal({
           ? `Checklist assigned and applied to all cells in ${projectName}`
           : `Checklist assigned to ${projectName}`,
       )
-      onAssigned()
+      onAssigned(summary)
       onClose()
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
