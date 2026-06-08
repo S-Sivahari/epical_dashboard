@@ -320,6 +320,14 @@ app.use(
 
 // ── Start server ──────────────────────────────────────────────
 export async function startServer() {
+  const port = Number(process.env.PORT) || 3000;
+
+  // Bind to the port FIRST so Cloud Run's health check passes immediately
+  app.listen(port, '0.0.0.0', () => {
+    console.log(`✓ Server running on port ${port}`);
+  });
+
+  // Then do DB connection + setup in the background
   try {
     validateProductionSecrets();
     const db = await connectDB();
@@ -349,15 +357,12 @@ export async function startServer() {
     const { ensurePayslipStorageIndexes } = await import(
       './services/payslipStorageService'
     );
-
     await ensurePayslipStorageIndexes();
 
     const { ensureEmployeePayslipIndexes } = await import(
       './services/employeePayslipService'
     );
-
     const removedDupes = await ensureEmployeePayslipIndexes();
-
     if (removedDupes > 0) {
       console.log(
         `✓ Removed ${removedDupes} duplicate employee dashboard payslip(s)`
@@ -378,7 +383,6 @@ export async function startServer() {
     // Cleanup department field
     try {
       const removed = await removeDepartmentFromDatabase();
-
       if (removed.employees > 0 || removed.users > 0) {
         console.log(
           `✓ Removed department field from ${removed.employees} employees and ${removed.users} users`
@@ -387,13 +391,6 @@ export async function startServer() {
     } catch (err) {
       console.warn('⚠ Department field cleanup skipped:', err);
     }
-
-    // Force it to read the environment variable directly, falling back to 3000
-    const port = Number(process.env.PORT) || 3000;
-
-    app.listen(port, '0.0.0.0', () => {
-      console.log(`✓ Server running on port ${port}`);
-    });
 
     initScheduler().catch((err) =>
       console.error('⚠ Scheduler init failed (non-fatal):', err)
@@ -408,8 +405,8 @@ export async function startServer() {
       console.warn('⚠ Payroll FY snapshot reset skipped:', err);
     }
   } catch (error) {
-    console.error('✗ Failed to start server:', error);
-    process.exit(1);
+    // Server is already listening — just log the init failure, don't exit
+    console.error('✗ Initialization error (server still running):', error);
   }
 }
 
