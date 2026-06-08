@@ -11,8 +11,6 @@ const RESPONSE_LABELS: Record<CellChecklistItemResponse, string> = {
   not_applicable: 'N/A',
 }
 
-const RESPONSE_OPTIONS = ['yes', 'no'] as const
-
 type CommentTarget = {
   mappingId: string
   itemName: string
@@ -101,7 +99,7 @@ export function CellChecklistResponses({
               role="group"
               aria-label={`Response for ${item.itemName}`}
             >
-              {RESPONSE_OPTIONS.map((option) => (
+              {(['yes', 'no', 'not_applicable'] as const).map((option) => (
                 <button
                   key={option}
                   type="button"
@@ -111,6 +109,7 @@ export function CellChecklistResponses({
                     item.response === option && 'is-selected',
                     option === 'yes' && item.response === option && 'is-yes',
                     option === 'no' && item.response === option && 'is-no',
+                    option === 'not_applicable' && item.response === option && 'is-na',
                   )}
                   onClick={() => handleOptionClick(item, option)}
                 >

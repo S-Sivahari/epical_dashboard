@@ -21,10 +21,8 @@ import {
 import { fetchCellChecklist } from '@/services/checklistService'
 import { CellChecklistResponses } from './CellChecklistResponses'
 import type { CellChecklistDetail } from '@/types/projectWorkspace'
-import { Badge } from '@components/ui/Badge'
 import { cn } from '@/utils/cn'
 import {
-  CELL_STATUSES,
   CELL_TYPES,
   WORKFLOW_STAGE_STATUSES,
   type CellReview,
@@ -36,6 +34,7 @@ import {
 } from '@/types/projectWorkspace'
 import type { Employee } from '@/types'
 import {
+  CELL_STATUS_FILTER_OPTIONS,
   STATUS_LABELS,
   WORKFLOW_STATUS_LABELS,
   cellDisplayStatus,
@@ -575,7 +574,7 @@ export function ProjectCellPage() {
                           await reload()
                         }}
                       >
-                        {CELL_STATUSES.filter((s) => s !== 'completed').map((s) => (
+                        {CELL_STATUS_FILTER_OPTIONS.filter((s) => s !== 'completed').map((s) => (
                           <option key={s} value={s}>{STATUS_LABELS[s]}</option>
                         ))}
                       </select>

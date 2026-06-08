@@ -44,6 +44,39 @@ function paramId(value: string | string[]): string {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function excelCellText(value: ExcelJS.CellValue): string {
+  if (value == null) return '';
+  if (typeof value === 'object' && 'richText' in value) {
+    return (value as ExcelJS.CellRichTextValue).richText.map((part) => part.text).join('').trim();
+  }
+  if (typeof value === 'object' && 'result' in value) {
+    const result = (value as ExcelJS.CellFormulaValue).result;
+    return result == null ? '' : String(result).trim();
+  }
+  if (typeof value === 'object' && 'text' in value) {
+    return String((value as { text: string }).text).trim();
+  }
+  return String(value).trim();
+}
+
+function findChecklistTemplateHeaderRow(sheet: ExcelJS.Worksheet): number {
+  let headerRowNumber = 0;
+  sheet.eachRow((row, rowNumber) => {
+    if (headerRowNumber > 0) return;
+    const normalized: string[] = [];
+    row.eachCell({ includeEmpty: false }, (cell) => {
+      normalized.push(excelCellText(cell.value).toLowerCase().replace(/\s+/g, ''));
+    });
+    if (
+      normalized.includes('checklistname') ||
+      (normalized.includes('itemname') && normalized.some((cell) => cell.includes('checklist')))
+    ) {
+      headerRowNumber = rowNumber;
+    }
+  });
+  return headerRowNumber;
+}
+
 export const checklistController = {
   list: async (_req: Request, res: Response): Promise<void> => {
     try {
@@ -255,10 +288,19 @@ export const checklistController = {
         return;
       }
 
-      const headerRow = sheet.getRow(1);
+      const headerRowNumber = findChecklistTemplateHeaderRow(sheet);
+      if (!headerRowNumber) {
+        res.status(400).json({
+          error:
+            'Could not find header row. Expected columns: Checklist Name, Description, Item Name, Item Order',
+        });
+        return;
+      }
+
+      const headerRow = sheet.getRow(headerRowNumber);
       const headers: string[] = [];
       headerRow.eachCell((cell, col) => {
-        headers[col - 1] = String(cell.value ?? '').trim();
+        headers[col - 1] = excelCellText(cell.value);
       });
 
       const normalizeKey = (h: string) => h.toLowerCase().replace(/\s+/g, '');
@@ -269,8 +311,7 @@ export const checklistController = {
           const header = keyMap.get(normalizeKey(c)) ?? c;
           const idx = headers.indexOf(header);
           if (idx >= 0) {
-            const cell = row.getCell(idx + 1);
-            return cell.value != null ? String(cell.value).trim() : '';
+            return excelCellText(row.getCell(idx + 1).value);
           }
         }
         return '';
@@ -278,7 +319,7 @@ export const checklistController = {
 
       const rows: Record<string, unknown>[] = [];
       sheet.eachRow((row, rowNumber) => {
-        if (rowNumber === 1) return;
+        if (rowNumber <= headerRowNumber) return;
         const checklistName = getVal(row, 'Checklist Name', 'checklistName');
         if (!checklistName) return;
         rows.push({

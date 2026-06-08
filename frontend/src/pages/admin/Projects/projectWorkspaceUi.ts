@@ -7,10 +7,13 @@ import {
 } from '@/types/projectWorkspace'
 
 export const STATUS_LABELS: Record<CellStatus, string> = {
-  ready: 'Ready',
+  ready: 'In Progress',
   in_progress: 'In Progress',
-  completed: 'Completed',
+  completed: 'Complete',
 }
+
+/** Status values shown in workspace filters (no Ready). */
+export const CELL_STATUS_FILTER_OPTIONS: CellStatus[] = ['in_progress', 'completed']
 
 export const WORKFLOW_STATUS_LABELS: Record<WorkflowStageStatus, string> = {
   not_started: 'Not Started',
@@ -37,7 +40,7 @@ export function normalizeCellWorkflow(workflow?: CellWorkflowStage[]): CellWorkf
 }
 
 export function cellDisplayStatus(cell: ProjectCell) {
-  if (cell.isBlocked && cell.status !== 'completed') return 'Blocked'
+  if (cell.isBlocked && cell.status !== 'completed') return 'Archive'
   return STATUS_LABELS[cell.status]
 }
 
