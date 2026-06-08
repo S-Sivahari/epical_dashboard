@@ -11,13 +11,9 @@ RUN npm install
 # Copy source code
 COPY . .
 
-# Build the Vite app
-ARG VITE_API_BASE_URL
-ARG VITE_GOOGLE_CLIENT_ID
 
-ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
-ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
-
+ENV VITE_API_BASE_URL=https://empwr-backend-746326922966.europe-west1.run.app/api
+ENV VITE_GOOGLE_CLIENT_ID=746326922966-ln802nnkuh5tso2v7a1j13bd0j3h1ur2.apps.googleusercontent.com    
 RUN npx vite build
 
 # Serve with Nginx
