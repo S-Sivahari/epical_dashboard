@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, CheckCircle2, GitBranch, Layers, ListChecks, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, GitBranch, Layers, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
@@ -22,29 +22,70 @@ import {
 import { fetchCellChecklist } from '@/services/checklistService'
 import { CellChecklistResponses } from './CellChecklistResponses'
 import type { CellChecklistDetail } from '@/types/projectWorkspace'
-import { Badge } from '@components/ui/Badge'
 import { cn } from '@/utils/cn'
 import {
-  CELL_STATUSES,
   CELL_TYPES,
+  WORKFLOW_STAGE_STATUSES,
   LAYOUT_STAGE_LABELS,
   type CellReview,
   type CellStatus,
   type LayoutStage,
   type ProjectCell,
   type ProjectLibrary,
+  type WorkflowStageStatus,
   type WorkspaceSummary,
 } from '@/types/projectWorkspace'
 import type { Employee } from '@/types'
-import { STATUS_LABELS, cellDisplayStatus } from './projectWorkspaceUi'
+import {
+  CELL_STATUS_FILTER_OPTIONS,
+  STATUS_LABELS,
+  WORKFLOW_STATUS_LABELS,
+  cellDisplayStatus,
+  normalizeViewStatus,
+  workflowStageStatusClass,
+} from './projectWorkspaceUi'
 import { CellWorkflowPanel } from './CellWorkflowPanel'
 import './adminProjects.css'
 
-type CellTab = 'details' | 'workflow' | 'dependencies'
+type ViewTab = 'layout' | 'symbol' | 'schematic'
+type CellTab = 'details' | 'dependencies'
+
+const VIEW_TAB_LABELS: Record<ViewTab, string> = {
+  layout: 'Layout',
+  symbol: 'Symbol',
+  schematic: 'Schematic',
+}
+
+type CellViewStatusButtonsProps = {
+  status: WorkflowStageStatus
+  disabled?: boolean
+  onChange: (status: WorkflowStageStatus) => void
+}
+
+function CellViewStatusButtons({ status, disabled, onChange }: CellViewStatusButtonsProps) {
+  return (
+    <div className="admin-projects-view-status-btns">
+      {WORKFLOW_STAGE_STATUSES.map((value) => (
+        <button
+          key={value}
+          type="button"
+          className={cn(
+            'admin-projects-view-status-btn',
+            workflowStageStatusClass(value),
+            status === value && 'is-active',
+          )}
+          disabled={disabled}
+          onClick={() => onChange(value)}
+        >
+          {WORKFLOW_STATUS_LABELS[value]}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 const TAB_ITEMS: { id: CellTab; label: string; icon: typeof Layers }[] = [
   { id: 'details', label: 'Details', icon: Layers },
-  { id: 'workflow', label: 'Workflow', icon: ListChecks },
   { id: 'dependencies', label: 'Dependencies', icon: GitBranch },
 ]
 
@@ -57,7 +98,8 @@ export function ProjectCellPage() {
   const [activeTab, setActiveTab] = useState<CellTab>('details')
   const [isEditing, setIsEditing] = useState(false)
   const [cellForm, setCellForm] = useState<ProjectCell | null>(null)
-  const [viewTab, setViewTab] = useState<'layout' | 'symbol' | 'schematic'>('layout')
+  const [viewTab, setViewTab] = useState<ViewTab>('layout')
+  const [savingViewStatus, setSavingViewStatus] = useState<ViewTab | null>(null)
   const [selectedDepIds, setSelectedDepIds] = useState<string[]>([])
   const [reviews, setReviews] = useState<CellReview[]>([])
   const [reviewComment, setReviewComment] = useState('')
@@ -209,6 +251,23 @@ export function ProjectCellPage() {
       await reload()
     } catch {
       toast.error('Failed to complete cell')
+    }
+  }
+
+  const handleViewStatusChange = async (viewKey: 'symbol' | 'schematic', status: WorkflowStageStatus) => {
+    if (!projectId || !cell) return
+    setSavingViewStatus(viewKey)
+    try {
+      const updated = await updateCell(projectId, cell.id, {
+        views: { ...cell.views, [viewKey]: status },
+      })
+      setCellForm(updated)
+      toast.success(`${VIEW_TAB_LABELS[viewKey]} status updated`)
+      await reload()
+    } catch {
+      toast.error('Failed to update view status')
+    } finally {
+      setSavingViewStatus(null)
     }
   }
 
@@ -407,13 +466,45 @@ export function ProjectCellPage() {
                           onClick={() => setViewTab(v)}
                           className={cn('admin-projects-pill-btn', viewTab === v && 'is-active')}
                         >
-                          {v}
+                          {VIEW_TAB_LABELS[v]}
                         </button>
                       ))}
                     </div>
-                    <p className="admin-projects-cell-details-view-text">
-                      {cell.views?.[viewTab]?.trim() || '—'}
-                    </p>
+                    <div className="admin-projects-cell-details-view-box">
+                      {viewTab === 'layout' ? (
+                        <CellWorkflowPanel
+                          projectId={projectId}
+                          cell={cell}
+                          embedded
+                          showReviews={false}
+                          onUpdated={(updated) => {
+                            setCellForm(updated)
+                            void reload()
+                          }}
+                        />
+                      ) : (
+                        <CellViewStatusButtons
+                          status={normalizeViewStatus(cell.views?.[viewTab])}
+                          disabled={savingViewStatus === viewTab}
+                          onChange={(status) => void handleViewStatusChange(viewTab, status)}
+                        />
+                      )}
+                    </div>
+                    <CellWorkflowPanel
+                      projectId={projectId}
+                      cell={cell}
+                      embedded
+                      showStages={false}
+                      reviews={reviews}
+                      reviewComment={reviewComment}
+                      onReviewCommentChange={setReviewComment}
+                      onRequestReview={requestReview}
+                      onPostReviewReply={postReviewReply}
+                      onUpdated={(updated) => {
+                        setCellForm(updated)
+                        void reload()
+                      }}
+                    />
                   </div>
                 </div>
               )}
@@ -510,7 +601,7 @@ export function ProjectCellPage() {
                           await reload()
                         }}
                       >
-                        {CELL_STATUSES.filter((s) => s !== 'completed').map((s) => (
+                        {CELL_STATUS_FILTER_OPTIONS.filter((s) => s !== 'completed').map((s) => (
                           <option key={s} value={s}>{STATUS_LABELS[s]}</option>
                         ))}
                       </select>
@@ -526,16 +617,23 @@ export function ProjectCellPage() {
                           onClick={() => setViewTab(v)}
                           className={cn('admin-projects-pill-btn', viewTab === v && 'is-active')}
                         >
-                          {v}
+                          {VIEW_TAB_LABELS[v]}
                         </button>
                       ))}
                     </div>
-                    <textarea
-                      className="min-h-[80px] w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                      placeholder={`${viewTab} view notes or asset reference`}
-                      value={cellForm.views?.[viewTab] || ''}
-                      onChange={(e) => setCellForm((f) => f && { ...f, views: { ...f.views!, [viewTab]: e.target.value } })}
-                    />
+                    {viewTab === 'layout' ? (
+                      <textarea
+                        className="min-h-[80px] w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                        placeholder="Layout view notes or asset reference"
+                        value={cellForm.views?.layout || ''}
+                        onChange={(e) => setCellForm((f) => f && { ...f, views: { ...f.views!, layout: e.target.value } })}
+                      />
+                    ) : (
+                      <CellViewStatusButtons
+                        status={normalizeViewStatus(cellForm.views?.[viewTab])}
+                        onChange={(status) => setCellForm((f) => f && { ...f, views: { ...f.views!, [viewTab]: status } })}
+                      />
+                    )}
                   </div>
                   <div className="admin-projects-cell-form-actions">
                     <Button variant="secondary" onClick={cancelEdit} disabled={saving}>
@@ -546,22 +644,6 @@ export function ProjectCellPage() {
                     </Button>
                   </div>
                 </div>
-              )}
-
-              {activeTab === 'workflow' && (
-                <CellWorkflowPanel
-                  projectId={projectId}
-                  cell={cell}
-                  reviews={reviews}
-                  reviewComment={reviewComment}
-                  onReviewCommentChange={setReviewComment}
-                  onRequestReview={requestReview}
-                  onPostReviewReply={postReviewReply}
-                  onUpdated={(updated) => {
-                    setCellForm(updated)
-                    void reload()
-                  }}
-                />
               )}
 
               {activeTab === 'dependencies' && (
