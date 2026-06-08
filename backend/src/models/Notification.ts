@@ -5,6 +5,7 @@ export type NotificationType =
   | 'LeaveApproved'
   | 'LeaveRejected'
   | 'LeaveCancelled'
+  | 'LeaveLop'
   | 'DocumentRequested'
   | 'DocumentApproved'
   | 'DocumentRejected'
@@ -49,6 +50,7 @@ export interface Notification {
     from?: string;
     to?: string;
     days?: number;
+    lopDays?: number;
     ticketId?: string;
     ticketTitle?: string;
     ticketStatus?: string;
@@ -85,6 +87,7 @@ export interface CreateNotificationPayload {
     from?: string;
     to?: string;
     days?: number;
+    lopDays?: number;
     ticketId?: string;
     ticketTitle?: string;
     ticketStatus?: string;

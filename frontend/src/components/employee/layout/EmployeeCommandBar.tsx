@@ -64,7 +64,7 @@ export function EmployeeCommandBar() {
         <EmployeePhotoAvatar
           employeeId={user?.id}
           name={user?.name ?? 'Employee'}
-          fallbackSrc={user?.avatarUrl}
+          fallbackSrc={avatarUrl ?? user?.avatarUrl}
           className="h-8 w-8 cmd-profile-btn shrink-0"
           fallbackClassName="bg-[#266b1c] text-xs text-white"
         />

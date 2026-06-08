@@ -1,9 +1,15 @@
+import { Request } from 'express';
 import { Types } from 'mongoose';
 import { ChecklistModel, ProjectChecklistModel, CellChecklistMappingModel } from '../models/Checklist';
 import { ProjectCellModel } from '../models/ProjectCell';
 import { ProjectModel } from '../models/Project';
 import type { CellChecklistStatus, ProjectChecklistStatus } from '../models/Checklist';
 import type { ChecklistDocument, ProjectChecklistDocument } from '../models/Checklist';
+
+export function actorName(req: Request): string {
+  const user = (req as { user?: { name?: string; email?: string } }).user;
+  return user?.name || user?.email || 'Admin';
+}
 
 function resolveSelectedItems(
   checklist: ChecklistDocument | { items: { _id: Types.ObjectId; itemName: string }[] },
@@ -13,10 +19,6 @@ function resolveSelectedItems(
   if (!selectedItemIds?.length) return allItems;
   const idSet = new Set(selectedItemIds.map((id) => id.toString()));
   return allItems.filter((item) => idSet.has(item._id.toString()));
-}
-
-export function actorName(req: { user?: { name?: string; email?: string } }): string {
-  return req.user?.name || req.user?.email || 'Admin';
 }
 
 function mapResponseToStatus(response: 'yes' | 'no' | 'not_applicable'): CellChecklistStatus {
@@ -206,6 +208,8 @@ export async function assignChecklistToProject(
     checklistItemId: Types.ObjectId;
     itemName: string;
     status: CellChecklistStatus;
+    response: 'yes' | null;
+    comment: string;
     appliedBy?: string;
     appliedByName?: string;
     appliedDate?: Date;
@@ -302,10 +306,7 @@ export async function getProjectChecklistSummary(projectId: string) {
   const checklist = await ChecklistModel.findById(assignment.checklistId).lean();
   if (!checklist) return null;
 
-  const selectedItems = resolveSelectedItems(
-    checklist as { items: { _id: Types.ObjectId; itemName: string }[] },
-    assignment.selectedItemIds,
-  );
+  const selectedItems = resolveSelectedItems(checklist, assignment.selectedItemIds);
 
   return {
     checklistId: String(assignment.checklistId),
