@@ -21,7 +21,6 @@ import {
 } from '@/services/projectWorkspaceService'
 import { cn } from '@/utils/cn'
 import {
-  CELL_STATUSES,
   CELL_TYPES,
   type CellStatus,
   type DependencyGraph,
