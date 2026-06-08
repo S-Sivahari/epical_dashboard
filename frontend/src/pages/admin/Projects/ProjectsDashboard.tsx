@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
-import { Briefcase, ClipboardList, Eye, Globe, Lock, Search } from 'lucide-react'
+import { Briefcase, Eye, Globe, Lock, Search } from 'lucide-react'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { DataTable, type Column } from '@components/tables/DataTable'
 import { PaginationBar } from '@components/tables/Pagination'
@@ -11,11 +11,7 @@ import api from '@/services/api'
 import { cn } from '@/utils/cn'
 import { stringToHueColor, stringToHueHoverBg } from '@/utils/stringColor'
 import type { AdminProjectRow, ProjectChecklistStatus, ProjectChecklistSummary } from '@/types/projectWorkspace'
-import { ChecklistManagementModal } from './ChecklistManagementModal'
-import {
-  AssignChecklistModal,
-  ProjectChecklistImportExport,
-} from './ProjectChecklistImportExport'
+import { AssignChecklistModal } from './ProjectChecklistImportExport'
 import './adminProjects.css'
 
 type SortKey =
@@ -27,8 +23,6 @@ type SortKey =
   | 'checklistCompletionPercentage'
   | 'checklistLastUpdated'
   | 'completionPercentage'
-
-type ChecklistFilter = 'all' | ProjectChecklistStatus
 
 function checklistBadgeVariant(status?: ProjectChecklistStatus): 'success' | 'warning' | 'neutral' {
   if (status === 'Applied') return 'success'
@@ -42,12 +36,10 @@ export function ProjectsDashboard() {
   const [projects, setProjects] = useState<AdminProjectRow[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [checklistFilter, setChecklistFilter] = useState<ChecklistFilter>('all')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [sortColumn, setSortColumn] = useState<SortKey>('name')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
-  const [manageOpen, setManageOpen] = useState(false)
   const [assignTarget, setAssignTarget] = useState<AdminProjectRow | null>(null)
 
   const load = useCallback(async () => {
@@ -68,7 +60,7 @@ export function ProjectsDashboard() {
 
   useEffect(() => {
     setPage(1)
-  }, [search, pageSize, sortColumn, sortDirection, checklistFilter])
+  }, [search, pageSize, sortColumn, sortDirection])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -80,13 +72,9 @@ export function ProjectsDashboard() {
         (p.teamLead || '').toLowerCase().includes(q) ||
         (p.checklistName || '').toLowerCase().includes(q)
 
-      const status = p.checklistStatus || 'Not Applied'
-      const matchesFilter =
-        checklistFilter === 'all' || status === checklistFilter
-
-      return matchesSearch && matchesFilter
+      return matchesSearch
     })
-  }, [projects, search, checklistFilter])
+  }, [projects, search])
 
   const sorted = useMemo(() => {
     const list = [...filtered]
@@ -314,31 +302,6 @@ export function ProjectsDashboard() {
                 aria-label="Search projects"
               />
             </div>
-
-            <div className="admin-projects-filter-select-wrap">
-              <select
-                className="admin-projects-filter-select"
-                value={checklistFilter}
-                onChange={(e) => setChecklistFilter(e.target.value as ChecklistFilter)}
-                aria-label="Filter by checklist status"
-              >
-                <option value="all">All checklist statuses</option>
-                <option value="Applied">Applied</option>
-                <option value="Partial">Partial</option>
-                <option value="Not Applied">Not Applied</option>
-              </select>
-            </div>
-
-            <button
-              type="button"
-              className="admin-projects-toolbar-btn"
-              onClick={() => setManageOpen(true)}
-            >
-              <ClipboardList className="h-4 w-4" />
-              Manage checklists
-            </button>
-
-            <ProjectChecklistImportExport onImported={() => void load()} />
           </div>
 
           <section className="employee-directory-table-section admin-projects-table-section">
@@ -381,8 +344,6 @@ export function ProjectsDashboard() {
           </section>
         </div>
       </div>
-
-      <ChecklistManagementModal isOpen={manageOpen} onClose={() => setManageOpen(false)} onChanged={() => void load()} />
 
       {assignTarget ? (
         <AssignChecklistModal

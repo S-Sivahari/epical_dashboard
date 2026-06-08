@@ -18,6 +18,9 @@ type CellWorkflowPanelProps = {
   cell: ProjectCell
   onUpdated?: (cell: ProjectCell) => void
   compact?: boolean
+  embedded?: boolean
+  showStages?: boolean
+  showReviews?: boolean
   reviews?: CellReview[]
   reviewComment?: string
   onReviewCommentChange?: (value: string) => void
@@ -30,6 +33,9 @@ export function CellWorkflowPanel({
   cell,
   onUpdated,
   compact = false,
+  embedded = false,
+  showStages = true,
+  showReviews = true,
   reviews = [],
   reviewComment = '',
   onReviewCommentChange,
@@ -67,38 +73,40 @@ export function CellWorkflowPanel({
   }
 
   return (
-    <div className="admin-projects-workflow-panel">
-      <div className="admin-projects-workflow-stages">
-        {workflow.map((stage, index) => (
-          <div key={stage.stageKey} className="admin-projects-workflow-stage">
-            <div className="admin-projects-workflow-stage-head">
-              <span className="admin-projects-workflow-stage-index">{index + 1}</span>
-              <div className="min-w-0 flex-1">
-                <p className="admin-projects-workflow-stage-title">{stage.stageLabel}</p>
-                <span className={cn(
-                  'admin-projects-workflow-stage-chip',
-                  workflowStageStatusClass(stage.status),
-                )}>
-                  {WORKFLOW_STATUS_LABELS[stage.status]}
-                </span>
+    <div className={cn('admin-projects-workflow-panel', embedded && 'is-embedded')}>
+      {showStages && (
+        <div className="admin-projects-workflow-stages">
+          {workflow.map((stage, index) => (
+            <div key={stage.stageKey} className="admin-projects-workflow-stage">
+              <div className="admin-projects-workflow-stage-head">
+                <span className="admin-projects-workflow-stage-index">{index + 1}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="admin-projects-workflow-stage-title">{stage.stageLabel}</p>
+                  <span className={cn(
+                    'admin-projects-workflow-stage-chip',
+                    workflowStageStatusClass(stage.status),
+                  )}>
+                    {WORKFLOW_STATUS_LABELS[stage.status]}
+                  </span>
+                </div>
               </div>
+              <select
+                className="admin-projects-workflow-stage-select"
+                value={stage.status}
+                disabled={savingStage === stage.stageKey}
+                onChange={(e) => void handleStatusChange(stage.stageKey, e.target.value as WorkflowStageStatus)}
+                aria-label={`${stage.stageLabel} status`}
+              >
+                {(Object.keys(WORKFLOW_STATUS_LABELS) as WorkflowStageStatus[]).map((status) => (
+                  <option key={status} value={status}>{WORKFLOW_STATUS_LABELS[status]}</option>
+                ))}
+              </select>
             </div>
-            <select
-              className="admin-projects-workflow-stage-select"
-              value={stage.status}
-              disabled={savingStage === stage.stageKey}
-              onChange={(e) => void handleStatusChange(stage.stageKey, e.target.value as WorkflowStageStatus)}
-              aria-label={`${stage.stageLabel} status`}
-            >
-              {(Object.keys(WORKFLOW_STATUS_LABELS) as WorkflowStageStatus[]).map((status) => (
-                <option key={status} value={status}>{WORKFLOW_STATUS_LABELS[status]}</option>
-              ))}
-            </select>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
-      {onRequestReview && (
+      {showReviews && onRequestReview && (
         <div className="admin-projects-workflow-reviews">
           <div className="admin-projects-workflow-reviews-head">
             <MessageSquare className="h-4 w-4" aria-hidden />

@@ -9,9 +9,9 @@ const ROW_GAP = 20
 const PAD = 20
 
 const STATUS_LABEL: Record<CellStatus, string> = {
-  ready: 'Ready',
+  ready: 'In Progress',
   in_progress: 'In Progress',
-  completed: 'Completed',
+  completed: 'Complete',
 }
 
 function buildDepMap(edges: DependencyGraph['edges']) {
@@ -127,7 +127,7 @@ export function DependencyGraphView({ graph }: { graph: DependencyGraph }) {
             ].filter(Boolean).join(' ')}>
               <p className="dep-graph-node-title">{node.name}</p>
               <p className="dep-graph-node-status">
-                {node.isBlocked ? 'Blocked' : STATUS_LABEL[node.status]}
+                {node.isBlocked ? 'Archive' : STATUS_LABEL[node.status]}
               </p>
             </div>
           </foreignObject>

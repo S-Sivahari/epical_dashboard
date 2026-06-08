@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  ArrowLeft, BookOpen, CheckCircle2, ChevronDown, ClipboardCheck, GitBranch, History, Layers, LayoutGrid, ListChecks, Plus, Search, Trash2, User, X,
+  Archive, ArrowLeft, BookOpen, CheckCircle2, ChevronDown, GitBranch, History, Layers, LayoutGrid, ListChecks, Plus, Search, Trash2, User, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageWrapper } from '@components/layout/PageWrapper'
@@ -19,19 +19,8 @@ import {
   fetchDependencyGraph,
   fetchWorkspaceSummary,
 } from '@/services/projectWorkspaceService'
-import {
-  applyChecklistToAll,
-  fetchProjectChecklist,
-  fetchProjectCellsChecklist,
-} from '@/services/checklistService'
-import type {
-  CellChecklistDetail,
-  CellChecklistRowSummary,
-  ProjectChecklistSummary,
-} from '@/types/projectWorkspace'
 import { cn } from '@/utils/cn'
 import {
-  CELL_STATUSES,
   CELL_TYPES,
   type CellStatus,
   type DependencyGraph,
@@ -42,14 +31,13 @@ import {
 import type { Employee } from '@/types'
 import './adminProjects.css'
 import { DependencyGraphView } from './DependencyGraphView'
-import { WorkspaceCellChecklist } from './WorkspaceCellChecklist'
 import { CellWorkflowPanel } from './CellWorkflowPanel'
 import { ProjectWorkflowOverview } from './ProjectWorkflowOverview'
-import { STATUS_LABELS, cellDisplayStatus } from './projectWorkspaceUi'
+import { CELL_STATUS_FILTER_OPTIONS, STATUS_LABELS, cellDisplayStatus } from './projectWorkspaceUi'
 
 type DeleteTarget = { type: 'library' | 'cell'; id: string; name: string }
 type WorkspaceSection = 'home' | 'workflow' | 'graph' | 'activity'
-type StatFilter = 'ready' | 'blocked' | 'unassigned' | null
+type StatFilter = 'complete' | 'archive' | 'unassigned' | null
 
 const FILTER_SELECT_CLASS =
   'admin-projects-filter-select h-10 w-full min-w-[9.5rem] cursor-pointer appearance-none pl-3 pr-9 text-sm font-medium'
@@ -95,37 +83,21 @@ export function ProjectWorkspace() {
   const [workspaceSection, setWorkspaceSection] = useState<WorkspaceSection>('home')
   const [filterSearch, setFilterSearch] = useState('')
   const [filterTypeSelect, setFilterTypeSelect] = useState<'all' | ProjectCell['cellType']>('all')
-  const [filterStatusSelect, setFilterStatusSelect] = useState<'all' | CellStatus | 'blocked'>('all')
+  const [filterStatusSelect, setFilterStatusSelect] = useState<'all' | CellStatus | 'archive'>('all')
   const [statFilter, setStatFilter] = useState<StatFilter>(null)
-  const [projectChecklist, setProjectChecklist] = useState<ProjectChecklistSummary | null>(null)
-  const [cellChecklistById, setCellChecklistById] = useState<Map<string, CellChecklistRowSummary>>(
-    () => new Map(),
-  )
-  const [projectChecklistId, setProjectChecklistId] = useState<string | null>(null)
-  const [applyAllConfirm, setApplyAllConfirm] = useState(false)
-  const [applyingAll, setApplyingAll] = useState(false)
-
+  const [showAllCells, setShowAllCells] = useState(false)
   const reload = useCallback(async () => {
     if (!projectId) return
     setLoading(true)
     try {
-      const [ws, dg, empsRes, checklist, cellChecklists] = await Promise.all([
+      const [ws, dg, empsRes] = await Promise.all([
         fetchWorkspaceSummary(projectId),
         fetchDependencyGraph(projectId),
         getEmployees({ status: 'Active', pageSize: 500 }),
-        fetchProjectChecklist(projectId).catch(() => null),
-        fetchProjectCellsChecklist(projectId).catch(() => ({
-          checklistId: null,
-          checklistName: '',
-          cells: [] as CellChecklistRowSummary[],
-        })),
       ])
       setSummary(ws)
       setGraph(dg)
       setEmployees(empsRes.data ?? [])
-      setProjectChecklist(checklist)
-      setProjectChecklistId(cellChecklists.checklistId)
-      setCellChecklistById(new Map(cellChecklists.cells.map((row) => [row.cellId, row])))
       setActiveLibraryId((prev) => {
         if (prev && ws.libraries.some((lib) => lib.id === prev)) return prev
         return ws.libraries[0]?.id ?? null
@@ -142,26 +114,30 @@ export function ProjectWorkspace() {
   }, [reload])
 
   const displayedCells = useMemo(() => {
-    if (!summary || !activeLibraryId) return []
-    let cells = summary.cells.filter((c) => c.libraryId === activeLibraryId)
-    if (statFilter === 'ready') cells = cells.filter((c) => c.isReady)
-    if (statFilter === 'blocked') cells = cells.filter((c) => c.isBlocked)
+    if (!summary) return []
+    let cells = showAllCells
+      ? summary.cells
+      : activeLibraryId
+        ? summary.cells.filter((c) => c.libraryId === activeLibraryId)
+        : []
+    if (statFilter === 'complete') cells = cells.filter((c) => c.status === 'completed')
+    if (statFilter === 'archive') cells = cells.filter((c) => c.isBlocked)
     if (statFilter === 'unassigned') cells = cells.filter((c) => !c.assignedEmployeeId)
     const q = filterSearch.trim().toLowerCase()
     if (q) cells = cells.filter((c) => c.name.toLowerCase().includes(q))
     if (filterTypeSelect !== 'all') cells = cells.filter((c) => c.cellType === filterTypeSelect)
-    if (filterStatusSelect === 'blocked') cells = cells.filter((c) => c.isBlocked)
+    if (filterStatusSelect === 'archive') cells = cells.filter((c) => c.isBlocked)
     else if (filterStatusSelect !== 'all') {
       cells = cells.filter((c) => c.status === filterStatusSelect && !c.isBlocked)
     }
     return cells
-  }, [summary, activeLibraryId, statFilter, filterSearch, filterTypeSelect, filterStatusSelect])
+  }, [summary, activeLibraryId, showAllCells, statFilter, filterSearch, filterTypeSelect, filterStatusSelect])
 
   const applyStatFilter = (filter: StatFilter) => {
     setFilterSearch('')
     setFilterTypeSelect('all')
-    if (filter === 'ready') setFilterStatusSelect('ready')
-    else if (filter === 'blocked') setFilterStatusSelect('blocked')
+    if (filter === 'complete') setFilterStatusSelect('completed')
+    else if (filter === 'archive') setFilterStatusSelect('archive')
     else setFilterStatusSelect('all')
     setStatFilter((prev) => (prev === filter ? null : filter))
     setWorkspaceSection('home')
@@ -172,6 +148,12 @@ export function ProjectWorkspace() {
     setFilterTypeSelect('all')
     setFilterStatusSelect('all')
     setStatFilter(null)
+  }
+
+  const showAllProjectCells = () => {
+    clearFilters()
+    setShowAllCells(true)
+    setWorkspaceSection('home')
   }
 
   const libraryCellCounts = useMemo(() => {
@@ -267,42 +249,6 @@ export function ProjectWorkspace() {
     }
   }
 
-  const handleCellChecklistUpdated = (cellId: string, data: CellChecklistDetail) => {
-    setCellChecklistById((prev) => {
-      const next = new Map(prev)
-      next.set(cellId, {
-        cellId,
-        checklistName: data.checklistName,
-        cellStatus: data.cellStatus,
-        appliedCount: data.items.filter((i) => i.response === 'yes').length,
-        answeredCount: data.items.filter((i) => i.response).length,
-        totalCount: data.items.length,
-        items: data.items,
-      })
-      return next
-    })
-  }
-
-  const handleApplyChecklistToAll = async () => {
-    if (!projectId) return
-    setApplyingAll(true)
-    try {
-      const summary = await applyChecklistToAll(projectId)
-      setProjectChecklist(summary)
-      const cellChecklists = await fetchProjectCellsChecklist(projectId)
-      setProjectChecklistId(cellChecklists.checklistId)
-      setCellChecklistById(new Map(cellChecklists.cells.map((row) => [row.cellId, row])))
-      setApplyAllConfirm(false)
-      toast.success('Checklist successfully applied to all project cells.')
-      await reload()
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
-      toast.error(msg || 'Failed to apply checklist')
-    } finally {
-      setApplyingAll(false)
-    }
-  }
-
   if (loading && !summary) {
     return (
       <PageWrapper className="admin-hub-page-wrap py-8 text-center text-slate-500" data-page-scrollable>
@@ -347,17 +293,6 @@ export function ProjectWorkspace() {
                 </p>
               </div>
               <div className="admin-projects-workspace-head-actions">
-                {projectChecklist ? (
-                  <button
-                    type="button"
-                    className="admin-projects-apply-all-btn"
-                    disabled={applyingAll || stats.cellCount === 0}
-                    onClick={() => setApplyAllConfirm(true)}
-                  >
-                    <ClipboardCheck className="h-3.5 w-3.5" />
-                    Apply Checklist To All
-                  </button>
-                ) : null}
                 <nav className="admin-projects-section-rail" aria-label="Workspace sections">
                   {SECTION_ITEMS.map(({ id, label, icon: Icon }) => (
                     <button
@@ -385,8 +320,8 @@ export function ProjectWorkspace() {
               {[
                 { label: 'Libraries', value: stats.libraryCount, icon: BookOpen, filter: null as StatFilter },
                 { label: 'Cells', value: stats.cellCount, icon: Layers, filter: null },
-                { label: 'Ready', value: stats.readyCells, icon: CheckCircle2, filter: 'ready' as StatFilter },
-                { label: 'Blocked', value: stats.blockedCells, icon: GitBranch, filter: 'blocked' as StatFilter },
+                { label: 'Complete', value: stats.completedCells, icon: CheckCircle2, filter: 'complete' as StatFilter },
+                { label: 'Archive', value: stats.blockedCells, icon: Archive, filter: 'archive' as StatFilter },
                 { label: 'Unassigned', value: stats.unassignedCells, icon: User, filter: 'unassigned' as StatFilter },
               ].map(({ label, value, icon: Icon, filter }) => (
                 <button
@@ -394,11 +329,25 @@ export function ProjectWorkspace() {
                   type="button"
                   className={cn(
                     'admin-projects-stat',
+                    label === 'Cells' && showAllCells && 'admin-projects-stat--active',
                     filter && statFilter === filter && 'admin-projects-stat--active',
                   )}
                   onClick={() => {
-                    if (label === 'Libraries' || label === 'Cells') clearFilters()
-                    else if (filter) applyStatFilter(filter)
+                    if (label === 'Cells') {
+                      if (showAllCells) {
+                        setShowAllCells(false)
+                        clearFilters()
+                      } else {
+                        setShowAllCells(true)
+                        showAllProjectCells()
+                      }
+                    } else if (label === 'Libraries') {
+                      setShowAllCells(false)
+                      clearFilters()
+                    } else if (filter) {
+                      setShowAllCells(false)
+                      applyStatFilter(filter)
+                    }
                   }}
                 >
                   <div className="admin-projects-stat-label">
@@ -429,12 +378,13 @@ export function ProjectWorkspace() {
                         type="button"
                         onClick={() => {
                           setActiveLibraryId(lib.id)
+                          setShowAllCells(false)
                           clearFilters()
                           setWorkspaceSection('home')
                         }}
                         className={cn(
                           'admin-projects-library-nav',
-                          activeLibraryId === lib.id && 'is-active',
+                          activeLibraryId === lib.id && !showAllCells && 'is-active',
                         )}
                       >
                         <span className="admin-projects-library-nav-label">{lib.name}</span>
@@ -460,9 +410,11 @@ export function ProjectWorkspace() {
                 <div className="admin-projects-cells-head">
                   <div>
                     <h2>Cells</h2>
-                    {activeLibrary && (
+                    {showAllCells ? (
+                      <span className="admin-projects-active-lib-pill">All libraries</span>
+                    ) : activeLibrary ? (
                       <span className="admin-projects-active-lib-pill">{activeLibrary.name}</span>
-                    )}
+                    ) : null}
                   </div>
                   <button
                     type="button"
@@ -522,17 +474,17 @@ export function ProjectWorkspace() {
                     <select
                       value={filterStatusSelect}
                       onChange={(e) => {
-                        setFilterStatusSelect(e.target.value as 'all' | CellStatus | 'blocked')
+                        setFilterStatusSelect(e.target.value as 'all' | CellStatus | 'archive')
                         setStatFilter(null)
                       }}
                       className={FILTER_SELECT_CLASS}
                       aria-label="Filter by status"
                     >
                       <option value="all">All statuses</option>
-                      {CELL_STATUSES.map((status) => (
+                      {CELL_STATUS_FILTER_OPTIONS.map((status) => (
                         <option key={status} value={status}>{STATUS_LABELS[status]}</option>
                       ))}
-                      <option value="blocked">Blocked</option>
+                      <option value="archive">Archive</option>
                     </select>
                     <ChevronDown className="admin-projects-filter-select-icon" aria-hidden />
                   </div>
@@ -543,17 +495,15 @@ export function ProjectWorkspace() {
                     <thead>
                       <tr>
                         <th>Name</th>
+                        {showAllCells ? <th>Library</th> : null}
                         <th>Type</th>
-                        <th>Checklist</th>
                         <th>Assigned</th>
                         <th>Status</th>
                         <th>Workflow</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {displayedCells.map((cell) => {
-                        const cellChecklist = cellChecklistById.get(cell.id)
-                        return (
+                      {displayedCells.map((cell) => (
                         <tr
                           key={cell.id}
                           className="admin-projects-table-row-clickable"
@@ -569,19 +519,10 @@ export function ProjectWorkspace() {
                           aria-label={`Open ${cell.name}`}
                         >
                           <td style={{ fontWeight: 600 }}>{cell.name}</td>
+                          {showAllCells ? (
+                            <td>{libraryNameById.get(cell.libraryId) || '—'}</td>
+                          ) : null}
                           <td>{cell.cellType}</td>
-                          <td>
-                            {cellChecklist ? (
-                              <WorkspaceCellChecklist
-                                projectId={projectId}
-                                row={cellChecklist}
-                                checklistId={projectChecklistId}
-                                onUpdated={handleCellChecklistUpdated}
-                              />
-                            ) : (
-                              <span className="text-slate-400">—</span>
-                            )}
-                          </td>
                           <td>{cell.assignedEmployeeName || '—'}</td>
                           <td>
                             <span className={cn(
@@ -598,12 +539,11 @@ export function ProjectWorkspace() {
                             <CellWorkflowPanel projectId={projectId} cell={cell} compact />
                           </td>
                         </tr>
-                        )
-                      })}
+                      ))}
                       {displayedCells.length === 0 && (
                         <tr>
-                          <td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
-                            No cells in this library.
+                          <td colSpan={showAllCells ? 6 : 5} style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                            {showAllCells ? 'No cells in this project.' : 'No cells in this library.'}
                           </td>
                         </tr>
                       )}
@@ -780,14 +720,6 @@ export function ProjectWorkspace() {
         onConfirm={() => void handleConfirmDelete()}
       />
 
-      <ConfirmModal
-        isOpen={applyAllConfirm}
-        title="Apply checklist to all cells"
-        description="Apply this checklist to all cells in this project?"
-        confirmLabel="Apply"
-        onClose={() => setApplyAllConfirm(false)}
-        onConfirm={() => void handleApplyChecklistToAll()}
-      />
     </PageWrapper>
   )
 }
