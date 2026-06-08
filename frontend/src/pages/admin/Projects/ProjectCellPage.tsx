@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, CheckCircle2, GitBranch, Layers, MessageSquare, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, GitBranch, Layers, ListChecks, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
@@ -32,14 +32,15 @@ import {
 } from '@/types/projectWorkspace'
 import type { Employee } from '@/types'
 import { STATUS_LABELS, cellDisplayStatus } from './projectWorkspaceUi'
+import { CellWorkflowPanel } from './CellWorkflowPanel'
 import './adminProjects.css'
 
-type CellTab = 'details' | 'dependencies' | 'reviews'
+type CellTab = 'details' | 'workflow' | 'dependencies'
 
 const TAB_ITEMS: { id: CellTab; label: string; icon: typeof Layers }[] = [
   { id: 'details', label: 'Details', icon: Layers },
+  { id: 'workflow', label: 'Workflow', icon: ListChecks },
   { id: 'dependencies', label: 'Dependencies', icon: GitBranch },
-  { id: 'reviews', label: 'Reviews', icon: MessageSquare },
 ]
 
 export function ProjectCellPage() {
@@ -335,7 +336,7 @@ export function ProjectCellPage() {
                       <dd>{cell.assignedEmployeeName?.trim() || 'Unassigned'}</dd>
                     </div>
                     <div className="admin-projects-cell-details-item">
-                      <dt>Workflow status</dt>
+                      <dt>Cell status</dt>
                       <dd>
                         <span className={cn(
                           'admin-projects-status-chip',
@@ -544,6 +545,22 @@ export function ProjectCellPage() {
                 </div>
               )}
 
+              {activeTab === 'workflow' && (
+                <CellWorkflowPanel
+                  projectId={projectId}
+                  cell={cell}
+                  reviews={reviews}
+                  reviewComment={reviewComment}
+                  onReviewCommentChange={setReviewComment}
+                  onRequestReview={requestReview}
+                  onPostReviewReply={postReviewReply}
+                  onUpdated={(updated) => {
+                    setCellForm(updated)
+                    void reload()
+                  }}
+                />
+              )}
+
               {activeTab === 'dependencies' && (
                 <div className="admin-projects-cell-deps">
                   <p className="admin-projects-cell-deps-intro">
@@ -592,52 +609,6 @@ export function ProjectCellPage() {
                 </div>
               )}
 
-              {activeTab === 'reviews' && (
-                <div className="admin-projects-cell-reviews">
-                  <div className="flex gap-2">
-                    <Input
-                      className="flex-1"
-                      placeholder="Request review or add comment…"
-                      value={reviewComment}
-                      onChange={(e) => setReviewComment(e.target.value)}
-                    />
-                    <Button onClick={() => void requestReview()}>Request review</Button>
-                  </div>
-                  {reviews.map((review) => (
-                    <div key={review.id} className="rounded-lg border border-slate-200 p-3">
-                      <p className="text-xs font-semibold text-slate-500">
-                        {review.initiatedByName} · stage {review.stageAtRequest} · {review.status}
-                      </p>
-                      <ul className="mt-2 space-y-2">
-                        {review.messages.map((msg, i) => (
-                          <li key={i} className="rounded bg-slate-50 px-2 py-1.5 text-sm">
-                            <span className="font-semibold">{msg.authorName}</span> ({msg.authorRole}): {msg.body}
-                          </li>
-                        ))}
-                      </ul>
-                      {review.status === 'open' && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="mt-2"
-                          onClick={() => {
-                            const body = window.prompt('Reply')
-                            if (body) void postReviewReply(review.id, body)
-                          }}
-                        >
-                          Reply
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                  {reviews.length === 0 && (
-                    <p className="flex items-center gap-2 text-sm text-slate-500">
-                      <Layers className="h-4 w-4" />
-                      No reviews yet.
-                    </p>
-                  )}
-                </div>
-              )}
             </div>
           </div>
         </div>

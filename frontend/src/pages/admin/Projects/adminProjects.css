@@ -1794,7 +1794,301 @@
   max-width: 48rem;
 }
 
+.admin-projects-workflow-panel {
+  display: grid;
+  gap: 1rem;
+  max-width: 42rem;
+}
+
+.admin-projects-workflow-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem 1.25rem;
+  padding: 0.875rem 1rem;
+  border-radius: 0.625rem;
+  border: 1px solid rgba(26, 67, 41, 0.12);
+  background: #f8faf9;
+}
+
+.admin-projects-workflow-summary-label {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.admin-projects-workflow-summary-value {
+  margin: 0.125rem 0 0;
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: var(--dash-forest-header, #2f6b4f);
+}
+
+.admin-projects-workflow-summary-current {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.admin-projects-workflow-summary-current strong {
+  font-size: 0.875rem;
+  color: #0f172a;
+}
+
+.admin-projects-workflow-stages {
+  display: grid;
+  gap: 0.625rem;
+}
+
+.admin-projects-workflow-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 10.5rem;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.75rem 0.875rem;
+  border-radius: 0.625rem;
+  border: 1px solid rgba(26, 67, 41, 0.1);
+  background: #fff;
+}
+
+.admin-projects-workflow-stage-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  min-width: 0;
+}
+
+.admin-projects-workflow-stage-index {
+  display: inline-flex;
+  height: 1.5rem;
+  width: 1.5rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: rgba(38, 107, 28, 0.12);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  color: var(--dash-forest-header, #2f6b4f);
+}
+
+.admin-projects-workflow-stage-title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.admin-projects-workflow-stage-chip {
+  display: inline-block;
+  margin-top: 0.25rem;
+  border-radius: 9999px;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+.admin-projects-workflow-stage-chip.is-not-started {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.admin-projects-workflow-stage-chip.is-progress {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.admin-projects-workflow-stage-chip.is-completed {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.admin-projects-workflow-stage-select {
+  height: 2.25rem;
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(30, 90, 61, 0.2);
+  background: rgba(232, 242, 230, 0.55);
+  padding: 0 0.625rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #1a4712;
+}
+
+.admin-projects-workflow-compact {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 6.5rem;
+}
+
+.admin-projects-workflow-compact-bar {
+  position: relative;
+  height: 0.375rem;
+  width: 3.5rem;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: #e2e8f0;
+}
+
+.admin-projects-workflow-compact-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--dash-forest-header, #2f6b4f);
+}
+
+.admin-projects-workflow-compact-text {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.admin-projects-section-panel--workflow {
+  padding: 0.75rem 1rem;
+}
+
+.admin-projects-workflow-section-intro {
+  margin: 0 0 0.75rem;
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+.admin-projects-workflow-overview-wrap {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.admin-projects-workflow-overview-table {
+  width: 100%;
+  min-width: 56rem;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.admin-projects-workflow-overview-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--dash-sage-row, #f0f3f0);
+  box-shadow: 0 1px 0 rgba(26, 67, 41, 0.1);
+}
+
+.admin-projects-workflow-overview-table th {
+  padding: 0.625rem 0.75rem;
+  text-align: left;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.admin-projects-workflow-overview-table td {
+  padding: 0.625rem 0.75rem;
+  border-top: 1px solid rgba(226, 232, 240, 0.9);
+  vertical-align: middle;
+}
+
+.admin-projects-workflow-overview-table tbody tr:hover {
+  background: rgba(236, 253, 245, 0.45);
+}
+
+.admin-projects-workflow-cell-link {
+  font-weight: 700;
+  color: #1a4712;
+  text-decoration: none;
+}
+
+.admin-projects-workflow-cell-link:hover {
+  color: var(--dash-forest-header, #2f6b4f);
+  text-decoration: underline;
+}
+
+.admin-projects-workflow-overview-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 5.5rem;
+}
+
+.admin-projects-workflow-empty {
+  margin: 0;
+  padding: 2rem 0;
+  text-align: center;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.admin-projects-workflow-reviews {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(26, 67, 41, 0.1);
+}
+
+.admin-projects-workflow-reviews-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--dash-forest-header, #2f6b4f);
+}
+
+.admin-projects-workflow-reviews-title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.admin-projects-workflow-review-card {
+  border-radius: 0.625rem;
+  border: 1px solid rgba(26, 67, 41, 0.12);
+  background: #f8faf9;
+  padding: 0.75rem;
+}
+
+.admin-projects-workflow-review-meta {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.admin-projects-workflow-review-messages {
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.admin-projects-workflow-review-message {
+  border-radius: 0.5rem;
+  background: #fff;
+  padding: 0.5rem 0.625rem;
+  font-size: 0.8125rem;
+  color: #334155;
+}
+
+.admin-projects-workflow-reviews-empty {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
 @media (max-width: 1023px) {
+  .admin-projects-workflow-stage {
+    grid-template-columns: 1fr;
+  }
   .admin-projects-stats-row {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }

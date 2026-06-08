@@ -2,8 +2,35 @@ export const CELL_TYPES = ['block', 'IOP', 'ESD', 'TOP'] as const
 
 export const CELL_STATUSES = ['ready', 'in_progress', 'completed'] as const
 
+export const CELL_WORKFLOW_STAGE_KEYS = [
+  'floor_plan',
+  'drc_review_1',
+  'routing',
+  'drc',
+  'lvs_review_2',
+] as const
+
+export const WORKFLOW_STAGE_STATUSES = ['not_started', 'in_progress', 'completed'] as const
+
+export const CELL_WORKFLOW_STAGES = [
+  { key: 'floor_plan', label: 'Floor Plan' },
+  { key: 'drc_review_1', label: 'DRC' },
+  { key: 'routing', label: 'Routing' },
+  { key: 'drc', label: 'DRC' },
+  { key: 'lvs_review_2', label: 'LVS' },
+] as const
+
 export type CellType = (typeof CELL_TYPES)[number]
 export type CellStatus = (typeof CELL_STATUSES)[number]
+export type CellWorkflowStageKey = (typeof CELL_WORKFLOW_STAGE_KEYS)[number]
+export type WorkflowStageStatus = (typeof WORKFLOW_STAGE_STATUSES)[number]
+
+export interface CellWorkflowStage {
+  stageKey: CellWorkflowStageKey
+  stageLabel: string
+  status: WorkflowStageStatus
+  updatedAt?: string
+}
 
 export interface AdminProjectRow {
   id: string
@@ -88,6 +115,10 @@ export interface ProjectCell {
   assignedEmployeeName: string
   dependencyCellIds: string[]
   status: CellStatus
+  workflow: CellWorkflowStage[]
+  workflowCompletedStages: number
+  workflowTotalStages: number
+  currentWorkflowStage: string
   views: CellViews
   isBlocked: boolean
   isReady: boolean

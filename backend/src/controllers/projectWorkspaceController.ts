@@ -5,6 +5,16 @@ import { ProjectLibraryModel } from '../models/ProjectLibrary';
 import { ProjectCellModel, CELL_STATUSES, CELL_TYPES, type CellStatus } from '../models/ProjectCell';
 import { CellReviewModel } from '../models/CellReview';
 import {
+  CELL_WORKFLOW_STAGES,
+  defaultCellWorkflow,
+  isValidStageKey,
+  normalizeCellWorkflow,
+  normalizeWorkflowStageStatus,
+  currentWorkflowStageLabel,
+  workflowCompletedCount,
+  type WorkflowStageStatus,
+} from '../utils/cellWorkflow';
+import {
   syncChecklistMappingsForCell,
   removeChecklistMappingsForCell,
 } from '../services/checklistService';
@@ -51,6 +61,8 @@ function toLibrary(doc: any) {
 }
 
 function toCell(doc: any, dependencyMeta?: { isBlocked: boolean; isReady: boolean }) {
+  const workflow = normalizeCellWorkflow(doc.workflow);
+  const workflowCompletedStages = workflowCompletedCount(workflow);
   return {
     id: doc._id.toString(),
     projectId: doc.projectId.toString(),
@@ -65,6 +77,10 @@ function toCell(doc: any, dependencyMeta?: { isBlocked: boolean; isReady: boolea
     assignedEmployeeName: doc.assignedEmployeeName || '',
     dependencyCellIds: (doc.dependencyCellIds || []).map((id: Types.ObjectId) => id.toString()),
     status: normalizeStatus(doc.status || 'ready'),
+    workflow,
+    workflowCompletedStages,
+    workflowTotalStages: workflow.length,
+    currentWorkflowStage: currentWorkflowStageLabel(workflow),
     views: doc.views || { layout: '', symbol: '', schematic: '' },
     activityLog: doc.activityLog || [],
     isBlocked: dependencyMeta?.isBlocked ?? false,
@@ -315,6 +331,7 @@ export const projectWorkspaceController = {
         assignedEmployeeName: assignedEmployeeName || undefined,
         dependencyCellIds: deps,
         status: 'ready',
+        workflow: defaultCellWorkflow(),
         views: views || { layout: '', symbol: '', schematic: '' },
         activityLog: [
           {
@@ -455,6 +472,11 @@ export const projectWorkspaceController = {
 
       const prev = cell.status;
       cell.status = 'completed';
+      cell.workflow = normalizeCellWorkflow(cell.workflow).map((stage) => ({
+        ...stage,
+        status: 'completed' as WorkflowStageStatus,
+        updatedAt: new Date(),
+      }));
       cell.activityLog.push({
         action: 'completed',
         detail: `Marked completed by ${actor.userName}`,
@@ -533,7 +555,7 @@ export const projectWorkspaceController = {
       const review = await CellReviewModel.create({
         projectId: new Types.ObjectId(projectId),
         cellId: cell._id,
-        stageAtRequest: cell.status,
+        stageAtRequest: currentWorkflowStageLabel(normalizeCellWorkflow(cell.workflow)),
         initiatedBy: actor.userId,
         initiatedByName: actor.userName,
         assignedEmployeeId: cell.assignedEmployeeId,
@@ -550,7 +572,7 @@ export const projectWorkspaceController = {
 
       cell.activityLog.push({
         action: 'review_requested',
-        detail: `Review requested at stage ${cell.status}`,
+        detail: `Review requested at stage ${currentWorkflowStageLabel(normalizeCellWorkflow(cell.workflow))}`,
         userId: actor.userId,
         userName: actor.userName,
         at: new Date(),
@@ -595,6 +617,60 @@ export const projectWorkspaceController = {
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: 'Failed to delete cell' });
+    }
+  },
+
+  updateWorkflowStage: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const cellId = paramId(req.params.cellId);
+      const stageKey = paramId(req.params.stageKey);
+      const { status } = req.body;
+
+      if (!isValidStageKey(stageKey)) {
+        res.status(400).json({ error: 'Invalid workflow stage' });
+        return;
+      }
+
+      const nextStatus = normalizeWorkflowStageStatus(String(status || ''));
+      const cell = await ProjectCellModel.findOne({ _id: cellId, projectId });
+      if (!cell) {
+        res.status(404).json({ error: 'Cell not found' });
+        return;
+      }
+
+      const workflow = normalizeCellWorkflow(cell.workflow);
+      const stageMeta = CELL_WORKFLOW_STAGES.find((s) => s.key === stageKey);
+      const stageIndex = workflow.findIndex((s) => s.stageKey === stageKey);
+      if (stageIndex < 0) {
+        res.status(404).json({ error: 'Workflow stage not found on cell' });
+        return;
+      }
+
+      const prevStatus = workflow[stageIndex].status;
+      workflow[stageIndex] = {
+        ...workflow[stageIndex],
+        stageLabel: stageMeta?.label || workflow[stageIndex].stageLabel,
+        status: nextStatus,
+        updatedAt: new Date(),
+      };
+
+      const actor = actorFromReq(req);
+      cell.workflow = workflow;
+      cell.activityLog.push({
+        action: 'workflow_update',
+        detail: `${stageMeta?.label || stageKey}: ${prevStatus} → ${nextStatus}`,
+        userId: actor.userId,
+        userName: actor.userName,
+        at: new Date(),
+      });
+      await cell.save();
+
+      const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
+      res.json(toCell(cell, meta));
+    } catch (err) {
+      console.error('[workspace] updateWorkflowStage', err);
+      res.status(500).json({ error: 'Failed to update workflow stage' });
     }
   },
 
