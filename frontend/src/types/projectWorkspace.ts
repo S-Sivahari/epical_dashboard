@@ -110,6 +110,7 @@ export interface Checklist {
   id: string
   name: string
   description: string
+  cellType?: string
   items: ChecklistItem[]
   createdAt?: string
   updatedAt?: string
@@ -145,6 +146,7 @@ export interface CellChecklistItem {
 export interface CellChecklistDetail {
   checklistId: string | null
   checklistName: string
+  cellType?: string
   cellStatus: CellChecklistStatus
   items: CellChecklistItem[]
 }
@@ -172,6 +174,13 @@ export interface ChecklistImportResult {
   errors: { row: number; projectName: string; message: string }[]
 }
 
+export interface ProjectChecklistImportResult {
+  imported: number
+  updated: number
+  failed: number
+  errors: { row: number; cellName: string; message: string }[]
+}
+
 export interface ChecklistTemplateImportResult {
   imported: number
   created: number
@@ -182,9 +191,20 @@ export interface ChecklistTemplateImportResult {
 
 export interface ChecklistTemplateRow {
   checklistName: string
+  cellType: string
   description: string
   itemName: string
   itemOrder: number
+}
+
+export interface CellTypeChecklistDefinition {
+  cellType: CellType
+  checklistName: string
+  description: string
+  items: ChecklistItem[]
+  importedFromExcel: boolean
+  lastImportedAt?: string
+  lastImportedBy?: string
 }
 
 export interface ProjectLibrary {
@@ -194,10 +214,48 @@ export interface ProjectLibrary {
   description: string
 }
 
+export const VIEW_PROGRESS_STATUSES = ['not_started', 'in_progress', 'completed'] as const
+export const LAYOUT_STAGES = ['floor_plan', 'drc_r1', 'routing', 'drc', 'lvs_r2'] as const
+export const REVIEW_POINTS = ['r1', 'r2'] as const
+
+export type ViewProgressStatus = (typeof VIEW_PROGRESS_STATUSES)[number]
+export type LayoutStage = (typeof LAYOUT_STAGES)[number]
+export type ReviewPoint = (typeof REVIEW_POINTS)[number]
+
 export interface CellViews {
   layout: string
   symbol: string
   schematic: string
+}
+
+export interface SimpleViewState {
+  status: ViewProgressStatus
+}
+
+export interface LayoutViewState {
+  stage: LayoutStage
+  status: ViewProgressStatus
+  pendingReview: ReviewPoint | null
+}
+
+export interface CellViewWorkflow {
+  style: SimpleViewState
+  symbol: SimpleViewState
+  layout: LayoutViewState
+}
+
+export const LAYOUT_STAGE_LABELS: Record<LayoutStage, string> = {
+  floor_plan: 'Floor Plan',
+  drc_r1: 'DRC (R1)',
+  routing: 'Routing',
+  drc: 'DRC',
+  lvs_r2: 'LVS (R2)',
+}
+
+export const VIEW_PROGRESS_LABELS: Record<ViewProgressStatus, string> = {
+  not_started: 'Not Started',
+  in_progress: 'In Progress',
+  completed: 'Completed',
 }
 
 export interface ProjectCell {
@@ -219,6 +277,7 @@ export interface ProjectCell {
   workflowTotalStages: number
   currentWorkflowStage: string
   views: CellViews
+  viewWorkflow: CellViewWorkflow
   isBlocked: boolean
   isReady: boolean
   activityLog: { action: string; detail?: string; userName?: string; at: string }[]
@@ -258,7 +317,47 @@ export interface CellReview {
   id: string
   cellId: string
   stageAtRequest: string
+  reviewPoint?: ReviewPoint | null
+  outcome?: 'pending' | 'approved' | 'rejected'
+  returnToStage?: LayoutStage | null
   status: 'open' | 'resolved'
   initiatedByName: string
+  resolvedByName?: string | null
+  resolvedAt?: string | null
   messages: { authorName: string; authorRole: string; body: string; at: string }[]
+}
+
+export interface EmployeeProjectCell extends ProjectCell {
+  isAssignedToMe: boolean
+  assignedEmployeeId: string
+  assignedEmployeeName: string
+}
+
+export interface EmployeeProjectWorkspace {
+  project: {
+    id: string
+    name: string
+    client: string
+    technologyNode: string
+    status: string
+    completionPercentage: number
+  }
+  libraries: ProjectLibrary[]
+  cells: EmployeeProjectCell[]
+  stats: {
+    libraryCount: number
+    cellCount: number
+    assignedToMe: number
+    completedCells: number
+    blockedCells: number
+    readyCells: number
+    unassignedCells: number
+  }
+}
+
+export interface EmployeeCellDetail {
+  project: { id: string; name: string }
+  library: ProjectLibrary | null
+  cell: ProjectCell
+  reviews: CellReview[]
 }

@@ -179,7 +179,7 @@ export default function Dashboard() {
         icon: Clock,
         trend: `${weeklyHours}h this week`,
         accent: 'sage',
-        to: '/employee/timesheet',
+        to: '/employee/projects',
       },
       {
         title: 'Pending Leave',
@@ -195,7 +195,7 @@ export default function Dashboard() {
         icon: FolderKanban,
         trend: projectCount ? 'Assigned to you' : 'None assigned',
         accent: 'sage',
-        to: '/employee/timesheet',
+        to: '/employee/projects',
       },
       {
         title: 'Training',

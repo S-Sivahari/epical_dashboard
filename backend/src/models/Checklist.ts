@@ -9,6 +9,7 @@ export interface ChecklistItemSubdoc {
 export interface ChecklistDocument extends Document {
   name: string;
   description: string;
+  cellType?: string;
   items: ChecklistItemSubdoc[];
   createdBy?: string;
   createdAt: Date;
@@ -27,6 +28,7 @@ const checklistSchema = new Schema<ChecklistDocument>(
   {
     name: { type: String, required: true, trim: true },
     description: { type: String, default: '', trim: true },
+    cellType: { type: String, enum: ['block', 'IOP', 'ESD', 'TOP'] },
     items: { type: [checklistItemSchema], default: [] },
     createdBy: { type: String },
   },
@@ -34,6 +36,7 @@ const checklistSchema = new Schema<ChecklistDocument>(
 );
 
 checklistSchema.index({ name: 1 });
+checklistSchema.index({ cellType: 1 }, { unique: true, sparse: true });
 
 export const ChecklistModel = model<ChecklistDocument>('Checklist', checklistSchema);
 

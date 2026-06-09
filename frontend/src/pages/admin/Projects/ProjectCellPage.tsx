@@ -26,14 +26,7 @@ import {
   type WorkspaceSummary,
 } from '@/types/projectWorkspace'
 import type { Employee } from '@/types'
-import {
-  CELL_STATUS_FILTER_OPTIONS,
-  STATUS_LABELS,
-  WORKFLOW_STATUS_LABELS,
-  cellDisplayStatus,
-  normalizeViewStatus,
-  workflowStageStatusClass,
-} from './projectWorkspaceUi'
+import { CELL_STATUS_FILTER_OPTIONS, CELL_TYPE_LABELS, STATUS_LABELS, WORKFLOW_STATUS_LABELS, cellDisplayStatus, normalizeViewStatus, workflowStageStatusClass } from './projectWorkspaceUi'
 import { CellWorkflowPanel } from './CellWorkflowPanel'
 import { CellTypeChecklistTab } from './CellTypeChecklistTab'
 import './adminProjects.css'
@@ -268,7 +261,7 @@ export function ProjectCellPage() {
               </Link>
               <h1 className="admin-projects-head-title">{cell.name}</h1>
               <p className="admin-projects-workspace-meta">
-                {activeLibrary?.name || 'Library'} · {cell.cellType} · {cellDisplayStatus(cell)}
+                {activeLibrary?.name || 'Library'} · {CELL_TYPE_LABELS[cell.cellType] ?? cell.cellType} · {cellDisplayStatus(cell)}
               </p>
             </div>
             <div className="admin-projects-workspace-head-actions">
@@ -349,7 +342,7 @@ export function ProjectCellPage() {
                     </div>
                     <div className="admin-projects-cell-details-item">
                       <dt>Cell type</dt>
-                      <dd>{cell.cellType}</dd>
+                      <dd>{CELL_TYPE_LABELS[cell.cellType] ?? cell.cellType}</dd>
                     </div>
                     <div className="admin-projects-cell-details-item admin-projects-cell-details-item--full">
                       <dt>Description</dt>
@@ -459,7 +452,9 @@ export function ProjectCellPage() {
                       value={cellForm.cellType}
                       onChange={(e) => setCellForm((f) => f && { ...f, cellType: e.target.value as ProjectCell['cellType'] })}
                     >
-                      {CELL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                      {CELL_TYPES.map((t) => (
+                        <option key={t} value={t}>{CELL_TYPE_LABELS[t]}</option>
+                      ))}
                     </select>
                   </label>
                   <label className="text-sm font-medium">Description

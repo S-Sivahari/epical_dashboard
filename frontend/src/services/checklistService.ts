@@ -2,6 +2,8 @@ import api from '@/services/api'
 import type {
   Checklist,
   ChecklistImportResult,
+  CellTypeChecklistDefinition,
+  ProjectChecklistImportResult,
   ChecklistTemplateImportResult,
   ChecklistTemplateRow,
   CellChecklistDetail,
@@ -12,6 +14,22 @@ import type {
 export async function fetchChecklists(): Promise<Checklist[]> {
   const { data } = await api.get<Checklist[]>('/checklists')
   return Array.isArray(data) ? data : []
+}
+
+export async function fetchCellTypeChecklistDefinitions(): Promise<CellTypeChecklistDefinition[]> {
+  const { data } = await api.get<CellTypeChecklistDefinition[]>('/checklists/cell-types')
+  return Array.isArray(data) ? data : []
+}
+
+export async function fetchCellTypeChecklistDefinition(
+  cellType: string,
+): Promise<CellTypeChecklistDefinition | null> {
+  try {
+    const { data } = await api.get<CellTypeChecklistDefinition>(`/checklists/cell-types/${cellType}`)
+    return data
+  } catch {
+    return null
+  }
 }
 
 export async function createChecklist(payload: {
@@ -93,13 +111,21 @@ export async function fetchChecklistTemplateRows(): Promise<ChecklistTemplateRow
   return Array.isArray(data) ? data : []
 }
 
+export async function importChecklistTemplateRows(
+  rows: ChecklistTemplateRow[],
+): Promise<ChecklistTemplateImportResult> {
+  const { data } = await api.post<ChecklistTemplateImportResult>('/checklists/import-template', {
+    rows,
+  })
+  return data
+}
+
 export async function importChecklistTemplateFile(file: File): Promise<ChecklistTemplateImportResult> {
   const form = new FormData()
   form.append('file', file)
   const { data } = await api.post<ChecklistTemplateImportResult>(
     '/checklists/import-template-file',
     form,
-    { headers: { 'Content-Type': 'multipart/form-data' } },
   )
   return data
 }
@@ -131,11 +157,36 @@ export async function updateCellChecklistItem(
   return data
 }
 
+export async function fetchProjectChecklistExportRows(projectId: string): Promise<
+  Array<{
+    cellName: string
+    library: string
+    cellType: string
+    checklistName: string
+    itemName: string
+    itemOrder: number | string
+    response: string
+    comment: string
+  }>
+> {
+  const { data } = await api.get(`/projects/${projectId}/checklist/export`)
+  return Array.isArray(data) ? data : []
+}
+
+export async function importProjectChecklistRows(
+  projectId: string,
+  rows: Record<string, unknown>[],
+): Promise<ProjectChecklistImportResult> {
+  const { data } = await api.post<ProjectChecklistImportResult>(
+    `/projects/${projectId}/checklist/import`,
+    { rows },
+  )
+  return data
+}
+
 export async function importChecklistFile(file: File): Promise<ChecklistImportResult> {
   const form = new FormData()
   form.append('file', file)
-  const { data } = await api.post<ChecklistImportResult>('/checklists/import-file', form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
+  const { data } = await api.post<ChecklistImportResult>('/checklists/import-file', form)
   return data
 }

@@ -3,6 +3,7 @@ import multer from 'multer';
 import { projectController } from '../controllers/projectController';
 import { projectWorkspaceController } from '../controllers/projectWorkspaceController';
 import { projectTypeChecklistController } from '../controllers/projectTypeChecklistController';
+import { employeeProjectController } from '../controllers/employeeProjectController';
 import { checklistController } from '../controllers/checklistController';
 import { authMiddleware, requireRole } from '../middleware/authMiddleware';
 
@@ -16,8 +17,12 @@ const checklistUpload = multer({
 router.use(authMiddleware);
 
 router.get('/assigned/me', projectController.getAssignedForCurrentUser);
-
-router.get('/checklist-report', adminOnly, checklistController.exportReport);
+router.get('/:projectId/mine/workspace', employeeProjectController.getMyWorkspace);
+router.get('/:projectId/mine/dependency-graph', employeeProjectController.getMyDependencyGraph);
+router.get('/:projectId/cells/:cellId/mine', employeeProjectController.getMyCell);
+router.patch('/:projectId/cells/:cellId/mine/workflow', employeeProjectController.updateWorkflow);
+router.post('/:projectId/cells/:cellId/mine/reviews', employeeProjectController.requestReview);
+router.get('/:projectId/cells/:cellId/mine/reviews', employeeProjectController.listMyCellReviews);
 
 router.get('/', adminOnly, projectController.getAll);
 router.get('/archived', adminOnly, projectController.getArchivedProjects);
@@ -70,6 +75,8 @@ router.get(
 router.get('/:projectId/workspace', adminOnly, projectWorkspaceController.getWorkspaceSummary);
 router.get('/:projectId/checklist', adminOnly, checklistController.getProjectChecklist);
 router.get('/:projectId/checklist/cells', adminOnly, checklistController.getProjectCellsChecklist);
+router.get('/:projectId/checklist/export', adminOnly, checklistController.exportProjectCellChecklist);
+router.post('/:projectId/checklist/import', adminOnly, checklistController.importProjectCellChecklist);
 router.post('/:projectId/checklist/apply-all', adminOnly, checklistController.applyToAll);
 router.get('/:projectId/cells/:cellId/checklist', adminOnly, checklistController.getCellChecklist);
 router.patch('/:projectId/cells/:cellId/checklist/:mappingId', adminOnly, checklistController.updateCellChecklistItem);
@@ -88,6 +95,7 @@ router.patch('/:projectId/cells/:cellId/complete', adminOnly, projectWorkspaceCo
 router.get('/:projectId/cells/:cellId/reviews', adminOnly, projectWorkspaceController.listCellReviews);
 router.post('/:projectId/cells/:cellId/reviews', adminOnly, projectWorkspaceController.createCellReview);
 router.post('/:projectId/cells/:cellId/reviews/:reviewId/messages', adminOnly, projectWorkspaceController.addReviewMessage);
+router.patch('/:projectId/cells/:cellId/reviews/:reviewId/resolve', adminOnly, projectWorkspaceController.resolveCellReview);
 
 router.get('/:id/assigned-tasks', adminOnly, projectController.getProjectAssignedTasks);
 router.get('/:id/audit-trail', adminOnly, projectController.getAuditTrail);

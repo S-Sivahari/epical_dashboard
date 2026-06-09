@@ -3,6 +3,7 @@ import type {
   CellReview,
   CellWorkflowStageKey,
   DependencyGraph,
+  LayoutStage,
   ProjectCell,
   ProjectLibrary,
   WorkflowStageStatus,
@@ -88,6 +89,19 @@ export async function addReviewMessage(projectId: string, cellId: string, review
   const { data } = await api.post<CellReview>(
     `/projects/${projectId}/cells/${cellId}/reviews/${reviewId}/messages`,
     { body },
+  )
+  return data
+}
+
+export async function resolveCellReview(
+  projectId: string,
+  cellId: string,
+  reviewId: string,
+  payload: { outcome: 'approved' | 'rejected'; returnToStage?: LayoutStage; comment?: string },
+) {
+  const { data } = await api.patch<{ cell: ProjectCell; review: CellReview }>(
+    `/projects/${projectId}/cells/${cellId}/reviews/${reviewId}/resolve`,
+    payload,
   )
   return data
 }

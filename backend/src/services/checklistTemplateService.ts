@@ -1,27 +1,75 @@
 import { Types } from 'mongoose';
 import { ChecklistModel, ProjectChecklistModel, CellChecklistMappingModel } from '../models/Checklist';
+import { CellTypeChecklistDefinitionModel } from '../models/CellTypeChecklistDefinition';
 import { ProjectCellModel } from '../models/ProjectCell';
 import { recalcProjectChecklistProgress } from './checklistService';
+import { normalizeChecklistCellType } from './cellTypeChecklistService';
+import { upsertCellTypeChecklistFromExcel } from './cellTypeChecklistDefinitionService';
+import { CELL_TYPES } from '../models/ProjectCell';
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function formatCellTypeLabel(cellType: string): string {
+  const labels: Record<string, string> = {
+    block: 'BLOCK',
+    IOP: 'IO',
+    ESD: 'ESD',
+    TOP: 'TOP',
+  };
+  return labels[cellType] ?? cellType;
+}
+
+function rowCellType(row: Record<string, unknown>): string {
+  return String(row.cellType ?? row['Cell Type'] ?? row['cell type'] ?? '').trim();
+}
+
 export interface ChecklistTemplateRow {
   checklistName: string;
+  cellType: string;
   description: string;
   itemName: string;
   itemOrder: number;
 }
-
 export async function buildChecklistTemplateExportRows(): Promise<ChecklistTemplateRow[]> {
-  const checklists = await ChecklistModel.find().sort({ name: 1 }).lean();
   const rows: ChecklistTemplateRow[] = [];
 
-  for (const cl of checklists) {
+  const definitions = await CellTypeChecklistDefinitionModel.find().sort({ cellType: 1 }).lean();
+  for (const def of definitions) {
+    if (!def.items?.length) {
+      rows.push({
+        checklistName: def.checklistName,
+        cellType: formatCellTypeLabel(def.cellType),
+        description: def.description || '',
+        itemName: '',
+        itemOrder: 1,
+      });
+      continue;
+    }
+    for (const item of def.items) {
+      rows.push({
+        checklistName: def.checklistName,
+        cellType: formatCellTypeLabel(def.cellType),
+        description: def.description || '',
+        itemName: item.itemName,
+        itemOrder: (item.order ?? 0) + 1,
+      });
+    }
+  }
+
+  const genericChecklists = await ChecklistModel.find({
+    $or: [{ cellType: { $exists: false } }, { cellType: null }, { cellType: '' }],
+  })
+    .sort({ name: 1 })
+    .lean();
+
+  for (const cl of genericChecklists) {
+    const cellTypeLabel = cl.cellType ? formatCellTypeLabel(cl.cellType) : '';
     if (!cl.items?.length) {
       rows.push({
         checklistName: cl.name,
+        cellType: cellTypeLabel,
         description: cl.description || '',
         itemName: '',
         itemOrder: 1,
@@ -31,6 +79,7 @@ export async function buildChecklistTemplateExportRows(): Promise<ChecklistTempl
     for (const item of cl.items) {
       rows.push({
         checklistName: cl.name,
+        cellType: cellTypeLabel,
         description: cl.description || '',
         itemName: item.itemName,
         itemOrder: (item.order ?? 0) + 1,
@@ -41,26 +90,42 @@ export async function buildChecklistTemplateExportRows(): Promise<ChecklistTempl
   if (!rows.length) {
     return [
       {
-        checklistName: 'Global Verification Checklist',
-        description: 'Standard verification steps for layout projects',
-        itemName: 'Power Verification',
+        checklistName: 'BLOCK Cell Verification',
+        cellType: 'BLOCK',
+        description: 'Standard verification checklist for BLOCK layout cells',
+        itemName: 'Floor plan completeness review',
         itemOrder: 1,
       },
       {
-        checklistName: 'Global Verification Checklist',
-        description: 'Standard verification steps for layout projects',
-        itemName: 'DRC Check',
+        checklistName: 'BLOCK Cell Verification',
+        cellType: 'BLOCK',
+        description: 'Standard verification checklist for BLOCK layout cells',
+        itemName: 'Power strap verification',
         itemOrder: 2,
       },
       {
-        checklistName: 'Global Verification Checklist',
-        description: 'Standard verification steps for layout projects',
-        itemName: 'LVS Check',
-        itemOrder: 3,
+        checklistName: 'IO Cell Verification',
+        cellType: 'IO',
+        description: 'Standard verification checklist for IO pad ring cells',
+        itemName: 'Pad ring alignment check',
+        itemOrder: 1,
+      },
+      {
+        checklistName: 'ESD Cell Verification',
+        cellType: 'ESD',
+        description: 'Standard verification checklist for ESD protection cells',
+        itemName: 'ESD device sizing review',
+        itemOrder: 1,
+      },
+      {
+        checklistName: 'TOP Cell Verification',
+        cellType: 'TOP',
+        description: 'Standard verification checklist for top-level integration cells',
+        itemName: 'Top-level integration review',
+        itemOrder: 1,
       },
     ];
   }
-
   return rows;
 }
 
@@ -165,7 +230,12 @@ export async function importChecklistTemplateRows(
   let failed = 0;
   const errors: { row: number; checklistName: string; message: string }[] = [];
 
-  type Group = { description: string; displayName: string; items: { itemName: string; order: number }[] };
+  type Group = {
+    description: string;
+    displayName: string;
+    cellType?: string;
+    items: { itemName: string; order: number }[];
+  };
   const grouped = new Map<string, Group>();
 
   for (let i = 0; i < rows.length; i += 1) {
@@ -173,23 +243,32 @@ export async function importChecklistTemplateRows(
     imported += 1;
 
     const checklistName = rowChecklistName(row);
+    const cellTypeRaw = rowCellType(row);
+    const normalizedCellType = cellTypeRaw ? normalizeChecklistCellType(cellTypeRaw) : null;
     const description = String(row.description ?? row['Description'] ?? '').trim();
     const itemName = String(row.itemName ?? row['Item Name'] ?? row['item name'] ?? '').trim();
     const orderRaw = row.itemOrder ?? row['Item Order'] ?? row['item order'] ?? '';
 
-    if (!checklistName) {
+    if (!checklistName && !normalizedCellType) {
       failed += 1;
-      errors.push({ row: i + 1, checklistName: '(empty)', message: 'Checklist name is required' });
+      errors.push({ row: i + 1, checklistName: '(empty)', message: 'Checklist name or cell type is required' });
       continue;
     }
 
-    const key = checklistName.toLowerCase();
+    const key = normalizedCellType ?? checklistName.toLowerCase();
     if (!grouped.has(key)) {
-      grouped.set(key, { description, displayName: checklistName, items: [] });
+      grouped.set(key, {
+        description,
+        displayName: checklistName || `${formatCellTypeLabel(normalizedCellType!)} Cell Verification`,
+        cellType: normalizedCellType ?? undefined,
+        items: [],
+      });
     }
 
     const group = grouped.get(key)!;
     if (description) group.description = description;
+    if (checklistName) group.displayName = checklistName;
+    if (normalizedCellType) group.cellType = normalizedCellType;
     if (itemName) {
       const order = Number(orderRaw);
       group.items.push({
@@ -212,6 +291,25 @@ export async function importChecklistTemplateRows(
 
     try {
       group.items.sort((a, b) => a.order - b.order);
+
+      if (group.cellType && (CELL_TYPES as readonly string[]).includes(group.cellType)) {
+        const hadDefinition = await CellTypeChecklistDefinitionModel.findOne({
+          cellType: group.cellType,
+        });
+        await upsertCellTypeChecklistFromExcel(
+          group.cellType as (typeof CELL_TYPES)[number],
+          {
+            checklistName: group.displayName,
+            description: group.description,
+            items: group.items,
+          },
+          actor,
+        );
+        if (hadDefinition) updated += 1;
+        else created += 1;
+        continue;
+      }
+
       const itemDocs = group.items.map((item, idx) => ({
         _id: new Types.ObjectId(),
         itemName: item.itemName,
@@ -247,7 +345,6 @@ export async function importChecklistTemplateRows(
       });
     }
   }
-
   return { imported, created, updated, failed, errors };
 }
 
