@@ -4,8 +4,8 @@ import { getDB } from '../config/db';
 import { User, CreateUserPayload } from '../models/User';
 import { generateToken } from '../utils/generateToken';
 import {
-  ADMIN_LOGIN_EMAIL,
   ensureUserAccountForEmployee,
+  getAdminLoginEmail,
   normalizeLoginEmail,
   resolveUserForPasswordLogin,
 } from '../utils/employeeAuth';
@@ -26,7 +26,7 @@ export async function loginUser(
   password: string
 ): Promise<{ token: string; user: Omit<User, 'passwordHash'>; role: string }> {
   const normalized = normalizeLoginEmail(email);
-  if (normalized !== ADMIN_LOGIN_EMAIL) {
+  if (normalized !== getAdminLoginEmail()) {
     throw Object.assign(
       new Error('Employee accounts must sign in with Google. Use Continue with Google.'),
       { status: 403 },
@@ -113,7 +113,7 @@ function defaultAdminPayload(): CreateUserPayload {
   return {
     id: 'ADM-1',
     name: env.ADMIN_NAME || 'Epical Admin',
-    email: ADMIN_LOGIN_EMAIL,
+    email: env.ADMIN_EMAIL,
     password: env.ADMIN_PASSWORD || 'admin123',
     role: 'Admin',
     designation: 'Administrator',

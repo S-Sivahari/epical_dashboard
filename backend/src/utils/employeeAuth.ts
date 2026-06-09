@@ -1,13 +1,16 @@
 import bcrypt from 'bcryptjs';
 import { Collection } from 'mongodb';
 import { getDB } from '../config/db';
+import { env } from '../config/env';
 import {
   assertLoginEmailAllowedForEmployee,
   EmployeeLoginError,
 } from './employeeLoginRules';
 
-/** Fixed admin portal login email — password is always ADMIN_PASSWORD from env. */
-export const ADMIN_LOGIN_EMAIL = 'admin@company.com';
+/** Env-configured admin portal login email (password is ADMIN_PASSWORD). */
+export function getAdminLoginEmail(): string {
+  return env.ADMIN_EMAIL;
+}
 /** OAuth-only employees use an unusable password hash when a users row is provisioned. */
 export const OAUTH_ONLY_EMPLOYEE_PASSWORD = '';
 
@@ -221,8 +224,8 @@ export async function resolveUserForPasswordLogin(email: string) {
   const normalized = normalizeLoginEmail(email);
   const col = getUserCollection();
 
-  if (normalized === ADMIN_LOGIN_EMAIL) {
-    const adminUser = await col.findOne({ email: ADMIN_LOGIN_EMAIL, role: 'Admin' });
+  if (normalized === getAdminLoginEmail()) {
+    const adminUser = await col.findOne({ role: 'Admin' });
     return { user: adminUser, employee: null, loginEmail: normalized };
   }
 
@@ -247,8 +250,8 @@ export async function resolveUserForPasswordLogin(email: string) {
 export async function resolveUserForOAuthLogin(email: string) {
   const normalized = normalizeLoginEmail(email);
 
-  if (normalized === ADMIN_LOGIN_EMAIL) {
-    return { user: await getUserCollection().findOne({ email: ADMIN_LOGIN_EMAIL, role: 'Admin' }), employee: null };
+  if (normalized === getAdminLoginEmail()) {
+    return { user: await getUserCollection().findOne({ role: 'Admin' }), employee: null };
   }
 
   const employee = await findEmployeeByLoginEmail(normalized);

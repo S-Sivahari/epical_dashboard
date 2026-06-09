@@ -3,7 +3,7 @@ import { getDB } from '../config/db';
 import { Employee, CreateEmployeePayload, UpdateEmployeePayload, EmployeeActivityEntry } from '../models/Employee';
 import { EmployeeAttendanceModel } from '../models/EmployeeAttendance';
 import * as emailService from './emailService';
-import { ensureUserAccountForEmployee, normalizeLoginEmail, ADMIN_LOGIN_EMAIL } from '../utils/employeeAuth';
+import { ensureUserAccountForEmployee, getAdminLoginEmail, normalizeLoginEmail } from '../utils/employeeAuth';
 import { assertPersonalAndCompanyEmailsDiffer } from '../utils/employeeLoginRules';
 import { sanitizeEmployeeForDetail, sanitizeEmployeeForList } from '../utils/sanitizeEmployee';
 
@@ -34,7 +34,7 @@ async function assertLoginEmailNotUsedByOtherEmployee(
 
 function assertNotAdminPortalEmail(email?: string): void {
   if (!email?.trim()) return;
-  if (normalizeLoginEmail(email) === ADMIN_LOGIN_EMAIL) {
+  if (normalizeLoginEmail(email) === getAdminLoginEmail()) {
     const err: any = new Error('This email is reserved for the system admin account.');
     err.code = 'ADMIN_EMAIL_RESERVED';
     throw err;

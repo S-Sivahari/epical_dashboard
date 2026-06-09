@@ -17,6 +17,9 @@ export function validateProductionSecrets(): void {
   if (!process.env.SESSION_SECRET || WEAK_SESSION.has(env.SESSION_SECRET)) {
     errors.push('Set a strong SESSION_SECRET in production (not the default).');
   }
+  if (!process.env.ADMIN_EMAIL?.trim()) {
+    errors.push('Set ADMIN_EMAIL in production.');
+  }
   if (!process.env.ADMIN_PASSWORD || WEAK_ADMIN_PASSWORD.has(env.ADMIN_PASSWORD)) {
     errors.push('Set a strong ADMIN_PASSWORD in production (not admin123).');
   }
