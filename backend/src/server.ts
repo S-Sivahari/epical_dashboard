@@ -405,8 +405,11 @@ export async function startServer() {
       console.warn('⚠ Payroll FY snapshot reset skipped:', err);
     }
   } catch (error) {
-    // Server is already listening — just log the init failure, don't exit
-    console.error('✗ Initialization error (server still running):', error);
+    // DB/init failed after all retries — exit so Cloud Run kills this
+    // instance and starts a fresh one (which retries the connection).
+    // Better a clean restart than a zombie instance serving 500s.
+    console.error('✗ DB/init failed after retries — exiting for restart:', error);
+    process.exit(1);
   }
 }
 
