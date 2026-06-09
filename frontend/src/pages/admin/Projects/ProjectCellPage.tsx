@@ -248,9 +248,12 @@ export function ProjectCellPage() {
         <div className="admin-projects-workspace-shell admin-projects-workspace-chrome relative z-10">
           <header className="admin-projects-workspace-head admin-projects-workspace-head--cell admin-projects-cell-page-head">
             <div className="admin-projects-cell-head-top">
-              <Link to={ROUTES.PROJECT_WORKSPACE(projectId)} className="admin-projects-back-btn">
-                <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-                Back to {project.name}
+              <Link
+                to={ROUTES.PROJECT_WORKSPACE(projectId)}
+                className="admin-projects-back-btn admin-projects-back-btn--icon-only"
+                aria-label={`Back to ${project.name}`}
+              >
+                <ArrowLeft className="h-4 w-4" aria-hidden />
               </Link>
               <div className="admin-projects-cell-head-identity">
                 <h1 className="admin-projects-head-title">{cell.name}</h1>

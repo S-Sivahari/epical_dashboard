@@ -1590,6 +1590,16 @@
   transform: none;
 }
 
+.admin-projects-back-btn--icon-only {
+  justify-content: center;
+  padding: 0.4375rem;
+  border-radius: 0.5rem;
+}
+
+.admin-projects-cell-head-top .admin-projects-back-btn--icon-only {
+  flex-shrink: 0;
+}
+
 .admin-projects-progress-pill {
   display: flex;
   align-items: center;
