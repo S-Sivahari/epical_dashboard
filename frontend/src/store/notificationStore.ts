@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import api from '@services/api'
-import { playCustomNotificationSound } from '@utils/customNotificationSound'
+import { playNotificationSound } from '@utils/notificationSound'
 
 /** Background poll interval for unread badge (ms). Changed from 60s to 5s for instant notifications */
 export const NOTIFICATION_POLL_MS = 5_000
@@ -22,7 +22,7 @@ async function runUnreadCountFetch(
       const newCount = response.data.count
 
       if (isInitialized && newCount > prevCount) {
-        void playCustomNotificationSound()
+        void playNotificationSound()
         void get().fetchNotificationsSilent()
       }
 
@@ -112,7 +112,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       
       // Play sound only if initialized AND unread count increased
       if (isInitialized && unreadCount > prevUnreadCount) {
-        void playCustomNotificationSound()
+        void playNotificationSound()
       }
       
       set({ 
@@ -138,7 +138,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       const unreadCount = response.data.filter((n: NotificationData) => !n.isRead).length
       
       if (isInitialized && unreadCount > prevUnreadCount) {
-        void playCustomNotificationSound()
+        void playNotificationSound()
       }
       
       set({ 
