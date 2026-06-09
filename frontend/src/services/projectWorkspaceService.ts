@@ -1,16 +1,9 @@
 import api from '@/services/api'
 import type {
   CellReview,
-  DependencyGraph,
-  LayoutStage,
-  ProjectCell,
-  ProjectLibrary,
-  WorkspaceSummary,
-} from '@/types/projectWorkspace'
-import type {
-  CellReview,
   CellWorkflowStageKey,
   DependencyGraph,
+  LayoutStage,
   ProjectCell,
   ProjectLibrary,
   WorkflowStageStatus,

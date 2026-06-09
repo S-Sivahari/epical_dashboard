@@ -232,7 +232,7 @@ export default function Dashboard() {
         <div className="shrink-0 space-y-2">
           <AnnouncementBanner compact />
 
-          <div className="overflow-x-auto pb-0.5">
+          <div className="pb-0.5">
             <ProfileCard
               employee={employee}
               profile={profile}
@@ -240,7 +240,7 @@ export default function Dashboard() {
               horizontal
               stats={loading ? null : profileStats}
               statsLoading={loading}
-              className="min-w-[36rem] sm:min-w-0"
+              className="min-w-0 w-full"
             />
           </div>
         </div>

@@ -10,13 +10,17 @@ export function WorkflowBlockCard({
   savingId,
   onAdvance,
   onRequestReview,
+  adminMode = false,
+  openReview = null,
+  onResolveReview,
+  reviewSaving = false,
 }) {
-  const canEdit = Boolean(cell.isAssignedToMe)
+  const canEdit = !adminMode && Boolean(cell.isAssignedToMe)
   const advance = canEdit ? getAdvancePayload(cell, viewTab) : null
   const isSaving = savingId === cell.id
   const isReview = advance?.type === 'review'
   const wf = normalizeWorkflow(cell?.viewWorkflow).layout
-  const awaitingReview = canEdit && viewTab === 'layout' && wf?.pendingReview
+  const awaitingReview = viewTab === 'layout' && Boolean(wf?.pendingReview)
   const isDone = canEdit && !advance && !awaitingReview
   const actionLabel =
     viewTab === 'layout' && canEdit
@@ -75,28 +79,80 @@ export function WorkflowBlockCard({
         <span className="emp-wf-card-hours">{cell.estimatedEffort || 0}h</span>
       </div>
 
-      <button
-        type="button"
-        className={`emp-wf-advance-btn${isReview ? ' emp-wf-advance-btn--review' : ''}${isDone ? ' emp-wf-advance-btn--done' : ''}${!canEdit ? ' emp-wf-advance-btn--readonly' : ''}`}
-        disabled={isSaving || !canEdit || isDone || awaitingReview}
-        onClick={handleAction}
-        title={
-          !canEdit
-            ? 'You can only advance cells assigned to you'
-            : awaitingReview
-              ? 'Waiting for admin review'
-              : undefined
-        }
-      >
-        {isSaving ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        ) : (
-          <>
-            {!canEdit ? 'View Only' : awaitingReview ? `Awaiting ${wf.pendingReview.toUpperCase()} review` : actionLabel}
-            {canEdit && !isDone && !isSaving && !awaitingReview ? <ArrowRight className="h-3.5 w-3.5" /> : null}
-          </>
-        )}
-      </button>
+      {adminMode && openReview && awaitingReview ? (
+        <div className="emp-wf-admin-review-actions">
+          <button
+            type="button"
+            className="emp-wf-admin-review-btn emp-wf-admin-review-btn--approve"
+            disabled={reviewSaving}
+            onClick={() => onResolveReview?.(openReview.id, 'approved')}
+          >
+            {reviewSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Approve'}
+          </button>
+          {openReview.reviewPoint === 'r2' ? (
+            <>
+              <button
+                type="button"
+                className="emp-wf-admin-review-btn emp-wf-admin-review-btn--reject"
+                disabled={reviewSaving}
+                onClick={() => onResolveReview?.(openReview.id, 'rejected', 'routing')}
+              >
+                Reject → Routing
+              </button>
+              <button
+                type="button"
+                className="emp-wf-admin-review-btn emp-wf-admin-review-btn--reject"
+                disabled={reviewSaving}
+                onClick={() => onResolveReview?.(openReview.id, 'rejected', 'floor_plan')}
+              >
+                Reject → Floor Plan
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="emp-wf-admin-review-btn emp-wf-admin-review-btn--reject"
+              disabled={reviewSaving}
+              onClick={() => onResolveReview?.(openReview.id, 'rejected', 'floor_plan')}
+            >
+              Reject → Floor Plan
+            </button>
+          )}
+        </div>
+      ) : (
+        <button
+          type="button"
+          className={`emp-wf-advance-btn${isReview ? ' emp-wf-advance-btn--review' : ''}${isDone ? ' emp-wf-advance-btn--done' : ''}${!canEdit ? ' emp-wf-advance-btn--readonly' : ''}`}
+          disabled={isSaving || !canEdit || isDone || awaitingReview}
+          onClick={handleAction}
+          title={
+            adminMode
+              ? 'Workflow advances are done by the assigned engineer'
+              : !canEdit
+                ? 'You can only advance cells assigned to you'
+                : awaitingReview
+                  ? 'Waiting for admin review'
+                  : undefined
+          }
+        >
+          {isSaving ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <>
+              {adminMode
+                ? awaitingReview
+                  ? `Awaiting ${wf.pendingReview.toUpperCase()} review`
+                  : 'Engineer workflow'
+                : !canEdit
+                  ? 'View Only'
+                  : awaitingReview
+                    ? `Awaiting ${wf.pendingReview.toUpperCase()} review`
+                    : actionLabel}
+              {canEdit && !isDone && !isSaving && !awaitingReview ? <ArrowRight className="h-3.5 w-3.5" /> : null}
+            </>
+          )}
+        </button>
+      )}
     </article>
   )
 }

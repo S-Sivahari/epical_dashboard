@@ -141,7 +141,7 @@ export function EmployeeProjectBoardPage({ routeProjectId = null }) {
   const loading = loadingProjects || loadingWorkspace
 
   return (
-    <div className="emp-wf-page">
+    <div className="emp-wf-page" data-page-scrollable data-employee-project-workspace>
       <div className="emp-wf-surface">
         {projects.length > 0 ? (
           <div className="emp-wf-project-picker">
