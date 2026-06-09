@@ -236,11 +236,14 @@ export type WorkflowUpdateResult =
   | { ok: true; workflow: CellWorkflowStage[] }
   | { ok: false; error: string };
 
+export type ReviewRejectReturnTo = 'floor_plan' | 'routing';
+
 export function applyWorkflowStageUpdate(
   rawWorkflow: unknown,
   stageKey: CellWorkflowStageKey,
   nextStatus: WorkflowStageStatus,
   actorRole: 'Admin' | 'Employee',
+  options?: { rejectReturnTo?: ReviewRejectReturnTo },
 ): WorkflowUpdateResult {
   let workflow = normalizeCellWorkflow(rawWorkflow);
   const current = stageStatus(workflow, stageKey);
@@ -279,8 +282,10 @@ export function applyWorkflowStageUpdate(
           workflow = setStageStatus(workflow, 'routing', 'in_progress');
         }
       } else {
-        workflow = setStageStatus(workflow, 'drc_first', 'in_progress');
+        workflow = setStageStatus(workflow, 'floor_plan', 'in_progress');
+        workflow = setStageStatus(workflow, 'drc_first', 'not_started');
         workflow = setStageStatus(workflow, 'review_1', 'not_started');
+        workflow = resetDownstreamStages(workflow, 'review_1');
       }
     }
 
@@ -288,8 +293,25 @@ export function applyWorkflowStageUpdate(
       if (nextStatus === 'approved') {
         workflow = setStageStatus(workflow, 'review_2', 'approved');
       } else {
-        workflow = setStageStatus(workflow, 'lvs', 'in_progress');
-        workflow = setStageStatus(workflow, 'review_2', 'not_started');
+        const returnTo = options?.rejectReturnTo;
+        if (returnTo !== 'floor_plan' && returnTo !== 'routing') {
+          return { ok: false, error: 'Select return stage: floor_plan or routing' };
+        }
+
+        if (returnTo === 'floor_plan') {
+          workflow = setStageStatus(workflow, 'floor_plan', 'in_progress');
+          workflow = setStageStatus(workflow, 'drc_first', 'not_started');
+          workflow = setStageStatus(workflow, 'review_1', 'not_started');
+          workflow = setStageStatus(workflow, 'routing', 'not_started');
+          workflow = setStageStatus(workflow, 'drc_final', 'not_started');
+          workflow = setStageStatus(workflow, 'lvs', 'not_started');
+          workflow = setStageStatus(workflow, 'review_2', 'not_started');
+        } else {
+          workflow = setStageStatus(workflow, 'routing', 'in_progress');
+          workflow = setStageStatus(workflow, 'drc_final', 'not_started');
+          workflow = setStageStatus(workflow, 'lvs', 'not_started');
+          workflow = setStageStatus(workflow, 'review_2', 'not_started');
+        }
       }
     }
 

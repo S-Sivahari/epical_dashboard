@@ -117,9 +117,7 @@ export function ProjectTypeChecklistPanel({ projectId }: ProjectTypeChecklistPan
       <div className="admin-projects-type-checklist-toolbar">
         <div>
           <h2 className="admin-projects-graph-title">Project checklists</h2>
-          <p className="admin-projects-type-checklist-intro">
-            Upload one checklist file per cell type. Re-uploading replaces the existing file for that type.
-          </p>
+          
         </div>
         <div className="admin-projects-type-checklist-actions">
           <Button variant="secondary" size="sm" onClick={() => void handleDownloadTemplate()}>
