@@ -113,13 +113,10 @@ export function ProjectTypeChecklistPanel({ projectId }: ProjectTypeChecklistPan
   }
 
   return (
-    <div className="admin-projects-type-checklist-panel">
-      <div className="admin-projects-type-checklist-toolbar">
-        <div>
-          <h2 className="admin-projects-graph-title">Project checklists</h2>
-          
-        </div>
-        <div className="admin-projects-type-checklist-actions">
+    <div className="admin-projects-type-checklist-shell">
+      <div className="admin-projects-type-checklist-head">
+        <h2 className="admin-projects-type-checklist-head-title">Project checklists</h2>
+        <div className="admin-projects-type-checklist-head-actions">
           <Button variant="secondary" size="sm" onClick={() => void handleDownloadTemplate()}>
             <Download className="mr-1.5 h-3.5 w-3.5" />
             Download template
@@ -127,33 +124,34 @@ export function ProjectTypeChecklistPanel({ projectId }: ProjectTypeChecklistPan
         </div>
       </div>
 
-      <div className="admin-projects-type-checklist-upload-bar">
-        <label className="admin-projects-type-checklist-upload-label">
-          Cell type
-          <select
-            className="admin-projects-filter-select mt-1 w-full min-w-[8rem]"
-            value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value as CellType)}
-          >
-            {CELL_TYPES.map((type) => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </select>
-        </label>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-          className="hidden"
-          onChange={(e) => void handleFileChange(e)}
-        />
-        <Button size="sm" disabled={uploading} onClick={() => handleUploadClick()}>
-          <Upload className="mr-1.5 h-3.5 w-3.5" />
-          {uploading ? 'Uploading…' : 'Upload checklist'}
-        </Button>
-      </div>
+      <div className="admin-projects-type-checklist-body">
+        <div className="admin-projects-type-checklist-upload-bar">
+          <label className="admin-projects-type-checklist-upload-label">
+            Cell type
+            <select
+              className="admin-projects-type-checklist-upload-select"
+              value={selectedType}
+              onChange={(e) => setSelectedType(e.target.value as CellType)}
+            >
+              {CELL_TYPES.map((type) => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </label>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            className="hidden"
+            onChange={(e) => void handleFileChange(e)}
+          />
+          <Button size="sm" disabled={uploading} onClick={() => handleUploadClick()}>
+            <Upload className="mr-1.5 h-3.5 w-3.5" />
+            {uploading ? 'Uploading…' : 'Upload checklist'}
+          </Button>
+        </div>
 
-      <div className="admin-projects-type-checklist-grid">
+        <div className="admin-projects-type-checklist-grid">
         {CELL_TYPES.map((cellType) => {
           const item = byType.get(cellType) ?? {
             cellType,
@@ -183,13 +181,13 @@ export function ProjectTypeChecklistPanel({ projectId }: ProjectTypeChecklistPan
 
               {item.hasFile ? (
                 <div className="admin-projects-type-checklist-file">
-                  <FileSpreadsheet className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold text-slate-800" title={item.fileName}>
+                  <FileSpreadsheet className="admin-projects-type-checklist-file-icon" aria-hidden />
+                  <div className="admin-projects-type-checklist-file-meta">
+                    <p className="admin-projects-type-checklist-file-name" title={item.fileName}>
                       {item.fileName}
                     </p>
                     {item.uploadedAt ? (
-                      <p className="text-xs text-slate-500">
+                      <p className="admin-projects-type-checklist-file-detail">
                         {new Date(item.uploadedAt).toLocaleString()}
                         {item.uploadedByName ? ` · ${item.uploadedByName}` : ''}
                       </p>
@@ -233,6 +231,7 @@ export function ProjectTypeChecklistPanel({ projectId }: ProjectTypeChecklistPan
             </div>
           )
         })}
+        </div>
       </div>
 
       <ConfirmModal
