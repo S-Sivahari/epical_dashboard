@@ -4,6 +4,7 @@ import {
   Briefcase,
   CalendarCheck,
   CalendarDays,
+  CircuitBoard,
   Clock,
   FileText,
   HelpCircle,
@@ -57,6 +58,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     items: [
       { to: ROUTES.TIMESHEET, label: 'Projects & Timesheets', navLabel: 'Timesheet', icon: Clock },
       { to: ROUTES.PROJECTS, label: 'Projects', navLabel: 'Projects', icon: Briefcase },
+      { to: ROUTES.METAL_ROUTING, label: 'Metal Routing', navLabel: 'Metal Routing', icon: CircuitBoard },
       { to: ROUTES.CALENDAR, label: 'Company Calendar', navLabel: 'Calendar', icon: CalendarDays },
     ],
   },
@@ -92,6 +94,7 @@ export const ADMIN_ROUTE_TITLES: Record<string, string> = {
   [ROUTES.TIMESHEET]: 'Projects & Timesheets',
   [ROUTES.PROJECTS]: 'Projects',
   [`${ROUTES.PROJECTS}/`]: 'Project workspace',
+  [ROUTES.METAL_ROUTING]: 'Metal Routing Analysis',
   [ROUTES.CALENDAR]: 'Company Calendar',
   [ROUTES.TRAINING]: 'Training & Courses',
   [ROUTES.ACHIEVEMENTS]: 'Company achievements',
