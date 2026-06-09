@@ -22,6 +22,18 @@ export interface CellViews {
   schematic: string;
 }
 
+export type ChecklistYesNo = 'yes' | 'no';
+
+export interface CellChecklistExtension {
+  dimensionX: number | null;
+  dimensionY: number | null;
+  area: number | null;
+  highestMetalUsed: string;
+  virtualConnection: ChecklistYesNo | null;
+  overallSubstrateContact: ChecklistYesNo | null;
+  waivableDrcError: ChecklistYesNo | null;
+}
+
 export type { CellViewWorkflow };
 
 export interface ProjectCell extends Document {
@@ -40,6 +52,7 @@ export interface ProjectCell extends Document {
   workflow: CellWorkflowStage[];
   views: CellViews;
   viewWorkflow: CellViewWorkflow;
+  checklistExtension?: CellChecklistExtension;
   activityLog: CellActivityEntry[];
   createdBy?: string;
   createdAt: Date;
@@ -89,6 +102,15 @@ const ProjectCellSchema = new Schema<ProjectCell>(
         status: { type: String, enum: ['not_started', 'in_progress', 'completed'], default: 'not_started' },
         pendingReview: { type: String, enum: ['r1', 'r2', null], default: null },
       },
+    },
+    checklistExtension: {
+      dimensionX: { type: Number, default: null },
+      dimensionY: { type: Number, default: null },
+      area: { type: Number, default: null },
+      highestMetalUsed: { type: String, default: '' },
+      virtualConnection: { type: String, enum: ['yes', 'no', null], default: null },
+      overallSubstrateContact: { type: String, enum: ['yes', 'no', null], default: null },
+      waivableDrcError: { type: String, enum: ['yes', 'no', null], default: null },
     },
     activityLog: [
       {

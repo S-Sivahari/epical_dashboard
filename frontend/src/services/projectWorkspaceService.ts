@@ -62,10 +62,11 @@ export async function updateWorkflowStage(
   cellId: string,
   stageKey: CellWorkflowStageKey,
   status: WorkflowStageStatus,
+  options?: { rejectReturnTo?: 'floor_plan' | 'routing' },
 ) {
   const { data } = await api.patch<ProjectCell>(
     `/projects/${projectId}/cells/${cellId}/workflow/${stageKey}`,
-    { status },
+    { status, ...options },
   )
   return data
 }

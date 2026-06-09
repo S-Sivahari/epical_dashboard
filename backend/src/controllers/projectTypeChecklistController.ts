@@ -15,9 +15,11 @@ import {
   getCellTypeChecklistDetail,
   getTypeChecklistItems,
   isValidTypeChecklistAnswer,
+  isValidChecklistYesNo,
   normalizeCellType,
   resolveCellContext,
   toProjectObjectId,
+  updateCellChecklistExtension,
   updateCustomChecklistItemResponse,
 } from '../services/projectTypeChecklistService';
 import { isAdminRole } from '../utils/generateToken';
@@ -426,6 +428,80 @@ export const projectTypeChecklistController = {
     } catch (err) {
       console.error('[type-checklist] updateCustomItemResponse', err);
       res.status(500).json({ error: 'Failed to save checklist response' });
+    }
+  },
+
+  updateExtension: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const cellId = paramId(req.params.cellId);
+      const body = req.body as {
+        dimensionX?: number | string | null;
+        dimensionY?: number | string | null;
+        highestMetalUsed?: string;
+        virtualConnection?: string | null;
+        overallSubstrateContact?: string | null;
+        waivableDrcError?: string | null;
+      };
+
+      const payload: Record<string, unknown> = {};
+
+      if (body.dimensionX !== undefined) {
+        const raw = body.dimensionX;
+        if (raw === null || raw === '') {
+          payload.dimensionX = null;
+        } else {
+          const parsed = Number(raw);
+          if (!Number.isFinite(parsed)) {
+            res.status(400).json({ error: 'Dimension X must be a number' });
+            return;
+          }
+          payload.dimensionX = parsed;
+        }
+      }
+
+      if (body.dimensionY !== undefined) {
+        const raw = body.dimensionY;
+        if (raw === null || raw === '') {
+          payload.dimensionY = null;
+        } else {
+          const parsed = Number(raw);
+          if (!Number.isFinite(parsed)) {
+            res.status(400).json({ error: 'Dimension Y must be a number' });
+            return;
+          }
+          payload.dimensionY = parsed;
+        }
+      }
+
+      if (body.highestMetalUsed !== undefined) {
+        payload.highestMetalUsed = String(body.highestMetalUsed ?? '');
+      }
+
+      for (const key of ['virtualConnection', 'overallSubstrateContact', 'waivableDrcError'] as const) {
+        if (body[key] !== undefined) {
+          const value = body[key];
+          if (value === null || value === '') {
+            payload[key] = null;
+          } else if (!isValidChecklistYesNo(String(value))) {
+            res.status(400).json({ error: `${key} must be yes or no` });
+            return;
+          } else {
+            payload[key] = value;
+          }
+        }
+      }
+
+      const extension = await updateCellChecklistExtension(projectId, cellId, payload);
+      if (!extension) {
+        res.status(404).json({ error: 'Cell not found in this project' });
+        return;
+      }
+
+      res.json(extension);
+    } catch (err) {
+      console.error('[type-checklist] updateExtension', err);
+      res.status(500).json({ error: 'Failed to save checklist extension fields' });
     }
   },
 

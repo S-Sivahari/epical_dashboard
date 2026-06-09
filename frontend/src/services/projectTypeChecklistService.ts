@@ -1,5 +1,6 @@
 import api from '@/services/api'
 import type {
+  CellChecklistExtensionFields,
   CellType,
   CellTypeChecklistDetail,
   CellTypeChecklistItem,
@@ -108,6 +109,18 @@ export async function updateCellCustomChecklistResponse(
 ) {
   const { data } = await api.patch<CellTypeChecklistItem>(
     `/projects/${projectId}/cells/${cellId}/type-checklist/custom-items/${customItemId}`,
+    payload,
+  )
+  return data
+}
+
+export async function updateCellChecklistExtension(
+  projectId: string,
+  cellId: string,
+  payload: Partial<CellChecklistExtensionFields>,
+) {
+  const { data } = await api.patch<CellChecklistExtensionFields>(
+    `/projects/${projectId}/cells/${cellId}/type-checklist/extension`,
     payload,
   )
   return data

@@ -153,8 +153,22 @@ const EmployeeProfilePage = lazy(() =>
   import('@pages/employee/EmployeeProfile')
 )
 
-const EmployeeProjects = lazy(() =>
-  import('@pages/employee/EmployeeProjects')
+const EmployeeProjectsLayout = lazy(() =>
+  import('@components/employee/projects/EmployeeProjectsLayout').then((m) => ({
+    default: m.EmployeeProjectsLayout,
+  }))
+)
+
+const EmployeeProjectsDashboard = lazy(() =>
+  import('@pages/employee/EmployeeProjectsDashboard')
+)
+
+const EmployeeProjectsListPage = lazy(() =>
+  import('@pages/employee/EmployeeProjectsListPage')
+)
+
+const EmployeeRequestedReviewsPage = lazy(() =>
+  import('@pages/employee/EmployeeRequestedReviewsPage')
 )
 
 const EmployeeProjectWorkspace = lazy(() =>
@@ -285,8 +299,10 @@ export function AppRoutes() {
               element={<EmployeeTimesheet />}
             />
 
-            <Route path="projects">
-              <Route index element={<EmployeeProjects />} />
+            <Route path="projects" element={<EmployeeProjectsLayout />}>
+              <Route index element={<EmployeeProjectsDashboard />} />
+              <Route path="my-projects" element={<EmployeeProjectsListPage />} />
+              <Route path="reviews" element={<EmployeeRequestedReviewsPage />} />
               <Route path=":projectId" element={<EmployeeProjectWorkspace />} />
               <Route path=":projectId/cells/:cellId" element={<EmployeeCellWorkflow />} />
             </Route>

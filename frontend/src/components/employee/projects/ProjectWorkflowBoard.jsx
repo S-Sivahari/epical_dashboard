@@ -1,6 +1,12 @@
 import { useMemo } from 'react'
 import { cn } from '@pages/employee/lib/utils'
-import { getCellKanbanColumn, getKanbanColumnsForView } from '@/utils/cellWorkflowUi'
+import {
+  getCellKanbanColumn,
+  getKanbanColumnsForView,
+  getPipelineColumnStatus,
+  normalizeWorkflow,
+} from '@/utils/cellWorkflowUi'
+import { ViewProgressStatusBadge } from './ViewProgressStatusBadge'
 import { WorkflowBlockCard } from './WorkflowBlockCard'
 
 export function ProjectWorkflowBoard({
@@ -12,6 +18,12 @@ export function ProjectWorkflowBoard({
   savingId,
   onAdvance,
   onRequestReview,
+  adminMode = false,
+  openReviewByCellId,
+  onResolveReview,
+  reviewSaving = false,
+  compact = false,
+  checklistFilled = true,
 }) {
   const columns = getKanbanColumnsForView(viewTab)
 
@@ -32,36 +44,65 @@ export function ProjectWorkflowBoard({
     return ids.size
   }, [cells])
 
+  const isSingleCell = compact && (cells?.length === 1)
+  const pipelineCell = isSingleCell ? cells[0] : null
+
+  const boardMinWidth = compact
+    ? viewTab === 'layout'
+      ? '680px'
+      : '420px'
+    : viewTab === 'layout'
+      ? '920px'
+      : '720px'
+
   return (
-    <div className="emp-project-workflow">
-      <div className="emp-project-workflow-head">
-        <h2 className="emp-project-workflow-title">Project Workflow</h2>
-        <div className="emp-wf-filters">
-          {columns.map((col) => (
-            <button
-              key={col.id}
-              type="button"
-              className={cn('emp-wf-pill', col.pill, activeFilter === col.id && 'is-active')}
-              onClick={() => onFilterChange(activeFilter === col.id ? null : col.id)}
-            >
-              {col.label}
-            </button>
-          ))}
+    <div className={cn('emp-project-workflow', compact && 'emp-project-workflow--compact')}>
+      {!compact || !isSingleCell ? (
+        <div className="emp-project-workflow-head">
+          {!compact ? <h2 className="emp-project-workflow-title">Project Workflow</h2> : null}
+          {!isSingleCell ? (
+            <div className="emp-wf-filters">
+              {columns.map((col) => (
+                <button
+                  key={col.id}
+                  type="button"
+                  className={cn('emp-wf-pill', col.pill, activeFilter === col.id && 'is-active')}
+                  onClick={() => onFilterChange(activeFilter === col.id ? null : col.id)}
+                >
+                  {col.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
-      </div>
+      ) : null}
 
       <div className="emp-wf-board-wrap">
         <div
-          className="emp-wf-board"
-          style={{ minWidth: viewTab === 'layout' ? '920px' : '720px' }}
+          className={cn('emp-wf-board', isSingleCell && 'emp-wf-board--pipeline')}
+          style={{ minWidth: boardMinWidth }}
         >
           {columns.map((column) => {
             const columnCells = grouped[column.id] || []
+            const columnStatus = pipelineCell
+              ? getPipelineColumnStatus(pipelineCell, column.id, viewTab)
+              : null
+            const isCurrentStage = pipelineCell
+              ? getCellKanbanColumn(pipelineCell, viewTab) === column.id
+              : false
+            const pendingReview =
+              isCurrentStage && viewTab === 'layout'
+                ? normalizeWorkflow(pipelineCell?.viewWorkflow).layout.pendingReview
+                : null
+
             return (
               <section
                 key={column.id}
                 className={cn(
                   'emp-wf-column',
+                  isSingleCell && columnStatus === 'completed' && 'emp-wf-column--stage-completed',
+                  isSingleCell && columnStatus === 'not_started' && 'emp-wf-column--stage-pending',
+                  isSingleCell && isCurrentStage && 'emp-wf-column--active-stage',
                   activeFilter === column.id && 'is-highlighted',
                   activeFilter && activeFilter !== column.id && 'is-dimmed',
                 )}
@@ -70,10 +111,17 @@ export function ProjectWorkflowBoard({
                   <span className="emp-wf-column-label">
                     <span className="emp-wf-column-dot" style={{ backgroundColor: column.dot }} />
                     {column.label.toUpperCase()}
+                    {pendingReview ? (
+                      <span className="emp-wf-column-review-hint"> · Awaiting {pendingReview.toUpperCase()}</span>
+                    ) : null}
                   </span>
-                  <span className="emp-wf-column-count">{columnCells.length}</span>
+                  {pipelineCell ? (
+                    <ViewProgressStatusBadge status={columnStatus} />
+                  ) : !isSingleCell && columnCells.length > 0 ? (
+                    <span className="emp-wf-column-count">{columnCells.length}</span>
+                  ) : null}
                 </header>
-                {columnCells.length > 0 ? (
+                {!compact && columnCells.length > 0 ? (
                   <p className="emp-wf-column-meta">
                     {columnCells.length} BLOCK{columnCells.length === 1 ? '' : 'S'} · {engineerIds || 1} ENGINEER
                     {(engineerIds || 1) === 1 ? '' : 'S'}
@@ -81,7 +129,11 @@ export function ProjectWorkflowBoard({
                 ) : null}
                 <div className="emp-wf-column-body">
                   {columnCells.length === 0 ? (
-                    <p className="emp-wf-empty">No blocks</p>
+                    isSingleCell ? (
+                      <div className="emp-wf-empty emp-wf-empty--pipeline" aria-hidden />
+                    ) : (
+                      <p className="emp-wf-empty">No blocks</p>
+                    )
                   ) : (
                     columnCells.map((cell) => (
                       <WorkflowBlockCard
@@ -92,6 +144,12 @@ export function ProjectWorkflowBoard({
                         savingId={savingId}
                         onAdvance={onAdvance}
                         onRequestReview={onRequestReview}
+                        adminMode={adminMode}
+                        openReview={openReviewByCellId?.get?.(cell.id) ?? null}
+                        onResolveReview={onResolveReview}
+                        reviewSaving={reviewSaving}
+                        hideStageRow={isSingleCell}
+                        checklistFilled={checklistFilled}
                       />
                     ))
                   )}

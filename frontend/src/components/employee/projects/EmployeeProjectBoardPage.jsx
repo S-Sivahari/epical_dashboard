@@ -1,30 +1,45 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+  Archive,
   BookOpen,
+  BarChart3,
   CheckCircle2,
-  GitBranch,
+  ChevronDown,
+  Clock3,
   History,
   Layers,
   LayoutGrid,
+  Network,
   User,
 } from 'lucide-react'
-import { ProjectCellList } from '@components/employee/projects/ProjectCellList'
-import { DependencyGraphView } from '@pages/admin/Projects/DependencyGraphView'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@components/employee/ui/dialog'
+import { EmployeeAssignedCellsList } from '@components/employee/projects/EmployeeAssignedCellsList'
+import { EmployeeProjectAnalyticsPanel } from '@components/employee/projects/EmployeeProjectAnalyticsPanel'
+import { EmployeeProjectEffortPanel } from '@components/employee/projects/EmployeeProjectEffortPanel'
+import { EmployeeDependencyGraphView } from '@components/employee/projects/EmployeeDependencyGraphView'
 import {
   fetchMyAssignedProjects,
   fetchMyDependencyGraph,
   fetchMyProjectWorkspace,
 } from '@services/employeeProjectService'
 import { useToast } from '@components/employee/shared/ToastProvider'
-import { useAuthStore } from '@store/authStore'
 import { cn } from '@pages/employee/lib/utils'
+import { getViewProgressStatus, SIMPLE_VIEW_COLUMNS } from '@/utils/cellWorkflowUi'
 import './employeeProjectWorkflow.css'
 
 const SECTION_ITEMS = [
-  { id: 'home', label: 'Home', icon: LayoutGrid },
-  { id: 'graph', label: 'Dependency graph', icon: GitBranch },
-  { id: 'activity', label: 'Activity log', icon: History },
+  { id: 'cells', label: 'Cells', icon: LayoutGrid },
+  { id: 'effort', label: 'Estimation', icon: Clock3 },
+  { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+  { id: 'graph', label: 'Dependencies', icon: Network },
+  { id: 'activity', label: 'Activity', icon: History },
 ]
 
 export function EmployeeProjectBoardPage({ routeProjectId = null }) {
@@ -34,11 +49,12 @@ export function EmployeeProjectBoardPage({ routeProjectId = null }) {
   const [workspace, setWorkspace] = useState(null)
   const [graph, setGraph] = useState(null)
   const [selectedLibraryId, setSelectedLibraryId] = useState(null)
-  const [workspaceSection, setWorkspaceSection] = useState('home')
+  const [workspaceSection, setWorkspaceSection] = useState('cells')
+  const [statusFilter, setStatusFilter] = useState(null)
   const [loadingProjects, setLoadingProjects] = useState(true)
   const [loadingWorkspace, setLoadingWorkspace] = useState(false)
+  const [projectSwitcherOpen, setProjectSwitcherOpen] = useState(false)
   const { toast } = useToast()
-  const user = useAuthStore((s) => s.user)
 
   useEffect(() => {
     const loadProjects = async () => {
@@ -47,9 +63,6 @@ export function EmployeeProjectBoardPage({ routeProjectId = null }) {
         const data = await fetchMyAssignedProjects()
         const list = Array.isArray(data) ? data : []
         setProjects(list)
-        if (!routeProjectId) {
-          setSelectedProjectId((prev) => prev || list[0]?.id || null)
-        }
       } catch {
         toast({ title: 'Error', description: 'Failed to load projects' })
         setProjects([])
@@ -101,6 +114,20 @@ export function EmployeeProjectBoardPage({ routeProjectId = null }) {
     return (workspace.cells || []).filter((cell) => cell.libraryId === selectedLibraryId)
   }, [workspace, selectedLibraryId])
 
+  const statusCounts = useMemo(() => {
+    const counts = Object.fromEntries(SIMPLE_VIEW_COLUMNS.map((col) => [col.id, 0]))
+    for (const cell of libraryCells) {
+      const status = getViewProgressStatus(cell, 'layout')
+      if (counts[status] != null) counts[status] += 1
+    }
+    return counts
+  }, [libraryCells])
+
+  const filteredLibraryCells = useMemo(() => {
+    if (!statusFilter) return libraryCells
+    return libraryCells.filter((cell) => getViewProgressStatus(cell, 'layout') === statusFilter)
+  }, [libraryCells, statusFilter])
+
   const libraryNameById = useMemo(() => {
     const map = new Map()
     workspace?.libraries.forEach((lib) => map.set(lib.id, lib.name))
@@ -129,42 +156,37 @@ export function EmployeeProjectBoardPage({ routeProjectId = null }) {
     return counts
   }, [workspace?.cells])
 
+  const cellsById = useMemo(() => {
+    const map = {}
+    for (const cell of workspace?.cells || []) {
+      map[cell.id] = cell
+    }
+    return map
+  }, [workspace?.cells])
+
+  const assignedCells = useMemo(
+    () => (workspace?.cells || []).filter((cell) => cell.isAssignedToMe),
+    [workspace?.cells],
+  )
+
   const selectedProject = projects.find((p) => p.id === selectedProjectId)
   const stats = workspace?.stats
 
   const handleProjectChange = (projectId) => {
-    if (!projectId) return
+    if (!projectId || projectId === selectedProjectId) {
+      setProjectSwitcherOpen(false)
+      return
+    }
     setSelectedProjectId(projectId)
+    setProjectSwitcherOpen(false)
     navigate(`/employee/projects/${projectId}`, { replace: true })
   }
 
   const loading = loadingProjects || loadingWorkspace
 
   return (
-    <div className="emp-wf-page">
+    <div className="emp-wf-projects-content" data-employee-project-workspace>
       <div className="emp-wf-surface">
-        {projects.length > 0 ? (
-          <div className="emp-wf-project-picker">
-            <label htmlFor="emp-wf-project-select" className="emp-wf-project-picker-label">
-              Project
-            </label>
-            <select
-              id="emp-wf-project-select"
-              className="emp-wf-project-select"
-              value={selectedProjectId || ''}
-              onChange={(e) => handleProjectChange(e.target.value)}
-              aria-label="Choose project"
-            >
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                  {project.client ? ` · ${project.client}` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : null}
-
         {loading && !workspace ? (
           <p className="emp-wf-status">Loading workflow…</p>
         ) : !selectedProjectId || projects.length === 0 ? (
@@ -173,7 +195,55 @@ export function EmployeeProjectBoardPage({ routeProjectId = null }) {
           <>
             <header className="emp-wf-workspace-head">
               <div className="min-w-0">
-                <h1 className="emp-wf-workspace-title">{workspace?.project?.name || selectedProject?.name}</h1>
+                <div className="emp-wf-workspace-title-row">
+                  <h1 className="emp-wf-workspace-title">{workspace?.project?.name || selectedProject?.name}</h1>
+                  {projects.length > 1 ? (
+                    <>
+                      <button
+                        type="button"
+                        className="emp-wf-project-switch-btn"
+                        onClick={() => setProjectSwitcherOpen(true)}
+                        aria-label="Switch project"
+                      >
+                        <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />
+                        Switch
+                      </button>
+                      <Dialog open={projectSwitcherOpen} onOpenChange={setProjectSwitcherOpen}>
+                        <DialogContent className="emp-wf-project-switch-dialog">
+                          <DialogHeader>
+                            <DialogTitle>Choose project</DialogTitle>
+                            <DialogDescription>
+                              Select a project to open its workspace.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <ul className="emp-wf-project-switch-list">
+                            {projects.map((project) => {
+                              const isActive = project.id === selectedProjectId
+                              return (
+                                <li key={project.id}>
+                                  <button
+                                    type="button"
+                                    className={cn(
+                                      'emp-wf-project-switch-item',
+                                      isActive && 'is-active',
+                                    )}
+                                    onClick={() => handleProjectChange(project.id)}
+                                  >
+                                    <span className="emp-wf-project-switch-item-name">{project.name}</span>
+                                    <span className="emp-wf-project-switch-item-meta">
+                                      {project.client || 'Client'}
+                                      {project.technologyNode ? ` · ${project.technologyNode}` : ''}
+                                    </span>
+                                  </button>
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        </DialogContent>
+                      </Dialog>
+                    </>
+                  ) : null}
+                </div>
                 <p className="emp-wf-workspace-meta">
                   {workspace?.project?.client} · {workspace?.project?.technologyNode}
                   {stats ? ` · ${stats.assignedToMe} assigned to you` : ''}
@@ -211,12 +281,13 @@ export function EmployeeProjectBoardPage({ routeProjectId = null }) {
                   { label: 'Libraries', value: stats.libraryCount, icon: BookOpen },
                   { label: 'Cells', value: stats.cellCount, icon: Layers },
                   { label: 'Yours', value: stats.assignedToMe, icon: User },
-                  { label: 'Ready', value: stats.readyCells, icon: CheckCircle2 },
-                  { label: 'Blocked', value: stats.blockedCells, icon: GitBranch },
+                  { label: 'Complete', value: stats.readyCells, icon: CheckCircle2 },
+                  { label: 'Archived', value: stats.blockedCells, icon: Archive },
                 ].map(({ label, value, icon: Icon }) => (
                   <div key={label} className="emp-wf-stat">
                     <div className="emp-wf-stat-label">
-                      <Icon className="h-3.5 w-3.5" /> {label}
+                      <Icon className="emp-wf-stat-icon" aria-hidden />
+                      <span>{label}</span>
                     </div>
                     <p className="emp-wf-stat-value">{value}</p>
                   </div>
@@ -224,16 +295,23 @@ export function EmployeeProjectBoardPage({ routeProjectId = null }) {
               </div>
             ) : null}
 
-            {workspaceSection === 'home' && (
+            {workspaceSection === 'cells' || workspaceSection === 'effort' ? (
+              <hr className="emp-wf-workspace-divider" />
+            ) : null}
+
+            {workspaceSection === 'cells' && (
               <div className="emp-wf-home-grid">
                 <aside className="emp-wf-libraries-panel">
-                  <p className="emp-wf-libraries-head">Libraries</p>
+                  <p className="emp-wf-section-eyebrow emp-wf-libraries-head">Libraries</p>
                   <div className="emp-wf-libraries-list">
                     {(workspace?.libraries || []).map((lib) => (
                       <button
                         key={lib.id}
                         type="button"
-                        onClick={() => setSelectedLibraryId(lib.id)}
+                        onClick={() => {
+                          setSelectedLibraryId(lib.id)
+                          setStatusFilter(null)
+                        }}
                         className={cn(
                           'emp-wf-library-nav',
                           selectedLibraryId === lib.id && 'is-active',
@@ -251,23 +329,67 @@ export function EmployeeProjectBoardPage({ routeProjectId = null }) {
 
                 <section className="emp-wf-board-panel">
                   <div className="emp-wf-cells-panel-head">
-                    <h2 className="emp-wf-cells-panel-title">Cells</h2>
+                    <h2 className="emp-wf-section-eyebrow emp-wf-cells-panel-title">Cells</h2>
                     <p className="emp-wf-cells-panel-hint">Select a cell to open its workflow board.</p>
                   </div>
-                  <ProjectCellList
-                    cells={libraryCells}
+                  <div className="emp-wf-cell-status-filters" role="group" aria-label="Filter cells by status">
+                    {SIMPLE_VIEW_COLUMNS.map((col) => (
+                      <button
+                        key={col.id}
+                        type="button"
+                        className={cn('emp-wf-pill', col.pill, statusFilter === col.id && 'is-active')}
+                        onClick={() => setStatusFilter(statusFilter === col.id ? null : col.id)}
+                      >
+                        {col.label}
+                        <span className="emp-wf-cell-status-count">{statusCounts[col.id] ?? 0}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <EmployeeAssignedCellsList
+                    cells={filteredLibraryCells}
                     projectId={selectedProjectId}
-                    user={user}
+                    libraryNameById={Object.fromEntries(libraryNameById)}
+                    emptyMessage={
+                      statusFilter
+                        ? 'No cells match this status.'
+                        : 'No cells in this library.'
+                    }
                   />
                 </section>
               </div>
             )}
 
-            {workspaceSection === 'graph' && (
-              <div className="emp-wf-section-panel">
-                <h2 className="emp-wf-section-title">Dependency graph</h2>
-                {graph ? <DependencyGraphView graph={graph} /> : null}
+            {workspaceSection === 'effort' && (
+              <EmployeeProjectEffortPanel
+                cells={assignedCells}
+                projectId={selectedProjectId}
+              />
+            )}
+
+            {workspaceSection === 'analytics' && (
+              <div className="emp-wf-analytics-section">
+                <EmployeeProjectAnalyticsPanel workspaces={workspace ? [workspace] : []} />
               </div>
+            )}
+
+            {workspaceSection === 'graph' && (
+              <section className="emp-wf-graph-panel">
+                <div className="emp-wf-graph-panel-head">
+                  <h2 className="emp-wf-graph-section-title">Dependency graph</h2>
+                  <p className="emp-wf-graph-section-hint">
+                    Horizontal workflow map of cell dependencies. Orange dashed lines mark the critical path.
+                  </p>
+                </div>
+                {graph ? (
+                  <EmployeeDependencyGraphView
+                    graph={graph}
+                    cellsById={cellsById}
+                    projectId={selectedProjectId}
+                  />
+                ) : (
+                  <p className="emp-wf-status">Loading dependency graph…</p>
+                )}
+              </section>
             )}
 
             {workspaceSection === 'activity' && (

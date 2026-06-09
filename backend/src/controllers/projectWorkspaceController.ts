@@ -28,6 +28,8 @@ import {
   syncChecklistMappingsForCell,
   removeChecklistMappingsForCell,
 } from '../services/checklistService';
+import { assertCellChecklistFilled } from '../services/cellTypeChecklistService';
+import { sendReviewNotificationsFromCell } from '../services/cellReviewNotificationService';
 import { clearResponsesForCell, normalizeCellType } from '../services/projectTypeChecklistService';
 import { isAdminRole } from '../utils/generateToken';
 
@@ -500,6 +502,8 @@ export const projectWorkspaceController = {
         return;
       }
 
+      await assertCellChecklistFilled(projectId, cellId);
+
       const prev = cell.status;
       cell.status = 'completed';
       cell.activityLog.push({
@@ -731,6 +735,21 @@ export const projectWorkspaceController = {
       });
 
       await Promise.all([cell.save(), review.save()]);
+
+      void sendReviewNotificationsFromCell({
+        projectId,
+        cellId,
+        reviewId: review._id.toString(),
+        reviewPoint,
+        stageAtRequest: review.stageAtRequest || workflow.layout.stage,
+        mode: 'resolved',
+        outcome,
+        returnToStage: outcome === 'rejected' ? returnToStage : undefined,
+        resolvedByName: actor.userName,
+      }).catch((notifyErr) => {
+        console.error('[workspace] review resolve notification failed:', notifyErr);
+      });
+
       res.json({ cell: toCell(cell), review: toReview(review) });
     } catch (err: any) {
       res.status(400).json({ error: err?.message || 'Failed to resolve review' });
@@ -742,7 +761,10 @@ export const projectWorkspaceController = {
       const projectId = paramId(req.params.projectId);
       const cellId = paramId(req.params.cellId);
       const stageKey = paramId(req.params.stageKey);
-      const { status } = req.body;
+      const { status, rejectReturnTo } = req.body as {
+        status?: string;
+        rejectReturnTo?: 'floor_plan' | 'routing';
+      };
 
       if (!isValidStageKey(stageKey)) {
         res.status(400).json({ error: 'Invalid workflow stage' });
@@ -760,7 +782,10 @@ export const projectWorkspaceController = {
       const stageMeta = CELL_WORKFLOW_STAGES.find((s) => s.key === stageKey);
       const prevWorkflow = normalizeCellWorkflow(cell.workflow);
       const prevStatus = prevWorkflow.find((s) => s.stageKey === stageKey)?.status ?? 'not_started';
-      const result = applyWorkflowStageUpdate(cell.workflow, stageKey, nextStatus, actor.role);
+      const result = applyWorkflowStageUpdate(cell.workflow, stageKey, nextStatus, actor.role, {
+        rejectReturnTo:
+          rejectReturnTo === 'floor_plan' || rejectReturnTo === 'routing' ? rejectReturnTo : undefined,
+      });
       if (!result.ok) {
         res.status(400).json({ error: result.error });
         return;
@@ -782,6 +807,7 @@ export const projectWorkspaceController = {
         canCompleteCell(result.workflow) &&
         cell.status !== 'completed'
       ) {
+        await assertCellChecklistFilled(projectId, cellId);
         cell.status = 'completed';
         cell.activityLog.push({
           action: 'completed',

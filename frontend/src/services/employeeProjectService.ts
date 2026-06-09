@@ -1,5 +1,6 @@
 import api from '@/services/api'
 import type {
+  CellChecklistDetail,
   CellReview,
   DependencyGraph,
   EmployeeCellDetail,
@@ -63,5 +64,37 @@ export async function requestCellReview(projectId: string, cellId: string, comme
 
 export async function fetchMyCellReviews(projectId: string, cellId: string) {
   const { data } = await api.get<CellReview[]>(`/projects/${projectId}/cells/${cellId}/mine/reviews`)
+  return data
+}
+
+export interface EmployeeRequestedReview extends CellReview {
+  projectId: string
+  projectName: string
+  cellName: string
+  createdAt?: string
+}
+
+export async function fetchMyRequestedReviews() {
+  const { data } = await api.get<EmployeeRequestedReview[]>('/projects/mine/reviews')
+  return data
+}
+
+export async function fetchMyCellChecklist(projectId: string, cellId: string) {
+  const { data } = await api.get<CellChecklistDetail>(
+    `/projects/${projectId}/cells/${cellId}/mine/checklist`,
+  )
+  return data
+}
+
+export async function updateMyCellChecklistItem(
+  projectId: string,
+  cellId: string,
+  mappingId: string,
+  payload: { response: 'yes' | 'no' | 'not_applicable'; comment?: string },
+) {
+  const { data } = await api.patch<CellChecklistDetail>(
+    `/projects/${projectId}/cells/${cellId}/mine/checklist/${mappingId}`,
+    payload,
+  )
   return data
 }

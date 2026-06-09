@@ -353,6 +353,50 @@ async function triggerEmailNotification(notification: any): Promise<void> {
         pdfAttachment
       );
     } else if (
+      notification.type === 'CellReviewApproved' ||
+      notification.type === 'CellReviewRejected'
+    ) {
+      const stageLabels: Record<string, string> = {
+        floor_plan: 'Floor Plan',
+        drc_r1: 'DRC (R1)',
+        routing: 'Routing',
+        drc: 'DRC',
+        lvs_r2: 'LVS (R2)',
+      };
+      const stageKey = related.stageAtRequest || '';
+      const stageLabel =
+        stageLabels[stageKey] || String(stageKey).replace(/_/g, ' ') || 'Layout';
+      const outcome = notification.type === 'CellReviewApproved' ? 'approved' : 'rejected';
+
+      if (related.projectId && related.cellId) {
+        await emailService.sendCellReviewEmail({
+          recipientEmail,
+          recipientName,
+          projectId: related.projectId,
+          cellId: related.cellId,
+          projectName: related.projectName || 'Project',
+          cellName: related.cellName || 'Cell',
+          reviewPoint: related.reviewPoint || 'review',
+          stageLabel,
+          outcome,
+          returnToStage: related.returnToStage
+            ? stageLabels[related.returnToStage] || String(related.returnToStage).replace(/_/g, ' ')
+            : undefined,
+          resolvedByName: related.resolvedByName,
+        });
+      } else {
+        await emailService.sendGenericNotificationEmail(
+          recipientEmail,
+          recipientName,
+          notification.title,
+          notification.message,
+          [
+            { label: 'Project', value: related.projectName || '—' },
+            { label: 'Cell', value: related.cellName || '—' },
+          ],
+        );
+      }
+    } else if (
       notification.type === 'HolidayAdded' ||
       notification.type === 'HolidayUpdated' ||
       notification.type === 'HolidayDeleted' ||

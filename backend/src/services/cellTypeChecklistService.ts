@@ -150,6 +150,34 @@ export async function syncCellTypeChecklistForCell(
   }
 }
 
+export function checklistEntriesFilled(
+  entries: Array<{ response?: string | null; comment?: string }>,
+): boolean {
+  if (entries.length === 0) return true;
+  return entries.every((entry) => {
+    if (!entry.response) return false;
+    if (entry.response === 'no' || entry.response === 'not_applicable') {
+      return Boolean(entry.comment?.trim());
+    }
+    return true;
+  });
+}
+
+export async function isCellChecklistFilled(projectId: string, cellId: string): Promise<boolean> {
+  const projectOid = new Types.ObjectId(projectId);
+  const cellOid = new Types.ObjectId(cellId);
+  await syncCellTypeChecklistForCell(projectOid, cellOid);
+  const entries = await CellChecklistMappingModel.find({ projectId: projectOid, cellId: cellOid }).lean();
+  return checklistEntriesFilled(entries);
+}
+
+export async function assertCellChecklistFilled(projectId: string, cellId: string): Promise<void> {
+  const filled = await isCellChecklistFilled(projectId, cellId);
+  if (!filled) {
+    throw new Error('Complete the checklist before marking this stage as completed');
+  }
+}
+
 export async function buildCellChecklistDetail(projectId: string, cellId: string) {
   const projectOid = new Types.ObjectId(projectId);
   const cellOid = new Types.ObjectId(cellId);
@@ -165,6 +193,7 @@ export async function buildCellChecklistDetail(projectId: string, cellId: string
   const checklist = checklistId ? await ChecklistModel.findById(checklistId).lean() : null;
 
   const allApplied = entries.length > 0 && entries.every((entry) => entry.response === 'yes');
+  const isFilled = checklistEntriesFilled(entries);
   let cellStatus: 'Applied' | 'Pending' | 'Not Assigned' = 'Not Assigned';
   if (!checklist) cellStatus = 'Not Assigned';
   else if (allApplied) cellStatus = 'Applied';
@@ -176,6 +205,7 @@ export async function buildCellChecklistDetail(projectId: string, cellId: string
     checklistName: checklist?.name ?? '',
     cellType: cell?.cellType ?? '',
     cellStatus,
+    isFilled,
     items: entries.map((entry) => ({
       id: entry._id.toString(),
       checklistItemId: entry.checklistItemId.toString(),

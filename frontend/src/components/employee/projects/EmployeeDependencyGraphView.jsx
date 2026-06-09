@@ -1,0 +1,224 @@
+import { useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  assignLayers,
+  buildDepMap,
+  computeCriticalPath,
+  GRAPH_COL_GAP,
+  GRAPH_NODE_H,
+  GRAPH_NODE_W,
+  GRAPH_PAD,
+  GRAPH_ROW_GAP,
+  manhattanPath,
+  nodeProgressPercent,
+  nodeStatusBadge,
+  shortNodeId,
+} from './employeeDependencyGraphUtils'
+import './employeeDependencyGraph.css'
+
+function GraphNodeCard({ node, cell, isCritical, onOpen }) {
+  const badge = nodeStatusBadge(node, cell)
+  const progress = nodeProgressPercent(cell)
+
+  return (
+    <button
+      type="button"
+      className={[
+        'emp-dep-graph-node',
+        isCritical ? 'emp-dep-graph-node--critical' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      onClick={() => onOpen(node.id)}
+      aria-label={`Open cell ${node.name}`}
+    >
+      <div className="emp-dep-graph-node-head">
+        <p className="emp-dep-graph-node-id">{shortNodeId(node.id)}</p>
+        <span className={`emp-dep-graph-node-badge emp-dep-graph-node-badge--${badge.tone}`}>
+          <span className="emp-dep-graph-node-badge-dot" aria-hidden />
+          {badge.label}
+        </span>
+      </div>
+      <p className="emp-dep-graph-node-title" title={node.name}>
+        {node.name}
+      </p>
+      <div className="emp-dep-graph-node-foot">
+        {isCritical ? (
+          <span className="emp-dep-graph-node-critical">
+            <span className="emp-dep-graph-node-critical-icon" aria-hidden>
+              ◆
+            </span>
+            Critical path
+          </span>
+        ) : (
+          <span className="emp-dep-graph-node-critical-spacer" aria-hidden />
+        )}
+        <div className="emp-dep-graph-node-progress-track" aria-hidden>
+          <span className="emp-dep-graph-node-progress-fill" style={{ width: `${progress}%` }} />
+        </div>
+      </div>
+    </button>
+  )
+}
+
+export function EmployeeDependencyGraphView({ graph, cellsById = {}, projectId }) {
+  const navigate = useNavigate()
+
+  const layout = useMemo(() => {
+    const nodeIds = graph.nodes.map((n) => n.id)
+    const deps = buildDepMap(graph.edges)
+    const layers = assignLayers(nodeIds, deps)
+    const { nodeIds: criticalNodes, edgeKeys: criticalEdges } = computeCriticalPath(nodeIds, graph.edges)
+
+    const byLayer = new Map()
+    for (const node of graph.nodes) {
+      const layer = layers.get(node.id) ?? 0
+      const list = byLayer.get(layer) ?? []
+      list.push(node)
+      byLayer.set(layer, list)
+    }
+
+    const layerKeys = [...byLayer.keys()].sort((a, b) => a - b)
+    const maxColumnHeight = Math.max(
+      ...layerKeys.map((layer) => {
+        const count = byLayer.get(layer)?.length ?? 0
+        return count * GRAPH_NODE_H + Math.max(0, count - 1) * GRAPH_ROW_GAP
+      }),
+      GRAPH_NODE_H,
+    )
+
+    const positioned = layerKeys.flatMap((layer) => {
+      const nodes = (byLayer.get(layer) ?? []).sort((a, b) => a.name.localeCompare(b.name))
+      const columnHeight = nodes.length * GRAPH_NODE_H + Math.max(0, nodes.length - 1) * GRAPH_ROW_GAP
+      return nodes.map((node, row) => ({
+        ...node,
+        isCritical: criticalNodes.has(node.id),
+        x: GRAPH_PAD + layer * (GRAPH_NODE_W + GRAPH_COL_GAP),
+        y: GRAPH_PAD + (maxColumnHeight - columnHeight) / 2 + row * (GRAPH_NODE_H + GRAPH_ROW_GAP),
+      }))
+    })
+
+    const posMap = new Map(positioned.map((n) => [n.id, n]))
+    const edgePaths = graph.edges
+      .map((edge) => {
+        const from = posMap.get(edge.from)
+        const to = posMap.get(edge.to)
+        if (!from || !to) return null
+        const key = `${edge.from}-${edge.to}`
+        return {
+          key,
+          isCritical: criticalEdges.has(key),
+          d: manhattanPath(from.x + GRAPH_NODE_W, from.y + GRAPH_NODE_H / 2, to.x, to.y + GRAPH_NODE_H / 2),
+          x1: from.x + GRAPH_NODE_W,
+          y1: from.y + GRAPH_NODE_H / 2,
+          x2: to.x,
+          y2: to.y + GRAPH_NODE_H / 2,
+        }
+      })
+      .filter(Boolean)
+
+    const maxLayer = layerKeys.length ? Math.max(...layerKeys) : 0
+    const contentHeight = GRAPH_PAD * 2 + maxColumnHeight + 24
+
+    return {
+      nodes: positioned,
+      edgePaths,
+      width: Math.max(GRAPH_PAD * 2 + (maxLayer + 1) * GRAPH_NODE_W + maxLayer * GRAPH_COL_GAP, 560),
+      height: Math.max(contentHeight, 400),
+      hasEdges: edgePaths.length > 0,
+      isWide: maxLayer > 0 || positioned.length > 2,
+    }
+  }, [graph])
+
+  const openCell = (cellId) => {
+    if (!projectId) return
+    navigate(`/employee/projects/${projectId}/cells/${cellId}`)
+  }
+
+  if (!graph?.nodes?.length) {
+    return <p className="emp-dep-graph-empty">Add cells with dependencies to see the graph.</p>
+  }
+
+  return (
+    <div className="emp-dep-graph-panel">
+      <div className="emp-dep-graph-legend" aria-label="Graph legend">
+        <span className="emp-dep-graph-legend-item">
+          <span className="emp-dep-graph-legend-line" />
+          Dependency
+        </span>
+        <span className="emp-dep-graph-legend-item">
+          <span className="emp-dep-graph-legend-line emp-dep-graph-legend-line--critical" />
+          Critical path
+        </span>
+        <span className="emp-dep-graph-legend-item">◆ Orange border = critical path cell</span>
+      </div>
+
+      <div className="emp-dep-graph-wrap">
+        <svg
+          className="emp-dep-graph-canvas"
+          width={layout.width}
+          height={layout.height}
+          viewBox={`0 0 ${layout.width} ${layout.height}`}
+          preserveAspectRatio="xMinYMin meet"
+        >
+          <defs>
+            <marker id="emp-dep-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+              <path d="M0,0 L7,3.5 L0,7 Z" fill="#94a3b8" />
+            </marker>
+            <marker id="emp-dep-arrow-critical" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+              <path d="M0,0 L7,3.5 L0,7 Z" fill="#ea580c" />
+            </marker>
+          </defs>
+
+          {layout.edgePaths.map((edge) => (
+            <g key={edge.key}>
+              <path
+                d={edge.d}
+                className={edge.isCritical ? 'emp-dep-graph-edge emp-dep-graph-edge--critical' : 'emp-dep-graph-edge'}
+                markerEnd={edge.isCritical ? 'url(#emp-dep-arrow-critical)' : 'url(#emp-dep-arrow)'}
+              />
+              <circle
+                cx={edge.x1}
+                cy={edge.y1}
+                r="3"
+                className={edge.isCritical ? 'emp-dep-graph-port emp-dep-graph-port--critical' : 'emp-dep-graph-port'}
+              />
+              <circle
+                cx={edge.x2}
+                cy={edge.y2}
+                r="3"
+                className={edge.isCritical ? 'emp-dep-graph-port emp-dep-graph-port--critical' : 'emp-dep-graph-port'}
+              />
+            </g>
+          ))}
+
+          {layout.nodes.map((node) => (
+            <foreignObject
+              key={node.id}
+              x={node.x}
+              y={node.y}
+              width={GRAPH_NODE_W}
+              height={GRAPH_NODE_H}
+              xmlns="http://www.w3.org/1999/xhtml"
+            >
+              <GraphNodeCard
+                node={node}
+                cell={cellsById[node.id]}
+                isCritical={node.isCritical}
+                onOpen={openCell}
+              />
+            </foreignObject>
+          ))}
+        </svg>
+
+        {!layout.hasEdges ? (
+          <p className="emp-dep-graph-scroll-hint">
+            No downstream dependencies yet. Link cells to build the workflow map.
+          </p>
+        ) : layout.isWide ? (
+          <p className="emp-dep-graph-scroll-hint">Scroll horizontally to view all connected cells.</p>
+        ) : null}
+      </div>
+    </div>
+  )
+}
