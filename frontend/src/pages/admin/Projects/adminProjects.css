@@ -3015,36 +3015,34 @@
 .admin-projects-cell-checklist-tab-panel {
   display: flex;
   flex-direction: column;
-  flex: 1 1 0;
+  flex: 1 1 auto;
   min-height: 0;
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .admin-projects-cell-checklist-tab {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  flex: 1 1 0;
-  min-height: 0;
-  overflow: hidden;
+  flex: 1 1 auto;
+  min-height: auto;
+  overflow: visible;
 }
 
 .admin-projects-cell-checklist-tab-body {
-  flex: 1 1 0;
-  min-height: 0;
+  flex: 1 1 auto;
+  min-height: auto;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .admin-projects-cell-checklist-scroll {
-  flex: 1 1 0;
-  min-height: 5rem;
-  max-height: min(36vh, 320px);
-  overflow-x: hidden;
-  overflow-y: auto;
+  flex: 0 0 auto;
+  min-height: auto;
+  overflow: visible;
   border-radius: 0.5rem;
   border: 1px solid rgba(30, 90, 61, 0.12);
   background: rgba(255, 255, 255, 0.96);
@@ -3215,9 +3213,9 @@
 }
 
 .admin-projects-checklist-responses--cell-tab {
-  flex: 1 1 0;
-  min-height: 0;
-  overflow-y: auto;
+  flex: 0 0 auto;
+  min-height: auto;
+  overflow: visible;
   padding-right: 0.25rem;
 }
 
@@ -4016,7 +4014,7 @@
 .admin-projects-cell-page-panel:has(.admin-projects-cell-checklist-tab-panel) {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: auto;
   padding: 0.5rem 0.625rem 0.625rem;
 }
 
