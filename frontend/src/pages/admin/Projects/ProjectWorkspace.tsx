@@ -88,6 +88,8 @@ export function ProjectWorkspace() {
   const [filterStatusSelect, setFilterStatusSelect] = useState<'all' | CellStatus | 'archive'>('all')
   const [statFilter, setStatFilter] = useState<StatFilter>(null)
   const [showAllCells, setShowAllCells] = useState(false)
+  const [activityFilterSearch, setActivityFilterSearch] = useState('')
+  const [activityLibraryFilter, setActivityLibraryFilter] = useState('all')
   const reload = useCallback(async () => {
     if (!projectId) return
     setLoading(true)
@@ -188,11 +190,33 @@ export function ProjectWorkspace() {
           ...entry,
           cellId: cell.id,
           cellName: cell.name,
+          libraryId: cell.libraryId,
           libraryName: libraryNameById.get(cell.libraryId) || '—',
         })),
       )
       .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
   }, [allCells, libraryNameById])
+
+  const filteredActivityEntries = useMemo(() => {
+    const query = activityFilterSearch.trim().toLowerCase()
+    return activityEntries.filter((entry) => {
+      if (activityLibraryFilter !== 'all' && entry.libraryId !== activityLibraryFilter) {
+        return false
+      }
+      if (!query) return true
+      const haystack = [
+        entry.cellName,
+        entry.libraryName,
+        entry.action.replace(/_/g, ' '),
+        entry.detail,
+        entry.userName,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return haystack.includes(query)
+    })
+  }, [activityEntries, activityFilterSearch, activityLibraryFilter])
 
   const openCreateCell = () => {
     if (!summary || summary.libraries.length === 0) {
@@ -593,26 +617,90 @@ export function ProjectWorkspace() {
 
             {workspaceSection === 'activity' && (
               <div className="admin-projects-section-panel admin-projects-section-panel--activity">
-                <h2 className="admin-projects-graph-title">Activity log</h2>
-                <div className="admin-projects-activity-list">
-                  {activityEntries.length === 0 ? (
-                    <p className="admin-projects-activity-empty">No activity recorded yet.</p>
-                  ) : (
-                    activityEntries.map((entry, index) => (
-                      <div key={`${entry.cellId}-${entry.at}-${index}`} className="admin-projects-activity-item">
-                        <div className="admin-projects-activity-item-head">
-                          <span className="admin-projects-activity-cell">{entry.cellName}</span>
-                          <span className="admin-projects-activity-lib">{entry.libraryName}</span>
-                          <time className="admin-projects-activity-time">
-                            {new Date(entry.at).toLocaleString()}
-                          </time>
-                        </div>
-                        <p className="admin-projects-activity-action">{entry.action.replace(/_/g, ' ')}</p>
-                        {entry.detail && <p className="admin-projects-activity-detail">{entry.detail}</p>}
-                        {entry.userName && <p className="admin-projects-activity-user">by {entry.userName}</p>}
+                <div className="admin-projects-activity-panel">
+                  <div className="admin-projects-activity-head">
+                    <h2 className="admin-projects-activity-head-title">Activity log</h2>
+                    <div className="admin-projects-activity-head-filters">
+                      <div className="admin-projects-filter-select-wrap">
+                        <select
+                          value={activityLibraryFilter}
+                          onChange={(e) => setActivityLibraryFilter(e.target.value)}
+                          className={FILTER_SELECT_CLASS}
+                          aria-label="Filter activity by library"
+                        >
+                          <option value="all">All libraries</option>
+                          {libraries.map((lib) => (
+                            <option key={lib.id} value={lib.id}>{lib.name}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="admin-projects-filter-select-icon" aria-hidden />
                       </div>
-                    ))
-                  )}
+                      <div className="admin-projects-filter-search-wrap">
+                        <Search className="admin-projects-filter-search-icon" strokeWidth={2} aria-hidden />
+                        <input
+                          type="text"
+                          value={activityFilterSearch}
+                          onChange={(e) => setActivityFilterSearch(e.target.value)}
+                          placeholder="Search activity..."
+                          className="admin-projects-filter-search-input"
+                          aria-label="Search activity log"
+                        />
+                        {activityFilterSearch ? (
+                          <button
+                            type="button"
+                            className="admin-projects-filter-search-clear"
+                            onClick={() => setActivityFilterSearch('')}
+                            aria-label="Clear activity search"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="admin-projects-activity-table-wrap">
+                    <table className="admin-projects-activity-table">
+                      <thead>
+                        <tr>
+                          <th>Cell</th>
+                          <th>Library</th>
+                          <th>Action</th>
+                          <th>Detail</th>
+                          <th>User</th>
+                          <th>Time</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredActivityEntries.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="admin-projects-activity-empty">
+                              {activityEntries.length === 0
+                                ? 'No activity recorded yet.'
+                                : 'No activity matches your filters.'}
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredActivityEntries.map((entry, index) => (
+                            <tr key={`${entry.cellId}-${entry.at}-${index}`}>
+                              <td className="admin-projects-activity-table-cell">{entry.cellName}</td>
+                              <td>
+                                <span className="admin-projects-activity-lib">{entry.libraryName}</span>
+                              </td>
+                              <td className="admin-projects-activity-table-action">
+                                {entry.action.replace(/_/g, ' ')}
+                              </td>
+                              <td className="admin-projects-activity-table-detail">{entry.detail || '—'}</td>
+                              <td>{entry.userName || '—'}</td>
+                              <td className="admin-projects-activity-table-time">
+                                <time dateTime={entry.at}>{new Date(entry.at).toLocaleString()}</time>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             )}

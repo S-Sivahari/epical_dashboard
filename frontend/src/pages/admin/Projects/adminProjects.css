@@ -2522,9 +2522,186 @@
   overflow: hidden;
 }
 
+.admin-projects-section-panel--activity {
+  padding: 0;
+}
+
+.admin-projects-activity-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 0;
+  overflow: hidden;
+  border: 1px solid rgba(26, 67, 41, 0.1);
+  border-radius: 0.875rem;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+}
+
+.admin-projects-activity-head {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  padding: 0.875rem 1.125rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  background: var(--dash-forest-header, #2f6b4f);
+}
+
+.admin-projects-activity-head-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.admin-projects-activity-head-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-left: auto;
+  min-width: 0;
+}
+
+.admin-projects-activity-head-filters .admin-projects-filter-search-wrap {
+  flex: 1 1 12rem;
+  min-width: min(100%, 14rem);
+  max-width: 18rem;
+}
+
+.admin-projects-activity-head-filters .admin-projects-filter-select-wrap {
+  flex: 0 1 10rem;
+  min-width: 8.5rem;
+}
+
+.admin-projects-activity-head-filters .admin-projects-filter-search-input,
+.admin-projects-activity-head-filters .admin-projects-filter-select {
+  height: 2.375rem;
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.admin-projects-activity-table-wrap {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-projects-activity-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.8125rem;
+}
+
+.admin-projects-activity-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--dash-forest-header, #2f6b4f);
+}
+
+.admin-projects-activity-table thead tr {
+  background: var(--dash-forest-header, #2f6b4f);
+}
+
+.admin-projects-activity-table th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.95);
+  white-space: nowrap;
+  border: none;
+}
+
+.admin-projects-activity-table th:last-child {
+  text-align: right;
+  padding-right: 1.125rem;
+}
+
+.admin-projects-activity-table td {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid #f1f5f9;
+  vertical-align: middle;
+  color: #334155;
+}
+
+.admin-projects-activity-table td:last-child {
+  text-align: right;
+  padding-right: 1.125rem;
+  white-space: nowrap;
+}
+
+.admin-projects-activity-table tbody tr:nth-child(even) {
+  background: #fafbfc;
+}
+
+.admin-projects-activity-table tbody tr:hover {
+  background: #f0faf4;
+}
+
+.admin-projects-activity-table-cell {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.admin-projects-activity-table-action {
+  font-weight: 700;
+  text-transform: capitalize;
+  color: var(--dash-forest-header, #2f6b4f);
+}
+
+.admin-projects-activity-table-detail {
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #475569;
+}
+
+.admin-projects-activity-table-time {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.admin-projects-view .admin-projects-activity-table thead,
+.admin-projects-view .admin-projects-activity-table thead tr,
+.admin-projects-view .admin-projects-activity-table thead th,
+.crewiq-dashboard.admin-projects-view .admin-projects-activity-table thead,
+.crewiq-dashboard.admin-projects-view .admin-projects-activity-table thead tr,
+.crewiq-dashboard.admin-projects-view .admin-projects-activity-table thead th {
+  background-color: var(--dash-forest-header, #2f6b4f) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+  border-color: transparent !important;
+}
+
+.admin-projects-activity-empty {
+  padding: 2.5rem 1.5rem !important;
+  text-align: center;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.admin-projects-activity-lib {
+  display: inline-flex;
+  border-radius: 9999px;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  background: rgba(38, 107, 28, 0.1);
+  color: var(--dash-forest-header, #2f6b4f);
+  white-space: nowrap;
+}
+
 .admin-projects-section-panel--workflow .admin-projects-graph-title,
-.admin-projects-section-panel--workflow .admin-projects-workflow-section-intro,
-.admin-projects-section-panel--activity .admin-projects-graph-title,
 .admin-projects-section-panel--graph .admin-projects-graph-title {
   flex-shrink: 0;
 }
@@ -3193,73 +3370,6 @@
     grid-template-columns: 1fr;
     grid-template-rows: minmax(10rem, 14rem) minmax(0, 1fr);
   }
-}
-
-.admin-projects-activity-list {
-  flex: 1 1 0;
-  min-height: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.admin-projects-activity-empty {
-  margin: 0;
-  padding: 1.5rem 0;
-  font-size: 0.8125rem;
-  color: #64748b;
-}
-
-.admin-projects-activity-item {
-  border-radius: 0.5rem;
-  border: 1px solid rgba(26, 67, 41, 0.12);
-  background: #f8faf9;
-  padding: 0.625rem 0.75rem;
-}
-
-.admin-projects-activity-item-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.375rem 0.75rem;
-  margin-bottom: 0.25rem;
-}
-
-.admin-projects-activity-cell {
-  font-size: 0.8125rem;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.admin-projects-activity-lib {
-  border-radius: 9999px;
-  padding: 0.0625rem 0.5rem;
-  font-size: 0.625rem;
-  font-weight: 700;
-  background: rgba(38, 107, 28, 0.1);
-  color: var(--dash-forest-header, #2f6b4f);
-}
-
-.admin-projects-activity-time {
-  margin-left: auto;
-  font-size: 0.625rem;
-  color: #64748b;
-}
-
-.admin-projects-activity-action {
-  margin: 0;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: capitalize;
-  color: var(--dash-forest-header, #2f6b4f);
-}
-
-.admin-projects-activity-detail,
-.admin-projects-activity-user {
-  margin: 0.125rem 0 0;
-  font-size: 0.75rem;
-  color: #475569;
 }
 
 .admin-projects-status-chip--lg {
