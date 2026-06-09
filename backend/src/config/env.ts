@@ -2,6 +2,11 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+function envStr(key: string, fallback = ''): string {
+  const raw = process.env[key];
+  return (raw !== undefined && raw !== '' ? raw : fallback).trim();
+}
+
 export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT || '3000', 10),
@@ -9,15 +14,18 @@ export const env = {
   jwtSecret: process.env.JWT_SECRET || 'your-secret-key',
   JWT_SECRET: process.env.JWT_SECRET || 'your-secret-key',
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
-  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
-  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
-  GOOGLE_CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/api/auth/google/callback',
-  SESSION_SECRET: process.env.SESSION_SECRET || 'session-secret-key',
-  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
+  GOOGLE_CLIENT_ID: envStr('GOOGLE_CLIENT_ID'),
+  GOOGLE_CLIENT_SECRET: envStr('GOOGLE_CLIENT_SECRET'),
+  GOOGLE_CALLBACK_URL: envStr(
+    'GOOGLE_CALLBACK_URL',
+    'http://localhost:3000/api/auth/google/callback',
+  ),
+  SESSION_SECRET: envStr('SESSION_SECRET', 'session-secret-key'),
+  FRONTEND_URL: envStr('FRONTEND_URL', 'http://localhost:5173'),
   GNEWS_API_KEY: process.env.GNEWS_API_KEY || '',
   ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@company.com',
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'admin123',
-  ADMIN_NAME: process.env.ADMIN_NAME || 'Admin User',
+  ADMIN_NAME: process.env.ADMIN_NAME || 'Epical Admin',
   CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:5173',
 
   // SMTP / Email (Uppercase & Camelcase options for compatibility)

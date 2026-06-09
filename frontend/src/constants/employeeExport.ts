@@ -1,4 +1,5 @@
 import type { Employee } from '@/types'
+import { buildExportFileName } from '@/utils/exportFileName'
 
 /** Columns shown in Active Directory — used for directory PDF/Excel exports only. */
 export const ACTIVE_DIRECTORY_EXPORT_HEADERS: { key: keyof Employee; label: string }[] = [
@@ -50,21 +51,17 @@ export const FULL_EMPLOYEE_EXPORT_HEADERS: { key: string; label: string }[] = [
   { key: 'emergencyContactAddress', label: 'Emergency Contact Address' },
 ]
 
-function formatExportDate(date: Date): string {
-  return date.toISOString().split('T')[0]
-}
-
-function sanitizeFilenamePart(value: string): string {
-  return value.replace(/\s+/g, '_').replace(/[^\w-]/g, '')
-}
-
 export function activeDirectoryExportFilename(date = new Date()): string {
-  return `EpicalLayouts_EmployeeDetails_${formatExportDate(date)}`
+  return buildExportFileName('employee_details', ['directory'], date)
 }
 
-export function individualExportFilename(firstName: string, lastName: string | undefined, date = new Date()): string {
-  const name = sanitizeFilenamePart(`${firstName}_${lastName ?? ''}`.trim())
-  return `EpicalLayouts_${name}_EmployeeDetails_${formatExportDate(date)}`
+export function individualExportFilename(
+  firstName: string,
+  lastName: string | undefined,
+  date = new Date(),
+): string {
+  const name = `${firstName}_${lastName ?? ''}`.trim()
+  return buildExportFileName('employee_details', [name], date)
 }
 
 export function employeeToExportRow(employee: Employee): EmployeeExportRow {

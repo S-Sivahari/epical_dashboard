@@ -106,11 +106,20 @@ async function resolveUserIdForDisplayName(name: string): Promise<string> {
   return trimmed;
 }
 
+/** Projects visible to an employee — allotted via team lead or allowedUsers (public and private). */
+export function buildAssignedProjectsFilter(identityTokens: string[]) {
+  return {
+    $or: [
+      { allowedUsers: { $in: identityTokens } },
+      { teamLead: { $in: identityTokens } },
+    ],
+  };
+}
+
 export async function employeeCanAccessProject(
   project: { accessType: string; allowedUsers?: string[]; teamLead?: string },
   identityTokens: string[]
 ): Promise<boolean> {
-  if (project.accessType === 'public') return true;
   if (project.teamLead && identityTokens.includes(project.teamLead)) return true;
   return (project.allowedUsers || []).some((u) => identityTokens.includes(u));
 }
@@ -175,13 +184,7 @@ export async function ensureAssignedTasksForEmployee(employee: {
 
   const identityTokens = buildAssignmentIdentityTokens(employee, employeeRecord as any);
 
-  const projects = await ProjectModel.find({
-    $or: [
-      { accessType: 'public' },
-      { allowedUsers: { $in: identityTokens } },
-      { teamLead: { $in: identityTokens } },
-    ],
-  }).lean();
+  const projects = await ProjectModel.find(buildAssignedProjectsFilter(identityTokens)).lean();
 
   if (projects.length === 0) return;
 
@@ -208,10 +211,6 @@ export async function syncAssignedTasksForProject(project: {
   (project.allowedUsers || []).forEach((n) => {
     if (n?.trim()) assigneeNames.add(n.trim());
   });
-
-  if (project.accessType === 'public') {
-    return;
-  }
 
   const title = defaultTaskTitle(project.projectName);
 

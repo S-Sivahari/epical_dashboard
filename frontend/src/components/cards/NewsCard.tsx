@@ -9,12 +9,18 @@ export function NewsCard({
   onView,
   onEdit,
   variant = 'default',
+  selectable = false,
+  selected = false,
+  onToggleSelect,
 }: {
   item: NewsItem
   onRemove?: () => void
   onView?: () => void
   onEdit?: () => void
   variant?: 'default' | 'hub'
+  selectable?: boolean
+  selected?: boolean
+  onToggleSelect?: () => void
 }) {
   const isHub = variant === 'hub'
 
@@ -22,10 +28,30 @@ export function NewsCard({
     <article
       className={
         isHub
-          ? 'admin-news-feed-card flex h-full flex-col'
+          ? `admin-news-feed-card flex h-full flex-col${selected ? ' admin-news-fetch-card-selected' : ''}`
           : 'admin-news-card flex h-full flex-col rounded-xl border border-border bg-white p-5 shadow-sm transition-ui hover:border-emerald-200 hover:shadow-md'
       }
     >
+      {selectable && onToggleSelect ? (
+        <div className="mb-3 flex items-start gap-3">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggleSelect}
+            className="mt-0.5 h-4 w-4 shrink-0"
+            aria-label={`Select ${item.title}`}
+          />
+          <h3
+            className={
+              isHub
+                ? 'font-display min-w-0 flex-1 text-base font-bold text-slate-800 line-clamp-2'
+                : 'font-display text-base font-semibold text-emerald-900 line-clamp-2'
+            }
+          >
+            {item.title}
+          </h3>
+        </div>
+      ) : (
       <h3
         className={
           isHub
@@ -35,6 +61,7 @@ export function NewsCard({
       >
         {item.title}
       </h3>
+      )}
       <p
         className={
           isHub

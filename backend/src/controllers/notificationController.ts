@@ -65,10 +65,14 @@ export const notificationController = {
   },
 
   // PATCH /api/notifications/:id/read - Mark as read
-  markAsRead: async (req: Request, res: Response): Promise<void> => {
+  markAsRead: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+      if (!req.user?.id) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
       const { id } = req.params as { id: string };
-      const notification = await notificationService.markAsRead(id);
+      const notification = await notificationService.markAsRead(id, req.user.id);
       if (!notification) {
         res.status(404).json({ error: 'Notification not found' });
         return;
@@ -95,11 +99,30 @@ export const notificationController = {
     }
   },
 
-  // DELETE /api/notifications/:id - Delete notification
-  delete: async (req: Request, res: Response): Promise<void> => {
+  // DELETE /api/notifications/all - Delete all notifications for current user
+  deleteAll: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+      if (!req.user?.id) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+      const deletedCount = await notificationService.deleteAllNotifications(req.user.id);
+      res.json({ success: true, deletedCount });
+    } catch (error) {
+      console.error('Delete all notifications error:', error);
+      res.status(500).json({ error: 'Failed to delete all notifications' });
+    }
+  },
+
+  // DELETE /api/notifications/:id - Delete notification
+  delete: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user?.id) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
       const { id } = req.params as { id: string };
-      const success = await notificationService.deleteNotification(id);
+      const success = await notificationService.deleteNotification(id, req.user.id);
       if (!success) {
         res.status(404).json({ error: 'Notification not found' });
         return;

@@ -4,7 +4,9 @@ import {
   Briefcase,
   CalendarCheck,
   CalendarDays,
+  Clock,
   FileText,
+  HelpCircle,
   LayoutGrid,
   Newspaper,
   Receipt,
@@ -53,7 +55,8 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   {
     label: 'Work',
     items: [
-      { to: ROUTES.PROJECTS, label: 'Projects / Timesheet', navLabel: 'Projects', icon: Briefcase },
+      { to: ROUTES.TIMESHEET, label: 'Projects & Timesheets', navLabel: 'Timesheet', icon: Clock },
+      { to: ROUTES.PROJECTS, label: 'Projects', navLabel: 'Projects', icon: Briefcase },
       { to: ROUTES.CALENDAR, label: 'Company Calendar', navLabel: 'Calendar', icon: CalendarDays },
     ],
   },
@@ -72,6 +75,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       },
       { to: ROUTES.NEWS, label: 'Manage News', navLabel: 'News', icon: Newspaper },
       { to: ROUTES.TICKETS, label: 'Tickets', navLabel: 'Tickets', icon: Ticket },
+      { to: ROUTES.HELP, label: 'Admin Guide', navLabel: 'Guide', icon: HelpCircle },
     ],
   },
 ]
@@ -85,7 +89,9 @@ export const ADMIN_ROUTE_TITLES: Record<string, string> = {
   [ROUTES.EMPLOYEES]: 'Manage Employees',
   [ROUTES.EMPLOYEE_ADD]: 'Add Employee',
   [ROUTES.LEAVES]: 'Manage Leaves',
-  [ROUTES.PROJECTS]: 'Manage Projects',
+  [ROUTES.TIMESHEET]: 'Projects & Timesheets',
+  [ROUTES.PROJECTS]: 'Projects',
+  [`${ROUTES.PROJECTS}/`]: 'Project workspace',
   [ROUTES.CALENDAR]: 'Company Calendar',
   [ROUTES.TRAINING]: 'Training & Courses',
   [ROUTES.ACHIEVEMENTS]: 'Company achievements',
@@ -95,6 +101,7 @@ export const ADMIN_ROUTE_TITLES: Record<string, string> = {
   [ROUTES.TICKETS]: 'Ticket management',
   [ROUTES.PAYSLIPS]: 'Manage Payslips',
   [ROUTES.SETTINGS]: 'Settings',
+  [ROUTES.HELP]: 'Admin Guide',
 }
 
 const ADMIN_ROUTE_PREFIXES = Object.entries(ADMIN_ROUTE_TITLES).sort(
@@ -133,7 +140,19 @@ export function getAdminPageTitle(pathname: string): string {
   return APP_SHORT_NAME
 }
 
+export function isAdminEmployeeProfilePath(pathname: string): boolean {
+  const parts = pathname.split('/').filter(Boolean)
+  return (
+    parts[0] === 'admin' &&
+    parts[1] === 'employees' &&
+    parts.length === 3 &&
+    parts[2] !== 'add'
+  )
+}
+
 export function shouldShowAdminBackButton(pathname: string): boolean {
   const parts = pathname.split('/').filter(Boolean)
-  return parts.length > 2
+  if (parts.length <= 2) return false
+  if (isAdminEmployeeProfilePath(pathname)) return false
+  return true
 }

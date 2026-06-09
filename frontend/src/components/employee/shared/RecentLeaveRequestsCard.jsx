@@ -8,14 +8,15 @@ import { InteractiveCard, portalCardClass } from '@components/employee/shared/in
 export const RECENT_LEAVE_LIMIT = 3
 
 const LEAVE_TYPE_META = {
-  'Casual Leave': { initial: 'C', soft: 'bg-[#266b1c]/10 text-[#266b1c]' },
-  'Sick Leave': { initial: 'S', soft: 'bg-blue-500/10 text-blue-700' },
-  'Earned Leave': { initial: 'E', soft: 'bg-violet-500/10 text-violet-700' },
+  'Casual Leave': { initial: 'C', soft: 'bg-[#3d7a6a]/12 text-[#2d6b52]' },
+  'Sick Leave': { initial: 'S', soft: 'bg-[#4a7a9a]/12 text-[#3d6b8a]' },
+  'Earned Leave': { initial: 'E', soft: 'bg-[#6b5b8a]/12 text-[#5c4f78]' },
+  'Compensation Leave': { initial: 'P', soft: 'bg-[#c27803]/12 text-[#9a5f02]' },
 }
 
 const STATUS_META = {
   Pending: { dot: 'bg-amber-500', pill: 'bg-amber-50 text-amber-800 ring-amber-200/80' },
-  Approved: { dot: 'bg-emerald-500', pill: 'bg-emerald-50 text-emerald-800 ring-emerald-200/80' },
+  Approved: { dot: 'bg-[#276749]', pill: 'bg-[#dff0e4] text-[#1e5a3d] ring-[#a0c4ab]/80' },
   Rejected: { dot: 'bg-red-500', pill: 'bg-red-50 text-red-800 ring-red-200/80' },
   Cancelled: { dot: 'bg-slate-400', pill: 'bg-slate-100 text-slate-600 ring-slate-200/80' },
 }
@@ -129,20 +130,25 @@ export function RecentLeaveRequestsCard({ leaves = [], className }) {
   return (
     <InteractiveCard className={cn(CARD_CLASS, className)}>
       <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="font-heading text-base font-semibold text-foreground">Recent leave requests</h3>
-          <p className="mt-0.5 text-xs text-muted">Your latest applications</p>
+        <div className="flex min-w-0 items-start gap-2.5">
+          <div className="emp-dash-icon emp-dash-icon--amber" aria-hidden>
+            <CalendarRange className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <h3 className="font-heading text-base font-semibold text-foreground">Recent leave requests</h3>
+            <p className="mt-0.5 text-xs text-muted">Your latest applications</p>
+          </div>
         </div>
         <Link
           to="/employee/leave"
-          className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border bg-white px-2.5 py-1.5 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-slate-50"
+          className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border bg-white px-2.5 py-1.5 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-[#f4faf6]"
         >
           View all <ArrowRight className="h-3 w-3" />
         </Link>
       </div>
 
       {recent.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-slate-50/60 px-4 py-10 text-center">
+        <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-[#f4faf6]/80 px-4 py-10 text-center">
           <p className="text-sm font-medium text-foreground">No leave requests yet</p>
           <p className="mt-1 max-w-[240px] text-xs leading-relaxed text-muted">
             Submit a leave application and track its status here.
@@ -171,7 +177,7 @@ export function RecentLeaveRequestsCard({ leaves = [], className }) {
               <Clock className="h-3.5 w-3.5 shrink-0 text-amber-600" />
               <span>
                 <span className="font-semibold">{pendingCount}</span> request
-                {pendingCount === 1 ? '' : 's'} awaiting approval
+                {pendingCount === 1 ? '' : 's'} awaiting admin approval
               </span>
             </div>
           ) : (

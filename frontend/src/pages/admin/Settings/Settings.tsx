@@ -12,14 +12,14 @@ const CRITICAL_DATA = [
 
 export function Settings() {
   return (
-    <PageWrapper className="admin-hub-page-wrap relative z-10 py-3 font-body">
-      <div className="crewiq-dashboard admin-settings-view relative">
+    <PageWrapper fillViewport className="admin-hub-page-wrap relative z-10 !py-3 font-body">
+      <div className="crewiq-dashboard admin-settings-view relative flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="dashboard-page-bg" aria-hidden>
           <div className="dashboard-page-bg-gradient" />
           <div className="dashboard-page-bg-pattern" />
         </div>
 
-        <div className="admin-settings-shell relative z-10 animate-fadeIn">
+        <div className="admin-settings-shell relative z-10 flex min-h-0 flex-1 animate-fadeIn flex-col overflow-y-auto overflow-x-hidden">
           <header className="admin-settings-hub-header">
             <div className="admin-settings-hero-top">
               <h1 className="admin-settings-hero-title font-display">Settings Hub</h1>
@@ -32,7 +32,7 @@ export function Settings() {
               <p className="admin-settings-panel-text">
                 All users sign in with Google (Gmail). There is no portal password to change.
                 If someone cannot access their account, ask them to use the same company Gmail
-                registered in HR, or contact IT to verify their employee record email.
+                registered with admin, or contact IT to verify their employee record email.
               </p>
             </section>
 

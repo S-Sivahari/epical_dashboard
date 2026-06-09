@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import { cn } from '@/utils/cn'
 import { Spinner } from '@components/ui/Spinner'
@@ -23,6 +23,7 @@ export function DataTable<T extends { id?: string }>({
   brandHeader = false,
   striped = false,
   tableTheme = 'directory',
+  getRowStyle,
 }: {
   columns: Column<T>[]
   data?: T[]
@@ -36,6 +37,7 @@ export function DataTable<T extends { id?: string }>({
   striped?: boolean
   /** `payslip-hub` uses bb color (#2f6b4f) when rendered inside `.admin-payslips-view`. */
   tableTheme?: 'directory' | 'payslip-hub'
+  getRowStyle?: (row: T) => CSSProperties | undefined
 }) {
   const isPayslipHubHeader = brandHeader && tableTheme === 'payslip-hub'
   if (loading) {
@@ -65,7 +67,7 @@ export function DataTable<T extends { id?: string }>({
   return (
     <div
       className={cn(
-        'admin-table-scroll max-h-[70vh] overflow-auto rounded-xl border border-border bg-white shadow-glass',
+        'admin-table-scroll table-scroll-x max-h-[70vh] overflow-x-auto overflow-y-auto rounded-xl border border-border bg-white shadow-glass',
         className,
       )}
     >
@@ -129,9 +131,11 @@ export function DataTable<T extends { id?: string }>({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.2, delay: Math.min(i * 0.02, 0.3) }}
+              style={getRowStyle?.(row)}
               className={cn(
                 'transition-colors duration-150',
                 striped ? 'employee-directory-row' : 'hover:bg-emerald-50/50',
+                getRowStyle && 'data-table-tinted-row',
               )}
             >
               {columns.map((c) => (

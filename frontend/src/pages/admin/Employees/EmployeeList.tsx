@@ -15,8 +15,7 @@ import {
   Table,
   Mail,
   Calendar,
-  Briefcase,
-  ShieldCheck,
+  Hash,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@components/ui/Button'
@@ -27,6 +26,7 @@ import { PaginationBar } from '@components/tables/Pagination'
 import { useEmployees } from '@hooks/useEmployees'
 import type { Employee } from '@/types'
 import { stringToHueColor, stringToHue } from '@/utils/stringColor'
+import { getEmployeeAvatarUrl } from '@/utils/getAvatarUrl'
 import { EmployeeAvatar } from '@components/ui/EmployeeAvatar'
 import {
   exportActiveDirectoryExcel,
@@ -308,7 +308,11 @@ export function EmployeeList() {
   ]
 
   return (
-    <div className="crewiq-dashboard employee-pages employee-directory-view">
+    <div
+      className="crewiq-dashboard employee-pages employee-directory-view"
+      data-admin-employees
+      data-view-mode={viewMode === 'table' ? 'list' : 'grid'}
+    >
       <div className="employee-directory-bg" aria-hidden>
         <div className="employee-directory-bg-gradient" />
         <div className="employee-directory-bg-leaves" />
@@ -482,10 +486,10 @@ export function EmployeeList() {
                         {/* Avatar / Initials container with status badge */}
                         <div className="relative flex flex-col items-center">
                           <div className={`relative flex items-center justify-center h-16 w-16 rounded-full border-2 ring-4 ${ringColor}`}>
-                            {e.avatarUrl ? (
-                              <img src={e.avatarUrl} alt={name} className="h-full w-full rounded-full object-cover" />
+                            {getEmployeeAvatarUrl(e) ? (
+                              <img src={getEmployeeAvatarUrl(e)} alt={name} className="h-full w-full rounded-full object-cover" />
                             ) : (
-                              <span className="text-xl font-bold">{initials}</span>
+                              <span className="text-xl font-bold text-black">{initials}</span>
                             )}
                           </div>
                           <span className={`absolute -bottom-2 rounded-full px-2.5 py-0.5 text-[9px] font-bold border uppercase tracking-wider ${badgeColor}`}>
@@ -497,14 +501,14 @@ export function EmployeeList() {
                         <div className="flex items-center gap-1">
                           <Link
                             to={ROUTES.EMPLOYEE(e.id!)}
-                            className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-full transition-colors"
+                            className="p-1.5 text-black hover:bg-black/5 rounded-full transition-colors"
                             title="View employee"
                           >
                             <Eye className="h-4 w-4" />
                           </Link>
                           <Link
                             to={ROUTES.EMPLOYEE_EDIT(e.id!)}
-                            className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-full transition-colors"
+                            className="p-1.5 text-black hover:bg-black/5 rounded-full transition-colors"
                             title="Edit employee"
                           >
                             <Pencil className="h-4 w-4" />
@@ -514,7 +518,7 @@ export function EmployeeList() {
                             <DropdownMenu.Trigger asChild>
                               <button
                                 type="button"
-                                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-50 rounded-full transition-colors disabled:opacity-50"
+                                className="p-1.5 text-black hover:bg-black/5 rounded-full transition-colors disabled:opacity-50"
                                 title="Change account status"
                                 disabled={savingStatusId === e.id}
                               >
@@ -548,46 +552,38 @@ export function EmployeeList() {
 
                       {/* Employee Info */}
                       <Link to={ROUTES.EMPLOYEE(e.id!)} className="block mt-5">
-                        <h3 className="text-base font-bold text-slate-800 hover:text-emerald-700 transition-colors truncate">
+                        <h3 className="text-lg font-bold text-black truncate">
                           {name}
                         </h3>
-                        <p className="text-xs text-slate-500 mt-0.5 truncate">{e.designation || 'Role'}</p>
+                        <p className="text-sm text-black mt-0.5 truncate">{e.employmentType || '—'}</p>
                       </Link>
 
-                      {/* Role/EPL and Type/EmploymentType badges */}
-                      <div className="grid grid-cols-2 gap-3 mt-4 pb-4 border-b border-slate-100/60">
+                      <div className="mt-4 pb-4 border-b border-slate-100/60">
                         <div className="flex flex-col gap-1.5">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Role</span>
-                          <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 font-medium">
-                            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 mr-1.5 shrink-0" />
+                          <span className="text-xs font-bold text-black uppercase tracking-wider">Employee ID</span>
+                          <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-black font-medium">
+                            <Hash className="h-4 w-4 text-black mr-1.5 shrink-0" />
                             <span className="truncate" title={e.employeeId}>{e.employeeId || 'N/A'}</span>
-                          </div>
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Type</span>
-                          <div className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50/50 px-2 py-1 text-xs text-slate-700 font-medium">
-                            <Briefcase className="h-3.5 w-3.5 text-slate-500 mr-1.5 shrink-0" />
-                            <span className="truncate">{e.employmentType}</span>
                           </div>
                         </div>
                       </div>
 
                       {/* Contact Info */}
                       <div className="mt-4 space-y-2.5">
-                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Contact Info</h4>
+                        <h4 className="text-xs font-bold text-black uppercase tracking-wider">Contact Info</h4>
                         
-                        <div className="flex items-center text-xs text-slate-600 truncate">
-                          <Mail className="h-3.5 w-3.5 text-slate-400 mr-2 shrink-0" />
+                        <div className="flex items-center text-sm text-black truncate">
+                          <Mail className="h-4 w-4 text-black mr-2 shrink-0" />
                           <span className="truncate" title={e.email}>{e.email}</span>
                         </div>
                         
-                        <div className="flex items-center text-xs text-slate-600 truncate">
-                          <Mail className="h-3.5 w-3.5 text-slate-400 mr-2 shrink-0" />
+                        <div className="flex items-center text-sm text-black truncate">
+                          <Mail className="h-4 w-4 text-black mr-2 shrink-0" />
                           <span className="truncate" title={e.personalEmail}>{e.personalEmail || '—'}</span>
                         </div>
 
-                        <div className="flex items-center text-xs text-slate-500">
-                          <Calendar className="h-3.5 w-3.5 text-slate-400 mr-2 shrink-0" />
+                        <div className="flex items-center text-sm text-black">
+                          <Calendar className="h-4 w-4 text-black mr-2 shrink-0" />
                           <span>{e.joinedAt ? `${new Date(e.joinedAt).getFullYear()} Join` : '—'}</span>
                         </div>
                       </div>

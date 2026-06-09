@@ -2,6 +2,12 @@ import { Request, Response } from 'express'
 import type { ParsedQs } from 'qs'
 import * as newsService from '../services/newsService'
 import { fetchTopHeadlinesByDate } from '../services/externalNewsService'
+import {
+  assertPastNewsDateKey,
+  normalizeExternalNewsDateKey,
+  normalizeNewsDateInput,
+  yesterdayLocalDateKey,
+} from '../utils/newsDateRules'
 
 function paramStr(v: any): string {
   if (typeof v === 'string') return v
@@ -18,25 +24,24 @@ function fileToBlob(file?: Express.Multer.File) {
   }
 }
 
-function toLocalDateKey(date: Date): string {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
 function normalizeDate(input: string | string[] | ParsedQs | ParsedQs[] | undefined): string | null {
-  const trimmed = paramStr(input).trim()
-  if (!trimmed) return null
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null
-  const parsed = new Date(`${trimmed}T00:00:00`)
-  if (Number.isNaN(parsed.getTime())) return null
-  return trimmed
+  return normalizeNewsDateInput(paramStr(input))
 }
 
 function trimOrEmpty(value: unknown): string {
   if (typeof value !== 'string') return ''
   return value.trim()
+}
+
+function toLocalDateKeyFromBodyInstant(iso: string): string {
+  const parsed = new Date(iso)
+  if (Number.isNaN(parsed.getTime())) {
+    throw Object.assign(new Error('Invalid published date.'), { status: 400 })
+  }
+  const year = parsed.getFullYear()
+  const month = String(parsed.getMonth() + 1).padStart(2, '0')
+  const day = String(parsed.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 export const newsController = {
@@ -83,11 +88,27 @@ export const newsController = {
         return
       }
       const image = fileToBlob(req.file)
-      const item = await newsService.createNews({ title, content, imageUrl, link, image })
+      const publishedAt = trimOrEmpty(req.body.publishedAt) || trimOrEmpty(req.body.publishedDate)
+      if (publishedAt) {
+        assertPastNewsDateKey(
+          /^\d{4}-\d{2}-\d{2}$/.test(publishedAt)
+            ? publishedAt
+            : toLocalDateKeyFromBodyInstant(publishedAt),
+        )
+      }
+      const item = await newsService.createNews({
+        title,
+        content,
+        imageUrl,
+        link,
+        image,
+        publishedAt: publishedAt || undefined,
+      })
       res.status(201).json(item)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to create news'
-      res.status(500).json({ error: message })
+      const status = (err as { status?: number }).status
+      res.status(status === 400 ? 400 : 500).json({ error: message })
     }
   },
 
@@ -143,7 +164,17 @@ export const newsController = {
       res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD.' })
       return
     }
-    const newsDate = requestedDate || toLocalDateKey(new Date())
+    if (requestedDate) {
+      try {
+        assertPastNewsDateKey(requestedDate)
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Invalid date'
+        const status = (err as { status?: number }).status ?? 400
+        res.status(status).json({ error: message })
+        return
+      }
+    }
+    const newsDate = requestedDate || yesterdayLocalDateKey()
 
     const limitRaw = paramStr(req.query.limit)
     const parsedLimit = limitRaw ? Number.parseInt(limitRaw, 10) : 10
@@ -184,12 +215,28 @@ export const newsController = {
           const imageUrl = trimOrEmpty(item.imageUrl)
           const publishedAt = trimOrEmpty(item.publishedAt)
           if (!title || !content || !link) return null
+
+          let publishedDateKey: string | undefined
+          if (publishedAt) {
+            if (/^\d{4}-\d{2}-\d{2}$/.test(publishedAt)) {
+              try {
+                assertPastNewsDateKey(publishedAt)
+                publishedDateKey = publishedAt
+              } catch {
+                return null
+              }
+            } else {
+              publishedDateKey = normalizeExternalNewsDateKey(publishedAt) ?? undefined
+              if (!publishedDateKey) return null
+            }
+          }
+
           return {
             title,
             content,
             link,
             imageUrl: imageUrl || undefined,
-            publishedAt: publishedAt || undefined,
+            publishedAt: publishedDateKey,
           }
         })
         .filter(Boolean)

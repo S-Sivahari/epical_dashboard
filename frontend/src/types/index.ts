@@ -70,15 +70,22 @@ export interface LeaveRequest {
   from: string
   to: string
   days: number
+  /** Days counted as Loss of Pay (casual leave beyond monthly balance). */
+  lopDays?: number
   totalLeaveDays?: number
   reason: string
   status: LeaveStatus
   rejectionReason?: string
+  cancelReason?: string
+  cancelledBy?: string
+  cancelledAt?: string
   createdAt?: string
   updatedAt?: string
-  cancellationReason?: string
   approvalDate?: string
+  approvedAt?: string
   approvedBy?: string
+  rejectedAt?: string
+  rejectedBy?: string
 }
 
 /** Employee leave rollup for admin profile modal (`GET /leaves/employee/:id/summary`). */

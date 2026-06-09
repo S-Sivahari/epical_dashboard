@@ -6,6 +6,13 @@ export async function getLeaves() {
   return response.data as LeaveRequest[]
 }
 
+export async function getLeaveHistory(employeeId?: string) {
+  const response = await api.get('/leaves/history', {
+    params: employeeId ? { employeeId } : undefined,
+  })
+  return response.data as LeaveRequest[]
+}
+
 export async function getBalances(employeeId?: string) {
   const response = await api.get('/leaves/balances', {
     params: employeeId ? { employeeId } : undefined,
@@ -48,8 +55,12 @@ export async function rejectLeave(id: string, reason: string) {
   await api.patch(`/leaves/${id}/reject`, { reason })
 }
 
-export async function cancelLeave(id: string, reason?: string) {
-  await api.patch(`/leaves/${id}/cancel`, { reason: reason?.trim() || undefined })
+export async function cancelLeave(id: string) {
+  await api.patch(`/leaves/${id}/cancel`, {})
+}
+
+export async function revokeApprovedLeave(id: string, reason: string) {
+  await api.patch(`/leaves/${id}/revoke`, { reason })
 }
 
 export async function deleteAllLeaves(): Promise<{ deletedCount: number }> {

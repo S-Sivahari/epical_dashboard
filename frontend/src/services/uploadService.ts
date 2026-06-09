@@ -61,6 +61,16 @@ export async function openEmployeeDocument(
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
+const photoUrlCache = new Map<string, string>()
+
+export function invalidateEmployeePhotoCache(employeeId: string): void {
+  const cached = photoUrlCache.get(employeeId)
+  if (cached) {
+    URL.revokeObjectURL(cached)
+    photoUrlCache.delete(employeeId)
+  }
+}
+
 export async function fetchEmployeePhoto(employeeId: string): Promise<Blob | null> {
   try {
     const { data, status } = await api.get(`/employees/${employeeId}/photo`, {
@@ -72,6 +82,17 @@ export async function fetchEmployeePhoto(employeeId: string): Promise<Blob | nul
   } catch {
     return null
   }
+}
+
+/** Cached blob URL for avatar display (one request per employee per session). */
+export async function getEmployeePhotoUrl(employeeId: string): Promise<string | null> {
+  const cached = photoUrlCache.get(employeeId)
+  if (cached) return cached
+  const blob = await fetchEmployeePhoto(employeeId)
+  if (!blob) return null
+  const url = URL.createObjectURL(blob)
+  photoUrlCache.set(employeeId, url)
+  return url
 }
 
 /** Legacy URL helper — img tags cannot send Authorization; prefer fetchEmployeePhoto + blob URL. */

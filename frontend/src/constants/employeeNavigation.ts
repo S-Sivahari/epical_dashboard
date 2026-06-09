@@ -5,6 +5,7 @@ import {
   CalendarOff,
   Clock,
   FileText,
+  FolderKanban,
   HelpCircle,
   LayoutGrid,
   Ticket,
@@ -35,6 +36,12 @@ export const EMPLOYEE_NAV_ITEMS: EmployeeNavItem[] = [
     label: 'Timesheet',
     navLabel: 'Timesheet',
     icon: Clock,
+  },
+  {
+    to: '/employee/projects',
+    label: 'Projects',
+    navLabel: 'Projects',
+    icon: FolderKanban,
   },
   {
     to: '/employee/leave',
@@ -76,8 +83,8 @@ export const EMPLOYEE_NAV_ITEMS: EmployeeNavItem[] = [
   },
   {
     to: '/employee/help',
-    label: 'Help & Support',
-    navLabel: 'Help',
+    label: 'Employee Guide',
+    navLabel: 'Guide',
     icon: HelpCircle,
   },
   {
@@ -92,13 +99,14 @@ export const EMPLOYEE_NAV_ITEMS: EmployeeNavItem[] = [
 export const EMPLOYEE_ROUTE_TITLES: Record<string, string> = {
   '/employee': 'Dashboard',
   '/employee/timesheet': 'Timesheet',
+  '/employee/projects': 'Projects',
   '/employee/leave': 'Leave Request',
   '/employee/calendar': 'Company Calendar',
   '/employee/documents': 'Documents',
   '/employee/training': 'Training & Courses',
   '/employee/achievements': 'Company Achievements',
   '/employee/tickets': 'Raise Tickets',
-  '/employee/help': 'Help & Support',
+  '/employee/help': 'Employee Guide',
   '/employee/profile': 'My Profile',
 }
 
@@ -132,6 +140,8 @@ export function getEmployeePageTitle(pathname: string): string {
 }
 
 export function shouldShowEmployeeBackButton(pathname: string): boolean {
-  const parts = pathname.split('/').filter(Boolean)
+  const normalized = pathname.replace(/\/$/, '') || '/'
+  if (normalized === '/employee/profile') return false
+  const parts = normalized.split('/').filter(Boolean)
   return parts.length > 2
 }

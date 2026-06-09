@@ -353,6 +353,7 @@ export const useTimesheetStore = create((set, get) => ({
       await Promise.all([
         get().refreshSessionsForRange({ background: true }),
         get().refreshProjectWiseHours(),
+        get().refreshAllTimeProjectWiseHours(),
         get().fetchBackendElapsedData(),
       ])
 
@@ -421,6 +422,7 @@ export const useTimesheetStore = create((set, get) => ({
       get().refreshAttendanceHistory(),
       get().refreshSessionsForRange(),
       get().refreshProjectWiseHours(),
+      get().refreshAllTimeProjectWiseHours(),
     ])
     return data
   },
@@ -455,6 +457,7 @@ export const useTimesheetStore = create((set, get) => ({
       get().refreshAttendanceHistory(),
       get().refreshSessionsForRange(),
       get().refreshProjectWiseHours(),
+      get().refreshAllTimeProjectWiseHours(),
     ])
   },
 
@@ -496,12 +499,12 @@ export const useTimesheetStore = create((set, get) => ({
         }
       })
       await get().refreshAssignedTasks()
-      await get().refreshProjectWiseHours()
+      await Promise.all([get().refreshProjectWiseHours(), get().refreshAllTimeProjectWiseHours()])
     } else {
       await get().refreshActiveTask()
       await get().refreshSessions()
       await get().refreshAssignedTasks()
-      await get().refreshProjectWiseHours()
+      await Promise.all([get().refreshProjectWiseHours(), get().refreshAllTimeProjectWiseHours()])
     }
     return data
   },
@@ -562,12 +565,12 @@ export const useTimesheetStore = create((set, get) => ({
         }
       })
       await get().refreshAssignedTasks()
-      await get().refreshProjectWiseHours()
+      await Promise.all([get().refreshProjectWiseHours(), get().refreshAllTimeProjectWiseHours()])
     } else {
       await get().refreshActiveTask()
       await get().refreshSessions()
       await get().refreshAssignedTasks()
-      await get().refreshProjectWiseHours()
+      await Promise.all([get().refreshProjectWiseHours(), get().refreshAllTimeProjectWiseHours()])
     }
     return data
   },

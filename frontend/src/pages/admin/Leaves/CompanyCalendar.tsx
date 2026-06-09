@@ -684,8 +684,8 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
 
             <div
               className={cn(
-                'flex min-h-0 flex-1 flex-col gap-2 overflow-hidden',
-                useAdminLayout ? 'admin-cal-side-unified-body' : 'p-3',
+                'flex min-h-0 flex-1 flex-col gap-2',
+                useAdminLayout ? 'admin-cal-side-unified-body overflow-y-auto' : 'overflow-y-auto p-3',
               )}
             >
               {/* Holidays */}

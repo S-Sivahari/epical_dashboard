@@ -10,6 +10,7 @@ export function PaginationBar({
   onPageChange,
   onPageSizeChange,
   pageSizeOptions = [10, 20, 50],
+  itemLabel = 'employees',
   className,
 }: {
   total: number
@@ -18,6 +19,7 @@ export function PaginationBar({
   onPageChange: (p: number) => void
   onPageSizeChange?: (size: number) => void
   pageSizeOptions?: number[]
+  itemLabel?: string
   className?: string
 }) {
   const { totalPages, from, to, visiblePages } = usePagination(total, page, pageSize)
@@ -33,7 +35,7 @@ export function PaginationBar({
         <span className="font-semibold text-ink">{to}</span>
         {' of '}
         <span className="font-semibold text-ink">{total}</span>
-        {' employees'}
+        {` ${itemLabel}`}
       </p>
 
       <div className="flex flex-wrap items-center gap-3">

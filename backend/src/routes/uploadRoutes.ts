@@ -5,8 +5,6 @@ import { authMiddleware } from '../middleware/authMiddleware';
 
 const router = Router();
 
-router.use(authMiddleware);
-
 // Configure multer to store files in memory as buffers
 const storage = multer.memoryStorage();
 const upload = multer({
@@ -23,6 +21,16 @@ const upload = multer({
     }
   },
 });
+
+// Public endpoints (no auth required)
+// Get profile photo - public so img tags can load the image
+router.get('/employees/:id/photo', uploadController.getPhoto);
+
+// Get a specific document - public for document retrieval
+router.get('/employees/:id/documents/:docType', uploadController.getDocument);
+
+// Protected endpoints (require authentication)
+router.use(authMiddleware);
 
 // Upload multiple documents for an employee
 router.post(
@@ -48,13 +56,7 @@ router.post('/employees/:id/photo', upload.single('photo'), uploadController.upl
 // List uploaded documents for an employee
 router.get('/employees/:id/documents', uploadController.listDocuments);
 
-// Get a specific document
-router.get('/employees/:id/documents/:docType', uploadController.getDocument);
-
 // Delete a specific document
 router.delete('/employees/:id/documents/:docType', uploadController.deleteDocument);
-
-// Get profile photo
-router.get('/employees/:id/photo', uploadController.getPhoto);
 
 export const uploadRoutes = router;

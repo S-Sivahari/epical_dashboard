@@ -4,6 +4,7 @@ import { LoginBackground } from '@components/auth/LoginBackground'
 import { PageLoading } from '@components/layout/PageLoading'
 import { PortalErrorBoundary } from '@components/employee/shared/PortalErrorBoundary'
 import { EmployeeCommandBar } from './EmployeeCommandBar'
+import { EmployeePageShell } from './EmployeePageShell'
 import { EmployeeTopNav } from './EmployeeTopNav'
 
 export function AppLayout() {
@@ -13,12 +14,14 @@ export function AppLayout() {
         <EmployeeCommandBar />
         <EmployeeTopNav />
       </div>
-      <main className="cmd-main relative z-0 flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <main className="cmd-main relative z-0 flex min-h-0 flex-1 flex-col">
         <LoginBackground variant="admin" />
         <div className="relative z-[1] flex min-h-0 flex-1 flex-col">
           <PortalErrorBoundary>
             <Suspense fallback={<PageLoading />}>
-              <Outlet />
+              <EmployeePageShell>
+                <Outlet />
+              </EmployeePageShell>
             </Suspense>
           </PortalErrorBoundary>
         </div>

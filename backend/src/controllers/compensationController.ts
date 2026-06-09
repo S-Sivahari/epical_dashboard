@@ -10,6 +10,20 @@ function getCol() {
   return getDB().collection<CompensationEntry>('compensation_entries');
 }
 
+async function resolveCanonicalEmployeeId(rawEmployeeId: string): Promise<string> {
+  const trimmed = String(rawEmployeeId ?? '').trim();
+  if (!trimmed) return trimmed;
+
+  const employeeCol = getDB().collection('employees');
+  const findOptions = { projection: { documents: 0, 'photo.data': 0 } };
+  const ids = await leaveService.resolveLeaveEmployeeIds(trimmed);
+  const emp =
+    (await employeeCol.findOne({ id: { $in: ids } }, findOptions)) ||
+    (await employeeCol.findOne({ employeeId: { $in: ids } }, findOptions));
+
+  return emp?.id ? String(emp.id) : trimmed;
+}
+
 async function resolveEmployeeIds(userId: string): Promise<string[]> {
   const employeeCol = getDB().collection('employees');
   const findOptions = { projection: { documents: 0, 'photo.data': 0 } };
@@ -75,18 +89,22 @@ export async function create(req: AuthRequest, res: Response): Promise<void> {
     }
 
     const now = new Date();
-    const docs: CompensationEntry[] = entries.map((e) => ({
-      id: randomUUID(),
-      employeeId: e.employeeId,
-      employeeName: e.employeeName,
-      days: Number(e.days),
-      reason: e.reason || '',
-      appliedDate: now.toISOString().split('T')[0],
-      createdBy,
-      status: 'Active',
-      createdAt: now,
-      updatedAt: now,
-    }));
+    const docs: CompensationEntry[] = [];
+    for (const e of entries) {
+      const canonicalEmployeeId = await resolveCanonicalEmployeeId(e.employeeId);
+      docs.push({
+        id: randomUUID(),
+        employeeId: canonicalEmployeeId,
+        employeeName: e.employeeName,
+        days: Number(e.days),
+        reason: e.reason || '',
+        appliedDate: now.toISOString().split('T')[0],
+        createdBy,
+        status: 'Active',
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
 
     await getCol().insertMany(docs as any[]);
     res.status(201).json(docs);
@@ -139,11 +157,11 @@ export async function remove(req: AuthRequest, res: Response): Promise<void> {
 
     // Check if the employee has already used Earned Leave
     const balances = await leaveService.getLeaveBalances(entry.employeeId);
-    const earnedLeave = balances['Earned Leave'] || { total: 0, used: 0, remaining: 0 };
+    const compensationLeave = balances['Compensation Leave'] || { total: 0, used: 0, remaining: 0 };
 
-    if (earnedLeave.used > 0) {
+    if (compensationLeave.used > 0) {
       // "admin delete does nothing" - return success: true but skip deletion, and output a skipped message
-      res.json({ success: true, message: 'Delete did nothing because the employee has already used the earned leave.', skipped: true });
+      res.json({ success: true, message: 'Delete did nothing because the employee has already used the compensation leave.', skipped: true });
       return;
     }
 

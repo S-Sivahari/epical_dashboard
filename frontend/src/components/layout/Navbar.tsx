@@ -19,7 +19,8 @@ const routeTitles: Record<string, string> = {
   '/admin/employees': 'Manage Employees',
   '/admin/leaves': 'Manage Leaves',
   '/admin/holidays': 'Company Holidays',
-  '/admin/projects': 'Manage Projects',
+  '/admin/timesheet': 'Projects & Timesheets',
+  '/admin/projects': 'Projects',
   '/admin/tickets': 'Ticket management',
   '/admin/timesheets': 'Manage Timesheets',
   '/admin/payslips': 'Manage Payslips',
@@ -100,7 +101,7 @@ export function Navbar() {
               <DropdownMenu.Item
                 className="cursor-pointer rounded-lg px-3 py-2 text-sm text-red-600 outline-none hover:bg-red-50"
                 onSelect={() => {
-                  logout()
+                  void logout()
                   navigate('/auth/login')
                 }}
               >

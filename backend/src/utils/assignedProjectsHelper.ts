@@ -1,6 +1,8 @@
 import { ProjectModel } from '../models/Project';
+import { ProjectCellModel } from '../models/ProjectCell';
 import { TimesheetModel } from '../models/Timesheet';
 import {
+  buildAssignedProjectsFilter,
   buildAssignmentIdentityTokens,
   ensureAssignedTasksForEmployee,
 } from './assignedTaskSync';
@@ -53,6 +55,25 @@ export function toFrontendProject(p: {
 
 type AuthUser = { id: string; name: string; email?: string };
 
+/** Projects an employee can open in the layout workspace (broader than timesheet allotment). */
+export async function buildEmployeeWorkspaceProjectsFilter(identityTokens: string[]) {
+  const cellProjectIds = await ProjectCellModel.distinct('projectId', {
+    assignedEmployeeId: { $in: identityTokens },
+  });
+
+  const or: Record<string, unknown>[] = [
+    { accessType: 'public' },
+    { allowedUsers: { $in: identityTokens } },
+    { teamLead: { $in: identityTokens } },
+  ];
+
+  if (cellProjectIds.length > 0) {
+    or.push({ _id: { $in: cellProjectIds } });
+  }
+
+  return { $or: or };
+}
+
 export async function getAssignedProjectsForUser(
   user: AuthUser,
   employeeRecord?: {
@@ -82,13 +103,9 @@ export async function getAssignedProjectsForUser(
     }).catch((err) => console.error('Background assigned-task sync failed:', err));
   }
 
-  const assignedProjects = await ProjectModel.find({
-    $or: [
-      { accessType: 'public' },
-      { allowedUsers: { $in: assignmentTokens } },
-      { teamLead: { $in: assignmentTokens } },
-    ],
-  })
+  const assignedProjects = await ProjectModel.find(
+    await buildEmployeeWorkspaceProjectsFilter(assignmentTokens),
+  )
     .sort({ createdAt: -1 })
     .lean();
 
@@ -113,15 +130,9 @@ export async function getAssignedProjectsForUser(
 
   return assignedProjects.map((p) => {
     const base = toFrontendProject(p as any);
-    const allowed = p.allowedUsers || [];
-    let assignmentRole: 'Team Lead' | 'Member' | 'Public' = 'Public';
+    let assignmentRole: 'Team Lead' | 'Member' = 'Member';
     if (p.teamLead && assignmentTokens.includes(p.teamLead)) {
       assignmentRole = 'Team Lead';
-    } else if (
-      p.accessType === 'private' &&
-      allowed.some((allowedUser: string) => assignmentTokens.includes(allowedUser))
-    ) {
-      assignmentRole = 'Member';
     }
 
     return {

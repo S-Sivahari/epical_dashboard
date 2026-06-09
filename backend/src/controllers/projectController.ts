@@ -14,6 +14,7 @@ import { getAssignedProjectsForUser } from '../utils/assignedProjectsHelper';
 import { getUserById } from '../services/authService';
 import { resolveEmployeeForAuthUser } from '../utils/employeeAuth';
 import { normalizeProjectDescription, validateProjectDescription } from '../utils/textLimits';
+import { enrichProjectsWithChecklist } from '../services/checklistService';
 
 function computeTotalHours(loginTime: Date, logoutTime?: Date, overriddenHours?: number): number {
   if (overriddenHours !== undefined && overriddenHours !== null) {
@@ -137,7 +138,7 @@ export const projectController = {
         );
         projectsToMap = synced.map((result, index) => result?.project || refreshedProjects[index]);
       }
-      res.json(projectsToMap.map(toFrontendProject));
+      res.json(await enrichProjectsWithChecklist(projectsToMap.map(toFrontendProject)));
     } catch (error) {
       console.error('Error fetching projects:', error);
       res.status(500).json({ error: 'Failed to fetch projects' });
@@ -260,8 +261,8 @@ export const projectController = {
         accessType: accessType || 'public',
         status: 'Active', // new projects always default to Active
         description: normalizeProjectDescription(String(description || '')),
-        allowedUsers: accessType === 'private' ? (visibleUsers || []) : [],
-        teamLead: accessType === 'private' && teamLead ? String(teamLead).trim() : undefined,
+        allowedUsers: Array.isArray(visibleUsers) ? visibleUsers : [],
+        teamLead: teamLead ? String(teamLead).trim() : undefined,
         createdBy: username,
       });
 
@@ -311,8 +312,8 @@ export const projectController = {
       project.technologyNode = technologyNode.trim();
       project.accessType = accessType;
       project.description = normalizeProjectDescription(String(description || ''));
-      project.allowedUsers = accessType === 'private' ? (visibleUsers || []) : [];
-      project.teamLead = accessType === 'private' && teamLead ? String(teamLead).trim() : undefined;
+      project.allowedUsers = Array.isArray(visibleUsers) ? visibleUsers : [];
+      project.teamLead = teamLead ? String(teamLead).trim() : undefined;
 
       const isTerminalStatus = status && ['Completed', 'Cancelled'].includes(status);
       if (isTerminalStatus) {

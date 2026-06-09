@@ -15,6 +15,7 @@ import { useTicketStore } from '@store/ticketStore'
 import { formatDateTime } from '@/utils/formatDate'
 import { cn } from '@pages/employee/lib/utils'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
+import { useFormSessionDraft } from '@hooks/useFormSessionDraft'
 
 const PAGE_SIZE = 6
 const POLL_MS = 30000
@@ -54,7 +55,7 @@ function SectionHeader({ icon: Icon, title, description }) {
   return (
     <div className="mb-4 border-b border-border pb-4">
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <div className="emp-dash-icon emp-dash-icon--sky" aria-hidden>
           <Icon className="h-5 w-5" />
         </div>
         <div className="min-w-0">
@@ -86,6 +87,7 @@ export default function RaiseTickets() {
   const user = useAuthStore((s) => s.user)
   const tickets = useTicketStore((s) => s.tickets)
   const loading = useTicketStore((s) => s.loading)
+  const initialized = useTicketStore((s) => s.initialized)
   const fetchTickets = useTicketStore((s) => s.fetchTickets)
   const fetchTicketsSilent = useTicketStore((s) => s.fetchTicketsSilent)
   const createTicket = useTicketStore((s) => s.createTicket)
@@ -93,8 +95,15 @@ export default function RaiseTickets() {
   const [page, setPage] = useState(1)
   const { toast } = useToast()
 
+  const ticketFormDefaults = { title: '', description: '', priority: '' }
+
   const { register, handleSubmit, setValue, watch, reset, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(ticketSchema),
+    defaultValues: ticketFormDefaults,
+  })
+
+  const { clearDraft } = useFormSessionDraft('employee-ticket-raise', { reset, watch }, {
+    defaultValues: ticketFormDefaults,
   })
 
   useEffect(() => {
@@ -102,7 +111,9 @@ export default function RaiseTickets() {
     void fetchTickets().catch(() => {
       toast({ title: 'Failed to load tickets', description: 'Please refresh the page.', variant: 'destructive' })
     })
-  }, [user, fetchTickets, toast])
+  }, [user, fetchTickets])
+
+  const ticketsLoading = !initialized || loading
 
   useEffect(() => {
     if (!user) return
@@ -154,7 +165,8 @@ export default function RaiseTickets() {
         priority: data.priority,
       })
       toast({ title: 'Ticket created', description: 'Support team will respond within 24 hours.' })
-      reset()
+      clearDraft()
+      reset(ticketFormDefaults)
       setPage(1)
     } catch (error) {
       const message = error?.response?.data?.error || 'Could not submit your ticket. Please try again.'
@@ -174,7 +186,7 @@ export default function RaiseTickets() {
           <SectionHeader
             icon={Ticket}
             title="Raise a ticket"
-            description="Submit IT or HR issues for the support team"
+            description="Submit IT or workplace issues for the admin team"
           />
           <div className="flex flex-1 flex-col space-y-3">
             <div>
@@ -224,7 +236,7 @@ export default function RaiseTickets() {
           />
 
           <div className="flex min-h-0 flex-1 flex-col">
-            {loading && displayTickets.length === 0 ? (
+            {ticketsLoading && displayTickets.length === 0 ? (
               <div className="flex flex-1 items-center justify-center gap-2 py-12 text-sm text-muted">
                 <Loader className="h-5 w-5 animate-spin text-primary" />
                 Loading tickets…

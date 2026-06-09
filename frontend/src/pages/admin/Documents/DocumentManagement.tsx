@@ -200,13 +200,13 @@ setRejectOpen(false)
       ) : tab === 'requested' ? (
         <table className="admin-doc-table min-w-full border-collapse text-left text-sm">
           <thead className="sticky top-0 z-[1]">
-            <tr className="text-[11px] font-semibold uppercase tracking-wide">
-              <th className="px-4 py-3">Document</th>
-              <th className="px-4 py-3">Employee / ID</th>
-              <th className="px-4 py-3">Reason</th>
-              <th className="px-4 py-3">Requested</th>
-              <th className="px-4 py-3">Fulfillment file</th>
-              <th className="min-w-[200px] px-4 py-3 text-right">Actions</th>
+            <tr className="text-[11px] font-semibold uppercase tracking-wide text-slate-900">
+              <th className="px-4 py-3 text-slate-900">Document</th>
+              <th className="px-4 py-3 text-slate-900">Employee / ID</th>
+              <th className="px-4 py-3 text-slate-900">Reason</th>
+              <th className="px-4 py-3 text-slate-900">Requested</th>
+              <th className="px-4 py-3 text-slate-900">Fulfillment file</th>
+              <th className="min-w-[200px] px-4 py-3 text-right text-slate-900">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -278,12 +278,12 @@ setRejectOpen(false)
       ) : tab === 'approved' ? (
         <table className="admin-doc-table min-w-full border-collapse text-left text-sm">
           <thead className="sticky top-0 z-[1]">
-            <tr className="text-[11px] font-semibold uppercase tracking-wide">
-              <th className="px-4 py-3">Document</th>
-              <th className="px-4 py-3">Employee / ID</th>
-              <th className="px-4 py-3">Reason</th>
-              <th className="px-4 py-3">Processed</th>
-              <th className="min-w-[120px] px-4 py-3 text-right">Actions</th>
+            <tr className="text-[11px] font-semibold uppercase tracking-wide text-slate-900">
+              <th className="px-4 py-3 text-slate-900">Document</th>
+              <th className="px-4 py-3 text-slate-900">Employee / ID</th>
+              <th className="px-4 py-3 text-slate-900">Reason</th>
+              <th className="px-4 py-3 text-slate-900">Processed</th>
+              <th className="min-w-[120px] px-4 py-3 text-right text-slate-900">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -308,7 +308,7 @@ setRejectOpen(false)
                     type="button"
                     className="admin-doc-secondary-btn"
                     onClick={() =>
-                      void downloadDocumentPdf(row.id, `${row.documentName}.pdf`).catch(() =>
+                      void downloadDocumentPdf(row.id, row.documentName, row.documentType).catch(() =>
                         toast.error('Download failed'),
                       )
                     }
@@ -323,13 +323,13 @@ setRejectOpen(false)
       ) : (
         <table className="admin-doc-table min-w-full border-collapse text-left text-sm">
           <thead className="sticky top-0 z-[1]">
-            <tr className="text-[11px] font-semibold uppercase tracking-wide">
-              <th className="px-4 py-3">When</th>
-              <th className="px-4 py-3">Document</th>
-              <th className="px-4 py-3">Employee</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Rejection reason</th>
-              <th className="px-4 py-3 text-right">Download</th>
+            <tr className="text-[11px] font-semibold uppercase tracking-wide text-slate-900">
+              <th className="px-4 py-3 text-slate-900">When</th>
+              <th className="px-4 py-3 text-slate-900">Document</th>
+              <th className="px-4 py-3 text-slate-900">Employee</th>
+              <th className="px-4 py-3 text-slate-900">Status</th>
+              <th className="px-4 py-3 text-slate-900">Rejection reason</th>
+              <th className="px-4 py-3 text-right text-slate-900">Download</th>
             </tr>
           </thead>
           <tbody>
@@ -362,7 +362,7 @@ setRejectOpen(false)
                       type="button"
                       className="admin-doc-secondary-btn"
                       onClick={() =>
-                        void downloadDocumentPdf(row.id, `${row.documentName}.pdf`).catch(() =>
+                        void downloadDocumentPdf(row.id, row.documentName, row.documentType).catch(() =>
                           toast.error('Download failed'),
                         )
                       }
@@ -385,7 +385,7 @@ setRejectOpen(false)
     <div
       className={cn(
         'crewiq-dashboard relative',
-        !embedded && 'admin-documents-view',
+        !embedded && 'admin-documents-view flex min-h-0 flex-1 flex-col overflow-hidden',
       )}
     >
       {!embedded ? (
@@ -441,7 +441,11 @@ setRejectOpen(false)
         </div>
       </Modal>
 
-      <div className={cn(!embedded && 'admin-documents-shell relative z-10 animate-fadeIn')}>
+      <div
+        className={cn(
+          !embedded && 'admin-documents-shell relative z-10 flex min-h-0 flex-1 animate-fadeIn flex-col overflow-hidden',
+        )}
+      >
         {!embedded ? (
           <>
             <header className="admin-documents-hub-header">
@@ -563,5 +567,9 @@ setRejectOpen(false)
   )
 
   if (embedded) return content
-  return <PageWrapper className="admin-hub-page-wrap relative z-10 py-3 font-body">{content}</PageWrapper>
+  return (
+    <PageWrapper fillViewport className="admin-hub-page-wrap relative z-10 !py-3 font-body">
+      {content}
+    </PageWrapper>
+  )
 }

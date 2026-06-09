@@ -7,6 +7,9 @@ export const ROUTES = {
   EMPLOYEE_EDIT: (id: string) => `/admin/employees/${id}/edit`,
   LEAVES: '/admin/leaves',
   PROJECTS: '/admin/projects',
+  PROJECT_WORKSPACE: (id: string) => `/admin/projects/${id}`,
+  PROJECT_CELL: (projectId: string, cellId: string) => `/admin/projects/${projectId}/cells/${cellId}`,
+  TIMESHEET: '/admin/timesheet',
   CALENDAR: '/admin/calendar',
   TRAINING: '/admin/training',
   ACHIEVEMENTS: '/admin/achievements',
@@ -16,4 +19,5 @@ export const ROUTES = {
   TICKETS: '/admin/tickets',
   PAYSLIPS: '/admin/payslips',
   SETTINGS: '/admin/settings',
+  HELP: '/admin/help',
 } as const

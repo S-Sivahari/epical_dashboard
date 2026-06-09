@@ -6,6 +6,7 @@ import { Avatar } from '@components/ui/Avatar'
 import { CommandBarNewsMarquee } from '@components/layout/CommandBarNewsMarquee'
 import { NotificationBell } from '@components/layout/NotificationBell'
 import { useAuthStore } from '@store/authStore'
+import { shouldShowAdminBackButton } from '@constants/adminNavigation'
 function titleCase(slug: string) {
   return slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
@@ -14,7 +15,8 @@ const routeTitles: Record<string, string> = {
   '/admin': 'Dashboard',
   '/admin/employees': 'Employees',
   '/admin/leaves': 'Leave Management',
-  '/admin/projects': 'Projects & Timesheets',
+  '/admin/timesheet': 'Projects & Timesheets',
+  '/admin/projects': 'Projects',
   '/admin/tickets': 'Tickets',
   '/admin/payslips': 'Payslips',
   '/admin/calendar': 'Calendar',
@@ -43,10 +45,10 @@ export function CommandBar() {
     return 'Admin'
   }, [pathname])
 
-  const showBack = pathname.split('/').filter(Boolean).length > 2
+  const showBack = shouldShowAdminBackButton(pathname)
 
   const handleLogout = () => {
-    logout()
+    void logout()
     navigate('/auth/login')
   }
 

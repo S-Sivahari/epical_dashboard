@@ -1,15 +1,24 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
-import { Badge } from '@components/ui/Badge'
 import { Button } from '@components/ui/Button'
+import { cn } from '@/utils/cn'
 import { Modal } from '@components/ui/Modal'
 import { useLeaves } from '@hooks/useLeaves'
-import { useEmployeeStore } from '@store/employeeStore'
 import { formatDate, formatDateTime } from '@/utils/formatDate'
-import { filterLeaves, excludeCancelledLeaves, type LeaveFilters } from '@/utils/leaveFilters'
+import {
+  filterLeaves,
+  excludeCancelledLeaves,
+  canCancelLeave,
+  isRevokedApprovedLeave,
+  formatMonthLabel,
+  formatLeaveDayCount,
+  getCurrentMonthDateRange,
+  getCurrentMonthKey,
+  type LeaveFilters,
+} from '@/utils/leaveFilters'
 import * as leaveService from '@services/leaveService'
 
-import { X, ChevronLeft, ChevronRight, Check, AlertTriangle, ShieldCheck, UserCheck } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, Check, AlertTriangle, ShieldCheck } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { EmployeeLeaveProfileModal } from './EmployeeLeaveProfileModal'
 
@@ -31,24 +40,13 @@ interface StatusPagination {
 export function LeaveRequests({
   filters,
   onFiltersChange,
+  monthLabel: monthLabelProp,
 }: {
   filters: LeaveFilters
   onFiltersChange: (f: LeaveFilters) => void
+  monthLabel?: string
 }) {
-  const { leaves, loading, approveLeave, rejectLeave } = useLeaves()
-
-  // Build a map of employeeId → { avatarUrl, initials } for profile pics
-  const allEmployees = useEmployeeStore((s) => s.employees)
-  const avatarMap = useMemo(() => {
-    const map: Record<string, { avatarUrl?: string; initials: string }> = {}
-    allEmployees.forEach((e) => {
-      const initials = `${e.firstName?.[0] ?? ''}${e.lastName?.[0] ?? ''}`.toUpperCase()
-      map[e.id] = { avatarUrl: e.avatarUrl, initials }
-      // also key by employeeId string for cross-reference
-      if (e.employeeId) map[String(e.employeeId)] = { avatarUrl: e.avatarUrl, initials }
-    })
-    return map
-  }, [allEmployees])
+  const { leaves, loading, approveLeave, rejectLeave, revokeApprovedLeave } = useLeaves()
 
   const visibleLeaves = useMemo(() => excludeCancelledLeaves(leaves), [leaves])
 
@@ -70,6 +68,12 @@ export function LeaveRequests({
   // Rejection Modal State
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false)
   const [leaveToReject, setLeaveToReject] = useState<string | null>(null)
+  const [isRevokeModalOpen, setIsRevokeModalOpen] = useState(false)
+  const [leaveToRevoke, setLeaveToRevoke] = useState<string | null>(null)
+  const [revokeReason, setRevokeReason] = useState('')
+  const [revokeError, setRevokeError] = useState('')
+  const [revoking, setRevoking] = useState(false)
+  const revokeInputRef = useRef<HTMLTextAreaElement>(null)
   const [rejectionReason, setRejectionReason] = useState('')
   const [rejectionError, setRejectionError] = useState('')
   const rejectInputRef = useRef<HTMLTextAreaElement>(null)
@@ -93,17 +97,48 @@ export function LeaveRequests({
 
 
 
+  const [monthKey, setMonthKey] = useState(() => getCurrentMonthKey())
+
+  useEffect(() => {
+    const syncMonth = () => {
+      const nextKey = getCurrentMonthKey()
+      if (nextKey === monthKey) return
+      setMonthKey(nextKey)
+      setStatusPagination({ Pending: 1, Approved: 1, Rejected: 1 })
+    }
+    syncMonth()
+    const id = window.setInterval(syncMonth, 60_000)
+    return () => window.clearInterval(id)
+  }, [monthKey])
+
+  const monthRange = useMemo(() => getCurrentMonthDateRange(), [monthKey])
+
+  const panelFilters = useMemo(
+    () => ({
+      ...filters,
+      dateFrom: monthRange.from,
+      dateTo: monthRange.to,
+    }),
+    [filters, monthRange],
+  )
+
+  const computedMonthLabel = useMemo(() => formatMonthLabel(monthRange.from), [monthRange.from])
+  const monthLabel = monthLabelProp ?? computedMonthLabel
+
+  const statusCounts = useMemo(() => {
+    const inMonth = filterLeaves(visibleLeaves, { ...panelFilters, status: 'All' })
+    return {
+      Pending: inMonth.filter((l) => l.status === 'Pending').length,
+      Approved: inMonth.filter((l) => l.status === 'Approved').length,
+      Rejected: inMonth.filter((l) => l.status === 'Rejected').length,
+    }
+  }, [visibleLeaves, panelFilters])
+
   const currentStatus = (filters.status as StatusType) || 'Pending'
 
-  // Filter leaves by status (Memoized)
-  const filteredByStatus = useMemo(() => {
-    return visibleLeaves.filter(l => l.status === currentStatus)
-  }, [visibleLeaves, currentStatus])
-
-  // Apply name and ID filters (Memoized)
   const filteredLeaves = useMemo(() => {
-    return filterLeaves(filteredByStatus, { ...filters, status: currentStatus })
-  }, [filteredByStatus, filters, currentStatus])
+    return filterLeaves(visibleLeaves, { ...panelFilters, status: currentStatus })
+  }, [visibleLeaves, panelFilters, currentStatus])
 
   // Calculate pagination
   const currentPage = statusPagination[currentStatus] || 1
@@ -150,8 +185,51 @@ export function LeaveRequests({
     try {
       await rejectLeave(leaveToReject!, trimmedReason)
       setIsRejectModalOpen(false)
-    } catch {
-      toast.error('Failed to reject leave')
+      setLeaveToReject(null)
+      toast.success('Leave request rejected')
+    } catch (err: unknown) {
+      const message = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+      toast.error(message || 'Failed to reject leave')
+    }
+  }
+
+  const openRevokeModal = (id: string) => {
+    setLeaveToRevoke(id)
+    setRevokeReason('')
+    setRevokeError('')
+    setIsRevokeModalOpen(true)
+  }
+
+  useEffect(() => {
+    if (isRevokeModalOpen && revokeInputRef.current) {
+      setTimeout(() => revokeInputRef.current?.focus(), 50)
+    }
+  }, [isRevokeModalOpen])
+
+  const handleRevokeConfirm = async () => {
+    if (!leaveToRevoke) return
+    const trimmed = revokeReason.trim()
+    if (!trimmed) {
+      setRevokeError('Rejection reason is required.')
+      return
+    }
+    if (trimmed.length > 500) {
+      setRevokeError('Rejection reason must be under 500 characters.')
+      return
+    }
+    setRevoking(true)
+    setRevokeError('')
+    try {
+      await revokeApprovedLeave(leaveToRevoke, trimmed)
+      setIsRevokeModalOpen(false)
+      setLeaveToRevoke(null)
+      setRevokeReason('')
+      toast.success('Approved leave revoked')
+    } catch (err: unknown) {
+      const message = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+      toast.error(message || 'Failed to revoke leave')
+    } finally {
+      setRevoking(false)
     }
   }
 
@@ -178,245 +256,209 @@ export function LeaveRequests({
       await approveLeave(leaveToApprove.id)
       setIsApproveModalOpen(false)
       setLeaveToApprove(null)
+      toast.success('Leave request approved')
     } catch (err: any) {
       toast.error(err?.response?.data?.error || 'Failed to approve leave')
     }
   }
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'Pending':
-        return <Badge variant="warning">Pending</Badge>
-      case 'Approved':
-        return <Badge variant="success">Approved</Badge>
-      case 'Rejected':
-        return <Badge variant="danger">Rejected</Badge>
-      default:
-        return <Badge>{status}</Badge>
-    }
+  const statusPillClass = (status: string) => {
+    if (status === 'Pending') return 'admin-leaves-status-pill admin-leaves-status-pill--pending'
+    if (status === 'Approved') return 'admin-leaves-status-pill admin-leaves-status-pill--approved'
+    if (status === 'Rejected') return 'admin-leaves-status-pill admin-leaves-status-pill--rejected'
+    return 'admin-leaves-status-pill'
   }
 
+  const activityCell = (l: (typeof paginatedLeaves)[number]) => {
+    if (l.status === 'Approved') {
+      const approvedTs = toTimestamp(l.approvalDate ?? l.approvedAt ?? l.updatedAt)
+      if (approvedTs) {
+        return <span className="admin-leaves-req-approved">{formatDateTime(approvedTs)}</span>
+      }
+    }
+    if (l.status === 'Rejected') {
+      const rejectedTs = toTimestamp(l.rejectedAt ?? l.updatedAt)
+      if (rejectedTs) {
+        return (
+          <span className="admin-leaves-req-approved admin-leaves-req-approved--muted">
+            {isRevokedApprovedLeave(l) ? 'Revoked' : 'Rejected'} {formatDateTime(rejectedTs)}
+          </span>
+        )
+      }
+    }
+    if (l.status === 'Pending' && toTimestamp(l.createdAt)) {
+      return (
+        <span className="admin-leaves-req-approved admin-leaves-req-approved--muted">
+          Applied {formatDateTime(toTimestamp(l.createdAt)!)}
+        </span>
+      )
+    }
+    return <span className="admin-leaves-req-approved admin-leaves-req-approved--muted">—</span>
+  }
+
+  const activityColumnLabel =
+    currentStatus === 'Rejected' ? 'Rejected' : currentStatus === 'Pending' ? 'Applied' : 'Approved'
 
   return (
     <Tooltip.Provider delayDuration={300}>
-      <div className="space-y-0">
-        {/* Status tabs */}
-        <div className="flex flex-wrap gap-2 bg-white px-4 py-3 border-b border-gray-100">
-          {(['Pending', 'Approved', 'Rejected'] as StatusType[]).map((status) => {
-            const count = visibleLeaves.filter((l) => l.status === status).length
-            const active = filters.status === status
-            return (
-              <button
-                key={status}
-                type="button"
-                onClick={() => setFilters({ ...filters, status })}
-                className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors ${active
-                  ? status === 'Pending'
-                    ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm'
-                    : status === 'Rejected'
-                      ? 'bg-red-600 hover:bg-red-700 text-white shadow-sm'
-                      : 'bg-primary text-white shadow-sm'
-                  : status === 'Pending'
-                    ? 'bg-white text-muted ring-1 ring-border/60 hover:text-amber-600 hover:border-amber-200 hover:ring-amber-200'
-                    : status === 'Rejected'
-                      ? 'bg-white text-muted ring-1 ring-border/60 hover:text-red-600 hover:ring-red-200'
-                      : 'bg-white text-muted ring-1 ring-border/60 hover:text-ink'
-                  }`}
-              >
-                {status}
-                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${active ? 'bg-white/20 text-white' : 'bg-surface text-muted'}`}>
-                  {count}
-                </span>
-              </button>
-            )
-          })}
+      <div className="admin-leaves-center-panel">
+        <div className="admin-leaves-status-tabs">
+          <div className="admin-leaves-status-tab-list">
+            {(['Pending', 'Approved', 'Rejected'] as StatusType[]).map((status) => {
+              const count = statusCounts[status]
+              const active = filters.status === status
+              return (
+                <button
+                  key={status}
+                  type="button"
+                  data-status={status}
+                  onClick={() => setFilters({ ...filters, status })}
+                  className={cn('admin-leaves-status-tab', active && 'admin-leaves-status-tab--active')}
+                >
+                  {status}
+                  <span className="admin-leaves-status-tab-count">{count}</span>
+                </button>
+              )
+            })}
+          </div>
+          <span className="admin-leaves-month-label">{monthLabel}</span>
         </div>
 
-        {/* Leave requests list */}
-        <div className="px-4 py-3">
+        <div className="admin-leaves-scroll flex-1 min-h-0">
           {loading ? (
-            <div className="flex h-52 items-center justify-center rounded-xl border border-gray-100 bg-gray-50 py-12">
-              <span className="text-sm text-muted">Loading requests...</span>
-            </div>
+            <div className="admin-leaves-feed-empty">Loading requests…</div>
           ) : paginatedLeaves.length === 0 ? (
-            <div className="flex h-52 flex-col items-center justify-center rounded-xl border border-gray-100 bg-gray-50 py-12">
-              <span className="text-sm text-muted">No {currentStatus.toLowerCase()} leave requests found.</span>
+            <div className="admin-leaves-empty-state">
+              <p>No {currentStatus.toLowerCase()} leave requests found for {monthLabel}.</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-2.5">
-              {paginatedLeaves.map((l) => {
-                const empAvatar = avatarMap[l.employeeId] ?? avatarMap[String(l.employeeId)]
-                const initials = empAvatar?.initials || l.employeeName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
-                return (
-                  <div
+            <table className="admin-leaves-requests-table">
+              <thead>
+                <tr>
+                  <th>Request</th>
+                  {currentStatus === 'Approved' && (
+                    <th className="admin-leaves-days-col">Days</th>
+                  )}
+                  <th>{activityColumnLabel}</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedLeaves.map((l) => (
+                  <tr
                     key={l.id}
                     onClick={() => openEmployeeProfile(l.employeeId, l.employeeName)}
-                    className="group flex cursor-pointer flex-col gap-3 rounded-xl bg-white border border-gray-200 border-b-2 border-b-gray-200/80 p-4 shadow-[0_5px_15px_rgba(0,0,0,0.08),_inset_0_1px_0_rgba(255,255,255,0.8)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(0,0,0,0.12),_inset_0_1px_0_rgba(255,255,255,0.8)] hover:border-emerald-200 hover:border-b-emerald-400 sm:flex-row sm:items-center sm:justify-between"
-                    title="Click to view leave history and balances"
+                    title="View employee leave profile"
                   >
-                    <div className="min-w-0 flex-1 space-y-1.5">
-                      <div className="flex flex-wrap items-center gap-2.5">
-                        {/* Employee avatar */}
-                        {empAvatar?.avatarUrl ? (
-                          <img
-                            src={empAvatar.avatarUrl}
-                            alt={l.employeeName}
-                            className="h-8 w-8 rounded-full object-cover ring-2 ring-white shadow-sm shrink-0"
-                          />
-                        ) : (
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700 ring-2 ring-white shadow-sm">
-                            {initials}
-                          </div>
-                        )}
-                        <span className="truncate text-sm font-semibold text-primary">{l.employeeName}</span>
-                        {getStatusBadge(l.status)}
+                    <td>
+                      <div className="admin-leaves-req-employee">{l.employeeName}</div>
+                      <div className="admin-leaves-req-detail">
+                        {l.type} · {formatDate(l.from)} – {formatDate(l.to)}
+                        {currentStatus !== 'Approved' ? ` · ${formatLeaveDayCount(l)}` : ''}
+                        {l.reason ? ` · ${l.reason}` : ''}
+                        {l.status === 'Rejected' && l.rejectionReason
+                          ? ` · Reason: ${l.rejectionReason}`
+                          : ''}
                       </div>
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
-                        <span className="font-medium text-ink">{l.type}</span>
-                        <span>
-                          {formatDate(l.from)} <span className="mx-1 opacity-40">→</span> {formatDate(l.to)}
+                    </td>
+                    {currentStatus === 'Approved' && (
+                      <td className="admin-leaves-days-col">
+                        <span className="admin-leaves-days-badge" title="Leave duration">
+                          {formatLeaveDayCount(l)}
                         </span>
-                        <span className="font-medium text-ink">
-                          {l.days} {l.days === 1 ? 'day' : 'days'}
+                      </td>
+                    )}
+                    <td>{activityCell(l)}</td>
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={statusPillClass(l.status)}>
+                          {l.status === 'Rejected' && isRevokedApprovedLeave(l) ? 'Revoked' : l.status}
                         </span>
-                        {l.reason && (
-                          <span className="line-clamp-1 min-w-0 max-w-full text-ink sm:max-w-md" title={l.reason}>
-                            {l.reason}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex w-full shrink-0 items-center justify-between gap-3 sm:w-auto sm:flex-col sm:items-end">
-                      <div className="space-y-1.5 text-right text-xs text-muted sm:text-sm">
-                        {toTimestamp(l.createdAt) && (
-                          <p>Applied {formatDateTime(toTimestamp(l.createdAt)!)}</p>
-                        )}
-                        {l.status === 'Rejected' && l.rejectionReason && (
-                          <div className="max-w-[220px] rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-left text-[11px] leading-snug text-red-900">
-                            {l.rejectionReason}
-                          </div>
-                        )}
-                        {l.status === 'Approved' && (
-                          <>
-                            {toTimestamp(l.approvalDate ?? l.updatedAt) && (
-                              <p>Approved {formatDateTime(toTimestamp(l.approvalDate ?? l.updatedAt)!)}</p>
-                            )}
-                            {(l as any).approvedBy && (
-                              <p className="inline-flex items-center gap-1 text-ink">
-                                <UserCheck className="h-3.5 w-3.5 text-green-500" />
-                                {(l as any).approvedBy}
-                              </p>
-                            )}
-                          </>
-                        )}
-                        {l.status === 'Rejected' && (l as any).rejectedBy && (
-                          <p className="inline-flex items-center gap-1 text-ink">
-                            <UserCheck className="h-3.5 w-3.5 text-red-500" />
-                            {(l as any).rejectedBy}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
-                        {l.status === 'Pending' && (
-                          <>
+                        <div className="admin-leaves-row-actions">
+                          {l.status === 'Pending' && (
+                            <>
+                              <Tooltip.Root>
+                                <Tooltip.Trigger asChild>
+                                  <button
+                                    type="button"
+                                    className="admin-leaves-row-action-btn admin-leaves-row-action-btn--success"
+                                    onClick={() => void openApproveModal(l)}
+                                    aria-label="Approve"
+                                  >
+                                    <Check className="h-3.5 w-3.5" />
+                                  </button>
+                                </Tooltip.Trigger>
+                                <Tooltip.Portal>
+                                  <Tooltip.Content className="z-[100] rounded-md bg-ink px-2 py-1 text-xs text-white shadow-md">
+                                    Approve
+                                    <Tooltip.Arrow className="fill-ink" />
+                                  </Tooltip.Content>
+                                </Tooltip.Portal>
+                              </Tooltip.Root>
+                              <Tooltip.Root>
+                                <Tooltip.Trigger asChild>
+                                  <button
+                                    type="button"
+                                    className="admin-leaves-row-action-btn admin-leaves-row-action-btn--danger"
+                                    onClick={() => openRejectModal(l.id)}
+                                    aria-label="Reject"
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                </Tooltip.Trigger>
+                                <Tooltip.Portal>
+                                  <Tooltip.Content className="z-[100] rounded-md bg-ink px-2 py-1 text-xs text-white shadow-md">
+                                    Reject
+                                    <Tooltip.Arrow className="fill-ink" />
+                                  </Tooltip.Content>
+                                </Tooltip.Portal>
+                              </Tooltip.Root>
+                            </>
+                          )}
+                          {l.status === 'Approved' && canCancelLeave(l) && (
                             <Tooltip.Root>
                               <Tooltip.Trigger asChild>
-                                <Button
-                                  size="sm"
-                                  variant="primary"
-                                  className="h-9 w-9 rounded-lg p-0 bg-green-600 hover:bg-green-700"
-                                  onClick={() => void openApproveModal(l)}
+                                <button
+                                  type="button"
+                                  className="admin-leaves-row-action-btn admin-leaves-row-action-btn--danger"
+                                  onClick={() => openRevokeModal(l.id)}
+                                  aria-label="Revoke approved leave"
                                 >
-                                  <Check className="h-4 w-4" />
-                                </Button>
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
                               </Tooltip.Trigger>
                               <Tooltip.Portal>
                                 <Tooltip.Content className="z-[100] rounded-md bg-ink px-2 py-1 text-xs text-white shadow-md">
-                                  Approve
+                                  Revoke
                                   <Tooltip.Arrow className="fill-ink" />
                                 </Tooltip.Content>
                               </Tooltip.Portal>
                             </Tooltip.Root>
-
-                            <Tooltip.Root>
-                              <Tooltip.Trigger asChild>
-                                <Button
-                                  size="sm"
-                                  variant="danger"
-                                  className="h-9 w-9 rounded-lg p-0"
-                                  onClick={() => openRejectModal(l.id)}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </Tooltip.Trigger>
-                              <Tooltip.Portal>
-                                <Tooltip.Content className="z-[100] rounded-md bg-ink px-2 py-1 text-xs text-white shadow-md">
-                                  Reject
-                                  <Tooltip.Arrow className="fill-ink" />
-                                </Tooltip.Content>
-                              </Tooltip.Portal>
-                            </Tooltip.Root>
-                          </>
-                        )}
-
-                        {l.status === 'Approved' && (
-                          <Tooltip.Root>
-                            <Tooltip.Trigger asChild>
-                              <Button
-                                size="sm"
-                                variant="danger"
-                                className="h-9 w-9 rounded-lg p-0"
-                                onClick={() => openRejectModal(l.id)}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </Tooltip.Trigger>
-                            <Tooltip.Portal>
-                              <Tooltip.Content className="z-[100] rounded-md bg-ink px-2 py-1 text-xs text-white shadow-md">
-                                Reject
-                                <Tooltip.Arrow className="fill-ink" />
-                              </Tooltip.Content>
-                            </Tooltip.Portal>
-                          </Tooltip.Root>
-                        )}
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
 
         {filteredLeaves.length > 0 && (
-          <div className="flex flex-col items-center justify-between gap-3 border-t border-gray-100 px-4 py-3 sm:flex-row">
-            <p className="text-sm text-muted">
-              Showing {startIdx + 1}–{Math.min(startIdx + ITEMS_PER_PAGE, filteredLeaves.length)} of {filteredLeaves.length}
-            </p>
-
-            <div className="flex items-center gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Previous
+          <div className="admin-leaves-pagination">
+            <span>
+              {startIdx + 1}–{Math.min(startIdx + ITEMS_PER_PAGE, filteredLeaves.length)} of {filteredLeaves.length}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <Button variant="secondary" size="sm" className="h-7 px-2 text-xs" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}>
+                <ChevronLeft className="h-3.5 w-3.5" />
               </Button>
-              <span className="min-w-[4rem] text-center text-sm font-medium text-ink">
-                {currentPage} / {totalPages}
+              <span className="min-w-[3rem] text-center font-bold text-ink">
+                {currentPage}/{totalPages}
               </span>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
-              >
-                Next
-                <ChevronRight className="h-4 w-4" />
+              <Button variant="secondary" size="sm" className="h-7 px-2 text-xs" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}>
+                <ChevronRight className="h-3.5 w-3.5" />
               </Button>
             </div>
           </div>
@@ -537,16 +579,9 @@ export function LeaveRequests({
               rows={4}
               maxLength={250}
             />
-            <div className="flex justify-between items-center mt-1">
-              {rejectionError ? (
-                <span className="text-xs font-medium text-red-500">{rejectionError}</span>
-              ) : (
-                <span className="text-xs text-muted">A valid reason is required.</span>
-              )}
-              <span className={`text-xs font-medium ${rejectionReason.length >= 250 ? 'text-red-500' : 'text-muted'}`}>
-                {rejectionReason.length}/250
-              </span>
-            </div>
+            {rejectionError ? (
+              <p className="mt-1 text-xs font-medium text-red-500">{rejectionError}</p>
+            ) : null}
           </div>
 
           <div className="flex justify-end gap-3 pt-2 border-t border-border">
@@ -561,6 +596,64 @@ export function LeaveRequests({
               onClick={handleRejectConfirm}
             >
               Confirm Rejection
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isRevokeModalOpen}
+        onClose={() => {
+          if (revoking) return
+          setIsRevokeModalOpen(false)
+          setLeaveToRevoke(null)
+          setRevokeReason('')
+          setRevokeError('')
+        }}
+        title="Revoke Approved Leave"
+        size="md"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted">
+            This will move the leave to Rejected and restore the employee&apos;s balance.
+          </p>
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-ink">
+              Reason <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              ref={revokeInputRef}
+              value={revokeReason}
+              onChange={(e) => {
+                setRevokeReason(e.target.value)
+                if (revokeError) setRevokeError('')
+              }}
+              placeholder="Provide a reason for the employee…"
+              className={`w-full resize-none rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${
+                revokeError ? 'border-red-500 focus:ring-red-200' : 'border-border focus:ring-primary/30'
+              }`}
+              rows={4}
+              maxLength={500}
+            />
+            {revokeError ? (
+              <p className="mt-1 text-xs font-medium text-red-500">{revokeError}</p>
+            ) : null}
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="secondary"
+              disabled={revoking}
+              onClick={() => {
+                setIsRevokeModalOpen(false)
+                setLeaveToRevoke(null)
+                setRevokeReason('')
+                setRevokeError('')
+              }}
+            >
+              Keep Approved
+            </Button>
+            <Button variant="danger" disabled={revoking} onClick={() => void handleRevokeConfirm()}>
+              {revoking ? 'Revoking…' : 'Revoke leave'}
             </Button>
           </div>
         </div>

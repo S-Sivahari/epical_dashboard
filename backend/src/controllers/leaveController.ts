@@ -65,9 +65,35 @@ export const leaveController = {
       }
 
       const leaves = await leaveService.getAllLeaves(employeeId);
-      res.json(leaves.filter((l) => l.status !== 'Cancelled'));
+      if (isEmployeeRole(req.user?.role ?? '')) {
+        res.json(leaves.filter((l) => l.status === 'Pending'));
+        return;
+      }
+      res.json(leaves);
     } catch {
       res.status(500).json({ error: 'Failed to fetch leaves' });
+    }
+  },
+
+  // GET /api/leaves/history — approved, rejected, and employee-cancelled (not active pending)
+  getHistory: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      let employeeId: string | undefined;
+
+      if (isEmployeeRole(req.user?.role ?? '')) {
+        const employee = await resolveEmployeeForAuthUser(req.user!.id, req.user!.email);
+        employeeId = employee?.id ? String(employee.id) : req.user!.id;
+      } else {
+        employeeId = (req.query.employeeId as string) || undefined;
+      }
+
+      const leaves = await leaveService.getAllLeaves(employeeId);
+      const history = leaves.filter((l) =>
+        ['Approved', 'Rejected', 'Cancelled'].includes(l.status),
+      );
+      res.json(history);
+    } catch {
+      res.status(500).json({ error: 'Failed to fetch leave history' });
     }
   },
 
@@ -127,7 +153,7 @@ export const leaveController = {
   },
 
   // POST /api/leaves
-  create: async (req: Request, res: Response): Promise<void> => {
+  create: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { employeeId, employeeName, type, leaveDuration, halfDaySession, from, to, reason } = req.body;
       if (!employeeId || !type || !leaveDuration || !from || !to) {
@@ -138,6 +164,16 @@ export const leaveController = {
         res.status(400).json({ error: 'Half-day session is required' });
         return;
       }
+
+      if (req.user && isEmployeeRole(req.user.role)) {
+        const own = await resolveEmployeeForAuthUser(req.user.id, req.user.email);
+        const ownId = own?.id ? String(own.id) : req.user.id;
+        if (String(employeeId) !== ownId && String(employeeId) !== req.user.id) {
+          res.status(403).json({ error: 'You can only submit leave requests for your own account.' });
+          return;
+        }
+      }
+
       const leave = await leaveService.createLeave({
         employeeId,
         employeeName: employeeName || 'Unknown',
@@ -225,22 +261,70 @@ export const leaveController = {
     }
   },
 
+  // PATCH /api/leaves/:id/revoke — admin revokes approved leave with reason → Rejected
+  revoke: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const { reason } = req.body;
+      const { id } = req.params as { id: string };
+      const trimmed = typeof reason === 'string' ? reason.trim() : '';
+      if (!trimmed) {
+        res.status(400).json({ error: 'Rejection reason is required' });
+        return;
+      }
+      const actionBy = (req.user as any)?.name || (req.user as any)?.email || 'Admin';
+      const leave = await leaveService.revokeApprovedLeave(id, trimmed, actionBy);
+      if (!leave) {
+        res.status(404).json({ error: 'Approved leave not found' });
+        return;
+      }
+      res.json(leave);
+    } catch (error: any) {
+      console.error('Error revoking leave:', error);
+      const message = error.message || 'Failed to revoke leave';
+      const isClientError =
+        typeof message === 'string' &&
+        (message.startsWith('Cannot revoke') ||
+          message.startsWith('Rejection reason'));
+      res.status(isClientError ? 400 : 500).json({ error: message });
+    }
+  },
+
   // PATCH /api/leaves/:id/cancel
   cancel: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params as { id: string };
-      const { reason } = req.body;
       const leave = await leaveService.getLeaveById(id);
       if (!leave) {
         res.status(404).json({ error: 'Leave not found' });
         return;
       }
-      if (!['Approved', 'Pending'].includes(leave.status)) {
-        res.status(400).json({ error: 'Only pending or approved leaves can be cancelled' });
+      const isEmployee = req.user && isEmployeeRole(req.user.role);
+      const isAdmin = req.user && isAdminRole(req.user.role);
+
+      if (isEmployee) {
+        if (leave.status !== 'Pending') {
+          res.status(400).json({ error: 'You can only cancel pending leave requests.' });
+          return;
+        }
+        const own = await resolveEmployeeForAuthUser(req.user!.id, req.user!.email);
+        const ownId = own?.id ? String(own.id) : req.user!.id;
+        const leaveOwner = String(leave.employeeId);
+        if (leaveOwner !== ownId && leaveOwner !== req.user!.id) {
+          res.status(403).json({ error: 'You can only cancel your own leave requests.' });
+          return;
+        }
+      } else if (!isAdmin) {
+        res.status(403).json({ error: 'Forbidden' });
+        return;
+      } else {
+        res.status(400).json({ error: 'Use revoke for approved leaves or reject for pending requests.' });
         return;
       }
+
       const cancelledBy = (req.user as any)?.name || (req.user as any)?.email || undefined;
-      const cancelledLeave = await leaveService.cancelLeave(id, reason?.trim(), cancelledBy);
+      const cancelledLeave = await leaveService.cancelLeave(id, undefined, cancelledBy, {
+        notifyAdmins: true,
+      });
       if (!cancelledLeave) {
         res.status(500).json({ error: 'Failed to cancel leave' });
         return;
@@ -248,7 +332,10 @@ export const leaveController = {
       res.json(cancelledLeave);
     } catch (error: any) {
       console.error('Error cancelling leave:', error);
-      res.status(500).json({ error: error.message || 'Failed to cancel leave' });
+      const message = error.message || 'Failed to cancel leave';
+      const isClientError =
+        typeof message === 'string' && message.startsWith('Cannot cancel');
+      res.status(isClientError ? 400 : 500).json({ error: message });
     }
   },
 

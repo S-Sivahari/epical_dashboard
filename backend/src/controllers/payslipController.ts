@@ -11,7 +11,7 @@ import {
 import {
   processPayrollUpload,
   findBatchByPayPeriod,
-  findBatchByPayPeriodKey,
+  findOverlappingEmpIds,
   getPayrollBatch,
   getLatestPayrollBatch,
   listPayrollBatches,
@@ -25,7 +25,12 @@ import {
   mergeBatchPayslipPdfs,
   type PayrollBatch,
 } from '../services/payrollBatchService'
-import { formatPayslipDownloadFileName } from '../services/payslipDownloadName'
+import {
+  formatAllPayslipsDownloadFileName,
+  formatPayslipDownloadFileName,
+  payrollMasterTemplateFileName,
+  payrollUploadExcelFileName,
+} from '../services/payslipDownloadName'
 import { AuthRequest } from '../middleware/authMiddleware'
 import {
   sendPayslipToEmployee,
@@ -102,13 +107,13 @@ export const payslipController = {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     if (existsSync(TEMPLATE_PATH)) {
       const meta = await templateMetaCollection().findOne({}, { sort: { uploadedAt: -1 } })
-      const name = meta?.name ?? PAYROLL_TEMPLATE_FILENAME
+      const name = payrollMasterTemplateFileName()
       res.setHeader('Content-Disposition', `attachment; filename="${name}"`)
       const buffer = readFileSync(TEMPLATE_PATH)
       res.send(buffer)
     } else {
       const buffer = await generatePayrollTemplateBuffer()
-      res.setHeader('Content-Disposition', `attachment; filename="${PAYROLL_TEMPLATE_FILENAME}"`)
+      res.setHeader('Content-Disposition', `attachment; filename="${payrollMasterTemplateFileName()}"`)
       res.send(buffer)
     }
   },
@@ -228,30 +233,28 @@ export const payslipController = {
         req.body?.resendPayslips === 'true' ||
         req.body?.resendPayslips === '1'
 
-      const payYear = parseInt(String(req.body?.payYear ?? ''), 10)
-      const payMonthNum = parseInt(String(req.body?.payMonthNum ?? ''), 10)
-      const hasAdminPayPeriod =
-        Number.isFinite(payYear) && payMonthNum >= 1 && payMonthNum <= 12
+      const { readMasterExcelFromBuffer } = await import('../services/payslipGenerator')
+      const parsed = await readMasterExcelFromBuffer(file.buffer)
 
+      let appendToBatchId: string | undefined
       if (!replaceBatchId && !allowDuplicatePayPeriod) {
-        let existing = null
-        if (hasAdminPayPeriod) {
-          const payPeriodKey = `${payYear}-${String(payMonthNum).padStart(2, '0')}`
-          existing = await findBatchByPayPeriodKey(payPeriodKey)
-        } else {
-          const { readMasterExcelFromBuffer } = await import('../services/payslipGenerator')
-          const { company } = await readMasterExcelFromBuffer(file.buffer)
-          existing = await findBatchByPayPeriod(company)
-        }
+        const existing = await findBatchByPayPeriod(parsed.company)
         if (existing) {
           const enriched = await getPayrollBatch(existing.id)
-          res.status(409).json({
-            code: 'DUPLICATE_PAY_PERIOD',
-            error: `A payroll upload already exists for ${existing.payMonth || 'this pay period'}.`,
-            payMonth: existing.payMonth,
-            existingBatch: enriched,
-          })
-          return
+          if (enriched) {
+            const overlap = findOverlappingEmpIds(enriched, parsed.employees)
+            if (overlap.length > 0) {
+              res.status(409).json({
+                code: 'DUPLICATE_PAY_PERIOD',
+                error: `Payroll for ${existing.payMonth || 'this pay period'} already includes employee ID(s): ${overlap.slice(0, 5).join(', ')}${overlap.length > 5 ? '…' : ''}.`,
+                payMonth: existing.payMonth,
+                existingBatch: enriched,
+                overlappingEmpIds: overlap,
+              })
+              return
+            }
+            appendToBatchId = existing.id
+          }
         }
       }
 
@@ -270,9 +273,9 @@ export const payslipController = {
         templateId as 'classic' | 'corporate' | 'minimal',
         {
           replaceBatchId,
+          appendToBatchId,
           resendPayslips,
           employeeDbIdByEmpId,
-          ...(hasAdminPayPeriod ? { payYear, payMonthNum } : {}),
         }
       )
       const { batch, replaced, resent } = uploadResult
@@ -371,10 +374,8 @@ export const payslipController = {
           'Content-Type',
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
-        res.setHeader(
-          'Content-Disposition',
-          `attachment; filename="${batch.originalFileName || 'payroll.xlsx'}"`
-        )
+        const excelName = payrollUploadExcelFileName(batch.payMonth, batch.payPeriodKey)
+        res.setHeader('Content-Disposition', `attachment; filename="${excelName}"`)
         res.send(buffer)
       } catch (error: unknown) {
         // Excel file doesn't exist (old batch), return graceful error
@@ -661,8 +662,7 @@ export const payslipController = {
       }
 
       const buffer = await mergeBatchPayslipPdfs(batchId)
-      const monthLabel = (batch.payMonth || 'payslips').replace(/[^a-zA-Z0-9_-]/g, '_')
-      const filename = `All_Payslips_${monthLabel}.pdf`
+      const filename = formatAllPayslipsDownloadFileName(batch.payMonth, batch.payPeriodKey)
 
       res.setHeader('Content-Type', 'application/pdf')
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)

@@ -5,6 +5,7 @@ export type NotificationType =
   | 'LeaveApproved'
   | 'LeaveRejected'
   | 'LeaveCancelled'
+  | 'LeaveLop'
   | 'DocumentRequested'
   | 'DocumentApproved'
   | 'DocumentRejected'
@@ -16,7 +17,10 @@ export type NotificationType =
   | 'HolidaySkipped'
   | 'CalendarEventAdded'
   | 'CalendarEventUpdated'
-  | 'CalendarEventRemoved';
+  | 'CalendarEventRemoved'
+  | 'TicketSubmitted'
+  | 'TicketStatusUpdated'
+  | 'TicketCommentAdded';
 
 export interface Notification {
   _id?: ObjectId;
@@ -46,6 +50,10 @@ export interface Notification {
     from?: string;
     to?: string;
     days?: number;
+    lopDays?: number;
+    ticketId?: string;
+    ticketTitle?: string;
+    ticketStatus?: string;
   };
   relatedId?: string;
   isRead: boolean;
@@ -79,6 +87,10 @@ export interface CreateNotificationPayload {
     from?: string;
     to?: string;
     days?: number;
+    lopDays?: number;
+    ticketId?: string;
+    ticketTitle?: string;
+    ticketStatus?: string;
   };
   relatedId?: string;
 }

@@ -1,13 +1,15 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import * as employeeService from '../services/employeeService';
+import { AuthRequest } from '../middleware/authMiddleware';
+import { rejectUnlessAdmin, rejectUnlessAdminOrSelf } from '../utils/accessControl';
 
 export const uploadController = {
-  // List uploaded documents for an employee
-  listDocuments: async (req: Request, res: Response): Promise<void> => {
+  listDocuments: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params as { id: string };
-      const employee = await employeeService.getEmployeeProfileById(id);
+      if (!(await rejectUnlessAdminOrSelf(req, res, id))) return;
 
+      const employee = await employeeService.getEmployeeProfileById(id);
       if (!employee) {
         res.status(404).json({ error: 'Employee not found' });
         return;
@@ -29,9 +31,9 @@ export const uploadController = {
     }
   },
 
-  // Upload documents for an employee
-  uploadDocuments: async (req: Request, res: Response): Promise<void> => {
+  uploadDocuments: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+      if (!rejectUnlessAdmin(req, res)) return;
       const { id } = req.params as { id: string };
       const files = (req as any).files as { [fieldname: string]: Express.Multer.File[] };
 
@@ -42,7 +44,6 @@ export const uploadController = {
 
       const documents: any = {};
 
-      // Process each uploaded file
       for (const [fieldName, fileArray] of Object.entries(files)) {
         const file = fileArray[0];
         if (file) {
@@ -81,14 +82,24 @@ export const uploadController = {
     }
   },
 
-  // Upload profile photo for an employee
-  uploadPhoto: async (req: Request, res: Response): Promise<void> => {
+  uploadPhoto: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params as { id: string };
+      if (!(await rejectUnlessAdminOrSelf(req, res, id))) return;
       const file = (req as any).file;
 
       if (!file) {
         res.status(400).json({ error: 'No photo uploaded' });
+        return;
+      }
+
+      const allowedPhotoTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+      if (!allowedPhotoTypes.has(file.mimetype)) {
+        res.status(400).json({ error: 'Photo must be JPEG, PNG, or WebP' });
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        res.status(400).json({ error: 'Photo must be under 2 MB' });
         return;
       }
 
@@ -106,17 +117,18 @@ export const uploadController = {
         return;
       }
 
-      res.json({ message: 'Photo uploaded successfully', photo: employee.photo });
+      const hasPhoto = Boolean((employee as any).photo?.data || (employee as any).photo?.filename);
+      res.json({ message: 'Photo uploaded successfully', hasPhoto });
     } catch (error: any) {
       console.error('Error uploading photo:', error);
       res.status(500).json({ error: error?.message ?? 'Failed to upload photo' });
     }
   },
 
-  // Get a specific document
-  getDocument: async (req: Request, res: Response): Promise<void> => {
+  getDocument: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id, docType } = req.params as { id: string; docType: string };
+      if (!(await rejectUnlessAdminOrSelf(req, res, id))) return;
 
       const doc = await employeeService.getEmployeeDocumentBlob(id, docType);
 
@@ -135,9 +147,9 @@ export const uploadController = {
     }
   },
 
-  // Delete a specific document
-  deleteDocument: async (req: Request, res: Response): Promise<void> => {
+  deleteDocument: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+      if (!rejectUnlessAdmin(req, res)) return;
       const { id, docType } = req.params as { id: string; docType: string };
       const deleted = await employeeService.deleteEmployeeDocument(id, docType);
 
@@ -153,10 +165,10 @@ export const uploadController = {
     }
   },
 
-  // Get profile photo
-  getPhoto: async (req: Request, res: Response): Promise<void> => {
+  getPhoto: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params as { id: string };
+      if (!(await rejectUnlessAdminOrSelf(req, res, id))) return;
 
       const employee = await employeeService.getEmployeeById(id, { includeBlobs: true });
 
@@ -170,9 +182,27 @@ export const uploadController = {
         return;
       }
 
-      const buffer = Buffer.from(employee.photo.data, 'base64');
-      res.setHeader('Content-Type', employee.photo.contentType);
-      res.setHeader('Content-Disposition', `inline; filename="${employee.photo.filename}"`);
+      const photoData = (employee.photo as any).data;
+      const photoFilename = (employee.photo as any).filename;
+      const photoContentType = (employee.photo as any).contentType;
+
+      if (!photoData) {
+        res.status(500).json({ error: 'Photo data is corrupted or missing' });
+        return;
+      }
+
+      let buffer: Buffer;
+      try {
+        buffer = Buffer.from(photoData, 'base64');
+      } catch {
+        res.status(500).json({ error: 'Failed to process photo data' });
+        return;
+      }
+
+      res.setHeader('Content-Type', photoContentType || 'image/jpeg');
+      res.setHeader('Content-Disposition', `inline; filename="${photoFilename}"`);
+      res.setHeader('Content-Length', buffer.length);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
       res.send(buffer);
     } catch (error: any) {
       console.error('Error fetching photo:', error);

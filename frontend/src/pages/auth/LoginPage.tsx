@@ -5,21 +5,24 @@ import { useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { z } from 'zod'
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
-import { LoginBackground } from '@components/auth/LoginBackground'
-import { LoginTopBrand } from '@components/auth/LoginTopBrand'
-import { MicrochipHero } from '@components/auth/MicrochipHero'
-import { Button } from '@components/ui/Button'
+import { User, Lock, Eye, EyeOff } from 'lucide-react'
 import { useAuthStore } from '@store/authStore'
-import { getGoogleClientId } from '@services/googleOAuthService'
+import { useFormSessionDraft } from '@hooks/useFormSessionDraft'
 import { prefetchEmployeeDashboard } from '@/utils/prefetchEmployeeRoutes'
+import { getApiBaseUrl, getGoogleOAuthStartUrl } from '@/config/apiBase'
+import axios from 'axios'
 
-const googleClientId = getGoogleClientId()
-const googleSignInEnabled = googleClientId.endsWith('.apps.googleusercontent.com')
+const LOGIN_WORDMARK_SRC = '/pic/epical-layouts-wordmark.png?v=5'
+const LOGIN_CHIP_SRC = '/pic/epical_layouts.jpeg?v=3'
+
+type GoogleOAuthConfig = {
+  enabled?: boolean
+  redirectUri?: string
+}
 
 function GoogleMark() {
   return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
+    <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
       <path
         fill="#4285F4"
         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -49,40 +52,59 @@ type FormValues = z.infer<typeof schema>
 
 export function LoginPage() {
   const login = useAuthStore((s) => s.login)
-  const completeOAuthRedirect = useAuthStore((s) => s.completeOAuthRedirect)
+  const hydrateSession = useAuthStore((s) => s.hydrateSession)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const role = useAuthStore((s) => s.role)
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [googleSignInEnabled, setGoogleSignInEnabled] = useState(false)
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const token = params.get('token')
+    let cancelled = false
+    fetch(`${getApiBaseUrl()}/auth/google/config`, { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: GoogleOAuthConfig | null) => {
+        if (!cancelled) setGoogleSignInEnabled(Boolean(data?.enabled))
+      })
+      .catch(() => {
+        if (!cancelled) setGoogleSignInEnabled(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
-    if (token) {
-      const oauthRole = params.get('role') ?? 'employee'
-      const email = params.get('email') ?? ''
-      const name = params.get('name') ?? email.split('@')[0]
-      const designation = params.get('designation') ?? undefined
+  useEffect(() => {
+    const queryParams = new URLSearchParams(window.location.search)
+    const oauthSuccess = queryParams.get('oauth') === 'success'
 
-      completeOAuthRedirect({ token, role: oauthRole, email, name, designation })
-      prefetchEmployeeDashboard()
+    if (oauthSuccess) {
       window.history.replaceState({}, '', '/auth/login')
-      navigate(oauthRole === 'admin' ? '/admin' : '/employee', { replace: true })
+      void (async () => {
+        try {
+          await hydrateSession()
+          const currentRole = useAuthStore.getState().role
+          prefetchEmployeeDashboard()
+          navigate(currentRole === 'admin' ? '/admin' : '/employee', { replace: true })
+        } catch {
+          toast.error('Google sign-in completed but session could not be loaded. Try again.')
+        }
+      })()
       return
     }
 
-    const error = params.get('error')
+    const error = queryParams.get('error')
     if (error) {
       window.history.replaceState({}, '', '/auth/login')
+      const decoded = decodeURIComponent(error)
       toast.error(
-        error === 'google_auth_failed'
-          ? 'Google sign-in failed or this email is not registered. Contact HR or use email/password.'
-          : 'Sign-in failed. Please try again.',
+        decoded === 'google_auth_failed'
+          ? 'Google sign-in failed. You must be added by an admin first, and deactivated accounts cannot sign in.'
+          : decoded,
       )
     }
-  }, [completeOAuthRedirect, navigate])
+  }, [hydrateSession, navigate])
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -93,136 +115,160 @@ export function LoginPage() {
   const {
     register,
     handleSubmit,
+    reset,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { email: '', password: '' },
   })
 
+  const { clearDraft } = useFormSessionDraft('auth-login', { reset, watch }, {
+    defaultValues: { email: '', password: '' },
+  })
+
   const onSubmit = handleSubmit(async (values) => {
     try {
       await login(values.email, values.password)
+      clearDraft()
       prefetchEmployeeDashboard()
       const userRole = useAuthStore.getState().role
       navigate(userRole === 'admin' ? '/admin' : '/employee', { replace: true })
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to sign in'
+      let message = 'Unable to sign in'
+      if (axios.isAxiosError(error)) {
+        if (!error.response) {
+          message =
+            'Cannot reach the API server. Run npm run dev from the project root and ensure the backend is on port 3000.'
+        } else {
+          const data = error.response.data as { error?: string } | undefined
+          message = data?.error ?? error.message
+        }
+      } else if (error instanceof Error) {
+        message = error.message
+      }
       toast.error(message)
     }
   })
 
   const handleGoogleRedirect = () => {
     setGoogleLoading(true)
-    const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api'
-    window.location.assign(`${apiBase}/auth/google`)
+    window.location.assign(getGoogleOAuthStartUrl())
   }
 
   return (
-    <div className="login-page relative">
-      <LoginBackground />
-      <LoginTopBrand />
+    <div className="login-page login-page--split">
+      <div className="login-split-wrap">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: 'easeOut' }}
+          className={`login-split-card ${googleSignInEnabled ? '' : 'login-split-card--single'}`}
+        >
+          <div className="login-split-left">
+            <div className="login-split-wordmark-wrap">
+              <img
+                src={LOGIN_WORDMARK_SRC}
+                alt="Epical Layouts"
+                width={520}
+                height={72}
+                className="login-split-wordmark"
+                draggable={false}
+                decoding="async"
+              />
+            </div>
 
-      <div className="login-page-scaler relative">
-        <div className="relative z-10 grid min-h-screen grid-rows-[auto_1fr] lg:grid-cols-2 lg:grid-rows-1">
-          <div className="flex items-center justify-center px-4 py-10 lg:translate-x-10 lg:py-0 lg:pl-16 lg:pr-4">
-            <MicrochipHero />
+            <div className="login-split-left-main">
+              <header className="login-split-left-head">
+                <h1 className="login-split-title">Login</h1>
+                <p className="login-split-subtitle">Welcome back</p>
+              </header>
+
+              <form className="login-split-form" onSubmit={onSubmit} noValidate>
+              <div className="login-split-field">
+                <label className="login-split-label" htmlFor="login-email">
+                  Email
+                </label>
+                <div className={`login-split-input-wrap ${errors.email ? 'login-split-input-wrap--error' : ''}`}>
+                  <span className="login-split-input-prefix" aria-hidden>
+                    <User className="h-4 w-4" />
+                  </span>
+                  <input
+                    id="login-email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="you@company.com"
+                    className="login-split-input"
+                    {...register('email')}
+                  />
+                </div>
+                {errors.email ? <p className="login-split-error">{errors.email.message}</p> : null}
+              </div>
+
+              <div className="login-split-field">
+                <label className="login-split-label" htmlFor="login-password">
+                  Password
+                </label>
+                <div className={`login-split-input-wrap ${errors.password ? 'login-split-input-wrap--error' : ''}`}>
+                  <span className="login-split-input-prefix" aria-hidden>
+                    <Lock className="h-4 w-4" />
+                  </span>
+                  <input
+                    id="login-password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    placeholder="Password"
+                    className="login-split-input login-split-input--password"
+                    {...register('password')}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((p) => !p)}
+                    className="login-split-input-suffix"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {errors.password ? <p className="login-split-error">{errors.password.message}</p> : null}
+              </div>
+
+              <div className="login-split-actions">
+                <button type="submit" className="login-split-submit" disabled={isSubmitting}>
+                  {isSubmitting ? 'Signing in…' : 'Login'}
+                </button>
+              </div>
+              </form>
+            </div>
           </div>
 
-          <div className="flex items-center justify-center px-4 pb-10 lg:py-0 lg:pr-12">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.15, ease: 'easeOut' }}
-              className="login-card-shell w-full max-w-sm"
-            >
-              <div className="login-glass rounded-2xl p-8">
-                <div className="login-card-content">
-                  <div className="mb-5 text-center">
-                  <h2 className="login-card-title font-display text-lg font-semibold tracking-tight">
-                    Welcome back
-                  </h2>
-                  <p className="login-card-subtitle mt-1 text-xs">Sign in to your enterprise portal</p>
-                </div>
-
-                  <form className="space-y-4" onSubmit={onSubmit} noValidate>
-                  <div className="space-y-1">
-                    <label className="login-card-label text-xs font-medium">Email</label>
-                    <div className="relative">
-                      <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="email"
-                        autoComplete="email"
-                        placeholder="Enter your email"
-                        className={`login-input ${errors.email ? 'login-input-error' : ''}`}
-                        {...register('email')}
-                      />
-                    </div>
-                    {errors.email ? <p className="text-xs text-red-600">{errors.email.message}</p> : null}
-                  </div>
-
-                  {/* Password */}
-                  <div className="space-y-1">
-                    <label className="login-card-label text-xs font-medium">Password</label>
-                    <div className="relative">
-                      <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        autoComplete="current-password"
-                        placeholder="Enter your password"
-                        className={`login-input pr-10 ${errors.password ? 'login-input-error' : ''}`}
-                        {...register('password')}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword((p) => !p)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600"
-                        tabIndex={-1}
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                    {errors.password ? <p className="text-xs text-red-600">{errors.password.message}</p> : null}
-                  </div>
-
-                  <Button
-                    type="submit"
-                    className="login-btn-glow h-10 w-full rounded-lg text-sm font-semibold text-white"
-                    loading={isSubmitting}
-                  >
-                    Login
-                  </Button>
-                </form>
-
-                {googleSignInEnabled ? (
-                  <>
-                    <div className="relative my-5">
-                      <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-slate-200" />
-                      </div>
-                      <div className="relative flex justify-center text-xs">
-                        <span className="login-card-subtitle bg-[#f8fafc] px-3">
-                          Or continue with
-                        </span>
-                      </div>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      className="login-btn-secondary h-11 w-full gap-3 rounded-lg text-sm font-medium backdrop-blur-sm"
-                      loading={googleLoading}
-                      onClick={handleGoogleRedirect}
-                    >
-                      <GoogleMark />
-                      Continue with Google
-                    </Button>
-                  </>
-                ) : null}
+          {googleSignInEnabled ? (
+            <div className="login-split-right">
+              <div className="login-split-chip-wrap">
+                <img
+                  src={LOGIN_CHIP_SRC}
+                  alt=""
+                  width={140}
+                  height={140}
+                  className="login-split-chip"
+                  draggable={false}
+                  decoding="async"
+                  aria-hidden
+                />
               </div>
+              <button
+                type="button"
+                className="login-split-google-btn"
+                onClick={handleGoogleRedirect}
+                disabled={googleLoading}
+              >
+                <GoogleMark />
+                <span>{googleLoading ? 'Redirecting…' : 'Login using Google'}</span>
+              </button>
             </div>
-          </motion.div>
-        </div>
+          ) : null}
+        </motion.div>
       </div>
-    </div>  
     </div>
   )
 }

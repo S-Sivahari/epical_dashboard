@@ -7,7 +7,7 @@ import {
   readMasterExcelFromBuffer,
 } from '../services/payslipGenerator'
 import { countBySection, resolveSalaryStructureSheetName } from '../services/salaryStructureParser'
-import * as XLSX from 'xlsx'
+import { getWorksheetNames, loadExcelWorkbook } from '../utils/excelWorkbook'
 
 function listBatchDirs(): { id: string; mtime: number }[] {
   const out: { id: string; mtime: number }[] = []
@@ -28,13 +28,14 @@ function listBatchDirs(): { id: string; mtime: number }[] {
 async function diagnoseBatch(batchId: string) {
   const excelPath = join(PAYROLL_UPLOADS_ROOT, batchId, 'payroll.xlsx')
   const buffer = readFileSync(excelPath)
-  const wb = XLSX.read(buffer, { type: 'buffer' })
+  const wb = await loadExcelWorkbook(buffer)
+  const sheetNames = getWorksheetNames(wb)
   const parsed = await readMasterExcelFromBuffer(buffer)
   const counts = countBySection(parsed.structure)
 
   console.log('\n=== Batch', batchId, '===')
-  console.log('Sheets:', wb.SheetNames.join(' | '))
-  console.log('Resolved salary sheet:', resolveSalaryStructureSheetName(wb.SheetNames))
+  console.log('Sheets:', sheetNames.join(' | '))
+  console.log('Resolved salary sheet:', resolveSalaryStructureSheetName(sheetNames))
   console.log('Pay Month:', parsed.company['Pay Month'], '| Pay Date:', parsed.company['Pay Date'])
   console.log('Components:', Object.keys(parsed.structure).length, counts)
   console.log('Structure keys:', Object.keys(parsed.structure).slice(0, 5).join(', '), '...')
@@ -42,7 +43,7 @@ async function diagnoseBatch(batchId: string) {
   const emp = parsed.employees.find(
     (e) =>
       String(e['Emp ID'] || '').includes('78747373') ||
-      String(e['Name'] || '').toLowerCase().includes('preethikha')
+      String(e['Name'] || '').toLowerCase().includes('preethikha'),
   )
   const target = emp ?? parsed.employees[0]
   if (!target) {

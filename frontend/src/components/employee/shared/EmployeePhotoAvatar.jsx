@@ -1,7 +1,39 @@
-import { Avatar, AvatarFallback } from '@components/employee/ui/avatar'
+import { useEffect, useState } from 'react'
+import { Avatar, AvatarFallback, AvatarImage } from '@components/employee/ui/avatar'
+import { cn } from '@pages/employee/lib/utils'
+import { getEmployeePhotoUrl, invalidateEmployeePhotoCache } from '@services/uploadService'
 
-/** Initials-only avatar — profile photos are not fetched to avoid slow API calls. */
-export function EmployeePhotoAvatar({ employeeId: _employeeId, name, className, fallbackClassName }) {
+/** Fetches the employee profile photo once per session (cached); falls back to initials. */
+export function EmployeePhotoAvatar({
+  employeeId,
+  name,
+  className,
+  fallbackClassName,
+  photoVersion = 0,
+  fallbackSrc,
+}) {
+  const [photoSrc, setPhotoSrc] = useState(null)
+
+  useEffect(() => {
+    if (!employeeId) {
+      setPhotoSrc(null)
+      return
+    }
+
+    if (photoVersion > 0) {
+      invalidateEmployeePhotoCache(employeeId)
+    }
+
+    let cancelled = false
+    void getEmployeePhotoUrl(employeeId).then((url) => {
+      if (!cancelled) setPhotoSrc(url)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [employeeId, photoVersion])
+
   const initials =
     name
       ?.split(' ')
@@ -9,9 +41,19 @@ export function EmployeePhotoAvatar({ employeeId: _employeeId, name, className, 
       .join('')
       .slice(0, 2) ?? 'U'
 
+  const displaySrc = photoSrc || fallbackSrc
+
   return (
     <Avatar className={className}>
-      <AvatarFallback className={fallbackClassName}>{initials}</AvatarFallback>
+      {displaySrc ? <AvatarImage src={displaySrc} alt={name ?? 'Profile'} /> : null}
+      <AvatarFallback
+        className={cn(
+          'bg-white/20 font-semibold text-white',
+          fallbackClassName,
+        )}
+      >
+        {initials}
+      </AvatarFallback>
     </Avatar>
   )
 }

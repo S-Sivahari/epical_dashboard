@@ -1,13 +1,32 @@
 import { useMemo } from 'react'
+import { format, parseISO, startOfDay } from 'date-fns'
 import { useLeaves } from '@hooks/useLeaves'
+import {
+  filterUpcomingHolidays,
+  HOLIDAY_WINDOW_DAYS,
+} from '@components/employee/shared/UpcomingHolidaysCard'
 import { cn } from '@/utils/cn'
 import { formatDate } from '@/utils/formatDate'
-import { OUT_TODAY_TOTAL_EMPLOYEES, type OutTodayEntry, type UpcomingDeadline } from './dashboardLeftPanelsData'
+import type { OutTodayEntry } from './dashboardLeftPanelsData'
 
-const URGENCY_DOT: Record<UpcomingDeadline['urgency'], string> = {
-  red: 'dashboard-deadline-dot--red',
-  amber: 'dashboard-deadline-dot--amber',
-  green: 'dashboard-deadline-dot--green',
+const HOLIDAY_TYPE_DOT: Record<string, string> = {
+  National: 'dashboard-deadline-dot--green',
+  Company: 'dashboard-deadline-dot--amber',
+  Optional: 'dashboard-deadline-dot--amber',
+  'Company Event': 'dashboard-deadline-dot--green',
+}
+
+const HOLIDAY_TYPE_LABEL: Record<string, string> = {
+  National: 'Public holiday',
+  Company: 'Company holiday',
+  Optional: 'Optional holiday',
+  'Company Event': 'Company event',
+}
+
+function formatHolidayDateLabel(dateStr: string): string {
+  const parsed = startOfDay(parseISO(dateStr))
+  if (Number.isNaN(parsed.getTime())) return dateStr
+  return format(parsed, 'MMM d')
 }
 
 function normalizeLeaveType(type: string): string {
@@ -27,17 +46,13 @@ function isOutToday(from: string, to: string): boolean {
 }
 
 type DashboardLeftInsightsProps = {
-  totalEmployees: number
-  upcomingDeadlines: UpcomingDeadline[]
   className?: string
 }
 
-export function DashboardLeftInsights({
-  totalEmployees,
-  upcomingDeadlines,
-  className,
-}: DashboardLeftInsightsProps) {
-  const { leaves } = useLeaves()
+export function DashboardLeftInsights({ className }: DashboardLeftInsightsProps) {
+  const { leaves, holidays } = useLeaves()
+
+  const upcomingHolidays = useMemo(() => filterUpcomingHolidays(holidays), [holidays])
 
   const outToday = useMemo((): OutTodayEntry[] => {
     return leaves
@@ -49,9 +64,6 @@ export function DashboardLeftInsights({
         returnDate: formatDate(l.to, 'MMM d'),
       }))
   }, [leaves])
-
-  const employeeTotal = totalEmployees > 0 ? totalEmployees : OUT_TODAY_TOTAL_EMPLOYEES
-  const absentCount = outToday.length
 
   return (
     <div className={cn('dashboard-left-insights', className)}>
@@ -84,34 +96,44 @@ export function DashboardLeftInsights({
               </ul>
             )}
           </div>
-          <p className="dashboard-insight-footer">
-            {absentCount} of {employeeTotal} employees absent
-          </p>
         </div>
       </section>
 
       <section className="dashboard-insight-panel dashboard-insight-panel--mint">
         <header className="dashboard-insight-panel-header">
-          <h3 className="dashboard-insight-panel-title">Upcoming deadlines this week</h3>
+          <h3 className="dashboard-insight-panel-title">Upcoming holidays</h3>
         </header>
         <div className="dashboard-insight-panel-body">
           <div className="dashboard-insight-panel-scroll">
-            {upcomingDeadlines.length === 0 ? (
-              <p className="dashboard-insight-empty">No deadlines this week.</p>
+            {upcomingHolidays.length === 0 ? (
+              <p className="dashboard-insight-empty">
+                No holidays in the next {HOLIDAY_WINDOW_DAYS} days.
+              </p>
             ) : (
               <ul className="dashboard-insight-list" role="list">
-                {upcomingDeadlines.map((item, index) => (
+                {upcomingHolidays.map((holiday, index) => (
                   <li
-                    key={item.id}
+                    key={holiday.id ?? holiday.date}
                     className={cn(
                       'dashboard-insight-row dashboard-insight-row--deadline',
-                      index < upcomingDeadlines.length - 1 && 'dashboard-insight-row--bordered',
+                      index < upcomingHolidays.length - 1 && 'dashboard-insight-row--bordered',
                     )}
                   >
-                    <span className={cn('dashboard-deadline-dot', URGENCY_DOT[item.urgency])} aria-hidden />
+                    <span
+                      className={cn(
+                        'dashboard-deadline-dot',
+                        HOLIDAY_TYPE_DOT[holiday.type] ?? 'dashboard-deadline-dot--green',
+                      )}
+                      aria-hidden
+                    />
                     <div className="min-w-0 flex-1">
-                      <p className="dashboard-insight-deadline-date">{item.dateLabel}</p>
-                      <p className="dashboard-insight-secondary">{item.label}</p>
+                      <p className="dashboard-insight-deadline-date">
+                        {formatHolidayDateLabel(holiday.date)}
+                      </p>
+                      <p className="dashboard-insight-primary">{holiday.title}</p>
+                      <p className="dashboard-insight-secondary">
+                        {HOLIDAY_TYPE_LABEL[holiday.type] ?? 'Holiday'}
+                      </p>
                     </div>
                   </li>
                 ))}

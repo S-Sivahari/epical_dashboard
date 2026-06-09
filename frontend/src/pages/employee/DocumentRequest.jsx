@@ -36,6 +36,7 @@ import { useToast } from '@components/employee/shared/ToastProvider'
 import { PayslipsSection } from '@components/employee/shared/PayslipsSection'
 import { cn } from '@pages/employee/lib/utils'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
+import { useFormSessionDraft } from '@hooks/useFormSessionDraft'
 
 const POLL_INTERVAL_MS = 5000
 const HISTORY_PAGE_SIZE = 10
@@ -79,7 +80,7 @@ function buildRequestColumns(onDownload, onDownloadError) {
     { key: 'type', label: 'Document type' },
     { key: 'name', label: 'Document name' },
     { key: 'status', label: 'Status' },
-    { key: 'responseDetails', label: 'HR response' },
+    { key: 'responseDetails', label: 'Admin response' },
     {
       key: 'actions',
       label: 'Download',
@@ -125,13 +126,13 @@ function formatDate(value) {
 }
 
 function mapRequestRow(row) {
-  let responseDetails = 'Pending HR review'
+  let responseDetails = 'Pending admin review'
   if (row.status === 'Approved') {
     responseDetails = row.processedAt
       ? `Approved on ${formatDate(row.processedAt)}${row.processedBy ? ` by ${row.processedBy}` : ''}`
-      : 'Approved by HR'
+      : 'Approved by admin'
   } else if (row.status === 'Rejected') {
-    responseDetails = 'Rejected by HR'
+    responseDetails = 'Rejected by admin'
   }
 
   return {
@@ -166,7 +167,7 @@ export default function DocumentRequest() {
         setRequests([])
         toast({
           title: 'Could not load requests',
-          description: 'Pull to retry or contact HR if this continues.',
+          description: 'Pull to retry or contact admin if this continues.',
         })
       }
     } finally {
@@ -222,6 +223,13 @@ export default function DocumentRequest() {
     else void loadRequests(true)
   }, [activeTab, loadPayslips, loadRequests])
 
+  const documentFormDefaults = {
+    type: '',
+    otherDocumentType: '',
+    name: '',
+    reason: '',
+  }
+
   const {
     register,
     handleSubmit,
@@ -231,12 +239,11 @@ export default function DocumentRequest() {
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(schema),
-    defaultValues: {
-      type: '',
-      otherDocumentType: '',
-      name: '',
-      reason: '',
-    },
+    defaultValues: documentFormDefaults,
+  })
+
+  const { clearDraft } = useFormSessionDraft('employee-document-request', { reset, watch }, {
+    defaultValues: documentFormDefaults,
   })
 
   const filteredRequests = useMemo(() => {
@@ -311,10 +318,11 @@ export default function DocumentRequest() {
         reason: data.reason,
       })
       toast({
-        title: 'Request submitted',
-        description: `${data.name} is pending HR review.`,
+        title: 'Document requested successfully',
+        description: `${data.name} is pending admin review.`,
       })
-      reset()
+      clearDraft()
+      reset(documentFormDefaults)
       await loadRequests()
       setHistoryPage(1)
     } catch (err) {
@@ -377,9 +385,6 @@ export default function DocumentRequest() {
               >
                 <div>
                   <h3 className="font-heading text-lg font-semibold">Request document</h3>
-                  <p className="mt-1 text-sm text-muted">
-                    Submit a new request for HR-issued documents such as certificates or letters.
-                  </p>
                 </div>
                 <div>
                   <Label htmlFor="doc-request-type">Document type *</Label>
@@ -409,7 +414,7 @@ export default function DocumentRequest() {
                   <div className="rounded-lg border border-border bg-muted/30 p-4">
                     <Label htmlFor="doc-request-other-type">Specify document type *</Label>
                     <p className="mt-0.5 text-xs text-muted">
-                      Describe what HR should prepare (for example bonafide letter, address proof letter).
+                      Describe what admin should prepare (for example bonafide letter, address proof letter).
                     </p>
                     <Input
                       id="doc-request-other-type"
@@ -437,7 +442,7 @@ export default function DocumentRequest() {
                   <Textarea
                     className="mt-1 min-h-[120px] resize-y"
                     {...register('reason')}
-                    placeholder="Explain why HR should issue this"
+                    placeholder="Explain why admin should issue this"
                   />
                   {errors.reason && (
                     <p className="mt-1 text-xs text-danger">{errors.reason.message}</p>
@@ -457,7 +462,6 @@ export default function DocumentRequest() {
                   </div>
                   <div>
                     <h3 className="font-heading text-lg font-semibold">Approved downloads</h3>
-                    <p className="mt-1 text-sm text-muted">Documents HR has finalized for you</p>
                   </div>
                 </div>
 
@@ -467,7 +471,7 @@ export default function DocumentRequest() {
                       <FileText className="mb-3 h-8 w-8 text-muted" />
                       <p className="text-sm font-medium text-foreground">No approved documents yet</p>
                       <p className="mt-1 max-w-xs text-xs text-muted">
-                        Approved documents from HR will appear here for download.
+                        Approved documents from admin will appear here for download.
                       </p>
                     </div>
                   ) : (
@@ -492,7 +496,7 @@ export default function DocumentRequest() {
                             variant="outline"
                             className="gap-1 shrink-0"
                             onClick={() =>
-                              void downloadMyDocumentPdf(doc.id, `${doc.documentName}.pdf`).catch(
+                              void downloadMyDocumentPdf(doc.id, doc.documentName, doc.documentType).catch(
                                 () =>
                                   toast({
                                     title: 'Download failed',
@@ -517,9 +521,6 @@ export default function DocumentRequest() {
                   <CalendarDays className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                   <div>
                     <h3 className="font-heading text-lg font-semibold">Request history</h3>
-                    <p className="text-sm text-muted">
-                      Track request dates, statuses, and HR responses
-                    </p>
                   </div>
                 </div>
                 <SearchBar

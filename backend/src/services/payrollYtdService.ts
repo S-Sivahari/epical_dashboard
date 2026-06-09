@@ -1,7 +1,7 @@
 import { getDB } from '../config/db'
 import type { Company, Employee, SalaryStructure } from './payslipGenerator'
 import { buildDeductionsData, buildEarningsData } from './payslipGenerator'
-import { enrichPayrollEmployeeFromDb } from './payslipEmployeeEnrichment'
+import { enrichPayrollEmployeeFromDb, enrichPayrollEmployeeLeaveBalances } from './payslipEmployeeEnrichment'
 
 const MONTH_PATTERNS: { re: RegExp; month: number }[] = [
   { re: /\bjanuary\b/i, month: 1 },
@@ -130,7 +130,9 @@ export function parsePayPeriodFromCompany(company: Company): PayPeriod {
   }
 
   if (month === null) {
-    month = new Date().getMonth() + 1
+    throw new Error(
+      'Could not determine pay month from the Excel company sheet. Set "Pay Month" (e.g. April 2026) or a valid "Pay Date".'
+    )
   }
 
   const fiscalYearStart = getFiscalYearStart(year, month)
@@ -244,15 +246,20 @@ export async function saveMonthlyPayrollSnapshot(params: {
   await col.updateOne(filter, { $set: doc }, { upsert: true })
 }
 
-/** Sum stored monthly amounts for current FY through pay month (Apr–Mar; new FY starts in April). */
+/**
+ * Sum component amounts for the financial year (April–March) through the pay month.
+ * Example: June FY26-27 = April + May + June (each prior uploaded month + this upload).
+ */
 export async function computeCumulativeYtd(
   employeeId: string,
-  period: PayPeriod
+  period: PayPeriod,
+  currentMonthComponents?: Record<string, number>
 ): Promise<Record<string, number>> {
   const col = monthlyCollection()
   const empKey = employeeId.trim().toUpperCase()
   const allowedMonths = fiscalMonthsThrough(period)
   const allowed = new Set(allowedMonths.map((m) => monthKey(m.year, m.month)))
+  const currentKey = monthKey(period.year, period.month)
 
   const snapshots = await col
     .find({
@@ -267,12 +274,49 @@ export async function computeCumulativeYtd(
   for (const snap of snapshots) {
     const key = monthKey(snap.payYear, snap.payMonth)
     if (!allowed.has(key)) continue
+    // Current month comes from this upload's row (not a stale snapshot).
+    if (key === currentKey && currentMonthComponents) continue
     for (const [comp, amt] of Object.entries(snap.components ?? {})) {
       ytd[comp] = round2((ytd[comp] ?? 0) + amt)
     }
   }
 
+  if (currentMonthComponents) {
+    for (const [comp, amt] of Object.entries(currentMonthComponents)) {
+      ytd[comp] = round2((ytd[comp] ?? 0) + amt)
+    }
+  }
+
   return ytd
+}
+
+const FY_SNAPSHOT_RESET_KEY = 'payrollFySnapshotGlobalReset'
+
+/** After March 31, purge all prior-FY payroll snapshots once April begins (YTD resets). */
+export async function ensureFinancialYearSnapshotReset(refDate = new Date()): Promise<void> {
+  const month = refDate.getMonth() + 1
+  if (month !== FY_START_MONTH) return
+
+  const fiscalYearStart = getFiscalYearStart(refDate.getFullYear(), month)
+  const settings = getDB().collection('app_settings')
+  const last = await settings.findOne({ key: FY_SNAPSHOT_RESET_KEY })
+  if (last?.value === String(fiscalYearStart)) return
+
+  const result = await monthlyCollection().deleteMany({
+    fiscalYearStart: { $lt: fiscalYearStart },
+  })
+
+  await settings.updateOne(
+    { key: FY_SNAPSHOT_RESET_KEY },
+    { $set: { key: FY_SNAPSHOT_RESET_KEY, value: String(fiscalYearStart), updatedAt: new Date() } },
+    { upsert: true },
+  )
+
+  if (result.deletedCount > 0) {
+    console.log(
+      `[PayrollYTD] New financial year ${fiscalYearStart}: purged ${result.deletedCount} prior-FY monthly snapshot(s)`,
+    )
+  }
 }
 
 /**
@@ -284,7 +328,7 @@ export async function prepareEmployeeForPayslip(
   emp: Employee,
   batchId: string
 ): Promise<Employee> {
-  const enriched = await enrichPayrollEmployeeFromDb(emp)
+  const enriched = await enrichPayrollEmployeeLeaveBalances(await enrichPayrollEmployeeFromDb(emp))
   const period = parsePayPeriodFromCompany(company)
   const components = collectComponentAmounts(enriched, structure)
   const employeeId = String(enriched['Emp ID'] || '').trim()
@@ -300,7 +344,11 @@ export async function prepareEmployeeForPayslip(
     components,
   })
 
-  const ytdMap = await computeCumulativeYtd(String(enriched['Emp ID'] || ''), period)
+  const ytdMap = await computeCumulativeYtd(
+    String(enriched['Emp ID'] || ''),
+    period,
+    components,
+  )
   enriched['_componentYtd'] = ytdMap
   enriched['_payPeriod'] = period
 

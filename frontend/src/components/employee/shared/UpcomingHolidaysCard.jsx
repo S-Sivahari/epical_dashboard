@@ -16,10 +16,10 @@ import { Badge } from '@components/employee/ui/badge'
 export const HOLIDAY_WINDOW_DAYS = 30
 
 const TYPE_STYLES = {
-  National: { accent: 'border-emerald-200 bg-emerald-50/80', dot: 'bg-emerald-500', badge: 'success', label: 'National' },
-  Company: { accent: 'border-blue-200 bg-blue-50/80', dot: 'bg-blue-500', badge: 'default', label: 'Company' },
+  National: { accent: 'border-[#a0c4ab]/60 bg-[#dff0e4]/80', dot: 'bg-[#276749]', badge: 'success', label: 'National' },
+  Company: { accent: 'border-[#a0c4ab]/50 bg-[#f4faf6]', dot: 'bg-[#2f6b4f]', badge: 'default', label: 'Company' },
   Optional: { accent: 'border-amber-200 bg-amber-50/80', dot: 'bg-amber-500', badge: 'warning', label: 'Optional' },
-  'Company Event': { accent: 'border-violet-200 bg-violet-50/80', dot: 'bg-violet-500', badge: 'secondary', label: 'Event' },
+  'Company Event': { accent: 'border-[#c1dac7]/70 bg-[#e8f2e6]/90', dot: 'bg-[#1e5a3d]', badge: 'secondary', label: 'Event' },
 }
 
 const CARD_CLASS = portalCardClass({ className: 'flex h-full min-h-0 flex-col overflow-hidden p-4 sm:p-5' })
@@ -111,19 +111,71 @@ function HolidayRow({ holiday }) {
   )
 }
 
-export function UpcomingHolidaysCard({ holidays = [], className }) {
-  const upcoming = useMemo(() => filterUpcomingHolidays(holidays), [holidays])
+function CompactHolidayRow({ holiday }) {
+  const date = parseHolidayDate(holiday.date)
+  if (!date) return null
 
   return (
-    <InteractiveCard className={cn(CARD_CLASS, className)}>
+    <li className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-white/80 px-2.5 py-1.5 text-xs">
+      <span className="shrink-0 font-medium tabular-nums text-muted">{format(date, 'MMM d')}</span>
+      <span className="min-w-0 truncate text-foreground">{holiday.title}</span>
+    </li>
+  )
+}
+
+export function UpcomingHolidaysCard({ holidays = [], className, compact = false, fill = false }) {
+  const upcoming = useMemo(() => filterUpcomingHolidays(holidays), [holidays])
+  const cardClass = compact
+    ? portalCardClass({ className: 'flex h-full min-h-0 flex-col overflow-hidden p-3' })
+    : CARD_CLASS
+
+  if (compact) {
+    return (
+      <InteractiveCard to="/employee/calendar" className={cn(cardClass, className)}>
+        <div className="mb-2 flex shrink-0 items-center justify-between gap-2 border-b border-border pb-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="emp-dash-icon emp-dash-icon--sky h-7 w-7" aria-hidden>
+              <CalendarDays className="h-3.5 w-3.5" />
+            </div>
+            <h3 className="font-heading text-sm font-semibold text-foreground">Upcoming holidays</h3>
+          </div>
+          <Link
+            to="/employee/calendar"
+            className="inline-flex shrink-0 items-center gap-0.5 text-[10px] font-medium text-primary hover:underline"
+          >
+            Calendar <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
+
+        <div className={cn(fill && 'emp-dash-widget-body min-h-0 flex-1')}>
+          {upcoming.length === 0 ? (
+            <p className="py-2 text-center text-xs text-muted">No upcoming holidays</p>
+          ) : (
+            <ul
+              className={cn(
+                'space-y-1.5 pr-0.5',
+                fill ? 'min-h-0' : 'max-h-44 overflow-y-auto overscroll-contain',
+              )}
+            >
+              {upcoming.map((holiday) => (
+                <CompactHolidayRow key={holiday.id ?? holiday.date} holiday={holiday} />
+              ))}
+            </ul>
+          )}
+        </div>
+      </InteractiveCard>
+    )
+  }
+
+  return (
+    <InteractiveCard to="/employee/calendar" className={cn(CARD_CLASS, className)}>
       <div className="mb-3 flex shrink-0 flex-wrap items-start justify-between gap-2 border-b border-border pb-3">
         <div className="flex min-w-0 items-start gap-2.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <div className="emp-dash-icon emp-dash-icon--sky" aria-hidden>
             <CalendarDays className="h-4 w-4" />
           </div>
           <div className="min-w-0">
             <h3 className="font-heading text-base font-semibold text-foreground">Upcoming holidays</h3>
-            <p className="mt-0.5 text-xs text-muted">Next {HOLIDAY_WINDOW_DAYS} days</p>
           </div>
         </div>
         <Link

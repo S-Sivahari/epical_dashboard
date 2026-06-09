@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx'
+import type ExcelJS from 'exceljs'
 import {
   parseSalaryStructureWithExcelJS,
   parseStructureMatrix,
@@ -6,8 +6,15 @@ import {
   resolveSalaryStructureSheetName,
   combineSalaryStructureSources,
   cellToString,
+  sheetToMatrix,
 } from './salaryStructureParser'
-import { parseCompanySheetXlsx, readCompanyFromWorkbookBuffer, finalizeCompany } from './companyParser'
+import { readCompanyFromWorkbookBuffer } from './companyParser'
+import {
+  findWorksheetName,
+  getWorksheet,
+  getWorksheetNames,
+  loadExcelWorkbook,
+} from '../utils/excelWorkbook'
 import {
   Document,
   Paragraph,
@@ -146,18 +153,6 @@ export interface Employee {
   [key: string]: any
 }
 
-function findSheetName(wb: XLSX.WorkBook, candidates: string[]): string | undefined {
-  for (const name of candidates) {
-    if (wb.Sheets[name]) return name
-  }
-  const lower = candidates.map((n) => n.toLowerCase())
-  for (const sheetName of wb.SheetNames) {
-    if (lower.includes(sheetName.toLowerCase())) {
-      return sheetName
-    }
-  }
-  return undefined
-}
 
 function normalizeEmpIdKey(row: Record<string, unknown>): string | null {
   for (const key of Object.keys(row)) {
@@ -175,15 +170,13 @@ function isSkipSheet(name: string): boolean {
   return SKIP_SHEETS.has(name.trim().toLowerCase())
 }
 
-function parseSalaryStructureSheet(ws: XLSX.WorkSheet): SalaryStructure {
-  const salaryData = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }) as unknown[][]
-  return parseStructureMatrix(salaryData)
+function parseSalaryStructureFromSheet(sheet: ExcelJS.Worksheet): SalaryStructure {
+  return parseStructureMatrix(sheetToMatrix(sheet))
 }
 
-function parseEmployeeSheet(ws: XLSX.WorkSheet): Employee[] {
-  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }) as unknown[][]
+function parseEmployeeSheetFromMatrix(rows: unknown[][]): Employee[] {
   let headerIdx = rows.findIndex(
-    (row) => String(row?.[0] ?? '').trim().toLowerCase() === 'emp id'
+    (row) => String(row?.[0] ?? '').trim().toLowerCase() === 'emp id',
   )
   if (headerIdx < 0) headerIdx = 3
 
@@ -213,19 +206,18 @@ function parseEmployeeSheet(ws: XLSX.WorkSheet): Employee[] {
   return employees
 }
 
-/** Parse workbook from template or custom Excel with matching sheet/column layout. */
-export function parseMasterWorkbook(wb: XLSX.WorkBook): {
-  company: Company
-  structure: SalaryStructure
-  employees: Employee[]
-} {
-  const companySheetName = findSheetName(wb, ['company', 'Company', 'Company Info', 'Company Details'])
-  const wsCompany = companySheetName ? wb.Sheets[companySheetName] : undefined
-  const company = wsCompany ? finalizeCompany(parseCompanySheetXlsx(wsCompany)) : {}
+function parseEmployeeSheet(sheet: ExcelJS.Worksheet): Employee[] {
+  return parseEmployeeSheetFromMatrix(sheetToMatrix(sheet))
+}
 
-  let salarySheetName = resolveSalaryStructureSheetName(wb.SheetNames)
+function parseStructureFromWorkbook(wb: ExcelJS.Workbook): {
+  structure: SalaryStructure
+  salarySheetName?: string
+} {
+  const sheetNames = getWorksheetNames(wb)
+  let salarySheetName = resolveSalaryStructureSheetName(sheetNames)
   if (!salarySheetName) {
-    salarySheetName = findSheetName(wb, [
+    salarySheetName = findWorksheetName(wb, [
       'salary_structure',
       'salary structure',
       'Salary Structure',
@@ -235,47 +227,61 @@ export function parseMasterWorkbook(wb: XLSX.WorkBook): {
   }
 
   let structure: SalaryStructure = {}
-  if (salarySheetName && wb.Sheets[salarySheetName]) {
-    structure = parseSalaryStructureSheet(wb.Sheets[salarySheetName])
+  if (salarySheetName) {
+    const sheet = getWorksheet(wb, salarySheetName)
+    if (sheet) {
+      structure = parseSalaryStructureFromSheet(sheet)
+    }
   }
 
   if (Object.keys(structure).length === 0) {
-    for (const sheetName of wb.SheetNames) {
-      if (isSkipSheet(sheetName)) continue
-      const trial = parseSalaryStructureSheet(wb.Sheets[sheetName])
+    for (const name of sheetNames) {
+      if (isSkipSheet(name)) continue
+      const sheet = getWorksheet(wb, name)
+      if (!sheet) continue
+      const trial = parseSalaryStructureFromSheet(sheet)
       if (Object.keys(trial).length > 0) {
         structure = trial
-        salarySheetName = sheetName
+        salarySheetName = name
         break
       }
     }
   }
 
-  if (Object.keys(structure).length === 0 && salarySheetName && wb.Sheets[salarySheetName]) {
-    const matrix = XLSX.utils.sheet_to_json(wb.Sheets[salarySheetName], {
-      header: 1,
-      defval: '',
-    }) as unknown[][]
-    structure = parseStructureFallbackScan(matrix)
+  if (Object.keys(structure).length === 0 && salarySheetName) {
+    const sheet = getWorksheet(wb, salarySheetName)
+    if (sheet) {
+      structure = parseStructureFallbackScan(sheetToMatrix(sheet))
+    }
   }
 
   if (Object.keys(structure).length === 0) {
-    for (const sheetName of wb.SheetNames) {
-      if (isSkipSheet(sheetName)) continue
-      const matrix = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {
-        header: 1,
-        defval: '',
-      }) as unknown[][]
-      const trial = parseStructureFallbackScan(matrix)
+    for (const name of sheetNames) {
+      if (isSkipSheet(name)) continue
+      const sheet = getWorksheet(wb, name)
+      if (!sheet) continue
+      const trial = parseStructureFallbackScan(sheetToMatrix(sheet))
       if (Object.keys(trial).length > 0) {
         structure = trial
+        salarySheetName = name
         break
       }
     }
   }
+
+  return { structure, salarySheetName }
+}
+
+/** Parse workbook from template or custom Excel with matching sheet/column layout. */
+export function parseMasterWorkbook(wb: ExcelJS.Workbook): {
+  company: Company
+  structure: SalaryStructure
+  employees: Employee[]
+} {
+  const { structure, salarySheetName } = parseStructureFromWorkbook(wb)
 
   let employees: Employee[] = []
-  const employeeSheetName = findSheetName(wb, [
+  const employeeSheetName = findWorksheetName(wb, [
     'employee',
     'employees',
     'Employee',
@@ -283,20 +289,24 @@ export function parseMasterWorkbook(wb: XLSX.WorkBook): {
     'Employee Data',
     'Payroll',
   ])
-  const wsEmployees = employeeSheetName ? wb.Sheets[employeeSheetName] : undefined
 
-  if (wsEmployees) {
-    employees = parseEmployeeSheet(wsEmployees)
+  if (employeeSheetName) {
+    const sheet = getWorksheet(wb, employeeSheetName)
+    if (sheet) {
+      employees = parseEmployeeSheet(sheet)
+    }
   }
 
   const usedSheets = new Set(
-    [companySheetName, salarySheetName, employeeSheetName].filter(Boolean) as string[]
+    [salarySheetName, employeeSheetName].filter(Boolean) as string[],
   )
 
   if (employees.length === 0) {
-    for (const sheetName of wb.SheetNames) {
-      if (isSkipSheet(sheetName) || usedSheets.has(sheetName)) continue
-      const parsed = parseEmployeeSheet(wb.Sheets[sheetName])
+    for (const name of getWorksheetNames(wb)) {
+      if (isSkipSheet(name) || usedSheets.has(name)) continue
+      const sheet = getWorksheet(wb, name)
+      if (!sheet) continue
+      const parsed = parseEmployeeSheet(sheet)
       if (parsed.length) {
         employees = parsed
         break
@@ -304,7 +314,7 @@ export function parseMasterWorkbook(wb: XLSX.WorkBook): {
     }
   }
 
-  return { company, structure, employees }
+  return { company: {}, structure, employees }
 }
 
 export async function readMasterExcelFromBuffer(buffer: Buffer): Promise<{
@@ -312,45 +322,43 @@ export async function readMasterExcelFromBuffer(buffer: Buffer): Promise<{
   structure: SalaryStructure
   employees: Employee[]
 }> {
-  const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true, cellNF: true })
+  const wb = await loadExcelWorkbook(buffer)
   const parsed = parseMasterWorkbook(wb)
-  parsed.company = await readCompanyFromWorkbookBuffer(buffer, wb)
+  parsed.company = await readCompanyFromWorkbookBuffer(buffer)
 
   let fromStyles: SalaryStructure = {}
   try {
     fromStyles = await parseSalaryStructureWithExcelJS(buffer)
   } catch {
-    /* exceljs optional */
+    /* keep matrix fallback */
   }
 
-  const salarySheet = resolveSalaryStructureSheetName(wb.SheetNames)
+  const sheetNames = getWorksheetNames(wb)
+  const salarySheet = resolveSalaryStructureSheetName(sheetNames)
   let fromNamedSheet: SalaryStructure = {}
   let fallbackStructure: SalaryStructure = {}
-  if (salarySheet && wb.Sheets[salarySheet]) {
-    fromNamedSheet = parseSalaryStructureSheet(wb.Sheets[salarySheet])
-    const matrix = XLSX.utils.sheet_to_json(wb.Sheets[salarySheet], {
-      header: 1,
-      defval: '',
-    }) as unknown[][]
-    if (Object.keys(fromNamedSheet).length === 0) {
+  if (salarySheet) {
+    const sheet = getWorksheet(wb, salarySheet)
+    if (sheet) {
+      const matrix = sheetToMatrix(sheet)
       fromNamedSheet = parseStructureMatrix(matrix)
+      if (Object.keys(fromNamedSheet).length === 0) {
+        fromNamedSheet = parseStructureFallbackScan(matrix)
+      }
+      fallbackStructure = parseStructureFallbackScan(matrix)
     }
-    if (Object.keys(fromNamedSheet).length === 0) {
-      fromNamedSheet = parseStructureFallbackScan(matrix)
-    }
-    fallbackStructure = parseStructureFallbackScan(matrix)
   }
 
   parsed.structure = combineSalaryStructureSources(
     fromNamedSheet,
     fromStyles,
     parsed.structure,
-    fallbackStructure
+    fallbackStructure,
   )
 
   if (Object.keys(parsed.structure).length === 0) {
     throw new Error(
-      'No pay components found on the salary_structure sheet. Add rows with Component name and Section = Earnings or Deductions.'
+      'No pay components found on the salary_structure sheet. Add rows with Component name and Section = Earnings or Deductions.',
     )
   }
 
@@ -807,22 +815,22 @@ export function roundPayrollAmount(value: number): number {
   return Math.round(value * 100) / 100
 }
 
-/** Resolve YTD for a payroll component from employee row or month fallback. */
+/** Resolve YTD: prefer FY cumulative map from payrollYtdService (Apr–Mar); Excel YTD columns are fallback only. */
 export function getComponentYtd(
   emp: Employee,
   componentName: string,
   monthAmount: number
 ): number {
   const ytdMap = emp['_componentYtd'] as Record<string, number> | undefined
-  if (ytdMap && componentName in ytdMap) {
-    return parseAmount(ytdMap[componentName])
+  if (ytdMap !== undefined) {
+    return roundPayrollAmount(ytdMap[componentName] ?? monthAmount)
   }
   for (const key of [`${componentName} YTD`, `YTD ${componentName}`, `${componentName} Ytd`]) {
     if (emp[key] !== undefined && emp[key] !== '') {
       return parseAmount(emp[key])
     }
   }
-  return monthAmount
+  return roundPayrollAmount(monthAmount)
 }
 
 export function resolvePaidDays(
