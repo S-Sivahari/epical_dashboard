@@ -16,3 +16,4 @@ EXPOSE 3000
 
 # Run with tsx directly (no build step needed)
 CMD ["npx", "tsx", "src/server.ts"]
+
