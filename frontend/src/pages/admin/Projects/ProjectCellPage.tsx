@@ -318,66 +318,66 @@ export function ProjectCellPage() {
 
             <div className="admin-projects-cell-page-panel">
               {activeTab === 'details' && !isEditing && (
-                <div className="admin-projects-cell-details">
-                  <div className="admin-projects-cell-details-head">
-                    <h2 className="admin-projects-cell-details-title">Cell details</h2>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="h-8"
-                      onClick={() => setIsEditing(true)}
-                    >
-                      <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                      Edit
-                    </Button>
-                  </div>
-                  <dl className="admin-projects-cell-details-grid">
-                    <div className="admin-projects-cell-details-item">
-                      <dt>Library</dt>
-                      <dd>{activeLibrary?.name || '—'}</dd>
+                <div className="admin-projects-cell-details-split">
+                  <aside className="admin-projects-cell-details-sidebar">
+                    <p className="admin-projects-cell-details-sidebar-title">Cell details</p>
+                    <div className="admin-projects-cell-details-head">
+                      <h2 className="admin-projects-cell-details-title">{cell.name}</h2>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-8"
+                        onClick={() => setIsEditing(true)}
+                      >
+                        <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                        Edit
+                      </Button>
                     </div>
-                    <div className="admin-projects-cell-details-item">
-                      <dt>Cell name</dt>
-                      <dd>{cell.name}</dd>
-                    </div>
-                    <div className="admin-projects-cell-details-item">
-                      <dt>Cell type</dt>
-                      <dd>{CELL_TYPE_LABELS[cell.cellType] ?? cell.cellType}</dd>
-                    </div>
-                    <div className="admin-projects-cell-details-item admin-projects-cell-details-item--full">
-                      <dt>Description</dt>
-                      <dd>{cell.description?.trim() || '—'}</dd>
-                    </div>
-                    <div className="admin-projects-cell-details-item">
-                      <dt>Complexity</dt>
-                      <dd>{cell.complexity}</dd>
-                    </div>
-                    <div className="admin-projects-cell-details-item">
-                      <dt>Estimated effort (hours)</dt>
-                      <dd>{cell.estimatedEffort ?? 0}</dd>
-                    </div>
-                    <div className="admin-projects-cell-details-item">
-                      <dt>Assigned employee</dt>
-                      <dd>{cell.assignedEmployeeName?.trim() || 'Unassigned'}</dd>
-                    </div>
-                    <div className="admin-projects-cell-details-item">
-                      <dt>Cell status</dt>
-                      <dd>
-                        <span className={cn(
-                          'admin-projects-status-chip',
-                          cell.isBlocked && 'is-blocked',
-                          cell.isReady && 'is-ready',
-                          cell.status === 'completed' && 'is-completed',
-                          cell.status === 'in_progress' && !cell.isBlocked && 'is-progress',
-                        )}>
-                          {cellDisplayStatus(cell)}
-                        </span>
-                      </dd>
-                    </div>
-                  </dl>
-                  <div className="admin-projects-cell-details-views">
-                    <p className="admin-projects-field-label">Views</p>
-                    <div className="admin-projects-pill-rail mb-2">
+                    <dl className="admin-projects-cell-details-grid admin-projects-cell-details-grid--sidebar">
+                      <div className="admin-projects-cell-details-item">
+                        <dt>Library</dt>
+                        <dd>{activeLibrary?.name || '—'}</dd>
+                      </div>
+                      <div className="admin-projects-cell-details-item">
+                        <dt>Cell type</dt>
+                        <dd>{CELL_TYPE_LABELS[cell.cellType] ?? cell.cellType}</dd>
+                      </div>
+                      <div className="admin-projects-cell-details-item admin-projects-cell-details-item--full">
+                        <dt>Description</dt>
+                        <dd>{cell.description?.trim() || '—'}</dd>
+                      </div>
+                      <div className="admin-projects-cell-details-item">
+                        <dt>Complexity</dt>
+                        <dd>{cell.complexity}</dd>
+                      </div>
+                      <div className="admin-projects-cell-details-item">
+                        <dt>Estimated effort (hours)</dt>
+                        <dd>{cell.estimatedEffort ?? 0}</dd>
+                      </div>
+                      <div className="admin-projects-cell-details-item">
+                        <dt>Assigned employee</dt>
+                        <dd>{cell.assignedEmployeeName?.trim() || 'Unassigned'}</dd>
+                      </div>
+                      <div className="admin-projects-cell-details-item">
+                        <dt>Cell status</dt>
+                        <dd>
+                          <span className={cn(
+                            'admin-projects-status-chip',
+                            cell.isBlocked && 'is-blocked',
+                            cell.isReady && 'is-ready',
+                            cell.status === 'completed' && 'is-completed',
+                            cell.status === 'in_progress' && !cell.isBlocked && 'is-progress',
+                          )}>
+                            {cellDisplayStatus(cell)}
+                          </span>
+                        </dd>
+                      </div>
+                    </dl>
+                  </aside>
+
+                  <div className="admin-projects-cell-details-main">
+                    <p className="admin-projects-cell-details-main-label">Views</p>
+                    <div className="admin-projects-pill-rail">
                       {(['layout', 'symbol', 'schematic'] as const).map((v) => (
                         <button
                           key={v}
