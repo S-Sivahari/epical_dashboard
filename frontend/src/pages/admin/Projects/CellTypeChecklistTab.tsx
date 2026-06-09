@@ -4,12 +4,20 @@ import { toast } from 'sonner'
 import { Button } from '@components/ui/Button'
 import { cn } from '@/utils/cn'
 import { useAuthStore } from '@/store/authStore'
-import type { CellTypeChecklistDetail, CellTypeChecklistItem, TypeChecklistAnswer } from '@/types/projectWorkspace'
+import {
+  EMPTY_CHECKLIST_EXTENSION,
+  type CellChecklistExtensionFields,
+  type CellTypeChecklistDetail,
+  type CellTypeChecklistItem,
+  type ChecklistYesNo,
+  type TypeChecklistAnswer,
+} from '@/types/projectWorkspace'
 import {
   addCellCustomChecklistItem,
   deleteCellChecklistItem,
   downloadCellChecklistExport,
   fetchCellTypeChecklistResponses,
+  updateCellChecklistExtension,
   updateCellCustomChecklistResponse,
   updateCellTypeChecklistResponse,
 } from '@/services/projectTypeChecklistService'
@@ -18,6 +26,11 @@ const RESPONSE_OPTIONS: { value: TypeChecklistAnswer; label: string; className: 
   { value: 'yes', label: 'Yes', className: 'is-yes' },
   { value: 'no', label: 'No', className: 'is-no' },
   { value: 'not_applicable', label: 'Not applicable', className: 'is-na' },
+]
+
+const EXTENSION_YES_NO_OPTIONS: { value: ChecklistYesNo; label: string; className: string }[] = [
+  { value: 'yes', label: 'Yes', className: 'is-yes' },
+  { value: 'no', label: 'No', className: 'is-no' },
 ]
 
 type CellTypeChecklistTabProps = {
@@ -40,6 +53,12 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
   const [showAddForm, setShowAddForm] = useState(false)
   const [newQuestion, setNewQuestion] = useState('')
   const [addingQuestion, setAddingQuestion] = useState(false)
+  const [savingExtension, setSavingExtension] = useState(false)
+  const [extensionDrafts, setExtensionDrafts] = useState({
+    dimensionX: '',
+    dimensionY: '',
+    highestMetalUsed: '',
+  })
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -56,6 +75,12 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
       }
       setCommentDrafts(drafts)
       setCommentOpen(open)
+      const ext = data.extension ?? EMPTY_CHECKLIST_EXTENSION
+      setExtensionDrafts({
+        dimensionX: ext.dimensionX != null ? String(ext.dimensionX) : '',
+        dimensionY: ext.dimensionY != null ? String(ext.dimensionY) : '',
+        highestMetalUsed: ext.highestMetalUsed ?? '',
+      })
     } catch {
       toast.error('Failed to load checklist')
       setDetail(null)
@@ -167,6 +192,68 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
     }
   }
 
+  const saveExtension = async (payload: Partial<CellChecklistExtensionFields>) => {
+    const items = detail?.items ?? []
+    const answered = items.filter((item) => item.response).length
+    if (items.length > 0 && answered < items.length) return
+
+    setSavingExtension(true)
+    try {
+      const updated = await updateCellChecklistExtension(projectId, cellId, payload)
+      setDetail((prev) => (prev ? { ...prev, extension: updated } : prev))
+      setExtensionDrafts({
+        dimensionX: updated.dimensionX != null ? String(updated.dimensionX) : '',
+        dimensionY: updated.dimensionY != null ? String(updated.dimensionY) : '',
+        highestMetalUsed: updated.highestMetalUsed ?? '',
+      })
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+      toast.error(msg || 'Failed to save checklist field')
+    } finally {
+      setSavingExtension(false)
+    }
+  }
+
+  const handleDimensionBlur = (field: 'dimensionX' | 'dimensionY') => {
+    const raw = extensionDrafts[field].trim()
+    const current = detail?.extension ?? EMPTY_CHECKLIST_EXTENSION
+    const currentValue = current[field]
+
+    if (raw === '') {
+      if (currentValue != null) void saveExtension({ [field]: null })
+      return
+    }
+
+    const parsed = Number(raw)
+    if (!Number.isFinite(parsed)) {
+      toast.error('Enter a valid number')
+      setExtensionDrafts((prev) => ({
+        ...prev,
+        [field]: currentValue != null ? String(currentValue) : '',
+      }))
+      return
+    }
+
+    if (currentValue === parsed) return
+    void saveExtension({ [field]: parsed })
+  }
+
+  const handleHighestMetalBlur = () => {
+    const raw = extensionDrafts.highestMetalUsed.trim()
+    const current = (detail?.extension ?? EMPTY_CHECKLIST_EXTENSION).highestMetalUsed
+    if (raw === current) return
+    void saveExtension({ highestMetalUsed: raw })
+  }
+
+  const handleExtensionYesNo = (field: keyof Pick<
+    CellChecklistExtensionFields,
+    'virtualConnection' | 'overallSubstrateContact' | 'waivableDrcError'
+  >, value: ChecklistYesNo) => {
+    const current = detail?.extension ?? EMPTY_CHECKLIST_EXTENSION
+    if (current[field] === value) return
+    void saveExtension({ [field]: value })
+  }
+
   const handleDownload = async () => {
     if (!detail?.items.length) {
       toast.error('No checklist questions to export')
@@ -185,6 +272,8 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
 
   const answeredCount = detail?.items.filter((item) => item.response).length ?? 0
   const totalCount = detail?.items.length ?? 0
+  const checklistComplete = totalCount === 0 || answeredCount === totalCount
+  const postChecklistLocked = totalCount > 0 && !checklistComplete
 
   if (loading) {
     return (
@@ -200,7 +289,8 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
   if (!detail?.hasFile && !hasItems) {
     return (
       <div className="admin-projects-cell-checklist-tab">
-        <div className="admin-projects-cell-checklist-empty">
+        <div className="admin-projects-cell-checklist-tab-body">
+          <div className="admin-projects-cell-checklist-empty">
           <FileSpreadsheet className="h-8 w-8 text-emerald-700" aria-hidden />
           <p className="admin-projects-cell-checklist-empty-title">No checklist yet</p>
           <p className="admin-projects-cell-checklist-empty-text">
@@ -214,8 +304,10 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
           <p className="admin-projects-cell-checklist-empty-text">
             Upload a type checklist from the project Checklist tab, or add custom questions below.
           </p>
+          </div>
+          {isAdmin ? renderAddQuestionSection() : null}
         </div>
-        {isAdmin ? renderAddQuestionSection() : null}
+        {renderFinalCellDetailsSection()}
       </div>
     )
   }
@@ -226,7 +318,7 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
         <div className="admin-projects-cell-checklist-tab-head-main">
           <div className="admin-projects-cell-checklist-type-badge">{resolvedType || '—'}</div>
           <div className="admin-projects-cell-type-checklist-file">
-            <FileSpreadsheet className="h-5 w-5 shrink-0 text-emerald-700" aria-hidden />
+            <FileSpreadsheet className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden />
             <div className="min-w-0 flex-1">
               <p className="admin-projects-cell-checklist-file-name" title={detail?.fileName || 'Custom checklist'}>
                 {detail?.fileName || 'Custom questions'}
@@ -249,12 +341,17 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
           <div className="admin-projects-cell-checklist-tab-actions">
             {isAdmin ? (
               <Button size="sm" variant="secondary" onClick={() => setShowAddForm((prev) => !prev)}>
-                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                <Plus className="mr-1 h-3 w-3" />
                 Add question
               </Button>
             ) : null}
-            <Button size="sm" variant="secondary" onClick={() => void handleDownload()} disabled={!hasItems}>
-              <Download className="mr-1.5 h-3.5 w-3.5" />
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => void handleDownload()}
+              disabled={!hasItems}
+            >
+              <Download className="mr-1 h-3 w-3" />
               Download Excel
             </Button>
           </div>
@@ -263,14 +360,20 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
 
       {isAdmin && showAddForm ? renderAddQuestionSection() : null}
 
-      {!hasItems ? (
-        <p className="admin-projects-cell-checklist-empty-inline">
-          No checklist questions yet. {isAdmin ? 'Use Add question to create one.' : ''}
-        </p>
-      ) : (
+      <div
+        className="admin-projects-cell-checklist-scroll"
+        role="region"
+        aria-label="Checklist questions"
+      >
         <div className="admin-projects-checklist-responses admin-projects-checklist-responses--cell-tab">
+          {!hasItems ? (
+            <p className="admin-projects-cell-checklist-empty-inline">
+              No checklist questions yet. {isAdmin ? 'Use Add question to create one.' : ''}
+            </p>
+          ) : null}
           <ul className="admin-projects-checklist-responses-list">
-            {detail!.items.map((item, index) => {
+            {hasItems
+              ? detail!.items.map((item, index) => {
               const needsComment = item.response === 'no' || item.response === 'not_applicable'
               const showComment = commentOpen[item.itemKey] || needsComment
               const activePending = pendingResponse[item.itemKey]
@@ -379,12 +482,180 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
                   ) : null}
                 </li>
               )
-            })}
+              })
+              : null}
           </ul>
         </div>
-      )}
+      </div>
+
+      {renderFinalCellDetailsSection()}
     </div>
   )
+
+  function renderYesNoField(
+    label: string,
+    field: keyof Pick<
+      CellChecklistExtensionFields,
+      'virtualConnection' | 'overallSubstrateContact' | 'waivableDrcError'
+    >,
+    value: ChecklistYesNo | null,
+    fieldsDisabled: boolean,
+  ) {
+    return (
+      <div className="admin-projects-final-cell-field">
+        <span className="admin-projects-final-cell-label">{label}</span>
+        <div
+          className="admin-projects-final-cell-toggle"
+          role="group"
+          aria-label={label}
+        >
+          {EXTENSION_YES_NO_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={cn(
+                'admin-projects-final-cell-toggle-btn',
+                value === option.value && 'is-selected',
+                value === option.value && option.className,
+              )}
+              disabled={fieldsDisabled}
+              onClick={() => handleExtensionYesNo(field, option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  function renderFinalCellDetailsSection() {
+    const ext = detail?.extension ?? EMPTY_CHECKLIST_EXTENSION
+    const fieldsDisabled = postChecklistLocked || savingExtension
+    const parsedX =
+      extensionDrafts.dimensionX.trim() === '' ? null : Number(extensionDrafts.dimensionX)
+    const parsedY =
+      extensionDrafts.dimensionY.trim() === '' ? null : Number(extensionDrafts.dimensionY)
+    const displayArea =
+      parsedX != null && parsedY != null && Number.isFinite(parsedX) && Number.isFinite(parsedY)
+        ? parsedX * parsedY
+        : ext.area
+
+    return (
+      <section
+        className={cn(
+          'admin-projects-final-cell-details',
+          postChecklistLocked && 'is-locked',
+        )}
+        aria-label="Final cell details"
+      >
+        <div className="admin-projects-final-cell-details-head">
+          <h3 className="admin-projects-final-cell-details-title">Final Cell Details</h3>
+          <p className="admin-projects-final-cell-details-subtitle">
+            Fill in after the checklist is completed. These are not checklist questions.
+          </p>
+        </div>
+
+        {postChecklistLocked ? (
+          <p className="admin-projects-final-cell-details-lock-note">
+            Complete all checklist questions first ({answeredCount}/{totalCount} answered).
+          </p>
+        ) : null}
+
+        <div className="admin-projects-final-cell-details-form">
+          <div className="admin-projects-final-cell-details-row admin-projects-final-cell-details-row--3">
+            <div className="admin-projects-final-cell-field">
+              <label className="admin-projects-final-cell-label" htmlFor="final-cell-dimension-x">
+                Dimension X
+              </label>
+              <input
+                id="final-cell-dimension-x"
+                type="number"
+                step="any"
+                className="admin-projects-final-cell-input"
+                value={extensionDrafts.dimensionX}
+                placeholder="Enter value"
+                disabled={fieldsDisabled}
+                onChange={(e) =>
+                  setExtensionDrafts((prev) => ({ ...prev, dimensionX: e.target.value }))
+                }
+                onBlur={() => handleDimensionBlur('dimensionX')}
+              />
+            </div>
+
+            <div className="admin-projects-final-cell-field">
+              <label className="admin-projects-final-cell-label" htmlFor="final-cell-dimension-y">
+                Dimension Y
+              </label>
+              <input
+                id="final-cell-dimension-y"
+                type="number"
+                step="any"
+                className="admin-projects-final-cell-input"
+                value={extensionDrafts.dimensionY}
+                placeholder="Enter value"
+                disabled={fieldsDisabled}
+                onChange={(e) =>
+                  setExtensionDrafts((prev) => ({ ...prev, dimensionY: e.target.value }))
+                }
+                onBlur={() => handleDimensionBlur('dimensionY')}
+              />
+            </div>
+
+            <div className="admin-projects-final-cell-field">
+              <span className="admin-projects-final-cell-label">Area</span>
+              <span className="admin-projects-final-cell-hint">Dimension X × Dimension Y</span>
+              <output className="admin-projects-final-cell-area" aria-live="polite">
+                {displayArea != null ? displayArea : '—'}
+              </output>
+            </div>
+          </div>
+
+          <div className="admin-projects-final-cell-details-row admin-projects-final-cell-details-row--2">
+            <div className="admin-projects-final-cell-field">
+              <label className="admin-projects-final-cell-label" htmlFor="final-cell-highest-metal">
+                Highest Metal Used
+              </label>
+              <input
+                id="final-cell-highest-metal"
+                type="text"
+                className="admin-projects-final-cell-input"
+                value={extensionDrafts.highestMetalUsed}
+                placeholder="Enter metal layer"
+                disabled={fieldsDisabled}
+                onChange={(e) =>
+                  setExtensionDrafts((prev) => ({ ...prev, highestMetalUsed: e.target.value }))
+                }
+                onBlur={() => handleHighestMetalBlur()}
+              />
+            </div>
+
+            {renderYesNoField(
+              'Virtual Connection',
+              'virtualConnection',
+              ext.virtualConnection,
+              fieldsDisabled,
+            )}
+          </div>
+
+          <div className="admin-projects-final-cell-details-row admin-projects-final-cell-details-row--2">
+            {renderYesNoField(
+              'Overall Substrate Contact',
+              'overallSubstrateContact',
+              ext.overallSubstrateContact,
+              fieldsDisabled,
+            )}
+            {renderYesNoField(
+              'Waivable DRC Error',
+              'waivableDrcError',
+              ext.waivableDrcError,
+              fieldsDisabled,
+            )}
+          </div>
+        </div>
+      </section>
+    )
+  }
 
   function renderAddQuestionSection() {
     return (

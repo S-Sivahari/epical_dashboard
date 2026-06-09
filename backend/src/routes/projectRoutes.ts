@@ -71,6 +71,11 @@ router.patch(
   adminOnly,
   projectTypeChecklistController.updateCustomItemResponse,
 );
+router.patch(
+  '/:projectId/cells/:cellId/type-checklist/extension',
+  adminOnly,
+  projectTypeChecklistController.updateExtension,
+);
 router.get(
   '/:projectId/cells/:cellId/type-checklist/download',
   adminOnly,
