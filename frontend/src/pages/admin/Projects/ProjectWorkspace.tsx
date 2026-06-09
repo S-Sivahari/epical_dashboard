@@ -88,6 +88,8 @@ export function ProjectWorkspace() {
   const [filterStatusSelect, setFilterStatusSelect] = useState<'all' | CellStatus | 'archive'>('all')
   const [statFilter, setStatFilter] = useState<StatFilter>(null)
   const [showAllCells, setShowAllCells] = useState(false)
+  const [activityFilterSearch, setActivityFilterSearch] = useState('')
+  const [activityLibraryFilter, setActivityLibraryFilter] = useState('all')
   const reload = useCallback(async () => {
     if (!projectId) return
     setLoading(true)
@@ -188,11 +190,33 @@ export function ProjectWorkspace() {
           ...entry,
           cellId: cell.id,
           cellName: cell.name,
+          libraryId: cell.libraryId,
           libraryName: libraryNameById.get(cell.libraryId) || '—',
         })),
       )
       .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
   }, [allCells, libraryNameById])
+
+  const filteredActivityEntries = useMemo(() => {
+    const query = activityFilterSearch.trim().toLowerCase()
+    return activityEntries.filter((entry) => {
+      if (activityLibraryFilter !== 'all' && entry.libraryId !== activityLibraryFilter) {
+        return false
+      }
+      if (!query) return true
+      const haystack = [
+        entry.cellName,
+        entry.libraryName,
+        entry.action.replace(/_/g, ' '),
+        entry.detail,
+        entry.userName,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return haystack.includes(query)
+    })
+  }, [activityEntries, activityFilterSearch, activityLibraryFilter])
 
   const openCreateCell = () => {
     if (!summary || summary.libraries.length === 0) {
@@ -284,7 +308,7 @@ export function ProjectWorkspace() {
         <div className="admin-projects-workspace-shell relative z-10">
           <div className="admin-projects-workspace-chrome">
             <header className="admin-projects-workspace-head">
-              <div className="admin-projects-workspace-head-top">
+              <div className="admin-projects-workspace-head-bar">
                 <div className="admin-projects-workspace-head-left">
                   <Link to={ROUTES.PROJECTS} className="admin-projects-back-btn">
                     <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
@@ -295,75 +319,80 @@ export function ProjectWorkspace() {
                   </div>
                 </div>
 
-                <nav className="admin-projects-workspace-nav admin-projects-workspace-nav--in-chrome admin-projects-workspace-nav--inline" aria-label="Workspace sections">
-                  {SECTION_ITEMS.map(({ id, label, icon: Icon }) => (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => setWorkspaceSection(id)}
-                      className={cn(
-                        'admin-projects-section-btn',
-                        workspaceSection === id ? 'admin-projects-section-btn--active' : 'admin-projects-section-btn--inactive',
-                      )}
-                    >
-                      <Icon className="h-4 w-4 shrink-0" aria-hidden />
-                      {label}
-                    </button>
-                  ))}
-                </nav>
-
-                <div className="admin-projects-progress-pill" aria-label={`Project progress ${project.completionPercentage}%`}>
-                  <div className="admin-projects-progress-ring" style={{ '--progress': `${project.completionPercentage}%` } as CSSProperties}>
-                    <span>{project.completionPercentage}%</span>
+                <div className="admin-projects-workspace-head-right">
+                  <div className="admin-projects-stats-row admin-projects-stats-row--header admin-projects-stats-row--bar">
+                    {[
+                      { label: 'Libraries', value: stats.libraryCount, icon: BookOpen, filter: null as StatFilter },
+                      { label: 'Cells', value: stats.cellCount, icon: Layers, filter: null },
+                      { label: 'Complete', value: stats.completedCells, icon: CheckCircle2, filter: 'complete' as StatFilter },
+                      { label: 'Archive', value: stats.blockedCells, icon: Archive, filter: 'archive' as StatFilter },
+                      { label: 'Unassigned', value: stats.unassignedCells, icon: User, filter: 'unassigned' as StatFilter },
+                    ].map(({ label, value, icon: Icon, filter }) => (
+                      <button
+                        key={label}
+                        type="button"
+                        className={cn(
+                          'admin-projects-stat',
+                          label === 'Cells' && showAllCells && 'admin-projects-stat--active',
+                          filter && statFilter === filter && 'admin-projects-stat--active',
+                        )}
+                        onClick={() => {
+                          if (label === 'Cells') {
+                            if (showAllCells) {
+                              setShowAllCells(false)
+                              clearFilters()
+                            } else {
+                              setShowAllCells(true)
+                              showAllProjectCells()
+                            }
+                          } else if (label === 'Libraries') {
+                            setShowAllCells(false)
+                            clearFilters()
+                          } else if (filter) {
+                            setShowAllCells(false)
+                            applyStatFilter(filter)
+                          }
+                        }}
+                      >
+                        <div className="admin-projects-stat-label">
+                          <Icon className="h-3.5 w-3.5" aria-hidden />
+                          <span>{label}</span>
+                        </div>
+                        <p className="admin-projects-stat-value">{value}</p>
+                      </button>
+                    ))}
                   </div>
-                  <span className="admin-projects-progress-label">Progress</span>
-                </div>
-              </div>
 
-              <div className="admin-projects-stats-row admin-projects-stats-row--header admin-projects-stats-row--bar">
-                {[
-                  { label: 'Libraries', value: stats.libraryCount, icon: BookOpen, filter: null as StatFilter },
-                  { label: 'Cells', value: stats.cellCount, icon: Layers, filter: null },
-                  { label: 'Complete', value: stats.completedCells, icon: CheckCircle2, filter: 'complete' as StatFilter },
-                  { label: 'Archive', value: stats.blockedCells, icon: Archive, filter: 'archive' as StatFilter },
-                  { label: 'Unassigned', value: stats.unassignedCells, icon: User, filter: 'unassigned' as StatFilter },
-                ].map(({ label, value, icon: Icon, filter }) => (
-                  <button
-                    key={label}
-                    type="button"
-                    className={cn(
-                      'admin-projects-stat',
-                      label === 'Cells' && showAllCells && 'admin-projects-stat--active',
-                      filter && statFilter === filter && 'admin-projects-stat--active',
-                    )}
-                    onClick={() => {
-                      if (label === 'Cells') {
-                        if (showAllCells) {
-                          setShowAllCells(false)
-                          clearFilters()
-                        } else {
-                          setShowAllCells(true)
-                          showAllProjectCells()
-                        }
-                      } else if (label === 'Libraries') {
-                        setShowAllCells(false)
-                        clearFilters()
-                      } else if (filter) {
-                        setShowAllCells(false)
-                        applyStatFilter(filter)
-                      }
-                    }}
-                  >
-                    <div className="admin-projects-stat-label">
-                      <Icon className="h-3.5 w-3.5" aria-hidden />
-                      <span>{label}</span>
+                  <div className="admin-projects-progress-pill" aria-label={`Project progress ${project.completionPercentage}%`}>
+                    <div className="admin-projects-progress-ring" style={{ '--progress': `${project.completionPercentage}%` } as CSSProperties}>
+                      <span>{project.completionPercentage}%</span>
                     </div>
-                    <p className="admin-projects-stat-value">{value}</p>
-                  </button>
-                ))}
+                    <span className="admin-projects-progress-label">Progress</span>
+                  </div>
+                </div>
               </div>
             </header>
           </div>
+
+          <nav
+            className="admin-projects-workspace-nav admin-projects-workspace-nav--below-chrome"
+            aria-label="Workspace sections"
+          >
+            {SECTION_ITEMS.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setWorkspaceSection(id)}
+                className={cn(
+                  'admin-projects-section-btn',
+                  workspaceSection === id ? 'admin-projects-section-btn--active' : 'admin-projects-section-btn--inactive',
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                {label}
+              </button>
+            ))}
+          </nav>
 
           <div className="admin-projects-workspace-scroll">
             <div className="admin-projects-workspace-content">
@@ -423,13 +452,6 @@ export function ProjectWorkspace() {
                 <div className="admin-projects-cells-head">
                   <div className="admin-projects-cells-head-text">
                     <h2>Cells</h2>
-                    <p className="admin-projects-cells-head-sub">
-                      {showAllCells
-                        ? `${displayedCells.length} of ${allCells.length} cells across all libraries`
-                        : activeLibrary
-                          ? `${displayedCells.length} cell${displayedCells.length === 1 ? '' : 's'} in ${activeLibrary.name}`
-                          : 'Select a library to view cells'}
-                    </p>
                     {showAllCells ? (
                       <span className="admin-projects-active-lib-pill">All libraries</span>
                     ) : activeLibrary ? (
@@ -512,15 +534,15 @@ export function ProjectWorkspace() {
                 </div>
 
                 <div className="admin-projects-cells-table-wrap">
-                  <table className="admin-projects-table">
+                  <table className="admin-projects-table admin-projects-table--cells">
                     <thead>
                       <tr>
-                        <th>Name</th>
-                        {showAllCells ? <th>Library</th> : null}
-                        <th>Type</th>
-                        <th>Assigned</th>
-                        <th>Status</th>
-                        <th>Workflow</th>
+                        <th className="admin-projects-table-col-name">Name</th>
+                        {showAllCells ? <th className="admin-projects-table-col-library">Library</th> : null}
+                        <th className="admin-projects-table-col-type">Type</th>
+                        <th className="admin-projects-table-col-assigned">Assigned</th>
+                        <th className="admin-projects-table-col-status">Status</th>
+                        <th className="admin-projects-table-col-workflow">Workflow</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -539,15 +561,15 @@ export function ProjectWorkspace() {
                           role="link"
                           aria-label={`Open ${cell.name}`}
                         >
-                          <td className="admin-projects-table-cell-name">{cell.name}</td>
+                          <td className="admin-projects-table-col-name admin-projects-table-cell-name">{cell.name}</td>
                           {showAllCells ? (
-                            <td>{libraryNameById.get(cell.libraryId) || '—'}</td>
+                            <td className="admin-projects-table-col-library">{libraryNameById.get(cell.libraryId) || '—'}</td>
                           ) : null}
-                          <td>{CELL_TYPE_LABELS[cell.cellType] ?? cell.cellType}</td>
-                          <td>{cell.assignedEmployeeName || '—'}</td>
-                          <td>
+                          <td className="admin-projects-table-col-type">{CELL_TYPE_LABELS[cell.cellType] ?? cell.cellType}</td>
+                          <td className="admin-projects-table-col-assigned">{cell.assignedEmployeeName || '—'}</td>
+                          <td className="admin-projects-table-col-status">
                             <span className={cn(
-                              'admin-projects-status-chip',
+                              'admin-projects-status-chip admin-projects-status-chip--table',
                               cell.isBlocked && 'is-blocked',
                               cell.isReady && 'is-ready',
                               cell.status === 'completed' && 'is-completed',
@@ -556,7 +578,7 @@ export function ProjectWorkspace() {
                               {cellDisplayStatus(cell)}
                             </span>
                           </td>
-                          <td onClick={(e) => e.stopPropagation()}>
+                          <td className="admin-projects-table-col-workflow" onClick={(e) => e.stopPropagation()}>
                             <CellWorkflowPanel projectId={projectId} cell={cell} compact />
                           </td>
                         </tr>
@@ -578,9 +600,6 @@ export function ProjectWorkspace() {
             {workspaceSection === 'workflow' && (
               <div className="admin-projects-section-panel admin-projects-section-panel--workflow">
                 <h2 className="admin-projects-graph-title">Cell workflow overview</h2>
-                <p className="admin-projects-workflow-section-intro">
-                  Track Floor Plan, DRC, Routing, and LVS stages independently for every cell in this project.
-                </p>
                 <ProjectWorkflowOverview
                   projectId={projectId}
                   cells={allCells}
@@ -598,26 +617,90 @@ export function ProjectWorkspace() {
 
             {workspaceSection === 'activity' && (
               <div className="admin-projects-section-panel admin-projects-section-panel--activity">
-                <h2 className="admin-projects-graph-title">Activity log</h2>
-                <div className="admin-projects-activity-list">
-                  {activityEntries.length === 0 ? (
-                    <p className="admin-projects-activity-empty">No activity recorded yet.</p>
-                  ) : (
-                    activityEntries.map((entry, index) => (
-                      <div key={`${entry.cellId}-${entry.at}-${index}`} className="admin-projects-activity-item">
-                        <div className="admin-projects-activity-item-head">
-                          <span className="admin-projects-activity-cell">{entry.cellName}</span>
-                          <span className="admin-projects-activity-lib">{entry.libraryName}</span>
-                          <time className="admin-projects-activity-time">
-                            {new Date(entry.at).toLocaleString()}
-                          </time>
-                        </div>
-                        <p className="admin-projects-activity-action">{entry.action.replace(/_/g, ' ')}</p>
-                        {entry.detail && <p className="admin-projects-activity-detail">{entry.detail}</p>}
-                        {entry.userName && <p className="admin-projects-activity-user">by {entry.userName}</p>}
+                <div className="admin-projects-activity-panel">
+                  <div className="admin-projects-activity-head">
+                    <h2 className="admin-projects-activity-head-title">Activity log</h2>
+                    <div className="admin-projects-activity-head-filters">
+                      <div className="admin-projects-filter-select-wrap">
+                        <select
+                          value={activityLibraryFilter}
+                          onChange={(e) => setActivityLibraryFilter(e.target.value)}
+                          className={FILTER_SELECT_CLASS}
+                          aria-label="Filter activity by library"
+                        >
+                          <option value="all">All libraries</option>
+                          {libraries.map((lib) => (
+                            <option key={lib.id} value={lib.id}>{lib.name}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="admin-projects-filter-select-icon" aria-hidden />
                       </div>
-                    ))
-                  )}
+                      <div className="admin-projects-filter-search-wrap">
+                        <Search className="admin-projects-filter-search-icon" strokeWidth={2} aria-hidden />
+                        <input
+                          type="text"
+                          value={activityFilterSearch}
+                          onChange={(e) => setActivityFilterSearch(e.target.value)}
+                          placeholder="Search activity..."
+                          className="admin-projects-filter-search-input"
+                          aria-label="Search activity log"
+                        />
+                        {activityFilterSearch ? (
+                          <button
+                            type="button"
+                            className="admin-projects-filter-search-clear"
+                            onClick={() => setActivityFilterSearch('')}
+                            aria-label="Clear activity search"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="admin-projects-activity-table-wrap">
+                    <table className="admin-projects-activity-table">
+                      <thead>
+                        <tr>
+                          <th>Cell</th>
+                          <th>Library</th>
+                          <th>Action</th>
+                          <th>Detail</th>
+                          <th>User</th>
+                          <th>Time</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredActivityEntries.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="admin-projects-activity-empty">
+                              {activityEntries.length === 0
+                                ? 'No activity recorded yet.'
+                                : 'No activity matches your filters.'}
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredActivityEntries.map((entry, index) => (
+                            <tr key={`${entry.cellId}-${entry.at}-${index}`}>
+                              <td className="admin-projects-activity-table-cell">{entry.cellName}</td>
+                              <td>
+                                <span className="admin-projects-activity-lib">{entry.libraryName}</span>
+                              </td>
+                              <td className="admin-projects-activity-table-action">
+                                {entry.action.replace(/_/g, ' ')}
+                              </td>
+                              <td className="admin-projects-activity-table-detail">{entry.detail || '—'}</td>
+                              <td>{entry.userName || '—'}</td>
+                              <td className="admin-projects-activity-table-time">
+                                <time dateTime={entry.at}>{new Date(entry.at).toLocaleString()}</time>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             )}
