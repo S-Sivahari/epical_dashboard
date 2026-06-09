@@ -36,6 +36,8 @@ import {
   type CellViewWorkflow,
   type ViewProgressStatus,
 } from '../utils/cellWorkflow';
+import { buildCellChecklistDetail } from '../services/cellTypeChecklistService';
+import { updateCellChecklistItemResponse } from '../services/checklistService';
 
 function paramId(value: string | string[]): string {
   return Array.isArray(value) ? value[0] : value;
@@ -462,6 +464,57 @@ export const employeeProjectController = {
       res.json(reviews.map(toReview));
     } catch (err) {
       res.status(500).json({ error: 'Failed to list reviews' });
+    }
+  },
+
+  getMyCellChecklist: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const cellId = paramId(req.params.cellId);
+      const tokens = await getAssignmentTokens(req);
+
+      const cell = await assertProjectCell(projectId, cellId, tokens);
+      if (!cell) {
+        res.status(404).json({ error: 'Cell not found' });
+        return;
+      }
+
+      const detail = await buildCellChecklistDetail(projectId, cellId);
+      res.json(detail);
+    } catch (err) {
+      console.error('[employee-projects] cell checklist', err);
+      res.status(500).json({ error: 'Failed to fetch cell checklist' });
+    }
+  },
+
+  updateMyCellChecklistItem: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const cellId = paramId(req.params.cellId);
+      const mappingId = paramId(req.params.mappingId);
+      const tokens = await getAssignmentTokens(req);
+      const actor = actorFromReq(req);
+
+      const cell = await assertAssignedCell(projectId, cellId, tokens);
+      if (!cell) {
+        res.status(404).json({ error: 'Cell not found or not assigned to you' });
+        return;
+      }
+
+      const { response, comment } = req.body as { response?: string; comment?: string };
+      await updateCellChecklistItemResponse(
+        projectId,
+        cellId,
+        mappingId,
+        { response: response as 'yes' | 'no' | 'not_applicable', comment },
+        actor.userId,
+        actor.userName,
+      );
+
+      const detail = await buildCellChecklistDetail(projectId, cellId);
+      res.json(detail);
+    } catch (err: any) {
+      res.status(400).json({ error: err?.message || 'Failed to update checklist item' });
     }
   },
 };

@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
+import { MessageSquare } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@components/ui/Button'
+import { Input } from '@components/ui/Input'
 import { cn } from '@/utils/cn'
 import { useAuthStore } from '@store/authStore'
-import type { CellWorkflowStageKey, ProjectCell, WorkflowStageStatus } from '@/types/projectWorkspace'
+import type { CellReview, CellWorkflowStageKey, ProjectCell, WorkflowStageStatus } from '@/types/projectWorkspace'
 import { WORK_STAGE_STATUSES } from '@/types/projectWorkspace'
 import { updateWorkflowStage } from '@/services/projectWorkspaceService'
 import {
@@ -21,6 +23,13 @@ type CellWorkflowPanelProps = {
   onUpdated?: (cell: ProjectCell) => void
   compact?: boolean
   embedded?: boolean
+  showStages?: boolean
+  showReviews?: boolean
+  reviews?: CellReview[]
+  reviewComment?: string
+  onReviewCommentChange?: (value: string) => void
+  onRequestReview?: () => void | Promise<void>
+  onPostReviewReply?: (reviewId: string, body: string) => void | Promise<void>
 }
 
 const REVIEW_ACTION_OPTIONS: { value: 'approved' | 'rejected'; label: string }[] = [
@@ -38,8 +47,13 @@ const STAGE_VISUAL: Record<CellWorkflowStageKey, { label: string; dot: string }>
   review_2: { label: 'REVIEW 2', dot: '#ea580c' },
 }
 
-function stageHeaderBadge(status: WorkflowStageStatus, locked: boolean): string {
+function stageHeaderBadge(
+  status: WorkflowStageStatus,
+  locked: boolean,
+  reviewActionable?: boolean,
+): string {
   if (locked && status === 'not_started') return 'Locked'
+  if (reviewActionable && status === 'not_started') return 'In Progress'
   if (status === 'approved') return 'Approved'
   if (status === 'completed') return 'Completed'
   if (status === 'in_progress') return 'In Progress'
@@ -87,6 +101,13 @@ export function CellWorkflowPanel({
   onUpdated,
   compact = false,
   embedded = false,
+  showStages = true,
+  showReviews = true,
+  reviews = [],
+  reviewComment = '',
+  onReviewCommentChange,
+  onRequestReview,
+  onPostReviewReply,
 }: CellWorkflowPanelProps) {
   const [savingStage, setSavingStage] = useState<CellWorkflowStageKey | null>(null)
   const [review2RejectOpen, setReview2RejectOpen] = useState(false)
@@ -169,161 +190,214 @@ export function CellWorkflowPanel({
 
   return (
     <div className={cn('admin-projects-workflow-panel', embedded && 'is-embedded')}>
-      <div className="admin-projects-workflow-board-wrap">
-        <div className="admin-projects-workflow-board">
-          {workflow.map((stage) => {
-            const visual = STAGE_VISUAL[stage.stageKey]
-            const locked = isStageLocked(workflow, stage.stageKey) && !isReviewStageKey(stage.stageKey)
-            const isReview = isReviewStageKey(stage.stageKey)
-            const saving = savingStage === stage.stageKey
-            const reviewActionable = isReview && canActionReview(stage.stageKey, stage.status) && isAdmin
-            const showReview2Return =
-              stage.stageKey === 'review_2' && review2RejectOpen && reviewActionable
-            const isActive = activeStageKey === stage.stageKey
-            const awaitingReview = isReview && (stage.status === 'pending_review' || reviewActionable)
-            const meta = reviewStageMeta(stage.stageKey, awaitingReview)
-            const headerBadge = stageHeaderBadge(stage.status, locked)
+      {showStages && (
+        <div className="admin-projects-workflow-board-wrap">
+          <div className="admin-projects-workflow-board">
+            {workflow.map((stage) => {
+              const visual = STAGE_VISUAL[stage.stageKey]
+              const locked = isStageLocked(workflow, stage.stageKey) && !isReviewStageKey(stage.stageKey)
+              const isReview = isReviewStageKey(stage.stageKey)
+              const saving = savingStage === stage.stageKey
+              const reviewActionable = isReview && canActionReview(stage.stageKey, stage.status) && isAdmin
+              const showReview2Return =
+                stage.stageKey === 'review_2' && review2RejectOpen && reviewActionable
+              const isActive = activeStageKey === stage.stageKey
+              const awaitingReview = isReview && (stage.status === 'pending_review' || reviewActionable)
+              const meta = reviewStageMeta(stage.stageKey, awaitingReview)
+              const headerBadge = stageHeaderBadge(stage.status, locked, reviewActionable)
+              const badgeClass = reviewActionable && stage.status === 'not_started'
+                ? 'is-progress'
+                : workflowStageStatusClass(stage.status)
 
-            return (
-              <section
-                key={stage.stageKey}
-                className={cn(
-                  'admin-projects-workflow-column',
-                  isActive && 'is-active',
-                  locked && 'is-locked',
-                  isReview && 'is-review',
-                )}
-              >
-                <header className="admin-projects-workflow-column-head">
-                  <span className="admin-projects-workflow-column-label">
+              return (
+                <section
+                  key={stage.stageKey}
+                  className={cn(
+                    'admin-projects-workflow-column',
+                    isActive && 'is-active',
+                    locked && 'is-locked',
+                    isReview && 'is-review',
+                  )}
+                >
+                  <header className="admin-projects-workflow-column-head">
+                    <span className="admin-projects-workflow-column-label">
+                      <span
+                        className="admin-projects-workflow-column-dot"
+                        style={{ backgroundColor: visual.dot }}
+                        aria-hidden
+                      />
+                      {visual.label}
+                    </span>
                     <span
-                      className="admin-projects-workflow-column-dot"
-                      style={{ backgroundColor: visual.dot }}
-                      aria-hidden
-                    />
-                    {visual.label}
-                  </span>
-                  <span
-                    className={cn(
-                      'admin-projects-workflow-column-badge',
-                      workflowStageStatusClass(stage.status),
-                      locked && stage.status === 'not_started' && 'is-locked',
-                    )}
-                  >
-                    {headerBadge}
-                  </span>
-                </header>
+                      className={cn(
+                        'admin-projects-workflow-column-badge',
+                        badgeClass,
+                        locked && stage.status === 'not_started' && 'is-locked',
+                      )}
+                    >
+                      {headerBadge}
+                    </span>
+                  </header>
 
-                <div className="admin-projects-workflow-column-meta-slot">
-                  {meta ? (
-                    <p className="admin-projects-workflow-column-meta">{meta}</p>
-                  ) : null}
-                </div>
+                  <div className="admin-projects-workflow-column-meta-slot">
+                    {meta ? (
+                      <p className="admin-projects-workflow-column-meta">{meta}</p>
+                    ) : null}
+                  </div>
 
-                <div className="admin-projects-workflow-column-body">
-                  {isReview ? (
-                    reviewActionable ? (
-                      <div className="admin-projects-workflow-review-controls">
+                  <div className="admin-projects-workflow-column-body">
+                    {isReview ? (
+                      reviewActionable ? (
+                        <div className="admin-projects-workflow-review-controls">
+                          <div className="admin-projects-workflow-stage-select-wrap">
+                            <select
+                              key={`${stage.stageKey}-${review2RejectOpen ? 'open' : 'closed'}`}
+                              className={cn(
+                                'admin-projects-workflow-stage-select',
+                                stageSelectClass(stage.status, { reviewActionable: true }),
+                              )}
+                              disabled={saving}
+                              defaultValue=""
+                              onChange={(e) => {
+                                handleReviewSelect(stage.stageKey, e.target.value)
+                              }}
+                              aria-label={`${stage.stageLabel} review action`}
+                            >
+                              <option value="" disabled>
+                                Review
+                              </option>
+                              {REVIEW_ACTION_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          {showReview2Return ? (
+                            <div className="admin-projects-workflow-review-return">
+                              <p className="admin-projects-workflow-review-return-label">Return to:</p>
+                              <div className="admin-projects-workflow-review-return-actions">
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  disabled={saving}
+                                  onClick={() => void submitReviewAction('review_2', 'rejected', 'floor_plan')}
+                                >
+                                  To Floor Plan
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  disabled={saving}
+                                  onClick={() => void submitReviewAction('review_2', 'rejected', 'routing')}
+                                >
+                                  To Routing
+                                </Button>
+                                <button
+                                  type="button"
+                                  className="admin-projects-workflow-review-return-cancel"
+                                  disabled={saving}
+                                  onClick={() => setReview2RejectOpen(false)}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : (
                         <div className="admin-projects-workflow-stage-select-wrap">
                           <select
-                            key={`${stage.stageKey}-${review2RejectOpen ? 'open' : 'closed'}`}
                             className={cn(
                               'admin-projects-workflow-stage-select',
-                              stageSelectClass(stage.status, { reviewActionable: true }),
+                              stageSelectClass(stage.status, { disabled: true }),
                             )}
-                            disabled={saving}
-                            defaultValue=""
-                            onChange={(e) => {
-                              handleReviewSelect(stage.stageKey, e.target.value)
-                            }}
-                            aria-label={`${stage.stageLabel} review action`}
+                            value={stage.status}
+                            disabled
+                            aria-label={`${stage.stageLabel} review status`}
                           >
-                            <option value="" disabled>
-                              Review
-                            </option>
-                            {REVIEW_ACTION_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
+                            <option value={stage.status}>{WORKFLOW_STATUS_LABELS[stage.status]}</option>
                           </select>
                         </div>
-                        {showReview2Return ? (
-                          <div className="admin-projects-workflow-review-return">
-                            <p className="admin-projects-workflow-review-return-label">Return to:</p>
-                            <div className="admin-projects-workflow-review-return-actions">
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                disabled={saving}
-                                onClick={() => void submitReviewAction('review_2', 'rejected', 'floor_plan')}
-                              >
-                                To Floor Plan
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                disabled={saving}
-                                onClick={() => void submitReviewAction('review_2', 'rejected', 'routing')}
-                              >
-                                To Routing
-                              </Button>
-                              <button
-                                type="button"
-                                className="admin-projects-workflow-review-return-cancel"
-                                disabled={saving}
-                                onClick={() => setReview2RejectOpen(false)}
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : null}
-                      </div>
+                      )
                     ) : (
                       <div className="admin-projects-workflow-stage-select-wrap">
                         <select
                           className={cn(
                             'admin-projects-workflow-stage-select',
-                            stageSelectClass(stage.status, { disabled: true }),
+                            stageSelectClass(stage.status, { locked, disabled: locked || saving }),
                           )}
                           value={stage.status}
-                          disabled
-                          aria-label={`${stage.stageLabel} review status`}
+                          disabled={locked || saving}
+                          onChange={(e) => void handleStatusChange(
+                            stage.stageKey,
+                            e.target.value as WorkflowStageStatus,
+                          )}
+                          aria-label={`${stage.stageLabel} status`}
                         >
-                          <option value={stage.status}>{WORKFLOW_STATUS_LABELS[stage.status]}</option>
+                          {WORK_STAGE_STATUSES.map((value) => (
+                            <option key={value} value={value}>
+                              {WORKFLOW_STATUS_LABELS[value]}
+                            </option>
+                          ))}
                         </select>
                       </div>
-                    )
-                  ) : (
-                    <div className="admin-projects-workflow-stage-select-wrap">
-                      <select
-                        className={cn(
-                          'admin-projects-workflow-stage-select',
-                          stageSelectClass(stage.status, { locked, disabled: locked || saving }),
-                        )}
-                        value={stage.status}
-                        disabled={locked || saving}
-                        onChange={(e) => void handleStatusChange(
-                          stage.stageKey,
-                          e.target.value as WorkflowStageStatus,
-                        )}
-                        aria-label={`${stage.stageLabel} status`}
-                      >
-                        {WORK_STAGE_STATUSES.map((value) => (
-                          <option key={value} value={value}>
-                            {WORKFLOW_STATUS_LABELS[value]}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                </div>
-              </section>
-            )
-          })}
+                    )}
+                  </div>
+                </section>
+              )
+            })}
+          </div>
         </div>
-      </div>
+      )}
+
+      {showReviews && onRequestReview && (
+        <div className="admin-projects-workflow-reviews">
+          <div className="admin-projects-workflow-reviews-head">
+            <MessageSquare className="h-4 w-4" aria-hidden />
+            <h3 className="admin-projects-workflow-reviews-title">Reviews</h3>
+          </div>
+          <div className="flex gap-2">
+            <Input
+              className="flex-1"
+              placeholder="Request review or add comment…"
+              value={reviewComment}
+              onChange={(e) => onReviewCommentChange?.(e.target.value)}
+            />
+            <Button onClick={() => void onRequestReview()}>Request review</Button>
+          </div>
+          {reviews.map((review) => (
+            <div key={review.id} className="admin-projects-workflow-review-card">
+              <p className="admin-projects-workflow-review-meta">
+                {review.initiatedByName} · stage {review.stageAtRequest} · {review.status}
+              </p>
+              <ul className="admin-projects-workflow-review-messages">
+                {review.messages.map((msg, i) => (
+                  <li key={i} className="admin-projects-workflow-review-message">
+                    <span className="font-semibold">{msg.authorName}</span> ({msg.authorRole}): {msg.body}
+                  </li>
+                ))}
+              </ul>
+              {review.status === 'open' && onPostReviewReply && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="mt-2"
+                  onClick={() => {
+                    const body = window.prompt('Reply')
+                    if (body) void onPostReviewReply(review.id, body)
+                  }}
+                >
+                  Reply
+                </Button>
+              )}
+            </div>
+          ))}
+          {reviews.length === 0 && (
+            <p className="admin-projects-workflow-reviews-empty">No reviews yet.</p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

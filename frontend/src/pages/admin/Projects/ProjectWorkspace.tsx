@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   Archive, ArrowLeft, BookOpen, CheckCircle2, ChevronDown, ClipboardList, GitBranch, History, Layers, LayoutGrid, ListChecks, Plus, Search, Trash2, User, X,
@@ -284,18 +284,18 @@ export function ProjectWorkspace() {
         <div className="admin-projects-workspace-shell relative z-10">
           <div className="admin-projects-workspace-chrome">
             <header className="admin-projects-workspace-head">
-              <div className="min-w-0">
-                <Link to={ROUTES.PROJECTS} className="admin-projects-back-btn">
-                  <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-                  All projects
-                </Link>
-                <h1 className="admin-projects-head-title">{project.name}</h1>
-                <p className="admin-projects-workspace-meta">
-                  {project.client} · {project.accessType === 'public' ? 'Public' : 'Private'} · Lead: {project.teamLead || '—'}
-                </p>
-              </div>
-              <div className="admin-projects-workspace-head-actions">
-                <nav className="admin-projects-section-rail" aria-label="Workspace sections">
+              <div className="admin-projects-workspace-head-top">
+                <div className="admin-projects-workspace-head-left">
+                  <Link to={ROUTES.PROJECTS} className="admin-projects-back-btn">
+                    <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+                    All projects
+                  </Link>
+                  <div className="admin-projects-workspace-identity">
+                    <h1 className="admin-projects-head-title">{project.name}</h1>
+                  </div>
+                </div>
+
+                <nav className="admin-projects-workspace-nav admin-projects-workspace-nav--in-chrome admin-projects-workspace-nav--inline" aria-label="Workspace sections">
                   {SECTION_ITEMS.map(({ id, label, icon: Icon }) => (
                     <button
                       key={id}
@@ -306,66 +306,77 @@ export function ProjectWorkspace() {
                         workspaceSection === id ? 'admin-projects-section-btn--active' : 'admin-projects-section-btn--inactive',
                       )}
                     >
-                      <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                      <Icon className="h-4 w-4 shrink-0" aria-hidden />
                       {label}
                     </button>
                   ))}
                 </nav>
-                <div className="admin-projects-progress-pill">
-                  <span>Progress</span>
-                  <strong>{project.completionPercentage}%</strong>
+
+                <div className="admin-projects-progress-pill" aria-label={`Project progress ${project.completionPercentage}%`}>
+                  <div className="admin-projects-progress-ring" style={{ '--progress': `${project.completionPercentage}%` } as CSSProperties}>
+                    <span>{project.completionPercentage}%</span>
+                  </div>
+                  <span className="admin-projects-progress-label">Progress</span>
                 </div>
               </div>
-            </header>
 
-            <div className="admin-projects-stats-row">
-              {[
-                { label: 'Libraries', value: stats.libraryCount, icon: BookOpen, filter: null as StatFilter },
-                { label: 'Cells', value: stats.cellCount, icon: Layers, filter: null },
-                { label: 'Complete', value: stats.completedCells, icon: CheckCircle2, filter: 'complete' as StatFilter },
-                { label: 'Archive', value: stats.blockedCells, icon: Archive, filter: 'archive' as StatFilter },
-                { label: 'Unassigned', value: stats.unassignedCells, icon: User, filter: 'unassigned' as StatFilter },
-              ].map(({ label, value, icon: Icon, filter }) => (
-                <button
-                  key={label}
-                  type="button"
-                  className={cn(
-                    'admin-projects-stat',
-                    label === 'Cells' && showAllCells && 'admin-projects-stat--active',
-                    filter && statFilter === filter && 'admin-projects-stat--active',
-                  )}
-                  onClick={() => {
-                    if (label === 'Cells') {
-                      if (showAllCells) {
+              <div className="admin-projects-stats-row admin-projects-stats-row--header admin-projects-stats-row--bar">
+                {[
+                  { label: 'Libraries', value: stats.libraryCount, icon: BookOpen, filter: null as StatFilter },
+                  { label: 'Cells', value: stats.cellCount, icon: Layers, filter: null },
+                  { label: 'Complete', value: stats.completedCells, icon: CheckCircle2, filter: 'complete' as StatFilter },
+                  { label: 'Archive', value: stats.blockedCells, icon: Archive, filter: 'archive' as StatFilter },
+                  { label: 'Unassigned', value: stats.unassignedCells, icon: User, filter: 'unassigned' as StatFilter },
+                ].map(({ label, value, icon: Icon, filter }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    className={cn(
+                      'admin-projects-stat',
+                      label === 'Cells' && showAllCells && 'admin-projects-stat--active',
+                      filter && statFilter === filter && 'admin-projects-stat--active',
+                    )}
+                    onClick={() => {
+                      if (label === 'Cells') {
+                        if (showAllCells) {
+                          setShowAllCells(false)
+                          clearFilters()
+                        } else {
+                          setShowAllCells(true)
+                          showAllProjectCells()
+                        }
+                      } else if (label === 'Libraries') {
                         setShowAllCells(false)
                         clearFilters()
-                      } else {
-                        setShowAllCells(true)
-                        showAllProjectCells()
+                      } else if (filter) {
+                        setShowAllCells(false)
+                        applyStatFilter(filter)
                       }
-                    } else if (label === 'Libraries') {
-                      setShowAllCells(false)
-                      clearFilters()
-                    } else if (filter) {
-                      setShowAllCells(false)
-                      applyStatFilter(filter)
-                    }
-                  }}
-                >
-                  <div className="admin-projects-stat-label">
-                    <Icon className="h-3.5 w-3.5" /> {label}
-                  </div>
-                  <p className="admin-projects-stat-value">{value}</p>
-                </button>
-              ))}
-            </div>
+                    }}
+                  >
+                    <div className="admin-projects-stat-label">
+                      <Icon className="h-3.5 w-3.5" aria-hidden />
+                      <span>{label}</span>
+                    </div>
+                    <p className="admin-projects-stat-value">{value}</p>
+                  </button>
+                ))}
+              </div>
+            </header>
           </div>
 
           <div className="admin-projects-workspace-scroll">
+            <div className="admin-projects-workspace-content">
             {workspaceSection === 'home' && (
             <div className="admin-projects-workspace-grid">
               <aside className="admin-projects-libraries-panel">
-                <p className="admin-projects-libraries-head">Libraries</p>
+                <div className="admin-projects-libraries-head-row">
+                  <p className="admin-projects-libraries-head">
+                    <BookOpen className="h-4 w-4" aria-hidden />
+                    Libraries
+                  </p>
+                  <span className="admin-projects-libraries-count">{libraries.length}</span>
+                </div>
                 <button
                   type="button"
                   className="admin-projects-libraries-create"
@@ -410,14 +421,86 @@ export function ProjectWorkspace() {
 
               <section className="admin-projects-cells-panel">
                 <div className="admin-projects-cells-head">
-                  <div>
+                  <div className="admin-projects-cells-head-text">
                     <h2>Cells</h2>
+                    <p className="admin-projects-cells-head-sub">
+                      {showAllCells
+                        ? `${displayedCells.length} of ${allCells.length} cells across all libraries`
+                        : activeLibrary
+                          ? `${displayedCells.length} cell${displayedCells.length === 1 ? '' : 's'} in ${activeLibrary.name}`
+                          : 'Select a library to view cells'}
+                    </p>
                     {showAllCells ? (
                       <span className="admin-projects-active-lib-pill">All libraries</span>
                     ) : activeLibrary ? (
                       <span className="admin-projects-active-lib-pill">{activeLibrary.name}</span>
                     ) : null}
                   </div>
+
+                  <div className="admin-projects-cells-head-filters">
+                    <div className="admin-projects-filter-search-wrap">
+                      <Search className="admin-projects-filter-search-icon" strokeWidth={2} aria-hidden />
+                      <input
+                        type="text"
+                        value={filterSearch}
+                        onChange={(e) => {
+                          setFilterSearch(e.target.value)
+                          setStatFilter(null)
+                        }}
+                        placeholder="Search by cell name..."
+                        className="admin-projects-filter-search-input"
+                        aria-label="Search cells by name"
+                      />
+                      {filterSearch ? (
+                        <button
+                          type="button"
+                          className="admin-projects-filter-search-clear"
+                          onClick={() => setFilterSearch('')}
+                          aria-label="Clear search"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      ) : null}
+                    </div>
+
+                    <div className="admin-projects-filter-select-wrap">
+                      <select
+                        value={filterTypeSelect}
+                        onChange={(e) => {
+                          setFilterTypeSelect(e.target.value as 'all' | ProjectCell['cellType'])
+                          setStatFilter(null)
+                        }}
+                        className={FILTER_SELECT_CLASS}
+                        aria-label="Filter by cell type"
+                      >
+                        <option value="all">All types</option>
+                        {CELL_TYPES.map((type) => (
+                          <option key={type} value={type}>{CELL_TYPE_LABELS[type]}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="admin-projects-filter-select-icon" aria-hidden />
+                    </div>
+
+                    <div className="admin-projects-filter-select-wrap">
+                      <select
+                        value={filterStatusSelect}
+                        onChange={(e) => {
+                          setFilterStatusSelect(e.target.value as 'all' | CellStatus | 'archive')
+                          setStatFilter(null)
+                        }}
+                        className={FILTER_SELECT_CLASS}
+                        aria-label="Filter by status"
+                      >
+                        <option value="all">All statuses</option>
+                        {CELL_STATUS_FILTER_OPTIONS.map((status) => (
+                          <option key={status} value={status}>{STATUS_LABELS[status]}</option>
+                        ))}
+                        <option value="archive">Archive</option>
+                      </select>
+                      <ChevronDown className="admin-projects-filter-select-icon" aria-hidden />
+                    </div>
+                  </div>
+
                   <button
                     type="button"
                     className="admin-projects-cells-create"
@@ -426,70 +509,6 @@ export function ProjectWorkspace() {
                   >
                     <Plus className="h-4 w-4" /> New cell
                   </button>
-                </div>
-
-                <div className="admin-projects-filter-toolbar">
-                  <div className="admin-projects-filter-search-wrap">
-                    <Search className="admin-projects-filter-search-icon" strokeWidth={2} aria-hidden />
-                    <input
-                      type="text"
-                      value={filterSearch}
-                      onChange={(e) => {
-                        setFilterSearch(e.target.value)
-                        setStatFilter(null)
-                      }}
-                      placeholder="Search by cell name..."
-                      className="admin-projects-filter-search-input"
-                      aria-label="Search cells by name"
-                    />
-                    {filterSearch ? (
-                      <button
-                        type="button"
-                        className="admin-projects-filter-search-clear"
-                        onClick={() => setFilterSearch('')}
-                        aria-label="Clear search"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    ) : null}
-                  </div>
-
-                  <div className="admin-projects-filter-select-wrap">
-                    <select
-                      value={filterTypeSelect}
-                      onChange={(e) => {
-                        setFilterTypeSelect(e.target.value as 'all' | ProjectCell['cellType'])
-                        setStatFilter(null)
-                      }}
-                      className={FILTER_SELECT_CLASS}
-                      aria-label="Filter by cell type"
-                    >
-                      <option value="all">All types</option>
-                      {CELL_TYPES.map((type) => (
-                        <option key={type} value={type}>{CELL_TYPE_LABELS[type]}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="admin-projects-filter-select-icon" aria-hidden />
-                  </div>
-
-                  <div className="admin-projects-filter-select-wrap">
-                    <select
-                      value={filterStatusSelect}
-                      onChange={(e) => {
-                        setFilterStatusSelect(e.target.value as 'all' | CellStatus | 'archive')
-                        setStatFilter(null)
-                      }}
-                      className={FILTER_SELECT_CLASS}
-                      aria-label="Filter by status"
-                    >
-                      <option value="all">All statuses</option>
-                      {CELL_STATUS_FILTER_OPTIONS.map((status) => (
-                        <option key={status} value={status}>{STATUS_LABELS[status]}</option>
-                      ))}
-                      <option value="archive">Archive</option>
-                    </select>
-                    <ChevronDown className="admin-projects-filter-select-icon" aria-hidden />
-                  </div>
                 </div>
 
                 <div className="admin-projects-cells-table-wrap">
@@ -520,7 +539,7 @@ export function ProjectWorkspace() {
                           role="link"
                           aria-label={`Open ${cell.name}`}
                         >
-                          <td style={{ fontWeight: 600 }}>{cell.name}</td>
+                          <td className="admin-projects-table-cell-name">{cell.name}</td>
                           {showAllCells ? (
                             <td>{libraryNameById.get(cell.libraryId) || '—'}</td>
                           ) : null}
@@ -544,7 +563,7 @@ export function ProjectWorkspace() {
                       ))}
                       {displayedCells.length === 0 && (
                         <tr>
-                          <td colSpan={showAllCells ? 6 : 5} style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                          <td colSpan={showAllCells ? 6 : 5} className="admin-projects-table-empty">
                             {showAllCells ? 'No cells in this project.' : 'No cells in this library.'}
                           </td>
                         </tr>
@@ -608,6 +627,7 @@ export function ProjectWorkspace() {
                 <ProjectTypeChecklistPanel projectId={projectId} />
               </div>
             )}
+            </div>
           </div>
         </div>
       </div>
