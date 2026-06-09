@@ -1,7 +1,13 @@
 import ExcelJS from 'exceljs';
 import { Types } from 'mongoose';
 import { ProjectLibraryModel } from '../models/ProjectLibrary';
-import { ProjectCellModel, CELL_TYPES, type CellType } from '../models/ProjectCell';
+import {
+  ProjectCellModel,
+  CELL_TYPES,
+  type CellChecklistExtension,
+  type CellType,
+  type ChecklistYesNo,
+} from '../models/ProjectCell';
 import { ProjectTypeChecklistModel } from '../models/ProjectTypeChecklist';
 import { CellTypeChecklistResponseModel, type TypeChecklistAnswer } from '../models/CellTypeChecklistResponse';
 import { CellCustomChecklistItemModel } from '../models/CellCustomChecklistItem';
@@ -137,6 +143,66 @@ export async function getTypeChecklistItems(
   return parseChecklistItemsFromBuffer(buffer);
 }
 
+export const EMPTY_CHECKLIST_EXTENSION: CellChecklistExtension = {
+  dimensionX: null,
+  dimensionY: null,
+  area: null,
+  highestMetalUsed: '',
+  virtualConnection: null,
+  overallSubstrateContact: null,
+  waivableDrcError: null,
+};
+
+export function computeChecklistArea(
+  dimensionX: number | null | undefined,
+  dimensionY: number | null | undefined,
+): number | null {
+  if (dimensionX == null || dimensionY == null) return null;
+  if (!Number.isFinite(dimensionX) || !Number.isFinite(dimensionY)) return null;
+  return dimensionX * dimensionY;
+}
+
+export function normalizeChecklistExtension(
+  value?: Partial<CellChecklistExtension> | null,
+): CellChecklistExtension {
+  const dimensionX =
+    value?.dimensionX != null && Number.isFinite(Number(value.dimensionX))
+      ? Number(value.dimensionX)
+      : null;
+  const dimensionY =
+    value?.dimensionY != null && Number.isFinite(Number(value.dimensionY))
+      ? Number(value.dimensionY)
+      : null;
+
+  return {
+    dimensionX,
+    dimensionY,
+    area: computeChecklistArea(dimensionX, dimensionY),
+    highestMetalUsed: String(value?.highestMetalUsed ?? '').trim(),
+    virtualConnection: value?.virtualConnection === 'yes' || value?.virtualConnection === 'no'
+      ? value.virtualConnection
+      : null,
+    overallSubstrateContact:
+      value?.overallSubstrateContact === 'yes' || value?.overallSubstrateContact === 'no'
+        ? value.overallSubstrateContact
+        : null,
+    waivableDrcError:
+      value?.waivableDrcError === 'yes' || value?.waivableDrcError === 'no'
+        ? value.waivableDrcError
+        : null,
+  };
+}
+
+export function formatChecklistYesNo(value: ChecklistYesNo | null): string {
+  if (value === 'yes') return 'Yes';
+  if (value === 'no') return 'No';
+  return 'Pending';
+}
+
+export function isValidChecklistYesNo(value: string): value is ChecklistYesNo {
+  return value === 'yes' || value === 'no';
+}
+
 export function formatChecklistAnswerLabel(response: TypeChecklistAnswer | null): string {
   if (response === 'yes') return 'Yes';
   if (response === 'no') return 'No';
@@ -213,7 +279,38 @@ export async function getCellTypeChecklistDetail(projectId: string, cellId: stri
     hasFile: !!buffer,
     uploadedAt: typeDoc?.uploadedAt ?? null,
     items,
+    extension: normalizeChecklistExtension(cell.checklistExtension),
   };
+}
+
+export async function updateCellChecklistExtension(
+  projectId: string,
+  cellId: string,
+  payload: Partial<CellChecklistExtension>,
+) {
+  const context = await resolveCellContext(projectId, cellId);
+  if (!context) return null;
+
+  const current = normalizeChecklistExtension(context.cell.checklistExtension);
+  const next = normalizeChecklistExtension({
+    ...current,
+    ...payload,
+    highestMetalUsed:
+      payload.highestMetalUsed !== undefined
+        ? String(payload.highestMetalUsed).trim()
+        : current.highestMetalUsed,
+    dimensionX: payload.dimensionX !== undefined ? payload.dimensionX : current.dimensionX,
+    dimensionY: payload.dimensionY !== undefined ? payload.dimensionY : current.dimensionY,
+  });
+
+  const updated = await ProjectCellModel.findOneAndUpdate(
+    { _id: context.cellObjectId, projectId: context.projectObjectId },
+    { $set: { checklistExtension: next } },
+    { new: true },
+  ).lean();
+
+  if (!updated) return null;
+  return normalizeChecklistExtension(updated.checklistExtension);
 }
 
 export async function addCustomChecklistItem(
@@ -350,6 +447,49 @@ export async function buildCellChecklistWorkbook(projectId: string, cellId: stri
       status: formatChecklistAnswerLabel(item.response),
       notes: item.comment || '',
     });
+  }
+
+  const ext = detail.extension ?? EMPTY_CHECKLIST_EXTENSION;
+  const extensionRows: { item: string; status: string; notes: string }[] = [
+    {
+      item: 'Dimension X',
+      status: ext.dimensionX != null ? String(ext.dimensionX) : 'Pending',
+      notes: '',
+    },
+    {
+      item: 'Dimension Y',
+      status: ext.dimensionY != null ? String(ext.dimensionY) : 'Pending',
+      notes: '',
+    },
+    {
+      item: 'Area',
+      status: ext.area != null ? String(ext.area) : 'Pending',
+      notes: 'Dimension X × Dimension Y',
+    },
+    {
+      item: 'Highest Metal Used',
+      status: ext.highestMetalUsed || 'Pending',
+      notes: '',
+    },
+    {
+      item: 'Virtual Connection',
+      status: formatChecklistYesNo(ext.virtualConnection),
+      notes: '',
+    },
+    {
+      item: 'Overall Substrate Contact',
+      status: formatChecklistYesNo(ext.overallSubstrateContact),
+      notes: '',
+    },
+    {
+      item: 'Waivable DRC Error',
+      status: formatChecklistYesNo(ext.waivableDrcError),
+      notes: '',
+    },
+  ];
+
+  for (const row of extensionRows) {
+    sheet.addRow(row);
   }
 
   sheet.getRow(1).font = { bold: true };

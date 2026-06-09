@@ -59,6 +59,28 @@ export interface CellTypeChecklistItem {
   answeredByName?: string
 }
 
+export type ChecklistYesNo = 'yes' | 'no'
+
+export interface CellChecklistExtensionFields {
+  dimensionX: number | null
+  dimensionY: number | null
+  area: number | null
+  highestMetalUsed: string
+  virtualConnection: ChecklistYesNo | null
+  overallSubstrateContact: ChecklistYesNo | null
+  waivableDrcError: ChecklistYesNo | null
+}
+
+export const EMPTY_CHECKLIST_EXTENSION: CellChecklistExtensionFields = {
+  dimensionX: null,
+  dimensionY: null,
+  area: null,
+  highestMetalUsed: '',
+  virtualConnection: null,
+  overallSubstrateContact: null,
+  waivableDrcError: null,
+}
+
 export interface CellTypeChecklistDetail {
   cellId?: string
   cellName?: string
@@ -69,6 +91,7 @@ export interface CellTypeChecklistDetail {
   hasFile: boolean
   uploadedAt?: string | null
   items: CellTypeChecklistItem[]
+  extension?: CellChecklistExtensionFields
 }
 export type CellWorkflowStageKey = (typeof CELL_WORKFLOW_STAGE_KEYS)[number]
 export type WorkflowStageStatus = (typeof WORKFLOW_STAGE_STATUSES)[number]

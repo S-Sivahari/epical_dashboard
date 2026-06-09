@@ -761,7 +761,10 @@ export const projectWorkspaceController = {
       const projectId = paramId(req.params.projectId);
       const cellId = paramId(req.params.cellId);
       const stageKey = paramId(req.params.stageKey);
-      const { status } = req.body;
+      const { status, rejectReturnTo } = req.body as {
+        status?: string;
+        rejectReturnTo?: 'floor_plan' | 'routing';
+      };
 
       if (!isValidStageKey(stageKey)) {
         res.status(400).json({ error: 'Invalid workflow stage' });
@@ -779,7 +782,10 @@ export const projectWorkspaceController = {
       const stageMeta = CELL_WORKFLOW_STAGES.find((s) => s.key === stageKey);
       const prevWorkflow = normalizeCellWorkflow(cell.workflow);
       const prevStatus = prevWorkflow.find((s) => s.stageKey === stageKey)?.status ?? 'not_started';
-      const result = applyWorkflowStageUpdate(cell.workflow, stageKey, nextStatus, actor.role);
+      const result = applyWorkflowStageUpdate(cell.workflow, stageKey, nextStatus, actor.role, {
+        rejectReturnTo:
+          rejectReturnTo === 'floor_plan' || rejectReturnTo === 'routing' ? rejectReturnTo : undefined,
+      });
       if (!result.ok) {
         res.status(400).json({ error: result.error });
         return;
