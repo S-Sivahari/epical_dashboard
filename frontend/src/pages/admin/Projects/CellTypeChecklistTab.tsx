@@ -183,8 +183,15 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
     }
   }
 
+  const answeredCount = detail?.items.filter((item) => item.response).length ?? 0
+  const totalCount = detail?.items.length ?? 0
+
   if (loading) {
-    return <p className="text-sm text-slate-500">Loading checklist…</p>
+    return (
+      <div className="admin-projects-cell-checklist-tab admin-projects-cell-checklist-tab--loading">
+        <p className="text-sm text-slate-500">Loading checklist…</p>
+      </div>
+    )
   }
 
   const resolvedType = detail?.cellType
@@ -193,18 +200,19 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
   if (!detail?.hasFile && !hasItems) {
     return (
       <div className="admin-projects-cell-checklist-tab">
-        <div className="text-sm text-slate-500">
-          <p>
-            No checklist file uploaded for cell type <strong>{resolvedType || '—'}</strong> in this project.
+        <div className="admin-projects-cell-checklist-empty">
+          <FileSpreadsheet className="h-8 w-8 text-emerald-700" aria-hidden />
+          <p className="admin-projects-cell-checklist-empty-title">No checklist yet</p>
+          <p className="admin-projects-cell-checklist-empty-text">
+            No checklist file for cell type <strong>{resolvedType || '—'}</strong> in this project.
           </p>
           {detail?.libraryName ? (
-            <p className="mt-1 text-xs text-slate-400">
-              Cell <strong>{detail.cellName}</strong> · Library <strong>{detail.libraryName}</strong>
+            <p className="admin-projects-cell-checklist-empty-meta">
+              {detail.cellName} · {detail.libraryName}
             </p>
           ) : null}
-          <p className="mt-2">
-            Upload the matching type checklist from the project <strong>Checklist</strong> tab, or add custom
-            questions below.
+          <p className="admin-projects-cell-checklist-empty-text">
+            Upload a type checklist from the project Checklist tab, or add custom questions below.
           </p>
         </div>
         {isAdmin ? renderAddQuestionSection() : null}
@@ -215,44 +223,54 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
   return (
     <div className="admin-projects-cell-checklist-tab">
       <div className="admin-projects-cell-checklist-tab-head">
-        <div className="admin-projects-cell-type-checklist-file">
-          <FileSpreadsheet className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden />
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              {resolvedType} checklist
-            </p>
-            <p className="truncate font-semibold text-slate-800" title={detail?.fileName || 'Custom checklist'}>
-              {detail?.fileName || 'Custom questions'}
-            </p>
-            <p className="text-xs text-slate-500">
-              {detail?.cellName} · {detail?.libraryName || 'Library'} · Type matched from cell
-            </p>
+        <div className="admin-projects-cell-checklist-tab-head-main">
+          <div className="admin-projects-cell-checklist-type-badge">{resolvedType || '—'}</div>
+          <div className="admin-projects-cell-type-checklist-file">
+            <FileSpreadsheet className="h-5 w-5 shrink-0 text-emerald-700" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <p className="admin-projects-cell-checklist-file-name" title={detail?.fileName || 'Custom checklist'}>
+                {detail?.fileName || 'Custom questions'}
+              </p>
+              <div className="admin-projects-cell-checklist-meta-chips">
+                <span>{detail?.cellName}</span>
+                <span>{detail?.libraryName || 'Library'}</span>
+                <span>Type matched</span>
+              </div>
+            </div>
           </div>
         </div>
-        <div className="admin-projects-cell-checklist-tab-actions">
-          {isAdmin ? (
-            <Button size="sm" variant="secondary" onClick={() => setShowAddForm((prev) => !prev)}>
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              Add question
+        <div className="admin-projects-cell-checklist-tab-head-side">
+          <div className="admin-projects-cell-checklist-progress">
+            <span className="admin-projects-cell-checklist-progress-value">
+              {answeredCount}/{totalCount}
+            </span>
+            <span className="admin-projects-cell-checklist-progress-label">answered</span>
+          </div>
+          <div className="admin-projects-cell-checklist-tab-actions">
+            {isAdmin ? (
+              <Button size="sm" variant="secondary" onClick={() => setShowAddForm((prev) => !prev)}>
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                Add question
+              </Button>
+            ) : null}
+            <Button size="sm" variant="secondary" onClick={() => void handleDownload()} disabled={!hasItems}>
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              Download Excel
             </Button>
-          ) : null}
-          <Button size="sm" variant="secondary" onClick={() => void handleDownload()} disabled={!hasItems}>
-            <Download className="mr-1.5 h-3.5 w-3.5" />
-            Download Excel
-          </Button>
+          </div>
         </div>
       </div>
 
       {isAdmin && showAddForm ? renderAddQuestionSection() : null}
 
       {!hasItems ? (
-        <p className="text-sm text-slate-500">
+        <p className="admin-projects-cell-checklist-empty-inline">
           No checklist questions yet. {isAdmin ? 'Use Add question to create one.' : ''}
         </p>
       ) : (
-        <div className="admin-projects-checklist-responses">
+        <div className="admin-projects-checklist-responses admin-projects-checklist-responses--cell-tab">
           <ul className="admin-projects-checklist-responses-list">
-            {detail!.items.map((item) => {
+            {detail!.items.map((item, index) => {
               const needsComment = item.response === 'no' || item.response === 'not_applicable'
               const showComment = commentOpen[item.itemKey] || needsComment
               const activePending = pendingResponse[item.itemKey]
@@ -260,41 +278,57 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
               const isDeleting = deletingKey === item.itemKey
 
               return (
-                <li key={item.itemKey} className="admin-projects-checklist-response-item">
-                  <div className="admin-projects-checklist-response-item-head">
-                    <p className="admin-projects-checklist-response-question">{item.itemName}</p>
-                    {isAdmin ? (
-                      <button
-                        type="button"
-                        className="admin-projects-checklist-response-delete"
-                        aria-label={`Delete ${item.itemName}`}
-                        disabled={isDeleting || isSaving}
-                        onClick={() => void handleDeleteQuestion(item)}
+                <li
+                  key={item.itemKey}
+                  className={cn(
+                    'admin-projects-checklist-response-item',
+                    item.response && 'is-answered',
+                    item.response === 'yes' && 'is-yes',
+                    item.response === 'no' && 'is-no',
+                    item.response === 'not_applicable' && 'is-na',
+                  )}
+                >
+                  <div className="admin-projects-checklist-response-row">
+                    <span className="admin-projects-checklist-response-num" aria-hidden>
+                      {index + 1}
+                    </span>
+                    <div className="admin-projects-checklist-response-main">
+                      <div className="admin-projects-checklist-response-item-head">
+                        <p className="admin-projects-checklist-response-question">{item.itemName}</p>
+                        {isAdmin ? (
+                          <button
+                            type="button"
+                            className="admin-projects-checklist-response-delete"
+                            aria-label={`Delete ${item.itemName}`}
+                            disabled={isDeleting || isSaving}
+                            onClick={() => void handleDeleteQuestion(item)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        ) : null}
+                      </div>
+                      <div
+                        className="admin-projects-checklist-response-options"
+                        role="group"
+                        aria-label={`Response for ${item.itemName}`}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    ) : null}
-                  </div>
-                  <div
-                    className="admin-projects-checklist-response-options"
-                    role="group"
-                    aria-label={`Response for ${item.itemName}`}
-                  >
-                    {RESPONSE_OPTIONS.map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        className={cn(
-                          'admin-projects-checklist-response-btn',
-                          item.response === option.value && 'is-selected',
-                          item.response === option.value && option.className,
-                        )}
-                        disabled={isSaving}
-                        onClick={() => handleSelect(item, option.value)}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
+                        {RESPONSE_OPTIONS.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            className={cn(
+                              'admin-projects-checklist-response-btn',
+                              item.response === option.value && 'is-selected',
+                              item.response === option.value && option.className,
+                            )}
+                            disabled={isSaving}
+                            onClick={() => handleSelect(item, option.value)}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
 
                   {showComment ? (

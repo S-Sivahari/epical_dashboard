@@ -283,19 +283,20 @@ export function ProjectCellPage() {
           <div className="dashboard-page-bg-pattern" />
         </div>
 
-        <div className="admin-projects-workspace-shell relative z-10">
-          <header className="admin-projects-workspace-head">
-            <div className="min-w-0">
+        <div className="admin-projects-workspace-shell admin-projects-workspace-chrome relative z-10">
+          <header className="admin-projects-workspace-head admin-projects-cell-page-head">
+            <div className="admin-projects-cell-head-top">
               <Link to={ROUTES.PROJECT_WORKSPACE(projectId)} className="admin-projects-back-btn">
                 <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
                 Back to {project.name}
               </Link>
-              <h1 className="admin-projects-head-title">{cell.name}</h1>
-              <p className="admin-projects-workspace-meta">
-                {activeLibrary?.name || 'Library'} · {CELL_TYPE_LABELS[cell.cellType] ?? cell.cellType} · {cellDisplayStatus(cell)}
-              </p>
-            </div>
-            <div className="admin-projects-workspace-head-actions">
+              <div className="admin-projects-cell-head-identity">
+                <h1 className="admin-projects-head-title">{cell.name}</h1>
+                <p className="admin-projects-workspace-meta">
+                  {activeLibrary?.name || 'Library'} · {CELL_TYPE_LABELS[cell.cellType] ?? cell.cellType} · {cellDisplayStatus(cell)}
+                </p>
+              </div>
+              <div className="admin-projects-workspace-head-actions">
               <span className={cn(
                 'admin-projects-status-chip admin-projects-status-chip--lg',
                 cell.isBlocked && 'is-blocked',
@@ -319,6 +320,7 @@ export function ProjectCellPage() {
               >
                 <Trash2 className="h-4 w-4" />
               </button>
+              </div>
             </div>
           </header>
 
