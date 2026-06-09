@@ -236,7 +236,7 @@ export function AppRoutes() {
             <Route path="projects/:projectId/cells/:cellId" element={<ProjectCellPage />} />
             <Route path="projects/:projectId" element={<ProjectWorkspace />} />
 
-            <Route path="metal-routing" element={<AdminMetalRoutingPage />} />
+            <Route path="metal-routing/*" element={<AdminMetalRoutingPage />} />
 
             <Route
               path="calendar"
@@ -303,7 +303,7 @@ export function AppRoutes() {
               <Route path=":projectId/cells/:cellId" element={<EmployeeCellWorkflow />} />
             </Route>
 
-            <Route path="metal-routing" element={<EmployeeMetalRoutingPage />} />
+            <Route path="metal-routing/*" element={<EmployeeMetalRoutingPage />} />
 
             <Route
               path="leave"

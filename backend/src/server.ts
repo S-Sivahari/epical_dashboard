@@ -41,7 +41,7 @@ import { documentRequestRoutes } from './routes/documentRequestRoutes';
 import { companyCalendarEventRoutes } from './routes/companyCalendarEventRoutes';
 import { achievementRoutes } from './routes/achievementRoutes';
 import { employeeDashboardRoutes } from './routes/employeeDashboardRoutes';
-import { pkaMetalRoutingRoutes } from './routes/pkaMetalRoutingRoutes';
+import { pdkMetalRoutingRoutes } from './routes/pdkMetalRoutingRoutes';
 
 // Seed helpers
 import { ensureDefaultAdminUser, seedDefaultUsers } from './services/authService';
@@ -176,7 +176,7 @@ app.use('/api/calendar-events', companyCalendarEventRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/timesheets', timesheetRoutes);
 app.use('/api/projects', projectRoutes);
-app.use('/api/metal-routing', pkaMetalRoutingRoutes);
+app.use('/api/metal-routing', pdkMetalRoutingRoutes);
 app.use('/api/checklists', checklistRoutes);
 app.use('/api/payslips', payslipRoutes);
 app.use('/api/compensation', compensationRoutes);
@@ -350,15 +350,13 @@ export async function startServer() {
     }
 
     try {
-      const { seedPkaMetalRouting } = await import('./scripts/seedPkaMetalRouting');
-      const pkaSeed = await seedPkaMetalRouting();
-      if (pkaSeed.modulesCreated > 0 || pkaSeed.modulesUpdated > 0) {
-        console.log(
-          `✓ Seeded PKA metal routing data (${pkaSeed.modulesCreated} created, ${pkaSeed.modulesUpdated} updated)`,
-        );
+      const { seedPdkMetalRouting } = await import('./scripts/seedPdkMetalRouting');
+      const pdkSeed = await seedPdkMetalRouting();
+      if (pdkSeed.modulesCreated > 0) {
+        console.log(`✓ Seeded ${pdkSeed.modulesCreated} PDK module(s)`);
       }
     } catch (err) {
-      console.warn('⚠ PKA metal routing seed skipped:', err);
+      console.warn('⚠ PDK metal routing seed skipped:', err);
     }
 
     try {

@@ -1,17 +1,27 @@
 import api from '@services/api'
 import type {
   AnalysisSummary,
+  DashboardProject,
   MetalEntry,
-  MetalRoutingContext,
   MetalRoutingRoute,
-  PkaModule,
+  PdkModule,
+  ProjectRoutingContext,
   RoutingFilter,
-} from '@/types/pkaMetalRouting'
+} from '@/types/pdkMetalRouting'
 
 const BASE = '/metal-routing'
 
-export async function fetchMetalRoutingContext(): Promise<MetalRoutingContext> {
-  const { data } = await api.get<MetalRoutingContext>(`${BASE}/context`)
+export async function fetchDashboardProjects(): Promise<DashboardProject[]> {
+  const { data } = await api.get<{ projects: DashboardProject[] }>(`${BASE}/dashboard/projects`)
+  return data.projects
+}
+
+export async function assignPdkToProject(projectId: string, pdkModuleId: string | null): Promise<void> {
+  await api.patch(`${BASE}/projects/${projectId}/pdk`, { pdkModuleId })
+}
+
+export async function fetchProjectContext(projectId: string): Promise<ProjectRoutingContext> {
+  const { data } = await api.get<ProjectRoutingContext>(`${BASE}/projects/${projectId}/context`)
   return data
 }
 
@@ -25,43 +35,46 @@ export async function resolveRoute(filter: RoutingFilter): Promise<MetalRoutingR
   return data.route
 }
 
-export async function fetchPkaModules(): Promise<PkaModule[]> {
-  const { data } = await api.get<{ modules: PkaModule[] }>(`${BASE}/pka-modules`)
+export async function fetchPdkModules(): Promise<PdkModule[]> {
+  const { data } = await api.get<{ modules: PdkModule[] }>(`${BASE}/pdk-modules`)
   return data.modules
 }
 
-export async function fetchPkaModule(id: string): Promise<PkaModule> {
-  const { data } = await api.get<{ module: PkaModule }>(`${BASE}/pka-modules/${id}`)
+export async function fetchPdkModule(id: string): Promise<PdkModule> {
+  const { data } = await api.get<{ module: PdkModule }>(`${BASE}/pdk-modules/${id}`)
   return data.module
 }
 
-export async function createPkaModule(
-  payload: Pick<PkaModule, 'name' | 'technologyNode' | 'notes' | 'metals'>,
-): Promise<PkaModule> {
-  const { data } = await api.post<{ module: PkaModule }>(`${BASE}/pka-modules`, payload)
+export async function createPdkModule(
+  payload: Pick<PdkModule, 'name' | 'technologyNode' | 'notes' | 'metals'>,
+): Promise<PdkModule> {
+  const { data } = await api.post<{ module: PdkModule }>(`${BASE}/pdk-modules`, payload)
   return data.module
 }
 
-export async function updatePkaModule(id: string, payload: Partial<PkaModule>): Promise<PkaModule> {
-  const { data } = await api.put<{ module: PkaModule }>(`${BASE}/pka-modules/${id}`, payload)
+export async function updatePdkModule(id: string, payload: Partial<PdkModule>): Promise<PdkModule> {
+  const { data } = await api.put<{ module: PdkModule }>(`${BASE}/pdk-modules/${id}`, payload)
   return data.module
 }
 
-export async function deletePkaModule(id: string): Promise<void> {
-  await api.delete(`${BASE}/pka-modules/${id}`)
+export async function deletePdkModule(id: string): Promise<void> {
+  await api.delete(`${BASE}/pdk-modules/${id}`)
 }
 
 export async function previewMetal(
-  filter: RoutingFilter,
-  metal: { metalType: string; width: number; length: number; pkaModuleId: string },
+  projectId: string,
+  metal: { metalType: string; width: number; length: number },
 ): Promise<MetalEntry> {
-  const { data } = await api.post<{ metal: MetalEntry }>(`${BASE}/route/metals/preview`, metal)
+  const { data } = await api.post<{ metal: MetalEntry }>(`${BASE}/route/metals/preview`, {
+    projectId,
+    ...metal,
+  })
   return data.metal
 }
 
 export async function addMetalToRoute(
   filter: RoutingFilter,
-  metal: { metalType: string; width: number; length: number; pkaModuleId: string },
+  metal: { metalType: string; width: number; length: number },
 ): Promise<{ route: MetalRoutingRoute; summary: AnalysisSummary }> {
   const { data } = await api.post(`${BASE}/route/metals`, { ...filter, ...metal })
   return data
@@ -72,15 +85,6 @@ export async function removeMetalFromRoute(filter: RoutingFilter, metalId: strin
     data: filter,
   })
   return data.route
-}
-
-export async function fetchRoutes(): Promise<MetalRoutingRoute[]> {
-  const { data } = await api.get<{ routes: MetalRoutingRoute[] }>(`${BASE}/routes`)
-  return data.routes
-}
-
-export async function deleteRoute(id: string): Promise<void> {
-  await api.delete(`${BASE}/routes/${id}`)
 }
 
 export async function downloadRouteExcel(id: string, filename: string): Promise<void> {

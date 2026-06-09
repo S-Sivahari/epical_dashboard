@@ -1,6 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '@components/ui/Button'
-import type { MetalRoutingRoute } from '@/types/pkaMetalRouting'
+import type { MetalRoutingRoute } from '@/types/pdkMetalRouting'
 import { cn } from '@/utils/cn'
 
 function fmt(n: number): string {
@@ -15,7 +15,6 @@ export function MetalRoutingTable({
   route: MetalRoutingRoute
   onAddMetal: () => void
   onRemoveMetal: (metalId: string) => void
-  isAdmin?: boolean
 }) {
   const metals = route.metals
   const rowCount = Math.max(metals.length, 1)
@@ -65,7 +64,7 @@ export function MetalRoutingTable({
             {metals.length === 0 ? (
               <tr className="bg-lime-400/60 text-black">
                 <td className="border border-lime-500 px-2 py-6 text-center text-muted" colSpan={9}>
-                  No metals added yet. Click &quot;Add metal&quot; to enter width, length, and PKA module.
+                  No metals yet. Click &quot;Add metal&quot; to enter metal type, width, and length.
                 </td>
               </tr>
             ) : (
@@ -83,43 +82,26 @@ export function MetalRoutingTable({
                   >
                     <td className="border border-lime-500 px-2 py-2">
                       {metal.metalType}
-                      {isMin ? (
-                        <span className="ml-1 rounded bg-amber-200 px-1 text-[10px]">MIN</span>
-                      ) : null}
-                      {isMaxZ ? (
-                        <span className="ml-1 rounded bg-orange-200 px-1 text-[10px]">MAX Z</span>
-                      ) : null}
+                      {isMin ? <span className="ml-1 rounded bg-amber-200 px-1 text-[10px]">MIN</span> : null}
+                      {isMaxZ ? <span className="ml-1 rounded bg-orange-200 px-1 text-[10px]">MAX Z</span> : null}
                     </td>
                     <td className="border border-lime-500 px-2 py-2">{metal.width}</td>
                     <td className="border border-lime-500 px-2 py-2">{metal.length}</td>
                     <td className="border border-lime-500 px-2 py-2">{fmt(metal.givenCurrentDensity)}</td>
-                    <td className="border border-lime-500 px-2 py-2">
-                      {fmt(metal.implementedCurrentMetalCapacity)}
-                    </td>
+                    <td className="border border-lime-500 px-2 py-2">{fmt(metal.implementedCurrentMetalCapacity)}</td>
                     {index === 0 ? (
-                      <td
-                        className="border border-lime-500 bg-lime-300/80 px-2 py-2 text-center font-bold align-middle"
-                        rowSpan={rowCount}
-                      >
+                      <td className="border border-lime-500 bg-lime-300/80 px-2 py-2 text-center font-bold align-middle" rowSpan={rowCount}>
                         {fmt(route.minimumMetalCurrentCapacity)}
                       </td>
                     ) : null}
                     <td className="border border-lime-500 px-2 py-2">{fmt(metal.routingMetalImpedance)}</td>
                     {index === 0 ? (
-                      <td
-                        className="border border-lime-500 bg-lime-300/80 px-2 py-2 text-center font-bold align-middle"
-                        rowSpan={rowCount}
-                      >
+                      <td className="border border-lime-500 bg-lime-300/80 px-2 py-2 text-center font-bold align-middle" rowSpan={rowCount}>
                         {fmt(route.totalImpedance)}
                       </td>
                     ) : null}
                     <td className="border border-lime-500 px-1 py-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        icon={<Trash2 className="h-3.5 w-3.5 text-red-800" />}
-                        onClick={() => onRemoveMetal(metal._id)}
-                      />
+                      <Button size="sm" variant="ghost" icon={<Trash2 className="h-3.5 w-3.5 text-red-800" />} onClick={() => onRemoveMetal(metal._id)} />
                     </td>
                   </tr>
                 )

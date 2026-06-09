@@ -107,7 +107,7 @@ export const EMPLOYEE_ROUTE_TITLES: Record<string, string> = {
   '/employee': 'Dashboard',
   '/employee/timesheet': 'Timesheet',
   '/employee/projects': 'Projects',
-  '/employee/metal-routing': 'Metal Routing Analysis',
+  '/employee/metal-routing': 'Metal Routing',
   '/employee/leave': 'Leave Request',
   '/employee/calendar': 'Company Calendar',
   '/employee/documents': 'Documents',

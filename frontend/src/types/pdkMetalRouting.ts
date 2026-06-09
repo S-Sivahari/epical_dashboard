@@ -1,16 +1,16 @@
-export interface PkaModuleMetalSpec {
+export interface PdkModuleMetalSpec {
   _id?: string
   metalType: string
   currentDensityAt110: number
   sheetResistance: number
 }
 
-export interface PkaModule {
+export interface PdkModule {
   _id: string
   name: string
   technologyNode: string
   notes: string
-  metals: PkaModuleMetalSpec[]
+  metals: PdkModuleMetalSpec[]
   createdAt?: string
   updatedAt?: string
 }
@@ -20,8 +20,8 @@ export interface MetalEntry {
   metalType: string
   width: number
   length: number
-  pkaModuleId: string
-  pkaModuleName: string
+  pdkModuleId: string
+  pdkModuleName: string
   givenCurrentDensity: number
   sheetResistance: number
   implementedCurrentMetalCapacity: number
@@ -30,6 +30,7 @@ export interface MetalEntry {
 
 export interface MetalRoutingRoute {
   _id: string
+  projectId: string
   fromCell: string
   toCell: string
   fromSignal: string
@@ -39,22 +40,38 @@ export interface MetalRoutingRoute {
   totalImpedance: number
   minCapacityMetalId?: string | null
   highestImpedanceMetalId?: string | null
-  createdBy?: string
-  createdByName?: string
   createdAt?: string
   updatedAt?: string
 }
 
 export interface RoutingFilter {
+  projectId: string
   fromCell: string
   toCell: string
   fromSignal: string
   toSignal: string
 }
 
-export interface MetalRoutingContext {
+export interface DashboardProject {
+  id: string
+  projectName: string
+  clientName: string
+  technologyNode: string
+  status: string
+  pdkModuleId: string | null
+  pdkModuleName: string | null
+}
+
+export interface ProjectRoutingContext {
+  project: {
+    id: string
+    projectName: string
+    clientName: string
+    technologyNode: string
+    pdkModuleId: string | null
+  }
   cellNames: string[]
-  signals: string[]
+  pdkModule: PdkModule | null
   routes: Array<Pick<MetalRoutingRoute, '_id' | 'fromCell' | 'toCell' | 'fromSignal' | 'toSignal' | 'updatedAt' | 'metals'>>
 }
 

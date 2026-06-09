@@ -1,22 +1,22 @@
 import { Schema, model, Document, Types } from 'mongoose';
 
-export interface PkaModuleMetalSpec {
+export interface PdkModuleMetalSpec {
   _id?: Types.ObjectId;
   metalType: string;
   currentDensityAt110: number;
   sheetResistance: number;
 }
 
-export interface PkaModuleDocument extends Document {
+export interface PdkModuleDocument extends Document {
   name: string;
   technologyNode: string;
   notes: string;
-  metals: PkaModuleMetalSpec[];
+  metals: PdkModuleMetalSpec[];
   createdAt: Date;
   updatedAt: Date;
 }
 
-const pkaModuleMetalSchema = new Schema<PkaModuleMetalSpec>(
+const pdkModuleMetalSchema = new Schema<PdkModuleMetalSpec>(
   {
     metalType: { type: String, required: true, trim: true },
     currentDensityAt110: { type: Number, required: true, min: 0 },
@@ -25,16 +25,16 @@ const pkaModuleMetalSchema = new Schema<PkaModuleMetalSpec>(
   { _id: true },
 );
 
-const pkaModuleSchema = new Schema<PkaModuleDocument>(
+const pdkModuleSchema = new Schema<PdkModuleDocument>(
   {
     name: { type: String, required: true, trim: true, unique: true },
     technologyNode: { type: String, default: '', trim: true },
     notes: { type: String, default: '', trim: true },
-    metals: { type: [pkaModuleMetalSchema], default: [] },
+    metals: { type: [pdkModuleMetalSchema], default: [] },
   },
   { timestamps: true },
 );
 
-pkaModuleSchema.index({ name: 1 }, { unique: true });
+pdkModuleSchema.index({ name: 1 }, { unique: true });
 
-export const PkaModuleModel = model<PkaModuleDocument>('PkaModule', pkaModuleSchema);
+export const PdkModuleModel = model<PdkModuleDocument>('PdkModule', pdkModuleSchema);

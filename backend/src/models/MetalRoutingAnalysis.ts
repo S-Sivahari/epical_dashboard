@@ -5,8 +5,8 @@ export interface MetalEntrySubdoc {
   metalType: string;
   width: number;
   length: number;
-  pkaModuleId: Types.ObjectId;
-  pkaModuleName: string;
+  pdkModuleId: Types.ObjectId;
+  pdkModuleName: string;
   givenCurrentDensity: number;
   sheetResistance: number;
   implementedCurrentMetalCapacity: number;
@@ -14,6 +14,7 @@ export interface MetalEntrySubdoc {
 }
 
 export interface MetalRoutingAnalysisDocument extends Document {
+  projectId: Types.ObjectId;
   fromCell: string;
   toCell: string;
   fromSignal: string;
@@ -34,8 +35,8 @@ const metalEntrySchema = new Schema<MetalEntrySubdoc>(
     metalType: { type: String, required: true, trim: true },
     width: { type: Number, required: true, min: 0 },
     length: { type: Number, required: true, min: 0 },
-    pkaModuleId: { type: Schema.Types.ObjectId, ref: 'PkaModule', required: true },
-    pkaModuleName: { type: String, required: true, trim: true },
+    pdkModuleId: { type: Schema.Types.ObjectId, ref: 'PdkModule', required: true },
+    pdkModuleName: { type: String, required: true, trim: true },
     givenCurrentDensity: { type: Number, required: true, min: 0 },
     sheetResistance: { type: Number, required: true, min: 0 },
     implementedCurrentMetalCapacity: { type: Number, required: true, min: 0 },
@@ -46,6 +47,7 @@ const metalEntrySchema = new Schema<MetalEntrySubdoc>(
 
 const metalRoutingAnalysisSchema = new Schema<MetalRoutingAnalysisDocument>(
   {
+    projectId: { type: Schema.Types.ObjectId, ref: 'Project', required: true, index: true },
     fromCell: { type: String, required: true, trim: true },
     toCell: { type: String, required: true, trim: true },
     fromSignal: { type: String, required: true, trim: true },
@@ -62,7 +64,7 @@ const metalRoutingAnalysisSchema = new Schema<MetalRoutingAnalysisDocument>(
 );
 
 metalRoutingAnalysisSchema.index(
-  { fromCell: 1, toCell: 1, fromSignal: 1, toSignal: 1 },
+  { projectId: 1, fromCell: 1, toCell: 1, fromSignal: 1, toSignal: 1 },
   { unique: true },
 );
 

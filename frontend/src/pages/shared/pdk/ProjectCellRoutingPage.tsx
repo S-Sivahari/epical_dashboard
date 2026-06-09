@@ -1,66 +1,67 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Download, Layers, Search } from 'lucide-react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { ArrowLeft, Download, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
-import { PkaModulesPanel } from '@components/pka/PkaModulesPanel'
-import { MetalRoutingTable } from '@components/pka/MetalRoutingTable'
-import { AddMetalModal } from '@components/pka/AddMetalModal'
-import type { MetalRoutingContext, MetalRoutingRoute, PkaModule } from '@/types/pkaMetalRouting'
+import { MetalRoutingTable } from '@components/pdk/MetalRoutingTable'
+import { AddMetalModal } from '@components/pdk/AddMetalModal'
+import type { MetalRoutingRoute, ProjectRoutingContext } from '@/types/pdkMetalRouting'
 import {
   addMetalToRoute,
   downloadRouteExcel,
-  fetchMetalRoutingContext,
-  fetchPkaModules,
+  fetchProjectContext,
   lookupRoute,
   removeMetalFromRoute,
   resolveRoute,
-} from '@services/pkaMetalRoutingService'
+} from '@services/pdkMetalRoutingService'
 
-export function MetalRoutingPage({ isAdmin: _isAdmin }: { isAdmin: boolean }) {
-  const [context, setContext] = useState<MetalRoutingContext | null>(null)
-  const [filter, setFilter] = useState({
-    fromCell: '',
-    toCell: '',
-    fromSignal: '',
-    toSignal: '',
-  })
+export function ProjectCellRoutingPage({ basePath }: { basePath: string }) {
+  const { projectId = '' } = useParams()
+  const navigate = useNavigate()
+  const [context, setContext] = useState<ProjectRoutingContext | null>(null)
+  const [filter, setFilter] = useState({ fromCell: '', toCell: '', fromSignal: '', toSignal: '' })
   const [route, setRoute] = useState<MetalRoutingRoute | null>(null)
-  const [pkaModules, setPkaModules] = useState<PkaModule[]>([])
   const [loading, setLoading] = useState(false)
-  const [pkaPanelOpen, setPkaPanelOpen] = useState(false)
   const [addMetalOpen, setAddMetalOpen] = useState(false)
   const [addingMetal, setAddingMetal] = useState(false)
 
   const loadContext = useCallback(async () => {
+    if (!projectId) return
     try {
-      const [ctx, modules] = await Promise.all([fetchMetalRoutingContext(), fetchPkaModules()])
-      setContext(ctx)
-      setPkaModules(modules)
+      setContext(await fetchProjectContext(projectId))
     } catch {
-      toast.error('Failed to load routing context')
+      toast.error('Failed to load project')
     }
-  }, [])
+  }, [projectId])
 
   useEffect(() => {
     void loadContext()
   }, [loadContext])
 
+  const routingFilter = {
+    projectId,
+    fromCell: filter.fromCell,
+    toCell: filter.toCell,
+    fromSignal: filter.fromSignal,
+    toSignal: filter.toSignal,
+  }
+
   const handleOpenRoute = async () => {
     if (!filter.fromCell || !filter.toCell || !filter.fromSignal || !filter.toSignal) {
-      toast.error('All four values are required as a unique set')
+      toast.error('All four routing values are required as a unique set')
+      return
+    }
+    if (!context?.pdkModule) {
+      toast.error('Assign a PDK module to this project from the Dashboard first')
       return
     }
     setLoading(true)
     try {
-      const existing = await lookupRoute(filter)
-      const opened = existing ?? (await resolveRoute(filter))
+      const existing = await lookupRoute(routingFilter)
+      const opened = existing ?? (await resolveRoute(routingFilter))
       setRoute(opened)
-      if (existing) {
-        toast.success('Loaded existing route for this combination')
-      } else {
-        toast.success('Created new route for this unique combination')
-      }
+      toast.success(existing ? 'Route loaded' : 'New route created for this combination')
     } catch (err: unknown) {
       const message =
         err && typeof err === 'object' && 'response' in err
@@ -72,42 +73,12 @@ export function MetalRoutingPage({ isAdmin: _isAdmin }: { isAdmin: boolean }) {
     }
   }
 
-  const handleLoadSavedRoute = (r: {
-    fromCell: string
-    toCell: string
-    fromSignal: string
-    toSignal: string
-  }) => {
-    setFilter({
-      fromCell: r.fromCell,
-      toCell: r.toCell,
-      fromSignal: r.fromSignal,
-      toSignal: r.toSignal,
-    })
-    void (async () => {
-      setLoading(true)
-      try {
-        const existing = await lookupRoute(r)
-        if (existing) setRoute(existing)
-      } finally {
-        setLoading(false)
-      }
-    })()
-  }
-
-  const handleAddMetal = async (payload: {
-    metalType: string
-    width: number
-    length: number
-    pkaModuleId: string
-  }) => {
-    if (!route) return
+  const handleAddMetal = async (payload: { metalType: string; width: number; length: number }) => {
     setAddingMetal(true)
     try {
-      const result = await addMetalToRoute(filter, payload)
+      const result = await addMetalToRoute(routingFilter, payload)
       setRoute(result.route)
       setAddMetalOpen(false)
-      await loadContext()
       toast.success('Metal row added and saved')
     } catch (err: unknown) {
       const message =
@@ -121,71 +92,65 @@ export function MetalRoutingPage({ isAdmin: _isAdmin }: { isAdmin: boolean }) {
   }
 
   const handleRemoveMetal = async (metalId: string) => {
-    if (!route || !window.confirm('Remove this metal row?')) return
+    if (!window.confirm('Remove this metal row?')) return
     try {
-      const updated = await removeMetalFromRoute(filter, metalId)
-      setRoute(updated)
-      toast.success('Metal row removed')
+      setRoute(await removeMetalFromRoute(routingFilter, metalId))
+      toast.success('Metal removed')
     } catch {
       toast.error('Failed to remove metal')
     }
   }
 
-  const handleExport = async () => {
-    if (!route) return
-    try {
-      await downloadRouteExcel(
-        route._id,
-        `metal-routing_${route.fromCell}_${route.toCell}.xlsx`.replace(/\s+/g, '_'),
-      )
-      toast.success('Excel exported')
-    } catch {
-      toast.error('Export failed')
-    }
-  }
-
-  const cellOptions = context?.cellNames ?? []
-  const signalOptions = context?.signals ?? []
+  const cellNames = context?.cellNames ?? []
 
   return (
     <PageWrapper scrollable>
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+      <Button
+        size="sm"
+        variant="ghost"
+        icon={<ArrowLeft className="h-4 w-4" />}
+        onClick={() => navigate(`${basePath}/cell-routing`)}
+      >
+        All projects
+      </Button>
+
+      <div className="mt-4 mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-ink">Metal Routing Analysis</h1>
+          <h1 className="text-xl font-semibold text-ink">{context?.project.projectName ?? 'Cell Routing'}</h1>
           <p className="mt-1 text-sm text-muted">
-            The combination of From Cell, To Cell, From Signal, and To Signal is unique — one route per set.
+            PDK: {context?.pdkModule?.name ?? 'Not assigned'}
+            {context?.pdkModule ? null : ' — assign from Dashboard'}
           </p>
         </div>
-        <div className="flex gap-2">
+        {route ? (
           <Button
             variant="secondary"
-            icon={<Layers className="h-4 w-4" />}
-            onClick={() => setPkaPanelOpen(true)}
+            icon={<Download className="h-4 w-4" />}
+            onClick={() =>
+              void downloadRouteExcel(
+                route._id,
+                `metal-routing_${route.fromCell}_${route.toCell}.xlsx`.replace(/\s+/g, '_'),
+              ).then(() => toast.success('Exported'))
+            }
           >
-            PKA Modules
+            Export Excel
           </Button>
-          {route ? (
-            <Button variant="secondary" icon={<Download className="h-4 w-4" />} onClick={() => void handleExport()}>
-              Export Excel
-            </Button>
-          ) : null}
-        </div>
+        ) : null}
       </div>
 
       <section className="mb-6 rounded-xl border border-border bg-white p-4 shadow-sm">
-        <h2 className="mb-3 text-sm font-semibold text-ink">Open route (unique 4-value set)</h2>
+        <h2 className="mb-3 text-sm font-semibold text-ink">Open route (unique 4-value set within project)</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <label className="block space-y-1.5">
             <span className="text-sm font-medium text-ink">From Cell</span>
             <input
-              list="from-cells"
+              list="project-cells"
               className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm shadow-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               value={filter.fromCell}
               onChange={(e) => setFilter((f) => ({ ...f, fromCell: e.target.value }))}
-              placeholder="Select or type cell"
             />
-            <datalist id="from-cells">
-              {cellOptions.map((c) => (
+            <datalist id="project-cells">
+              {cellNames.map((c) => (
                 <option key={c} value={c} />
               ))}
             </datalist>
@@ -197,10 +162,10 @@ export function MetalRoutingPage({ isAdmin: _isAdmin }: { isAdmin: boolean }) {
               className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm shadow-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               value={filter.toCell}
               onChange={(e) => setFilter((f) => ({ ...f, toCell: e.target.value }))}
-              placeholder="Select or type cell"
+              placeholder="Select from list or type"
             />
             <datalist id="to-cells">
-              {cellOptions.map((c) => (
+              {cellNames.map((c) => (
                 <option key={c} value={c} />
               ))}
             </datalist>
@@ -208,32 +173,20 @@ export function MetalRoutingPage({ isAdmin: _isAdmin }: { isAdmin: boolean }) {
           <label className="block space-y-1.5">
             <span className="text-sm font-medium text-ink">From Signal</span>
             <input
-              list="from-signals"
               className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm shadow-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               value={filter.fromSignal}
               onChange={(e) => setFilter((f) => ({ ...f, fromSignal: e.target.value }))}
-              placeholder="Select or type signal"
+              placeholder="Type signal name"
             />
-            <datalist id="from-signals">
-              {signalOptions.map((s) => (
-                <option key={s} value={s} />
-              ))}
-            </datalist>
           </label>
           <label className="block space-y-1.5">
             <span className="text-sm font-medium text-ink">To Signal</span>
             <input
-              list="to-signals"
               className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm shadow-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               value={filter.toSignal}
               onChange={(e) => setFilter((f) => ({ ...f, toSignal: e.target.value }))}
-              placeholder="Select or type signal"
+              placeholder="Type signal name"
             />
-            <datalist id="to-signals">
-              {signalOptions.map((s) => (
-                <option key={s} value={s} />
-              ))}
-            </datalist>
           </label>
         </div>
         <div className="mt-3">
@@ -254,7 +207,7 @@ export function MetalRoutingPage({ isAdmin: _isAdmin }: { isAdmin: boolean }) {
       {context?.routes?.length ? (
         <section className="mt-8 rounded-xl border border-border bg-white shadow-sm">
           <div className="border-b border-border px-4 py-3">
-            <h2 className="text-sm font-semibold text-ink">Saved routes</h2>
+            <h2 className="text-sm font-semibold text-ink">Saved routes in this project</h2>
           </div>
           <ul className="divide-y divide-border">
             {context.routes.map((item) => (
@@ -262,15 +215,26 @@ export function MetalRoutingPage({ isAdmin: _isAdmin }: { isAdmin: boolean }) {
                 <button
                   type="button"
                   className="flex w-full flex-wrap items-center justify-between gap-2 px-4 py-3 text-left text-sm hover:bg-surface/50"
-                  onClick={() => handleLoadSavedRoute(item)}
+                  onClick={() => {
+                    setFilter({
+                      fromCell: item.fromCell,
+                      toCell: item.toCell,
+                      fromSignal: item.fromSignal,
+                      toSignal: item.toSignal,
+                    })
+                    void lookupRoute({
+                      projectId,
+                      fromCell: item.fromCell,
+                      toCell: item.toCell,
+                      fromSignal: item.fromSignal,
+                      toSignal: item.toSignal,
+                    }).then((r) => r && setRoute(r))
+                  }}
                 >
                   <span className="font-medium text-primary">
                     {item.fromCell} → {item.toCell} · {item.fromSignal} → {item.toSignal}
                   </span>
-                  <span className="text-xs text-muted">
-                    {item.metals?.length ?? 0} metal(s)
-                    {item.updatedAt ? ` · ${new Date(item.updatedAt).toLocaleString()}` : ''}
-                  </span>
+                  <span className="text-xs text-muted">{item.metals?.length ?? 0} metal(s)</span>
                 </button>
               </li>
             ))}
@@ -278,12 +242,11 @@ export function MetalRoutingPage({ isAdmin: _isAdmin }: { isAdmin: boolean }) {
         </section>
       ) : null}
 
-      <PkaModulesPanel isOpen={pkaPanelOpen} onClose={() => setPkaPanelOpen(false)} />
-
       <AddMetalModal
         isOpen={addMetalOpen}
         onClose={() => setAddMetalOpen(false)}
-        pkaModules={pkaModules}
+        projectId={projectId}
+        pdkModule={context?.pdkModule ?? null}
         adding={addingMetal}
         onAdd={handleAddMetal}
       />
