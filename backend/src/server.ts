@@ -72,9 +72,12 @@ app.use(
   }),
 );
 
-const authRateLimiter = rateLimit({
+// Rate limiter — applied ONLY to the admin password login endpoint.
+// Employees use Google sign-in (Google handles abuse protection), and 50 of
+// them share one office IP, so a blanket limiter would wrongly throttle them.
+const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: env.nodeEnv === 'production' ? 40 : 200,
+  max: 40,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many attempts. Try again later.' },
@@ -161,8 +164,11 @@ app.get('/health', async (_req, res) => {
 });
 
 // ── API Routes ────────────────────────────────────────────────
-app.use('/api/auth', authRateLimiter, authRoutes);
-app.use('/api/auth', authRateLimiter, oauthRoutes);
+// Limiter applies ONLY to the admin password login. Everything else
+// (employee Google OAuth, /me, etc.) is unlimited.
+app.use('/api/auth/login', loginRateLimiter);
+app.use('/api/auth', authRoutes);
+app.use('/api/auth', oauthRoutes);
 
 app.use('/api/dashboard', employeeDashboardRoutes);
 
@@ -288,6 +294,7 @@ app.post(
     }
   }
 );
+
 // ── Serve frontend static files (single-service deployment) ───
 const frontendDist = path.join(process.cwd(), 'frontend-dist');
 app.use(express.static(frontendDist));
@@ -296,6 +303,7 @@ app.use(express.static(frontendDist));
 app.get(/^(?!\/api).*/, (_req, res) => {
   res.sendFile(path.join(frontendDist, 'index.html'));
 });
+
 // ── 404 handler ───────────────────────────────────────────────
 app.use((_req, res) => {
   res.status(404).json({
@@ -415,7 +423,6 @@ export async function startServer() {
   } catch (error) {
     // DB/init failed after all retries — exit so Cloud Run kills this
     // instance and starts a fresh one (which retries the connection).
-    // Better a clean restart than a zombie instance serving 500s.
     console.error('✗ DB/init failed after retries — exiting for restart:', error);
     process.exit(1);
   }
