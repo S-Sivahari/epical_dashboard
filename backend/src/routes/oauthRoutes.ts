@@ -9,9 +9,11 @@ const googleAuthOptions = { scope: ['profile', 'email'], session: false };
 
 /** Dev helper: exact redirect URI sent to Google (must match Cloud Console). */
 oauthRoutes.get('/google/config', (_req, res) => {
+  const oauthStartUrl = env.GOOGLE_CALLBACK_URL.replace(/\/callback\/?$/, '');
   res.json({
     enabled: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
     redirectUri: env.GOOGLE_CALLBACK_URL,
+    oauthStartUrl,
     frontendUrl: env.FRONTEND_URL,
   });
 });

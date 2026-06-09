@@ -18,6 +18,7 @@ const LOGIN_CHIP_SRC = '/pic/epical_layouts.jpeg?v=3'
 type GoogleOAuthConfig = {
   enabled?: boolean
   redirectUri?: string
+  oauthStartUrl?: string
 }
 
 function GoogleMark() {
@@ -59,13 +60,20 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [googleSignInEnabled, setGoogleSignInEnabled] = useState(false)
+  const [googleOAuthStartUrl, setGoogleOAuthStartUrl] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
     fetch(`${getApiBaseUrl()}/auth/google/config`, { credentials: 'include' })
       .then((res) => (res.ok ? res.json() : null))
       .then((data: GoogleOAuthConfig | null) => {
-        if (!cancelled) setGoogleSignInEnabled(Boolean(data?.enabled))
+        if (cancelled) return
+        setGoogleSignInEnabled(Boolean(data?.enabled))
+        if (data?.oauthStartUrl) {
+          setGoogleOAuthStartUrl(data.oauthStartUrl)
+        } else if (data?.redirectUri) {
+          setGoogleOAuthStartUrl(data.redirectUri.replace(/\/callback\/?$/, ''))
+        }
       })
       .catch(() => {
         if (!cancelled) setGoogleSignInEnabled(false)
@@ -153,7 +161,7 @@ export function LoginPage() {
 
   const handleGoogleRedirect = () => {
     setGoogleLoading(true)
-    window.location.assign(getGoogleOAuthStartUrl())
+    window.location.assign(googleOAuthStartUrl ?? getGoogleOAuthStartUrl())
   }
 
   return (

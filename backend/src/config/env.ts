@@ -7,6 +7,16 @@ function envStr(key: string, fallback = ''): string {
   return (raw !== undefined && raw !== '' ? raw : fallback).trim();
 }
 
+function resolveGoogleCallbackUrl(): string {
+  const explicit = envStr('GOOGLE_CALLBACK_URL');
+  if (explicit) return explicit;
+  const frontend = envStr('FRONTEND_URL');
+  if ((process.env.NODE_ENV || 'development') === 'production' && frontend) {
+    return `${frontend.replace(/\/$/, '')}/api/auth/google/callback`;
+  }
+  return 'http://localhost:3000/api/auth/google/callback';
+}
+
 export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT || '3000', 10),
@@ -16,10 +26,7 @@ export const env = {
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
   GOOGLE_CLIENT_ID: envStr('GOOGLE_CLIENT_ID'),
   GOOGLE_CLIENT_SECRET: envStr('GOOGLE_CLIENT_SECRET'),
-  GOOGLE_CALLBACK_URL: envStr(
-    'GOOGLE_CALLBACK_URL',
-    'http://localhost:3000/api/auth/google/callback',
-  ),
+  GOOGLE_CALLBACK_URL: resolveGoogleCallbackUrl(),
   SESSION_SECRET: envStr('SESSION_SECRET', 'session-secret-key'),
   FRONTEND_URL: envStr('FRONTEND_URL', 'http://localhost:5173'),
   GNEWS_API_KEY: process.env.GNEWS_API_KEY || '',
