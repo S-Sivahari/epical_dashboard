@@ -48,8 +48,77 @@ export async function fetchPdkModule(id: string): Promise<PdkModule> {
 export async function createPdkModule(
   payload: Pick<PdkModule, 'name' | 'technologyNode' | 'notes' | 'metals'>,
 ): Promise<PdkModule> {
-  const { data } = await api.post<{ module: PdkModule }>(`${BASE}/pdk-modules`, payload)
-  return data.module
+  try {
+    const { data } = await api.post<{ module: PdkModule }>(`${BASE}/pdk-modules`, payload)
+    return data.module
+  } catch (err: unknown) {
+    const message = await readApiErrorMessage(err, 'Failed to create PDK module')
+    throw new Error(message)
+  }
+}
+
+async function readApiErrorMessage(err: unknown, fallback: string): Promise<string> {
+  if (!err || typeof err !== 'object' || !('response' in err)) return fallback
+  const response = (err as { response?: { data?: unknown } }).response
+  const data = response?.data
+  if (typeof data === 'object' && data && 'error' in data && typeof data.error === 'string') {
+    return data.error
+  }
+  if (data instanceof Blob) {
+    try {
+      const text = await data.text()
+      const parsed = JSON.parse(text) as { error?: string }
+      if (parsed.error) return parsed.error
+    } catch {
+      // ignore parse failures
+    }
+  }
+  return fallback
+}
+
+export async function downloadPdkTemplate(): Promise<void> {
+  const response = await api.get(`${BASE}/pdk-modules/template/download`, { responseType: 'blob' })
+  const contentType = String(response.headers['content-type'] ?? '')
+  if (!contentType.includes('spreadsheetml') && !contentType.includes('octet-stream')) {
+    const message = await readApiErrorMessage(
+      { response: { data: response.data } },
+      'Failed to download PDK template',
+    )
+    throw new Error(message)
+  }
+  const blob = new Blob([response.data], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'PDK_Import_Template.xlsx'
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
+}
+
+export async function importPdkModuleFromExcel(
+  file: File,
+  options: { name: string; technologyNode?: string; notes?: string },
+): Promise<PdkModule> {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('name', options.name.trim())
+  if (options.technologyNode?.trim()) {
+    formData.append('technologyNode', options.technologyNode.trim())
+  }
+  if (options.notes?.trim()) {
+    formData.append('notes', options.notes.trim())
+  }
+  try {
+    const { data } = await api.post<{ module: PdkModule }>(`${BASE}/pdk-modules/import`, formData)
+    return data.module
+  } catch (err: unknown) {
+    const message = await readApiErrorMessage(err, 'Failed to import PDK module')
+    throw new Error(message)
+  }
 }
 
 export async function updatePdkModule(id: string, payload: Partial<PdkModule>): Promise<PdkModule> {

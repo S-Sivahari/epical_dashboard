@@ -101,6 +101,41 @@ export const pdkMetalRoutingController = {
     }
   },
 
+  async downloadPdkTemplate(_req: AuthRequest, res: Response) {
+    try {
+      const buffer = await pdkService.getPdkTemplateExcel();
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename="PDK_Import_Template.xlsx"');
+      res.send(buffer);
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to generate PDK template' });
+    }
+  },
+
+  async importPdkModule(req: AuthRequest, res: Response) {
+    try {
+      if (!req.file?.buffer) {
+        res.status(400).json({ error: 'Excel file is required' });
+        return;
+      }
+
+      const { name, technologyNode, notes } = req.body;
+      const module = await pdkService.importPdkModuleFromExcel(req.file.buffer, {
+        name: typeof name === 'string' ? name : undefined,
+        technologyNode: typeof technologyNode === 'string' ? technologyNode : undefined,
+        notes: typeof notes === 'string' ? notes : undefined,
+      });
+      res.status(201).json({ module });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to import PDK module';
+      if (message.includes('duplicate key')) {
+        res.status(409).json({ error: 'A PDK module with this name already exists' });
+        return;
+      }
+      res.status(400).json({ error: message });
+    }
+  },
+
   async createPdkModule(req: AuthRequest, res: Response) {
     try {
       const { name, technologyNode, notes, metals } = req.body;

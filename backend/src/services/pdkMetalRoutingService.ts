@@ -14,6 +14,7 @@ import {
   buildAssignmentIdentityTokens,
 } from '../utils/assignedProjectsHelper';
 import { getDB } from '../config/db';
+import { buildPdkTemplateExcelBuffer, parsePdkExcelBuffer } from '../utils/pdkExcel';
 
 export interface RoutingKey {
   projectId: string;
@@ -390,6 +391,37 @@ export async function createPdkModule(data: {
       sheetResistance: Number(m.sheetResistance),
     })),
   });
+}
+
+export async function getPdkTemplateExcel() {
+  return buildPdkTemplateExcelBuffer();
+}
+
+export async function importPdkModuleFromExcel(
+  buffer: Buffer,
+  options: { name?: string; technologyNode?: string; notes?: string },
+) {
+  const parsed = await parsePdkExcelBuffer(buffer);
+
+  const name = (options.name?.trim() || parsed.metadata.pdkName?.trim() || '').trim();
+  if (!name) {
+    throw new Error('PDK module name is required. Provide a name in the import form or in the spreadsheet metadata.');
+  }
+
+  const technologyNode = (options.technologyNode?.trim() || parsed.metadata.technologyNode?.trim() || '').trim();
+  const notes = (options.notes?.trim() || parsed.metadata.notes?.trim() || 'Imported from Excel').trim();
+
+  const module = await createPdkModule({
+    name,
+    technologyNode,
+    notes,
+    metals: parsed.metals.map((m) => ({
+      metalType: m.metalType,
+      currentDensityAt110: m.currentDensityAt110,
+      sheetResistance: m.sheetResistance,
+    })),
+  });
+  return typeof module.toObject === 'function' ? module.toObject() : module;
 }
 
 export async function updatePdkModule(

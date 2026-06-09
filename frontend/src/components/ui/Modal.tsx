@@ -1,6 +1,6 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type MouseEvent, type ReactNode } from 'react'
 import { cn } from '@/utils/cn'
 
 const sizes: Record<string, string> = {
@@ -36,18 +36,36 @@ export function Modal({
 }) {
   const z = elevated ? 'z-[60]' : 'z-50'
   const isDark = theme === 'dark'
+  const openedAtRef = useRef(0)
+
+  useEffect(() => {
+    if (isOpen) openedAtRef.current = performance.now()
+  }, [isOpen])
+
+  const openedRecently = () => performance.now() - openedAtRef.current < 250
+
+  const handleOverlayClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget) return
+    if (openedRecently()) return
+    onClose()
+  }
+
+  const guardRecentOpen = (event: { preventDefault: () => void }) => {
+    if (openedRecently()) event.preventDefault()
+  }
+
   return (
     <Dialog.Root
       open={isOpen}
       modal={false}
       onOpenChange={(open) => {
-        if (!open) onClose()
+        if (!open && !openedRecently()) onClose()
       }}
     >
       <Dialog.Portal>
         <Dialog.Overlay
           className={cn('fixed inset-0 bg-slate-950/60 backdrop-blur-sm', z)}
-          onClick={onClose}
+          onClick={handleOverlayClick}
         />
         <Dialog.Content
           className={cn(
@@ -61,9 +79,11 @@ export function Modal({
           )}
           onPointerDownOutside={(e) => {
             if (isDateInputPopoverTarget(e.target)) e.preventDefault()
+            guardRecentOpen(e)
           }}
           onInteractOutside={(e) => {
             if (isDateInputPopoverTarget(e.target)) e.preventDefault()
+            guardRecentOpen(e)
           }}
           onFocusOutside={(e) => {
             if (isDateInputPopoverTarget(e.target)) e.preventDefault()
