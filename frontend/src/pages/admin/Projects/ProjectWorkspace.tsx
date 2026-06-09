@@ -284,7 +284,7 @@ export function ProjectWorkspace() {
         <div className="admin-projects-workspace-shell relative z-10">
           <div className="admin-projects-workspace-chrome">
             <header className="admin-projects-workspace-head">
-              <div className="admin-projects-workspace-head-top">
+              <div className="admin-projects-workspace-head-bar">
                 <div className="admin-projects-workspace-head-left">
                   <Link to={ROUTES.PROJECTS} className="admin-projects-back-btn">
                     <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
@@ -295,75 +295,80 @@ export function ProjectWorkspace() {
                   </div>
                 </div>
 
-                <nav className="admin-projects-workspace-nav admin-projects-workspace-nav--in-chrome admin-projects-workspace-nav--inline" aria-label="Workspace sections">
-                  {SECTION_ITEMS.map(({ id, label, icon: Icon }) => (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => setWorkspaceSection(id)}
-                      className={cn(
-                        'admin-projects-section-btn',
-                        workspaceSection === id ? 'admin-projects-section-btn--active' : 'admin-projects-section-btn--inactive',
-                      )}
-                    >
-                      <Icon className="h-4 w-4 shrink-0" aria-hidden />
-                      {label}
-                    </button>
-                  ))}
-                </nav>
-
-                <div className="admin-projects-progress-pill" aria-label={`Project progress ${project.completionPercentage}%`}>
-                  <div className="admin-projects-progress-ring" style={{ '--progress': `${project.completionPercentage}%` } as CSSProperties}>
-                    <span>{project.completionPercentage}%</span>
+                <div className="admin-projects-workspace-head-right">
+                  <div className="admin-projects-stats-row admin-projects-stats-row--header admin-projects-stats-row--bar">
+                    {[
+                      { label: 'Libraries', value: stats.libraryCount, icon: BookOpen, filter: null as StatFilter },
+                      { label: 'Cells', value: stats.cellCount, icon: Layers, filter: null },
+                      { label: 'Complete', value: stats.completedCells, icon: CheckCircle2, filter: 'complete' as StatFilter },
+                      { label: 'Archive', value: stats.blockedCells, icon: Archive, filter: 'archive' as StatFilter },
+                      { label: 'Unassigned', value: stats.unassignedCells, icon: User, filter: 'unassigned' as StatFilter },
+                    ].map(({ label, value, icon: Icon, filter }) => (
+                      <button
+                        key={label}
+                        type="button"
+                        className={cn(
+                          'admin-projects-stat',
+                          label === 'Cells' && showAllCells && 'admin-projects-stat--active',
+                          filter && statFilter === filter && 'admin-projects-stat--active',
+                        )}
+                        onClick={() => {
+                          if (label === 'Cells') {
+                            if (showAllCells) {
+                              setShowAllCells(false)
+                              clearFilters()
+                            } else {
+                              setShowAllCells(true)
+                              showAllProjectCells()
+                            }
+                          } else if (label === 'Libraries') {
+                            setShowAllCells(false)
+                            clearFilters()
+                          } else if (filter) {
+                            setShowAllCells(false)
+                            applyStatFilter(filter)
+                          }
+                        }}
+                      >
+                        <div className="admin-projects-stat-label">
+                          <Icon className="h-3.5 w-3.5" aria-hidden />
+                          <span>{label}</span>
+                        </div>
+                        <p className="admin-projects-stat-value">{value}</p>
+                      </button>
+                    ))}
                   </div>
-                  <span className="admin-projects-progress-label">Progress</span>
-                </div>
-              </div>
 
-              <div className="admin-projects-stats-row admin-projects-stats-row--header admin-projects-stats-row--bar">
-                {[
-                  { label: 'Libraries', value: stats.libraryCount, icon: BookOpen, filter: null as StatFilter },
-                  { label: 'Cells', value: stats.cellCount, icon: Layers, filter: null },
-                  { label: 'Complete', value: stats.completedCells, icon: CheckCircle2, filter: 'complete' as StatFilter },
-                  { label: 'Archive', value: stats.blockedCells, icon: Archive, filter: 'archive' as StatFilter },
-                  { label: 'Unassigned', value: stats.unassignedCells, icon: User, filter: 'unassigned' as StatFilter },
-                ].map(({ label, value, icon: Icon, filter }) => (
-                  <button
-                    key={label}
-                    type="button"
-                    className={cn(
-                      'admin-projects-stat',
-                      label === 'Cells' && showAllCells && 'admin-projects-stat--active',
-                      filter && statFilter === filter && 'admin-projects-stat--active',
-                    )}
-                    onClick={() => {
-                      if (label === 'Cells') {
-                        if (showAllCells) {
-                          setShowAllCells(false)
-                          clearFilters()
-                        } else {
-                          setShowAllCells(true)
-                          showAllProjectCells()
-                        }
-                      } else if (label === 'Libraries') {
-                        setShowAllCells(false)
-                        clearFilters()
-                      } else if (filter) {
-                        setShowAllCells(false)
-                        applyStatFilter(filter)
-                      }
-                    }}
-                  >
-                    <div className="admin-projects-stat-label">
-                      <Icon className="h-3.5 w-3.5" aria-hidden />
-                      <span>{label}</span>
+                  <div className="admin-projects-progress-pill" aria-label={`Project progress ${project.completionPercentage}%`}>
+                    <div className="admin-projects-progress-ring" style={{ '--progress': `${project.completionPercentage}%` } as CSSProperties}>
+                      <span>{project.completionPercentage}%</span>
                     </div>
-                    <p className="admin-projects-stat-value">{value}</p>
-                  </button>
-                ))}
+                    <span className="admin-projects-progress-label">Progress</span>
+                  </div>
+                </div>
               </div>
             </header>
           </div>
+
+          <nav
+            className="admin-projects-workspace-nav admin-projects-workspace-nav--below-chrome"
+            aria-label="Workspace sections"
+          >
+            {SECTION_ITEMS.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setWorkspaceSection(id)}
+                className={cn(
+                  'admin-projects-section-btn',
+                  workspaceSection === id ? 'admin-projects-section-btn--active' : 'admin-projects-section-btn--inactive',
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                {label}
+              </button>
+            ))}
+          </nav>
 
           <div className="admin-projects-workspace-scroll">
             <div className="admin-projects-workspace-content">
