@@ -20,6 +20,17 @@ import {
   actorName,
 } from '../services/checklistService';
 import {
+  buildCellChecklistDetail,
+} from '../services/cellTypeChecklistService';
+import {
+  listCellTypeChecklistDefinitions,
+  getCellTypeChecklistDefinition,
+} from '../services/cellTypeChecklistDefinitionService';
+import {
+  buildProjectCellChecklistExportRows,
+  importProjectCellChecklistRows,
+} from '../services/projectChecklistExportService';
+import {
   buildChecklistTemplateExportRows,
   importChecklistTemplateRows,
   resyncMappingsAfterChecklistDefinitionChange,
@@ -30,6 +41,7 @@ function toChecklistDto(c: any) {
     id: c._id.toString(),
     name: c.name,
     description: c.description || '',
+    cellType: c.cellType || '',
     items: (c.items || []).map((item: any) => ({
       id: item._id.toString(),
       itemName: item.itemName,
@@ -77,6 +89,14 @@ function findChecklistTemplateHeaderRow(sheet: ExcelJS.Worksheet): number {
   return headerRowNumber;
 }
 
+function isValidChecklistImportName(name: string): boolean {
+  const trimmed = name.trim();
+  if (!trimmed || trimmed === '—' || trimmed === '-') return false;
+  if (/^-+$/.test(trimmed)) return false;
+  if (/confidential|system generated report|generated on/i.test(trimmed)) return false;
+  return true;
+}
+
 export const checklistController = {
   list: async (_req: Request, res: Response): Promise<void> => {
     try {
@@ -85,6 +105,28 @@ export const checklistController = {
     } catch (err) {
       console.error('[checklist] list', err);
       res.status(500).json({ error: 'Failed to fetch checklists' });
+    }
+  },
+
+  listCellTypeDefinitions: async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const definitions = await listCellTypeChecklistDefinitions();
+      res.json(definitions);
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to fetch cell type checklists' });
+    }
+  },
+
+  getCellTypeDefinition: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const definition = await getCellTypeChecklistDefinition(paramId(req.params.cellType));
+      if (!definition) {
+        res.status(404).json({ error: 'Checklist not found for this cell type' });
+        return;
+      }
+      res.json(definition);
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to fetch cell type checklist' });
     }
   },
 
@@ -228,6 +270,34 @@ export const checklistController = {
     }
   },
 
+  exportProjectCellChecklist: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const rows = await buildProjectCellChecklistExportRows(paramId(req.params.projectId));
+      res.json(rows);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Failed to export project checklist' });
+    }
+  },
+
+  importProjectCellChecklist: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const rows = req.body?.rows;
+      if (!Array.isArray(rows) || rows.length === 0) {
+        res.status(400).json({ error: 'rows array is required' });
+        return;
+      }
+      const result = await importProjectCellChecklistRows(
+        paramId(req.params.projectId),
+        rows,
+        req.user?.id || '',
+        actorName(req),
+      );
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Failed to import project checklist' });
+    }
+  },
+
   applyToAll: async (req: Request, res: Response): Promise<void> => {
     try {
       const userId = req.user?.id || '';
@@ -292,7 +362,7 @@ export const checklistController = {
       if (!headerRowNumber) {
         res.status(400).json({
           error:
-            'Could not find header row. Expected columns: Checklist Name, Description, Item Name, Item Order',
+            'Could not find header row. Expected columns: Checklist Name, Cell Type, Description, Item Name, Item Order',
         });
         return;
       }
@@ -304,28 +374,38 @@ export const checklistController = {
       });
 
       const normalizeKey = (h: string) => h.toLowerCase().replace(/\s+/g, '');
-      const keyMap = new Map(headers.map((h) => [normalizeKey(h), h]));
 
-      const getVal = (row: ExcelJS.Row, ...candidates: string[]) => {
-        for (const c of candidates) {
-          const header = keyMap.get(normalizeKey(c)) ?? c;
-          const idx = headers.indexOf(header);
-          if (idx >= 0) {
-            return excelCellText(row.getCell(idx + 1).value);
+      const columnIndex = (...candidates: string[]): number => {
+        for (let i = 0; i < headers.length; i += 1) {
+          const headerNorm = normalizeKey(headers[i] ?? '');
+          if (!headerNorm) continue;
+          for (const candidate of candidates) {
+            if (headerNorm === normalizeKey(candidate)) return i;
           }
         }
-        return '';
+        return -1;
+      };
+
+      const getVal = (row: ExcelJS.Row, ...candidates: string[]) => {
+        const idx = columnIndex(...candidates);
+        if (idx < 0) return '';
+        return excelCellText(row.getCell(idx + 1).value);
       };
 
       const rows: Record<string, unknown>[] = [];
       sheet.eachRow((row, rowNumber) => {
         if (rowNumber <= headerRowNumber) return;
         const checklistName = getVal(row, 'Checklist Name', 'checklistName');
-        if (!checklistName) return;
+        const cellType = getVal(row, 'Cell Type', 'cellType');
+        if (!checklistName && !cellType) return;
+        if (checklistName && !isValidChecklistImportName(checklistName)) return;
+        const itemName = getVal(row, 'Item Name', 'itemName');
+        if (!itemName || itemName === '—') return;
         rows.push({
           checklistName,
+          cellType,
           description: getVal(row, 'Description', 'description'),
-          itemName: getVal(row, 'Item Name', 'itemName'),
+          itemName,
           itemOrder: getVal(row, 'Item Order', 'itemOrder'),
         });
       });
@@ -528,36 +608,8 @@ export const checklistController = {
   getCellChecklist: async (req: Request, res: Response): Promise<void> => {
     try {
       const { projectId, cellId } = req.params;
-      const pid = paramId(projectId);
-      const cid = paramId(cellId);
-      const entries = await CellChecklistMappingModel.find({ projectId: pid, cellId: cid }).sort({ itemName: 1 });
-      const assignment = await ProjectChecklistModel.findOne({ projectId: pid });
-      const checklist = assignment
-        ? await ChecklistModel.findById(assignment.checklistId).lean()
-        : null;
-
-      const allApplied = entries.length > 0 && entries.every((e) => e.response === 'yes');
-      let cellStatus: 'Applied' | 'Pending' | 'Not Assigned' = 'Not Assigned';
-      if (!assignment) cellStatus = 'Not Assigned';
-      else if (allApplied) cellStatus = 'Applied';
-      else if (entries.some((e) => e.response)) cellStatus = 'Pending';
-      else if (entries.length > 0) cellStatus = 'Pending';
-
-      res.json({
-        checklistId: assignment ? String(assignment.checklistId) : null,
-        checklistName: checklist?.name ?? '',
-        cellStatus,
-        items: entries.map((e) => ({
-          id: e._id.toString(),
-          checklistItemId: e.checklistItemId.toString(),
-          itemName: e.itemName,
-          status: e.status,
-          response: e.response ?? null,
-          comment: e.comment ?? '',
-          appliedBy: e.appliedByName || e.appliedBy || '',
-          appliedDate: e.appliedDate,
-        })),
-      });
+      const detail = await buildCellChecklistDetail(paramId(projectId), paramId(cellId));
+      res.json(detail);
     } catch (err) {
       res.status(500).json({ error: 'Failed to fetch cell checklist' });
     }
@@ -576,36 +628,8 @@ export const checklistController = {
         actorName(req),
       );
 
-      const pid = paramId(projectId);
-      const cid = paramId(cellId);
-      const entries = await CellChecklistMappingModel.find({ projectId: pid, cellId: cid }).sort({ itemName: 1 });
-      const assignment = await ProjectChecklistModel.findOne({ projectId: pid });
-      const checklist = assignment
-        ? await ChecklistModel.findById(assignment.checklistId).lean()
-        : null;
-
-      const allApplied = entries.length > 0 && entries.every((e) => e.response === 'yes');
-      let cellStatus: 'Applied' | 'Pending' | 'Not Assigned' = 'Not Assigned';
-      if (!assignment) cellStatus = 'Not Assigned';
-      else if (allApplied) cellStatus = 'Applied';
-      else if (entries.some((e) => e.response)) cellStatus = 'Pending';
-      else if (entries.length > 0) cellStatus = 'Pending';
-
-      res.json({
-        checklistId: assignment ? String(assignment.checklistId) : null,
-        checklistName: checklist?.name ?? '',
-        cellStatus,
-        items: entries.map((e) => ({
-          id: e._id.toString(),
-          checklistItemId: e.checklistItemId.toString(),
-          itemName: e.itemName,
-          status: e.status,
-          response: e.response ?? null,
-          comment: e.comment ?? '',
-          appliedBy: e.appliedByName || e.appliedBy || '',
-          appliedDate: e.appliedDate,
-        })),
-      });
+      const detail = await buildCellChecklistDetail(paramId(projectId), paramId(cellId));
+      res.json(detail);
     } catch (err: any) {
       res.status(400).json({ error: err.message || 'Failed to update checklist item' });
     }

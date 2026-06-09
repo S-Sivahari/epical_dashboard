@@ -4,20 +4,31 @@ export const CELL_STATUSES = ['ready', 'in_progress', 'completed'] as const
 
 export const CELL_WORKFLOW_STAGE_KEYS = [
   'floor_plan',
-  'drc_review_1',
+  'drc_first',
+  'review_1',
   'routing',
-  'drc',
-  'lvs_review_2',
+  'drc_final',
+  'lvs',
+  'review_2',
 ] as const
 
-export const WORKFLOW_STAGE_STATUSES = ['not_started', 'in_progress', 'completed'] as const
+export const REVIEW_STAGE_KEYS = ['review_1', 'review_2'] as const
+
+export const WORK_STAGE_STATUSES = ['not_started', 'in_progress', 'completed'] as const
+export const REVIEW_STAGE_STATUSES = ['not_started', 'pending_review', 'approved', 'rejected'] as const
+export const WORKFLOW_STAGE_STATUSES = [
+  ...WORK_STAGE_STATUSES,
+  ...REVIEW_STAGE_STATUSES,
+] as const
 
 export const CELL_WORKFLOW_STAGES = [
   { key: 'floor_plan', label: 'Floor Plan' },
-  { key: 'drc_review_1', label: 'DRC' },
+  { key: 'drc_first', label: 'DRC' },
+  { key: 'review_1', label: 'Review 1' },
   { key: 'routing', label: 'Routing' },
-  { key: 'drc', label: 'DRC' },
-  { key: 'lvs_review_2', label: 'LVS' },
+  { key: 'drc_final', label: 'DRC' },
+  { key: 'lvs', label: 'LVS' },
+  { key: 'review_2', label: 'Review 2' },
 ] as const
 
 export type CellType = (typeof CELL_TYPES)[number]
@@ -62,6 +73,7 @@ export interface Checklist {
   id: string
   name: string
   description: string
+  cellType?: string
   items: ChecklistItem[]
   createdAt?: string
   updatedAt?: string
@@ -97,6 +109,7 @@ export interface CellChecklistItem {
 export interface CellChecklistDetail {
   checklistId: string | null
   checklistName: string
+  cellType?: string
   cellStatus: CellChecklistStatus
   items: CellChecklistItem[]
 }
@@ -124,6 +137,13 @@ export interface ChecklistImportResult {
   errors: { row: number; projectName: string; message: string }[]
 }
 
+export interface ProjectChecklistImportResult {
+  imported: number
+  updated: number
+  failed: number
+  errors: { row: number; cellName: string; message: string }[]
+}
+
 export interface ChecklistTemplateImportResult {
   imported: number
   created: number
@@ -134,9 +154,20 @@ export interface ChecklistTemplateImportResult {
 
 export interface ChecklistTemplateRow {
   checklistName: string
+  cellType: string
   description: string
   itemName: string
   itemOrder: number
+}
+
+export interface CellTypeChecklistDefinition {
+  cellType: CellType
+  checklistName: string
+  description: string
+  items: ChecklistItem[]
+  importedFromExcel: boolean
+  lastImportedAt?: string
+  lastImportedBy?: string
 }
 
 export interface ProjectLibrary {

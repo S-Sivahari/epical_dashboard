@@ -338,6 +338,16 @@ export async function startServer() {
     await ensureAttendanceIndexes();
 
     try {
+      const { ensureCellTypeChecklists } = await import('./services/cellTypeChecklistService');
+      const checklistSeed = await ensureCellTypeChecklists();
+      if (checklistSeed.created > 0) {
+        console.log(`✓ Seeded ${checklistSeed.created} cell-type checklist definition(s) in MongoDB`);
+      }
+    } catch (err) {
+      console.warn('⚠ Cell-type checklist seed skipped:', err);
+    }
+
+    try {
       const adminSync = await ensureDefaultAdminUser();
       if (adminSync.created) {
         console.log('✓ Created default admin account');

@@ -332,36 +332,17 @@ export async function getProjectCellsChecklist(projectId: string) {
   }
 
   const projectOid = new Types.ObjectId(projectId);
-  const assignment = await ProjectChecklistModel.findOne({ projectId: projectOid }).lean();
-  const checklist = assignment
-    ? await ChecklistModel.findById(assignment.checklistId).lean()
-    : null;
-
-  const checklistName = checklist?.name ?? '';
-  const checklistId = assignment ? String(assignment.checklistId) : null;
-
+  const { normalizeChecklistCellType } = await import('./cellTypeChecklistService');
   const cells = await ProjectCellModel.find({ projectId: projectOid }).lean();
 
-  if (assignment && cells.length > 0) {
-    const existingCellIds = new Set(
-      (await CellChecklistMappingModel.distinct('cellId', {
-        projectId: projectOid,
-        checklistId: assignment.checklistId,
-      })).map(String),
-    );
-    for (const cell of cells) {
-      if (!existingCellIds.has(String(cell._id))) {
-        await syncChecklistMappingsForCell(projectOid, cell._id);
-      }
-    }
+  for (const cell of cells) {
+    await syncChecklistMappingsForCell(projectOid, cell._id);
   }
 
-  const entries = assignment
-    ? await CellChecklistMappingModel.find({
-        projectId: projectOid,
-        checklistId: assignment.checklistId,
-      }).lean()
-    : [];
+  const typeChecklists = await ChecklistModel.find({ cellType: { $exists: true, $ne: null } }).lean();
+  const checklistByType = new Map(typeChecklists.map((cl) => [cl.cellType, cl]));
+
+  const entries = await CellChecklistMappingModel.find({ projectId: projectOid }).lean();
 
   const entriesByCell = new Map<string, typeof entries>();
   for (const entry of entries) {
@@ -405,8 +386,11 @@ export async function getProjectCellsChecklist(projectId: string) {
   const cellSummaries: CellChecklistRowSummary[] = cells.map((cell) => {
     const cellId = String(cell._id);
     const cellEntries = entriesByCell.get(cellId) ?? [];
+    const cellType = normalizeChecklistCellType(cell.cellType);
+    const typeChecklist = checklistByType.get(cellType);
+    const checklistName = typeChecklist?.name ?? '';
 
-    if (!assignment || !checklistName) {
+    if (!typeChecklist) {
       return {
         cellId,
         checklistName: '',
@@ -446,7 +430,7 @@ export async function getProjectCellsChecklist(projectId: string) {
     };
   });
 
-  return { checklistId, checklistName, cells: cellSummaries };
+  return { checklistId: null, checklistName: '', cells: cellSummaries };
 }
 
 export async function enrichProjectsWithChecklist<T extends { id: string }>(
@@ -524,29 +508,8 @@ export async function syncChecklistMappingsForCell(
   projectId: Types.ObjectId,
   cellId: Types.ObjectId,
 ): Promise<void> {
-  const assignment = await ProjectChecklistModel.findOne({ projectId });
-  if (!assignment) return;
-
-  const checklist = await ChecklistModel.findById(assignment.checklistId);
-  if (!checklist) return;
-
-  const selectedItems = resolveSelectedItems(checklist, assignment.selectedItemIds);
-
-  for (const item of selectedItems) {
-    await CellChecklistMappingModel.findOneAndUpdate(
-      { cellId, checklistItemId: item._id },
-      {
-        projectId,
-        cellId,
-        checklistId: assignment.checklistId,
-        checklistItemId: item._id,
-        itemName: item.itemName,
-        status: 'Pending',
-      },
-      { upsert: true },
-    );
-  }
-
+  const { syncCellTypeChecklistForCell } = await import('./cellTypeChecklistService');
+  await syncCellTypeChecklistForCell(projectId, cellId);
   await recalcProjectChecklistProgress(projectId);
 }
 
