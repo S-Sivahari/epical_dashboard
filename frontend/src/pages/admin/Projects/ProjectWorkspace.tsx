@@ -33,7 +33,7 @@ import './adminProjects.css'
 import { DependencyGraphView } from './DependencyGraphView'
 import { CellWorkflowPanel } from './CellWorkflowPanel'
 import { ProjectWorkflowOverview } from './ProjectWorkflowOverview'
-import { ProjectWorkspaceChecklistTab } from './ProjectWorkspaceChecklistTab'
+import { ProjectTypeChecklistPanel } from './ProjectTypeChecklistPanel'
 import { CELL_STATUS_FILTER_OPTIONS, CELL_TYPE_LABELS, STATUS_LABELS, cellDisplayStatus } from './projectWorkspaceUi'
 
 type DeleteTarget = { type: 'library' | 'cell'; id: string; name: string }
@@ -605,12 +605,7 @@ export function ProjectWorkspace() {
 
             {workspaceSection === 'checklist' && (
               <div className="admin-projects-section-panel admin-projects-section-panel--checklist">
-                <ProjectWorkspaceChecklistTab
-                  projectId={projectId}
-                  projectName={project.name}
-                  cells={allCells}
-                  libraryNameById={libraryNameById}
-                />
+                <ProjectTypeChecklistPanel projectId={projectId} />
               </div>
             )}
           </div>

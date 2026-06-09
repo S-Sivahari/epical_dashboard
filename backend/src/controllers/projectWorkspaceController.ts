@@ -7,10 +7,13 @@ import { CellReviewModel } from '../models/CellReview';
 import {
   applyReviewApproval,
   applyReviewRejection,
+  applyWorkflowStageUpdate,
+  canCompleteCell,
   CELL_WORKFLOW_STAGES,
   currentWorkflowStageLabel,
   defaultCellWorkflow,
   defaultViewWorkflow,
+  isReviewStageKey,
   isValidStageKey,
   normalizeCellWorkflow,
   normalizeViewWorkflow,
@@ -25,6 +28,7 @@ import {
   syncChecklistMappingsForCell,
   removeChecklistMappingsForCell,
 } from '../services/checklistService';
+import { clearResponsesForCell, normalizeCellType } from '../services/projectTypeChecklistService';
 import { isAdminRole } from '../utils/generateToken';
 
 function paramId(value: string | string[]): string {
@@ -43,11 +47,6 @@ function actorFromReq(req: Request): { userId: string; userName: string; role: '
 async function assertProject(projectId: string) {
   if (!Types.ObjectId.isValid(projectId)) return null;
   return ProjectModel.findById(projectId);
-}
-
-function normalizeCellType(value: string): string {
-  if ((CELL_TYPES as readonly string[]).includes(value)) return value;
-  return 'block';
 }
 
 function normalizeStatus(value: string): CellStatus {
@@ -337,7 +336,7 @@ export const projectWorkspaceController = {
         libraryId: library._id,
         name: name.trim(),
         description: description?.trim() || '',
-        cellType: CELL_TYPES.includes(cellType) ? cellType : 'block',
+        cellType: normalizeCellType(cellType),
         technologyNode: technologyNode?.trim() || project.technologyNode || '',
         complexity: ['Low', 'Medium', 'High'].includes(complexity) ? complexity : 'Medium',
         estimatedEffort: Number(estimatedEffort) || 0,
@@ -389,11 +388,9 @@ export const projectWorkspaceController = {
 
       for (const field of fields) {
         if (req.body[field] !== undefined) {
-          if (field === 'cellType') {
-            cell.cellType = CELL_TYPES.includes(req.body.cellType) ? req.body.cellType : 'block';
-          } else {
-            (cell as any)[field] = req.body[field];
-          }
+          (cell as any)[field] = field === 'cellType'
+            ? normalizeCellType(String(req.body[field]))
+            : req.body[field];
         }
       }
 
@@ -640,6 +637,7 @@ export const projectWorkspaceController = {
       );
       await CellReviewModel.deleteMany({ cellId: cellObjectId });
       await removeChecklistMappingsForCell(cellObjectId);
+      await clearResponsesForCell(cellObjectId);
       await ProjectCellModel.findByIdAndDelete(cellObjectId);
 
       await refreshBlockedStatuses(projectObjectId);
