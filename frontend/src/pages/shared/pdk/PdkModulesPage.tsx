@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, Layers, Plus } from 'lucide-react'
 import { toast } from 'sonner'
-import { PageWrapper } from '@components/layout/PageWrapper'
+import { MetalRoutingPageShell } from '@components/pdk/MetalRoutingPageShell'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
 import { Modal } from '@components/ui/Modal'
@@ -11,7 +11,7 @@ import { cn } from '@/utils/cn'
 
 const EMPTY_METAL = { metalType: '', currentDensityAt110: '', sheetResistance: '' }
 
-export function PdkModulesPage({ isAdmin }: { isAdmin: boolean }) {
+export function PdkModulesPage() {
   const [modules, setModules] = useState<PdkModule[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -91,7 +91,7 @@ export function PdkModulesPage({ isAdmin }: { isAdmin: boolean }) {
 
   if (selectedId && selectedModule) {
     return (
-      <PageWrapper scrollable>
+      <MetalRoutingPageShell>
         <Button
           size="sm"
           variant="ghost"
@@ -101,7 +101,7 @@ export function PdkModulesPage({ isAdmin }: { isAdmin: boolean }) {
             setSelectedModule(null)
           }}
         >
-          All modules
+          Back to all modules
         </Button>
         <div className="mt-4 mb-6">
           <h1 className="text-xl font-semibold text-ink">{selectedModule.name}</h1>
@@ -111,12 +111,12 @@ export function PdkModulesPage({ isAdmin }: { isAdmin: boolean }) {
           </p>
         </div>
         <MetalTable metals={selectedModule.metals} />
-      </PageWrapper>
+      </MetalRoutingPageShell>
     )
   }
 
   return (
-    <PageWrapper scrollable>
+    <MetalRoutingPageShell>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-ink">PDK Modules</h1>
@@ -124,19 +124,20 @@ export function PdkModulesPage({ isAdmin }: { isAdmin: boolean }) {
             Each module is a full Sheet 2 table. Same metal names can exist across modules with different values.
           </p>
         </div>
-        {isAdmin ? (
-          <Button icon={<Plus className="h-4 w-4" />} onClick={() => setCreateOpen(true)}>
-            Add PDK module
-          </Button>
-        ) : null}
+        <Button icon={<Plus className="h-4 w-4" />} onClick={() => setCreateOpen(true)}>
+          Add PDK module
+        </Button>
       </div>
 
       {loading ? (
         <p className="text-sm text-muted">Loading…</p>
       ) : modules.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border py-12 text-center text-sm text-muted">
-          No PDK modules yet.
-        </p>
+        <div className="rounded-lg border border-dashed border-border bg-white py-12 text-center">
+          <p className="text-sm text-muted">No PDK modules yet.</p>
+          <Button className="mt-4" icon={<Plus className="h-4 w-4" />} onClick={() => setCreateOpen(true)}>
+            Create your first PDK module
+          </Button>
+        </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {modules.map((mod) => (
@@ -164,7 +165,7 @@ export function PdkModulesPage({ isAdmin }: { isAdmin: boolean }) {
         </div>
       )}
 
-      <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title="Add PDK Module" size="lg">
+      <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title="Create PDK Module" size="lg">
         <div className="space-y-3">
           <Input label="Module Name" required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
           <Input label="Technology Node" value={form.technologyNode} onChange={(e) => setForm((f) => ({ ...f, technologyNode: e.target.value }))} />
@@ -200,13 +201,13 @@ export function PdkModulesPage({ isAdmin }: { isAdmin: boolean }) {
           </div>
         </div>
       </Modal>
-    </PageWrapper>
+    </MetalRoutingPageShell>
   )
 }
 
 function MetalTable({ metals }: { metals: PdkModuleMetalSpec[] }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
+    <div className="overflow-x-auto rounded-lg border border-border bg-white">
       <table className="min-w-full border-collapse text-sm">
         <thead>
           <tr className="bg-yellow-300 text-xs font-bold uppercase text-black">

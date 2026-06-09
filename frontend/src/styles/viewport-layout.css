@@ -34,10 +34,66 @@ body,
 /* Viewport-fit pages — internal panel scroll only (cmd-main does not scroll) */
 .admin-portal.cmd-portal .cmd-main:has([data-admin-dashboard]),
 .admin-portal.cmd-portal .cmd-main:has([data-admin-calendar]),
+.admin-portal.cmd-portal .cmd-main:has([data-metal-routing]),
 .employee-portal.cmd-portal .cmd-main:has([data-employee-calendar]),
 .employee-portal.cmd-portal .cmd-main:has([data-employee-leave]),
-.employee-portal.cmd-portal .cmd-main:has([data-employee-dashboard]) {
+.employee-portal.cmd-portal .cmd-main:has([data-employee-dashboard]),
+.employee-portal.cmd-portal .cmd-main:has([data-metal-routing]) {
   overflow: hidden;
+}
+
+/* Metal routing — full bleed under top nav, sidebar flush to edges */
+.admin-portal .metal-routing-view.crewiq-dashboard {
+  margin: -0.75rem -1rem !important;
+  min-height: calc(100% + 1.5rem) !important;
+  flex: 1 1 0;
+  background: #fff;
+}
+
+.employee-portal .metal-routing-view.crewiq-dashboard {
+  margin: 0;
+  min-height: 0;
+  flex: 1 1 0;
+  background: #fff;
+}
+
+.admin-portal main:has([data-metal-routing]) > .relative,
+.employee-portal main:has([data-metal-routing]) > .relative {
+  min-height: 0;
+  flex: 1 1 0;
+  overflow: hidden;
+}
+
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-metal-routing]) {
+  padding: 0;
+}
+
+.employee-portal [data-employee-page]:has([data-metal-routing]) .dashboard-page-bg {
+  display: none;
+}
+
+.metal-routing-layout {
+  min-height: 0;
+  flex: 1 1 0;
+}
+
+.metal-routing-sidebar {
+  min-height: 0;
+  align-self: stretch;
+}
+
+@media (min-width: 640px) {
+  .admin-portal .metal-routing-view.crewiq-dashboard {
+    margin: -0.75rem -1.25rem !important;
+    min-height: calc(100% + 1.5rem) !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .admin-portal .metal-routing-view.crewiq-dashboard {
+    margin: -0.75rem -1.5rem !important;
+    min-height: calc(100% + 1.5rem) !important;
+  }
 }
 
 .admin-portal main > .relative,

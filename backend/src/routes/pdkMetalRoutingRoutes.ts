@@ -8,7 +8,7 @@ const adminOnly = requireRole('Admin');
 router.use(authMiddleware);
 
 router.get('/dashboard/projects', pdkMetalRoutingController.listDashboardProjects);
-router.patch('/projects/:projectId/pdk', adminOnly, pdkMetalRoutingController.assignPdkToProject);
+router.patch('/projects/:projectId/pdk', pdkMetalRoutingController.assignPdkToProject);
 router.get('/projects/:projectId/context', pdkMetalRoutingController.getProjectContext);
 
 router.get('/route', pdkMetalRoutingController.lookupRoute);
@@ -20,7 +20,7 @@ router.get('/routes/:id/export', pdkMetalRoutingController.exportRoute);
 
 router.get('/pdk-modules', pdkMetalRoutingController.listPdkModules);
 router.get('/pdk-modules/:id', pdkMetalRoutingController.getPdkModule);
-router.post('/pdk-modules', adminOnly, pdkMetalRoutingController.createPdkModule);
+router.post('/pdk-modules', pdkMetalRoutingController.createPdkModule);
 router.put('/pdk-modules/:id', adminOnly, pdkMetalRoutingController.updatePdkModule);
 router.delete('/pdk-modules/:id', adminOnly, pdkMetalRoutingController.deletePdkModule);
 

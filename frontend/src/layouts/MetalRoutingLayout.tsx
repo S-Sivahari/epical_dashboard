@@ -11,15 +11,17 @@ const NAV = [
 
 export function MetalRoutingLayout({ basePath, children }: { basePath: string; children: ReactNode }) {
   return (
-    <div className="flex min-h-0 flex-1 overflow-hidden">
-      <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-white">
-        <div className="border-b border-border px-4 py-4">
-          <div className="flex items-center gap-2">
-            <CircuitBoard className="h-5 w-5 text-primary" />
+    <div className="metal-routing-layout flex min-h-0 flex-1 overflow-hidden">
+      <aside className="metal-routing-sidebar flex w-60 shrink-0 flex-col border-r border-border bg-white">
+        <div className="shrink-0 border-b border-border px-4 py-4">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <CircuitBoard className="h-4 w-4" />
+            </span>
             <span className="text-sm font-semibold text-ink">Metal Routing</span>
           </div>
         </div>
-        <nav className="flex flex-1 flex-col gap-1 p-3">
+        <nav className="flex flex-1 flex-col gap-0.5 p-2">
           {NAV.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
@@ -40,7 +42,9 @@ export function MetalRoutingLayout({ basePath, children }: { basePath: string; c
           ))}
         </nav>
       </aside>
-      <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+      <div className="metal-routing-content flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#f8faf8]">
+        {children}
+      </div>
     </div>
   )
 }

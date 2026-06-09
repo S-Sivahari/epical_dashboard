@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
-import { PageWrapper } from '@components/layout/PageWrapper'
+import { MetalRoutingPageShell } from '@components/pdk/MetalRoutingPageShell'
 import type { DashboardProject, PdkModule } from '@/types/pdkMetalRouting'
 import { assignPdkToProject, fetchDashboardProjects, fetchPdkModules } from '@services/pdkMetalRoutingService'
 
-export function PdkDashboardPage({ isAdmin }: { isAdmin: boolean }) {
+export function PdkDashboardPage({ basePath }: { basePath: string }) {
   const [projects, setProjects] = useState<DashboardProject[]>([])
   const [pdkModules, setPdkModules] = useState<PdkModule[]>([])
   const [loading, setLoading] = useState(true)
@@ -28,21 +29,24 @@ export function PdkDashboardPage({ isAdmin }: { isAdmin: boolean }) {
   }, [load])
 
   const handleAssign = async (projectId: string, pdkModuleId: string) => {
-    if (!isAdmin) return
     setSavingId(projectId)
     try {
       await assignPdkToProject(projectId, pdkModuleId || null)
       await load()
       toast.success('PDK module assigned to project')
-    } catch {
-      toast.error('Failed to assign PDK module')
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
+          : undefined
+      toast.error(message ?? 'Failed to assign PDK module')
     } finally {
       setSavingId(null)
     }
   }
 
   return (
-    <PageWrapper scrollable>
+    <MetalRoutingPageShell>
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-ink">Dashboard</h1>
         <p className="mt-1 text-sm text-muted">
@@ -50,10 +54,20 @@ export function PdkDashboardPage({ isAdmin }: { isAdmin: boolean }) {
         </p>
       </div>
 
+      {pdkModules.length === 0 ? (
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          No PDK modules yet.{' '}
+          <Link to={`${basePath}/pdk-modules`} className="font-medium text-primary underline">
+            Create a PDK module
+          </Link>{' '}
+          before assigning to projects.
+        </div>
+      ) : null}
+
       {loading ? (
         <p className="text-sm text-muted">Loading projects…</p>
       ) : projects.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border py-12 text-center text-sm text-muted">
+        <p className="rounded-lg border border-dashed border-border bg-white py-12 text-center text-sm text-muted">
           No projects found.
         </p>
       ) : (
@@ -76,23 +90,19 @@ export function PdkDashboardPage({ isAdmin }: { isAdmin: boolean }) {
                   <td className="px-4 py-3">{project.technologyNode}</td>
                   <td className="px-4 py-3">{project.status}</td>
                   <td className="px-4 py-3">
-                    {isAdmin ? (
-                      <select
-                        className="h-9 min-w-[180px] rounded-lg border border-border bg-white px-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-                        value={project.pdkModuleId ?? ''}
-                        disabled={savingId === project.id}
-                        onChange={(e) => void handleAssign(project.id, e.target.value)}
-                      >
-                        <option value="">— Not assigned —</option>
-                        {pdkModules.map((mod) => (
-                          <option key={mod._id} value={mod._id}>
-                            {mod.name}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span>{project.pdkModuleName ?? '—'}</span>
-                    )}
+                    <select
+                      className="h-9 min-w-[200px] rounded-lg border border-border bg-white px-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
+                      value={project.pdkModuleId ?? ''}
+                      disabled={savingId === project.id || pdkModules.length === 0}
+                      onChange={(e) => void handleAssign(project.id, e.target.value)}
+                    >
+                      <option value="">— Not assigned —</option>
+                      {pdkModules.map((mod) => (
+                        <option key={mod._id} value={mod._id}>
+                          {mod.name}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                 </tr>
               ))}
@@ -100,6 +110,6 @@ export function PdkDashboardPage({ isAdmin }: { isAdmin: boolean }) {
           </table>
         </div>
       )}
-    </PageWrapper>
+    </MetalRoutingPageShell>
   )
 }

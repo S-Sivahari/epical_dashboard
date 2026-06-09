@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Download, Search } from 'lucide-react'
 import { toast } from 'sonner'
-import { PageWrapper } from '@components/layout/PageWrapper'
+import { MetalRoutingPageShell } from '@components/pdk/MetalRoutingPageShell'
 import { Button } from '@components/ui/Button'
 import { MetalRoutingTable } from '@components/pdk/MetalRoutingTable'
 import { AddMetalModal } from '@components/pdk/AddMetalModal'
@@ -103,39 +103,79 @@ export function ProjectCellRoutingPage({ basePath }: { basePath: string }) {
 
   const cellNames = context?.cellNames ?? []
 
+  if (route) {
+    return (
+      <MetalRoutingPageShell fill className="!p-0">
+        <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5">
+          <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              icon={<ArrowLeft className="h-4 w-4" />}
+              onClick={() => setRoute(null)}
+            >
+              Back to route setup
+            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                icon={<Download className="h-4 w-4" />}
+                onClick={() =>
+                  void downloadRouteExcel(
+                    route._id,
+                    `metal-routing_${route.fromCell}_${route.toCell}.xlsx`.replace(/\s+/g, '_'),
+                  ).then(() => toast.success('Exported'))
+                }
+              >
+                Export Excel
+              </Button>
+            </div>
+          </div>
+          <MetalRoutingTable
+            fullScreen
+            route={route}
+            onAddMetal={() => setAddMetalOpen(true)}
+            onRemoveMetal={(id) => void handleRemoveMetal(id)}
+          />
+        </div>
+        <AddMetalModal
+          isOpen={addMetalOpen}
+          onClose={() => setAddMetalOpen(false)}
+          projectId={projectId}
+          pdkModule={context?.pdkModule ?? null}
+          adding={addingMetal}
+          onAdd={handleAddMetal}
+        />
+      </MetalRoutingPageShell>
+    )
+  }
+
   return (
-    <PageWrapper scrollable>
+    <MetalRoutingPageShell>
       <Button
         size="sm"
         variant="ghost"
         icon={<ArrowLeft className="h-4 w-4" />}
         onClick={() => navigate(`${basePath}/cell-routing`)}
       >
-        All projects
+        Back to projects
       </Button>
 
-      <div className="mt-4 mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-ink">{context?.project.projectName ?? 'Cell Routing'}</h1>
-          <p className="mt-1 text-sm text-muted">
-            PDK: {context?.pdkModule?.name ?? 'Not assigned'}
-            {context?.pdkModule ? null : ' — assign from Dashboard'}
-          </p>
-        </div>
-        {route ? (
-          <Button
-            variant="secondary"
-            icon={<Download className="h-4 w-4" />}
-            onClick={() =>
-              void downloadRouteExcel(
-                route._id,
-                `metal-routing_${route.fromCell}_${route.toCell}.xlsx`.replace(/\s+/g, '_'),
-              ).then(() => toast.success('Exported'))
-            }
-          >
-            Export Excel
-          </Button>
-        ) : null}
+      <div className="mt-4 mb-6">
+        <h1 className="text-xl font-semibold text-ink">{context?.project.projectName ?? 'Cell Routing'}</h1>
+        <p className="mt-1 text-sm text-muted">
+          PDK: {context?.pdkModule?.name ?? 'Not assigned'}
+          {context?.pdkModule ? null : (
+            <>
+              {' '}
+              —{' '}
+              <button type="button" className="text-primary underline" onClick={() => navigate(`${basePath}/dashboard`)}>
+                assign from Dashboard
+              </button>
+            </>
+          )}
+        </p>
       </div>
 
       <section className="mb-6 rounded-xl border border-border bg-white p-4 shadow-sm">
@@ -196,16 +236,8 @@ export function ProjectCellRoutingPage({ basePath }: { basePath: string }) {
         </div>
       </section>
 
-      {route ? (
-        <MetalRoutingTable
-          route={route}
-          onAddMetal={() => setAddMetalOpen(true)}
-          onRemoveMetal={(id) => void handleRemoveMetal(id)}
-        />
-      ) : null}
-
       {context?.routes?.length ? (
-        <section className="mt-8 rounded-xl border border-border bg-white shadow-sm">
+        <section className="rounded-xl border border-border bg-white shadow-sm">
           <div className="border-b border-border px-4 py-3">
             <h2 className="text-sm font-semibold text-ink">Saved routes in this project</h2>
           </div>
@@ -250,6 +282,6 @@ export function ProjectCellRoutingPage({ basePath }: { basePath: string }) {
         adding={addingMetal}
         onAdd={handleAddMetal}
       />
-    </PageWrapper>
+    </MetalRoutingPageShell>
   )
 }

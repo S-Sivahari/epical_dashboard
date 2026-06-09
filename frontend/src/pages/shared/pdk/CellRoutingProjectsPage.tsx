@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Briefcase } from 'lucide-react'
 import { toast } from 'sonner'
-import { PageWrapper } from '@components/layout/PageWrapper'
+import { MetalRoutingPageShell } from '@components/pdk/MetalRoutingPageShell'
 import type { DashboardProject } from '@/types/pdkMetalRouting'
 import { fetchDashboardProjects } from '@services/pdkMetalRoutingService'
 import { cn } from '@/utils/cn'
@@ -25,7 +25,7 @@ export function CellRoutingProjectsPage({ basePath }: { basePath: string }) {
   }, [])
 
   return (
-    <PageWrapper scrollable>
+    <MetalRoutingPageShell>
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-ink">Cell Routing</h1>
         <p className="mt-1 text-sm text-muted">Select a project to open cell routing analysis.</p>
@@ -34,7 +34,7 @@ export function CellRoutingProjectsPage({ basePath }: { basePath: string }) {
       {loading ? (
         <p className="text-sm text-muted">Loading projects…</p>
       ) : projects.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border py-12 text-center text-sm text-muted">
+        <p className="rounded-lg border border-dashed border-border bg-white py-12 text-center text-sm text-muted">
           No projects available.
         </p>
       ) : (
@@ -66,6 +66,6 @@ export function CellRoutingProjectsPage({ basePath }: { basePath: string }) {
           ))}
         </div>
       )}
-    </PageWrapper>
+    </MetalRoutingPageShell>
   )
 }

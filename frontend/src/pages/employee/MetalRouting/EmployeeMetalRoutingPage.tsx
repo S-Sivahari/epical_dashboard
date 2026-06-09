@@ -9,14 +9,19 @@ const BASE = '/employee/metal-routing'
 
 export function EmployeeMetalRoutingPage() {
   return (
-    <MetalRoutingLayout basePath={BASE}>
-      <Routes>
-        <Route index element={<Navigate to="dashboard" replace />} />
-        <Route path="dashboard" element={<PdkDashboardPage isAdmin={false} />} />
-        <Route path="pdk-modules" element={<PdkModulesPage isAdmin={false} />} />
-        <Route path="cell-routing" element={<CellRoutingProjectsPage basePath={BASE} />} />
-        <Route path="cell-routing/:projectId" element={<ProjectCellRoutingPage basePath={BASE} />} />
-      </Routes>
-    </MetalRoutingLayout>
+    <div
+      className="metal-routing-view crewiq-dashboard relative flex min-h-0 flex-1 flex-col"
+      data-metal-routing
+    >
+      <MetalRoutingLayout basePath={BASE}>
+        <Routes>
+          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route path="dashboard" element={<PdkDashboardPage basePath={BASE} />} />
+          <Route path="pdk-modules" element={<PdkModulesPage />} />
+          <Route path="cell-routing" element={<CellRoutingProjectsPage basePath={BASE} />} />
+          <Route path="cell-routing/:projectId" element={<ProjectCellRoutingPage basePath={BASE} />} />
+        </Routes>
+      </MetalRoutingLayout>
+    </div>
   )
 }

@@ -11,17 +11,24 @@ export function MetalRoutingTable({
   route,
   onAddMetal,
   onRemoveMetal,
+  fullScreen,
 }: {
   route: MetalRoutingRoute
   onAddMetal: () => void
   onRemoveMetal: (metalId: string) => void
+  fullScreen?: boolean
 }) {
   const metals = route.metals
   const rowCount = Math.max(metals.length, 1)
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-white px-4 py-3">
+    <div
+      className={cn(
+        'flex flex-col overflow-hidden border border-border bg-white shadow-sm',
+        fullScreen ? 'min-h-0 flex-1 rounded-lg' : 'rounded-xl',
+      )}
+    >
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
         <div className="grid flex-1 gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <span className="text-xs font-medium uppercase text-muted">From Cell</span>
@@ -45,9 +52,9 @@ export function MetalRoutingTable({
         </Button>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className={cn('overflow-auto', fullScreen && 'min-h-0 flex-1')}>
         <table className="min-w-full border-collapse text-left text-xs sm:text-sm">
-          <thead>
+          <thead className="sticky top-0 z-10">
             <tr className="bg-yellow-300 text-[11px] font-bold uppercase text-black">
               <th className="border border-yellow-400 px-2 py-2">Metal Type</th>
               <th className="border border-yellow-400 px-2 py-2">Metal Width (µm)</th>
@@ -57,7 +64,7 @@ export function MetalRoutingTable({
               <th className="border border-yellow-400 px-2 py-2">Minimum Metal Current Capacity (mA)</th>
               <th className="border border-yellow-400 px-2 py-2">Routing Metal Impedance (Ω)</th>
               <th className="border border-yellow-400 px-2 py-2">Total Impedance (Ω)</th>
-              <th className="border border-yellow-400 px-2 py-2 w-10" />
+              <th className="border border-yellow-400 w-10 px-2 py-2" />
             </tr>
           </thead>
           <tbody>
