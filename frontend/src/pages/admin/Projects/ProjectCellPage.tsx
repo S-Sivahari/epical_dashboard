@@ -16,7 +16,7 @@ import {
 import { cn } from '@/utils/cn'
 import {
   CELL_TYPES,
-  WORKFLOW_STAGE_STATUSES,
+  WORK_STAGE_STATUSES,
   type CellStatus,
   type ProjectCell,
   type WorkflowStageStatus,
@@ -48,7 +48,7 @@ type CellViewStatusButtonsProps = {
 function CellViewStatusButtons({ status, disabled, onChange }: CellViewStatusButtonsProps) {
   return (
     <div className="admin-projects-view-status-btns">
-      {WORKFLOW_STAGE_STATUSES.map((value) => (
+      {WORK_STAGE_STATUSES.map((value) => (
         <button
           key={value}
           type="button"
@@ -499,41 +499,45 @@ export function ProjectCellPage() {
                     </div>
                   )}
 
-                  <div className="admin-projects-cell-details-views-section">
-                    <p className="admin-projects-cell-details-main-label">Views</p>
-                    <div className="admin-projects-pill-rail">
-                      {(['layout', 'symbol', 'schematic'] as const).map((v) => (
-                        <button
-                          key={v}
-                          type="button"
-                          onClick={() => setViewTab(v)}
-                          className={cn('admin-projects-pill-btn', viewTab === v && 'is-active')}
-                        >
-                          {VIEW_TAB_LABELS[v]}
-                        </button>
-                      ))}
+                  <section className="admin-projects-cell-details-views-panel" aria-label="Cell views">
+                    <div className="admin-projects-cell-details-views-panel-head">
+                      <p className="admin-projects-cell-details-main-label">Views</p>
+                      <div className="admin-projects-pill-rail">
+                        {(['layout', 'symbol', 'schematic'] as const).map((v) => (
+                          <button
+                            key={v}
+                            type="button"
+                            onClick={() => setViewTab(v)}
+                            className={cn('admin-projects-pill-btn', viewTab === v && 'is-active')}
+                          >
+                            {VIEW_TAB_LABELS[v]}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div className="admin-projects-cell-details-view-box">
-                      {viewTab === 'layout' ? (
-                        <CellWorkflowPanel
-                          projectId={projectId}
-                          cell={cell}
-                          embedded
-                          showReviews={false}
-                          onUpdated={(updated) => {
-                            setCellForm(updated)
-                            void reload()
-                          }}
-                        />
-                      ) : (
-                        <CellViewStatusButtons
-                          status={normalizeViewStatus(cell.views?.[viewTab])}
-                          disabled={savingViewStatus === viewTab}
-                          onChange={(status) => void handleViewStatusChange(viewTab, status)}
-                        />
-                      )}
+                    <div className="admin-projects-cell-details-views-panel-body">
+                      <div className="admin-projects-cell-details-view-box">
+                        {viewTab === 'layout' ? (
+                          <CellWorkflowPanel
+                            projectId={projectId}
+                            cell={cell}
+                            embedded
+                            showReviews={false}
+                            onUpdated={(updated) => {
+                              setCellForm(updated)
+                              void reload()
+                            }}
+                          />
+                        ) : (
+                          <CellViewStatusButtons
+                            status={normalizeViewStatus(cell.views?.[viewTab])}
+                            disabled={savingViewStatus === viewTab}
+                            onChange={(status) => void handleViewStatusChange(viewTab, status)}
+                          />
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  </section>
                 </div>
               )}
 
