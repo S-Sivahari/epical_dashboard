@@ -428,13 +428,6 @@ export function ProjectWorkspace() {
                 <div className="admin-projects-cells-head">
                   <div className="admin-projects-cells-head-text">
                     <h2>Cells</h2>
-                    <p className="admin-projects-cells-head-sub">
-                      {showAllCells
-                        ? `${displayedCells.length} of ${allCells.length} cells across all libraries`
-                        : activeLibrary
-                          ? `${displayedCells.length} cell${displayedCells.length === 1 ? '' : 's'} in ${activeLibrary.name}`
-                          : 'Select a library to view cells'}
-                    </p>
                     {showAllCells ? (
                       <span className="admin-projects-active-lib-pill">All libraries</span>
                     ) : activeLibrary ? (
@@ -517,15 +510,15 @@ export function ProjectWorkspace() {
                 </div>
 
                 <div className="admin-projects-cells-table-wrap">
-                  <table className="admin-projects-table">
+                  <table className="admin-projects-table admin-projects-table--cells">
                     <thead>
                       <tr>
-                        <th>Name</th>
-                        {showAllCells ? <th>Library</th> : null}
-                        <th>Type</th>
-                        <th>Assigned</th>
-                        <th>Status</th>
-                        <th>Workflow</th>
+                        <th className="admin-projects-table-col-name">Name</th>
+                        {showAllCells ? <th className="admin-projects-table-col-library">Library</th> : null}
+                        <th className="admin-projects-table-col-type">Type</th>
+                        <th className="admin-projects-table-col-assigned">Assigned</th>
+                        <th className="admin-projects-table-col-status">Status</th>
+                        <th className="admin-projects-table-col-workflow">Workflow</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -544,15 +537,15 @@ export function ProjectWorkspace() {
                           role="link"
                           aria-label={`Open ${cell.name}`}
                         >
-                          <td className="admin-projects-table-cell-name">{cell.name}</td>
+                          <td className="admin-projects-table-col-name admin-projects-table-cell-name">{cell.name}</td>
                           {showAllCells ? (
-                            <td>{libraryNameById.get(cell.libraryId) || '—'}</td>
+                            <td className="admin-projects-table-col-library">{libraryNameById.get(cell.libraryId) || '—'}</td>
                           ) : null}
-                          <td>{CELL_TYPE_LABELS[cell.cellType] ?? cell.cellType}</td>
-                          <td>{cell.assignedEmployeeName || '—'}</td>
-                          <td>
+                          <td className="admin-projects-table-col-type">{CELL_TYPE_LABELS[cell.cellType] ?? cell.cellType}</td>
+                          <td className="admin-projects-table-col-assigned">{cell.assignedEmployeeName || '—'}</td>
+                          <td className="admin-projects-table-col-status">
                             <span className={cn(
-                              'admin-projects-status-chip',
+                              'admin-projects-status-chip admin-projects-status-chip--table',
                               cell.isBlocked && 'is-blocked',
                               cell.isReady && 'is-ready',
                               cell.status === 'completed' && 'is-completed',
@@ -561,7 +554,7 @@ export function ProjectWorkspace() {
                               {cellDisplayStatus(cell)}
                             </span>
                           </td>
-                          <td onClick={(e) => e.stopPropagation()}>
+                          <td className="admin-projects-table-col-workflow" onClick={(e) => e.stopPropagation()}>
                             <CellWorkflowPanel projectId={projectId} cell={cell} compact />
                           </td>
                         </tr>
@@ -583,9 +576,6 @@ export function ProjectWorkspace() {
             {workspaceSection === 'workflow' && (
               <div className="admin-projects-section-panel admin-projects-section-panel--workflow">
                 <h2 className="admin-projects-graph-title">Cell workflow overview</h2>
-                <p className="admin-projects-workflow-section-intro">
-                  Track Floor Plan, DRC, Routing, and LVS stages independently for every cell in this project.
-                </p>
                 <ProjectWorkflowOverview
                   projectId={projectId}
                   cells={allCells}
