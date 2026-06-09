@@ -109,14 +109,7 @@ body,
   overflow: visible;
 }
 
-.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-page-scrollable]) {
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Scrollable employee routes — grow with content; main column scrolls */
+/* Scrollable employee routes — grow with content; cmd-main scrolls */
 .employee-portal [data-employee-page]:has([data-page-scrollable]) {
   flex: 1 1 auto;
   max-height: none;
@@ -353,7 +346,9 @@ body,
 }
 
 .employee-portal [data-employee-page]:has([data-page-scrollable]) > .emp-portal-page__content {
+  display: flex;
   flex: 1 1 auto;
+  flex-direction: column;
   min-height: auto;
   overflow: visible;
 }
@@ -367,7 +362,6 @@ body,
   overflow: hidden;
 }
 
-.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-page-scrollable]),
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]):not(:has([data-page-scrollable])),
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-dashboard]),
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-leave]) {

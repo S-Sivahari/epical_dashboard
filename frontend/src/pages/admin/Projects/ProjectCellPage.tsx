@@ -9,16 +9,23 @@ import { Input } from '@components/ui/Input'
 import { ROUTES } from '@constants/routes'
 import { getEmployees } from '@services/employeeService'
 import {
+  addReviewMessage,
   completeCell,
+  createCellReview,
   deleteCell,
+  fetchCellReviews,
   fetchWorkspaceSummary,
   updateCell,
   updateCellStatus,
 } from '@/services/projectWorkspaceService'
+import { fetchCellChecklist } from '@/services/checklistService'
+import { CellChecklistResponses } from './CellChecklistResponses'
+import type { CellChecklistDetail } from '@/types/projectWorkspace'
 import { cn } from '@/utils/cn'
 import {
   CELL_TYPES,
-  WORK_STAGE_STATUSES,
+  WORKFLOW_STAGE_STATUSES,
+  type CellReview,
   type CellStatus,
   type ProjectCell,
   type ProjectLibrary,
@@ -49,7 +56,7 @@ type CellViewStatusButtonsProps = {
 function CellViewStatusButtons({ status, disabled, onChange }: CellViewStatusButtonsProps) {
   return (
     <div className="admin-projects-view-status-btns">
-      {WORK_STAGE_STATUSES.map((value) => (
+      {WORKFLOW_STAGE_STATUSES.map((value) => (
         <button
           key={value}
           type="button"
@@ -86,18 +93,26 @@ export function ProjectCellPage() {
   const [viewTab, setViewTab] = useState<ViewTab>('layout')
   const [savingViewStatus, setSavingViewStatus] = useState<ViewTab | null>(null)
   const [selectedDepIds, setSelectedDepIds] = useState<string[]>([])
+  const [reviews, setReviews] = useState<CellReview[]>([])
+  const [reviewComment, setReviewComment] = useState('')
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [cellChecklist, setCellChecklist] = useState<CellChecklistDetail | null>(null)
+
   const reload = useCallback(async () => {
     if (!projectId || !cellId) return
     setLoading(true)
     try {
-      const [ws, empsRes] = await Promise.all([
+      const [ws, empsRes, reviewList, checklistData] = await Promise.all([
         fetchWorkspaceSummary(projectId),
         getEmployees({ status: 'Active', pageSize: 500 }),
+        fetchCellReviews(projectId, cellId),
+        fetchCellChecklist(projectId, cellId).catch(() => null),
       ])
       setSummary(ws)
       setEmployees(empsRes.data ?? [])
+      setReviews(reviewList)
+      setCellChecklist(checklistData)
       const cell = ws.cells.find((c) => c.id === cellId)
       if (cell) {
         setCellForm(cell)
@@ -179,15 +194,31 @@ export function ProjectCellPage() {
     }
   }
 
+  const requestReview = async () => {
+    if (!projectId || !cellId) return
+    await createCellReview(projectId, cellId, reviewComment || 'Review requested')
+    setReviewComment('')
+    const list = await fetchCellReviews(projectId, cellId)
+    setReviews(list)
+    toast.success('Review request sent')
+    await reload()
+  }
+
+  const postReviewReply = async (reviewId: string, body: string) => {
+    if (!projectId || !cellId || !body.trim()) return
+    await addReviewMessage(projectId, cellId, reviewId, body)
+    const list = await fetchCellReviews(projectId, cellId)
+    setReviews(list)
+  }
+
   const handleComplete = async () => {
     if (!projectId || !cellId) return
     try {
       await completeCell(projectId, cellId)
       toast.success('Cell completed')
       await reload()
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
-      toast.error(msg || 'Failed to complete cell')
+    } catch {
+      toast.error('Failed to complete cell')
     }
   }
 
@@ -375,6 +406,31 @@ export function ProjectCellPage() {
                       </dd>
                     </div>
                   </dl>
+                  <div className="admin-projects-cell-checklist-section">
+                    <p className="admin-projects-field-label">Checklist</p>
+                    {!cellChecklist?.checklistId ? (
+                      <p className="text-sm text-slate-500">
+                        No checklist found for cell type{' '}
+                        {CELL_TYPE_LABELS[cell.cellType] ?? cell.cellType}. Restart the backend to seed
+                        default checklists.
+                      </p>
+                    ) : (
+                      <>
+                        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-emerald-800">
+                          {CELL_TYPE_LABELS[cell.cellType] ?? cell.cellType} cell type
+                        </p>
+                        <p className="mb-3 text-sm font-semibold text-slate-800">
+                          {cellChecklist.checklistName || 'Assigned checklist'}
+                        </p>
+                        <CellChecklistResponses
+                          projectId={projectId}
+                          cellId={cellId}
+                          checklist={cellChecklist}
+                          onUpdated={setCellChecklist}
+                        />
+                      </>
+                    )}
+                  </div>
                   <div className="admin-projects-cell-details-views">
                     <p className="admin-projects-field-label">Views</p>
                     <div className="admin-projects-pill-rail mb-2">
@@ -395,16 +451,10 @@ export function ProjectCellPage() {
                           projectId={projectId}
                           cell={cell}
                           embedded
+                          showReviews={false}
                           onUpdated={(updated) => {
                             setCellForm(updated)
-                            setSummary((prev) =>
-                              prev
-                                ? {
-                                    ...prev,
-                                    cells: prev.cells.map((c) => (c.id === updated.id ? updated : c)),
-                                  }
-                                : prev,
-                            )
+                            void reload()
                           }}
                         />
                       ) : (
@@ -415,6 +465,21 @@ export function ProjectCellPage() {
                         />
                       )}
                     </div>
+                    <CellWorkflowPanel
+                      projectId={projectId}
+                      cell={cell}
+                      embedded
+                      showStages={false}
+                      reviews={reviews}
+                      reviewComment={reviewComment}
+                      onReviewCommentChange={setReviewComment}
+                      onRequestReview={requestReview}
+                      onPostReviewReply={postReviewReply}
+                      onUpdated={(updated) => {
+                        setCellForm(updated)
+                        void reload()
+                      }}
+                    />
                   </div>
                 </div>
               )}

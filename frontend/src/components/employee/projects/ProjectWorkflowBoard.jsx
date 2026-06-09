@@ -12,6 +12,11 @@ export function ProjectWorkflowBoard({
   savingId,
   onAdvance,
   onRequestReview,
+  adminMode = false,
+  openReviewByCellId,
+  onResolveReview,
+  reviewSaving = false,
+  compact = false,
 }) {
   const columns = getKanbanColumnsForView(viewTab)
 
@@ -32,10 +37,18 @@ export function ProjectWorkflowBoard({
     return ids.size
   }, [cells])
 
+  const boardMinWidth = compact
+    ? viewTab === 'layout'
+      ? '520px'
+      : '420px'
+    : viewTab === 'layout'
+      ? '920px'
+      : '720px'
+
   return (
-    <div className="emp-project-workflow">
+    <div className={cn('emp-project-workflow', compact && 'emp-project-workflow--compact')}>
       <div className="emp-project-workflow-head">
-        <h2 className="emp-project-workflow-title">Project Workflow</h2>
+        {!compact ? <h2 className="emp-project-workflow-title">Project Workflow</h2> : null}
         <div className="emp-wf-filters">
           {columns.map((col) => (
             <button
@@ -51,10 +64,7 @@ export function ProjectWorkflowBoard({
       </div>
 
       <div className="emp-wf-board-wrap">
-        <div
-          className="emp-wf-board"
-          style={{ minWidth: viewTab === 'layout' ? '920px' : '720px' }}
-        >
+        <div className="emp-wf-board" style={{ minWidth: boardMinWidth }}>
           {columns.map((column) => {
             const columnCells = grouped[column.id] || []
             return (
@@ -73,7 +83,7 @@ export function ProjectWorkflowBoard({
                   </span>
                   <span className="emp-wf-column-count">{columnCells.length}</span>
                 </header>
-                {columnCells.length > 0 ? (
+                {!compact && columnCells.length > 0 ? (
                   <p className="emp-wf-column-meta">
                     {columnCells.length} BLOCK{columnCells.length === 1 ? '' : 'S'} · {engineerIds || 1} ENGINEER
                     {(engineerIds || 1) === 1 ? '' : 'S'}
@@ -92,6 +102,10 @@ export function ProjectWorkflowBoard({
                         savingId={savingId}
                         onAdvance={onAdvance}
                         onRequestReview={onRequestReview}
+                        adminMode={adminMode}
+                        openReview={openReviewByCellId?.get?.(cell.id) ?? null}
+                        onResolveReview={onResolveReview}
+                        reviewSaving={reviewSaving}
                       />
                     ))
                   )}
