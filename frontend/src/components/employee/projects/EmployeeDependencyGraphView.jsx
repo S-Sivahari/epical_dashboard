@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import {
   assignLayers,
   buildDepMap,
-  computeCriticalPath,
   GRAPH_COL_GAP,
   GRAPH_NODE_H,
   GRAPH_NODE_W,
@@ -16,19 +15,14 @@ import {
 } from './employeeDependencyGraphUtils'
 import './employeeDependencyGraph.css'
 
-function GraphNodeCard({ node, cell, isCritical, onOpen }) {
+function GraphNodeCard({ node, cell, onOpen }) {
   const badge = nodeStatusBadge(node, cell)
   const progress = nodeProgressPercent(cell)
 
   return (
     <button
       type="button"
-      className={[
-        'emp-dep-graph-node',
-        isCritical ? 'emp-dep-graph-node--critical' : '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
+      className="emp-dep-graph-node"
       onClick={() => onOpen(node.id)}
       aria-label={`Open cell ${node.name}`}
     >
@@ -43,16 +37,6 @@ function GraphNodeCard({ node, cell, isCritical, onOpen }) {
         {node.name}
       </p>
       <div className="emp-dep-graph-node-foot">
-        {isCritical ? (
-          <span className="emp-dep-graph-node-critical">
-            <span className="emp-dep-graph-node-critical-icon" aria-hidden>
-              ◆
-            </span>
-            Critical path
-          </span>
-        ) : (
-          <span className="emp-dep-graph-node-critical-spacer" aria-hidden />
-        )}
         <div className="emp-dep-graph-node-progress-track" aria-hidden>
           <span className="emp-dep-graph-node-progress-fill" style={{ width: `${progress}%` }} />
         </div>
@@ -68,7 +52,6 @@ export function EmployeeDependencyGraphView({ graph, cellsById = {}, projectId }
     const nodeIds = graph.nodes.map((n) => n.id)
     const deps = buildDepMap(graph.edges)
     const layers = assignLayers(nodeIds, deps)
-    const { nodeIds: criticalNodes, edgeKeys: criticalEdges } = computeCriticalPath(nodeIds, graph.edges)
 
     const byLayer = new Map()
     for (const node of graph.nodes) {
@@ -92,7 +75,6 @@ export function EmployeeDependencyGraphView({ graph, cellsById = {}, projectId }
       const columnHeight = nodes.length * GRAPH_NODE_H + Math.max(0, nodes.length - 1) * GRAPH_ROW_GAP
       return nodes.map((node, row) => ({
         ...node,
-        isCritical: criticalNodes.has(node.id),
         x: GRAPH_PAD + layer * (GRAPH_NODE_W + GRAPH_COL_GAP),
         y: GRAPH_PAD + (maxColumnHeight - columnHeight) / 2 + row * (GRAPH_NODE_H + GRAPH_ROW_GAP),
       }))
@@ -104,10 +86,8 @@ export function EmployeeDependencyGraphView({ graph, cellsById = {}, projectId }
         const from = posMap.get(edge.from)
         const to = posMap.get(edge.to)
         if (!from || !to) return null
-        const key = `${edge.from}-${edge.to}`
         return {
-          key,
-          isCritical: criticalEdges.has(key),
+          key: `${edge.from}-${edge.to}`,
           d: manhattanPath(from.x + GRAPH_NODE_W, from.y + GRAPH_NODE_H / 2, to.x, to.y + GRAPH_NODE_H / 2),
           x1: from.x + GRAPH_NODE_W,
           y1: from.y + GRAPH_NODE_H / 2,
@@ -146,11 +126,6 @@ export function EmployeeDependencyGraphView({ graph, cellsById = {}, projectId }
           <span className="emp-dep-graph-legend-line" />
           Dependency
         </span>
-        <span className="emp-dep-graph-legend-item">
-          <span className="emp-dep-graph-legend-line emp-dep-graph-legend-line--critical" />
-          Critical path
-        </span>
-        <span className="emp-dep-graph-legend-item">◆ Orange border = critical path cell</span>
       </div>
 
       <div className="emp-dep-graph-wrap">
@@ -165,30 +140,13 @@ export function EmployeeDependencyGraphView({ graph, cellsById = {}, projectId }
             <marker id="emp-dep-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
               <path d="M0,0 L7,3.5 L0,7 Z" fill="#94a3b8" />
             </marker>
-            <marker id="emp-dep-arrow-critical" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-              <path d="M0,0 L7,3.5 L0,7 Z" fill="#ea580c" />
-            </marker>
           </defs>
 
           {layout.edgePaths.map((edge) => (
             <g key={edge.key}>
-              <path
-                d={edge.d}
-                className={edge.isCritical ? 'emp-dep-graph-edge emp-dep-graph-edge--critical' : 'emp-dep-graph-edge'}
-                markerEnd={edge.isCritical ? 'url(#emp-dep-arrow-critical)' : 'url(#emp-dep-arrow)'}
-              />
-              <circle
-                cx={edge.x1}
-                cy={edge.y1}
-                r="3"
-                className={edge.isCritical ? 'emp-dep-graph-port emp-dep-graph-port--critical' : 'emp-dep-graph-port'}
-              />
-              <circle
-                cx={edge.x2}
-                cy={edge.y2}
-                r="3"
-                className={edge.isCritical ? 'emp-dep-graph-port emp-dep-graph-port--critical' : 'emp-dep-graph-port'}
-              />
+              <path d={edge.d} className="emp-dep-graph-edge" markerEnd="url(#emp-dep-arrow)" />
+              <circle cx={edge.x1} cy={edge.y1} r="3" className="emp-dep-graph-port" />
+              <circle cx={edge.x2} cy={edge.y2} r="3" className="emp-dep-graph-port" />
             </g>
           ))}
 
@@ -201,12 +159,7 @@ export function EmployeeDependencyGraphView({ graph, cellsById = {}, projectId }
               height={GRAPH_NODE_H}
               xmlns="http://www.w3.org/1999/xhtml"
             >
-              <GraphNodeCard
-                node={node}
-                cell={cellsById[node.id]}
-                isCritical={node.isCritical}
-                onOpen={openCell}
-              />
+              <GraphNodeCard node={node} cell={cellsById[node.id]} onOpen={openCell} />
             </foreignObject>
           ))}
         </svg>

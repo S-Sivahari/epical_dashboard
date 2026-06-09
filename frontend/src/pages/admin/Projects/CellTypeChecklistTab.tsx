@@ -318,7 +318,7 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
         <div className="admin-projects-cell-checklist-tab-head-main">
           <div className="admin-projects-cell-checklist-type-badge">{resolvedType || '—'}</div>
           <div className="admin-projects-cell-type-checklist-file">
-            <FileSpreadsheet className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden />
+            <FileSpreadsheet className="admin-projects-cell-checklist-file-icon shrink-0 text-emerald-700" aria-hidden />
             <div className="min-w-0 flex-1">
               <p className="admin-projects-cell-checklist-file-name" title={detail?.fileName || 'Custom checklist'}>
                 {detail?.fileName || 'Custom questions'}
@@ -341,7 +341,7 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
           <div className="admin-projects-cell-checklist-tab-actions">
             {isAdmin ? (
               <Button size="sm" variant="secondary" onClick={() => setShowAddForm((prev) => !prev)}>
-                <Plus className="mr-1 h-3 w-3" />
+                <Plus className="shrink-0" aria-hidden />
                 Add question
               </Button>
             ) : null}
@@ -351,7 +351,7 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
               onClick={() => void handleDownload()}
               disabled={!hasItems}
             >
-              <Download className="mr-1 h-3 w-3" />
+              <Download className="shrink-0" aria-hidden />
               Download Excel
             </Button>
           </div>
