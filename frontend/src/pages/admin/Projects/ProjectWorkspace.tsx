@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  Archive, ArrowLeft, BookOpen, CheckCircle2, ChevronDown, GitBranch, History, Layers, LayoutGrid, ListChecks, Plus, Search, Trash2, User, X,
+  Archive, ArrowLeft, BookOpen, CheckCircle2, ChevronDown, ClipboardList, GitBranch, History, Layers, LayoutGrid, ListChecks, Plus, Search, Trash2, User, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageWrapper } from '@components/layout/PageWrapper'
@@ -33,10 +33,11 @@ import './adminProjects.css'
 import { DependencyGraphView } from './DependencyGraphView'
 import { CellWorkflowPanel } from './CellWorkflowPanel'
 import { ProjectWorkflowOverview } from './ProjectWorkflowOverview'
+import { ProjectTypeChecklistPanel } from './ProjectTypeChecklistPanel'
 import { CELL_STATUS_FILTER_OPTIONS, STATUS_LABELS, cellDisplayStatus } from './projectWorkspaceUi'
 
 type DeleteTarget = { type: 'library' | 'cell'; id: string; name: string }
-type WorkspaceSection = 'home' | 'workflow' | 'graph' | 'activity'
+type WorkspaceSection = 'home' | 'workflow' | 'graph' | 'activity' | 'checklist'
 type StatFilter = 'complete' | 'archive' | 'unassigned' | null
 
 const FILTER_SELECT_CLASS =
@@ -47,6 +48,7 @@ const SECTION_ITEMS: { id: WorkspaceSection; label: string; icon: typeof LayoutG
   { id: 'workflow', label: 'Workflow', icon: ListChecks },
   { id: 'graph', label: 'Dependency graph', icon: GitBranch },
   { id: 'activity', label: 'Activity log', icon: History },
+  { id: 'checklist', label: 'Checklist', icon: ClipboardList },
 ]
 
 function emptyCellForm(libraryId: string, technologyNode: string): Partial<ProjectCell> & { libraryId: string } {
@@ -598,6 +600,12 @@ export function ProjectWorkspace() {
                     ))
                   )}
                 </div>
+              </div>
+            )}
+
+            {workspaceSection === 'checklist' && (
+              <div className="admin-projects-section-panel admin-projects-section-panel--checklist">
+                <ProjectTypeChecklistPanel projectId={projectId} />
               </div>
             )}
           </div>

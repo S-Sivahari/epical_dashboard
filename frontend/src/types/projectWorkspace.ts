@@ -33,6 +33,43 @@ export const CELL_WORKFLOW_STAGES = [
 
 export type CellType = (typeof CELL_TYPES)[number]
 export type CellStatus = (typeof CELL_STATUSES)[number]
+
+export interface ProjectTypeChecklistMeta {
+  cellType: CellType
+  fileName: string
+  contentType: string
+  uploadedAt: string | null
+  uploadedByName: string
+  hasFile: boolean
+}
+
+export type TypeChecklistAnswer = 'yes' | 'no' | 'not_applicable'
+
+export type ChecklistItemSource = 'template' | 'custom'
+
+export interface CellTypeChecklistItem {
+  source: ChecklistItemSource
+  itemKey: string
+  itemIndex: number | null
+  customItemId?: string | null
+  itemName: string
+  response: TypeChecklistAnswer | null
+  comment: string
+  answeredAt?: string | null
+  answeredByName?: string
+}
+
+export interface CellTypeChecklistDetail {
+  cellId?: string
+  cellName?: string
+  libraryId?: string
+  libraryName?: string
+  cellType: CellType
+  fileName: string
+  hasFile: boolean
+  uploadedAt?: string | null
+  items: CellTypeChecklistItem[]
+}
 export type CellWorkflowStageKey = (typeof CELL_WORKFLOW_STAGE_KEYS)[number]
 export type WorkflowStageStatus = (typeof WORKFLOW_STAGE_STATUSES)[number]
 

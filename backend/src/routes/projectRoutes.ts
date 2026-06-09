@@ -1,11 +1,17 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { projectController } from '../controllers/projectController';
 import { projectWorkspaceController } from '../controllers/projectWorkspaceController';
+import { projectTypeChecklistController } from '../controllers/projectTypeChecklistController';
 import { checklistController } from '../controllers/checklistController';
 import { authMiddleware, requireRole } from '../middleware/authMiddleware';
 
 const router = Router();
 const adminOnly = requireRole('Admin');
+const checklistUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 },
+});
 
 router.use(authMiddleware);
 
@@ -19,6 +25,48 @@ router.get('/archived/:id', adminOnly, projectController.getArchivedProjectById)
 router.delete('/archived/:id', adminOnly, projectController.deleteArchivedProject);
 router.post('/archived/:id/restore', adminOnly, projectController.restoreProject);
 router.post('/:id/archive', adminOnly, projectController.archiveProject);
+router.get('/:projectId/type-checklists/template', adminOnly, projectTypeChecklistController.downloadTemplate);
+router.get('/:projectId/type-checklists', adminOnly, projectTypeChecklistController.list);
+router.get('/:projectId/type-checklists/:cellType/download', adminOnly, projectTypeChecklistController.download);
+router.post(
+  '/:projectId/type-checklists/:cellType',
+  adminOnly,
+  checklistUpload.single('file'),
+  projectTypeChecklistController.upload,
+);
+router.delete('/:projectId/type-checklists/:cellType', adminOnly, projectTypeChecklistController.remove);
+router.get('/:projectId/cells/:cellId/type-checklist', adminOnly, projectTypeChecklistController.getForCell);
+router.get(
+  '/:projectId/cells/:cellId/type-checklist/responses',
+  adminOnly,
+  projectTypeChecklistController.getCellResponses,
+);
+router.patch(
+  '/:projectId/cells/:cellId/type-checklist/responses/:itemIndex',
+  adminOnly,
+  projectTypeChecklistController.updateCellResponse,
+);
+router.post(
+  '/:projectId/cells/:cellId/type-checklist/custom-items',
+  adminOnly,
+  projectTypeChecklistController.addCustomItem,
+);
+router.delete(
+  '/:projectId/cells/:cellId/type-checklist/items/:itemKey',
+  adminOnly,
+  projectTypeChecklistController.deleteItem,
+);
+router.patch(
+  '/:projectId/cells/:cellId/type-checklist/custom-items/:customItemId',
+  adminOnly,
+  projectTypeChecklistController.updateCustomItemResponse,
+);
+router.get(
+  '/:projectId/cells/:cellId/type-checklist/download',
+  adminOnly,
+  projectTypeChecklistController.downloadCellChecklist,
+);
+
 router.get('/:projectId/workspace', adminOnly, projectWorkspaceController.getWorkspaceSummary);
 router.get('/:projectId/checklist', adminOnly, checklistController.getProjectChecklist);
 router.get('/:projectId/checklist/cells', adminOnly, checklistController.getProjectCellsChecklist);

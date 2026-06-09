@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, CheckCircle2, GitBranch, Layers, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, ClipboardList, GitBranch, Layers, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
@@ -35,10 +35,11 @@ import {
   workflowStageStatusClass,
 } from './projectWorkspaceUi'
 import { CellWorkflowPanel } from './CellWorkflowPanel'
+import { CellTypeChecklistTab } from './CellTypeChecklistTab'
 import './adminProjects.css'
 
 type ViewTab = 'layout' | 'symbol' | 'schematic'
-type CellTab = 'details' | 'dependencies'
+type CellTab = 'details' | 'dependencies' | 'checklist'
 
 const VIEW_TAB_LABELS: Record<ViewTab, string> = {
   layout: 'Layout',
@@ -77,6 +78,7 @@ function CellViewStatusButtons({ status, disabled, onChange }: CellViewStatusBut
 const TAB_ITEMS: { id: CellTab; label: string; icon: typeof Layers }[] = [
   { id: 'details', label: 'Details', icon: Layers },
   { id: 'dependencies', label: 'Dependencies', icon: GitBranch },
+  { id: 'checklist', label: 'Checklist', icon: ClipboardList },
 ]
 
 export function ProjectCellPage() {
@@ -558,6 +560,15 @@ export function ProjectCellPage() {
                       {saving ? 'Saving…' : 'Save changes'}
                     </Button>
                   </div>
+                </div>
+              )}
+
+              {activeTab === 'checklist' && (
+                <div className="admin-projects-cell-checklist-tab-panel">
+                  <CellTypeChecklistTab
+                    projectId={projectId}
+                    cellId={cellId}
+                  />
                 </div>
               )}
 
