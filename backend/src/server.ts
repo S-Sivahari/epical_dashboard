@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
 import bodyParser from 'body-parser';
 import session from 'express-session';
 import cookieParser from 'cookie-parser';
@@ -287,7 +288,14 @@ app.post(
     }
   }
 );
+// ── Serve frontend static files (single-service deployment) ───
+const frontendDist = path.join(process.cwd(), 'frontend-dist');
+app.use(express.static(frontendDist));
 
+// SPA fallback: non-API GET requests return index.html for React Router
+app.get(/^(?!\/api).*/, (_req, res) => {
+  res.sendFile(path.join(frontendDist, 'index.html'));
+});
 // ── 404 handler ───────────────────────────────────────────────
 app.use((_req, res) => {
   res.status(404).json({
