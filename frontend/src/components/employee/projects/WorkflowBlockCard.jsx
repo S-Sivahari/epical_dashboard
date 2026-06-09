@@ -1,6 +1,13 @@
 import { ArrowRight, Eye, Loader2 } from 'lucide-react'
 import { EmployeePhotoAvatar } from '@components/employee/shared/EmployeePhotoAvatar'
-import { complexityTag, getAdvancePayload, layoutStageButtonLabel, normalizeWorkflow } from '@/utils/cellWorkflowUi'
+import {
+  actionRequiresChecklist,
+  complexityTag,
+  getAdvancePayload,
+  layoutStageButtonLabel,
+  normalizeWorkflow,
+} from '@/utils/cellWorkflowUi'
+import { CellStageStatusRow } from './CellStageStatusRow'
 import { cn } from '@pages/employee/lib/utils'
 
 export function WorkflowBlockCard({
@@ -14,6 +21,8 @@ export function WorkflowBlockCard({
   openReview = null,
   onResolveReview,
   reviewSaving = false,
+  hideStageRow = false,
+  checklistFilled = true,
 }) {
   const canEdit = !adminMode && Boolean(cell.isAssignedToMe)
   const advance = canEdit ? getAdvancePayload(cell, viewTab) : null
@@ -34,8 +43,10 @@ export function WorkflowBlockCard({
   const avatarName = cell.isAssignedToMe ? (user?.name || displayName) : displayName
   const avatarId = cell.isAssignedToMe ? user?.id : cell.assignedEmployeeId
 
+  const blockedByChecklist = canEdit && actionRequiresChecklist(advance) && !checklistFilled
+
   const handleAction = () => {
-    if (!canEdit) return
+    if (!canEdit || blockedByChecklist) return
     if (isReview) {
       void onRequestReview(cell)
       return
@@ -47,6 +58,9 @@ export function WorkflowBlockCard({
 
   return (
     <article className={cn('emp-wf-card', !canEdit && 'emp-wf-card--readonly')}>
+      {!hideStageRow ? (
+        <CellStageStatusRow cell={cell} viewTab={viewTab} className="emp-wf-card-stage-row" />
+      ) : null}
       <div className="emp-wf-card-head">
         <h3 className="emp-wf-card-title">{String(cell.name || 'UNNAMED').toUpperCase()}</h3>
         {!canEdit ? (
@@ -123,16 +137,18 @@ export function WorkflowBlockCard({
         <button
           type="button"
           className={`emp-wf-advance-btn${isReview ? ' emp-wf-advance-btn--review' : ''}${isDone ? ' emp-wf-advance-btn--done' : ''}${!canEdit ? ' emp-wf-advance-btn--readonly' : ''}`}
-          disabled={isSaving || !canEdit || isDone || awaitingReview}
+          disabled={isSaving || !canEdit || isDone || awaitingReview || blockedByChecklist}
           onClick={handleAction}
           title={
             adminMode
               ? 'Workflow advances are done by the assigned engineer'
-              : !canEdit
-                ? 'You can only advance cells assigned to you'
-                : awaitingReview
-                  ? 'Waiting for admin review'
-                  : undefined
+              : blockedByChecklist
+                ? 'Complete the checklist before marking this stage as completed'
+                : !canEdit
+                  ? 'You can only advance cells assigned to you'
+                  : awaitingReview
+                    ? 'Waiting for admin review'
+                    : undefined
           }
         >
           {isSaving ? (

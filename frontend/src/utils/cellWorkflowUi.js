@@ -79,6 +79,67 @@ export function getCellKanbanColumn(cell, viewTab = 'layout') {
   return getLayoutKanbanColumn(cell)
 }
 
+export function getViewProgressStatus(cell, viewTab = 'layout') {
+  const wf = normalizeWorkflow(cell?.viewWorkflow)
+  if (viewTab === 'style') return wf.style.status
+  if (viewTab === 'symbol') return wf.symbol.status
+  return wf.layout.status
+}
+
+const SIMPLE_STATUS_ORDER = ['not_started', 'in_progress', 'completed']
+
+const REVIEW_LAYOUT_STAGES = new Set(['drc_r1', 'lvs_r2'])
+
+function isLayoutReviewStage(stage) {
+  return REVIEW_LAYOUT_STAGES.has(stage)
+}
+
+/** Review stages count as completed only after admin approval */
+function currentReviewStageStatus(layout, stageId) {
+  if (layout.pendingReview) return 'in_progress'
+  if (layout.status === 'completed') {
+    return stageId === 'lvs_r2' ? 'completed' : 'in_progress'
+  }
+  return layout.status
+}
+
+/** Per-column status for single-cell pipeline boards */
+export function getPipelineColumnStatus(cell, columnId, viewTab = 'layout') {
+  if (viewTab === 'style' || viewTab === 'symbol') {
+    const currentStatus = getViewProgressStatus(cell, viewTab)
+    const currentIndex = SIMPLE_STATUS_ORDER.indexOf(currentStatus)
+    const columnIndex = SIMPLE_STATUS_ORDER.indexOf(columnId)
+    if (columnIndex < 0) return 'not_started'
+    if (columnIndex < currentIndex) return 'completed'
+    if (columnIndex > currentIndex) return 'not_started'
+    return currentStatus
+  }
+
+  const wf = normalizeWorkflow(cell?.viewWorkflow)
+  const { layout } = wf
+  const currentIndex = LAYOUT_STAGES.indexOf(layout.stage)
+  const columnIndex = LAYOUT_STAGES.indexOf(columnId)
+  if (columnIndex < 0) return 'not_started'
+  if (columnIndex > currentIndex) return 'not_started'
+
+  if (columnIndex < currentIndex) {
+    return 'completed'
+  }
+
+  if (isLayoutReviewStage(columnId)) {
+    return currentReviewStageStatus(layout, columnId)
+  }
+
+  return layout.status
+}
+
+export function actionRequiresChecklist(payload) {
+  if (!payload) return false
+  if (payload.type === 'review') return true
+  if (payload.action === 'set_status' && payload.status === 'completed') return true
+  return false
+}
+
 export function getAdvancePayload(cell, viewTab = 'layout') {
   const wf = normalizeWorkflow(cell?.viewWorkflow)
 

@@ -49,6 +49,7 @@ export interface NotificationData {
     | 'HolidayAdded' | 'HolidayUpdated' | 'HolidayDeleted' | 'HolidaySkipped'
     | 'CalendarEventAdded' | 'CalendarEventUpdated' | 'CalendarEventRemoved'
     | 'TicketSubmitted' | 'TicketStatusUpdated' | 'TicketCommentAdded'
+    | 'CellReviewRequested' | 'CellReviewApproved' | 'CellReviewRejected'
   title: string
   message: string
   relatedData: {
@@ -70,6 +71,16 @@ export interface NotificationData {
     ticketId?: string
     ticketTitle?: string
     ticketStatus?: string
+    projectId?: string
+    cellId?: string
+    reviewId?: string
+    projectName?: string
+    cellName?: string
+    reviewPoint?: string
+    stageAtRequest?: string
+    reviewOutcome?: string
+    returnToStage?: string
+    resolvedByName?: string
   }
   isRead: boolean
   createdAt: string

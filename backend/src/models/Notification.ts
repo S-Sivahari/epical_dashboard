@@ -20,7 +20,10 @@ export type NotificationType =
   | 'CalendarEventRemoved'
   | 'TicketSubmitted'
   | 'TicketStatusUpdated'
-  | 'TicketCommentAdded';
+  | 'TicketCommentAdded'
+  | 'CellReviewRequested'
+  | 'CellReviewApproved'
+  | 'CellReviewRejected';
 
 export interface Notification {
   _id?: ObjectId;
@@ -54,6 +57,16 @@ export interface Notification {
     ticketId?: string;
     ticketTitle?: string;
     ticketStatus?: string;
+    projectId?: string;
+    cellId?: string;
+    reviewId?: string;
+    projectName?: string;
+    cellName?: string;
+    reviewPoint?: string;
+    stageAtRequest?: string;
+    reviewOutcome?: string;
+    returnToStage?: string;
+    resolvedByName?: string;
   };
   relatedId?: string;
   isRead: boolean;
@@ -91,6 +104,16 @@ export interface CreateNotificationPayload {
     ticketId?: string;
     ticketTitle?: string;
     ticketStatus?: string;
+    projectId?: string;
+    cellId?: string;
+    reviewId?: string;
+    projectName?: string;
+    cellName?: string;
+    reviewPoint?: string;
+    stageAtRequest?: string;
+    reviewOutcome?: string;
+    returnToStage?: string;
+    resolvedByName?: string;
   };
   relatedId?: string;
 }

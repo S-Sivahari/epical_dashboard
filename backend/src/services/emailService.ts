@@ -759,3 +759,55 @@ export async function sendPayslipEmail(
     attachments: pdfAttachment ? [pdfAttachment] : undefined,
   });
 }
+
+export interface CellReviewEmailData {
+  recipientEmail: string;
+  recipientName: string;
+  projectId: string;
+  cellId: string;
+  projectName: string;
+  cellName: string;
+  reviewPoint: string;
+  stageLabel: string;
+  outcome: 'approved' | 'rejected';
+  returnToStage?: string;
+  resolvedByName?: string;
+}
+
+export async function sendCellReviewEmail(data: CellReviewEmailData): Promise<boolean> {
+  const reviewLabel = data.reviewPoint.toUpperCase();
+  const approved = data.outcome === 'approved';
+  const subject = approved
+    ? `[Epical EMS] ${reviewLabel} review approved — ${data.cellName}`
+    : `[Epical EMS] ${reviewLabel} review rejected — ${data.cellName}`;
+
+  const message = approved
+    ? `Your <strong>${reviewLabel}</strong> review for <strong>${data.cellName}</strong> in <strong>${data.projectName}</strong> has been approved. You can continue the layout workflow.`
+    : `Your <strong>${reviewLabel}</strong> review for <strong>${data.cellName}</strong> in <strong>${data.projectName}</strong> was rejected. Please review admin feedback and update the cell.`;
+
+  const details: DetailField[] = [
+    { label: 'Project', value: data.projectName },
+    { label: 'Cell', value: data.cellName },
+    { label: 'Stage', value: data.stageLabel },
+    { label: 'Review', value: reviewLabel },
+    { label: 'Outcome', value: approved ? 'Approved' : 'Rejected' },
+  ];
+  if (data.resolvedByName) {
+    details.push({ label: 'Reviewed by', value: data.resolvedByName });
+  }
+  if (!approved && data.returnToStage) {
+    details.push({ label: 'Returned to', value: data.returnToStage });
+  }
+
+  const actionUrl = `${env.FRONTEND_URL || 'http://localhost:5173'}/employee/projects/${data.projectId}/cells/${data.cellId}`;
+  const html = buildHtmlTemplate(
+    data.recipientName,
+    approved ? `${reviewLabel} review approved` : `${reviewLabel} review rejected`,
+    message,
+    details,
+    actionUrl,
+  );
+  const text = `Hi ${data.recipientName},\n\n${message.replace(/<[^>]+>/g, '')}\n\nOpen your cell workflow: ${actionUrl}`;
+
+  return await sendEmail({ to: data.recipientEmail, subject, html, text });
+}

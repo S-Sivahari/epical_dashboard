@@ -67,6 +67,18 @@ export async function fetchMyCellReviews(projectId: string, cellId: string) {
   return data
 }
 
+export interface EmployeeRequestedReview extends CellReview {
+  projectId: string
+  projectName: string
+  cellName: string
+  createdAt?: string
+}
+
+export async function fetchMyRequestedReviews() {
+  const { data } = await api.get<EmployeeRequestedReview[]>('/projects/mine/reviews')
+  return data
+}
+
 export async function fetchMyCellChecklist(projectId: string, cellId: string) {
   const { data } = await api.get<CellChecklistDetail>(
     `/projects/${projectId}/cells/${cellId}/mine/checklist`,

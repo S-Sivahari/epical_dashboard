@@ -17,6 +17,7 @@ const checklistUpload = multer({
 router.use(authMiddleware);
 
 router.get('/assigned/me', projectController.getAssignedForCurrentUser);
+router.get('/mine/reviews', employeeProjectController.listMyRequestedReviews);
 router.get('/:projectId/mine/workspace', employeeProjectController.getMyWorkspace);
 router.get('/:projectId/mine/dependency-graph', employeeProjectController.getMyDependencyGraph);
 router.get('/:projectId/cells/:cellId/mine', employeeProjectController.getMyCell);

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { useParams } from 'react-router-dom'
+import { EmployeeProjectBreadcrumb } from '@components/employee/projects/EmployeeProjectBreadcrumb'
 import { EmployeeCellChecklistSidebar } from '@components/employee/projects/EmployeeCellChecklistSidebar'
 import { ProjectWorkflowBoard } from '@components/employee/projects/ProjectWorkflowBoard'
 import { CellDetailsSummary } from '@pages/admin/Projects/CellDetailsSummary'
-import { CellReviewSection } from '@pages/admin/Projects/CellReviewSection'
+import { EmployeeCellReviewSection } from '@components/employee/projects/EmployeeCellReviewSection'
 import {
   fetchMyCell,
   requestCellReview,
@@ -24,6 +24,7 @@ export default function EmployeeCellWorkflow() {
   const [savingId, setSavingId] = useState(null)
   const [viewTab, setViewTab] = useState('layout')
   const [activeFilter, setActiveFilter] = useState(null)
+  const [checklistFilled, setChecklistFilled] = useState(true)
   const { toast } = useToast()
   const user = useAuthStore((s) => s.user)
 
@@ -91,17 +92,20 @@ export default function EmployeeCellWorkflow() {
   const cellTypeLabel = CELL_TYPE_LABELS[cell.cellType] ?? String(cell.cellType || 'block').toUpperCase()
 
   return (
-    <div className="emp-wf-page" data-page-scrollable data-employee-project-cell>
+    <div className="emp-wf-projects-content" data-employee-project-cell>
       <div className="emp-wf-surface emp-wf-cell-page">
-        <header className="emp-wf-workspace-head">
+        <EmployeeProjectBreadcrumb
+          items={[
+            { label: 'Projects', to: '/employee/projects' },
+            { label: project.name, to: `/employee/projects/${projectId}` },
+            { label: cell.name },
+          ]}
+          className="emp-wf-breadcrumb--cell"
+        />
+
+        <header className="emp-wf-workspace-head emp-wf-workspace-head--cell">
           <div className="min-w-0">
-            <Link
-              to={`/employee/projects/${projectId}`}
-              className="emp-wf-back-link"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-              Back to {project.name}
-            </Link>
+            <p className="emp-wf-cell-eyebrow">Cell workflow</p>
             <h1 className="emp-wf-workspace-title">{cell.name}</h1>
             <p className="emp-wf-workspace-meta">
               {library?.name || 'Library'} · {cellTypeLabel} ·{' '}
@@ -157,15 +161,17 @@ export default function EmployeeCellWorkflow() {
                   savingId={savingId}
                   onAdvance={handleAdvance}
                   onRequestReview={handleRequestReview}
+                  checklistFilled={checklistFilled}
                   compact
                 />
               </div>
-              <CellReviewSection reviews={reviews} />
+              <EmployeeCellReviewSection reviews={reviews} />
             </div>
             <EmployeeCellChecklistSidebar
               projectId={projectId}
               cellId={cellId}
               readOnly={!cell.isAssignedToMe}
+              onChange={(detail) => setChecklistFilled(detail?.isFilled ?? true)}
             />
           </div>
         </div>

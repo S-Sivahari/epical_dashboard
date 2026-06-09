@@ -36,7 +36,8 @@ import {
   type CellViewWorkflow,
   type ViewProgressStatus,
 } from '../utils/cellWorkflow';
-import { buildCellChecklistDetail } from '../services/cellTypeChecklistService';
+import { assertCellChecklistFilled, buildCellChecklistDetail } from '../services/cellTypeChecklistService';
+import { sendReviewNotificationsFromCell } from '../services/cellReviewNotificationService';
 import { updateCellChecklistItemResponse } from '../services/checklistService';
 
 function paramId(value: string | string[]): string {
@@ -274,6 +275,16 @@ export const employeeProjectController = {
         return;
       }
 
+      const completesCurrentStage =
+        (action === 'set_status' && status === 'completed') ||
+        (action === 'advance_stage' &&
+          (view === 'style' || view === 'symbol') &&
+          advanceSimpleViewStatus(workflow[view].status) === 'completed');
+
+      if (completesCurrentStage) {
+        await assertCellChecklistFilled(projectId, cellId);
+      }
+
       let nextWorkflow: CellViewWorkflow = { ...workflow };
 
       if (view === 'style' || view === 'symbol') {
@@ -402,6 +413,8 @@ export const employeeProjectController = {
         return;
       }
 
+      await assertCellChecklistFilled(projectId, cellId);
+
       const openReview = await CellReviewModel.findOne({ cellId, status: 'open', reviewPoint });
       if (openReview) {
         res.status(400).json({ error: 'A review request is already open for this stage' });
@@ -441,10 +454,67 @@ export const employeeProjectController = {
       });
       await cell.save();
 
+      void sendReviewNotificationsFromCell({
+        projectId,
+        cellId,
+        reviewId: review._id.toString(),
+        reviewPoint,
+        stageAtRequest: workflow.layout.stage,
+        mode: 'requested',
+        employeeName: actor.userName,
+      }).catch((notifyErr) => {
+        console.error('[employee-projects] review request notification failed:', notifyErr);
+      });
+
       const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
       res.status(201).json({ cell: toEmployeeCell(cell, tokens, meta), review: toReview(review) });
     } catch (err: any) {
       res.status(400).json({ error: err?.message || 'Failed to request review' });
+    }
+  },
+
+  listMyRequestedReviews: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const tokens = await getAssignmentTokens(req);
+      const actor = actorFromReq(req);
+
+      const myCells = await ProjectCellModel.find({ assignedEmployeeId: { $in: tokens } }).select(
+        '_id projectId name',
+      );
+      if (!myCells.length) {
+        res.json([]);
+        return;
+      }
+
+      const cellIds = myCells.map((cell) => cell._id);
+      const cellById = new Map(myCells.map((cell) => [cell._id.toString(), cell]));
+
+      const reviews = await CellReviewModel.find({
+        cellId: { $in: cellIds },
+        initiatedBy: actor.userId,
+      })
+        .sort({ createdAt: -1 })
+        .limit(100);
+
+      const projectIds = [...new Set(myCells.map((cell) => cell.projectId.toString()))];
+      const projects = await ProjectModel.find({ _id: { $in: projectIds } }).select('projectName');
+      const projectNameById = new Map(projects.map((p) => [p._id.toString(), p.projectName]));
+
+      res.json(
+        reviews.map((review) => {
+          const cell = cellById.get(review.cellId.toString());
+          const projectId = review.projectId.toString();
+          return {
+            ...toReview(review),
+            projectId,
+            projectName: projectNameById.get(projectId) || 'Project',
+            cellName: cell?.name || 'Cell',
+          };
+        }),
+      );
+    } catch (err) {
+      console.error('[employee-projects] list requested reviews', err);
+      res.status(500).json({ error: 'Failed to list requested reviews' });
     }
   },
 

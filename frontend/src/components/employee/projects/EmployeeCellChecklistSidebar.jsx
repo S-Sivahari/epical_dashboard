@@ -14,7 +14,7 @@ const RESPONSE_LABELS = {
   not_applicable: 'N/A',
 }
 
-export function EmployeeCellChecklistSidebar({ projectId, cellId, readOnly = false }) {
+export function EmployeeCellChecklistSidebar({ projectId, cellId, readOnly = false, onChange }) {
   const [checklist, setChecklist] = useState(null)
   const [loading, setLoading] = useState(true)
   const [savingId, setSavingId] = useState(null)
@@ -28,9 +28,11 @@ export function EmployeeCellChecklistSidebar({ projectId, cellId, readOnly = fal
     try {
       const data = await fetchMyCellChecklist(projectId, cellId)
       setChecklist(data)
+      onChange?.(data)
     } catch {
       toast({ title: 'Error', description: 'Failed to load checklist' })
       setChecklist(null)
+      onChange?.(null)
     } finally {
       setLoading(false)
     }
@@ -49,6 +51,7 @@ export function EmployeeCellChecklistSidebar({ projectId, cellId, readOnly = fal
         comment: reason,
       })
       setChecklist(data)
+      onChange?.(data)
       setCommentTarget(null)
       setComment('')
       toast({ title: 'Saved', description: 'Checklist response saved' })
@@ -103,6 +106,8 @@ export function EmployeeCellChecklistSidebar({ projectId, cellId, readOnly = fal
         ) : null}
         {readOnly ? (
           <p className="emp-wf-checklist-sidebar-readonly">View only — cell not assigned to you</p>
+        ) : totalCount > 0 && !checklist?.isFilled ? (
+          <p className="emp-wf-checklist-sidebar-required">Answer all checklist items before completing this stage</p>
         ) : null}
       </div>
 

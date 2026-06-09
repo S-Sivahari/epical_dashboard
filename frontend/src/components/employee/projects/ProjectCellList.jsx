@@ -1,28 +1,14 @@
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight, Eye } from 'lucide-react'
 import { EmployeePhotoAvatar } from '@components/employee/shared/EmployeePhotoAvatar'
-import {
-  LAYOUT_STAGE_LABELS,
-  VIEW_PROGRESS_LABELS,
-  complexityTag,
-  normalizeWorkflow,
-} from '@/utils/cellWorkflowUi'
-function cellWorkflowSummary(cell) {
-  const wf = normalizeWorkflow(cell?.viewWorkflow)
-  const { layout } = wf
-  const stage = LAYOUT_STAGE_LABELS[layout.stage] || layout.stage
-  const status = VIEW_PROGRESS_LABELS[layout.status] || layout.status
-  if (layout.pendingReview) {
-    return `${stage} · Awaiting ${layout.pendingReview.toUpperCase()} review`
-  }
-  return `${stage} · ${status}`
-}
+import { complexityTag } from '@/utils/cellWorkflowUi'
+import { CellStageStatusRow } from './CellStageStatusRow'
 
-export function ProjectCellList({ cells, projectId, user }) {
+export function ProjectCellList({ cells, projectId, user, emptyMessage = 'No cells in this library.' }) {
   const navigate = useNavigate()
 
   if (!cells?.length) {
-    return <p className="emp-wf-status">No cells in this library.</p>
+    return <p className="emp-wf-status">{emptyMessage}</p>
   }
 
   return (
@@ -38,6 +24,7 @@ export function ProjectCellList({ cells, projectId, user }) {
               type="button"
               className="emp-wf-cell-list-item"
               onClick={() => navigate(`/employee/projects/${projectId}/cells/${cell.id}`)}
+              aria-label={`Open cell ${cell.name}`}
             >
               <div className="emp-wf-cell-list-main">
                 <div className="emp-wf-cell-list-head">
@@ -51,7 +38,7 @@ export function ProjectCellList({ cells, projectId, user }) {
                     </span>
                   )}
                 </div>
-                <p className="emp-wf-cell-list-summary">{cellWorkflowSummary(cell)}</p>
+                <CellStageStatusRow cell={cell} viewTab="layout" className="emp-wf-cell-list-stage-row" />
                 <div className="emp-wf-cell-list-tags">
                   <span className="emp-wf-tag emp-wf-tag--complexity">{complexityTag(cell.complexity)}</span>
                   <span className="emp-wf-tag emp-wf-tag--type">{String(cell.cellType || 'block').toUpperCase()}</span>

@@ -7,7 +7,7 @@ import type { NotificationData } from '@store/notificationStore'
 import { cn } from '@/utils/cn'
 
 function categorizeNotification(n: NotificationData): 'urgent' | 'pending' | 'informational' | 'completed' {
-  if (n.type.includes('Rejected') || n.type.includes('Submitted')) return 'pending'
+  if (n.type.includes('Rejected') || n.type.includes('Submitted') || n.type.includes('ReviewRequested')) return 'pending'
   if (n.type.includes('Approved') || n.type.includes('Sent')) return 'completed'
   if (n.type.includes('Deleted') || n.type.includes('Skipped')) return 'urgent'
   return 'informational'
