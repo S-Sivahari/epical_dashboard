@@ -9,19 +9,16 @@ import {
   LayoutGrid,
   User,
 } from 'lucide-react'
-import { ProjectWorkflowBoard } from '@components/employee/projects/ProjectWorkflowBoard'
+import { ProjectCellList } from '@components/employee/projects/ProjectCellList'
 import { DependencyGraphView } from '@pages/admin/Projects/DependencyGraphView'
 import {
   fetchMyAssignedProjects,
   fetchMyDependencyGraph,
   fetchMyProjectWorkspace,
-  requestCellReview,
-  updateCellWorkflow,
 } from '@services/employeeProjectService'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { useAuthStore } from '@store/authStore'
 import { cn } from '@pages/employee/lib/utils'
-import { VIEW_TABS } from '@/utils/cellWorkflowUi'
 import './employeeProjectWorkflow.css'
 
 const SECTION_ITEMS = [
@@ -38,11 +35,8 @@ export function EmployeeProjectBoardPage({ routeProjectId = null }) {
   const [graph, setGraph] = useState(null)
   const [selectedLibraryId, setSelectedLibraryId] = useState(null)
   const [workspaceSection, setWorkspaceSection] = useState('home')
-  const [viewTab, setViewTab] = useState('layout')
-  const [activeFilter, setActiveFilter] = useState(null)
   const [loadingProjects, setLoadingProjects] = useState(true)
   const [loadingWorkspace, setLoadingWorkspace] = useState(false)
-  const [savingId, setSavingId] = useState(null)
   const { toast } = useToast()
   const user = useAuthStore((s) => s.user)
 
@@ -138,50 +132,10 @@ export function EmployeeProjectBoardPage({ routeProjectId = null }) {
   const selectedProject = projects.find((p) => p.id === selectedProjectId)
   const stats = workspace?.stats
 
-  const updateCellInState = (updatedCell) => {
-    setWorkspace((prev) => {
-      if (!prev) return prev
-      return {
-        ...prev,
-        cells: prev.cells.map((cell) => (cell.id === updatedCell.id ? { ...cell, ...updatedCell } : cell)),
-      }
-    })
-  }
-
-  const handleAdvance = async (cell, payload) => {
-    if (!selectedProjectId || !cell.isAssignedToMe) return
-    setSavingId(cell.id)
-    try {
-      const updated = await updateCellWorkflow(selectedProjectId, cell.id, payload)
-      updateCellInState(updated)
-      toast({ title: 'Stage updated', description: `${cell.name} advanced` })
-    } catch (err) {
-      const message = err?.response?.data?.error
-      toast({ title: 'Error', description: message || 'Failed to advance stage' })
-    } finally {
-      setSavingId(null)
-    }
-  }
-
   const handleProjectChange = (projectId) => {
     if (!projectId) return
     setSelectedProjectId(projectId)
     navigate(`/employee/projects/${projectId}`, { replace: true })
-  }
-
-  const handleRequestReview = async (cell) => {
-    if (!selectedProjectId || !cell.isAssignedToMe) return
-    setSavingId(cell.id)
-    try {
-      const result = await requestCellReview(selectedProjectId, cell.id)
-      updateCellInState(result.cell)
-      toast({ title: 'Review requested', description: 'Admin will review your submission.' })
-    } catch (err) {
-      const message = err?.response?.data?.error
-      toast({ title: 'Error', description: message || 'Failed to request review' })
-    } finally {
-      setSavingId(null)
-    }
   }
 
   const loading = loadingProjects || loadingWorkspace
@@ -296,36 +250,15 @@ export function EmployeeProjectBoardPage({ routeProjectId = null }) {
                 </aside>
 
                 <section className="emp-wf-board-panel">
-                  <div className="emp-wf-view-tabs">
-                    {VIEW_TABS.map((tab) => (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        className={cn('emp-wf-view-tab', viewTab === tab.id && 'is-active')}
-                        onClick={() => {
-                          setViewTab(tab.id)
-                          setActiveFilter(null)
-                        }}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
+                  <div className="emp-wf-cells-panel-head">
+                    <h2 className="emp-wf-cells-panel-title">Cells</h2>
+                    <p className="emp-wf-cells-panel-hint">Select a cell to open its workflow board.</p>
                   </div>
-
-                  {libraryCells.length === 0 ? (
-                    <p className="emp-wf-status">No cells in this library.</p>
-                  ) : (
-                    <ProjectWorkflowBoard
-                      cells={libraryCells}
-                      user={user}
-                      viewTab={viewTab}
-                      activeFilter={activeFilter}
-                      onFilterChange={setActiveFilter}
-                      savingId={savingId}
-                      onAdvance={handleAdvance}
-                      onRequestReview={handleRequestReview}
-                    />
-                  )}
+                  <ProjectCellList
+                    cells={libraryCells}
+                    projectId={selectedProjectId}
+                    user={user}
+                  />
                 </section>
               </div>
             )}
