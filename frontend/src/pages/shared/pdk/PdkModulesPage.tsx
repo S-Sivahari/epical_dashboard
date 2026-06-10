@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, ChevronDown, Clock, Download, Hash, Layers, Plus, Upload } from 'lucide-react'
+import { ChevronDown, Clock, Download, Hash, Layers, Plus, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { PdkModulesAnalyticsChart } from '@components/pdk/PdkModulesAnalyticsChart'
 import { MetalRoutingInsightsPanel } from '@components/pdk/MetalRoutingInsightsPanel'
@@ -7,11 +7,12 @@ import {
   buildPdkModuleStats,
   MetalRoutingPdkModuleCatalog,
 } from '@components/pdk/MetalRoutingPdkModuleCatalog'
+import { PdkModuleDetailPanel } from '@components/pdk/PdkModuleDetailPanel'
 import { MetalRoutingPageShell } from '@components/pdk/MetalRoutingPageShell'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
 import { Modal } from '@components/ui/Modal'
-import type { PdkModule, PdkModuleMetalSpec } from '@/types/pdkMetalRouting'
+import type { PdkModule } from '@/types/pdkMetalRouting'
 import {
   createPdkModule,
   downloadPdkTemplate,
@@ -121,7 +122,7 @@ function PdkAddMenu({
   )
 }
 
-export function PdkModulesPage() {
+export function PdkModulesPage({ embedded = false }: { embedded?: boolean }) {
   const [modules, setModules] = useState<PdkModule[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -289,33 +290,20 @@ export function PdkModulesPage() {
     [moduleStats],
   )
 
-  return (
-    <MetalRoutingPageShell fill={!showDetail} bleed={!showDetail}>
-      {showDetail ? (
-        <div className="metal-routing-dashboard">
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            icon={<ArrowLeft className="h-4 w-4" />}
-            onClick={() => {
-              setSelectedId(null)
-              setSelectedModule(null)
-            }}
-          >
-            Back to all modules
-          </Button>
-          <header className="metal-routing-dashboard-header">
-            <div className="min-w-0 flex-1">
-              <h1 className="metal-routing-page-title">{selectedModule!.name}</h1>
-              <p className="metal-routing-page-desc">
-                {selectedModule!.technologyNode || 'N/A'}
-                {selectedModule!.notes ? ` · ${selectedModule!.notes}` : ''}
-              </p>
-            </div>
-          </header>
-          <MetalTable metals={selectedModule!.metals} />
-        </div>
+  const pageBody = (
+    <>
+      {showDetail && selectedModule ? (
+        <PdkModuleDetailPanel
+          module={selectedModule}
+          onBack={() => {
+            setSelectedId(null)
+            setSelectedModule(null)
+          }}
+          onSaved={(updated) => {
+            setSelectedModule(updated)
+            setModules((prev) => prev.map((m) => (m._id === updated._id ? updated : m)))
+          }}
+        />
       ) : (
         <div className="metal-routing-pdk-workspace">
           <div className="metal-routing-pdk-workspace-main metal-routing-page-shell">
@@ -514,31 +502,16 @@ export function PdkModulesPage() {
           </div>
         </div>
       </Modal>
-    </MetalRoutingPageShell>
+    </>
   )
-}
 
-function MetalTable({ metals }: { metals: PdkModuleMetalSpec[] }) {
+  if (embedded) {
+    return <div className="metal-routing-pdk-embedded-root">{pageBody}</div>
+  }
+
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-white">
-      <table className="min-w-full border-collapse text-sm">
-        <thead>
-          <tr className="bg-yellow-300 text-xs font-bold uppercase text-black">
-            <th className="border border-yellow-400 px-3 py-2">Metal Type</th>
-            <th className="border border-yellow-400 px-3 py-2">Current Density @ 110° (mA)</th>
-            <th className="border border-yellow-400 px-3 py-2">Sheet Resistance (Ω/sq)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {metals.map((m) => (
-            <tr key={m._id ?? m.metalType} className="bg-lime-400/70 font-medium text-black">
-              <td className="border border-lime-500 px-3 py-2">{m.metalType}</td>
-              <td className="border border-lime-500 px-3 py-2">{m.currentDensityAt110}</td>
-              <td className="border border-lime-500 px-3 py-2">{m.sheetResistance}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <MetalRoutingPageShell fill={!showDetail} bleed={!showDetail}>
+      {pageBody}
+    </MetalRoutingPageShell>
   )
 }

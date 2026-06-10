@@ -46,6 +46,14 @@ export async function resolveRoute(filter: RoutingFilter): Promise<MetalRoutingR
   return data.route
 }
 
+export async function updateRouteIdentity(
+  routeId: string,
+  payload: { signal: string; fromCell: string; toCell: string; schematicCurrentDensity?: number },
+): Promise<MetalRoutingRoute> {
+  const { data } = await api.patch<{ route: MetalRoutingRoute }>(`${BASE}/routes/${routeId}`, payload)
+  return data.route
+}
+
 export async function fetchPdkModules(): Promise<PdkModule[]> {
   const { data } = await api.get<{ modules: PdkModule[] }>(`${BASE}/pdk-modules`)
   return data.modules
@@ -147,7 +155,13 @@ export async function deletePdkModule(id: string): Promise<void> {
 
 export async function previewMetal(
   projectId: string,
-  metal: { metalType: string; width: number; length: number },
+  metal: {
+    metalType: string
+    width: number
+    length: number
+    schematicCurrentDensity?: number
+    connectionType?: 'series' | 'parallel'
+  },
 ): Promise<MetalEntry> {
   const { data } = await api.post<{ metal: MetalEntry }>(`${BASE}/route/metals/preview`, {
     projectId,
@@ -158,10 +172,34 @@ export async function previewMetal(
 
 export async function addMetalToRoute(
   filter: RoutingFilter,
-  metal: { metalType: string; width: number; length: number },
+  metal: {
+    metalType: string
+    width: number
+    length: number
+    schematicCurrentDensity?: number
+    connectionType?: 'series' | 'parallel'
+  },
 ): Promise<{ route: MetalRoutingRoute; summary: AnalysisSummary }> {
   const { data } = await api.post(`${BASE}/route/metals`, { ...filter, ...metal })
   return data
+}
+
+export async function updateMetalInRoute(
+  filter: RoutingFilter,
+  metalId: string,
+  metal: {
+    metalType: string
+    width: number
+    length: number
+    schematicCurrentDensity?: number
+    connectionType?: 'series' | 'parallel'
+  },
+): Promise<MetalRoutingRoute> {
+  const { data } = await api.put<{ route: MetalRoutingRoute }>(`${BASE}/route/metals/${metalId}`, {
+    ...filter,
+    ...metal,
+  })
+  return data.route
 }
 
 export async function removeMetalFromRoute(filter: RoutingFilter, metalId: string): Promise<MetalRoutingRoute> {

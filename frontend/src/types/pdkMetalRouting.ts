@@ -15,6 +15,8 @@ export interface PdkModule {
   updatedAt?: string
 }
 
+export type MetalConnectionType = 'series' | 'parallel'
+
 export interface MetalEntry {
   _id: string
   metalType: string
@@ -23,18 +25,25 @@ export interface MetalEntry {
   pdkModuleId: string
   pdkModuleName: string
   givenCurrentDensity: number
+  schematicCurrentDensity?: number
   sheetResistance: number
   implementedCurrentMetalCapacity: number
   routingMetalImpedance: number
+  connectionType?: MetalConnectionType
 }
 
 export interface MetalRoutingRoute {
   _id: string
   projectId: string
+  signal: string
   fromCell: string
   toCell: string
-  fromSignal: string
-  toSignal: string
+  /** Schematic current density (mA/µm) for this signal — used as Given J on all metals */
+  schematicCurrentDensity?: number
+  /** @deprecated legacy */
+  fromSignal?: string
+  /** @deprecated legacy */
+  toSignal?: string
   metals: MetalEntry[]
   minimumMetalCurrentCapacity: number
   totalImpedance: number
@@ -46,10 +55,23 @@ export interface MetalRoutingRoute {
 
 export interface RoutingFilter {
   projectId: string
+  signal: string
   fromCell: string
   toCell: string
-  fromSignal: string
-  toSignal: string
+  schematicCurrentDensity?: number
+  /** @deprecated legacy lookup */
+  fromSignal?: string
+  /** @deprecated legacy lookup */
+  toSignal?: string
+}
+
+export type ProjectCellTypeKey = 'BLOCK' | 'IO' | 'ESD' | 'TOP'
+
+export interface ProjectCellsByType {
+  BLOCK: string[]
+  IO: string[]
+  ESD: string[]
+  TOP: string[]
 }
 
 export interface DashboardProject {
@@ -91,6 +113,7 @@ export interface RouteBreakdownItem {
 
 export interface RecentRouteAddition {
   id: string
+  signal?: string
   fromCell: string
   toCell: string
   fromSignal: string
@@ -209,17 +232,35 @@ export interface ProjectRoutingContext {
     pdkModuleId: string | null
   }
   cellNames: string[]
+  cellsByType?: ProjectCellsByType
   pdkModule: PdkModule | null
   routes: SavedRouteSummary[]
+  signals?: SignalRouteSummary[]
+}
+
+export interface SignalRouteSummary {
+  _id: string
+  projectId?: string
+  signal: string
+  fromCell: string
+  toCell: string
+  schematicCurrentDensity?: number
+  totalImpedance: number
+  minimumMetalCurrentCapacity: number
+  updatedAt?: string
+  metalCount: number
 }
 
 export interface SavedRouteSummary {
   _id: string
   projectId?: string
+  signal?: string
   fromCell: string
   toCell: string
   fromSignal: string
   toSignal: string
+  totalImpedance?: number
+  minimumMetalCurrentCapacity?: number
   updatedAt?: string
   metalCount: number
 }

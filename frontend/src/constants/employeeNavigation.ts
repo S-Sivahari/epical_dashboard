@@ -46,8 +46,8 @@ export const EMPLOYEE_NAV_ITEMS: EmployeeNavItem[] = [
   },
   {
     to: '/employee/metal-routing',
-    label: 'Metal Routing',
-    navLabel: 'Metal Routing',
+    label: 'Signal Analysis',
+    navLabel: 'Signal Analysis',
     icon: CircuitBoard,
   },
   {

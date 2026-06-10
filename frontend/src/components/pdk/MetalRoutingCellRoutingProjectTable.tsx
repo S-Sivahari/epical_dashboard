@@ -28,6 +28,7 @@ export function MetalRoutingCellRoutingProjectTable({
   loading,
   search,
   statusFilter,
+  hideTechnology,
   onSearchChange,
   onStatusFilterChange,
   onOpenRouting,
@@ -36,6 +37,7 @@ export function MetalRoutingCellRoutingProjectTable({
   loading?: boolean
   search: string
   statusFilter: string
+  hideTechnology?: boolean
   onSearchChange: (value: string) => void
   onStatusFilterChange: (value: string) => void
   onOpenRouting: (projectId: string) => void
@@ -62,7 +64,7 @@ export function MetalRoutingCellRoutingProjectTable({
         project.projectName.toLowerCase().includes(query)
         || project.clientName.toLowerCase().includes(query)
         || (project.projectCode ?? '').toLowerCase().includes(query)
-        || project.technologyNode.toLowerCase().includes(query)
+        || (!hideTechnology && project.technologyNode.toLowerCase().includes(query))
         || (project.pdkModuleName ?? '').toLowerCase().includes(query)
       )
     })
@@ -143,6 +145,7 @@ export function MetalRoutingCellRoutingProjectTable({
               variant="cell-routing"
               projects={pageItems}
               startIndex={(currentPage - 1) * effectivePageSize}
+              hideTechnology={hideTechnology}
               onOpenRouting={onOpenRouting}
             />
           </div>
@@ -150,6 +153,7 @@ export function MetalRoutingCellRoutingProjectTable({
           <MetalRoutingProjectListRows
             projects={pageItems}
             startIndex={(currentPage - 1) * effectivePageSize}
+            hideTechnology={hideTechnology}
             onOpenRouting={onOpenRouting}
           />
         )}

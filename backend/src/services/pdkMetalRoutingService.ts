@@ -25,10 +25,13 @@ const IMPORT_LOG_PREFIX = '[metal-routing-import]';
 
 export interface RoutingKey {
   projectId: string;
+  signal: string;
   fromCell: string;
   toCell: string;
-  fromSignal: string;
-  toSignal: string;
+  /** @deprecated legacy lookup */
+  fromSignal?: string;
+  /** @deprecated legacy lookup */
+  toSignal?: string;
 }
 
 export interface MetalInput {
@@ -36,6 +39,8 @@ export interface MetalInput {
   metalType: string;
   width: number;
   length: number;
+  schematicCurrentDensity?: number;
+  connectionType?: 'series' | 'parallel';
 }
 
 export interface ComputedMetalEntry {
@@ -45,9 +50,11 @@ export interface ComputedMetalEntry {
   pdkModuleId: Types.ObjectId;
   pdkModuleName: string;
   givenCurrentDensity: number;
+  schematicCurrentDensity: number;
   sheetResistance: number;
   implementedCurrentMetalCapacity: number;
   routingMetalImpedance: number;
+  connectionType: 'series' | 'parallel';
 }
 
 export interface AnalysisSummary {
@@ -57,19 +64,71 @@ export interface AnalysisSummary {
   highestImpedanceMetalIndex: number;
 }
 
-function normalizeKey(key: RoutingKey): RoutingKey & { projectObjectId: Types.ObjectId } {
+function resolveSignalFromKey(key: RoutingKey): string {
+  const signal = (key.signal ?? key.fromSignal ?? '').trim();
+  return signal;
+}
+
+function normalizeKey(key: RoutingKey): RoutingKey & { projectObjectId: Types.ObjectId; signal: string } {
   const projectId = key.projectId.trim();
   if (!Types.ObjectId.isValid(projectId)) {
     throw new Error('Invalid project id');
   }
+  const signal = resolveSignalFromKey(key);
+  if (!signal) {
+    throw new Error('Signal name is required');
+  }
   return {
     projectId,
     projectObjectId: new Types.ObjectId(projectId),
+    signal,
     fromCell: key.fromCell.trim(),
     toCell: key.toCell.trim(),
-    fromSignal: key.fromSignal.trim(),
-    toSignal: key.toSignal.trim(),
+    fromSignal: key.fromSignal?.trim() ?? '',
+    toSignal: key.toSignal?.trim() ?? '',
   };
+}
+
+async function findRouteDocumentByKey(k: ReturnType<typeof normalizeKey>) {
+  const base = {
+    projectId: k.projectObjectId,
+    fromCell: k.fromCell,
+    toCell: k.toCell,
+  };
+
+  let route = await MetalRoutingAnalysisModel.findOne({
+    ...base,
+    signal: k.signal,
+  });
+
+  if (!route) {
+    route = await MetalRoutingAnalysisModel.findOne({
+      ...base,
+      fromSignal: k.signal,
+      toSignal: k.toSignal || k.fromSignal,
+    });
+  }
+
+  if (!route && k.fromSignal && k.toSignal) {
+    route = await MetalRoutingAnalysisModel.findOne({
+      ...base,
+      fromSignal: k.fromSignal,
+      toSignal: k.toSignal,
+    });
+  }
+
+  return route;
+}
+
+function routeSignalLabel(route: Record<string, unknown>): string {
+  const signal = String(route.signal ?? '').trim();
+  if (signal) return signal;
+  const fromSignal = String(route.fromSignal ?? '').trim();
+  const toSignal = String(route.toSignal ?? '').trim();
+  if (fromSignal && toSignal && fromSignal !== toSignal) {
+    return `${fromSignal} → ${toSignal}`;
+  }
+  return fromSignal || toSignal;
 }
 
 async function getProjectPdkModule(projectId: string) {
@@ -281,7 +340,7 @@ function buildProjectImpedanceMetrics(projectRoutes: ProjectRouteRecord[]): Proj
     routeId: route._id?.toString() ?? String(index),
     routeLabel: `R${index + 1}`,
     routeName: `${String(route.fromCell ?? '')} → ${String(route.toCell ?? '')}`,
-    signalPath: `${String(route.fromSignal ?? '')} → ${String(route.toSignal ?? '')}`,
+    signalPath: routeSignalLabel(route as Record<string, unknown>),
     impedance: roundImpedanceOhm(Number(route.totalImpedance ?? 0)),
     updatedAt: routeUpdatedAt(route).toISOString(),
     layerContributions: (route.metals ?? []).map((metal) => ({
@@ -621,13 +680,22 @@ export async function assignPdkToProject(projectId: string, pdkModuleId: string 
 
 function serializeRouteSummaryForClient(route: Record<string, unknown>) {
   const metals = (route.metals as unknown[]) ?? [];
+  const signal = routeSignalLabel(route);
+  const schematicCurrentDensity =
+    route.schematicCurrentDensity != null && Number.isFinite(Number(route.schematicCurrentDensity))
+      ? Number(route.schematicCurrentDensity)
+      : undefined;
   return {
     _id: (route._id as Types.ObjectId)?.toString?.() ?? String(route._id ?? ''),
     projectId: (route.projectId as Types.ObjectId)?.toString?.() ?? String(route.projectId ?? ''),
+    signal,
     fromCell: String(route.fromCell ?? ''),
     toCell: String(route.toCell ?? ''),
-    fromSignal: String(route.fromSignal ?? ''),
+    fromSignal: String(route.fromSignal ?? signal),
     toSignal: String(route.toSignal ?? ''),
+    schematicCurrentDensity,
+    totalImpedance: Number(route.totalImpedance ?? 0),
+    minimumMetalCurrentCapacity: Number(route.minimumMetalCurrentCapacity ?? 0),
     updatedAt: route.updatedAt,
     metalCount: metals.length,
   };
@@ -637,6 +705,10 @@ function listSavedRouteSummaries(routes: Record<string, unknown>[]) {
   return routes
     .filter((route) => ((route.metals as unknown[]) ?? []).length > 0)
     .map((route) => serializeRouteSummaryForClient(route));
+}
+
+function listSignalRouteSummaries(routes: Record<string, unknown>[]) {
+  return routes.map((route) => serializeRouteSummaryForClient(route));
 }
 
 async function fetchSavedRouteSummariesForProject(projectId: string) {
@@ -680,12 +752,19 @@ export async function getProjectContext(projectId: string) {
   if (!project) throw new Error('Project not found');
 
   const cellNames = cells.map((c) => c.name).filter(Boolean);
+  const cellsByType = {
+    BLOCK: cells.filter((c) => normalizeCellTypeKey(c.cellType) === 'block').map((c) => c.name),
+    IO: cells.filter((c) => normalizeCellTypeKey(c.cellType) === 'io').map((c) => c.name),
+    ESD: cells.filter((c) => normalizeCellTypeKey(c.cellType) === 'esd').map((c) => c.name),
+    TOP: cells.filter((c) => normalizeCellTypeKey(c.cellType) === 'top').map((c) => c.name),
+  };
   let pdkModule = null;
   if (project.pdkModuleId) {
     pdkModule = await PdkModuleModel.findById(project.pdkModuleId).lean();
   }
 
   const savedRoutes = listSavedRouteSummaries(routes as Record<string, unknown>[]);
+  const signals = listSignalRouteSummaries(routes as Record<string, unknown>[]);
 
   console.log(
     IMPORT_LOG_PREFIX,
@@ -702,53 +781,68 @@ export async function getProjectContext(projectId: string) {
       pdkModuleId: project.pdkModuleId?.toString() ?? null,
     },
     cellNames,
+    cellsByType,
     pdkModule: serializePdkModuleForClient(pdkModule as Record<string, unknown> | null),
     routes: savedRoutes,
+    signals,
   };
+}
+
+function normalizeCellTypeKey(cellType: string): string {
+  const value = String(cellType ?? '').trim().toLowerCase();
+  if (value === 'block') return 'block';
+  if (value === 'iop' || value === 'io') return 'io';
+  if (value === 'esd') return 'esd';
+  if (value === 'top') return 'top';
+  return value;
 }
 
 export async function findRouteByKey(key: RoutingKey) {
   const k = normalizeKey(key);
-  const route = await MetalRoutingAnalysisModel.findOne({
-    projectId: k.projectObjectId,
-    fromCell: k.fromCell,
-    toCell: k.toCell,
-    fromSignal: k.fromSignal,
-    toSignal: k.toSignal,
-  }).lean();
+  const route = await findRouteDocumentByKey(k);
   if (!route) return null;
-  return serializeRouteForClient(route as Record<string, unknown>);
+  return serializeRouteForClient(route.toObject() as unknown as Record<string, unknown>);
 }
 
 export async function getOrCreateRoute(
   key: RoutingKey,
   createdBy?: string,
   createdByName?: string,
+  schematicCurrentDensity?: number,
 ) {
   const k = normalizeKey(key);
   await getProjectPdkModule(k.projectId);
 
-  let route = await MetalRoutingAnalysisModel.findOne({
-    projectId: k.projectObjectId,
-    fromCell: k.fromCell,
-    toCell: k.toCell,
-    fromSignal: k.fromSignal,
-    toSignal: k.toSignal,
-  });
+  const schematic =
+    schematicCurrentDensity != null && Number.isFinite(Number(schematicCurrentDensity))
+      ? Number(schematicCurrentDensity)
+      : undefined;
+
+  let route = await findRouteDocumentByKey(k);
 
   if (!route) {
     route = await MetalRoutingAnalysisModel.create({
       projectId: k.projectObjectId,
+      signal: k.signal,
       fromCell: k.fromCell,
       toCell: k.toCell,
-      fromSignal: k.fromSignal,
-      toSignal: k.toSignal,
+      fromSignal: k.signal,
+      toSignal: '',
+      schematicCurrentDensity: schematic,
       metals: [],
       minimumMetalCurrentCapacity: 0,
       totalImpedance: 0,
       createdBy,
       createdByName,
     });
+  } else {
+    if (!route.signal) {
+      route.signal = k.signal;
+    }
+    if (schematic != null) {
+      route.schematicCurrentDensity = schematic;
+    }
+    await route.save();
   }
   return serializeRouteForClient(route.toObject() as unknown as Record<string, unknown>);
 }
@@ -760,8 +854,13 @@ export function computeMetalEntry(
 ): ComputedMetalEntry {
   const width = Number(input.width);
   const length = Number(input.length);
-  const givenCurrentDensity = spec.currentDensityAt110;
+  const pdkDensity = Number(spec.currentDensityAt110);
+  const schematicCurrentDensity =
+    input.schematicCurrentDensity != null && Number.isFinite(Number(input.schematicCurrentDensity))
+      ? Number(input.schematicCurrentDensity)
+      : pdkDensity;
   const sheetResistance = spec.sheetResistance;
+  const connectionType = input.connectionType === 'parallel' ? 'parallel' : 'series';
 
   return {
     metalType: String(input.metalType).trim(),
@@ -769,10 +868,12 @@ export function computeMetalEntry(
     length,
     pdkModuleId: module._id,
     pdkModuleName: module.name,
-    givenCurrentDensity,
+    givenCurrentDensity: schematicCurrentDensity,
+    schematicCurrentDensity,
     sheetResistance,
-    implementedCurrentMetalCapacity: width * givenCurrentDensity,
+    implementedCurrentMetalCapacity: width * pdkDensity,
     routingMetalImpedance: width > 0 ? (length / width) * sheetResistance : 0,
+    connectionType,
   };
 }
 
@@ -798,7 +899,16 @@ export function summarizeMetals(metals: ComputedMetalEntry[]): AnalysisSummary {
   let totalImpedance = 0;
 
   metals.forEach((metal, index) => {
-    totalImpedance += metal.routingMetalImpedance;
+    const z = metal.routingMetalImpedance;
+    if (metal.connectionType === 'parallel') {
+      if (totalImpedance <= 0) {
+        totalImpedance = z;
+      } else if (z > 0) {
+        totalImpedance = (totalImpedance * z) / (totalImpedance + z);
+      }
+    } else {
+      totalImpedance += z;
+    }
     if (metal.implementedCurrentMetalCapacity < minCapacity) {
       minCapacity = metal.implementedCurrentMetalCapacity;
       minIndex = index;
@@ -836,10 +946,28 @@ function toComputed(m: MetalEntrySubdoc): ComputedMetalEntry {
     pdkModuleId: m.pdkModuleId,
     pdkModuleName: m.pdkModuleName,
     givenCurrentDensity: m.givenCurrentDensity,
+    schematicCurrentDensity: m.schematicCurrentDensity ?? m.givenCurrentDensity,
     sheetResistance: m.sheetResistance,
     implementedCurrentMetalCapacity: m.implementedCurrentMetalCapacity,
     routingMetalImpedance: m.routingMetalImpedance,
+    connectionType: m.connectionType === 'parallel' ? 'parallel' : 'series',
   };
+}
+
+function routeSchematicDensity(route: { schematicCurrentDensity?: number } | null): number | undefined {
+  if (!route?.schematicCurrentDensity) return undefined;
+  const n = Number(route.schematicCurrentDensity);
+  return Number.isFinite(n) && n >= 0 ? n : undefined;
+}
+
+function resolveMetalSchematicInput(
+  routeSchematic: number | undefined,
+  inputSchematic?: number,
+): number | undefined {
+  if (inputSchematic != null && Number.isFinite(Number(inputSchematic))) {
+    return Number(inputSchematic);
+  }
+  return routeSchematic;
 }
 
 export async function addMetalToRoute(
@@ -849,28 +977,34 @@ export async function addMetalToRoute(
   createdByName?: string,
 ) {
   const k = normalizeKey(key);
-  const computed = await previewMetal({ ...input, projectId: k.projectId });
 
-  let route = await MetalRoutingAnalysisModel.findOne({
-    projectId: k.projectObjectId,
-    fromCell: k.fromCell,
-    toCell: k.toCell,
-    fromSignal: k.fromSignal,
-    toSignal: k.toSignal,
-  });
+  let route = await findRouteDocumentByKey(k);
 
   if (!route) {
     route = new MetalRoutingAnalysisModel({
       projectId: k.projectObjectId,
+      signal: k.signal,
       fromCell: k.fromCell,
       toCell: k.toCell,
-      fromSignal: k.fromSignal,
-      toSignal: k.toSignal,
+      fromSignal: k.signal,
+      toSignal: '',
       metals: [],
       createdBy,
       createdByName,
     });
   }
+
+  const routeSchematic = routeSchematicDensity(route);
+  const isFirstMetal = route.metals.length === 0;
+  const connectionType = isFirstMetal ? 'series' : input.connectionType;
+  const schematicCurrentDensity = resolveMetalSchematicInput(routeSchematic, input.schematicCurrentDensity);
+
+  const computed = await previewMetal({
+    ...input,
+    projectId: k.projectId,
+    connectionType,
+    schematicCurrentDensity,
+  });
 
   route.metals.push({ _id: new Types.ObjectId(), ...computed });
   const summary = summarizeMetals(route.metals.map(toComputed));
@@ -909,21 +1043,16 @@ export async function upsertRouteWithMetals(
 
   const summary = summarizeMetals(computedMetals.map(toComputed));
 
-  let route = await MetalRoutingAnalysisModel.findOne({
-    projectId: k.projectObjectId,
-    fromCell: k.fromCell,
-    toCell: k.toCell,
-    fromSignal: k.fromSignal,
-    toSignal: k.toSignal,
-  });
+  let route = await findRouteDocumentByKey(k);
 
   if (!route) {
     route = new MetalRoutingAnalysisModel({
       projectId: k.projectObjectId,
+      signal: k.signal,
       fromCell: k.fromCell,
       toCell: k.toCell,
-      fromSignal: k.fromSignal,
-      toSignal: k.toSignal,
+      fromSignal: k.signal,
+      toSignal: '',
       metals: [],
       createdBy,
       createdByName,
@@ -965,16 +1094,99 @@ export async function removeMetalFromRoute(key: RoutingKey, metalId: string) {
   const k = normalizeKey(key);
   if (!Types.ObjectId.isValid(metalId)) return null;
 
-  const route = await MetalRoutingAnalysisModel.findOne({
-    projectId: k.projectObjectId,
-    fromCell: k.fromCell,
-    toCell: k.toCell,
-    fromSignal: k.fromSignal,
-    toSignal: k.toSignal,
-  });
+  const route = await findRouteDocumentByKey(k);
   if (!route) return null;
 
   route.metals = route.metals.filter((m) => m._id.toString() !== metalId);
+  const summary = summarizeMetals(route.metals.map(toComputed));
+  Object.assign(route, applySummaryToMetals(route.metals, summary));
+  await route.save();
+
+  return serializeRouteForClient(route.toObject() as unknown as Record<string, unknown>);
+}
+
+export async function updateRouteIdentity(
+  routeId: string,
+  updates: { signal: string; fromCell: string; toCell: string; schematicCurrentDensity?: number },
+) {
+  if (!Types.ObjectId.isValid(routeId)) {
+    throw new Error('Invalid route id');
+  }
+
+  const signal = updates.signal.trim();
+  const fromCell = updates.fromCell.trim();
+  const toCell = updates.toCell.trim();
+  if (!signal || !fromCell || !toCell) {
+    throw new Error('Signal, from cell, and to cell are required');
+  }
+
+  const route = await MetalRoutingAnalysisModel.findById(routeId);
+  if (!route) return null;
+
+  const conflict = await MetalRoutingAnalysisModel.findOne({
+    projectId: route.projectId,
+    signal,
+    fromCell,
+    toCell,
+    _id: { $ne: route._id },
+  });
+  if (conflict) {
+    throw new Error('Another signal route already exists with this signal and cell combination');
+  }
+
+  route.signal = signal;
+  route.fromCell = fromCell;
+  route.toCell = toCell;
+  route.fromSignal = signal;
+  route.toSignal = '';
+  if (
+    updates.schematicCurrentDensity != null &&
+    Number.isFinite(Number(updates.schematicCurrentDensity))
+  ) {
+    const schematic = Number(updates.schematicCurrentDensity);
+    route.schematicCurrentDensity = schematic;
+    route.metals.forEach((metal) => {
+      metal.givenCurrentDensity = schematic;
+      metal.schematicCurrentDensity = schematic;
+    });
+    route.markModified('metals');
+  }
+  await route.save();
+
+  return serializeRouteForClient(route.toObject() as unknown as Record<string, unknown>);
+}
+
+export async function updateMetalInRoute(
+  key: RoutingKey,
+  metalId: string,
+  input: Omit<MetalInput, 'projectId'>,
+) {
+  const k = normalizeKey(key);
+  if (!Types.ObjectId.isValid(metalId)) return null;
+
+  const route = await findRouteDocumentByKey(k);
+  if (!route) return null;
+
+  const index = route.metals.findIndex((m) => m._id.toString() === metalId);
+  if (index < 0) return null;
+
+  const routeSchematic = routeSchematicDensity(route);
+  const schematicCurrentDensity = resolveMetalSchematicInput(routeSchematic, input.schematicCurrentDensity);
+
+  const computed = await previewMetal({
+    projectId: k.projectId,
+    metalType: input.metalType,
+    width: input.width,
+    length: input.length,
+    schematicCurrentDensity,
+    connectionType: input.connectionType,
+  });
+
+  route.metals[index] = {
+    _id: route.metals[index]._id,
+    ...computed,
+  };
+  route.markModified('metals');
   const summary = summarizeMetals(route.metals.map(toComputed));
   Object.assign(route, applySummaryToMetals(route.metals, summary));
   await route.save();
@@ -1154,10 +1366,14 @@ export function serializeRouteForClient(route: Record<string, unknown>) {
     ...metal,
     _id: metal._id?.toString() ?? '',
     pdkModuleId: metal.pdkModuleId?.toString() ?? '',
+    connectionType: metal.connectionType === 'parallel' ? 'parallel' : 'series',
+    schematicCurrentDensity: metal.schematicCurrentDensity ?? metal.givenCurrentDensity,
   }));
+  const signal = routeSignalLabel(route);
 
   return {
     ...route,
+    signal,
     _id: (route._id as Types.ObjectId)?.toString?.() ?? String(route._id ?? ''),
     projectId: (route.projectId as Types.ObjectId)?.toString?.() ?? String(route.projectId ?? ''),
     minCapacityMetalId: route.minCapacityMetalId
@@ -1238,6 +1454,7 @@ export async function importProjectRoutesFromExcel(
       const route = await upsertRouteWithMetals(
         {
           projectId: normalizedProjectId,
+          signal: block.fromSignal,
           fromCell: block.fromCell,
           toCell: block.toCell,
           fromSignal: block.fromSignal,

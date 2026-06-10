@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ChevronRight, Grid3x3, Layers, Route, Search } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { MetalRoutingPageShell } from '@components/pdk/MetalRoutingPageShell'
 import { Button } from '@components/ui/Button'
 import { MetalRoutingTable } from '@components/pdk/MetalRoutingTable'
 import { AddMetalModal } from '@components/pdk/AddMetalModal'
 import { MetalRoutingExcelActions } from '@components/pdk/MetalRoutingExcelActions'
-import type { MetalRoutingRoute, ProjectRoutingContext, SavedRouteSummary } from '@/types/pdkMetalRouting'
+import type { MetalEntry, MetalRoutingRoute, ProjectRoutingContext } from '@/types/pdkMetalRouting'
 import type { MetalRoutingImportResult } from '@services/pdkMetalRoutingService'
 import {
   addMetalToRoute,
@@ -15,18 +15,35 @@ import {
   lookupRoute,
   removeMetalFromRoute,
   resolveRoute,
+  updateMetalInRoute,
 } from '@services/pdkMetalRoutingService'
+
 export function ProjectCellRoutingPage({ basePath }: { basePath: string }) {
   const { projectId = '' } = useParams()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const [context, setContext] = useState<ProjectRoutingContext | null>(null)
-  const [filter, setFilter] = useState({ fromCell: '', toCell: '', fromSignal: '', toSignal: '' })
-  const [route, setRoute] = useState<MetalRoutingRoute | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [addMetalOpen, setAddMetalOpen] = useState(false)
-  const [addingMetal, setAddingMetal] = useState(false)
+  const signal = searchParams.get('signal') ?? searchParams.get('fromSignal') ?? ''
+  const fromCell = searchParams.get('fromCell') ?? ''
+  const toCell = searchParams.get('toCell') ?? ''
 
-  const loadContext = useCallback(async (): Promise<ProjectRoutingContext | null> => {
+  const [context, setContext] = useState<ProjectRoutingContext | null>(null)
+  const [route, setRoute] = useState<MetalRoutingRoute | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [metalModalOpen, setMetalModalOpen] = useState(false)
+  const [editingMetal, setEditingMetal] = useState<MetalEntry | null>(null)
+  const [savingMetal, setSavingMetal] = useState(false)
+
+  const routingFilter = useMemo(
+    () => ({
+      projectId,
+      signal,
+      fromCell,
+      toCell,
+    }),
+    [projectId, signal, fromCell, toCell],
+  )
+
+  const loadContext = useCallback(async () => {
     if (!projectId) return null
     try {
       const fresh = await fetchProjectContext(projectId)
@@ -42,46 +59,54 @@ export function ProjectCellRoutingPage({ basePath }: { basePath: string }) {
     void loadContext()
   }, [loadContext])
 
-  const routingFilter = {
-    projectId,
-    fromCell: filter.fromCell,
-    toCell: filter.toCell,
-    fromSignal: filter.fromSignal,
-    toSignal: filter.toSignal,
-  }
-
-  const handleOpenRoute = async () => {
-    if (!filter.fromCell || !filter.toCell || !filter.fromSignal || !filter.toSignal) {
-      toast.error('All four routing values are required as a unique set')
+  useEffect(() => {
+    if (!projectId) return
+    if (!signal || !fromCell || !toCell) {
+      navigate(`${basePath}/projects/${projectId}/signal-analysis`)
       return
     }
-    if (!context?.pdkModule) {
-      toast.error('Assign a PDK module to this project from the Dashboard first')
-      return
+    let cancelled = false
+    const run = async () => {
+      setLoading(true)
+      try {
+        const existing = await lookupRoute(routingFilter)
+        const opened = existing ?? (await resolveRoute(routingFilter))
+        if (!cancelled) setRoute(opened)
+      } catch (err: unknown) {
+        if (!cancelled) {
+          const message =
+            err && typeof err === 'object' && 'response' in err
+              ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
+              : undefined
+          toast.error(message ?? 'Failed to open route')
+          navigate(`${basePath}/projects/${projectId}/signal-analysis`)
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
     }
-    setLoading(true)
-    try {
-      const existing = await lookupRoute(routingFilter)
-      const opened = existing ?? (await resolveRoute(routingFilter))
-      setRoute(opened)
-      toast.success(existing ? 'Route loaded' : 'New route created for this combination')
-    } catch (err: unknown) {
-      const message =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
-          : undefined
-      toast.error(message ?? 'Failed to open route')
-    } finally {
-      setLoading(false)
+    void run()
+    return () => {
+      cancelled = true
     }
+  }, [basePath, fromCell, navigate, projectId, routingFilter, signal, toCell])
+
+  const closeMetalModal = () => {
+    setMetalModalOpen(false)
+    setEditingMetal(null)
   }
 
-  const handleAddMetal = async (payload: { metalType: string; width: number; length: number }) => {
-    setAddingMetal(true)
+  const handleAddMetal = async (payload: {
+    metalType: string
+    width: number
+    length: number
+    connectionType: 'series' | 'parallel'
+  }) => {
+    setSavingMetal(true)
     try {
       const result = await addMetalToRoute(routingFilter, payload)
       setRoute(result.route)
-      setAddMetalOpen(false)
+      closeMetalModal()
       toast.success('Metal row added and saved')
     } catch (err: unknown) {
       const message =
@@ -90,7 +115,32 @@ export function ProjectCellRoutingPage({ basePath }: { basePath: string }) {
           : undefined
       toast.error(message ?? 'Failed to add metal')
     } finally {
-      setAddingMetal(false)
+      setSavingMetal(false)
+    }
+  }
+
+  const handleUpdateMetal = async (
+    metalId: string,
+    payload: {
+      metalType: string
+      width: number
+      length: number
+      connectionType: 'series' | 'parallel'
+    },
+  ) => {
+    setSavingMetal(true)
+    try {
+      setRoute(await updateMetalInRoute(routingFilter, metalId, payload))
+      closeMetalModal()
+      toast.success('Metal row updated')
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
+          : undefined
+      toast.error(message ?? 'Failed to update metal')
+    } finally {
+      setSavingMetal(false)
     }
   }
 
@@ -104,322 +154,87 @@ export function ProjectCellRoutingPage({ basePath }: { basePath: string }) {
     }
   }
 
-  const cellNames = context?.cellNames ?? []
   const pdkAssigned = Boolean(context?.pdkModule)
-
-  const applySavedRoutesToContext = (savedRoutes: SavedRouteSummary[]) => {
-    setContext((prev) => (prev ? { ...prev, routes: savedRoutes } : prev))
-  }
-
-  const handleProjectImport = async (result: MetalRoutingImportResult) => {
-    console.log('[metal-routing-import] refreshing project view', {
-      projectId,
-      routesImported: result.routesImported,
-      savedRoutesFromApi: result.savedRoutes.length,
-      parseDiagnostics: result.parseDiagnostics,
-    })
-
-    applySavedRoutesToContext(result.savedRoutes)
-
-    const fresh = await loadContext()
-    const visibleRoutes =
-      fresh?.routes?.length && fresh.routes.length > 0 ? fresh.routes : result.savedRoutes
-    applySavedRoutesToContext(visibleRoutes)
-
-    console.log('[metal-routing-import] visible saved routes', {
-      fromImportResponse: result.savedRoutes.length,
-      fromContextRefresh: fresh?.routes?.length ?? 0,
-      displayed: visibleRoutes.length,
-    })
-
-    if (result.routesImported > 0 && visibleRoutes.length === 0) {
-      toast.error('Import saved routes but they are not visible for this project. Check backend logs.')
-    }
-  }
-
-  const handleOpenSavedRoute = async (item: SavedRouteSummary) => {
-    setLoading(true)
-    try {
-      const opened = await lookupRoute({
-        projectId,
-        fromCell: item.fromCell,
-        toCell: item.toCell,
-        fromSignal: item.fromSignal,
-        toSignal: item.toSignal,
-      })
-      if (!opened) {
-        toast.error('Saved route could not be loaded')
-        return
-      }
-      setFilter({
-        fromCell: item.fromCell,
-        toCell: item.toCell,
-        fromSignal: item.fromSignal,
-        toSignal: item.toSignal,
-      })
-      setRoute(opened)
-    } catch {
-      toast.error('Failed to open saved route')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const refreshAfterImport = async (importedRoute?: MetalRoutingRoute) => {
     await loadContext()
     if (!importedRoute) return
-
-    const nextFilter = {
-      projectId,
-      fromCell: importedRoute.fromCell,
-      toCell: importedRoute.toCell,
-      fromSignal: importedRoute.fromSignal,
-      toSignal: importedRoute.toSignal,
-    }
-    setFilter({
-      fromCell: nextFilter.fromCell,
-      toCell: nextFilter.toCell,
-      fromSignal: nextFilter.fromSignal,
-      toSignal: nextFilter.toSignal,
-    })
     try {
-      const refreshed = await lookupRoute(nextFilter)
+      const refreshed = await lookupRoute({
+        projectId,
+        signal: importedRoute.signal,
+        fromCell: importedRoute.fromCell,
+        toCell: importedRoute.toCell,
+      })
       setRoute(refreshed ?? importedRoute)
     } catch {
       setRoute(importedRoute)
     }
   }
 
-  if (route) {
+  if (loading && !route) {
     return (
       <MetalRoutingPageShell fill className="!p-0">
-        <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5">
-          <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
-            <Button
-              size="sm"
-              variant="ghost"
-              icon={<ArrowLeft className="h-4 w-4" />}
-              onClick={() => {
-                setRoute(null)
-                void loadContext()
-              }}
-            >
-              Back to route setup
-            </Button>
-            <MetalRoutingExcelActions
-              projectId={projectId}
-              routeId={route._id}
-              pdkAssigned={pdkAssigned}
-              exportFilename={`metal-routing_${route.fromCell}_${route.toCell}.xlsx`.replace(/\s+/g, '_')}
-              onImported={(result) => {
-                const match = result.routes.find(
-                  (r) =>
-                    r.fromCell === route.fromCell &&
-                    r.toCell === route.toCell &&
-                    r.fromSignal === route.fromSignal &&
-                    r.toSignal === route.toSignal,
-                )
-                void refreshAfterImport(match ?? result.routes[0])
-              }}
-            />
-          </div>
-          <MetalRoutingTable
-            fullScreen
-            route={route}
-            onAddMetal={() => setAddMetalOpen(true)}
-            onRemoveMetal={(id) => void handleRemoveMetal(id)}
-          />
-        </div>
-        <AddMetalModal
-          isOpen={addMetalOpen}
-          onClose={() => setAddMetalOpen(false)}
-          projectId={projectId}
-          pdkModule={context?.pdkModule ?? null}
-          adding={addingMetal}
-          onAdd={handleAddMetal}
-        />
+        <div className="flex flex-1 items-center justify-center p-8 text-sm text-muted">Loading route…</div>
       </MetalRoutingPageShell>
     )
   }
 
+  if (!route) return null
+
   return (
-    <MetalRoutingPageShell>
-      <div className="metal-routing-dashboard metal-routing-cell-project-page">
-        <header className="metal-routing-cell-project-top">
-          <div className="metal-routing-cell-project-top__main">
-            <button
-              type="button"
-              className="metal-routing-cell-project-back"
-              onClick={() => navigate(`${basePath}/cell-routing`)}
-            >
-              <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden />
-              Back to projects
-            </button>
-            <div className="metal-routing-cell-project-hero">
-              <span className="metal-routing-cell-project-hero__icon" aria-hidden>
-                <Grid3x3 className="h-5 w-5" />
-              </span>
-              <div className="min-w-0">
-                <h1 className="metal-routing-cell-project-hero__title">
-                  {context?.project.projectName ?? 'Cell Routing'}
-                </h1>
-                <div className="metal-routing-cell-project-hero__meta">
-                  {context?.pdkModule ? (
-                    <span className="metal-routing-meta-chip metal-routing-meta-chip--node">
-                      <Layers className="mr-1 inline h-3 w-3 opacity-80" aria-hidden />
-                      {context.pdkModule.name}
-                    </span>
-                  ) : (
-                    <span className="metal-routing-meta-chip metal-routing-meta-chip--na">PDK not assigned</span>
-                  )}
-                  {!context?.pdkModule ? (
-                    <button
-                      type="button"
-                      className="text-xs font-semibold text-primary hover:underline"
-                      onClick={() => navigate(`${basePath}/dashboard`)}
-                    >
-                      Assign from Dashboard
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="metal-routing-cell-project-actions">
-            <MetalRoutingExcelActions
-              projectId={projectId}
-              pdkAssigned={pdkAssigned}
-              exportFilename={`${context?.project.projectName ?? 'project'}_metal-routing.xlsx`.replace(/\s+/g, '_')}
-              onImported={(result) => void handleProjectImport(result)}
-            />
-          </div>
-        </header>
-
-        <section className="metal-routing-overview-card metal-routing-cell-project-panel">
-          <div className="metal-routing-cell-project-panel__head">
-            <span className="metal-routing-cell-project-panel__head-icon" aria-hidden>
-              <Search className="h-4 w-4" />
-            </span>
-            <div className="min-w-0">
-              <h2 className="metal-routing-cell-project-panel__title">
-                Open route (unique 4-value set within project)
-              </h2>
-              <p className="metal-routing-cell-project-panel__desc">
-                Enter the cell and signal combination to load or create a route for this project.
-              </p>
-            </div>
-          </div>
-          <div className="metal-routing-cell-project-panel__body">
-            <div className="metal-routing-cell-project-fields">
-              <label className="metal-routing-cell-project-field">
-                <span className="metal-routing-cell-project-field__label">From Cell</span>
-                <input
-                  list="project-cells"
-                  className="metal-routing-cell-project-field__input"
-                  value={filter.fromCell}
-                  onChange={(e) => setFilter((f) => ({ ...f, fromCell: e.target.value }))}
-                />
-                <datalist id="project-cells">
-                  {cellNames.map((c) => (
-                    <option key={c} value={c} />
-                  ))}
-                </datalist>
-              </label>
-              <label className="metal-routing-cell-project-field">
-                <span className="metal-routing-cell-project-field__label">To Cell</span>
-                <input
-                  list="to-cells"
-                  className="metal-routing-cell-project-field__input"
-                  value={filter.toCell}
-                  onChange={(e) => setFilter((f) => ({ ...f, toCell: e.target.value }))}
-                  placeholder="Select from list or type"
-                />
-                <datalist id="to-cells">
-                  {cellNames.map((c) => (
-                    <option key={c} value={c} />
-                  ))}
-                </datalist>
-              </label>
-              <label className="metal-routing-cell-project-field">
-                <span className="metal-routing-cell-project-field__label">From Signal</span>
-                <input
-                  className="metal-routing-cell-project-field__input"
-                  value={filter.fromSignal}
-                  onChange={(e) => setFilter((f) => ({ ...f, fromSignal: e.target.value }))}
-                  placeholder="Type signal name"
-                />
-              </label>
-              <label className="metal-routing-cell-project-field">
-                <span className="metal-routing-cell-project-field__label">To Signal</span>
-                <input
-                  className="metal-routing-cell-project-field__input"
-                  value={filter.toSignal}
-                  onChange={(e) => setFilter((f) => ({ ...f, toSignal: e.target.value }))}
-                  placeholder="Type signal name"
-                />
-              </label>
-            </div>
-            <div className="metal-routing-cell-project-panel__actions">
-              <Button loading={loading} icon={<Search className="h-4 w-4" />} onClick={() => void handleOpenRoute()}>
-                Open route
-              </Button>
-            </div>
-          </div>
-        </section>
-
-        <section className="metal-routing-overview-card metal-routing-cell-project-routes">
-          <div className="metal-routing-cell-project-panel__head">
-            <span className="metal-routing-cell-project-panel__head-icon" aria-hidden>
-              <Route className="h-4 w-4" />
-            </span>
-            <div className="min-w-0">
-              <h2 className="metal-routing-cell-project-panel__title">Saved routes in this project</h2>
-              <p className="metal-routing-cell-project-panel__desc">
-                Imported and manually saved routes appear here. Click a route to view calculations.
-              </p>
-            </div>
-          </div>
-          {context?.routes?.length ? (
-            <ul className="metal-routing-cell-project-route-list">
-              {context.routes.map((item) => (
-                <li key={item._id}>
-                  <button
-                    type="button"
-                    disabled={loading}
-                    className="metal-routing-cell-project-route-row"
-                    onClick={() => void handleOpenSavedRoute(item)}
-                  >
-                    <span className="metal-routing-cell-project-route-row__accent" aria-hidden />
-                    <span className="metal-routing-cell-project-route-row__icon" aria-hidden>
-                      <Route className="h-4 w-4" />
-                    </span>
-                    <span className="metal-routing-cell-project-route-row__path">
-                      {item.fromCell} → {item.toCell}
-                      <em> · {item.fromSignal} → {item.toSignal}</em>
-                    </span>
-                    <span className="metal-routing-meta-chip metal-routing-meta-chip--metals shrink-0">
-                      {item.metalCount} metal{item.metalCount === 1 ? '' : 's'}
-                    </span>
-                    <ChevronRight className="metal-routing-cell-project-route-row__chevron h-4 w-4" aria-hidden />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="metal-routing-cell-project-empty">
-              No saved routes yet. Import an Excel file or open a route and add metals to create one.
-            </p>
-          )}
-        </section>
+    <MetalRoutingPageShell fill className="!p-0">
+      <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5">
+        <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={<ArrowLeft className="h-4 w-4" />}
+            onClick={() => navigate(`${basePath}/projects/${projectId}/signal-analysis`)}
+          >
+            Back to signals
+          </Button>
+          <MetalRoutingExcelActions
+            projectId={projectId}
+            routeId={route._id}
+            pdkAssigned={pdkAssigned}
+            exportFilename={`signal_${route.signal}_${route.fromCell}_${route.toCell}.xlsx`.replace(/\s+/g, '_')}
+            onImported={(result: MetalRoutingImportResult) => {
+              const match = result.routes.find(
+                (r) =>
+                  r.signal === route.signal &&
+                  r.fromCell === route.fromCell &&
+                  r.toCell === route.toCell,
+              )
+              void refreshAfterImport(match ?? result.routes[0])
+            }}
+          />
+        </div>
+        <MetalRoutingTable
+          fullScreen
+          route={route}
+          onAddMetal={() => {
+            setEditingMetal(null)
+            setMetalModalOpen(true)
+          }}
+          onEditMetal={(metal) => {
+            setEditingMetal(metal)
+            setMetalModalOpen(true)
+          }}
+          onRemoveMetal={(id) => void handleRemoveMetal(id)}
+        />
       </div>
-
       <AddMetalModal
-        isOpen={addMetalOpen}
-        onClose={() => setAddMetalOpen(false)}
+        isOpen={metalModalOpen}
+        onClose={closeMetalModal}
         projectId={projectId}
         pdkModule={context?.pdkModule ?? null}
-        adding={addingMetal}
+        routeSchematicCurrentDensity={route.schematicCurrentDensity}
+        isFirstMetal={route.metals.length === 0 && !editingMetal}
+        editingMetal={editingMetal}
+        saving={savingMetal}
         onAdd={handleAddMetal}
+        onUpdate={handleUpdateMetal}
       />
     </MetalRoutingPageShell>
   )

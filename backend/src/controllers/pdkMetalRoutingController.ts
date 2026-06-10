@@ -57,15 +57,33 @@ export const pdkMetalRoutingController = {
 
   async resolveRoute(req: AuthRequest, res: Response) {
     try {
-      const { projectId, fromCell, toCell, fromSignal, toSignal } = req.body;
-      if (!projectId || !fromCell || !toCell || !fromSignal || !toSignal) {
-        res.status(400).json({ error: 'projectId and all four routing values are required' });
+      const { projectId, signal, fromCell, toCell, fromSignal, toSignal, schematicCurrentDensity } =
+        req.body;
+      const resolvedSignal = signal ?? fromSignal;
+      if (!projectId || !fromCell || !toCell || !resolvedSignal) {
+        res.status(400).json({ error: 'projectId, signal, fromCell, and toCell are required' });
+        return;
+      }
+      const schematic =
+        schematicCurrentDensity != null && Number.isFinite(Number(schematicCurrentDensity))
+          ? Number(schematicCurrentDensity)
+          : undefined;
+      if (schematic != null && schematic < 0) {
+        res.status(400).json({ error: 'schematicCurrentDensity must be non-negative' });
         return;
       }
       const route = await pdkService.getOrCreateRoute(
-        { projectId, fromCell, toCell, fromSignal, toSignal },
+        {
+          projectId,
+          signal: String(resolvedSignal),
+          fromCell,
+          toCell,
+          fromSignal: fromSignal ? String(fromSignal) : undefined,
+          toSignal: toSignal ? String(toSignal) : undefined,
+        },
         req.user?.id,
         req.user?.email,
+        schematic,
       );
       res.json({ route });
     } catch (err) {
@@ -73,19 +91,52 @@ export const pdkMetalRoutingController = {
     }
   },
 
+  async updateRoute(req: AuthRequest, res: Response) {
+    try {
+      const { signal, fromCell, toCell, schematicCurrentDensity } = req.body;
+      if (!signal?.trim() || !fromCell?.trim() || !toCell?.trim()) {
+        res.status(400).json({ error: 'signal, fromCell, and toCell are required' });
+        return;
+      }
+      const schematic =
+        schematicCurrentDensity != null && Number.isFinite(Number(schematicCurrentDensity))
+          ? Number(schematicCurrentDensity)
+          : undefined;
+      if (schematic != null && schematic < 0) {
+        res.status(400).json({ error: 'schematicCurrentDensity must be non-negative' });
+        return;
+      }
+      const route = await pdkService.updateRouteIdentity(String(req.params.id), {
+        signal: String(signal),
+        fromCell: String(fromCell),
+        toCell: String(toCell),
+        schematicCurrentDensity: schematic,
+      });
+      if (!route) {
+        res.status(404).json({ error: 'Route not found' });
+        return;
+      }
+      res.json({ route });
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : 'Failed to update route' });
+    }
+  },
+
   async lookupRoute(req: AuthRequest, res: Response) {
     try {
-      const { projectId, fromCell, toCell, fromSignal, toSignal } = req.query;
-      if (!projectId || !fromCell || !toCell || !fromSignal || !toSignal) {
-        res.status(400).json({ error: 'projectId and all four routing values are required' });
+      const { projectId, signal, fromCell, toCell, fromSignal, toSignal } = req.query;
+      const resolvedSignal = signal ?? fromSignal;
+      if (!projectId || !fromCell || !toCell || !resolvedSignal) {
+        res.status(400).json({ error: 'projectId, signal, fromCell, and toCell are required' });
         return;
       }
       const route = await pdkService.findRouteByKey({
         projectId: String(projectId),
+        signal: String(resolvedSignal),
         fromCell: String(fromCell),
         toCell: String(toCell),
-        fromSignal: String(fromSignal),
-        toSignal: String(toSignal),
+        fromSignal: fromSignal ? String(fromSignal) : undefined,
+        toSignal: toSignal ? String(toSignal) : undefined,
       });
       res.json({ route: route ?? null });
     } catch (err) {
@@ -206,7 +257,7 @@ export const pdkMetalRoutingController = {
 
   async previewMetal(req: AuthRequest, res: Response) {
     try {
-      const { projectId, metalType, width, length } = req.body;
+      const { projectId, metalType, width, length, schematicCurrentDensity, connectionType } = req.body;
       if (!projectId || !metalType || width == null || length == null) {
         res.status(400).json({ error: 'projectId, metalType, width, and length are required' });
         return;
@@ -216,6 +267,9 @@ export const pdkMetalRoutingController = {
         metalType,
         width: Number(width),
         length: Number(length),
+        schematicCurrentDensity:
+          schematicCurrentDensity != null ? Number(schematicCurrentDensity) : undefined,
+        connectionType: connectionType === 'parallel' ? 'parallel' : 'series',
       });
       res.json({ metal });
     } catch (err) {
@@ -225,9 +279,22 @@ export const pdkMetalRoutingController = {
 
   async addMetal(req: AuthRequest, res: Response) {
     try {
-      const { projectId, fromCell, toCell, fromSignal, toSignal, metalType, width, length } = req.body;
-      if (!projectId || !fromCell || !toCell || !fromSignal || !toSignal) {
-        res.status(400).json({ error: 'projectId and all four routing values are required' });
+      const {
+        projectId,
+        signal,
+        fromCell,
+        toCell,
+        fromSignal,
+        toSignal,
+        metalType,
+        width,
+        length,
+        schematicCurrentDensity,
+        connectionType,
+      } = req.body;
+      const resolvedSignal = signal ?? fromSignal;
+      if (!projectId || !fromCell || !toCell || !resolvedSignal) {
+        res.status(400).json({ error: 'projectId, signal, fromCell, and toCell are required' });
         return;
       }
       if (!metalType || width == null || length == null) {
@@ -235,8 +302,22 @@ export const pdkMetalRoutingController = {
         return;
       }
       const result = await pdkService.addMetalToRoute(
-        { projectId, fromCell, toCell, fromSignal, toSignal },
-        { metalType, width: Number(width), length: Number(length) },
+        {
+          projectId,
+          signal: String(resolvedSignal),
+          fromCell,
+          toCell,
+          fromSignal: fromSignal ? String(fromSignal) : undefined,
+          toSignal: toSignal ? String(toSignal) : undefined,
+        },
+        {
+          metalType,
+          width: Number(width),
+          length: Number(length),
+          schematicCurrentDensity:
+            schematicCurrentDensity != null ? Number(schematicCurrentDensity) : undefined,
+          connectionType: connectionType === 'parallel' ? 'parallel' : 'series',
+        },
         req.user?.id,
         req.user?.email,
       );
@@ -248,13 +329,21 @@ export const pdkMetalRoutingController = {
 
   async removeMetal(req: AuthRequest, res: Response) {
     try {
-      const { projectId, fromCell, toCell, fromSignal, toSignal } = req.body;
-      if (!projectId || !fromCell || !toCell || !fromSignal || !toSignal) {
-        res.status(400).json({ error: 'projectId and all four routing values are required' });
+      const { projectId, signal, fromCell, toCell, fromSignal, toSignal } = req.body;
+      const resolvedSignal = signal ?? fromSignal;
+      if (!projectId || !fromCell || !toCell || !resolvedSignal) {
+        res.status(400).json({ error: 'projectId, signal, fromCell, and toCell are required' });
         return;
       }
       const route = await pdkService.removeMetalFromRoute(
-        { projectId, fromCell, toCell, fromSignal, toSignal },
+        {
+          projectId,
+          signal: String(resolvedSignal),
+          fromCell,
+          toCell,
+          fromSignal: fromSignal ? String(fromSignal) : undefined,
+          toSignal: toSignal ? String(toSignal) : undefined,
+        },
         String(req.params.metalId),
       );
       if (!route) {
@@ -264,6 +353,59 @@ export const pdkMetalRoutingController = {
       res.json({ route });
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to remove metal' });
+    }
+  },
+
+  async updateMetal(req: AuthRequest, res: Response) {
+    try {
+      const {
+        projectId,
+        signal,
+        fromCell,
+        toCell,
+        fromSignal,
+        toSignal,
+        metalType,
+        width,
+        length,
+        schematicCurrentDensity,
+        connectionType,
+      } = req.body;
+      const resolvedSignal = signal ?? fromSignal;
+      if (!projectId || !fromCell || !toCell || !resolvedSignal) {
+        res.status(400).json({ error: 'projectId, signal, fromCell, and toCell are required' });
+        return;
+      }
+      if (!metalType || width == null || length == null) {
+        res.status(400).json({ error: 'metalType, width, and length are required' });
+        return;
+      }
+      const route = await pdkService.updateMetalInRoute(
+        {
+          projectId,
+          signal: String(resolvedSignal),
+          fromCell,
+          toCell,
+          fromSignal: fromSignal ? String(fromSignal) : undefined,
+          toSignal: toSignal ? String(toSignal) : undefined,
+        },
+        String(req.params.metalId),
+        {
+          metalType,
+          width: Number(width),
+          length: Number(length),
+          schematicCurrentDensity:
+            schematicCurrentDensity != null ? Number(schematicCurrentDensity) : undefined,
+          connectionType: connectionType === 'parallel' ? 'parallel' : 'series',
+        },
+      );
+      if (!route) {
+        res.status(404).json({ error: 'Route or metal not found' });
+        return;
+      }
+      res.json({ route });
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : 'Failed to update metal' });
     }
   },
 

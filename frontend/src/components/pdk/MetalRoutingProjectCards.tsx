@@ -26,6 +26,7 @@ export function MetalRoutingProjectCards({
   onSelectProject,
   onAssignPdk,
   onOpenRouting,
+  hideTechnology,
 }: {
   variant: 'dashboard' | 'cell-routing'
   projects: DashboardProject[]
@@ -34,6 +35,7 @@ export function MetalRoutingProjectCards({
   pdkModules?: PdkModule[]
   savingId?: string | null
   selectedProjectId?: string | null
+  hideTechnology?: boolean
   onSelectProject?: (projectId: string) => void
   onAssignPdk?: (projectId: string, pdkModuleId: string) => void
   onOpenRouting?: (projectId: string) => void
@@ -105,7 +107,9 @@ export function MetalRoutingProjectCards({
               <p className="metal-routing-project-card__title truncate">{project.projectName}</p>
               <p className="metal-routing-project-card__code truncate">{projectCode}</p>
               <p className="truncate text-sm text-muted">{project.clientName}</p>
-              <p className="truncate text-xs text-muted">{project.technologyNode}</p>
+              {!hideTechnology ? (
+                <p className="truncate text-xs text-muted">{project.technologyNode}</p>
+              ) : null}
             </div>
 
             <div className="metal-routing-project-card__meta">
@@ -146,7 +150,7 @@ export function MetalRoutingProjectCards({
                   icon={<ExternalLink className="h-3.5 w-3.5" />}
                   onClick={() => onOpenRouting(project.id)}
                 >
-                  Open Routing
+                  Open
                 </Button>
               ) : null}
             </div>
@@ -168,11 +172,13 @@ export function MetalRoutingProjectListRows({
   savingId = null,
   selectedProjectId,
   onAssignPdk,
+  hideTechnology,
 }: {
   variant?: 'cell-routing' | 'dashboard'
   projects: DashboardProject[]
   startIndex?: number
   loading?: boolean
+  hideTechnology?: boolean
   onOpenRouting?: (projectId: string) => void
   onSelectProject?: (projectId: string) => void
   pdkModules?: PdkModule[]
@@ -193,8 +199,10 @@ export function MetalRoutingProjectListRows({
     )
   }
 
+  const isSimpleList = variant === 'cell-routing'
+
   return (
-    <div className="metal-routing-pdk-list">
+    <div className={cn('metal-routing-pdk-list', isSimpleList && 'metal-routing-pdk-list--simple')}>
       {projects.map((project, index) => {
         const globalIndex = startIndex + index
         const projectCode = getProjectCode(project, globalIndex)
@@ -210,41 +218,64 @@ export function MetalRoutingProjectListRows({
             key={project.id}
             type="button"
             className={cn(
-              'metal-routing-pdk-list-row metal-routing-pdk-list-row--colorful',
+              'metal-routing-pdk-list-row',
+              isSimpleList
+                ? 'metal-routing-pdk-list-row--simple'
+                : 'metal-routing-pdk-list-row--colorful',
               isSelected && 'is-selected',
             )}
             onClick={() => {
               if (variant === 'dashboard') onSelectProject?.(project.id)
               else onOpenRouting?.(project.id)
             }}
-            style={metalRoutingCardStyle(cardSeed)}
+            style={isSimpleList ? undefined : metalRoutingCardStyle(cardSeed)}
           >
-            <span className="metal-routing-pdk-list-row__accent" aria-hidden />
-            <span className="metal-routing-pdk-card__icon" aria-hidden>
-              <FolderKanban className="h-4 w-4" />
+            {!isSimpleList ? <span className="metal-routing-pdk-list-row__accent" aria-hidden /> : null}
+            <span
+              className={cn(
+                'metal-routing-pdk-card__icon',
+                isSimpleList && 'metal-routing-pdk-card__icon--compact',
+              )}
+              aria-hidden
+            >
+              <FolderKanban className={isSimpleList ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
             </span>
             <div className="min-w-0 flex-1 text-left">
-              <p className="font-semibold text-ink break-words">{project.projectName}</p>
-              <p className="text-xs text-muted">
-                {projectCode} · {project.clientName}
+              <p className={cn('font-semibold text-ink break-words', isSimpleList && 'text-sm')}>
+                {project.projectName}
               </p>
-              <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                <span className="metal-routing-meta-chip metal-routing-meta-chip--node">
-                  {project.technologyNode}
-                </span>
-                {variant === 'cell-routing' ? (
-                  project.pdkModuleName ? (
-                    <span className="metal-routing-meta-chip metal-routing-meta-chip--metals">
-                      {project.pdkModuleName}
+              <p className={cn('text-muted', isSimpleList ? 'text-[11px]' : 'text-xs')}>
+                {projectCode} · {project.clientName}
+                {isSimpleList && project.pdkModuleName ? ` · ${project.pdkModuleName}` : ''}
+              </p>
+              {!isSimpleList ? (
+                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  {!hideTechnology ? (
+                    <span className="metal-routing-meta-chip metal-routing-meta-chip--node">
+                      {project.technologyNode}
                     </span>
-                  ) : (
-                    <span className="metal-routing-meta-chip metal-routing-meta-chip--na">Unassigned</span>
-                  )
-                ) : null}
-                <MetalRoutingPill tone={status.variant as 'success' | 'warning' | 'neutral' | 'danger'}>
+                  ) : null}
+                  {variant === 'cell-routing' ? (
+                    project.pdkModuleName ? (
+                      <span className="metal-routing-meta-chip metal-routing-meta-chip--metals">
+                        {project.pdkModuleName}
+                      </span>
+                    ) : (
+                      <span className="metal-routing-meta-chip metal-routing-meta-chip--na">Unassigned</span>
+                    )
+                  ) : null}
+                  <MetalRoutingPill tone={status.variant as 'success' | 'warning' | 'neutral' | 'danger'}>
+                    {status.label}
+                  </MetalRoutingPill>
+                </div>
+              ) : (
+                <MetalRoutingPill
+                  className="mt-1"
+                  tone={status.variant as 'success' | 'warning' | 'neutral' | 'danger'}
+                >
                   {status.label}
                 </MetalRoutingPill>
-              </div>
+              )}
               {variant === 'dashboard' ? (
                 <select
                   className="metal-routing-pdk-select mt-2 w-full max-w-full"
@@ -265,11 +296,16 @@ export function MetalRoutingProjectListRows({
                   ))}
                 </select>
               ) : null}
-              <p className="mt-1 text-xs text-muted">
-                Updated {formatRelativeUpdated(project.updatedAt)}
-              </p>
+              {!isSimpleList ? (
+                <p className="mt-1 text-xs text-muted">
+                  Updated {formatRelativeUpdated(project.updatedAt)}
+                </p>
+              ) : null}
             </div>
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted" aria-hidden />
+            <ChevronRight
+              className={cn('shrink-0 text-muted', isSimpleList ? 'h-3.5 w-3.5' : 'h-4 w-4')}
+              aria-hidden
+            />
           </button>
         )
       })}
