@@ -211,10 +211,10 @@ export function MetalRoutingImpedanceReportModal({
       <Area
         type="monotone"
         dataKey="impedance"
-        stroke="#7c3aed"
+        stroke="#1e5a3d"
         strokeWidth={2.5}
         fill={`url(#reportGrad-${gradId})`}
-        dot={{ r: 4, fill: '#7c3aed', stroke: '#fff', strokeWidth: 2, cursor: 'pointer' }}
+        dot={{ r: 4, fill: '#1e5a3d', stroke: '#fff', strokeWidth: 2, cursor: 'pointer' }}
         activeDot={{ r: 6, fill: '#6d28d9' }}
         animationDuration={350}
       />
@@ -222,9 +222,9 @@ export function MetalRoutingImpedanceReportModal({
       <Line
         type="monotone"
         dataKey="impedance"
-        stroke="#7c3aed"
+        stroke="#1e5a3d"
         strokeWidth={2.5}
-        dot={{ r: 4, fill: '#7c3aed', stroke: '#fff', strokeWidth: 2, cursor: 'pointer' }}
+        dot={{ r: 4, fill: '#1e5a3d', stroke: '#fff', strokeWidth: 2, cursor: 'pointer' }}
         activeDot={{ r: 6, fill: '#6d28d9' }}
         animationDuration={350}
       />
@@ -233,8 +233,8 @@ export function MetalRoutingImpedanceReportModal({
     <>
       <defs>
         <linearGradient id={`reportGrad-${gradId}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#7c3aed" stopOpacity={0.32} />
-          <stop offset="100%" stopColor="#7c3aed" stopOpacity={0.02} />
+          <stop offset="0%" stopColor="#1e5a3d" stopOpacity={0.32} />
+          <stop offset="100%" stopColor="#1e5a3d" stopOpacity={0.02} />
         </linearGradient>
       </defs>
       <CartesianGrid stroke="rgba(167, 139, 250, 0.16)" vertical={false} strokeDasharray="4 6" />
@@ -306,7 +306,7 @@ export function MetalRoutingImpedanceReportModal({
             <div className="impedance-report__body">
               <section className="impedance-report__kpis">
                 <article className="impedance-report-kpi">
-                  <TrendingUp className="impedance-report-kpi__icon is-violet" aria-hidden />
+                  <TrendingUp className="impedance-report-kpi__icon is-green" aria-hidden />
                   <div>
                     <p className="impedance-report-kpi__label">Average Impedance</p>
                     <p className="impedance-report-kpi__value">{stats.average.toFixed(2)} Ω</p>

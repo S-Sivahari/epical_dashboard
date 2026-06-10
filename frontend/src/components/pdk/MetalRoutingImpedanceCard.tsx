@@ -318,8 +318,8 @@ export function MetalRoutingImpedanceCard({
               >
                 <defs>
                   <linearGradient id={`impedanceAnalyticsGrad-${gradId}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#7c3aed" stopOpacity={0.34} />
-                    <stop offset="100%" stopColor="#7c3aed" stopOpacity={0.03} />
+                    <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.34} />
+                    <stop offset="100%" stopColor="#a78bfa" stopOpacity={0.03} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid stroke="rgba(167, 139, 250, 0.16)" vertical={false} strokeDasharray="4 6" />
@@ -358,12 +358,12 @@ export function MetalRoutingImpedanceCard({
                 <Area
                   type="monotone"
                   dataKey="impedance"
-                  stroke="#7c3aed"
+                  stroke="#a78bfa"
                   strokeWidth={2.5}
                   fill={`url(#impedanceAnalyticsGrad-${gradId})`}
                   animationDuration={350}
                   activeDot={{ r: 5, fill: '#6d28d9', stroke: '#fff', strokeWidth: 2, cursor: 'pointer' }}
-                  dot={{ r: 3, fill: '#7c3aed', stroke: '#fff', strokeWidth: 1.5, cursor: 'pointer' }}
+                  dot={{ r: 3, fill: '#a78bfa', stroke: '#fff', strokeWidth: 1.5, cursor: 'pointer' }}
                 >
                   <LabelList
                     dataKey="impedance"

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Search } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Grid3x3, Layers, Route, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { MetalRoutingPageShell } from '@components/pdk/MetalRoutingPageShell'
 import { Button } from '@components/ui/Button'
@@ -16,7 +16,6 @@ import {
   removeMetalFromRoute,
   resolveRoute,
 } from '@services/pdkMetalRoutingService'
-
 export function ProjectCellRoutingPage({ basePath }: { basePath: string }) {
   const { projectId = '' } = useParams()
   const navigate = useNavigate()
@@ -245,130 +244,174 @@ export function ProjectCellRoutingPage({ basePath }: { basePath: string }) {
 
   return (
     <MetalRoutingPageShell>
-      <Button
-        size="sm"
-        variant="ghost"
-        icon={<ArrowLeft className="h-4 w-4" />}
-        onClick={() => navigate(`${basePath}/cell-routing`)}
-      >
-        Back to projects
-      </Button>
+      <div className="metal-routing-dashboard metal-routing-cell-project-page">
+        <header className="metal-routing-cell-project-top">
+          <div className="metal-routing-cell-project-top__main">
+            <button
+              type="button"
+              className="metal-routing-cell-project-back"
+              onClick={() => navigate(`${basePath}/cell-routing`)}
+            >
+              <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden />
+              Back to projects
+            </button>
+            <div className="metal-routing-cell-project-hero">
+              <span className="metal-routing-cell-project-hero__icon" aria-hidden>
+                <Grid3x3 className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <h1 className="metal-routing-cell-project-hero__title">
+                  {context?.project.projectName ?? 'Cell Routing'}
+                </h1>
+                <div className="metal-routing-cell-project-hero__meta">
+                  {context?.pdkModule ? (
+                    <span className="metal-routing-meta-chip metal-routing-meta-chip--node">
+                      <Layers className="mr-1 inline h-3 w-3 opacity-80" aria-hidden />
+                      {context.pdkModule.name}
+                    </span>
+                  ) : (
+                    <span className="metal-routing-meta-chip metal-routing-meta-chip--na">PDK not assigned</span>
+                  )}
+                  {!context?.pdkModule ? (
+                    <button
+                      type="button"
+                      className="text-xs font-semibold text-primary hover:underline"
+                      onClick={() => navigate(`${basePath}/dashboard`)}
+                    >
+                      Assign from Dashboard
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="metal-routing-cell-project-actions">
+            <MetalRoutingExcelActions
+              projectId={projectId}
+              pdkAssigned={pdkAssigned}
+              exportFilename={`${context?.project.projectName ?? 'project'}_metal-routing.xlsx`.replace(/\s+/g, '_')}
+              onImported={(result) => void handleProjectImport(result)}
+            />
+          </div>
+        </header>
 
-      <div className="mb-6 flex flex-col gap-4 border-b border-border pb-6 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-semibold text-ink">{context?.project.projectName ?? 'Cell Routing'}</h1>
-          <p className="mt-1 text-sm text-muted">
-            PDK: {context?.pdkModule?.name ?? 'Not assigned'}
-            {context?.pdkModule ? null : (
-              <>
-                {' '}
-                —{' '}
-                <button type="button" className="text-primary underline" onClick={() => navigate(`${basePath}/dashboard`)}>
-                  assign from Dashboard
-                </button>
-              </>
-            )}
-          </p>
-        </div>
-        <div className="w-full shrink-0 lg:w-auto lg:max-w-xl">
-          <MetalRoutingExcelActions
-            projectId={projectId}
-            pdkAssigned={pdkAssigned}
-            exportFilename={`${context?.project.projectName ?? 'project'}_metal-routing.xlsx`.replace(/\s+/g, '_')}
-            onImported={(result) => void handleProjectImport(result)}
-          />
-        </div>
+        <section className="metal-routing-overview-card metal-routing-cell-project-panel">
+          <div className="metal-routing-cell-project-panel__head">
+            <span className="metal-routing-cell-project-panel__head-icon" aria-hidden>
+              <Search className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="metal-routing-cell-project-panel__title">
+                Open route (unique 4-value set within project)
+              </h2>
+              <p className="metal-routing-cell-project-panel__desc">
+                Enter the cell and signal combination to load or create a route for this project.
+              </p>
+            </div>
+          </div>
+          <div className="metal-routing-cell-project-panel__body">
+            <div className="metal-routing-cell-project-fields">
+              <label className="metal-routing-cell-project-field">
+                <span className="metal-routing-cell-project-field__label">From Cell</span>
+                <input
+                  list="project-cells"
+                  className="metal-routing-cell-project-field__input"
+                  value={filter.fromCell}
+                  onChange={(e) => setFilter((f) => ({ ...f, fromCell: e.target.value }))}
+                />
+                <datalist id="project-cells">
+                  {cellNames.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+              </label>
+              <label className="metal-routing-cell-project-field">
+                <span className="metal-routing-cell-project-field__label">To Cell</span>
+                <input
+                  list="to-cells"
+                  className="metal-routing-cell-project-field__input"
+                  value={filter.toCell}
+                  onChange={(e) => setFilter((f) => ({ ...f, toCell: e.target.value }))}
+                  placeholder="Select from list or type"
+                />
+                <datalist id="to-cells">
+                  {cellNames.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+              </label>
+              <label className="metal-routing-cell-project-field">
+                <span className="metal-routing-cell-project-field__label">From Signal</span>
+                <input
+                  className="metal-routing-cell-project-field__input"
+                  value={filter.fromSignal}
+                  onChange={(e) => setFilter((f) => ({ ...f, fromSignal: e.target.value }))}
+                  placeholder="Type signal name"
+                />
+              </label>
+              <label className="metal-routing-cell-project-field">
+                <span className="metal-routing-cell-project-field__label">To Signal</span>
+                <input
+                  className="metal-routing-cell-project-field__input"
+                  value={filter.toSignal}
+                  onChange={(e) => setFilter((f) => ({ ...f, toSignal: e.target.value }))}
+                  placeholder="Type signal name"
+                />
+              </label>
+            </div>
+            <div className="metal-routing-cell-project-panel__actions">
+              <Button loading={loading} icon={<Search className="h-4 w-4" />} onClick={() => void handleOpenRoute()}>
+                Open route
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        <section className="metal-routing-overview-card metal-routing-cell-project-routes">
+          <div className="metal-routing-cell-project-panel__head">
+            <span className="metal-routing-cell-project-panel__head-icon" aria-hidden>
+              <Route className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="metal-routing-cell-project-panel__title">Saved routes in this project</h2>
+              <p className="metal-routing-cell-project-panel__desc">
+                Imported and manually saved routes appear here. Click a route to view calculations.
+              </p>
+            </div>
+          </div>
+          {context?.routes?.length ? (
+            <ul className="metal-routing-cell-project-route-list">
+              {context.routes.map((item) => (
+                <li key={item._id}>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    className="metal-routing-cell-project-route-row"
+                    onClick={() => void handleOpenSavedRoute(item)}
+                  >
+                    <span className="metal-routing-cell-project-route-row__accent" aria-hidden />
+                    <span className="metal-routing-cell-project-route-row__icon" aria-hidden>
+                      <Route className="h-4 w-4" />
+                    </span>
+                    <span className="metal-routing-cell-project-route-row__path">
+                      {item.fromCell} → {item.toCell}
+                      <em> · {item.fromSignal} → {item.toSignal}</em>
+                    </span>
+                    <span className="metal-routing-meta-chip metal-routing-meta-chip--metals shrink-0">
+                      {item.metalCount} metal{item.metalCount === 1 ? '' : 's'}
+                    </span>
+                    <ChevronRight className="metal-routing-cell-project-route-row__chevron h-4 w-4" aria-hidden />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="metal-routing-cell-project-empty">
+              No saved routes yet. Import an Excel file or open a route and add metals to create one.
+            </p>
+          )}
+        </section>
       </div>
-
-      <section className="mb-6 rounded-xl border border-border bg-white p-4 shadow-sm">
-        <h2 className="mb-3 text-sm font-semibold text-ink">Open route (unique 4-value set within project)</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="block space-y-1.5">
-            <span className="text-sm font-medium text-ink">From Cell</span>
-            <input
-              list="project-cells"
-              className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm shadow-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-              value={filter.fromCell}
-              onChange={(e) => setFilter((f) => ({ ...f, fromCell: e.target.value }))}
-            />
-            <datalist id="project-cells">
-              {cellNames.map((c) => (
-                <option key={c} value={c} />
-              ))}
-            </datalist>
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm font-medium text-ink">To Cell</span>
-            <input
-              list="to-cells"
-              className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm shadow-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-              value={filter.toCell}
-              onChange={(e) => setFilter((f) => ({ ...f, toCell: e.target.value }))}
-              placeholder="Select from list or type"
-            />
-            <datalist id="to-cells">
-              {cellNames.map((c) => (
-                <option key={c} value={c} />
-              ))}
-            </datalist>
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm font-medium text-ink">From Signal</span>
-            <input
-              className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm shadow-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-              value={filter.fromSignal}
-              onChange={(e) => setFilter((f) => ({ ...f, fromSignal: e.target.value }))}
-              placeholder="Type signal name"
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm font-medium text-ink">To Signal</span>
-            <input
-              className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm shadow-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-              value={filter.toSignal}
-              onChange={(e) => setFilter((f) => ({ ...f, toSignal: e.target.value }))}
-              placeholder="Type signal name"
-            />
-          </label>
-        </div>
-        <div className="mt-3">
-          <Button loading={loading} icon={<Search className="h-4 w-4" />} onClick={() => void handleOpenRoute()}>
-            Open route
-          </Button>
-        </div>
-      </section>
-
-      <section className="rounded-xl border border-border bg-white shadow-sm">
-        <div className="border-b border-border px-4 py-3">
-          <h2 className="text-sm font-semibold text-ink">Saved routes in this project</h2>
-          <p className="mt-0.5 text-xs text-muted">
-            Imported and manually saved routes appear here. Click a route to view calculations.
-          </p>
-        </div>
-        {context?.routes?.length ? (
-          <ul className="divide-y divide-border">
-            {context.routes.map((item) => (
-              <li key={item._id}>
-                <button
-                  type="button"
-                  disabled={loading}
-                  className="flex w-full flex-wrap items-center justify-between gap-2 px-4 py-3 text-left text-sm hover:bg-surface/50 disabled:opacity-60"
-                  onClick={() => void handleOpenSavedRoute(item)}
-                >
-                  <span className="font-medium text-primary">
-                    {item.fromCell} → {item.toCell} · {item.fromSignal} → {item.toSignal}
-                  </span>
-                  <span className="text-xs text-muted">{item.metalCount} metal(s)</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="px-4 py-8 text-center text-sm text-muted">
-            No saved routes yet. Import an Excel file or open a route and add metals to create one.
-          </p>
-        )}
-      </section>
 
       <AddMetalModal
         isOpen={addMetalOpen}

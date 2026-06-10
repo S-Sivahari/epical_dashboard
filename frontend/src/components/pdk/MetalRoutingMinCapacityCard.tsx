@@ -77,7 +77,7 @@ export function MetalRoutingMinCapacityCard({
       <article className="metal-routing-viz-card metal-routing-viz-card--capacity metal-routing-min-capacity-card is-empty">
         <header className="metal-routing-min-capacity-card__header">
           <span className="metal-routing-min-capacity-card__icon" aria-hidden>
-            <Zap className="h-5 w-5" />
+            <Zap className="h-4 w-4" />
           </span>
           <div>
             <h3 className="metal-routing-min-capacity-card__title">Minimum Metal Current Capacity</h3>
@@ -95,7 +95,7 @@ export function MetalRoutingMinCapacityCard({
     <article className="metal-routing-viz-card metal-routing-viz-card--capacity metal-routing-min-capacity-card">
       <header className="metal-routing-min-capacity-card__header">
         <span className="metal-routing-min-capacity-card__icon" aria-hidden>
-          <Zap className="h-5 w-5" />
+          <Zap className="h-4 w-4" />
         </span>
         <div className="min-w-0">
           <h3 className="metal-routing-min-capacity-card__title">Minimum Metal Current Capacity</h3>

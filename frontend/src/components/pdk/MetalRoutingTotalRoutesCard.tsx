@@ -108,7 +108,7 @@ export function MetalRoutingTotalRoutesCard({
         <div className="metal-routing-total-routes__header">
           <div className="metal-routing-total-routes__title-block">
             <span className="metal-routing-total-routes__title-icon" aria-hidden>
-              <Route className="h-4 w-4" />
+              <Route className="h-3.5 w-3.5" />
             </span>
             <div>
               <h3 className="metal-routing-total-routes__title">Total Routes</h3>

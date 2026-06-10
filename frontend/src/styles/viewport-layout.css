@@ -948,6 +948,12 @@ body,
   border-top: none;
 }
 
+.metal-routing-pdk-list-row--colorful.is-selected {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--pdk-card-accent) 35%, transparent),
+    0 4px 14px rgba(30, 90, 61, 0.1);
+}
+
 .metal-routing-pdk-modules-sidebar .metal-routing-analytics-chart--sidebar {
   margin-top: 0.25rem;
 }

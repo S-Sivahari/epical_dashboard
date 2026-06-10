@@ -158,15 +158,27 @@ export function MetalRoutingProjectCards({
 }
 
 export function MetalRoutingProjectListRows({
+  variant = 'cell-routing',
   projects,
   startIndex = 0,
   loading,
   onOpenRouting,
+  onSelectProject,
+  pdkModules = [],
+  savingId = null,
+  selectedProjectId,
+  onAssignPdk,
 }: {
+  variant?: 'cell-routing' | 'dashboard'
   projects: DashboardProject[]
   startIndex?: number
   loading?: boolean
-  onOpenRouting: (projectId: string) => void
+  onOpenRouting?: (projectId: string) => void
+  onSelectProject?: (projectId: string) => void
+  pdkModules?: PdkModule[]
+  savingId?: string | null
+  selectedProjectId?: string | null
+  onAssignPdk?: (projectId: string, pdkModuleId: string) => void
 }) {
   if (loading) {
     return <MetalRoutingCardGridSkeleton count={6} />
@@ -186,15 +198,25 @@ export function MetalRoutingProjectListRows({
       {projects.map((project, index) => {
         const globalIndex = startIndex + index
         const projectCode = getProjectCode(project, globalIndex)
-        const status = cellRoutingDisplayStatus(project)
+        const status =
+          variant === 'cell-routing'
+            ? cellRoutingDisplayStatus(project)
+            : { label: project.status, variant: dashboardStatusVariant(project.status) }
         const cardSeed = project.id || project.projectName
+        const isSelected = variant === 'dashboard' && selectedProjectId === project.id
 
         return (
           <button
             key={project.id}
             type="button"
-            className="metal-routing-pdk-list-row metal-routing-pdk-list-row--colorful"
-            onClick={() => onOpenRouting(project.id)}
+            className={cn(
+              'metal-routing-pdk-list-row metal-routing-pdk-list-row--colorful',
+              isSelected && 'is-selected',
+            )}
+            onClick={() => {
+              if (variant === 'dashboard') onSelectProject?.(project.id)
+              else onOpenRouting?.(project.id)
+            }}
             style={metalRoutingCardStyle(cardSeed)}
           >
             <span className="metal-routing-pdk-list-row__accent" aria-hidden />
@@ -210,17 +232,39 @@ export function MetalRoutingProjectListRows({
                 <span className="metal-routing-meta-chip metal-routing-meta-chip--node">
                   {project.technologyNode}
                 </span>
-                {project.pdkModuleName ? (
-                  <span className="metal-routing-meta-chip metal-routing-meta-chip--metals">
-                    {project.pdkModuleName}
-                  </span>
-                ) : (
-                  <span className="metal-routing-meta-chip metal-routing-meta-chip--na">Unassigned</span>
-                )}
+                {variant === 'cell-routing' ? (
+                  project.pdkModuleName ? (
+                    <span className="metal-routing-meta-chip metal-routing-meta-chip--metals">
+                      {project.pdkModuleName}
+                    </span>
+                  ) : (
+                    <span className="metal-routing-meta-chip metal-routing-meta-chip--na">Unassigned</span>
+                  )
+                ) : null}
                 <MetalRoutingPill tone={status.variant as 'success' | 'warning' | 'neutral' | 'danger'}>
                   {status.label}
                 </MetalRoutingPill>
               </div>
+              {variant === 'dashboard' ? (
+                <select
+                  className="metal-routing-pdk-select mt-2 w-full max-w-full"
+                  value={project.pdkModuleId ?? ''}
+                  disabled={savingId === project.id || pdkModules.length === 0}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => {
+                    e.stopPropagation()
+                    onAssignPdk?.(project.id, e.target.value)
+                  }}
+                  aria-label={`Assign PDK for ${project.projectName}`}
+                >
+                  <option value="">— Not assigned —</option>
+                  {pdkModules.map((mod) => (
+                    <option key={mod._id} value={mod._id}>
+                      {mod.name}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
               <p className="mt-1 text-xs text-muted">
                 Updated {formatRelativeUpdated(project.updatedAt)}
               </p>

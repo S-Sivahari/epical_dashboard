@@ -1,31 +1,16 @@
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { useMemo, useState } from 'react'
 import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Clock,
-  Columns3,
   Filter,
   FolderKanban,
-  Layers,
   Search,
 } from 'lucide-react'
-import { MetalRoutingProjectCards } from '@components/pdk/MetalRoutingProjectCards'
-import {
-  MetalRoutingPill,
-  MetalRoutingTableSkeleton,
-} from '@components/pdk/MetalRoutingSkeleton'
+import { MetalRoutingProjectCards, MetalRoutingProjectListRows } from '@components/pdk/MetalRoutingProjectCards'
+import { MetalRoutingCardGridSkeleton, MetalRoutingEmptyState } from '@components/pdk/MetalRoutingSkeleton'
 import { MetalRoutingViewToggle, type MetalRoutingViewMode } from '@components/pdk/MetalRoutingViewToggle'
 import type { DashboardProject, PdkModule } from '@/types/pdkMetalRouting'
-import {
-  dashboardStatusVariant,
-  formatRelativeUpdated,
-  getProjectCode,
-} from '@/utils/metalRoutingProjectDisplay'
 import { cn } from '@/utils/cn'
 
 const PAGE_SIZE = 10
@@ -38,79 +23,6 @@ type OverviewColumn =
   | 'status'
   | 'assignedPdk'
   | 'lastUpdated'
-
-type SortKey = OverviewColumn
-type SortDir = 'asc' | 'desc'
-
-const COLUMN_DEFS: { key: OverviewColumn; label: string; sortable: boolean; hideable: boolean }[] = [
-  { key: 'project', label: 'Project', sortable: true, hideable: false },
-  { key: 'client', label: 'Client', sortable: true, hideable: true },
-  { key: 'techNode', label: 'Tech Node', sortable: true, hideable: true },
-  { key: 'status', label: 'Status', sortable: true, hideable: true },
-  { key: 'assignedPdk', label: 'Assigned PDK', sortable: true, hideable: true },
-  { key: 'lastUpdated', label: 'Last Updated', sortable: true, hideable: true },
-]
-
-const DEFAULT_VISIBLE_COLUMNS: Record<OverviewColumn, boolean> = {
-  project: true,
-  client: true,
-  techNode: true,
-  status: true,
-  assignedPdk: true,
-  lastUpdated: true,
-}
-
-function SortHeaderButton({
-  label,
-  active,
-  direction,
-  onClick,
-}: {
-  label: string
-  active: boolean
-  direction: SortDir
-  onClick: () => void
-}) {
-  const Icon = active ? (direction === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown
-  return (
-    <button type="button" className="metal-routing-overview-sort" onClick={onClick}>
-      <span>{label}</span>
-      <Icon className={cn('h-3.5 w-3.5', active && 'is-active')} aria-hidden />
-    </button>
-  )
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const tone = dashboardStatusVariant(status)
-  return (
-    <MetalRoutingPill tone={tone} className="metal-routing-overview-status-pill">
-      <span className={cn('metal-routing-overview-status-pill__dot', `is-${tone}`)} aria-hidden />
-      {status}
-    </MetalRoutingPill>
-  )
-}
-
-function compareProjects(a: DashboardProject, b: DashboardProject, key: SortKey): number {
-  switch (key) {
-    case 'project':
-      return a.projectName.localeCompare(b.projectName)
-    case 'client':
-      return a.clientName.localeCompare(b.clientName)
-    case 'techNode':
-      return a.technologyNode.localeCompare(b.technologyNode)
-    case 'status':
-      return a.status.localeCompare(b.status)
-    case 'assignedPdk':
-      return (a.pdkModuleName ?? '').localeCompare(b.pdkModuleName ?? '')
-    case 'lastUpdated': {
-      const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
-      const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
-      return aTime - bTime
-    }
-    default:
-      return 0
-  }
-}
 
 export function MetalRoutingProjectOverview({
   projects,
@@ -133,9 +45,8 @@ export function MetalRoutingProjectOverview({
   const [statusFilter, setStatusFilter] = useState('all')
   const [viewMode, setViewMode] = useState<MetalRoutingViewMode>('list')
   const [page, setPage] = useState(1)
-  const [sortKey, setSortKey] = useState<SortKey>('project')
-  const [sortDir, setSortDir] = useState<SortDir>('asc')
-  const [visibleColumns, setVisibleColumns] = useState(DEFAULT_VISIBLE_COLUMNS)
+  const [sortKey, setSortKey] = useState<OverviewColumn>('project')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
   const statuses = useMemo(() => {
     const set = new Set(projects.map((p) => p.status).filter(Boolean))
@@ -161,7 +72,32 @@ export function MetalRoutingProjectOverview({
   const sorted = useMemo(() => {
     const rows = [...filtered]
     rows.sort((a, b) => {
-      const result = compareProjects(a, b, sortKey)
+      let result = 0
+      switch (sortKey) {
+        case 'project':
+          result = a.projectName.localeCompare(b.projectName)
+          break
+        case 'client':
+          result = a.clientName.localeCompare(b.clientName)
+          break
+        case 'techNode':
+          result = a.technologyNode.localeCompare(b.technologyNode)
+          break
+        case 'status':
+          result = a.status.localeCompare(b.status)
+          break
+        case 'assignedPdk':
+          result = (a.pdkModuleName ?? '').localeCompare(b.pdkModuleName ?? '')
+          break
+        case 'lastUpdated': {
+          const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
+          const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
+          result = aTime - bTime
+          break
+        }
+        default:
+          break
+      }
       return sortDir === 'asc' ? result : -result
     })
     return rows
@@ -173,21 +109,6 @@ export function MetalRoutingProjectOverview({
   const pageItems = sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize)
   const rangeStart = sorted.length === 0 ? 0 : (currentPage - 1) * pageSize + 1
   const rangeEnd = Math.min(currentPage * pageSize, sorted.length)
-
-  const visibleColumnDefs = COLUMN_DEFS.filter((col) => visibleColumns[col.key])
-  const hideableColumns = COLUMN_DEFS.filter((col) => col.hideable)
-
-  const toggleSort = (key: SortKey) => {
-    if (sortKey === key) setSortDir((dir) => (dir === 'asc' ? 'desc' : 'asc'))
-    else {
-      setSortKey(key)
-      setSortDir(key === 'lastUpdated' ? 'desc' : 'asc')
-    }
-  }
-
-  const toggleColumn = (key: OverviewColumn) => {
-    setVisibleColumns((prev) => ({ ...prev, [key]: !prev[key] }))
-  }
 
   return (
     <section className="metal-routing-overview-card">
@@ -233,29 +154,24 @@ export function MetalRoutingProjectOverview({
             <ChevronDown className="metal-routing-overview-filter__chevron" aria-hidden />
           </div>
 
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger asChild>
-              <button type="button" className="metal-routing-toolbar-btn">
-                <Columns3 className="h-4 w-4" aria-hidden />
-                Columns
-                <ChevronDown className="h-4 w-4 opacity-60" aria-hidden />
-              </button>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Portal>
-              <DropdownMenu.Content className="metal-routing-overview-columns-menu" sideOffset={6} align="end">
-                {hideableColumns.map((col) => (
-                  <DropdownMenu.CheckboxItem
-                    key={col.key}
-                    className="metal-routing-overview-columns-menu__item"
-                    checked={visibleColumns[col.key]}
-                    onCheckedChange={() => toggleColumn(col.key)}
-                  >
-                    {col.label}
-                  </DropdownMenu.CheckboxItem>
-                ))}
-              </DropdownMenu.Content>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Root>
+          <div className="relative">
+            <select
+              className="metal-routing-toolbar-select"
+              value={`${sortKey}-${sortDir}`}
+              onChange={(e) => {
+                const [key, dir] = e.target.value.split('-') as [OverviewColumn, 'asc' | 'desc']
+                setSortKey(key)
+                setSortDir(dir)
+              }}
+              aria-label="Sort projects"
+            >
+              <option value="project-asc">Sort by name (A–Z)</option>
+              <option value="project-desc">Sort by name (Z–A)</option>
+              <option value="client-asc">Sort by client (A–Z)</option>
+              <option value="status-asc">Sort by status</option>
+              <option value="lastUpdated-desc">Sort by recently updated</option>
+            </select>
+          </div>
 
           <MetalRoutingViewToggle
             value={viewMode}
@@ -267,130 +183,40 @@ export function MetalRoutingProjectOverview({
         </div>
       </div>
 
-      {viewMode === 'grid' ? (
-        <div className="metal-routing-project-grid-wrap">
-          <MetalRoutingProjectCards
+      <div className="metal-routing-overview-body">
+        {loading ? (
+          <MetalRoutingCardGridSkeleton count={6} />
+        ) : pageItems.length === 0 ? (
+          <MetalRoutingEmptyState
+            title="No projects found"
+            description="Try adjusting your search or filter criteria."
+          />
+        ) : viewMode === 'grid' ? (
+          <div className="metal-routing-project-grid-wrap">
+            <MetalRoutingProjectCards
+              variant="dashboard"
+              projects={pageItems}
+              startIndex={(currentPage - 1) * pageSize}
+              pdkModules={pdkModules}
+              savingId={savingId}
+              selectedProjectId={selectedProjectId}
+              onSelectProject={onSelectProject}
+              onAssignPdk={onAssignPdk}
+            />
+          </div>
+        ) : (
+          <MetalRoutingProjectListRows
             variant="dashboard"
             projects={pageItems}
             startIndex={(currentPage - 1) * pageSize}
-            loading={loading}
             pdkModules={pdkModules}
             savingId={savingId}
             selectedProjectId={selectedProjectId}
             onSelectProject={onSelectProject}
             onAssignPdk={onAssignPdk}
           />
-        </div>
-      ) : (
-        <div className="metal-routing-overview-table-wrap">
-          <table className="metal-routing-overview-table">
-            <thead>
-              <tr>
-                {visibleColumnDefs.map((col) => (
-                  <th key={col.key}>
-                    {col.sortable ? (
-                      <SortHeaderButton
-                        label={col.label}
-                        active={sortKey === col.key}
-                        direction={sortDir}
-                        onClick={() => toggleSort(col.key)}
-                      />
-                    ) : (
-                      col.label
-                    )}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={visibleColumnDefs.length} className="p-0">
-                    <MetalRoutingTableSkeleton rows={6} />
-                  </td>
-                </tr>
-              ) : pageItems.length === 0 ? (
-                <tr>
-                  <td colSpan={visibleColumnDefs.length} className="metal-routing-overview-empty">
-                    No projects match your search.
-                  </td>
-                </tr>
-              ) : (
-                pageItems.map((project, index) => {
-                  const globalIndex = (currentPage - 1) * pageSize + index
-                  const projectCode = getProjectCode(project, globalIndex)
-
-                  return (
-                    <tr
-                      key={project.id}
-                      className={cn(
-                        onSelectProject && 'is-clickable',
-                        selectedProjectId === project.id && 'is-selected',
-                      )}
-                      onClick={() => onSelectProject?.(project.id)}
-                    >
-                      {visibleColumns.project ? (
-                        <td>
-                          <div className="metal-routing-overview-project">
-                            <span className="metal-routing-overview-project__icon" aria-hidden>
-                              <Layers className="h-4 w-4" />
-                            </span>
-                            <div className="min-w-0">
-                              <div className="metal-routing-overview-project__name">{project.projectName}</div>
-                              <div className="metal-routing-overview-project__code">{projectCode}</div>
-                            </div>
-                          </div>
-                        </td>
-                      ) : null}
-                      {visibleColumns.client ? (
-                        <td className="metal-routing-overview-cell-muted">{project.clientName}</td>
-                      ) : null}
-                      {visibleColumns.techNode ? (
-                        <td className="metal-routing-overview-cell">{project.technologyNode}</td>
-                      ) : null}
-                      {visibleColumns.status ? (
-                        <td>
-                          <StatusBadge status={project.status} />
-                        </td>
-                      ) : null}
-                      {visibleColumns.assignedPdk ? (
-                        <td>
-                          <select
-                            className="metal-routing-pdk-select"
-                            value={project.pdkModuleId ?? ''}
-                            disabled={savingId === project.id || pdkModules.length === 0}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => {
-                              e.stopPropagation()
-                              onAssignPdk(project.id, e.target.value)
-                            }}
-                            aria-label={`Assign PDK for ${project.projectName}`}
-                          >
-                            <option value="">— Not assigned —</option>
-                            {pdkModules.map((mod) => (
-                              <option key={mod._id} value={mod._id}>
-                                {mod.name}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                      ) : null}
-                      {visibleColumns.lastUpdated ? (
-                        <td>
-                          <span className="metal-routing-overview-updated">
-                            <Clock className="h-3.5 w-3.5" aria-hidden />
-                            {formatRelativeUpdated(project.updatedAt)}
-                          </span>
-                        </td>
-                      ) : null}
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+        )}
+      </div>
 
       <footer className="metal-routing-overview-footer">
         <p className="metal-routing-overview-footer__count">
