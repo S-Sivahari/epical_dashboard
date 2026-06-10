@@ -4,7 +4,6 @@ import { EmployeeProjectBreadcrumb } from '@components/employee/projects/Employe
 import { EmployeeCellChecklistSidebar } from '@components/employee/projects/EmployeeCellChecklistSidebar'
 import { ProjectWorkflowBoard } from '@components/employee/projects/ProjectWorkflowBoard'
 import { CellDetailsSummary } from '@pages/admin/Projects/CellDetailsSummary'
-import { EmployeeCellReviewSection } from '@components/employee/projects/EmployeeCellReviewSection'
 import {
   fetchMyCell,
   requestCellReview,
@@ -14,7 +13,7 @@ import { useToast } from '@components/employee/shared/ToastProvider'
 import { useAuthStore } from '@store/authStore'
 import { cn } from '@pages/employee/lib/utils'
 import { VIEW_TABS } from '@/utils/cellWorkflowUi'
-import { CELL_TYPE_LABELS, cellDisplayStatus } from '@pages/admin/Projects/projectWorkspaceUi'
+import { cellDisplayStatus } from '@pages/admin/Projects/projectWorkspaceUi'
 import '@components/employee/projects/employeeProjectWorkflow.css'
 
 export default function EmployeeCellWorkflow() {
@@ -24,7 +23,7 @@ export default function EmployeeCellWorkflow() {
   const [savingId, setSavingId] = useState(null)
   const [viewTab, setViewTab] = useState('layout')
   const [activeFilter, setActiveFilter] = useState(null)
-  const [checklistFilled, setChecklistFilled] = useState(true)
+  const [checklistReady, setChecklistReady] = useState(true)
   const { toast } = useToast()
   const user = useAuthStore((s) => s.user)
 
@@ -88,15 +87,13 @@ export default function EmployeeCellWorkflow() {
     return <p className="py-8 text-center text-sm text-muted">Cell not found.</p>
   }
 
-  const { cell, library, project, reviews = [] } = detail
-  const cellTypeLabel = CELL_TYPE_LABELS[cell.cellType] ?? String(cell.cellType || 'block').toUpperCase()
+  const { cell, library, project } = detail
 
   return (
     <div className="emp-wf-projects-content" data-employee-project-cell>
       <div className="emp-wf-surface emp-wf-cell-page">
         <EmployeeProjectBreadcrumb
           items={[
-            { label: 'Projects', to: '/employee/projects' },
             { label: project.name, to: `/employee/projects/${projectId}` },
             { label: cell.name },
           ]}
@@ -107,18 +104,15 @@ export default function EmployeeCellWorkflow() {
           <div className="min-w-0">
             <p className="emp-wf-cell-eyebrow">Cell workflow</p>
             <h1 className="emp-wf-workspace-title">{cell.name}</h1>
-            <p className="emp-wf-workspace-meta">
-              {library?.name || 'Library'} · {cellTypeLabel} ·{' '}
-              {cell.assignedEmployeeName?.trim() || 'Unassigned'} · {cellDisplayStatus(cell)}
-            </p>
           </div>
           <div className="emp-wf-workspace-head-actions">
             <span
               className={cn(
                 'emp-wf-status-chip',
-                cell.status === 'ready' && 'is-not-started',
+                cell.isBlocked && 'is-blocked',
+                cell.isReady && 'is-ready',
                 cell.status === 'completed' && 'is-completed',
-                cell.status === 'in_progress' && 'is-progress',
+                cell.status === 'in_progress' && !cell.isBlocked && 'is-progress',
               )}
             >
               {cellDisplayStatus(cell)}
@@ -130,47 +124,51 @@ export default function EmployeeCellWorkflow() {
         </header>
 
         <div className="emp-wf-cell-page-body">
-          <CellDetailsSummary cell={cell} libraryName={library?.name} variant="employee" />
+          <div className="emp-wf-cell-page-toolbar">
+            <CellDetailsSummary cell={cell} libraryName={library?.name} variant="employee" />
 
-          <div className="emp-wf-view-tabs">
-            {VIEW_TABS.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                className={cn('emp-wf-view-tab', viewTab === tab.id && 'is-active')}
-                onClick={() => {
-                  setViewTab(tab.id)
-                  setActiveFilter(null)
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
+            <div className="emp-wf-view-tabs emp-wf-view-tabs--cell">
+              {VIEW_TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  className={cn('emp-wf-view-tab', viewTab === tab.id && 'is-active')}
+                  onClick={() => {
+                    setViewTab(tab.id)
+                    setActiveFilter(null)
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="emp-wf-cell-main-row">
-            <div className="emp-wf-cell-workflow-col">
-              <div className="emp-wf-cell-workflow-panel emp-wf-cell-workflow-panel--compact">
-                <ProjectWorkflowBoard
-                  cells={[cell]}
-                  user={user}
-                  viewTab={viewTab}
-                  activeFilter={activeFilter}
-                  onFilterChange={setActiveFilter}
-                  savingId={savingId}
-                  onAdvance={handleAdvance}
-                  onRequestReview={handleRequestReview}
-                  checklistFilled={checklistFilled}
-                  compact
-                />
-              </div>
-              <EmployeeCellReviewSection reviews={reviews} />
+            <div className="emp-wf-cell-workflow-panel emp-wf-cell-workflow-panel--compact">
+              <ProjectWorkflowBoard
+                cells={[cell]}
+                user={user}
+                viewTab={viewTab}
+                activeFilter={activeFilter}
+                onFilterChange={setActiveFilter}
+                savingId={savingId}
+                onAdvance={handleAdvance}
+                onRequestReview={handleRequestReview}
+                checklistReady={checklistReady}
+                compact
+              />
             </div>
             <EmployeeCellChecklistSidebar
               projectId={projectId}
               cellId={cellId}
               readOnly={!cell.isAssignedToMe}
-              onChange={(detail) => setChecklistFilled(detail?.isFilled ?? true)}
+              onChange={(detail) => {
+                const total = detail?.items?.length ?? 0
+                const ready =
+                  total === 0 || (Boolean(detail?.isFilled) && Boolean(detail?.isExtensionFilled))
+                setChecklistReady(ready)
+              }}
             />
           </div>
         </div>

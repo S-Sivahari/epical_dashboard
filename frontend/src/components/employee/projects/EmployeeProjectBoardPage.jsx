@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+  Archive,
   BookOpen,
   BarChart3,
   CheckCircle2,
@@ -283,11 +284,7 @@ export function EmployeeProjectBoardPage({ routeProjectId = null }) {
                 {workspace?.project?.completionPercentage != null ? (
                   <div className="emp-wf-progress-pill">
                     <span>Progress</span>
-                    <strong>
-                      {stats?.cellCount
-                        ? Math.round(((stats.completedCells ?? 0) / stats.cellCount) * 100)
-                        : workspace.project.completionPercentage}%
-                    </strong>
+                    <strong>{workspace.project.completionPercentage}%</strong>
                   </div>
                 ) : null}
               </div>
@@ -299,9 +296,8 @@ export function EmployeeProjectBoardPage({ routeProjectId = null }) {
                   { label: 'Libraries', value: stats.libraryCount, icon: BookOpen },
                   { label: 'Cells', value: stats.cellCount, icon: Layers },
                   { label: 'Yours', value: stats.assignedToMe, icon: User },
-                  { label: 'Complete', value: stats.completedCells ?? 0, icon: CheckCircle2 },
-                  { label: 'In Progress', value: stats.inProgressCells ?? 0, icon: LayoutGrid },
-                  { label: 'Not Started', value: stats.notStartedCells ?? 0, icon: Layers },
+                  { label: 'Complete', value: stats.readyCells, icon: CheckCircle2 },
+                  { label: 'Archived', value: stats.blockedCells, icon: Archive },
                 ].map(({ label, value, icon: Icon }) => (
                   <div key={label} className="emp-wf-stat">
                     <div className="emp-wf-stat-label">

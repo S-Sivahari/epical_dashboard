@@ -29,6 +29,10 @@ router.patch(
   '/:projectId/cells/:cellId/mine/checklist/:mappingId',
   employeeProjectController.updateMyCellChecklistItem,
 );
+router.patch(
+  '/:projectId/cells/:cellId/mine/checklist-extension',
+  employeeProjectController.updateMyCellChecklistExtension,
+);
 
 router.get('/', adminOnly, projectController.getAll);
 router.get('/archived', adminOnly, projectController.getArchivedProjects);

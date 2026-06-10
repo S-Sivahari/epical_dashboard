@@ -17,12 +17,11 @@ const CELL_STATUS_COLORS = {
   review: '#d97706',
 }
 
-function countCellsByCellStatus(cells = []) {
+function countCellsByLayoutStatus(cells = []) {
   const counts = { not_started: 0, in_progress: 0, completed: 0 }
   for (const cell of cells) {
-    if (cell.status === 'completed') counts.completed += 1
-    else if (cell.status === 'in_progress') counts.in_progress += 1
-    else counts.not_started += 1
+    const status = getViewProgressStatus(cell, 'layout')
+    if (counts[status] != null) counts[status] += 1
   }
   return counts
 }
@@ -48,16 +47,18 @@ export const OVERVIEW_CHART_SERIES = [
   { key: 'complete', name: 'Complete', color: '#16a34a' },
   { key: 'inProgress', name: 'In progress', color: '#f59e0b' },
   { key: 'notStarted', name: 'Not started', color: '#94a3b8' },
+  { key: 'archived', name: 'Archived', color: '#64748b' },
   { key: 'assigned', name: 'Assigned to you', color: '#0891b2' },
 ]
 
 /** Grouped bar chart rows for portfolio workload overview */
 export function buildGroupedOverviewChartData(cells = []) {
-  const statusCounts = countCellsByCellStatus(cells)
+  const statusCounts = countCellsByLayoutStatus(cells)
   const pendingReviews = countPendingReviews(cells)
   const totalEffort = sumEstimatedEffort(cells)
   const assignedEffort = sumEstimatedEffort(cells, { assignedOnly: true })
   const assignedCount = cells.filter((c) => c.isAssignedToMe).length
+  const archivedCount = cells.filter((c) => c.isBlocked).length
 
   return [
     {
@@ -68,6 +69,7 @@ export function buildGroupedOverviewChartData(cells = []) {
       complete: 0,
       inProgress: 0,
       notStarted: 0,
+      archived: 0,
       assigned: 0,
     },
     {
@@ -78,6 +80,7 @@ export function buildGroupedOverviewChartData(cells = []) {
       complete: statusCounts.completed,
       inProgress: statusCounts.in_progress,
       notStarted: statusCounts.not_started,
+      archived: archivedCount,
       assigned: 0,
     },
     {
@@ -88,6 +91,7 @@ export function buildGroupedOverviewChartData(cells = []) {
       complete: 0,
       inProgress: 0,
       notStarted: 0,
+      archived: 0,
       assigned: assignedCount,
     },
   ]
@@ -126,9 +130,8 @@ export function aggregateWorkspaceStats(workspaces = []) {
     projects: workspaces.filter(Boolean).length,
     cells: allCells.length,
     yours: allCells.filter((c) => c.isAssignedToMe).length,
-    complete: allCells.filter((c) => c.status === 'completed').length,
-    inProgress: allCells.filter((c) => c.status === 'in_progress').length,
-    notStarted: allCells.filter((c) => c.status === 'ready').length,
+    complete: allCells.filter((c) => getViewProgressStatus(c, 'layout') === 'completed').length,
+    archived: allCells.filter((c) => c.isBlocked).length,
     effort: sumEstimatedEffort(allCells),
     reviews: countPendingReviews(allCells),
   }
