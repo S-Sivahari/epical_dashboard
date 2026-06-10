@@ -71,8 +71,32 @@ export async function updateWorkflowStage(
   return data
 }
 
+export type CellCompletionSectionKey =
+  | 'layoutDetails'
+  | 'checklist'
+  | 'customizedFields'
+  | 'finalCellDetails'
+
+export type CellCompletionReadiness = {
+  canComplete: boolean
+  sections: Record<CellCompletionSectionKey, boolean>
+  missing: string[]
+}
+
+export async function fetchCellCompletionReadiness(projectId: string, cellId: string) {
+  const { data } = await api.get<CellCompletionReadiness>(
+    `/projects/${projectId}/cells/${cellId}/completion-readiness`,
+  )
+  return data
+}
+
 export async function completeCell(projectId: string, cellId: string) {
   const { data } = await api.patch<ProjectCell>(`/projects/${projectId}/cells/${cellId}/complete`)
+  return data
+}
+
+export async function uncompleteCell(projectId: string, cellId: string) {
+  const { data } = await api.patch<ProjectCell>(`/projects/${projectId}/cells/${cellId}/uncomplete`)
   return data
 }
 

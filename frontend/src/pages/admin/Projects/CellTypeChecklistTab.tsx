@@ -36,9 +36,10 @@ const EXTENSION_YES_NO_OPTIONS: { value: ChecklistYesNo; label: string; classNam
 type CellTypeChecklistTabProps = {
   projectId: string
   cellId: string
+  onUpdated?: () => void
 }
 
-export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTabProps) {
+export function CellTypeChecklistTab({ projectId, cellId, onUpdated }: CellTypeChecklistTabProps) {
   const authRole = useAuthStore((state) => state.role)
   const authUser = useAuthStore((state) => state.user)
   const isAdmin = authRole === 'admin' || authUser?.role === 'Admin'
@@ -54,6 +55,8 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
   const [newQuestion, setNewQuestion] = useState('')
   const [addingQuestion, setAddingQuestion] = useState(false)
   const [savingExtension, setSavingExtension] = useState(false)
+  const [completingFinalDetails, setCompletingFinalDetails] = useState(false)
+  const [finalDetailsCompleted, setFinalDetailsCompleted] = useState(false)
   const [extensionDrafts, setExtensionDrafts] = useState({
     dimensionX: '',
     dimensionY: '',
@@ -93,6 +96,10 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
     void load()
   }, [load])
 
+  useEffect(() => {
+    setFinalDetailsCompleted(false)
+  }, [projectId, cellId])
+
   const patchItem = (updated: CellTypeChecklistItem) => {
     setDetail((prev) =>
       prev
@@ -129,6 +136,7 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
         setCommentDrafts((prev) => ({ ...prev, [item.itemKey]: '' }))
       }
       toast.success('Response saved')
+      onUpdated?.()
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
       toast.error(msg || 'Failed to save response')
@@ -206,6 +214,7 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
         dimensionY: updated.dimensionY != null ? String(updated.dimensionY) : '',
         highestMetalUsed: updated.highestMetalUsed ?? '',
       })
+      onUpdated?.()
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
       toast.error(msg || 'Failed to save checklist field')
@@ -254,6 +263,35 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
     void saveExtension({ [field]: value })
   }
 
+  const handleCompleteFinalDetails = async () => {
+    if (!canCompleteFinalDetails) return
+
+    const parsedX = Number(extensionDrafts.dimensionX)
+    const parsedY = Number(extensionDrafts.dimensionY)
+    const current = detail?.extension ?? EMPTY_CHECKLIST_EXTENSION
+
+    setCompletingFinalDetails(true)
+    try {
+      const updated = await updateCellChecklistExtension(projectId, cellId, {
+        dimensionX: parsedX,
+        dimensionY: parsedY,
+        highestMetalUsed: extensionDrafts.highestMetalUsed.trim(),
+        virtualConnection: current.virtualConnection,
+        overallSubstrateContact: current.overallSubstrateContact,
+        waivableDrcError: current.waivableDrcError,
+      })
+      setDetail((prev) => (prev ? { ...prev, extension: updated } : prev))
+      setFinalDetailsCompleted(true)
+      toast.success('Final cell details completed')
+      onUpdated?.()
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+      toast.error(msg || 'Failed to complete final cell details')
+    } finally {
+      setCompletingFinalDetails(false)
+    }
+  }
+
   const handleDownload = async () => {
     if (!detail?.items.length) {
       toast.error('No checklist questions to export')
@@ -274,6 +312,19 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
   const totalCount = detail?.items.length ?? 0
   const checklistComplete = totalCount === 0 || answeredCount === totalCount
   const postChecklistLocked = totalCount > 0 && !checklistComplete
+  const extension = detail?.extension ?? EMPTY_CHECKLIST_EXTENSION
+
+  const extensionFieldsComplete =
+    extensionDrafts.dimensionX.trim() !== '' &&
+    extensionDrafts.dimensionY.trim() !== '' &&
+    Number.isFinite(Number(extensionDrafts.dimensionX)) &&
+    Number.isFinite(Number(extensionDrafts.dimensionY)) &&
+    extensionDrafts.highestMetalUsed.trim() !== '' &&
+    extension.virtualConnection != null &&
+    extension.overallSubstrateContact != null &&
+    extension.waivableDrcError != null
+
+  const canCompleteFinalDetails = checklistComplete && extensionFieldsComplete && !finalDetailsCompleted
 
   if (loading) {
     return (
@@ -502,7 +553,7 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
     fieldsDisabled: boolean,
   ) {
     return (
-      <div className="admin-projects-final-cell-field">
+      <div className="admin-projects-final-cell-field admin-projects-final-cell-field--toggle">
         <span className="admin-projects-final-cell-label">{label}</span>
         <div
           className="admin-projects-final-cell-toggle"
@@ -530,8 +581,8 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
   }
 
   function renderFinalCellDetailsSection() {
-    const ext = detail?.extension ?? EMPTY_CHECKLIST_EXTENSION
-    const fieldsDisabled = postChecklistLocked || savingExtension
+    const ext = extension
+    const fieldsDisabled = postChecklistLocked || savingExtension || completingFinalDetails
     const parsedX =
       extensionDrafts.dimensionX.trim() === '' ? null : Number(extensionDrafts.dimensionX)
     const parsedY =
@@ -546,24 +597,21 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
         className={cn(
           'admin-projects-final-cell-details',
           postChecklistLocked && 'is-locked',
+          finalDetailsCompleted && 'is-complete',
         )}
         aria-label="Final cell details"
       >
         <div className="admin-projects-final-cell-details-head">
           <h3 className="admin-projects-final-cell-details-title">Final Cell Details</h3>
-          <p className="admin-projects-final-cell-details-subtitle">
-            Fill in after the checklist is completed. These are not checklist questions.
-          </p>
+          {postChecklistLocked ? (
+            <p className="admin-projects-final-cell-details-lock-note">
+              Complete checklist first ({answeredCount}/{totalCount})
+            </p>
+          ) : null}
         </div>
 
-        {postChecklistLocked ? (
-          <p className="admin-projects-final-cell-details-lock-note">
-            Complete all checklist questions first ({answeredCount}/{totalCount} answered).
-          </p>
-        ) : null}
-
         <div className="admin-projects-final-cell-details-form">
-          <div className="admin-projects-final-cell-details-row admin-projects-final-cell-details-row--3">
+          <div className="admin-projects-final-cell-details-row admin-projects-final-cell-details-row--dims">
             <div className="admin-projects-final-cell-field">
               <label className="admin-projects-final-cell-label" htmlFor="final-cell-dimension-x">
                 Dimension X
@@ -574,7 +622,7 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
                 step="any"
                 className="admin-projects-final-cell-input"
                 value={extensionDrafts.dimensionX}
-                placeholder="Enter value"
+                placeholder="Value"
                 disabled={fieldsDisabled}
                 onChange={(e) =>
                   setExtensionDrafts((prev) => ({ ...prev, dimensionX: e.target.value }))
@@ -593,7 +641,7 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
                 step="any"
                 className="admin-projects-final-cell-input"
                 value={extensionDrafts.dimensionY}
-                placeholder="Enter value"
+                placeholder="Value"
                 disabled={fieldsDisabled}
                 onChange={(e) =>
                   setExtensionDrafts((prev) => ({ ...prev, dimensionY: e.target.value }))
@@ -603,15 +651,23 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
             </div>
 
             <div className="admin-projects-final-cell-field">
-              <span className="admin-projects-final-cell-label">Area</span>
-              <span className="admin-projects-final-cell-hint">Dimension X × Dimension Y</span>
-              <output className="admin-projects-final-cell-area" aria-live="polite">
+              <span
+                className="admin-projects-final-cell-label"
+                title="Dimension X × Dimension Y"
+              >
+                Area
+              </span>
+              <output
+                className="admin-projects-final-cell-area"
+                aria-live="polite"
+                title="Dimension X × Dimension Y"
+              >
                 {displayArea != null ? displayArea : '—'}
               </output>
             </div>
           </div>
 
-          <div className="admin-projects-final-cell-details-row admin-projects-final-cell-details-row--2">
+          <div className="admin-projects-final-cell-details-row admin-projects-final-cell-details-row--pair">
             <div className="admin-projects-final-cell-field">
               <label className="admin-projects-final-cell-label" htmlFor="final-cell-highest-metal">
                 Highest Metal Used
@@ -638,7 +694,7 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
             )}
           </div>
 
-          <div className="admin-projects-final-cell-details-row admin-projects-final-cell-details-row--2">
+          <div className="admin-projects-final-cell-details-row admin-projects-final-cell-details-row--pair">
             {renderYesNoField(
               'Overall Substrate Contact',
               'overallSubstrateContact',
@@ -651,6 +707,21 @@ export function CellTypeChecklistTab({ projectId, cellId }: CellTypeChecklistTab
               ext.waivableDrcError,
               fieldsDisabled,
             )}
+          </div>
+
+          <div className="admin-projects-final-cell-details-footer">
+            <Button
+              size="sm"
+              className="admin-projects-final-cell-complete-btn"
+              disabled={!canCompleteFinalDetails || savingExtension || completingFinalDetails}
+              onClick={() => void handleCompleteFinalDetails()}
+            >
+              {completingFinalDetails
+                ? 'Completing…'
+                : finalDetailsCompleted
+                  ? 'Completed'
+                  : 'Complete'}
+            </Button>
           </div>
         </div>
       </section>

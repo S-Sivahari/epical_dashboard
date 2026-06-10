@@ -269,11 +269,13 @@ export function applyWorkflowStageUpdate(
     }
 
     const reviewStatus = stageStatus(workflow, stageKey);
-    if (reviewStatus !== 'pending_review') {
+    const canActOnReview =
+      reviewStatus === 'pending_review' ||
+      (reviewStatus === 'approved' && nextStatus === 'rejected');
+
+    if (!canActOnReview) {
       return { ok: false, error: 'Review is not pending approval' };
     }
-
-    workflow = setStageStatus(workflow, stageKey, nextStatus);
 
     if (stageKey === 'review_1') {
       if (nextStatus === 'approved') {
@@ -287,9 +289,7 @@ export function applyWorkflowStageUpdate(
         workflow = setStageStatus(workflow, 'review_1', 'not_started');
         workflow = resetDownstreamStages(workflow, 'review_1');
       }
-    }
-
-    if (stageKey === 'review_2') {
+    } else if (stageKey === 'review_2') {
       if (nextStatus === 'approved') {
         workflow = setStageStatus(workflow, 'review_2', 'approved');
       } else {

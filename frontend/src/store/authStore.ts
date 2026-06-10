@@ -60,7 +60,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { data } = await api.get<{ user: AuthUser; role: string }>('/auth/me')
       get().applySession(data.user, data.role)
     } catch {
-      set({ user: null, role: null, isAuthenticated: false })
+      if (!get().isAuthenticated) {
+        set({ user: null, role: null, isAuthenticated: false })
+      }
     } finally {
       set({ isHydrated: true })
     }

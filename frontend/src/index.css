@@ -11841,6 +11841,10 @@
   box-shadow: 0 4px 12px rgba(26, 67, 41, 0.1);
 }
 
+.admin-portal .admin-tickets-view.crewiq-dashboard {
+  background: var(--dash-canvas);
+}
+
 .admin-tickets-view .admin-tickets-danger-btn {
   background: #dc2626 !important;
   border: 1px solid #b91c1c !important;

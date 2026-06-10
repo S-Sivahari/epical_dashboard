@@ -10,7 +10,7 @@ import {
   scaleExportLogo,
 } from '@/utils/exportLogo'
 
-const BRAND_GREEN: [number, number, number] = [16, 185, 129]
+const BRAND_GREEN: [number, number, number] = [6, 192, 51]
 
 /** Draw "EPICAL …" with IC in brand green; returns total rendered width. */
 export function drawEpicalBrandedText(
@@ -54,7 +54,7 @@ export async function exportAnalyticsPdf(filename: string) {
 }
 
 export { formatDateStr }
-export const PDF_BRAND_GREEN: [number, number, number] = [16, 185, 129]
+export const PDF_BRAND_GREEN: [number, number, number] = [6, 192, 51]
 
 export interface ExportPdfOptions {
   generatedBy?: string

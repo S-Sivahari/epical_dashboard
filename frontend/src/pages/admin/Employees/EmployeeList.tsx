@@ -28,14 +28,15 @@ import type { Employee } from '@/types'
 import { stringToHueColor, stringToHue } from '@/utils/stringColor'
 import { getEmployeeAvatarUrl } from '@/utils/getAvatarUrl'
 import { EmployeeAvatar } from '@components/ui/EmployeeAvatar'
-import { exportToExcel } from '@/utils/exportExcel'
-import { exportToPDF } from '@/utils/exportPDF'
+import {
+  exportActiveDirectoryExcel,
+  exportActiveDirectoryPdf,
+} from '@/utils/activeDirectoryExport'
 import { formatDate } from '@/utils/formatDate'
 import { useAuthStore } from '@store/authStore'
 import { ROUTES } from '@constants/routes'
 import {
   ACTIVE_DIRECTORY_EXPORT_HEADERS,
-  ACTIVE_DIRECTORY_REPORT_OPTIONS,
   activeDirectoryExportFilename,
 } from '@/constants/employeeExport'
 
@@ -108,17 +109,15 @@ export function EmployeeList() {
           employmentType: filters.employmentType,
           status: filters.status,
         },
-        compactMode: true,
-        ...ACTIVE_DIRECTORY_REPORT_OPTIONS,
       }
 
       if (format === 'pdf') {
-        await exportToPDF(exportData, filename, ACTIVE_DIRECTORY_EXPORT_HEADERS, exportOptions)
+        await exportActiveDirectoryPdf(exportData, filename, exportOptions)
         console.info('[Manage Employees] Exported Active Directory PDF:', filename, `(${exportData.length} employees)`)
         return
       }
 
-      await exportToExcel(exportData, filename, ACTIVE_DIRECTORY_EXPORT_HEADERS, exportOptions)
+      await exportActiveDirectoryExcel(exportData, filename, exportOptions)
       console.info('[Manage Employees] Exported Active Directory Excel:', filename, `(${exportData.length} employees)`)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Export failed'

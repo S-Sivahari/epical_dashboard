@@ -102,7 +102,9 @@ router.put('/:projectId/cells/:cellId', adminOnly, projectWorkspaceController.up
 router.delete('/:projectId/cells/:cellId', adminOnly, projectWorkspaceController.deleteCell);
 router.patch('/:projectId/cells/:cellId/status', adminOnly, projectWorkspaceController.updateCellStatus);
 router.patch('/:projectId/cells/:cellId/workflow/:stageKey', adminOnly, projectWorkspaceController.updateWorkflowStage);
+router.get('/:projectId/cells/:cellId/completion-readiness', adminOnly, projectWorkspaceController.getCellCompletionReadiness);
 router.patch('/:projectId/cells/:cellId/complete', adminOnly, projectWorkspaceController.completeCell);
+router.patch('/:projectId/cells/:cellId/uncomplete', adminOnly, projectWorkspaceController.uncompleteCell);
 router.get('/:projectId/cells/:cellId/reviews', adminOnly, projectWorkspaceController.listCellReviews);
 router.post('/:projectId/cells/:cellId/reviews', adminOnly, projectWorkspaceController.createCellReview);
 router.post('/:projectId/cells/:cellId/reviews/:reviewId/messages', adminOnly, projectWorkspaceController.addReviewMessage);
