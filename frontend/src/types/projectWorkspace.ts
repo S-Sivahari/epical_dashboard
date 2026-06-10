@@ -331,6 +331,8 @@ export interface WorkspaceSummary {
     libraryCount: number
     cellCount: number
     completedCells: number
+    notStartedCells: number
+    inProgressCells: number
     blockedCells: number
     readyCells: number
     unassignedCells: number

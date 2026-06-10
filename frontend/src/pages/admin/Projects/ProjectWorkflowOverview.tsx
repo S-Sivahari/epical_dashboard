@@ -3,10 +3,11 @@ import { ROUTES } from '@constants/routes'
 import { cn } from '@/utils/cn'
 import type { ProjectCell } from '@/types/projectWorkspace'
 import {
-  CELL_TYPE_LABELS,
+  STATUS_LABELS,
   WORKFLOW_STATUS_LABELS,
+  cellCompletionProgressPercent,
   normalizeCellWorkflow,
-  workflowProgressPercent,
+  projectCellProgressPercent,
   workflowStageStatusClass,
 } from './projectWorkspaceUi'
 import { CELL_WORKFLOW_STAGES } from '@/types/projectWorkspace'
@@ -15,6 +16,7 @@ type ProjectWorkflowOverviewProps = {
   projectId: string
   cells: ProjectCell[]
   totalCellCount?: number
+  completedCellCount?: number
   libraryNameById: Map<string, string>
 }
 
@@ -22,8 +24,10 @@ export function ProjectWorkflowOverview({
   projectId,
   cells,
   totalCellCount = 0,
+  completedCellCount = 0,
   libraryNameById,
 }: ProjectWorkflowOverviewProps) {
+  const projectProgress = projectCellProgressPercent(completedCellCount, totalCellCount)
   if (cells.length === 0) {
     return (
       <div className="admin-projects-workflow-overview-wrap">
@@ -36,6 +40,12 @@ export function ProjectWorkflowOverview({
 
   return (
     <div className="admin-projects-workflow-overview-wrap">
+      <p className="admin-projects-workflow-overview-summary">
+        <span className="admin-projects-workflow-overview-summary-count">
+          {completedCellCount}/{totalCellCount} cells completed
+        </span>
+        <span className="admin-projects-workflow-overview-summary-pct">{projectProgress}%</span>
+      </p>
       <table className="admin-projects-workflow-overview-table">
         <thead>
           <tr>
@@ -51,7 +61,7 @@ export function ProjectWorkflowOverview({
         <tbody>
           {cells.map((cell) => {
             const workflow = normalizeCellWorkflow(cell.workflow)
-            const progress = workflowProgressPercent(cell)
+            const progress = cellCompletionProgressPercent(cell)
             return (
               <tr key={cell.id}>
                 <td>
@@ -63,13 +73,13 @@ export function ProjectWorkflowOverview({
                   </Link>
                 </td>
                 <td>{libraryNameById.get(cell.libraryId) || '—'}</td>
-                <td>{CELL_TYPE_LABELS[cell.cellType] ?? cell.cellType}</td>
+                <td>{cell.cellType}</td>
                 <td>
                   <div className="admin-projects-workflow-overview-progress">
                     <div className="admin-projects-workflow-compact-bar" aria-hidden>
                       <span className="admin-projects-workflow-compact-fill" style={{ width: `${progress}%` }} />
                     </div>
-                    <span>{progress}%</span>
+                    <span title={STATUS_LABELS[cell.status]}>{progress}%</span>
                   </div>
                 </td>
                 {workflow.map((stage) => (

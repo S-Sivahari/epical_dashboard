@@ -2507,6 +2507,11 @@
   color: #0369a1;
 }
 
+.admin-projects-status-chip.is-not-started {
+  background: #f1f5f9;
+  color: #475569;
+}
+
 .admin-projects-status-chip.is-progress {
   background: #fef3c7;
   color: #b45309;
@@ -5317,6 +5322,22 @@
   overflow: auto;
   -webkit-overflow-scrolling: touch;
   background: #fff;
+}
+
+.admin-projects-workflow-overview-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.admin-projects-workflow-overview-summary-pct {
+  color: #047857;
 }
 
 .admin-projects-workflow-panel .admin-projects-workflow-overview-wrap {

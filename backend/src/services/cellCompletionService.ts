@@ -3,7 +3,6 @@ import { ProjectCellModel, type CellChecklistExtension } from '../models/Project
 import {
   canCompleteCell,
   normalizeCellWorkflow,
-  normalizeViewWorkflow,
 } from '../utils/cellWorkflow';
 import {
   buildCellChecklistItems,
@@ -14,7 +13,6 @@ import {
 export type CellCompletionSectionKey =
   | 'layoutDetails'
   | 'checklist'
-  | 'customizedFields'
   | 'finalCellDetails';
 
 export type CellCompletionReadiness = {
@@ -26,7 +24,6 @@ export type CellCompletionReadiness = {
 const SECTION_LABELS: Record<CellCompletionSectionKey, string> = {
   layoutDetails: 'Layout details',
   checklist: 'Checklist questions',
-  customizedFields: 'Symbol and schematic views',
   finalCellDetails: 'Final cell details',
 };
 
@@ -48,16 +45,6 @@ export function isLayoutDetailsComplete(workflow: unknown): boolean {
   return canCompleteCell(normalizeCellWorkflow(workflow));
 }
 
-export function isCustomizedFieldsComplete(cell: {
-  views?: { symbol?: string; schematic?: string };
-  viewWorkflow?: unknown;
-}): boolean {
-  const views = normalizeViewWorkflow(cell.viewWorkflow);
-  const symbolDone = views.symbol.status === 'completed' || cell.views?.symbol === 'completed';
-  const schematicDone = cell.views?.schematic === 'completed';
-  return symbolDone && schematicDone;
-}
-
 export function isChecklistQuestionsComplete(
   items: { response: string | null }[],
 ): boolean {
@@ -76,7 +63,6 @@ export async function evaluateCellCompletionReadiness(
   const sections: Record<CellCompletionSectionKey, boolean> = {
     layoutDetails: isLayoutDetailsComplete(context.cell.workflow),
     checklist: isChecklistQuestionsComplete(items),
-    customizedFields: isCustomizedFieldsComplete(context.cell),
     finalCellDetails: isFinalCellDetailsComplete(context.cell.checklistExtension),
   };
 

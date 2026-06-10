@@ -74,13 +74,17 @@ export async function updateWorkflowStage(
 export type CellCompletionSectionKey =
   | 'layoutDetails'
   | 'checklist'
-  | 'customizedFields'
   | 'finalCellDetails'
 
 export type CellCompletionReadiness = {
   canComplete: boolean
   sections: Record<CellCompletionSectionKey, boolean>
   missing: string[]
+}
+
+export async function touchCell(projectId: string, cellId: string) {
+  const { data } = await api.patch<ProjectCell>(`/projects/${projectId}/cells/${cellId}/touch`)
+  return data
 }
 
 export async function fetchCellCompletionReadiness(projectId: string, cellId: string) {

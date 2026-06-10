@@ -12,6 +12,7 @@ import {
   deleteCell,
   fetchCellCompletionReadiness,
   fetchWorkspaceSummary,
+  touchCell,
   uncompleteCell,
   updateCell,
   type CellCompletionReadiness,
@@ -120,6 +121,15 @@ export function ProjectCellPage() {
   useEffect(() => {
     void reload()
   }, [reload])
+
+  useEffect(() => {
+    if (!projectId || !cellId) return
+    void touchCell(projectId, cellId)
+      .then((updated) => {
+        if (updated.status === 'in_progress') void reload()
+      })
+      .catch(() => undefined)
+  }, [projectId, cellId, reload])
 
   const cell = useMemo(
     () => summary?.cells.find((c) => c.id === cellId) ?? null,
@@ -294,10 +304,9 @@ export function ProjectCellPage() {
               <div className="admin-projects-workspace-head-actions">
               <span className={cn(
                 'admin-projects-status-chip admin-projects-status-chip--lg',
-                cell.isBlocked && 'is-blocked',
-                cell.isReady && 'is-ready',
+                cell.status === 'ready' && 'is-not-started',
                 cell.status === 'completed' && 'is-completed',
-                cell.status === 'in_progress' && !cell.isBlocked && 'is-progress',
+                cell.status === 'in_progress' && 'is-progress',
               )}>
                 {cellDisplayStatus(cell)}
               </span>
@@ -562,10 +571,9 @@ export function ProjectCellPage() {
                           ) : (
                             <span className={cn(
                               'admin-projects-status-chip',
-                              cell.isBlocked && 'is-blocked',
-                              cell.isReady && 'is-ready',
+                              cell.status === 'ready' && 'is-not-started',
                               cell.status === 'completed' && 'is-completed',
-                              cell.status === 'in_progress' && !cell.isBlocked && 'is-progress',
+                              cell.status === 'in_progress' && 'is-progress',
                             )}>
                               {cellDisplayStatus(cell)}
                             </span>
@@ -644,6 +652,7 @@ export function ProjectCellPage() {
                   <CellTypeChecklistTab
                     projectId={projectId}
                     cellId={cellId}
+                    cellStatus={cell.status}
                     onUpdated={() => void reload()}
                   />
                 </div>
