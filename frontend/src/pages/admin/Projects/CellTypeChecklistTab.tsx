@@ -21,7 +21,6 @@ import {
   updateCellCustomChecklistResponse,
   updateCellTypeChecklistResponse,
 } from '@/services/projectTypeChecklistService'
-import { isChecklistExtensionComplete } from '@/utils/checklistExtensionUtils'
 
 const RESPONSE_OPTIONS: { value: TypeChecklistAnswer; label: string; className: string }[] = [
   { value: 'yes', label: 'Yes', className: 'is-yes' },
@@ -341,29 +340,25 @@ export function CellTypeChecklistTab({ projectId, cellId, onUpdated }: CellTypeC
   if (!detail?.hasFile && !hasItems) {
     return (
       <div className="admin-projects-cell-checklist-tab">
-        <div className="admin-projects-cell-checklist-split">
-          <div className="admin-projects-checklist-panel">
-            <div className="admin-projects-checklist-panel-body">
-              <div className="admin-projects-cell-checklist-empty">
-                <FileSpreadsheet className="h-8 w-8 text-emerald-700" aria-hidden />
-                <p className="admin-projects-cell-checklist-empty-title">No checklist yet</p>
-                <p className="admin-projects-cell-checklist-empty-text">
-                  No checklist file for cell type <strong>{resolvedType || '—'}</strong> in this project.
-                </p>
-                {detail?.libraryName ? (
-                  <p className="admin-projects-cell-checklist-empty-meta">
-                    {detail.cellName} · {detail.libraryName}
-                  </p>
-                ) : null}
-                <p className="admin-projects-cell-checklist-empty-text">
-                  Upload a type checklist from the project Checklist tab, or add custom questions below.
-                </p>
-              </div>
-              {isAdmin ? renderAddQuestionSection() : null}
-            </div>
+        <div className="admin-projects-cell-checklist-tab-body">
+          <div className="admin-projects-cell-checklist-empty">
+          <FileSpreadsheet className="h-8 w-8 text-emerald-700" aria-hidden />
+          <p className="admin-projects-cell-checklist-empty-title">No checklist yet</p>
+          <p className="admin-projects-cell-checklist-empty-text">
+            No checklist file for cell type <strong>{resolvedType || '—'}</strong> in this project.
+          </p>
+          {detail?.libraryName ? (
+            <p className="admin-projects-cell-checklist-empty-meta">
+              {detail.cellName} · {detail.libraryName}
+            </p>
+          ) : null}
+          <p className="admin-projects-cell-checklist-empty-text">
+            Upload a type checklist from the project Checklist tab, or add custom questions below.
+          </p>
           </div>
-          {renderFinalCellDetailsSection()}
+          {isAdmin ? renderAddQuestionSection() : null}
         </div>
+        {renderFinalCellDetailsSection()}
       </div>
     )
   }
@@ -416,22 +411,20 @@ export function CellTypeChecklistTab({ projectId, cellId, onUpdated }: CellTypeC
 
       {isAdmin && showAddForm ? renderAddQuestionSection() : null}
 
-      <div className="admin-projects-cell-checklist-split">
-        <div className="admin-projects-checklist-panel">
-          <div
-            className="admin-projects-checklist-panel-body"
-            role="region"
-            aria-label="Checklist questions"
-          >
-            <div className="admin-projects-checklist-responses admin-projects-checklist-responses--cell-tab">
-              {!hasItems ? (
-                <p className="admin-projects-cell-checklist-empty-inline">
-                  No checklist questions yet. {isAdmin ? 'Use Add question to create one.' : ''}
-                </p>
-              ) : null}
-              <ul className="admin-projects-checklist-responses-list">
-                {hasItems
-                  ? detail!.items.map((item, index) => {
+      <div
+        className="admin-projects-cell-checklist-scroll"
+        role="region"
+        aria-label="Checklist questions"
+      >
+        <div className="admin-projects-checklist-responses admin-projects-checklist-responses--cell-tab">
+          {!hasItems ? (
+            <p className="admin-projects-cell-checklist-empty-inline">
+              No checklist questions yet. {isAdmin ? 'Use Add question to create one.' : ''}
+            </p>
+          ) : null}
+          <ul className="admin-projects-checklist-responses-list">
+            {hasItems
+              ? detail!.items.map((item, index) => {
               const needsComment = item.response === 'no' || item.response === 'not_applicable'
               const showComment = commentOpen[item.itemKey] || needsComment
               const activePending = pendingResponse[item.itemKey]
@@ -540,15 +533,13 @@ export function CellTypeChecklistTab({ projectId, cellId, onUpdated }: CellTypeC
                   ) : null}
                 </li>
               )
-                  })
-                  : null}
-              </ul>
-            </div>
-          </div>
+              })
+              : null}
+          </ul>
         </div>
-
-        {renderFinalCellDetailsSection()}
       </div>
+
+      {renderFinalCellDetailsSection()}
     </div>
   )
 
@@ -618,12 +609,6 @@ export function CellTypeChecklistTab({ projectId, cellId, onUpdated }: CellTypeC
             </p>
           ) : null}
         </div>
-
-        {totalCount > 0 && !postChecklistLocked && !isChecklistExtensionComplete(ext) ? (
-          <p className="admin-projects-final-cell-details-lock-note is-warning">
-            Complete all final cell details before marking this cell as completed.
-          </p>
-        ) : null}
 
         <div className="admin-projects-final-cell-details-form">
           <div className="admin-projects-final-cell-details-row admin-projects-final-cell-details-row--dims">

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, CheckCircle2, GitBranch, Layers, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, ClipboardList, GitBranch, Layers, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
@@ -34,7 +34,7 @@ import { CellTypeChecklistTab } from './CellTypeChecklistTab'
 import './adminProjects.css'
 
 type ViewTab = 'layout' | 'symbol' | 'schematic'
-type CellTab = 'details' | 'dependencies'
+type CellTab = 'details' | 'dependencies' | 'checklist'
 
 const VIEW_TAB_LABELS: Record<ViewTab, string> = {
   layout: 'Layout',
@@ -71,8 +71,9 @@ function CellViewStatusButtons({ status, disabled, onChange }: CellViewStatusBut
 }
 
 const TAB_ITEMS: { id: CellTab; label: string; icon: typeof Layers }[] = [
-  { id: 'details', label: 'Workflow', icon: Layers },
+  { id: 'details', label: 'Details', icon: Layers },
   { id: 'dependencies', label: 'Dependencies', icon: GitBranch },
+  { id: 'checklist', label: 'Checklist', icon: ClipboardList },
 ]
 
 export function ProjectCellPage() {
@@ -284,8 +285,10 @@ export function ProjectCellPage() {
                 <ArrowLeft className="h-4 w-4" aria-hidden />
               </Link>
               <div className="admin-projects-cell-head-identity">
-                <p className="admin-projects-cell-eyebrow">Cell workflow</p>
                 <h1 className="admin-projects-head-title">{cell.name}</h1>
+                <p className="admin-projects-workspace-meta">
+                  {activeLibrary?.name || 'Library'} · {CELL_TYPE_LABELS[cell.cellType] ?? cell.cellType} · {cellDisplayStatus(cell)}
+                </p>
               </div>
               <div className="admin-projects-workspace-head-actions">
               <span className={cn(
@@ -358,11 +361,10 @@ export function ProjectCellPage() {
             <div className="admin-projects-cell-page-panel">
               {activeTab === 'details' && (
                 <div className="admin-projects-cell-details-layout">
-                  <div className="admin-projects-cell-page-toolbar">
-                    <div className={cn(
-                      'admin-projects-cell-details-summary-card',
-                      isEditing && 'is-editing',
-                    )}>
+                  <div className={cn(
+                    'admin-projects-cell-details-summary-card',
+                    isEditing && 'is-editing',
+                  )}>
                     <dl className="admin-projects-cell-details-grid admin-projects-cell-details-grid--summary">
                       <div className="admin-projects-cell-details-item">
                         <dt>Cell name</dt>
@@ -527,22 +529,6 @@ export function ProjectCellPage() {
                         Edit
                       </Button>
                     )}
-                    </div>
-
-                    <div className="admin-projects-view-tabs--cell">
-                      <div className="admin-projects-pill-rail">
-                        {(['layout', 'symbol', 'schematic'] as const).map((v) => (
-                          <button
-                            key={v}
-                            type="button"
-                            onClick={() => setViewTab(v)}
-                            className={cn('admin-projects-pill-btn', viewTab === v && 'is-active')}
-                          >
-                            {VIEW_TAB_LABELS[v]}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
                   </div>
 
                   {isEditing && (
@@ -556,11 +542,23 @@ export function ProjectCellPage() {
                     </div>
                   )}
 
-                  <div className="admin-projects-cell-main-row">
-                    <section
-                      className="admin-projects-cell-details-views-panel admin-projects-cell-details-views-panel--compact"
-                      aria-label="Cell views"
-                    >
+                  <section className="admin-projects-cell-details-views-panel" aria-label="Cell views">
+                    <div className="admin-projects-cell-details-views-panel-head">
+                      <p className="admin-projects-cell-details-main-label">Views</p>
+                      <div className="admin-projects-pill-rail">
+                        {(['layout', 'symbol', 'schematic'] as const).map((v) => (
+                          <button
+                            key={v}
+                            type="button"
+                            onClick={() => setViewTab(v)}
+                            className={cn('admin-projects-pill-btn', viewTab === v && 'is-active')}
+                          >
+                            {VIEW_TAB_LABELS[v]}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="admin-projects-cell-details-views-panel-body">
                       <div className="admin-projects-cell-details-view-box">
                         {viewTab === 'layout' ? (
                           <CellWorkflowPanel
@@ -581,16 +579,18 @@ export function ProjectCellPage() {
                           />
                         )}
                       </div>
-                    </section>
-
-                    <div className="admin-projects-cell-checklist-tab-panel">
-                      <CellTypeChecklistTab
-                        projectId={projectId}
-                        cellId={cellId}
-                        onUpdated={() => void reload()}
-                      />
                     </div>
-                  </div>
+                  </section>
+                </div>
+              )}
+
+              {activeTab === 'checklist' && (
+                <div className="admin-projects-cell-checklist-tab-panel">
+                  <CellTypeChecklistTab
+                    projectId={projectId}
+                    cellId={cellId}
+                    onUpdated={() => void reload()}
+                  />
                 </div>
               )}
 
