@@ -31,6 +31,7 @@ import { CELL_STATUS_FILTER_OPTIONS, CELL_TYPE_LABELS, STATUS_LABELS, WORKFLOW_S
 const INLINE_FIELD_CLASS = 'admin-projects-cell-details-inline-field'
 import { CellWorkflowPanel } from './CellWorkflowPanel'
 import { CellTypeChecklistTab } from './CellTypeChecklistTab'
+import { calculateEstimatedHours, formatComplexityFactor } from '@/utils/effortEstimationUtils'
 import './adminProjects.css'
 
 type ViewTab = 'layout' | 'symbol' | 'schematic'
@@ -438,7 +439,14 @@ export function ProjectCellPage() {
                             <select
                               className={INLINE_FIELD_CLASS}
                               value={cellForm.complexity}
-                              onChange={(e) => setCellForm((f) => f && { ...f, complexity: e.target.value as ProjectCell['complexity'] })}
+                              onChange={(e) => {
+                                const complexity = e.target.value as ProjectCell['complexity']
+                                setCellForm((f) => f && {
+                                  ...f,
+                                  complexity,
+                                  estimatedEffort: calculateEstimatedHours(f.baseHours ?? 0, complexity),
+                                })
+                              }}
                             >
                               <option value="Low">Low</option>
                               <option value="Medium">Medium</option>
@@ -450,18 +458,65 @@ export function ProjectCellPage() {
                         </dd>
                       </div>
                       <div className="admin-projects-cell-details-item">
-                        <dt>Estimated effort (hours)</dt>
+                        <dt>Base hours</dt>
                         <dd>
                           {isEditing ? (
                             <input
                               className={INLINE_FIELD_CLASS}
                               type="number"
                               min={0}
-                              value={String(cellForm.estimatedEffort ?? 0)}
-                              onChange={(e) => setCellForm((f) => f && { ...f, estimatedEffort: Number(e.target.value) })}
+                              step="any"
+                              value={String(cellForm.baseHours ?? 0)}
+                              onChange={(e) => {
+                                const baseHours = Number(e.target.value)
+                                setCellForm((f) => f && {
+                                  ...f,
+                                  baseHours,
+                                  estimatedEffort: calculateEstimatedHours(baseHours, f.complexity),
+                                })
+                              }}
                             />
                           ) : (
+                            cell.baseHours ?? 0
+                          )}
+                        </dd>
+                      </div>
+                      <div className="admin-projects-cell-details-item">
+                        <dt>Complexity factor</dt>
+                        <dd>{formatComplexityFactor(cell.complexity)}</dd>
+                      </div>
+                      <div className="admin-projects-cell-details-item">
+                        <dt>Estimated effort (hours)</dt>
+                        <dd>
+                          {isEditing ? (
+                            calculateEstimatedHours(cellForm.baseHours ?? 0, cellForm.complexity)
+                          ) : (
                             cell.estimatedEffort ?? 0
+                          )}
+                        </dd>
+                      </div>
+                      <div className="admin-projects-cell-details-item">
+                        <dt>Smart estimate (hours)</dt>
+                        <dd>
+                          {cell.smartEstimate ?? cell.estimatedEffort ?? 0}
+                          {' '}
+                          <span className="text-xs text-slate-500">({cell.estimateConfidence ?? 'Low'} confidence)</span>
+                        </dd>
+                      </div>
+                      <div className="admin-projects-cell-details-item">
+                        <dt>Actual effort (hours)</dt>
+                        <dd>
+                          {isEditing ? (
+                            <input
+                              className={INLINE_FIELD_CLASS}
+                              type="number"
+                              min={0}
+                              step="any"
+                              value={String(cellForm.actualEffort ?? 0)}
+                              onChange={(e) => setCellForm((f) => f && { ...f, actualEffort: Number(e.target.value) })}
+                            />
+                          ) : (
+                            cell.actualEffort ?? 0
                           )}
                         </dd>
                       </div>

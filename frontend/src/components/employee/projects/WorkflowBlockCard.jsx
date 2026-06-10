@@ -43,7 +43,7 @@ export function WorkflowBlockCard({
   const avatarName = cell.isAssignedToMe ? (user?.name || displayName) : displayName
   const avatarId = cell.isAssignedToMe ? user?.id : cell.assignedEmployeeId
 
-  const blockedByChecklist = canEdit && actionRequiresChecklist(advance) && !checklistReady
+  const blockedByChecklist = canEdit && actionRequiresChecklist(cell, advance) && !checklistReady
 
   const handleAction = () => {
     if (!canEdit || blockedByChecklist) return
@@ -143,7 +143,7 @@ export function WorkflowBlockCard({
             adminMode
               ? 'Workflow advances are done by the assigned engineer'
               : blockedByChecklist
-                ? 'Complete the checklist and final cell details before marking this stage as completed'
+                ? 'Complete the checklist and final cell details before completing the final stage'
                 : !canEdit
                   ? 'You can only advance cells assigned to you'
                   : awaitingReview

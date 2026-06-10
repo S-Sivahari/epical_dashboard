@@ -174,7 +174,7 @@ export async function isCellChecklistFilled(projectId: string, cellId: string): 
 export async function assertCellChecklistFilled(projectId: string, cellId: string): Promise<void> {
   const filled = await isCellChecklistFilled(projectId, cellId);
   if (!filled) {
-    throw new Error('Complete the checklist before marking this stage as completed');
+    throw new Error('Complete the checklist before completing the final stage');
   }
 
   const { assertFinalCellDetailsFilled } = await import('./projectTypeChecklistService');

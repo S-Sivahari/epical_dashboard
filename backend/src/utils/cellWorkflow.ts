@@ -558,3 +558,240 @@ export function markReviewPending(workflow: CellViewWorkflow, reviewPoint: Revie
 export function isLayoutWorkflowComplete(workflow: CellViewWorkflow): boolean {
   return workflow.layout.stage === 'lvs_r2' && workflow.layout.status === 'completed' && !workflow.layout.pendingReview;
 }
+
+export const FINAL_LAYOUT_STAGE: LayoutStage = 'lvs_r2';
+
+/** Checklist + final cell details are required only when completing the final layout stage or requesting R2 review. */
+export function viewWorkflowActionRequiresChecklist(
+  workflow: CellViewWorkflow,
+  params: {
+    view?: 'style' | 'symbol' | 'layout';
+    action?: 'set_status' | 'advance_stage';
+    status?: ViewProgressStatus;
+    reviewRequest?: boolean;
+  },
+): boolean {
+  if (params.reviewRequest) {
+    return canRequestReview(workflow) === 'r2';
+  }
+
+  if (params.view !== 'layout') {
+    return false;
+  }
+
+  if (params.action === 'set_status' && params.status === 'completed') {
+    return workflow.layout.stage === FINAL_LAYOUT_STAGE;
+  }
+
+  return false;
+}
+
+function mapViewProgressToWorkStatus(status: ViewProgressStatus): WorkStageStatus {
+  return status;
+}
+
+type LayoutSegment = {
+  layoutStage: LayoutStage;
+  workKey: CellWorkflowStageKey;
+  reviewKey?: ReviewStageKey;
+};
+
+const LAYOUT_SEGMENTS: LayoutSegment[] = [
+  { layoutStage: 'floor_plan', workKey: 'floor_plan' },
+  { layoutStage: 'drc_r1', workKey: 'drc_first', reviewKey: 'review_1' },
+  { layoutStage: 'routing', workKey: 'routing' },
+  { layoutStage: 'drc', workKey: 'drc_final' },
+  { layoutStage: 'lvs_r2', workKey: 'lvs', reviewKey: 'review_2' },
+];
+
+/** Derive admin workflow stages from the employee kanban view workflow. */
+export function syncCellWorkflowFromViewWorkflow(viewWorkflow: CellViewWorkflow): CellWorkflowStage[] {
+  const vw = normalizeViewWorkflow(viewWorkflow);
+  const { layout } = vw;
+  let workflow = defaultCellWorkflow();
+  const currentIndex = LAYOUT_STAGES.indexOf(layout.stage);
+
+  const completeBefore = (index: number) => {
+    if (index >= 1) {
+      workflow = setStageStatus(workflow, 'floor_plan', 'completed');
+    }
+    if (index >= 2) {
+      workflow = setStageStatus(workflow, 'drc_first', 'completed');
+      workflow = setStageStatus(workflow, 'review_1', 'approved');
+    }
+    if (index >= 3) {
+      workflow = setStageStatus(workflow, 'routing', 'completed');
+    }
+    if (index >= 4) {
+      workflow = setStageStatus(workflow, 'drc_final', 'completed');
+    }
+    if (index >= 5) {
+      workflow = setStageStatus(workflow, 'lvs', 'completed');
+      workflow = setStageStatus(workflow, 'review_2', 'approved');
+    }
+  };
+
+  completeBefore(currentIndex);
+
+  switch (layout.stage) {
+    case 'floor_plan':
+      workflow = setStageStatus(workflow, 'floor_plan', mapViewProgressToWorkStatus(layout.status));
+      break;
+    case 'drc_r1':
+      workflow = setStageStatus(workflow, 'floor_plan', 'completed');
+      if (layout.pendingReview === 'r1') {
+        workflow = setStageStatus(workflow, 'drc_first', 'completed');
+        workflow = setStageStatus(workflow, 'review_1', 'pending_review');
+      } else {
+        workflow = setStageStatus(workflow, 'drc_first', mapViewProgressToWorkStatus(layout.status));
+      }
+      break;
+    case 'routing':
+      workflow = setStageStatus(workflow, 'floor_plan', 'completed');
+      workflow = setStageStatus(workflow, 'drc_first', 'completed');
+      workflow = setStageStatus(workflow, 'review_1', 'approved');
+      workflow = setStageStatus(workflow, 'routing', mapViewProgressToWorkStatus(layout.status));
+      break;
+    case 'drc':
+      workflow = setStageStatus(workflow, 'floor_plan', 'completed');
+      workflow = setStageStatus(workflow, 'drc_first', 'completed');
+      workflow = setStageStatus(workflow, 'review_1', 'approved');
+      workflow = setStageStatus(workflow, 'routing', 'completed');
+      workflow = setStageStatus(workflow, 'drc_final', mapViewProgressToWorkStatus(layout.status));
+      break;
+    case 'lvs_r2':
+      workflow = setStageStatus(workflow, 'floor_plan', 'completed');
+      workflow = setStageStatus(workflow, 'drc_first', 'completed');
+      workflow = setStageStatus(workflow, 'review_1', 'approved');
+      workflow = setStageStatus(workflow, 'routing', 'completed');
+      workflow = setStageStatus(workflow, 'drc_final', 'completed');
+      if (layout.pendingReview === 'r2') {
+        workflow = setStageStatus(workflow, 'lvs', 'completed');
+        workflow = setStageStatus(workflow, 'review_2', 'pending_review');
+      } else if (layout.status === 'completed') {
+        workflow = setStageStatus(workflow, 'lvs', 'completed');
+        workflow = setStageStatus(workflow, 'review_2', 'approved');
+      } else {
+        workflow = setStageStatus(workflow, 'lvs', mapViewProgressToWorkStatus(layout.status));
+      }
+      break;
+    default:
+      break;
+  }
+
+  return workflow;
+}
+
+/** Derive employee kanban view workflow from admin workflow stages. */
+export function syncViewWorkflowFromCellWorkflow(
+  cellWorkflow: unknown,
+  existing?: CellViewWorkflow,
+): CellViewWorkflow {
+  const base = normalizeViewWorkflow(existing);
+  const wf = normalizeCellWorkflow(cellWorkflow);
+
+  const r1 = stageStatus(wf, 'review_1');
+  const r2 = stageStatus(wf, 'review_2');
+
+  if (r2 === 'pending_review') {
+    return {
+      ...base,
+      layout: { stage: 'lvs_r2', status: 'completed', pendingReview: 'r2' },
+    };
+  }
+
+  if (r1 === 'pending_review') {
+    return {
+      ...base,
+      layout: { stage: 'drc_r1', status: 'completed', pendingReview: 'r1' },
+    };
+  }
+
+  if (r2 === 'approved') {
+    return {
+      ...base,
+      layout: { stage: 'lvs_r2', status: 'completed', pendingReview: null },
+    };
+  }
+
+  for (const segment of LAYOUT_SEGMENTS) {
+    const workStatus = stageStatus(wf, segment.workKey);
+    const reviewStatus = segment.reviewKey ? stageStatus(wf, segment.reviewKey) : 'approved';
+
+    if (reviewStatus === 'rejected') {
+      return {
+        ...base,
+        layout: { stage: segment.layoutStage, status: 'in_progress', pendingReview: null },
+      };
+    }
+
+    const workComplete = workStatus === 'completed';
+    const reviewComplete = !segment.reviewKey || reviewStatus === 'approved';
+
+    if (!workComplete || !reviewComplete) {
+      let status: ViewProgressStatus = 'not_started';
+      if (workStatus === 'in_progress') {
+        status = 'in_progress';
+      } else if (workComplete && segment.reviewKey && reviewStatus === 'not_started') {
+        status = 'completed';
+      } else if (workStatus === 'completed' && !segment.reviewKey) {
+        status = 'completed';
+      }
+
+      return {
+        ...base,
+        layout: { stage: segment.layoutStage, status, pendingReview: null },
+      };
+    }
+  }
+
+  return {
+    ...base,
+    layout: { stage: 'lvs_r2', status: 'completed', pendingReview: null },
+  };
+}
+
+export function syncViewsFromViewWorkflow(cell: {
+  views?: { layout?: string; symbol?: string; schematic?: string };
+  viewWorkflow?: unknown;
+}): void {
+  const vw = normalizeViewWorkflow(cell.viewWorkflow);
+  cell.views = {
+    layout: cell.views?.layout || '',
+    symbol: vw.symbol.status,
+    schematic: vw.style.status,
+  };
+}
+
+export function syncViewWorkflowSimpleViewsFromCellViews(cell: {
+  views?: { layout?: string; symbol?: string; schematic?: string };
+  viewWorkflow?: unknown;
+}): void {
+  const vw = normalizeViewWorkflow(cell.viewWorkflow);
+  if (cell.views?.symbol) {
+    vw.symbol.status = normalizeProgressStatus(cell.views.symbol);
+  }
+  if (cell.views?.schematic) {
+    vw.style.status = normalizeProgressStatus(cell.views.schematic);
+  }
+  cell.viewWorkflow = vw;
+}
+
+/** Keep admin workflow and employee view workflow aligned after either side changes. */
+export function applyCellWorkflowSync(
+  cell: {
+    workflow?: unknown;
+    viewWorkflow?: unknown;
+    views?: { layout?: string; symbol?: string; schematic?: string };
+  },
+  source: 'workflow' | 'viewWorkflow',
+): void {
+  if (source === 'viewWorkflow') {
+    cell.workflow = syncCellWorkflowFromViewWorkflow(normalizeViewWorkflow(cell.viewWorkflow));
+    syncViewsFromViewWorkflow(cell);
+    return;
+  }
+
+  cell.viewWorkflow = syncViewWorkflowFromCellWorkflow(cell.workflow, normalizeViewWorkflow(cell.viewWorkflow));
+  syncViewsFromViewWorkflow(cell);
+}

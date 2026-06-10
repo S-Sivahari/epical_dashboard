@@ -6,6 +6,7 @@ import { ProjectLibraryModel } from '../models/ProjectLibrary';
 import { ProjectCellModel, CELL_STATUSES, type CellStatus } from '../models/ProjectCell';
 import { CellReviewModel } from '../models/CellReview';
 import { buildAssignmentIdentityTokens } from '../utils/assignedTaskSync';
+import { deriveBaseHours } from '../services/effortEstimationService';
 
 function normalizeStatus(value: string): CellStatus {
   if (value === 'in_progress' || value === 'drc' || value === 'lvs' || value === 'review') return 'in_progress';
@@ -28,17 +29,33 @@ async function computeDependencyMeta(projectId: Types.ObjectId, cell: any) {
 import {
   advanceLayoutStage,
   advanceSimpleViewStatus,
+  applyCellWorkflowSync,
+  applyReviewApproval,
+  applyReviewRejection,
   canAdvanceLayoutStage,
   canRequestReview,
+  defaultCellWorkflow,
+  defaultViewWorkflow,
   markReviewPending,
   normalizeViewWorkflow,
+  returnOptionsForReview,
+  syncCellWorkflowFromViewWorkflow,
+  syncViewsFromViewWorkflow,
   validateStatusStepForward,
+  viewWorkflowActionRequiresChecklist,
   type CellViewWorkflow,
+  type LayoutStage,
   type ViewProgressStatus,
 } from '../utils/cellWorkflow';
 import { assertCellChecklistFilled, buildCellChecklistDetail } from '../services/cellTypeChecklistService';
 import { sendReviewNotificationsFromCell } from '../services/cellReviewNotificationService';
-import { updateCellChecklistItemResponse } from '../services/checklistService';
+import { updateCellChecklistItemResponse, syncChecklistMappingsForCell } from '../services/checklistService';
+import { normalizeCellType } from '../services/projectTypeChecklistService';
+import {
+  deriveBaseHours,
+  normalizeComplexity,
+  predictEffort,
+} from '../services/effortEstimationService';
 
 function paramId(value: string | string[]): string {
   return Array.isArray(value) ? value[0] : value;
@@ -109,6 +126,30 @@ async function assertProjectCell(projectId: string, cellId: string, tokens: stri
   return cell;
 }
 
+function isTeamLeadOnProject(project: { teamLead?: string }, tokens: string[]): boolean {
+  const lead = project.teamLead?.trim();
+  return Boolean(lead && tokens.includes(lead));
+}
+
+async function assertTeamLeadAccess(projectId: string, tokens: string[]) {
+  const project = await assertProjectAccess(projectId, tokens);
+  if (!project || !isTeamLeadOnProject(project, tokens)) return null;
+  return project;
+}
+
+async function syncProjectProgress(projectId: Types.ObjectId) {
+  const cells = await ProjectCellModel.find({ projectId });
+  const total = cells.length;
+  const completed = cells.filter((c) => c.status === 'completed').length;
+  const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+  await ProjectModel.findByIdAndUpdate(projectId, {
+    totalTasks: total,
+    completedTasks: completed,
+    completionPercentage: pct,
+  });
+  return { total, completed, pct };
+}
+
 function toLibrary(doc: any) {
   return {
     id: doc._id.toString(),
@@ -123,6 +164,9 @@ function toEmployeeCell(
   tokens: string[],
   dependencyMeta?: { isBlocked: boolean; isReady: boolean },
 ) {
+  const viewWorkflow = normalizeViewWorkflow(doc.viewWorkflow);
+  const views = doc.views || { layout: '', symbol: '', schematic: '' };
+  syncViewsFromViewWorkflow({ viewWorkflow, views });
   return {
     id: doc._id.toString(),
     projectId: doc.projectId.toString(),
@@ -131,12 +175,17 @@ function toEmployeeCell(
     description: doc.description || '',
     cellType: doc.cellType || 'block',
     complexity: doc.complexity,
+    baseHours: deriveBaseHours(doc.estimatedEffort ?? 0, doc.complexity, doc.baseHours),
     estimatedEffort: doc.estimatedEffort ?? 0,
+    smartEstimate: doc.smartEstimate ?? doc.estimatedEffort ?? 0,
+    actualEffort: doc.actualEffort ?? 0,
+    estimateConfidence: doc.estimateConfidence === 'High' ? 'High' : 'Low',
     assignedEmployeeId: doc.assignedEmployeeId || '',
     assignedEmployeeName: doc.assignedEmployeeName || '',
     status: doc.status || 'ready',
-    viewWorkflow: normalizeViewWorkflow(doc.viewWorkflow),
-    views: doc.views || { layout: '', symbol: '', schematic: '' },
+    viewWorkflow,
+    workflow: syncCellWorkflowFromViewWorkflow(viewWorkflow),
+    views,
     isAssignedToMe: cellAssignedToTokens(doc, tokens),
     isBlocked: dependencyMeta?.isBlocked ?? false,
     isReady: dependencyMeta?.isReady ?? false,
@@ -186,6 +235,10 @@ export const employeeProjectController = {
       );
 
       const assignedCount = cellsWithMeta.filter((c) => c.isAssignedToMe).length;
+      const teamLead = isTeamLeadOnProject(project, tokens);
+      const pendingReviewCount = teamLead
+        ? await CellReviewModel.countDocuments({ projectId, status: 'open' })
+        : 0;
 
       res.json({
         project: {
@@ -196,6 +249,13 @@ export const employeeProjectController = {
           status: project.status,
           completionPercentage: project.completionPercentage ?? 0,
         },
+        isTeamLead: teamLead,
+        permissions: {
+          canCreateLibraries: true,
+          canCreateCells: true,
+          canReview: teamLead,
+        },
+        pendingReviewCount,
         libraries: libraries.map(toLibrary),
         cells: cellsWithMeta,
         stats: {
@@ -241,6 +301,7 @@ export const employeeProjectController = {
           id: project._id.toString(),
           name: project.projectName,
         },
+        isTeamLead: isTeamLeadOnProject(project, tokens),
         library: library ? toLibrary(library) : null,
         cell: toEmployeeCell(cell, tokens, meta),
         reviews: reviews.map(toReview),
@@ -275,13 +336,7 @@ export const employeeProjectController = {
         return;
       }
 
-      const completesCurrentStage =
-        (action === 'set_status' && status === 'completed') ||
-        (action === 'advance_stage' &&
-          (view === 'style' || view === 'symbol') &&
-          advanceSimpleViewStatus(workflow[view].status) === 'completed');
-
-      if (completesCurrentStage) {
+      if (viewWorkflowActionRequiresChecklist(workflow, { view, action, status })) {
         await assertCellChecklistFilled(projectId, cellId);
       }
 
@@ -338,6 +393,7 @@ export const employeeProjectController = {
       }
 
       cell.viewWorkflow = nextWorkflow;
+      applyCellWorkflowSync(cell, 'viewWorkflow');
       cell.activityLog.push({
         action: 'workflow_update',
         detail: `${view}: ${action}${status ? ` → ${status}` : ''}`,
@@ -413,7 +469,9 @@ export const employeeProjectController = {
         return;
       }
 
-      await assertCellChecklistFilled(projectId, cellId);
+      if (viewWorkflowActionRequiresChecklist(workflow, { reviewRequest: true })) {
+        await assertCellChecklistFilled(projectId, cellId);
+      }
 
       const openReview = await CellReviewModel.findOne({ cellId, status: 'open', reviewPoint });
       if (openReview) {
@@ -423,6 +481,7 @@ export const employeeProjectController = {
 
       const nextWorkflow = markReviewPending(workflow, reviewPoint);
       cell.viewWorkflow = nextWorkflow;
+      applyCellWorkflowSync(cell, 'viewWorkflow');
 
       const review = await CellReviewModel.create({
         projectId: new Types.ObjectId(projectId),
@@ -671,6 +730,300 @@ export const employeeProjectController = {
       res.json(detail);
     } catch (err: any) {
       res.status(400).json({ error: err?.message || 'Failed to update checklist item' });
+    }
+  },
+
+  createLibrary: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const tokens = await getAssignmentTokens(req);
+      const project = await assertProjectAccess(projectId, tokens);
+      if (!project) {
+        res.status(404).json({ error: 'Project not found or access denied' });
+        return;
+      }
+
+      const { name, description } = req.body;
+      if (!name?.trim()) {
+        res.status(400).json({ error: 'Library name is required' });
+        return;
+      }
+
+      const actor = actorFromReq(req);
+      const library = await ProjectLibraryModel.create({
+        projectId: project._id,
+        name: name.trim(),
+        description: description?.trim() || '',
+        createdBy: actor.userId,
+      });
+      res.status(201).json(toLibrary(library));
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to create library' });
+    }
+  },
+
+  createCell: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const libraryId = paramId(req.params.libraryId);
+      const tokens = await getAssignmentTokens(req);
+      const project = await assertProjectAccess(projectId, tokens);
+      const library = await ProjectLibraryModel.findOne({ _id: libraryId, projectId });
+      if (!project || !library) {
+        res.status(404).json({ error: 'Project or library not found' });
+        return;
+      }
+
+      const {
+        name,
+        description,
+        cellType,
+        technologyNode,
+        complexity,
+        baseHours,
+        estimatedEffort,
+        assignedEmployeeId,
+        assignedEmployeeName,
+        dependencyCellIds,
+        views,
+      } = req.body;
+
+      if (!name?.trim()) {
+        res.status(400).json({ error: 'Cell name is required' });
+        return;
+      }
+
+      const actor = actorFromReq(req);
+      const deps = Array.isArray(dependencyCellIds)
+        ? dependencyCellIds.filter((id: string) => Types.ObjectId.isValid(id)).map((id: string) => new Types.ObjectId(id))
+        : [];
+
+      const normalizedComplexity = normalizeComplexity(complexity);
+      const resolvedTechNode = technologyNode?.trim() || project.technologyNode || '';
+      const resolvedBaseHours = baseHours != null
+        ? Math.max(0, Number(baseHours) || 0)
+        : deriveBaseHours(Number(estimatedEffort) || 0, normalizedComplexity);
+      const prediction = await predictEffort({
+        cellType: normalizeCellType(cellType),
+        technologyNode: resolvedTechNode,
+        complexity: normalizedComplexity,
+        baseHours: resolvedBaseHours,
+      });
+
+      const cell = await ProjectCellModel.create({
+        projectId: project._id,
+        libraryId: library._id,
+        name: name.trim(),
+        description: description?.trim() || '',
+        cellType: normalizeCellType(cellType),
+        technologyNode: resolvedTechNode,
+        complexity: normalizedComplexity,
+        baseHours: prediction.baseHours,
+        estimatedEffort: prediction.estimatedHours,
+        smartEstimate: prediction.smartEstimate,
+        estimateConfidence: prediction.confidence,
+        actualEffort: 0,
+        assignedEmployeeId: assignedEmployeeId || undefined,
+        assignedEmployeeName: assignedEmployeeName || undefined,
+        dependencyCellIds: deps,
+        status: 'ready',
+        workflow: defaultCellWorkflow(),
+        views: views || { layout: '', symbol: '', schematic: '' },
+        viewWorkflow: defaultViewWorkflow(),
+        activityLog: [
+          {
+            action: 'created',
+            detail: `Cell "${name.trim()}" created`,
+            userId: actor.userId,
+            userName: actor.userName,
+            at: new Date(),
+          },
+        ],
+        createdBy: actor.userId,
+      });
+
+      await syncProjectProgress(project._id);
+      await syncChecklistMappingsForCell(project._id, cell._id);
+      const meta = await computeDependencyMeta(project._id, cell);
+      res.status(201).json(toEmployeeCell(cell, tokens, meta));
+    } catch (err) {
+      console.error('[employee-projects] createCell', err);
+      res.status(500).json({ error: 'Failed to create cell' });
+    }
+  },
+
+  getEffortPrediction: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const tokens = await getAssignmentTokens(req);
+      const project = await assertProjectAccess(projectId, tokens);
+      if (!project) {
+        res.status(404).json({ error: 'Project not found or access denied' });
+        return;
+      }
+
+      const cellType = normalizeCellType(String(req.query.cellType || 'block'));
+      const technologyNode = String(req.query.technologyNode || project.technologyNode || '').trim();
+      const complexity = normalizeComplexity(String(req.query.complexity || 'Medium'));
+      const baseHours = Math.max(0, Number(req.query.baseHours) || 0);
+      const excludeCellId = req.query.excludeCellId ? paramId(String(req.query.excludeCellId)) : undefined;
+
+      const prediction = await predictEffort({
+        cellType,
+        technologyNode,
+        complexity,
+        baseHours,
+        excludeCellId,
+      });
+
+      res.json(prediction);
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to predict effort' });
+    }
+  },
+
+  listProjectPendingReviews: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const tokens = await getAssignmentTokens(req);
+      const project = await assertTeamLeadAccess(projectId, tokens);
+      if (!project) {
+        res.status(403).json({ error: 'Only the project team lead can view pending reviews' });
+        return;
+      }
+
+      const reviews = await CellReviewModel.find({ projectId, status: 'open' }).sort({ createdAt: -1 });
+      const cellIds = [...new Set(reviews.map((r) => r.cellId.toString()))];
+      const cells = await ProjectCellModel.find({ _id: { $in: cellIds } }).select('name libraryId assignedEmployeeName');
+      const cellById = new Map(cells.map((c) => [c._id.toString(), c]));
+
+      res.json(
+        reviews.map((review) => {
+          const cell = cellById.get(review.cellId.toString());
+          return {
+            ...toReview(review),
+            projectId,
+            projectName: project.projectName,
+            cellName: cell?.name || 'Cell',
+            assignedEmployeeName: cell?.assignedEmployeeName || '',
+          };
+        }),
+      );
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to list pending reviews' });
+    }
+  },
+
+  resolveCellReview: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const cellId = paramId(req.params.cellId);
+      const reviewId = paramId(req.params.reviewId);
+      const tokens = await getAssignmentTokens(req);
+      const project = await assertTeamLeadAccess(projectId, tokens);
+      if (!project) {
+        res.status(403).json({ error: 'Only the project team lead can resolve reviews' });
+        return;
+      }
+
+      const { outcome, returnToStage, comment } = req.body as {
+        outcome?: 'approved' | 'rejected';
+        returnToStage?: LayoutStage;
+        comment?: string;
+      };
+
+      if (outcome !== 'approved' && outcome !== 'rejected') {
+        res.status(400).json({ error: 'outcome must be approved or rejected' });
+        return;
+      }
+
+      const review = await CellReviewModel.findOne({ _id: reviewId, projectId, cellId, status: 'open' });
+      if (!review) {
+        res.status(404).json({ error: 'Open review not found' });
+        return;
+      }
+
+      const cell = await ProjectCellModel.findOne({ _id: cellId, projectId });
+      if (!cell) {
+        res.status(404).json({ error: 'Cell not found' });
+        return;
+      }
+
+      const reviewPoint = review.reviewPoint;
+      if (reviewPoint !== 'r1' && reviewPoint !== 'r2') {
+        res.status(400).json({ error: 'Review point is required to resolve this review' });
+        return;
+      }
+
+      if (outcome === 'rejected') {
+        const options = returnOptionsForReview(reviewPoint);
+        if (!returnToStage || !options.includes(returnToStage)) {
+          res.status(400).json({
+            error: `returnToStage is required. Allowed: ${options.join(', ')}`,
+            allowedReturnStages: options,
+          });
+          return;
+        }
+      }
+
+      const actor = actorFromReq(req);
+      const workflow = normalizeViewWorkflow(cell.viewWorkflow);
+      const nextWorkflow =
+        outcome === 'approved'
+          ? applyReviewApproval(workflow, reviewPoint)
+          : applyReviewRejection(workflow, reviewPoint, returnToStage!);
+
+      cell.viewWorkflow = nextWorkflow;
+      applyCellWorkflowSync(cell, 'viewWorkflow');
+      review.status = 'resolved';
+      review.outcome = outcome;
+      review.returnToStage = outcome === 'rejected' ? returnToStage : undefined;
+      review.resolvedBy = actor.userId;
+      review.resolvedByName = actor.userName;
+      review.resolvedAt = new Date();
+
+      if (comment?.trim()) {
+        review.messages.push({
+          authorId: actor.userId,
+          authorName: actor.userName,
+          authorRole: 'Team Lead',
+          body: comment.trim(),
+          at: new Date(),
+        });
+      }
+
+      cell.activityLog.push({
+        action: 'review_resolved',
+        detail: `${reviewPoint.toUpperCase()} ${outcome}${outcome === 'rejected' ? ` → ${returnToStage}` : ''}`,
+        userId: actor.userId,
+        userName: actor.userName,
+        at: new Date(),
+      });
+
+      if (cell.status === 'completed' || cell.status === 'ready') {
+        cell.status = 'in_progress';
+      }
+
+      await Promise.all([cell.save(), review.save()]);
+
+      void sendReviewNotificationsFromCell({
+        projectId,
+        cellId,
+        reviewId: review._id.toString(),
+        reviewPoint,
+        stageAtRequest: review.stageAtRequest || workflow.layout.stage,
+        mode: 'resolved',
+        outcome,
+        returnToStage: outcome === 'rejected' ? returnToStage : undefined,
+        resolvedByName: actor.userName,
+      }).catch((notifyErr) => {
+        console.error('[employee-projects] review resolve notification failed:', notifyErr);
+      });
+
+      const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
+      res.json({ cell: toEmployeeCell(cell, tokens, meta), review: toReview(review) });
+    } catch (err: any) {
+      res.status(400).json({ error: err?.message || 'Failed to resolve review' });
     }
   },
 };

@@ -44,7 +44,11 @@ export interface ProjectCell extends Document {
   cellType: string;
   technologyNode: string;
   complexity: 'Low' | 'Medium' | 'High';
+  baseHours: number;
   estimatedEffort: number;
+  smartEstimate: number;
+  actualEffort: number;
+  estimateConfidence: 'High' | 'Low';
   assignedEmployeeId?: string;
   assignedEmployeeName?: string;
   dependencyCellIds: Types.ObjectId[];
@@ -68,7 +72,11 @@ const ProjectCellSchema = new Schema<ProjectCell>(
     cellType: { type: String, default: 'block' },
     technologyNode: { type: String, default: '' },
     complexity: { type: String, enum: ['Low', 'Medium', 'High'], default: 'Medium' },
+    baseHours: { type: Number, default: 0 },
     estimatedEffort: { type: Number, default: 0 },
+    smartEstimate: { type: Number, default: 0 },
+    actualEffort: { type: Number, default: 0 },
+    estimateConfidence: { type: String, enum: ['High', 'Low'], default: 'Low' },
     assignedEmployeeId: { type: String },
     assignedEmployeeName: { type: String },
     dependencyCellIds: [{ type: Schema.Types.ObjectId, ref: 'ProjectCell' }],
