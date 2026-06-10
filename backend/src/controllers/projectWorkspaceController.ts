@@ -175,6 +175,22 @@ export const projectWorkspaceController = {
         }),
       );
 
+      const cellCount = cells.length;
+      const completedCells = cells.filter((c) => c.status === 'completed').length;
+      const completionPercentage = cellCount > 0
+        ? Math.round((completedCells / cellCount) * 100)
+        : 0;
+
+      if ((project.completionPercentage ?? 0) !== completionPercentage
+        || (project.completedTasks ?? 0) !== completedCells
+        || (project.totalTasks ?? 0) !== cellCount) {
+        await ProjectModel.findByIdAndUpdate(project._id, {
+          totalTasks: cellCount,
+          completedTasks: completedCells,
+          completionPercentage,
+        });
+      }
+
       res.json({
         project: {
           id: project._id.toString(),
@@ -185,14 +201,16 @@ export const projectWorkspaceController = {
           technologyNode: project.technologyNode,
           description: project.description,
           status: project.status,
-          completionPercentage: project.completionPercentage ?? 0,
+          completionPercentage,
         },
         libraries: libraries.map(toLibrary),
         cells: cellsWithMeta,
         stats: {
           libraryCount: libraries.length,
-          cellCount: cells.length,
-          completedCells: cells.filter((c) => c.status === 'completed').length,
+          cellCount,
+          completedCells,
+          notStartedCells: cells.filter((c) => c.status === 'ready').length,
+          inProgressCells: cells.filter((c) => c.status === 'in_progress').length,
           blockedCells: cellsWithMeta.filter((c) => c.isBlocked).length,
           readyCells: cellsWithMeta.filter((c) => c.isReady).length,
           unassignedCells: cells.filter((c) => !c.assignedEmployeeId).length,
@@ -573,6 +591,29 @@ export const projectWorkspaceController = {
       res.json(toCell(cell, meta));
     } catch (err) {
       res.status(500).json({ error: 'Failed to uncomplete cell' });
+    }
+  },
+
+  touchCell: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const cellId = paramId(req.params.cellId);
+
+      const cell = await ProjectCellModel.findOne({ _id: cellId, projectId });
+      if (!cell) {
+        res.status(404).json({ error: 'Cell not found' });
+        return;
+      }
+
+      if (cell.status === 'ready') {
+        cell.status = 'in_progress';
+        await cell.save();
+      }
+
+      const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
+      res.json(toCell(cell, meta));
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to update cell activity' });
     }
   },
 

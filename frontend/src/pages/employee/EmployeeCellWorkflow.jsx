@@ -116,10 +116,9 @@ export default function EmployeeCellWorkflow() {
             <span
               className={cn(
                 'emp-wf-status-chip',
-                cell.isBlocked && 'is-blocked',
-                cell.isReady && 'is-ready',
+                cell.status === 'ready' && 'is-not-started',
                 cell.status === 'completed' && 'is-completed',
-                cell.status === 'in_progress' && !cell.isBlocked && 'is-progress',
+                cell.status === 'in_progress' && 'is-progress',
               )}
             >
               {cellDisplayStatus(cell)}

@@ -21,6 +21,8 @@ import {
   updateCellCustomChecklistResponse,
   updateCellTypeChecklistResponse,
 } from '@/services/projectTypeChecklistService'
+import { completeCell } from '@/services/projectWorkspaceService'
+import type { CellStatus } from '@/types/projectWorkspace'
 
 const RESPONSE_OPTIONS: { value: TypeChecklistAnswer; label: string; className: string }[] = [
   { value: 'yes', label: 'Yes', className: 'is-yes' },
@@ -36,10 +38,11 @@ const EXTENSION_YES_NO_OPTIONS: { value: ChecklistYesNo; label: string; classNam
 type CellTypeChecklistTabProps = {
   projectId: string
   cellId: string
+  cellStatus?: CellStatus
   onUpdated?: () => void
 }
 
-export function CellTypeChecklistTab({ projectId, cellId, onUpdated }: CellTypeChecklistTabProps) {
+export function CellTypeChecklistTab({ projectId, cellId, cellStatus, onUpdated }: CellTypeChecklistTabProps) {
   const authRole = useAuthStore((state) => state.role)
   const authUser = useAuthStore((state) => state.user)
   const isAdmin = authRole === 'admin' || authUser?.role === 'Admin'
@@ -97,8 +100,8 @@ export function CellTypeChecklistTab({ projectId, cellId, onUpdated }: CellTypeC
   }, [load])
 
   useEffect(() => {
-    setFinalDetailsCompleted(false)
-  }, [projectId, cellId])
+    setFinalDetailsCompleted(cellStatus === 'completed')
+  }, [projectId, cellId, cellStatus])
 
   const patchItem = (updated: CellTypeChecklistItem) => {
     setDetail((prev) =>
@@ -264,7 +267,7 @@ export function CellTypeChecklistTab({ projectId, cellId, onUpdated }: CellTypeC
   }
 
   const handleCompleteFinalDetails = async () => {
-    if (!canCompleteFinalDetails) return
+    if (!canCompleteFinalDetails || cellStatus === 'completed') return
 
     const parsedX = Number(extensionDrafts.dimensionX)
     const parsedY = Number(extensionDrafts.dimensionY)
@@ -281,12 +284,18 @@ export function CellTypeChecklistTab({ projectId, cellId, onUpdated }: CellTypeC
         waivableDrcError: current.waivableDrcError,
       })
       setDetail((prev) => (prev ? { ...prev, extension: updated } : prev))
+
+      await completeCell(projectId, cellId)
       setFinalDetailsCompleted(true)
-      toast.success('Final cell details completed')
+      toast.success('Cell completed')
       onUpdated?.()
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
-      toast.error(msg || 'Failed to complete final cell details')
+      const data = (err as { response?: { data?: { error?: string; missing?: string[] } } })?.response?.data
+      if (data?.missing?.length) {
+        toast.error(`Complete all sections first: ${data.missing.join(', ')}`)
+      } else {
+        toast.error(data?.error || 'Failed to complete cell')
+      }
     } finally {
       setCompletingFinalDetails(false)
     }
@@ -324,7 +333,9 @@ export function CellTypeChecklistTab({ projectId, cellId, onUpdated }: CellTypeC
     extension.overallSubstrateContact != null &&
     extension.waivableDrcError != null
 
-  const canCompleteFinalDetails = checklistComplete && extensionFieldsComplete && !finalDetailsCompleted
+  const isCellCompleted = cellStatus === 'completed'
+  const canCompleteFinalDetails =
+    checklistComplete && extensionFieldsComplete && !finalDetailsCompleted && !isCellCompleted
 
   if (loading) {
     return (
@@ -718,9 +729,9 @@ export function CellTypeChecklistTab({ projectId, cellId, onUpdated }: CellTypeC
             >
               {completingFinalDetails
                 ? 'Completing…'
-                : finalDetailsCompleted
+                : isCellCompleted || finalDetailsCompleted
                   ? 'Completed'
-                  : 'Complete'}
+                  : 'Complete cell'}
             </Button>
           </div>
         </div>

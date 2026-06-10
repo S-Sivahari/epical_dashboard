@@ -115,8 +115,18 @@ export function isStageLocked(workflow: CellWorkflowStage[], stageKey: CellWorkf
 }
 
 export function cellDisplayStatus(cell: ProjectCell) {
-  if (cell.isBlocked && cell.status !== 'completed') return 'Archive'
   return STATUS_LABELS[cell.status]
+}
+
+/** Project progress: completed cells / total cells (0–100). */
+export function projectCellProgressPercent(completedCells: number, totalCells: number): number {
+  if (totalCells <= 0) return 0
+  return Math.round((completedCells / totalCells) * 100)
+}
+
+/** Per-cell completion progress for workflow tables (100% only when explicitly completed). */
+export function cellCompletionProgressPercent(cell: ProjectCell): number {
+  return cell.status === 'completed' ? 100 : 0
 }
 
 export function workflowProgressPercent(cell: ProjectCell) {

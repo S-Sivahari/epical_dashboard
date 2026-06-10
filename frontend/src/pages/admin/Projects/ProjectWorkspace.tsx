@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  Archive, ArrowLeft, BookOpen, CheckCircle2, ChevronDown, ClipboardList, GitBranch, History, Layers, LayoutGrid, ListChecks, Plus, Search, Trash2, User, X,
+  ArrowLeft, BookOpen, CheckCircle2, ChevronDown, ClipboardList, GitBranch, History, Layers, LayoutGrid, ListChecks, Plus, Search, Trash2, User, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageWrapper } from '@components/layout/PageWrapper'
@@ -41,11 +41,12 @@ import {
   WORKFLOW_STATUS_LABELS,
   cellDisplayStatus,
   normalizeCellWorkflow,
+  projectCellProgressPercent,
 } from './projectWorkspaceUi'
 
 type DeleteTarget = { type: 'library' | 'cell'; id: string; name: string }
 type WorkspaceSection = 'home' | 'workflow' | 'graph' | 'activity' | 'checklist'
-type StatFilter = 'complete' | 'archive' | 'unassigned' | null
+type StatFilter = 'complete' | 'not_started' | 'in_progress' | 'unassigned' | null
 
 const FILTER_SELECT_CLASS =
   'admin-projects-filter-select h-10 w-full min-w-[9.5rem] cursor-pointer appearance-none pl-3 pr-9 text-sm font-medium'
@@ -90,12 +91,11 @@ export function ProjectWorkspace() {
   const [libraryDesc, setLibraryDesc] = useState('')
   const [cellModal, setCellModal] = useState(false)
   const [cellForm, setCellForm] = useState<ReturnType<typeof emptyCellForm> | null>(null)
-  const [viewTab, setViewTab] = useState<'layout' | 'symbol' | 'schematic'>('layout')
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
   const [workspaceSection, setWorkspaceSection] = useState<WorkspaceSection>('home')
   const [filterSearch, setFilterSearch] = useState('')
   const [filterTypeSelect, setFilterTypeSelect] = useState<'all' | ProjectCell['cellType']>('all')
-  const [filterStatusSelect, setFilterStatusSelect] = useState<'all' | CellStatus | 'archive'>('all')
+  const [filterStatusSelect, setFilterStatusSelect] = useState<'all' | CellStatus>('all')
   const [statFilter, setStatFilter] = useState<StatFilter>(null)
   const [showAllCells, setShowAllCells] = useState(false)
   const [activityFilterSearch, setActivityFilterSearch] = useState('')
@@ -168,14 +168,14 @@ export function ProjectWorkspace() {
         ? summary.cells.filter((c) => c.libraryId === activeLibraryId)
         : []
     if (statFilter === 'complete') cells = cells.filter((c) => c.status === 'completed')
-    if (statFilter === 'archive') cells = cells.filter((c) => c.isBlocked)
+    if (statFilter === 'not_started') cells = cells.filter((c) => c.status === 'ready')
+    if (statFilter === 'in_progress') cells = cells.filter((c) => c.status === 'in_progress')
     if (statFilter === 'unassigned') cells = cells.filter((c) => !c.assignedEmployeeId)
     const q = filterSearch.trim().toLowerCase()
     if (q) cells = cells.filter((c) => c.name.toLowerCase().includes(q))
     if (filterTypeSelect !== 'all') cells = cells.filter((c) => c.cellType === filterTypeSelect)
-    if (filterStatusSelect === 'archive') cells = cells.filter((c) => c.isBlocked)
-    else if (filterStatusSelect !== 'all') {
-      cells = cells.filter((c) => c.status === filterStatusSelect && !c.isBlocked)
+    if (filterStatusSelect !== 'all') {
+      cells = cells.filter((c) => c.status === filterStatusSelect)
     }
     return cells
   }, [summary, activeLibraryId, showAllCells, statFilter, filterSearch, filterTypeSelect, filterStatusSelect])
@@ -184,7 +184,8 @@ export function ProjectWorkspace() {
     setFilterSearch('')
     setFilterTypeSelect('all')
     if (filter === 'complete') setFilterStatusSelect('completed')
-    else if (filter === 'archive') setFilterStatusSelect('archive')
+    else if (filter === 'not_started') setFilterStatusSelect('ready')
+    else if (filter === 'in_progress') setFilterStatusSelect('in_progress')
     else setFilterStatusSelect('all')
     setStatFilter((prev) => (prev === filter ? null : filter))
     setWorkspaceSection('home')
@@ -384,6 +385,7 @@ export function ProjectWorkspace() {
   }
 
   const { project, libraries, stats } = summary
+  const workflowProgressPercent = projectCellProgressPercent(stats.completedCells, stats.cellCount)
 
   return (
     <PageWrapper
@@ -416,7 +418,8 @@ export function ProjectWorkspace() {
                       { label: 'Libraries', value: stats.libraryCount, icon: BookOpen, filter: null as StatFilter },
                       { label: 'Cells', value: stats.cellCount, icon: Layers, filter: null },
                       { label: 'Complete', value: stats.completedCells, icon: CheckCircle2, filter: 'complete' as StatFilter },
-                      { label: 'Archive', value: stats.blockedCells, icon: Archive, filter: 'archive' as StatFilter },
+                      { label: 'Not Started', value: stats.notStartedCells ?? 0, icon: Layers, filter: 'not_started' as StatFilter },
+                      { label: 'In Progress', value: stats.inProgressCells ?? 0, icon: ListChecks, filter: 'in_progress' as StatFilter },
                       { label: 'Unassigned', value: stats.unassignedCells, icon: User, filter: 'unassigned' as StatFilter },
                     ].map(({ label, value, icon: Icon, filter }) => (
                       <button
@@ -454,9 +457,12 @@ export function ProjectWorkspace() {
                     ))}
                   </div>
 
-                  <div className="admin-projects-progress-pill" aria-label={`Project progress ${project.completionPercentage}%`}>
-                    <div className="admin-projects-progress-ring" style={{ '--progress': `${project.completionPercentage}%` } as CSSProperties}>
-                      <span>{project.completionPercentage}%</span>
+                  <div
+                    className="admin-projects-progress-pill"
+                    aria-label={`Project progress ${stats.completedCells} of ${stats.cellCount} cells completed (${workflowProgressPercent}%)`}
+                  >
+                    <div className="admin-projects-progress-ring" style={{ '--progress': `${workflowProgressPercent}%` } as CSSProperties}>
+                      <span>{workflowProgressPercent}%</span>
                     </div>
                     <span className="admin-projects-progress-label">Progress</span>
                   </div>
@@ -598,7 +604,7 @@ export function ProjectWorkspace() {
                       <select
                         value={filterStatusSelect}
                         onChange={(e) => {
-                          setFilterStatusSelect(e.target.value as 'all' | CellStatus | 'archive')
+                          setFilterStatusSelect(e.target.value as 'all' | CellStatus)
                           setStatFilter(null)
                         }}
                         className={FILTER_SELECT_CLASS}
@@ -608,7 +614,6 @@ export function ProjectWorkspace() {
                         {CELL_STATUS_FILTER_OPTIONS.map((status) => (
                           <option key={status} value={status}>{STATUS_LABELS[status]}</option>
                         ))}
-                        <option value="archive">Archive</option>
                       </select>
                       <ChevronDown className="admin-projects-filter-select-icon" aria-hidden />
                     </div>
@@ -661,10 +666,9 @@ export function ProjectWorkspace() {
                           <td className="admin-projects-table-col-status">
                             <span className={cn(
                               'admin-projects-status-chip admin-projects-status-chip--table',
-                              cell.isBlocked && 'is-blocked',
-                              cell.isReady && 'is-ready',
+                              cell.status === 'ready' && 'is-not-started',
                               cell.status === 'completed' && 'is-completed',
-                              cell.status === 'in_progress' && !cell.isBlocked && 'is-progress',
+                              cell.status === 'in_progress' && 'is-progress',
                             )}>
                               {cellDisplayStatus(cell)}
                             </span>
@@ -771,6 +775,7 @@ export function ProjectWorkspace() {
                     projectId={projectId}
                     cells={filteredWorkflowCells}
                     totalCellCount={allCells.length}
+                    completedCellCount={stats.completedCells}
                     libraryNameById={libraryNameById}
                   />
                 </div>
@@ -1004,27 +1009,6 @@ export function ProjectWorkspace() {
                 ))}
               </select>
             </label>
-            <div>
-              <p className="admin-projects-field-label">Views</p>
-              <div className="admin-projects-pill-rail mb-2">
-                {(['layout', 'symbol', 'schematic'] as const).map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setViewTab(v)}
-                    className={cn('admin-projects-pill-btn', viewTab === v && 'is-active')}
-                  >
-                    {v}
-                  </button>
-                ))}
-              </div>
-              <textarea
-                className="min-h-[80px] w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                placeholder={`${viewTab} view notes or asset reference`}
-                value={cellForm.views?.[viewTab] || ''}
-                onChange={(e) => setCellForm((f) => f && { ...f, views: { ...f.views!, [viewTab]: e.target.value } })}
-              />
-            </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="secondary" onClick={() => setCellModal(false)}>Cancel</Button>
               <Button onClick={() => void saveCell()}>Save</Button>
