@@ -31,6 +31,7 @@ import { CELL_STATUS_FILTER_OPTIONS, CELL_TYPE_LABELS, STATUS_LABELS, WORKFLOW_S
 
 const INLINE_FIELD_CLASS = 'admin-projects-cell-details-inline-field'
 import { CellWorkflowPanel } from './CellWorkflowPanel'
+import { CellWorkflowDurationLabel } from './CellWorkflowDurationLabel'
 import { CellTypeChecklistTab } from './CellTypeChecklistTab'
 import './adminProjects.css'
 
@@ -92,6 +93,7 @@ export function ProjectCellPage() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [completionReadiness, setCompletionReadiness] = useState<CellCompletionReadiness | null>(null)
+  const [durationFetchedAt, setDurationFetchedAt] = useState(() => Date.now())
 
   const reload = useCallback(async () => {
     if (!projectId || !cellId) return
@@ -105,6 +107,7 @@ export function ProjectCellPage() {
       setSummary(ws)
       setEmployees(empsRes.data ?? [])
       setCompletionReadiness(readiness)
+      setDurationFetchedAt(Date.now())
       const cell = ws.cells.find((c) => c.id === cellId)
       if (cell) {
         setCellForm(cell)
@@ -309,6 +312,11 @@ export function ProjectCellPage() {
               )}>
                 {cellDisplayStatus(cell)}
               </span>
+              <CellWorkflowDurationLabel
+                cellStatus={cell.status}
+                workflowDuration={cell.workflowDuration}
+                fetchedAt={durationFetchedAt}
+              />
               {cell.status === 'completed' ? (
                 <Button
                   size="sm"
