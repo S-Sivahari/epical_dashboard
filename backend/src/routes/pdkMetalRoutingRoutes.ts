@@ -40,14 +40,26 @@ function uploadPdkExcel(field: string) {
 router.use(authMiddleware);
 
 router.get('/dashboard/projects', pdkMetalRoutingController.listDashboardProjects);
+router.get('/dashboard/metrics', pdkMetalRoutingController.getDashboardMetrics);
 router.patch('/projects/:projectId/pdk', pdkMetalRoutingController.assignPdkToProject);
 router.get('/projects/:projectId/context', pdkMetalRoutingController.getProjectContext);
+router.get('/projects/:projectId/routes/export', pdkMetalRoutingController.exportProjectRoutes);
+router.get(
+  '/projects/:projectId/routes/template/download',
+  pdkMetalRoutingController.downloadProjectMetalRoutingTemplate,
+);
+router.post(
+  '/projects/:projectId/routes/import',
+  uploadPdkExcel('file'),
+  pdkMetalRoutingController.importProjectRoutes,
+);
 
 router.get('/route', pdkMetalRoutingController.lookupRoute);
 router.post('/route/resolve', pdkMetalRoutingController.resolveRoute);
 router.post('/route/metals/preview', pdkMetalRoutingController.previewMetal);
 router.post('/route/metals', pdkMetalRoutingController.addMetal);
 router.delete('/route/metals/:metalId', pdkMetalRoutingController.removeMetal);
+router.get('/routes/template/download', pdkMetalRoutingController.downloadMetalRoutingTemplate);
 router.get('/routes/:id/export', pdkMetalRoutingController.exportRoute);
 
 router.get('/pdk-modules', pdkMetalRoutingController.listPdkModules);

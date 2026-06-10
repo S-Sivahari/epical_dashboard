@@ -2,6 +2,7 @@
 @import './styles/employee-timesheet.css';
 @import './styles/employee-leave.css';
 @import './styles/viewport-layout.css';
+@import './styles/metal-routing-premium.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

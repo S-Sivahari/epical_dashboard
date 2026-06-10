@@ -1,6 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, ChevronDown, Download, Layers, Plus, Upload } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ArrowLeft, ChevronDown, Clock, Download, Hash, Layers, Plus, Upload } from 'lucide-react'
 import { toast } from 'sonner'
+import { MetalRoutingDashboardStats } from '@components/pdk/MetalRoutingDashboardStats'
+import {
+  buildPdkModuleStats,
+  MetalRoutingPdkModuleCatalog,
+} from '@components/pdk/MetalRoutingPdkModuleCatalog'
 import { MetalRoutingPageShell } from '@components/pdk/MetalRoutingPageShell'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
@@ -252,10 +257,46 @@ export function PdkModulesPage() {
 
   const showDetail = Boolean(selectedId && selectedModule)
 
+  const moduleStats = useMemo(() => buildPdkModuleStats(modules), [modules])
+
+  const statCards = useMemo(
+    () => [
+      {
+        label: 'Total Modules',
+        value: modules.length,
+        hint: 'Available in system',
+        icon: Layers,
+        tone: 'green' as const,
+      },
+      {
+        label: 'Total Metal Types',
+        value: moduleStats.totalMetalTypes,
+        hint: 'Across all modules',
+        icon: Hash,
+        tone: 'blue' as const,
+      },
+      {
+        label: 'Modules with N/A',
+        value: moduleStats.modulesWithNa,
+        hint: 'No node defined',
+        icon: Layers,
+        tone: 'violet' as const,
+      },
+      {
+        label: 'Recently Added',
+        value: moduleStats.recentlyAdded,
+        hint: 'In last 30 days',
+        icon: Clock,
+        tone: 'orange' as const,
+      },
+    ],
+    [modules.length, moduleStats],
+  )
+
   return (
     <MetalRoutingPageShell>
       {showDetail ? (
-        <>
+        <div className="metal-routing-dashboard">
           <Button
             type="button"
             size="sm"
@@ -268,35 +309,36 @@ export function PdkModulesPage() {
           >
             Back to all modules
           </Button>
-          <div className="mt-4 mb-6">
-            <h1 className="text-xl font-semibold text-ink">{selectedModule!.name}</h1>
-            <p className="text-sm text-muted">
-              {selectedModule!.technologyNode}
-              {selectedModule!.notes ? ` · ${selectedModule!.notes}` : ''}
-            </p>
-          </div>
-          <MetalTable metals={selectedModule!.metals} />
-        </>
-      ) : (
-        <>
-          <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h1 className="text-xl font-semibold text-ink">PDK Modules</h1>
-              <p className="mt-1 text-sm text-muted">
-                Each module is a full Sheet 2 table. Same metal names can exist across modules with different values.
+          <header className="metal-routing-dashboard-header">
+            <div className="min-w-0 flex-1">
+              <h1 className="metal-routing-page-title">{selectedModule!.name}</h1>
+              <p className="metal-routing-page-desc">
+                {selectedModule!.technologyNode || 'N/A'}
+                {selectedModule!.notes ? ` · ${selectedModule!.notes}` : ''}
               </p>
+            </div>
+          </header>
+          <MetalTable metals={selectedModule!.metals} />
+        </div>
+      ) : (
+        <div className="metal-routing-dashboard">
+          <header className="metal-routing-dashboard-header">
+            <div className="min-w-0 flex-1">
+              <h1 className="metal-routing-page-title">PDK Modules</h1>
             </div>
             <PdkAddMenu
               onCreate={openCreateModal}
               onImport={openImportModal}
               onDownloadTemplate={() => void handleDownloadTemplate()}
             />
-          </div>
+          </header>
+
+          <MetalRoutingDashboardStats cards={statCards} loading={loading} />
 
           {loading ? (
-            <p className="text-sm text-muted">Loading…</p>
+            <p className="text-sm text-muted">Loading modules…</p>
           ) : modules.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border bg-white py-12 text-center">
+            <div className="metal-routing-overview-card metal-routing-pdk-empty-state">
               <p className="text-sm text-muted">No PDK modules yet.</p>
               <div className="mt-4 flex flex-wrap justify-center gap-2">
                 <Button type="button" icon={<Plus className="h-4 w-4" />} onClick={openCreateModal}>
@@ -313,32 +355,13 @@ export function PdkModulesPage() {
               </div>
             </div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {modules.map((mod) => (
-                <button
-                  key={mod._id}
-                  type="button"
-                  onClick={() => void openModule(mod._id)}
-                  className={cn(
-                    'rounded-xl border border-border bg-white p-4 text-left shadow-sm transition-ui',
-                    'hover:border-primary/40 hover:shadow-md',
-                  )}
-                >
-                  <div className="mb-2 flex items-center gap-2">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <Layers className="h-4 w-4" />
-                    </span>
-                    <div>
-                      <p className="font-semibold text-ink">{mod.name}</p>
-                      <p className="text-xs text-muted">{mod.technologyNode || 'N/A'}</p>
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted">{mod.metals.length} metal type(s)</p>
-                </button>
-              ))}
-            </div>
+            <MetalRoutingPdkModuleCatalog
+              modules={modules}
+              loading={loading}
+              onOpenModule={(id) => void openModule(id)}
+            />
           )}
-        </>
+        </div>
       )}
 
       <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title="Create PDK Module" size="lg">

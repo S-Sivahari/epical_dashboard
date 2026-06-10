@@ -15,6 +15,20 @@ export const pdkMetalRoutingController = {
     }
   },
 
+  async getDashboardMetrics(req: AuthRequest, res: Response) {
+    try {
+      const projectId = typeof req.query.projectId === 'string' ? req.query.projectId : undefined;
+      const metrics = await pdkService.getDashboardMetrics(
+        req.user?.id ?? '',
+        req.user?.role ?? 'employee',
+        projectId,
+      );
+      res.json({ metrics });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to load dashboard metrics' });
+    }
+  },
+
   async assignPdkToProject(req: AuthRequest, res: Response) {
     try {
       const { pdkModuleId } = req.body;
@@ -260,13 +274,99 @@ export const pdkMetalRoutingController = {
         res.status(404).json({ error: 'Route not found' });
         return;
       }
-      const { route, buffer } = result;
-      const filename = `metal-routing_${route.fromCell}_${route.toCell}.xlsx`.replace(/\s+/g, '_');
+      const { buffer, filename } = result;
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.send(buffer);
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to export route' });
+    }
+  },
+
+  async downloadMetalRoutingTemplate(_req: AuthRequest, res: Response) {
+    try {
+      const buffer = await pdkService.getMetalRoutingTemplateExcel();
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename="Metal_Routing_Import_Template.xlsx"');
+      res.send(buffer);
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to generate template' });
+    }
+  },
+
+  async downloadProjectMetalRoutingTemplate(req: AuthRequest, res: Response) {
+    try {
+      const result = await pdkService.getMetalRoutingTemplateExcelForProject(String(req.params.projectId));
+      const safeName = result.pdkModuleName.replace(/[^\w.-]+/g, '_');
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="Metal_Routing_Template_${safeName}.xlsx"`,
+      );
+      res.send(result.buffer);
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : 'Failed to generate project template' });
+    }
+  },
+
+  async exportProjectRoutes(req: AuthRequest, res: Response) {
+    try {
+      const routeId = typeof req.query.routeId === 'string' ? req.query.routeId : undefined;
+      const result = await pdkService.exportProjectRoutesExcel(String(req.params.projectId), routeId);
+      if (!result) {
+        res.status(404).json({ error: 'Project or route not found' });
+        return;
+      }
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+      res.send(result.buffer);
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to export routes' });
+    }
+  },
+
+  async importProjectRoutes(req: AuthRequest, res: Response) {
+    const projectId = String(req.params.projectId).trim();
+    try {
+      if (!req.file?.buffer) {
+        res.status(400).json({ error: 'Excel file is required' });
+        return;
+      }
+
+      console.log('[metal-routing-import] API request', {
+        projectId,
+        fileName: req.file.originalname,
+        fileSize: req.file.size,
+        userId: req.user?.id,
+      });
+
+      const result = await pdkService.importProjectRoutesFromExcel(
+        projectId,
+        req.file.buffer,
+        req.user?.id,
+        req.user?.email,
+      );
+
+      if (!result.success) {
+        res.status(400).json({
+          error: 'Import did not produce any visible saved routes for this project.',
+          ...result,
+        });
+        return;
+      }
+
+      console.log('[metal-routing-import] API success', {
+        projectId,
+        routesImported: result.routesImported,
+        savedRoutesVisible: result.savedRoutes.length,
+        routesFailed: result.routesFailed,
+      });
+
+      res.status(201).json(result);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to import routes';
+      console.error('[metal-routing-import] API error', { projectId, message });
+      res.status(400).json({ error: message });
     }
   },
 };

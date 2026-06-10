@@ -54,12 +54,23 @@ export interface RoutingFilter {
 
 export interface DashboardProject {
   id: string
+  projectCode?: string
   projectName: string
   clientName: string
   technologyNode: string
   status: string
   pdkModuleId: string | null
   pdkModuleName: string | null
+  updatedAt?: string | null
+}
+
+export interface MetalRoutingDashboardMetrics {
+  totalRoutes: number
+  completedRoutes: number
+  pendingRoutes: number
+  totalRoutingImpedance: number
+  selectedProjectId: string | null
+  selectedProjectName: string | null
 }
 
 export interface ProjectRoutingContext {
@@ -72,7 +83,18 @@ export interface ProjectRoutingContext {
   }
   cellNames: string[]
   pdkModule: PdkModule | null
-  routes: Array<Pick<MetalRoutingRoute, '_id' | 'fromCell' | 'toCell' | 'fromSignal' | 'toSignal' | 'updatedAt' | 'metals'>>
+  routes: SavedRouteSummary[]
+}
+
+export interface SavedRouteSummary {
+  _id: string
+  projectId?: string
+  fromCell: string
+  toCell: string
+  fromSignal: string
+  toSignal: string
+  updatedAt?: string
+  metalCount: number
 }
 
 export interface AnalysisSummary {

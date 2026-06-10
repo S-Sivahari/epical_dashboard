@@ -9,10 +9,7 @@ const BASE = '/admin/metal-routing'
 
 export function AdminMetalRoutingPage() {
   return (
-    <div
-      className="metal-routing-view crewiq-dashboard relative z-10 flex min-h-0 flex-1 flex-col font-body"
-      data-metal-routing
-    >
+    <div className="metal-routing-view relative z-10 flex min-h-0 flex-1 flex-col font-body" data-metal-routing>
       <MetalRoutingLayout basePath={BASE}>
         <Routes>
           <Route index element={<Navigate to="dashboard" replace />} />

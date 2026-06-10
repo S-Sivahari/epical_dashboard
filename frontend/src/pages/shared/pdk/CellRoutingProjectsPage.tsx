@@ -1,16 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Briefcase } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, FolderKanban, Grid3x3, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { MetalRoutingPageShell } from '@components/pdk/MetalRoutingPageShell'
+import { MetalRoutingDashboardStats } from '@components/pdk/MetalRoutingDashboardStats'
+import {
+  CellRoutingStatusFilter,
+  MetalRoutingCellRoutingProjectTable,
+} from '@components/pdk/MetalRoutingCellRoutingProjectTable'
 import type { DashboardProject } from '@/types/pdkMetalRouting'
 import { fetchDashboardProjects } from '@services/pdkMetalRoutingService'
-import { cn } from '@/utils/cn'
 
 export function CellRoutingProjectsPage({ basePath }: { basePath: string }) {
   const navigate = useNavigate()
   const [projects, setProjects] = useState<DashboardProject[]>([])
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
 
   useEffect(() => {
     void (async () => {
@@ -24,48 +30,84 @@ export function CellRoutingProjectsPage({ basePath }: { basePath: string }) {
     })()
   }, [])
 
+  const stats = useMemo(() => {
+    const total = projects.length
+    const assigned = projects.filter((p) => p.pdkModuleId).length
+    const unassigned = total - assigned
+    return { total, assigned, unassigned }
+  }, [projects])
+
+  const statCards = useMemo(
+    () => [
+      {
+        label: 'Total Projects',
+        value: stats.total,
+        hint: 'Available for routing',
+        icon: FolderKanban,
+        tone: 'green' as const,
+      },
+      {
+        label: 'Assigned PDK',
+        value: stats.assigned,
+        hint: 'Ready for cell routing',
+        icon: CheckCircle2,
+        tone: 'emerald' as const,
+      },
+      {
+        label: 'Unassigned',
+        value: stats.unassigned,
+        hint: 'Needs PDK assignment',
+        icon: AlertTriangle,
+        tone: 'orange' as const,
+      },
+    ],
+    [stats],
+  )
+
   return (
     <MetalRoutingPageShell>
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold text-ink">Cell Routing</h1>
-        <p className="mt-1 text-sm text-muted">Select a project to open cell routing analysis.</p>
-      </div>
+      <div className="metal-routing-dashboard">
+        <header className="metal-routing-cell-routing-header">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="metal-routing-cell-routing-header__icon" aria-hidden>
+              <Grid3x3 className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <h1 className="metal-routing-page-title">Cell Routing</h1>
+            </div>
+          </div>
+          <div className="metal-routing-cell-routing-header__tools">
+            <label className="metal-routing-search-field metal-routing-cell-routing-search">
+              <Search className="h-4 w-4 shrink-0 text-muted" aria-hidden />
+              <input
+                type="search"
+                placeholder="Search projects..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </label>
+            <CellRoutingStatusFilter
+              value={statusFilter}
+              onChange={setStatusFilter}
+              projects={projects}
+            />
+          </div>
+        </header>
 
-      {loading ? (
-        <p className="text-sm text-muted">Loading projects…</p>
-      ) : projects.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border bg-white py-12 text-center text-sm text-muted">
-          No projects available.
-        </p>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map((project) => (
-            <button
-              key={project.id}
-              type="button"
-              onClick={() => navigate(`${basePath}/cell-routing/${project.id}`)}
-              className={cn(
-                'rounded-xl border border-border bg-white p-5 text-left shadow-sm transition-ui',
-                'hover:border-primary/40 hover:shadow-md',
-              )}
-            >
-              <div className="mb-3 flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Briefcase className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="font-semibold text-ink">{project.projectName}</p>
-                  <p className="text-xs text-muted">{project.clientName}</p>
-                </div>
-              </div>
-              <p className="text-xs text-muted">Tech: {project.technologyNode}</p>
-              <p className="mt-1 text-xs font-medium text-primary">
-                PDK: {project.pdkModuleName ?? 'Not assigned'}
-              </p>
-            </button>
-          ))}
-        </div>
-      )}
+        <MetalRoutingDashboardStats
+          cards={statCards}
+          loading={loading}
+          className="metal-routing-stats-grid--three"
+        />
+
+        <MetalRoutingCellRoutingProjectTable
+          projects={projects}
+          loading={loading}
+          search={search}
+          statusFilter={statusFilter}
+          onOpenRouting={(projectId) => navigate(`${basePath}/cell-routing/${projectId}`)}
+        />
+      </div>
     </MetalRoutingPageShell>
   )
 }
