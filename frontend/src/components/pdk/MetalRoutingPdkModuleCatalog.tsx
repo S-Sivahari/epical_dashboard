@@ -1,11 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import {
   ArrowUpDown,
   ChevronLeft,
   ChevronRight,
   Filter,
   Layers,
-  MoreHorizontal,
   Search,
 } from 'lucide-react'
 import {
@@ -14,10 +13,26 @@ import {
 } from '@components/pdk/MetalRoutingSkeleton'
 import { MetalRoutingViewToggle, type MetalRoutingViewMode } from '@components/pdk/MetalRoutingViewToggle'
 import type { PdkModule } from '@/types/pdkMetalRouting'
+import { stringToHue, stringToHueColor } from '@/utils/stringColor'
 
 const PAGE_SIZE = 9
 
 type SortKey = 'name-asc' | 'name-desc' | 'node-asc' | 'metals-desc'
+
+export function getPdkModuleNodeLabel(module: PdkModule): string {
+  const node = module.technologyNode?.trim()
+  return node || 'N/A'
+}
+
+export function hasValidTechnologyNode(module: PdkModule): boolean {
+  const node = module.technologyNode?.trim()
+  if (!node) return false
+  return node.toLowerCase() !== 'n/a'
+}
+
+export function filterValidPdkModules(modules: PdkModule[]): PdkModule[] {
+  return modules.filter(hasValidTechnologyNode)
+}
 
 function isRecentModule(module: PdkModule): boolean {
   if (!module.createdAt) return false
@@ -27,34 +42,95 @@ function isRecentModule(module: PdkModule): boolean {
   return created.getTime() >= thirtyDaysAgo
 }
 
+export function getPdkModuleCardTheme(seed: string) {
+  const hue = stringToHue(seed)
+  return {
+    accent: stringToHueColor(seed),
+    bgStart: `hsl(${hue} 82% 96%)`,
+    border: `hsl(${hue} 52% 84%)`,
+    iconBg: `hsl(${hue} 72% 92%)`,
+    iconColor: `hsl(${hue} 48% 36%)`,
+    chipNodeBg: `hsl(${hue} 68% 92%)`,
+    chipNodeText: `hsl(${hue} 42% 32%)`,
+    chipMetalsBg: `hsl(${hue} 55% 88%)`,
+    chipMetalsText: `hsl(${hue} 38% 28%)`,
+  }
+}
+
+function sparklineBars(seed: string, count = 7): number[] {
+  let hash = 0
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) % 9973
+  }
+  return Array.from({ length: count }, (_, i) => {
+    const v = (hash + i * 137) % 100
+    return 28 + (v % 72)
+  })
+}
+
+export function PdkModuleNodeFilter({
+  value,
+  onChange,
+  modules,
+}: {
+  value: string
+  onChange: (value: string) => void
+  modules: PdkModule[]
+}) {
+  const nodeOptions = useMemo(() => {
+    const nodes = new Set<string>()
+    modules.forEach((mod) => nodes.add(getPdkModuleNodeLabel(mod)))
+    return ['all', ...Array.from(nodes).sort()]
+  }, [modules])
+
+  return (
+    <div className="relative">
+      <Filter className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+      <select
+        className="metal-routing-toolbar-select pl-8"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label="Filter by technology node"
+      >
+        {nodeOptions.map((node) => (
+          <option key={node} value={node}>
+            {node === 'all' ? 'All nodes' : node}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
 export function MetalRoutingPdkModuleCatalog({
   modules,
   loading,
+  search,
+  nodeFilter,
+  onSearchChange,
+  onNodeFilterChange,
   onOpenModule,
 }: {
   modules: PdkModule[]
   loading?: boolean
+  search: string
+  nodeFilter: string
+  onSearchChange: (value: string) => void
+  onNodeFilterChange: (value: string) => void
   onOpenModule: (id: string) => void
 }) {
-  const [search, setSearch] = useState('')
-  const [nodeFilter, setNodeFilter] = useState('all')
   const [sortKey, setSortKey] = useState<SortKey>('name-asc')
-  const [viewMode, setViewMode] = useState<MetalRoutingViewMode>('grid')
+  const [viewMode, setViewMode] = useState<MetalRoutingViewMode>('list')
   const [page, setPage] = useState(1)
 
-  const nodeOptions = useMemo(() => {
-    const nodes = new Set<string>()
-    modules.forEach((mod) => {
-      const node = mod.technologyNode?.trim()
-      nodes.add(node ? node : 'N/A')
-    })
-    return ['all', ...Array.from(nodes).sort()]
-  }, [modules])
+  useEffect(() => {
+    setPage(1)
+  }, [search, nodeFilter, viewMode])
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase()
     let items = modules.filter((mod) => {
-      const nodeLabel = mod.technologyNode?.trim() || 'N/A'
+      const nodeLabel = getPdkModuleNodeLabel(mod)
       const matchesNode = nodeFilter === 'all' || nodeLabel === nodeFilter
       if (!matchesNode) return false
       if (!query) return true
@@ -70,7 +146,7 @@ export function MetalRoutingPdkModuleCatalog({
         case 'name-desc':
           return b.name.localeCompare(a.name)
         case 'node-asc':
-          return (a.technologyNode || 'N/A').localeCompare(b.technologyNode || 'N/A')
+          return getPdkModuleNodeLabel(a).localeCompare(getPdkModuleNodeLabel(b))
         case 'metals-desc':
           return b.metals.length - a.metals.length
         default:
@@ -88,39 +164,24 @@ export function MetalRoutingPdkModuleCatalog({
   const rangeEnd = Math.min(currentPage * PAGE_SIZE, filtered.length)
 
   return (
-    <section className="metal-routing-overview-card metal-routing-pdk-catalog">
-      <div className="metal-routing-pdk-toolbar">
-        <label className="metal-routing-search-field metal-routing-pdk-search">
-          <Search className="h-4 w-4 shrink-0 text-muted" aria-hidden />
-          <input
-            type="search"
-            placeholder="Search modules..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value)
-              setPage(1)
-            }}
+    <section className="metal-routing-overview-card metal-routing-pdk-catalog metal-routing-cell-routing-table metal-routing-pdk-catalog-panel">
+      <div className="metal-routing-overview-toolbar metal-routing-pdk-modules-toolbar">
+        <h2 className="metal-routing-section-title">Modules</h2>
+        <div className="metal-routing-overview-controls metal-routing-pdk-modules-toolbar__controls">
+          <label className="metal-routing-search-field metal-routing-pdk-modules-toolbar__search">
+            <Search className="h-4 w-4 shrink-0 text-muted" aria-hidden />
+            <input
+              type="search"
+              placeholder="Search modules..."
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+            />
+          </label>
+          <PdkModuleNodeFilter
+            value={nodeFilter}
+            onChange={onNodeFilterChange}
+            modules={modules}
           />
-        </label>
-        <div className="metal-routing-pdk-toolbar-actions">
-          <div className="relative">
-            <Filter className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-            <select
-              className="metal-routing-toolbar-select pl-8"
-              value={nodeFilter}
-              onChange={(e) => {
-                setNodeFilter(e.target.value)
-                setPage(1)
-              }}
-              aria-label="Filter by technology node"
-            >
-              {nodeOptions.map((node) => (
-                <option key={node} value={node}>
-                  {node === 'all' ? 'All nodes' : node}
-                </option>
-              ))}
-            </select>
-          </div>
           <div className="relative">
             <ArrowUpDown className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
             <select
@@ -145,29 +206,37 @@ export function MetalRoutingPdkModuleCatalog({
         </div>
       </div>
 
-      {loading ? (
-        <MetalRoutingCardGridSkeleton count={6} />
-      ) : pageItems.length === 0 ? (
-        <MetalRoutingEmptyState
-          icon={Layers}
-          title="No modules found"
-          description="Try a different search term or filter."
-        />
-      ) : viewMode === 'grid' ? (
-        <div className="metal-routing-pdk-grid">
-          {pageItems.map((mod) => (
-            <PdkModuleCard key={mod._id} module={mod} onOpen={() => onOpenModule(mod._id)} />
-          ))}
-        </div>
-      ) : (
-        <div className="metal-routing-pdk-list">
-          {pageItems.map((mod) => (
-            <PdkModuleListRow key={mod._id} module={mod} onOpen={() => onOpenModule(mod._id)} />
-          ))}
-        </div>
-      )}
+      <div className="metal-routing-pdk-catalog-body">
+        {loading ? (
+          <MetalRoutingCardGridSkeleton count={6} />
+        ) : pageItems.length === 0 ? (
+          <MetalRoutingEmptyState
+            icon={Layers}
+            title="No modules found"
+            description={
+              modules.length === 0
+                ? 'Create or import a PDK module to get started.'
+                : 'Try a different search term or filter.'
+            }
+          />
+        ) : viewMode === 'grid' ? (
+          <div className="metal-routing-project-grid-wrap">
+            <div className="metal-routing-pdk-grid">
+              {pageItems.map((mod) => (
+                <PdkModuleCard key={mod._id} module={mod} onOpen={() => onOpenModule(mod._id)} />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="metal-routing-pdk-list">
+            {pageItems.map((mod) => (
+              <PdkModuleListRow key={mod._id} module={mod} onOpen={() => onOpenModule(mod._id)} />
+            ))}
+          </div>
+        )}
+      </div>
 
-      <footer className="metal-routing-overview-footer">
+      <footer className="metal-routing-overview-footer metal-routing-cell-routing-footer metal-routing-pdk-catalog-footer">
         <p className="text-sm text-muted">
           Showing {rangeStart} to {rangeEnd} of {filtered.length} module{filtered.length === 1 ? '' : 's'}
         </p>
@@ -199,50 +268,125 @@ export function MetalRoutingPdkModuleCatalog({
   )
 }
 
-function PdkModuleCard({ module, onOpen }: { module: PdkModule; onOpen: () => void }) {
-  const nodeLabel = module.technologyNode?.trim() || 'N/A'
-  const metalLabel = `${module.metals.length} metal${module.metals.length === 1 ? '' : 's'}`
+function moduleCardStyle(seed: string): CSSProperties {
+  const theme = getPdkModuleCardTheme(seed)
+  return {
+    '--pdk-card-accent': theme.accent,
+    '--pdk-card-icon-bg': theme.iconBg,
+    '--pdk-card-icon-color': theme.iconColor,
+    '--pdk-chip-node-bg': theme.chipNodeBg,
+    '--pdk-chip-node-text': theme.chipNodeText,
+    '--pdk-chip-metals-bg': theme.chipMetalsBg,
+    '--pdk-chip-metals-text': theme.chipMetalsText,
+    background: `linear-gradient(135deg, ${theme.bgStart} 0%, #ffffff 78%)`,
+    borderColor: theme.border,
+  } as CSSProperties
+}
+
+function ModuleSparkline({ moduleId, accent }: { moduleId: string; accent: string }) {
+  const bars = sparklineBars(moduleId)
+  const max = Math.max(...bars, 1)
 
   return (
-    <button type="button" className="metal-routing-pdk-card" onClick={onOpen}>
-      <span className="metal-routing-pdk-card__menu" aria-hidden>
-        <MoreHorizontal className="h-4 w-4" />
-      </span>
+    <svg className="metal-routing-pdk-card__sparkline" viewBox="0 0 72 36" aria-hidden>
+      {bars.map((value, i) => {
+        const barHeight = (value / max) * 28
+        const x = i * 10 + 2
+        const y = 32 - barHeight
+        return (
+          <rect
+            key={i}
+            x={x}
+            y={y}
+            width={6}
+            height={barHeight}
+            rx={2}
+            fill={accent}
+            opacity={0.35 + (value / max) * 0.45}
+          />
+        )
+      })}
+    </svg>
+  )
+}
+
+function PdkModuleCard({ module, onOpen }: { module: PdkModule; onOpen: () => void }) {
+  const seed = module._id || module.name
+  const theme = getPdkModuleCardTheme(seed)
+  const nodeLabel = getPdkModuleNodeLabel(module)
+  const metalLabel = `${module.metals.length} metal${module.metals.length === 1 ? '' : 's'}`
+  const isNaNode = nodeLabel === 'N/A'
+
+  return (
+    <button
+      type="button"
+      className="metal-routing-pdk-card metal-routing-pdk-card--colorful"
+      onClick={onOpen}
+      style={moduleCardStyle(seed)}
+    >
+      <span className="metal-routing-pdk-card__accent" aria-hidden />
       <div className="metal-routing-pdk-card__body">
         <span className="metal-routing-pdk-card__icon" aria-hidden>
           <Layers className="h-4 w-4" />
         </span>
-        <div className="min-w-0">
-          <p className="truncate font-semibold text-ink">{module.name}</p>
+        <div className="metal-routing-pdk-card__main">
+          <p className="metal-routing-pdk-card__title">{module.name}</p>
+          <ModuleSparkline moduleId={module._id} accent={theme.accent} />
         </div>
       </div>
       <div className="metal-routing-pdk-card__chips">
-        <span className="metal-routing-meta-chip">{nodeLabel}</span>
-        <span className="metal-routing-meta-chip">{metalLabel}</span>
+        <span
+          className={
+            isNaNode
+              ? 'metal-routing-meta-chip metal-routing-meta-chip--na'
+              : 'metal-routing-meta-chip metal-routing-meta-chip--node-themed'
+          }
+        >
+          {nodeLabel}
+        </span>
+        <span className="metal-routing-meta-chip metal-routing-meta-chip--metals-themed">{metalLabel}</span>
       </div>
       <div className="metal-routing-pdk-card__footer">
-        <span className="text-sm text-muted">View module details</span>
-        <ChevronRight className="h-4 w-4 text-muted" aria-hidden />
+        <span>View module details</span>
+        <ChevronRight className="h-4 w-4" aria-hidden />
       </div>
     </button>
   )
 }
 
 function PdkModuleListRow({ module, onOpen }: { module: PdkModule; onOpen: () => void }) {
-  const nodeLabel = module.technologyNode?.trim() || 'N/A'
+  const seed = module._id || module.name
+  const nodeLabel = getPdkModuleNodeLabel(module)
+  const isNaNode = nodeLabel === 'N/A'
 
   return (
-    <button type="button" className="metal-routing-pdk-list-row" onClick={onOpen}>
+    <button
+      type="button"
+      className="metal-routing-pdk-list-row metal-routing-pdk-list-row--colorful"
+      onClick={onOpen}
+      style={moduleCardStyle(seed)}
+    >
+      <span className="metal-routing-pdk-list-row__accent" aria-hidden />
       <span className="metal-routing-pdk-card__icon" aria-hidden>
         <Layers className="h-4 w-4" />
       </span>
       <div className="min-w-0 flex-1 text-left">
-        <p className="truncate font-semibold text-ink">{module.name}</p>
-        <p className="truncate text-sm text-muted">{nodeLabel}</p>
+        <p className="font-semibold text-ink break-words">{module.name}</p>
+        <div className="mt-1 flex flex-wrap gap-1.5">
+          <span
+            className={
+              isNaNode
+                ? 'metal-routing-meta-chip metal-routing-meta-chip--na'
+                : 'metal-routing-meta-chip metal-routing-meta-chip--node-themed'
+            }
+          >
+            {nodeLabel}
+          </span>
+          <span className="metal-routing-meta-chip metal-routing-meta-chip--metals-themed">
+            {module.metals.length} metal{module.metals.length === 1 ? '' : 's'}
+          </span>
+        </div>
       </div>
-      <span className="hidden text-sm text-muted sm:inline">
-        {module.metals.length} metal type{module.metals.length === 1 ? '' : 's'}
-      </span>
       <ChevronRight className="h-4 w-4 shrink-0 text-muted" aria-hidden />
     </button>
   )
@@ -250,8 +394,13 @@ function PdkModuleListRow({ module, onOpen }: { module: PdkModule; onOpen: () =>
 
 export function buildPdkModuleStats(modules: PdkModule[]) {
   const totalMetalTypes = modules.reduce((sum, mod) => sum + mod.metals.length, 0)
-  const modulesWithNa = modules.filter((mod) => !mod.technologyNode?.trim()).length
+  const modulesWithNa = modules.filter((mod) => getPdkModuleNodeLabel(mod) === 'N/A').length
   const recentlyAdded = modules.filter(isRecentModule).length
 
-  return { totalMetalTypes, modulesWithNa, recentlyAdded }
+  return {
+    totalModules: modules.length,
+    totalMetalTypes,
+    modulesWithNa,
+    recentlyAdded,
+  }
 }

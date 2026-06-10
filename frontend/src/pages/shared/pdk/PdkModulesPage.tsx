@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, ChevronDown, Clock, Download, Hash, Layers, Plus, Upload } from 'lucide-react'
 import { toast } from 'sonner'
-import { MetalRoutingDashboardStats } from '@components/pdk/MetalRoutingDashboardStats'
+import { PdkModulesAnalyticsChart } from '@components/pdk/PdkModulesAnalyticsChart'
+import { MetalRoutingInsightsPanel } from '@components/pdk/MetalRoutingInsightsPanel'
 import {
   buildPdkModuleStats,
   MetalRoutingPdkModuleCatalog,
@@ -142,6 +143,8 @@ export function PdkModulesPage() {
     technologyNode: '',
     notes: '',
   })
+  const [search, setSearch] = useState('')
+  const [nodeFilter, setNodeFilter] = useState('all')
 
   const load = async () => {
     setLoading(true)
@@ -259,11 +262,11 @@ export function PdkModulesPage() {
 
   const moduleStats = useMemo(() => buildPdkModuleStats(modules), [modules])
 
-  const statCards = useMemo(
+  const insightCards = useMemo(
     () => [
       {
         label: 'Total Modules',
-        value: modules.length,
+        value: moduleStats.totalModules,
         hint: 'Available in system',
         icon: Layers,
         tone: 'green' as const,
@@ -276,13 +279,6 @@ export function PdkModulesPage() {
         tone: 'blue' as const,
       },
       {
-        label: 'Modules with N/A',
-        value: moduleStats.modulesWithNa,
-        hint: 'No node defined',
-        icon: Layers,
-        tone: 'violet' as const,
-      },
-      {
         label: 'Recently Added',
         value: moduleStats.recentlyAdded,
         hint: 'In last 30 days',
@@ -290,11 +286,11 @@ export function PdkModulesPage() {
         tone: 'orange' as const,
       },
     ],
-    [modules.length, moduleStats],
+    [moduleStats],
   )
 
   return (
-    <MetalRoutingPageShell>
+    <MetalRoutingPageShell fill={!showDetail} bleed={!showDetail}>
       {showDetail ? (
         <div className="metal-routing-dashboard">
           <Button
@@ -321,46 +317,75 @@ export function PdkModulesPage() {
           <MetalTable metals={selectedModule!.metals} />
         </div>
       ) : (
-        <div className="metal-routing-dashboard">
-          <header className="metal-routing-dashboard-header">
-            <div className="min-w-0 flex-1">
-              <h1 className="metal-routing-page-title">PDK Modules</h1>
+        <div className="metal-routing-pdk-workspace">
+          <div className="metal-routing-pdk-workspace-main metal-routing-page-shell">
+            <div className="metal-routing-dashboard metal-routing-pdk-modules-page">
+              <header className="metal-routing-cell-routing-header metal-routing-pdk-modules-topbar">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className="metal-routing-cell-routing-header__icon" aria-hidden>
+                    <Layers className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <h1 className="metal-routing-page-title">PDK Modules</h1>
+                  </div>
+                </div>
+              </header>
+              {loading ? (
+                <MetalRoutingPdkModuleCatalog
+                  modules={modules}
+                  loading={loading}
+                  search={search}
+                  nodeFilter={nodeFilter}
+                  onSearchChange={setSearch}
+                  onNodeFilterChange={setNodeFilter}
+                  onOpenModule={(id) => void openModule(id)}
+                />
+              ) : modules.length === 0 ? (
+                <div className="metal-routing-overview-card metal-routing-pdk-empty-state">
+                  <p className="text-sm text-muted">No PDK modules yet.</p>
+                  <div className="mt-4 flex flex-wrap justify-center gap-2">
+                    <Button type="button" icon={<Plus className="h-4 w-4" />} onClick={openCreateModal}>
+                      Create PDK Manually
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      icon={<Upload className="h-4 w-4" />}
+                      onClick={openImportModal}
+                    >
+                      Import From Excel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <MetalRoutingPdkModuleCatalog
+                  modules={modules}
+                  loading={loading}
+                  search={search}
+                  nodeFilter={nodeFilter}
+                  onSearchChange={setSearch}
+                  onNodeFilterChange={setNodeFilter}
+                  onOpenModule={(id) => void openModule(id)}
+                />
+              )}
             </div>
-            <PdkAddMenu
-              onCreate={openCreateModal}
-              onImport={openImportModal}
-              onDownloadTemplate={() => void handleDownloadTemplate()}
-            />
-          </header>
-
-          <MetalRoutingDashboardStats cards={statCards} loading={loading} />
-
-          {loading ? (
-            <p className="text-sm text-muted">Loading modules…</p>
-          ) : modules.length === 0 ? (
-            <div className="metal-routing-overview-card metal-routing-pdk-empty-state">
-              <p className="text-sm text-muted">No PDK modules yet.</p>
-              <div className="mt-4 flex flex-wrap justify-center gap-2">
-                <Button type="button" icon={<Plus className="h-4 w-4" />} onClick={openCreateModal}>
-                  Create PDK Manually
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  icon={<Upload className="h-4 w-4" />}
-                  onClick={openImportModal}
-                >
-                  Import From Excel
-                </Button>
-              </div>
+          </div>
+          <aside className="metal-routing-pdk-modules-sidebar" aria-label="PDK module insights">
+            <div className="metal-routing-pdk-sidebar-actions">
+              <PdkAddMenu
+                onCreate={openCreateModal}
+                onImport={openImportModal}
+                onDownloadTemplate={() => void handleDownloadTemplate()}
+              />
             </div>
-          ) : (
-            <MetalRoutingPdkModuleCatalog
-              modules={modules}
+            <MetalRoutingInsightsPanel
+              cards={insightCards}
               loading={loading}
-              onOpenModule={(id) => void openModule(id)}
+              embedded
+              compact
             />
-          )}
+            <PdkModulesAnalyticsChart modules={modules} loading={loading} sidebar fill />
+          </aside>
         </div>
       )}
 

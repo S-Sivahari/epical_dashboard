@@ -1,4 +1,4 @@
-import { ExternalLink, FolderKanban } from 'lucide-react'
+import { ChevronRight, ExternalLink, FolderKanban } from 'lucide-react'
 import { Button } from '@components/ui/Button'
 import {
   MetalRoutingCardGridSkeleton,
@@ -12,6 +12,7 @@ import {
   formatRelativeUpdated,
   getProjectCode,
 } from '@/utils/metalRoutingProjectDisplay'
+import { metalRoutingCardStyle } from '@/utils/metalRoutingCardTheme'
 import { cn } from '@/utils/cn'
 
 export function MetalRoutingProjectCards({
@@ -60,15 +61,17 @@ export function MetalRoutingProjectCards({
           variant === 'cell-routing'
             ? cellRoutingDisplayStatus(project)
             : { label: project.status, variant: dashboardStatusVariant(project.status) }
+        const cardSeed = project.id || project.projectName
 
         return (
           <article
             key={project.id}
             className={cn(
-              'metal-routing-project-card',
+              'metal-routing-project-card metal-routing-project-card--colorful',
               variant === 'dashboard' && onSelectProject && 'is-clickable',
               isSelected && 'is-selected',
             )}
+            style={metalRoutingCardStyle(cardSeed)}
             onClick={
               variant === 'dashboard' && onSelectProject
                 ? () => onSelectProject(project.id)
@@ -87,19 +90,22 @@ export function MetalRoutingProjectCards({
             role={variant === 'dashboard' && onSelectProject ? 'button' : undefined}
             tabIndex={variant === 'dashboard' && onSelectProject ? 0 : undefined}
           >
-            <div className="metal-routing-project-card__body">
+            <span className="metal-routing-pdk-card__accent" aria-hidden />
+
+            <div className="metal-routing-project-card__header">
               <span className="metal-routing-project-card__icon" aria-hidden>
                 <FolderKanban className="h-4 w-4" />
               </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold text-ink">{project.projectName}</p>
-                <p className="truncate text-xs text-muted">{projectCode}</p>
-                <p className="mt-1 truncate text-sm text-muted">{project.clientName}</p>
-                <p className="truncate text-xs text-muted">{project.technologyNode}</p>
-              </div>
               <MetalRoutingPill tone={status.variant as 'success' | 'warning' | 'neutral' | 'danger'}>
                 {status.label}
               </MetalRoutingPill>
+            </div>
+
+            <div className="metal-routing-project-card__content">
+              <p className="metal-routing-project-card__title truncate">{project.projectName}</p>
+              <p className="metal-routing-project-card__code truncate">{projectCode}</p>
+              <p className="truncate text-sm text-muted">{project.clientName}</p>
+              <p className="truncate text-xs text-muted">{project.technologyNode}</p>
             </div>
 
             <div className="metal-routing-project-card__meta">
@@ -123,7 +129,7 @@ export function MetalRoutingProjectCards({
                   ))}
                 </select>
               ) : project.pdkModuleName ? (
-                <span className="metal-routing-assigned-pdk text-sm">{project.pdkModuleName}</span>
+                <span className="metal-routing-assigned-pdk text-sm font-medium">{project.pdkModuleName}</span>
               ) : (
                 <span className="metal-routing-unassigned-pdk text-sm">— Not assigned —</span>
               )}
@@ -145,6 +151,82 @@ export function MetalRoutingProjectCards({
               ) : null}
             </div>
           </article>
+        )
+      })}
+    </div>
+  )
+}
+
+export function MetalRoutingProjectListRows({
+  projects,
+  startIndex = 0,
+  loading,
+  onOpenRouting,
+}: {
+  projects: DashboardProject[]
+  startIndex?: number
+  loading?: boolean
+  onOpenRouting: (projectId: string) => void
+}) {
+  if (loading) {
+    return <MetalRoutingCardGridSkeleton count={6} />
+  }
+
+  if (projects.length === 0) {
+    return (
+      <MetalRoutingEmptyState
+        title="No projects found"
+        description="Try adjusting your search or filter criteria."
+      />
+    )
+  }
+
+  return (
+    <div className="metal-routing-pdk-list">
+      {projects.map((project, index) => {
+        const globalIndex = startIndex + index
+        const projectCode = getProjectCode(project, globalIndex)
+        const status = cellRoutingDisplayStatus(project)
+        const cardSeed = project.id || project.projectName
+
+        return (
+          <button
+            key={project.id}
+            type="button"
+            className="metal-routing-pdk-list-row metal-routing-pdk-list-row--colorful"
+            onClick={() => onOpenRouting(project.id)}
+            style={metalRoutingCardStyle(cardSeed)}
+          >
+            <span className="metal-routing-pdk-list-row__accent" aria-hidden />
+            <span className="metal-routing-pdk-card__icon" aria-hidden>
+              <FolderKanban className="h-4 w-4" />
+            </span>
+            <div className="min-w-0 flex-1 text-left">
+              <p className="font-semibold text-ink break-words">{project.projectName}</p>
+              <p className="text-xs text-muted">
+                {projectCode} · {project.clientName}
+              </p>
+              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                <span className="metal-routing-meta-chip metal-routing-meta-chip--node">
+                  {project.technologyNode}
+                </span>
+                {project.pdkModuleName ? (
+                  <span className="metal-routing-meta-chip metal-routing-meta-chip--metals">
+                    {project.pdkModuleName}
+                  </span>
+                ) : (
+                  <span className="metal-routing-meta-chip metal-routing-meta-chip--na">Unassigned</span>
+                )}
+                <MetalRoutingPill tone={status.variant as 'success' | 'warning' | 'neutral' | 'danger'}>
+                  {status.label}
+                </MetalRoutingPill>
+              </div>
+              <p className="mt-1 text-xs text-muted">
+                Updated {formatRelativeUpdated(project.updatedAt)}
+              </p>
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted" aria-hidden />
+          </button>
         )
       })}
     </div>

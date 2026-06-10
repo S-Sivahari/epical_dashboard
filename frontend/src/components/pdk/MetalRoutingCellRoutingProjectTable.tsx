@@ -3,22 +3,19 @@ import {
   ArrowUpDown,
   ChevronLeft,
   ChevronRight,
-  ExternalLink,
   Filter,
+  Search,
 } from 'lucide-react'
-import { Button } from '@components/ui/Button'
-import { MetalRoutingProjectCards } from '@components/pdk/MetalRoutingProjectCards'
 import {
-  MetalRoutingPill,
-  MetalRoutingTableSkeleton,
+  MetalRoutingCardGridSkeleton,
+  MetalRoutingEmptyState,
 } from '@components/pdk/MetalRoutingSkeleton'
+import {
+  MetalRoutingProjectCards,
+  MetalRoutingProjectListRows,
+} from '@components/pdk/MetalRoutingProjectCards'
 import { MetalRoutingViewToggle, type MetalRoutingViewMode } from '@components/pdk/MetalRoutingViewToggle'
 import type { DashboardProject } from '@/types/pdkMetalRouting'
-import {
-  cellRoutingDisplayStatus,
-  formatRelativeUpdated,
-  getProjectCode,
-} from '@/utils/metalRoutingProjectDisplay'
 import { cn } from '@/utils/cn'
 
 const PAGE_SIZE_OPTIONS = [8, 10, 20] as const
@@ -31,12 +28,16 @@ export function MetalRoutingCellRoutingProjectTable({
   loading,
   search,
   statusFilter,
+  onSearchChange,
+  onStatusFilterChange,
   onOpenRouting,
 }: {
   projects: DashboardProject[]
   loading?: boolean
   search: string
   statusFilter: string
+  onSearchChange: (value: string) => void
+  onStatusFilterChange: (value: string) => void
   onOpenRouting: (projectId: string) => void
 }) {
   const [sortKey, setSortKey] = useState<SortKey>('name-asc')
@@ -88,110 +89,71 @@ export function MetalRoutingCellRoutingProjectTable({
 
   return (
     <section className="metal-routing-overview-card metal-routing-cell-routing-table">
-      <div className="metal-routing-overview-toolbar">
+      <div className="metal-routing-overview-toolbar metal-routing-pdk-modules-toolbar">
         <h2 className="metal-routing-section-title">Projects</h2>
-        <MetalRoutingViewToggle
-          value={viewMode}
-          onChange={(mode) => {
-            setViewMode(mode)
-            setPage(1)
-          }}
-        />
-      </div>
-
-      {viewMode === 'grid' ? (
-        <div className="metal-routing-project-grid-wrap">
-          <MetalRoutingProjectCards
-            variant="cell-routing"
-            projects={pageItems}
-            startIndex={(currentPage - 1) * effectivePageSize}
-            loading={loading}
-            onOpenRouting={onOpenRouting}
+        <div className="metal-routing-overview-controls metal-routing-pdk-modules-toolbar__controls">
+          <label className="metal-routing-search-field metal-routing-pdk-modules-toolbar__search">
+            <Search className="h-4 w-4 shrink-0 text-muted" aria-hidden />
+            <input
+              type="search"
+              placeholder="Search projects..."
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+            />
+          </label>
+          <CellRoutingStatusFilter
+            value={statusFilter}
+            onChange={onStatusFilterChange}
+            projects={projects}
+          />
+          <div className="relative">
+            <ArrowUpDown className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <select
+              className="metal-routing-toolbar-select pl-8"
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as SortKey)}
+              aria-label="Sort projects"
+            >
+              <option value="name-asc">Sort by name (A–Z)</option>
+              <option value="name-desc">Sort by name (Z–A)</option>
+              <option value="updated-desc">Sort by recently updated</option>
+            </select>
+          </div>
+          <MetalRoutingViewToggle
+            value={viewMode}
+            onChange={(mode) => {
+              setViewMode(mode)
+              setPage(1)
+            }}
           />
         </div>
-      ) : (
-      <div className="metal-routing-overview-table-wrap">
-        <table className="metal-routing-overview-table metal-routing-cell-routing-table__grid">
-          <thead>
-            <tr>
-              <th>
-                <button
-                  type="button"
-                  className="metal-routing-table-sort-btn"
-                  onClick={() =>
-                    setSortKey((k) => (k === 'name-asc' ? 'name-desc' : 'name-asc'))
-                  }
-                >
-                  Project
-                  <ArrowUpDown className="h-3.5 w-3.5 opacity-60" aria-hidden />
-                </button>
-              </th>
-              <th>Client</th>
-              <th>Tech Node</th>
-              <th>Assigned PDK</th>
-              <th>Status</th>
-              <th>Updated</th>
-              <th className="text-right">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={7} className="p-0">
-                  <MetalRoutingTableSkeleton rows={6} />
-                </td>
-              </tr>
-            ) : pageItems.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="metal-routing-overview-empty">
-                  No projects match your search.
-                </td>
-              </tr>
-            ) : (
-              pageItems.map((project, index) => {
-                const status = cellRoutingDisplayStatus(project)
-                const globalIndex = (currentPage - 1) * effectivePageSize + index
-                return (
-                  <tr key={project.id}>
-                    <td>
-                      <div className="font-medium text-ink">{project.projectName}</div>
-                      <div className="text-xs text-muted">
-                        {getProjectCode(project, globalIndex)}
-                      </div>
-                    </td>
-                    <td className="text-muted">{project.clientName}</td>
-                    <td>{project.technologyNode}</td>
-                    <td>
-                      {project.pdkModuleName ? (
-                        <span className="metal-routing-assigned-pdk">{project.pdkModuleName}</span>
-                      ) : (
-                        <span className="metal-routing-unassigned-pdk">— Not assigned —</span>
-                      )}
-                    </td>
-                    <td>
-                      <MetalRoutingPill tone={status.variant}>{status.label}</MetalRoutingPill>
-                    </td>
-                    <td className="whitespace-nowrap text-muted">
-                      {formatRelativeUpdated(project.updatedAt)}
-                    </td>
-                    <td className="text-right">
-                      <Button
-                        type="button"
-                        size="sm"
-                        icon={<ExternalLink className="h-3.5 w-3.5" />}
-                        onClick={() => onOpenRouting(project.id)}
-                      >
-                        Open Routing
-                      </Button>
-                    </td>
-                  </tr>
-                )
-              })
-            )}
-          </tbody>
-        </table>
       </div>
-      )}
+
+      <div className="metal-routing-cell-routing-body">
+        {loading ? (
+          <MetalRoutingCardGridSkeleton count={6} />
+        ) : pageItems.length === 0 ? (
+          <MetalRoutingEmptyState
+            title="No projects found"
+            description="Try adjusting your search or filter criteria."
+          />
+        ) : viewMode === 'grid' ? (
+          <div className="metal-routing-project-grid-wrap">
+            <MetalRoutingProjectCards
+              variant="cell-routing"
+              projects={pageItems}
+              startIndex={(currentPage - 1) * effectivePageSize}
+              onOpenRouting={onOpenRouting}
+            />
+          </div>
+        ) : (
+          <MetalRoutingProjectListRows
+            projects={pageItems}
+            startIndex={(currentPage - 1) * effectivePageSize}
+            onOpenRouting={onOpenRouting}
+          />
+        )}
+      </div>
 
       <footer className="metal-routing-overview-footer metal-routing-cell-routing-footer">
         <p className="text-sm text-muted">

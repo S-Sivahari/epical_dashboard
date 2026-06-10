@@ -69,13 +69,26 @@
   gap: 1.75rem;
 }
 
+.metal-routing-view .metal-routing-pdk-modules-page.metal-routing-dashboard {
+  gap: 0;
+}
+
 @media (min-width: 1024px) {
   .metal-routing-view .metal-routing-dashboard {
     gap: 2rem;
   }
+
+  .metal-routing-view .metal-routing-pdk-modules-page.metal-routing-dashboard {
+    gap: 0;
+  }
 }
 
 /* ── Sidebar ── */
+.metal-routing-view .metal-routing-pdk-modules-sidebar {
+  background: linear-gradient(180deg, #eceff1 0%, #e4e8eb 48%, #dde2e6 100%);
+  border-left-color: var(--mr-border);
+}
+
 .metal-routing-view .metal-routing-sidebar {
   background: var(--mr-card);
   border-right-color: var(--mr-border);
@@ -370,9 +383,38 @@
 .metal-routing-view .metal-routing-pdk-card__icon,
 .metal-routing-view .metal-routing-project-card__icon,
 .metal-routing-view .metal-routing-cell-routing-header__icon {
-  background: var(--mr-primary-soft);
-  color: var(--mr-primary);
+  background: var(--pdk-card-icon-bg, var(--mr-primary-soft));
+  color: var(--pdk-card-icon-color, var(--mr-primary));
   border-radius: 0.625rem;
+}
+
+.metal-routing-view .metal-routing-pdk-card--colorful,
+.metal-routing-view .metal-routing-project-card--colorful {
+  box-shadow:
+    0 1px 3px rgba(15, 23, 42, 0.05),
+    0 8px 20px rgba(15, 23, 42, 0.04);
+}
+
+.metal-routing-view .metal-routing-insight-card {
+  border-color: var(--mr-border);
+  border-radius: var(--mr-radius-lg);
+  box-shadow: var(--mr-shadow-card);
+  transition:
+    border-color var(--mr-transition),
+    box-shadow var(--mr-transition),
+    transform var(--mr-transition);
+}
+
+.metal-routing-view .metal-routing-insight-card:hover {
+  border-color: var(--mr-primary-border);
+  box-shadow: var(--mr-shadow-card-hover);
+  transform: translateY(-1px);
+}
+
+.metal-routing-view .metal-routing-analytics-card {
+  border-color: var(--mr-border);
+  border-radius: var(--mr-radius-lg);
+  box-shadow: var(--mr-shadow-card);
 }
 
 .metal-routing-view .metal-routing-meta-chip {
@@ -381,9 +423,10 @@
   border-radius: 9999px;
   border: 1px solid var(--mr-border);
   background: #f9fafb;
-  padding: 0.2rem 0.55rem;
+  padding: 0.25rem 0.625rem;
   font-size: 0.6875rem;
   font-weight: 600;
+  letter-spacing: 0.01em;
   color: var(--mr-text-secondary);
 }
 
@@ -394,28 +437,29 @@
   padding: 0 1.5rem 1rem;
 }
 
-.metal-routing-view .metal-routing-pdk-card__menu {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 0.5rem;
-  color: var(--mr-text-secondary);
-  opacity: 0;
-  transition: opacity var(--mr-transition), background-color var(--mr-transition);
-}
-
 .metal-routing-view .metal-routing-pdk-card {
   position: relative;
+  border-radius: 1rem;
 }
 
-.metal-routing-view .metal-routing-pdk-card:hover .metal-routing-pdk-card__menu {
-  opacity: 1;
-  background: #f3f4f6;
+.metal-routing-view .metal-routing-pdk-card__footer {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--mr-text-secondary);
+}
+
+.metal-routing-view .metal-routing-pdk-card__footer span:first-child {
+  transition: color var(--mr-transition);
+}
+
+.metal-routing-view .metal-routing-pdk-card:hover .metal-routing-pdk-card__footer span:first-child {
+  color: var(--mr-primary);
+}
+
+.metal-routing-view .metal-routing-pdk-card:hover .metal-routing-pdk-card__footer svg {
+  color: var(--mr-primary);
+  transform: translateX(2px);
+  transition: transform var(--mr-transition), color var(--mr-transition);
 }
 
 .metal-routing-view .metal-routing-pdk-grid,
