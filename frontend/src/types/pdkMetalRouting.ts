@@ -64,6 +64,130 @@ export interface DashboardProject {
   updatedAt?: string | null
 }
 
+export interface RouteDailyTrendPoint {
+  date: string
+  label: string
+  total: number
+  added: number
+}
+
+export interface RoutePeriodTrend {
+  delta: number
+  growthPercent: number
+  periodLabel: string
+}
+
+export interface RouteActivityInsights {
+  mostActiveCell: string | null
+  mostActiveLibrary: string | null
+  latestRouteAddedAt: string | null
+  latestRouteLabel: string | null
+}
+
+export interface RouteBreakdownItem {
+  name: string
+  count: number
+}
+
+export interface RecentRouteAddition {
+  id: string
+  fromCell: string
+  toCell: string
+  fromSignal: string
+  toSignal: string
+  createdAt: string
+  libraryName: string | null
+}
+
+export type RouteTrendRange = '7' | '30' | '90'
+
+export interface ProjectRouteMetrics {
+  totalRoutes: number
+  periodTrend: RoutePeriodTrend
+  trendsByRange: Record<RouteTrendRange, RouteDailyTrendPoint[]>
+  insights: RouteActivityInsights
+  routesByLibrary: RouteBreakdownItem[]
+  routesByCell: RouteBreakdownItem[]
+  recentAdditions: RecentRouteAddition[]
+}
+
+export interface ImpedanceLayerContribution {
+  metalType: string
+  impedance: number
+}
+
+export interface ImpedanceRoutePoint {
+  routeId: string
+  routeLabel: string
+  routeName: string
+  signalPath: string
+  impedance: number
+  updatedAt: string
+  layerContributions: ImpedanceLayerContribution[]
+}
+
+export interface ProjectImpedanceMetrics {
+  hasData: boolean
+  routePoints: ImpedanceRoutePoint[]
+}
+
+export type ImpedanceRunRange = '1' | '7' | '30' | 'all'
+
+export interface ImpedanceTrendIntel {
+  direction: 'increasing' | 'decreasing' | 'stable'
+  previousImpedance: number
+  currentImpedance: number
+  changeOhm: number
+  changePercent: number
+}
+
+export interface ImpedanceEngineeringStats {
+  average: number
+  min: number
+  minRouteLabel: string
+  max: number
+  maxRouteLabel: string
+  total: number
+  measuredRouteCount: number
+}
+
+export interface ImpedanceInsightSummary {
+  headline: string
+  details: string[]
+}
+
+export interface ImpedanceInsightItem {
+  tone: 'success' | 'warning' | 'info'
+  message: string
+}
+
+export interface ImpedanceRouteTableRow {
+  routeId: string
+  routeLabel: string
+  routeName: string
+  signalPath: string
+  impedance: number
+  vsAverage: number
+  changePercent: number
+  rank: number
+  trendDirection: 'up' | 'down' | 'stable'
+  updatedAt: string
+  layerContributions: ImpedanceLayerContribution[]
+}
+
+export interface ImpedanceAverageStatus {
+  label: string
+  tone: 'success' | 'warning' | 'danger'
+}
+
+export interface ProjectMinCapacityMetrics {
+  hasData: boolean
+  minimumMetalCurrentCapacity: number
+  maximumCapacityInProject: number
+  minimumLayer: string | null
+  lastUpdatedAt: string | null
+}
+
 export interface MetalRoutingDashboardMetrics {
   totalRoutes: number
   completedRoutes: number
@@ -71,6 +195,9 @@ export interface MetalRoutingDashboardMetrics {
   totalRoutingImpedance: number
   selectedProjectId: string | null
   selectedProjectName: string | null
+  projectRouteMetrics: ProjectRouteMetrics
+  projectImpedanceMetrics: ProjectImpedanceMetrics
+  projectMinCapacityMetrics: ProjectMinCapacityMetrics
 }
 
 export interface ProjectRoutingContext {

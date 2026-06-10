@@ -2,6 +2,7 @@ import { Types } from 'mongoose';
 import { PdkModuleModel } from '../models/PdkModule';
 import { ProjectModel } from '../models/Project';
 import { ProjectCellModel } from '../models/ProjectCell';
+import { ProjectLibraryModel } from '../models/ProjectLibrary';
 import {
   MetalRoutingAnalysisModel,
   type MetalEntrySubdoc,
@@ -157,6 +158,83 @@ export async function listDashboardProjects(userId: string, userRole: string) {
   }));
 }
 
+export interface RouteDailyTrendPoint {
+  date: string;
+  label: string;
+  total: number;
+  added: number;
+}
+
+export interface RoutePeriodTrend {
+  delta: number;
+  growthPercent: number;
+  periodLabel: string;
+}
+
+export interface RouteActivityInsights {
+  mostActiveCell: string | null;
+  mostActiveLibrary: string | null;
+  latestRouteAddedAt: string | null;
+  latestRouteLabel: string | null;
+}
+
+export interface RouteBreakdownItem {
+  name: string;
+  count: number;
+}
+
+export interface RecentRouteAddition {
+  id: string;
+  fromCell: string;
+  toCell: string;
+  fromSignal: string;
+  toSignal: string;
+  createdAt: string;
+  libraryName: string | null;
+}
+
+export interface ProjectRouteMetrics {
+  totalRoutes: number;
+  periodTrend: RoutePeriodTrend;
+  trendsByRange: {
+    '7': RouteDailyTrendPoint[];
+    '30': RouteDailyTrendPoint[];
+    '90': RouteDailyTrendPoint[];
+  };
+  insights: RouteActivityInsights;
+  routesByLibrary: RouteBreakdownItem[];
+  routesByCell: RouteBreakdownItem[];
+  recentAdditions: RecentRouteAddition[];
+}
+
+export interface ImpedanceLayerContribution {
+  metalType: string;
+  impedance: number;
+}
+
+export interface ImpedanceRoutePoint {
+  routeId: string;
+  routeLabel: string;
+  routeName: string;
+  signalPath: string;
+  impedance: number;
+  updatedAt: string;
+  layerContributions: ImpedanceLayerContribution[];
+}
+
+export interface ProjectImpedanceMetrics {
+  hasData: boolean;
+  routePoints: ImpedanceRoutePoint[];
+}
+
+export interface ProjectMinCapacityMetrics {
+  hasData: boolean;
+  minimumMetalCurrentCapacity: number;
+  maximumCapacityInProject: number;
+  minimumLayer: string | null;
+  lastUpdatedAt: string | null;
+}
+
 export interface MetalRoutingDashboardMetrics {
   totalRoutes: number;
   completedRoutes: number;
@@ -164,6 +242,301 @@ export interface MetalRoutingDashboardMetrics {
   totalRoutingImpedance: number;
   selectedProjectId: string | null;
   selectedProjectName: string | null;
+  projectRouteMetrics: ProjectRouteMetrics;
+  projectImpedanceMetrics: ProjectImpedanceMetrics;
+  projectMinCapacityMetrics: ProjectMinCapacityMetrics;
+}
+
+const ROUTE_TREND_RANGES = [7, 30, 90] as const;
+type RouteTrendRangeDays = (typeof ROUTE_TREND_RANGES)[number];
+
+type ProjectRouteRecord = {
+  _id?: Types.ObjectId;
+  fromCell?: string;
+  toCell?: string;
+  fromSignal?: string;
+  toSignal?: string;
+  totalImpedance?: number;
+  metals?: MetalEntrySubdoc[];
+  createdAt?: Date;
+  updatedAt?: Date;
+};
+
+function roundImpedanceOhm(value: number): number {
+  return Math.round(value * 10000) / 10000;
+}
+
+function routeUpdatedAt(route: { createdAt?: Date; updatedAt?: Date }): Date {
+  if (route.updatedAt) return new Date(route.updatedAt);
+  if (route.createdAt) return new Date(route.createdAt);
+  return new Date(0);
+}
+
+function buildProjectImpedanceMetrics(projectRoutes: ProjectRouteRecord[]): ProjectImpedanceMetrics {
+  const completedRoutes = projectRoutes
+    .filter((route) => isRouteComplete(route))
+    .sort((a, b) => routeUpdatedAt(a).getTime() - routeUpdatedAt(b).getTime());
+
+  const routePoints: ImpedanceRoutePoint[] = completedRoutes.map((route, index) => ({
+    routeId: route._id?.toString() ?? String(index),
+    routeLabel: `R${index + 1}`,
+    routeName: `${String(route.fromCell ?? '')} → ${String(route.toCell ?? '')}`,
+    signalPath: `${String(route.fromSignal ?? '')} → ${String(route.toSignal ?? '')}`,
+    impedance: roundImpedanceOhm(Number(route.totalImpedance ?? 0)),
+    updatedAt: routeUpdatedAt(route).toISOString(),
+    layerContributions: (route.metals ?? []).map((metal) => ({
+      metalType: String(metal.metalType ?? ''),
+      impedance: roundImpedanceOhm(Number(metal.routingMetalImpedance ?? 0)),
+    })),
+  }));
+
+  return {
+    hasData: routePoints.length > 0,
+    routePoints,
+  };
+}
+
+function emptyProjectImpedanceMetrics(): ProjectImpedanceMetrics {
+  return { hasData: false, routePoints: [] };
+}
+
+function roundCapacityMa(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function buildProjectMinCapacityMetrics(projectRoutes: ProjectRouteRecord[]): ProjectMinCapacityMetrics {
+  let hasData = false;
+  let minCapacity = Infinity;
+  let maxCapacity = 0;
+  let minimumLayer: string | null = null;
+  let lastUpdatedAt: Date | null = null;
+
+  for (const route of projectRoutes) {
+    if (!isRouteComplete(route)) continue;
+
+    const routeUpdated = routeUpdatedAt(route);
+    if (!lastUpdatedAt || routeUpdated > lastUpdatedAt) {
+      lastUpdatedAt = routeUpdated;
+    }
+
+    for (const metal of route.metals ?? []) {
+      const capacity = Number(metal.implementedCurrentMetalCapacity ?? 0);
+      if (!Number.isFinite(capacity) || capacity <= 0) continue;
+
+      hasData = true;
+      if (capacity > maxCapacity) maxCapacity = capacity;
+      if (capacity < minCapacity) {
+        minCapacity = capacity;
+        minimumLayer = String(metal.metalType ?? '').trim() || null;
+      }
+    }
+  }
+
+  if (!hasData) {
+    return {
+      hasData: false,
+      minimumMetalCurrentCapacity: 0,
+      maximumCapacityInProject: 0,
+      minimumLayer: null,
+      lastUpdatedAt: null,
+    };
+  }
+
+  return {
+    hasData: true,
+    minimumMetalCurrentCapacity: roundCapacityMa(minCapacity),
+    maximumCapacityInProject: roundCapacityMa(maxCapacity),
+    minimumLayer,
+    lastUpdatedAt: lastUpdatedAt?.toISOString() ?? null,
+  };
+}
+
+function emptyProjectMinCapacityMetrics(): ProjectMinCapacityMetrics {
+  return {
+    hasData: false,
+    minimumMetalCurrentCapacity: 0,
+    maximumCapacityInProject: 0,
+    minimumLayer: null,
+    lastUpdatedAt: null,
+  };
+}
+
+function routeCreatedAt(route: { createdAt?: Date; updatedAt?: Date }): Date {
+  if (route.createdAt) return new Date(route.createdAt);
+  if (route.updatedAt) return new Date(route.updatedAt);
+  return new Date();
+}
+
+function formatRouteTrendLabel(date: Date, rangeDays: number): string {
+  if (rangeDays <= 7) {
+    return date.toLocaleDateString('en-US', { weekday: 'short' });
+  }
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function startOfDay(date: Date): Date {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function endOfDay(date: Date): Date {
+  const next = new Date(date);
+  next.setHours(23, 59, 59, 999);
+  return next;
+}
+
+function buildCumulativeTrend(createdDates: Date[], days: number): RouteDailyTrendPoint[] {
+  const today = startOfDay(new Date());
+  let previousTotal = 0;
+
+  return Array.from({ length: days }, (_, index) => {
+    const day = new Date(today);
+    day.setDate(day.getDate() - (days - 1 - index));
+    const dayEnd = endOfDay(day);
+    const total = createdDates.filter((created) => created <= dayEnd).length;
+    const added = Math.max(0, total - previousTotal);
+    previousTotal = total;
+    return {
+      date: day.toISOString().slice(0, 10),
+      label: formatRouteTrendLabel(day, days),
+      total,
+      added,
+    };
+  });
+}
+
+function buildEmptyTrends(): ProjectRouteMetrics['trendsByRange'] {
+  return {
+    '7': buildCumulativeTrend([], 7),
+    '30': buildCumulativeTrend([], 30),
+    '90': buildCumulativeTrend([], 90),
+  };
+}
+
+function computePeriodTrend(createdDates: Date[], periodDays: RouteTrendRangeDays): RoutePeriodTrend {
+  const periodStart = startOfDay(new Date());
+  periodStart.setDate(periodStart.getDate() - periodDays);
+  const baseline = createdDates.filter((created) => created < periodStart).length;
+  const delta = createdDates.filter((created) => created >= periodStart).length;
+  const growthPercent =
+    baseline > 0 ? Math.round((delta / baseline) * 1000) / 10 : delta > 0 ? 100 : 0;
+
+  const periodLabel =
+    periodDays === 7 ? 'this week' : periodDays === 30 ? 'this month' : 'last 90 days';
+
+  return { delta, growthPercent, periodLabel };
+}
+
+function topBreakdown(counts: Map<string, number>, limit = 8): RouteBreakdownItem[] {
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, limit)
+    .map(([name, count]) => ({ name, count }));
+}
+
+function emptyProjectRouteMetrics(): ProjectRouteMetrics {
+  return {
+    totalRoutes: 0,
+    periodTrend: { delta: 0, growthPercent: 0, periodLabel: 'this week' },
+    trendsByRange: buildEmptyTrends(),
+    insights: {
+      mostActiveCell: null,
+      mostActiveLibrary: null,
+      latestRouteAddedAt: null,
+      latestRouteLabel: null,
+    },
+    routesByLibrary: [],
+    routesByCell: [],
+    recentAdditions: [],
+  };
+}
+
+async function buildProjectRouteMetrics(
+  projectId: Types.ObjectId,
+  projectRoutes: ProjectRouteRecord[],
+): Promise<ProjectRouteMetrics> {
+  if (projectRoutes.length === 0) {
+    return emptyProjectRouteMetrics();
+  }
+
+  const [cells, libraries] = await Promise.all([
+    ProjectCellModel.find({ projectId }).select('name libraryId').lean(),
+    ProjectLibraryModel.find({ projectId }).select('name').lean(),
+  ]);
+
+  const libraryNameById = new Map(libraries.map((lib) => [lib._id.toString(), lib.name]));
+  const cellLibraryName = new Map(
+    cells.map((cell) => [
+      cell.name,
+      libraryNameById.get(cell.libraryId.toString()) ?? 'Unassigned Library',
+    ]),
+  );
+
+  const createdDates = projectRoutes.map(routeCreatedAt);
+  const cellCounts = new Map<string, number>();
+  const libraryCounts = new Map<string, number>();
+
+  for (const route of projectRoutes) {
+    const fromCell = String(route.fromCell ?? '').trim();
+    const toCell = String(route.toCell ?? '').trim();
+    if (fromCell) cellCounts.set(fromCell, (cellCounts.get(fromCell) ?? 0) + 1);
+    if (toCell && toCell !== fromCell) {
+      cellCounts.set(toCell, (cellCounts.get(toCell) ?? 0) + 1);
+    }
+
+    const librariesInRoute = new Set<string>();
+    if (fromCell) {
+      librariesInRoute.add(cellLibraryName.get(fromCell) ?? 'Unassigned Library');
+    }
+    if (toCell) {
+      librariesInRoute.add(cellLibraryName.get(toCell) ?? 'Unassigned Library');
+    }
+    for (const libraryName of librariesInRoute) {
+      libraryCounts.set(libraryName, (libraryCounts.get(libraryName) ?? 0) + 1);
+    }
+  }
+
+  const sortedByCreated = [...projectRoutes].sort(
+    (a, b) => routeCreatedAt(b).getTime() - routeCreatedAt(a).getTime(),
+  );
+  const latest = sortedByCreated[0];
+  const latestFrom = String(latest?.fromCell ?? '');
+  const latestTo = String(latest?.toCell ?? '');
+  const latestSignalFrom = String(latest?.fromSignal ?? '');
+  const latestSignalTo = String(latest?.toSignal ?? '');
+
+  const mostActiveCell = topBreakdown(cellCounts, 1)[0]?.name ?? null;
+  const mostActiveLibrary = topBreakdown(libraryCounts, 1)[0]?.name ?? null;
+
+  const trendsByRange = Object.fromEntries(
+    ROUTE_TREND_RANGES.map((days) => [String(days), buildCumulativeTrend(createdDates, days)]),
+  ) as ProjectRouteMetrics['trendsByRange'];
+
+  return {
+    totalRoutes: projectRoutes.length,
+    periodTrend: computePeriodTrend(createdDates, 7),
+    trendsByRange,
+    insights: {
+      mostActiveCell,
+      mostActiveLibrary,
+      latestRouteAddedAt: latest ? routeCreatedAt(latest).toISOString() : null,
+      latestRouteLabel: latest
+        ? `${latestFrom} → ${latestTo} · ${latestSignalFrom} → ${latestSignalTo}`
+        : null,
+    },
+    routesByLibrary: topBreakdown(libraryCounts),
+    routesByCell: topBreakdown(cellCounts),
+    recentAdditions: sortedByCreated.slice(0, 20).map((route) => ({
+      id: route._id?.toString() ?? '',
+      fromCell: String(route.fromCell ?? ''),
+      toCell: String(route.toCell ?? ''),
+      fromSignal: String(route.fromSignal ?? ''),
+      toSignal: String(route.toSignal ?? ''),
+      createdAt: routeCreatedAt(route).toISOString(),
+      libraryName: cellLibraryName.get(String(route.fromCell ?? '')) ?? null,
+    })),
+  };
 }
 
 export async function getDashboardMetrics(
@@ -199,11 +572,22 @@ export async function getDashboardMetrics(
   }
 
   let totalRoutingImpedance = 0;
+  let projectRouteMetrics: ProjectRouteMetrics = emptyProjectRouteMetrics();
+  let projectImpedanceMetrics: ProjectImpedanceMetrics = emptyProjectImpedanceMetrics();
+  let projectMinCapacityMetrics: ProjectMinCapacityMetrics = emptyProjectMinCapacityMetrics();
+
   if (resolvedProjectId) {
     const projectOid = new Types.ObjectId(resolvedProjectId);
-    totalRoutingImpedance = routes
-      .filter((route) => route.projectId.toString() === projectOid.toString())
-      .reduce((sum, route) => sum + Number(route.totalImpedance ?? 0), 0);
+    const projectRoutes = routes.filter(
+      (route) => route.projectId.toString() === projectOid.toString(),
+    );
+    totalRoutingImpedance = projectRoutes.reduce(
+      (sum, route) => sum + Number(route.totalImpedance ?? 0),
+      0,
+    );
+    projectRouteMetrics = await buildProjectRouteMetrics(projectOid, projectRoutes);
+    projectImpedanceMetrics = buildProjectImpedanceMetrics(projectRoutes);
+    projectMinCapacityMetrics = buildProjectMinCapacityMetrics(projectRoutes);
   }
 
   return {
@@ -213,6 +597,9 @@ export async function getDashboardMetrics(
     totalRoutingImpedance: Math.round(totalRoutingImpedance * 10000) / 10000,
     selectedProjectId: resolvedProjectId,
     selectedProjectName: resolvedProjectName,
+    projectRouteMetrics,
+    projectImpedanceMetrics,
+    projectMinCapacityMetrics,
   };
 }
 

@@ -1,4 +1,9 @@
-import type { MetalRoutingDashboardMetrics } from '@/types/pdkMetalRouting'
+import type {
+  MetalRoutingDashboardMetrics,
+  RouteDailyTrendPoint,
+  RoutePeriodTrend,
+  RouteTrendRange,
+} from '@/types/pdkMetalRouting'
 
 
 
@@ -186,32 +191,43 @@ export function getRoutingHealth(metrics: MetalRoutingDashboardMetrics): Routing
 
 
 
-export function topologyDisplayCount(totalRoutes: number): number {
-
-  if (totalRoutes <= 0) return 0
-
-  return Math.min(totalRoutes, 6)
-
+export function getTrendForRange(
+  chartData: RouteDailyTrendPoint[],
+  range: RouteTrendRange,
+): RoutePeriodTrend {
+  const periodLabel =
+    range === '7' ? 'this week' : range === '30' ? 'this month' : 'last 90 days'
+  if (chartData.length === 0) {
+    return { delta: 0, growthPercent: 0, periodLabel }
+  }
+  const delta = chartData.reduce((sum, point) => sum + point.added, 0)
+  const baseline = chartData[0].total - chartData[0].added
+  const growthPercent =
+    baseline > 0 ? Math.round((delta / baseline) * 1000) / 10 : delta > 0 ? 100 : 0
+  return { delta, growthPercent, periodLabel }
 }
 
+export function getRouteTrendYDomain(points: RouteDailyTrendPoint[]): [number, number] {
+  if (points.length === 0) return [0, 5]
+  const max = Math.max(...points.map((point) => point.total), 1)
+  if (max <= 5) return [0, 5]
+  if (max <= 20) return [0, Math.ceil(max / 2) * 2]
+  if (max <= 100) return [0, Math.ceil(max / 10) * 10]
+  if (max <= 1000) return [0, Math.ceil(max / 100) * 100]
+  return [0, Math.ceil(max / 1000) * 1000]
+}
 
-
-/** Vertical lane offsets (0–1) for the routing schematic paths. */
-
-export function topologyLaneOffsets(count: number): number[] {
-
-  if (count <= 0) return []
-
-  if (count === 1) return [0.5]
-
-  const spread = 0.55
-
-  const start = 0.5 - spread / 2
-
-  const step = count > 1 ? spread / (count - 1) : 0
-
-  return Array.from({ length: count }, (_, index) => start + step * index)
-
+export function formatRelativeRouteTime(iso: string | null): string {
+  if (!iso) return '—'
+  const diffMs = Date.now() - new Date(iso).getTime()
+  const minutes = Math.floor(diffMs / 60000)
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`
+  const days = Math.floor(hours / 24)
+  if (days < 30) return `${days} day${days === 1 ? '' : 's'} ago`
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 

@@ -209,6 +209,125 @@
   background: linear-gradient(180deg, #ffffff 0%, #fafbfa 100%);
 }
 
+.metal-routing-view .metal-routing-overview-toolbar {
+  display: grid;
+  grid-template-columns: auto minmax(12rem, 1fr) auto;
+  align-items: center;
+  gap: 1rem 1.25rem;
+}
+
+.metal-routing-view .metal-routing-overview-toolbar__title {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+}
+
+.metal-routing-view .metal-routing-overview-toolbar__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.625rem;
+  background: var(--mr-primary-soft);
+  color: var(--mr-primary);
+  flex-shrink: 0;
+}
+
+.metal-routing-view .metal-routing-overview-toolbar__heading {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--mr-text);
+  white-space: nowrap;
+}
+
+.metal-routing-view .metal-routing-overview-toolbar__search {
+  justify-self: center;
+  width: min(100%, 22rem);
+  max-width: 100%;
+}
+
+.metal-routing-view .metal-routing-overview-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.metal-routing-view .metal-routing-overview-filter {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.metal-routing-view .metal-routing-overview-filter__icon {
+  pointer-events: none;
+  position: absolute;
+  left: 0.75rem;
+  width: 1rem;
+  height: 1rem;
+  color: var(--mr-text-secondary);
+  z-index: 1;
+}
+
+.metal-routing-view .metal-routing-overview-filter__chevron {
+  pointer-events: none;
+  position: absolute;
+  right: 0.625rem;
+  width: 1rem;
+  height: 1rem;
+  color: var(--mr-text-secondary);
+}
+
+.metal-routing-view .metal-routing-overview-filter__select {
+  appearance: none;
+  padding-left: 2.125rem;
+  padding-right: 2rem;
+  min-width: 9.5rem;
+}
+
+.metal-routing-overview-columns-menu {
+  z-index: 70;
+  min-width: 11rem;
+  border-radius: 0.625rem;
+  border: 1px solid var(--mr-border);
+  background: #fff;
+  padding: 0.35rem;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.1);
+}
+
+.metal-routing-overview-columns-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.4375rem;
+  font-size: 0.8125rem;
+  color: var(--mr-text);
+  cursor: pointer;
+  outline: none;
+  user-select: none;
+}
+
+.metal-routing-overview-columns-menu__item:hover,
+.metal-routing-overview-columns-menu__item:focus,
+.metal-routing-overview-columns-menu__item[data-highlighted] {
+  background: #f3f4f6;
+}
+
+.metal-routing-overview-columns-menu__item[data-state='checked']::before {
+  content: '✓';
+  display: inline-flex;
+  width: 1rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--mr-primary);
+}
+
 .metal-routing-view .metal-routing-search-field {
   height: 2.5rem;
   border-radius: 0.625rem;
@@ -270,8 +389,9 @@
 }
 
 .metal-routing-view .metal-routing-view-toggle button.is-active {
-  background: var(--mr-primary-soft);
-  color: var(--mr-primary);
+  background: var(--mr-primary);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(46, 125, 50, 0.25);
 }
 
 /* ── Tables ── */
@@ -287,7 +407,7 @@
 }
 
 .metal-routing-view .metal-routing-overview-table thead tr {
-  background: #f9fafb;
+  background: #f8faf9;
   box-shadow: 0 1px 0 var(--mr-border);
 }
 
@@ -295,31 +415,143 @@
   padding: 0.875rem 1.5rem;
   font-size: 0.6875rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   color: var(--mr-text-secondary);
-  background: #f9fafb;
+  background: #f8faf9;
+  white-space: nowrap;
+}
+
+.metal-routing-view .metal-routing-overview-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.metal-routing-view .metal-routing-overview-sort svg.is-active {
+  color: var(--mr-primary);
 }
 
 .metal-routing-view .metal-routing-overview-table td {
   padding: 1rem 1.5rem;
-  border-top-color: #f3f4f6;
+  border-top-color: #f0f2f1;
   transition: background-color var(--mr-transition);
 }
 
 .metal-routing-view .metal-routing-overview-table tbody tr {
-  transition: background-color var(--mr-transition);
+  border-left: 3px solid transparent;
+  transition:
+    background-color var(--mr-transition),
+    border-color var(--mr-transition);
+}
+
+.metal-routing-view .metal-routing-overview-table tbody tr.is-clickable {
+  cursor: pointer;
 }
 
 .metal-routing-view .metal-routing-overview-table tbody tr:hover {
   background: rgba(46, 125, 50, 0.04);
+  border-left-color: rgba(46, 125, 50, 0.35);
 }
 
 .metal-routing-view .metal-routing-overview-table tbody tr.is-selected {
   background: var(--mr-primary-soft);
+  border-left-color: var(--mr-primary);
 }
 
 .metal-routing-view .metal-routing-overview-table tbody tr.is-selected:hover {
   background: rgba(46, 125, 50, 0.1);
+}
+
+.metal-routing-view .metal-routing-overview-project {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.metal-routing-view .metal-routing-overview-project__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  background: #f3f4f6;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+.metal-routing-view .metal-routing-overview-project__name {
+  font-weight: 600;
+  color: var(--mr-text);
+  line-height: 1.3;
+}
+
+.metal-routing-view .metal-routing-overview-project__code {
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+  color: var(--mr-text-secondary);
+}
+
+.metal-routing-view .metal-routing-overview-cell-muted {
+  color: var(--mr-text-secondary);
+}
+
+.metal-routing-view .metal-routing-overview-cell {
+  color: var(--mr-text);
+  font-weight: 500;
+}
+
+.metal-routing-view .metal-routing-overview-status-pill {
+  gap: 0.4rem;
+}
+
+.metal-routing-view .metal-routing-overview-status-pill__dot {
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+
+.metal-routing-view .metal-routing-overview-status-pill__dot.is-success {
+  background: #10b981;
+}
+
+.metal-routing-view .metal-routing-overview-status-pill__dot.is-warning {
+  background: #f59e0b;
+}
+
+.metal-routing-view .metal-routing-overview-status-pill__dot.is-neutral {
+  background: #9ca3af;
+}
+
+.metal-routing-view .metal-routing-overview-status-pill__dot.is-danger {
+  background: #ef4444;
+}
+
+.metal-routing-view .metal-routing-overview-updated {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  color: var(--mr-primary);
+  font-weight: 500;
+}
+
+.metal-routing-view .metal-routing-overview-updated svg {
+  color: var(--mr-primary);
+  opacity: 0.85;
 }
 
 /* Status pills */
@@ -475,10 +707,47 @@
   background: #fafbfa;
 }
 
+.metal-routing-view .metal-routing-overview-footer__count {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--mr-text-secondary);
+}
+
+.metal-routing-view .metal-routing-overview-pagination {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.metal-routing-view .metal-routing-page-btn--nav {
+  gap: 0.25rem;
+  padding: 0 0.75rem;
+  min-width: auto;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
 .metal-routing-view .metal-routing-page-btn.is-active {
   border-color: var(--mr-primary);
   background: var(--mr-primary-soft);
   color: var(--mr-primary);
+  font-weight: 600;
+}
+
+@media (max-width: 960px) {
+  .metal-routing-view .metal-routing-overview-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .metal-routing-view .metal-routing-overview-toolbar__search {
+    justify-self: stretch;
+    width: 100%;
+  }
+
+  .metal-routing-view .metal-routing-overview-controls {
+    justify-content: flex-start;
+  }
 }
 
 /* ── Buttons (scoped primary actions) ── */
@@ -589,24 +858,23 @@
   }
 }
 
-/* ── Dashboard metrics visualizations (mockup-aligned 2×2) ── */
+/* ── Dashboard metrics visualizations ── */
 .metal-routing-view .metal-routing-metrics-viz {
   display: grid;
   gap: 1rem;
   grid-template-columns: 1fr;
   grid-template-areas:
     'total'
-    'completed'
-    'impedance'
-    'pending';
+    'capacity'
+    'impedance';
 }
 
 @media (min-width: 900px) {
   .metal-routing-view .metal-routing-metrics-viz {
     grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
     grid-template-areas:
-      'total completed'
-      'impedance pending';
+      'total capacity'
+      'impedance impedance';
     gap: 1.25rem;
   }
 }
@@ -630,19 +898,613 @@
 
 .metal-routing-view .metal-routing-viz-card--total {
   grid-area: total;
-  min-height: 14.5rem;
+  min-height: 20rem;
 }
 
-.metal-routing-view .metal-routing-viz-card--completed {
-  grid-area: completed;
+/* Total Routes analytics card */
+.metal-routing-view .metal-routing-total-routes-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  cursor: pointer;
+}
+
+.metal-routing-view .metal-routing-total-routes-card.is-interactive:hover {
+  border-color: rgba(37, 99, 235, 0.22);
+  box-shadow: 0 8px 28px rgba(37, 99, 235, 0.08);
+}
+
+.metal-routing-view .metal-routing-total-routes-card:focus-visible {
+  outline: 2px solid rgba(37, 99, 235, 0.45);
+  outline-offset: 2px;
+}
+
+.metal-routing-view .metal-routing-total-routes__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.metal-routing-view .metal-routing-total-routes__title-block {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.metal-routing-view .metal-routing-total-routes__title-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  background: #eff6ff;
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+.metal-routing-view .metal-routing-total-routes__title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.metal-routing-view .metal-routing-total-routes__hint {
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.metal-routing-view .metal-routing-routes-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.125rem;
+  border-radius: 0.5rem;
+  background: #f1f5f9;
+  flex-shrink: 0;
+}
+
+.metal-routing-view .metal-routing-routes-range-btn {
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.3rem 0.5rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.metal-routing-view .metal-routing-routes-range-btn:hover {
+  color: #334155;
+}
+
+.metal-routing-view .metal-routing-routes-range-btn.is-active {
+  background: #fff;
+  color: #2563eb;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.metal-routing-view .metal-routing-total-routes__metric-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.625rem 0.875rem;
+}
+
+.metal-routing-view .metal-routing-total-routes__value {
+  font-size: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: #0f172a;
+}
+
+.metal-routing-view .metal-routing-total-routes__trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.metal-routing-view .metal-routing-total-routes__trend.is-up {
+  color: #2563eb;
+}
+
+.metal-routing-view .metal-routing-total-routes__trend.is-down {
+  color: #dc2626;
+}
+
+.metal-routing-view .metal-routing-total-routes__trend-sep {
+  opacity: 0.55;
+}
+
+.metal-routing-view .metal-routing-total-routes__chart {
+  height: 10.5rem;
+  min-height: 10.5rem;
+  margin-top: 0.125rem;
+}
+
+.metal-routing-view .metal-routing-total-routes__insights {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.625rem 0 0;
+  list-style: none;
+  border-top: 1px solid #f1f5f9;
+}
+
+.metal-routing-view .metal-routing-total-routes__insights li {
+  min-width: 0;
+}
+
+.metal-routing-view .metal-routing-total-routes__insight-label {
+  display: block;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.metal-routing-view .metal-routing-total-routes__insight-value {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #334155;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metal-routing-view .metal-routing-total-routes__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+/* Total Routes skeleton */
+.metal-routing-view .metal-routing-total-routes-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.25rem;
+}
+
+.metal-routing-view .metal-routing-total-routes-skeleton__header,
+.metal-routing-view .metal-routing-total-routes-skeleton__metric {
+  height: 1.5rem;
+  border-radius: 0.5rem;
+  background: #e5e7eb;
+}
+
+.metal-routing-view .metal-routing-total-routes-skeleton__metric {
+  width: 45%;
+  height: 2rem;
+}
+
+.metal-routing-view .metal-routing-total-routes-skeleton__chart {
+  flex: 1;
+  min-height: 9rem;
+  border-radius: 0.625rem;
+  background: #e5e7eb;
+}
+
+.metal-routing-view .metal-routing-total-routes-skeleton__insights {
+  height: 2.5rem;
+  border-radius: 0.5rem;
+  background: #e5e7eb;
+}
+
+/* Route details modal */
+.metal-routing-routes-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.metal-routing-routes-detail__summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.metal-routing-routes-detail__eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.metal-routing-routes-detail__total {
+  margin-top: 0.25rem;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+}
+
+.metal-routing-routes-detail__trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.metal-routing-routes-detail__trend.is-up {
+  color: #2563eb;
+}
+
+.metal-routing-routes-detail__trend.is-down {
+  color: #dc2626;
+}
+
+.metal-routing-routes-detail__chart {
+  height: 14rem;
+}
+
+.metal-routing-routes-detail__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.metal-routing-routes-detail__panel {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 0.875rem;
+  background: #fafbfc;
+}
+
+.metal-routing-routes-detail__panel-title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.metal-routing-routes-detail__empty {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+.metal-routing-routes-detail__breakdown {
+  margin: 0.625rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.metal-routing-routes-detail__breakdown-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.metal-routing-routes-detail__breakdown-name {
+  font-weight: 600;
+  color: #334155;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metal-routing-routes-detail__breakdown-count {
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.metal-routing-routes-detail__breakdown-bar {
+  margin-top: 0.25rem;
+  height: 0.3rem;
+  border-radius: 9999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.metal-routing-routes-detail__breakdown-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #60a5fa, #2563eb);
+}
+
+.metal-routing-routes-detail__recent {
+  margin: 0.625rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.metal-routing-routes-detail__recent-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+}
+
+.metal-routing-routes-detail__recent-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.375rem;
+  background: #eff6ff;
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+.metal-routing-routes-detail__recent-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.metal-routing-routes-detail__recent-sub {
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.metal-routing-routes-detail__recent-time {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .metal-routing-view .metal-routing-total-routes__insights {
+    grid-template-columns: 1fr;
+  }
+
+  .metal-routing-routes-detail__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.metal-routing-view .metal-routing-viz-card--capacity {
+  grid-area: capacity;
+  min-height: 18rem;
 }
 
 .metal-routing-view .metal-routing-viz-card--impedance {
   grid-area: impedance;
+  min-height: 18rem;
 }
 
-.metal-routing-view .metal-routing-viz-card--pending {
-  grid-area: pending;
+/* Minimum Metal Current Capacity */
+.metal-routing-view .metal-routing-min-capacity-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  min-height: 18rem;
+  border-color: #e9d5ff;
+  background: linear-gradient(165deg, #ffffff 0%, #faf5ff 100%);
+  box-shadow: 0 4px 20px rgba(91, 33, 182, 0.07);
+}
+
+.metal-routing-view .metal-routing-min-capacity-card:hover {
+  border-color: rgba(124, 58, 237, 0.22);
+  box-shadow: 0 6px 24px rgba(91, 33, 182, 0.1);
+}
+
+.metal-routing-view .metal-routing-min-capacity-card__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+}
+
+.metal-routing-view .metal-routing-min-capacity-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  background: #ede9fe;
+  color: #7c3aed;
+  flex-shrink: 0;
+}
+
+.metal-routing-view .metal-routing-min-capacity-card__title {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #6d28d9;
+  line-height: 1.3;
+}
+
+.metal-routing-view .metal-routing-min-capacity-card__value {
+  margin: 0.25rem 0 0;
+  font-size: 1.625rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #4c1d95;
+}
+
+.metal-routing-view .metal-routing-min-capacity-card__desc {
+  margin: 0.25rem 0 0;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: #8b5cf6;
+}
+
+.metal-routing-view .metal-routing-min-capacity-card__scale-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 8.5rem;
+  padding: 0.25rem 0;
+}
+
+.metal-routing-view .metal-routing-min-capacity-scale {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+  height: 100%;
+  min-height: 8rem;
+}
+
+.metal-routing-view .metal-routing-min-capacity-scale__label {
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: #a78bfa;
+  white-space: nowrap;
+}
+
+.metal-routing-view .metal-routing-min-capacity-scale__track {
+  position: relative;
+  flex: 1;
+  width: 3px;
+  min-height: 7.5rem;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, #c4b5fd 0%, #ede9fe 55%, #f5f3ff 100%);
+}
+
+.metal-routing-view .metal-routing-min-capacity-scale__dot {
+  position: absolute;
+  left: 50%;
+  width: 0.75rem;
+  height: 0.75rem;
+  margin-left: -0.375rem;
+  margin-bottom: -0.375rem;
+  border-radius: 9999px;
+  background: #7c3aed;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.25);
+  transition: box-shadow 0.2s ease;
+}
+
+.metal-routing-view .metal-routing-min-capacity-scale__dot.is-hovered {
+  box-shadow:
+    0 0 0 3px rgba(124, 58, 237, 0.28),
+    0 0 12px rgba(124, 58, 237, 0.45);
+}
+
+.metal-routing-view .metal-routing-min-capacity-scale__tooltip {
+  position: absolute;
+  top: 0.5rem;
+  right: 0;
+  z-index: 2;
+  min-width: 9rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.5rem;
+  border: 1px solid #ddd6fe;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 4px 14px rgba(91, 33, 182, 0.12);
+  font-size: 0.6875rem;
+  color: #5b21b6;
+  pointer-events: none;
+}
+
+.metal-routing-view .metal-routing-min-capacity-scale__tooltip-title {
+  margin: 0 0 0.2rem;
+  font-weight: 700;
+}
+
+.metal-routing-view .metal-routing-min-capacity-scale__tooltip p {
+  margin: 0.1rem 0 0;
+}
+
+.metal-routing-view .metal-routing-min-capacity-card__meta {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+  margin: 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid #ede9fe;
+}
+
+.metal-routing-view .metal-routing-min-capacity-card__meta div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.metal-routing-view .metal-routing-min-capacity-card__meta dt {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #8b5cf6;
+}
+
+.metal-routing-view .metal-routing-min-capacity-card__meta dd {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #4c1d95;
+}
+
+.metal-routing-view .metal-routing-min-capacity-card__empty {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  color: #94a3b8;
+}
+
+.metal-routing-view .metal-routing-min-capacity-card__empty-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: #94a3b8;
+}
+
+.metal-routing-view .metal-routing-min-capacity-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.25rem;
+}
+
+.metal-routing-view .metal-routing-min-capacity-skeleton__header,
+.metal-routing-view .metal-routing-min-capacity-skeleton__scale,
+.metal-routing-view .metal-routing-min-capacity-skeleton__meta {
+  border-radius: 0.5rem;
+  background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 45%, #f3f4f6 90%);
+  background-size: 200% 100%;
+  animation: metal-routing-shimmer 1.4s ease-in-out infinite;
+}
+
+.metal-routing-view .metal-routing-min-capacity-skeleton__header {
+  height: 3.5rem;
+}
+
+.metal-routing-view .metal-routing-min-capacity-skeleton__scale {
+  flex: 1;
+  min-height: 7rem;
+}
+
+.metal-routing-view .metal-routing-min-capacity-skeleton__meta {
+  height: 4rem;
 }
 
 .metal-routing-view .metal-routing-viz-card__header {
@@ -725,48 +1587,6 @@
   color: #ea580c;
 }
 
-/* Routing topology schematic */
-.metal-routing-view .metal-routing-topology-schematic {
-  margin-top: 0.5rem;
-}
-
-.metal-routing-view .metal-routing-topology-schematic__svg {
-  width: 100%;
-  height: 6.5rem;
-}
-
-.metal-routing-view .metal-routing-topology-schematic__port {
-  fill: #dbeafe;
-  stroke: #3b82f6;
-  stroke-width: 2;
-}
-
-.metal-routing-view .metal-routing-topology-schematic__lane {
-  fill: none;
-  stroke: #60a5fa;
-  stroke-width: 2.25;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  filter: drop-shadow(0 0 5px rgba(59, 130, 246, 0.28));
-}
-
-.metal-routing-view .metal-routing-topology-schematic__lane--idle {
-  stroke: #cbd5e1;
-  stroke-dasharray: 6 5;
-  filter: none;
-}
-
-.metal-routing-view .metal-routing-topology-schematic__pulse {
-  fill: #3b82f6;
-  filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.6));
-}
-
-.metal-routing-view .metal-routing-topology-schematic__more {
-  margin-top: 0.25rem;
-  font-size: 0.75rem;
-  color: var(--mr-text-secondary);
-}
-
 /* Completion donut */
 .metal-routing-view .metal-routing-donut-wrap {
   position: relative;
@@ -822,23 +1642,241 @@
   color: var(--mr-text-secondary);
 }
 
-/* Impedance chart */
-.metal-routing-view .metal-routing-impedance-head {
+/* Impedance analytics card (performance theme) */
+.metal-routing-view .metal-routing-impedance-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  background: linear-gradient(180deg, #ffffff 0%, #fdfcff 100%);
+}
+
+.metal-routing-view .metal-routing-impedance-card.is-empty {
+  cursor: default;
+}
+
+.metal-routing-view .metal-routing-impedance-card__header {
   display: flex;
   align-items: flex-start;
-  gap: 0.875rem;
-  margin-bottom: 0.75rem;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
 
-.metal-routing-view .metal-routing-impedance-chart {
-  height: 10.5rem;
-  min-height: 10.5rem;
+.metal-routing-view .metal-routing-impedance-card__title-block {
+  display: flex;
+  gap: 0.625rem;
+  min-width: 0;
 }
 
-@media (min-width: 900px) {
-  .metal-routing-view .metal-routing-impedance-chart {
-    height: 11.5rem;
-  }
+.metal-routing-view .metal-routing-impedance-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.625rem;
+  background: linear-gradient(135deg, #ede9fe 0%, #f5f3ff 100%);
+  color: #7c3aed;
+  flex-shrink: 0;
+}
+
+.metal-routing-view .metal-routing-impedance-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.metal-routing-view .metal-routing-impedance-card__title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #4c1d95;
+}
+
+.metal-routing-view .metal-routing-impedance-card__info {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: #a78bfa;
+}
+
+.metal-routing-view .metal-routing-impedance-card__value {
+  margin-top: 0.25rem;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: #5b21b6;
+}
+
+.metal-routing-view .metal-routing-impedance-card__context {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: #7c3aed;
+  opacity: 0.75;
+}
+
+.metal-routing-view .metal-routing-impedance-card__trend-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 9999px;
+  background: #f5f3ff;
+  color: #6d28d9;
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.metal-routing-view .metal-routing-impedance-card__trend-pill.is-up {
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.metal-routing-view .metal-routing-impedance-card__trend-pill.is-down {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.metal-routing-view .metal-routing-impedance-card__controls {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-shrink: 0;
+}
+
+.metal-routing-view .metal-routing-impedance-range-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid #ddd6fe;
+  background: #faf5ff;
+}
+
+.metal-routing-view .metal-routing-impedance-range-select__input {
+  border: none;
+  background: transparent;
+  color: #5b21b6;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+}
+
+.metal-routing-view .metal-routing-impedance-card__menu {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: #a78bfa;
+  cursor: pointer;
+}
+
+.metal-routing-view .metal-routing-impedance-card__menu:hover {
+  background: #f5f3ff;
+  color: #7c3aed;
+}
+
+.metal-routing-impedance-menu {
+  z-index: 60;
+  min-width: 10.5rem;
+  border-radius: 0.625rem;
+  border: 1px solid #e9d5ff;
+  background: #fff;
+  padding: 0.25rem;
+  box-shadow: 0 8px 24px rgba(91, 33, 182, 0.12);
+}
+
+.metal-routing-impedance-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  color: #4c1d95;
+  cursor: pointer;
+  outline: none;
+}
+
+.metal-routing-impedance-menu__item:hover,
+.metal-routing-impedance-menu__item:focus {
+  background: #f5f3ff;
+}
+
+.metal-routing-view .metal-routing-impedance-card__chart-wrap {
+  position: relative;
+  border-radius: 0.75rem;
+  border: 1px solid #ede9fe;
+  background: #fefcff;
+  padding: 0.5rem 0.5rem 0.25rem;
+}
+
+.metal-routing-view .metal-routing-impedance-trend-panel {
+  position: absolute;
+  top: 0.625rem;
+  right: 0.625rem;
+  z-index: 2;
+  width: 9.5rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.625rem;
+  border: 1px solid #ddd6fe;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 4px 16px rgba(91, 33, 182, 0.08);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  pointer-events: none;
+  transition:
+    opacity 0.18s ease,
+    visibility 0.18s ease,
+    transform 0.18s ease;
+}
+
+.metal-routing-view .metal-routing-impedance-card__chart-wrap:hover .metal-routing-impedance-trend-panel {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.metal-routing-view .metal-routing-impedance-trend-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #6d28d9;
+}
+
+.metal-routing-view .metal-routing-impedance-trend-panel__direction {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #5b21b6;
+}
+
+.metal-routing-view .metal-routing-impedance-trend-panel__direction.is-up {
+  color: #6d28d9;
+}
+
+.metal-routing-view .metal-routing-impedance-trend-panel__direction.is-down {
+  color: #b91c1c;
+}
+
+.metal-routing-view .metal-routing-impedance-trend-panel__line,
+.metal-routing-view .metal-routing-impedance-trend-panel__change {
+  margin-top: 0.2rem;
+  font-size: 0.625rem;
+  color: #7c3aed;
+}
+
+.metal-routing-view .metal-routing-impedance-card__chart {
+  height: 12.5rem;
+  min-height: 12.5rem;
 }
 
 .metal-routing-view .metal-routing-impedance-badge {
@@ -849,6 +1887,806 @@
   fill: #fff;
   font-size: 10px;
   font-weight: 600;
+}
+
+.metal-routing-impedance-tooltip {
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.5rem;
+  border: 1px solid #ddd6fe;
+  background: #fff;
+  font-size: 0.75rem;
+  color: #4c1d95;
+  box-shadow: 0 4px 16px rgba(91, 33, 182, 0.1);
+}
+
+.metal-routing-impedance-tooltip__title {
+  font-weight: 700;
+}
+
+.metal-routing-impedance-tooltip__value {
+  margin-top: 0.2rem;
+  font-weight: 700;
+  color: #6d28d9;
+}
+
+.metal-routing-view .metal-routing-impedance-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+@media (min-width: 900px) {
+  .metal-routing-view .metal-routing-impedance-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.metal-routing-view .metal-routing-impedance-stat {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.625rem;
+  border-radius: 0.625rem;
+  border: 1px solid #ede9fe;
+  background: #fff;
+}
+
+.metal-routing-view .metal-routing-impedance-stat__icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0.3rem;
+  border-radius: 0.5rem;
+  flex-shrink: 0;
+}
+
+.metal-routing-view .metal-routing-impedance-stat__icon.is-violet {
+  background: #f5f3ff;
+  color: #7c3aed;
+}
+
+.metal-routing-view .metal-routing-impedance-stat__icon.is-green {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.metal-routing-view .metal-routing-impedance-stat__icon.is-red {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.metal-routing-view .metal-routing-impedance-stat__icon.is-blue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.metal-routing-view .metal-routing-impedance-stat__label {
+  display: block;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #a78bfa;
+}
+
+.metal-routing-view .metal-routing-impedance-stat strong {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.875rem;
+  color: #4c1d95;
+}
+
+.metal-routing-view .metal-routing-impedance-stat__sub {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.625rem;
+  color: #7c3aed;
+  opacity: 0.8;
+}
+
+.metal-routing-view .metal-routing-impedance-insights {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 0.625rem;
+  border: 1px solid #ede9fe;
+  background: #faf5ff;
+}
+
+.metal-routing-view .metal-routing-impedance-insights h4 {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #4c1d95;
+}
+
+.metal-routing-view .metal-routing-impedance-insights ul {
+  margin: 0.35rem 0 0;
+  padding-left: 1rem;
+  font-size: 0.75rem;
+  color: #6d28d9;
+}
+
+.metal-routing-view .metal-routing-impedance-card__footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.metal-routing-view .metal-routing-impedance-card__report-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  border: none;
+  background: transparent;
+  color: #7c3aed;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.metal-routing-view .metal-routing-impedance-card__report-link:hover {
+  color: #5b21b6;
+}
+
+.metal-routing-impedance-stats--report {
+  margin-top: 0.75rem;
+}
+
+.metal-routing-impedance-insights--report {
+  margin-top: 0.75rem;
+}
+
+.metal-routing-view .metal-routing-impedance-card__empty {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #7c3aed;
+}
+
+.metal-routing-view .metal-routing-impedance-card__empty-hint {
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+.metal-routing-view .metal-routing-impedance-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.25rem;
+}
+
+.metal-routing-view .metal-routing-impedance-skeleton__header,
+.metal-routing-view .metal-routing-impedance-skeleton__stats {
+  height: 2rem;
+  border-radius: 0.5rem;
+  background: #e9d5ff;
+}
+
+.metal-routing-view .metal-routing-impedance-skeleton__chart {
+  flex: 1;
+  min-height: 11rem;
+  border-radius: 0.625rem;
+  background: #e9d5ff;
+}
+
+.metal-routing-impedance-route-detail__path {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.metal-routing-impedance-route-detail__signal {
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+.metal-routing-impedance-route-detail__total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: #f5f3ff;
+  color: #5b21b6;
+}
+
+.metal-routing-impedance-route-detail__section {
+  margin-top: 1rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.metal-routing-impedance-route-detail__layers {
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.metal-routing-impedance-route-detail__layers li {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #ede9fe;
+  font-size: 0.8125rem;
+}
+
+/* Full-screen impedance analysis report */
+.impedance-report-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+.impedance-report-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 81;
+  display: flex;
+  flex-direction: column;
+  outline: none;
+}
+
+.impedance-report {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: linear-gradient(180deg, #faf5ff 0%, #f8fafc 12%, #ffffff 100%);
+  color: #1e293b;
+  font-family: inherit;
+  overflow: hidden;
+}
+
+.impedance-report__header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #e9d5ff;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 1px 0 rgba(124, 58, 237, 0.08);
+}
+
+.impedance-report__title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #4c1d95;
+}
+
+.impedance-report__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin-top: 0.35rem;
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+.impedance-report__meta strong {
+  color: #5b21b6;
+}
+
+.impedance-report__header-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.impedance-report__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #ddd6fe;
+  background: #f5f3ff;
+  color: #6d28d9;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.impedance-report__action:hover {
+  background: #ede9fe;
+  border-color: #c4b5fd;
+}
+
+.impedance-report__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.impedance-report__close:hover {
+  background: #f8fafc;
+  color: #334155;
+}
+
+.impedance-report__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem 1.5rem 2rem;
+}
+
+.impedance-report__kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.875rem;
+}
+
+.impedance-report-kpi {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-height: 6.5rem;
+  padding: 1rem 1.125rem;
+  border-radius: 0.875rem;
+  border: 1px solid #e9d5ff;
+  background: linear-gradient(145deg, #ffffff 0%, #faf5ff 100%);
+  box-shadow: 0 1px 2px rgba(124, 58, 237, 0.06);
+}
+
+.impedance-report-kpi__icon {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0.45rem;
+  border-radius: 0.625rem;
+}
+
+.impedance-report-kpi__icon.is-violet {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.impedance-report-kpi__icon.is-green {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.impedance-report-kpi__icon.is-red {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.impedance-report-kpi__icon.is-blue {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.impedance-report-kpi__label {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8b5cf6;
+}
+
+.impedance-report-kpi__value {
+  margin: 0.25rem 0 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #4c1d95;
+}
+
+.impedance-report-kpi__sub,
+.impedance-report-kpi__status {
+  display: inline-block;
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.impedance-report-kpi__status.is-success {
+  color: #15803d;
+}
+
+.impedance-report-kpi__status.is-warning {
+  color: #b45309;
+}
+
+.impedance-report-kpi__status.is-danger {
+  color: #b91c1c;
+}
+
+.impedance-report__main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(18rem, 1fr);
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.impedance-report__main-grid.is-chart-fullscreen {
+  grid-template-columns: 1fr;
+}
+
+.impedance-report__main-grid.is-chart-fullscreen .impedance-report__side-panels {
+  display: none;
+}
+
+.impedance-report__chart-panel,
+.impedance-report__insights-panel,
+.impedance-report__breakdown-panel,
+.impedance-report__table-section,
+.impedance-report__summary {
+  border-radius: 0.875rem;
+  border: 1px solid #e9d5ff;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(124, 58, 237, 0.05);
+}
+
+.impedance-report__chart-panel {
+  padding: 1rem 1.125rem 0.875rem;
+}
+
+.impedance-report__chart-panel.is-fullscreen {
+  grid-column: 1 / -1;
+}
+
+.impedance-report__chart-panel.is-fullscreen .impedance-report__chart {
+  height: min(52vh, 28rem);
+}
+
+.impedance-report__panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.impedance-report__panel-head h2,
+.impedance-report__insights-panel h3,
+.impedance-report__breakdown-panel h3,
+.impedance-report__summary h2 {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #5b21b6;
+}
+
+.impedance-report__chart-tools,
+.impedance-report__table-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.impedance-report__tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.4375rem;
+  border: 1px solid #e9d5ff;
+  background: #faf5ff;
+  color: #7c3aed;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.impedance-report__tool.is-active,
+.impedance-report__tool:hover {
+  background: #ede9fe;
+  border-color: #c4b5fd;
+}
+
+.impedance-report__chart {
+  height: 18rem;
+  margin-top: 0.75rem;
+}
+
+.impedance-report__trend-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: #7c3aed;
+}
+
+.impedance-report__side-panels {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.impedance-report__insights-panel,
+.impedance-report__breakdown-panel {
+  padding: 1rem 1.125rem;
+  flex: 1;
+}
+
+.impedance-report__insights-list {
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.impedance-report__insight {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.impedance-report__insight.is-success {
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.impedance-report__insight.is-warning {
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.impedance-report__insight.is-info {
+  background: #f5f3ff;
+  color: #5b21b6;
+}
+
+.impedance-report__breakdown-title {
+  margin: 0.75rem 0 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #4c1d95;
+}
+
+.impedance-report__breakdown-path {
+  margin: 0.2rem 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.impedance-report__layers {
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.impedance-report__layers li {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid #f3e8ff;
+  font-size: 0.8125rem;
+}
+
+.impedance-report__layers li span:last-child {
+  font-weight: 600;
+  color: #6d28d9;
+}
+
+.impedance-report__breakdown-total {
+  margin: 0.75rem 0 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e9d5ff;
+  font-size: 0.875rem;
+  color: #4c1d95;
+}
+
+.impedance-report__empty {
+  margin: 0.75rem 0 0;
+  font-size: 0.8125rem;
+  color: #94a3b8;
+}
+
+.impedance-report__table-section {
+  margin-top: 1.25rem;
+  padding: 1rem 1.125rem;
+}
+
+.impedance-report__filter {
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.4375rem;
+  border: 1px solid #e9d5ff;
+  background: #fff;
+  color: #5b21b6;
+  font-size: 0.75rem;
+}
+
+.impedance-report__search {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.4375rem;
+  border: 1px solid #e9d5ff;
+  background: #faf5ff;
+  color: #8b5cf6;
+}
+
+.impedance-report__search input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 0.75rem;
+  color: #334155;
+  min-width: 8rem;
+}
+
+.impedance-report__table-wrap {
+  margin-top: 0.75rem;
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  border: 1px solid #f3e8ff;
+}
+
+.impedance-report__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.impedance-report__table th {
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+  background: #faf5ff;
+  color: #6d28d9;
+  font-weight: 600;
+  border-bottom: 1px solid #e9d5ff;
+}
+
+.impedance-report__table th button {
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.impedance-report__table td {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid #f8fafc;
+  color: #334155;
+}
+
+.impedance-report__table tbody tr {
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.impedance-report__table tbody tr:hover,
+.impedance-report__table tbody tr.is-selected {
+  background: #f5f3ff;
+}
+
+.impedance-report__trend-pill {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.impedance-report__trend-pill.is-up {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.impedance-report__trend-pill.is-down {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.impedance-report__trend-pill.is-stable {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.impedance-report__summary {
+  margin-top: 1.25rem;
+  padding: 1.125rem 1.25rem;
+}
+
+.impedance-report__summary p {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: #475569;
+}
+
+.impedance-report-tooltip {
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #ddd6fe;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.12);
+  font-size: 0.75rem;
+  color: #334155;
+}
+
+.impedance-report-tooltip__title {
+  margin: 0 0 0.25rem;
+  font-weight: 700;
+  color: #5b21b6;
+}
+
+.impedance-report-tooltip p {
+  margin: 0.15rem 0 0;
+}
+
+@media (max-width: 1100px) {
+  .impedance-report__kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .impedance-report__main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .impedance-report__kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .impedance-report__header {
+    padding: 0.875rem 1rem;
+  }
+
+  .impedance-report__body {
+    padding: 1rem;
+  }
+}
+
+@media print {
+  .impedance-report-overlay {
+    display: none;
+  }
+
+  .impedance-report-shell {
+    position: static;
+    inset: auto;
+  }
+
+  .impedance-report {
+    height: auto;
+    overflow: visible;
+  }
+
+  .impedance-report__header-actions .impedance-report__action,
+  .impedance-report__close {
+    display: none;
+  }
+
+  .impedance-report__body {
+    overflow: visible;
+  }
+
+  .impedance-report__chart {
+    height: 14rem;
+  }
 }
 
 /* Pending routes */
@@ -958,20 +2796,15 @@
 
 .metal-routing-view .metal-routing-viz-skeleton--total {
   grid-area: total;
-  min-height: 14.5rem;
+  min-height: 20rem;
 }
 
-.metal-routing-view .metal-routing-viz-skeleton--completed {
-  grid-area: completed;
-  min-height: 14rem;
+.metal-routing-view .metal-routing-viz-skeleton--capacity {
+  grid-area: capacity;
+  min-height: 18rem;
 }
 
 .metal-routing-view .metal-routing-viz-skeleton--impedance {
   grid-area: impedance;
-  min-height: 14rem;
-}
-
-.metal-routing-view .metal-routing-viz-skeleton--pending {
-  grid-area: pending;
-  min-height: 12rem;
+  min-height: 18rem;
 }
