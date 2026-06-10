@@ -1,15 +1,12 @@
 import { useOutletContext } from 'react-router-dom'
 import { BarChart3 } from 'lucide-react'
 import { EmployeeProjectAnalyticsPanel } from '@components/employee/projects/EmployeeProjectAnalyticsPanel'
-import { EmployeeProjectBreadcrumb } from '@components/employee/projects/EmployeeProjectBreadcrumb'
 
 export default function EmployeeProjectsDashboard() {
   const { workspaces, projects, loading } = useOutletContext()
 
   return (
     <div className="emp-wf-surface emp-wf-hub-surface">
-      <EmployeeProjectBreadcrumb items={[{ label: 'Projects' }]} />
-
       <header className="emp-wf-hub-hero">
         <div>
           <p className="emp-wf-hub-eyebrow">Overview</p>

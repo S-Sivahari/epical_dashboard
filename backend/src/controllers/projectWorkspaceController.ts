@@ -526,7 +526,12 @@ export const projectWorkspaceController = {
 
       res.json(toCell(cell, { isBlocked: false, isReady: false }));
     } catch (err) {
-      res.status(500).json({ error: 'Failed to complete cell' });
+      const message = err instanceof Error ? err.message : 'Failed to complete cell';
+      const isValidation =
+        message.includes('checklist') ||
+        message.includes('final cell details') ||
+        message.startsWith('Complete');
+      res.status(isValidation ? 400 : 500).json({ error: message });
     }
   },
 

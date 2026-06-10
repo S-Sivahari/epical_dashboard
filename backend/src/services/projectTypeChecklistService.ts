@@ -203,6 +203,65 @@ export function isValidChecklistYesNo(value: string): value is ChecklistYesNo {
   return value === 'yes' || value === 'no';
 }
 
+export function areTypeChecklistItemsFilled(
+  items: Array<{ response?: TypeChecklistAnswer | null; comment?: string }>,
+): boolean {
+  if (items.length === 0) return true;
+  return items.every((item) => {
+    if (!item.response) return false;
+    if (item.response === 'no' || item.response === 'not_applicable') {
+      return Boolean(String(item.comment ?? '').trim());
+    }
+    return true;
+  });
+}
+
+export function isChecklistExtensionComplete(
+  extension?: Partial<CellChecklistExtension> | null,
+): boolean {
+  const ext = normalizeChecklistExtension(extension);
+  return (
+    ext.dimensionX != null &&
+    ext.dimensionY != null &&
+    ext.highestMetalUsed.length > 0 &&
+    ext.virtualConnection != null &&
+    ext.overallSubstrateContact != null &&
+    ext.waivableDrcError != null
+  );
+}
+
+export async function assertFinalCellDetailsFilled(projectId: string, cellId: string): Promise<void> {
+  const detail = await getCellTypeChecklistDetail(projectId, cellId);
+  if (!detail) {
+    throw new Error('Cell not found');
+  }
+
+  const { isCellChecklistFilled } = await import('./cellTypeChecklistService');
+  const { CellChecklistMappingModel } = await import('../models/Checklist');
+
+  const mappingEntries = await CellChecklistMappingModel.find({
+    projectId: new Types.ObjectId(projectId),
+    cellId: new Types.ObjectId(cellId),
+  }).lean();
+
+  const hasTypeChecklist = detail.items.length > 0;
+  const hasMappingChecklist = mappingEntries.length > 0;
+
+  if (!hasTypeChecklist && !hasMappingChecklist) return;
+
+  if (hasTypeChecklist && !areTypeChecklistItemsFilled(detail.items)) {
+    throw new Error('Complete all checklist questions before marking this cell as completed');
+  }
+
+  if (hasMappingChecklist && !(await isCellChecklistFilled(projectId, cellId))) {
+    throw new Error('Complete the checklist before marking this cell as completed');
+  }
+
+  if (!isChecklistExtensionComplete(detail.extension)) {
+    throw new Error('Complete the final cell details before marking this cell as completed');
+  }
+}
+
 export function formatChecklistAnswerLabel(response: TypeChecklistAnswer | null): string {
   if (response === 'yes') return 'Yes';
   if (response === 'no') return 'No';
@@ -287,9 +346,25 @@ export async function updateCellChecklistExtension(
   projectId: string,
   cellId: string,
   payload: Partial<CellChecklistExtension>,
+  options?: { requireTypeChecklistComplete?: boolean; requireMappingChecklistComplete?: boolean },
 ) {
   const context = await resolveCellContext(projectId, cellId);
   if (!context) return null;
+
+  const detail = await getCellTypeChecklistDetail(projectId, cellId);
+  if (options?.requireTypeChecklistComplete !== false && detail && detail.items.length > 0) {
+    if (!areTypeChecklistItemsFilled(detail.items)) {
+      throw new Error('Complete all checklist questions first');
+    }
+  }
+
+  if (options?.requireMappingChecklistComplete) {
+    const { isCellChecklistFilled } = await import('./cellTypeChecklistService');
+    const filled = await isCellChecklistFilled(projectId, cellId);
+    if (!filled) {
+      throw new Error('Complete all checklist questions first');
+    }
+  }
 
   const current = normalizeChecklistExtension(context.cell.checklistExtension);
   const next = normalizeChecklistExtension({

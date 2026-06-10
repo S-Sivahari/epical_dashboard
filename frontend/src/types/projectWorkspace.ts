@@ -171,6 +171,9 @@ export interface CellChecklistDetail {
   checklistName: string
   cellType?: string
   cellStatus: CellChecklistStatus
+  isFilled?: boolean
+  extension?: CellChecklistExtensionFields
+  isExtensionFilled?: boolean
   items: CellChecklistItem[]
 }
 

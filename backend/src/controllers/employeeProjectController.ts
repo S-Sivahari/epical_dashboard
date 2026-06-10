@@ -557,6 +557,92 @@ export const employeeProjectController = {
     }
   },
 
+  updateMyCellChecklistExtension: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const cellId = paramId(req.params.cellId);
+      const tokens = await getAssignmentTokens(req);
+
+      const cell = await assertAssignedCell(projectId, cellId, tokens);
+      if (!cell) {
+        res.status(404).json({ error: 'Cell not found or not assigned to you' });
+        return;
+      }
+
+      const body = req.body as {
+        dimensionX?: number | string | null;
+        dimensionY?: number | string | null;
+        highestMetalUsed?: string;
+        virtualConnection?: string | null;
+        overallSubstrateContact?: string | null;
+        waivableDrcError?: string | null;
+      };
+
+      const payload: Record<string, unknown> = {};
+
+      if (body.dimensionX !== undefined) {
+        const raw = body.dimensionX;
+        if (raw === null || raw === '') {
+          payload.dimensionX = null;
+        } else {
+          const parsed = Number(raw);
+          if (!Number.isFinite(parsed)) {
+            res.status(400).json({ error: 'Dimension X must be a number' });
+            return;
+          }
+          payload.dimensionX = parsed;
+        }
+      }
+
+      if (body.dimensionY !== undefined) {
+        const raw = body.dimensionY;
+        if (raw === null || raw === '') {
+          payload.dimensionY = null;
+        } else {
+          const parsed = Number(raw);
+          if (!Number.isFinite(parsed)) {
+            res.status(400).json({ error: 'Dimension Y must be a number' });
+            return;
+          }
+          payload.dimensionY = parsed;
+        }
+      }
+
+      if (body.highestMetalUsed !== undefined) {
+        payload.highestMetalUsed = String(body.highestMetalUsed ?? '');
+      }
+
+      for (const key of ['virtualConnection', 'overallSubstrateContact', 'waivableDrcError'] as const) {
+        if (body[key] !== undefined) {
+          const value = body[key];
+          if (value === null || value === '') {
+            payload[key] = null;
+          } else if (value !== 'yes' && value !== 'no') {
+            res.status(400).json({ error: `${key} must be yes or no` });
+            return;
+          } else {
+            payload[key] = value;
+          }
+        }
+      }
+
+      const { updateCellChecklistExtension } = await import('../services/projectTypeChecklistService');
+      const extension = await updateCellChecklistExtension(projectId, cellId, payload, {
+        requireTypeChecklistComplete: false,
+        requireMappingChecklistComplete: true,
+      });
+      if (!extension) {
+        res.status(404).json({ error: 'Cell not found in this project' });
+        return;
+      }
+
+      const detail = await buildCellChecklistDetail(projectId, cellId);
+      res.json(detail);
+    } catch (err: any) {
+      res.status(400).json({ error: err?.message || 'Failed to save final cell details' });
+    }
+  },
+
   updateMyCellChecklistItem: async (req: Request, res: Response): Promise<void> => {
     try {
       const projectId = paramId(req.params.projectId);

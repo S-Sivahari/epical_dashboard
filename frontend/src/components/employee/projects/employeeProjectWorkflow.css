@@ -22,13 +22,20 @@
 }
 
 .emp-wf-cell-page {
+  display: flex;
+  flex-direction: column;
   padding: 0;
   overflow: visible;
 }
 
 .emp-wf-cell-page .emp-wf-workspace-head {
   margin-bottom: 0;
-  padding: 0.85rem 1rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.emp-wf-cell-page .emp-wf-workspace-title {
+  font-size: 1.15rem;
+  line-height: 1.2;
 }
 
 .emp-wf-back-link {
@@ -77,23 +84,57 @@
 
 .emp-wf-cell-page-body {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.45rem;
+  min-height: 0;
   padding: 0 0.75rem 0.75rem;
 }
 
-.emp-wf-cell-main-row {
+.emp-wf-cell-page-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(14rem, 20rem);
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.65rem;
+  align-items: center;
+}
+
+.emp-wf-cell-main-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  flex: 1;
+  min-height: min(28rem, calc(100vh - 13rem));
+}
+
+.emp-wf-cell-main-row .emp-wf-cell-workflow-panel--compact {
+  flex: 0 0 auto;
+}
+
+.emp-wf-cell-main-row .emp-wf-cell-workflow-panel--compact .emp-project-workflow--compact,
+.emp-wf-cell-main-row .emp-wf-cell-workflow-panel--compact .emp-wf-board-wrap {
+  flex: 0 0 auto;
+}
+
+.emp-wf-cell-main-row .emp-wf-cell-workflow-panel--compact .emp-wf-board--pipeline {
+  height: auto;
   align-items: start;
 }
 
-.emp-wf-cell-workflow-col {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-  min-width: 0;
+.emp-wf-cell-main-row .emp-project-workflow--compact .emp-wf-board--pipeline .emp-wf-column {
+  height: auto;
+}
+
+.emp-wf-cell-checklist-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(15rem, 1fr);
+  gap: 0.65rem;
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.emp-wf-cell-checklist-split:not(:has(.emp-wf-final-cell-details)) {
+  grid-template-columns: 1fr;
 }
 
 .emp-wf-cell-details {
@@ -107,6 +148,11 @@
   background: linear-gradient(180deg, #fafbfd 0%, #f1f5f9 100%);
 }
 
+.emp-wf-cell-page-toolbar .emp-wf-cell-details--summary {
+  margin: 0;
+  padding: 0.45rem 0.65rem;
+}
+
 .emp-wf-cell-details-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -115,8 +161,8 @@
 }
 
 .emp-wf-cell-details-grid--summary {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.35rem 0.65rem;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.35rem 0.75rem;
 }
 
 .emp-wf-cell-details-item {
@@ -178,8 +224,29 @@
 }
 
 .emp-wf-cell-workflow-panel--compact {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
   min-height: 0;
   padding: 0.45rem 0.5rem 0.5rem;
+}
+
+.emp-wf-cell-workflow-panel--compact .emp-project-workflow--compact {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-height: 0;
+}
+
+.emp-wf-cell-workflow-panel--compact .emp-wf-board-wrap {
+  flex: 1;
+  min-height: 0;
+}
+
+.emp-wf-cell-workflow-panel--compact .emp-wf-board--pipeline {
+  height: 100%;
+  align-items: stretch;
 }
 
 .emp-wf-project-picker {
@@ -1251,6 +1318,12 @@
   margin-bottom: 0.85rem;
 }
 
+.emp-wf-view-tabs--cell {
+  flex-shrink: 0;
+  justify-content: flex-end;
+  margin-bottom: 0;
+}
+
 .emp-wf-view-tab {
   border: 1px solid #e2e8f0;
   border-radius: 999px;
@@ -1399,20 +1472,111 @@
   overflow: hidden;
 }
 
-.emp-wf-cell-main-row .emp-wf-checklist-sidebar {
-  max-height: min(28rem, 62vh);
+.emp-wf-checklist-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid #e8edf3;
+  border-radius: 0.65rem;
+  background: #fafbfd;
+  overflow: hidden;
 }
 
-.emp-wf-cell-main-row .emp-wf-checklist-sidebar-head {
-  padding: 0.5rem 0.65rem;
+.emp-wf-checklist-panel-head {
+  flex-shrink: 0;
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid #e8edf3;
+  background: #fff;
 }
 
-.emp-wf-cell-main-row .emp-wf-checklist-sidebar-title {
-  font-size: 0.8rem;
+.emp-wf-checklist-panel-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
-.emp-wf-cell-main-row .emp-wf-checklist-sidebar-body {
-  padding: 0.5rem;
+.emp-wf-checklist-panel-title {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.emp-wf-checklist-panel-subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.emp-wf-checklist-panel-progress {
+  margin: 0.25rem 0 0;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.emp-wf-checklist-panel-readonly,
+.emp-wf-checklist-panel-required {
+  margin: 0.35rem 0 0;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: #b45309;
+}
+
+.emp-wf-checklist-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0.55rem 0.65rem 0.75rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.emp-wf-checklist-panel-empty {
+  margin: 0;
+  padding: 1rem 0.5rem;
+  text-align: center;
+  font-size: 0.76rem;
+  color: #94a3b8;
+}
+
+.emp-wf-cell-checklist-split .emp-wf-final-cell-details {
+  display: flex;
+  flex-direction: column;
+  margin-top: 0;
+  border-top: none;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.emp-wf-cell-checklist-split .emp-wf-final-cell-details-form {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.emp-wf-cell-main-row .emp-project-workflow--compact .emp-wf-board--pipeline .emp-wf-column {
+  min-height: 0;
+  max-height: none;
+  height: auto;
+}
+
+.emp-wf-cell-main-row .emp-wf-board--pipeline .emp-wf-column:not(.emp-wf-column--active-stage) .emp-wf-column-body {
+  flex: 0 0 auto;
+}
+
+.emp-wf-cell-main-row .emp-wf-board--pipeline .emp-wf-column--active-stage .emp-wf-column-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.emp-wf-cell-main-row .emp-wf-empty--pipeline {
+  min-height: 0;
+  margin: 0;
 }
 
 .emp-wf-checklist-sidebar-head {
@@ -1460,8 +1624,10 @@
 .emp-wf-checklist-sidebar-body {
   flex: 1;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
-  padding: 0.75rem;
+  padding: 0.75rem 0.75rem 1rem;
+  -webkit-overflow-scrolling: touch;
 }
 
 .emp-wf-checklist-sidebar-empty {
@@ -1583,6 +1749,161 @@
   justify-content: flex-end;
   gap: 0.45rem;
   margin-top: 0.45rem;
+}
+
+.emp-wf-final-cell-details {
+  flex-shrink: 0;
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-top: 1px solid #e8edf3;
+  border-radius: 0.5rem;
+  background: #f0fdf4;
+}
+
+.emp-wf-final-cell-details.is-locked {
+  background: #f8fafc;
+}
+
+.emp-wf-final-cell-details-head {
+  margin-bottom: 0.45rem;
+}
+
+.emp-wf-final-cell-details-title {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #0f172a;
+}
+
+.emp-wf-final-cell-details-subtitle {
+  margin: 0.2rem 0 0;
+  font-size: 0.62rem;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.emp-wf-final-cell-details-lock-note {
+  margin: 0 0 0.45rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 0.35rem;
+  border: 1px dashed rgba(148, 163, 184, 0.45);
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.emp-wf-final-cell-details-lock-note.is-warning {
+  color: #b45309;
+  border-color: rgba(217, 119, 6, 0.35);
+  background: #fffbeb;
+}
+
+.emp-wf-final-cell-details-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.emp-wf-final-cell-row {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.emp-wf-final-cell-row--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.emp-wf-final-cell-row--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.emp-wf-final-cell-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.emp-wf-final-cell-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.emp-wf-final-cell-hint {
+  font-size: 0.58rem;
+  color: #94a3b8;
+}
+
+.emp-wf-final-cell-input {
+  width: 100%;
+  border-radius: 0.35rem;
+  border: 1px solid #e2e8f0;
+  padding: 0.35rem 0.45rem;
+  font-size: 0.68rem;
+  background: #fff;
+}
+
+.emp-wf-final-cell-input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+}
+
+.emp-wf-final-cell-area {
+  display: flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 0.35rem;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.emp-wf-final-cell-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.3rem;
+}
+
+.emp-wf-final-cell-toggle-btn {
+  border-radius: 0.35rem;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  padding: 0.35rem 0.4rem;
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: #475569;
+}
+
+.emp-wf-final-cell-toggle-btn.is-selected.is-yes {
+  border-color: #86efac;
+  background: #dcfce7;
+  color: #166534;
+}
+
+.emp-wf-final-cell-toggle-btn.is-selected.is-no {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.emp-wf-final-cell-toggle-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .emp-wf-final-cell-row--3,
+  .emp-wf-final-cell-row--2 {
+    grid-template-columns: 1fr;
+  }
 }
 
 .emp-wf-reviews-panel {
@@ -1806,7 +2127,8 @@
 }
 
 .emp-wf-breadcrumb--cell {
-  padding: 0.85rem 1rem 0;
+  margin-bottom: 0;
+  padding: 0.5rem 0.75rem 0;
 }
 
 .emp-wf-projects-shell {
@@ -1917,7 +2239,7 @@
 .emp-wf-requested-reviews-list {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  gap: 0.45rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1926,11 +2248,11 @@
 .emp-wf-requested-review-card {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.3rem;
   width: 100%;
-  padding: 0.85rem 0.95rem;
+  padding: 0.55rem 0.65rem;
   border: 1px solid #e2e8f0;
-  border-radius: 0.75rem;
+  border-radius: 0.55rem;
   background: #fff;
   text-align: left;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -1938,27 +2260,68 @@
 
 .emp-wf-requested-review-card:hover {
   border-color: #93c5fd;
-  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.1);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
 }
 
 .emp-wf-requested-review-card-top {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
 .emp-wf-requested-review-cell {
   margin: 0;
-  font-size: 0.88rem;
+  font-size: 0.78rem;
   font-weight: 800;
   color: #0f172a;
+  line-height: 1.2;
 }
 
 .emp-wf-requested-review-project {
-  margin: 0.15rem 0 0;
-  font-size: 0.72rem;
+  margin: 0.08rem 0 0;
+  font-size: 0.66rem;
   color: #64748b;
+  line-height: 1.2;
+}
+
+.emp-wf-requested-reviews-list .emp-wf-review-card-top {
+  margin-bottom: 0;
+  gap: 0.35rem;
+}
+
+.emp-wf-requested-reviews-list .emp-wf-review-stage {
+  margin: 0;
+  font-size: 0.64rem;
+}
+
+.emp-wf-requested-reviews-list .emp-wf-review-message {
+  margin: 0;
+  padding: 0.28rem 0.4rem;
+  border-radius: 0.35rem;
+  font-size: 0.66rem;
+  line-height: 1.35;
+}
+
+.emp-wf-requested-reviews-list .emp-wf-review-meta {
+  gap: 0.25rem;
+  font-size: 0.6rem;
+}
+
+.emp-wf-requested-reviews-list .emp-wf-review-awaiting,
+.emp-wf-requested-reviews-list .emp-wf-review-return {
+  margin: 0.12rem 0 0;
+  font-size: 0.62rem;
+}
+
+.emp-wf-requested-reviews-list .emp-wf-review-status {
+  padding: 0.08rem 0.35rem;
+  font-size: 0.58rem;
+}
+
+.emp-wf-requested-reviews-list .emp-wf-review-point {
+  padding: 0.08rem 0.35rem;
+  font-size: 0.58rem;
 }
 
 .emp-wf-hub-surface {
@@ -2762,8 +3125,8 @@
 
 .emp-wf-workspace-head--cell {
   margin: 0;
-  padding: 0.65rem 1rem 0.85rem;
-  border-bottom: none;
+  padding: 0.45rem 0.75rem 0.5rem;
+  border-bottom: 1px solid #e8edf3;
 }
 
 .emp-wf-cell-eyebrow {
@@ -2788,6 +3151,12 @@
   font-size: 0.92rem;
 }
 
+@media (max-width: 1100px) {
+  .emp-wf-cell-details-grid--summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 900px) {
   .emp-wf-projects-shell {
     grid-template-columns: 1fr;
@@ -2807,11 +3176,23 @@
   }
 
   .emp-wf-cell-main-row {
+    min-height: 0;
+  }
+
+  .emp-wf-cell-checklist-split {
     grid-template-columns: 1fr;
   }
 
+  .emp-wf-cell-page-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .emp-wf-view-tabs--cell {
+    justify-content: flex-start;
+  }
+
   .emp-wf-cell-details-grid--summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .emp-wf-cell-workspace {

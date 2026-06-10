@@ -23,7 +23,7 @@ export function ProjectWorkflowBoard({
   onResolveReview,
   reviewSaving = false,
   compact = false,
-  checklistFilled = true,
+  checklistReady = true,
 }) {
   const columns = getKanbanColumnsForView(viewTab)
 
@@ -149,7 +149,7 @@ export function ProjectWorkflowBoard({
                         onResolveReview={onResolveReview}
                         reviewSaving={reviewSaving}
                         hideStageRow={isSingleCell}
-                        checklistFilled={checklistFilled}
+                        checklistReady={checklistReady}
                       />
                     ))
                   )}

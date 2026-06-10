@@ -3,6 +3,7 @@ import { ROUTES } from '@constants/routes'
 import { cn } from '@/utils/cn'
 import type { ProjectCell } from '@/types/projectWorkspace'
 import {
+  CELL_TYPE_LABELS,
   WORKFLOW_STATUS_LABELS,
   normalizeCellWorkflow,
   workflowProgressPercent,
@@ -50,7 +51,7 @@ export function ProjectWorkflowOverview({ projectId, cells, libraryNameById }: P
                   </Link>
                 </td>
                 <td>{libraryNameById.get(cell.libraryId) || '—'}</td>
-                <td>{cell.cellType}</td>
+                <td>{CELL_TYPE_LABELS[cell.cellType] ?? cell.cellType}</td>
                 <td>
                   <div className="admin-projects-workflow-overview-progress">
                     <div className="admin-projects-workflow-compact-bar" aria-hidden>

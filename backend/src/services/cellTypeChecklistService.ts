@@ -176,6 +176,9 @@ export async function assertCellChecklistFilled(projectId: string, cellId: strin
   if (!filled) {
     throw new Error('Complete the checklist before marking this stage as completed');
   }
+
+  const { assertFinalCellDetailsFilled } = await import('./projectTypeChecklistService');
+  await assertFinalCellDetailsFilled(projectId, cellId);
 }
 
 export async function buildCellChecklistDetail(projectId: string, cellId: string) {
@@ -200,12 +203,19 @@ export async function buildCellChecklistDetail(projectId: string, cellId: string
   else if (entries.some((entry) => entry.response)) cellStatus = 'Pending';
   else if (entries.length > 0) cellStatus = 'Pending';
 
+  const { normalizeChecklistExtension, isChecklistExtensionComplete } = await import(
+    './projectTypeChecklistService'
+  );
+  const extension = normalizeChecklistExtension(cell?.checklistExtension);
+
   return {
     checklistId: checklist ? String(checklist._id) : null,
     checklistName: checklist?.name ?? '',
     cellType: cell?.cellType ?? '',
     cellStatus,
     isFilled,
+    extension,
+    isExtensionFilled: entries.length === 0 ? true : isChecklistExtensionComplete(extension),
     items: entries.map((entry) => ({
       id: entry._id.toString(),
       checklistItemId: entry.checklistItemId.toString(),

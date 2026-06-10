@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, CheckCircle2, ClipboardList, GitBranch, Layers, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, GitBranch, Layers, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
@@ -26,12 +26,14 @@ import type { Employee } from '@/types'
 import { CELL_STATUS_FILTER_OPTIONS, CELL_TYPE_LABELS, STATUS_LABELS, WORKFLOW_STATUS_LABELS, cellDisplayStatus, normalizeViewStatus, workflowStageStatusClass } from './projectWorkspaceUi'
 
 const INLINE_FIELD_CLASS = 'admin-projects-cell-details-inline-field'
+import { fetchCellTypeChecklistResponses } from '@/services/projectTypeChecklistService'
+import { canCompleteCellWithChecklist } from '@/utils/checklistExtensionUtils'
 import { CellWorkflowPanel } from './CellWorkflowPanel'
 import { CellTypeChecklistTab } from './CellTypeChecklistTab'
 import './adminProjects.css'
 
 type ViewTab = 'layout' | 'symbol' | 'schematic'
-type CellTab = 'details' | 'dependencies' | 'checklist'
+type CellTab = 'details' | 'dependencies'
 
 const VIEW_TAB_LABELS: Record<ViewTab, string> = {
   layout: 'Layout',
@@ -68,9 +70,8 @@ function CellViewStatusButtons({ status, disabled, onChange }: CellViewStatusBut
 }
 
 const TAB_ITEMS: { id: CellTab; label: string; icon: typeof Layers }[] = [
-  { id: 'details', label: 'Details', icon: Layers },
+  { id: 'details', label: 'Workflow', icon: Layers },
   { id: 'dependencies', label: 'Dependencies', icon: GitBranch },
-  { id: 'checklist', label: 'Checklist', icon: ClipboardList },
 ]
 
 export function ProjectCellPage() {
@@ -87,6 +88,7 @@ export function ProjectCellPage() {
   const [selectedDepIds, setSelectedDepIds] = useState<string[]>([])
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [completionGate, setCompletionGate] = useState({ ready: true, message: '' })
 
   const reload = useCallback(async () => {
     if (!projectId || !cellId) return
@@ -113,6 +115,21 @@ export function ProjectCellPage() {
   useEffect(() => {
     void reload()
   }, [reload])
+
+  useEffect(() => {
+    if (!projectId || !cellId) return
+    fetchCellTypeChecklistResponses(projectId, cellId)
+      .then((detail) => {
+        setCompletionGate(
+          canCompleteCellWithChecklist({
+            checklistItems: detail.items,
+            mappingFilled: true,
+            extension: detail.extension,
+          }),
+        )
+      })
+      .catch(() => setCompletionGate({ ready: true, message: '' }))
+  }, [projectId, cellId])
 
   const cell = useMemo(
     () => summary?.cells.find((c) => c.id === cellId) ?? null,
@@ -175,12 +192,17 @@ export function ProjectCellPage() {
 
   const handleComplete = async () => {
     if (!projectId || !cellId) return
+    if (!completionGate.ready) {
+      toast.error(completionGate.message || 'Complete the checklist and final cell details first')
+      return
+    }
     try {
       await completeCell(projectId, cellId)
       toast.success('Cell completed')
       await reload()
-    } catch {
-      toast.error('Failed to complete cell')
+    } catch (err: unknown) {
+      const message = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+      toast.error(message || 'Failed to complete cell')
     }
   }
 
@@ -256,10 +278,8 @@ export function ProjectCellPage() {
                 <ArrowLeft className="h-4 w-4" aria-hidden />
               </Link>
               <div className="admin-projects-cell-head-identity">
+                <p className="admin-projects-cell-eyebrow">Cell workflow</p>
                 <h1 className="admin-projects-head-title">{cell.name}</h1>
-                <p className="admin-projects-workspace-meta">
-                  {activeLibrary?.name || 'Library'} · {CELL_TYPE_LABELS[cell.cellType] ?? cell.cellType} · {cellDisplayStatus(cell)}
-                </p>
               </div>
               <div className="admin-projects-workspace-head-actions">
               <span className={cn(
@@ -275,6 +295,8 @@ export function ProjectCellPage() {
                 <Button
                   size="sm"
                   className="admin-projects-cell-header-complete-btn h-8"
+                  disabled={!completionGate.ready}
+                  title={completionGate.ready ? undefined : completionGate.message}
                   onClick={() => void handleComplete()}
                 >
                   <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
@@ -321,10 +343,11 @@ export function ProjectCellPage() {
             <div className="admin-projects-cell-page-panel">
               {activeTab === 'details' && (
                 <div className="admin-projects-cell-details-layout">
-                  <div className={cn(
-                    'admin-projects-cell-details-summary-card',
-                    isEditing && 'is-editing',
-                  )}>
+                  <div className="admin-projects-cell-page-toolbar">
+                    <div className={cn(
+                      'admin-projects-cell-details-summary-card',
+                      isEditing && 'is-editing',
+                    )}>
                     <dl className="admin-projects-cell-details-grid admin-projects-cell-details-grid--summary">
                       <div className="admin-projects-cell-details-item">
                         <dt>Cell name</dt>
@@ -489,22 +512,9 @@ export function ProjectCellPage() {
                         Edit
                       </Button>
                     )}
-                  </div>
-
-                  {isEditing && (
-                    <div className="admin-projects-cell-details-summary-actions">
-                      <Button variant="secondary" onClick={cancelEdit} disabled={saving}>
-                        Cancel
-                      </Button>
-                      <Button onClick={() => void saveCell()} disabled={saving}>
-                        {saving ? 'Saving…' : 'Save'}
-                      </Button>
                     </div>
-                  )}
 
-                  <section className="admin-projects-cell-details-views-panel" aria-label="Cell views">
-                    <div className="admin-projects-cell-details-views-panel-head">
-                      <p className="admin-projects-cell-details-main-label">Views</p>
+                    <div className="admin-projects-view-tabs--cell">
                       <div className="admin-projects-pill-rail">
                         {(['layout', 'symbol', 'schematic'] as const).map((v) => (
                           <button
@@ -518,7 +528,24 @@ export function ProjectCellPage() {
                         ))}
                       </div>
                     </div>
-                    <div className="admin-projects-cell-details-views-panel-body">
+                  </div>
+
+                  {isEditing && (
+                    <div className="admin-projects-cell-details-summary-actions">
+                      <Button variant="secondary" onClick={cancelEdit} disabled={saving}>
+                        Cancel
+                      </Button>
+                      <Button onClick={() => void saveCell()} disabled={saving}>
+                        {saving ? 'Saving…' : 'Save'}
+                      </Button>
+                    </div>
+                  )}
+
+                  <div className="admin-projects-cell-main-row">
+                    <section
+                      className="admin-projects-cell-details-views-panel admin-projects-cell-details-views-panel--compact"
+                      aria-label="Cell views"
+                    >
                       <div className="admin-projects-cell-details-view-box">
                         {viewTab === 'layout' ? (
                           <CellWorkflowPanel
@@ -539,17 +566,16 @@ export function ProjectCellPage() {
                           />
                         )}
                       </div>
-                    </div>
-                  </section>
-                </div>
-              )}
+                    </section>
 
-              {activeTab === 'checklist' && (
-                <div className="admin-projects-cell-checklist-tab-panel">
-                  <CellTypeChecklistTab
-                    projectId={projectId}
-                    cellId={cellId}
-                  />
+                    <div className="admin-projects-cell-checklist-tab-panel">
+                      <CellTypeChecklistTab
+                        projectId={projectId}
+                        cellId={cellId}
+                        onCompletionGateChange={setCompletionGate}
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
 
