@@ -235,10 +235,14 @@
 .emp-dep-graph-node-foot {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 0.5rem;
   margin-top: auto;
   padding: 0.375rem 0.75rem 0.625rem;
+}
+
+.emp-dep-graph-node-foot .emp-dep-graph-node-progress-track {
+  max-width: 100%;
 }
 
 .emp-dep-graph-node-critical,

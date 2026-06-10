@@ -34,7 +34,14 @@ import { DependencyGraphView } from './DependencyGraphView'
 import { CellWorkflowPanel } from './CellWorkflowPanel'
 import { ProjectWorkflowOverview } from './ProjectWorkflowOverview'
 import { ProjectTypeChecklistPanel } from './ProjectTypeChecklistPanel'
-import { CELL_STATUS_FILTER_OPTIONS, CELL_TYPE_LABELS, STATUS_LABELS, cellDisplayStatus } from './projectWorkspaceUi'
+import {
+  CELL_STATUS_FILTER_OPTIONS,
+  CELL_TYPE_LABELS,
+  STATUS_LABELS,
+  WORKFLOW_STATUS_LABELS,
+  cellDisplayStatus,
+  normalizeCellWorkflow,
+} from './projectWorkspaceUi'
 
 type DeleteTarget = { type: 'library' | 'cell'; id: string; name: string }
 type WorkspaceSection = 'home' | 'workflow' | 'graph' | 'activity' | 'checklist'
@@ -42,6 +49,9 @@ type StatFilter = 'complete' | 'archive' | 'unassigned' | null
 
 const FILTER_SELECT_CLASS =
   'admin-projects-filter-select h-10 w-full min-w-[9.5rem] cursor-pointer appearance-none pl-3 pr-9 text-sm font-medium'
+
+const ACTIVITY_FILTER_SELECT_CLASS =
+  'admin-projects-filter-select admin-projects-activity-filter-control w-full cursor-pointer appearance-none pl-2.5 pr-8 text-xs font-medium'
 
 const SECTION_ITEMS: { id: WorkspaceSection; label: string; icon: typeof LayoutGrid }[] = [
   { id: 'home', label: 'Home', icon: LayoutGrid },
@@ -90,6 +100,10 @@ export function ProjectWorkspace() {
   const [showAllCells, setShowAllCells] = useState(false)
   const [activityFilterSearch, setActivityFilterSearch] = useState('')
   const [activityLibraryFilter, setActivityLibraryFilter] = useState('all')
+  const [activityCellFilter, setActivityCellFilter] = useState('all')
+  const [workflowFilterSearch, setWorkflowFilterSearch] = useState('')
+  const [workflowLibraryFilter, setWorkflowLibraryFilter] = useState('all')
+  const [workflowCellFilter, setWorkflowCellFilter] = useState('all')
   const reload = useCallback(async () => {
     if (!projectId) return
     setLoading(true)
@@ -116,6 +130,35 @@ export function ProjectWorkspace() {
   useEffect(() => {
     void reload()
   }, [reload])
+
+  const refreshGraphData = useCallback(async () => {
+    if (!projectId) return
+    try {
+      const [ws, dg] = await Promise.all([
+        fetchWorkspaceSummary(projectId),
+        fetchDependencyGraph(projectId),
+      ])
+      setSummary(ws)
+      setGraph(dg)
+    } catch {
+      toast.error('Failed to refresh dependency graph')
+    }
+  }, [projectId])
+
+  useEffect(() => {
+    if (workspaceSection !== 'graph' || !projectId) return
+    void refreshGraphData()
+  }, [workspaceSection, projectId, refreshGraphData])
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && workspaceSection === 'graph') {
+        void refreshGraphData()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [workspaceSection, refreshGraphData])
 
   const displayedCells = useMemo(() => {
     if (!summary) return []
@@ -183,6 +226,14 @@ export function ProjectWorkspace() {
 
   const allCells = summary?.cells ?? []
 
+  const cellsById = useMemo(() => {
+    const map: Record<string, ProjectCell> = {}
+    for (const cell of allCells) {
+      map[cell.id] = cell
+    }
+    return map
+  }, [allCells])
+
   const activityEntries = useMemo(() => {
     return allCells
       .flatMap((cell) =>
@@ -197,10 +248,50 @@ export function ProjectWorkspace() {
       .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
   }, [allCells, libraryNameById])
 
+  const activityFilterCellOptions = useMemo(() => {
+    let cells = allCells
+    if (activityLibraryFilter !== 'all') {
+      cells = cells.filter((cell) => cell.libraryId === activityLibraryFilter)
+    }
+    return [...cells].sort((a, b) => a.name.localeCompare(b.name))
+  }, [allCells, activityLibraryFilter])
+
+  const workflowFilterCellOptions = useMemo(() => {
+    let cells = allCells
+    if (workflowLibraryFilter !== 'all') {
+      cells = cells.filter((cell) => cell.libraryId === workflowLibraryFilter)
+    }
+    return [...cells].sort((a, b) => a.name.localeCompare(b.name))
+  }, [allCells, workflowLibraryFilter])
+
+  const filteredWorkflowCells = useMemo(() => {
+    const query = workflowFilterSearch.trim().toLowerCase()
+    return allCells.filter((cell) => {
+      if (workflowLibraryFilter !== 'all' && cell.libraryId !== workflowLibraryFilter) {
+        return false
+      }
+      if (workflowCellFilter !== 'all' && cell.id !== workflowCellFilter) {
+        return false
+      }
+      if (!query) return true
+      const libraryName = libraryNameById.get(cell.libraryId) || ''
+      const workflow = normalizeCellWorkflow(cell.workflow)
+      const stageStatuses = workflow.map((stage) => WORKFLOW_STATUS_LABELS[stage.status]).join(' ')
+      const haystack = [cell.name, libraryName, cell.cellType, stageStatuses]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return haystack.includes(query)
+    })
+  }, [allCells, workflowFilterSearch, workflowLibraryFilter, workflowCellFilter, libraryNameById])
+
   const filteredActivityEntries = useMemo(() => {
     const query = activityFilterSearch.trim().toLowerCase()
     return activityEntries.filter((entry) => {
       if (activityLibraryFilter !== 'all' && entry.libraryId !== activityLibraryFilter) {
+        return false
+      }
+      if (activityCellFilter !== 'all' && entry.cellId !== activityCellFilter) {
         return false
       }
       if (!query) return true
@@ -216,7 +307,7 @@ export function ProjectWorkspace() {
         .toLowerCase()
       return haystack.includes(query)
     })
-  }, [activityEntries, activityFilterSearch, activityLibraryFilter])
+  }, [activityEntries, activityFilterSearch, activityLibraryFilter, activityCellFilter])
 
   const openCreateCell = () => {
     if (!summary || summary.libraries.length === 0) {
@@ -599,19 +690,106 @@ export function ProjectWorkspace() {
 
             {workspaceSection === 'workflow' && (
               <div className="admin-projects-section-panel admin-projects-section-panel--workflow">
-                <h2 className="admin-projects-graph-title">Cell workflow overview</h2>
-                <ProjectWorkflowOverview
-                  projectId={projectId}
-                  cells={allCells}
-                  libraryNameById={libraryNameById}
-                />
+                <div className="admin-projects-workflow-panel">
+                  <div className="admin-projects-activity-head">
+                    <h2 className="admin-projects-activity-head-title">Cell workflow overview</h2>
+                    <div className="admin-projects-activity-head-filters">
+                      <div className="admin-projects-filter-search-wrap admin-projects-activity-head-search">
+                        <Search
+                          className="admin-projects-filter-search-icon admin-projects-activity-filter-icon"
+                          strokeWidth={2}
+                          aria-hidden
+                        />
+                        <input
+                          type="text"
+                          value={workflowFilterSearch}
+                          onChange={(e) => setWorkflowFilterSearch(e.target.value)}
+                          placeholder="Search workflow..."
+                          className="admin-projects-filter-search-input admin-projects-activity-filter-control"
+                          aria-label="Search workflow overview"
+                        />
+                        {workflowFilterSearch ? (
+                          <button
+                            type="button"
+                            className="admin-projects-filter-search-clear"
+                            onClick={() => setWorkflowFilterSearch('')}
+                            aria-label="Clear workflow search"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        ) : null}
+                      </div>
+                      <div className="admin-projects-filter-select-wrap admin-projects-activity-head-select">
+                        <select
+                          value={workflowCellFilter}
+                          onChange={(e) => setWorkflowCellFilter(e.target.value)}
+                          className={ACTIVITY_FILTER_SELECT_CLASS}
+                          aria-label="Filter workflow by cell"
+                        >
+                          <option value="all">All cells</option>
+                          {workflowFilterCellOptions.map((cell) => (
+                            <option key={cell.id} value={cell.id}>{cell.name}</option>
+                          ))}
+                        </select>
+                        <ChevronDown
+                          className="admin-projects-filter-select-icon admin-projects-activity-filter-icon"
+                          aria-hidden
+                        />
+                      </div>
+                      <div className="admin-projects-filter-select-wrap admin-projects-activity-head-select">
+                        <select
+                          value={workflowLibraryFilter}
+                          onChange={(e) => {
+                            const nextLibrary = e.target.value
+                            setWorkflowLibraryFilter(nextLibrary)
+                            if (workflowCellFilter !== 'all') {
+                              const selectedCell = allCells.find((cell) => cell.id === workflowCellFilter)
+                              if (
+                                nextLibrary !== 'all' &&
+                                selectedCell?.libraryId !== nextLibrary
+                              ) {
+                                setWorkflowCellFilter('all')
+                              }
+                            }
+                          }}
+                          className={ACTIVITY_FILTER_SELECT_CLASS}
+                          aria-label="Filter workflow by library"
+                        >
+                          <option value="all">All libraries</option>
+                          {libraries.map((lib) => (
+                            <option key={lib.id} value={lib.id}>{lib.name}</option>
+                          ))}
+                        </select>
+                        <ChevronDown
+                          className="admin-projects-filter-select-icon admin-projects-activity-filter-icon"
+                          aria-hidden
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <ProjectWorkflowOverview
+                    projectId={projectId}
+                    cells={filteredWorkflowCells}
+                    totalCellCount={allCells.length}
+                    libraryNameById={libraryNameById}
+                  />
+                </div>
               </div>
             )}
 
             {workspaceSection === 'graph' && (
               <div className="admin-projects-section-panel admin-projects-section-panel--graph">
-                <h2 className="admin-projects-graph-title">Dependency graph</h2>
-                {graph ? <DependencyGraphView graph={graph} /> : null}
+                <div className="admin-projects-graph-section">
+                  <h2 className="admin-projects-graph-title">Dependency graph</h2>
+                  <p className="admin-projects-graph-hint">
+                    Horizontal workflow map of cell dependencies.
+                  </p>
+                  {graph ? (
+                    <DependencyGraphView graph={graph} cellsById={cellsById} projectId={projectId} />
+                  ) : (
+                    <p className="admin-projects-graph-loading">Loading dependency graph…</p>
+                  )}
+                </div>
               </div>
             )}
 
@@ -621,28 +799,18 @@ export function ProjectWorkspace() {
                   <div className="admin-projects-activity-head">
                     <h2 className="admin-projects-activity-head-title">Activity log</h2>
                     <div className="admin-projects-activity-head-filters">
-                      <div className="admin-projects-filter-select-wrap">
-                        <select
-                          value={activityLibraryFilter}
-                          onChange={(e) => setActivityLibraryFilter(e.target.value)}
-                          className={FILTER_SELECT_CLASS}
-                          aria-label="Filter activity by library"
-                        >
-                          <option value="all">All libraries</option>
-                          {libraries.map((lib) => (
-                            <option key={lib.id} value={lib.id}>{lib.name}</option>
-                          ))}
-                        </select>
-                        <ChevronDown className="admin-projects-filter-select-icon" aria-hidden />
-                      </div>
-                      <div className="admin-projects-filter-search-wrap">
-                        <Search className="admin-projects-filter-search-icon" strokeWidth={2} aria-hidden />
+                      <div className="admin-projects-filter-search-wrap admin-projects-activity-head-search">
+                        <Search
+                          className="admin-projects-filter-search-icon admin-projects-activity-filter-icon"
+                          strokeWidth={2}
+                          aria-hidden
+                        />
                         <input
                           type="text"
                           value={activityFilterSearch}
                           onChange={(e) => setActivityFilterSearch(e.target.value)}
                           placeholder="Search activity..."
-                          className="admin-projects-filter-search-input"
+                          className="admin-projects-filter-search-input admin-projects-activity-filter-control"
                           aria-label="Search activity log"
                         />
                         {activityFilterSearch ? (
@@ -655,6 +823,52 @@ export function ProjectWorkspace() {
                             <X className="h-3.5 w-3.5" />
                           </button>
                         ) : null}
+                      </div>
+                      <div className="admin-projects-filter-select-wrap admin-projects-activity-head-select">
+                        <select
+                          value={activityCellFilter}
+                          onChange={(e) => setActivityCellFilter(e.target.value)}
+                          className={ACTIVITY_FILTER_SELECT_CLASS}
+                          aria-label="Filter activity by cell"
+                        >
+                          <option value="all">All cells</option>
+                          {activityFilterCellOptions.map((cell) => (
+                            <option key={cell.id} value={cell.id}>{cell.name}</option>
+                          ))}
+                        </select>
+                        <ChevronDown
+                          className="admin-projects-filter-select-icon admin-projects-activity-filter-icon"
+                          aria-hidden
+                        />
+                      </div>
+                      <div className="admin-projects-filter-select-wrap admin-projects-activity-head-select">
+                        <select
+                          value={activityLibraryFilter}
+                          onChange={(e) => {
+                            const nextLibrary = e.target.value
+                            setActivityLibraryFilter(nextLibrary)
+                            if (activityCellFilter !== 'all') {
+                              const selectedCell = allCells.find((cell) => cell.id === activityCellFilter)
+                              if (
+                                nextLibrary !== 'all' &&
+                                selectedCell?.libraryId !== nextLibrary
+                              ) {
+                                setActivityCellFilter('all')
+                              }
+                            }
+                          }}
+                          className={ACTIVITY_FILTER_SELECT_CLASS}
+                          aria-label="Filter activity by library"
+                        >
+                          <option value="all">All libraries</option>
+                          {libraries.map((lib) => (
+                            <option key={lib.id} value={lib.id}>{lib.name}</option>
+                          ))}
+                        </select>
+                        <ChevronDown
+                          className="admin-projects-filter-select-icon admin-projects-activity-filter-icon"
+                          aria-hidden
+                        />
                       </div>
                     </div>
                   </div>

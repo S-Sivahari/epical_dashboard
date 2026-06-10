@@ -108,6 +108,21 @@ export function EmployeeProjectBoardPage({ routeProjectId = null }) {
     void loadWorkspace()
   }, [loadWorkspace])
 
+  useEffect(() => {
+    if (workspaceSection !== 'graph' || !selectedProjectId) return
+    void loadWorkspace()
+  }, [workspaceSection, selectedProjectId, loadWorkspace])
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && workspaceSection === 'graph' && selectedProjectId) {
+        void loadWorkspace()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [workspaceSection, selectedProjectId, loadWorkspace])
+
   const libraryCells = useMemo(() => {
     if (!workspace) return []
     if (!selectedLibraryId) return workspace.cells || []
@@ -377,7 +392,7 @@ export function EmployeeProjectBoardPage({ routeProjectId = null }) {
                 <div className="emp-wf-graph-panel-head">
                   <h2 className="emp-wf-graph-section-title">Dependency graph</h2>
                   <p className="emp-wf-graph-section-hint">
-                    Horizontal workflow map of cell dependencies. Orange dashed lines mark the critical path.
+                    Horizontal workflow map of cell dependencies.
                   </p>
                 </div>
                 {graph ? (

@@ -119,12 +119,17 @@ export function CellWorkflowPanel({
   const activeStageKey = useMemo(() => getActiveStageKey(workflow), [workflow])
 
   const canActionReview = (stageKey: CellWorkflowStageKey, status: WorkflowStageStatus) => {
-    if (status === 'pending_review') return true
+    if (status === 'pending_review' || status === 'approved') return true
     const drcFirst = workflow.find((s) => s.stageKey === 'drc_first')
     const lvs = workflow.find((s) => s.stageKey === 'lvs')
     if (stageKey === 'review_1' && status === 'not_started' && drcFirst?.status === 'completed') return true
     if (stageKey === 'review_2' && status === 'not_started' && lvs?.status === 'completed') return true
     return false
+  }
+
+  const reviewSelectValue = (status: WorkflowStageStatus): '' | 'approved' | 'rejected' => {
+    if (status === 'approved' || status === 'rejected') return status
+    return ''
   }
 
   const submitReviewAction = async (
@@ -148,8 +153,13 @@ export function CellWorkflowPanel({
     }
   }
 
-  const handleReviewSelect = (stageKey: CellWorkflowStageKey, value: string) => {
+  const handleReviewSelect = (
+    stageKey: CellWorkflowStageKey,
+    value: string,
+    currentStatus: WorkflowStageStatus,
+  ) => {
     if (value !== 'approved' && value !== 'rejected') return
+    if (value === currentStatus) return
 
     if (stageKey === 'review_2' && value === 'rejected') {
       setReview2RejectOpen(true)
@@ -251,21 +261,23 @@ export function CellWorkflowPanel({
                         <div className="admin-projects-workflow-review-controls">
                           <div className="admin-projects-workflow-stage-select-wrap">
                             <select
-                              key={`${stage.stageKey}-${review2RejectOpen ? 'open' : 'closed'}`}
+                              key={`${stage.stageKey}-${review2RejectOpen ? 'open' : 'closed'}-${stage.status}`}
                               className={cn(
                                 'admin-projects-workflow-stage-select',
                                 stageSelectClass(stage.status, { reviewActionable: true }),
                               )}
                               disabled={saving}
-                              defaultValue=""
+                              value={reviewSelectValue(stage.status)}
                               onChange={(e) => {
-                                handleReviewSelect(stage.stageKey, e.target.value)
+                                handleReviewSelect(stage.stageKey, e.target.value, stage.status)
                               }}
                               aria-label={`${stage.stageLabel} review action`}
                             >
-                              <option value="" disabled>
-                                Review
-                              </option>
+                              {stage.status !== 'approved' && stage.status !== 'rejected' ? (
+                                <option value="" disabled>
+                                  Review
+                                </option>
+                              ) : null}
                               {REVIEW_ACTION_OPTIONS.map((option) => (
                                 <option key={option.value} value={option.value}>
                                   {option.label}

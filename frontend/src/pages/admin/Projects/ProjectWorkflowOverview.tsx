@@ -14,12 +14,24 @@ import { CELL_WORKFLOW_STAGES } from '@/types/projectWorkspace'
 type ProjectWorkflowOverviewProps = {
   projectId: string
   cells: ProjectCell[]
+  totalCellCount?: number
   libraryNameById: Map<string, string>
 }
 
-export function ProjectWorkflowOverview({ projectId, cells, libraryNameById }: ProjectWorkflowOverviewProps) {
+export function ProjectWorkflowOverview({
+  projectId,
+  cells,
+  totalCellCount = 0,
+  libraryNameById,
+}: ProjectWorkflowOverviewProps) {
   if (cells.length === 0) {
-    return <p className="admin-projects-workflow-empty">No cells in this project yet.</p>
+    return (
+      <div className="admin-projects-workflow-overview-wrap">
+        <p className="admin-projects-workflow-empty">
+          {totalCellCount === 0 ? 'No cells in this project yet.' : 'No cells match your filters.'}
+        </p>
+      </div>
+    )
   }
 
   return (

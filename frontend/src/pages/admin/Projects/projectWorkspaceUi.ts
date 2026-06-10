@@ -17,13 +17,13 @@ export const CELL_TYPE_LABELS: Record<CellType, string> = {
 }
 
 export const STATUS_LABELS: Record<CellStatus, string> = {
-  ready: 'In Progress',
+  ready: 'Not Started',
   in_progress: 'In Progress',
   completed: 'Complete',
 }
 
-/** Status values shown in workspace filters (no Ready). */
-export const CELL_STATUS_FILTER_OPTIONS: CellStatus[] = ['in_progress', 'completed']
+/** Status values shown in workspace filters and editable status pickers. */
+export const CELL_STATUS_FILTER_OPTIONS: CellStatus[] = ['ready', 'in_progress', 'completed']
 
 export const WORKFLOW_STATUS_LABELS: Record<WorkflowStageStatus, string> = {
   not_started: 'Not Started',

@@ -8,7 +8,6 @@ import {
   applyReviewApproval,
   applyReviewRejection,
   applyWorkflowStageUpdate,
-  canCompleteCell,
   CELL_WORKFLOW_STAGES,
   currentWorkflowStageLabel,
   defaultCellWorkflow,
@@ -28,7 +27,10 @@ import {
   syncChecklistMappingsForCell,
   removeChecklistMappingsForCell,
 } from '../services/checklistService';
-import { assertCellChecklistFilled } from '../services/cellTypeChecklistService';
+import {
+  evaluateCellCompletionReadiness,
+  markCellTouched,
+} from '../services/cellCompletionService';
 import { sendReviewNotificationsFromCell } from '../services/cellReviewNotificationService';
 import { clearResponsesForCell, normalizeCellType } from '../services/projectTypeChecklistService';
 import { isAdminRole } from '../utils/generateToken';
@@ -423,6 +425,10 @@ export const projectWorkspaceController = {
         at: new Date(),
       });
 
+      if (cell.status === 'completed' || cell.status === 'ready') {
+        cell.status = 'in_progress';
+      }
+
       await cell.save();
 
       if (req.body.cellType !== undefined && cell.cellType !== previousCellType) {
@@ -494,15 +500,14 @@ export const projectWorkspaceController = {
         return;
       }
 
-      const workflow = normalizeCellWorkflow(cell.workflow);
-      if (!canCompleteCell(workflow)) {
+      const readiness = await evaluateCellCompletionReadiness(projectId, cellId);
+      if (!readiness?.canComplete) {
         res.status(400).json({
-          error: 'Cell cannot be completed until all workflow stages are done and both reviews are approved',
+          error: 'Cell cannot be completed until all required sections are finished',
+          missing: readiness?.missing ?? [],
         });
         return;
       }
-
-      await assertCellChecklistFilled(projectId, cellId);
 
       const prev = cell.status;
       cell.status = 'completed';
@@ -532,6 +537,62 @@ export const projectWorkspaceController = {
         message.includes('final cell details') ||
         message.startsWith('Complete');
       res.status(isValidation ? 400 : 500).json({ error: message });
+    }
+  },
+
+  uncompleteCell: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const cellId = paramId(req.params.cellId);
+      const actor = actorFromReq(req);
+      if (actor.role !== 'Admin') {
+        res.status(403).json({ error: 'Only admins can uncomplete cells' });
+        return;
+      }
+
+      const cell = await ProjectCellModel.findOne({ _id: cellId, projectId });
+      if (!cell) {
+        res.status(404).json({ error: 'Cell not found' });
+        return;
+      }
+
+      if (cell.status !== 'completed') {
+        res.status(400).json({ error: 'Cell is not completed' });
+        return;
+      }
+
+      cell.status = 'in_progress';
+      cell.activityLog.push({
+        action: 'uncompleted',
+        detail: `Marked incomplete by ${actor.userName}`,
+        userId: actor.userId,
+        userName: actor.userName,
+        at: new Date(),
+      });
+      await cell.save();
+
+      await refreshBlockedStatuses(new Types.ObjectId(projectId));
+      await syncProjectProgress(new Types.ObjectId(projectId));
+
+      const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
+      res.json(toCell(cell, meta));
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to uncomplete cell' });
+    }
+  },
+
+  getCellCompletionReadiness: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const cellId = paramId(req.params.cellId);
+      const readiness = await evaluateCellCompletionReadiness(projectId, cellId);
+      if (!readiness) {
+        res.status(404).json({ error: 'Cell not found' });
+        return;
+      }
+      res.json(readiness);
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to evaluate cell completion readiness' });
     }
   },
 
@@ -739,6 +800,10 @@ export const projectWorkspaceController = {
         at: new Date(),
       });
 
+      if (cell.status === 'completed' || cell.status === 'ready') {
+        cell.status = 'in_progress';
+      }
+
       await Promise.all([cell.save(), review.save()]);
 
       void sendReviewNotificationsFromCell({
@@ -805,30 +870,11 @@ export const projectWorkspaceController = {
         at: new Date(),
       });
 
-      if (
-        isReviewStageKey(stageKey) &&
-        nextStatus === 'approved' &&
-        stageKey === 'review_2' &&
-        canCompleteCell(result.workflow) &&
-        cell.status !== 'completed'
-      ) {
-        await assertCellChecklistFilled(projectId, cellId);
-        cell.status = 'completed';
-        cell.activityLog.push({
-          action: 'completed',
-          detail: `Cell completed after ${stageMeta?.label || stageKey} approval`,
-          userId: actor.userId,
-          userName: actor.userName,
-          at: new Date(),
-        });
+      if (cell.status === 'completed' || cell.status === 'ready') {
+        cell.status = 'in_progress';
       }
 
       await cell.save();
-
-      if (cell.status === 'completed') {
-        await refreshBlockedStatuses(new Types.ObjectId(projectId));
-        await syncProjectProgress(new Types.ObjectId(projectId));
-      }
 
       const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
       res.json(toCell(cell, meta));

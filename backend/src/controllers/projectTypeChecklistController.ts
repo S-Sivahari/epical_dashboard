@@ -22,6 +22,7 @@ import {
   updateCellChecklistExtension,
   updateCustomChecklistItemResponse,
 } from '../services/projectTypeChecklistService';
+import { markCellTouched } from '../services/cellCompletionService';
 import { isAdminRole } from '../utils/generateToken';
 
 function paramId(value: string | string[]): string {
@@ -320,6 +321,8 @@ export const projectTypeChecklistController = {
         { upsert: true, new: true, setDefaultsOnInsert: true },
       );
 
+      await markCellTouched(projectId, cellId);
+
       res.json({
         source: 'template',
         itemKey: `template-${doc.itemIndex}`,
@@ -424,6 +427,8 @@ export const projectTypeChecklistController = {
         return;
       }
 
+      await markCellTouched(projectId, cellId);
+
       res.json(item);
     } catch (err) {
       console.error('[type-checklist] updateCustomItemResponse', err);
@@ -497,6 +502,8 @@ export const projectTypeChecklistController = {
         res.status(404).json({ error: 'Cell not found in this project' });
         return;
       }
+
+      await markCellTouched(projectId, cellId);
 
       res.json(extension);
     } catch (err) {

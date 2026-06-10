@@ -10,8 +10,11 @@ import { getEmployees } from '@services/employeeService'
 import {
   completeCell,
   deleteCell,
+  fetchCellCompletionReadiness,
   fetchWorkspaceSummary,
+  uncompleteCell,
   updateCell,
+  type CellCompletionReadiness,
 } from '@/services/projectWorkspaceService'
 import { cn } from '@/utils/cn'
 import {
@@ -26,8 +29,6 @@ import type { Employee } from '@/types'
 import { CELL_STATUS_FILTER_OPTIONS, CELL_TYPE_LABELS, STATUS_LABELS, WORKFLOW_STATUS_LABELS, cellDisplayStatus, normalizeViewStatus, workflowStageStatusClass } from './projectWorkspaceUi'
 
 const INLINE_FIELD_CLASS = 'admin-projects-cell-details-inline-field'
-import { fetchCellTypeChecklistResponses } from '@/services/projectTypeChecklistService'
-import { canCompleteCellWithChecklist } from '@/utils/checklistExtensionUtils'
 import { CellWorkflowPanel } from './CellWorkflowPanel'
 import { CellTypeChecklistTab } from './CellTypeChecklistTab'
 import './adminProjects.css'
@@ -88,18 +89,20 @@ export function ProjectCellPage() {
   const [selectedDepIds, setSelectedDepIds] = useState<string[]>([])
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [completionGate, setCompletionGate] = useState({ ready: true, message: '' })
+  const [completionReadiness, setCompletionReadiness] = useState<CellCompletionReadiness | null>(null)
 
   const reload = useCallback(async () => {
     if (!projectId || !cellId) return
     setLoading(true)
     try {
-      const [ws, empsRes] = await Promise.all([
+      const [ws, empsRes, readiness] = await Promise.all([
         fetchWorkspaceSummary(projectId),
         getEmployees({ status: 'Active', pageSize: 500 }),
+        fetchCellCompletionReadiness(projectId, cellId).catch(() => null),
       ])
       setSummary(ws)
       setEmployees(empsRes.data ?? [])
+      setCompletionReadiness(readiness)
       const cell = ws.cells.find((c) => c.id === cellId)
       if (cell) {
         setCellForm(cell)
@@ -115,21 +118,6 @@ export function ProjectCellPage() {
   useEffect(() => {
     void reload()
   }, [reload])
-
-  useEffect(() => {
-    if (!projectId || !cellId) return
-    fetchCellTypeChecklistResponses(projectId, cellId)
-      .then((detail) => {
-        setCompletionGate(
-          canCompleteCellWithChecklist({
-            checklistItems: detail.items,
-            mappingFilled: true,
-            extension: detail.extension,
-          }),
-        )
-      })
-      .catch(() => setCompletionGate({ ready: true, message: '' }))
-  }, [projectId, cellId])
 
   const cell = useMemo(
     () => summary?.cells.find((c) => c.id === cellId) ?? null,
@@ -191,20 +179,38 @@ export function ProjectCellPage() {
   }
 
   const handleComplete = async () => {
-    if (!projectId || !cellId) return
-    if (!completionGate.ready) {
-      toast.error(completionGate.message || 'Complete the checklist and final cell details first')
-      return
-    }
+    if (!projectId || !cellId || !completionReadiness?.canComplete) return
     try {
       await completeCell(projectId, cellId)
       toast.success('Cell completed')
       await reload()
     } catch (err: unknown) {
-      const message = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
-      toast.error(message || 'Failed to complete cell')
+      const msg = (err as { response?: { data?: { error?: string; missing?: string[] } } })?.response?.data
+      if (msg?.missing?.length) {
+        toast.error(`Complete all sections: ${msg.missing.join(', ')}`)
+      } else {
+        toast.error(msg?.error || 'Failed to complete cell')
+      }
     }
   }
+
+  const handleUncomplete = async () => {
+    if (!projectId || !cellId) return
+    try {
+      await uncompleteCell(projectId, cellId)
+      toast.success('Cell marked incomplete')
+      await reload()
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+      toast.error(msg || 'Failed to uncomplete cell')
+    }
+  }
+
+  const completeButtonTitle = completionReadiness?.canComplete
+    ? 'Mark this cell as completed'
+    : completionReadiness?.missing?.length
+      ? `Finish required sections: ${completionReadiness.missing.join(', ')}`
+      : 'Loading completion requirements…'
 
   const handleViewStatusChange = async (viewKey: 'symbol' | 'schematic', status: WorkflowStageStatus) => {
     if (!projectId || !cell) return
@@ -291,12 +297,21 @@ export function ProjectCellPage() {
               )}>
                 {cellDisplayStatus(cell)}
               </span>
-              {cell.status !== 'completed' && (
+              {cell.status === 'completed' ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="admin-projects-cell-header-complete-btn h-8"
+                  onClick={() => void handleUncomplete()}
+                >
+                  Uncomplete
+                </Button>
+              ) : (
                 <Button
                   size="sm"
                   className="admin-projects-cell-header-complete-btn h-8"
-                  disabled={!completionGate.ready}
-                  title={completionGate.ready ? undefined : completionGate.message}
+                  disabled={!completionReadiness?.canComplete}
+                  title={completeButtonTitle}
                   onClick={() => void handleComplete()}
                 >
                   <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
@@ -572,7 +587,7 @@ export function ProjectCellPage() {
                       <CellTypeChecklistTab
                         projectId={projectId}
                         cellId={cellId}
-                        onCompletionGateChange={setCompletionGate}
+                        onUpdated={() => void reload()}
                       />
                     </div>
                   </div>
