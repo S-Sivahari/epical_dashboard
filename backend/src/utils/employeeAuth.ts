@@ -209,7 +209,7 @@ export async function ensureUserAccountForEmployee(
     name,
     email: normalizeLoginEmail(loginEmail),
     passwordHash,
-    role: 'Employee',
+    role: employee.role === 'Admin' ? 'Admin' : 'Employee',
     designation: employee.designation || 'Employee',
     joinedAt: employee.joinedAt || new Date().toISOString().split('T')[0],
     createdAt: new Date(),

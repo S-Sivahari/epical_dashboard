@@ -43,12 +43,14 @@ export interface NotificationData {
   id: string
   recipientId: string
   recipientType: 'Employee' | 'Manager' | 'Admin'
-  type: 'LeaveSubmitted' | 'LeaveApproved' | 'LeaveRejected' | 'LeaveCancelled'
+  type: 'LeaveSubmitted' | 'LeaveApproved' | 'LeaveRejected' | 'LeaveCancelled' | 'LeaveLop'
     | 'DocumentRequested' | 'DocumentApproved' | 'DocumentRejected'
     | 'PayslipSent' | 'PayslipRegenerated'
     | 'HolidayAdded' | 'HolidayUpdated' | 'HolidayDeleted' | 'HolidaySkipped'
     | 'CalendarEventAdded' | 'CalendarEventUpdated' | 'CalendarEventRemoved'
     | 'TicketSubmitted' | 'TicketStatusUpdated' | 'TicketCommentAdded'
+    | 'CellReviewRequested' | 'CellReviewApproved' | 'CellReviewRejected'
+    | 'CellCreatedUnassigned' | 'CellAssigned'
   title: string
   message: string
   relatedData: {
@@ -70,6 +72,16 @@ export interface NotificationData {
     ticketId?: string
     ticketTitle?: string
     ticketStatus?: string
+    projectId?: string
+    cellId?: string
+    reviewId?: string
+    projectName?: string
+    cellName?: string
+    reviewPoint?: string
+    stageAtRequest?: string
+    reviewOutcome?: string
+    returnToStage?: string
+    resolvedByName?: string
   }
   isRead: boolean
   createdAt: string

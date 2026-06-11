@@ -27,13 +27,13 @@ export function LeaveCard({
     return (
       <div
         className={cn(
-          'flex items-center justify-between gap-2 rounded-lg border border-border/70 bg-white/90 px-2 py-1.5',
+          'flex h-full min-h-0 items-center justify-between gap-2 rounded-lg border border-border/70 bg-white/90 px-2.5 py-2',
           tintClass,
           className,
         )}
       >
-        <span className="truncate text-[11px] font-medium text-foreground">{shortType}</span>
-        <span className="shrink-0 text-xs font-bold tabular-nums" style={{ color }}>
+        <span className="truncate text-xs font-medium text-foreground">{shortType}</span>
+        <span className="shrink-0 text-sm font-bold tabular-nums" style={{ color }}>
           {remaining}
         </span>
       </div>

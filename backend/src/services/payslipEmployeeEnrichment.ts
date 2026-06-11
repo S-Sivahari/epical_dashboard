@@ -18,6 +18,19 @@ const LEAVE_BALANCE_FIELDS = {
   },
 } as const
 
+function pickEmployeeField(emp: Employee, keys: string[]): unknown {
+  for (const key of keys) {
+    const val = emp[key]
+    if (val !== undefined && val !== null && String(val).trim() !== '') return val
+  }
+  const lowerKeys = new Set(keys.map((k) => k.toLowerCase()))
+  for (const [key, val] of Object.entries(emp)) {
+    if (!lowerKeys.has(key.toLowerCase())) continue
+    if (val !== undefined && val !== null && String(val).trim() !== '') return val
+  }
+  return undefined
+}
+
 export function formatLeaveBalanceDisplay(value: unknown): string {
   if (value === undefined || value === null || String(value).trim() === '') return '0'
   const n = parseFloat(String(value))

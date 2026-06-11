@@ -2,14 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Controller } from 'react-hook-form'
-import { AlertTriangle, X, Clock, History, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react'
-import { cn } from '@pages/employee/lib/utils'
+import { X } from 'lucide-react'
 import { useFormSessionDraft } from '@hooks/useFormSessionDraft'
-import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 import { Button } from '@components/employee/ui/button'
-import { Label } from '@components/employee/ui/label'
-import { Textarea } from '@components/employee/ui/textarea'
 import {
   Dialog,
   DialogContent,
@@ -17,17 +12,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@components/employee/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/employee/ui/select'
-import { DataTable } from '@components/employee/shared/DataTable'
-import { SearchBar } from '@components/employee/shared/SearchBar'
-import { FilterDropdown } from '@components/employee/shared/FilterDropdown'
+import { LeaveBalancePanel } from '@components/employee/leave/LeaveBalancePanel'
+import { LeaveApplyForm } from '@components/employee/leave/LeaveApplyForm'
+import { LeavePendingPanel } from '@components/employee/leave/LeavePendingPanel'
+import { LeaveHistoryPanel } from '@components/employee/leave/LeaveHistoryPanel'
+import {
+  formatAppliedDate,
+  formatLeaveDayCount,
+} from '@components/employee/leave/leaveRequestUtils'
 import { useLeaveStore } from '@store/employee/leaveStore'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { useAuthStore } from '@store/authStore'
 
 import * as leaveService from '@services/leaveService'
 import { listCompensation } from '@services/compensationService'
-import { DateInput } from '@components/shared/DateInput'
 import {
   getLeaveDateBounds,
   ISO_DATE_REGEX,
@@ -89,72 +87,11 @@ const leaveTypes = ['Casual Leave', 'Sick Leave', 'Earned Leave', 'Compensation 
 const leaveDurations = ['Full Day', 'Half Day']
 const halfDaySessions = ['First Half', 'Second Half']
 
-const BALANCE_SHORT_LABELS = {
-  casual: 'Casual',
-  sick: 'Sick',
-  earned: 'Earned',
-  compensation: 'Comp',
-  lop: 'LOP',
-}
-
 function currentMonthPrefix() {
   return new Date().toISOString().slice(0, 7)
 }
 
-const CARD_CLASS = portalCardClass({ className: 'emp-leave-card' })
-
-function SectionHeader({ icon: Icon, title, description, children, className, noBorder = false, compact = false }) {
-  return (
-    <div
-      className={cn(
-        'flex flex-wrap items-center justify-between gap-3',
-        noBorder ? 'mb-2 border-b-0 pb-0' : 'mb-5 border-b border-border pb-4',
-        className,
-      )}
-    >
-      <div className={cn('flex min-w-0 items-start', compact ? 'gap-2' : 'gap-3')}>
-        <div
-          className={cn(
-            'flex shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary',
-            compact ? 'h-8 w-8' : 'h-10 w-10',
-          )}
-        >
-          <Icon className={compact ? 'h-4 w-4' : 'h-5 w-5'} />
-        </div>
-        <div className="min-w-0">
-          <h3 className={cn('font-heading font-semibold text-foreground', compact ? 'text-base' : 'text-lg')}>
-            {title}
-          </h3>
-          {description ? <p className="mt-0.5 text-sm text-muted">{description}</p> : null}
-        </div>
-      </div>
-      {children ? <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">{children}</div> : null}
-    </div>
-  )
-}
-
-function getVisiblePageNumbers(current, total) {
-  if (total <= 7) {
-    return Array.from({ length: total }, (_, i) => i + 1)
-  }
-  const pages = new Set([1, total, current, current - 1, current + 1])
-  return [...pages].filter((page) => page >= 1 && page <= total).sort((a, b) => a - b)
-}
-function formatAppliedDate(value) {
-  if (!value) return '—'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleDateString()
-}
-
-function formatLeaveDayCount(row) {
-  if (typeof row.days === 'string' && String(row.days).startsWith('+')) return row.days
-  if (row.leaveDuration === 'Half Day') return 0.5
-  const days = Number(row.days)
-  return Number.isNaN(days) ? row.days : days
-}
-
-const columns = [
+const historyColumns = [
   { key: 'type', label: 'Leave Type' },
   { key: 'from', label: 'Start Date' },
   { key: 'to', label: 'End Date' },
@@ -199,9 +136,6 @@ export default function LeaveRequest() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [historyFromDate, setHistoryFromDate] = useState('')
   const [historyToDate, setHistoryToDate] = useState('')
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
-
   const [leaveBalances, setLeaveBalances] = useState(() => formatLeaveBalances({}, { includeLop: true }))
   const [holidays, setHolidays] = useState([])
   const [compensationEntries, setCompensationEntries] = useState([])
@@ -636,10 +570,11 @@ export default function LeaveRequest() {
               type="button"
               onClick={() => handleCancelClick(row)}
               disabled={cancellingId === row.id}
-              className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60"
+              className="emp-leave-cancel-btn"
               title="Cancel this request"
+              aria-label="Cancel pending leave request"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-3 w-3" aria-hidden />
               {cancellingId === row.id ? 'Cancelling…' : 'Cancel'}
             </button>
           ) : (
@@ -702,14 +637,6 @@ export default function LeaveRequest() {
     })
   }, [filtered, compensationHistoryRows, search, statusFilter, historyFromDate, historyToDate])
 
-  const totalPages = Math.max(1, Math.ceil(historyLeaves.length / pageSize))
-  const currentPage = Math.min(page, totalPages)
-  const pagedHistory = historyLeaves.slice((currentPage - 1) * pageSize, currentPage * pageSize)
-
-  useEffect(() => {
-    setPage(1)
-  }, [search, statusFilter, historyFromDate, historyToDate, pageSize])
-
   const onSubmit = async (data) => {
     console.log('Leave request submitted', data)
     if (!user) {
@@ -765,366 +692,59 @@ export default function LeaveRequest() {
     }
   }
 
-  const visiblePageNumbers = getVisiblePageNumbers(currentPage, totalPages)
-
   return (
     <div
       className="emp-leave-page flex min-h-0 flex-1 flex-col overflow-hidden"
       data-employee-leave
     >
       <div className="emp-leave-top flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="emp-leave-upper">
+        <div className="emp-leave-layout">
           <div className="emp-leave-column emp-leave-column--left">
-            <InteractiveCard className={cn(CARD_CLASS, 'emp-leave-top-panel emp-leave-balance-card')}>
-              <SectionHeader
-                icon={BarChart3}
-                title="Leave balance"
-                noBorder
-                compact
-                className="emp-leave-balance-head"
-              />
-              <div className="emp-leave-balance-grid">
-                {leaveBalances.map((lb) => (
-                  <div
-                    key={lb.key}
-                    className={cn(
-                      'emp-leave-balance-tile',
-                      lb.isLop && 'emp-leave-balance-tile--lop',
-                    )}
-                    style={{ '--balance-accent': lb.color }}
-                  >
-                    <span className="emp-leave-balance-tile__label">
-                      {BALANCE_SHORT_LABELS[lb.key] ?? lb.type}
-                    </span>
-                    {lb.isLop ? (
-                      <>
-                        <span className="emp-leave-balance-tile__num emp-leave-balance-tile__num--lop">{lb.used}</span>
-                        <span className="emp-leave-balance-tile__meta">taken</span>
-                      </>
-                    ) : (
-                      <div className="emp-leave-balance-tile__stats">
-                        <span className="emp-leave-balance-tile__stat">
-                          <span className="emp-leave-balance-tile__num">{lb.used}</span>
-                          <span className="emp-leave-balance-tile__meta">used</span>
-                        </span>
-                        <span className="emp-leave-balance-tile__stat">
-                          <span className="emp-leave-balance-tile__num">{lb.remaining}</span>
-                          <span className="emp-leave-balance-tile__meta">left</span>
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </InteractiveCard>
+            <LeaveApplyForm
+              onSubmit={handleSubmit(onSubmit, onError)}
+              control={control}
+              register={register}
+              watch={watch}
+              setValue={setValue}
+              errors={errors}
+              isSubmitting={isSubmitting}
+              leaveBounds={leaveBounds}
+              availableLeaveTypes={availableLeaveTypes}
+              leaveDurations={leaveDurations}
+              halfDaySessions={halfDaySessions}
+              showLopNotice={showLopNotice}
+              selectedLeaveType={selectedLeaveType}
+              casualBalanceRemaining={casualBalanceRemaining}
+              earnedBalanceRemaining={earnedBalanceRemaining}
+              isCasualSameDay={isCasualSameDay}
+              holidayWarning={holidayWarning}
+            />
 
-            <InteractiveCard className={cn(CARD_CLASS, 'emp-leave-top-panel emp-leave-pending-card flex min-h-0 flex-col')}>
-              <SectionHeader
-                icon={Clock}
-                title="Pending requests"
-                compact
-                className="emp-leave-section-head"
-              />
-              <div className="emp-leave-pending-body">
-                <DataTable
-                  columns={pendingColumns}
-                  data={pendingLeaves}
-                  statusKey="status"
-                  compact
-                  emptyMessage="No pending leave requests."
-                />
-              </div>
-            </InteractiveCard>
+            <LeavePendingPanel columns={pendingColumns} pendingLeaves={pendingLeaves} />
           </div>
 
           <div className="emp-leave-column emp-leave-column--right">
-        <InteractiveCard
-          as="form"
-          selectable={false}
-          onSubmit={handleSubmit(onSubmit, onError)}
-          className={cn(CARD_CLASS, 'emp-leave-apply-card emp-leave-top-panel emp-leave-form-stack flex w-full flex-col')}
-        >
-          <div className="emp-leave-apply-head">
-            <h3 className="font-heading font-semibold text-foreground">Apply for leave</h3>
-          </div>
-          <div>
-            <Label>Leave Type *</Label>
-            <Select value={watch('type')} onValueChange={(v) => setValue('type', v)}>
-              <SelectTrigger className="emp-leave-control mt-1"><SelectValue placeholder="Select type" /></SelectTrigger>
-              <SelectContent>
-                {availableLeaveTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            {errors.type && <p className="mt-1 text-xs text-danger">{errors.type.message}</p>}
-          </div>
-          <div className="emp-leave-reason-block rounded-xl border border-primary/10 bg-white/85 shadow-sm">
-            <Label htmlFor="leave-reason">Reason for leave *</Label>
-            <Textarea
-              id="leave-reason"
-              rows={2}
-              placeholder="Briefly explain why you are requesting leave…"
-              className="mt-1.5 resize-y rounded-xl border-border bg-white"
-              {...register('reason')}
+            <LeaveBalancePanel balances={leaveBalances} selectedLeaveType={selectedLeaveType} />
+
+            <LeaveHistoryPanel
+              columns={historyColumns}
+              historyLeaves={historyLeaves}
+              search={search}
+              onSearchChange={setSearch}
+              statusFilter={statusFilter}
+              onStatusFilterChange={setStatusFilter}
+              historyFromDate={historyFromDate}
+              onHistoryFromDateChange={setHistoryFromDate}
+              historyToDate={historyToDate}
+              onHistoryToDateChange={setHistoryToDate}
+              onClearDateRange={() => {
+                setHistoryFromDate('')
+                setHistoryToDate('')
+              }}
+              leaveBoundsMax={leaveBounds.max}
             />
-            {errors.reason && <p className="mt-1 text-xs text-danger">{errors.reason.message}</p>}
-          </div>
-          <div className="emp-leave-form-row grid md:grid-cols-2 xl:grid-cols-3">
-            <div>
-              <Label>Leave Duration *</Label>
-              <Select value={watch('leaveDuration')} onValueChange={(v) => setValue('leaveDuration', v)}>
-                <SelectTrigger className="emp-leave-control mt-1"><SelectValue placeholder="Select duration" /></SelectTrigger>
-                <SelectContent>
-                  {leaveDurations.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {errors.leaveDuration && <p className="mt-1 text-xs text-danger">{errors.leaveDuration.message}</p>}
-            </div>
-            <div>
-              <Label>From Date *</Label>
-              <Controller
-                name="fromDate"
-                control={control}
-                render={({ field }) => (
-                  <DateInput
-                    className="emp-leave-control mt-1 rounded-xl"
-                    value={field.value || ''}
-                    onChange={field.onChange}
-                    minDate={leaveBounds.min}
-                    maxDate={leaveBounds.max}
-                    error={errors.fromDate?.message}
-                  />
-                )}
-              />
-            </div>
-            <div>
-              <Label>To Date *</Label>
-              <Controller
-                name="toDate"
-                control={control}
-                render={({ field }) => (
-                  <DateInput
-                    className="emp-leave-control mt-1 rounded-xl"
-                    value={field.value || ''}
-                    onChange={field.onChange}
-                    minDate={leaveBounds.min}
-                    maxDate={leaveBounds.max}
-                    disabled={leaveDuration === 'Half Day'}
-                    error={errors.toDate?.message}
-                  />
-                )}
-              />
-            </div>
-          </div>
-          {leaveDuration === 'Half Day' && (
-            <div>
-              <Label>Half-day Session *</Label>
-              <Select value={watch('halfDaySession')} onValueChange={(v) => setValue('halfDaySession', v)}>
-                <SelectTrigger className="emp-leave-control mt-1"><SelectValue placeholder="Select session" /></SelectTrigger>
-                <SelectContent>
-                  {halfDaySessions.map((session) => (
-                    <SelectItem key={session} value={session}>{session}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.halfDaySession && <p className="mt-1 text-xs text-danger">{errors.halfDaySession.message}</p>}
-            </div>
-          )}
-          {showLopNotice && (
-            <div className="emp-leave-inline-alert flex items-start rounded-lg border border-red-200 bg-red-50 text-red-800">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-600" />
-              <span>
-                This request will be recorded as <strong>LOP (Loss of Pay)</strong> and added to your LOP count.
-              </span>
-            </div>
-          )}
-          {selectedLeaveType === 'Casual Leave' && casualBalanceRemaining <= 0 && (
-            <div className="emp-leave-inline-alert flex items-start rounded-lg border border-amber-200 bg-amber-50 text-amber-800">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
-              <span>Your casual leave balance is used up. Select <strong>LOP</strong> to apply unpaid leave.</span>
-            </div>
-          )}
-          {selectedLeaveType === 'Earned Leave' && earnedBalanceRemaining <= 0 && (
-            <div className="emp-leave-inline-alert flex items-start rounded-lg border border-amber-200 bg-amber-50 text-amber-800">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
-              <span>Your earned leave balance is used up. Select <strong>LOP</strong> to apply unpaid leave.</span>
-            </div>
-          )}
-          {selectedLeaveType === 'Casual Leave' && casualBalanceRemaining > 0 && !isCasualSameDay && (
-            <p className="text-xs text-muted">
-              {casualBalanceRemaining} casual day{casualBalanceRemaining === 1 ? '' : 's'} left this month. Apply before your leave date. If you need more days, submit separate casual and LOP requests.
-            </p>
-          )}
-          {selectedLeaveType === 'Casual Leave' && isCasualSameDay && (
-            <div className="emp-leave-inline-alert flex items-start rounded-lg border border-amber-200 bg-amber-50 text-amber-800">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
-              <span>Same-day leave cannot be casual. Select <strong>LOP</strong> instead.</span>
-            </div>
-          )}
-          {holidayWarning && (
-            <div className="emp-leave-inline-alert flex items-start rounded-lg border border-amber-200 bg-amber-50 text-amber-800">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
-              <span>{holidayWarning}</span>
-            </div>
-          )}
-          <div className="mt-auto pt-1">
-            <Button type="submit" disabled={isSubmitting} className="emp-leave-submit-btn w-full">
-              {isSubmitting ? 'Submitting…' : 'Submit Request'}
-            </Button>
-          </div>
-        </InteractiveCard>
           </div>
         </div>
-
-        <InteractiveCard className={cn(CARD_CLASS, 'emp-leave-history-card emp-leave-top-panel flex min-h-0 flex-1 flex-col overflow-hidden')}>
-          <div className="emp-leave-history-toolbar">
-            <div className="emp-leave-history-toolbar__title">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary" aria-hidden>
-                <History className="h-4 w-4" />
-              </div>
-              <h3 className="font-heading text-base font-semibold text-foreground">Leave history</h3>
-            </div>
-
-            <FilterDropdown
-              value={statusFilter}
-              onChange={setStatusFilter}
-              options={[
-                { value: 'all', label: 'All Status' },
-                { value: 'approved', label: 'Approved' },
-                { value: 'rejected', label: 'Rejected' },
-                { value: 'cancelled', label: 'Cancelled' },
-                { value: 'credited', label: 'Credited' },
-              ]}
-            />
-
-            <div className="emp-leave-history-toolbar__date">
-              <span className="emp-leave-history-toolbar__date-label">From date</span>
-              <DateInput
-                className="emp-leave-control rounded-xl"
-                value={historyFromDate}
-                onChange={setHistoryFromDate}
-                minDate="2000-01-01"
-                maxDate={leaveBounds.max}
-                placeholder="dd/mm/yyyy"
-              />
-            </div>
-
-            <div className="emp-leave-history-toolbar__date">
-              <span className="emp-leave-history-toolbar__date-label">To date</span>
-              <DateInput
-                className="emp-leave-control rounded-xl"
-                value={historyToDate}
-                onChange={setHistoryToDate}
-                minDate={historyFromDate || '2000-01-01'}
-                maxDate={leaveBounds.max}
-                placeholder="dd/mm/yyyy"
-              />
-            </div>
-
-            {(historyFromDate || historyToDate) && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="emp-leave-history-toolbar__clear h-9 shrink-0"
-                onClick={() => {
-                  setHistoryFromDate('')
-                  setHistoryToDate('')
-                }}
-              >
-                Clear
-              </Button>
-            )}
-
-            <SearchBar
-              value={search}
-              onChange={setSearch}
-              placeholder="Search leave history…"
-              className="emp-leave-history-toolbar__search"
-            />
-
-            <div className="emp-leave-history-toolbar__page-size">
-              <span className="emp-leave-history-toolbar__page-size-label">Rows per page</span>
-              <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
-                <SelectTrigger className="h-9 w-[4.5rem]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[5, 10, 15, 20].map((n) => (
-                    <SelectItem key={n} value={String(n)}>
-                      {n}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="emp-leave-history-scroll custom-scrollbar">
-            <DataTable
-              columns={columns}
-              data={pagedHistory}
-              statusKey="status"
-              compact
-              emptyMessage="No leave history records match your filters."
-            />
-          </div>
-
-          {historyLeaves.length > 0 && (
-            <div className="emp-leave-history-footer flex shrink-0 flex-col gap-3 border-t border-border sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-muted">
-                Showing {(currentPage - 1) * pageSize + 1}–
-                {Math.min(currentPage * pageSize, historyLeaves.length)} of {historyLeaves.length} records
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1"
-                  disabled={currentPage === 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Previous
-                </Button>
-                <div className="flex items-center gap-1">
-                  {visiblePageNumbers.map((pageNum, index) => {
-                    const prevPage = visiblePageNumbers[index - 1]
-                    const showEllipsis = prevPage != null && pageNum - prevPage > 1
-                    return (
-                      <span key={pageNum} className="flex items-center gap-1">
-                        {showEllipsis && <span className="px-1 text-sm text-muted">…</span>}
-                        <button
-                          type="button"
-                          onClick={() => setPage(pageNum)}
-                          className={cn(
-                            'flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-sm font-medium transition-colors',
-                            pageNum === currentPage
-                              ? 'bg-primary text-white shadow-sm'
-                              : 'text-muted hover:bg-surface hover:text-foreground',
-                          )}
-                          aria-label={`Page ${pageNum}`}
-                          aria-current={pageNum === currentPage ? 'page' : undefined}
-                        >
-                          {pageNum}
-                        </button>
-                      </span>
-                    )
-                  })}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1"
-                  disabled={currentPage >= totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-        </InteractiveCard>
       </div>
 
       <Dialog open={exceedDialogOpen} onOpenChange={setExceedDialogOpen}>

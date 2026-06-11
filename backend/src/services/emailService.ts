@@ -47,10 +47,19 @@ const EMAIL_COLORS = {
   bg: '#F8FAF8',
   bgSoft: '#dff0e4',
   border: 'rgba(38, 107, 28, 0.22)',
-  textMuted: '#475569',
+  textMuted: '#64748b',
   textDark: '#0f172a',
   white: '#ffffff',
+  statusApproved: '#16a34a',
+  statusRejected: '#dc2626',
+  statusCancelled: '#64748b',
 } as const;
+
+export function frontendUrl(path: string = ''): string {
+  const base = (env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+  if (!path) return base;
+  return `${base}${path.startsWith('/') ? path : `/${path}`}`;
+}
 
 function formatEmailTime(d: Date | string): string {
   const dateObj = typeof d === 'string' || typeof (d as any).getMonth !== 'function' ? new Date(d) : d;
@@ -91,8 +100,8 @@ function buildHrmsTimesheetEmailHtml(options: {
     .map(
       (row) => `
         <tr>
-          <td style="padding:10px 0;color:${EMAIL_COLORS.textMuted};font-size:14px;font-weight:500;width:38%;vertical-align:top;">${row.label}</td>
-          <td style="padding:10px 0 10px 16px;color:${EMAIL_COLORS.textDark};font-size:14px;font-weight:600;vertical-align:top;">${row.value}</td>
+          <td style="padding:10px 0;color:${EMAIL_COLORS.textDark};font-size:16px;font-weight:500;width:38%;vertical-align:top;">${row.label}</td>
+          <td style="padding:10px 0 10px 16px;color:${EMAIL_COLORS.textDark};font-size:16px;font-weight:600;vertical-align:top;">${row.value}</td>
         </tr>`
     )
     .join('');
@@ -104,25 +113,25 @@ function buildHrmsTimesheetEmailHtml(options: {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${options.title}</title>
 </head>
-<body style="margin:0;padding:0;background:${EMAIL_COLORS.bg};font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:${EMAIL_COLORS.textMuted};">
+<body style="margin:0;padding:0;background:${EMAIL_COLORS.bg};font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:${EMAIL_COLORS.textDark};">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${EMAIL_COLORS.bg};padding:32px 16px;">
     <tr>
       <td align="center">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:${EMAIL_COLORS.white};border:1px solid ${EMAIL_COLORS.border};border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(38,107,28,0.08);">
           <tr>
             <td style="background:linear-gradient(135deg, ${accent} 0%, ${EMAIL_COLORS.primaryDark} 100%);padding:28px 32px;text-align:center;">
-              <p style="margin:0 0 8px 0;color:rgba(255,255,255,0.88);font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;">${options.eyebrow}</p>
-              <h1 style="margin:0;color:${EMAIL_COLORS.white};font-size:24px;font-weight:700;line-height:1.3;">${options.title}</h1>
+              <p style="margin:0 0 8px 0;color:rgba(255,255,255,0.88);font-size:14px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;">${options.eyebrow}</p>
+              <h1 style="margin:0;color:${EMAIL_COLORS.white};font-size:26px;font-weight:700;line-height:1.3;">${options.title}</h1>
             </td>
           </tr>
           <tr>
             <td style="padding:32px;">
-              <p style="margin:0 0 12px 0;font-size:18px;font-weight:600;color:${EMAIL_COLORS.textDark};">Hello ${options.greetingName},</p>
-              <p style="margin:0 0 24px 0;font-size:15px;line-height:1.7;color:${EMAIL_COLORS.textMuted};">${options.intro}</p>
+              <p style="margin:0 0 12px 0;font-size:20px;font-weight:600;color:${EMAIL_COLORS.textDark};">Hello ${options.greetingName},</p>
+              <p style="margin:0 0 24px 0;font-size:17px;line-height:1.7;color:${EMAIL_COLORS.textDark};">${options.intro}</p>
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${EMAIL_COLORS.surface};border:1px solid ${EMAIL_COLORS.sage};border-radius:12px;padding:4px 20px;margin:0 0 24px 0;">
                 <tr>
                   <td>
-                    <p style="margin:16px 0 8px 0;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:${accent};">${options.highlightTitle}</p>
+                    <p style="margin:16px 0 8px 0;font-size:14px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:${accent};">${options.highlightTitle}</p>
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0">${detailRowsHtml}</table>
                   </td>
                 </tr>
@@ -130,7 +139,7 @@ function buildHrmsTimesheetEmailHtml(options: {
               ${
                 options.notice
                   ? `<div style="background:${EMAIL_COLORS.bgSoft};border-left:4px solid ${EMAIL_COLORS.primary};padding:16px 18px;border-radius:8px;margin:0 0 8px 0;">
-                      <p style="margin:0;font-size:14px;line-height:1.6;color:${EMAIL_COLORS.primaryDark};">${options.notice}</p>
+                      <p style="margin:0;font-size:16px;line-height:1.6;color:${EMAIL_COLORS.primaryDark};">${options.notice}</p>
                     </div>`
                   : ''
               }
@@ -138,8 +147,8 @@ function buildHrmsTimesheetEmailHtml(options: {
           </tr>
           <tr>
             <td style="background:${EMAIL_COLORS.surface};border-top:1px solid ${EMAIL_COLORS.sage};padding:20px 32px;text-align:center;">
-              <p style="margin:0 0 6px 0;font-size:13px;font-weight:600;color:${EMAIL_COLORS.primary};">${HRMS_COMPANY_NAME}</p>
-              <p style="margin:0;font-size:12px;line-height:1.6;color:${EMAIL_COLORS.textMuted};">This is an automated ${HRMS_PRODUCT_NAME} workforce notification. Please do not reply to this email.</p>
+              <p style="margin:0 0 6px 0;font-size:15px;font-weight:600;color:${EMAIL_COLORS.primary};">${HRMS_COMPANY_NAME}</p>
+              <p style="margin:0;font-size:12px;line-height:1.6;color:${EMAIL_COLORS.textDark};">This is an automated ${HRMS_PRODUCT_NAME} workforce notification. Please do not reply to this email.</p>
             </td>
           </tr>
         </table>
@@ -334,6 +343,14 @@ export async function sendAutoCheckoutConfirmationEmail(params: AutoCheckoutEmai
 interface DetailField {
   label: string;
   value: string;
+  valueColor?: 'approved' | 'rejected' | 'cancelled';
+}
+
+function statusColor(tone?: DetailField['valueColor']): string {
+  if (tone === 'approved') return EMAIL_COLORS.statusApproved;
+  if (tone === 'rejected') return EMAIL_COLORS.statusRejected;
+  if (tone === 'cancelled') return EMAIL_COLORS.statusCancelled;
+  return EMAIL_COLORS.textDark;
 }
 
 /**
@@ -344,7 +361,7 @@ function buildHtmlTemplate(
   title: string,
   message: string,
   detailFields: DetailField[],
-  actionUrl: string = env.FRONTEND_URL || 'http://localhost:5173'
+  actionUrl: string = frontendUrl()
 ): string {
   // Generate rows for the details card
   const detailsHtml = detailFields.length > 0
@@ -355,10 +372,10 @@ function buildHtmlTemplate(
             .map(
               (field) => `
             <tr>
-              <td style="padding: 8px 0; color: ${EMAIL_COLORS.textMuted}; font-size: 14px; font-weight: 500; width: 35%; vertical-align: top;">
+              <td style="padding: 8px 0; color: ${EMAIL_COLORS.textDark}; font-size: 16px; font-weight: 600; width: 35%; vertical-align: top;">
                 ${field.label}
               </td>
-              <td style="padding: 8px 0 8px 12px; color: ${EMAIL_COLORS.textDark}; font-size: 14px; font-weight: 600; vertical-align: top;">
+              <td style="padding: 8px 0 8px 12px; color: ${statusColor(field.valueColor)}; font-size: 16px; font-weight: 500; vertical-align: top;">
                 ${field.value}
               </td>
             </tr>
@@ -383,7 +400,7 @@ function buildHtmlTemplate(
     body {
       font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background-color: ${EMAIL_COLORS.bg};
-      color: ${EMAIL_COLORS.textMuted};
+      color: ${EMAIL_COLORS.textDark};
       margin: 0;
       padding: 0;
       -webkit-font-smoothing: antialiased;
@@ -417,15 +434,9 @@ function buildHtmlTemplate(
       color: ${EMAIL_COLORS.white};
       font-size: 24px;
       font-weight: 700;
-      letter-spacing: 1px;
-      text-transform: uppercase;
+      letter-spacing: 0.5px;
       margin: 0;
       display: inline-block;
-    }
-    
-    .logo span {
-      font-weight: 300;
-      opacity: 0.85;
     }
     
     .content {
@@ -433,7 +444,7 @@ function buildHtmlTemplate(
     }
     
     .greeting {
-      font-size: 20px;
+      font-size: 22px;
       font-weight: 600;
       color: ${EMAIL_COLORS.textDark};
       margin-top: 0;
@@ -441,9 +452,9 @@ function buildHtmlTemplate(
     }
     
     .message {
-      font-size: 16px;
+      font-size: 18px;
       line-height: 1.6;
-      color: ${EMAIL_COLORS.textMuted};
+      color: ${EMAIL_COLORS.textDark};
       margin-bottom: 24px;
     }
     
@@ -457,7 +468,7 @@ function buildHtmlTemplate(
       background: linear-gradient(135deg, ${EMAIL_COLORS.primaryFresh} 0%, ${EMAIL_COLORS.primary} 100%);
       color: ${EMAIL_COLORS.white} !important;
       text-decoration: none;
-      font-size: 15px;
+      font-size: 17px;
       font-weight: 600;
       padding: 14px 30px;
       border-radius: 10px;
@@ -469,8 +480,8 @@ function buildHtmlTemplate(
       background-color: ${EMAIL_COLORS.surface};
       padding: 24px 40px;
       text-align: center;
-      font-size: 13px;
-      color: ${EMAIL_COLORS.textMuted};
+      font-size: 15px;
+      color: ${EMAIL_COLORS.textDark};
       border-top: 1px solid ${EMAIL_COLORS.sage};
     }
     
@@ -497,7 +508,7 @@ function buildHtmlTemplate(
   <div class="wrapper">
     <div class="container">
       <div class="header">
-        <h1 class="logo">Epical<span>EMS</span></h1>
+        <h1 class="logo">Epical EMS</h1>
       </div>
       <div class="content">
         <h2 class="greeting">Hi ${recipientName},</h2>
@@ -506,7 +517,7 @@ function buildHtmlTemplate(
         ${detailsHtml}
         
         <div class="btn-container">
-          <a href="${actionUrl}" class="btn" target="_blank">Open Dashboard</a>
+          <a href="${actionUrl}" class="btn" target="_blank">View in App</a>
         </div>
       </div>
       <div class="footer">
@@ -558,8 +569,9 @@ export async function sendLeaveSubmittedEmail(
     details.push({ label: 'Reason', value: data.reason });
   }
 
-  const html = buildHtmlTemplate(data.recipientName, 'New Leave Request', message, details, actionUrl);
-  const text = `Hi ${data.recipientName},\n\nA new leave request has been submitted by ${data.employeeName}.\n\nDetails:\n- Employee: ${data.employeeName}\n- Leave Type: ${data.type}\n- Dates: ${data.from} to ${data.to}\n- Duration: ${data.days} days\n${data.reason ? `- Reason: ${data.reason}\n` : ''}\nPlease log in to the dashboard to review.`;
+  const url = actionUrl || frontendUrl('/admin/leaves');
+  const html = buildHtmlTemplate(data.recipientName, 'New Leave Request', message, details, url);
+  const text = `Hi ${data.recipientName},\n\nA new leave request has been submitted by ${data.employeeName}.\n\nDetails:\n- Employee: ${data.employeeName}\n- Leave Type: ${data.type}\n- Dates: ${data.from} to ${data.to}\n- Duration: ${data.days} days\n${data.reason ? `- Reason: ${data.reason}\n` : ''}\nView in app: ${url}`;
 
   return await sendEmail({ to: data.recipientEmail, subject, html, text });
 }
@@ -574,12 +586,16 @@ export async function sendLeaveStatusEmail(
   const subject = `[Epical EMS] Leave Request ${data.status} - ${data.type}`;
   
   let message = '';
+  let statusTone: DetailField['valueColor'];
   if (data.status === 'Approved') {
-    message = `Your ${data.type} leave request has been <strong>approved</strong> by the administrator.`;
+    message = `Your ${data.type} leave request has been <strong style="color: ${EMAIL_COLORS.statusApproved};">approved</strong> by the administrator.`;
+    statusTone = 'approved';
   } else if (data.status === 'Cancelled') {
-    message = `Your ${data.type} leave request has been <strong>cancelled</strong>.`;
+    message = `Your ${data.type} leave request has been <strong style="color: ${EMAIL_COLORS.statusCancelled};">cancelled</strong>.`;
+    statusTone = 'cancelled';
   } else {
-    message = `Your ${data.type} leave request has been <strong>rejected</strong> by the administrator.`;
+    message = `Your ${data.type} leave request has been <strong style="color: ${EMAIL_COLORS.statusRejected};">rejected</strong> by the administrator.`;
+    statusTone = 'rejected';
   }
 
   const details: DetailField[] = [
@@ -587,16 +603,17 @@ export async function sendLeaveStatusEmail(
     { label: 'Start Date', value: data.from },
     { label: 'End Date', value: data.to },
     { label: 'Duration', value: `${data.days} Business Day(s)` },
-    { label: 'Status', value: data.status || 'Processed' },
+    { label: 'Status', value: data.status || 'Processed', valueColor: statusTone },
   ];
 
   if (data.status === 'Rejected' && data.rejectionReason) {
     details.push({ label: 'Rejection Reason', value: data.rejectionReason });
   }
 
-  const html = buildHtmlTemplate(data.recipientName, `Leave Request ${data.status}`, message, details, actionUrl);
+  const url = actionUrl || frontendUrl('/employee/leave');
+  const html = buildHtmlTemplate(data.recipientName, `Leave Request ${data.status}`, message, details, url);
   
-  const text = `Hi ${data.recipientName},\n\nYour ${data.type} leave request from ${data.from} to ${data.to} has been ${data.status}.\n\n${data.status === 'Rejected' && data.rejectionReason ? `Reason: ${data.rejectionReason}\n` : ''}\nPlease review this on your dashboard.`;
+  const text = `Hi ${data.recipientName},\n\nYour ${data.type} leave request from ${data.from} to ${data.to} has been ${data.status}.\n\n${data.status === 'Rejected' && data.rejectionReason ? `Reason: ${data.rejectionReason}\n` : ''}\nView in app: ${url}`;
 
   return await sendEmail({ to: data.recipientEmail, subject, html, text });
 }
@@ -613,10 +630,11 @@ export async function sendGenericNotificationEmail(
   actionUrl?: string
 ): Promise<boolean> {
   const subject = `[Epical EMS] ${title}`;
-  const html = buildHtmlTemplate(recipientName, title, message, detailFields, actionUrl);
+  const url = actionUrl || frontendUrl();
+  const html = buildHtmlTemplate(recipientName, title, message, detailFields, url);
   
   const detailsText = detailFields.map((d) => `- ${d.label}: ${d.value}`).join('\n');
-  const text = `Hi ${recipientName},\n\n${message}\n\n${detailsText ? `Details:\n${detailsText}\n\n` : ''}Please check your dashboard for details.`;
+  const text = `Hi ${recipientName},\n\n${message}\n\n${detailsText ? `Details:\n${detailsText}\n\n` : ''}View in app: ${url}`;
 
   return await sendEmail({ to: toEmail, subject, html, text });
 }
@@ -649,9 +667,10 @@ export async function sendWelcomeEmail(
     { label: 'Date of Joining', value: data.joinedAt },
   ];
 
-  const html = buildHtmlTemplate(data.firstName, 'Welcome to Epical! 🎉', message, details, actionUrl);
+  const url = actionUrl || frontendUrl('/employee');
+  const html = buildHtmlTemplate(data.firstName, 'Welcome to Epical! 🎉', message, details, url);
 
-  const text = `Hi ${data.firstName},\n\nWelcome to the team! Your employee profile has been successfully created.\n\nDetails:\n- Employee ID: ${data.employeeId}\n- Name: ${fullName}\n- Date of Joining: ${data.joinedAt}\n\nPlease log in to your dashboard to complete your profile.`;
+  const text = `Hi ${data.firstName},\n\nWelcome to the team! Your employee profile has been successfully created.\n\nDetails:\n- Employee ID: ${data.employeeId}\n- Name: ${fullName}\n- Date of Joining: ${data.joinedAt}\n\nView in app: ${url}`;
 
   return await sendEmail({ to: data.recipientEmail, subject, html, text });
 }
@@ -710,7 +729,7 @@ export async function sendHolidayNotificationEmail(
     details.push({ label: 'Reason', value: data.skippedReason });
   }
 
-  const url = actionUrl || `${env.FRONTEND_URL || 'http://localhost:5173'}/employee/calendar`;
+  const url = actionUrl || frontendUrl('/employee/calendar');
   const html = buildHtmlTemplate(data.recipientName, subject.replace('[Epical EMS] ', ''), message, details, url);
   const text = `Hi ${data.recipientName},\n\n${message.replace(/<[^>]+>/g, '')}\n\nPlease check the company calendar for details.`;
 
@@ -756,9 +775,7 @@ export async function sendPayslipEmail(
     details.push({ label: 'Document', value: data.fileName });
   }
 
-  const payslipUrl =
-    actionUrl ||
-    `${env.FRONTEND_URL || 'http://localhost:5173'}/employee/documents?tab=payslips`;
+  const payslipUrl = actionUrl || frontendUrl('/employee/documents?tab=payslips');
   const html = buildHtmlTemplate(data.recipientName, 'Payslip Available', message, details, payslipUrl);
 
   const attachmentNote = pdfAttachment
@@ -773,4 +790,56 @@ export async function sendPayslipEmail(
     text,
     attachments: pdfAttachment ? [pdfAttachment] : undefined,
   });
+}
+
+export interface CellReviewEmailData {
+  recipientEmail: string;
+  recipientName: string;
+  projectId: string;
+  cellId: string;
+  projectName: string;
+  cellName: string;
+  reviewPoint: string;
+  stageLabel: string;
+  outcome: 'approved' | 'rejected';
+  returnToStage?: string;
+  resolvedByName?: string;
+}
+
+export async function sendCellReviewEmail(data: CellReviewEmailData): Promise<boolean> {
+  const reviewLabel = data.reviewPoint.toUpperCase();
+  const approved = data.outcome === 'approved';
+  const subject = approved
+    ? `[Epical EMS] ${reviewLabel} review approved — ${data.cellName}`
+    : `[Epical EMS] ${reviewLabel} review rejected — ${data.cellName}`;
+
+  const message = approved
+    ? `Your <strong>${reviewLabel}</strong> review for <strong>${data.cellName}</strong> in <strong>${data.projectName}</strong> has been approved. You can continue the layout workflow.`
+    : `Your <strong>${reviewLabel}</strong> review for <strong>${data.cellName}</strong> in <strong>${data.projectName}</strong> was rejected. Please review admin feedback and update the cell.`;
+
+  const details: DetailField[] = [
+    { label: 'Project', value: data.projectName },
+    { label: 'Cell', value: data.cellName },
+    { label: 'Stage', value: data.stageLabel },
+    { label: 'Review', value: reviewLabel },
+    { label: 'Outcome', value: approved ? 'Approved' : 'Rejected' },
+  ];
+  if (data.resolvedByName) {
+    details.push({ label: 'Reviewed by', value: data.resolvedByName });
+  }
+  if (!approved && data.returnToStage) {
+    details.push({ label: 'Returned to', value: data.returnToStage });
+  }
+
+  const actionUrl = frontendUrl(`/employee/projects/${data.projectId}/cells/${data.cellId}`);
+  const html = buildHtmlTemplate(
+    data.recipientName,
+    approved ? `${reviewLabel} review approved` : `${reviewLabel} review rejected`,
+    message,
+    details,
+    actionUrl,
+  );
+  const text = `Hi ${data.recipientName},\n\n${message.replace(/<[^>]+>/g, '')}\n\nOpen your cell workflow: ${actionUrl}`;
+
+  return await sendEmail({ to: data.recipientEmail, subject, html, text });
 }

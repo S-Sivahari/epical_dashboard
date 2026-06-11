@@ -21,7 +21,7 @@ const ProjectSchema = new Schema<Project>(
   {
     projectName: { type: String, required: true },
     clientName: { type: String, required: true },
-    technologyNode: { type: String, required: true },
+    technologyNode: { type: String, default: '' },
     accessType: { type: String, enum: ['public', 'private'], required: true },
     allowedUsers: { type: [String], default: [] },
     teamLead: { type: String },

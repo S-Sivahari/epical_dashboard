@@ -27,6 +27,7 @@ export function LiveSessionTimer({
   pausedTasks,
   serverTimeSkew,
   compact = false,
+  inline = false,
 }) {
   const [elapsed, setElapsed] = useState('00:00:00')
 
@@ -67,10 +68,14 @@ export function LiveSessionTimer({
 
   const isPaused = !activeTask && pausedTasks?.[0]
 
+  if (inline) {
+    return <span className="font-mono font-bold tabular-nums">{elapsed}</span>
+  }
+
   if (compact) {
     return (
       <div>
-        <p className="mt-0.5 font-mono text-xl font-extrabold tabular-nums text-emerald-900">{elapsed}</p>
+        <p className="mt-0.5 font-mono text-lg font-extrabold tabular-nums text-emerald-900">{elapsed}</p>
         <p className="mt-0.5 text-[10px] text-slate-500">Since {sinceLabel}</p>
       </div>
     )
@@ -101,6 +106,7 @@ export function TimesheetLiveSessionPanel({
   submitting,
   onPause,
   onResume,
+  slim = false,
 }) {
   if (!checkedIn || !checkInTime) {
     return (
@@ -125,11 +131,48 @@ export function TimesheetLiveSessionPanel({
 
   const isPaused = !activeTask && pausedTasks?.[0]
 
+  if (slim) {
+    return (
+      <div className="emp-ts-session-active-head">
+        <p className="emp-ts-session-project-name">
+          {currentWorkTask?.project || 'Active session'}
+        </p>
+        {!checkoutReview ? (
+          <div className="emp-ts-session-controls">
+            {isPaused ? (
+              <span className="emp-ts-paused-badge">Paused</span>
+            ) : null}
+            {activeTask ? (
+              <Button
+                type="button"
+                onClick={onPause}
+                disabled={submitting}
+                className="emp-ts-btn-pause h-10 gap-2 px-5 text-sm"
+              >
+                <Pause className="h-4 w-4" />
+                Pause
+              </Button>
+            ) : pausedTasks?.[0] ? (
+              <Button
+                type="button"
+                onClick={onResume}
+                disabled={submitting}
+                className="emp-ts-btn-pause h-10 gap-2 px-5 text-sm"
+              >
+                <Play className="h-4 w-4" />
+                Resume
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-2.5 w-full">
-      {/* Compact Timer Display */}
-      <div className="rounded-lg border border-emerald-200/50 bg-gradient-to-b from-emerald-50/40 to-white p-3">
-        <div className="flex items-center justify-between gap-3">
+    <div className="w-full space-y-2">
+      <div className="rounded-lg border border-emerald-200/50 bg-gradient-to-b from-emerald-50/40 to-white p-2.5">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex-1">
             <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-800/70">Live Timer</p>
             <LiveSessionTimer
@@ -137,32 +180,29 @@ export function TimesheetLiveSessionPanel({
               activeTask={activeTask}
               pausedTasks={pausedTasks}
               serverTimeSkew={serverTimeSkew}
-              compact={true}
+              compact
             />
           </div>
-          {isPaused && (
+          {isPaused ? (
             <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-800">
               Paused
             </span>
-          )}
+          ) : null}
         </div>
       </div>
 
-      {/* Compact Current Project Info */}
       {currentWorkTask && !checkoutReview ? (
-        <div className="rounded-lg border border-slate-200/70 bg-white p-2.5 shadow-sm">
+        <div className="rounded-lg border border-slate-200/70 bg-white p-2 shadow-sm">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0 flex-1">
               <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Active Project</p>
               <p className="mt-0.5 truncate text-xs font-semibold text-slate-900">{currentWorkTask.project}</p>
-              {descriptionPreview && (
-                <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-slate-600">
+              {descriptionPreview ? (
+                <p className="mt-0.5 line-clamp-1 text-[10px] leading-relaxed text-slate-600">
                   {descriptionPreview}
                 </p>
-              )}
+              ) : null}
             </div>
-            
-            {/* Compact Pause/Resume Button */}
             {activeTask ? (
               <Button
                 type="button"
@@ -170,10 +210,10 @@ export function TimesheetLiveSessionPanel({
                 size="sm"
                 onClick={onPause}
                 disabled={submitting}
-                className="h-7 gap-1.5 border-emerald-200 text-emerald-800 hover:bg-emerald-50 px-2.5"
+                className="h-7 gap-1 border-emerald-200 px-2 text-[10px] text-emerald-800"
               >
                 <Pause className="h-3 w-3" />
-                <span className="text-[10px] font-semibold">Pause</span>
+                Pause
               </Button>
             ) : pausedTasks?.[0] ? (
               <Button
@@ -181,10 +221,10 @@ export function TimesheetLiveSessionPanel({
                 size="sm"
                 onClick={onResume}
                 disabled={submitting}
-                className="emp-ts-btn-primary h-7 gap-1.5 px-2.5"
+                className="emp-ts-btn-primary h-7 gap-1 px-2 text-[10px]"
               >
                 <Play className="h-3 w-3" />
-                <span className="text-[10px] font-semibold">Resume</span>
+                Resume
               </Button>
             ) : null}
           </div>

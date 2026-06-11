@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import api from '@/services/api'
 import { toast } from 'sonner'
 import {
   Trash2, FileText, FileSpreadsheet, Search, RotateCcw,
@@ -63,10 +64,6 @@ function formatLeaveActivityPhrase(type: string, status: string, leave?: LeaveRe
   return `${typePhrase} applied`
 }
 
-function buildExportFilename(tab: TabType) {
-  const date = new Date().toISOString().slice(0, 10)
-  return `Leave_Management_${tab}_${date}`
-}
 
 function getActivityDateKey(leave: {
   status: string
@@ -204,7 +201,11 @@ export function LeaveManagementContainer() {
   })
 
   // Top-bar quick filters (drive leaveFilters + data-tools table)
-  const [filterEmployee, setFilterEmployee] = useState('')
+  const [filterEmployees, setFilterEmployees] = useState<string[]>([])
+  const [empFilterDropOpen, setEmpFilterDropOpen] = useState(false)
+  const [empFilterSearch, setEmpFilterSearch] = useState('')
+  const empFilterDropRef = useRef<HTMLDivElement>(null)
+  const [employeeFilterOptions, setEmployeeFilterOptions] = useState<{ id: string; name: string }[]>([])
   const [filterType, setFilterType] = useState('')
   const [filterFrom, setFilterFrom] = useState(initialMonthRange.from)
   const [filterTo, setFilterTo] = useState(initialMonthRange.to)
@@ -233,7 +234,7 @@ export function LeaveManagementContainer() {
         selectedEmployees: [],
         leaveType: '',
       }))
-      setFilterEmployee('')
+      setFilterEmployees([])
       setFilterType('')
       setSearched(false)
     }
@@ -242,6 +243,35 @@ export function LeaveManagementContainer() {
     const id = window.setInterval(syncMonth, 60_000)
     return () => window.clearInterval(id)
   }, [monthKey])
+
+  useEffect(() => {
+    api
+      .get('/employees', { params: { pageSize: 500, page: 1 } })
+      .then((res) => {
+        const payload = res.data?.data ?? res.data?.employees ?? res.data ?? []
+        const list = Array.isArray(payload) ? payload : []
+        const options = list
+          .map((e: { id?: string; _id?: string; firstName?: string; lastName?: string }) => ({
+            id: String(e.id || e._id || ''),
+            name: `${e.firstName ?? ''} ${e.lastName ?? ''}`.trim(),
+          }))
+          .filter((e) => e.id && e.name)
+        setEmployeeFilterOptions(options)
+      })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (!empFilterDropOpen) return
+    const onPointerDown = (event: MouseEvent) => {
+      if (!empFilterDropRef.current?.contains(event.target as Node)) {
+        setEmpFilterDropOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    return () => document.removeEventListener('mousedown', onPointerDown)
+  }, [empFilterDropOpen])
+
   const user = useAuthStore((s) => s.user)
 
   // Employee avatar lookup map: employeeId → { avatarUrl, initials }
@@ -346,10 +376,24 @@ export function LeaveManagementContainer() {
   }
 
   // Apply top-bar filters into the LeaveRequests component filters
+  const filteredEmployeeOptions = useMemo(() => {
+    const q = empFilterSearch.trim().toLowerCase()
+    if (!q) return employeeFilterOptions
+    return employeeFilterOptions.filter(
+      (e) => e.name.toLowerCase().includes(q) || e.id.toLowerCase().includes(q),
+    )
+  }, [employeeFilterOptions, empFilterSearch])
+
+  const toggleFilterEmployee = (name: string) => {
+    setFilterEmployees((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
+    )
+  }
+
   const applySearch = () => {
     setLeaveFilters((prev) => ({
       ...prev,
-      selectedEmployees: filterEmployee ? [filterEmployee] : [],
+      selectedEmployees: filterEmployees,
       leaveType: filterType,
       dateFrom: filterFrom,
       dateTo: filterTo,
@@ -359,10 +403,12 @@ export function LeaveManagementContainer() {
 
   const resetSearch = () => {
     const { from, to } = getCurrentMonthDateRange()
-    setFilterEmployee('')
+    setFilterEmployees([])
     setFilterType('')
     setFilterFrom(from)
     setFilterTo(to)
+    setEmpFilterSearch('')
+    setEmpFilterDropOpen(false)
     setLeaveFilters({ selectedEmployees: [], status: leaveFilters.status, leaveType: '', dateFrom: from, dateTo: to })
     setSearched(false)
   }
@@ -475,21 +521,67 @@ export function LeaveManagementContainer() {
 
         {activeTab === 'requests' && (
           <div className="admin-leaves-filter-bar admin-leaves-filter-bar--dense">
-            <div className="admin-leaves-filter-field">
+            <div className="admin-leaves-filter-field admin-leaves-filter-field--employee" ref={empFilterDropRef}>
               <User className="admin-leaves-filter-field-icon" aria-hidden />
-              <select
+              <button
+                type="button"
                 id="admin-leave-employee-filter"
-                value={filterEmployee}
-                onChange={(e) => setFilterEmployee(e.target.value)}
-                className="admin-leaves-filter-input appearance-none"
+                className="admin-leaves-filter-input admin-leaves-filter-employee-btn"
                 aria-label="Filter by employee"
+                aria-expanded={empFilterDropOpen}
+                onClick={() => setEmpFilterDropOpen((open) => !open)}
               >
-                <option value="">Filter by Employee</option>
-                {Array.from(new Set(visibleLeaves.map((l) => l.employeeName))).sort().map((n) => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-              </select>
-              <ChevronDown className="admin-leaves-filter-chevron" aria-hidden />
+                <span className={filterEmployees.length === 0 ? 'text-slate-500' : ''}>
+                  {filterEmployees.length === 0
+                    ? 'Filter by Employee'
+                    : `${filterEmployees.length} employee${filterEmployees.length > 1 ? 's' : ''} selected`}
+                </span>
+              </button>
+              <ChevronDown
+                className={cn('admin-leaves-filter-chevron transition-transform', empFilterDropOpen && 'rotate-180')}
+                aria-hidden
+              />
+              {empFilterDropOpen && (
+                <div className="admin-leaves-employee-filter-dropdown">
+                  <div className="admin-leaves-employee-filter-search-wrap">
+                    <Search className="h-3.5 w-3.5 text-slate-400" aria-hidden />
+                    <input
+                      type="search"
+                      value={empFilterSearch}
+                      onChange={(e) => setEmpFilterSearch(e.target.value)}
+                      placeholder="Search employees..."
+                      className="admin-leaves-employee-filter-search"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="admin-leaves-employee-filter-actions">
+                    <button
+                      type="button"
+                      onClick={() => setFilterEmployees(filteredEmployeeOptions.map((e) => e.name))}
+                    >
+                      Select all
+                    </button>
+                    <span aria-hidden>·</span>
+                    <button type="button" onClick={() => setFilterEmployees([])}>Clear</button>
+                  </div>
+                  <div className="admin-leaves-employee-filter-list">
+                    {filteredEmployeeOptions.length === 0 ? (
+                      <p className="admin-leaves-employee-filter-empty">No employees found</p>
+                    ) : (
+                      filteredEmployeeOptions.map((emp) => (
+                        <label key={emp.id} className="admin-leaves-employee-filter-option">
+                          <input
+                            type="checkbox"
+                            checked={filterEmployees.includes(emp.name)}
+                            onChange={() => toggleFilterEmployee(emp.name)}
+                          />
+                          <span>{emp.name}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="admin-leaves-filter-field">
@@ -602,10 +694,12 @@ export function LeaveManagementContainer() {
             </div>
 
             <div className="admin-leaves-panel admin-leaves-col-panel flex min-h-0 flex-col">
-              {searched && (filterEmployee || filterType || filterFrom || filterTo) && (
+              {searched && (filterEmployees.length > 0 || filterType || filterFrom || filterTo) && (
                 <div className="admin-leaves-filter-chips flex shrink-0 flex-wrap items-center gap-2 px-2 py-1.5">
                   <span className="text-xs font-bold admin-leaves-text-brand">Filtered:</span>
-                  {filterEmployee && <span className="admin-leaves-chip">{filterEmployee}</span>}
+                  {filterEmployees.map((name) => (
+                    <span key={name} className="admin-leaves-chip">{name}</span>
+                  ))}
                   {filterType && <span className="admin-leaves-chip">{filterType}</span>}
                   {filterFrom && <span className="admin-leaves-chip">From: {filterFrom}</span>}
                   {filterTo && <span className="admin-leaves-chip">To: {filterTo}</span>}

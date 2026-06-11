@@ -1375,7 +1375,6 @@ export function ProjectManagement() {
   const [modalOpen, setModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [techNodeError, setTechNodeError] = useState<string>('')
   const [employees, setEmployees] = useState<Employee[]>([])
 
 
@@ -1651,7 +1650,6 @@ export function ProjectManagement() {
       ...emptyForm,
     })
     setEditingId(null)
-    setTechNodeError('')
     setModalOpen(true)
   }, [])
 
@@ -1668,40 +1666,16 @@ export function ProjectManagement() {
       teamLead: p.teamLead || '',
       status: (p.status === 'Rejected' ? 'Cancelled' : p.status) as 'Active' | 'Completed' | 'Cancelled',
     })
-    setTechNodeError('')
     setModalOpen(true)
-  }, [])
-
-
-
-
-  /** Validates that the technology node is EXACTLY in the format: (number)nm */
-  const validateTechNode = useCallback((value: string): string => {
-    if (!value.trim()) return 'Technology Node is required.'
-    
-    // Strict validation: must be exactly (number)nm format, nothing else
-    const strictPattern = /^\d+nm$/i
-    if (!strictPattern.test(value.trim())) {
-      return 'Technology Node must be exactly in the format: (number)nm (e.g., "7nm", "28nm", "5nm"). No additional text allowed.'
-    }
-    
-    return ''
   }, [])
 
   const handleSaveProject = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault()
-      if (!form.name.trim() || !form.client.trim() || !form.technologyNode.trim()) {
-        toast.error('Please specify Project Name, Client, and Technology Node.')
+      if (!form.name.trim() || !form.client.trim()) {
+        toast.error('Please specify Project Name and Client.')
         return
       }
-      const techErr = validateTechNode(form.technologyNode)
-      if (techErr) {
-        setTechNodeError(techErr)
-        toast.error(techErr)
-        return
-      }
-
       const descriptionWords = countWords(form.description)
       if (!form.description.trim()) {
         toast.error('Project description is required.')
@@ -3444,7 +3418,7 @@ export function ProjectManagement() {
       <Modal
         isOpen={modalOpen}
         title={modalMode === 'create' ? 'Create New Project' : 'Edit Project Details'}
-        onClose={() => { setModalOpen(false); setTechNodeError('') }}
+        onClose={() => setModalOpen(false)}
         size="lg"
       >
         <form onSubmit={handleSaveProject} className="space-y-4 pt-1">
@@ -3468,41 +3442,16 @@ export function ProjectManagement() {
           <div className="w-full">
             <Input
               label="Technology Node"
-              placeholder="e.g., 7nm, 28nm, 5nm"
+              placeholder="e.g. 7nm FinFET, 28nm FD-SOI"
               value={form.technologyNode}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                let val = e.target.value
-                
-                // Remove any non-digit and non-nm characters
-                val = val.replace(/[^\dnm]/gi, '')
-                
-                // Ensure "nm" only appears at the end once
-                if (val.toLowerCase().includes('nm')) {
-                  const numericPart = val.replace(/nm/gi, '')
-                  val = numericPart + 'nm'
-                }
-                
-                // Limit to reasonable length (e.g., max 5 digits + "nm" = 7 chars)
-                if (val.length > 7) {
-                  val = val.slice(0, 7)
-                }
-                
-                setForm({ ...form, technologyNode: val })
-                
-                // Live-clear error once the user fixes the value
-                if (techNodeError && /^\d+nm$/i.test(val.trim())) {
-                  setTechNodeError('')
-                }
-              }}
-              onBlur={(e) => setTechNodeError(validateTechNode(e.target.value))}
-              error={techNodeError || undefined}
-              required
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setForm({ ...form, technologyNode: e.target.value })
+              }
             />
-            {!techNodeError && (
-              <p className="mt-1 text-[11px] text-slate-400">
-                Format: <span className="font-semibold text-slate-500">(number)nm</span> only — e.g., <span className="font-mono text-slate-600">7nm</span>, <span className="font-mono text-slate-600">28nm</span>, <span className="font-mono text-slate-600">5nm</span>
-              </p>
-            )}
+            <p className="mt-1 text-[11px] text-slate-400">
+              Optional — e.g. <span className="font-mono text-slate-600">7nm</span>,{' '}
+              <span className="font-mono text-slate-600">28nm FD-SOI</span>
+            </p>
           </div>
 
           <SelectField

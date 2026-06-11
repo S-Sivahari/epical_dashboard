@@ -4,9 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { LogIn, LogOut, Loader2, AlertTriangle } from 'lucide-react'
 import { Button } from '@components/employee/ui/button'
-import { Label } from '@components/employee/ui/label'
 import { Textarea } from '@components/employee/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/employee/ui/select'
 import { DataTable } from '@components/employee/shared/DataTable'
 import { DateRangePicker } from '@components/employee/shared/DateRangePicker'
 import { useTimesheetStore } from '@store/employee/timesheetStore'
@@ -14,6 +12,7 @@ import { formatSessionDuration, formatDurationFromMs } from '@utils/durationForm
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { formatDateKey, getPresetDateRange, getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
 import { TimesheetLiveSessionPanel } from '@pages/employee/TimesheetLiveSessionPanel'
+import { TimesheetCheckInDialog } from '@pages/employee/TimesheetCheckInDialog'
 
 const TimesheetWeeklyChart = lazy(() =>
   import('@pages/employee/TimesheetWeeklyChart').then((m) => ({ default: m.TimesheetWeeklyChart })),
@@ -117,6 +116,7 @@ export default function Timesheet() {
   const [liveNow, setLiveNow] = useState(() => Date.now() + (serverTimeSkew || 0))
   const [checkoutReview, setCheckoutReview] = useState(false)
   const [checkoutError, setCheckoutError] = useState('')
+  const [checkInDialogOpen, setCheckInDialogOpen] = useState(false)
 
   const [isInitialLoading, setIsInitialLoading] = useState(true)
 
@@ -198,7 +198,6 @@ export default function Timesheet() {
 
   const selectedTaskId = watch('assignedTaskId')
   const workDescription = watch('description')
-  const canStartSession = !!selectedTaskId
   const startableTasks = useMemo(
     () => assignedTasks.filter((t) => t.status !== 'completed'),
     [assignedTasks],
@@ -271,6 +270,7 @@ export default function Timesheet() {
         }
         throw startErr
       }
+      setCheckInDialogOpen(false)
       toast({
         title: 'Checked in',
         description: `Timer started for ${selectedTask?.projectName || selectedTask?.title || 'your project'}.`,
@@ -286,6 +286,12 @@ export default function Timesheet() {
     }
   }
 
+  const openCheckInDialog = () => {
+    setCheckoutReview(false)
+    setCheckoutError('')
+    setCheckInDialogOpen(true)
+  }
+
   const workNoteFromTask = (work) =>
     stripTaskLabelPrefix(work?.description, {
       taskTitle: work?.taskTitle,
@@ -298,6 +304,7 @@ export default function Timesheet() {
     if (currentWorkTask?.description) {
       setValue('description', workNoteFromTask(currentWorkTask), { shouldValidate: true })
     }
+    document.getElementById('work-session')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }
 
   const cancelCheckOut = () => {
@@ -505,11 +512,11 @@ export default function Timesheet() {
   }
 
   return (
-    <div className="emp-timesheet-page dashboard-surface" data-page-scrollable>
+    <div className="emp-timesheet-page dashboard-surface" data-employee-timesheet>
       <div className="emp-timesheet-hero">
         <h1 className="emp-timesheet-hero-title">Projects & Timesheets</h1>
         <div className="emp-timesheet-hero-stats">
-          <div className="emp-timesheet-hero-stat">
+          <div className="emp-timesheet-hero-stat emp-timesheet-hero-stat--plain">
             <span className="emp-timesheet-hero-stat-label">Total</span>
             <span className="emp-timesheet-hero-stat-value">{taskStatusCounts.total}</span>
           </div>
@@ -523,38 +530,55 @@ export default function Timesheet() {
             <span className="emp-timesheet-hero-stat-label">Completed</span>
             <span className="emp-timesheet-hero-stat-value">{taskStatusCounts.completed}</span>
           </div>
-          <div className="emp-timesheet-hero-stat emp-timesheet-hero-stat--red">
-            <span className="emp-timesheet-hero-stat-dot" aria-hidden />
+          <div className="emp-timesheet-hero-stat emp-timesheet-hero-stat--plain">
             <span className="emp-timesheet-hero-stat-label">Cancelled</span>
             <span className="emp-timesheet-hero-stat-value">{taskStatusCounts.cancelled}</span>
           </div>
         </div>
       </div>
 
-      {/* Main Dashboard Grid Layout */}
-      <div className="mb-3 grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
-        
-        {/* LEFT COLUMN — Work Session + Work History */}
-        <div className="flex flex-col gap-3">
-          {/* Work Session — form, live timer when checked in, and actions */}
-          <section className="emp-timesheet-card flex flex-col">
-            <div className="emp-timesheet-card-header">
-              <h3 className="emp-timesheet-card-title">Work Session</h3>
-            </div>
-            <div className="emp-timesheet-card-body flex flex-col gap-2.5">
-              {!checkedIn && attendance?.autoCheckedOut && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-1.5">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-800">
-                    <AlertTriangle className="h-3 w-3 shrink-0" />
-                    Auto Checked-Out
-                  </div>
-                  <p className="mt-0.5 text-[10px] text-amber-700">
-                    Your previous session was closed by the system.
-                  </p>
+      <div className="emp-timesheet-top-grid">
+        <section className="emp-timesheet-card emp-timesheet-session-compact emp-timesheet-top-panel" id="work-session">
+          <div className="emp-timesheet-card-header emp-timesheet-card-header--compact">
+            <h3 className="emp-timesheet-card-title">Work Session</h3>
+            {projectBreakdown.length > 0 ? (
+              <span className="emp-timesheet-session-projects-total">{projectWiseTotal.toFixed(1)}h</span>
+            ) : null}
+          </div>
+          <div className="emp-timesheet-card-body emp-timesheet-session-compact-body">
+            {!checkedIn && attendance?.autoCheckedOut ? (
+              <div className="mx-2.5 mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1">
+                <div className="flex items-center gap-1.5 text-[10px] font-semibold text-amber-800">
+                  <AlertTriangle className="h-3 w-3 shrink-0" />
+                  Auto checked out
                 </div>
-              )}
+              </div>
+            ) : null}
 
-              {checkedIn && checkInTime ? (
+            {!checkoutReview ? (
+              <div className="emp-timesheet-session-top emp-timesheet-session-projects">
+                <Suspense
+                  fallback={
+                    <div className="flex items-center justify-center py-2 text-[10px] text-muted">
+                      Loading…
+                    </div>
+                  }
+                >
+                  <TimesheetProjectWiseChart
+                    embedded
+                    data={projectBreakdown}
+                    emptyHint={
+                      startableTasks.length === 0
+                        ? 'No projects assigned yet.'
+                        : 'Hours appear after you log time.'
+                    }
+                  />
+                </Suspense>
+              </div>
+            ) : null}
+
+            {!checkoutReview && checkedIn && checkInTime ? (
+              <div className="emp-timesheet-session-active">
                 <TimesheetLiveSessionPanel
                   checkedIn={checkedIn}
                   checkInTime={checkInTime}
@@ -564,221 +588,171 @@ export default function Timesheet() {
                   serverTimeSkew={serverTimeSkew}
                   checkoutReview={checkoutReview}
                   submitting={submitting}
+                  slim
                   onPause={() => activeTask && onPauseTask(activeTask.timesheetId)}
                   onResume={() => pausedTasks[0] && onResumeTask(pausedTasks[0].timesheetId)}
                 />
-              ) : null}
-
-              {!checkedIn || checkoutReview ? (
-                <>
-                  {!checkedIn ? (
-                    <div className="space-y-0.5">
-                      <Label className="text-xs font-bold text-slate-800">Assigned Project *</Label>
-                      <Select
-                        value={selectedTaskId}
-                        onValueChange={(v) => setValue('assignedTaskId', v, { shouldValidate: true })}
-                        disabled={checkoutReview || startableTasks.length === 0}
-                      >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue
-                            placeholder={
-                              startableTasks.length === 0
-                                ? 'No projects assigned — contact admin'
-                                : 'Select assigned project'
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[200px] overflow-y-auto">
-                          {startableTasks.map((t) => (
-                            <SelectItem key={t.id} value={t.id}>
-                              {t.projectName}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {selectedTask?.description && !checkoutReview && (
-                        <p className="line-clamp-2 text-[9px] text-muted mt-1">{selectedTask.description}</p>
-                      )}
-                      {errors.assignedTaskId && (
-                        <p className="text-[9px] text-danger mt-1">{errors.assignedTaskId.message}</p>
-                      )}
-                    </div>
-                  ) : null}
-
-                  <div className="space-y-0.5">
-                    <Label className="text-xs font-bold text-slate-800">
-                      {checkoutReview ? 'Work Summary *' : 'Work Description *'}
-                    </Label>
-                    <Textarea
-                      className="min-h-[3.5rem] max-h-[10rem] resize-y text-xs leading-relaxed"
-                      rows={2}
-                      {...register('description')}
-                      placeholder={
-                        checkoutReview
-                          ? 'Update your work summary before checking out…'
-                          : "Describe what you're working on..."
-                      }
-                      disabled={checkedIn && !checkoutReview}
-                    />
-                    {checkoutReview && (
-                      <p className="text-[9px] font-medium text-amber-700 mt-1">
-                        Update your work summary before checking out.
-                      </p>
-                    )}
-                    {checkoutError && <p className="text-[9px] text-danger mt-1">{checkoutError}</p>}
-                  </div>
-                </>
-              ) : null}
-
-              <div className="flex gap-2 border-t border-slate-200/80 pt-2.5">
-                {checkoutReview ? (
-                  <>
-                    <Button type="button" variant="outline" onClick={cancelCheckOut} disabled={submitting} className="h-8 flex-1 text-xs">
-                      Cancel
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={onConfirmCheckOut}
-                      disabled={submitting}
-                      className="emp-ts-btn-primary h-8 gap-1.5 flex-1 text-xs"
-                    >
-                      <LogOut className="h-3.5 w-3.5 shrink-0" />
-                      Confirm Check Out
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button
-                      type="button"
-                      onClick={onCheckIn}
-                      disabled={checkedIn || submitting || !canStartSession || startableTasks.length === 0}
-                      className="emp-ts-btn-primary h-8 gap-1.5 flex-1 text-xs"
-                    >
-                      <LogIn className="h-3.5 w-3.5 shrink-0" /> Check In
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={beginCheckOut}
-                      disabled={!checkedIn || submitting}
-                      className="h-8 gap-1.5 flex-1 text-xs"
-                    >
-                      <LogOut className="h-3.5 w-3.5 shrink-0" /> Check Out
-                    </Button>
-                  </>
-                )}
               </div>
-            </div>
-          </section>
+            ) : null}
 
-          {/* Work History */}
-          <section className="emp-timesheet-card emp-timesheet-history-panel flex flex-col overflow-visible">
-            <div className="emp-timesheet-history-header flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
-              <h3 className="emp-timesheet-card-title">Work History</h3>
-              <div className="relative z-20 shrink-0">
-                <DateRangePicker
-                  startDate={historyStart}
-                  endDate={historyEnd}
-                  preset={historyPreset}
-                  onChange={(start, end, preset) => {
-                    setHistoryStart(start)
-                    setHistoryEnd(end)
-                    setHistoryPreset(preset)
-                    void Promise.all([
-                      useTimesheetStore.getState().refreshSessionsForRange({ from: start, to: end }),
-                      useTimesheetStore.getState().refreshProjectWiseHours({ from: start, to: end }),
-                    ])
-                  }}
+            {checkoutReview ? (
+              <div className="emp-timesheet-session-main emp-timesheet-checkout-panel">
+                <p className="emp-timesheet-session-note emp-timesheet-session-note--checkout text-amber-800">
+                  Update summary before checking out.
+                </p>
+                <Textarea
+                  className="emp-timesheet-session-desc emp-timesheet-session-desc--checkout"
+                  {...register('description')}
+                  placeholder="Update your work summary before checking out…"
                 />
+                {checkoutError ? (
+                  <p className="emp-timesheet-session-note emp-timesheet-session-note--error text-danger">
+                    {checkoutError}
+                  </p>
+                ) : null}
+              </div>
+            ) : !checkedIn ? (
+              <div className="emp-timesheet-session-main emp-timesheet-session-stack">
+                <button
+                  type="button"
+                  className="emp-timesheet-session-desc emp-timesheet-session-desc--idle"
+                  onClick={openCheckInDialog}
+                  disabled={submitting || startableTasks.length === 0}
+                >
+                  <span className="emp-timesheet-session-desc-placeholder">
+                    Describe what you&apos;re working on…
+                  </span>
+                </button>
+                <Button
+                  type="button"
+                  onClick={openCheckInDialog}
+                  disabled={submitting || startableTasks.length === 0}
+                  className="emp-ts-btn-primary emp-timesheet-session-action h-10 w-full gap-2 text-sm"
+                >
+                  <LogIn className="h-4 w-4 shrink-0" />
+                  Check In
+                </Button>
+              </div>
+            ) : null}
+
+            {checkoutReview ? (
+              <div className="emp-timesheet-session-footer">
+                <Button
+                  type="button"
+                  onClick={onConfirmCheckOut}
+                  disabled={submitting}
+                  className="emp-ts-btn-checkout emp-timesheet-session-action h-10 w-full gap-2 text-sm"
+                >
+                  <LogOut className="h-4 w-4 shrink-0" />
+                  Check Out
+                </Button>
+              </div>
+            ) : checkedIn ? (
+              <div className="emp-timesheet-session-footer">
+                <Button
+                  type="button"
+                  onClick={beginCheckOut}
+                  disabled={submitting}
+                  className="emp-ts-btn-checkout emp-timesheet-session-action h-10 w-full gap-2 text-sm"
+                >
+                  <LogOut className="h-4 w-4 shrink-0" />
+                  Check Out
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        </section>
+
+        <section className="emp-timesheet-card emp-timesheet-chart-panel emp-timesheet-top-panel">
+          <div className="emp-timesheet-card-header">
+            <h3 className="emp-timesheet-card-title">Weekly Hours</h3>
+            <div className="emp-timesheet-chart-header-stats">
+              <div className="emp-timesheet-chart-stat">
+                <span className="emp-timesheet-chart-stat-label">Today</span>
+                <span className="emp-timesheet-chart-stat-value">{formatDurationFromMs(todayHoursMs)}</span>
+              </div>
+              <div className="emp-timesheet-chart-stat">
+                <span className="emp-timesheet-chart-stat-label">Week</span>
+                <span className="emp-timesheet-chart-stat-value">{totalWeekly.toFixed(1)}h</span>
               </div>
             </div>
-
-            <div className="emp-timesheet-card-body flex flex-col p-3">
-              {(isInitialLoading || sessionsLoading) && unifiedHistory.length === 0 ? (
-                <div className="space-y-2">
-                  <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/80" />
-                  <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/60" />
-                  <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/60" />
+          </div>
+          <div className="emp-timesheet-card-body" style={{ height: CHART_HEIGHT }}>
+            <Suspense
+              fallback={
+                <div className="flex h-full items-center justify-center text-xs text-muted">
+                  Loading chart…
                 </div>
-              ) : (
-                <div className="relative flex flex-col">
-                  {(isInitialLoading || sessionsLoading) && (
-                    <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/70 backdrop-blur-[1px]">
-                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                    </div>
-                  )}
-                  <div className="emp-timesheet-history-scroll timesheet-panel-scroll min-h-[12rem] overflow-auto rounded-lg border border-slate-200/80">
-                    <DataTable
-                      columns={historyColumns}
-                      data={unifiedHistory}
-                      compact
-                      stickyHeader={true}
-                      emptyMessage="No work logs for this date range."
-                    />
-                  </div>
+              }
+            >
+              <TimesheetWeeklyChart data={weeklyHours} height={CHART_HEIGHT} />
+            </Suspense>
+          </div>
+        </section>
+      </div>
+
+      <section className="emp-timesheet-card emp-timesheet-history-panel">
+        <div className="emp-timesheet-history-header flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
+          <h3 className="emp-timesheet-card-title">Work History</h3>
+          <div className="relative z-20 shrink-0">
+            <DateRangePicker
+              startDate={historyStart}
+              endDate={historyEnd}
+              preset={historyPreset}
+              onChange={(start, end, preset) => {
+                setHistoryStart(start)
+                setHistoryEnd(end)
+                setHistoryPreset(preset)
+                void Promise.all([
+                  useTimesheetStore.getState().refreshSessionsForRange({ from: start, to: end }),
+                  useTimesheetStore.getState().refreshProjectWiseHours({ from: start, to: end }),
+                ])
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="emp-timesheet-card-body emp-timesheet-history-body">
+          {(isInitialLoading || sessionsLoading) && unifiedHistory.length === 0 ? (
+            <div className="space-y-2 p-3">
+              <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/80" />
+              <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/60" />
+              <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/60" />
+            </div>
+          ) : (
+            <div className="relative flex min-h-0 flex-1 flex-col">
+              {(isInitialLoading || sessionsLoading) && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-[1px]">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
                 </div>
               )}
-            </div>
-          </section>
-        </div>
-
-        {/* RIGHT COLUMN */}
-        <div className="flex flex-col gap-4">
-          {/* Weekly Hours Chart - Primary Visual */}
-          <section className="emp-timesheet-card">
-            <div className="emp-timesheet-card-header">
-              <h3 className="emp-timesheet-card-title">Weekly Hours</h3>
-              <div className="emp-timesheet-chart-header-stats">
-                <div className="emp-timesheet-chart-stat">
-                  <span className="emp-timesheet-chart-stat-label">Today</span>
-                  <span className="emp-timesheet-chart-stat-value">{formatDurationFromMs(todayHoursMs)}</span>
-                </div>
-                <div className="emp-timesheet-chart-stat">
-                  <span className="emp-timesheet-chart-stat-label">This week</span>
-                  <span className="emp-timesheet-chart-stat-value">{totalWeekly.toFixed(1)}h</span>
-                </div>
+              <div className="emp-timesheet-history-scroll timesheet-panel-scroll">
+                <DataTable
+                  columns={historyColumns}
+                  data={unifiedHistory}
+                  compact
+                  stickyHeader={true}
+                  emptyMessage="No work logs for this date range."
+                />
               </div>
             </div>
-            <div className="emp-timesheet-card-body" style={{ height: 280 }}>
-              <Suspense
-                fallback={
-                  <div className="flex h-full items-center justify-center text-xs text-muted">
-                    Loading chart…
-                  </div>
-                }
-              >
-                <TimesheetWeeklyChart data={weeklyHours} height={280} />
-              </Suspense>
-            </div>
-          </section>
-
-          {/* Project Breakdown Chart */}
-          <section className="emp-timesheet-card">
-            <div className="emp-timesheet-card-header">
-              <h3 className="emp-timesheet-card-title">Project Breakdown</h3>
-              <span className="emp-timesheet-chart-meta">{projectWiseTotal.toFixed(1)}h total</span>
-            </div>
-            <div className="emp-timesheet-card-body">
-              <Suspense
-                fallback={
-                  <div className="flex min-h-[200px] items-center justify-center text-xs text-muted">
-                    Loading…
-                  </div>
-                }
-              >
-                <TimesheetProjectWiseChart
-                  data={projectBreakdown}
-                  emptyHint={
-                    startableTasks.length === 0
-                      ? 'No projects assigned yet — contact your admin.'
-                      : 'Hours appear after you log time on assigned projects.'
-                  }
-                />
-              </Suspense>
-            </div>
-          </section>
+          )}
         </div>
-      </div>
+      </section>
+
+      <TimesheetCheckInDialog
+        open={checkInDialogOpen}
+        onOpenChange={setCheckInDialogOpen}
+        selectedTaskId={selectedTaskId}
+        onTaskChange={(v) => setValue('assignedTaskId', v, { shouldValidate: true })}
+        description={workDescription}
+        onDescriptionChange={(v) => setValue('description', v, { shouldValidate: true })}
+        taskError={errors.assignedTaskId?.message}
+        startableTasks={startableTasks}
+        selectedTask={selectedTask}
+        submitting={submitting}
+        onCheckIn={onCheckIn}
+      />
     </div>
   )
 }

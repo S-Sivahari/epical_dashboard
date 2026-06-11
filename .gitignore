@@ -13,6 +13,11 @@ node_modules/
 # Build folders
 dist/
 dist-ssr/
+.vite/
+
+# Local debug / curl artifacts
+cookies.txt
+scratch_list_employees.*
 
 # Local files
 *.local

@@ -27,6 +27,8 @@ export interface DepartmentStats {
   performance: number
 }
 
+const DASHBOARD_REFRESH_MS = 15 * 60 * 1000
+
 export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
   const user = useAuthStore((s) => s.user)
   const { leaves, holidays } = useLeaves()
@@ -50,9 +52,11 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
   }, [])
 
   useEffect(() => {
-    async function load() {
+    let cancelled = false
+
+    async function load(silent = false) {
       try {
-        setLoading(true)
+        if (!silent) setLoading(true)
         const { from, to } = getChartRange(chartPeriod)
         const [tsRes, projRes, empHoursRes, docRes, batchRes, empRes, ticketList] = await Promise.all([
           api.get('/timesheets', { params: { from, to } }),
@@ -68,6 +72,7 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
           api.get('/employees', { params: { pageSize: 500, page: 1 } }).catch(() => ({ data: { employees: [] } })),
           ticketService.getTickets().catch(() => []),
         ])
+        if (cancelled) return
         setTimesheets(tsRes.data || [])
         setProjects(projRes.data || [])
         setEmployeeHours(empHoursRes.data || [])
@@ -91,10 +96,19 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
       } catch (err) {
         console.error('[CommandCenter] Failed to load data:', err)
       } finally {
-        setLoading(false)
+        if (!cancelled && !silent) setLoading(false)
       }
     }
-    void load()
+
+    void load(false)
+    const refreshId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void load(true)
+    }, DASHBOARD_REFRESH_MS)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(refreshId)
+    }
   }, [chartPeriod])
 
   const pendingLeaves = leaves.filter((l) => l.status === 'Pending')
@@ -193,7 +207,7 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
         title: 'Attendance below target',
         body: `Current attendance rate is ${attendanceRate}%. Consider reviewing department schedules and pending leave overlaps.`,
         action: 'View analytics',
-        route: '/admin/projects?tab=analytics',
+        route: '/admin/timesheet?tab=analytics',
       })
     } else {
       items.push({
@@ -202,7 +216,7 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
         title: 'Strong attendance this period',
         body: `${attendanceRate}% of employees logged time. Trend is stable compared to last week.`,
         action: 'View timesheets',
-        route: '/admin/projects',
+        route: '/admin/timesheet',
       })
     }
     if (payrollStatus.status === 'attention') {
@@ -220,8 +234,8 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
       type: 'info' as const,
       title: 'Employee engagement signal',
       body: `${activeProjects.length} active projects with ${totalPeriodHours}h logged ${chartPeriod.toLowerCase()}. Cross-team collaboration is ${activeProjects.length > 2 ? 'healthy' : 'moderate'}.`,
-      action: 'Open projects',
-      route: '/admin/projects',
+      action: 'Open timesheets',
+      route: '/admin/timesheet',
     })
     return items
   }, [

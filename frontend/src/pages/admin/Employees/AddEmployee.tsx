@@ -62,6 +62,7 @@ const step3 = z.object({
     .min(1, 'Joining date is required')
     .refine(isValidDate, 'Enter a valid joining date'),
   employmentType: z.enum(['Full-time', 'Contract', 'Intern']),
+  role: z.enum(['Employee', 'Admin'], { required_error: 'Role is required' }),
   managerId: z.string().optional(),
   ctc: z.preprocess(
     (value) => (value === '' || value === null || value === undefined ? undefined : Number(value)),
@@ -392,7 +393,7 @@ export function AddEmployee() {
       lastName: values.lastName.trim(),
       permanentAddress: values.permanentAddress,
       communicationAddress: values.communicationAddress,
-      role: 'Employee',
+      role: values.role,
       managerId: values.managerId || undefined,
       employmentType: values.employmentType,
       joinedAt: values.joinedAt,
@@ -656,6 +657,16 @@ export function AddEmployee() {
                   { value: 'Intern', label: 'Intern' },
                 ]}
                 {...form.register('employmentType')}
+              />
+              <SelectField
+                label="Role"
+                required
+                error={form.formState.errors.role?.message}
+                options={[
+                  { value: 'Employee', label: 'Employee' },
+                  { value: 'Admin', label: 'Admin' },
+                ]}
+                {...form.register('role')}
               />
               <Input
                 label="CTC (annual)"
@@ -996,6 +1007,10 @@ export function AddEmployee() {
                   <div>
                     <p className="text-xs text-muted">Phone</p>
                     <p className="font-medium text-ink">{previewData.phone}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted">Role</p>
+                    <p className="font-medium text-ink">{previewData.role}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted">Employment Type</p>

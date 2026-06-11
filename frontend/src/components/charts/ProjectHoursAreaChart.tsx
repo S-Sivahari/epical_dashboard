@@ -47,10 +47,12 @@ export function ProjectHoursAreaChart({
     return { yMax: max, yTicks: ticks }
   }, [data])
 
+  const labelCount = data.length
+  const needsAngledLabels = labelCount > 5
   const chartHeight = fillParent ? undefined : height
   const margin = compact
-    ? { top: 4, right: 4, left: -16, bottom: -4 }
-    : { top: 16, right: 12, left: 4, bottom: 4 }
+    ? { top: 4, right: 4, left: -16, bottom: needsAngledLabels ? 16 : 4 }
+    : { top: 16, right: 12, left: 4, bottom: needsAngledLabels ? 32 : 12 }
 
   return (
     <div
@@ -74,11 +76,18 @@ export function ProjectHoursAreaChart({
           <CartesianGrid stroke={CHART_GREEN.grid} vertical={false} strokeDasharray="4 6" />
           <XAxis
             dataKey="name"
-            tick={{ fill: CHART_GREEN.axis, fontSize: compact ? 11 : 14, fontWeight: 500 }}
+            tick={{
+              fill: CHART_GREEN.axis,
+              fontSize: labelCount > 8 ? 10 : compact ? 11 : 12,
+              fontWeight: 500,
+            }}
             axisLine={false}
             tickLine={false}
-            dy={compact ? 2 : 6}
-            interval={compact ? 'preserveStartEnd' : 0}
+            dy={needsAngledLabels ? 0 : compact ? 2 : 6}
+            interval={labelCount > 8 ? Math.max(0, Math.floor(labelCount / 6) - 1) : compact ? 'preserveStartEnd' : 0}
+            angle={needsAngledLabels ? -35 : 0}
+            textAnchor={needsAngledLabels ? 'end' : 'middle'}
+            height={needsAngledLabels ? 52 : undefined}
           />
           {!compact && (
             <YAxis

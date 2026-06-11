@@ -5,6 +5,7 @@ export type NotificationType =
   | 'LeaveApproved'
   | 'LeaveRejected'
   | 'LeaveCancelled'
+  | 'LeaveLop'
   | 'DocumentRequested'
   | 'DocumentApproved'
   | 'DocumentRejected'
@@ -19,7 +20,12 @@ export type NotificationType =
   | 'CalendarEventRemoved'
   | 'TicketSubmitted'
   | 'TicketStatusUpdated'
-  | 'TicketCommentAdded';
+  | 'TicketCommentAdded'
+  | 'CellReviewRequested'
+  | 'CellReviewApproved'
+  | 'CellReviewRejected'
+  | 'CellCreatedUnassigned'
+  | 'CellAssigned';
 
 export interface Notification {
   _id?: ObjectId;
@@ -49,9 +55,23 @@ export interface Notification {
     from?: string;
     to?: string;
     days?: number;
+    lopDays?: number;
     ticketId?: string;
     ticketTitle?: string;
     ticketStatus?: string;
+    projectId?: string;
+    cellId?: string;
+    reviewId?: string;
+    projectName?: string;
+    cellName?: string;
+    reviewPoint?: string;
+    stageAtRequest?: string;
+    reviewOutcome?: string;
+    returnToStage?: string;
+    resolvedByName?: string;
+    libraryName?: string;
+    createdByName?: string;
+    assignedByName?: string;
   };
   relatedId?: string;
   isRead: boolean;
@@ -85,9 +105,23 @@ export interface CreateNotificationPayload {
     from?: string;
     to?: string;
     days?: number;
+    lopDays?: number;
     ticketId?: string;
     ticketTitle?: string;
     ticketStatus?: string;
+    projectId?: string;
+    cellId?: string;
+    reviewId?: string;
+    projectName?: string;
+    cellName?: string;
+    reviewPoint?: string;
+    stageAtRequest?: string;
+    reviewOutcome?: string;
+    returnToStage?: string;
+    resolvedByName?: string;
+    libraryName?: string;
+    createdByName?: string;
+    assignedByName?: string;
   };
   relatedId?: string;
 }

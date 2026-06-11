@@ -25,6 +25,10 @@ function ProjectRow({ project, compact = false }) {
         compact ? 'px-2 py-1.5 sm:px-3' : 'px-3 py-2.5 sm:px-4',
       )}
     >
+      <Link
+        to={`/employee/projects/${project.id}`}
+        className="col-span-full grid grid-cols-subgrid items-center gap-2 sm:col-span-4 sm:gap-3 hover:bg-[#f6f4fa]/80"
+      >
       <div className="min-w-0">
         <p className="truncate font-semibold text-foreground" title={project.name}>
           {project.name}
@@ -48,6 +52,7 @@ function ProjectRow({ project, compact = false }) {
       <span className="truncate text-right text-[10px] font-medium text-muted">
         {project.assignmentRole}
       </span>
+      </Link>
     </li>
   )
 }
@@ -111,7 +116,7 @@ export function AssignedProjectsSection({
 
   return (
     <InteractiveCard
-      to="/employee/timesheet"
+      to="/employee/projects"
       className={portalCardClass({
         className: cn(
           compact
@@ -163,13 +168,13 @@ export function AssignedProjectsSection({
           </div>
         </div>
         <Link
-          to="/employee/timesheet"
+          to="/employee/projects"
           className={cn(
             'inline-flex shrink-0 items-center gap-1 font-medium text-primary hover:underline',
             compact ? 'text-[10px]' : 'text-xs',
           )}
         >
-          Timesheet <ArrowRight className={compact ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
+          Open workspace <ArrowRight className={compact ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
         </Link>
       </div>
 

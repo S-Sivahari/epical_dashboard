@@ -109,6 +109,15 @@ body,
   overflow: visible;
 }
 
+/* Scrollable employee routes — grow with content; cmd-main scrolls */
+.employee-portal [data-employee-page]:has([data-page-scrollable]) {
+  flex: 1 1 auto;
+  max-height: none;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+}
+
 /* Hub shells — grow with content; cmd-main is the scroll container */
 .admin-portal .admin-training-shell,
 .admin-portal .admin-news-shell,
@@ -118,6 +127,7 @@ body,
 .admin-portal .admin-payslips-shell,
 .admin-portal .admin-achievements-shell,
 .admin-portal .admin-analytics-shell,
+.admin-portal .admin-projects-workspace-shell,
 .admin-portal .admin-leaves-shell {
   display: flex;
   flex-direction: column;
@@ -344,7 +354,8 @@ body,
 /* Employee dashboard, calendar, leave — viewport-fit with internal panel scroll */
 .employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-dashboard]),
 .employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-calendar]),
-.employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-leave]) {
+.employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-leave]),
+.employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-timesheet]) {
   flex: 1 1 0;
   max-height: var(--viewport-page-h);
   overflow: hidden;
@@ -352,7 +363,8 @@ body,
 
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-dashboard]),
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]),
-.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-leave]) {
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-leave]),
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-timesheet]) {
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
@@ -361,33 +373,39 @@ body,
 }
 
 [data-employee-dashboard] .emp-dash-widgets-grid {
-  display: grid;
+  display: flex;
   min-height: 0;
   flex: 1 1 0;
-  grid-template-columns: 1fr;
+  flex-direction: column;
   gap: 0.75rem;
   overflow: hidden;
+}
+
+[data-employee-dashboard] .emp-dash-widgets-row {
+  display: grid;
+  min-height: 0;
+  gap: 0.75rem;
+  overflow: hidden;
+}
+
+[data-employee-dashboard] .emp-dash-widgets-row--top {
+  flex: 1 1 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+[data-employee-dashboard] .emp-dash-widgets-row--bottom {
+  flex: 1 1 0;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 @media (min-width: 768px) {
-  [data-employee-dashboard] .emp-dash-widgets-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  [data-employee-dashboard] .emp-dash-widgets-row--top {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
-}
 
-[data-employee-dashboard] .emp-dash-widgets-col {
-  display: grid;
-  min-height: 0;
-  gap: 0.75rem;
-  overflow: hidden;
-}
-
-[data-employee-dashboard] .emp-dash-widgets-col--left {
-  grid-template-rows: repeat(3, minmax(0, 1fr));
-}
-
-[data-employee-dashboard] .emp-dash-widgets-col--right {
-  grid-template-rows: repeat(2, minmax(0, 1fr));
+  [data-employee-dashboard] .emp-dash-widgets-row--bottom {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 [data-employee-dashboard] .emp-dash-widget-slot {
@@ -411,14 +429,48 @@ body,
   -webkit-overflow-scrolling: touch;
 }
 
+[data-employee-dashboard] .emp-dash-bottom-widget-header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+[data-employee-dashboard] .emp-dash-bottom-widget-header h3 {
+  font-size: 1rem;
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+[data-employee-dashboard] .emp-dash-bottom-widget-empty {
+  display: flex;
+  flex: 1 1 0;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+[data-employee-dashboard] .emp-dash-leave-grid {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 0.375rem;
+}
+
 @media (max-width: 767px) {
   [data-employee-dashboard] .emp-dash-widgets-grid {
     overflow-y: auto;
   }
 
-  [data-employee-dashboard] .emp-dash-widgets-col--left,
-  [data-employee-dashboard] .emp-dash-widgets-col--right {
-    grid-template-rows: none;
+  [data-employee-dashboard] .emp-dash-widgets-row--top,
+  [data-employee-dashboard] .emp-dash-widgets-row--bottom {
     grid-auto-rows: minmax(11rem, auto);
   }
 

@@ -26,7 +26,7 @@ const ArchivedProjectSchema = new Schema<ArchivedProject>(
     originalProjectId: { type: Schema.Types.ObjectId, required: true },
     projectName: { type: String, required: true },
     clientName: { type: String, required: true },
-    technologyNode: { type: String, required: true },
+    technologyNode: { type: String, default: '' },
     accessType: { type: String, enum: ['public', 'private'], required: true },
     allowedUsers: { type: [String], default: [] },
     teamLead: { type: String },

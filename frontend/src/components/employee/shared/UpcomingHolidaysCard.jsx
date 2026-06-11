@@ -132,12 +132,12 @@ export function UpcomingHolidaysCard({ holidays = [], className, compact = false
   if (compact) {
     return (
       <InteractiveCard to="/employee/calendar" className={cn(cardClass, className)}>
-        <div className="mb-2 flex shrink-0 items-center justify-between gap-2 border-b border-border pb-2">
+        <div className="emp-dash-bottom-widget-header">
           <div className="flex min-w-0 items-center gap-2">
             <div className="emp-dash-icon emp-dash-icon--sky h-7 w-7" aria-hidden>
               <CalendarDays className="h-3.5 w-3.5" />
             </div>
-            <h3 className="font-heading text-sm font-semibold text-foreground">Upcoming holidays</h3>
+            <h3 className="font-heading font-semibold text-foreground">Upcoming holidays</h3>
           </div>
           <Link
             to="/employee/calendar"
@@ -147,9 +147,11 @@ export function UpcomingHolidaysCard({ holidays = [], className, compact = false
           </Link>
         </div>
 
-        <div className={cn(fill && 'emp-dash-widget-body min-h-0 flex-1')}>
+        <div className={cn('flex min-h-0 flex-col', fill && 'emp-dash-widget-body flex-1')}>
           {upcoming.length === 0 ? (
-            <p className="py-2 text-center text-xs text-muted">No upcoming holidays</p>
+            <div className="emp-dash-bottom-widget-empty">
+              <p className="text-sm text-muted">No upcoming holidays</p>
+            </div>
           ) : (
             <ul
               className={cn(

@@ -37,6 +37,30 @@ export function getNotificationRoute(notification: NotificationData): string | n
     case 'TicketStatusUpdated':
     case 'TicketCommentAdded':
       return '/employee/tickets'
+    case 'CellReviewRequested':
+      if (relatedData?.projectId && relatedData?.cellId) {
+        return `/admin/projects/${relatedData.projectId}/cells/${relatedData.cellId}`
+      }
+      return relatedData?.projectId ? `/admin/projects/${relatedData.projectId}` : '/admin/projects'
+    case 'CellReviewApproved':
+    case 'CellReviewRejected':
+      if (relatedData?.projectId && relatedData?.cellId) {
+        return `/employee/projects/${relatedData.projectId}/cells/${relatedData.cellId}`
+      }
+      return relatedData?.projectId ? `/employee/projects/${relatedData.projectId}` : '/employee/projects'
+    case 'CellCreatedUnassigned':
+      if (recipientType === 'Admin' && relatedData?.projectId && relatedData?.cellId) {
+        return `/admin/projects/${relatedData.projectId}/cells/${relatedData.cellId}`
+      }
+      if (relatedData?.projectId && relatedData?.cellId) {
+        return `/employee/projects/${relatedData.projectId}/cells/${relatedData.cellId}`
+      }
+      return relatedData?.projectId ? `/employee/projects/${relatedData.projectId}` : '/employee/projects'
+    case 'CellAssigned':
+      if (relatedData?.projectId && relatedData?.cellId) {
+        return `/employee/projects/${relatedData.projectId}/cells/${relatedData.cellId}`
+      }
+      return relatedData?.projectId ? `/employee/projects/${relatedData.projectId}` : '/employee/projects'
     default:
       return null
   }

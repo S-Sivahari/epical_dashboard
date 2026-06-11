@@ -16,11 +16,15 @@ export function getApiOrigin(): string {
   if (base.startsWith('http')) {
     return base.replace(/\/api\/?$/, '')
   }
-  // Same-origin deploy (Cloud Run): API is served from the current host.
+  // Dev: Vite serves the UI on :5173 but API lives on :3000 (proxy only applies to fetch/axios).
+  if (import.meta.env.DEV) {
+    return 'http://localhost:3000'
+  }
+  // Production same-origin deploy (Cloud Run): API is served from the current host.
   if (typeof window !== 'undefined') {
     return window.location.origin
   }
-  return import.meta.env.DEV ? 'http://localhost:3000' : ''
+  return ''
 }
 
 /** Start Google OAuth on the API host (prefer oauthStartUrl from /auth/google/config). */

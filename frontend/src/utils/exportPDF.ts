@@ -180,8 +180,6 @@ export async function exportToPDF<T extends Record<string, any>>(
 
   function drawHeaderBlock(): number {
     let y = 38
-    let textX = 40
-    let align: 'center' | 'left' = 'center'
     const reportTitleStr = options?.reportTitle ?? 'Employee Details Report'
 
     if (employeeStyle && logo && options?.headerLogoAdjacentToTitle) {

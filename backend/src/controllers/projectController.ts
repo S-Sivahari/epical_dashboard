@@ -14,6 +14,7 @@ import { getAssignedProjectsForUser } from '../utils/assignedProjectsHelper';
 import { getUserById } from '../services/authService';
 import { resolveEmployeeForAuthUser } from '../utils/employeeAuth';
 import { normalizeProjectDescription, validateProjectDescription } from '../utils/textLimits';
+import { enrichProjectsWithChecklist } from '../services/checklistService';
 
 function computeTotalHours(loginTime: Date, logoutTime?: Date, overriddenHours?: number): number {
   if (overriddenHours !== undefined && overriddenHours !== null) {
@@ -137,7 +138,7 @@ export const projectController = {
         );
         projectsToMap = synced.map((result, index) => result?.project || refreshedProjects[index]);
       }
-      res.json(projectsToMap.map(toFrontendProject));
+      res.json(await enrichProjectsWithChecklist(projectsToMap.map(toFrontendProject)));
     } catch (error) {
       console.error('Error fetching projects:', error);
       res.status(500).json({ error: 'Failed to fetch projects' });
@@ -232,18 +233,12 @@ export const projectController = {
     try {
       const { name, client, technologyNode, accessType, description, visibleUsers, teamLead } = req.body;
 
-      if (!name || !client || !technologyNode) {
-        res.status(400).json({ error: 'Project Name, Client, and Technology Node are required' });
+      if (!name || !client) {
+        res.status(400).json({ error: 'Project Name and Client are required' });
         return;
       }
 
-      const techNodeStr = String(technologyNode).trim();
-      if (!/\d+nm/i.test(techNodeStr)) {
-        res.status(400).json({
-          error: 'Technology Node must include a process size followed by nm (e.g. 7nm FinFET, 28nm FD-SOI).'
-        });
-        return;
-      }
+      const techNodeStr = String(technologyNode ?? '').trim();
 
       const descriptionError = validateProjectDescription(String(description || ''));
       if (descriptionError) {
@@ -256,7 +251,7 @@ export const projectController = {
       const project = new ProjectModel({
         projectName: name.trim(),
         clientName: client.trim(),
-        technologyNode: technologyNode.trim(),
+        technologyNode: techNodeStr,
         accessType: accessType || 'public',
         status: 'Active', // new projects always default to Active
         description: normalizeProjectDescription(String(description || '')),
@@ -279,18 +274,12 @@ export const projectController = {
     try {
       const { name, client, technologyNode, accessType, description, visibleUsers, teamLead, status } = req.body;
 
-      if (!name || !client || !technologyNode) {
-        res.status(400).json({ error: 'Project Name, Client, and Technology Node are required' });
+      if (!name || !client) {
+        res.status(400).json({ error: 'Project Name and Client are required' });
         return;
       }
 
-      const techNodeStr = String(technologyNode).trim();
-      if (!/\d+nm/i.test(techNodeStr)) {
-        res.status(400).json({
-          error: 'Technology Node must include a process size followed by nm (e.g. 7nm FinFET, 28nm FD-SOI).'
-        });
-        return;
-      }
+      const techNodeStr = String(technologyNode ?? '').trim();
 
       const descriptionError = validateProjectDescription(String(description || ''));
       if (descriptionError) {
@@ -308,7 +297,7 @@ export const projectController = {
 
       project.projectName = newProjectName;
       project.clientName = client.trim();
-      project.technologyNode = technologyNode.trim();
+      project.technologyNode = techNodeStr;
       project.accessType = accessType;
       project.description = normalizeProjectDescription(String(description || ''));
       project.allowedUsers = Array.isArray(visibleUsers) ? visibleUsers : [];
@@ -329,7 +318,7 @@ export const projectController = {
 
           await TimesheetModel.updateMany(
             { projectId: project._id },
-            { $set: { project: newProjectName, client: client.trim(), technologyNode: technologyNode.trim() } },
+            { $set: { project: newProjectName, client: client.trim(), technologyNode: techNodeStr } },
             { session }
           );
 

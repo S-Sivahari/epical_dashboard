@@ -1,4 +1,5 @@
 import { ProjectModel } from '../models/Project';
+import { ProjectCellModel } from '../models/ProjectCell';
 import { TimesheetModel } from '../models/Timesheet';
 import {
   buildAssignedProjectsFilter,
@@ -53,6 +54,25 @@ export function toFrontendProject(p: {
 }
 
 type AuthUser = { id: string; name: string; email?: string };
+
+/** Projects an employee can open in the layout workspace (broader than timesheet allotment). */
+export async function buildEmployeeWorkspaceProjectsFilter(identityTokens: string[]) {
+  const cellProjectIds = await ProjectCellModel.distinct('projectId', {
+    assignedEmployeeId: { $in: identityTokens },
+  });
+
+  const or: Record<string, unknown>[] = [
+    { accessType: 'public' },
+    { allowedUsers: { $in: identityTokens } },
+    { teamLead: { $in: identityTokens } },
+  ];
+
+  if (cellProjectIds.length > 0) {
+    or.push({ _id: { $in: cellProjectIds } });
+  }
+
+  return { $or: or };
+}
 
 export async function getAssignedProjectsForUser(
   user: AuthUser,

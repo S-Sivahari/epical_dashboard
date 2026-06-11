@@ -1,0 +1,78 @@
+.dep-graph-canvas-wrap {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(26, 67, 41, 0.12);
+  background: #f8faf9;
+}
+
+.dep-graph-canvas-wrap--full {
+  min-height: 100%;
+}
+
+.dep-graph-canvas {
+  display: block;
+  min-width: 100%;
+  min-height: 12rem;
+}
+
+.dep-graph-empty {
+  margin: 0;
+  padding: 1.5rem;
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+.dep-graph-edge {
+  stroke: #94a3b8;
+  stroke-width: 1.5;
+}
+
+.dep-graph-port {
+  fill: #fff;
+  stroke: #94a3b8;
+  stroke-width: 1;
+}
+
+.dep-graph-node {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  justify-content: center;
+  border-radius: 0.5rem;
+  border: 1px solid #bfdbfe;
+  background: #fff;
+  padding: 0.375rem 0.5rem;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+}
+
+.dep-graph-node--blocked {
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.dep-graph-node--ready {
+  border-color: #7dd3fc;
+}
+
+.dep-graph-node--done {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.dep-graph-node-title {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dep-graph-node-status {
+  margin: 0.125rem 0 0;
+  font-size: 0.625rem;
+  color: #64748b;
+}

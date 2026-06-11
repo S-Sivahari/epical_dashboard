@@ -62,6 +62,42 @@
   align-content: stretch;
 }
 
+/* Stacked hub — page scrolls; each panel keeps a capped internal scroll */
+@media (max-width: 1279px) {
+  .admin-portal .cmd-main:has(.admin-leaves-page-wrap) {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .admin-portal .admin-hub-page-wrap.admin-leaves-page-wrap {
+    height: auto;
+    max-height: none;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .admin-leaves-view .admin-leaves-shell {
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-leaves-view .admin-leaves-three-col {
+    overflow: visible;
+    align-content: start;
+  }
+
+  .admin-leaves-view .admin-leaves-three-col > .admin-leaves-col-panel {
+    height: auto;
+    max-height: min(28rem, 52vh);
+  }
+
+  .admin-leaves-view .admin-leaves-compensation-wrap {
+    overflow-y: auto;
+  }
+}
+
 .admin-leaves-view .admin-leaves-compensation-wrap {
   flex: 1;
   min-height: 0;
@@ -143,6 +179,91 @@
   height: 0.875rem;
   width: 0.875rem;
   transform: translateY(-50%);
+  color: #64748b;
+}
+
+.admin-leaves-view .admin-leaves-filter-field--employee {
+  max-width: 16rem;
+}
+
+.admin-leaves-view .admin-leaves-filter-employee-btn {
+  display: flex;
+  align-items: center;
+  text-align: left;
+  background: #fff;
+  border: 1px solid rgba(30, 90, 61, 0.14);
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+.admin-leaves-view .admin-leaves-employee-filter-dropdown {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  z-index: 40;
+  width: min(18rem, 100vw - 2rem);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(30, 90, 61, 0.14);
+  border-radius: 0.75rem;
+  background: #fff;
+  box-shadow: 0 12px 32px rgba(26, 67, 41, 0.14);
+}
+
+.admin-leaves-view .admin-leaves-employee-filter-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-bottom: 1px solid rgba(30, 90, 61, 0.08);
+}
+
+.admin-leaves-view .admin-leaves-employee-filter-search {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid rgba(30, 90, 61, 0.12);
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.admin-leaves-view .admin-leaves-employee-filter-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  font-size: 0.75rem;
+  border-bottom: 1px solid rgba(30, 90, 61, 0.08);
+}
+
+.admin-leaves-view .admin-leaves-employee-filter-actions button {
+  color: #2f6b4f;
+  font-weight: 600;
+}
+
+.admin-leaves-view .admin-leaves-employee-filter-list {
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.admin-leaves-view .admin-leaves-employee-filter-option {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.admin-leaves-view .admin-leaves-employee-filter-option:hover {
+  background: rgba(47, 107, 79, 0.06);
+}
+
+.admin-leaves-view .admin-leaves-employee-filter-empty {
+  padding: 0.75rem;
+  text-align: center;
+  font-size: 0.8125rem;
   color: #64748b;
 }
 

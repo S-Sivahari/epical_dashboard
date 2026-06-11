@@ -51,11 +51,12 @@ function SectionCard({ title, subtitle, action, children, className = '', tone, 
     >
       <div
         className={cn(
-          'flex shrink-0 flex-wrap items-start justify-between gap-2 border-b border-border',
-          compact ? 'mb-2 pb-2' : 'mb-3 pb-3',
+          compact
+            ? 'emp-dash-bottom-widget-header'
+            : 'mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border pb-3',
         )}
       >
-        <div className="flex min-w-0 items-start gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           {Icon ? (
             <div
               className={cn(
@@ -69,7 +70,7 @@ function SectionCard({ title, subtitle, action, children, className = '', tone, 
             </div>
           ) : null}
           <div className="min-w-0">
-            <h3 className={cn('font-heading font-semibold text-foreground', compact ? 'text-sm' : 'text-base')}>
+            <h3 className={cn('font-heading font-semibold text-foreground', compact ? '' : 'text-base')}>
               {title}
             </h3>
             {subtitle ? <p className="mt-0.5 text-xs text-muted">{subtitle}</p> : null}
@@ -179,7 +180,7 @@ export default function Dashboard() {
         icon: Clock,
         trend: `${weeklyHours}h this week`,
         accent: 'sage',
-        to: '/employee/timesheet',
+        to: '/employee/projects',
       },
       {
         title: 'Pending Leave',
@@ -195,7 +196,7 @@ export default function Dashboard() {
         icon: FolderKanban,
         trend: projectCount ? 'Assigned to you' : 'None assigned',
         accent: 'sage',
-        to: '/employee/timesheet',
+        to: '/employee/projects',
       },
       {
         title: 'Training',
@@ -232,7 +233,7 @@ export default function Dashboard() {
         <div className="shrink-0 space-y-2">
           <AnnouncementBanner compact />
 
-          <div className="overflow-x-auto pb-0.5">
+          <div className="pb-0.5">
             <ProfileCard
               employee={employee}
               profile={profile}
@@ -240,13 +241,28 @@ export default function Dashboard() {
               horizontal
               stats={loading ? null : profileStats}
               statsLoading={loading}
-              className="min-w-[36rem] sm:min-w-0"
+              className="min-w-0 w-full"
             />
           </div>
         </div>
 
         <div className="emp-dash-widgets-grid">
-          <div className="emp-dash-widgets-col emp-dash-widgets-col--left">
+          <div className="emp-dash-widgets-row emp-dash-widgets-row--top">
+            <div className="emp-dash-widget-slot">
+              <DashboardWorkInsights compact fill />
+            </div>
+            <div className="emp-dash-widget-slot">
+              <AssignedProjectsSection
+                compact
+                fill
+                className="emp-dash-card emp-dash-card--violet"
+                initialProjects={assignedProjects}
+                loading={loading && assignedProjects == null}
+              />
+            </div>
+          </div>
+
+          <div className="emp-dash-widgets-row emp-dash-widgets-row--bottom">
             <div className="emp-dash-widget-slot">
               {loading ? (
                 widgetSkeleton
@@ -259,7 +275,7 @@ export default function Dashboard() {
                   title="Leave balance"
                   action={<SectionLink to="/employee/leave" label="Apply" />}
                 >
-                  <div className="grid grid-cols-2 gap-1.5">
+                  <div className="emp-dash-leave-grid">
                     {balances.map((lb) => (
                       <LeaveCard
                         key={lb.key}
@@ -301,21 +317,6 @@ export default function Dashboard() {
                   documents={documents}
                 />
               )}
-            </div>
-          </div>
-
-          <div className="emp-dash-widgets-col emp-dash-widgets-col--right">
-            <div className="emp-dash-widget-slot">
-              <DashboardWorkInsights compact fill />
-            </div>
-            <div className="emp-dash-widget-slot">
-              <AssignedProjectsSection
-                compact
-                fill
-                className="emp-dash-card emp-dash-card--violet"
-                initialProjects={assignedProjects}
-                loading={loading && assignedProjects == null}
-              />
             </div>
           </div>
         </div>

@@ -53,6 +53,21 @@ const ProjectManagement = lazy(async () => {
   return { default: m.ProjectManagement }
 })
 
+const AdminProjectsPage = lazy(async () => {
+  const m = await import('@pages/admin/Projects/AdminProjectsPage')
+  return { default: m.AdminProjectsPage }
+})
+
+const ProjectWorkspace = lazy(async () => {
+  const m = await import('@pages/admin/Projects/ProjectWorkspace')
+  return { default: m.ProjectWorkspace }
+})
+
+const ProjectCellPage = lazy(async () => {
+  const m = await import('@pages/admin/Projects/ProjectCellPage')
+  return { default: m.ProjectCellPage }
+})
+
 const AdminCompanyCalendarPage = lazy(() =>
   import('@pages/admin/Calendar/AdminCompanyCalendarPage')
 )
@@ -138,6 +153,28 @@ const EmployeeProfilePage = lazy(() =>
   import('@pages/employee/EmployeeProfile')
 )
 
+const EmployeeProjectsLayout = lazy(() =>
+  import('@components/employee/projects/EmployeeProjectsLayout').then((m) => ({
+    default: m.EmployeeProjectsLayout,
+  }))
+)
+
+const EmployeeProjectsDashboard = lazy(() =>
+  import('@pages/employee/EmployeeProjectsDashboard')
+)
+
+const EmployeeRequestedReviewsPage = lazy(() =>
+  import('@pages/employee/EmployeeRequestedReviewsPage')
+)
+
+const EmployeeProjectWorkspace = lazy(() =>
+  import('@pages/employee/EmployeeProjectWorkspace')
+)
+
+const EmployeeCellWorkflow = lazy(() =>
+  import('@pages/employee/EmployeeCellWorkflow')
+)
+
 // ── Not Found ────────────────────────────────────────────────
 const NotFound = lazy(async () => {
   const m = await import('@pages/NotFound')
@@ -193,10 +230,11 @@ export function AppRoutes() {
               element={<LeaveManagementDashboard />}
             />
 
-            <Route
-              path="projects"
-              element={<ProjectManagement />}
-            />
+            <Route path="timesheet" element={<ProjectManagement />} />
+
+            <Route path="projects" element={<AdminProjectsPage />} />
+            <Route path="projects/:projectId/cells/:cellId" element={<ProjectCellPage />} />
+            <Route path="projects/:projectId" element={<ProjectWorkspace />} />
 
             <Route
               path="calendar"
@@ -215,7 +253,7 @@ export function AppRoutes() {
 
             <Route
               path="analytics"
-              element={<Navigate to={`${ROUTES.PROJECTS}?tab=analytics`} replace />}
+              element={<Navigate to={`${ROUTES.TIMESHEET}?tab=analytics`} replace />}
             />
 
             <Route
@@ -256,6 +294,14 @@ export function AppRoutes() {
               path="timesheet"
               element={<EmployeeTimesheet />}
             />
+
+            <Route path="projects" element={<EmployeeProjectsLayout />}>
+              <Route index element={<EmployeeProjectsDashboard />} />
+              <Route path="my-projects" element={<Navigate to="/employee/projects" replace />} />
+              <Route path="reviews" element={<EmployeeRequestedReviewsPage />} />
+              <Route path=":projectId" element={<EmployeeProjectWorkspace />} />
+              <Route path=":projectId/cells/:cellId" element={<EmployeeCellWorkflow />} />
+            </Route>
 
             <Route
               path="leave"

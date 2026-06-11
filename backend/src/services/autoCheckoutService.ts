@@ -17,6 +17,11 @@ import {
 } from '../utils/durationFormat';
 import { sendCheckoutReminderEmail, sendAutoCheckoutConfirmationEmail } from './emailService';
 import { env } from '../config/env';
+import {
+  buildClockTimeOnDate,
+  getSchedulerDateKey,
+  isSchedulerClockTimeReached,
+} from '../utils/istClock';
 
 function finalizePauseAccumulation(
   timesheet: { pausedAt?: Date | null; totalPausedMs?: number },
@@ -51,10 +56,8 @@ function isAutoCheckoutDue(
   const [ah, am] = settings.autoCheckoutTime.split(':').map(Number);
   if (Number.isNaN(ah) || Number.isNaN(am)) return false;
 
-  const todayCutoff = new Date(now);
-  todayCutoff.setHours(ah, am, 0, 0);
-
-  return now.getTime() >= todayCutoff.getTime() && attendance.checkInTime.getTime() < todayCutoff.getTime();
+  const todayCutoff = buildClockTimeOnDate(getSchedulerDateKey(now), ah, am);
+  return isSchedulerClockTimeReached(now, ah, am) && attendance.checkInTime.getTime() < todayCutoff.getTime();
 }
 
 async function findOpenTimesheetsForAutoCheckout(

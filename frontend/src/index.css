@@ -1481,6 +1481,12 @@
   overflow: visible;
 }
 
+.employee-portal [data-employee-page]:has([data-page-scrollable]) .dashboard-shell {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+}
+
 /* Employee dashboard scroll — see viewport-layout.css ([data-employee-dashboard] is inside page shell) */
 
 .admin-dashboard-view {
@@ -1515,7 +1521,7 @@
 }
 
 /* Employee portal pages — default grow with content; dashboard/calendar/leave are viewport-fit */
-.employee-portal [data-employee-page].admin-dashboard-view:not(:has([data-employee-dashboard])):not(:has([data-employee-calendar])):not(:has([data-employee-leave])) {
+.employee-portal [data-employee-page].admin-dashboard-view:not(:has([data-employee-dashboard])):not(:has([data-employee-calendar])):not(:has([data-employee-leave])):not(:has([data-employee-project-workspace])):not(:has([data-employee-project-cell])) {
   flex: 1 1 auto;
   height: auto;
   max-height: none;
@@ -1836,6 +1842,7 @@
 
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-dashboard]),
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]),
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-timesheet]),
 .employee-portal [data-employee-page] > .emp-portal-page__content:has(.emp-timesheet-page) {
   padding: 0;
 }
@@ -5640,6 +5647,7 @@
   padding-left: 1rem;
   padding-right: 1rem;
   box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
 }
 
 .admin-portal main:has([data-admin-calendar]) > .relative {
@@ -5671,6 +5679,8 @@
 }
 
 .admin-portal .admin-hub-page-wrap.admin-calendar-page {
+  overflow-x: visible;
+  overflow-y: auto;
   padding-left: 1.25rem !important;
   padding-right: 1.25rem !important;
 }
@@ -11825,6 +11835,10 @@
   box-shadow: 0 4px 12px rgba(26, 67, 41, 0.1);
 }
 
+.admin-portal .admin-tickets-view.crewiq-dashboard {
+  background: var(--dash-canvas);
+}
+
 .admin-tickets-view .admin-tickets-danger-btn {
   background: #dc2626 !important;
   border: 1px solid #b91c1c !important;
@@ -12620,6 +12634,12 @@ input[type='number'] {
 
 .employee-profile-detail-page .ep-profile-id {
   font-size: 0.9375rem;
+}
+
+.employee-profile-detail-page .ep-profile-tab--active {
+  background-color: #2d6a4f;
+  color: #ffffff;
+  box-shadow: 0 1px 4px rgba(30, 90, 61, 0.28);
 }
 
 .employee-profile-detail-page .ep-profile-status {

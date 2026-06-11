@@ -50,6 +50,7 @@ const editSchema = z.object({
     .min(1, 'Joining date is required')
     .refine(isValidDate, 'Enter a valid joining date'),
   employmentType: z.enum(['Full-time', 'Contract', 'Intern']),
+  role: z.string().min(1, 'Role is required'),
   ctc: z.preprocess(
     (v) => (v === '' || v === null || v === undefined ? undefined : Number(v)),
     z.number().positive('CTC must be a positive number').optional(),
@@ -97,6 +98,7 @@ const emptyFormValues: FormValues = {
   pfEsi: 'on',
   joinedAt: '',
   employmentType: 'Full-time',
+  role: '',
   aadhaar: '',
   pan: '',
   passport: '',
@@ -136,6 +138,7 @@ function employeeToFormValues(e: Awaited<ReturnType<typeof employeeService.getEm
     pfEsi: normalizePfEsi(e.pfEsi),
     joinedAt: e.joinedAt ?? '',
     employmentType: normalizeEmploymentType(e.employmentType),
+    role: e.role ?? 'Employee',
     ctc: e.ctc,
     aadhaar: e.aadhaar ?? '',
     pan: e.pan ?? '',
@@ -547,7 +550,7 @@ export function EditEmployee() {
         uan: values.uan?.trim() || undefined,
         pfEsi: values.pfEsi,
         employmentType: values.employmentType,
-        role: 'Employee',
+        role: values.role,
         joinedAt: values.joinedAt ?? '',
         ctc: values.ctc,
         aadhaar: values.aadhaar?.trim() || undefined,
@@ -859,6 +862,12 @@ export function EditEmployee() {
                   { value: 'Intern', label: 'Intern' },
                 ]}
                 {...form.register('employmentType')}
+              />
+              <Input
+                label="Role"
+                required
+                error={form.formState.errors.role?.message}
+                {...form.register('role')}
               />
               <Input
                 label="CTC (annual)"

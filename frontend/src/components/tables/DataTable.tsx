@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import { cn } from '@/utils/cn'
 import { Spinner } from '@components/ui/Spinner'
@@ -23,6 +23,7 @@ export function DataTable<T extends { id?: string }>({
   brandHeader = false,
   striped = false,
   tableTheme = 'directory',
+  getRowStyle,
 }: {
   columns: Column<T>[]
   data?: T[]
@@ -36,6 +37,7 @@ export function DataTable<T extends { id?: string }>({
   striped?: boolean
   /** `payslip-hub` uses bb color (#2f6b4f) when rendered inside `.admin-payslips-view`. */
   tableTheme?: 'directory' | 'payslip-hub'
+  getRowStyle?: (row: T) => CSSProperties | undefined
 }) {
   const isPayslipHubHeader = brandHeader && tableTheme === 'payslip-hub'
   if (loading) {
@@ -133,6 +135,7 @@ export function DataTable<T extends { id?: string }>({
                 'transition-colors duration-150',
                 striped ? 'employee-directory-row' : 'hover:bg-emerald-50/50',
               )}
+              style={getRowStyle?.(row)}
             >
               {columns.map((c) => (
                 <td

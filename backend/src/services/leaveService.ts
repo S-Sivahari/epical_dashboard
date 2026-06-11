@@ -1148,7 +1148,7 @@ export async function notifyEmployeeAboutLeaveStatus(leave: LeaveRequest): Promi
       days: leave.days,
       status: leave.status,
       rejectionReason: leave.rejectionReason,
-    }, `${env.FRONTEND_URL}/employee/leaves`);
+    }, `${env.FRONTEND_URL}/employee/leave`);
     
   } catch (error) {
     console.error('[Leave Email] Error sending employee notification:', error);

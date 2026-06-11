@@ -6,10 +6,12 @@ import { PortalErrorBoundary } from '@components/employee/shared/PortalErrorBoun
 import { EmployeeCommandBar } from './EmployeeCommandBar'
 import { EmployeePageShell } from './EmployeePageShell'
 import { EmployeeTopNav } from './EmployeeTopNav'
+import { EmployeeTimesheetSync } from '@components/employee/shared/EmployeeTimesheetSync'
 
 export function AppLayout() {
   return (
     <div className="employee-portal cmd-portal flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden font-body text-[var(--text-primary)]">
+      <EmployeeTimesheetSync />
       <div className="employee-portal-chrome relative z-20 shrink-0">
         <EmployeeCommandBar />
         <EmployeeTopNav />

@@ -224,6 +224,51 @@ async function loadPayslipPdfAttachment(
   }
 }
 
+function resolveNotificationActionUrl(notification: any): string {
+  const { type, relatedData: related = {}, recipientType } = notification;
+
+  switch (type) {
+    case 'LeaveSubmitted':
+      return emailService.frontendUrl('/admin/leaves');
+    case 'LeaveApproved':
+    case 'LeaveRejected':
+    case 'LeaveCancelled':
+      return emailService.frontendUrl('/employee/leave');
+    case 'PayslipSent':
+    case 'PayslipRegenerated':
+      return emailService.frontendUrl('/employee/documents?tab=payslips');
+    case 'DocumentApproved':
+    case 'DocumentRejected':
+      return emailService.frontendUrl('/employee/documents?tab=requests');
+    case 'TicketStatusUpdated':
+    case 'TicketCommentAdded':
+      return emailService.frontendUrl('/employee/tickets');
+    case 'HolidayAdded':
+    case 'HolidayUpdated':
+    case 'HolidayDeleted':
+    case 'HolidaySkipped':
+    case 'CalendarEventAdded':
+    case 'CalendarEventUpdated':
+    case 'CalendarEventRemoved':
+      return emailService.frontendUrl(recipientType === 'Admin' ? '/admin/calendar' : '/employee/calendar');
+    case 'CellReviewApproved':
+    case 'CellReviewRejected':
+    case 'CellAssigned':
+    case 'CellCreatedUnassigned':
+      if (related.projectId && related.cellId) {
+        const prefix = recipientType === 'Admin' ? '/admin' : '/employee';
+        return emailService.frontendUrl(`${prefix}/projects/${related.projectId}/cells/${related.cellId}`);
+      }
+      if (related.projectId) {
+        const prefix = recipientType === 'Admin' ? '/admin' : '/employee';
+        return emailService.frontendUrl(`${prefix}/projects/${related.projectId}`);
+      }
+      return emailService.frontendUrl(recipientType === 'Admin' ? '/admin/projects' : '/employee/projects');
+    default:
+      return emailService.frontendUrl();
+  }
+}
+
 /**
  * Resolves the recipient's email address and triggers the appropriate email template from emailService.
  * Admins and Managers only receive in-app notifications — emails are skipped for them.
@@ -308,7 +353,7 @@ async function triggerEmailNotification(notification: any): Promise<void> {
         to: leaveDetails ? leaveDetails.to : 'N/A',
         days: leaveDetails ? leaveDetails.days : 1,
         reason: leaveDetails ? leaveDetails.reason : undefined,
-      });
+      }, emailService.frontendUrl('/admin/leaves'));
     } else if (
       notification.type === 'LeaveApproved' ||
       notification.type === 'LeaveRejected' ||
@@ -329,7 +374,7 @@ async function triggerEmailNotification(notification: any): Promise<void> {
         days: leaveDetails ? leaveDetails.days : (related.days || 1),
         status: leaveStatus,
         rejectionReason: leaveDetails ? leaveDetails.rejectionReason : undefined,
-      });
+      }, emailService.frontendUrl('/employee/leave'));
     } else if (notification.type === 'PayslipSent' || notification.type === 'PayslipRegenerated') {
       let pdfAttachment: emailService.EmailAttachment | undefined;
       if (related.batchId && related.fileName) {
@@ -349,9 +394,72 @@ async function triggerEmailNotification(notification: any): Promise<void> {
           payMonth: related.payMonth || 'Payslip',
           fileName: related.fileName || '',
         },
-        undefined,
+        emailService.frontendUrl('/employee/documents?tab=payslips'),
         pdfAttachment
       );
+    } else if (
+      notification.type === 'TicketStatusUpdated' ||
+      notification.type === 'TicketCommentAdded'
+    ) {
+      await emailService.sendGenericNotificationEmail(
+        recipientEmail,
+        recipientName,
+        notification.title,
+        notification.message,
+        related.ticketId ? [{ label: 'Ticket ID', value: related.ticketId }] : [],
+        emailService.frontendUrl('/employee/tickets'),
+      );
+    } else if (
+      notification.type === 'CellReviewApproved' ||
+      notification.type === 'CellReviewRejected'
+    ) {
+      const stageLabels: Record<string, string> = {
+        floor_plan: 'Floor Plan',
+        drc_r1: 'DRC (R1)',
+        routing: 'Routing',
+        drc: 'DRC',
+        lvs_r2: 'LVS (R2)',
+      };
+      const stageKey = related.stageAtRequest || '';
+      const stageLabel =
+        stageLabels[stageKey] || String(stageKey).replace(/_/g, ' ') || 'Layout';
+      const outcome = notification.type === 'CellReviewApproved' ? 'approved' : 'rejected';
+
+      if (related.projectId && related.cellId) {
+        await emailService.sendCellReviewEmail({
+          recipientEmail,
+          recipientName,
+          projectId: related.projectId,
+          cellId: related.cellId,
+          projectName: related.projectName || 'Project',
+          cellName: related.cellName || 'Cell',
+          reviewPoint: related.reviewPoint || 'review',
+          stageLabel,
+          outcome,
+          returnToStage: related.returnToStage
+            ? stageLabels[related.returnToStage] || String(related.returnToStage).replace(/_/g, ' ')
+            : undefined,
+          resolvedByName: related.resolvedByName,
+        });
+      } else {
+        const cellUrl =
+          related.projectId && related.cellId
+            ? emailService.frontendUrl(`/employee/projects/${related.projectId}/cells/${related.cellId}`)
+            : related.projectId
+              ? emailService.frontendUrl(`/employee/projects/${related.projectId}`)
+              : emailService.frontendUrl('/employee/projects');
+        await emailService.sendGenericNotificationEmail(
+          recipientEmail,
+          recipientName,
+          notification.title,
+          notification.message,
+          [
+            { label: 'Project', value: related.projectName || '—' },
+            { label: 'Cell', value: related.cellName || '—' },
+          ],
+          cellUrl,
+        );
+      }
     } else if (
       notification.type === 'HolidayAdded' ||
       notification.type === 'HolidayUpdated' ||
@@ -387,7 +495,8 @@ async function triggerEmailNotification(notification: any): Promise<void> {
         recipientName,
         notification.title,
         notification.message,
-        fields
+        fields,
+        resolveNotificationActionUrl(notification),
       );
     }
   } catch (error) {

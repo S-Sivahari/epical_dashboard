@@ -1,0 +1,288 @@
+.emp-dep-graph-panel {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: #fff;
+}
+
+.emp-dep-graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #fafbfd;
+}
+
+.emp-dep-graph-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.emp-dep-graph-legend-line {
+  width: 1.25rem;
+  height: 0;
+  border-top: 2px solid #94a3b8;
+}
+
+.emp-dep-graph-legend-line--critical {
+  border-top: 2px dashed #ea580c;
+}
+
+.emp-dep-graph-wrap {
+  position: relative;
+  overflow-x: auto;
+  overflow-y: visible;
+  min-height: 31.25rem;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.emp-dep-graph-canvas {
+  display: block;
+  min-width: 100%;
+  min-height: 25rem;
+}
+
+.emp-dep-graph-scroll-hint {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid #e2e8f0;
+  background: #fff;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.emp-dep-graph-empty {
+  margin: 0;
+  padding: 2rem 1rem;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+.emp-dep-graph-edge {
+  fill: none;
+  stroke: #94a3b8;
+  stroke-width: 1.75;
+}
+
+.emp-dep-graph-edge--critical {
+  stroke: #ea580c;
+  stroke-width: 2;
+  stroke-dasharray: 7 5;
+}
+
+.emp-dep-graph-port {
+  fill: #fff;
+  stroke: #94a3b8;
+  stroke-width: 1.5;
+}
+
+.emp-dep-graph-port--critical {
+  stroke: #ea580c;
+}
+
+.emp-dep-graph-node {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  border-radius: 0.625rem;
+  border: 1.5px solid #bfdbfe;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.emp-dep-graph-node:hover {
+  border-color: #60a5fa;
+  box-shadow: 0 8px 22px rgba(37, 99, 235, 0.14);
+  transform: translateY(-1px);
+}
+
+.emp-dep-graph-node--critical {
+  border-color: #fb923c;
+  box-shadow: 0 4px 16px rgba(234, 88, 12, 0.16);
+}
+
+.emp-dep-graph-node--critical:hover {
+  border-color: #ea580c;
+  box-shadow: 0 8px 24px rgba(234, 88, 12, 0.22);
+}
+
+.emp-dep-graph-node-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem 0.25rem;
+}
+
+.emp-dep-graph-node-id {
+  margin: 0;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+.emp-dep-graph-node-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  font-size: 0.5625rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.emp-dep-graph-node-badge-dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+
+.emp-dep-graph-node-badge--idle {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #64748b;
+}
+
+.emp-dep-graph-node-badge--idle .emp-dep-graph-node-badge-dot {
+  background: #94a3b8;
+}
+
+.emp-dep-graph-node-badge--wip {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.emp-dep-graph-node-badge--wip .emp-dep-graph-node-badge-dot {
+  background: #2563eb;
+}
+
+.emp-dep-graph-node-badge--lvs {
+  background: #f0fdfa;
+  border-color: #99f6e4;
+  color: #0f766e;
+}
+
+.emp-dep-graph-node-badge--lvs .emp-dep-graph-node-badge-dot {
+  background: #14b8a6;
+}
+
+.emp-dep-graph-node-badge--done {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #15803d;
+}
+
+.emp-dep-graph-node-badge--done .emp-dep-graph-node-badge-dot {
+  background: #16a34a;
+}
+
+.emp-dep-graph-node-badge--review {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #b45309;
+}
+
+.emp-dep-graph-node-badge--review .emp-dep-graph-node-badge-dot {
+  background: #f59e0b;
+}
+
+.emp-dep-graph-node-badge--blocked {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.emp-dep-graph-node-badge--blocked .emp-dep-graph-node-badge-dot {
+  background: #ef4444;
+}
+
+.emp-dep-graph-node-title {
+  margin: 0;
+  padding: 0 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1.25;
+  color: #0f172a;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.emp-dep-graph-node-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding: 0.375rem 0.75rem 0.625rem;
+}
+
+.emp-dep-graph-node-foot .emp-dep-graph-node-progress-track {
+  max-width: 100%;
+}
+
+.emp-dep-graph-node-critical,
+.emp-dep-graph-node-critical-spacer {
+  display: inline-flex;
+  align-items: center;
+  min-height: 0.875rem;
+}
+
+.emp-dep-graph-node-critical {
+  gap: 0.25rem;
+  font-size: 0.5625rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #ea580c;
+}
+
+.emp-dep-graph-node-critical-icon {
+  font-size: 0.5rem;
+  line-height: 1;
+}
+
+.emp-dep-graph-node-progress-track {
+  flex: 1;
+  height: 0.25rem;
+  border-radius: 9999px;
+  background: #e2e8f0;
+  overflow: hidden;
+  max-width: 5.5rem;
+}
+
+.emp-dep-graph-node-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2563eb, #0d9488);
+  transition: width 0.15s ease;
+}
+
+.emp-dep-graph-node--critical .emp-dep-graph-node-progress-fill {
+  background: linear-gradient(90deg, #ea580c, #f59e0b);
+}

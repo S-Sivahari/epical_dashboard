@@ -14,6 +14,7 @@ import { computeTotalHoursDecimal } from '../utils/durationFormat';
 import { getAutoCheckoutSettings, updateAutoCheckoutSettings } from '../services/autoCheckoutService';
 import { restartScheduler } from '../services/timesheetScheduler';
 import { sendCheckoutReminderEmail } from '../services/emailService';
+import { buildNextSchedulerClockTime, getSchedulerHourMinute } from '../utils/istClock';
 
 type ResolvedEmployee = {
   id: string;
@@ -657,29 +658,22 @@ export const employeeTimesheetController = {
 
       const settings = await getAutoCheckoutSettings();
       const now = new Date();
-      const isLateCheckIn = now.getHours() >= 21;
+      const { hours: istHour } = getSchedulerHourMinute(now);
+      const isLateCheckIn = istHour >= 21;
 
       const buildExpectedCheckout = () => {
         if (isLateCheckIn) {
           return now;
         }
         const [rh, rm] = settings.reminderTime.split(':').map(Number);
-        const d = new Date(now);
-        d.setHours(rh, rm, 0, 0);
-        if (d <= now) d.setDate(d.getDate() + 1);
-        return d;
+        return buildNextSchedulerClockTime(now, rh, rm);
       };
       const buildAutoCheckout = () => {
         if (isLateCheckIn) {
-          const d = new Date(now);
-          d.setHours(24, 0, 0, 0);
-          return d;
+          return buildNextSchedulerClockTime(now, 0, 0);
         }
         const [ah, am] = settings.autoCheckoutTime.split(':').map(Number);
-        const d = new Date(now);
-        d.setHours(ah, am, 0, 0);
-        if (d <= now) d.setDate(d.getDate() + 1);
-        return d;
+        return buildNextSchedulerClockTime(now, ah, am);
       };
 
       if (openAttendance) {

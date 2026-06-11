@@ -29,18 +29,18 @@ export function DashboardDocumentRequests({ documents = [], className, compact =
 
   return (
     <InteractiveCard to={DOCUMENTS_PATH} className={cn(cardClass, className)}>
-      <div className="mb-2 flex shrink-0 items-center justify-between gap-2 border-b border-border pb-2">
+      <div className="emp-dash-bottom-widget-header">
         <div className="flex min-w-0 items-center gap-2">
           <div className="emp-dash-icon emp-dash-icon--amber h-7 w-7" aria-hidden>
             <FileText className="h-3.5 w-3.5" />
           </div>
           <div className="min-w-0">
-            <h3 className="font-heading text-sm font-semibold text-foreground">Document requests</h3>
-            <p className="mt-0.5 text-[11px] text-muted">
-              {pending.length > 0
-                ? `${pending.length} pending admin review`
-                : 'Request certificates and letters'}
-            </p>
+            <h3 className="font-heading font-semibold text-foreground">Document requests</h3>
+            {pending.length > 0 ? (
+              <p className="mt-0.5 text-[11px] text-muted">
+                {pending.length} pending admin review
+              </p>
+            ) : null}
           </div>
         </div>
         <Link
@@ -51,9 +51,11 @@ export function DashboardDocumentRequests({ documents = [], className, compact =
         </Link>
       </div>
 
-      <div className={cn(fill && 'emp-dash-widget-body min-h-0 flex-1')}>
+      <div className={cn('flex min-h-0 flex-col', fill && 'emp-dash-widget-body flex-1')}>
         {pending.length === 0 ? (
-          <p className="py-2 text-center text-[11px] text-muted">No pending document requests</p>
+          <div className="emp-dash-bottom-widget-empty">
+            <p className="text-sm text-muted">No pending document requests</p>
+          </div>
         ) : (
           <ul
             className={cn(

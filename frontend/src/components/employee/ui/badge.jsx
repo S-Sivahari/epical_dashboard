@@ -28,6 +28,7 @@ export function statusVariant(status) {
     Requested: 'warning',
     Pending: 'warning',
     Rejected: 'danger',
+    Cancelled: 'warning',
     Resolved: 'success',
     Open: 'default',
     'In Progress': 'warning',

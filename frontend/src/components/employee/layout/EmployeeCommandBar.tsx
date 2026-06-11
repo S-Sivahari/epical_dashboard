@@ -10,6 +10,7 @@ import {
   getEmployeePageTitle,
   shouldShowEmployeeBackButton,
 } from '@constants/employeeNavigation'
+import { DashboardActiveTimer } from '@components/employee/shared/DashboardActiveTimer'
 
 export function EmployeeCommandBar() {
   const { pathname } = useLocation()
@@ -58,13 +59,17 @@ export function EmployeeCommandBar() {
         )}
       </div>
 
+      <div className="flex min-w-0 shrink-0 items-center justify-center px-1 sm:px-2">
+        <DashboardActiveTimer variant="commandBar" />
+      </div>
+
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
         <NotificationBell />
 
         <EmployeePhotoAvatar
           employeeId={user?.id}
           name={user?.name ?? 'Employee'}
-          fallbackSrc={user?.avatarUrl}
+          fallbackSrc={avatarUrl ?? user?.avatarUrl}
           className="h-8 w-8 cmd-profile-btn shrink-0"
           fallbackClassName="bg-[#266b1c] text-xs text-white"
         />

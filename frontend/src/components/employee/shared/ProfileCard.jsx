@@ -151,7 +151,9 @@ export function ProfileCard({
     <div
       className={cn(
         'flex gap-2',
-        horizontal ? 'ml-auto shrink-0 justify-end gap-2.5' : 'mt-4 grid grid-cols-2 gap-2 border-t border-white/15 pt-4 sm:grid-cols-4',
+        horizontal
+          ? 'w-full flex-wrap justify-start gap-2 sm:ml-auto sm:w-auto sm:shrink-0 sm:justify-end sm:gap-2.5'
+          : 'mt-4 grid grid-cols-2 gap-2 border-t border-white/15 pt-4 sm:grid-cols-4',
       )}
     >
       {[1, 2, 3, 4].map((i) => (
@@ -168,7 +170,9 @@ export function ProfileCard({
     <div
       className={cn(
         'flex gap-2',
-        horizontal ? 'ml-auto shrink-0 justify-end gap-2.5' : 'mt-4 grid grid-cols-2 gap-2 border-t border-white/15 pt-4 sm:grid-cols-4',
+        horizontal
+          ? 'w-full flex-wrap justify-start gap-2 sm:ml-auto sm:w-auto sm:shrink-0 sm:justify-end sm:gap-2.5'
+          : 'mt-4 grid grid-cols-2 gap-2 border-t border-white/15 pt-4 sm:grid-cols-4',
       )}
     >
       {stats.map((stat) => (
@@ -187,8 +191,8 @@ export function ProfileCard({
           className,
         )}
       >
-        <div className="relative z-10 flex h-full min-w-0 items-center gap-3 sm:gap-4">
-          <div className="flex min-w-0 shrink-0 items-center gap-3">
+        <div className="relative z-10 flex h-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+          <div className="flex min-w-0 items-center gap-3">
             <EmployeePhotoAvatar
               employeeId={employee.id}
               name={employee.name}
