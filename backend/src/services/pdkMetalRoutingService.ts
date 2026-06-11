@@ -1,0 +1,1590 @@
+import { Types } from 'mongoose';
+import { PdkModuleModel } from '../models/PdkModule';
+import { ProjectModel } from '../models/Project';
+import { ProjectCellModel } from '../models/ProjectCell';
+import { ProjectLibraryModel } from '../models/ProjectLibrary';
+import {
+  MetalRoutingAnalysisModel,
+  type MetalEntrySubdoc,
+} from '../models/MetalRoutingAnalysis';
+import { isAdminRole } from '../utils/generateToken';
+import {
+  buildEmployeeWorkspaceProjectsFilter,
+  buildAssignmentIdentityTokens,
+} from '../utils/assignedProjectsHelper';
+import { getDB } from '../config/db';
+import { buildPdkTemplateExcelBuffer, parsePdkExcelBuffer } from '../utils/pdkExcel';
+import {
+  buildMetalRoutingExcelBuffer,
+  buildMetalRoutingTemplateExcelBuffer,
+  parseMetalRoutingExcelWithDiagnostics,
+  type RouteExcelRecord,
+} from '../utils/metalRoutingExcel';
+
+const IMPORT_LOG_PREFIX = '[metal-routing-import]';
+
+export interface RoutingKey {
+  projectId: string;
+  signal: string;
+  fromCell: string;
+  toCell: string;
+  /** @deprecated legacy lookup */
+  fromSignal?: string;
+  /** @deprecated legacy lookup */
+  toSignal?: string;
+}
+
+export interface MetalInput {
+  projectId: string;
+  metalType: string;
+  width: number;
+  length: number;
+  schematicCurrentDensity?: number;
+  connectionType?: 'series' | 'parallel';
+}
+
+export interface ComputedMetalEntry {
+  metalType: string;
+  width: number;
+  length: number;
+  pdkModuleId: Types.ObjectId;
+  pdkModuleName: string;
+  givenCurrentDensity: number;
+  schematicCurrentDensity: number;
+  sheetResistance: number;
+  implementedCurrentMetalCapacity: number;
+  routingMetalImpedance: number;
+  connectionType?: 'series' | 'parallel';
+}
+
+function resolveConnectionType(
+  input?: 'series' | 'parallel',
+): 'series' | 'parallel' | undefined {
+  if (input === 'parallel') return 'parallel';
+  if (input === 'series') return 'series';
+  return undefined;
+}
+
+function metalSubdocFromComputed(
+  computed: ComputedMetalEntry,
+  options?: { existingId?: Types.ObjectId; omitConnectionType?: boolean },
+): MetalEntrySubdoc {
+  const { connectionType, ...rest } = computed;
+  const entry: MetalEntrySubdoc = {
+    _id: options?.existingId ?? new Types.ObjectId(),
+    ...rest,
+  };
+  if (!options?.omitConnectionType && connectionType) {
+    entry.connectionType = connectionType;
+  }
+  return entry;
+}
+
+export interface AnalysisSummary {
+  minimumMetalCurrentCapacity: number;
+  totalImpedance: number;
+  minCapacityMetalIndex: number;
+  highestImpedanceMetalIndex: number;
+}
+
+function resolveSignalFromKey(key: RoutingKey): string {
+  const signal = (key.signal ?? key.fromSignal ?? '').trim();
+  return signal;
+}
+
+function normalizeKey(key: RoutingKey): RoutingKey & { projectObjectId: Types.ObjectId; signal: string } {
+  const projectId = key.projectId.trim();
+  if (!Types.ObjectId.isValid(projectId)) {
+    throw new Error('Invalid project id');
+  }
+  const signal = resolveSignalFromKey(key);
+  if (!signal) {
+    throw new Error('Signal name is required');
+  }
+  return {
+    projectId,
+    projectObjectId: new Types.ObjectId(projectId),
+    signal,
+    fromCell: key.fromCell.trim(),
+    toCell: key.toCell.trim(),
+    fromSignal: key.fromSignal?.trim() ?? '',
+    toSignal: key.toSignal?.trim() ?? '',
+  };
+}
+
+async function findRouteDocumentByKey(k: ReturnType<typeof normalizeKey>) {
+  const base = {
+    projectId: k.projectObjectId,
+    fromCell: k.fromCell,
+    toCell: k.toCell,
+  };
+
+  let route = await MetalRoutingAnalysisModel.findOne({
+    ...base,
+    signal: k.signal,
+  });
+
+  if (!route) {
+    route = await MetalRoutingAnalysisModel.findOne({
+      ...base,
+      fromSignal: k.signal,
+      toSignal: k.toSignal || k.fromSignal,
+    });
+  }
+
+  if (!route && k.fromSignal && k.toSignal) {
+    route = await MetalRoutingAnalysisModel.findOne({
+      ...base,
+      fromSignal: k.fromSignal,
+      toSignal: k.toSignal,
+    });
+  }
+
+  return route;
+}
+
+function routeSignalLabel(route: Record<string, unknown>): string {
+  const signal = String(route.signal ?? '').trim();
+  if (signal) return signal;
+  const fromSignal = String(route.fromSignal ?? '').trim();
+  const toSignal = String(route.toSignal ?? '').trim();
+  if (fromSignal && toSignal && fromSignal !== toSignal) {
+    return `${fromSignal} → ${toSignal}`;
+  }
+  return fromSignal || toSignal;
+}
+
+async function getProjectPdkModule(projectId: string) {
+  if (!Types.ObjectId.isValid(projectId)) {
+    throw new Error('Invalid project id');
+  }
+  const project = await ProjectModel.findById(projectId).lean();
+  if (!project) throw new Error('Project not found');
+  if (!project.pdkModuleId) {
+    throw new Error('No PDK module assigned to this project. Assign one from the Dashboard.');
+  }
+  const mod = await PdkModuleModel.findById(project.pdkModuleId).lean();
+  if (!mod) throw new Error('Assigned PDK module not found');
+  return { project, module: mod };
+}
+
+async function resolvePdkMetalSpec(projectId: string, metalType: string) {
+  const { module } = await getProjectPdkModule(projectId);
+  const type = metalType.trim();
+  const spec = module.metals?.find((m) => m.metalType.toLowerCase() === type.toLowerCase());
+  if (!spec) {
+    const available = (module.metals ?? []).map((m) => m.metalType).join(', ') || 'none';
+    throw new Error(
+      `Metal "${type}" not found in assigned PDK module "${module.name}". Available metal types: ${available}.`,
+    );
+  }
+  return { module, spec };
+}
+
+async function listAccessibleProjects(userId: string, userRole: string) {
+  if (isAdminRole(userRole)) {
+    return ProjectModel.find().sort({ projectName: 1 }).lean();
+  }
+
+  const db = getDB();
+  const employeeOr: Record<string, unknown>[] = [{ userId }];
+  if (Types.ObjectId.isValid(userId)) {
+    employeeOr.push({ _id: new Types.ObjectId(userId) });
+  }
+  const employee = await db.collection('employees').findOne({ $or: employeeOr });
+  const tokens = buildAssignmentIdentityTokens({ id: userId }, employee as never);
+  const filter = await buildEmployeeWorkspaceProjectsFilter(tokens);
+  return ProjectModel.find(filter).sort({ projectName: 1 }).lean();
+}
+
+function isMetalRowComplete(metal: MetalEntrySubdoc): boolean {
+  const width = Number(metal.width);
+  const length = Number(metal.length);
+  return (
+    Number.isFinite(width)
+    && width > 0
+    && Number.isFinite(length)
+    && length > 0
+    && Number.isFinite(metal.routingMetalImpedance)
+    && Number.isFinite(metal.givenCurrentDensity)
+    && Number.isFinite(metal.sheetResistance)
+    && Number.isFinite(metal.implementedCurrentMetalCapacity)
+  );
+}
+
+export function isRouteComplete(route: { metals?: MetalEntrySubdoc[] }): boolean {
+  const metals = route.metals ?? [];
+  if (metals.length === 0) return false;
+  return metals.every(isMetalRowComplete);
+}
+
+export async function listDashboardProjects(userId: string, userRole: string) {
+  const projects = await listAccessibleProjects(userId, userRole);
+
+  const pdkIds = projects.map((p) => p.pdkModuleId).filter(Boolean) as Types.ObjectId[];
+  const pdks = pdkIds.length
+    ? await PdkModuleModel.find({ _id: { $in: pdkIds } }).lean()
+    : [];
+  const pdkMap = new Map(pdks.map((p) => [p._id.toString(), p]));
+
+  return projects.map((p, index) => ({
+    id: p._id.toString(),
+    projectCode: `PRJ-${String(index + 1).padStart(3, '0')}`,
+    projectName: p.projectName,
+    clientName: p.clientName,
+    technologyNode: p.technologyNode,
+    status: p.status,
+    pdkModuleId: p.pdkModuleId?.toString() ?? null,
+    pdkModuleName: p.pdkModuleId ? pdkMap.get(p.pdkModuleId.toString())?.name ?? null : null,
+    updatedAt: p.updatedAt?.toISOString?.() ?? null,
+  }));
+}
+
+export interface RouteDailyTrendPoint {
+  date: string;
+  label: string;
+  total: number;
+  added: number;
+}
+
+export interface RoutePeriodTrend {
+  delta: number;
+  growthPercent: number;
+  periodLabel: string;
+}
+
+export interface RouteActivityInsights {
+  mostActiveCell: string | null;
+  mostActiveLibrary: string | null;
+  latestRouteAddedAt: string | null;
+  latestRouteLabel: string | null;
+}
+
+export interface RouteBreakdownItem {
+  name: string;
+  count: number;
+}
+
+export interface RecentRouteAddition {
+  id: string;
+  fromCell: string;
+  toCell: string;
+  fromSignal: string;
+  toSignal: string;
+  createdAt: string;
+  libraryName: string | null;
+}
+
+export interface ProjectRouteMetrics {
+  totalRoutes: number;
+  periodTrend: RoutePeriodTrend;
+  trendsByRange: {
+    '7': RouteDailyTrendPoint[];
+    '30': RouteDailyTrendPoint[];
+    '90': RouteDailyTrendPoint[];
+  };
+  insights: RouteActivityInsights;
+  routesByLibrary: RouteBreakdownItem[];
+  routesByCell: RouteBreakdownItem[];
+  recentAdditions: RecentRouteAddition[];
+}
+
+export interface ImpedanceLayerContribution {
+  metalType: string;
+  impedance: number;
+}
+
+export interface ImpedanceRoutePoint {
+  routeId: string;
+  routeLabel: string;
+  routeName: string;
+  signalPath: string;
+  impedance: number;
+  updatedAt: string;
+  layerContributions: ImpedanceLayerContribution[];
+}
+
+export interface ProjectImpedanceMetrics {
+  hasData: boolean;
+  routePoints: ImpedanceRoutePoint[];
+}
+
+export interface ProjectMinCapacityMetrics {
+  hasData: boolean;
+  minimumMetalCurrentCapacity: number;
+  maximumCapacityInProject: number;
+  minimumLayer: string | null;
+  lastUpdatedAt: string | null;
+}
+
+export interface MetalRoutingDashboardMetrics {
+  totalRoutes: number;
+  completedRoutes: number;
+  pendingRoutes: number;
+  totalRoutingImpedance: number;
+  selectedProjectId: string | null;
+  selectedProjectName: string | null;
+  projectRouteMetrics: ProjectRouteMetrics;
+  projectImpedanceMetrics: ProjectImpedanceMetrics;
+  projectMinCapacityMetrics: ProjectMinCapacityMetrics;
+}
+
+const ROUTE_TREND_RANGES = [7, 30, 90] as const;
+type RouteTrendRangeDays = (typeof ROUTE_TREND_RANGES)[number];
+
+type ProjectRouteRecord = {
+  _id?: Types.ObjectId;
+  fromCell?: string;
+  toCell?: string;
+  fromSignal?: string;
+  toSignal?: string;
+  totalImpedance?: number;
+  metals?: MetalEntrySubdoc[];
+  createdAt?: Date;
+  updatedAt?: Date;
+};
+
+function roundImpedanceOhm(value: number): number {
+  return Math.round(value * 10000) / 10000;
+}
+
+function routeUpdatedAt(route: { createdAt?: Date; updatedAt?: Date }): Date {
+  if (route.updatedAt) return new Date(route.updatedAt);
+  if (route.createdAt) return new Date(route.createdAt);
+  return new Date(0);
+}
+
+function buildProjectImpedanceMetrics(projectRoutes: ProjectRouteRecord[]): ProjectImpedanceMetrics {
+  const completedRoutes = projectRoutes
+    .filter((route) => isRouteComplete(route))
+    .sort((a, b) => routeUpdatedAt(a).getTime() - routeUpdatedAt(b).getTime());
+
+  const routePoints: ImpedanceRoutePoint[] = completedRoutes.map((route, index) => ({
+    routeId: route._id?.toString() ?? String(index),
+    routeLabel: `R${index + 1}`,
+    routeName: `${String(route.fromCell ?? '')} → ${String(route.toCell ?? '')}`,
+    signalPath: routeSignalLabel(route as Record<string, unknown>),
+    impedance: roundImpedanceOhm(Number(route.totalImpedance ?? 0)),
+    updatedAt: routeUpdatedAt(route).toISOString(),
+    layerContributions: (route.metals ?? []).map((metal) => ({
+      metalType: String(metal.metalType ?? ''),
+      impedance: roundImpedanceOhm(Number(metal.routingMetalImpedance ?? 0)),
+    })),
+  }));
+
+  return {
+    hasData: routePoints.length > 0,
+    routePoints,
+  };
+}
+
+function emptyProjectImpedanceMetrics(): ProjectImpedanceMetrics {
+  return { hasData: false, routePoints: [] };
+}
+
+function roundCapacityMa(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function buildProjectMinCapacityMetrics(projectRoutes: ProjectRouteRecord[]): ProjectMinCapacityMetrics {
+  let hasData = false;
+  let minCapacity = Infinity;
+  let maxCapacity = 0;
+  let minimumLayer: string | null = null;
+  let lastUpdatedAt: Date | null = null;
+
+  for (const route of projectRoutes) {
+    if (!isRouteComplete(route)) continue;
+
+    const routeUpdated = routeUpdatedAt(route);
+    if (!lastUpdatedAt || routeUpdated > lastUpdatedAt) {
+      lastUpdatedAt = routeUpdated;
+    }
+
+    for (const metal of route.metals ?? []) {
+      const capacity = Number(metal.implementedCurrentMetalCapacity ?? 0);
+      if (!Number.isFinite(capacity) || capacity <= 0) continue;
+
+      hasData = true;
+      if (capacity > maxCapacity) maxCapacity = capacity;
+      if (capacity < minCapacity) {
+        minCapacity = capacity;
+        minimumLayer = String(metal.metalType ?? '').trim() || null;
+      }
+    }
+  }
+
+  if (!hasData) {
+    return {
+      hasData: false,
+      minimumMetalCurrentCapacity: 0,
+      maximumCapacityInProject: 0,
+      minimumLayer: null,
+      lastUpdatedAt: null,
+    };
+  }
+
+  return {
+    hasData: true,
+    minimumMetalCurrentCapacity: roundCapacityMa(minCapacity),
+    maximumCapacityInProject: roundCapacityMa(maxCapacity),
+    minimumLayer,
+    lastUpdatedAt: lastUpdatedAt?.toISOString() ?? null,
+  };
+}
+
+function emptyProjectMinCapacityMetrics(): ProjectMinCapacityMetrics {
+  return {
+    hasData: false,
+    minimumMetalCurrentCapacity: 0,
+    maximumCapacityInProject: 0,
+    minimumLayer: null,
+    lastUpdatedAt: null,
+  };
+}
+
+function routeCreatedAt(route: { createdAt?: Date; updatedAt?: Date }): Date {
+  if (route.createdAt) return new Date(route.createdAt);
+  if (route.updatedAt) return new Date(route.updatedAt);
+  return new Date();
+}
+
+function formatRouteTrendLabel(date: Date, rangeDays: number): string {
+  if (rangeDays <= 7) {
+    return date.toLocaleDateString('en-US', { weekday: 'short' });
+  }
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function startOfDay(date: Date): Date {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function endOfDay(date: Date): Date {
+  const next = new Date(date);
+  next.setHours(23, 59, 59, 999);
+  return next;
+}
+
+function buildCumulativeTrend(createdDates: Date[], days: number): RouteDailyTrendPoint[] {
+  const today = startOfDay(new Date());
+  let previousTotal = 0;
+
+  return Array.from({ length: days }, (_, index) => {
+    const day = new Date(today);
+    day.setDate(day.getDate() - (days - 1 - index));
+    const dayEnd = endOfDay(day);
+    const total = createdDates.filter((created) => created <= dayEnd).length;
+    const added = Math.max(0, total - previousTotal);
+    previousTotal = total;
+    return {
+      date: day.toISOString().slice(0, 10),
+      label: formatRouteTrendLabel(day, days),
+      total,
+      added,
+    };
+  });
+}
+
+function buildEmptyTrends(): ProjectRouteMetrics['trendsByRange'] {
+  return {
+    '7': buildCumulativeTrend([], 7),
+    '30': buildCumulativeTrend([], 30),
+    '90': buildCumulativeTrend([], 90),
+  };
+}
+
+function computePeriodTrend(createdDates: Date[], periodDays: RouteTrendRangeDays): RoutePeriodTrend {
+  const periodStart = startOfDay(new Date());
+  periodStart.setDate(periodStart.getDate() - periodDays);
+  const baseline = createdDates.filter((created) => created < periodStart).length;
+  const delta = createdDates.filter((created) => created >= periodStart).length;
+  const growthPercent =
+    baseline > 0 ? Math.round((delta / baseline) * 1000) / 10 : delta > 0 ? 100 : 0;
+
+  const periodLabel =
+    periodDays === 7 ? 'this week' : periodDays === 30 ? 'this month' : 'last 90 days';
+
+  return { delta, growthPercent, periodLabel };
+}
+
+function topBreakdown(counts: Map<string, number>, limit = 8): RouteBreakdownItem[] {
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, limit)
+    .map(([name, count]) => ({ name, count }));
+}
+
+function emptyProjectRouteMetrics(): ProjectRouteMetrics {
+  return {
+    totalRoutes: 0,
+    periodTrend: { delta: 0, growthPercent: 0, periodLabel: 'this week' },
+    trendsByRange: buildEmptyTrends(),
+    insights: {
+      mostActiveCell: null,
+      mostActiveLibrary: null,
+      latestRouteAddedAt: null,
+      latestRouteLabel: null,
+    },
+    routesByLibrary: [],
+    routesByCell: [],
+    recentAdditions: [],
+  };
+}
+
+async function buildProjectRouteMetrics(
+  projectId: Types.ObjectId,
+  projectRoutes: ProjectRouteRecord[],
+): Promise<ProjectRouteMetrics> {
+  if (projectRoutes.length === 0) {
+    return emptyProjectRouteMetrics();
+  }
+
+  const [cells, libraries] = await Promise.all([
+    ProjectCellModel.find({ projectId }).select('name libraryId').lean(),
+    ProjectLibraryModel.find({ projectId }).select('name').lean(),
+  ]);
+
+  const libraryNameById = new Map(libraries.map((lib) => [lib._id.toString(), lib.name]));
+  const cellLibraryName = new Map(
+    cells.map((cell) => [
+      cell.name,
+      libraryNameById.get(cell.libraryId.toString()) ?? 'Unassigned Library',
+    ]),
+  );
+
+  const createdDates = projectRoutes.map(routeCreatedAt);
+  const cellCounts = new Map<string, number>();
+  const libraryCounts = new Map<string, number>();
+
+  for (const route of projectRoutes) {
+    const fromCell = String(route.fromCell ?? '').trim();
+    const toCell = String(route.toCell ?? '').trim();
+    if (fromCell) cellCounts.set(fromCell, (cellCounts.get(fromCell) ?? 0) + 1);
+    if (toCell && toCell !== fromCell) {
+      cellCounts.set(toCell, (cellCounts.get(toCell) ?? 0) + 1);
+    }
+
+    const librariesInRoute = new Set<string>();
+    if (fromCell) {
+      librariesInRoute.add(cellLibraryName.get(fromCell) ?? 'Unassigned Library');
+    }
+    if (toCell) {
+      librariesInRoute.add(cellLibraryName.get(toCell) ?? 'Unassigned Library');
+    }
+    for (const libraryName of librariesInRoute) {
+      libraryCounts.set(libraryName, (libraryCounts.get(libraryName) ?? 0) + 1);
+    }
+  }
+
+  const sortedByCreated = [...projectRoutes].sort(
+    (a, b) => routeCreatedAt(b).getTime() - routeCreatedAt(a).getTime(),
+  );
+  const latest = sortedByCreated[0];
+  const latestFrom = String(latest?.fromCell ?? '');
+  const latestTo = String(latest?.toCell ?? '');
+  const latestSignalFrom = String(latest?.fromSignal ?? '');
+  const latestSignalTo = String(latest?.toSignal ?? '');
+
+  const mostActiveCell = topBreakdown(cellCounts, 1)[0]?.name ?? null;
+  const mostActiveLibrary = topBreakdown(libraryCounts, 1)[0]?.name ?? null;
+
+  const trendsByRange = Object.fromEntries(
+    ROUTE_TREND_RANGES.map((days) => [String(days), buildCumulativeTrend(createdDates, days)]),
+  ) as ProjectRouteMetrics['trendsByRange'];
+
+  return {
+    totalRoutes: projectRoutes.length,
+    periodTrend: computePeriodTrend(createdDates, 7),
+    trendsByRange,
+    insights: {
+      mostActiveCell,
+      mostActiveLibrary,
+      latestRouteAddedAt: latest ? routeCreatedAt(latest).toISOString() : null,
+      latestRouteLabel: latest
+        ? `${latestFrom} → ${latestTo} · ${latestSignalFrom} → ${latestSignalTo}`
+        : null,
+    },
+    routesByLibrary: topBreakdown(libraryCounts),
+    routesByCell: topBreakdown(cellCounts),
+    recentAdditions: sortedByCreated.slice(0, 20).map((route) => ({
+      id: route._id?.toString() ?? '',
+      fromCell: String(route.fromCell ?? ''),
+      toCell: String(route.toCell ?? ''),
+      fromSignal: String(route.fromSignal ?? ''),
+      toSignal: String(route.toSignal ?? ''),
+      createdAt: routeCreatedAt(route).toISOString(),
+      libraryName: cellLibraryName.get(String(route.fromCell ?? '')) ?? null,
+    })),
+  };
+}
+
+export async function getDashboardMetrics(
+  userId: string,
+  userRole: string,
+  selectedProjectId?: string | null,
+): Promise<MetalRoutingDashboardMetrics> {
+  const projects = await listAccessibleProjects(userId, userRole);
+  const projectIds = projects.map((p) => p._id);
+
+  const routes = projectIds.length
+    ? await MetalRoutingAnalysisModel.find({ projectId: { $in: projectIds } }).lean()
+    : [];
+
+  const totalRoutes = routes.length;
+  const completedRoutes = routes.filter((route) => isRouteComplete(route)).length;
+  const pendingRoutes = totalRoutes - completedRoutes;
+
+  let resolvedProjectId: string | null = null;
+  let resolvedProjectName: string | null = null;
+
+  if (selectedProjectId && Types.ObjectId.isValid(selectedProjectId)) {
+    const match = projects.find((p) => p._id.toString() === selectedProjectId);
+    if (match) {
+      resolvedProjectId = match._id.toString();
+      resolvedProjectName = match.projectName;
+    }
+  }
+
+  if (!resolvedProjectId && projects.length > 0) {
+    resolvedProjectId = projects[0]._id.toString();
+    resolvedProjectName = projects[0].projectName;
+  }
+
+  let totalRoutingImpedance = 0;
+  let projectRouteMetrics: ProjectRouteMetrics = emptyProjectRouteMetrics();
+  let projectImpedanceMetrics: ProjectImpedanceMetrics = emptyProjectImpedanceMetrics();
+  let projectMinCapacityMetrics: ProjectMinCapacityMetrics = emptyProjectMinCapacityMetrics();
+
+  if (resolvedProjectId) {
+    const projectOid = new Types.ObjectId(resolvedProjectId);
+    const projectRoutes = routes.filter(
+      (route) => route.projectId.toString() === projectOid.toString(),
+    );
+    totalRoutingImpedance = projectRoutes.reduce(
+      (sum, route) => sum + Number(route.totalImpedance ?? 0),
+      0,
+    );
+    projectRouteMetrics = await buildProjectRouteMetrics(projectOid, projectRoutes);
+    projectImpedanceMetrics = buildProjectImpedanceMetrics(projectRoutes);
+    projectMinCapacityMetrics = buildProjectMinCapacityMetrics(projectRoutes);
+  }
+
+  return {
+    totalRoutes,
+    completedRoutes,
+    pendingRoutes,
+    totalRoutingImpedance: Math.round(totalRoutingImpedance * 10000) / 10000,
+    selectedProjectId: resolvedProjectId,
+    selectedProjectName: resolvedProjectName,
+    projectRouteMetrics,
+    projectImpedanceMetrics,
+    projectMinCapacityMetrics,
+  };
+}
+
+export async function assignPdkToProject(projectId: string, pdkModuleId: string | null) {
+  if (!Types.ObjectId.isValid(projectId)) return null;
+  if (pdkModuleId && !Types.ObjectId.isValid(pdkModuleId)) {
+    throw new Error('Invalid PDK module id');
+  }
+  if (pdkModuleId) {
+    const mod = await PdkModuleModel.findById(pdkModuleId).lean();
+    if (!mod) throw new Error('PDK module not found');
+  }
+  return ProjectModel.findByIdAndUpdate(
+    projectId,
+    { pdkModuleId: pdkModuleId ? new Types.ObjectId(pdkModuleId) : null },
+    { new: true },
+  ).lean();
+}
+
+function serializeRouteSummaryForClient(route: Record<string, unknown>) {
+  const metals = (route.metals as unknown[]) ?? [];
+  const signal = routeSignalLabel(route);
+  const schematicCurrentDensity =
+    route.schematicCurrentDensity != null && Number.isFinite(Number(route.schematicCurrentDensity))
+      ? Number(route.schematicCurrentDensity)
+      : undefined;
+  return {
+    _id: (route._id as Types.ObjectId)?.toString?.() ?? String(route._id ?? ''),
+    projectId: (route.projectId as Types.ObjectId)?.toString?.() ?? String(route.projectId ?? ''),
+    signal,
+    fromCell: String(route.fromCell ?? ''),
+    toCell: String(route.toCell ?? ''),
+    fromSignal: String(route.fromSignal ?? signal),
+    toSignal: String(route.toSignal ?? ''),
+    schematicCurrentDensity,
+    totalImpedance: Number(route.totalImpedance ?? 0),
+    minimumMetalCurrentCapacity: Number(route.minimumMetalCurrentCapacity ?? 0),
+    updatedAt: route.updatedAt,
+    metalCount: metals.length,
+  };
+}
+
+function listSavedRouteSummaries(routes: Record<string, unknown>[]) {
+  return routes
+    .filter((route) => ((route.metals as unknown[]) ?? []).length > 0)
+    .map((route) => serializeRouteSummaryForClient(route));
+}
+
+function listSignalRouteSummaries(routes: Record<string, unknown>[]) {
+  return routes.map((route) => serializeRouteSummaryForClient(route));
+}
+
+async function fetchSavedRouteSummariesForProject(projectId: string) {
+  const projectOid = new Types.ObjectId(projectId.trim());
+  const routes = await MetalRoutingAnalysisModel.find({ projectId: projectOid })
+    .sort({ updatedAt: -1 })
+    .lean();
+  return listSavedRouteSummaries(routes as Record<string, unknown>[]);
+}
+
+function serializePdkModuleForClient(
+  module: Record<string, unknown> | null,
+) {
+  if (!module) return null;
+  const metals = ((module.metals as Array<Record<string, unknown>>) ?? []).map((metal) => ({
+    ...metal,
+    _id: metal._id ? String(metal._id) : undefined,
+  }));
+
+  return {
+    ...module,
+    _id: (module._id as Types.ObjectId)?.toString?.() ?? String(module._id ?? ''),
+    metals,
+  };
+}
+
+export async function getProjectContext(projectId: string) {
+  if (!Types.ObjectId.isValid(projectId)) {
+    throw new Error('Invalid project id');
+  }
+  const projectOid = new Types.ObjectId(projectId);
+
+  const [project, cells, routes] = await Promise.all([
+    ProjectModel.findById(projectId).lean(),
+    ProjectCellModel.find({ projectId: projectOid }).select('name cellType views').sort({ name: 1 }).lean(),
+    MetalRoutingAnalysisModel.find({ projectId: projectOid })
+      .sort({ updatedAt: -1 })
+      .lean(),
+  ]);
+
+  if (!project) throw new Error('Project not found');
+
+  const cellNames = cells.map((c) => c.name).filter(Boolean);
+  const cellsByType = {
+    BLOCK: cells.filter((c) => normalizeCellTypeKey(c.cellType) === 'block').map((c) => c.name),
+    IO: cells.filter((c) => normalizeCellTypeKey(c.cellType) === 'io').map((c) => c.name),
+    ESD: cells.filter((c) => normalizeCellTypeKey(c.cellType) === 'esd').map((c) => c.name),
+    TOP: cells.filter((c) => normalizeCellTypeKey(c.cellType) === 'top').map((c) => c.name),
+  };
+  let pdkModule = null;
+  if (project.pdkModuleId) {
+    pdkModule = await PdkModuleModel.findById(project.pdkModuleId).lean();
+  }
+
+  const savedRoutes = listSavedRouteSummaries(routes as Record<string, unknown>[]);
+  const signals = listSignalRouteSummaries(routes as Record<string, unknown>[]);
+
+  console.log(
+    IMPORT_LOG_PREFIX,
+    'getProjectContext',
+    { projectId, totalRoutesInDb: routes.length, savedRoutesVisible: savedRoutes.length },
+  );
+
+  return {
+    project: {
+      id: project._id.toString(),
+      projectName: project.projectName,
+      clientName: project.clientName,
+      technologyNode: project.technologyNode,
+      pdkModuleId: project.pdkModuleId?.toString() ?? null,
+    },
+    cellNames,
+    cellsByType,
+    pdkModule: serializePdkModuleForClient(pdkModule as Record<string, unknown> | null),
+    routes: savedRoutes,
+    signals,
+  };
+}
+
+function normalizeCellTypeKey(cellType: string): string {
+  const value = String(cellType ?? '').trim().toLowerCase();
+  if (value === 'block') return 'block';
+  if (value === 'iop' || value === 'io') return 'io';
+  if (value === 'esd') return 'esd';
+  if (value === 'top') return 'top';
+  return value;
+}
+
+export async function findRouteByKey(key: RoutingKey) {
+  const k = normalizeKey(key);
+  const route = await findRouteDocumentByKey(k);
+  if (!route) return null;
+  return serializeRouteForClient(route.toObject() as unknown as Record<string, unknown>);
+}
+
+export async function getOrCreateRoute(
+  key: RoutingKey,
+  createdBy?: string,
+  createdByName?: string,
+  schematicCurrentDensity?: number,
+) {
+  const k = normalizeKey(key);
+  await getProjectPdkModule(k.projectId);
+
+  const schematic =
+    schematicCurrentDensity != null && Number.isFinite(Number(schematicCurrentDensity))
+      ? Number(schematicCurrentDensity)
+      : undefined;
+
+  let route = await findRouteDocumentByKey(k);
+
+  if (!route) {
+    route = await MetalRoutingAnalysisModel.create({
+      projectId: k.projectObjectId,
+      signal: k.signal,
+      fromCell: k.fromCell,
+      toCell: k.toCell,
+      fromSignal: k.signal,
+      toSignal: '',
+      schematicCurrentDensity: schematic,
+      metals: [],
+      minimumMetalCurrentCapacity: 0,
+      totalImpedance: 0,
+      createdBy,
+      createdByName,
+    });
+  } else {
+    if (!route.signal) {
+      route.signal = k.signal;
+    }
+    if (schematic != null) {
+      route.schematicCurrentDensity = schematic;
+    }
+    await route.save();
+  }
+  return serializeRouteForClient(route.toObject() as unknown as Record<string, unknown>);
+}
+
+export function computeMetalEntry(
+  input: MetalInput,
+  module: { _id: Types.ObjectId; name: string },
+  spec: { currentDensityAt110: number; sheetResistance: number },
+): ComputedMetalEntry {
+  const width = Number(input.width);
+  const length = Number(input.length);
+  const pdkDensity = Number(spec.currentDensityAt110);
+  const schematicCurrentDensity =
+    input.schematicCurrentDensity != null && Number.isFinite(Number(input.schematicCurrentDensity))
+      ? Number(input.schematicCurrentDensity)
+      : pdkDensity;
+  const sheetResistance = spec.sheetResistance;
+  const connectionType = resolveConnectionType(input.connectionType);
+
+  const entry: ComputedMetalEntry = {
+    metalType: String(input.metalType).trim(),
+    width,
+    length,
+    pdkModuleId: module._id,
+    pdkModuleName: module.name,
+    givenCurrentDensity: schematicCurrentDensity,
+    schematicCurrentDensity,
+    sheetResistance,
+    implementedCurrentMetalCapacity: width * pdkDensity,
+    routingMetalImpedance: width > 0 ? (length / width) * sheetResistance : 0,
+  };
+  if (connectionType) entry.connectionType = connectionType;
+  return entry;
+}
+
+export async function previewMetal(input: MetalInput): Promise<ComputedMetalEntry> {
+  const { module, spec } = await resolvePdkMetalSpec(input.projectId, input.metalType);
+  return computeMetalEntry(input, { _id: module._id, name: module.name }, spec);
+}
+
+export function summarizeMetals(metals: ComputedMetalEntry[]): AnalysisSummary {
+  if (metals.length === 0) {
+    return {
+      minimumMetalCurrentCapacity: 0,
+      totalImpedance: 0,
+      minCapacityMetalIndex: -1,
+      highestImpedanceMetalIndex: -1,
+    };
+  }
+
+  let minCapacity = metals[0].implementedCurrentMetalCapacity;
+  let minIndex = 0;
+  let maxImpedance = metals[0].routingMetalImpedance;
+  let maxIndex = 0;
+  let totalImpedance = 0;
+
+  metals.forEach((metal, index) => {
+    const z = metal.routingMetalImpedance;
+    if (index === 0) {
+      totalImpedance = z;
+    } else if (metal.connectionType === 'parallel') {
+      if (z > 0) {
+        totalImpedance = (totalImpedance * z) / (totalImpedance + z);
+      }
+    } else {
+      totalImpedance += z;
+    }
+    if (metal.implementedCurrentMetalCapacity < minCapacity) {
+      minCapacity = metal.implementedCurrentMetalCapacity;
+      minIndex = index;
+    }
+    if (metal.routingMetalImpedance > maxImpedance) {
+      maxImpedance = metal.routingMetalImpedance;
+      maxIndex = index;
+    }
+  });
+
+  return {
+    minimumMetalCurrentCapacity: minCapacity,
+    totalImpedance,
+    minCapacityMetalIndex: minIndex,
+    highestImpedanceMetalIndex: maxIndex,
+  };
+}
+
+function applySummaryToMetals(metals: MetalEntrySubdoc[], summary: AnalysisSummary) {
+  return {
+    minimumMetalCurrentCapacity: summary.minimumMetalCurrentCapacity,
+    totalImpedance: summary.totalImpedance,
+    minCapacityMetalId:
+      summary.minCapacityMetalIndex >= 0 ? metals[summary.minCapacityMetalIndex]._id : null,
+    highestImpedanceMetalId:
+      summary.highestImpedanceMetalIndex >= 0 ? metals[summary.highestImpedanceMetalIndex]._id : null,
+  };
+}
+
+function normalizeMetalConnections(metals: MetalEntrySubdoc[]) {
+  metals.forEach((metal, index) => {
+    if (index === 0) {
+      delete metal.connectionType;
+    }
+  });
+}
+
+function toComputed(m: MetalEntrySubdoc): ComputedMetalEntry {
+  const entry: ComputedMetalEntry = {
+    metalType: m.metalType,
+    width: m.width,
+    length: m.length,
+    pdkModuleId: m.pdkModuleId,
+    pdkModuleName: m.pdkModuleName,
+    givenCurrentDensity: m.givenCurrentDensity,
+    schematicCurrentDensity: m.schematicCurrentDensity ?? m.givenCurrentDensity,
+    sheetResistance: m.sheetResistance,
+    implementedCurrentMetalCapacity: m.implementedCurrentMetalCapacity,
+    routingMetalImpedance: m.routingMetalImpedance,
+  };
+  const connectionType = resolveConnectionType(m.connectionType);
+  if (connectionType) entry.connectionType = connectionType;
+  return entry;
+}
+
+function routeSchematicDensity(route: { schematicCurrentDensity?: number } | null): number | undefined {
+  if (!route?.schematicCurrentDensity) return undefined;
+  const n = Number(route.schematicCurrentDensity);
+  return Number.isFinite(n) && n >= 0 ? n : undefined;
+}
+
+function resolveMetalSchematicInput(
+  routeSchematic: number | undefined,
+  inputSchematic?: number,
+): number | undefined {
+  if (inputSchematic != null && Number.isFinite(Number(inputSchematic))) {
+    return Number(inputSchematic);
+  }
+  return routeSchematic;
+}
+
+export async function addMetalToRoute(
+  key: RoutingKey,
+  input: Omit<MetalInput, 'projectId'>,
+  createdBy?: string,
+  createdByName?: string,
+) {
+  const k = normalizeKey(key);
+
+  let route = await findRouteDocumentByKey(k);
+
+  if (!route) {
+    route = new MetalRoutingAnalysisModel({
+      projectId: k.projectObjectId,
+      signal: k.signal,
+      fromCell: k.fromCell,
+      toCell: k.toCell,
+      fromSignal: k.signal,
+      toSignal: '',
+      metals: [],
+      createdBy,
+      createdByName,
+    });
+  }
+
+  const routeSchematic = routeSchematicDensity(route);
+  const isFirstMetal = route.metals.length === 0;
+  const schematicCurrentDensity = resolveMetalSchematicInput(routeSchematic, input.schematicCurrentDensity);
+
+  const computed = await previewMetal({
+    ...input,
+    projectId: k.projectId,
+    connectionType: isFirstMetal ? undefined : input.connectionType,
+    schematicCurrentDensity,
+  });
+
+  route.metals.push(metalSubdocFromComputed(computed, { omitConnectionType: isFirstMetal }));
+  const summary = summarizeMetals(route.metals.map(toComputed));
+  Object.assign(route, applySummaryToMetals(route.metals, summary));
+  await route.save();
+
+  return {
+    route: serializeRouteForClient(route.toObject() as unknown as Record<string, unknown>),
+    summary,
+  };
+}
+
+export async function upsertRouteWithMetals(
+  key: RoutingKey,
+  metalInputs: Array<{ metalType: string; width: number; length: number }>,
+  createdBy?: string,
+  createdByName?: string,
+) {
+  const k = normalizeKey(key);
+  await getProjectPdkModule(k.projectId);
+
+  if (!metalInputs.length) {
+    throw new Error('At least one metal row is required per route');
+  }
+
+  const computedMetals: MetalEntrySubdoc[] = [];
+  for (let index = 0; index < metalInputs.length; index += 1) {
+    const input = metalInputs[index];
+    const computed = await previewMetal({
+      projectId: k.projectId,
+      metalType: input.metalType,
+      width: input.width,
+      length: input.length,
+      connectionType: index === 0 ? undefined : 'series',
+    });
+    computedMetals.push(metalSubdocFromComputed(computed, { omitConnectionType: index === 0 }));
+  }
+
+  const summary = summarizeMetals(computedMetals.map(toComputed));
+
+  let route = await findRouteDocumentByKey(k);
+
+  if (!route) {
+    route = new MetalRoutingAnalysisModel({
+      projectId: k.projectObjectId,
+      signal: k.signal,
+      fromCell: k.fromCell,
+      toCell: k.toCell,
+      fromSignal: k.signal,
+      toSignal: '',
+      metals: [],
+      createdBy,
+      createdByName,
+    });
+  }
+
+  route.metals = computedMetals;
+  route.markModified('metals');
+  Object.assign(route, applySummaryToMetals(route.metals, summary));
+  await route.save();
+
+  const saved = await MetalRoutingAnalysisModel.findById(route._id).lean();
+  if (!saved) {
+    throw new Error('Route save verification failed: document not found after insert');
+  }
+  if (saved.projectId.toString() !== k.projectId) {
+    throw new Error(
+      `Route save verification failed: project mismatch (expected ${k.projectId}, got ${saved.projectId.toString()})`,
+    );
+  }
+  if (!saved.metals?.length) {
+    throw new Error('Route save verification failed: metals array is empty after save');
+  }
+
+  console.log(IMPORT_LOG_PREFIX, 'upsertRouteWithMetals saved', {
+    routeId: saved._id.toString(),
+    projectId: saved.projectId.toString(),
+    fromCell: saved.fromCell,
+    toCell: saved.toCell,
+    fromSignal: saved.fromSignal,
+    toSignal: saved.toSignal,
+    metalCount: saved.metals.length,
+  });
+
+  return serializeRouteForClient(saved as unknown as Record<string, unknown>);
+}
+
+export async function removeMetalFromRoute(key: RoutingKey, metalId: string) {
+  const k = normalizeKey(key);
+  if (!Types.ObjectId.isValid(metalId)) return null;
+
+  const route = await findRouteDocumentByKey(k);
+  if (!route) return null;
+
+  route.metals = route.metals.filter((m) => m._id.toString() !== metalId);
+  normalizeMetalConnections(route.metals);
+  const summary = summarizeMetals(route.metals.map(toComputed));
+  Object.assign(route, applySummaryToMetals(route.metals, summary));
+  await route.save();
+
+  return serializeRouteForClient(route.toObject() as unknown as Record<string, unknown>);
+}
+
+export async function updateRouteIdentity(
+  routeId: string,
+  updates: { signal: string; fromCell: string; toCell: string; schematicCurrentDensity?: number },
+) {
+  if (!Types.ObjectId.isValid(routeId)) {
+    throw new Error('Invalid route id');
+  }
+
+  const signal = updates.signal.trim();
+  const fromCell = updates.fromCell.trim();
+  const toCell = updates.toCell.trim();
+  if (!signal || !fromCell || !toCell) {
+    throw new Error('Signal, from cell, and to cell are required');
+  }
+
+  const route = await MetalRoutingAnalysisModel.findById(routeId);
+  if (!route) return null;
+
+  const conflict = await MetalRoutingAnalysisModel.findOne({
+    projectId: route.projectId,
+    signal,
+    fromCell,
+    toCell,
+    _id: { $ne: route._id },
+  });
+  if (conflict) {
+    throw new Error('Another signal route already exists with this signal and cell combination');
+  }
+
+  route.signal = signal;
+  route.fromCell = fromCell;
+  route.toCell = toCell;
+  route.fromSignal = signal;
+  route.toSignal = '';
+  if (
+    updates.schematicCurrentDensity != null &&
+    Number.isFinite(Number(updates.schematicCurrentDensity))
+  ) {
+    const schematic = Number(updates.schematicCurrentDensity);
+    route.schematicCurrentDensity = schematic;
+    route.metals.forEach((metal) => {
+      metal.givenCurrentDensity = schematic;
+      metal.schematicCurrentDensity = schematic;
+    });
+    route.markModified('metals');
+  }
+  await route.save();
+
+  return serializeRouteForClient(route.toObject() as unknown as Record<string, unknown>);
+}
+
+export async function updateMetalInRoute(
+  key: RoutingKey,
+  metalId: string,
+  input: Omit<MetalInput, 'projectId'>,
+) {
+  const k = normalizeKey(key);
+  if (!Types.ObjectId.isValid(metalId)) return null;
+
+  const route = await findRouteDocumentByKey(k);
+  if (!route) return null;
+
+  const index = route.metals.findIndex((m) => m._id.toString() === metalId);
+  if (index < 0) return null;
+
+  const routeSchematic = routeSchematicDensity(route);
+  const schematicCurrentDensity = resolveMetalSchematicInput(routeSchematic, input.schematicCurrentDensity);
+  const isFirstMetal = index === 0;
+
+  const computed = await previewMetal({
+    projectId: k.projectId,
+    metalType: input.metalType,
+    width: input.width,
+    length: input.length,
+    schematicCurrentDensity,
+    connectionType: isFirstMetal ? undefined : input.connectionType,
+  });
+
+  route.metals[index] = metalSubdocFromComputed(computed, {
+    existingId: route.metals[index]._id,
+    omitConnectionType: isFirstMetal,
+  });
+  route.markModified('metals');
+  const summary = summarizeMetals(route.metals.map(toComputed));
+  Object.assign(route, applySummaryToMetals(route.metals, summary));
+  await route.save();
+
+  return serializeRouteForClient(route.toObject() as unknown as Record<string, unknown>);
+}
+
+export async function listPdkModules() {
+  return PdkModuleModel.find().sort({ name: 1 }).lean();
+}
+
+export async function getPdkModuleById(id: string) {
+  if (!Types.ObjectId.isValid(id)) return null;
+  return PdkModuleModel.findById(id).lean();
+}
+
+export async function createPdkModule(data: {
+  name: string;
+  technologyNode?: string;
+  notes?: string;
+  metals: Array<{ metalType: string; currentDensityAt110: number; sheetResistance: number }>;
+}) {
+  return PdkModuleModel.create({
+    name: data.name.trim(),
+    technologyNode: data.technologyNode?.trim() ?? '',
+    notes: data.notes?.trim() ?? '',
+    metals: (data.metals ?? []).map((m) => ({
+      metalType: m.metalType.trim(),
+      currentDensityAt110: Number(m.currentDensityAt110),
+      sheetResistance: Number(m.sheetResistance),
+    })),
+  });
+}
+
+export async function getPdkTemplateExcel() {
+  return buildPdkTemplateExcelBuffer();
+}
+
+export async function importPdkModuleFromExcel(
+  buffer: Buffer,
+  options: { name?: string; technologyNode?: string; notes?: string },
+) {
+  const parsed = await parsePdkExcelBuffer(buffer);
+
+  const name = (options.name?.trim() || parsed.metadata.pdkName?.trim() || '').trim();
+  if (!name) {
+    throw new Error('PDK module name is required. Provide a name in the import form or in the spreadsheet metadata.');
+  }
+
+  const technologyNode = (options.technologyNode?.trim() || parsed.metadata.technologyNode?.trim() || '').trim();
+  const notes = (options.notes?.trim() || parsed.metadata.notes?.trim() || 'Imported from Excel').trim();
+
+  const module = await createPdkModule({
+    name,
+    technologyNode,
+    notes,
+    metals: parsed.metals.map((m) => ({
+      metalType: m.metalType,
+      currentDensityAt110: m.currentDensityAt110,
+      sheetResistance: m.sheetResistance,
+    })),
+  });
+  return typeof module.toObject === 'function' ? module.toObject() : module;
+}
+
+export async function updatePdkModule(
+  id: string,
+  data: Partial<{
+    name: string;
+    technologyNode: string;
+    notes: string;
+    metals: Array<{ metalType: string; currentDensityAt110: number; sheetResistance: number }>;
+  }>,
+) {
+  if (!Types.ObjectId.isValid(id)) return null;
+  const update: Record<string, unknown> = {};
+  if (data.name !== undefined) update.name = data.name.trim();
+  if (data.technologyNode !== undefined) update.technologyNode = data.technologyNode.trim();
+  if (data.notes !== undefined) update.notes = data.notes.trim();
+  if (data.metals !== undefined) {
+    update.metals = data.metals.map((m) => ({
+      metalType: m.metalType.trim(),
+      currentDensityAt110: Number(m.currentDensityAt110),
+      sheetResistance: Number(m.sheetResistance),
+    }));
+  }
+  return PdkModuleModel.findByIdAndUpdate(id, update, { new: true, runValidators: true }).lean();
+}
+
+export async function deletePdkModule(id: string) {
+  if (!Types.ObjectId.isValid(id)) return null;
+  return PdkModuleModel.findByIdAndDelete(id).lean();
+}
+
+export async function getRouteById(id: string) {
+  if (!Types.ObjectId.isValid(id)) return null;
+  return MetalRoutingAnalysisModel.findById(id).lean();
+}
+
+export async function deleteRoute(id: string) {
+  if (!Types.ObjectId.isValid(id)) return null;
+  return MetalRoutingAnalysisModel.findByIdAndDelete(id).lean();
+}
+
+function toRouteExcelRecord(route: Record<string, unknown>): RouteExcelRecord {
+  const metals = (route.metals as MetalEntrySubdoc[]) ?? [];
+  return {
+    fromCell: String(route.fromCell ?? ''),
+    toCell: String(route.toCell ?? ''),
+    fromSignal: String(route.fromSignal ?? ''),
+    toSignal: String(route.toSignal ?? ''),
+    metals: metals.map((metal) => ({
+      metalType: metal.metalType,
+      width: metal.width,
+      length: metal.length,
+      givenCurrentDensity: metal.givenCurrentDensity,
+      implementedCurrentMetalCapacity: metal.implementedCurrentMetalCapacity,
+      routingMetalImpedance: metal.routingMetalImpedance,
+    })),
+    minimumMetalCurrentCapacity: Number(route.minimumMetalCurrentCapacity ?? 0),
+    totalImpedance: Number(route.totalImpedance ?? 0),
+  };
+}
+
+export async function getMetalRoutingTemplateExcel() {
+  return buildMetalRoutingTemplateExcelBuffer();
+}
+
+export async function getMetalRoutingTemplateExcelForProject(projectId: string) {
+  const normalizedProjectId = projectId.trim();
+  if (!Types.ObjectId.isValid(normalizedProjectId)) {
+    throw new Error('Invalid project id');
+  }
+
+  const { module } = await getProjectPdkModule(normalizedProjectId);
+  const metalTypes = (module.metals ?? []).map((metal) => metal.metalType).filter(Boolean);
+  if (!metalTypes.length) {
+    throw new Error(`Assigned PDK "${module.name}" has no metal types defined`);
+  }
+
+  return {
+    buffer: await buildMetalRoutingTemplateExcelBuffer(metalTypes),
+    pdkModuleName: module.name,
+    metalTypes,
+  };
+}
+
+export async function exportProjectRoutesExcel(projectId: string, routeId?: string) {
+  if (!Types.ObjectId.isValid(projectId)) return null;
+
+  const project = await ProjectModel.findById(projectId).lean();
+  if (!project) return null;
+
+  let routes: Record<string, unknown>[];
+  if (routeId) {
+    const route = await getRouteById(routeId);
+    if (!route || route.projectId.toString() !== projectId) return null;
+    routes = [route as Record<string, unknown>];
+  } else {
+    routes = await MetalRoutingAnalysisModel.find({ projectId: new Types.ObjectId(projectId) })
+      .sort({ fromCell: 1, toCell: 1, fromSignal: 1, toSignal: 1 })
+      .lean() as Record<string, unknown>[];
+  }
+
+  const records = routes.map(toRouteExcelRecord);
+  const buffer = await buildMetalRoutingExcelBuffer(records);
+
+  const filename = routeId && routes[0]
+    ? `metal-routing_${String(routes[0].fromCell)}_${String(routes[0].toCell)}.xlsx`.replace(/\s+/g, '_')
+    : `${String(project.projectName || 'project').replace(/\s+/g, '_')}_metal-routing.xlsx`;
+
+  return { buffer, filename, routeCount: records.length };
+}
+
+export function serializeRouteForClient(route: Record<string, unknown>) {
+  const metals = ((route.metals as MetalEntrySubdoc[]) ?? []).map((metal, index) => {
+    const mapped = {
+      ...metal,
+      _id: metal._id?.toString() ?? '',
+      pdkModuleId: metal.pdkModuleId?.toString() ?? '',
+      schematicCurrentDensity: metal.schematicCurrentDensity ?? metal.givenCurrentDensity,
+    };
+    if (index > 0) {
+      const connectionType = resolveConnectionType(metal.connectionType) ?? 'series';
+      return { ...mapped, connectionType };
+    }
+    const { connectionType: _omit, ...withoutConnection } = mapped as MetalEntrySubdoc & {
+      connectionType?: string;
+    };
+    return withoutConnection;
+  });
+  const signal = routeSignalLabel(route);
+
+  return {
+    ...route,
+    signal,
+    _id: (route._id as Types.ObjectId)?.toString?.() ?? String(route._id ?? ''),
+    projectId: (route.projectId as Types.ObjectId)?.toString?.() ?? String(route.projectId ?? ''),
+    minCapacityMetalId: route.minCapacityMetalId
+      ? (route.minCapacityMetalId as Types.ObjectId).toString()
+      : null,
+    highestImpedanceMetalId: route.highestImpedanceMetalId
+      ? (route.highestImpedanceMetalId as Types.ObjectId).toString()
+      : null,
+    metals,
+  };
+}
+
+export interface MetalRoutingImportFailure {
+  routeLabel: string;
+  fromCell: string;
+  toCell: string;
+  fromSignal: string;
+  toSignal: string;
+  metalRows: number;
+  reason: string;
+}
+
+export interface MetalRoutingImportResultPayload {
+  success: boolean;
+  projectId: string;
+  projectName: string;
+  routesParsed: number;
+  routesImported: number;
+  metalsImported: number;
+  routesFailed: number;
+  failures: MetalRoutingImportFailure[];
+  routes: ReturnType<typeof serializeRouteForClient>[];
+  savedRoutes: ReturnType<typeof serializeRouteSummaryForClient>[];
+  parseDiagnostics: {
+    worksheetName: string;
+    headerRow: number;
+    mergeRangeCount: number;
+    dataRowsScanned: number;
+    totalMetalRows: number;
+  };
+}
+
+export async function importProjectRoutesFromExcel(
+  projectId: string,
+  buffer: Buffer,
+  createdBy?: string,
+  createdByName?: string,
+): Promise<MetalRoutingImportResultPayload> {
+  const normalizedProjectId = projectId.trim();
+  if (!Types.ObjectId.isValid(normalizedProjectId)) {
+    throw new Error('Invalid project id');
+  }
+
+  const project = await ProjectModel.findById(normalizedProjectId).lean();
+  if (!project) {
+    throw new Error('Project not found');
+  }
+
+  const { module } = await getProjectPdkModule(normalizedProjectId);
+
+  console.log(IMPORT_LOG_PREFIX, 'starting import', {
+    projectId: normalizedProjectId,
+    projectName: project.projectName,
+    pdkModule: module.name,
+  });
+
+  const parseResult = await parseMetalRoutingExcelWithDiagnostics(buffer, { log: true });
+  const blocks = parseResult.routeBlocks;
+
+  let routesImported = 0;
+  let metalsImported = 0;
+  const routes: ReturnType<typeof serializeRouteForClient>[] = [];
+  const failures: MetalRoutingImportFailure[] = [];
+
+  for (const block of blocks) {
+    const routeLabel = `${block.fromCell} → ${block.toCell} · ${block.fromSignal} → ${block.toSignal}`;
+    try {
+      const route = await upsertRouteWithMetals(
+        {
+          projectId: normalizedProjectId,
+          signal: block.fromSignal,
+          fromCell: block.fromCell,
+          toCell: block.toCell,
+          fromSignal: block.fromSignal,
+          toSignal: block.toSignal,
+        },
+        block.metals,
+        createdBy,
+        createdByName,
+      );
+      routes.push(route);
+      routesImported += 1;
+      metalsImported += block.metals.length;
+      console.log(IMPORT_LOG_PREFIX, 'route imported', {
+        routeLabel,
+        routeId: route._id,
+        projectId: route.projectId,
+        metalCount: route.metals.length,
+      });
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'Import failed';
+      const failure: MetalRoutingImportFailure = {
+        routeLabel,
+        fromCell: block.fromCell,
+        toCell: block.toCell,
+        fromSignal: block.fromSignal,
+        toSignal: block.toSignal,
+        metalRows: block.metals.length,
+        reason: `${reason}. Assigned PDK: "${module.name}".`,
+      };
+      failures.push(failure);
+      console.error(IMPORT_LOG_PREFIX, 'route failed', failure);
+    }
+  }
+
+  const savedRoutes = await fetchSavedRouteSummariesForProject(normalizedProjectId);
+
+  console.log(IMPORT_LOG_PREFIX, 'import complete', {
+    projectId: normalizedProjectId,
+    routesParsed: blocks.length,
+    routesImported,
+    metalsImported,
+    routesFailed: failures.length,
+    savedRoutesVisible: savedRoutes.length,
+  });
+
+  const success = routesImported > 0 && savedRoutes.length > 0;
+
+  if (routesImported > 0 && savedRoutes.length === 0) {
+    throw new Error(
+      `Routes were saved during import but none are visible for project "${project.projectName}" (${normalizedProjectId}). Check database linkage.`,
+    );
+  }
+
+  if (routesImported === 0 && failures.length > 0) {
+    const summary = failures.map((f) => `${f.routeLabel}: ${f.reason}`).join(' | ');
+    throw new Error(`Import failed for all ${failures.length} route(s). ${summary}`);
+  }
+
+  return {
+    success,
+    projectId: normalizedProjectId,
+    projectName: project.projectName,
+    routesParsed: blocks.length,
+    routesImported,
+    metalsImported,
+    routesFailed: failures.length,
+    failures,
+    routes,
+    savedRoutes,
+    parseDiagnostics: {
+      worksheetName: parseResult.worksheetName,
+      headerRow: parseResult.headerRow,
+      mergeRangeCount: parseResult.mergeRangeCount,
+      dataRowsScanned: parseResult.dataRowsScanned,
+      totalMetalRows: parseResult.totalMetalRows,
+    },
+  };
+}
+
+export async function exportRouteExcel(id: string) {
+  const route = await getRouteById(id);
+  if (!route) return null;
+  const projectId = route.projectId.toString();
+  const result = await exportProjectRoutesExcel(projectId, id);
+  if (!result) return null;
+  return { route, buffer: result.buffer, filename: result.filename };
+}

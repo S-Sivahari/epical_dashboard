@@ -23,6 +23,8 @@ export const ROUTES = {
   NEWS: '/admin/news',
   TICKETS: '/admin/tickets',
   PAYSLIPS: '/admin/payslips',
+  METAL_ROUTING: '/admin/metal-routing',
   SETTINGS: '/admin/settings',
   HELP: '/admin/help',
+  EMPLOYEE_METAL_ROUTING: '/employee/metal-routing',
 } as const

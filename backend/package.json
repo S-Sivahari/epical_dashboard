@@ -8,6 +8,7 @@
     "start": "tsx src/server.ts",
     "build": "tsc",
     "seed": "tsx src/scripts/testConnection.ts",
+    "verify:metal-import": "tsx src/scripts/verifyMetalRoutingImport.ts",
     "backup:data": "tsx scripts/backupCriticalData.ts"
   },
   "dependencies": {
