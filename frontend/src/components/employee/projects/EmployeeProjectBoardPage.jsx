@@ -232,18 +232,7 @@ export function EmployeeProjectBoardPage({ routeProjectId = null }) {
   const isTeamLead = Boolean(workspace?.isTeamLead)
   const sectionItems = isTeamLead ? [...BASE_SECTION_ITEMS, TEAM_LEAD_SECTION] : BASE_SECTION_ITEMS
 
-  const assigneeOptions = useMemo(() => {
-    const map = new Map()
-    for (const cell of workspace?.cells || []) {
-      if (cell.assignedEmployeeId) {
-        map.set(cell.assignedEmployeeId, {
-          id: cell.assignedEmployeeId,
-          name: cell.assignedEmployeeName || 'Assigned engineer',
-        })
-      }
-    }
-    return [...map.values()]
-  }, [workspace?.cells])
+  const assigneeOptions = workspace?.assignees || []
   const activeLibrary = workspace?.libraries?.find((lib) => lib.id === selectedLibraryId)
   const completionPercentage = workspace?.project?.completionPercentage ?? 0
 
@@ -595,6 +584,8 @@ export function EmployeeProjectBoardPage({ routeProjectId = null }) {
         open={libraryModalOpen}
         onOpenChange={setLibraryModalOpen}
         projectId={selectedProjectId}
+        isTeamLead={isTeamLead}
+        assigneeOptions={assigneeOptions}
         onCreated={() => void loadWorkspace()}
       />
       <EmployeeCreateCellDialog
@@ -605,6 +596,7 @@ export function EmployeeProjectBoardPage({ routeProjectId = null }) {
         libraryCellCounts={libraryCellCounts}
         technologyNode={workspace?.project?.technologyNode || selectedProject?.technologyNode || ''}
         assigneeOptions={assigneeOptions}
+        isTeamLead={isTeamLead}
         defaultLibraryId={selectedLibraryId}
         onCreated={() => void loadWorkspace()}
       />

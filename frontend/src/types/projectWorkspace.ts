@@ -238,6 +238,8 @@ export interface ProjectLibrary {
   projectId: string
   name: string
   description: string
+  assignedEmployeeId?: string
+  assignedEmployeeName?: string
 }
 
 export const VIEW_PROGRESS_STATUSES = ['not_started', 'in_progress', 'completed'] as const
@@ -375,6 +377,7 @@ export interface EmployeeProjectWorkspace {
     completionPercentage: number
   }
   isTeamLead?: boolean
+  assignees?: { id: string; name: string }[]
   permissions?: {
     canCreateLibraries: boolean
     canCreateCells: boolean

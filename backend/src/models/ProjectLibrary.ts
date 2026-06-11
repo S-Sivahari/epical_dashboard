@@ -4,6 +4,8 @@ export interface ProjectLibrary extends Document {
   projectId: Types.ObjectId;
   name: string;
   description: string;
+  assignedEmployeeId?: string;
+  assignedEmployeeName?: string;
   createdBy?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -14,6 +16,8 @@ const ProjectLibrarySchema = new Schema<ProjectLibrary>(
     projectId: { type: Schema.Types.ObjectId, ref: 'Project', required: true, index: true },
     name: { type: String, required: true, trim: true },
     description: { type: String, default: '' },
+    assignedEmployeeId: { type: String },
+    assignedEmployeeName: { type: String },
     createdBy: { type: String },
   },
   { timestamps: true },

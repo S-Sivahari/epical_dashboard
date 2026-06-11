@@ -34,7 +34,7 @@ export async function fetchMyProjectWorkspace(projectId: string) {
 
 export async function createMyProjectLibrary(
   projectId: string,
-  payload: { name: string; description?: string },
+  payload: { name: string; description?: string; assignedEmployeeId?: string; assignedEmployeeName?: string },
 ) {
   const { data } = await api.post(`/projects/${projectId}/mine/libraries`, payload)
   return data

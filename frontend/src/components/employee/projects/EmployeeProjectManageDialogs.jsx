@@ -31,18 +31,56 @@ function emptyCellForm(libraryId, technologyNode) {
   }
 }
 
-export function EmployeeCreateLibraryDialog({ open, onOpenChange, projectId, onCreated }) {
+export function EmployeeCreateLibraryDialog({
+  open,
+  onOpenChange,
+  projectId,
+  isTeamLead = false,
+  assigneeOptions = [],
+  onCreated,
+}) {
+  const user = useAuthStore((s) => s.user)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [assignedEmployeeId, setAssignedEmployeeId] = useState('')
+  const [assignedEmployeeName, setAssignedEmployeeName] = useState('')
   const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    setName('')
+    setDescription('')
+    if (isTeamLead) {
+      setAssignedEmployeeId('')
+      setAssignedEmployeeName('')
+    } else if (user?.id) {
+      setAssignedEmployeeId(user.id)
+      setAssignedEmployeeName(user.name || 'Me')
+    }
+  }, [open, isTeamLead, user])
+
+  const assignees = useMemo(() => {
+    const map = new Map()
+    for (const option of assigneeOptions) {
+      if (option?.id) map.set(option.id, option)
+    }
+    if (user?.id && !map.has(user.id)) {
+      map.set(user.id, { id: user.id, name: user.name || 'Me' })
+    }
+    return [...map.values()]
+  }, [assigneeOptions, user])
 
   const handleCreate = async () => {
     if (!name.trim()) return
     setSaving(true)
     try {
-      await createMyProjectLibrary(projectId, { name: name.trim(), description: description.trim() })
-      setName('')
-      setDescription('')
+      await createMyProjectLibrary(projectId, {
+        name: name.trim(),
+        description: description.trim(),
+        ...(isTeamLead && assignedEmployeeId
+          ? { assignedEmployeeId, assignedEmployeeName }
+          : {}),
+      })
       onOpenChange(false)
       onCreated?.()
     } finally {
@@ -74,6 +112,27 @@ export function EmployeeCreateLibraryDialog({ open, onOpenChange, projectId, onC
               onChange={(e) => setDescription(e.target.value)}
             />
           </label>
+          {isTeamLead ? (
+            <label className="text-sm font-medium">
+              Assign employee
+              <select
+                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={assignedEmployeeId || ''}
+                onChange={(e) => {
+                  const emp = assignees.find((x) => x.id === e.target.value)
+                  setAssignedEmployeeId(e.target.value)
+                  setAssignedEmployeeName(emp?.name || '')
+                }}
+              >
+                <option value="">Unassigned</option>
+                {assignees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>{emp.name}</option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <p className="text-sm text-slate-500">This library will be assigned to you.</p>
+          )}
           <div className="flex justify-end gap-2">
             <button
               type="button"
@@ -105,6 +164,7 @@ export function EmployeeCreateCellDialog({
   libraryCellCounts,
   technologyNode = '',
   assigneeOptions = [],
+  isTeamLead = false,
   defaultLibraryId = null,
   onCreated,
 }) {
@@ -116,8 +176,13 @@ export function EmployeeCreateCellDialog({
   useEffect(() => {
     if (!open) return
     const libraryId = defaultLibraryId || libraries[0]?.id || ''
-    setCellForm(emptyCellForm(libraryId, technologyNode))
-  }, [open, defaultLibraryId, libraries, technologyNode])
+    const form = emptyCellForm(libraryId, technologyNode)
+    if (!isTeamLead && user?.id) {
+      form.assignedEmployeeId = user.id
+      form.assignedEmployeeName = user.name || 'Me'
+    }
+    setCellForm(form)
+  }, [open, defaultLibraryId, libraries, technologyNode, isTeamLead, user])
 
   useEffect(() => {
     if (!open || !cellForm || !projectId) return
@@ -258,26 +323,30 @@ export function EmployeeCreateCellDialog({
               </div>
             </dl>
           </div>
-          <label className="text-sm font-medium">
-            Assign employee
-            <select
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              value={cellForm.assignedEmployeeId || ''}
-              onChange={(e) => {
-                const emp = assignees.find((x) => x.id === e.target.value)
-                setCellForm((f) => ({
-                  ...f,
-                  assignedEmployeeId: e.target.value,
-                  assignedEmployeeName: emp?.name || '',
-                }))
-              }}
-            >
-              <option value="">Unassigned</option>
-              {assignees.map((emp) => (
-                <option key={emp.id} value={emp.id}>{emp.name}</option>
-              ))}
-            </select>
-          </label>
+          {isTeamLead ? (
+            <label className="text-sm font-medium">
+              Assign employee
+              <select
+                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={cellForm.assignedEmployeeId || ''}
+                onChange={(e) => {
+                  const emp = assignees.find((x) => x.id === e.target.value)
+                  setCellForm((f) => ({
+                    ...f,
+                    assignedEmployeeId: e.target.value,
+                    assignedEmployeeName: emp?.name || '',
+                  }))
+                }}
+              >
+                <option value="">Unassigned</option>
+                {assignees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>{emp.name}</option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <p className="text-sm text-slate-500">This cell will be assigned to you.</p>
+          )}
           <div className="flex justify-end gap-2">
             <button type="button" className="admin-projects-employee-reviews-link" onClick={() => onOpenChange(false)}>
               Cancel

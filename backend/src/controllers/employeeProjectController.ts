@@ -5,7 +5,7 @@ import { ProjectModel } from '../models/Project';
 import { ProjectLibraryModel } from '../models/ProjectLibrary';
 import { ProjectCellModel, CELL_STATUSES, type CellStatus } from '../models/ProjectCell';
 import { CellReviewModel } from '../models/CellReview';
-import { buildAssignmentIdentityTokens } from '../utils/assignedTaskSync';
+import { buildAssignmentIdentityTokens, isProjectMemberDisplayName, resolveProjectMemberAssignees } from '../utils/assignedTaskSync';
 import { deriveBaseHours } from '../services/effortEstimationService';
 
 function normalizeStatus(value: string): CellStatus {
@@ -137,6 +137,64 @@ async function assertTeamLeadAccess(projectId: string, tokens: string[]) {
   return project;
 }
 
+function employeeDisplayName(employee: {
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+} | null | undefined): string {
+  return [employee?.firstName, employee?.middleName, employee?.lastName].filter(Boolean).join(' ').trim();
+}
+
+async function resolveSelfAssignment(req: Request): Promise<{ assignedEmployeeId: string; assignedEmployeeName: string }> {
+  const actor = actorFromReq(req);
+  const employee = await resolveEmployeeRecord(actor.userId);
+  const name = employeeDisplayName(employee) || actor.userName;
+  return {
+    assignedEmployeeId: employee?.employeeId || employee?.id || actor.userId,
+    assignedEmployeeName: name,
+  };
+}
+
+async function resolveCreateAssignment(
+  req: Request,
+  project: { teamLead?: string; allowedUsers?: string[] },
+  tokens: string[],
+  body: { assignedEmployeeId?: string; assignedEmployeeName?: string },
+): Promise<{ assignedEmployeeId?: string; assignedEmployeeName?: string } | { error: string }> {
+  if (!isTeamLeadOnProject(project, tokens)) {
+    return resolveSelfAssignment(req);
+  }
+
+  const requestedId = body.assignedEmployeeId?.trim();
+  if (!requestedId) {
+    return { assignedEmployeeId: undefined, assignedEmployeeName: undefined };
+  }
+
+  const projectMembers = await resolveProjectMemberAssignees(project);
+  const matchedMember = projectMembers.find((member) => member.id === requestedId);
+  if (matchedMember) {
+    return {
+      assignedEmployeeId: matchedMember.id,
+      assignedEmployeeName: body.assignedEmployeeName?.trim() || matchedMember.name,
+    };
+  }
+
+  const db = getDB();
+  const employee = await db.collection('employees').findOne(
+    { $or: [{ id: requestedId }, { employeeId: requestedId }] },
+    { projection: { id: 1, employeeId: 1, firstName: 1, middleName: 1, lastName: 1 } },
+  );
+  const displayName = employeeDisplayName(employee) || body.assignedEmployeeName?.trim() || '';
+  if (!displayName || !isProjectMemberDisplayName(project, displayName)) {
+    return { error: 'Assignee must be a member of this project' };
+  }
+
+  return {
+    assignedEmployeeId: employee?.employeeId || employee?.id || requestedId,
+    assignedEmployeeName: displayName,
+  };
+}
+
 async function syncProjectProgress(projectId: Types.ObjectId) {
   const cells = await ProjectCellModel.find({ projectId });
   const total = cells.length;
@@ -156,6 +214,8 @@ function toLibrary(doc: any) {
     projectId: doc.projectId.toString(),
     name: doc.name,
     description: doc.description || '',
+    assignedEmployeeId: doc.assignedEmployeeId || '',
+    assignedEmployeeName: doc.assignedEmployeeName || '',
   };
 }
 
@@ -239,6 +299,7 @@ export const employeeProjectController = {
       const pendingReviewCount = teamLead
         ? await CellReviewModel.countDocuments({ projectId, status: 'open' })
         : 0;
+      const assignees = teamLead ? await resolveProjectMemberAssignees(project) : [];
 
       res.json({
         project: {
@@ -250,6 +311,7 @@ export const employeeProjectController = {
           completionPercentage: project.completionPercentage ?? 0,
         },
         isTeamLead: teamLead,
+        assignees,
         permissions: {
           canCreateLibraries: true,
           canCreateCells: true,
@@ -743,17 +805,28 @@ export const employeeProjectController = {
         return;
       }
 
-      const { name, description } = req.body;
+      const { name, description, assignedEmployeeId, assignedEmployeeName } = req.body;
       if (!name?.trim()) {
         res.status(400).json({ error: 'Library name is required' });
         return;
       }
 
       const actor = actorFromReq(req);
+      const assignment = await resolveCreateAssignment(req, project, tokens, {
+        assignedEmployeeId,
+        assignedEmployeeName,
+      });
+      if ('error' in assignment) {
+        res.status(400).json({ error: assignment.error });
+        return;
+      }
+
       const library = await ProjectLibraryModel.create({
         projectId: project._id,
         name: name.trim(),
         description: description?.trim() || '',
+        assignedEmployeeId: assignment.assignedEmployeeId,
+        assignedEmployeeName: assignment.assignedEmployeeName,
         createdBy: actor.userId,
       });
       res.status(201).json(toLibrary(library));
@@ -794,6 +867,15 @@ export const employeeProjectController = {
       }
 
       const actor = actorFromReq(req);
+      const assignment = await resolveCreateAssignment(req, project, tokens, {
+        assignedEmployeeId,
+        assignedEmployeeName,
+      });
+      if ('error' in assignment) {
+        res.status(400).json({ error: assignment.error });
+        return;
+      }
+
       const deps = Array.isArray(dependencyCellIds)
         ? dependencyCellIds.filter((id: string) => Types.ObjectId.isValid(id)).map((id: string) => new Types.ObjectId(id))
         : [];
@@ -823,8 +905,8 @@ export const employeeProjectController = {
         smartEstimate: prediction.smartEstimate,
         estimateConfidence: prediction.confidence,
         actualEffort: 0,
-        assignedEmployeeId: assignedEmployeeId || undefined,
-        assignedEmployeeName: assignedEmployeeName || undefined,
+        assignedEmployeeId: assignment.assignedEmployeeId,
+        assignedEmployeeName: assignment.assignedEmployeeName,
         dependencyCellIds: deps,
         status: 'ready',
         workflow: defaultCellWorkflow(),

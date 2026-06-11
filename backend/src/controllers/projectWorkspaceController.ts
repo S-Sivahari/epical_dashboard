@@ -76,6 +76,8 @@ function toLibrary(doc: any) {
     projectId: doc.projectId.toString(),
     name: doc.name,
     description: doc.description || '',
+    assignedEmployeeId: doc.assignedEmployeeId || '',
+    assignedEmployeeName: doc.assignedEmployeeName || '',
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
