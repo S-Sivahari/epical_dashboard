@@ -7,6 +7,7 @@ import { MetalRoutingColumnHeaderCell } from '@components/pdk/MetalRoutingColumn
 import { METAL_ROUTING_TABLE_HEADERS } from '@/constants/metalRoutingTableHeaders'
 import type { MetalConnectionType, MetalEntry, PdkModule } from '@/types/pdkMetalRouting'
 import { previewMetal } from '@services/pdkMetalRoutingService'
+import { isValidDecimalInput, sanitizeDecimalInput } from '@/utils/decimalInput'
 
 type MetalPayload = {
   metalType: string
@@ -71,11 +72,21 @@ export function AddMetalModal({
 
   const effectiveConnection: MetalConnectionType = showConnection ? connectionType : 'series'
 
+  const handleDecimalChange = (value: string, setter: (next: string) => void) => {
+    setter(sanitizeDecimalInput(value))
+    setPreview(null)
+    setFormError(null)
+  }
+
   const handleCalculate = async () => {
     const w = Number(width)
     const l = Number(length)
     if (!metalType.trim()) {
       setFormError('Select a metal type')
+      return
+    }
+    if (!isValidDecimalInput(width) || !isValidDecimalInput(length)) {
+      setFormError('Width and length must be positive numbers (digits and decimal point only)')
       return
     }
     if (!Number.isFinite(w) || w < 0 || !Number.isFinite(l) || l < 0) {
@@ -173,8 +184,30 @@ export function AddMetalModal({
         </label>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <Input label="Metal Width(µm)" type="number" step="any" min={0} value={width} onChange={(e) => { setWidth(e.target.value); setPreview(null) }} />
-          <Input label="Metal Length(µm)" type="number" step="any" min={0} value={length} onChange={(e) => { setLength(e.target.value); setPreview(null) }} />
+          <Input
+            label="Metal Width(µm)"
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            placeholder="0.0"
+            value={width}
+            onChange={(e) => handleDecimalChange(e.target.value, setWidth)}
+            onKeyDown={(e) => {
+              if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault()
+            }}
+          />
+          <Input
+            label="Metal Length(µm)"
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            placeholder="0.0"
+            value={length}
+            onChange={(e) => handleDecimalChange(e.target.value, setLength)}
+            onKeyDown={(e) => {
+              if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault()
+            }}
+          />
         </div>
 
         {showConnection ? (
