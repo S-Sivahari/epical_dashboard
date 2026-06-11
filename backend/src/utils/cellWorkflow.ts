@@ -206,7 +206,7 @@ function applyAutoTransitionsOnce(workflow: CellWorkflowStage[]): CellWorkflowSt
   return next;
 }
 
-function applyAutoTransitions(workflow: CellWorkflowStage[]): CellWorkflowStage[] {
+export function applyAutoTransitions(workflow: CellWorkflowStage[]): CellWorkflowStage[] {
   let next = workflow;
   for (let i = 0; i < CELL_WORKFLOW_STAGE_KEYS.length; i += 1) {
     const updated = applyAutoTransitionsOnce(next);

@@ -3290,3 +3290,19 @@
     flex: 1 1 auto;
   }
 }
+
+.emp-wf-cell-card-duration {
+  color: #0f766e !important;
+  font-size: 0.6875rem;
+}
+
+.emp-wf-cell-card-latest-activity {
+  margin: 0.35rem 0 0;
+  font-size: 0.6875rem;
+  color: #64748b;
+}
+
+.emp-wf-cell-card-latest-activity time {
+  color: #334155;
+  font-weight: 600;
+}

@@ -31,7 +31,7 @@ import {
   type WorkspaceSummary,
 } from '@/types/projectWorkspace'
 import type { Employee } from '@/types'
-import './adminProjects.css'
+import { formatDateTime } from '@/utils/formatDate'
 import { DependencyGraphView } from './DependencyGraphView'
 import { CellWorkflowPanel } from './CellWorkflowPanel'
 import { ProjectWorkflowOverview } from './ProjectWorkflowOverview'
@@ -46,6 +46,7 @@ import {
   projectCellProgressPercent,
 } from './projectWorkspaceUi'
 import { calculateEstimatedHours, formatComplexityFactor } from '@/utils/effortEstimationUtils'
+import './adminProjects.css'
 
 type DeleteTarget = { type: 'library' | 'cell'; id: string; name: string }
 type WorkspaceSection = 'home' | 'workflow' | 'graph' | 'activity' | 'checklist'
@@ -937,7 +938,7 @@ export function ProjectWorkspace() {
                               <td className="admin-projects-activity-table-detail">{entry.detail || '—'}</td>
                               <td>{entry.userName || '—'}</td>
                               <td className="admin-projects-activity-table-time">
-                                <time dateTime={entry.at}>{new Date(entry.at).toLocaleString()}</time>
+                                <time dateTime={entry.at}>{formatDateTime(entry.at)}</time>
                               </td>
                             </tr>
                           ))

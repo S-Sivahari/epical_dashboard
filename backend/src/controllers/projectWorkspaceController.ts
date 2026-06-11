@@ -44,6 +44,14 @@ import {
   predictEffort,
 } from '../services/effortEstimationService';
 import { isAdminRole } from '../utils/generateToken';
+import {
+  buildWorkflowDurationMap,
+  closeAllOpenWorkLogs,
+  ensureWorkLogsInitialized,
+  getCellWorkflowDuration,
+  syncWorkLogsFromWorkflowChange,
+  type CellWorkflowDuration,
+} from '../services/cellWorkflowWorkLogService';
 
 function paramId(value: string | string[]): string {
   return Array.isArray(value) ? value[0] : value;
@@ -83,7 +91,11 @@ function toLibrary(doc: any) {
   };
 }
 
-function toCell(doc: any, dependencyMeta?: { isBlocked: boolean; isReady: boolean }) {
+function toCell(
+  doc: any,
+  dependencyMeta?: { isBlocked: boolean; isReady: boolean },
+  workflowDuration?: CellWorkflowDuration,
+) {
   const viewWorkflow = normalizeViewWorkflow(doc.viewWorkflow);
   const workflow = syncCellWorkflowFromViewWorkflow(viewWorkflow);
   const views = doc.views || { layout: '', symbol: '', schematic: '' };
@@ -111,6 +123,13 @@ function toCell(doc: any, dependencyMeta?: { isBlocked: boolean; isReady: boolea
     workflowCompletedStages,
     workflowTotalStages: workflow.length,
     currentWorkflowStage: currentWorkflowStageLabel(workflow),
+    workflowDuration: workflowDuration ?? {
+      totalMs: 0,
+      formatted: '0m',
+      isActive: false,
+      wasEverCompleted: false,
+      wasReopened: false,
+    },
     views,
     viewWorkflow,
     activityLog: doc.activityLog || [],
@@ -119,6 +138,22 @@ function toCell(doc: any, dependencyMeta?: { isBlocked: boolean; isReady: boolea
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
+}
+
+async function toCellWithDuration(
+  doc: any,
+  dependencyMeta?: { isBlocked: boolean; isReady: boolean },
+) {
+  const viewWorkflow = normalizeViewWorkflow(doc.viewWorkflow);
+  const workflow = syncCellWorkflowFromViewWorkflow(viewWorkflow);
+  const duration = await getCellWorkflowDuration(
+    doc.projectId.toString(),
+    doc._id.toString(),
+    normalizeStatus(doc.status || 'ready'),
+    doc.activityLog ?? [],
+    workflow,
+  );
+  return toCell(doc, dependencyMeta, duration);
 }
 
 function toReview(doc: any) {
@@ -187,10 +222,21 @@ export const projectWorkspaceController = {
         CellReviewModel.find({ projectId, status: 'open' }),
       ]);
 
+      await Promise.all(
+        cells.map((cell) =>
+          ensureWorkLogsInitialized(
+            projectId,
+            cell._id.toString(),
+            normalizeCellWorkflow(cell.workflow),
+            cell.activityLog ?? [],
+          ),
+        ),
+      );
+      const durationMap = await buildWorkflowDurationMap(projectId, cells);
       const cellsWithMeta = await Promise.all(
         cells.map(async (cell) => {
           const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
-          return toCell(cell, meta);
+          return toCell(cell, meta, durationMap.get(cell._id.toString()));
         }),
       );
 
@@ -419,8 +465,14 @@ export const projectWorkspaceController = {
 
       await syncProjectProgress(project._id);
       await syncChecklistMappingsForCell(project._id, cell._id);
+      await ensureWorkLogsInitialized(
+        project._id.toString(),
+        cell._id.toString(),
+        normalizeCellWorkflow(cell.workflow),
+        cell.activityLog ?? [],
+      );
       const meta = await computeDependencyMeta(project._id, cell);
-      res.status(201).json(toCell(cell, meta));
+      res.status(201).json(await toCellWithDuration(cell, meta));
     } catch (err) {
       console.error('[workspace] createCell', err);
       res.status(500).json({ error: 'Failed to create cell' });
@@ -581,14 +633,16 @@ export const projectWorkspaceController = {
 
       const prev = cell.status;
       cell.status = 'completed';
+      const completedAt = new Date();
       cell.activityLog.push({
         action: 'completed',
         detail: `Marked completed by ${actor.userName}`,
         userId: actor.userId,
         userName: actor.userName,
-        at: new Date(),
+        at: completedAt,
       });
       await cell.save();
+      await closeAllOpenWorkLogs(projectId, cellId, completedAt);
 
       await refreshBlockedStatuses(new Types.ObjectId(projectId));
       await syncProjectProgress(new Types.ObjectId(projectId));
@@ -599,7 +653,7 @@ export const projectWorkspaceController = {
         await review.save();
       }
 
-      res.json(toCell(cell, { isBlocked: false, isReady: false }));
+      res.json(await toCellWithDuration(cell, { isBlocked: false, isReady: false }));
     } catch (err) {
       res.status(500).json({ error: 'Failed to complete cell' });
     }
@@ -640,7 +694,7 @@ export const projectWorkspaceController = {
       await syncProjectProgress(new Types.ObjectId(projectId));
 
       const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
-      res.json(toCell(cell, meta));
+      res.json(await toCellWithDuration(cell, meta));
     } catch (err) {
       res.status(500).json({ error: 'Failed to uncomplete cell' });
     }
@@ -979,7 +1033,16 @@ export const projectWorkspaceController = {
         return;
       }
 
-      cell.workflow = result.workflow;
+      const nextWorkflow = result.workflow;
+      await syncWorkLogsFromWorkflowChange(
+        projectId,
+        cellId,
+        prevWorkflow,
+        nextWorkflow,
+        actor,
+      );
+
+      cell.workflow = nextWorkflow;
       applyCellWorkflowSync(cell, 'workflow');
       cell.activityLog.push({
         action: 'workflow_update',
@@ -996,7 +1059,7 @@ export const projectWorkspaceController = {
       await cell.save();
 
       const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
-      res.json(toCell(cell, meta));
+      res.json(await toCellWithDuration(cell, meta));
     } catch (err) {
       console.error('[workspace] updateWorkflowStage', err);
       res.status(500).json({ error: 'Failed to update workflow stage' });

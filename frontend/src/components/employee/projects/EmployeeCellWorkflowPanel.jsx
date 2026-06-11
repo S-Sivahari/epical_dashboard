@@ -9,6 +9,8 @@ import {
   normalizeCellWorkflow,
   workflowStageStatusClass,
 } from '@pages/admin/Projects/projectWorkspaceUi'
+import { CellWorkflowStageTimingMeta } from '@pages/admin/Projects/CellWorkflowStageTimingMeta'
+import { getStageTiming } from '@/utils/cellWorkflowTiming'
 import {
   actionRequiresChecklist,
   getAdvancePayload,
@@ -168,6 +170,7 @@ export function EmployeeCellWorkflowPanel({
             const readOnly = !editable
             const reviewActionable = isTeamLead && isReview && canTeamLeadActionReview(workflow, stage.stageKey, stage.status) && openReview
             const showReview2Return = stage.stageKey === 'review_2' && review2RejectOpen && reviewActionable
+            const stageTiming = getStageTiming(cell?.workflowTiming, stage.stageKey)
 
             return (
               <section
@@ -203,6 +206,11 @@ export function EmployeeCellWorkflowPanel({
                   {meta ? (
                     <p className="admin-projects-workflow-column-meta">{meta}</p>
                   ) : null}
+                  <CellWorkflowStageTimingMeta
+                    timing={stageTiming}
+                    status={stage.status}
+                    compact
+                  />
                 </div>
 
                 <div className="admin-projects-workflow-column-body">

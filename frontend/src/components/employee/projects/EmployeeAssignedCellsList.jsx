@@ -7,6 +7,8 @@ import {
   normalizeWorkflow,
   VIEW_PROGRESS_LABELS,
 } from '@/utils/cellWorkflowUi'
+import { formatDateTime } from '@/utils/formatDate'
+import { CellWorkflowDurationLabel } from '@pages/admin/Projects/CellWorkflowDurationLabel'
 import { cn } from '@pages/employee/lib/utils'
 
 function cellProgressPercent(cell) {
@@ -48,6 +50,8 @@ export function EmployeeAssignedCellsList({
         const statusLabel = VIEW_PROGRESS_LABELS[status] || status
         const libraryName = libraryNameById[cell.libraryId] || 'Library'
         const effort = Number(cell.estimatedEffort) || 0
+        const workedLabel = cell.workflowDuration?.formatted
+        const latestActivity = cell.workflowTiming?.latestActivityTime
 
         return (
           <button
@@ -91,6 +95,15 @@ export function EmployeeAssignedCellsList({
                 <Clock3 className="h-3.5 w-3.5" />
                 {effort}h est.
               </span>
+              {workedLabel ? (
+                <span className="emp-wf-cell-card-stat emp-wf-cell-card-stat--timing">
+                  <CellWorkflowDurationLabel
+                    cellStatus={cell.status}
+                    workflowDuration={cell.workflowDuration}
+                    className="emp-wf-cell-card-duration"
+                  />
+                </span>
+              ) : null}
               <span className="emp-wf-cell-card-stat">
                 <Workflow className="h-3.5 w-3.5" />
                 {statusLabel}
@@ -99,6 +112,13 @@ export function EmployeeAssignedCellsList({
                 {String(cell.cellType || 'block').toUpperCase()}
               </span>
             </div>
+
+            {latestActivity ? (
+              <p className="emp-wf-cell-card-latest-activity">
+                Latest activity:{' '}
+                <time dateTime={latestActivity}>{formatDateTime(latestActivity)}</time>
+              </p>
+            ) : null}
 
             <span
               className={cn(

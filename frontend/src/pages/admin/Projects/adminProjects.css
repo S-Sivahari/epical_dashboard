@@ -4940,7 +4940,9 @@
 
 .admin-projects-workflow-column-meta-slot {
   display: flex;
+  flex-direction: column;
   align-items: flex-start;
+  gap: 0.125rem;
   min-height: 1.125rem;
   padding: 0.0625rem 0.5625rem 0;
 }
@@ -5718,4 +5720,90 @@
   .admin-projects-cell-details-views-panel .admin-projects-workflow-column {
     min-height: 12rem;
   }
+}
+
+.admin-projects-workflow-stage-timing {
+  display: grid;
+  gap: 0.125rem;
+  width: 100%;
+  margin: 0;
+}
+
+.admin-projects-workflow-stage-timing--compact {
+  gap: 0.0625rem;
+}
+
+.admin-projects-workflow-stage-timing-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 0.25rem;
+  align-items: baseline;
+  margin: 0;
+}
+
+.admin-projects-workflow-stage-timing-row dt {
+  margin: 0;
+  font-size: 0.4375rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #64748b;
+  line-height: 1.2;
+}
+
+.admin-projects-workflow-stage-timing-row dd {
+  margin: 0;
+  font-size: 0.4375rem;
+  font-weight: 600;
+  color: #334155;
+  line-height: 1.2;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-projects-workflow-stage-timing-row--duration dd {
+  color: #0f766e;
+}
+
+.admin-projects-workflow-timing-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  margin: 0;
+}
+
+.admin-projects-workflow-timing-summary--inline {
+  margin-top: 0.75rem;
+}
+
+.admin-projects-workflow-timing-summary-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.admin-projects-workflow-timing-summary-row dt {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.admin-projects-workflow-timing-summary-row dd {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.admin-projects-cell-page-head .admin-projects-workflow-timing-summary-row dt {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.admin-projects-cell-page-head .admin-projects-workflow-timing-summary-row dd {
+  color: rgba(255, 255, 255, 0.92);
 }
