@@ -8,7 +8,7 @@ import {
 } from '@components/employee/ui/dialog'
 import { cn } from '@pages/employee/lib/utils'
 import { CELL_TYPE_LABELS } from '@pages/admin/Projects/projectWorkspaceUi'
-import { calculateEstimatedHours, formatComplexityFactor } from '@/utils/effortEstimationUtils'
+import { calculateEstimatedHours, CELL_COMPLEXITY_OPTIONS, DEFAULT_BASE_HOURS, formatComplexityFactor } from '@/utils/effortEstimationUtils'
 import { createMyProjectCell, createMyProjectLibrary, fetchMyEffortPrediction } from '@services/employeeProjectService'
 import { useAuthStore } from '@store/authStore'
 
@@ -22,7 +22,7 @@ function emptyCellForm(libraryId, technologyNode) {
     cellType: 'block',
     technologyNode,
     complexity: 'Medium',
-    baseHours: 0,
+    baseHours: DEFAULT_BASE_HOURS,
     estimatedEffort: 0,
     assignedEmployeeId: '',
     assignedEmployeeName: '',
@@ -177,10 +177,6 @@ export function EmployeeCreateCellDialog({
     if (!open) return
     const libraryId = defaultLibraryId || libraries[0]?.id || ''
     const form = emptyCellForm(libraryId, technologyNode)
-    if (!isTeamLead && user?.id) {
-      form.assignedEmployeeId = user.id
-      form.assignedEmployeeName = user.name || 'Me'
-    }
     setCellForm(form)
   }, [open, defaultLibraryId, libraries, technologyNode, isTeamLead, user])
 
@@ -217,10 +213,15 @@ export function EmployeeCreateCellDialog({
     if (!cellForm?.libraryId || !cellForm.name?.trim()) return
     setSaving(true)
     try {
-      await createMyProjectCell(projectId, cellForm.libraryId, {
+      const payload = {
         ...cellForm,
         name: cellForm.name.trim(),
-      })
+      }
+      if (!isTeamLead) {
+        delete payload.assignedEmployeeId
+        delete payload.assignedEmployeeName
+      }
+      await createMyProjectCell(projectId, cellForm.libraryId, payload)
       onOpenChange(false)
       onCreated?.()
     } finally {
@@ -294,13 +295,13 @@ export function EmployeeCreateCellDialog({
               value={cellForm.complexity}
               onChange={(e) => setCellForm((f) => ({ ...f, complexity: e.target.value }))}
             >
-              <option value="Low">Low</option>
-              <option value="Medium">Medium</option>
-              <option value="High">High</option>
+              {CELL_COMPLEXITY_OPTIONS.map((level) => (
+                <option key={level} value={level}>{level}</option>
+              ))}
             </select>
           </label>
           <label className="text-sm font-medium">
-            Base hours
+            Base hours (1 day = {DEFAULT_BASE_HOURS}h)
             <input
               type="number"
               min={0}
@@ -345,7 +346,9 @@ export function EmployeeCreateCellDialog({
               </select>
             </label>
           ) : (
-            <p className="text-sm text-slate-500">This cell will be assigned to you.</p>
+            <p className="text-sm text-slate-500">
+              This cell will remain unassigned until your team lead assigns it to an engineer.
+            </p>
           )}
           <div className="flex justify-end gap-2">
             <button type="button" className="admin-projects-employee-reviews-link" onClick={() => onOpenChange(false)}>

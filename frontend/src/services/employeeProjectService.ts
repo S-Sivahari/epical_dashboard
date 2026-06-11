@@ -8,7 +8,7 @@ import type {
   EmployeeProjectCell,
   EmployeeProjectWorkspace,
 } from '@/types/projectWorkspace'
-import type { ViewProgressStatus } from '@/types/projectWorkspace'
+import type { CellWorkflowStageKey, ViewProgressStatus, WorkflowStageStatus } from '@/types/projectWorkspace'
 
 export type { EmployeePendingReview } from '@/types/projectWorkspace'
 
@@ -47,6 +47,18 @@ export async function createMyProjectCell(
 ) {
   const { data } = await api.post<EmployeeProjectCell>(
     `/projects/${projectId}/mine/libraries/${libraryId}/cells`,
+    payload,
+  )
+  return data
+}
+
+export async function assignMyProjectCell(
+  projectId: string,
+  cellId: string,
+  payload: { assignedEmployeeId: string; assignedEmployeeName?: string },
+) {
+  const { data } = await api.patch<EmployeeProjectCell>(
+    `/projects/${projectId}/cells/${cellId}/mine/assign`,
     payload,
   )
   return data
@@ -110,6 +122,19 @@ export async function updateCellWorkflow(
   },
 ) {
   const { data } = await api.patch<EmployeeProjectCell>(`/projects/${projectId}/cells/${cellId}/mine/workflow`, payload)
+  return data
+}
+
+export async function updateMyWorkflowStage(
+  projectId: string,
+  cellId: string,
+  stageKey: CellWorkflowStageKey,
+  status: WorkflowStageStatus,
+) {
+  const { data } = await api.patch<EmployeeProjectCell>(
+    `/projects/${projectId}/cells/${cellId}/mine/workflow/${stageKey}`,
+    { status },
+  )
   return data
 }
 

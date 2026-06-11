@@ -45,7 +45,7 @@ import {
   normalizeCellWorkflow,
   projectCellProgressPercent,
 } from './projectWorkspaceUi'
-import { calculateEstimatedHours, formatComplexityFactor } from '@/utils/effortEstimationUtils'
+import { calculateEstimatedHours, CELL_COMPLEXITY_OPTIONS, DEFAULT_BASE_HOURS, formatComplexityFactor } from '@/utils/effortEstimationUtils'
 import './adminProjects.css'
 
 type DeleteTarget = { type: 'library' | 'cell'; id: string; name: string }
@@ -74,7 +74,7 @@ function emptyCellForm(libraryId: string, technologyNode: string): Partial<Proje
     cellType: 'block',
     technologyNode,
     complexity: 'Medium',
-    baseHours: 0,
+    baseHours: DEFAULT_BASE_HOURS,
     estimatedEffort: 0,
     assignedEmployeeId: '',
     assignedEmployeeName: '',
@@ -1010,13 +1010,13 @@ export function ProjectWorkspace() {
             </label>
             <label className="text-sm font-medium">Complexity
               <select className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" value={cellForm.complexity} onChange={(e) => setCellForm((f) => f && { ...f, complexity: e.target.value as ProjectCell['complexity'] })}>
-                <option value="Low">Low</option>
-                <option value="Medium">Medium</option>
-                <option value="High">High</option>
+                {CELL_COMPLEXITY_OPTIONS.map((level) => (
+                  <option key={level} value={level}>{level}</option>
+                ))}
               </select>
             </label>
             <Input
-              label="Base hours"
+              label={`Base hours (1 day = ${DEFAULT_BASE_HOURS}h)`}
               type="number"
               min={0}
               step="any"

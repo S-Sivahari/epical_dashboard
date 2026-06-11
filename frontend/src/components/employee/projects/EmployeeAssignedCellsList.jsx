@@ -1,5 +1,8 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, Clock3, Layers, Workflow } from 'lucide-react'
+import { assignMyProjectCell } from '@services/employeeProjectService'
+import { useToast } from '@components/employee/shared/ToastProvider'
 import {
   complexityTag,
   getViewProgressStatus,
@@ -35,8 +38,34 @@ export function EmployeeAssignedCellsList({
   libraryNameById = {},
   emptyMessage = 'No cells to show.',
   emphasizeEffort = false,
+  isTeamLead = false,
+  assigneeOptions = [],
+  onAssigned,
 }) {
   const navigate = useNavigate()
+  const { toast } = useToast()
+  const [assigningId, setAssigningId] = useState(null)
+
+  const handleAssign = async (cell, assigneeId) => {
+    if (!assigneeId || !projectId) return
+    const assignee = assigneeOptions.find((option) => option.id === assigneeId)
+    setAssigningId(cell.id)
+    try {
+      await assignMyProjectCell(projectId, cell.id, {
+        assignedEmployeeId: assigneeId,
+        assignedEmployeeName: assignee?.name || '',
+      })
+      toast({ title: 'Cell assigned', description: `${cell.name} assigned to ${assignee?.name || 'engineer'}.` })
+      onAssigned?.()
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: err?.response?.data?.error || 'Failed to assign cell',
+      })
+    } finally {
+      setAssigningId(null)
+    }
+  }
 
   if (!cells.length) {
     return <p className="emp-wf-status">{emptyMessage}</p>
@@ -53,17 +82,27 @@ export function EmployeeAssignedCellsList({
         const workedLabel = cell.workflowDuration?.formatted
         const latestActivity = cell.workflowTiming?.latestActivityTime
 
+        const isUnassigned = !cell.assignedEmployeeId?.trim()
+        const roleLabel = cell.isAssignedToMe
+          ? 'Yours'
+          : isTeamLead && isUnassigned
+            ? 'Unassigned'
+            : 'View only'
+
         return (
-          <button
+          <article
             key={cell.id}
-            type="button"
             className={cn(
               'emp-wf-cell-card',
               cell.isAssignedToMe ? 'emp-wf-cell-card--yours' : 'emp-wf-cell-card--view',
               emphasizeEffort && 'emp-wf-cell-card--effort',
             )}
-            onClick={() => navigate(`/employee/projects/${projectId}/cells/${cell.id}`)}
           >
+            <button
+              type="button"
+              className="emp-wf-cell-card-open"
+              onClick={() => navigate(`/employee/projects/${projectId}/cells/${cell.id}`)}
+            >
             <div className="emp-wf-cell-card-top">
               <div className="emp-wf-cell-card-icon" aria-hidden>
                 <Layers className="h-5 w-5" />
@@ -123,12 +162,30 @@ export function EmployeeAssignedCellsList({
             <span
               className={cn(
                 'emp-wf-cell-card-role',
-                cell.isAssignedToMe ? 'is-yours' : 'is-view',
+                cell.isAssignedToMe ? 'is-yours' : isTeamLead && isUnassigned ? 'is-unassigned' : 'is-view',
               )}
             >
-              {cell.isAssignedToMe ? 'Yours' : 'View only'}
+              {roleLabel}
             </span>
-          </button>
+            </button>
+
+            {isTeamLead && isUnassigned ? (
+              <label className="emp-wf-cell-card-assign" onClick={(e) => e.stopPropagation()}>
+                <span className="sr-only">Assign {cell.name}</span>
+                <select
+                  className="emp-wf-cell-card-assign-select"
+                  value=""
+                  disabled={assigningId === cell.id}
+                  onChange={(e) => void handleAssign(cell, e.target.value)}
+                >
+                  <option value="">Assign engineer…</option>
+                  {assigneeOptions.map((option) => (
+                    <option key={option.id} value={option.id}>{option.name}</option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+          </article>
         )
       })}
     </div>

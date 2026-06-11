@@ -50,6 +50,7 @@ export interface NotificationData {
     | 'CalendarEventAdded' | 'CalendarEventUpdated' | 'CalendarEventRemoved'
     | 'TicketSubmitted' | 'TicketStatusUpdated' | 'TicketCommentAdded'
     | 'CellReviewRequested' | 'CellReviewApproved' | 'CellReviewRejected'
+    | 'CellCreatedUnassigned' | 'CellAssigned'
   title: string
   message: string
   relatedData: {

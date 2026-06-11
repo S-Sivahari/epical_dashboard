@@ -23,9 +23,15 @@ export function formatVariance(value) {
 
 function complexityMeta(complexity) {
   const key = normalizeComplexity(complexity)
+  const toneByComplexity = {
+    Simple: 'simple',
+    Medium: 'medium',
+    Hard: 'hard',
+    Critical: 'critical',
+  }
   return {
     label: COMPLEXITY_LABEL[key] || 'MEDIUM',
-    tone: key === 'Low' ? 'simple' : key === 'High' ? 'high' : 'medium',
+    tone: toneByComplexity[key] || 'medium',
     factor: getComplexityFactor(key),
   }
 }

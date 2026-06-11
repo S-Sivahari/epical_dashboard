@@ -36,12 +36,14 @@ import {
   markCellTouched,
 } from '../services/cellCompletionService';
 import { sendReviewNotificationsFromCell } from '../services/cellReviewNotificationService';
+import { notifyEmployeeCellAssigned } from '../services/cellAssignmentNotificationService';
 import { clearResponsesForCell, normalizeCellType } from '../services/projectTypeChecklistService';
 import {
   calculateEstimatedHours,
   deriveBaseHours,
   normalizeComplexity,
   predictEffort,
+  resolveBaseHoursInput,
 } from '../services/effortEstimationService';
 import { isAdminRole } from '../utils/generateToken';
 import {
@@ -109,7 +111,7 @@ function toCell(
     description: doc.description || '',
     cellType: normalizeCellType(doc.cellType || 'block'),
     technologyNode: doc.technologyNode || '',
-    complexity: doc.complexity,
+    complexity: normalizeComplexity(doc.complexity),
     baseHours: deriveBaseHours(doc.estimatedEffort ?? 0, doc.complexity, doc.baseHours),
     estimatedEffort: doc.estimatedEffort ?? 0,
     smartEstimate: doc.smartEstimate ?? doc.estimatedEffort ?? 0,
@@ -421,9 +423,7 @@ export const projectWorkspaceController = {
 
       const normalizedComplexity = normalizeComplexity(complexity);
       const resolvedTechNode = technologyNode?.trim() || project.technologyNode || '';
-      const resolvedBaseHours = baseHours != null
-        ? Math.max(0, Number(baseHours) || 0)
-        : deriveBaseHours(Number(estimatedEffort) || 0, normalizedComplexity);
+      const resolvedBaseHours = resolveBaseHoursInput(baseHours, estimatedEffort, normalizedComplexity);
       const prediction = await predictEffort({
         cellType: normalizeCellType(cellType),
         technologyNode: resolvedTechNode,
@@ -472,6 +472,21 @@ export const projectWorkspaceController = {
         cell.activityLog ?? [],
       );
       const meta = await computeDependencyMeta(project._id, cell);
+
+      if (assignedEmployeeId?.trim()) {
+        void notifyEmployeeCellAssigned({
+          projectId: project._id.toString(),
+          cellId: cell._id.toString(),
+          projectName: project.projectName || 'Project',
+          cellName: cell.name,
+          assignedEmployeeId: String(assignedEmployeeId).trim(),
+          assignedEmployeeName: assignedEmployeeName || undefined,
+          assignedByName: actor.userName,
+        }).catch((notifyErr) => {
+          console.error('[workspace] cell assignment notification failed:', notifyErr);
+        });
+      }
+
       res.status(201).json(await toCellWithDuration(cell, meta));
     } catch (err) {
       console.error('[workspace] createCell', err);
@@ -491,6 +506,7 @@ export const projectWorkspaceController = {
 
       const actor = actorFromReq(req);
       const previousCellType = cell.cellType;
+      const previousAssignee = cell.assignedEmployeeId?.trim() || '';
       const fields = [
         'name', 'description', 'cellType', 'technologyNode', 'complexity',
         'baseHours', 'estimatedEffort', 'actualEffort', 'assignedEmployeeId', 'assignedEmployeeName', 'views',
@@ -552,6 +568,26 @@ export const projectWorkspaceController = {
       }
 
       await cell.save();
+
+      const nextAssignee = cell.assignedEmployeeId?.trim() || '';
+      if (
+        req.body.assignedEmployeeId !== undefined
+        && nextAssignee
+        && nextAssignee !== previousAssignee
+      ) {
+        const project = await ProjectModel.findById(projectId).lean();
+        void notifyEmployeeCellAssigned({
+          projectId,
+          cellId,
+          projectName: project?.projectName || 'Project',
+          cellName: cell.name,
+          assignedEmployeeId: nextAssignee,
+          assignedEmployeeName: cell.assignedEmployeeName || undefined,
+          assignedByName: actor.userName,
+        }).catch((notifyErr) => {
+          console.error('[workspace] cell assignment notification failed:', notifyErr);
+        });
+      }
 
       if (req.body.cellType !== undefined && cell.cellType !== previousCellType) {
         await syncChecklistMappingsForCell(new Types.ObjectId(projectId), cell._id);

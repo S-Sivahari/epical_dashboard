@@ -1,20 +1,31 @@
-export type CellComplexity = 'Low' | 'Medium' | 'High'
+export type CellComplexity = 'Simple' | 'Medium' | 'Hard' | 'Critical'
 export type EstimateConfidence = 'High' | 'Low'
 
+/** One working day in hours. */
+export const DEFAULT_BASE_HOURS = 8
+
+export const CELL_COMPLEXITY_OPTIONS: CellComplexity[] = ['Simple', 'Medium', 'Hard', 'Critical']
+
 export const COMPLEXITY_FACTOR: Record<CellComplexity, number> = {
-  Low: 1,
+  Simple: 1,
   Medium: 2,
-  High: 3.5,
+  Hard: 3,
+  Critical: 4,
 }
 
 export const COMPLEXITY_LABEL: Record<CellComplexity, string> = {
-  Low: 'SIMPLE',
+  Simple: 'SIMPLE',
   Medium: 'MEDIUM',
-  High: 'HIGH',
+  Hard: 'HARD',
+  Critical: 'CRITICAL',
 }
 
 export function normalizeComplexity(value: unknown): CellComplexity {
-  return value === 'Low' || value === 'High' ? value : 'Medium'
+  const raw = String(value ?? '').trim().toLowerCase()
+  if (raw === 'simple' || raw === 'low') return 'Simple'
+  if (raw === 'hard' || raw === 'high') return 'Hard'
+  if (raw === 'critical') return 'Critical'
+  return 'Medium'
 }
 
 export function getComplexityFactor(complexity: unknown): number {
@@ -38,13 +49,13 @@ export function deriveBaseHours(
   if (storedBaseHours != null && storedBaseHours > 0) return storedBaseHours
   const estimated = Math.max(0, Number(estimatedEffort) || 0)
   const factor = getComplexityFactor(complexity)
-  if (estimated <= 0 || factor <= 0) return 0
+  if (estimated <= 0 || factor <= 0) return DEFAULT_BASE_HOURS
   return roundHours(estimated / factor)
 }
 
 export function formatComplexityFactor(complexity: unknown): string {
   const factor = getComplexityFactor(complexity)
-  return factor % 1 === 0 ? `x${factor}` : `x${factor}`
+  return `x${factor}`
 }
 
 export type EffortPrediction = {
@@ -108,7 +119,8 @@ export function buildLocalEffortPrediction(
 ): EffortPrediction {
   const normalizedComplexity = normalizeComplexity(complexity)
   const complexityFactor = getComplexityFactor(normalizedComplexity)
-  const estimatedHours = calculateEstimatedHours(baseHours, normalizedComplexity)
+  const resolvedBase = baseHours > 0 ? baseHours : DEFAULT_BASE_HOURS
+  const estimatedHours = calculateEstimatedHours(resolvedBase, normalizedComplexity)
 
   const similar = completedCells.filter((cell) => {
     if (cell.status !== 'completed') return false
@@ -122,7 +134,7 @@ export function buildLocalEffortPrediction(
 
   if (similar.length === 0) {
     return {
-      baseHours,
+      baseHours: resolvedBase,
       complexityFactor,
       estimatedHours,
       smartEstimate: estimatedHours,
@@ -136,7 +148,7 @@ export function buildLocalEffortPrediction(
   const avgVariance = ratios.reduce((sum, ratio) => sum + ratio, 0) / ratios.length
 
   return {
-    baseHours,
+    baseHours: resolvedBase,
     complexityFactor,
     estimatedHours,
     smartEstimate: roundHours(estimatedHours * avgVariance),

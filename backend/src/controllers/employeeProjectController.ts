@@ -6,7 +6,6 @@ import { ProjectLibraryModel } from '../models/ProjectLibrary';
 import { ProjectCellModel, CELL_STATUSES, type CellStatus } from '../models/ProjectCell';
 import { CellReviewModel } from '../models/CellReview';
 import { buildAssignmentIdentityTokens, isProjectMemberDisplayName, resolveProjectMemberAssignees } from '../utils/assignedTaskSync';
-import { deriveBaseHours } from '../services/effortEstimationService';
 
 function normalizeStatus(value: string): CellStatus {
   if (value === 'in_progress' || value === 'drc' || value === 'lvs' || value === 'review') return 'in_progress';
@@ -32,12 +31,17 @@ import {
   applyCellWorkflowSync,
   applyReviewApproval,
   applyReviewRejection,
+  applyWorkflowStageUpdate,
   canAdvanceLayoutStage,
   canRequestReview,
+  CELL_WORKFLOW_STAGES,
   defaultCellWorkflow,
   defaultViewWorkflow,
+  isValidStageKey,
   markReviewPending,
+  normalizeCellWorkflow,
   normalizeViewWorkflow,
+  normalizeWorkflowStageStatus,
   returnOptionsForReview,
   syncCellWorkflowFromViewWorkflow,
   syncViewsFromViewWorkflow,
@@ -49,12 +53,17 @@ import {
 } from '../utils/cellWorkflow';
 import { assertCellChecklistFilled, buildCellChecklistDetail } from '../services/cellTypeChecklistService';
 import { sendReviewNotificationsFromCell } from '../services/cellReviewNotificationService';
+import {
+  notifyCellCreatedUnassigned,
+  notifyEmployeeCellAssigned,
+} from '../services/cellAssignmentNotificationService';
 import { updateCellChecklistItemResponse, syncChecklistMappingsForCell } from '../services/checklistService';
 import { normalizeCellType } from '../services/projectTypeChecklistService';
 import {
   deriveBaseHours,
   normalizeComplexity,
   predictEffort,
+  resolveBaseHoursInput,
 } from '../services/effortEstimationService';
 
 function paramId(value: string | string[]): string {
@@ -117,6 +126,16 @@ async function assertAssignedCell(projectId: string, cellId: string, tokens: str
   return cell;
 }
 
+async function assertManageableCell(projectId: string, cellId: string, tokens: string[]) {
+  if (!Types.ObjectId.isValid(cellId)) return null;
+  const project = await assertProjectAccess(projectId, tokens);
+  if (!project) return null;
+  const cell = await ProjectCellModel.findOne({ _id: cellId, projectId });
+  if (!cell) return null;
+  if (cellAssignedToTokens(cell, tokens) || isTeamLeadOnProject(project, tokens)) return cell;
+  return null;
+}
+
 async function assertProjectCell(projectId: string, cellId: string, tokens: string[]) {
   if (!Types.ObjectId.isValid(cellId)) return null;
   const project = await assertProjectAccess(projectId, tokens);
@@ -128,7 +147,9 @@ async function assertProjectCell(projectId: string, cellId: string, tokens: stri
 
 function isTeamLeadOnProject(project: { teamLead?: string }, tokens: string[]): boolean {
   const lead = project.teamLead?.trim();
-  return Boolean(lead && tokens.includes(lead));
+  if (!lead) return false;
+  const leadLower = lead.toLowerCase();
+  return tokens.some((token) => token.trim().toLowerCase() === leadLower);
 }
 
 async function assertTeamLeadAccess(projectId: string, tokens: string[]) {
@@ -152,6 +173,80 @@ async function resolveSelfAssignment(req: Request): Promise<{ assignedEmployeeId
   return {
     assignedEmployeeId: employee?.employeeId || employee?.id || actor.userId,
     assignedEmployeeName: name,
+  };
+}
+
+async function resolveCellCreateAssignment(
+  req: Request,
+  project: { teamLead?: string; allowedUsers?: string[] },
+  tokens: string[],
+  body: { assignedEmployeeId?: string; assignedEmployeeName?: string },
+): Promise<{ assignedEmployeeId?: string; assignedEmployeeName?: string } | { error: string }> {
+  if (!isTeamLeadOnProject(project, tokens)) {
+    return { assignedEmployeeId: undefined, assignedEmployeeName: undefined };
+  }
+
+  const requestedId = body.assignedEmployeeId?.trim();
+  if (!requestedId) {
+    return { assignedEmployeeId: undefined, assignedEmployeeName: undefined };
+  }
+
+  const projectMembers = await resolveProjectMemberAssignees(project);
+  const matchedMember = projectMembers.find((member) => member.id === requestedId);
+  if (matchedMember) {
+    return {
+      assignedEmployeeId: matchedMember.id,
+      assignedEmployeeName: body.assignedEmployeeName?.trim() || matchedMember.name,
+    };
+  }
+
+  const db = getDB();
+  const employee = await db.collection('employees').findOne(
+    { $or: [{ id: requestedId }, { employeeId: requestedId }] },
+    { projection: { id: 1, employeeId: 1, firstName: 1, middleName: 1, lastName: 1 } },
+  );
+  const displayName = employeeDisplayName(employee) || body.assignedEmployeeName?.trim() || '';
+  if (!displayName || !isProjectMemberDisplayName(project, displayName)) {
+    return { error: 'Assignee must be a member of this project' };
+  }
+
+  return {
+    assignedEmployeeId: employee?.employeeId || employee?.id || requestedId,
+    assignedEmployeeName: displayName,
+  };
+}
+
+async function resolveCellAssigneeUpdate(
+  project: { teamLead?: string; allowedUsers?: string[] },
+  body: { assignedEmployeeId?: string; assignedEmployeeName?: string },
+): Promise<{ assignedEmployeeId?: string; assignedEmployeeName?: string } | { error: string }> {
+  const requestedId = body.assignedEmployeeId?.trim();
+  if (!requestedId) {
+    return { assignedEmployeeId: undefined, assignedEmployeeName: undefined };
+  }
+
+  const projectMembers = await resolveProjectMemberAssignees(project);
+  const matchedMember = projectMembers.find((member) => member.id === requestedId);
+  if (matchedMember) {
+    return {
+      assignedEmployeeId: matchedMember.id,
+      assignedEmployeeName: body.assignedEmployeeName?.trim() || matchedMember.name,
+    };
+  }
+
+  const db = getDB();
+  const employee = await db.collection('employees').findOne(
+    { $or: [{ id: requestedId }, { employeeId: requestedId }] },
+    { projection: { id: 1, employeeId: 1, firstName: 1, middleName: 1, lastName: 1 } },
+  );
+  const displayName = employeeDisplayName(employee) || body.assignedEmployeeName?.trim() || '';
+  if (!displayName || !isProjectMemberDisplayName(project, displayName)) {
+    return { error: 'Assignee must be a member of this project' };
+  }
+
+  return {
+    assignedEmployeeId: employee?.employeeId || employee?.id || requestedId,
+    assignedEmployeeName: displayName,
   };
 }
 
@@ -234,7 +329,7 @@ function toEmployeeCell(
     name: doc.name,
     description: doc.description || '',
     cellType: doc.cellType || 'block',
-    complexity: doc.complexity,
+    complexity: normalizeComplexity(doc.complexity),
     baseHours: deriveBaseHours(doc.estimatedEffort ?? 0, doc.complexity, doc.baseHours),
     estimatedEffort: doc.estimatedEffort ?? 0,
     smartEstimate: doc.smartEstimate ?? doc.estimatedEffort ?? 0,
@@ -364,6 +459,10 @@ export const employeeProjectController = {
           name: project.projectName,
         },
         isTeamLead: isTeamLeadOnProject(project, tokens),
+        permissions: {
+          canManageWorkflow: cellAssignedToTokens(cell, tokens) || isTeamLeadOnProject(project, tokens),
+          canReview: isTeamLeadOnProject(project, tokens),
+        },
         library: library ? toLibrary(library) : null,
         cell: toEmployeeCell(cell, tokens, meta),
         reviews: reviews.map(toReview),
@@ -380,9 +479,9 @@ export const employeeProjectController = {
       const tokens = await getAssignmentTokens(req);
       const actor = actorFromReq(req);
 
-      const cell = await assertAssignedCell(projectId, cellId, tokens);
+      const cell = await assertManageableCell(projectId, cellId, tokens);
       if (!cell) {
-        res.status(404).json({ error: 'Cell not found or not assigned to you' });
+        res.status(404).json({ error: 'Cell not found or you cannot manage this cell' });
         return;
       }
 
@@ -472,6 +571,59 @@ export const employeeProjectController = {
     }
   },
 
+  updateMyWorkflowStage: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const cellId = paramId(req.params.cellId);
+      const stageKey = paramId(req.params.stageKey);
+      const tokens = await getAssignmentTokens(req);
+      const actor = actorFromReq(req);
+      const { status } = req.body as { status?: string };
+
+      if (!isValidStageKey(stageKey)) {
+        res.status(400).json({ error: 'Invalid workflow stage' });
+        return;
+      }
+
+      const cell = await assertManageableCell(projectId, cellId, tokens);
+      if (!cell) {
+        res.status(404).json({ error: 'Cell not found or you cannot manage this cell' });
+        return;
+      }
+
+      const nextStatus = normalizeWorkflowStageStatus(String(status || ''));
+      const stageMeta = CELL_WORKFLOW_STAGES.find((s) => s.key === stageKey);
+      const prevWorkflow = normalizeCellWorkflow(cell.workflow);
+      const prevStatus = prevWorkflow.find((s) => s.stageKey === stageKey)?.status ?? 'not_started';
+      const result = applyWorkflowStageUpdate(prevWorkflow, stageKey, nextStatus, 'Employee');
+      if (!result.ok) {
+        res.status(400).json({ error: result.error });
+        return;
+      }
+
+      cell.workflow = result.workflow;
+      applyCellWorkflowSync(cell, 'workflow');
+      cell.activityLog.push({
+        action: 'workflow_update',
+        detail: `${stageMeta?.label || stageKey}: ${prevStatus} → ${nextStatus}`,
+        userId: actor.userId,
+        userName: actor.userName,
+        at: new Date(),
+      });
+
+      if (cell.status === 'completed' || cell.status === 'ready') {
+        cell.status = 'in_progress';
+      }
+
+      await cell.save();
+
+      const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
+      res.json(toEmployeeCell(cell, tokens, meta));
+    } catch (err: any) {
+      res.status(400).json({ error: err?.message || 'Failed to update workflow stage' });
+    }
+  },
+
   getMyDependencyGraph: async (req: Request, res: Response): Promise<void> => {
     try {
       const projectId = paramId(req.params.projectId);
@@ -518,9 +670,9 @@ export const employeeProjectController = {
       const actor = actorFromReq(req);
       const { comment } = req.body;
 
-      const cell = await assertAssignedCell(projectId, cellId, tokens);
+      const cell = await assertManageableCell(projectId, cellId, tokens);
       if (!cell) {
-        res.status(404).json({ error: 'Cell not found or not assigned to you' });
+        res.status(404).json({ error: 'Cell not found or you cannot manage this cell' });
         return;
       }
 
@@ -684,9 +836,9 @@ export const employeeProjectController = {
       const cellId = paramId(req.params.cellId);
       const tokens = await getAssignmentTokens(req);
 
-      const cell = await assertAssignedCell(projectId, cellId, tokens);
+      const cell = await assertManageableCell(projectId, cellId, tokens);
       if (!cell) {
-        res.status(404).json({ error: 'Cell not found or not assigned to you' });
+        res.status(404).json({ error: 'Cell not found or you cannot manage this cell' });
         return;
       }
 
@@ -772,9 +924,9 @@ export const employeeProjectController = {
       const tokens = await getAssignmentTokens(req);
       const actor = actorFromReq(req);
 
-      const cell = await assertAssignedCell(projectId, cellId, tokens);
+      const cell = await assertManageableCell(projectId, cellId, tokens);
       if (!cell) {
-        res.status(404).json({ error: 'Cell not found or not assigned to you' });
+        res.status(404).json({ error: 'Cell not found or you cannot manage this cell' });
         return;
       }
 
@@ -867,7 +1019,7 @@ export const employeeProjectController = {
       }
 
       const actor = actorFromReq(req);
-      const assignment = await resolveCreateAssignment(req, project, tokens, {
+      const assignment = await resolveCellCreateAssignment(req, project, tokens, {
         assignedEmployeeId,
         assignedEmployeeName,
       });
@@ -882,9 +1034,7 @@ export const employeeProjectController = {
 
       const normalizedComplexity = normalizeComplexity(complexity);
       const resolvedTechNode = technologyNode?.trim() || project.technologyNode || '';
-      const resolvedBaseHours = baseHours != null
-        ? Math.max(0, Number(baseHours) || 0)
-        : deriveBaseHours(Number(estimatedEffort) || 0, normalizedComplexity);
+      const resolvedBaseHours = resolveBaseHoursInput(baseHours, estimatedEffort, normalizedComplexity);
       const prediction = await predictEffort({
         cellType: normalizeCellType(cellType),
         technologyNode: resolvedTechNode,
@@ -927,10 +1077,106 @@ export const employeeProjectController = {
       await syncProjectProgress(project._id);
       await syncChecklistMappingsForCell(project._id, cell._id);
       const meta = await computeDependencyMeta(project._id, cell);
+      const createdByEmployee = !isTeamLeadOnProject(project, tokens);
+
+      if (createdByEmployee && !assignment.assignedEmployeeId) {
+        void notifyCellCreatedUnassigned({
+          projectId: project._id.toString(),
+          cellId: cell._id.toString(),
+          projectName: project.projectName || 'Project',
+          cellName: cell.name,
+          libraryName: library.name,
+          createdByName: actor.userName,
+          teamLeadName: project.teamLead,
+        }).catch((notifyErr) => {
+          console.error('[employee-projects] unassigned cell notification failed:', notifyErr);
+        });
+      } else if (assignment.assignedEmployeeId) {
+        void notifyEmployeeCellAssigned({
+          projectId: project._id.toString(),
+          cellId: cell._id.toString(),
+          projectName: project.projectName || 'Project',
+          cellName: cell.name,
+          assignedEmployeeId: assignment.assignedEmployeeId,
+          assignedEmployeeName: assignment.assignedEmployeeName,
+          assignedByName: actor.userName,
+        }).catch((notifyErr) => {
+          console.error('[employee-projects] cell assignment notification failed:', notifyErr);
+        });
+      }
+
       res.status(201).json(toEmployeeCell(cell, tokens, meta));
     } catch (err) {
       console.error('[employee-projects] createCell', err);
       res.status(500).json({ error: 'Failed to create cell' });
+    }
+  },
+
+  assignProjectCell: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const cellId = paramId(req.params.cellId);
+      const tokens = await getAssignmentTokens(req);
+      const project = await assertTeamLeadAccess(projectId, tokens);
+      if (!project) {
+        res.status(403).json({ error: 'Only the project team lead can assign cells' });
+        return;
+      }
+
+      const cell = await ProjectCellModel.findOne({ _id: cellId, projectId: project._id });
+      if (!cell) {
+        res.status(404).json({ error: 'Cell not found' });
+        return;
+      }
+
+      const { assignedEmployeeId, assignedEmployeeName } = req.body as {
+        assignedEmployeeId?: string;
+        assignedEmployeeName?: string;
+      };
+      const assignment = await resolveCellAssigneeUpdate(project, {
+        assignedEmployeeId,
+        assignedEmployeeName,
+      });
+      if ('error' in assignment) {
+        res.status(400).json({ error: assignment.error });
+        return;
+      }
+
+      const previousAssignee = cell.assignedEmployeeId?.trim() || '';
+      const actor = actorFromReq(req);
+      cell.assignedEmployeeId = assignment.assignedEmployeeId;
+      cell.assignedEmployeeName = assignment.assignedEmployeeName;
+      cell.activityLog.push({
+        action: 'assigned',
+        detail: assignment.assignedEmployeeName
+          ? `Assigned to ${assignment.assignedEmployeeName}`
+          : 'Unassigned',
+        userId: actor.userId,
+        userName: actor.userName,
+        at: new Date(),
+      });
+      await cell.save();
+
+      const nextAssignee = assignment.assignedEmployeeId?.trim() || '';
+      if (nextAssignee && nextAssignee !== previousAssignee) {
+        void notifyEmployeeCellAssigned({
+          projectId: project._id.toString(),
+          cellId: cell._id.toString(),
+          projectName: project.projectName || 'Project',
+          cellName: cell.name,
+          assignedEmployeeId: nextAssignee,
+          assignedEmployeeName: assignment.assignedEmployeeName,
+          assignedByName: actor.userName,
+        }).catch((notifyErr) => {
+          console.error('[employee-projects] cell assignment notification failed:', notifyErr);
+        });
+      }
+
+      const meta = await computeDependencyMeta(project._id, cell);
+      res.json(toEmployeeCell(cell, tokens, meta));
+    } catch (err) {
+      console.error('[employee-projects] assignProjectCell', err);
+      res.status(500).json({ error: 'Failed to assign cell' });
     }
   },
 

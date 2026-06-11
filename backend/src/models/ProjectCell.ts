@@ -43,7 +43,7 @@ export interface ProjectCell extends Document {
   description: string;
   cellType: string;
   technologyNode: string;
-  complexity: 'Low' | 'Medium' | 'High';
+  complexity: 'Simple' | 'Medium' | 'Hard' | 'Critical';
   baseHours: number;
   estimatedEffort: number;
   smartEstimate: number;
@@ -71,8 +71,12 @@ const ProjectCellSchema = new Schema<ProjectCell>(
     description: { type: String, default: '' },
     cellType: { type: String, default: 'block' },
     technologyNode: { type: String, default: '' },
-    complexity: { type: String, enum: ['Low', 'Medium', 'High'], default: 'Medium' },
-    baseHours: { type: Number, default: 0 },
+    complexity: {
+      type: String,
+      enum: ['Simple', 'Medium', 'Hard', 'Critical', 'Low', 'High'],
+      default: 'Medium',
+    },
+    baseHours: { type: Number, default: 8 },
     estimatedEffort: { type: Number, default: 0 },
     smartEstimate: { type: Number, default: 0 },
     actualEffort: { type: Number, default: 0 },

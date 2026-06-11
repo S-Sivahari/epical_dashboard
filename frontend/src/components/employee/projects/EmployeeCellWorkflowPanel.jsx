@@ -14,7 +14,6 @@ import { getStageTiming } from '@/utils/cellWorkflowTiming'
 import {
   actionRequiresChecklist,
   getAdvancePayload,
-  normalizeWorkflow,
 } from '@/utils/cellWorkflowUi'
 
 const STAGE_VISUAL = {
@@ -25,14 +24,6 @@ const STAGE_VISUAL = {
   drc_final: { label: 'DRC', dot: '#6d28d9' },
   lvs: { label: 'LVS', dot: '#0d9488' },
   review_2: { label: 'REVIEW 2', dot: '#ea580c' },
-}
-
-const LAYOUT_STAGE_TO_WORK_KEY = {
-  floor_plan: 'floor_plan',
-  drc_r1: 'drc_first',
-  routing: 'routing',
-  drc: 'drc_final',
-  lvs_r2: 'lvs',
 }
 
 function stageHeaderBadge(status, locked) {
@@ -93,15 +84,6 @@ function reviewSelectValue(status) {
   return ''
 }
 
-function isEditableWorkStage(cell, stageKey, isTeamLead) {
-  if (isTeamLead) return false
-  if (!cell?.isAssignedToMe) return false
-  const viewWf = normalizeWorkflow(cell.viewWorkflow)
-  if (viewWf.layout.pendingReview) return false
-  const currentWorkKey = LAYOUT_STAGE_TO_WORK_KEY[viewWf.layout.stage]
-  return currentWorkKey === stageKey && !isReviewStageKey(stageKey)
-}
-
 function reviewSelectDisplayStatus(status) {
   if (status === 'approved' || status === 'rejected' || status === 'pending_review') return status
   return 'not_started'
@@ -112,8 +94,9 @@ export function EmployeeCellWorkflowPanel({
   saving = false,
   checklistReady = true,
   isTeamLead = false,
+  canManageWorkflow = false,
   openReview = null,
-  onStatusChange,
+  onWorkStageChange,
   onRequestReview,
   onResolveReview,
 }) {
@@ -122,14 +105,14 @@ export function EmployeeCellWorkflowPanel({
   const workflow = normalizeCellWorkflow(cell?.workflow)
   const activeStageKey = useMemo(() => getActiveStageKey(workflow), [workflow])
   const reviewPayload = getAdvancePayload(cell, 'layout')
-  const canRequestReview = !isTeamLead && cell?.isAssignedToMe && reviewPayload?.type === 'review'
+  const canRequestReview = canManageWorkflow && reviewPayload?.type === 'review'
   const blockedByChecklist = canRequestReview && actionRequiresChecklist(cell, reviewPayload) && !checklistReady
 
   const handleWorkStageChange = async (stageKey, nextStatus) => {
-    if (!isEditableWorkStage(cell, stageKey, isTeamLead)) return
+    if (!canManageWorkflow) return
     setSavingStage(stageKey)
     try {
-      await onStatusChange?.({ view: 'layout', action: 'set_status', status: nextStatus })
+      await onWorkStageChange?.(stageKey, nextStatus)
     } finally {
       setSavingStage(null)
     }
@@ -166,8 +149,7 @@ export function EmployeeCellWorkflowPanel({
             const awaitingReview = isReview && stage.status === 'pending_review'
             const meta = reviewStageMeta(stage.stageKey, awaitingReview)
             const headerBadge = stageHeaderBadge(stage.status, locked)
-            const editable = isEditableWorkStage(cell, stage.stageKey, isTeamLead)
-            const readOnly = !editable
+            const workStageDisabled = !canManageWorkflow || stageSaving || locked
             const reviewActionable = isTeamLead && isReview && canTeamLeadActionReview(workflow, stage.stageKey, stage.status) && openReview
             const showReview2Return = stage.stageKey === 'review_2' && review2RejectOpen && reviewActionable
             const stageTiming = getStageTiming(cell?.workflowTiming, stage.stageKey)
@@ -299,14 +281,13 @@ export function EmployeeCellWorkflowPanel({
                         'admin-projects-workflow-stage-select',
                         stageSelectClass(stage.status, {
                           locked,
-                          disabled: stageSaving,
-                          readOnly: readOnly || isReview,
+                          disabled: workStageDisabled,
+                          readOnly: workStageDisabled,
                         }),
                       )}
-                      value={isReview ? reviewSelectDisplayStatus(stage.status) : stage.status}
-                      disabled={stageSaving || readOnly || isReview || (locked && !editable)}
+                      value={stage.status}
+                      disabled={workStageDisabled}
                       onChange={(e) => {
-                        if (isReview || readOnly) return
                         void handleWorkStageChange(stage.stageKey, e.target.value)
                       }}
                       aria-label={`${stage.stageLabel} status`}

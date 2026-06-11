@@ -488,6 +488,9 @@ export function EmployeeProjectBoardPage({ routeProjectId = null }) {
                       cells={filteredLibraryCells}
                       projectId={selectedProjectId}
                       libraryNameById={Object.fromEntries(libraryNameById)}
+                      isTeamLead={isTeamLead}
+                      assigneeOptions={assigneeOptions}
+                      onAssigned={() => void loadWorkspace()}
                       emptyMessage={
                         statusFilter
                           ? 'No cells match this status.'
