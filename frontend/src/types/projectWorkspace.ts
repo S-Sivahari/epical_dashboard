@@ -286,6 +286,14 @@ export const VIEW_PROGRESS_LABELS: Record<ViewProgressStatus, string> = {
   completed: 'Completed',
 }
 
+export interface CellWorkflowDuration {
+  totalMs: number
+  formatted: string
+  isActive: boolean
+  wasEverCompleted: boolean
+  wasReopened: boolean
+}
+
 export interface ProjectCell {
   id: string
   projectId: string
@@ -308,6 +316,7 @@ export interface ProjectCell {
   workflowCompletedStages: number
   workflowTotalStages: number
   currentWorkflowStage: string
+  workflowDuration: CellWorkflowDuration
   views: CellViews
   viewWorkflow: CellViewWorkflow
   isBlocked: boolean
