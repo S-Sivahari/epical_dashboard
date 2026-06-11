@@ -17,7 +17,9 @@ import {
   deleteCell,
   deleteLibrary,
   fetchDependencyGraph,
+  fetchEffortPrediction,
   fetchWorkspaceSummary,
+  type EffortPrediction,
 } from '@/services/projectWorkspaceService'
 import { cn } from '@/utils/cn'
 import {
@@ -43,6 +45,7 @@ import {
   normalizeCellWorkflow,
   projectCellProgressPercent,
 } from './projectWorkspaceUi'
+import { calculateEstimatedHours, formatComplexityFactor } from '@/utils/effortEstimationUtils'
 
 type DeleteTarget = { type: 'library' | 'cell'; id: string; name: string }
 type WorkspaceSection = 'home' | 'workflow' | 'graph' | 'activity' | 'checklist'
@@ -70,6 +73,7 @@ function emptyCellForm(libraryId: string, technologyNode: string): Partial<Proje
     cellType: 'block',
     technologyNode,
     complexity: 'Medium',
+    baseHours: 0,
     estimatedEffort: 0,
     assignedEmployeeId: '',
     assignedEmployeeName: '',
@@ -98,6 +102,7 @@ export function ProjectWorkspace() {
   const [filterStatusSelect, setFilterStatusSelect] = useState<'all' | CellStatus>('all')
   const [statFilter, setStatFilter] = useState<StatFilter>(null)
   const [showAllCells, setShowAllCells] = useState(false)
+  const [effortPreview, setEffortPreview] = useState<EffortPrediction | null>(null)
   const [activityFilterSearch, setActivityFilterSearch] = useState('')
   const [activityLibraryFilter, setActivityLibraryFilter] = useState('all')
   const [activityCellFilter, setActivityCellFilter] = useState('all')
@@ -130,6 +135,26 @@ export function ProjectWorkspace() {
   useEffect(() => {
     void reload()
   }, [reload])
+
+  useEffect(() => {
+    if (!cellModal || !cellForm || !projectId) {
+      setEffortPreview(null)
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      void fetchEffortPrediction(projectId, {
+        cellType: cellForm.cellType || 'block',
+        technologyNode: cellForm.technologyNode || summary?.project.technologyNode || '',
+        complexity: cellForm.complexity || 'Medium',
+        baseHours: cellForm.baseHours ?? 0,
+      })
+        .then(setEffortPreview)
+        .catch(() => setEffortPreview(null))
+    }, 250)
+
+    return () => window.clearTimeout(timer)
+  }, [cellModal, cellForm, projectId, summary?.project.technologyNode])
 
   const refreshGraphData = useCallback(async () => {
     if (!projectId) return
@@ -989,7 +1014,43 @@ export function ProjectWorkspace() {
                 <option value="High">High</option>
               </select>
             </label>
-            <Input label="Estimated effort (hours)" type="number" value={String(cellForm.estimatedEffort ?? 0)} onChange={(e) => setCellForm((f) => f && { ...f, estimatedEffort: Number(e.target.value) })} />
+            <Input
+              label="Base hours"
+              type="number"
+              min={0}
+              step="any"
+              value={String(cellForm.baseHours ?? 0)}
+              onChange={(e) => setCellForm((f) => f && { ...f, baseHours: Number(e.target.value) })}
+            />
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm">
+              <p className="font-semibold text-slate-700">Effort estimate preview</p>
+              <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-slate-600">
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-slate-500">Complexity factor</dt>
+                  <dd>{formatComplexityFactor(cellForm.complexity)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-slate-500">Estimated hours</dt>
+                  <dd>{effortPreview?.estimatedHours ?? calculateEstimatedHours(cellForm.baseHours ?? 0, cellForm.complexity)}h</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-slate-500">Smart estimate</dt>
+                  <dd>{effortPreview?.smartEstimate ?? calculateEstimatedHours(cellForm.baseHours ?? 0, cellForm.complexity)}h</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-slate-500">Confidence</dt>
+                  <dd>{effortPreview?.confidence ?? 'Low'}</dd>
+                </div>
+              </dl>
+              {effortPreview && effortPreview.similarBlockCount > 0 ? (
+                <p className="mt-2 text-xs text-slate-500">
+                  Based on {effortPreview.similarBlockCount} similar completed block{effortPreview.similarBlockCount === 1 ? '' : 's'}
+                  {' '}(avg variance {effortPreview.avgVariance}x).
+                </p>
+              ) : (
+                <p className="mt-2 text-xs text-slate-500">No similar completed blocks yet — smart estimate matches base estimate.</p>
+              )}
+            </div>
             <label className="text-sm font-medium">Assign employee
               <select
                 className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"

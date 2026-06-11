@@ -15,7 +15,13 @@ const RESPONSE_LABELS = {
   not_applicable: 'N/A',
 }
 
-export function EmployeeCellChecklistSidebar({ projectId, cellId, readOnly = false, onChange }) {
+export function EmployeeCellChecklistSidebar({
+  projectId,
+  cellId,
+  readOnly = false,
+  showCompletionRequirement = false,
+  onChange,
+}) {
   const [checklist, setChecklist] = useState(null)
   const [loading, setLoading] = useState(true)
   const [savingId, setSavingId] = useState(null)
@@ -108,13 +114,13 @@ export function EmployeeCellChecklistSidebar({ projectId, cellId, readOnly = fal
           ) : null}
           {readOnly ? (
             <p className="emp-wf-checklist-panel-readonly">View only — cell not assigned to you</p>
-          ) : totalCount > 0 && !checklist?.isFilled ? (
+          ) : showCompletionRequirement && totalCount > 0 && !checklist?.isFilled ? (
             <p className="emp-wf-checklist-panel-required">
-              Answer all checklist items before completing this stage
+              Answer all checklist items before completing the final stage
             </p>
-          ) : totalCount > 0 && checklist?.isFilled && !checklist?.isExtensionFilled ? (
+          ) : showCompletionRequirement && totalCount > 0 && checklist?.isFilled && !checklist?.isExtensionFilled ? (
             <p className="emp-wf-checklist-panel-required">
-              Complete the final cell details before marking this stage as completed
+              Complete the final cell details before completing the final stage
             </p>
           ) : null}
         </div>
@@ -209,6 +215,7 @@ export function EmployeeCellChecklistSidebar({ projectId, cellId, readOnly = fal
         cellId={cellId}
         checklist={checklist}
         readOnly={readOnly}
+        showCompletionRequirement={showCompletionRequirement}
         onChange={(data) => {
           setChecklist(data)
           onChange?.(data)

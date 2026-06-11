@@ -40,6 +40,7 @@ export function EmployeeFinalCellDetailsSection({
   cellId,
   checklist,
   readOnly = false,
+  showCompletionRequirement = false,
   onChange,
 }) {
   const extension = checklist?.extension ?? EMPTY_CHECKLIST_EXTENSION
@@ -139,9 +140,9 @@ export function EmployeeFinalCellDetailsSection({
           Complete all checklist questions first ({checklist?.items?.filter((item) => item.response).length ?? 0}/
           {totalCount} answered).
         </p>
-      ) : !complete ? (
+      ) : showCompletionRequirement && !complete ? (
         <p className="emp-wf-final-cell-details-lock-note is-warning">
-          Complete all final cell details before marking this stage as completed.
+          Complete all final cell details before completing the final stage.
         </p>
       ) : null}
 

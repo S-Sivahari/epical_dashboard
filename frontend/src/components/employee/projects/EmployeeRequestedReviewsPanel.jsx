@@ -1,7 +1,21 @@
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle2, Clock3, MessageSquare, XCircle } from 'lucide-react'
 import { LAYOUT_STAGE_LABELS } from '@/utils/cellWorkflowUi'
 import { cn } from '@pages/employee/lib/utils'
+
+const STATUS_FILTERS = [
+  { id: 'all', label: 'All' },
+  { id: 'pending', label: 'Pending' },
+  { id: 'approved', label: 'Approved' },
+  { id: 'rejected', label: 'Rejected' },
+]
+
+const REVIEW_POINT_FILTERS = [
+  { id: 'all', label: 'All points' },
+  { id: 'r1', label: 'R1' },
+  { id: 'r2', label: 'R2' },
+]
 
 function stageLabel(stageKey) {
   if (!stageKey) return '—'
@@ -39,6 +53,33 @@ function formatWhen(value) {
 export function EmployeeRequestedReviewsPanel({ reviews = [], loading = false }) {
   const navigate = useNavigate()
   const list = Array.isArray(reviews) ? reviews : []
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [reviewPointFilter, setReviewPointFilter] = useState('all')
+  const [projectFilter, setProjectFilter] = useState('all')
+
+  const projectOptions = useMemo(() => {
+    const byId = new Map()
+    for (const review of list) {
+      if (!review.projectId) continue
+      if (!byId.has(review.projectId)) {
+        byId.set(review.projectId, review.projectName || 'Project')
+      }
+    }
+    return [...byId.entries()].map(([id, name]) => ({ id, name }))
+  }, [list])
+
+  const filteredReviews = useMemo(() => {
+    return list.filter((review) => {
+      const status = reviewStatus(review)
+      if (statusFilter !== 'all' && status !== statusFilter) return false
+      if (reviewPointFilter !== 'all' && review.reviewPoint !== reviewPointFilter) return false
+      if (projectFilter !== 'all' && review.projectId !== projectFilter) return false
+      return true
+    })
+  }, [list, statusFilter, reviewPointFilter, projectFilter])
+
+  const hasActiveFilters =
+    statusFilter !== 'all' || reviewPointFilter !== 'all' || projectFilter !== 'all'
 
   if (loading) {
     return <p className="emp-wf-status">Loading requested reviews…</p>
@@ -53,8 +94,85 @@ export function EmployeeRequestedReviewsPanel({ reviews = [], loading = false })
   }
 
   return (
+    <div className="emp-wf-requested-reviews">
+      <div className="emp-wf-requested-reviews-toolbar">
+        <div className="emp-wf-requested-reviews-filter-group">
+          <span className="emp-wf-requested-reviews-filter-label">Status</span>
+          <div className="emp-wf-filters" role="group" aria-label="Filter by review status">
+            {STATUS_FILTERS.map((filter) => (
+              <button
+                key={filter.id}
+                type="button"
+                className={cn('emp-wf-pill', statusFilter === filter.id && 'is-active')}
+                onClick={() => setStatusFilter(filter.id)}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="emp-wf-requested-reviews-filter-group">
+          <span className="emp-wf-requested-reviews-filter-label">Review</span>
+          <div className="emp-wf-filters" role="group" aria-label="Filter by review point">
+            {REVIEW_POINT_FILTERS.map((filter) => (
+              <button
+                key={filter.id}
+                type="button"
+                className={cn('emp-wf-pill', reviewPointFilter === filter.id && 'is-active')}
+                onClick={() => setReviewPointFilter(filter.id)}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {projectOptions.length > 1 ? (
+          <div className="emp-wf-requested-reviews-filter-group emp-wf-requested-reviews-filter-group--project">
+            <label className="emp-wf-requested-reviews-filter-label" htmlFor="requested-reviews-project">
+              Project
+            </label>
+            <select
+              id="requested-reviews-project"
+              className="emp-wf-requested-reviews-select"
+              value={projectFilter}
+              onChange={(e) => setProjectFilter(e.target.value)}
+            >
+              <option value="all">All projects</option>
+              {projectOptions.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+
+        {hasActiveFilters ? (
+          <button
+            type="button"
+            className="emp-wf-requested-reviews-clear"
+            onClick={() => {
+              setStatusFilter('all')
+              setReviewPointFilter('all')
+              setProjectFilter('all')
+            }}
+          >
+            Clear filters
+          </button>
+        ) : null}
+      </div>
+
+      <p className="emp-wf-requested-reviews-count">
+        Showing {filteredReviews.length} of {list.length}
+      </p>
+
+      {!filteredReviews.length ? (
+        <p className="emp-wf-reviews-empty">No reviews match the selected filters.</p>
+      ) : (
     <ul className="emp-wf-requested-reviews-list">
-      {list.map((review) => {
+      {filteredReviews.map((review) => {
         const status = reviewStatus(review)
         const meta = statusMeta(status)
         const StatusIcon = meta.icon
@@ -114,5 +232,7 @@ export function EmployeeRequestedReviewsPanel({ reviews = [], loading = false })
         )
       })}
     </ul>
+      )}
+    </div>
   )
 }

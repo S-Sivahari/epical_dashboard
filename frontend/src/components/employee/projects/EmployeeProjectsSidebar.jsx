@@ -18,13 +18,13 @@ export function EmployeeProjectsSidebar({ pendingReviewCount = 0 }) {
   const onProjectDetail = isProjectDetailPath(location.pathname)
 
   return (
-    <aside className="emp-wf-projects-sidebar" aria-label="Projects navigation">
-      <div className="emp-wf-projects-sidebar-head">
-        <p className="emp-wf-projects-sidebar-eyebrow">Workspace</p>
-        <h2 className="emp-wf-projects-sidebar-title">Projects</h2>
+    <aside className="admin-projects-employee-sidebar" aria-label="Projects navigation">
+      <div className="admin-projects-employee-sidebar-head">
+        <p className="admin-projects-employee-sidebar-eyebrow">Workspace</p>
+        <h2 className="admin-projects-employee-sidebar-title">Projects</h2>
       </div>
 
-      <nav className="emp-wf-projects-sidebar-nav">
+      <nav className="admin-projects-employee-sidebar-nav">
         {NAV_ITEMS.map(({ id, to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
@@ -32,15 +32,15 @@ export function EmployeeProjectsSidebar({ pendingReviewCount = 0 }) {
             end={end}
             className={({ isActive }) =>
               cn(
-                'emp-wf-projects-sidebar-link',
+                'admin-projects-employee-sidebar-link',
                 (isActive || (id === 'projects' && onProjectDetail)) && 'is-active',
               )
             }
           >
             <Icon className="h-4 w-4 shrink-0" aria-hidden />
-            <span className="emp-wf-projects-sidebar-link-label">{label}</span>
+            <span className="admin-projects-employee-sidebar-link-label">{label}</span>
             {id === 'reviews' && pendingReviewCount > 0 ? (
-              <span className="emp-wf-projects-sidebar-badge">{pendingReviewCount}</span>
+              <span className="admin-projects-employee-sidebar-badge">{pendingReviewCount}</span>
             ) : null}
           </NavLink>
         ))}

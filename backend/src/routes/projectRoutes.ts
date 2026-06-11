@@ -20,9 +20,14 @@ router.get('/assigned/me', projectController.getAssignedForCurrentUser);
 router.get('/mine/reviews', employeeProjectController.listMyRequestedReviews);
 router.get('/:projectId/mine/workspace', employeeProjectController.getMyWorkspace);
 router.get('/:projectId/mine/dependency-graph', employeeProjectController.getMyDependencyGraph);
+router.get('/:projectId/mine/effort-prediction', employeeProjectController.getEffortPrediction);
+router.get('/:projectId/mine/pending-reviews', employeeProjectController.listProjectPendingReviews);
+router.post('/:projectId/mine/libraries', employeeProjectController.createLibrary);
+router.post('/:projectId/mine/libraries/:libraryId/cells', employeeProjectController.createCell);
 router.get('/:projectId/cells/:cellId/mine', employeeProjectController.getMyCell);
 router.patch('/:projectId/cells/:cellId/mine/workflow', employeeProjectController.updateWorkflow);
 router.post('/:projectId/cells/:cellId/mine/reviews', employeeProjectController.requestReview);
+router.patch('/:projectId/cells/:cellId/mine/reviews/:reviewId/resolve', employeeProjectController.resolveCellReview);
 router.get('/:projectId/cells/:cellId/mine/reviews', employeeProjectController.listMyCellReviews);
 router.get('/:projectId/cells/:cellId/mine/checklist', employeeProjectController.getMyCellChecklist);
 router.patch(
@@ -106,7 +111,7 @@ router.put('/:projectId/cells/:cellId', adminOnly, projectWorkspaceController.up
 router.delete('/:projectId/cells/:cellId', adminOnly, projectWorkspaceController.deleteCell);
 router.patch('/:projectId/cells/:cellId/status', adminOnly, projectWorkspaceController.updateCellStatus);
 router.patch('/:projectId/cells/:cellId/workflow/:stageKey', adminOnly, projectWorkspaceController.updateWorkflowStage);
-router.patch('/:projectId/cells/:cellId/touch', adminOnly, projectWorkspaceController.touchCell);
+router.get('/:projectId/effort-prediction', adminOnly, projectWorkspaceController.getEffortPrediction);
 router.get('/:projectId/cells/:cellId/completion-readiness', adminOnly, projectWorkspaceController.getCellCompletionReadiness);
 router.patch('/:projectId/cells/:cellId/complete', adminOnly, projectWorkspaceController.completeCell);
 router.patch('/:projectId/cells/:cellId/uncomplete', adminOnly, projectWorkspaceController.uncompleteCell);

@@ -44,7 +44,7 @@ function defaultTaskTitle(projectName: string): string {
   return projectName;
 }
 
-async function resolveUserIdForDisplayName(name: string): Promise<string> {
+export async function resolveUserIdForDisplayName(name: string): Promise<string> {
   const db = getDB();
   const trimmed = name.trim();
   if (!trimmed) return trimmed;
@@ -104,6 +104,34 @@ async function resolveUserIdForDisplayName(name: string): Promise<string> {
   if (emp?.id) return String(emp.id);
   if (emp?._id) return String(emp._id);
   return trimmed;
+}
+
+export async function resolveProjectMemberAssignees(project: {
+  teamLead?: string;
+  allowedUsers?: string[];
+}): Promise<{ id: string; name: string }[]> {
+  const names = new Set<string>();
+  if (project.teamLead?.trim()) names.add(project.teamLead.trim());
+  (project.allowedUsers || []).forEach((n) => {
+    if (n?.trim()) names.add(n.trim());
+  });
+
+  const result: { id: string; name: string }[] = [];
+  for (const name of names) {
+    const id = await resolveUserIdForDisplayName(name);
+    result.push({ id, name });
+  }
+  return result;
+}
+
+export function isProjectMemberDisplayName(
+  project: { teamLead?: string; allowedUsers?: string[] },
+  displayName: string,
+): boolean {
+  const trimmed = displayName.trim();
+  if (!trimmed) return false;
+  if (project.teamLead?.trim() === trimmed) return true;
+  return (project.allowedUsers || []).some((u) => u?.trim() === trimmed);
 }
 
 /** Projects visible to an employee — allotted via team lead or allowedUsers (public and private). */

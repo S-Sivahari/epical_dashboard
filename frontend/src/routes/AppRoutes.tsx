@@ -163,10 +163,6 @@ const EmployeeProjectsDashboard = lazy(() =>
   import('@pages/employee/EmployeeProjectsDashboard')
 )
 
-const EmployeeProjectsListPage = lazy(() =>
-  import('@pages/employee/EmployeeProjectsListPage')
-)
-
 const EmployeeRequestedReviewsPage = lazy(() =>
   import('@pages/employee/EmployeeRequestedReviewsPage')
 )
@@ -301,7 +297,7 @@ export function AppRoutes() {
 
             <Route path="projects" element={<EmployeeProjectsLayout />}>
               <Route index element={<EmployeeProjectsDashboard />} />
-              <Route path="my-projects" element={<EmployeeProjectsListPage />} />
+              <Route path="my-projects" element={<Navigate to="/employee/projects" replace />} />
               <Route path="reviews" element={<EmployeeRequestedReviewsPage />} />
               <Route path=":projectId" element={<EmployeeProjectWorkspace />} />
               <Route path=":projectId/cells/:cellId" element={<EmployeeCellWorkflow />} />

@@ -10,6 +10,8 @@ import type {
 } from '@/types/projectWorkspace'
 import type { ViewProgressStatus } from '@/types/projectWorkspace'
 
+export type { EmployeePendingReview } from '@/types/projectWorkspace'
+
 export interface AssignedProject {
   id: string
   name: string
@@ -27,6 +29,62 @@ export async function fetchMyAssignedProjects() {
 
 export async function fetchMyProjectWorkspace(projectId: string) {
   const { data } = await api.get<EmployeeProjectWorkspace>(`/projects/${projectId}/mine/workspace`)
+  return data
+}
+
+export async function createMyProjectLibrary(
+  projectId: string,
+  payload: { name: string; description?: string; assignedEmployeeId?: string; assignedEmployeeName?: string },
+) {
+  const { data } = await api.post(`/projects/${projectId}/mine/libraries`, payload)
+  return data
+}
+
+export async function createMyProjectCell(
+  projectId: string,
+  libraryId: string,
+  payload: Record<string, unknown>,
+) {
+  const { data } = await api.post<EmployeeProjectCell>(
+    `/projects/${projectId}/mine/libraries/${libraryId}/cells`,
+    payload,
+  )
+  return data
+}
+
+export async function fetchMyEffortPrediction(
+  projectId: string,
+  params: {
+    cellType?: string
+    technologyNode?: string
+    complexity?: string
+    baseHours?: number
+    excludeCellId?: string
+  },
+) {
+  const { data } = await api.get(`/projects/${projectId}/mine/effort-prediction`, { params })
+  return data
+}
+
+export async function fetchProjectPendingReviews(projectId: string) {
+  const { data } = await api.get<EmployeePendingReview[]>(`/projects/${projectId}/mine/pending-reviews`)
+  return data
+}
+
+export async function resolveMyCellReview(
+  projectId: string,
+  cellId: string,
+  reviewId: string,
+  payload: {
+    outcome: 'approved' | 'rejected'
+    returnToStage?: 'floor_plan' | 'routing' | 'drc_r1' | 'drc' | 'lvs_r2'
+    comment?: string
+  },
+) {
+  const { data } = await api.patch<{ cell: EmployeeProjectCell; review: CellReview }>(
+    `/projects/${projectId}/cells/${cellId}/mine/reviews/${reviewId}/resolve`,
+    payload,
+  )
   return data
 }
 

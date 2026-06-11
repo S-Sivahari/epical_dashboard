@@ -94,6 +94,30 @@ export async function fetchCellCompletionReadiness(projectId: string, cellId: st
   return data
 }
 
+export type EffortPrediction = {
+  baseHours: number
+  complexityFactor: number
+  estimatedHours: number
+  smartEstimate: number
+  avgVariance: number
+  similarBlockCount: number
+  confidence: 'High' | 'Low'
+}
+
+export async function fetchEffortPrediction(
+  projectId: string,
+  params: {
+    cellType: string
+    technologyNode: string
+    complexity: string
+    baseHours: number
+    excludeCellId?: string
+  },
+) {
+  const { data } = await api.get<EffortPrediction>(`/projects/${projectId}/effort-prediction`, { params })
+  return data
+}
+
 export async function completeCell(projectId: string, cellId: string) {
   const { data } = await api.patch<ProjectCell>(`/projects/${projectId}/cells/${cellId}/complete`)
   return data

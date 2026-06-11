@@ -133,10 +133,25 @@ export function getPipelineColumnStatus(cell, columnId, viewTab = 'layout') {
   return layout.status
 }
 
-export function actionRequiresChecklist(payload) {
-  if (!payload) return false
-  if (payload.type === 'review') return true
-  if (payload.action === 'set_status' && payload.status === 'completed') return true
+export function isFinalLayoutStage(cell) {
+  const wf = normalizeWorkflow(cell?.viewWorkflow)
+  return wf?.layout?.stage === 'lvs_r2'
+}
+
+export function actionRequiresChecklist(cell, payload) {
+  if (!payload || !cell) return false
+  const wf = normalizeWorkflow(cell.viewWorkflow)
+
+  if (payload.type === 'review') {
+    return wf.layout.stage === 'lvs_r2'
+  }
+
+  if (payload.view !== 'layout') return false
+
+  if (payload.action === 'set_status' && payload.status === 'completed') {
+    return wf.layout.stage === 'lvs_r2'
+  }
+
   return false
 }
 
