@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, Pencil, Plus, Save, Trash2 } from 'lucide-react'
-import { toast } from 'sonner'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
 import type { PdkModule, PdkModuleMetalSpec } from '@/types/pdkMetalRouting'
+import { MetalRoutingColumnUnit } from '@components/pdk/MetalRoutingColumnHeader'
 import { updatePdkModule } from '@services/pdkMetalRoutingService'
 
 const EMPTY_METAL = { metalType: '', currentDensityAt110: '', sheetResistance: '' }
@@ -47,6 +47,7 @@ export function PdkModuleDetailPanel({
 }) {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
   const [form, setForm] = useState(() => moduleToForm(module))
 
   useEffect(() => {
@@ -56,27 +57,29 @@ export function PdkModuleDetailPanel({
 
   const handleCancel = () => {
     setForm(moduleToForm(module))
+    setFormError(null)
     setEditing(false)
   }
 
   const handleSave = async () => {
     const metals = parseMetals(form.metals)
     if (!form.name.trim()) {
-      toast.error('Module name is required')
+      setFormError('Module name is required')
       return
     }
     if (metals.length === 0) {
-      toast.error('Add at least one metal row')
+      setFormError('Add at least one metal row')
       return
     }
     for (const metal of metals) {
       if (!Number.isFinite(metal.currentDensityAt110) || !Number.isFinite(metal.sheetResistance)) {
-        toast.error('Enter valid numbers for all metal rows')
+        setFormError('Enter valid numbers for all metal rows')
         return
       }
     }
 
     setSaving(true)
+    setFormError(null)
     try {
       const updated = await updatePdkModule(module._id, {
         name: form.name.trim(),
@@ -84,11 +87,10 @@ export function PdkModuleDetailPanel({
         notes: form.notes.trim(),
         metals,
       })
-      toast.success('PDK module updated')
       setEditing(false)
       onSaved(updated)
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to update module')
+      setFormError(err instanceof Error ? err.message : 'Failed to update module')
     } finally {
       setSaving(false)
     }
@@ -177,11 +179,18 @@ export function PdkModuleDetailPanel({
         )}
       </header>
 
+      {formError ? (
+        <p className="mx-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 sm:mx-5">
+          {formError}
+        </p>
+      ) : null}
+
       <PdkModuleMetalTable
         metals={displayMetals}
         editing={editing}
         formMetals={form.metals}
         onFormMetalsChange={(metals) => setForm((f) => ({ ...f, metals }))}
+        onFormError={setFormError}
       />
     </div>
   )
@@ -192,11 +201,13 @@ function PdkModuleMetalTable({
   editing,
   formMetals,
   onFormMetalsChange,
+  onFormError,
 }: {
   metals: PdkModuleMetalSpec[]
   editing: boolean
   formMetals: MetalFormRow[]
   onFormMetalsChange: (metals: MetalFormRow[]) => void
+  onFormError: (message: string) => void
 }) {
   const cellInputClass =
     'h-8 w-full min-w-0 rounded border border-lime-600/35 bg-white/95 px-2 text-sm text-black shadow-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary/30'
@@ -206,9 +217,21 @@ function PdkModuleMetalTable({
       <table className="metal-routing-pdk-module-detail-table">
         <thead>
           <tr>
-            <th>Metal type</th>
-            <th>Current density @ 110° (mA)</th>
-            <th>Sheet resistance (Ω/sq)</th>
+            <th>
+              <span className="metal-routing-col-label">Metal type</span>
+            </th>
+            <th>
+              <span className="metal-routing-col-label">Current density</span>
+              <span className="metal-routing-col-unit">
+                <MetalRoutingColumnUnit text="(mA)" />
+              </span>
+            </th>
+            <th>
+              <span className="metal-routing-col-label">Sheet resistance</span>
+              <span className="metal-routing-col-unit">
+                <MetalRoutingColumnUnit text="(mΩ/sq)" />
+              </span>
+            </th>
             {editing ? <th className="w-10" aria-label="Actions" /> : null}
           </tr>
         </thead>
@@ -261,7 +284,7 @@ function PdkModuleMetalTable({
                       aria-label="Remove row"
                       onClick={() => {
                         if (formMetals.length <= 1) {
-                          toast.error('At least one metal row is required')
+                          onFormError('At least one metal row is required')
                           return
                         }
                         onFormMetalsChange(formMetals.filter((_, idx) => idx !== i))

@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, Clock, Download, Hash, Layers, Plus, Upload } from 'lucide-react'
-import { toast } from 'sonner'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AlertCircle, ChevronDown, Clock, Download, Hash, Layers, Plus, Upload } from 'lucide-react'
+import { TopDismissNotice, type TopNotice } from '@components/pdk/TopDismissNotice'
+import { showPortalError, showPortalSuccess } from '@/utils/portalNotice'
 import { PdkModulesAnalyticsChart } from '@components/pdk/PdkModulesAnalyticsChart'
 import { MetalRoutingInsightsPanel } from '@components/pdk/MetalRoutingInsightsPanel'
 import {
@@ -144,6 +145,9 @@ export function PdkModulesPage({ embedded = false }: { embedded?: boolean }) {
     technologyNode: '',
     notes: '',
   })
+  const [importError, setImportError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<TopNotice | null>(null)
+  const dismissNotice = useCallback(() => setNotice(null), [])
   const [search, setSearch] = useState('')
   const [nodeFilter, setNodeFilter] = useState('all')
 
@@ -152,7 +156,7 @@ export function PdkModulesPage({ embedded = false }: { embedded?: boolean }) {
     try {
       setModules(await fetchPdkModules())
     } catch {
-      toast.error('Failed to load PDK modules')
+      showPortalError(setNotice, 'Failed to load modules', 'Refresh the page or try again later.')
     } finally {
       setLoading(false)
     }
@@ -167,14 +171,14 @@ export function PdkModulesPage({ embedded = false }: { embedded?: boolean }) {
     try {
       setSelectedModule(await fetchPdkModule(id))
     } catch {
-      toast.error('Failed to load module')
+      showPortalError(setNotice, 'Failed to load module', 'Try selecting the module again.')
       setSelectedId(null)
     }
   }
 
   const handleCreate = async () => {
     if (!form.name.trim()) {
-      toast.error('Module name is required')
+      showPortalError(setNotice, 'Name required', 'Module name is required.')
       return
     }
     const metals = form.metals
@@ -185,7 +189,7 @@ export function PdkModulesPage({ embedded = false }: { embedded?: boolean }) {
         sheetResistance: Number(m.sheetResistance),
       }))
     if (metals.length === 0) {
-      toast.error('Add at least one metal row')
+      showPortalError(setNotice, 'Metals required', 'Add at least one metal row.')
       return
     }
     setSaving(true)
@@ -196,13 +200,17 @@ export function PdkModulesPage({ embedded = false }: { embedded?: boolean }) {
         notes: form.notes.trim(),
         metals,
       })
-      toast.success('PDK module created')
+      showPortalSuccess(setNotice, 'Module created', 'PDK module created.')
       setCreateOpen(false)
       setForm({ name: '', technologyNode: '', notes: '', metals: [{ ...EMPTY_METAL }] })
       await load()
       await openModule(created._id)
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to create module')
+      showPortalError(
+        setNotice,
+        'Create failed',
+        err instanceof Error ? err.message : 'Failed to create module.',
+      )
     } finally {
       setSaving(false)
     }
@@ -211,44 +219,77 @@ export function PdkModulesPage({ embedded = false }: { embedded?: boolean }) {
   const resetImportForm = () => {
     setImportForm({ name: '', technologyNode: '', notes: '' })
     setImportFile(null)
+    setImportError(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   const handleImport = async () => {
     if (!importForm.name.trim()) {
-      toast.error('Module name is required')
+      setImportError('Module name is required')
       return
     }
     if (!importFile) {
-      toast.error('Select an Excel file to import')
+      setImportError('Select an Excel file to import')
       return
     }
 
     setImporting(true)
+    setImportError(null)
+    setNotice({
+      kind: 'loading',
+      title: 'Importing PDK…',
+      details: [`Uploading ${importFile.name}…`],
+    })
     try {
       const created = await importPdkModuleFromExcel(importFile, {
         name: importForm.name.trim(),
         technologyNode: importForm.technologyNode.trim(),
         notes: importForm.notes.trim(),
       })
-      toast.success(`PDK module "${created.name}" imported successfully`)
+      setNotice({
+        kind: 'success',
+        title: 'PDK imported successfully',
+        details: [
+          `Created module "${created.name}" with ${created.metals.length} metal layer(s).`,
+          'Opening the new PDK module…',
+        ],
+      })
       setImportOpen(false)
       resetImportForm()
       await load()
       await openModule(created._id)
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to import PDK module')
+      const message = err instanceof Error ? err.message : 'Failed to import PDK module'
+      setImportError(message)
+      setNotice({
+        kind: 'error',
+        title: 'PDK import failed',
+        details: [message, 'Fill the green cells (J_DC @110°C and Sheet Resistance) for every metal row.'],
+      })
     } finally {
       setImporting(false)
     }
   }
 
   const handleDownloadTemplate = async () => {
+    setNotice({
+      kind: 'loading',
+      title: 'Downloading template…',
+      details: ['Preparing PDK import template (.xlsx)…'],
+    })
     try {
       await downloadPdkTemplate()
-      toast.success('Template downloaded')
+      setNotice({
+        kind: 'success',
+        title: 'Template downloaded',
+        details: [
+          'Downloaded PDK_Import_Template.xlsx.',
+          'Edit metal values if needed, then import with a unique module name.',
+        ],
+      })
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to download template')
+      const message = err instanceof Error ? err.message : 'Failed to download template'
+      setNotice({ kind: 'error', title: 'Template download failed', details: [message] })
     }
   }
 
@@ -256,6 +297,7 @@ export function PdkModulesPage({ embedded = false }: { embedded?: boolean }) {
 
   const openImportModal = () => {
     resetImportForm()
+    dismissNotice()
     setImportOpen(true)
   }
 
@@ -292,6 +334,7 @@ export function PdkModulesPage({ embedded = false }: { embedded?: boolean }) {
 
   const pageBody = (
     <>
+      <TopDismissNotice notice={notice} onDismiss={dismissNotice} />
       {showDetail && selectedModule ? (
         <PdkModuleDetailPanel
           module={selectedModule}
@@ -302,6 +345,7 @@ export function PdkModulesPage({ embedded = false }: { embedded?: boolean }) {
           onSaved={(updated) => {
             setSelectedModule(updated)
             setModules((prev) => prev.map((m) => (m._id === updated._id ? updated : m)))
+            showPortalSuccess(setNotice, 'Module updated', 'PDK module saved.')
           }}
         />
       ) : (
@@ -436,7 +480,7 @@ export function PdkModulesPage({ embedded = false }: { embedded?: boolean }) {
               <li>Supports the two-row grouped header template (Current Density / Sheet Resistance)</li>
               <li>Each data row is one metal layer (MET1–MET6, AP, etc.)</li>
               <li>
-                <strong className="text-ink">Required:</strong> fill the green cells (J_DC @110°C and Sheet Resistance) for every metal row before importing
+                <strong className="text-ink">Required:</strong> J_DC @110°C and Sheet Resistance for every metal row (template includes sample values you can edit)
               </li>
             </ul>
             <button
@@ -484,6 +528,13 @@ export function PdkModulesPage({ embedded = false }: { embedded?: boolean }) {
               <p className="mt-1.5 text-xs text-muted">Selected: {importFile.name}</p>
             )}
           </div>
+
+          {importError ? (
+            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <p className="break-words">{importError}</p>
+            </div>
+          ) : null}
 
           <div className="flex justify-end gap-2 pt-2">
             <Button

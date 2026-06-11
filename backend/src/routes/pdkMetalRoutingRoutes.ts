@@ -62,6 +62,8 @@ router.put('/route/metals/:metalId', pdkMetalRoutingController.updateMetal);
 router.delete('/route/metals/:metalId', pdkMetalRoutingController.removeMetal);
 router.get('/routes/template/download', pdkMetalRoutingController.downloadMetalRoutingTemplate);
 router.patch('/routes/:id', pdkMetalRoutingController.updateRoute);
+router.get('/routes/:id/template/download', pdkMetalRoutingController.downloadRouteMetalTemplate);
+router.post('/routes/:id/import', uploadPdkExcel('file'), pdkMetalRoutingController.importRouteMetals);
 router.get('/routes/:id/export', pdkMetalRoutingController.exportRoute);
 
 router.get('/pdk-modules', pdkMetalRoutingController.listPdkModules);

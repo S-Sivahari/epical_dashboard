@@ -742,22 +742,6 @@ async function fetchSavedRouteSummariesForProject(projectId: string) {
   return listSavedRouteSummaries(routes as Record<string, unknown>[]);
 }
 
-function serializePdkModuleForClient(
-  module: Record<string, unknown> | null,
-) {
-  if (!module) return null;
-  const metals = ((module.metals as Array<Record<string, unknown>>) ?? []).map((metal) => ({
-    ...metal,
-    _id: metal._id ? String(metal._id) : undefined,
-  }));
-
-  return {
-    ...module,
-    _id: (module._id as Types.ObjectId)?.toString?.() ?? String(module._id ?? ''),
-    metals,
-  };
-}
-
 export async function getProjectContext(projectId: string) {
   if (!Types.ObjectId.isValid(projectId)) {
     throw new Error('Invalid project id');
@@ -788,12 +772,6 @@ export async function getProjectContext(projectId: string) {
 
   const savedRoutes = listSavedRouteSummaries(routes as Record<string, unknown>[]);
   const signals = listSignalRouteSummaries(routes as Record<string, unknown>[]);
-
-  console.log(
-    IMPORT_LOG_PREFIX,
-    'getProjectContext',
-    { projectId, totalRoutesInDb: routes.length, savedRoutesVisible: savedRoutes.length },
-  );
 
   return {
     project: {
@@ -864,6 +842,11 @@ export async function getOrCreateRoute(
     }
     if (schematic != null) {
       route.schematicCurrentDensity = schematic;
+      route.metals.forEach((metal) => {
+        metal.givenCurrentDensity = schematic;
+        metal.schematicCurrentDensity = schematic;
+      });
+      route.markModified('metals');
     }
     await route.save();
   }
@@ -1052,9 +1035,15 @@ export async function addMetalToRoute(
 
 export async function upsertRouteWithMetals(
   key: RoutingKey,
-  metalInputs: Array<{ metalType: string; width: number; length: number }>,
+  metalInputs: Array<{
+    metalType: string;
+    width: number;
+    length: number;
+    connectionType?: 'series' | 'parallel';
+  }>,
   createdBy?: string,
   createdByName?: string,
+  options?: { schematicCurrentDensity?: number },
 ) {
   const k = normalizeKey(key);
   await getProjectPdkModule(k.projectId);
@@ -1062,6 +1051,11 @@ export async function upsertRouteWithMetals(
   if (!metalInputs.length) {
     throw new Error('At least one metal row is required per route');
   }
+
+  const schematicCurrentDensity =
+    options?.schematicCurrentDensity != null && Number.isFinite(Number(options.schematicCurrentDensity))
+      ? Number(options.schematicCurrentDensity)
+      : undefined;
 
   const computedMetals: MetalEntrySubdoc[] = [];
   for (let index = 0; index < metalInputs.length; index += 1) {
@@ -1071,7 +1065,8 @@ export async function upsertRouteWithMetals(
       metalType: input.metalType,
       width: input.width,
       length: input.length,
-      connectionType: index === 0 ? undefined : 'series',
+      connectionType: index === 0 ? undefined : (input.connectionType ?? 'series'),
+      schematicCurrentDensity,
     });
     computedMetals.push(metalSubdocFromComputed(computed, { omitConnectionType: index === 0 }));
   }
@@ -1088,9 +1083,18 @@ export async function upsertRouteWithMetals(
       toCell: k.toCell,
       fromSignal: k.signal,
       toSignal: '',
+      schematicCurrentDensity,
       metals: [],
       createdBy,
       createdByName,
+    });
+  }
+
+  if (schematicCurrentDensity != null) {
+    route.schematicCurrentDensity = schematicCurrentDensity;
+    computedMetals.forEach((metal) => {
+      metal.givenCurrentDensity = schematicCurrentDensity;
+      metal.schematicCurrentDensity = schematicCurrentDensity;
     });
   }
 
@@ -1111,16 +1115,6 @@ export async function upsertRouteWithMetals(
   if (!saved.metals?.length) {
     throw new Error('Route save verification failed: metals array is empty after save');
   }
-
-  console.log(IMPORT_LOG_PREFIX, 'upsertRouteWithMetals saved', {
-    routeId: saved._id.toString(),
-    projectId: saved.projectId.toString(),
-    fromCell: saved.fromCell,
-    toCell: saved.toCell,
-    fromSignal: saved.fromSignal,
-    toSignal: saved.toSignal,
-    metalCount: saved.metals.length,
-  });
 
   return serializeRouteForClient(saved as unknown as Record<string, unknown>);
 }
@@ -1240,6 +1234,22 @@ export async function getPdkModuleById(id: string) {
   return PdkModuleModel.findById(id).lean();
 }
 
+export function serializePdkModuleForClient(
+  module: Record<string, unknown> | null,
+) {
+  if (!module) return null;
+  const metals = ((module.metals as Array<Record<string, unknown>>) ?? []).map((metal) => ({
+    ...metal,
+    _id: (metal._id as Types.ObjectId)?.toString?.() ?? String(metal._id ?? ''),
+  }));
+
+  return {
+    ...module,
+    _id: (module._id as Types.ObjectId)?.toString?.() ?? String(module._id ?? ''),
+    metals,
+  };
+}
+
 export async function createPdkModule(data: {
   name: string;
   technologyNode?: string;
@@ -1286,7 +1296,10 @@ export async function importPdkModuleFromExcel(
       sheetResistance: m.sheetResistance,
     })),
   });
-  return typeof module.toObject === 'function' ? module.toObject() : module;
+  const plain = typeof module.toObject === 'function'
+    ? module.toObject()
+    : module;
+  return serializePdkModuleForClient(plain as Record<string, unknown>);
 }
 
 export async function updatePdkModule(
@@ -1330,16 +1343,18 @@ export async function deleteRoute(id: string) {
 
 function toRouteExcelRecord(route: Record<string, unknown>): RouteExcelRecord {
   const metals = (route.metals as MetalEntrySubdoc[]) ?? [];
+  const signal = routeSignalLabel(route);
+  const routeSchematic = routeSchematicDensity(route);
   return {
     fromCell: String(route.fromCell ?? ''),
     toCell: String(route.toCell ?? ''),
-    fromSignal: String(route.fromSignal ?? ''),
-    toSignal: String(route.toSignal ?? ''),
-    metals: metals.map((metal) => ({
+    signal,
+    givenCurrentCapability: routeSchematic,
+    metals: metals.map((metal, index) => ({
       metalType: metal.metalType,
       width: metal.width,
       length: metal.length,
-      givenCurrentDensity: metal.givenCurrentDensity,
+      connectionType: index === 0 ? undefined : (resolveConnectionType(metal.connectionType) ?? 'series'),
       implementedCurrentMetalCapacity: metal.implementedCurrentMetalCapacity,
       routingMetalImpedance: metal.routingMetalImpedance,
     })),
@@ -1480,13 +1495,7 @@ export async function importProjectRoutesFromExcel(
 
   const { module } = await getProjectPdkModule(normalizedProjectId);
 
-  console.log(IMPORT_LOG_PREFIX, 'starting import', {
-    projectId: normalizedProjectId,
-    projectName: project.projectName,
-    pdkModule: module.name,
-  });
-
-  const parseResult = await parseMetalRoutingExcelWithDiagnostics(buffer, { log: true });
+  const parseResult = await parseMetalRoutingExcelWithDiagnostics(buffer, { log: false });
   const blocks = parseResult.routeBlocks;
 
   let routesImported = 0;
@@ -1495,38 +1504,38 @@ export async function importProjectRoutesFromExcel(
   const failures: MetalRoutingImportFailure[] = [];
 
   for (const block of blocks) {
-    const routeLabel = `${block.fromCell} → ${block.toCell} · ${block.fromSignal} → ${block.toSignal}`;
+    const routeLabel = `${block.fromCell} → ${block.toCell} · ${block.signal}`;
     try {
       const route = await upsertRouteWithMetals(
         {
           projectId: normalizedProjectId,
-          signal: block.fromSignal,
+          signal: block.signal,
           fromCell: block.fromCell,
           toCell: block.toCell,
-          fromSignal: block.fromSignal,
-          toSignal: block.toSignal,
+          fromSignal: block.signal,
+          toSignal: '',
         },
-        block.metals,
+        block.metals.map((metal) => ({
+          metalType: metal.metalType,
+          width: metal.width,
+          length: metal.length,
+          connectionType: metal.connectionType,
+        })),
         createdBy,
         createdByName,
+        { schematicCurrentDensity: block.givenCurrentCapability },
       );
       routes.push(route);
       routesImported += 1;
       metalsImported += block.metals.length;
-      console.log(IMPORT_LOG_PREFIX, 'route imported', {
-        routeLabel,
-        routeId: route._id,
-        projectId: route.projectId,
-        metalCount: route.metals.length,
-      });
     } catch (err) {
       const reason = err instanceof Error ? err.message : 'Import failed';
       const failure: MetalRoutingImportFailure = {
         routeLabel,
         fromCell: block.fromCell,
         toCell: block.toCell,
-        fromSignal: block.fromSignal,
-        toSignal: block.toSignal,
+        fromSignal: block.signal,
+        toSignal: '',
         metalRows: block.metals.length,
         reason: `${reason}. Assigned PDK: "${module.name}".`,
       };
@@ -1537,16 +1546,7 @@ export async function importProjectRoutesFromExcel(
 
   const savedRoutes = await fetchSavedRouteSummariesForProject(normalizedProjectId);
 
-  console.log(IMPORT_LOG_PREFIX, 'import complete', {
-    projectId: normalizedProjectId,
-    routesParsed: blocks.length,
-    routesImported,
-    metalsImported,
-    routesFailed: failures.length,
-    savedRoutesVisible: savedRoutes.length,
-  });
-
-  const success = routesImported > 0 && savedRoutes.length > 0;
+  const success = routesImported > 0;
 
   if (routesImported > 0 && savedRoutes.length === 0) {
     throw new Error(
@@ -1570,6 +1570,287 @@ export async function importProjectRoutesFromExcel(
     failures,
     routes,
     savedRoutes,
+    parseDiagnostics: {
+      worksheetName: parseResult.worksheetName,
+      headerRow: parseResult.headerRow,
+      mergeRangeCount: parseResult.mergeRangeCount,
+      dataRowsScanned: parseResult.dataRowsScanned,
+      totalMetalRows: parseResult.totalMetalRows,
+    },
+  };
+}
+
+const ROUTE_TEMPLATE_SAMPLE_WIDTHS = [1, 1, 1.2, 0.8];
+const ROUTE_TEMPLATE_SAMPLE_LENGTHS = [10, 10, 8, 12];
+
+function normalizeRouteIdentityToken(value: string): string {
+  return value.trim().toUpperCase();
+}
+
+function givenCurrentCapabilitiesMatch(routeValue?: number, importValue?: number): boolean {
+  if (routeValue == null && importValue == null) return true;
+  if (routeValue == null || importValue == null) return false;
+  return Math.abs(routeValue - importValue) < 0.0001;
+}
+
+function routeBlocksMatchIdentity(
+  block: { fromCell: string; toCell: string; signal: string },
+  expected: { fromCell: string; toCell: string; signal: string },
+): boolean {
+  return (
+    normalizeRouteIdentityToken(block.fromCell) === normalizeRouteIdentityToken(expected.fromCell)
+    && normalizeRouteIdentityToken(block.toCell) === normalizeRouteIdentityToken(expected.toCell)
+    && normalizeRouteIdentityToken(block.signal) === normalizeRouteIdentityToken(expected.signal)
+  );
+}
+
+export async function getRouteMetalTemplateExcel(routeId: string) {
+  if (!Types.ObjectId.isValid(routeId)) {
+    throw new Error('Invalid route id');
+  }
+
+  const route = await getRouteById(routeId);
+  if (!route) {
+    throw new Error('Route not found');
+  }
+
+  const projectId = route.projectId.toString();
+  await getProjectPdkModule(projectId);
+
+  const signal = routeSignalLabel(route as Record<string, unknown>);
+  const schematic = routeSchematicDensity(route);
+  const existingMetals = (route.metals as MetalEntrySubdoc[]) ?? [];
+
+  let metals: RouteExcelRecord['metals'];
+  if (existingMetals.length > 0) {
+    metals = existingMetals.map((metal, index) => ({
+      metalType: metal.metalType,
+      width: metal.width,
+      length: metal.length,
+      connectionType: index === 0 ? undefined : (resolveConnectionType(metal.connectionType) ?? 'series'),
+      implementedCurrentMetalCapacity: 0,
+      routingMetalImpedance: 0,
+    }));
+  } else {
+    const { module } = await getProjectPdkModule(projectId);
+    const metalTypes = (module.metals ?? []).map((metal) => metal.metalType).filter(Boolean);
+    metals = metalTypes.slice(0, 4).map((metalType, index) => ({
+      metalType,
+      width: ROUTE_TEMPLATE_SAMPLE_WIDTHS[index % ROUTE_TEMPLATE_SAMPLE_WIDTHS.length],
+      length: ROUTE_TEMPLATE_SAMPLE_LENGTHS[index % ROUTE_TEMPLATE_SAMPLE_LENGTHS.length],
+      connectionType: index === 0 ? undefined : 'series',
+      implementedCurrentMetalCapacity: 0,
+      routingMetalImpedance: 0,
+    }));
+    if (!metals.length) {
+      throw new Error('Assigned PDK has no metal types defined');
+    }
+  }
+
+  const record: RouteExcelRecord = {
+    fromCell: String(route.fromCell ?? ''),
+    toCell: String(route.toCell ?? ''),
+    signal,
+    givenCurrentCapability: schematic,
+    minimumMetalCurrentCapacity: 0,
+    totalImpedance: 0,
+    metals,
+  };
+
+  const safeSignal = signal.replace(/[^\w.-]+/g, '_');
+  return {
+    buffer: await buildMetalRoutingExcelBuffer([record], { template: true }),
+    filename: `Signal_Metal_Template_${safeSignal}.xlsx`,
+    signal,
+    fromCell: record.fromCell,
+    toCell: record.toCell,
+  };
+}
+
+export async function appendMetalsToRoute(
+  routeId: string,
+  metalInputs: Array<{
+    metalType: string;
+    width: number;
+    length: number;
+    connectionType?: 'series' | 'parallel';
+  }>,
+  options?: { schematicCurrentDensity?: number },
+) {
+  if (!Types.ObjectId.isValid(routeId)) {
+    throw new Error('Invalid route id');
+  }
+
+  const route = await MetalRoutingAnalysisModel.findById(routeId);
+  if (!route) {
+    throw new Error('Route not found');
+  }
+
+  if (!metalInputs.length) {
+    throw new Error('At least one metal row is required');
+  }
+
+  const projectId = route.projectId.toString();
+  await getProjectPdkModule(projectId);
+
+  const routeSchematic = routeSchematicDensity(route);
+  const schematicCurrentDensity =
+    options?.schematicCurrentDensity != null && Number.isFinite(Number(options.schematicCurrentDensity))
+      ? Number(options.schematicCurrentDensity)
+      : routeSchematic;
+
+  const existingCount = route.metals.length;
+
+  for (let index = 0; index < metalInputs.length; index += 1) {
+    const input = metalInputs[index];
+    const globalIndex = existingCount + index;
+    const isFirstMetalOverall = globalIndex === 0;
+
+    const computed = await previewMetal({
+      projectId,
+      metalType: input.metalType,
+      width: input.width,
+      length: input.length,
+      connectionType: isFirstMetalOverall ? undefined : (input.connectionType ?? 'series'),
+      schematicCurrentDensity,
+    });
+
+    route.metals.push(metalSubdocFromComputed(computed, { omitConnectionType: isFirstMetalOverall }));
+  }
+
+  if (options?.schematicCurrentDensity != null) {
+    route.schematicCurrentDensity = options.schematicCurrentDensity;
+    route.metals.forEach((metal) => {
+      metal.givenCurrentDensity = options.schematicCurrentDensity!;
+      metal.schematicCurrentDensity = options.schematicCurrentDensity!;
+    });
+  }
+
+  normalizeMetalConnections(route.metals);
+  route.markModified('metals');
+  const summary = summarizeMetals(route.metals.map(toComputed));
+  Object.assign(route, applySummaryToMetals(route.metals, summary));
+  await route.save();
+
+  return serializeRouteForClient(route.toObject() as unknown as Record<string, unknown>);
+}
+
+export interface RouteMetalImportResultPayload {
+  success: boolean;
+  routeId: string;
+  metalsImported: number;
+  totalMetals: number;
+  route: ReturnType<typeof serializeRouteForClient>;
+  parseDiagnostics: {
+    worksheetName: string;
+    headerRow: number;
+    mergeRangeCount: number;
+    dataRowsScanned: number;
+    totalMetalRows: number;
+  };
+}
+
+export async function importRouteMetalsFromExcel(
+  routeId: string,
+  buffer: Buffer,
+  createdBy?: string,
+  createdByName?: string,
+): Promise<RouteMetalImportResultPayload> {
+  if (!Types.ObjectId.isValid(routeId)) {
+    throw new Error('Invalid route id');
+  }
+
+  const route = await getRouteById(routeId);
+  if (!route) {
+    throw new Error('Route not found');
+  }
+
+  const projectId = route.projectId.toString();
+  const expected = {
+    fromCell: String(route.fromCell ?? ''),
+    toCell: String(route.toCell ?? ''),
+    signal: routeSignalLabel(route as Record<string, unknown>),
+  };
+
+  const parseResult = await parseMetalRoutingExcelWithDiagnostics(buffer, { log: true });
+  const blocks = parseResult.routeBlocks;
+
+  let block = blocks.find((candidate) => routeBlocksMatchIdentity(candidate, expected));
+
+  if (!block) {
+    if (blocks.length === 1) {
+      const only = blocks[0];
+      if (!routeBlocksMatchIdentity(only, expected)) {
+        throw new Error(
+          `Excel route (${only.signal}, ${only.fromCell} → ${only.toCell}) does not match this signal `
+          + `(${expected.signal}, ${expected.fromCell} → ${expected.toCell}). Download the template from this signal page.`,
+        );
+      }
+      block = only;
+    } else if (blocks.length === 0) {
+      throw new Error('No metal rows found in the Excel file');
+    } else {
+      throw new Error(
+        `Excel contains ${blocks.length} signal routes. Import on this page only supports the open signal `
+        + `(${expected.signal}, ${expected.fromCell} → ${expected.toCell}).`,
+      );
+    }
+  }
+
+  if (!block.metals.length) {
+    throw new Error('At least one metal row is required');
+  }
+
+  const routeGiven = routeSchematicDensity(route);
+  const importGiven = block.givenCurrentCapability;
+  const existingMetalCount = ((route.metals as MetalEntrySubdoc[]) ?? []).length;
+
+  if (existingMetalCount > 0) {
+    if (routeGiven == null) {
+      throw new Error(
+        'This signal already has metal rows but no Given Current Capability is set. '
+        + 'Edit the signal and set Given Current Capability before importing more metals.',
+      );
+    }
+
+    if (importGiven == null) {
+      throw new Error(
+        `Given Current Capability is required in Excel and must match this signal (${routeGiven} mA). `
+        + 'Download the template from this page — the merged column must show the same value.',
+      );
+    }
+
+    if (!givenCurrentCapabilitiesMatch(routeGiven, importGiven)) {
+      throw new Error(
+        `Given Current Capability must match this signal (${routeGiven} mA). `
+        + `Excel has ${importGiven} mA. Use the same value to append more metal rows.`,
+      );
+    }
+  } else if (routeGiven != null && importGiven != null && !givenCurrentCapabilitiesMatch(routeGiven, importGiven)) {
+    throw new Error(
+      `Given Current Capability must match this signal (${routeGiven} mA). Excel has ${importGiven} mA.`,
+    );
+  }
+
+  const schematicCurrentDensity = importGiven ?? routeGiven;
+
+  const updated = await appendMetalsToRoute(
+    routeId,
+    block.metals.map((metal) => ({
+      metalType: metal.metalType,
+      width: metal.width,
+      length: metal.length,
+      connectionType: metal.connectionType,
+    })),
+    { schematicCurrentDensity },
+  );
+
+  return {
+    success: true,
+    routeId,
+    metalsImported: block.metals.length,
+    totalMetals: updated.metals.length,
+    route: updated,
     parseDiagnostics: {
       worksheetName: parseResult.worksheetName,
       headerRow: parseResult.headerRow,

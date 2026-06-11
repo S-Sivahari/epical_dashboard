@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
-import { toast } from 'sonner'
+import { TopDismissNotice, type TopNotice } from '@components/pdk/TopDismissNotice'
 import { MetalRoutingPageShell } from '@components/pdk/MetalRoutingPageShell'
+import { showPortalError, showPortalSuccess } from '@/utils/portalNotice'
 import { Button } from '@components/ui/Button'
 import { MetalRoutingTable } from '@components/pdk/MetalRoutingTable'
 import { AddMetalModal } from '@components/pdk/AddMetalModal'
-import { MetalRoutingExcelActions } from '@components/pdk/MetalRoutingExcelActions'
-import type { MetalEntry, MetalRoutingRoute, ProjectRoutingContext } from '@/types/pdkMetalRouting'
-import type { MetalRoutingImportResult } from '@services/pdkMetalRoutingService'
+import { RouteMetalExcelActions } from '@components/pdk/RouteMetalExcelActions'
+import type {
+  MetalConnectionType,
+  MetalEntry,
+  MetalRoutingRoute,
+  ProjectRoutingContext,
+} from '@/types/pdkMetalRouting'
 import {
   addMetalToRoute,
   fetchProjectContext,
@@ -29,9 +34,12 @@ export function ProjectCellRoutingPage({ basePath }: { basePath: string }) {
   const [context, setContext] = useState<ProjectRoutingContext | null>(null)
   const [route, setRoute] = useState<MetalRoutingRoute | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [metalModalOpen, setMetalModalOpen] = useState(false)
   const [editingMetal, setEditingMetal] = useState<MetalEntry | null>(null)
   const [savingMetal, setSavingMetal] = useState(false)
+  const [notice, setNotice] = useState<TopNotice | null>(null)
+  const dismissNotice = useCallback(() => setNotice(null), [])
 
   const routingFilter = useMemo(
     () => ({
@@ -50,7 +58,7 @@ export function ProjectCellRoutingPage({ basePath }: { basePath: string }) {
       setContext(fresh)
       return fresh
     } catch {
-      toast.error('Failed to load project')
+      showPortalError(setNotice, 'Failed to load project', 'Refresh the page or try again later.')
       return null
     }
   }, [projectId])
@@ -68,18 +76,22 @@ export function ProjectCellRoutingPage({ basePath }: { basePath: string }) {
     let cancelled = false
     const run = async () => {
       setLoading(true)
+      setLoadError(null)
       try {
         const existing = await lookupRoute(routingFilter)
         const opened = existing ?? (await resolveRoute(routingFilter))
-        if (!cancelled) setRoute(opened)
+        if (!cancelled) {
+          setRoute(opened)
+          setLoadError(null)
+        }
       } catch (err: unknown) {
         if (!cancelled) {
           const message =
             err && typeof err === 'object' && 'response' in err
               ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
               : undefined
-          toast.error(message ?? 'Failed to open route')
-          navigate(`${basePath}/projects/${projectId}/signal-analysis`)
+          setLoadError(message ?? 'Failed to open route')
+          setRoute(null)
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -100,20 +112,20 @@ export function ProjectCellRoutingPage({ basePath }: { basePath: string }) {
     metalType: string
     width: number
     length: number
-    connectionType: 'series' | 'parallel'
+    connectionType?: MetalConnectionType
   }) => {
     setSavingMetal(true)
     try {
       const result = await addMetalToRoute(routingFilter, payload)
       setRoute(result.route)
       closeMetalModal()
-      toast.success('Metal row added and saved')
+      showPortalSuccess(setNotice, 'Metal added', 'Metal row added and saved.')
     } catch (err: unknown) {
       const message =
         err && typeof err === 'object' && 'response' in err
           ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
           : undefined
-      toast.error(message ?? 'Failed to add metal')
+      showPortalError(setNotice, 'Add failed', message ?? 'Failed to add metal.')
     } finally {
       setSavingMetal(false)
     }
@@ -125,20 +137,20 @@ export function ProjectCellRoutingPage({ basePath }: { basePath: string }) {
       metalType: string
       width: number
       length: number
-      connectionType: 'series' | 'parallel'
+      connectionType?: MetalConnectionType
     },
   ) => {
     setSavingMetal(true)
     try {
       setRoute(await updateMetalInRoute(routingFilter, metalId, payload))
       closeMetalModal()
-      toast.success('Metal row updated')
+      showPortalSuccess(setNotice, 'Metal updated', 'Metal row updated.')
     } catch (err: unknown) {
       const message =
         err && typeof err === 'object' && 'response' in err
           ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
           : undefined
-      toast.error(message ?? 'Failed to update metal')
+      showPortalError(setNotice, 'Update failed', message ?? 'Failed to update metal.')
     } finally {
       setSavingMetal(false)
     }
@@ -148,44 +160,47 @@ export function ProjectCellRoutingPage({ basePath }: { basePath: string }) {
     if (!window.confirm('Remove this metal row?')) return
     try {
       setRoute(await removeMetalFromRoute(routingFilter, metalId))
-      toast.success('Metal removed')
+      showPortalSuccess(setNotice, 'Metal removed', 'Metal row removed.')
     } catch {
-      toast.error('Failed to remove metal')
-    }
-  }
-
-  const pdkAssigned = Boolean(context?.pdkModule)
-
-  const refreshAfterImport = async (importedRoute?: MetalRoutingRoute) => {
-    await loadContext()
-    if (!importedRoute) return
-    try {
-      const refreshed = await lookupRoute({
-        projectId,
-        signal: importedRoute.signal,
-        fromCell: importedRoute.fromCell,
-        toCell: importedRoute.toCell,
-      })
-      setRoute(refreshed ?? importedRoute)
-    } catch {
-      setRoute(importedRoute)
+      showPortalError(setNotice, 'Remove failed', 'Failed to remove metal.')
     }
   }
 
   if (loading && !route) {
     return (
       <MetalRoutingPageShell fill className="!p-0">
+        <TopDismissNotice notice={notice} onDismiss={dismissNotice} />
         <div className="flex flex-1 items-center justify-center p-8 text-sm text-muted">Loading route…</div>
       </MetalRoutingPageShell>
     )
   }
 
-  if (!route) return null
+  if (!route) {
+    return (
+      <MetalRoutingPageShell fill className="!p-0">
+        <TopDismissNotice notice={notice} onDismiss={dismissNotice} />
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
+          <p className="max-w-md rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            {loadError ?? 'This signal route could not be opened.'}
+          </p>
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={<ArrowLeft className="h-4 w-4" />}
+            onClick={() => navigate(`${basePath}/projects/${projectId}/signal-analysis`)}
+          >
+            Back to signals
+          </Button>
+        </div>
+      </MetalRoutingPageShell>
+    )
+  }
 
   return (
     <MetalRoutingPageShell fill className="!p-0">
+      <TopDismissNotice notice={notice} onDismiss={dismissNotice} />
       <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5">
-        <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
+        <div className="mb-3 flex shrink-0 flex-wrap items-start justify-between gap-2">
           <Button
             size="sm"
             variant="ghost"
@@ -194,20 +209,12 @@ export function ProjectCellRoutingPage({ basePath }: { basePath: string }) {
           >
             Back to signals
           </Button>
-          <MetalRoutingExcelActions
-            projectId={projectId}
+          <RouteMetalExcelActions
             routeId={route._id}
-            pdkAssigned={pdkAssigned}
+            route={route}
+            pdkAssigned={Boolean(context?.pdkModule)}
             exportFilename={`signal_${route.signal}_${route.fromCell}_${route.toCell}.xlsx`.replace(/\s+/g, '_')}
-            onImported={(result: MetalRoutingImportResult) => {
-              const match = result.routes.find(
-                (r) =>
-                  r.signal === route.signal &&
-                  r.fromCell === route.fromCell &&
-                  r.toCell === route.toCell,
-              )
-              void refreshAfterImport(match ?? result.routes[0])
-            }}
+            onImported={(result) => setRoute(result.route)}
           />
         </div>
         <MetalRoutingTable

@@ -1008,8 +1008,23 @@ body,
   background: #fde047;
   font-size: 0.6875rem;
   font-weight: 700;
-  text-transform: uppercase;
   color: #000;
+}
+
+.metal-routing-pdk-module-detail-table thead .metal-routing-col-label {
+  text-transform: uppercase;
+}
+
+.metal-routing-pdk-module-detail-table thead .metal-routing-col-unit {
+  text-transform: none !important;
+  letter-spacing: normal;
+  font-weight: 700;
+}
+
+.metal-routing-pdk-module-detail-table thead .metal-routing-col-unit__prefix {
+  text-transform: none !important;
+  font-size: 1em;
+  line-height: inherit;
 }
 
 .metal-routing-pdk-module-detail-table th,

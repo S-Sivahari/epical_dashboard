@@ -416,6 +416,12 @@
   line-height: inherit;
 }
 
+.metal-routing-metal-table__summary {
+  background-color: #fff !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
 /* ── Tables ── */
 .metal-routing-view .metal-routing-overview-table-wrap {
   max-height: min(32rem, 55vh);

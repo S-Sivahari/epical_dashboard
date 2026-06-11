@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Layers } from 'lucide-react'
-import { toast } from 'sonner'
+import { TopDismissNotice, type TopNotice } from '@components/pdk/TopDismissNotice'
 import { MetalRoutingPageShell } from '@components/pdk/MetalRoutingPageShell'
+import { showPortalError, showPortalSuccess } from '@/utils/portalNotice'
 import type { PdkModule, ProjectRoutingContext } from '@/types/pdkMetalRouting'
 import {
   assignPdkToProject,
@@ -17,6 +18,8 @@ export function ProjectPdkSelectionPage() {
   const [modules, setModules] = useState<PdkModule[]>([])
   const [loading, setLoading] = useState(true)
   const [assigning, setAssigning] = useState(false)
+  const [notice, setNotice] = useState<TopNotice | null>(null)
+  const dismissNotice = useCallback(() => setNotice(null), [])
 
   const load = async () => {
     setLoading(true)
@@ -25,7 +28,7 @@ export function ProjectPdkSelectionPage() {
       setModules(mods)
       setContext(ctx)
     } catch {
-      toast.error('Failed to load project')
+      showPortalError(setNotice, 'Failed to load project', 'Refresh the page or try again later.')
     } finally {
       setLoading(false)
     }
@@ -39,10 +42,10 @@ export function ProjectPdkSelectionPage() {
     setAssigning(true)
     try {
       await assignPdkToProject(projectId, pdkModuleId || null)
-      toast.success('PDK module assigned to project')
+      showPortalSuccess(setNotice, 'PDK assigned', 'PDK module assigned to project.')
       setContext(await fetchProjectContext(projectId))
     } catch {
-      toast.error('Failed to assign PDK module')
+      showPortalError(setNotice, 'Assignment failed', 'Failed to assign PDK module.')
     } finally {
       setAssigning(false)
     }
@@ -52,6 +55,7 @@ export function ProjectPdkSelectionPage() {
 
   return (
     <MetalRoutingPageShell className="min-h-0 flex-1">
+      <TopDismissNotice notice={notice} onDismiss={dismissNotice} />
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-6">
         <div className="metal-routing-dashboard metal-routing-cell-project-page">
           <header className="metal-routing-cell-project-top">

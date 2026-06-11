@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Calculator, Plus, Save } from 'lucide-react'
-import { toast } from 'sonner'
 import { Modal } from '@components/ui/Modal'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
@@ -8,6 +7,7 @@ import { MetalRoutingColumnHeaderCell } from '@components/pdk/MetalRoutingColumn
 import { METAL_ROUTING_TABLE_HEADERS } from '@/constants/metalRoutingTableHeaders'
 import type { MetalConnectionType, MetalEntry, PdkModule } from '@/types/pdkMetalRouting'
 import { previewMetal } from '@services/pdkMetalRoutingService'
+import { isValidDecimalInput, sanitizeDecimalInput } from '@/utils/decimalInput'
 
 type MetalPayload = {
   metalType: string
@@ -49,6 +49,7 @@ export function AddMetalModal({
   const [connectionType, setConnectionType] = useState<MetalConnectionType>('series')
   const [preview, setPreview] = useState<MetalEntry | null>(null)
   const [calculating, setCalculating] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isOpen) {
@@ -57,6 +58,7 @@ export function AddMetalModal({
       setLength('')
       setConnectionType('series')
       setPreview(null)
+      setFormError(null)
       return
     }
     if (editingMetal) {
@@ -70,17 +72,28 @@ export function AddMetalModal({
 
   const effectiveConnection: MetalConnectionType = showConnection ? connectionType : 'series'
 
+  const handleDecimalChange = (value: string, setter: (next: string) => void) => {
+    setter(sanitizeDecimalInput(value))
+    setPreview(null)
+    setFormError(null)
+  }
+
   const handleCalculate = async () => {
     const w = Number(width)
     const l = Number(length)
     if (!metalType.trim()) {
-      toast.error('Select a metal type')
+      setFormError('Select a metal type')
+      return
+    }
+    if (!isValidDecimalInput(width) || !isValidDecimalInput(length)) {
+      setFormError('Width and length must be positive numbers (digits and decimal point only)')
       return
     }
     if (!Number.isFinite(w) || w < 0 || !Number.isFinite(l) || l < 0) {
-      toast.error('Enter valid width and length')
+      setFormError('Enter valid width and length')
       return
     }
+    setFormError(null)
     setCalculating(true)
     try {
       const result = await previewMetal(projectId, {
@@ -96,7 +109,7 @@ export function AddMetalModal({
         err && typeof err === 'object' && 'response' in err
           ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
           : undefined
-      toast.error(message ?? 'Calculation failed')
+      setFormError(message ?? 'Calculation failed')
     } finally {
       setCalculating(false)
     }
@@ -115,9 +128,10 @@ export function AddMetalModal({
   const handleSave = async () => {
     const payload = buildPayload()
     if (!payload) {
-      toast.error('Calculate first to preview the row')
+      setFormError('Calculate first to preview the row')
       return
     }
+    setFormError(null)
     if (isEdit && editingMetal && onUpdate) {
       await onUpdate(editingMetal._id, payload)
     } else {
@@ -139,7 +153,7 @@ export function AddMetalModal({
             {routeSchematicCurrentDensity != null ? (
               <>
                 {' '}
-                · Schematic: <strong className="text-ink">{routeSchematicCurrentDensity}</strong> mA/µm
+                · Given current capability: <strong className="text-ink">{routeSchematicCurrentDensity}</strong> mA/µm
               </>
             ) : null}
           </p>
@@ -170,8 +184,30 @@ export function AddMetalModal({
         </label>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <Input label="Metal Width(µm)" type="number" step="any" min={0} value={width} onChange={(e) => { setWidth(e.target.value); setPreview(null) }} />
-          <Input label="Metal Length(µm)" type="number" step="any" min={0} value={length} onChange={(e) => { setLength(e.target.value); setPreview(null) }} />
+          <Input
+            label="Metal Width(µm)"
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            placeholder="0.0"
+            value={width}
+            onChange={(e) => handleDecimalChange(e.target.value, setWidth)}
+            onKeyDown={(e) => {
+              if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault()
+            }}
+          />
+          <Input
+            label="Metal Length(µm)"
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            placeholder="0.0"
+            value={length}
+            onChange={(e) => handleDecimalChange(e.target.value, setLength)}
+            onKeyDown={(e) => {
+              if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault()
+            }}
+          />
         </div>
 
         {showConnection ? (
@@ -185,8 +221,8 @@ export function AddMetalModal({
                 setPreview(null)
               }}
             >
-              <option value="series">Series — add resistance to total</option>
-              <option value="parallel">Parallel — combine with (R1×R2)/(R1+R2)</option>
+              <option value="series">Series</option>
+              <option value="parallel">Parallel</option>
             </select>
           </label>
         ) : null}
@@ -221,13 +257,19 @@ export function AddMetalModal({
                   {showConnection ? (
                     <td className="px-2 py-2">{preview.connectionType ?? effectiveConnection}</td>
                   ) : null}
-                  <td className="px-2 py-2">{preview.givenCurrentDensity.toFixed(4)}</td>
+                  <td className="px-2 py-2">
+                    {(routeSchematicCurrentDensity ?? preview.givenCurrentDensity).toFixed(4)}
+                  </td>
                   <td className="px-2 py-2">{preview.implementedCurrentMetalCapacity.toFixed(4)}</td>
                   <td className="px-2 py-2">{preview.routingMetalImpedance.toFixed(4)}</td>
                 </tr>
               </tbody>
             </table>
           </div>
+        ) : null}
+
+        {formError ? (
+          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{formError}</p>
         ) : null}
 
         <div className="flex justify-end gap-2 pt-2">

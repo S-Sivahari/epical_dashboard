@@ -144,6 +144,52 @@ function extractMetadata(sheet: ExcelJS.Worksheet, beforeRow: number): ParsedPdk
   return metadata;
 }
 
+function scoreWorksheetHeaders(sheet: ExcelJS.Worksheet): number {
+  let bestScore = 0;
+  sheet.eachRow((row, rowNumber) => {
+    if (rowNumber > 15) return;
+    const columnMap = new Map<number, PdkColumnKey>();
+    row.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+      const key = classifyColumn(excelCellText(cell.value));
+      if (key && !columnMap.has(colNumber)) columnMap.set(colNumber, key);
+    });
+    const found = new Set(columnMap.values());
+    const score = REQUIRED_COLUMNS.filter((k) => found.has(k)).length;
+    if (score > bestScore) bestScore = score;
+  });
+  return bestScore;
+}
+
+function findBestWorksheet(wb: ExcelJS.Workbook): ExcelJS.Worksheet {
+  let bestSheet: ExcelJS.Worksheet | null = null;
+  let bestScore = 0;
+
+  for (const sheet of wb.worksheets) {
+    const score = scoreWorksheetHeaders(sheet);
+    if (score > bestScore) {
+      bestScore = score;
+      bestSheet = sheet;
+    }
+  }
+
+  if (!bestSheet || bestScore < REQUIRED_COLUMNS.length) {
+    throw new Error(
+      'Invalid PDK Excel file. No worksheet contains the required columns: '
+      + 'Name, J_DC(mA/µm), J_DC(mA/µm) at 110° C, mOhm/Sq at 110° C',
+    );
+  }
+
+  return bestSheet;
+}
+
+function getLastPopulatedRow(sheet: ExcelJS.Worksheet): number {
+  let lastRow = 1;
+  sheet.eachRow({ includeEmpty: false }, (_row, rowNumber) => {
+    lastRow = rowNumber;
+  });
+  return lastRow;
+}
+
 function findHeaderRow(sheet: ExcelJS.Worksheet): { rowNumber: number; columnMap: Map<number, PdkColumnKey> } {
   let bestMatch = { rowNumber: 0, columnMap: new Map<number, PdkColumnKey>(), score: 0 };
 
@@ -189,29 +235,33 @@ export async function parsePdkExcelBuffer(buffer: Buffer): Promise<ParsedPdkExce
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buffer as unknown as ExcelJS.Buffer);
 
-  const sheet = wb.worksheets[0];
-  if (!sheet) {
+  if (!wb.worksheets.length) {
     throw new Error('Excel file contains no worksheets');
   }
 
+  const sheet = findBestWorksheet(wb);
   const { rowNumber: headerRow, columnMap } = findHeaderRow(sheet);
   const metadata = extractMetadata(sheet, headerRow);
   const metals: ParsedPdkMetalRow[] = [];
+  const lastRow = getLastPopulatedRow(sheet);
 
-  for (let rowNum = headerRow + 1; rowNum <= sheet.rowCount; rowNum++) {
+  for (let rowNum = headerRow + 1; rowNum <= lastRow; rowNum++) {
     const row = sheet.getRow(rowNum);
     const name = excelCellText(getCellByKey(row, columnMap, 'name'));
     if (!name) continue;
 
     const metalType = name.trim();
+    const currentDensity = parseNumeric(getCellByKey(row, columnMap, 'jdc'), metalType, COLUMN_LABELS.jdc);
+    const jdc110Cell = getCellByKey(row, columnMap, 'jdc110');
+    const jdc110Text = excelCellText(jdc110Cell);
+    const currentDensityAt110 = jdc110Text
+      ? parseNumeric(jdc110Cell, metalType, COLUMN_LABELS.jdc110)
+      : currentDensity;
+
     metals.push({
       metalType,
-      currentDensity: parseNumeric(getCellByKey(row, columnMap, 'jdc'), metalType, COLUMN_LABELS.jdc),
-      currentDensityAt110: parseNumeric(
-        getCellByKey(row, columnMap, 'jdc110'),
-        metalType,
-        COLUMN_LABELS.jdc110,
-      ),
+      currentDensity,
+      currentDensityAt110,
       sheetResistance: parseNumeric(
         getCellByKey(row, columnMap, 'sheetR'),
         metalType,
@@ -233,13 +283,13 @@ export async function parsePdkExcelBuffer(buffer: Buffer): Promise<ParsedPdkExce
 }
 
 const TEMPLATE_METALS = [
-  { name: 'MET1', jdc: 1 },
-  { name: 'MET2', jdc: 1 },
-  { name: 'MET3', jdc: 1 },
-  { name: 'MET4', jdc: 1 },
-  { name: 'MET5', jdc: 1 },
-  { name: 'MET6', jdc: 1.6 },
-  { name: 'AP', jdc: 6 },
+  { name: 'MET1', jdc: 1, jdc110: 0.85, sheetR: 0.12 },
+  { name: 'MET2', jdc: 1, jdc110: 1.1, sheetR: 0.08 },
+  { name: 'MET3', jdc: 1, jdc110: 1.45, sheetR: 0.05 },
+  { name: 'MET4', jdc: 1, jdc110: 2.0, sheetR: 0.035 },
+  { name: 'MET5', jdc: 1, jdc110: 2.4, sheetR: 0.03 },
+  { name: 'MET6', jdc: 1.6, jdc110: 2.9, sheetR: 0.025 },
+  { name: 'AP', jdc: 6, jdc110: 6, sheetR: 0.02 },
 ];
 
 const PDK_TEMPLATE_COLS = 4;
@@ -319,8 +369,8 @@ function styleTemplateGrid(sheet: ExcelJS.Worksheet) {
     const rowNum = index + 3;
     styleTemplateCell(sheet.getCell(rowNum, 1), { value: metal.name });
     styleTemplateCell(sheet.getCell(rowNum, 2), { value: metal.jdc });
-    styleTemplateCell(sheet.getCell(rowNum, 3), { value: null, fill: PDK_COLORS.inputGreen });
-    styleTemplateCell(sheet.getCell(rowNum, 4), { value: null, fill: PDK_COLORS.inputGreen });
+    styleTemplateCell(sheet.getCell(rowNum, 3), { value: metal.jdc110, fill: PDK_COLORS.inputGreen });
+    styleTemplateCell(sheet.getCell(rowNum, 4), { value: metal.sheetR, fill: PDK_COLORS.inputGreen });
   });
 
   // Ensure every cell in the engineering grid has consistent borders and background.

@@ -255,15 +255,13 @@ export function MetalRoutingProjectListRows({
                       {project.technologyNode}
                     </span>
                   ) : null}
-                  {variant === 'cell-routing' ? (
-                    project.pdkModuleName ? (
-                      <span className="metal-routing-meta-chip metal-routing-meta-chip--metals">
-                        {project.pdkModuleName}
-                      </span>
-                    ) : (
-                      <span className="metal-routing-meta-chip metal-routing-meta-chip--na">Unassigned</span>
-                    )
-                  ) : null}
+                  {project.pdkModuleName ? (
+                    <span className="metal-routing-meta-chip metal-routing-meta-chip--metals">
+                      {project.pdkModuleName}
+                    </span>
+                  ) : (
+                    <span className="metal-routing-meta-chip metal-routing-meta-chip--na">Unassigned</span>
+                  )}
                   <MetalRoutingPill tone={status.variant as 'success' | 'warning' | 'neutral' | 'danger'}>
                     {status.label}
                   </MetalRoutingPill>
