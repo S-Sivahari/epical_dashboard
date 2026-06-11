@@ -36,8 +36,15 @@ body,
 .admin-portal.cmd-portal .cmd-main:has([data-admin-calendar]),
 .employee-portal.cmd-portal .cmd-main:has([data-employee-calendar]),
 .employee-portal.cmd-portal .cmd-main:has([data-employee-leave]),
-.employee-portal.cmd-portal .cmd-main:has([data-employee-dashboard]) {
+.employee-portal.cmd-portal .cmd-main:has([data-employee-dashboard]),
+.employee-portal.cmd-portal .cmd-main:has([data-employee-project-workspace]),
+.employee-portal.cmd-portal .cmd-main:has([data-employee-project-cell]) {
   overflow: hidden;
+}
+
+.employee-portal.cmd-portal .cmd-main:has([data-page-scrollable]) {
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .admin-portal main > .relative,
@@ -356,7 +363,9 @@ body,
 /* Employee dashboard, calendar, leave — viewport-fit with internal panel scroll */
 .employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-dashboard]),
 .employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-calendar]),
-.employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-leave]) {
+.employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-leave]),
+.employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-project-workspace]),
+.employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-project-cell]) {
   flex: 1 1 0;
   max-height: var(--viewport-page-h);
   overflow: hidden;
@@ -364,7 +373,9 @@ body,
 
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]):not(:has([data-page-scrollable])),
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-dashboard]),
-.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-leave]) {
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-leave]),
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-project-workspace]),
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-project-cell]) {
   display: flex;
   flex: 1 1 0;
   flex-direction: column;

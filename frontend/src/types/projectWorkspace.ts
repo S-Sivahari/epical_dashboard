@@ -294,7 +294,7 @@ export interface ProjectCell {
   description: string
   cellType: CellType
   technologyNode: string
-  complexity: 'Low' | 'Medium' | 'High'
+  complexity: 'Simple' | 'Medium' | 'Hard' | 'Critical'
   baseHours: number
   estimatedEffort: number
   smartEstimate: number
@@ -400,6 +400,10 @@ export interface EmployeeProjectWorkspace {
 export interface EmployeeCellDetail {
   project: { id: string; name: string }
   isTeamLead?: boolean
+  permissions?: {
+    canManageWorkflow?: boolean
+    canReview?: boolean
+  }
   library: ProjectLibrary | null
   cell: ProjectCell
   reviews: CellReview[]

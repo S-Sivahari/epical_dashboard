@@ -113,7 +113,7 @@ export function EmployeeCellChecklistSidebar({
             </p>
           ) : null}
           {readOnly ? (
-            <p className="emp-wf-checklist-panel-readonly">View only — cell not assigned to you</p>
+            <p className="emp-wf-checklist-panel-readonly">View only — you cannot edit this cell</p>
           ) : showCompletionRequirement && totalCount > 0 && !checklist?.isFilled ? (
             <p className="emp-wf-checklist-panel-required">
               Answer all checklist items before completing the final stage

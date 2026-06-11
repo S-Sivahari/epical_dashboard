@@ -213,5 +213,10 @@ export function layoutStageButtonLabel(cell) {
 
 export function complexityTag(complexity) {
   if (!complexity) return 'MEDIUM'
+  const raw = String(complexity).trim().toLowerCase()
+  if (raw === 'simple' || raw === 'low') return 'SIMPLE'
+  if (raw === 'hard' || raw === 'high') return 'HARD'
+  if (raw === 'critical') return 'CRITICAL'
+  if (raw === 'medium') return 'MEDIUM'
   return String(complexity).toUpperCase()
 }

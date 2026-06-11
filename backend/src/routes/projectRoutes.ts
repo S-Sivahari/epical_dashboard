@@ -24,8 +24,10 @@ router.get('/:projectId/mine/effort-prediction', employeeProjectController.getEf
 router.get('/:projectId/mine/pending-reviews', employeeProjectController.listProjectPendingReviews);
 router.post('/:projectId/mine/libraries', employeeProjectController.createLibrary);
 router.post('/:projectId/mine/libraries/:libraryId/cells', employeeProjectController.createCell);
+router.patch('/:projectId/cells/:cellId/mine/assign', employeeProjectController.assignProjectCell);
 router.get('/:projectId/cells/:cellId/mine', employeeProjectController.getMyCell);
 router.patch('/:projectId/cells/:cellId/mine/workflow', employeeProjectController.updateWorkflow);
+router.patch('/:projectId/cells/:cellId/mine/workflow/:stageKey', employeeProjectController.updateMyWorkflowStage);
 router.post('/:projectId/cells/:cellId/mine/reviews', employeeProjectController.requestReview);
 router.patch('/:projectId/cells/:cellId/mine/reviews/:reviewId/resolve', employeeProjectController.resolveCellReview);
 router.get('/:projectId/cells/:cellId/mine/reviews', employeeProjectController.listMyCellReviews);

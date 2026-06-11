@@ -23,7 +23,9 @@ export type NotificationType =
   | 'TicketCommentAdded'
   | 'CellReviewRequested'
   | 'CellReviewApproved'
-  | 'CellReviewRejected';
+  | 'CellReviewRejected'
+  | 'CellCreatedUnassigned'
+  | 'CellAssigned';
 
 export interface Notification {
   _id?: ObjectId;
@@ -67,6 +69,9 @@ export interface Notification {
     reviewOutcome?: string;
     returnToStage?: string;
     resolvedByName?: string;
+    libraryName?: string;
+    createdByName?: string;
+    assignedByName?: string;
   };
   relatedId?: string;
   isRead: boolean;
@@ -114,6 +119,9 @@ export interface CreateNotificationPayload {
     reviewOutcome?: string;
     returnToStage?: string;
     resolvedByName?: string;
+    libraryName?: string;
+    createdByName?: string;
+    assignedByName?: string;
   };
   relatedId?: string;
 }

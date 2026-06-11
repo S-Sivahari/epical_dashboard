@@ -5,6 +5,21 @@
   min-height: 0;
 }
 
+[data-employee-project-hub]:has([data-employee-project-workspace]),
+[data-employee-project-hub]:has([data-employee-project-cell]) {
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: var(--viewport-page-h);
+  overflow: hidden;
+}
+
+[data-employee-project-hub]:has([data-employee-project-workspace]) > .admin-projects-workspace-shell,
+[data-employee-project-hub]:has([data-employee-project-cell]) > .admin-projects-workspace-shell {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .admin-projects-employee-reviews-link {
   display: inline-flex;
   align-items: center;
@@ -73,10 +88,21 @@
   flex-direction: column;
 }
 
+.admin-projects-employee-cell-shell .admin-projects-workspace-shell {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 .admin-projects-employee-cell-shell .admin-projects-cell-page-body {
   flex: 1 1 0;
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   background: #eef3f0;
 }
 
@@ -89,12 +115,49 @@
   background: #eef3f0;
 }
 
+.admin-projects-employee-cell-role-note {
+  margin: 0.75rem 1rem 0;
+  padding: 0.625rem 0.875rem;
+  border-radius: 0.625rem;
+  border: 1px solid rgba(38, 107, 28, 0.2);
+  background: rgba(38, 107, 28, 0.08);
+  color: #1a4329;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
 .admin-projects-employee-cell-main {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
-  padding: 0 1rem 1rem;
-  min-height: min(28rem, calc(100vh - 13rem));
+  padding: 0 1rem 1.5rem;
+  flex: 0 0 auto;
+  min-height: auto;
+}
+
+[data-employee-project-cell] .admin-projects-cell-details-views-panel .admin-projects-workflow-board-wrap {
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+[data-employee-project-cell] .emp-wf-cell-checklist-split {
+  flex: 0 0 auto;
+  min-height: auto;
+}
+
+[data-employee-project-cell] .emp-wf-checklist-panel,
+[data-employee-project-cell] .emp-wf-final-cell-details {
+  min-height: auto;
+  overflow: visible;
+}
+
+[data-employee-project-cell] .emp-wf-checklist-panel-body,
+[data-employee-project-cell] .emp-wf-final-cell-details-form {
+  flex: none;
+  min-height: auto;
+  overflow: visible;
 }
 
 .admin-projects-employee-assigned-badge {

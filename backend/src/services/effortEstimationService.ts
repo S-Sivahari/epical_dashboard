@@ -2,17 +2,35 @@ import { Types } from 'mongoose';
 import { ProjectCellModel } from '../models/ProjectCell';
 import { normalizeCellType } from './projectTypeChecklistService';
 
-export type CellComplexity = 'Low' | 'Medium' | 'High';
+export type CellComplexity = 'Simple' | 'Medium' | 'Hard' | 'Critical';
 export type EstimateConfidence = 'High' | 'Low';
 
+/** One working day in hours. */
+export const DEFAULT_BASE_HOURS = 8;
+
+export const CELL_COMPLEXITY_OPTIONS: CellComplexity[] = ['Simple', 'Medium', 'Hard', 'Critical'];
+
 export const COMPLEXITY_FACTOR: Record<CellComplexity, number> = {
-  Low: 1,
+  Simple: 1,
   Medium: 2,
-  High: 3.5,
+  Hard: 3,
+  Critical: 4,
 };
 
 export function normalizeComplexity(value: unknown): CellComplexity {
-  return value === 'Low' || value === 'High' ? value : 'Medium';
+  const raw = String(value ?? '').trim().toLowerCase();
+  if (raw === 'simple' || raw === 'low') return 'Simple';
+  if (raw === 'hard' || raw === 'high') return 'Hard';
+  if (raw === 'critical') return 'Critical';
+  return 'Medium';
+}
+
+export function complexityMatchValues(complexity: unknown): string[] {
+  const normalized = normalizeComplexity(complexity);
+  if (normalized === 'Simple') return ['Simple', 'Low'];
+  if (normalized === 'Hard') return ['Hard', 'High'];
+  if (normalized === 'Critical') return ['Critical'];
+  return ['Medium'];
 }
 
 export function getComplexityFactor(complexity: unknown): number {
@@ -32,8 +50,22 @@ export function deriveBaseHours(
   if (storedBaseHours != null && storedBaseHours > 0) return storedBaseHours;
   const estimated = Math.max(0, Number(estimatedEffort) || 0);
   const factor = getComplexityFactor(complexity);
-  if (estimated <= 0 || factor <= 0) return 0;
+  if (estimated <= 0 || factor <= 0) return DEFAULT_BASE_HOURS;
   return roundHours(estimated / factor);
+}
+
+export function resolveBaseHoursInput(
+  baseHours: unknown,
+  estimatedEffort: unknown,
+  complexity: unknown,
+): number {
+  if (baseHours != null && baseHours !== '') {
+    const parsed = Number(baseHours);
+    if (!Number.isNaN(parsed)) return Math.max(0, parsed);
+  }
+  const estimated = Math.max(0, Number(estimatedEffort) || 0);
+  if (estimated > 0) return deriveBaseHours(estimated, complexity);
+  return DEFAULT_BASE_HOURS;
 }
 
 function roundHours(value: number): number {
@@ -62,7 +94,7 @@ export async function predictEffort(input: EffortPredictionInput): Promise<Effor
   const cellType = normalizeCellType(input.cellType);
   const technologyNode = String(input.technologyNode || '').trim();
   const complexity = normalizeComplexity(input.complexity);
-  const baseHours = Math.max(0, Number(input.baseHours) || 0);
+  const baseHours = resolveBaseHoursInput(input.baseHours, undefined, complexity);
   const complexityFactor = getComplexityFactor(complexity);
   const estimatedHours = calculateEstimatedHours(baseHours, complexity);
 
@@ -70,7 +102,7 @@ export async function predictEffort(input: EffortPredictionInput): Promise<Effor
     status: 'completed',
     cellType,
     technologyNode,
-    complexity,
+    complexity: { $in: complexityMatchValues(complexity) },
     estimatedEffort: { $gt: 0 },
     actualEffort: { $gt: 0 },
   };
