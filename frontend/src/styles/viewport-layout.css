@@ -128,6 +128,7 @@ body,
 .admin-portal .admin-achievements-shell,
 .admin-portal .admin-analytics-shell,
 .admin-portal .admin-projects-workspace-shell,
+.employee-portal .admin-projects-workspace-shell,
 .admin-portal .admin-leaves-shell {
   display: flex;
   flex-direction: column;
@@ -244,12 +245,25 @@ body,
 }
 
 /* Projects & other standalone admin views — page scroll via cmd-main */
-.admin-portal .admin-projects-view {
+.admin-portal .admin-projects-view,
+.employee-portal .admin-projects-view {
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   flex-direction: column;
   min-height: 0;
-  overflow: visible;
+  overflow: hidden;
+}
+
+.employee-portal.cmd-portal .cmd-main:has(.admin-projects-page) {
+  overflow: hidden;
+}
+
+.employee-portal main > .relative:has(.admin-projects-page) {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .admin-portal .admin-projects-view > .projects-page-wrapper,

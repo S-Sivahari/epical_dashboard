@@ -34,6 +34,7 @@ import {
 import { sendReviewNotificationsFromCell } from '../services/cellReviewNotificationService';
 import { clearResponsesForCell, normalizeCellType } from '../services/projectTypeChecklistService';
 import { isAdminRole } from '../utils/generateToken';
+import { assertProjectForRequest } from '../utils/projectAccessHelper';
 
 function paramId(value: string | string[]): string {
   return Array.isArray(value) ? value[0] : value;
@@ -48,9 +49,8 @@ function actorFromReq(req: Request): { userId: string; userName: string; role: '
   };
 }
 
-async function assertProject(projectId: string) {
-  if (!Types.ObjectId.isValid(projectId)) return null;
-  return ProjectModel.findById(projectId);
+async function assertProject(req: Request, projectId: string) {
+  return assertProjectForRequest(req, projectId);
 }
 
 function normalizeStatus(value: string): CellStatus {
@@ -156,7 +156,7 @@ export const projectWorkspaceController = {
   getWorkspaceSummary: async (req: Request, res: Response): Promise<void> => {
     try {
       const projectId = paramId(req.params.projectId);
-      const project = await assertProject(projectId);
+      const project = await assertProject(req, projectId);
       if (!project) {
         res.status(404).json({ error: 'Project not found' });
         return;
@@ -226,7 +226,7 @@ export const projectWorkspaceController = {
   listLibraries: async (req: Request, res: Response): Promise<void> => {
     try {
       const projectId = paramId(req.params.projectId);
-      if (!(await assertProject(projectId))) {
+      if (!(await assertProject(req, projectId))) {
         res.status(404).json({ error: 'Project not found' });
         return;
       }
@@ -240,7 +240,7 @@ export const projectWorkspaceController = {
   createLibrary: async (req: Request, res: Response): Promise<void> => {
     try {
       const projectId = paramId(req.params.projectId);
-      const project = await assertProject(projectId);
+      const project = await assertProject(req, projectId);
       if (!project) {
         res.status(404).json({ error: 'Project not found' });
         return;
@@ -323,7 +323,7 @@ export const projectWorkspaceController = {
     try {
       const projectId = paramId(req.params.projectId);
       const libraryId = paramId(req.params.libraryId);
-      const project = await assertProject(projectId);
+      const project = await assertProject(req, projectId);
       const library = await ProjectLibraryModel.findOne({ _id: libraryId, projectId });
       if (!project || !library) {
         res.status(404).json({ error: 'Project or library not found' });

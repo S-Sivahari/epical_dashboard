@@ -153,30 +153,22 @@ const EmployeeProfilePage = lazy(() =>
   import('@pages/employee/EmployeeProfile')
 )
 
-const EmployeeProjectsLayout = lazy(() =>
-  import('@components/employee/projects/EmployeeProjectsLayout').then((m) => ({
-    default: m.EmployeeProjectsLayout,
+const EmployeeProjectsDashboard = lazy(() =>
+  import('@pages/admin/Projects/ProjectsDashboard').then((m) => ({
+    default: m.ProjectsDashboard,
   }))
 )
 
-const EmployeeProjectsDashboard = lazy(() =>
-  import('@pages/employee/EmployeeProjectsDashboard')
-)
-
-const EmployeeProjectsListPage = lazy(() =>
-  import('@pages/employee/EmployeeProjectsListPage')
-)
-
-const EmployeeRequestedReviewsPage = lazy(() =>
-  import('@pages/employee/EmployeeRequestedReviewsPage')
-)
-
 const EmployeeProjectWorkspace = lazy(() =>
-  import('@pages/employee/EmployeeProjectWorkspace')
+  import('@pages/admin/Projects/ProjectWorkspace').then((m) => ({
+    default: m.ProjectWorkspace,
+  }))
 )
 
-const EmployeeCellWorkflow = lazy(() =>
-  import('@pages/employee/EmployeeCellWorkflow')
+const EmployeeProjectCellPage = lazy(() =>
+  import('@pages/admin/Projects/ProjectCellPage').then((m) => ({
+    default: m.ProjectCellPage,
+  }))
 )
 
 // ── Not Found ────────────────────────────────────────────────
@@ -299,13 +291,10 @@ export function AppRoutes() {
               element={<EmployeeTimesheet />}
             />
 
-            <Route path="projects" element={<EmployeeProjectsLayout />}>
-              <Route index element={<EmployeeProjectsDashboard />} />
-              <Route path="my-projects" element={<EmployeeProjectsListPage />} />
-              <Route path="reviews" element={<EmployeeRequestedReviewsPage />} />
-              <Route path=":projectId" element={<EmployeeProjectWorkspace />} />
-              <Route path=":projectId/cells/:cellId" element={<EmployeeCellWorkflow />} />
-            </Route>
+            <Route path="projects" element={<EmployeeProjectsDashboard />} />
+            <Route path="projects/my-projects" element={<Navigate to="/employee/projects" replace />} />
+            <Route path="projects/:projectId/cells/:cellId" element={<EmployeeProjectCellPage />} />
+            <Route path="projects/:projectId" element={<EmployeeProjectWorkspace />} />
 
             <Route
               path="leave"

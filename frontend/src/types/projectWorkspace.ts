@@ -377,6 +377,8 @@ export interface EmployeeProjectWorkspace {
     cellCount: number
     assignedToMe: number
     completedCells: number
+    notStartedCells: number
+    inProgressCells: number
     blockedCells: number
     readyCells: number
     unassignedCells: number

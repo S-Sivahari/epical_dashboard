@@ -8,8 +8,9 @@ const prefetchers = {
     ]),
   '/employee/projects': () =>
     Promise.all([
-      import('@components/employee/projects/EmployeeProjectsLayout'),
-      import('@pages/employee/EmployeeProjectsDashboard'),
+      import('@pages/admin/Projects/ProjectsDashboard'),
+      import('@pages/admin/Projects/ProjectWorkspace'),
+      import('@pages/admin/Projects/ProjectCellPage'),
     ]),
   '/employee/leave': () => import('@pages/employee/LeaveRequest'),
   '/employee/calendar': () => import('@pages/employee/CompanyCalendar'),

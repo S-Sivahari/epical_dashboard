@@ -1,11 +1,23 @@
 import { Suspense } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { LoginBackground } from '@components/auth/LoginBackground'
 import { PageLoading } from '@components/layout/PageLoading'
 import { PortalErrorBoundary } from '@components/employee/shared/PortalErrorBoundary'
 import { EmployeeCommandBar } from './EmployeeCommandBar'
 import { EmployeePageShell } from './EmployeePageShell'
 import { EmployeeTopNav } from './EmployeeTopNav'
+
+function EmployeeOutlet() {
+  const { pathname } = useLocation()
+  if (pathname.startsWith('/employee/projects')) {
+    return <Outlet />
+  }
+  return (
+    <EmployeePageShell>
+      <Outlet />
+    </EmployeePageShell>
+  )
+}
 
 export function AppLayout() {
   return (
@@ -19,9 +31,7 @@ export function AppLayout() {
         <div className="relative z-[1] flex min-h-0 flex-1 flex-col">
           <PortalErrorBoundary>
             <Suspense fallback={<PageLoading />}>
-              <EmployeePageShell>
-                <Outlet />
-              </EmployeePageShell>
+              <EmployeeOutlet />
             </Suspense>
           </PortalErrorBoundary>
         </div>

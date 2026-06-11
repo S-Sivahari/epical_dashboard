@@ -7,7 +7,9 @@ import { PaginationBar } from '@components/tables/Pagination'
 import { Avatar } from '@components/ui/Avatar'
 import { Badge } from '@components/ui/Badge'
 import { ROUTES } from '@constants/routes'
+import { fetchMyAssignedProjects } from '@/services/employeeProjectService'
 import api from '@/services/api'
+import { useProjectPortal } from './projectPortal'
 import { cn } from '@/utils/cn'
 import { stringToHueColor, stringToHueHoverBg } from '@/utils/stringColor'
 import type { AdminProjectRow } from '@/types/projectWorkspace'
@@ -21,6 +23,7 @@ type SortKey =
   | 'completionPercentage'
 
 export function ProjectsDashboard() {
+  const { isEmployee, projectWorkspacePath } = useProjectPortal()
   const [searchParams] = useSearchParams()
   const tab = searchParams.get('tab')
   const [projects, setProjects] = useState<AdminProjectRow[]>([])
@@ -34,14 +37,19 @@ export function ProjectsDashboard() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const { data } = await api.get<AdminProjectRow[]>('/projects?syncCompletion=true')
-      setProjects(Array.isArray(data) ? data : [])
+      if (isEmployee) {
+        const data = await fetchMyAssignedProjects()
+        setProjects(Array.isArray(data) ? (data as AdminProjectRow[]) : [])
+      } else {
+        const { data } = await api.get<AdminProjectRow[]>('/projects?syncCompletion=true')
+        setProjects(Array.isArray(data) ? data : [])
+      }
     } catch {
       setProjects([])
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [isEmployee])
 
   useEffect(() => {
     void load()
@@ -95,7 +103,7 @@ export function ProjectsDashboard() {
         sortable: true,
         render: (p) => (
           <Link
-            to={ROUTES.PROJECT_WORKSPACE(p.id)}
+            to={projectWorkspacePath(p.id)}
             className="employee-directory-employee-link group flex items-center gap-3"
           >
             <Avatar name={p.name} size="sm" color={stringToHueColor(p.id)} />
@@ -170,7 +178,7 @@ export function ProjectsDashboard() {
             role="presentation"
           >
             <Link
-              to={ROUTES.PROJECT_WORKSPACE(p.id)}
+              to={projectWorkspacePath(p.id)}
               className="employee-directory-action-btn"
               title="Open workspace"
               aria-label={`Open workspace for ${p.name}`}
@@ -181,7 +189,7 @@ export function ProjectsDashboard() {
         ),
       },
     ],
-    [],
+    [projectWorkspacePath],
   )
 
   const handleSort = (key: string) => {

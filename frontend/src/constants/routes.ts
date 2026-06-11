@@ -9,6 +9,11 @@ export const ROUTES = {
   PROJECTS: '/admin/projects',
   PROJECT_WORKSPACE: (id: string) => `/admin/projects/${id}`,
   PROJECT_CELL: (projectId: string, cellId: string) => `/admin/projects/${projectId}/cells/${cellId}`,
+  EMPLOYEE_PROJECTS: '/employee/projects',
+  EMPLOYEE_MY_PROJECTS: '/employee/projects/my-projects',
+  EMPLOYEE_PROJECT_WORKSPACE: (id: string) => `/employee/projects/${id}`,
+  EMPLOYEE_PROJECT_CELL: (projectId: string, cellId: string) =>
+    `/employee/projects/${projectId}/cells/${cellId}`,
   TIMESHEET: '/admin/timesheet',
   CALENDAR: '/admin/calendar',
   TRAINING: '/admin/training',

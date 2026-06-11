@@ -4471,7 +4471,8 @@
   --admin-projects-font-scale: 1.125;
 }
 
-.admin-portal .admin-projects-view.crewiq-dashboard {
+.admin-portal .admin-projects-view.crewiq-dashboard,
+.employee-portal .admin-projects-view.crewiq-dashboard {
   background: var(--dash-canvas);
 }
 
@@ -6315,7 +6316,8 @@
   min-height: 2.75rem;
 }
 
-.admin-portal .admin-hub-page-wrap {
+.admin-portal .admin-hub-page-wrap,
+.employee-portal .admin-hub-page-wrap {
   background: transparent;
   max-width: none !important;
   padding-left: 0 !important;

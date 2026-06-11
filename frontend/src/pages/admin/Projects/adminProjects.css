@@ -1,6 +1,7 @@
 /* Admin Projects — full-viewport hub layout */
 
-.admin-portal .admin-projects-page.admin-hub-page-wrap {
+.admin-portal .admin-projects-page.admin-hub-page-wrap,
+.employee-portal .admin-projects-page.admin-hub-page-wrap {
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
@@ -1139,7 +1140,8 @@
   overflow: hidden;
 }
 
-.admin-portal .admin-projects-page .admin-projects-workspace-shell {
+.admin-portal .admin-projects-page .admin-projects-workspace-shell,
+.employee-portal .admin-projects-page .admin-projects-workspace-shell {
   max-height: var(--viewport-page-h);
 }
 

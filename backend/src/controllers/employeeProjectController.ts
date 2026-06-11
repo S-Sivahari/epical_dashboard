@@ -186,6 +186,11 @@ export const employeeProjectController = {
       );
 
       const assignedCount = cellsWithMeta.filter((c) => c.isAssignedToMe).length;
+      const cellCount = cells.length;
+      const completedCells = cells.filter((c) => c.status === 'completed').length;
+      const completionPercentage = cellCount > 0
+        ? Math.round((completedCells / cellCount) * 100)
+        : 0;
 
       res.json({
         project: {
@@ -194,15 +199,17 @@ export const employeeProjectController = {
           client: project.clientName,
           technologyNode: project.technologyNode,
           status: project.status,
-          completionPercentage: project.completionPercentage ?? 0,
+          completionPercentage,
         },
         libraries: libraries.map(toLibrary),
         cells: cellsWithMeta,
         stats: {
           libraryCount: libraries.length,
-          cellCount: cells.length,
+          cellCount,
           assignedToMe: assignedCount,
-          completedCells: cells.filter((c) => c.status === 'completed').length,
+          completedCells,
+          notStartedCells: cells.filter((c) => c.status === 'ready').length,
+          inProgressCells: cells.filter((c) => c.status === 'in_progress').length,
           blockedCells: cellsWithMeta.filter((c) => c.isBlocked).length,
           readyCells: cellsWithMeta.filter((c) => c.isReady).length,
           unassignedCells: cells.filter((c) => !c.assignedEmployeeId).length,
