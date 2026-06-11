@@ -47,12 +47,12 @@ import {
 } from '../services/effortEstimationService';
 import { isAdminRole } from '../utils/generateToken';
 import {
-  buildWorkflowDurationMap,
+  buildWorkflowTimingMap,
   closeAllOpenWorkLogs,
   ensureWorkLogsInitialized,
-  getCellWorkflowDuration,
+  getCellWorkflowTiming,
   syncWorkLogsFromWorkflowChange,
-  type CellWorkflowDuration,
+  type CellWorkflowTiming,
 } from '../services/cellWorkflowWorkLogService';
 
 function paramId(value: string | string[]): string {
@@ -96,7 +96,7 @@ function toLibrary(doc: any) {
 function toCell(
   doc: any,
   dependencyMeta?: { isBlocked: boolean; isReady: boolean },
-  workflowDuration?: CellWorkflowDuration,
+  workflowTiming?: CellWorkflowTiming,
 ) {
   const viewWorkflow = normalizeViewWorkflow(doc.viewWorkflow);
   const workflow = syncCellWorkflowFromViewWorkflow(viewWorkflow);
@@ -125,12 +125,24 @@ function toCell(
     workflowCompletedStages,
     workflowTotalStages: workflow.length,
     currentWorkflowStage: currentWorkflowStageLabel(workflow),
-    workflowDuration: workflowDuration ?? {
+    workflowDuration: workflowTiming?.workflowDuration ?? {
       totalMs: 0,
       formatted: '0m',
       isActive: false,
       wasEverCompleted: false,
       wasReopened: false,
+    },
+    workflowTiming: workflowTiming ?? {
+      stages: [],
+      latestActivityTime: null,
+      workflowCompletionTime: null,
+      workflowDuration: {
+        totalMs: 0,
+        formatted: '0m',
+        isActive: false,
+        wasEverCompleted: false,
+        wasReopened: false,
+      },
     },
     views,
     viewWorkflow,
@@ -148,14 +160,15 @@ async function toCellWithDuration(
 ) {
   const viewWorkflow = normalizeViewWorkflow(doc.viewWorkflow);
   const workflow = syncCellWorkflowFromViewWorkflow(viewWorkflow);
-  const duration = await getCellWorkflowDuration(
+  const timing = await getCellWorkflowTiming(
     doc.projectId.toString(),
     doc._id.toString(),
     normalizeStatus(doc.status || 'ready'),
     doc.activityLog ?? [],
     workflow,
+    doc.updatedAt,
   );
-  return toCell(doc, dependencyMeta, duration);
+  return toCell(doc, dependencyMeta, timing);
 }
 
 function toReview(doc: any) {
@@ -234,11 +247,11 @@ export const projectWorkspaceController = {
           ),
         ),
       );
-      const durationMap = await buildWorkflowDurationMap(projectId, cells);
+      const timingMap = await buildWorkflowTimingMap(projectId, cells);
       const cellsWithMeta = await Promise.all(
         cells.map(async (cell) => {
           const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
-          return toCell(cell, meta, durationMap.get(cell._id.toString()));
+          return toCell(cell, meta, timingMap.get(cell._id.toString()));
         }),
       );
 

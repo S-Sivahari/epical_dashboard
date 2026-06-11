@@ -6,6 +6,19 @@ import { ProjectLibraryModel } from '../models/ProjectLibrary';
 import { ProjectCellModel, CELL_STATUSES, type CellStatus } from '../models/ProjectCell';
 import { CellReviewModel } from '../models/CellReview';
 import { buildAssignmentIdentityTokens, isProjectMemberDisplayName, resolveProjectMemberAssignees } from '../utils/assignedTaskSync';
+import {
+  deriveBaseHours,
+  normalizeComplexity,
+  predictEffort,
+  resolveBaseHoursInput,
+} from '../services/effortEstimationService';
+import {
+  buildWorkflowTimingMap,
+  ensureWorkLogsInitialized,
+  getCellWorkflowTiming,
+  syncWorkLogsFromWorkflowChange,
+  type CellWorkflowTiming,
+} from '../services/cellWorkflowWorkLogService';
 
 function normalizeStatus(value: string): CellStatus {
   if (value === 'in_progress' || value === 'drc' || value === 'lvs' || value === 'review') return 'in_progress';
@@ -59,12 +72,6 @@ import {
 } from '../services/cellAssignmentNotificationService';
 import { updateCellChecklistItemResponse, syncChecklistMappingsForCell } from '../services/checklistService';
 import { normalizeCellType } from '../services/projectTypeChecklistService';
-import {
-  deriveBaseHours,
-  normalizeComplexity,
-  predictEffort,
-  resolveBaseHoursInput,
-} from '../services/effortEstimationService';
 
 function paramId(value: string | string[]): string {
   return Array.isArray(value) ? value[0] : value;
@@ -318,10 +325,12 @@ function toEmployeeCell(
   doc: any,
   tokens: string[],
   dependencyMeta?: { isBlocked: boolean; isReady: boolean },
+  workflowTiming?: CellWorkflowTiming,
 ) {
   const viewWorkflow = normalizeViewWorkflow(doc.viewWorkflow);
   const views = doc.views || { layout: '', symbol: '', schematic: '' };
   syncViewsFromViewWorkflow({ viewWorkflow, views });
+  const workflow = syncCellWorkflowFromViewWorkflow(viewWorkflow);
   return {
     id: doc._id.toString(),
     projectId: doc.projectId.toString(),
@@ -339,13 +348,51 @@ function toEmployeeCell(
     assignedEmployeeName: doc.assignedEmployeeName || '',
     status: doc.status || 'ready',
     viewWorkflow,
-    workflow: syncCellWorkflowFromViewWorkflow(viewWorkflow),
+    workflow,
     views,
+    workflowDuration: workflowTiming?.workflowDuration ?? {
+      totalMs: 0,
+      formatted: '0m',
+      isActive: false,
+      wasEverCompleted: false,
+      wasReopened: false,
+    },
+    workflowTiming: workflowTiming ?? {
+      stages: [],
+      latestActivityTime: null,
+      workflowCompletionTime: null,
+      workflowDuration: {
+        totalMs: 0,
+        formatted: '0m',
+        isActive: false,
+        wasEverCompleted: false,
+        wasReopened: false,
+      },
+    },
     isAssignedToMe: cellAssignedToTokens(doc, tokens),
     isBlocked: dependencyMeta?.isBlocked ?? false,
     isReady: dependencyMeta?.isReady ?? false,
     activityLog: doc.activityLog || [],
+    updatedAt: doc.updatedAt,
   };
+}
+
+async function toEmployeeCellWithTiming(
+  doc: any,
+  tokens: string[],
+  dependencyMeta?: { isBlocked: boolean; isReady: boolean },
+) {
+  const viewWorkflow = normalizeViewWorkflow(doc.viewWorkflow);
+  const workflow = syncCellWorkflowFromViewWorkflow(viewWorkflow);
+  const timing = await getCellWorkflowTiming(
+    doc.projectId.toString(),
+    doc._id.toString(),
+    normalizeStatus(doc.status || 'ready'),
+    doc.activityLog ?? [],
+    workflow,
+    doc.updatedAt,
+  );
+  return toEmployeeCell(doc, tokens, dependencyMeta, timing);
 }
 
 function toReview(doc: any) {
@@ -382,10 +429,22 @@ export const employeeProjectController = {
         ProjectCellModel.find({ projectId }).sort({ name: 1 }),
       ]);
 
+      await Promise.all(
+        cells.map((cell) =>
+          ensureWorkLogsInitialized(
+            projectId,
+            cell._id.toString(),
+            syncCellWorkflowFromViewWorkflow(normalizeViewWorkflow(cell.viewWorkflow)),
+            cell.activityLog ?? [],
+          ),
+        ),
+      );
+
+      const timingMap = await buildWorkflowTimingMap(projectId, cells);
       const cellsWithMeta = await Promise.all(
         cells.map(async (cell) => {
           const meta = await computeDependencyMeta(projectObjectId, cell);
-          return toEmployeeCell(cell, tokens, meta);
+          return toEmployeeCell(cell, tokens, meta, timingMap.get(cell._id.toString()));
         }),
       );
 
@@ -464,7 +523,7 @@ export const employeeProjectController = {
           canReview: isTeamLeadOnProject(project, tokens),
         },
         library: library ? toLibrary(library) : null,
-        cell: toEmployeeCell(cell, tokens, meta),
+        cell: await toEmployeeCellWithTiming(cell, tokens, meta),
         reviews: reviews.map(toReview),
       });
     } catch (err) {
@@ -486,6 +545,7 @@ export const employeeProjectController = {
       }
 
       const workflow = normalizeViewWorkflow(cell.viewWorkflow);
+      const prevWorkflow = syncCellWorkflowFromViewWorkflow(workflow);
       const { view, action, status } = req.body as {
         view?: 'style' | 'symbol' | 'layout';
         action?: 'set_status' | 'advance_stage';
@@ -555,6 +615,14 @@ export const employeeProjectController = {
 
       cell.viewWorkflow = nextWorkflow;
       applyCellWorkflowSync(cell, 'viewWorkflow');
+      const nextCellWorkflow = syncCellWorkflowFromViewWorkflow(cell.viewWorkflow);
+      await syncWorkLogsFromWorkflowChange(
+        projectId,
+        cellId,
+        prevWorkflow,
+        nextCellWorkflow,
+        actor,
+      );
       cell.activityLog.push({
         action: 'workflow_update',
         detail: `${view}: ${action}${status ? ` → ${status}` : ''}`,
@@ -565,7 +633,7 @@ export const employeeProjectController = {
       await cell.save();
 
       const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
-      res.json(toEmployeeCell(cell, tokens, meta));
+      res.json(await toEmployeeCellWithTiming(cell, tokens, meta));
     } catch (err: any) {
       res.status(400).json({ error: err?.message || 'Failed to update workflow' });
     }
@@ -740,7 +808,10 @@ export const employeeProjectController = {
       });
 
       const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
-      res.status(201).json({ cell: toEmployeeCell(cell, tokens, meta), review: toReview(review) });
+      res.status(201).json({
+        cell: await toEmployeeCellWithTiming(cell, tokens, meta),
+        review: toReview(review),
+      });
     } catch (err: any) {
       res.status(400).json({ error: err?.message || 'Failed to request review' });
     }
@@ -1105,7 +1176,7 @@ export const employeeProjectController = {
         });
       }
 
-      res.status(201).json(toEmployeeCell(cell, tokens, meta));
+      res.status(201).json(await toEmployeeCellWithTiming(cell, tokens, meta));
     } catch (err) {
       console.error('[employee-projects] createCell', err);
       res.status(500).json({ error: 'Failed to create cell' });
@@ -1296,6 +1367,7 @@ export const employeeProjectController = {
 
       const actor = actorFromReq(req);
       const workflow = normalizeViewWorkflow(cell.viewWorkflow);
+      const prevWorkflow = syncCellWorkflowFromViewWorkflow(workflow);
       const nextWorkflow =
         outcome === 'approved'
           ? applyReviewApproval(workflow, reviewPoint)
@@ -1303,6 +1375,14 @@ export const employeeProjectController = {
 
       cell.viewWorkflow = nextWorkflow;
       applyCellWorkflowSync(cell, 'viewWorkflow');
+      const nextCellWorkflow = syncCellWorkflowFromViewWorkflow(cell.viewWorkflow);
+      await syncWorkLogsFromWorkflowChange(
+        projectId,
+        cellId,
+        prevWorkflow,
+        nextCellWorkflow,
+        actor,
+      );
       review.status = 'resolved';
       review.outcome = outcome;
       review.returnToStage = outcome === 'rejected' ? returnToStage : undefined;
@@ -1349,7 +1429,10 @@ export const employeeProjectController = {
       });
 
       const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
-      res.json({ cell: toEmployeeCell(cell, tokens, meta), review: toReview(review) });
+      res.json({
+        cell: await toEmployeeCellWithTiming(cell, tokens, meta),
+        review: toReview(review),
+      });
     } catch (err: any) {
       res.status(400).json({ error: err?.message || 'Failed to resolve review' });
     }
