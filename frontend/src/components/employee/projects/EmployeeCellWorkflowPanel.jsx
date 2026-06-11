@@ -12,7 +12,6 @@ import {
 import {
   actionRequiresChecklist,
   getAdvancePayload,
-  normalizeWorkflow,
 } from '@/utils/cellWorkflowUi'
 
 const STAGE_VISUAL = {
@@ -25,26 +24,18 @@ const STAGE_VISUAL = {
   review_2: { label: 'REVIEW 2', dot: '#ea580c' },
 }
 
-const LAYOUT_STAGE_TO_WORK_KEY = {
-  floor_plan: 'floor_plan',
-  drc_r1: 'drc_first',
-  routing: 'routing',
-  drc: 'drc_final',
-  lvs_r2: 'lvs',
-}
-
 function stageHeaderBadge(status, locked) {
   if (locked && status === 'not_started') return 'Locked'
-  if (status === 'approved') return 'Approved'
+  if (status === 'approved') return 'Completed'
   if (status === 'completed') return 'Completed'
   if (status === 'in_progress') return 'In Progress'
   if (status === 'pending_review') return 'In Progress'
-  if (status === 'rejected') return 'Rejected'
+  if (status === 'rejected') return 'Not Started'
   return 'Not Started'
 }
 
 function stageSelectClass(status, { locked, disabled, readOnly }) {
-  if (readOnly && status === 'approved') return 'is-approved-readonly'
+  if (readOnly && (status === 'approved' || status === 'completed')) return 'is-approved-readonly'
   if (disabled || readOnly || (locked && status === 'not_started')) return 'is-readonly'
   if (status === 'completed' || status === 'approved') return 'is-completed'
   if (status === 'in_progress' || status === 'pending_review') return 'is-progress'
@@ -72,36 +63,9 @@ function reviewStageMeta(stageKey, awaitingReview) {
   return null
 }
 
-const REVIEW_ACTION_OPTIONS = [
-  { value: 'approved', label: 'Approved' },
-  { value: 'rejected', label: 'Rejected' },
-]
-
-function canTeamLeadActionReview(workflow, stageKey, status) {
-  if (status === 'pending_review' || status === 'approved') return true
-  const drcFirst = workflow.find((s) => s.stageKey === 'drc_first')
-  const lvs = workflow.find((s) => s.stageKey === 'lvs')
-  if (stageKey === 'review_1' && status === 'not_started' && drcFirst?.status === 'completed') return true
-  if (stageKey === 'review_2' && status === 'not_started' && lvs?.status === 'completed') return true
-  return false
-}
-
-function reviewSelectValue(status) {
-  if (status === 'approved' || status === 'rejected') return status
-  return ''
-}
-
-function isEditableWorkStage(cell, stageKey, isTeamLead) {
-  if (isTeamLead) return false
-  if (!cell?.isAssignedToMe) return false
-  const viewWf = normalizeWorkflow(cell.viewWorkflow)
-  if (viewWf.layout.pendingReview) return false
-  const currentWorkKey = LAYOUT_STAGE_TO_WORK_KEY[viewWf.layout.stage]
-  return currentWorkKey === stageKey && !isReviewStageKey(stageKey)
-}
-
-function reviewSelectDisplayStatus(status) {
-  if (status === 'approved' || status === 'rejected' || status === 'pending_review') return status
+function reviewStatusToSelectValue(status) {
+  if (status === 'approved' || status === 'completed') return 'completed'
+  if (status === 'pending_review' || status === 'in_progress') return 'in_progress'
   return 'not_started'
 }
 
@@ -109,43 +73,26 @@ export function EmployeeCellWorkflowPanel({
   cell,
   saving = false,
   checklistReady = true,
-  isTeamLead = false,
-  openReview = null,
-  onStatusChange,
+  canManageWorkflow = false,
+  canReview = false,
+  onWorkStageChange,
   onRequestReview,
-  onResolveReview,
 }) {
   const [savingStage, setSavingStage] = useState(null)
-  const [review2RejectOpen, setReview2RejectOpen] = useState(false)
   const workflow = normalizeCellWorkflow(cell?.workflow)
   const activeStageKey = useMemo(() => getActiveStageKey(workflow), [workflow])
   const reviewPayload = getAdvancePayload(cell, 'layout')
-  const canRequestReview = !isTeamLead && cell?.isAssignedToMe && reviewPayload?.type === 'review'
+  const canRequestReview = canManageWorkflow && reviewPayload?.type === 'review'
   const blockedByChecklist = canRequestReview && actionRequiresChecklist(cell, reviewPayload) && !checklistReady
 
-  const handleWorkStageChange = async (stageKey, nextStatus) => {
-    if (!isEditableWorkStage(cell, stageKey, isTeamLead)) return
-    setSavingStage(stageKey)
-    try {
-      await onStatusChange?.({ view: 'layout', action: 'set_status', status: nextStatus })
-    } finally {
-      setSavingStage(null)
-    }
-  }
-
-  const handleReviewSelect = async (stageKey, value, currentStatus) => {
-    if (!isTeamLead || !openReview) return
-    if (value !== 'approved' && value !== 'rejected') return
-    if (value === currentStatus) return
-
-    if (stageKey === 'review_2' && value === 'rejected') {
-      setReview2RejectOpen(true)
-      return
-    }
+  const handleStageChange = async (stageKey, nextStatus) => {
+    const isReview = isReviewStageKey(stageKey)
+    if (isReview && !canReview) return
+    if (!isReview && !canManageWorkflow) return
 
     setSavingStage(stageKey)
     try {
-      await onResolveReview?.(openReview.id, value)
+      await onWorkStageChange?.(stageKey, nextStatus)
     } finally {
       setSavingStage(null)
     }
@@ -164,10 +111,10 @@ export function EmployeeCellWorkflowPanel({
             const awaitingReview = isReview && stage.status === 'pending_review'
             const meta = reviewStageMeta(stage.stageKey, awaitingReview)
             const headerBadge = stageHeaderBadge(stage.status, locked)
-            const editable = isEditableWorkStage(cell, stage.stageKey, isTeamLead)
-            const readOnly = !editable
-            const reviewActionable = isTeamLead && isReview && canTeamLeadActionReview(workflow, stage.stageKey, stage.status) && openReview
-            const showReview2Return = stage.stageKey === 'review_2' && review2RejectOpen && reviewActionable
+            const reviewEditable = isReview && canReview
+            const workEditable = !isReview && canManageWorkflow
+            const stageDisabled = stageSaving || (!reviewEditable && !workEditable) || (!isReview && locked)
+            const selectValue = isReview ? reviewStatusToSelectValue(stage.status) : stage.status
 
             return (
               <section
@@ -175,7 +122,7 @@ export function EmployeeCellWorkflowPanel({
                 className={cn(
                   'admin-projects-workflow-column',
                   isActive && 'is-active',
-                  locked && 'is-locked',
+                  locked && !isReview && 'is-locked',
                   isReview && 'is-review',
                 )}
               >
@@ -191,8 +138,8 @@ export function EmployeeCellWorkflowPanel({
                   <span
                     className={cn(
                       'admin-projects-workflow-column-badge',
-                      workflowStageStatusClass(stage.status),
-                      locked && stage.status === 'not_started' && 'is-locked',
+                      workflowStageStatusClass(isReview ? reviewStatusToSelectValue(stage.status) : stage.status),
+                      locked && !isReview && stage.status === 'not_started' && 'is-locked',
                     )}
                   >
                     {headerBadge}
@@ -206,100 +153,20 @@ export function EmployeeCellWorkflowPanel({
                 </div>
 
                 <div className="admin-projects-workflow-column-body">
-                  {isReview ? (
-                    reviewActionable ? (
-                      <div className="admin-projects-workflow-review-controls">
-                        <div className="admin-projects-workflow-stage-select-wrap">
-                          <select
-                            className={cn(
-                              'admin-projects-workflow-stage-select',
-                              stageSelectClass(stage.status, { readOnly: false }),
-                            )}
-                            disabled={stageSaving}
-                            value={reviewSelectValue(stage.status)}
-                            onChange={(e) => {
-                              void handleReviewSelect(stage.stageKey, e.target.value, stage.status)
-                            }}
-                            aria-label={`${stage.stageLabel} review action`}
-                          >
-                            {stage.status !== 'approved' && stage.status !== 'rejected' ? (
-                              <option value="" disabled>
-                                Review
-                              </option>
-                            ) : null}
-                            {REVIEW_ACTION_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        {showReview2Return ? (
-                          <div className="admin-projects-workflow-review-return">
-                            <p className="admin-projects-workflow-review-return-label">Return to:</p>
-                            <div className="admin-projects-workflow-review-return-actions">
-                              <button
-                                type="button"
-                                className="emp-wf-admin-review-btn emp-wf-admin-review-btn--reject"
-                                disabled={stageSaving}
-                                onClick={() => void onResolveReview?.(openReview.id, 'rejected', 'floor_plan')}
-                              >
-                                To Floor Plan
-                              </button>
-                              <button
-                                type="button"
-                                className="emp-wf-admin-review-btn emp-wf-admin-review-btn--reject"
-                                disabled={stageSaving}
-                                onClick={() => void onResolveReview?.(openReview.id, 'rejected', 'routing')}
-                              >
-                                To Routing
-                              </button>
-                              <button
-                                type="button"
-                                className="admin-projects-workflow-review-return-cancel"
-                                disabled={stageSaving}
-                                onClick={() => setReview2RejectOpen(false)}
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : (
-                      <div className="admin-projects-workflow-stage-select-wrap">
-                        <select
-                          className={cn(
-                            'admin-projects-workflow-stage-select',
-                            stageSelectClass(stage.status, { readOnly: true }),
-                          )}
-                          value={reviewSelectDisplayStatus(stage.status)}
-                          disabled
-                          aria-label={`${stage.stageLabel} review status`}
-                        >
-                          <option value="not_started">{WORKFLOW_STATUS_LABELS.not_started}</option>
-                          <option value="pending_review">{WORKFLOW_STATUS_LABELS.pending_review}</option>
-                          <option value="approved">{WORKFLOW_STATUS_LABELS.approved}</option>
-                          <option value="rejected">{WORKFLOW_STATUS_LABELS.rejected}</option>
-                        </select>
-                      </div>
-                    )
-                  ) : (
                   <div className="admin-projects-workflow-stage-select-wrap">
                     <select
                       className={cn(
                         'admin-projects-workflow-stage-select',
-                        stageSelectClass(stage.status, {
-                          locked,
-                          disabled: stageSaving,
-                          readOnly: readOnly || isReview,
+                        stageSelectClass(isReview ? reviewStatusToSelectValue(stage.status) : stage.status, {
+                          locked: !isReview && locked,
+                          disabled: stageDisabled,
+                          readOnly: stageDisabled,
                         }),
                       )}
-                      value={isReview ? reviewSelectDisplayStatus(stage.status) : stage.status}
-                      disabled={stageSaving || readOnly || isReview || (locked && !editable)}
+                      value={selectValue}
+                      disabled={stageDisabled}
                       onChange={(e) => {
-                        if (isReview || readOnly) return
-                        void handleWorkStageChange(stage.stageKey, e.target.value)
+                        void handleStageChange(stage.stageKey, e.target.value)
                       }}
                       aria-label={`${stage.stageLabel} status`}
                     >
@@ -310,7 +177,6 @@ export function EmployeeCellWorkflowPanel({
                       ))}
                     </select>
                   </div>
-                  )}
                 </div>
               </section>
             )
@@ -331,7 +197,7 @@ export function EmployeeCellWorkflowPanel({
             title={
               blockedByChecklist
                 ? 'Complete the checklist and final cell details before requesting review'
-                : 'Submit for admin review'
+                : 'Submit for team lead review'
             }
             onClick={() => void onRequestReview?.(cell)}
           >

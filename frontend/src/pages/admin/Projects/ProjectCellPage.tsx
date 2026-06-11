@@ -33,7 +33,7 @@ const INLINE_FIELD_CLASS = 'admin-projects-cell-details-inline-field'
 import { CellWorkflowPanel } from './CellWorkflowPanel'
 import { CellWorkflowDurationLabel } from './CellWorkflowDurationLabel'
 import { CellTypeChecklistTab } from './CellTypeChecklistTab'
-import { calculateEstimatedHours, formatComplexityFactor } from '@/utils/effortEstimationUtils'
+import { calculateEstimatedHours, CELL_COMPLEXITY_OPTIONS, DEFAULT_BASE_HOURS, formatComplexityFactor, normalizeComplexity } from '@/utils/effortEstimationUtils'
 import './adminProjects.css'
 
 type ViewTab = 'layout' | 'symbol' | 'schematic'
@@ -474,17 +474,17 @@ export function ProjectCellPage() {
                                 })
                               }}
                             >
-                              <option value="Low">Low</option>
-                              <option value="Medium">Medium</option>
-                              <option value="High">High</option>
+                              {CELL_COMPLEXITY_OPTIONS.map((level) => (
+                                <option key={level} value={level}>{level}</option>
+                              ))}
                             </select>
                           ) : (
-                            cell.complexity
+                            normalizeComplexity(cell.complexity)
                           )}
                         </dd>
                       </div>
                       <div className="admin-projects-cell-details-item">
-                        <dt>Base hours</dt>
+                        <dt>Base hours (1 day = {DEFAULT_BASE_HOURS}h)</dt>
                         <dd>
                           {isEditing ? (
                             <input

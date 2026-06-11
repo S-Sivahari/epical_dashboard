@@ -9,7 +9,7 @@ import type {
   EmployeeProjectCell,
   EmployeeProjectWorkspace,
 } from '@/types/projectWorkspace'
-import type { ViewProgressStatus } from '@/types/projectWorkspace'
+import type { CellWorkflowStageKey, ViewProgressStatus, WorkflowStageStatus } from '@/types/projectWorkspace'
 
 export type { EmployeePendingReview } from '@/types/projectWorkspace'
 
@@ -48,6 +48,18 @@ export async function createMyProjectCell(
 ) {
   const { data } = await api.post<EmployeeProjectCell>(
     `/projects/${projectId}/mine/libraries/${libraryId}/cells`,
+    payload,
+  )
+  return data
+}
+
+export async function assignMyProjectCell(
+  projectId: string,
+  cellId: string,
+  payload: { assignedEmployeeId: string; assignedEmployeeName?: string },
+) {
+  const { data } = await api.patch<EmployeeProjectCell>(
+    `/projects/${projectId}/cells/${cellId}/mine/assign`,
     payload,
   )
   return data
@@ -114,6 +126,19 @@ export async function updateCellWorkflow(
   return data
 }
 
+export async function updateMyWorkflowStage(
+  projectId: string,
+  cellId: string,
+  stageKey: CellWorkflowStageKey,
+  status: WorkflowStageStatus,
+) {
+  const { data } = await api.patch<EmployeeProjectCell>(
+    `/projects/${projectId}/cells/${cellId}/mine/workflow/${stageKey}`,
+    { status },
+  )
+  return data
+}
+
 export async function requestCellReview(projectId: string, cellId: string, comment?: string) {
   const { data } = await api.post<{ cell: EmployeeProjectCell; review: CellReview }>(
     `/projects/${projectId}/cells/${cellId}/mine/reviews`,
@@ -149,11 +174,17 @@ export async function fetchMyCellChecklist(projectId: string, cellId: string) {
 export async function updateMyCellChecklistItem(
   projectId: string,
   cellId: string,
-  mappingId: string,
+  item: {
+    source: 'template' | 'custom'
+    itemIndex?: number | null
+    customItemId?: string | null
+  },
   payload: { response: 'yes' | 'no' | 'not_applicable'; comment?: string },
 ) {
   const { data } = await api.patch<CellChecklistDetail>(
-    `/projects/${projectId}/cells/${cellId}/mine/checklist/${mappingId}`,
+    item.source === 'custom' && item.customItemId
+      ? `/projects/${projectId}/cells/${cellId}/mine/type-checklist/custom-items/${item.customItemId}`
+      : `/projects/${projectId}/cells/${cellId}/mine/type-checklist/responses/${item.itemIndex}`,
     payload,
   )
   return data
@@ -165,8 +196,15 @@ export async function updateMyCellChecklistExtension(
   payload: Partial<CellChecklistExtensionFields>,
 ) {
   const { data } = await api.patch<CellChecklistDetail>(
-    `/projects/${projectId}/cells/${cellId}/mine/checklist-extension`,
+    `/projects/${projectId}/cells/${cellId}/mine/type-checklist/extension`,
     payload,
+  )
+  return data
+}
+
+export async function completeMyCell(projectId: string, cellId: string) {
+  const { data } = await api.patch<EmployeeProjectCell>(
+    `/projects/${projectId}/cells/${cellId}/mine/complete`,
   )
   return data
 }

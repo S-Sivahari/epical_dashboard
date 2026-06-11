@@ -1522,7 +1522,7 @@
 }
 
 /* Employee portal pages — default grow with content; dashboard/calendar/leave are viewport-fit */
-.employee-portal [data-employee-page].admin-dashboard-view:not(:has([data-employee-dashboard])):not(:has([data-employee-calendar])):not(:has([data-employee-leave])) {
+.employee-portal [data-employee-page].admin-dashboard-view:not(:has([data-employee-dashboard])):not(:has([data-employee-calendar])):not(:has([data-employee-leave])):not(:has([data-employee-project-workspace])):not(:has([data-employee-project-cell])) {
   flex: 1 1 auto;
   height: auto;
   max-height: none;

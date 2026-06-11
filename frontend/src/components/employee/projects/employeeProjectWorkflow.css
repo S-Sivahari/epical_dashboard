@@ -1899,6 +1899,35 @@
   cursor: not-allowed;
 }
 
+.emp-wf-final-cell-details-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(30, 90, 61, 0.12);
+}
+
+.emp-wf-final-cell-complete-btn {
+  min-width: 7.5rem;
+  height: 2rem;
+  padding: 0 1.15rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-radius: 0.375rem;
+  background: var(--dash-forest-header, #2f6b4f);
+  color: #fff;
+  border: none;
+}
+
+.emp-wf-final-cell-complete-btn:hover:not(:disabled) {
+  background: #1a4329;
+}
+
+.emp-wf-final-cell-complete-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 @media (max-width: 900px) {
   .emp-wf-final-cell-row--3,
   .emp-wf-final-cell-row--2 {
@@ -2640,8 +2669,49 @@
   border-radius: 0.75rem;
   background: #fff;
   padding: 1rem;
-  cursor: pointer;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.emp-wf-cell-card-open {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.emp-wf-cell-card:has(.emp-wf-cell-card-open:hover),
+.emp-wf-cell-card:not(:has(.emp-wf-cell-card-open)):hover {
+  border-color: #93c5fd;
+  background: #f8fbff;
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.1);
+  transform: translateY(-1px);
+}
+
+.emp-wf-cell-card-assign {
+  display: block;
+  margin-top: -0.25rem;
+}
+
+.emp-wf-cell-card-assign-select {
+  width: 100%;
+  border: 1px solid rgba(38, 107, 28, 0.22);
+  border-radius: 0.5rem;
+  background: #f8fdfa;
+  color: #1a4329;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.45rem 0.625rem;
+}
+
+.emp-wf-cell-card-assign-select:focus {
+  outline: none;
+  border-color: #2f6b4f;
+  box-shadow: 0 0 0 2px rgba(38, 107, 28, 0.12);
 }
 
 .emp-wf-cell-card--yours {
@@ -2655,13 +2725,6 @@
 .emp-wf-cell-card--effort {
   border-left-color: #0d9488;
   background: linear-gradient(180deg, #fff 0%, #f0fdfa 100%);
-}
-
-.emp-wf-cell-card:hover {
-  border-color: #93c5fd;
-  background: #f8fbff;
-  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.1);
-  transform: translateY(-1px);
 }
 
 .emp-wf-cell-card--yours:hover,
@@ -2781,6 +2844,12 @@
   background: #f1f5f9;
   border: 1px solid #e2e8f0;
   color: #64748b;
+}
+
+.emp-wf-cell-card-role.is-unassigned {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #c2410c;
 }
 
 .emp-wf-effort-estimation {
