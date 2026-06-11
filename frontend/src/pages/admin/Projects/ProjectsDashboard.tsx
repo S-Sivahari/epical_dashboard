@@ -39,7 +39,7 @@ export function ProjectsDashboard() {
     try {
       if (isEmployee) {
         const data = await fetchMyAssignedProjects()
-        setProjects(Array.isArray(data) ? (data as AdminProjectRow[]) : [])
+        setProjects(Array.isArray(data) ? (data as unknown as AdminProjectRow[]) : [])
       } else {
         const { data } = await api.get<AdminProjectRow[]>('/projects?syncCompletion=true')
         setProjects(Array.isArray(data) ? data : [])

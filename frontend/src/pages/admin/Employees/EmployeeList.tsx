@@ -35,10 +35,7 @@ import {
 import { formatDate } from '@/utils/formatDate'
 import { useAuthStore } from '@store/authStore'
 import { ROUTES } from '@constants/routes'
-import {
-  ACTIVE_DIRECTORY_EXPORT_HEADERS,
-  activeDirectoryExportFilename,
-} from '@/constants/employeeExport'
+import { activeDirectoryExportFilename } from '@/constants/employeeExport'
 
 const STATUS_OPTIONS: { value: Employee['status']; label: string }[] = [
   { value: 'Active', label: 'Active' },

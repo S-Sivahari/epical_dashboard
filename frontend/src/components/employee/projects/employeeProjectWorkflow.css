@@ -2144,13 +2144,6 @@
   min-width: 0;
   min-height: 0;
   overflow: auto;
-  display: flex;
-  flex-direction: column;
-}
-
-.emp-wf-projects-main [data-employee-project-workspace] {
-  flex: 1 1 0;
-  min-height: 0;
 }
 
 .emp-wf-projects-content {
@@ -2250,6 +2243,73 @@
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.emp-wf-requested-reviews-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.emp-wf-requested-reviews-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.emp-wf-requested-reviews-filter-group--project {
+  min-width: 11rem;
+}
+
+.emp-wf-requested-reviews-filter-label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.emp-wf-requested-reviews-select {
+  height: 2rem;
+  min-width: 11rem;
+  padding: 0 0.65rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #334155;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.emp-wf-requested-reviews-select:focus {
+  outline: none;
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.emp-wf-requested-reviews-clear {
+  margin-left: auto;
+  padding: 0.35rem 0.65rem;
+  border: none;
+  background: transparent;
+  color: #2563eb;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.emp-wf-requested-reviews-clear:hover {
+  text-decoration: underline;
+}
+
+.emp-wf-requested-reviews-count {
+  margin: 0 0 0.65rem;
+  font-size: 0.75rem;
+  color: #64748b;
 }
 
 .emp-wf-requested-review-card {

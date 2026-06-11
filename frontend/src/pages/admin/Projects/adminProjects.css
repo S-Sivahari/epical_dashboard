@@ -3979,6 +3979,27 @@
   margin-left: auto;
 }
 
+.admin-projects-cell-workflow-duration {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.82);
+  white-space: nowrap;
+}
+
+.admin-projects-cell-page-head .admin-projects-cell-workflow-duration {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.admin-projects-cell-workflow-duration-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
 .admin-projects-cell-page-body {
   display: flex;
   flex: 1 1 0;

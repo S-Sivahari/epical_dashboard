@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Outlet } from 'react-router-dom'
-import { EmployeeProjectsSidebar } from './EmployeeProjectsSidebar'
 import { fetchMyAssignedProjects, fetchMyProjectWorkspace, fetchMyRequestedReviews } from '@services/employeeProjectService'
 import { useToast } from '@components/employee/shared/ToastProvider'
+import '@pages/admin/Projects/adminProjects.css'
 import './employeeProjectWorkflow.css'
+import './employeeProjectsAdminTheme.css'
 
 export function EmployeeProjectsLayout() {
   const [projects, setProjects] = useState([])
@@ -90,6 +91,7 @@ export function EmployeeProjectsLayout() {
       loadingProjects,
       loadingWorkspaces,
       loadingReviews,
+      pendingReviewCount,
       loading: loadingProjects || loadingWorkspaces,
       refreshReviews: async () => {
         try {
@@ -108,17 +110,20 @@ export function EmployeeProjectsLayout() {
       loadingProjects,
       loadingWorkspaces,
       loadingReviews,
+      pendingReviewCount,
     ],
   )
 
   return (
-    <div className="emp-wf-page emp-wf-page--hub" data-page-scrollable data-employee-project-hub>
-      <div className="emp-wf-projects-shell">
-        <EmployeeProjectsSidebar pendingReviewCount={pendingReviewCount} />
-        <div className="emp-wf-projects-main">
-          <Outlet context={outletContext} />
-        </div>
+    <div
+      className="admin-projects-view admin-projects-page admin-projects-directory-view relative flex min-h-0 flex-1 flex-col"
+      data-employee-project-hub
+    >
+      <div className="admin-projects-workspace-shell relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
+        <Outlet context={outletContext} />
       </div>
     </div>
   )
 }
+
+export default EmployeeProjectsLayout

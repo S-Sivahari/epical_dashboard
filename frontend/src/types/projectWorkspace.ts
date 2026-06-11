@@ -238,6 +238,8 @@ export interface ProjectLibrary {
   projectId: string
   name: string
   description: string
+  assignedEmployeeId?: string
+  assignedEmployeeName?: string
 }
 
 export const VIEW_PROGRESS_STATUSES = ['not_started', 'in_progress', 'completed'] as const
@@ -284,6 +286,14 @@ export const VIEW_PROGRESS_LABELS: Record<ViewProgressStatus, string> = {
   completed: 'Completed',
 }
 
+export interface CellWorkflowDuration {
+  totalMs: number
+  formatted: string
+  isActive: boolean
+  wasEverCompleted: boolean
+  wasReopened: boolean
+}
+
 export interface ProjectCell {
   id: string
   projectId: string
@@ -293,7 +303,11 @@ export interface ProjectCell {
   cellType: CellType
   technologyNode: string
   complexity: 'Low' | 'Medium' | 'High'
+  baseHours: number
   estimatedEffort: number
+  smartEstimate: number
+  actualEffort: number
+  estimateConfidence: 'High' | 'Low'
   assignedEmployeeId: string
   assignedEmployeeName: string
   dependencyCellIds: string[]
@@ -302,6 +316,7 @@ export interface ProjectCell {
   workflowCompletedStages: number
   workflowTotalStages: number
   currentWorkflowStage: string
+  workflowDuration: CellWorkflowDuration
   views: CellViews
   viewWorkflow: CellViewWorkflow
   isBlocked: boolean
@@ -370,6 +385,14 @@ export interface EmployeeProjectWorkspace {
     status: string
     completionPercentage: number
   }
+  isTeamLead?: boolean
+  assignees?: { id: string; name: string }[]
+  permissions?: {
+    canCreateLibraries: boolean
+    canCreateCells: boolean
+    canReview: boolean
+  }
+  pendingReviewCount?: number
   libraries: ProjectLibrary[]
   cells: EmployeeProjectCell[]
   stats: {
@@ -387,7 +410,15 @@ export interface EmployeeProjectWorkspace {
 
 export interface EmployeeCellDetail {
   project: { id: string; name: string }
+  isTeamLead?: boolean
   library: ProjectLibrary | null
   cell: ProjectCell
   reviews: CellReview[]
+}
+
+export interface EmployeePendingReview extends CellReview {
+  projectId: string
+  projectName: string
+  cellName: string
+  assignedEmployeeName?: string
 }

@@ -21,6 +21,25 @@ export function formatDurationFromMs(ms) {
   return `${hours}h ${minPart}m`
 }
 
+/** Workflow duration with optional days: "45m", "3h", "8h 25m", "1d 4h", "2d 6h 30m". */
+export function formatWorkflowDurationFromMs(ms) {
+  const totalMinutes = Math.floor(Math.max(0, ms) / 60000)
+  const days = Math.floor(totalMinutes / (24 * 60))
+  const hours = Math.floor((totalMinutes % (24 * 60)) / 60)
+  const minutes = totalMinutes % 60
+
+  if (days > 0) {
+    const parts = [`${days}d`]
+    if (hours > 0) parts.push(`${hours}h`)
+    if (minutes > 0) parts.push(`${minutes}m`)
+    return parts.join(' ')
+  }
+  if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`
+  if (hours > 0) return `${hours}h`
+  if (minutes > 0) return `${minutes}m`
+  return '0m'
+}
+
 export function formatSessionDuration(session) {
   if (!session) return '—'
   const { loginTime, logoutTime, totalHours, totalPausedMs, taskStatus, autoCheckedOut } = session

@@ -8,6 +8,8 @@ import {
   applyReviewApproval,
   applyReviewRejection,
   applyWorkflowStageUpdate,
+  applyCellWorkflowSync,
+  syncViewWorkflowSimpleViewsFromCellViews,
   CELL_WORKFLOW_STAGES,
   currentWorkflowStageLabel,
   defaultCellWorkflow,
@@ -18,6 +20,8 @@ import {
   normalizeViewWorkflow,
   normalizeWorkflowStageStatus,
   returnOptionsForReview,
+  syncCellWorkflowFromViewWorkflow,
+  syncViewsFromViewWorkflow,
   workflowCompletedCount,
   type LayoutStage,
   type ReviewPoint,
@@ -33,6 +37,12 @@ import {
 } from '../services/cellCompletionService';
 import { sendReviewNotificationsFromCell } from '../services/cellReviewNotificationService';
 import { clearResponsesForCell, normalizeCellType } from '../services/projectTypeChecklistService';
+import {
+  calculateEstimatedHours,
+  deriveBaseHours,
+  normalizeComplexity,
+  predictEffort,
+} from '../services/effortEstimationService';
 import { isAdminRole } from '../utils/generateToken';
 import { assertProjectForRequest } from '../utils/projectAccessHelper';
 
@@ -66,13 +76,18 @@ function toLibrary(doc: any) {
     projectId: doc.projectId.toString(),
     name: doc.name,
     description: doc.description || '',
+    assignedEmployeeId: doc.assignedEmployeeId || '',
+    assignedEmployeeName: doc.assignedEmployeeName || '',
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
 }
 
 function toCell(doc: any, dependencyMeta?: { isBlocked: boolean; isReady: boolean }) {
-  const workflow = normalizeCellWorkflow(doc.workflow);
+  const viewWorkflow = normalizeViewWorkflow(doc.viewWorkflow);
+  const workflow = syncCellWorkflowFromViewWorkflow(viewWorkflow);
+  const views = doc.views || { layout: '', symbol: '', schematic: '' };
+  syncViewsFromViewWorkflow({ viewWorkflow, views });
   const workflowCompletedStages = workflowCompletedCount(workflow);
   return {
     id: doc._id.toString(),
@@ -83,7 +98,11 @@ function toCell(doc: any, dependencyMeta?: { isBlocked: boolean; isReady: boolea
     cellType: normalizeCellType(doc.cellType || 'block'),
     technologyNode: doc.technologyNode || '',
     complexity: doc.complexity,
+    baseHours: deriveBaseHours(doc.estimatedEffort ?? 0, doc.complexity, doc.baseHours),
     estimatedEffort: doc.estimatedEffort ?? 0,
+    smartEstimate: doc.smartEstimate ?? doc.estimatedEffort ?? 0,
+    actualEffort: doc.actualEffort ?? 0,
+    estimateConfidence: doc.estimateConfidence === 'High' ? 'High' : 'Low',
     assignedEmployeeId: doc.assignedEmployeeId || '',
     assignedEmployeeName: doc.assignedEmployeeName || '',
     dependencyCellIds: (doc.dependencyCellIds || []).map((id: Types.ObjectId) => id.toString()),
@@ -92,8 +111,8 @@ function toCell(doc: any, dependencyMeta?: { isBlocked: boolean; isReady: boolea
     workflowCompletedStages,
     workflowTotalStages: workflow.length,
     currentWorkflowStage: currentWorkflowStageLabel(workflow),
-    views: doc.views || { layout: '', symbol: '', schematic: '' },
-    viewWorkflow: normalizeViewWorkflow(doc.viewWorkflow),
+    views,
+    viewWorkflow,
     activityLog: doc.activityLog || [],
     isBlocked: dependencyMeta?.isBlocked ?? false,
     isReady: dependencyMeta?.isReady ?? false,
@@ -336,6 +355,7 @@ export const projectWorkspaceController = {
         cellType,
         technologyNode,
         complexity,
+        baseHours,
         estimatedEffort,
         assignedEmployeeId,
         assignedEmployeeName,
@@ -353,15 +373,31 @@ export const projectWorkspaceController = {
         ? dependencyCellIds.filter((id: string) => Types.ObjectId.isValid(id)).map((id: string) => new Types.ObjectId(id))
         : [];
 
+      const normalizedComplexity = normalizeComplexity(complexity);
+      const resolvedTechNode = technologyNode?.trim() || project.technologyNode || '';
+      const resolvedBaseHours = baseHours != null
+        ? Math.max(0, Number(baseHours) || 0)
+        : deriveBaseHours(Number(estimatedEffort) || 0, normalizedComplexity);
+      const prediction = await predictEffort({
+        cellType: normalizeCellType(cellType),
+        technologyNode: resolvedTechNode,
+        complexity: normalizedComplexity,
+        baseHours: resolvedBaseHours,
+      });
+
       const cell = await ProjectCellModel.create({
         projectId: project._id,
         libraryId: library._id,
         name: name.trim(),
         description: description?.trim() || '',
         cellType: normalizeCellType(cellType),
-        technologyNode: technologyNode?.trim() || project.technologyNode || '',
-        complexity: ['Low', 'Medium', 'High'].includes(complexity) ? complexity : 'Medium',
-        estimatedEffort: Number(estimatedEffort) || 0,
+        technologyNode: resolvedTechNode,
+        complexity: normalizedComplexity,
+        baseHours: prediction.baseHours,
+        estimatedEffort: prediction.estimatedHours,
+        smartEstimate: prediction.smartEstimate,
+        estimateConfidence: prediction.confidence,
+        actualEffort: 0,
         assignedEmployeeId: assignedEmployeeId || undefined,
         assignedEmployeeName: assignedEmployeeName || undefined,
         dependencyCellIds: deps,
@@ -405,7 +441,7 @@ export const projectWorkspaceController = {
       const previousCellType = cell.cellType;
       const fields = [
         'name', 'description', 'cellType', 'technologyNode', 'complexity',
-        'estimatedEffort', 'assignedEmployeeId', 'assignedEmployeeName', 'views',
+        'baseHours', 'estimatedEffort', 'actualEffort', 'assignedEmployeeId', 'assignedEmployeeName', 'views',
       ] as const;
 
       for (const field of fields) {
@@ -416,10 +452,26 @@ export const projectWorkspaceController = {
         }
       }
 
+      if (req.body.complexity !== undefined) {
+        cell.complexity = normalizeComplexity(req.body.complexity);
+      }
+
+      if (req.body.baseHours !== undefined || req.body.complexity !== undefined) {
+        const base = Math.max(0, Number(cell.baseHours) || 0);
+        cell.estimatedEffort = calculateEstimatedHours(base, cell.complexity);
+      } else if (req.body.estimatedEffort !== undefined && req.body.baseHours === undefined) {
+        cell.baseHours = deriveBaseHours(Number(cell.estimatedEffort) || 0, cell.complexity, cell.baseHours);
+      }
+
       if (Array.isArray(req.body.dependencyCellIds)) {
         cell.dependencyCellIds = req.body.dependencyCellIds
           .filter((id: string) => Types.ObjectId.isValid(id) && id !== cellId)
           .map((id: string) => new Types.ObjectId(id));
+      }
+
+      if (req.body.views !== undefined) {
+        syncViewWorkflowSimpleViewsFromCellViews(cell);
+        applyCellWorkflowSync(cell, 'viewWorkflow');
       }
 
       if (req.body.libraryId !== undefined) {
@@ -632,6 +684,35 @@ export const projectWorkspaceController = {
     }
   },
 
+  getEffortPrediction: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const project = await assertProject(projectId);
+      if (!project) {
+        res.status(404).json({ error: 'Project not found' });
+        return;
+      }
+
+      const cellType = normalizeCellType(String(req.query.cellType || 'block'));
+      const technologyNode = String(req.query.technologyNode || project.technologyNode || '').trim();
+      const complexity = normalizeComplexity(req.query.complexity);
+      const baseHours = Math.max(0, Number(req.query.baseHours) || 0);
+      const excludeCellId = req.query.excludeCellId ? paramId(String(req.query.excludeCellId)) : undefined;
+
+      const prediction = await predictEffort({
+        cellType,
+        technologyNode,
+        complexity,
+        baseHours,
+        excludeCellId,
+      });
+
+      res.json(prediction);
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to predict effort' });
+    }
+  },
+
   getDependencyGraph: async (req: Request, res: Response): Promise<void> => {
     try {
       const projectId = paramId(req.params.projectId);
@@ -811,6 +892,7 @@ export const projectWorkspaceController = {
       }
 
       cell.viewWorkflow = nextWorkflow;
+      applyCellWorkflowSync(cell, 'viewWorkflow');
       review.status = 'resolved';
       review.outcome = outcome;
       review.returnToStage = outcome === 'rejected' ? returnToStage : undefined;
@@ -898,6 +980,7 @@ export const projectWorkspaceController = {
       }
 
       cell.workflow = result.workflow;
+      applyCellWorkflowSync(cell, 'workflow');
       cell.activityLog.push({
         action: 'workflow_update',
         detail: `${stageMeta?.label || stageKey}: ${prevStatus} → ${nextStatus}`,
