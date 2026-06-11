@@ -4,13 +4,14 @@ export interface ParsedRouteMetalRow {
   metalType: string;
   width: number;
   length: number;
+  connectionType?: 'series' | 'parallel';
 }
 
 export interface ParsedRouteBlock {
   fromCell: string;
   toCell: string;
-  fromSignal: string;
-  toSignal: string;
+  signal: string;
+  givenCurrentCapability?: number;
   metals: ParsedRouteMetalRow[];
 }
 
@@ -28,13 +29,13 @@ const LOG_PREFIX = '[metal-routing-excel]';
 export interface RouteExcelRecord {
   fromCell: string;
   toCell: string;
-  fromSignal: string;
-  toSignal: string;
+  signal: string;
+  givenCurrentCapability?: number;
   metals: Array<{
     metalType: string;
     width: number;
     length: number;
-    givenCurrentDensity: number;
+    connectionType?: 'series' | 'parallel';
     implementedCurrentMetalCapacity: number;
     routingMetalImpedance: number;
   }>;
@@ -44,34 +45,31 @@ export interface RouteExcelRecord {
 
 type RouteColumnKey =
   | 'fromToCell'
+  | 'signal'
   | 'fromSignal'
   | 'toSignal'
+  | 'givenDensity'
   | 'metalType'
   | 'width'
   | 'length'
-  | 'givenDensity'
+  | 'connectionType'
   | 'implementedCapacity'
   | 'minCapacity'
   | 'routingImpedance'
   | 'totalImpedance';
 
-const REQUIRED_IMPORT_COLUMNS: RouteColumnKey[] = [
-  'fromToCell',
-  'fromSignal',
-  'toSignal',
-  'metalType',
-  'width',
-  'length',
-];
+const BASE_IMPORT_COLUMNS: RouteColumnKey[] = ['fromToCell', 'metalType', 'width', 'length'];
 
 const HEADERS: Record<RouteColumnKey, string> = {
   fromToCell: 'From Cell & To Cell',
+  signal: 'Signal (Name)',
   fromSignal: 'From Signal (Name)',
   toSignal: 'To Signal (Name)',
+  givenDensity: 'Given Current Capability (mA)',
   metalType: 'Metal Type',
   width: 'Metal Width(µm)',
   length: 'Metal Length(µm)',
-  givenDensity: 'Given Current Density (mA)',
+  connectionType: 'Connection (Series/Parallel)',
   implementedCapacity: 'Implemented Metal Current Capability(mA)',
   minCapacity: 'Minimum Metal Current Capability(mA)',
   routingImpedance: 'Routing Metal Impedence(mΩ)',
@@ -80,17 +78,38 @@ const HEADERS: Record<RouteColumnKey, string> = {
 
 const COL_ORDER: RouteColumnKey[] = [
   'fromToCell',
-  'fromSignal',
-  'toSignal',
+  'signal',
+  'givenDensity',
   'metalType',
   'width',
   'length',
-  'givenDensity',
+  'connectionType',
   'implementedCapacity',
   'minCapacity',
   'routingImpedance',
   'totalImpedance',
 ];
+
+function hasRequiredImportColumns(found: Set<RouteColumnKey>): boolean {
+  if (!BASE_IMPORT_COLUMNS.every((key) => found.has(key))) return false;
+  return found.has('signal') || found.has('fromSignal');
+}
+
+function scoreImportColumns(found: Set<RouteColumnKey>): number {
+  let score = BASE_IMPORT_COLUMNS.filter((key) => found.has(key)).length;
+  if (found.has('signal')) score += 2;
+  if (found.has('fromSignal')) score += 1;
+  if (found.has('toSignal')) score += 1;
+  return score;
+}
+
+function missingImportColumnLabels(found: Set<RouteColumnKey>): string[] {
+  const missing = BASE_IMPORT_COLUMNS.filter((key) => !found.has(key)).map((key) => HEADERS[key]);
+  if (!found.has('signal') && !found.has('fromSignal')) {
+    missing.push(HEADERS.signal);
+  }
+  return missing;
+}
 
 const COLORS = {
   headerYellow: 'FFFDE047',
@@ -125,12 +144,16 @@ function classifyColumn(header: string): RouteColumnKey | null {
 
   if (h.includes('from cell') && h.includes('to cell')) return 'fromToCell';
   if (compact === 'fromcelltocell' || compact.includes('fromcellto')) return 'fromToCell';
+  if (h === 'signal' || (h.includes('signal') && !h.includes('from signal') && !h.includes('to signal'))) {
+    return 'signal';
+  }
   if (h.includes('from signal')) return 'fromSignal';
   if (h.includes('to signal')) return 'toSignal';
+  if (h.includes('given current capability') || h.includes('given current density')) return 'givenDensity';
   if (h === 'metal type' || compact === 'metaltype') return 'metalType';
   if (h.includes('metal width')) return 'width';
   if (h.includes('metal length')) return 'length';
-  if (h.includes('given current density')) return 'givenDensity';
+  if (h.includes('connection') || (h.includes('series') && h.includes('parallel'))) return 'connectionType';
   if (h.includes('implemented metal current')) return 'implementedCapacity';
   if (h.includes('minimum metal current')) return 'minCapacity';
   if (h.includes('routing metal imped')) return 'routingImpedance';
@@ -142,6 +165,27 @@ function classifyColumn(header: string): RouteColumnKey | null {
 function thinBlackBorder(): Partial<ExcelJS.Borders> {
   const side: Partial<ExcelJS.Border> = { style: 'thin', color: { argb: COLORS.black } };
   return { top: side, bottom: side, left: side, right: side };
+}
+
+function parseConnectionType(
+  text: string,
+  rowNum: number,
+  isFirstMetal: boolean,
+): 'series' | 'parallel' | undefined {
+  if (isFirstMetal) return undefined;
+  const normalized = text.trim().toLowerCase();
+  if (!normalized) return 'series';
+  if (normalized === 'series' || normalized === 's') return 'series';
+  if (normalized === 'parallel' || normalized === 'p') return 'parallel';
+  throw new Error(
+    `Row ${rowNum}: Connection type must be "Series" or "Parallel" (leave blank on the first metal row).`,
+  );
+}
+
+function parseOptionalNumeric(value: ExcelJS.CellValue, label: string): number | undefined {
+  const text = excelCellText(value);
+  if (!text) return undefined;
+  return parseNumeric(text, label);
 }
 
 function parseNumeric(value: ExcelJS.CellValue, label: string): number {
@@ -190,7 +234,7 @@ function scoreWorksheetHeaders(sheet: ExcelJS.Worksheet): number {
       if (key && !columnMap.has(colNumber)) columnMap.set(colNumber, key);
     });
     const found = new Set(columnMap.values());
-    const score = REQUIRED_IMPORT_COLUMNS.filter((k) => found.has(k)).length;
+    const score = scoreImportColumns(found);
     if (score > bestScore) bestScore = score;
   });
   return bestScore;
@@ -208,9 +252,9 @@ function findBestWorksheet(wb: ExcelJS.Workbook): ExcelJS.Worksheet {
     }
   }
 
-  if (!bestSheet || bestScore < REQUIRED_IMPORT_COLUMNS.length) {
+  if (!bestSheet || bestScore < BASE_IMPORT_COLUMNS.length + 1) {
     throw new Error(
-      'Invalid Metal Routing Excel file. No worksheet contains the required columns (From Cell & To Cell, signals, metal type, width, length).',
+      'Invalid Metal Routing Excel file. No worksheet contains the required columns (From Cell & To Cell, Signal, metal type, width, length).',
     );
   }
 
@@ -228,15 +272,14 @@ function findHeaderRow(sheet: ExcelJS.Worksheet): { rowNumber: number; columnMap
       if (key && !columnMap.has(colNumber)) columnMap.set(colNumber, key);
     });
     const found = new Set(columnMap.values());
-    const score = REQUIRED_IMPORT_COLUMNS.filter((k) => found.has(k)).length;
+    const score = scoreImportColumns(found);
     if (score > best.score) best = { rowNumber, columnMap, score };
   });
 
-  if (best.score < REQUIRED_IMPORT_COLUMNS.length) {
-    const foundKeys = new Set(best.columnMap.values());
-    const missing = REQUIRED_IMPORT_COLUMNS.filter((k) => !foundKeys.has(k)).map((k) => HEADERS[k]);
+  const foundKeys = new Set(best.columnMap.values());
+  if (!hasRequiredImportColumns(foundKeys)) {
     throw new Error(
-      `Invalid Metal Routing Excel template. Missing columns: ${missing.join(', ')}`,
+      `Invalid Metal Routing Excel template. Missing columns: ${missingImportColumnLabels(foundKeys).join(', ')}`,
     );
   }
 
@@ -485,22 +528,37 @@ export async function parseMetalRoutingExcelWithDiagnostics(
   log('worksheet', sheet.name, 'headerRow', headerRow, 'mergeRanges', mergeRanges.length);
 
   const fromToCol = colNumberForKey(columnMap, 'fromToCell');
+  const signalCol = colNumberForKey(columnMap, 'signal');
   const fromSignalCol = colNumberForKey(columnMap, 'fromSignal');
   const toSignalCol = colNumberForKey(columnMap, 'toSignal');
+  const givenDensityCol = colNumberForKey(columnMap, 'givenDensity');
   const metalTypeCol = colNumberForKey(columnMap, 'metalType');
   const widthCol = colNumberForKey(columnMap, 'width');
   const lengthCol = colNumberForKey(columnMap, 'length');
+  const connectionCol = colNumberForKey(columnMap, 'connectionType');
 
-  if (!fromToCol || !fromSignalCol || !toSignalCol || !metalTypeCol || !widthCol || !lengthCol) {
+  if (!fromToCol || !metalTypeCol || !widthCol || !lengthCol || (!signalCol && !fromSignalCol)) {
     throw new Error('Required Metal Routing columns were not found');
   }
 
   const blocks: ParsedRouteBlock[] = [];
   let current: ParsedRouteBlock | null = null;
   let carryFromTo = '';
+  let carrySignal = '';
   let carryFromSignal = '';
   let carryToSignal = '';
-  const trackedCols = [fromToCol, fromSignalCol, toSignalCol, metalTypeCol, widthCol, lengthCol];
+  let carryGivenDensity = '';
+  const trackedCols = [
+    fromToCol,
+    signalCol,
+    fromSignalCol,
+    toSignalCol,
+    givenDensityCol,
+    metalTypeCol,
+    widthCol,
+    lengthCol,
+    connectionCol,
+  ].filter((col): col is number => col != null);
   const lastRow = getLastPopulatedRow(sheet);
 
   for (let rowNum = headerRow + 1; rowNum <= lastRow; rowNum++) {
@@ -510,25 +568,43 @@ export async function parseMetalRoutingExcelWithDiagnostics(
         current = null;
       }
       carryFromTo = '';
+      carrySignal = '';
       carryFromSignal = '';
       carryToSignal = '';
+      carryGivenDensity = '';
       continue;
     }
 
     const rawFromTo = getCellTextWithMerge(sheet, rowNum, fromToCol, mergedValues, mergeRanges);
-    const rawFromSignal = getCellTextWithMerge(sheet, rowNum, fromSignalCol, mergedValues, mergeRanges);
-    const rawToSignal = getCellTextWithMerge(sheet, rowNum, toSignalCol, mergedValues, mergeRanges);
+    const rawSignal = signalCol
+      ? getCellTextWithMerge(sheet, rowNum, signalCol, mergedValues, mergeRanges)
+      : '';
+    const rawFromSignal = fromSignalCol
+      ? getCellTextWithMerge(sheet, rowNum, fromSignalCol, mergedValues, mergeRanges)
+      : '';
+    const rawToSignal = toSignalCol
+      ? getCellTextWithMerge(sheet, rowNum, toSignalCol, mergedValues, mergeRanges)
+      : '';
+    const rawGivenDensity = givenDensityCol
+      ? getCellTextWithMerge(sheet, rowNum, givenDensityCol, mergedValues, mergeRanges)
+      : '';
     const metalType = getCellTextWithMerge(sheet, rowNum, metalTypeCol, mergedValues, mergeRanges);
+    const rawConnection = connectionCol
+      ? getCellTextWithMerge(sheet, rowNum, connectionCol, mergedValues, mergeRanges)
+      : '';
 
     if (rawFromTo) carryFromTo = rawFromTo;
+    if (rawSignal) carrySignal = rawSignal;
     if (rawFromSignal) carryFromSignal = rawFromSignal;
     if (rawToSignal) carryToSignal = rawToSignal;
+    if (rawGivenDensity) carryGivenDensity = rawGivenDensity;
 
     if (!metalType) continue;
 
-    if (!carryFromTo || !carryFromSignal || !carryToSignal) {
+    const signalName = carrySignal || carryFromSignal || carryToSignal;
+    if (!carryFromTo || !signalName) {
       throw new Error(
-        `Row ${rowNum}: route information is incomplete. Each metal row needs From/To Cell, From Signal, and To Signal (merged cells are supported).`,
+        `Row ${rowNum}: route information is incomplete. Each metal row needs From/To Cell and Signal (merged cells are supported).`,
       );
     }
 
@@ -541,18 +617,24 @@ export async function parseMetalRoutingExcelWithDiagnostics(
       throw new Error(`Row ${rowNum}: ${message}`);
     }
 
-    const routeKey = `${fromCell}|${toCell}|${carryFromSignal}|${carryToSignal}`;
+    const routeKey = `${fromCell}|${toCell}|${signalName}`;
 
-    if (!current || `${current.fromCell}|${current.toCell}|${current.fromSignal}|${current.toSignal}` !== routeKey) {
+    if (!current || `${current.fromCell}|${current.toCell}|${current.signal}` !== routeKey) {
       if (current) blocks.push(current);
       current = {
         fromCell,
         toCell,
-        fromSignal: carryFromSignal,
-        toSignal: carryToSignal,
+        signal: signalName,
         metals: [],
       };
     }
+
+    if (carryGivenDensity) {
+      current.givenCurrentCapability = parseOptionalNumeric(carryGivenDensity, 'Given Current Capability (mA)');
+    }
+
+    const isFirstMetal = current.metals.length === 0;
+    const connectionType = parseConnectionType(rawConnection, rowNum, isFirstMetal);
 
     const width = getCellNumericWithMerge(
       sheet,
@@ -571,7 +653,12 @@ export async function parseMetalRoutingExcelWithDiagnostics(
       `Metal Length on row ${rowNum}`,
     );
 
-    current.metals.push({ metalType: metalType.trim(), width, length });
+    current.metals.push({
+      metalType: metalType.trim(),
+      width,
+      length,
+      connectionType,
+    });
   }
 
   if (current) blocks.push(current);
@@ -594,8 +681,7 @@ export async function parseMetalRoutingExcelWithDiagnostics(
     log(`  block ${index + 1}`, {
       fromCell: block.fromCell,
       toCell: block.toCell,
-      fromSignal: block.fromSignal,
-      toSignal: block.toSignal,
+      signal: block.signal,
       metals: block.metals.length,
     });
   });
@@ -647,15 +733,15 @@ function buildTemplateSampleRoute(metalTypes: string[]): RouteExcelRecord {
   return {
     fromCell: 'DIG CELL',
     toCell: 'ANALOG',
-    fromSignal: 'FROM_SIG',
-    toSignal: 'TO_SIG',
+    signal: 'CLK_MAIN',
+    givenCurrentCapability: undefined,
     minimumMetalCurrentCapacity: 0,
     totalImpedance: 0,
     metals: types.map((metalType, index) => ({
       metalType,
       width: SAMPLE_WIDTHS[index % SAMPLE_WIDTHS.length],
       length: SAMPLE_LENGTHS[index % SAMPLE_LENGTHS.length],
-      givenCurrentDensity: 0,
+      connectionType: index === 0 ? undefined : 'series',
       implementedCurrentMetalCapacity: 0,
       routingMetalImpedance: 0,
     })),
@@ -681,7 +767,7 @@ export async function buildMetalRoutingExcelBuffer(
   sheet.columns = [
     { width: 24 },
     { width: 18 },
-    { width: 18 },
+    { width: 20 },
     { width: 12 },
     { width: 14 },
     { width: 14 },
@@ -705,7 +791,7 @@ export async function buildMetalRoutingExcelBuffer(
       metalType: '',
       width: '',
       length: '',
-      givenCurrentDensity: '',
+      connectionType: undefined,
       implementedCurrentMetalCapacity: '',
       routingMetalImpedance: '',
     }];
@@ -719,26 +805,41 @@ export async function buildMetalRoutingExcelBuffer(
 
       if (isFirst) {
         styleDataCell(row.getCell(colIndex('fromToCell')), fromToLabel);
-        styleDataCell(row.getCell(colIndex('fromSignal')), route.fromSignal);
-        styleDataCell(row.getCell(colIndex('toSignal')), route.toSignal);
+        styleDataCell(row.getCell(colIndex('signal')), route.signal);
+        styleDataCell(
+          row.getCell(colIndex('givenDensity')),
+          isTemplate ? '' : round4(Number(route.givenCurrentCapability) || 0),
+        );
       } else {
         styleDataCell(row.getCell(colIndex('fromToCell')), '');
-        styleDataCell(row.getCell(colIndex('fromSignal')), '');
-        styleDataCell(row.getCell(colIndex('toSignal')), '');
+        styleDataCell(row.getCell(colIndex('signal')), '');
+        styleDataCell(row.getCell(colIndex('givenDensity')), '');
       }
 
       styleDataCell(row.getCell(colIndex('metalType')), metal.metalType);
       styleDataCell(row.getCell(colIndex('width')), metal.width);
       styleDataCell(row.getCell(colIndex('length')), metal.length);
 
+      if (isFirst) {
+        styleDataCell(row.getCell(colIndex('connectionType')), '');
+      } else if (isTemplate) {
+        styleDataCell(
+          row.getCell(colIndex('connectionType')),
+          metal.connectionType === 'parallel' ? 'Parallel' : 'Series',
+        );
+      } else {
+        styleDataCell(
+          row.getCell(colIndex('connectionType')),
+          metal.connectionType === 'parallel' ? 'Parallel' : 'Series',
+        );
+      }
+
       if (isTemplate) {
-        styleDataCell(row.getCell(colIndex('givenDensity')), '');
         styleDataCell(row.getCell(colIndex('implementedCapacity')), '');
         styleDataCell(row.getCell(colIndex('minCapacity')), isFirst ? '' : '');
         styleDataCell(row.getCell(colIndex('routingImpedance')), '');
         styleDataCell(row.getCell(colIndex('totalImpedance')), isFirst ? '' : '');
       } else {
-        styleDataCell(row.getCell(colIndex('givenDensity')), round4(Number(metal.givenCurrentDensity) || 0));
         styleDataCell(row.getCell(colIndex('implementedCapacity')), round4(Number(metal.implementedCurrentMetalCapacity) || 0));
 
         if (isFirst) {
@@ -762,12 +863,18 @@ export async function buildMetalRoutingExcelBuffer(
 
     if (metals.length > 1) {
       sheet.mergeCells(startRow, colIndex('fromToCell'), endRow, colIndex('fromToCell'));
-      sheet.mergeCells(startRow, colIndex('fromSignal'), endRow, colIndex('fromSignal'));
-      sheet.mergeCells(startRow, colIndex('toSignal'), endRow, colIndex('toSignal'));
+      sheet.mergeCells(startRow, colIndex('signal'), endRow, colIndex('signal'));
+      sheet.mergeCells(startRow, colIndex('givenDensity'), endRow, colIndex('givenDensity'));
       sheet.mergeCells(startRow, colIndex('minCapacity'), endRow, colIndex('minCapacity'));
       sheet.mergeCells(startRow, colIndex('totalImpedance'), endRow, colIndex('totalImpedance'));
 
-      [colIndex('fromToCell'), colIndex('fromSignal'), colIndex('toSignal'), colIndex('minCapacity'), colIndex('totalImpedance')].forEach((col) => {
+      [
+        colIndex('fromToCell'),
+        colIndex('signal'),
+        colIndex('givenDensity'),
+        colIndex('minCapacity'),
+        colIndex('totalImpedance'),
+      ].forEach((col) => {
         const cell = sheet.getCell(startRow, col);
         cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
       });

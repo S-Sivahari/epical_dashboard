@@ -147,7 +147,11 @@ export const pdkMetalRoutingController = {
   async listPdkModules(_req: AuthRequest, res: Response) {
     try {
       const modules = await pdkService.listPdkModules();
-      res.json({ modules });
+      res.json({
+        modules: modules.map((module) =>
+          pdkService.serializePdkModuleForClient(module as Record<string, unknown>),
+        ),
+      });
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to list PDK modules' });
     }
@@ -160,7 +164,9 @@ export const pdkMetalRoutingController = {
         res.status(404).json({ error: 'PDK module not found' });
         return;
       }
-      res.json({ module });
+      res.json({
+        module: pdkService.serializePdkModuleForClient(module as Record<string, unknown>),
+      });
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to fetch PDK module' });
     }
@@ -425,6 +431,39 @@ export const pdkMetalRoutingController = {
     }
   },
 
+  async downloadRouteMetalTemplate(req: AuthRequest, res: Response) {
+    try {
+      const result = await pdkService.getRouteMetalTemplateExcel(String(req.params.id));
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+      res.send(result.buffer);
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : 'Failed to generate signal template' });
+    }
+  },
+
+  async importRouteMetals(req: AuthRequest, res: Response) {
+    const routeId = String(req.params.id).trim();
+    try {
+      if (!req.file?.buffer) {
+        res.status(400).json({ error: 'Excel file is required' });
+        return;
+      }
+
+      const result = await pdkService.importRouteMetalsFromExcel(
+        routeId,
+        req.file.buffer,
+        req.user?.id,
+        req.user?.email,
+      );
+
+      res.status(201).json(result);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to import signal metals';
+      res.status(400).json({ error: message });
+    }
+  },
+
   async downloadMetalRoutingTemplate(_req: AuthRequest, res: Response) {
     try {
       const buffer = await pdkService.getMetalRoutingTemplateExcel();
@@ -475,13 +514,6 @@ export const pdkMetalRoutingController = {
         return;
       }
 
-      console.log('[metal-routing-import] API request', {
-        projectId,
-        fileName: req.file.originalname,
-        fileSize: req.file.size,
-        userId: req.user?.id,
-      });
-
       const result = await pdkService.importProjectRoutesFromExcel(
         projectId,
         req.file.buffer,
@@ -496,13 +528,6 @@ export const pdkMetalRoutingController = {
         });
         return;
       }
-
-      console.log('[metal-routing-import] API success', {
-        projectId,
-        routesImported: result.routesImported,
-        savedRoutesVisible: result.savedRoutes.length,
-        routesFailed: result.routesFailed,
-      });
 
       res.status(201).json(result);
     } catch (err: unknown) {

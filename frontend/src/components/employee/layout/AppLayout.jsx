@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { LoginBackground } from '@components/auth/LoginBackground'
 import { PageLoading } from '@components/layout/PageLoading'
 import { PortalErrorBoundary } from '@components/employee/shared/PortalErrorBoundary'
@@ -8,20 +8,27 @@ import { EmployeePageShell } from './EmployeePageShell'
 import { EmployeeTopNav } from './EmployeeTopNav'
 
 export function AppLayout() {
+  const { pathname } = useLocation()
+  const isMetalRouting = pathname.includes('/metal-routing')
+
   return (
     <div className="employee-portal cmd-portal flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden font-body text-[var(--text-primary)]">
       <div className="employee-portal-chrome relative z-20 shrink-0">
         <EmployeeCommandBar />
         <EmployeeTopNav />
       </div>
-      <main className="cmd-main relative z-0 flex min-h-0 flex-1 flex-col">
+      <main className="cmd-main relative z-0 flex min-h-0 flex-1 flex-col overflow-hidden">
         <LoginBackground variant="admin" />
         <div className="relative z-[1] flex min-h-0 flex-1 flex-col">
           <PortalErrorBoundary>
             <Suspense fallback={<PageLoading />}>
-              <EmployeePageShell>
+              {isMetalRouting ? (
                 <Outlet />
-              </EmployeePageShell>
+              ) : (
+                <EmployeePageShell>
+                  <Outlet />
+                </EmployeePageShell>
+              )}
             </Suspense>
           </PortalErrorBoundary>
         </div>

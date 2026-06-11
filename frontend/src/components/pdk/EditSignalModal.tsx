@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { toast } from 'sonner'
 import { Modal } from '@components/ui/Modal'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
+import { CellCombobox } from '@components/pdk/CellCombobox'
 import type { ProjectCellsByType, SignalRouteSummary } from '@/types/pdkMetalRouting'
 
 export function EditSignalModal({
@@ -31,6 +31,7 @@ export function EditSignalModal({
   const [fromCell, setFromCell] = useState('')
   const [toCell, setToCell] = useState('')
   const [schematicDensity, setSchematicDensity] = useState('')
+  const [formError, setFormError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isOpen || !signalRow) return
@@ -51,18 +52,19 @@ export function EditSignalModal({
 
   const handleSave = async () => {
     if (!signal.trim()) {
-      toast.error('Signal name is required')
+      setFormError('Signal name is required')
       return
     }
     if (!fromCell.trim() || !toCell.trim()) {
-      toast.error('From cell and to cell are required')
+      setFormError('From cell and to cell are required')
       return
     }
     const schematic = schematicDensity.trim() ? Number(schematicDensity) : undefined
     if (schematic != null && (!Number.isFinite(schematic) || schematic < 0)) {
-      toast.error('Enter a valid schematic current density')
+      setFormError('Enter a valid given current capability')
       return
     }
+    setFormError(null)
     await onSave({
       signal: signal.trim(),
       fromCell: fromCell.trim(),
@@ -80,45 +82,37 @@ export function EditSignalModal({
           onChange={(e) => setSignal(e.target.value)}
           placeholder="e.g. CLK_MAIN"
         />
-        <label className="block space-y-1.5">
-          <span className="text-sm font-medium text-ink">From cell</span>
-          <input
-            list="edit-signal-from-cells"
-            className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm shadow-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-            value={fromCell}
-            onChange={(e) => setFromCell(e.target.value)}
-            placeholder="Select or type cell name"
-          />
-          <datalist id="edit-signal-from-cells">
-            {allCells.map((c) => (
-              <option key={`from-${c}`} value={c} />
-            ))}
-          </datalist>
-        </label>
-        <Input
-          label="Schematic current density (mA/µm)"
-          type="number"
-          step="any"
-          min={0}
-          value={schematicDensity}
-          onChange={(e) => setSchematicDensity(e.target.value)}
-          hint="Applied as Given current density on all metal rows for this signal"
+        <CellCombobox
+          id="edit-signal-from-cell"
+          label="From cell"
+          value={fromCell}
+          onChange={setFromCell}
+          options={allCells}
         />
-        <label className="block space-y-1.5">
-          <span className="text-sm font-medium text-ink">To cell</span>
-          <input
-            list="edit-signal-to-cells"
-            className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm shadow-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-            value={toCell}
-            onChange={(e) => setToCell(e.target.value)}
-            placeholder="Select or type cell name"
+        <div className="space-y-1.5">
+          <Input
+            label="Given current capability (mA/µm)"
+            type="number"
+            step="any"
+            min={0}
+            value={schematicDensity}
+            onChange={(e) => setSchematicDensity(e.target.value)}
           />
-          <datalist id="edit-signal-to-cells">
-            {allCells.map((c) => (
-              <option key={`to-${c}`} value={c} />
-            ))}
-          </datalist>
-        </label>
+          <p className="text-xs text-muted">
+            Applied as given current capability on all metal rows for this signal.
+          </p>
+        </div>
+        <CellCombobox
+          id="edit-signal-to-cell"
+          label="To cell"
+          value={toCell}
+          onChange={setToCell}
+          options={allCells}
+        />
+        {formError ? (
+          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{formError}</p>
+        ) : null}
+
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
           <Button loading={saving} onClick={() => void handleSave()}>Save changes</Button>

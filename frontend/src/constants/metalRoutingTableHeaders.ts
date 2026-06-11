@@ -11,7 +11,7 @@ export const METAL_ROUTING_TABLE_HEADERS = {
   metalType: { label: 'Metal Type' },
   width: { label: 'Metal Width', unit: '(µm)' },
   length: { label: 'Metal Length', unit: '(µm)' },
-  givenDensity: { label: 'Given Current Density', unit: ' (mA)' },
+  givenDensity: { label: 'Given Current Capability', unit: ' (mA)' },
   implementedCapacity: { label: 'Implemented Metal Current Capability', unit: '(mA)' },
   minCapacity: { label: 'Minimum Metal Current Capability', unit: '(mA)' },
   routingImpedance: { label: 'Routing Metal Impedence', unit: '(mΩ)' },

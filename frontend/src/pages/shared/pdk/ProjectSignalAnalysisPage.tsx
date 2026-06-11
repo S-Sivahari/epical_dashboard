@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Activity, Download, Pencil, Plus, Search } from 'lucide-react'
-import { toast } from 'sonner'
+import { Activity, Pencil, Plus, Search } from 'lucide-react'
+import { TopDismissNotice, type TopNotice } from '@components/pdk/TopDismissNotice'
 import { AddSignalModal } from '@components/pdk/AddSignalModal'
+import { showPortalError, showPortalSuccess } from '@/utils/portalNotice'
 import { EditSignalModal } from '@components/pdk/EditSignalModal'
 import { MetalRoutingColumnUnit } from '@components/pdk/MetalRoutingColumnHeader'
+import { MetalRoutingExcelActions } from '@components/pdk/MetalRoutingExcelActions'
 import { MetalRoutingPageShell } from '@components/pdk/MetalRoutingPageShell'
 import { Button } from '@components/ui/Button'
 import type { ProjectCellsByType, ProjectRoutingContext, SignalRouteSummary } from '@/types/pdkMetalRouting'
-import { fetchProjectContext, resolveRoute, updateRouteIdentity } from '@services/pdkMetalRoutingService'
-import { exportToExcel } from '@/utils/exportExcel'
+import { fetchProjectContext, updateRouteIdentity } from '@services/pdkMetalRoutingService'
 
 function fmt(n: number): string {
   return Number.isFinite(n) ? n.toFixed(4) : '—'
@@ -29,15 +30,15 @@ export function ProjectSignalAnalysisPage({ basePath }: { basePath: string }) {
   const [search, setSearch] = useState('')
   const [fromCellFilter, setFromCellFilter] = useState('all')
   const [toCellFilter, setToCellFilter] = useState('all')
-  const [exporting, setExporting] = useState(false)
-
+  const [notice, setNotice] = useState<TopNotice | null>(null)
+  const dismissNotice = useCallback(() => setNotice(null), [])
   const load = useCallback(async () => {
     if (!projectId) return
     setLoading(true)
     try {
       setContext(await fetchProjectContext(projectId))
     } catch {
-      toast.error('Failed to load project signals')
+      showPortalError(setNotice, 'Failed to load signals', 'Refresh the page or try again later.')
     } finally {
       setLoading(false)
     }
@@ -81,37 +82,6 @@ export function ProjectSignalAnalysisPage({ basePath }: { basePath: string }) {
     navigate(`${basePath}/projects/${projectId}/signal-analysis/route?${params.toString()}`)
   }
 
-  const handleAddSignal = async (payload: {
-    signal: string
-    fromCell: string
-    toCell: string
-    schematicCurrentDensity: number
-  }) => {
-    if (!context?.pdkModule) {
-      toast.error('Assign a PDK module first (PDK Selection tab)')
-      return
-    }
-    setSubmitting(true)
-    try {
-      await resolveRoute({ projectId, ...payload })
-      setAddOpen(false)
-      const params = new URLSearchParams({
-        signal: payload.signal,
-        fromCell: payload.fromCell,
-        toCell: payload.toCell,
-      })
-      navigate(`${basePath}/projects/${projectId}/signal-analysis/route?${params.toString()}`)
-    } catch (err: unknown) {
-      const message =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
-          : undefined
-      toast.error(message ?? 'Failed to create signal route')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
   const handleEditSignal = async (payload: {
     signal: string
     fromCell: string
@@ -122,7 +92,7 @@ export function ProjectSignalAnalysisPage({ basePath }: { basePath: string }) {
     setSubmitting(true)
     try {
       await updateRouteIdentity(editingRow._id, payload)
-      toast.success('Signal route updated')
+      showPortalSuccess(setNotice, 'Signal updated', 'Signal route updated.')
       setEditOpen(false)
       setEditingRow(null)
       await load()
@@ -133,53 +103,15 @@ export function ProjectSignalAnalysisPage({ basePath }: { basePath: string }) {
           : err instanceof Error
             ? err.message
             : undefined
-      toast.error(message ?? 'Failed to update signal route')
+      showPortalError(setNotice, 'Update failed', message ?? 'Failed to update signal route.')
     } finally {
       setSubmitting(false)
     }
   }
 
-  const handleExport = async () => {
-    if (filteredSignals.length === 0) {
-      toast.error('No signals to export')
-      return
-    }
-    setExporting(true)
-    try {
-      const rows = filteredSignals.map((row) => ({
-        signal: row.signal,
-        fromCell: row.fromCell,
-        toCell: row.toCell,
-        totalImpedance: row.totalImpedance,
-        minimumMetalCurrentCapacity: row.minimumMetalCurrentCapacity,
-      }))
-      await exportToExcel(
-        rows,
-        `signal-analysis_${context?.project.projectName ?? 'project'}`.replace(/\s+/g, '_'),
-        [
-          { key: 'signal', label: 'Signal' },
-          { key: 'fromCell', label: 'From' },
-          { key: 'toCell', label: 'To' },
-          { key: 'totalImpedance', label: 'Total Impedance (mΩ)' },
-          { key: 'minimumMetalCurrentCapacity', label: 'Minimum Current Capability (mA)' },
-        ],
-        {
-          compactHeader: true,
-          panelTitle: 'Signal Analysis',
-          reportTitle: context?.project.projectName ?? 'Project',
-          sheetName: 'Signals',
-        },
-      )
-      toast.success('Excel exported')
-    } catch {
-      toast.error('Failed to export Excel')
-    } finally {
-      setExporting(false)
-    }
-  }
-
   return (
     <MetalRoutingPageShell>
+      <TopDismissNotice notice={notice} onDismiss={dismissNotice} />
       <div className="metal-routing-dashboard metal-routing-cell-project-page">
         <header className="metal-routing-cell-project-top">
           <div className="metal-routing-cell-project-top__main">
@@ -197,16 +129,13 @@ export function ProjectSignalAnalysisPage({ basePath }: { basePath: string }) {
               </div>
             </div>
           </div>
-          <div className="metal-routing-cell-project-actions flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              loading={exporting}
-              icon={<Download className="h-4 w-4" />}
-              onClick={() => void handleExport()}
-            >
-              Export Excel
-            </Button>
+          <div className="metal-routing-cell-project-actions flex flex-wrap items-start gap-2">
+            <MetalRoutingExcelActions
+              projectId={projectId}
+              pdkAssigned={Boolean(context?.pdkModule)}
+              exportFilename={`${(context?.project.projectName ?? 'project').replace(/\s+/g, '_')}_metal-routing.xlsx`}
+              onImported={() => void load()}
+            />
             <Button size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => setAddOpen(true)}>
               Add signal
             </Button>
@@ -326,9 +255,10 @@ export function ProjectSignalAnalysisPage({ basePath }: { basePath: string }) {
       <AddSignalModal
         isOpen={addOpen}
         onClose={() => setAddOpen(false)}
+        projectId={projectId}
+        basePath={basePath}
         cellsByType={context?.cellsByType ?? EMPTY_CELLS}
-        onSubmit={handleAddSignal}
-        submitting={submitting}
+        onCreated={load}
       />
 
       <EditSignalModal

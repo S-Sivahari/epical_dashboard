@@ -9,17 +9,24 @@ function fmt(n: number): string {
   return Number.isFinite(n) ? n.toFixed(4) : '—'
 }
 
-function isImplementedBelowGiven(metal: MetalEntry): boolean {
-  const { implementedCurrentMetalCapacity, givenCurrentDensity } = metal
+function isImplementedBelowGiven(
+  metal: MetalEntry,
+  givenCurrentCapability?: number,
+): boolean {
   return (
-    Number.isFinite(implementedCurrentMetalCapacity)
-    && Number.isFinite(givenCurrentDensity)
-    && implementedCurrentMetalCapacity < givenCurrentDensity
+    givenCurrentCapability != null
+    && Number.isFinite(givenCurrentCapability)
+    && Number.isFinite(metal.implementedCurrentMetalCapacity)
+    && metal.implementedCurrentMetalCapacity < givenCurrentCapability
   )
 }
 
 const thClass = 'border border-yellow-400 px-2 py-2'
 const tdClass = 'border border-lime-500 px-2 py-2'
+const summaryTdClass = cn(
+  tdClass,
+  'metal-routing-metal-table__summary bg-white text-center font-bold align-middle',
+)
 
 function ConnectionIcon({ type }: { type?: MetalConnectionType }) {
   const isParallel = type === 'parallel'
@@ -65,6 +72,7 @@ export function MetalRoutingTable({
 }) {
   const metals = route.metals
   const rowCount = Math.max(metals.length, 1)
+  const givenCurrentCapability = route.schematicCurrentDensity
 
   return (
     <div
@@ -89,8 +97,8 @@ export function MetalRoutingTable({
           </div>
           {route.schematicCurrentDensity != null ? (
             <div>
-              <span className="text-xs font-medium uppercase text-muted">Schematic</span>
-              <p className="font-semibold text-ink">{fmt(route.schematicCurrentDensity)} mA/µm</p>
+              <span className="text-xs font-medium uppercase text-muted">Given current capability</span>
+              <p className="font-semibold text-ink">{fmt(route.schematicCurrentDensity)} mA</p>
             </div>
           ) : null}
         </div>
@@ -139,60 +147,61 @@ export function MetalRoutingTable({
               </tr>
             ) : (
               metals.map((metal, index) => {
-                const belowGiven = isImplementedBelowGiven(metal)
+                const isMinRow = metal._id === route.minCapacityMetalId
                 const isMaxZ = metal._id === route.highestImpedanceMetalId
+                const belowGiven = isImplementedBelowGiven(metal, givenCurrentCapability)
+                const isFlaggedRow = isMinRow || isMaxZ
+                const dataTdClass = cn(
+                  tdClass,
+                  isFlaggedRow ? 'bg-rose-100/90' : 'bg-lime-400/70',
+                )
 
                 return (
-                  <tr
-                    key={metal._id}
-                    className={cn(
-                      'bg-lime-400/70 font-medium text-black',
-                      belowGiven && 'ring-1 ring-inset ring-amber-500/70',
-                      isMaxZ && !belowGiven && 'ring-1 ring-inset ring-orange-500/70',
-                      belowGiven && isMaxZ && 'ring-2 ring-inset ring-amber-600',
-                    )}
-                  >
-                    <td className={tdClass}>
+                  <tr key={metal._id} className="font-medium text-black">
+                    <td className={dataTdClass}>
                       <span className="inline-flex items-center">
                         {metal.metalType}
                         {index > 0 ? <ConnectionIcon type={metal.connectionType} /> : null}
                       </span>
                     </td>
-                    <td className={tdClass}>{metal.width}</td>
-                    <td className={tdClass}>{metal.length}</td>
-                    <td className={tdClass}>{fmt(metal.givenCurrentDensity)}</td>
+                    <td className={dataTdClass}>{metal.width}</td>
+                    <td className={dataTdClass}>{metal.length}</td>
+                    {index === 0 ? (
+                      <td className={summaryTdClass} rowSpan={rowCount}>
+                        {givenCurrentCapability != null ? fmt(givenCurrentCapability) : '—'}
+                      </td>
+                    ) : null}
                     <td
-                      className={cn(tdClass, belowGiven && 'bg-rose-100/80')}
+                      className={cn(
+                        dataTdClass,
+                        belowGiven && 'bg-red-500/75',
+                      )}
                       title={
-                        belowGiven
-                          ? 'Implemented metal current capability is below given current density'
-                          : undefined
+                        isMinRow
+                          ? 'Minimum implemented metal current capability in this route'
+                          : belowGiven
+                            ? 'Implemented metal current capability is below given current capability'
+                            : undefined
                       }
                     >
                       {fmt(metal.implementedCurrentMetalCapacity)}
-                      {belowGiven ? <FlagBadge label="MIN" tone="min" /> : null}
+                      {isMinRow ? <FlagBadge label="MIN" tone="min" /> : null}
                     </td>
                     {index === 0 ? (
-                      <td
-                        className={cn(tdClass, 'bg-lime-300/80 text-center font-bold align-middle')}
-                        rowSpan={rowCount}
-                      >
+                      <td className={summaryTdClass} rowSpan={rowCount}>
                         {fmt(route.minimumMetalCurrentCapacity)}
                       </td>
                     ) : null}
-                    <td className={tdClass}>
+                    <td className={dataTdClass}>
                       {fmt(metal.routingMetalImpedance)}
-                      {isMaxZ ? <FlagBadge label="MAX Z" tone="max" /> : null}
+                      {isMaxZ ? <FlagBadge label="MAX" tone="max" /> : null}
                     </td>
                     {index === 0 ? (
-                      <td
-                        className={cn(tdClass, 'bg-lime-300/80 text-center font-bold align-middle')}
-                        rowSpan={rowCount}
-                      >
+                      <td className={summaryTdClass} rowSpan={rowCount}>
                         {fmt(route.totalImpedance)}
                       </td>
                     ) : null}
-                    <td className={cn(tdClass, 'px-1')}>
+                    <td className={cn(dataTdClass, 'px-1')}>
                       <div className="flex items-center justify-center gap-0.5">
                         <Button
                           size="sm"

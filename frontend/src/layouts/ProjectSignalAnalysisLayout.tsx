@@ -7,11 +7,8 @@ import { cn } from '@/utils/cn'
 
 
 const NAV = [
-
-  { to: 'pdk-selection', label: 'PDK Selection', icon: Layers },
-
+  { to: 'pdk-selection', label: 'PDK Selection', icon: Layers, end: false },
   { to: 'signal-analysis', label: 'Signal Analysis', icon: Activity, end: false },
-
 ] as const
 
 

@@ -40,7 +40,7 @@ async function main() {
   console.log('Metal rows:', parsed.totalMetalRows);
   parsed.routeBlocks.forEach((block, index) => {
     console.log(
-      `  [${index + 1}] ${block.fromCell} → ${block.toCell} · ${block.fromSignal} → ${block.toSignal} (${block.metals.length} metals)`,
+      `  [${index + 1}] ${block.fromCell} → ${block.toCell} · ${block.signal} (${block.metals.length} metals)`,
     );
   });
 
