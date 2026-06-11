@@ -330,7 +330,6 @@ export function MetalRoutingImpedanceCard({
                   tickLine={false}
                   interval="preserveStartEnd"
                   minTickGap={12}
-                  label={{ value: 'Route Segments', position: 'insideBottom', offset: -2, fill: '#a78bfa', fontSize: 10 }}
                 />
                 <YAxis
                   domain={yDomain}
