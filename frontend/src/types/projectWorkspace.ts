@@ -288,6 +288,8 @@ export interface CellWorkflowDuration {
   totalMs: number
   formatted: string
   isActive: boolean
+  wasEverCompleted: boolean
+  wasReopened: boolean
 }
 
 export interface ProjectCell {

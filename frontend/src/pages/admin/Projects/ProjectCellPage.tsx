@@ -138,6 +138,14 @@ export function ProjectCellPage() {
     [summary?.cells, cellId],
   )
 
+  useEffect(() => {
+    if (!projectId || !cellId || cell?.status === 'completed') return undefined
+    const timer = window.setInterval(() => {
+      void reload()
+    }, 60_000)
+    return () => window.clearInterval(timer)
+  }, [projectId, cellId, cell?.status, reload])
+
   const libraries = summary?.libraries ?? []
   const allCells = summary?.cells ?? []
 
