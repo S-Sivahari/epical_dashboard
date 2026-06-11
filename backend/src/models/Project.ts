@@ -1,4 +1,4 @@
-import { Schema, model, Document } from 'mongoose';
+import { Schema, model, Document, Types } from 'mongoose';
 
 export interface Project extends Document {
   projectName: string;
@@ -12,6 +12,7 @@ export interface Project extends Document {
   completedTasks: number;
   totalTasks: number;
   completionPercentage: number;
+  pdkModuleId?: Types.ObjectId | null;
   createdBy?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -30,6 +31,7 @@ const ProjectSchema = new Schema<Project>(
     completedTasks: { type: Number, default: 0 },
     totalTasks: { type: Number, default: 0 },
     completionPercentage: { type: Number, default: 0 },
+    pdkModuleId: { type: Schema.Types.ObjectId, ref: 'PdkModule', default: null },
     createdBy: { type: String },
   },
   { timestamps: true }

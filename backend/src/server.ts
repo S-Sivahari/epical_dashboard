@@ -30,6 +30,7 @@ import { holidayRoutes } from './routes/holidayRoutes';
 import { ticketRoutes } from './routes/ticketRoutes';
 import { timesheetRoutes } from './routes/timesheetRoutes';
 import { projectRoutes } from './routes/projectRoutes';
+import { checklistRoutes } from './routes/checklistRoutes';
 import { uploadRoutes } from './routes/uploadRoutes';
 import { oauthRoutes } from './routes/oauthRoutes';
 import { notificationRoutes } from './routes/notificationRoutes';
@@ -41,6 +42,7 @@ import { documentRequestRoutes } from './routes/documentRequestRoutes';
 import { companyCalendarEventRoutes } from './routes/companyCalendarEventRoutes';
 import { achievementRoutes } from './routes/achievementRoutes';
 import { employeeDashboardRoutes } from './routes/employeeDashboardRoutes';
+import { pdkMetalRoutingRoutes } from './routes/pdkMetalRoutingRoutes';
 
 // Seed helpers
 import { ensureDefaultAdminUser, seedDefaultUsers } from './services/authService';
@@ -179,6 +181,8 @@ app.use('/api/calendar-events', companyCalendarEventRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/timesheets', timesheetRoutes);
 app.use('/api/projects', projectRoutes);
+app.use('/api/metal-routing', pdkMetalRoutingRoutes);
+app.use('/api/checklists', checklistRoutes);
 app.use('/api/payslips', payslipRoutes);
 app.use('/api/compensation', compensationRoutes);
 app.use('/api/document-requests', documentRequestRoutes);
@@ -357,6 +361,26 @@ export async function startServer() {
     );
 
     await ensureAttendanceIndexes();
+
+    try {
+      const { ensureCellTypeChecklists } = await import('./services/cellTypeChecklistService');
+      const checklistSeed = await ensureCellTypeChecklists();
+      if (checklistSeed.created > 0) {
+        console.log(`✓ Seeded ${checklistSeed.created} cell-type checklist definition(s) in MongoDB`);
+      }
+    } catch (err) {
+      console.warn('⚠ Cell-type checklist seed skipped:', err);
+    }
+
+    try {
+      const { seedPdkMetalRouting } = await import('./scripts/seedPdkMetalRouting');
+      const pdkSeed = await seedPdkMetalRouting();
+      if (pdkSeed.modulesCreated > 0) {
+        console.log(`✓ Seeded ${pdkSeed.modulesCreated} PDK module(s)`);
+      }
+    } catch (err) {
+      console.warn('⚠ PDK metal routing seed skipped:', err);
+    }
 
     try {
       const adminSync = await ensureDefaultAdminUser();

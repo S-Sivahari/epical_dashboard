@@ -18,13 +18,15 @@ const RESPONSE_LABELS = {
 export function EmployeeCellChecklistSidebar({
   projectId,
   cellId,
+  cellStatus = 'ready',
   readOnly = false,
   showCompletionRequirement = false,
   onChange,
+  onCellCompleted,
 }) {
   const [checklist, setChecklist] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [savingId, setSavingId] = useState(null)
+  const [savingKey, setSavingKey] = useState(null)
   const [commentTarget, setCommentTarget] = useState(null)
   const [comment, setComment] = useState('')
   const { toast } = useToast()
@@ -49,11 +51,11 @@ export function EmployeeCellChecklistSidebar({
     void loadChecklist()
   }, [loadChecklist])
 
-  const saveResponse = async (mappingId, response, reason = '') => {
+  const saveResponse = async (item, response, reason = '') => {
     if (readOnly) return
-    setSavingId(mappingId)
+    setSavingKey(item.itemKey)
     try {
-      const data = await updateMyCellChecklistItem(projectId, cellId, mappingId, {
+      const data = await updateMyCellChecklistItem(projectId, cellId, item, {
         response,
         comment: reason,
       })
@@ -66,18 +68,19 @@ export function EmployeeCellChecklistSidebar({
       const message = err?.response?.data?.error
       toast({ title: 'Error', description: message || 'Failed to save response' })
     } finally {
-      setSavingId(null)
+      setSavingKey(null)
     }
   }
 
   const handleOptionClick = (item, response) => {
     if (readOnly) return
     if (response === 'yes') {
-      void saveResponse(item.id, 'yes')
+      void saveResponse(item, 'yes')
       return
     }
     setCommentTarget({
-      mappingId: item.id,
+      itemKey: item.itemKey,
+      item,
       itemName: item.itemName,
       response,
     })
@@ -90,11 +93,12 @@ export function EmployeeCellChecklistSidebar({
       toast({ title: 'Reason required', description: 'Please enter a reason for No or N/A' })
       return
     }
-    void saveResponse(commentTarget.mappingId, commentTarget.response, comment.trim())
+    void saveResponse(commentTarget.item, commentTarget.response, comment.trim())
   }
 
   const answeredCount = checklist?.items?.filter((item) => item.response).length ?? 0
   const totalCount = checklist?.items?.length ?? 0
+  const hasChecklistConfigured = Boolean(checklist?.hasFile || totalCount > 0)
 
   return (
     <div className="emp-wf-cell-checklist-split">
@@ -104,8 +108,10 @@ export function EmployeeCellChecklistSidebar({
             <ClipboardList className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden />
             <h2 className="emp-wf-checklist-panel-title">Checklist</h2>
           </div>
-          {checklist?.checklistName ? (
-            <p className="emp-wf-checklist-panel-subtitle">{checklist.checklistName}</p>
+          {checklist?.checklistName || checklist?.fileName ? (
+            <p className="emp-wf-checklist-panel-subtitle">
+              {checklist.checklistName || checklist.fileName}
+            </p>
           ) : null}
           {totalCount > 0 ? (
             <p className="emp-wf-checklist-panel-progress">
@@ -128,16 +134,18 @@ export function EmployeeCellChecklistSidebar({
         <div className="emp-wf-checklist-panel-body">
           {loading ? (
             <p className="emp-wf-checklist-panel-empty">Loading checklist…</p>
+          ) : !hasChecklistConfigured ? (
+            <p className="emp-wf-checklist-panel-empty">
+              No checklist file uploaded for this cell type yet. Ask your admin to upload one from the project Checklist tab.
+            </p>
           ) : !checklist?.items?.length ? (
             <p className="emp-wf-checklist-panel-empty">
-              {checklist?.checklistName
-                ? 'No checklist questions for this cell yet.'
-                : 'No checklist is configured for this cell type.'}
+              Checklist file is uploaded but has no questions yet.
             </p>
           ) : (
             <ul className="emp-wf-checklist-list">
               {checklist.items.map((item) => (
-                <li key={item.id} className="emp-wf-checklist-item">
+                <li key={item.itemKey} className="emp-wf-checklist-item">
                   <p className="emp-wf-checklist-question">{item.itemName}</p>
                   <div
                     className="emp-wf-checklist-options"
@@ -148,7 +156,7 @@ export function EmployeeCellChecklistSidebar({
                       <button
                         key={option}
                         type="button"
-                        disabled={readOnly || savingId === item.id}
+                        disabled={readOnly || savingKey === item.itemKey}
                         className={cn(
                           'emp-wf-checklist-option',
                           item.response === option && 'is-selected',
@@ -167,7 +175,7 @@ export function EmployeeCellChecklistSidebar({
                       <span className="font-semibold">Reason:</span> {item.comment}
                     </p>
                   ) : null}
-                  {!readOnly && commentTarget?.mappingId === item.id ? (
+                  {!readOnly && commentTarget?.itemKey === item.itemKey ? (
                     <div className="emp-wf-checklist-comment-box">
                       <p className="emp-wf-checklist-comment-label">
                         Reason for <strong>{RESPONSE_LABELS[commentTarget.response]}</strong>
@@ -195,7 +203,7 @@ export function EmployeeCellChecklistSidebar({
                         <Button
                           type="button"
                           size="sm"
-                          disabled={savingId === item.id}
+                          disabled={savingKey === item.itemKey}
                           onClick={submitComment}
                         >
                           Save
@@ -214,8 +222,10 @@ export function EmployeeCellChecklistSidebar({
         projectId={projectId}
         cellId={cellId}
         checklist={checklist}
+        cellStatus={cellStatus}
         readOnly={readOnly}
         showCompletionRequirement={showCompletionRequirement}
+        onCellCompleted={onCellCompleted}
         onChange={(data) => {
           setChecklist(data)
           onChange?.(data)

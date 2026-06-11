@@ -2,10 +2,10 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
-import { toast } from 'sonner'
+import { useCallback, useEffect, useState } from 'react'
 import { z } from 'zod'
 import { User, Lock, Eye, EyeOff } from 'lucide-react'
+import { TopDismissNotice, type TopNotice } from '@components/pdk/TopDismissNotice'
 import { useAuthStore } from '@store/authStore'
 import { useFormSessionDraft } from '@hooks/useFormSessionDraft'
 import { prefetchEmployeeDashboard } from '@/utils/prefetchEmployeeRoutes'
@@ -51,6 +51,16 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>
 
+const GOOGLE_CLIENT_CONFIGURED = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim())
+
+function showLoginNotice(
+  setNotice: (notice: TopNotice | null) => void,
+  title: string,
+  details: string[],
+) {
+  setNotice({ kind: 'error', title, details })
+}
+
 export function LoginPage() {
   const login = useAuthStore((s) => s.login)
   const hydrateSession = useAuthStore((s) => s.hydrateSession)
@@ -59,7 +69,9 @@ export function LoginPage() {
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
-  const [googleSignInEnabled, setGoogleSignInEnabled] = useState(false)
+  const [googleSignInEnabled, setGoogleSignInEnabled] = useState(GOOGLE_CLIENT_CONFIGURED)
+  const [notice, setNotice] = useState<TopNotice | null>(null)
+  const dismissNotice = useCallback(() => setNotice(null), [])
   const [googleOAuthStartUrl, setGoogleOAuthStartUrl] = useState<string | null>(null)
 
   useEffect(() => {
@@ -76,7 +88,9 @@ export function LoginPage() {
         }
       })
       .catch(() => {
-        if (!cancelled) setGoogleSignInEnabled(false)
+        if (!cancelled && GOOGLE_CLIENT_CONFIGURED) {
+          setGoogleSignInEnabled(true)
+        }
       })
     return () => {
       cancelled = true
@@ -96,7 +110,11 @@ export function LoginPage() {
           prefetchEmployeeDashboard()
           navigate(currentRole === 'admin' ? '/admin' : '/employee', { replace: true })
         } catch {
-          toast.error('Google sign-in completed but session could not be loaded. Try again.')
+          showLoginNotice(
+            setNotice,
+            'Google sign-in failed',
+            ['Sign-in completed but your session could not be loaded. Try again.'],
+          )
         }
       })()
       return
@@ -106,10 +124,14 @@ export function LoginPage() {
     if (error) {
       window.history.replaceState({}, '', '/auth/login')
       const decoded = decodeURIComponent(error)
-      toast.error(
-        decoded === 'google_auth_failed'
-          ? 'Google sign-in failed. You must be added by an admin first, and deactivated accounts cannot sign in.'
-          : decoded,
+      showLoginNotice(
+        setNotice,
+        'Google sign-in failed',
+        [
+          decoded === 'google_auth_failed'
+            ? 'You must be added by an admin first, and deactivated accounts cannot sign in.'
+            : decoded,
+        ],
       )
     }
   }, [hydrateSession, navigate])
@@ -119,6 +141,13 @@ export function LoginPage() {
       navigate(role === 'admin' ? '/admin' : '/employee', { replace: true })
     }
   }, [isAuthenticated, navigate, role])
+
+  useEffect(() => {
+    const active = document.activeElement
+    if (active instanceof HTMLElement && active.closest('.login-split-form')) {
+      active.blur()
+    }
+  }, [])
 
   const {
     register,
@@ -155,7 +184,7 @@ export function LoginPage() {
       } else if (error instanceof Error) {
         message = error.message
       }
-      toast.error(message)
+      showLoginNotice(setNotice, 'Unable to sign in', [message])
     }
   })
 
@@ -166,6 +195,7 @@ export function LoginPage() {
 
   return (
     <div className="login-page login-page--split">
+      <TopDismissNotice notice={notice} onDismiss={dismissNotice} />
       <div className="login-split-wrap">
         <motion.div
           initial={{ opacity: 0, y: 16 }}

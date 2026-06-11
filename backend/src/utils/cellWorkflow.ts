@@ -206,7 +206,7 @@ function applyAutoTransitionsOnce(workflow: CellWorkflowStage[]): CellWorkflowSt
   return next;
 }
 
-function applyAutoTransitions(workflow: CellWorkflowStage[]): CellWorkflowStage[] {
+export function applyAutoTransitions(workflow: CellWorkflowStage[]): CellWorkflowStage[] {
   let next = workflow;
   for (let i = 0; i < CELL_WORKFLOW_STAGE_KEYS.length; i += 1) {
     const updated = applyAutoTransitionsOnce(next);
@@ -238,11 +238,23 @@ export type WorkflowUpdateResult =
 
 export type ReviewRejectReturnTo = 'floor_plan' | 'routing';
 
+export type WorkflowActorRole = 'Admin' | 'Employee' | 'TeamLead';
+
+function normalizeReviewStageTarget(nextStatus: WorkflowStageStatus): WorkflowStageStatus {
+  if (nextStatus === 'in_progress') return 'pending_review';
+  if (nextStatus === 'completed') return 'approved';
+  return nextStatus;
+}
+
+function canManageReviewStages(actorRole: WorkflowActorRole): boolean {
+  return actorRole === 'Admin' || actorRole === 'TeamLead';
+}
+
 export function applyWorkflowStageUpdate(
   rawWorkflow: unknown,
   stageKey: CellWorkflowStageKey,
   nextStatus: WorkflowStageStatus,
-  actorRole: 'Admin' | 'Employee',
+  actorRole: WorkflowActorRole,
   options?: { rejectReturnTo?: ReviewRejectReturnTo },
 ): WorkflowUpdateResult {
   let workflow = normalizeCellWorkflow(rawWorkflow);
@@ -255,12 +267,39 @@ export function applyWorkflowStageUpdate(
   }
 
   if (isReviewStageKey(stageKey)) {
-    if (actorRole !== 'Admin') {
-      return { ok: false, error: 'Only admins can approve or reject reviews' };
+    if (!canManageReviewStages(actorRole)) {
+      return { ok: false, error: 'Only admins or team leads can update review stages' };
     }
-    if (nextStatus !== 'approved' && nextStatus !== 'rejected') {
-      return { ok: false, error: 'Review stages can only be approved or rejected' };
+
+    const target = normalizeReviewStageTarget(nextStatus);
+    if (
+      target !== 'not_started' &&
+      target !== 'pending_review' &&
+      target !== 'approved' &&
+      target !== 'rejected'
+    ) {
+      return { ok: false, error: 'Invalid status for review stage' };
     }
+
+    if (target === 'not_started') {
+      workflow = setStageStatus(workflow, stageKey, 'not_started');
+      if (current === 'approved' || current === 'rejected' || current === 'pending_review') {
+        workflow = resetDownstreamStages(workflow, stageKey);
+      }
+      return { ok: true, workflow: applyAutoTransitions(workflow) };
+    }
+
+    if (target === 'pending_review') {
+      if (stageKey === 'review_1' && stageStatus(workflow, 'drc_first') !== 'completed') {
+        return { ok: false, error: 'Complete DRC before Review 1' };
+      }
+      if (stageKey === 'review_2' && stageStatus(workflow, 'lvs') !== 'completed') {
+        return { ok: false, error: 'Complete LVS before Review 2' };
+      }
+      workflow = setStageStatus(workflow, stageKey, 'pending_review');
+      return { ok: true, workflow: applyAutoTransitions(workflow) };
+    }
+
     if (stageKey === 'review_1' && current === 'not_started' && stageStatus(workflow, 'drc_first') === 'completed') {
       workflow = setStageStatus(workflow, 'review_1', 'pending_review');
     }
@@ -271,28 +310,30 @@ export function applyWorkflowStageUpdate(
     const reviewStatus = stageStatus(workflow, stageKey);
     const canActOnReview =
       reviewStatus === 'pending_review' ||
-      (reviewStatus === 'approved' && nextStatus === 'rejected');
+      (reviewStatus === 'approved' && target === 'rejected');
 
-    if (!canActOnReview) {
-      return { ok: false, error: 'Review is not pending approval' };
+    if (target === 'approved' || target === 'rejected') {
+      if (!canActOnReview) {
+        return { ok: false, error: 'Review is not pending approval' };
+      }
     }
 
     if (stageKey === 'review_1') {
-      if (nextStatus === 'approved') {
+      if (target === 'approved') {
         workflow = setStageStatus(workflow, 'review_1', 'approved');
         if (stageStatus(workflow, 'routing') === 'not_started') {
           workflow = setStageStatus(workflow, 'routing', 'in_progress');
         }
-      } else {
+      } else if (target === 'rejected') {
         workflow = setStageStatus(workflow, 'floor_plan', 'in_progress');
         workflow = setStageStatus(workflow, 'drc_first', 'not_started');
         workflow = setStageStatus(workflow, 'review_1', 'not_started');
         workflow = resetDownstreamStages(workflow, 'review_1');
       }
     } else if (stageKey === 'review_2') {
-      if (nextStatus === 'approved') {
+      if (target === 'approved') {
         workflow = setStageStatus(workflow, 'review_2', 'approved');
-      } else {
+      } else if (target === 'rejected') {
         const returnTo = options?.rejectReturnTo;
         if (returnTo !== 'floor_plan' && returnTo !== 'routing') {
           return { ok: false, error: 'Select return stage: floor_plan or routing' };

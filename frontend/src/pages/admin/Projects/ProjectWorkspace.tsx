@@ -9,7 +9,7 @@ import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
 import { Modal } from '@components/ui/Modal'
-import { ROUTES } from '@constants/routes'
+import { useProjectPortal } from './projectPortal'
 import { getEmployees } from '@services/employeeService'
 import {
   createCell,
@@ -31,7 +31,7 @@ import {
   type WorkspaceSummary,
 } from '@/types/projectWorkspace'
 import type { Employee } from '@/types'
-import './adminProjects.css'
+import { formatDateTime } from '@/utils/formatDate'
 import { DependencyGraphView } from './DependencyGraphView'
 import { CellWorkflowPanel } from './CellWorkflowPanel'
 import { ProjectWorkflowOverview } from './ProjectWorkflowOverview'
@@ -46,6 +46,7 @@ import {
   projectCellProgressPercent,
 } from './projectWorkspaceUi'
 import { calculateEstimatedHours, CELL_COMPLEXITY_OPTIONS, DEFAULT_BASE_HOURS, formatComplexityFactor } from '@/utils/effortEstimationUtils'
+import './adminProjects.css'
 
 type DeleteTarget = { type: 'library' | 'cell'; id: string; name: string }
 type WorkspaceSection = 'home' | 'workflow' | 'graph' | 'activity' | 'checklist'
@@ -85,6 +86,7 @@ function emptyCellForm(libraryId: string, technologyNode: string): Partial<Proje
 export function ProjectWorkspace() {
   const { projectId = '' } = useParams()
   const navigate = useNavigate()
+  const { projectsListPath, projectCellPath } = useProjectPortal()
   const [summary, setSummary] = useState<WorkspaceSummary | null>(null)
   const [graph, setGraph] = useState<DependencyGraph | null>(null)
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -404,7 +406,7 @@ export function ProjectWorkspace() {
     return (
       <PageWrapper className="admin-hub-page-wrap py-8 text-center" data-page-scrollable>
         <p className="text-slate-600">Project not found.</p>
-        <Link to={ROUTES.PROJECTS} className="mt-2 inline-block text-sm font-semibold text-emerald-700">Back to projects</Link>
+        <Link to={projectsListPath} className="mt-2 inline-block text-sm font-semibold text-emerald-700">Back to projects</Link>
       </PageWrapper>
     )
   }
@@ -428,7 +430,7 @@ export function ProjectWorkspace() {
             <header className="admin-projects-workspace-head">
               <div className="admin-projects-workspace-head-bar">
                 <div className="admin-projects-workspace-head-left">
-                  <Link to={ROUTES.PROJECTS} className="admin-projects-back-btn">
+                  <Link to={projectsListPath} className="admin-projects-back-btn">
                     <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
                     All projects
                   </Link>
@@ -671,11 +673,11 @@ export function ProjectWorkspace() {
                         <tr
                           key={cell.id}
                           className="admin-projects-table-row-clickable"
-                          onClick={() => navigate(ROUTES.PROJECT_CELL(projectId, cell.id))}
+                          onClick={() => navigate(projectCellPath(projectId, cell.id))}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault()
-                              navigate(ROUTES.PROJECT_CELL(projectId, cell.id))
+                              navigate(projectCellPath(projectId, cell.id))
                             }
                           }}
                           tabIndex={0}
@@ -802,6 +804,7 @@ export function ProjectWorkspace() {
                     totalCellCount={allCells.length}
                     completedCellCount={stats.completedCells}
                     libraryNameById={libraryNameById}
+                    getCellPath={projectCellPath}
                   />
                 </div>
               </div>
@@ -815,7 +818,12 @@ export function ProjectWorkspace() {
                     Horizontal workflow map of cell dependencies.
                   </p>
                   {graph ? (
-                    <DependencyGraphView graph={graph} cellsById={cellsById} projectId={projectId} />
+                    <DependencyGraphView
+                      graph={graph}
+                      cellsById={cellsById}
+                      projectId={projectId}
+                      getCellPath={projectCellPath}
+                    />
                   ) : (
                     <p className="admin-projects-graph-loading">Loading dependency graph…</p>
                   )}
@@ -937,7 +945,7 @@ export function ProjectWorkspace() {
                               <td className="admin-projects-activity-table-detail">{entry.detail || '—'}</td>
                               <td>{entry.userName || '—'}</td>
                               <td className="admin-projects-activity-table-time">
-                                <time dateTime={entry.at}>{new Date(entry.at).toLocaleString()}</time>
+                                <time dateTime={entry.at}>{formatDateTime(entry.at)}</time>
                               </td>
                             </tr>
                           ))

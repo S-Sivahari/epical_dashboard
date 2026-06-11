@@ -41,6 +41,7 @@ import {
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { cn } from '@pages/employee/lib/utils'
 import { getViewProgressStatus, SIMPLE_VIEW_COLUMNS } from '@/utils/cellWorkflowUi'
+import { formatDateTime } from '@/utils/formatDate'
 import '@pages/admin/Projects/adminProjects.css'
 import './employeeProjectWorkflow.css'
 import './employeeProjectsAdminTheme.css'
@@ -546,8 +547,8 @@ export function EmployeeProjectBoardPage({ routeProjectId = null }) {
                         <div className="emp-wf-activity-item-head">
                           <span className="emp-wf-activity-cell">{entry.cellName}</span>
                           <span className="emp-wf-activity-lib">{entry.libraryName}</span>
-                          <time className="emp-wf-activity-time">
-                            {new Date(entry.at).toLocaleString()}
+                          <time className="emp-wf-activity-time" dateTime={entry.at}>
+                            {formatDateTime(entry.at)}
                           </time>
                         </div>
                         <p className="emp-wf-activity-action">{String(entry.action || '').replace(/_/g, ' ')}</p>

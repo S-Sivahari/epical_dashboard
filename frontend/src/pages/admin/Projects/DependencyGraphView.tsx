@@ -26,6 +26,7 @@ type DependencyGraphViewProps = {
   graph: DependencyGraph
   cellsById?: Record<string, ProjectCell>
   projectId?: string
+  getCellPath?: (projectId: string, cellId: string) => string
 }
 
 function GraphNodeCard({
@@ -66,7 +67,12 @@ function GraphNodeCard({
   )
 }
 
-export function DependencyGraphView({ graph, cellsById = {}, projectId }: DependencyGraphViewProps) {
+export function DependencyGraphView({
+  graph,
+  cellsById = {},
+  projectId,
+  getCellPath,
+}: DependencyGraphViewProps) {
   const navigate = useNavigate()
 
   const layout = useMemo(() => {
@@ -140,7 +146,10 @@ export function DependencyGraphView({ graph, cellsById = {}, projectId }: Depend
 
   const openCell = (cellId: string) => {
     if (!projectId) return
-    navigate(ROUTES.PROJECT_CELL(projectId, cellId))
+    const path = getCellPath
+      ? getCellPath(projectId, cellId)
+      : ROUTES.PROJECT_CELL(projectId, cellId)
+    navigate(path)
   }
 
   if (!graph.nodes.length) {

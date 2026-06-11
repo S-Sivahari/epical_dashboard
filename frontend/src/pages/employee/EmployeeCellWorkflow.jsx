@@ -11,14 +11,15 @@ import { CellDetailsSummary } from '@pages/admin/Projects/CellDetailsSummary'
 import {
   fetchMyCell,
   requestCellReview,
-  resolveMyCellReview,
   updateCellWorkflow,
   updateMyWorkflowStage,
 } from '@services/employeeProjectService'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { cn } from '@pages/employee/lib/utils'
 import { VIEW_TABS, getAdvancePayload, isFinalLayoutStage } from '@/utils/cellWorkflowUi'
-import { cellDisplayStatus } from '@pages/admin/Projects/projectWorkspaceUi'
+import { CellWorkflowDurationLabel } from '@pages/admin/Projects/CellWorkflowDurationLabel'
+import { CellWorkflowTimingSummary } from '@pages/admin/Projects/CellWorkflowTimingSummary'
+import { cellDisplayStatus, isReviewStageKey } from '@pages/admin/Projects/projectWorkspaceUi'
 import '@pages/admin/Projects/adminProjects.css'
 import '@components/employee/projects/employeeProjectWorkflow.css'
 import '@components/employee/projects/employeeProjectsAdminTheme.css'
@@ -30,6 +31,7 @@ export default function EmployeeCellWorkflow() {
   const [saving, setSaving] = useState(false)
   const [viewTab, setViewTab] = useState('layout')
   const [checklistReady, setChecklistReady] = useState(true)
+  const [durationFetchedAt, setDurationFetchedAt] = useState(() => Date.now())
   const { toast } = useToast()
 
   const reload = useCallback(async () => {
@@ -38,6 +40,7 @@ export default function EmployeeCellWorkflow() {
     try {
       const data = await fetchMyCell(projectId, cellId)
       setDetail(data)
+      setDurationFetchedAt(Date.now())
     } catch {
       toast({ title: 'Error', description: 'Failed to load cell workflow' })
     } finally {
@@ -48,6 +51,14 @@ export default function EmployeeCellWorkflow() {
   useEffect(() => {
     void reload()
   }, [reload])
+
+  useEffect(() => {
+    if (!detail?.cell || detail.cell.status === 'completed') return undefined
+    const timer = window.setInterval(() => {
+      void reload()
+    }, 60_000)
+    return () => window.clearInterval(timer)
+  }, [detail?.cell?.status, reload])
 
   const updateCellInState = (updatedCell) => {
     setDetail((prev) => (prev ? { ...prev, cell: { ...prev.cell, ...updatedCell } } : prev))
@@ -82,7 +93,10 @@ export default function EmployeeCellWorkflow() {
   }
 
   const handleWorkStageChange = async (stageKey, status) => {
-    if (!projectId || !cellId || !canManageFromDetail(detail)) return
+    if (!projectId || !cellId || !detail) return
+    const canReviewStage = Boolean(detail.permissions?.canReview ?? detail.isTeamLead)
+    const canManage = canManageFromDetail(detail)
+    if (isReviewStageKey(stageKey) ? !canReviewStage : !canManage) return
     setSaving(true)
     try {
       const updated = await updateMyWorkflowStage(projectId, cellId, stageKey, status)
@@ -116,22 +130,6 @@ export default function EmployeeCellWorkflow() {
     }
   }
 
-  const handleResolveReview = async (reviewId, outcome, returnToStage = undefined) => {
-    if (!projectId || !cellId || !detail?.isTeamLead) return
-    setSaving(true)
-    try {
-      const result = await resolveMyCellReview(projectId, cellId, reviewId, { outcome, returnToStage })
-      setDetail((prev) => (prev ? { ...prev, cell: { ...prev.cell, ...result.cell }, reviews: (prev.reviews || []).map((r) => (r.id === reviewId ? result.review : r)) } : prev))
-      await reload()
-      toast({ title: 'Review updated', description: `Review ${outcome}.` })
-    } catch (err) {
-      const message = err?.response?.data?.error
-      toast({ title: 'Error', description: message || 'Failed to resolve review' })
-    } finally {
-      setSaving(false)
-    }
-  }
-
   if (loading && !detail) {
     return (
       <div className="admin-projects-employee-workspace" data-employee-project-cell>
@@ -148,9 +146,9 @@ export default function EmployeeCellWorkflow() {
     )
   }
 
-  const { cell, library, project, reviews, isTeamLead, permissions } = detail
-  const openReview = (reviews || []).find((review) => review.status === 'open') || null
+  const { cell, library, project, isTeamLead, isAdmin, permissions } = detail
   const canManageWorkflow = canManageFromDetail(detail)
+  const canReview = Boolean(permissions?.canReview ?? isTeamLead)
 
   return (
     <div
@@ -186,11 +184,20 @@ export default function EmployeeCellWorkflow() {
                 >
                   {cellDisplayStatus(cell)}
                 </span>
+                <CellWorkflowDurationLabel
+                  cellStatus={cell.status}
+                  workflowDuration={cell.workflowDuration}
+                  fetchedAt={durationFetchedAt}
+                />
+                <CellWorkflowTimingSummary timing={cell.workflowTiming} />
                 {cell.isAssignedToMe ? (
                   <span className="admin-projects-employee-assigned-badge">Yours</span>
                 ) : null}
                 {isTeamLead ? (
                   <span className="admin-projects-employee-assigned-badge">Team Lead</span>
+                ) : null}
+                {isAdmin ? (
+                  <span className="admin-projects-employee-assigned-badge">Admin</span>
                 ) : null}
               </div>
             </div>
@@ -206,6 +213,10 @@ export default function EmployeeCellWorkflow() {
           ) : null}
           <div className="admin-projects-employee-cell-toolbar">
             <CellDetailsSummary cell={cell} libraryName={library?.name} variant="employee" />
+            <CellWorkflowTimingSummary
+              timing={cell.workflowTiming}
+              className="admin-projects-workflow-timing-summary admin-projects-workflow-timing-summary--inline"
+            />
           </div>
 
           <div className="admin-projects-employee-cell-main">
@@ -232,12 +243,10 @@ export default function EmployeeCellWorkflow() {
                       cell={cell}
                       saving={saving}
                       checklistReady={checklistReady}
-                      isTeamLead={isTeamLead}
                       canManageWorkflow={canManageWorkflow}
-                      openReview={openReview}
+                      canReview={canReview}
                       onWorkStageChange={handleWorkStageChange}
                       onRequestReview={handleRequestReview}
-                      onResolveReview={handleResolveReview}
                     />
                   ) : (
                     <EmployeeCellViewStatusButtons
@@ -253,12 +262,19 @@ export default function EmployeeCellWorkflow() {
             <EmployeeCellChecklistSidebar
               projectId={projectId}
               cellId={cellId}
+              cellStatus={cell.status}
               readOnly={!canManageWorkflow}
               showCompletionRequirement={isFinalLayoutStage(cell)}
+              onCellCompleted={(updatedCell) => {
+                updateCellInState(updatedCell)
+                void reload()
+              }}
               onChange={(checklistDetail) => {
                 const total = checklistDetail?.items?.length ?? 0
+                const hasChecklist = Boolean(checklistDetail?.hasFile || total > 0)
                 const ready =
-                  total === 0 || (Boolean(checklistDetail?.isFilled) && Boolean(checklistDetail?.isExtensionFilled))
+                  !hasChecklist ||
+                  (Boolean(checklistDetail?.isFilled) && Boolean(checklistDetail?.isExtensionFilled))
                 setChecklistReady(ready)
               }}
             />

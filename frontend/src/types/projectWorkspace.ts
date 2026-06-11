@@ -167,14 +167,16 @@ export interface CellChecklistItem {
 }
 
 export interface CellChecklistDetail {
-  checklistId: string | null
-  checklistName: string
+  checklistId?: string | null
+  checklistName?: string
   cellType?: string
-  cellStatus: CellChecklistStatus
+  cellStatus?: CellChecklistStatus
+  fileName?: string
+  hasFile?: boolean
   isFilled?: boolean
   extension?: CellChecklistExtensionFields
   isExtensionFilled?: boolean
-  items: CellChecklistItem[]
+  items: Array<CellChecklistItem | CellTypeChecklistItem>
 }
 
 export interface CellChecklistRowSummary {
@@ -294,6 +296,25 @@ export interface CellWorkflowDuration {
   wasReopened: boolean
 }
 
+export interface StageWorkflowTiming {
+  stageKey: CellWorkflowStageKey
+  checkInTime: string | null
+  checkOutTime: string | null
+  stageStartTime: string | null
+  stageCompletionTime: string | null
+  latestActivityTime: string | null
+  totalMs: number
+  formattedTotal: string
+  isActive: boolean
+}
+
+export interface CellWorkflowTiming {
+  stages: StageWorkflowTiming[]
+  latestActivityTime: string | null
+  workflowCompletionTime: string | null
+  workflowDuration: CellWorkflowDuration
+}
+
 export interface ProjectCell {
   id: string
   projectId: string
@@ -317,6 +338,7 @@ export interface ProjectCell {
   workflowTotalStages: number
   currentWorkflowStage: string
   workflowDuration: CellWorkflowDuration
+  workflowTiming: CellWorkflowTiming
   views: CellViews
   viewWorkflow: CellViewWorkflow
   isBlocked: boolean
@@ -400,6 +422,8 @@ export interface EmployeeProjectWorkspace {
     cellCount: number
     assignedToMe: number
     completedCells: number
+    notStartedCells: number
+    inProgressCells: number
     blockedCells: number
     readyCells: number
     unassignedCells: number
@@ -409,6 +433,7 @@ export interface EmployeeProjectWorkspace {
 export interface EmployeeCellDetail {
   project: { id: string; name: string }
   isTeamLead?: boolean
+  isAdmin?: boolean
   permissions?: {
     canManageWorkflow?: boolean
     canReview?: boolean

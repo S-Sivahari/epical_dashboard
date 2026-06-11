@@ -38,8 +38,21 @@ router.patch(
 );
 router.patch(
   '/:projectId/cells/:cellId/mine/checklist-extension',
-  employeeProjectController.updateMyCellChecklistExtension,
+  employeeProjectController.updateMyTypeChecklistExtension,
 );
+router.patch(
+  '/:projectId/cells/:cellId/mine/type-checklist/responses/:itemIndex',
+  employeeProjectController.updateMyTypeChecklistResponse,
+);
+router.patch(
+  '/:projectId/cells/:cellId/mine/type-checklist/custom-items/:customItemId',
+  employeeProjectController.updateMyCustomTypeChecklistResponse,
+);
+router.patch(
+  '/:projectId/cells/:cellId/mine/type-checklist/extension',
+  employeeProjectController.updateMyTypeChecklistExtension,
+);
+router.patch('/:projectId/cells/:cellId/mine/complete', employeeProjectController.completeMyCell);
 
 router.get('/', adminOnly, projectController.getAll);
 router.get('/archived', adminOnly, projectController.getArchivedProjects);

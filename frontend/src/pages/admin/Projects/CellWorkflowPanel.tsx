@@ -16,6 +16,8 @@ import {
   workflowProgressPercent,
   workflowStageStatusClass,
 } from './projectWorkspaceUi'
+import { CellWorkflowStageTimingMeta } from './CellWorkflowStageTimingMeta'
+import { getStageTiming } from '@/utils/cellWorkflowTiming'
 
 type CellWorkflowPanelProps = {
   projectId: string
@@ -218,6 +220,7 @@ export function CellWorkflowPanel({
               const badgeClass = reviewActionable && stage.status === 'not_started'
                 ? 'is-progress'
                 : workflowStageStatusClass(stage.status)
+              const stageTiming = getStageTiming(cell.workflowTiming, stage.stageKey)
 
               return (
                 <section
@@ -253,6 +256,11 @@ export function CellWorkflowPanel({
                     {meta ? (
                       <p className="admin-projects-workflow-column-meta">{meta}</p>
                     ) : null}
+                    <CellWorkflowStageTimingMeta
+                      timing={stageTiming}
+                      status={stage.status}
+                      compact
+                    />
                   </div>
 
                   <div className="admin-projects-workflow-column-body">

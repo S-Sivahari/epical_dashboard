@@ -112,6 +112,11 @@ const AdminHelpSupport = lazy(async () => {
   return { default: m.AdminHelpSupport }
 })
 
+const AdminMetalRoutingPage = lazy(async () => {
+  const m = await import('@pages/admin/MetalRouting/AdminMetalRoutingPage')
+  return { default: m.AdminMetalRoutingPage }
+})
+
 // ── Employee Pages ────────────────────────────────────────────
 const EmployeeDashboardPage = lazy(() =>
   import('@pages/employee/Dashboard')
@@ -154,9 +159,7 @@ const EmployeeProfilePage = lazy(() =>
 )
 
 const EmployeeProjectsLayout = lazy(() =>
-  import('@components/employee/projects/EmployeeProjectsLayout').then((m) => ({
-    default: m.EmployeeProjectsLayout,
-  }))
+  import('@components/employee/projects/EmployeeProjectsLayout')
 )
 
 const EmployeeProjectsDashboard = lazy(() =>
@@ -174,6 +177,11 @@ const EmployeeProjectWorkspace = lazy(() =>
 const EmployeeCellWorkflow = lazy(() =>
   import('@pages/employee/EmployeeCellWorkflow')
 )
+
+const EmployeeMetalRoutingPage = lazy(async () => {
+  const m = await import('@pages/employee/MetalRouting/EmployeeMetalRoutingPage')
+  return { default: m.EmployeeMetalRoutingPage }
+})
 
 // ── Not Found ────────────────────────────────────────────────
 const NotFound = lazy(async () => {
@@ -235,6 +243,8 @@ export function AppRoutes() {
             <Route path="projects" element={<AdminProjectsPage />} />
             <Route path="projects/:projectId/cells/:cellId" element={<ProjectCellPage />} />
             <Route path="projects/:projectId" element={<ProjectWorkspace />} />
+
+            <Route path="metal-routing/*" element={<AdminMetalRoutingPage />} />
 
             <Route
               path="calendar"
@@ -302,6 +312,8 @@ export function AppRoutes() {
               <Route path=":projectId" element={<EmployeeProjectWorkspace />} />
               <Route path=":projectId/cells/:cellId" element={<EmployeeCellWorkflow />} />
             </Route>
+
+            <Route path="metal-routing/*" element={<EmployeeMetalRoutingPage />} />
 
             <Route
               path="leave"
