@@ -4,6 +4,8 @@ import { toast } from 'sonner'
 import { Modal } from '@components/ui/Modal'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
+import { MetalRoutingColumnHeaderCell } from '@components/pdk/MetalRoutingColumnHeader'
+import { METAL_ROUTING_TABLE_HEADERS } from '@/constants/metalRoutingTableHeaders'
 import type { MetalConnectionType, MetalEntry, PdkModule } from '@/types/pdkMetalRouting'
 import { previewMetal } from '@services/pdkMetalRoutingService'
 
@@ -11,7 +13,7 @@ type MetalPayload = {
   metalType: string
   width: number
   length: number
-  connectionType: MetalConnectionType
+  connectionType?: MetalConnectionType
 }
 
 export function AddMetalModal({
@@ -21,6 +23,7 @@ export function AddMetalModal({
   pdkModule,
   routeSchematicCurrentDensity,
   isFirstMetal,
+  isEditingFirstMetal,
   editingMetal,
   onAdd,
   onUpdate,
@@ -32,13 +35,14 @@ export function AddMetalModal({
   pdkModule: PdkModule | null
   routeSchematicCurrentDensity?: number
   isFirstMetal?: boolean
+  isEditingFirstMetal?: boolean
   editingMetal?: MetalEntry | null
   onAdd: (payload: MetalPayload) => Promise<void>
   onUpdate?: (metalId: string, payload: MetalPayload) => Promise<void>
   saving: boolean
 }) {
   const isEdit = Boolean(editingMetal)
-  const showConnection = !isFirstMetal && !isEdit
+  const showConnection = !isFirstMetal && !isEditingFirstMetal
   const [metalType, setMetalType] = useState('')
   const [width, setWidth] = useState('')
   const [length, setLength] = useState('')
@@ -104,7 +108,7 @@ export function AddMetalModal({
       metalType: preview.metalType,
       width: preview.width,
       length: preview.length,
-      connectionType: preview.connectionType ?? effectiveConnection,
+      ...(showConnection ? { connectionType: preview.connectionType ?? effectiveConnection } : {}),
     }
   }
 
@@ -135,7 +139,7 @@ export function AddMetalModal({
             {routeSchematicCurrentDensity != null ? (
               <>
                 {' '}
-                · Schematic J: <strong className="text-ink">{routeSchematicCurrentDensity}</strong> mA/µm
+                · Schematic: <strong className="text-ink">{routeSchematicCurrentDensity}</strong> mA/µm
               </>
             ) : null}
           </p>
@@ -166,8 +170,8 @@ export function AddMetalModal({
         </label>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <Input label="Metal Width (µm)" type="number" step="any" min={0} value={width} onChange={(e) => { setWidth(e.target.value); setPreview(null) }} />
-          <Input label="Metal Length (µm)" type="number" step="any" min={0} value={length} onChange={(e) => { setLength(e.target.value); setPreview(null) }} />
+          <Input label="Metal Width(µm)" type="number" step="any" min={0} value={width} onChange={(e) => { setWidth(e.target.value); setPreview(null) }} />
+          <Input label="Metal Length(µm)" type="number" step="any" min={0} value={length} onChange={(e) => { setLength(e.target.value); setPreview(null) }} />
         </div>
 
         {showConnection ? (
@@ -194,19 +198,27 @@ export function AddMetalModal({
         {preview ? (
           <div className="overflow-x-auto rounded-lg border border-emerald-200 bg-emerald-50/50">
             <table className="min-w-full text-left text-xs sm:text-sm">
-              <thead className="bg-yellow-300 text-[11px] font-bold uppercase text-black">
+              <thead className="metal-routing-metal-table__head bg-yellow-300 text-[11px] font-bold text-black">
                 <tr>
-                  <th className="px-2 py-2">Metal Type</th>
-                  {showConnection || isEdit ? <th className="px-2 py-2">Conn.</th> : null}
-                  <th className="px-2 py-2">Given J (mA)</th>
-                  <th className="px-2 py-2">Capacity (mA)</th>
-                  <th className="px-2 py-2">Impedance (Ω)</th>
+                  <th className="px-2 py-2">
+                    <MetalRoutingColumnHeaderCell header={METAL_ROUTING_TABLE_HEADERS.metalType} />
+                  </th>
+                  {showConnection ? <th className="px-2 py-2">Conn.</th> : null}
+                  <th className="px-2 py-2">
+                    <MetalRoutingColumnHeaderCell header={METAL_ROUTING_TABLE_HEADERS.givenDensity} />
+                  </th>
+                  <th className="px-2 py-2">
+                    <MetalRoutingColumnHeaderCell header={METAL_ROUTING_TABLE_HEADERS.implementedCapacity} />
+                  </th>
+                  <th className="px-2 py-2">
+                    <MetalRoutingColumnHeaderCell header={METAL_ROUTING_TABLE_HEADERS.routingImpedance} />
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-lime-400/70 font-medium text-black">
                 <tr>
                   <td className="px-2 py-2">{preview.metalType}</td>
-                  {showConnection || isEdit ? (
+                  {showConnection ? (
                     <td className="px-2 py-2">{preview.connectionType ?? effectiveConnection}</td>
                   ) : null}
                   <td className="px-2 py-2">{preview.givenCurrentDensity.toFixed(4)}</td>

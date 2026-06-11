@@ -231,6 +231,11 @@ export function ProjectCellRoutingPage({ basePath }: { basePath: string }) {
         pdkModule={context?.pdkModule ?? null}
         routeSchematicCurrentDensity={route.schematicCurrentDensity}
         isFirstMetal={route.metals.length === 0 && !editingMetal}
+        isEditingFirstMetal={
+          editingMetal != null &&
+          route.metals.length > 0 &&
+          route.metals[0]._id === editingMetal._id
+        }
         editingMetal={editingMetal}
         saving={savingMetal}
         onAdd={handleAddMetal}

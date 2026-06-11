@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -9,14 +9,15 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { Modal } from '@components/ui/Modal'
 import type { PdkModule } from '@/types/pdkMetalRouting'
 import { cn } from '@/utils/cn'
 import { stringToHueColor } from '@/utils/stringColor'
 
-function shortenLabel(value: string, max: number): string {
-  if (value.length <= max) return value
-  return `${value.slice(0, max - 1)}…`
-}
+const SIDEBAR_LABEL_MAX = 18
+const DEFAULT_LABEL_MAX = 10
+const ROW_HEIGHT = 28
+const CHART_PAD = 28
 
 type ChartRow = {
   id: string
@@ -24,6 +25,32 @@ type ChartRow = {
   fullName: string
   metals: number
   color: string
+}
+
+function shortenLabel(value: string, max: number): string {
+  if (value.length <= max) return value
+  return `${value.slice(0, max - 1)}…`
+}
+
+function buildChartRows(modules: PdkModule[], labelMax: number): ChartRow[] {
+  return [...modules]
+    .sort((a, b) => b.metals.length - a.metals.length)
+    .map((mod) => ({
+      id: mod._id,
+      label: shortenLabel(mod.name, labelMax),
+      fullName: mod.name,
+      metals: mod.metals.length,
+      color: stringToHueColor(mod._id || mod.name),
+    }))
+}
+
+function computeYAxisWidth(labels: string[], min = 96, max = 140): number {
+  const longest = labels.reduce((maxLen, label) => Math.max(maxLen, label.length), 0)
+  return Math.min(max, Math.max(min, longest * 6.4 + 10))
+}
+
+function chartHeight(rowCount: number, expanded?: boolean): number {
+  return rowCount * (expanded ? 32 : ROW_HEIGHT) + CHART_PAD
 }
 
 function ChartTooltip({
@@ -45,41 +72,73 @@ function ChartTooltip({
   )
 }
 
-function SidebarHorizontalChart({ data, fill }: { data: ChartRow[]; fill?: boolean }) {
-  const chartHeight = data.length * 26 + 8
+function YAxisTick({
+  x = 0,
+  y = 0,
+  payload,
+  rows,
+}: {
+  x?: number
+  y?: number
+  payload?: { value: string }
+  rows: ChartRow[]
+}) {
+  const fullName = rows.find((row) => row.label === payload?.value)?.fullName ?? payload?.value ?? ''
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <title>{fullName}</title>
+      <text
+        x={-6}
+        y={0}
+        dy={4}
+        textAnchor="end"
+        fill="#64748b"
+        fontSize={10}
+      >
+        {payload?.value}
+      </text>
+    </g>
+  )
+}
+
+function HorizontalBarChart({
+  data,
+  expanded,
+  yAxisWidth,
+}: {
+  data: ChartRow[]
+  expanded?: boolean
+  yAxisWidth: number
+}) {
+  const height = chartHeight(data.length, expanded)
 
   return (
-    <div
-      className={cn(
-        'metal-routing-analytics-chart metal-routing-analytics-chart--sidebar-horizontal',
-        fill && 'metal-routing-analytics-chart--fill',
-      )}
-    >
-      <ResponsiveContainer width="100%" height={fill ? '100%' : chartHeight}>
+    <div className="metal-routing-analytics-chart__canvas" style={{ height }}>
+      <ResponsiveContainer width="100%" height="100%">
         <BarChart
           layout="vertical"
           data={data}
-          margin={{ top: fill ? 8 : 2, right: 8, left: 0, bottom: fill ? 8 : 2 }}
+          margin={{ top: 4, right: expanded ? 16 : 8, left: 0, bottom: 4 }}
         >
           <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="rgba(15, 23, 42, 0.06)" />
           <XAxis
             type="number"
             allowDecimals={false}
-            tick={{ fontSize: 9, fill: '#64748b' }}
+            tick={{ fontSize: expanded ? 11 : 9, fill: '#64748b' }}
             axisLine={false}
             tickLine={false}
-            height={18}
+            height={expanded ? 22 : 18}
           />
           <YAxis
             type="category"
             dataKey="label"
-            width={76}
-            tick={{ fontSize: 9, fill: '#64748b' }}
+            width={yAxisWidth}
+            tick={(props) => <YAxisTick {...props} rows={data} />}
             axisLine={false}
             tickLine={false}
           />
           <Tooltip cursor={{ fill: 'rgba(30, 90, 61, 0.06)' }} content={<ChartTooltip />} />
-          <Bar dataKey="metals" radius={[0, 4, 4, 0]} maxBarSize={fill ? 22 : 12}>
+          <Bar dataKey="metals" radius={[0, 4, 4, 0]} maxBarSize={expanded ? 26 : 14}>
             {data.map((entry) => (
               <Cell key={entry.id} fill={entry.color} />
             ))}
@@ -125,6 +184,44 @@ function DefaultVerticalChart({ data, height }: { data: ChartRow[]; height: numb
   )
 }
 
+function MetalsPerModuleModal({
+  isOpen,
+  onClose,
+  rows,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  rows: ChartRow[]
+}) {
+  const yAxisWidth = computeYAxisWidth(rows.map((row) => row.fullName), 140, 220)
+
+  return (
+    <Modal isOpen={isOpen} title="Metal types per module" onClose={onClose} size="xl">
+      <p className="metal-routing-analytics-modal-desc">
+        {rows.length} module{rows.length === 1 ? '' : 's'} sorted by metal layer count. Hover a bar for details.
+      </p>
+      <div className="metal-routing-analytics-chart metal-routing-analytics-chart--modal">
+        <HorizontalBarChart data={rows} expanded yAxisWidth={yAxisWidth} />
+      </div>
+      <ul className="metal-routing-analytics-modal-list">
+        {rows.map((row) => (
+          <li key={row.id} className="metal-routing-analytics-modal-list__item">
+            <span
+              className="metal-routing-analytics-modal-list__swatch"
+              style={{ backgroundColor: row.color }}
+              aria-hidden
+            />
+            <span className="metal-routing-analytics-modal-list__name">{row.fullName}</span>
+            <span className="metal-routing-analytics-modal-list__value">
+              {row.metals} metal{row.metals === 1 ? '' : 's'}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </Modal>
+  )
+}
+
 export function PdkModulesAnalyticsChart({
   modules,
   loading,
@@ -136,20 +233,33 @@ export function PdkModulesAnalyticsChart({
   sidebar?: boolean
   fill?: boolean
 }) {
-  const metalsPerModule = useMemo(
-    () =>
-      [...modules]
-        .sort((a, b) => b.metals.length - a.metals.length)
-        .slice(0, sidebar ? 4 : 6)
-        .map((mod) => ({
-          id: mod._id,
-          label: shortenLabel(mod.name, sidebar ? 11 : 8),
-          fullName: mod.name,
-          metals: mod.metals.length,
-          color: stringToHueColor(mod._id || mod.name),
-        })),
-    [modules, sidebar],
+  const [viewAllOpen, setViewAllOpen] = useState(false)
+
+  const sidebarRows = useMemo(
+    () => buildChartRows(modules, SIDEBAR_LABEL_MAX),
+    [modules],
   )
+
+  const modalRows = useMemo(
+    () =>
+      buildChartRows(modules, 999).map((row) => ({
+        ...row,
+        label: row.fullName,
+      })),
+    [modules],
+  )
+
+  const defaultRows = useMemo(
+    () => buildChartRows(modules, DEFAULT_LABEL_MAX).slice(0, 6),
+    [modules],
+  )
+
+  const sidebarYAxisWidth = useMemo(
+    () => computeYAxisWidth(sidebarRows.map((row) => row.label)),
+    [sidebarRows],
+  )
+
+  const hasTruncatedLabels = sidebarRows.some((row) => row.label !== row.fullName)
 
   if (loading) {
     return (
@@ -187,19 +297,64 @@ export function PdkModulesAnalyticsChart({
   }
 
   return (
-    <article
-      className={cn(
-        'metal-routing-analytics-card metal-routing-analytics-card--compact',
-        sidebar && 'metal-routing-analytics-card--sidebar',
-        sidebar && fill && 'metal-routing-analytics-card--sidebar-fill',
-      )}
-    >
-      <h3 className="metal-routing-analytics-title">Metal types per module</h3>
+    <>
+      <article
+        className={cn(
+          'metal-routing-analytics-card metal-routing-analytics-card--compact',
+          sidebar && 'metal-routing-analytics-card--sidebar',
+          sidebar && fill && 'metal-routing-analytics-card--sidebar-fill',
+        )}
+      >
+        <div className="metal-routing-analytics-card__header">
+          <div className="min-w-0">
+            <h3 className="metal-routing-analytics-title">Metal types per module</h3>
+            {sidebar ? (
+              <p className="metal-routing-analytics-subtitle">
+                {modules.length} module{modules.length === 1 ? '' : 's'}
+                {modules.length > 4 ? ' · scroll for more' : ''}
+              </p>
+            ) : null}
+          </div>
+          {sidebar && modules.length > 1 ? (
+            <button
+              type="button"
+              className="metal-routing-analytics-view-all"
+              onClick={() => setViewAllOpen(true)}
+            >
+              View all
+            </button>
+          ) : null}
+        </div>
+
+        {sidebar ? (
+          <div
+            className={cn(
+              'metal-routing-analytics-chart metal-routing-analytics-chart--sidebar-horizontal',
+              'metal-routing-analytics-chart--scroll',
+              fill && 'is-fill',
+            )}
+            tabIndex={0}
+            role="region"
+            aria-label="Metal types per module chart. Scroll to see all modules."
+          >
+            <HorizontalBarChart data={sidebarRows} yAxisWidth={sidebarYAxisWidth} />
+          </div>
+        ) : (
+          <DefaultVerticalChart data={defaultRows} height={150} />
+        )}
+
+        {sidebar && hasTruncatedLabels ? (
+          <p className="metal-routing-analytics-hint">Hover labels or open View all for full names.</p>
+        ) : null}
+      </article>
+
       {sidebar ? (
-        <SidebarHorizontalChart data={metalsPerModule} fill={fill} />
-      ) : (
-        <DefaultVerticalChart data={metalsPerModule} height={150} />
-      )}
-    </article>
+        <MetalsPerModuleModal
+          isOpen={viewAllOpen}
+          onClose={() => setViewAllOpen(false)}
+          rows={modalRows}
+        />
+      ) : null}
+    </>
   )
 }

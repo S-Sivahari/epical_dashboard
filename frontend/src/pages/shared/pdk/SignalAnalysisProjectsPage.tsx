@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Activity, Layers } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Activity } from 'lucide-react'
 import { toast } from 'sonner'
 import { MetalRoutingCellRoutingProjectTable } from '@components/pdk/MetalRoutingCellRoutingProjectTable'
 import { MetalRoutingPageShell } from '@components/pdk/MetalRoutingPageShell'
@@ -26,34 +26,18 @@ export function SignalAnalysisProjectsPage({ basePath }: { basePath: string }) {
     })()
   }, [])
 
-  const stats = useMemo(() => {
-    const total = projects.length
-    const assigned = projects.filter((p) => p.pdkModuleId).length
-    return { total, assigned, unassigned: total - assigned }
-  }, [projects])
-
   return (
     <MetalRoutingPageShell fill bleed>
-      <div className="metal-routing-dashboard metal-routing-pdk-modules-page">
-        <header className="metal-routing-cell-routing-header metal-routing-pdk-modules-topbar">
-          <div className="flex min-w-0 items-start gap-3">
-            <span className="metal-routing-cell-routing-header__icon" aria-hidden>
-              <Activity className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <h1 className="metal-routing-page-title">Signal Analysis</h1>
-              <p className="metal-routing-page-desc">
-                {stats.total} projects · {stats.assigned} with PDK assigned
-              </p>
+      <div className="metal-routing-dashboard metal-routing-pdk-modules-page metal-routing-signal-projects-page">
+        <header className="metal-routing-signal-projects-header">
+          <div className="metal-routing-signal-projects-header__panel metal-routing-signal-projects-header__panel--compact">
+            <div className="metal-routing-signal-projects-header__brand">
+              <span className="metal-routing-signal-projects-header__icon" aria-hidden>
+                <Activity className="h-5 w-5" />
+              </span>
+              <h1 className="metal-routing-signal-projects-header__title">Signal Analysis</h1>
             </div>
           </div>
-          <Link
-            to={`${basePath}/pdk-modules`}
-            className="metal-routing-pdk-modules-cta shrink-0"
-          >
-            <Layers className="h-5 w-5" aria-hidden />
-            PDK Modules
-          </Link>
         </header>
 
         <MetalRoutingCellRoutingProjectTable

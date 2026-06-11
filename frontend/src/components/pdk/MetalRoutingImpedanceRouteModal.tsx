@@ -27,7 +27,7 @@ export function MetalRoutingImpedanceRouteModal({
 
         <div className="metal-routing-impedance-route-detail__total">
           <span>Total Impedance</span>
-          <strong>{route.impedance.toFixed(2)} Ω</strong>
+          <strong>{route.impedance.toFixed(2)} mΩ</strong>
         </div>
 
         <h4 className="metal-routing-impedance-route-detail__section">Layer Contributions</h4>
@@ -38,7 +38,7 @@ export function MetalRoutingImpedanceRouteModal({
             {route.layerContributions.map((layer) => (
               <li key={`${route.routeId}-${layer.metalType}`}>
                 <span>{layer.metalType}</span>
-                <span>{layer.impedance.toFixed(2)} Ω</span>
+                <span>{layer.impedance.toFixed(2)} mΩ</span>
               </li>
             ))}
           </ul>

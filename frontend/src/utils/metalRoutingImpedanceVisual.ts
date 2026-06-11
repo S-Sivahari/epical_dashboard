@@ -285,8 +285,8 @@ export function generateExecutiveSummary(
   const withinLimits = stats.max <= stats.average * 1.35 && !hasSpike
 
   return [
-    `The project contains ${stats.measuredRouteCount} analyzed route${stats.measuredRouteCount === 1 ? '' : 's'} with an average impedance of ${stats.average.toFixed(2)} Ω.`,
-    `Route ${stats.maxRouteLabel} recorded the highest impedance value of ${stats.max.toFixed(2)} Ω.`,
+    `The project contains ${stats.measuredRouteCount} analyzed route${stats.measuredRouteCount === 1 ? '' : 's'} with an average impedance of ${stats.average.toFixed(2)} mΩ.`,
+    `Route ${stats.maxRouteLabel} recorded the highest impedance value of ${stats.max.toFixed(2)} mΩ.`,
     hasSpike
       ? 'Severe impedance anomalies were detected and should be reviewed before sign-off.'
       : 'No severe impedance anomalies or instability patterns were detected.',
@@ -328,10 +328,10 @@ export async function exportImpedanceExcel(
   const sheet = workbook.addWorksheet('Impedance Analysis')
   sheet.addRow(['Impedance Analysis Report'])
   sheet.addRow(['Project', projectName ?? ''])
-  sheet.addRow(['Average (Ω)', stats.average])
-  sheet.addRow(['Total (Ω)', stats.total])
+  sheet.addRow(['Average (mΩ)', stats.average])
+  sheet.addRow(['Total (mΩ)', stats.total])
   sheet.addRow([])
-  sheet.addRow(['Route', 'Path', 'Impedance (Ω)', 'Vs Average', 'Change %', 'Rank', 'Trend'])
+  sheet.addRow(['Route', 'Path', 'Impedance (mΩ)', 'Vs Average', 'Change %', 'Rank', 'Trend'])
   rows.forEach((row) => {
     sheet.addRow([
       row.routeLabel,
@@ -366,15 +366,15 @@ export function exportImpedancePdf(
   doc.text('Impedance Analysis Report', 40, 40)
   doc.setFontSize(10)
   doc.text(`Project: ${projectName ?? '—'} · Routes: ${stats.measuredRouteCount}`, 40, 58)
-  doc.text(`Average: ${stats.average.toFixed(2)} Ω · Total: ${stats.total.toFixed(2)} Ω`, 40, 72)
+  doc.text(`Average: ${stats.average.toFixed(2)} mΩ · Total: ${stats.total.toFixed(2)} mΩ`, 40, 72)
 
   autoTable(doc, {
     startY: 90,
     head: [['Route', 'Impedance', 'Vs Avg', 'Change %', 'Rank', 'Trend']],
     body: rows.map((row) => [
       row.routeLabel,
-      `${row.impedance.toFixed(2)} Ω`,
-      `${row.vsAverage >= 0 ? '+' : ''}${row.vsAverage.toFixed(2)} Ω`,
+      `${row.impedance.toFixed(2)} mΩ`,
+      `${row.vsAverage >= 0 ? '+' : ''}${row.vsAverage.toFixed(2)} mΩ`,
       `${row.changePercent}%`,
       `#${row.rank}`,
       row.trendDirection,
@@ -397,12 +397,12 @@ export function exportImpedanceCsv(
 ): void {
   const rows = [
     ['Project', projectName ?? ''],
-    ['Average Impedance (Ω)', stats.average],
-    ['Min Impedance (Ω)', stats.min],
-    ['Max Impedance (Ω)', stats.max],
-    ['Total Impedance (Ω)', stats.total],
+    ['Average Impedance (mΩ)', stats.average],
+    ['Min Impedance (mΩ)', stats.min],
+    ['Max Impedance (mΩ)', stats.max],
+    ['Total Impedance (mΩ)', stats.total],
     [],
-    ['Route', 'Path', 'Signal', 'Impedance (Ω)', 'Updated At'],
+    ['Route', 'Path', 'Signal', 'Impedance (mΩ)', 'Updated At'],
     ...points.map((point) => [
       point.routeLabel,
       point.routeName,

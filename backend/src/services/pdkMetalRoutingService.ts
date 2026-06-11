@@ -54,7 +54,30 @@ export interface ComputedMetalEntry {
   sheetResistance: number;
   implementedCurrentMetalCapacity: number;
   routingMetalImpedance: number;
-  connectionType: 'series' | 'parallel';
+  connectionType?: 'series' | 'parallel';
+}
+
+function resolveConnectionType(
+  input?: 'series' | 'parallel',
+): 'series' | 'parallel' | undefined {
+  if (input === 'parallel') return 'parallel';
+  if (input === 'series') return 'series';
+  return undefined;
+}
+
+function metalSubdocFromComputed(
+  computed: ComputedMetalEntry,
+  options?: { existingId?: Types.ObjectId; omitConnectionType?: boolean },
+): MetalEntrySubdoc {
+  const { connectionType, ...rest } = computed;
+  const entry: MetalEntrySubdoc = {
+    _id: options?.existingId ?? new Types.ObjectId(),
+    ...rest,
+  };
+  if (!options?.omitConnectionType && connectionType) {
+    entry.connectionType = connectionType;
+  }
+  return entry;
 }
 
 export interface AnalysisSummary {
@@ -860,9 +883,9 @@ export function computeMetalEntry(
       ? Number(input.schematicCurrentDensity)
       : pdkDensity;
   const sheetResistance = spec.sheetResistance;
-  const connectionType = input.connectionType === 'parallel' ? 'parallel' : 'series';
+  const connectionType = resolveConnectionType(input.connectionType);
 
-  return {
+  const entry: ComputedMetalEntry = {
     metalType: String(input.metalType).trim(),
     width,
     length,
@@ -873,8 +896,9 @@ export function computeMetalEntry(
     sheetResistance,
     implementedCurrentMetalCapacity: width * pdkDensity,
     routingMetalImpedance: width > 0 ? (length / width) * sheetResistance : 0,
-    connectionType,
   };
+  if (connectionType) entry.connectionType = connectionType;
+  return entry;
 }
 
 export async function previewMetal(input: MetalInput): Promise<ComputedMetalEntry> {
@@ -900,10 +924,10 @@ export function summarizeMetals(metals: ComputedMetalEntry[]): AnalysisSummary {
 
   metals.forEach((metal, index) => {
     const z = metal.routingMetalImpedance;
-    if (metal.connectionType === 'parallel') {
-      if (totalImpedance <= 0) {
-        totalImpedance = z;
-      } else if (z > 0) {
+    if (index === 0) {
+      totalImpedance = z;
+    } else if (metal.connectionType === 'parallel') {
+      if (z > 0) {
         totalImpedance = (totalImpedance * z) / (totalImpedance + z);
       }
     } else {
@@ -938,8 +962,16 @@ function applySummaryToMetals(metals: MetalEntrySubdoc[], summary: AnalysisSumma
   };
 }
 
+function normalizeMetalConnections(metals: MetalEntrySubdoc[]) {
+  metals.forEach((metal, index) => {
+    if (index === 0) {
+      delete metal.connectionType;
+    }
+  });
+}
+
 function toComputed(m: MetalEntrySubdoc): ComputedMetalEntry {
-  return {
+  const entry: ComputedMetalEntry = {
     metalType: m.metalType,
     width: m.width,
     length: m.length,
@@ -950,8 +982,10 @@ function toComputed(m: MetalEntrySubdoc): ComputedMetalEntry {
     sheetResistance: m.sheetResistance,
     implementedCurrentMetalCapacity: m.implementedCurrentMetalCapacity,
     routingMetalImpedance: m.routingMetalImpedance,
-    connectionType: m.connectionType === 'parallel' ? 'parallel' : 'series',
   };
+  const connectionType = resolveConnectionType(m.connectionType);
+  if (connectionType) entry.connectionType = connectionType;
+  return entry;
 }
 
 function routeSchematicDensity(route: { schematicCurrentDensity?: number } | null): number | undefined {
@@ -996,17 +1030,16 @@ export async function addMetalToRoute(
 
   const routeSchematic = routeSchematicDensity(route);
   const isFirstMetal = route.metals.length === 0;
-  const connectionType = isFirstMetal ? 'series' : input.connectionType;
   const schematicCurrentDensity = resolveMetalSchematicInput(routeSchematic, input.schematicCurrentDensity);
 
   const computed = await previewMetal({
     ...input,
     projectId: k.projectId,
-    connectionType,
+    connectionType: isFirstMetal ? undefined : input.connectionType,
     schematicCurrentDensity,
   });
 
-  route.metals.push({ _id: new Types.ObjectId(), ...computed });
+  route.metals.push(metalSubdocFromComputed(computed, { omitConnectionType: isFirstMetal }));
   const summary = summarizeMetals(route.metals.map(toComputed));
   Object.assign(route, applySummaryToMetals(route.metals, summary));
   await route.save();
@@ -1031,14 +1064,16 @@ export async function upsertRouteWithMetals(
   }
 
   const computedMetals: MetalEntrySubdoc[] = [];
-  for (const input of metalInputs) {
+  for (let index = 0; index < metalInputs.length; index += 1) {
+    const input = metalInputs[index];
     const computed = await previewMetal({
       projectId: k.projectId,
       metalType: input.metalType,
       width: input.width,
       length: input.length,
+      connectionType: index === 0 ? undefined : 'series',
     });
-    computedMetals.push({ _id: new Types.ObjectId(), ...computed });
+    computedMetals.push(metalSubdocFromComputed(computed, { omitConnectionType: index === 0 }));
   }
 
   const summary = summarizeMetals(computedMetals.map(toComputed));
@@ -1098,6 +1133,7 @@ export async function removeMetalFromRoute(key: RoutingKey, metalId: string) {
   if (!route) return null;
 
   route.metals = route.metals.filter((m) => m._id.toString() !== metalId);
+  normalizeMetalConnections(route.metals);
   const summary = summarizeMetals(route.metals.map(toComputed));
   Object.assign(route, applySummaryToMetals(route.metals, summary));
   await route.save();
@@ -1172,6 +1208,7 @@ export async function updateMetalInRoute(
 
   const routeSchematic = routeSchematicDensity(route);
   const schematicCurrentDensity = resolveMetalSchematicInput(routeSchematic, input.schematicCurrentDensity);
+  const isFirstMetal = index === 0;
 
   const computed = await previewMetal({
     projectId: k.projectId,
@@ -1179,13 +1216,13 @@ export async function updateMetalInRoute(
     width: input.width,
     length: input.length,
     schematicCurrentDensity,
-    connectionType: input.connectionType,
+    connectionType: isFirstMetal ? undefined : input.connectionType,
   });
 
-  route.metals[index] = {
-    _id: route.metals[index]._id,
-    ...computed,
-  };
+  route.metals[index] = metalSubdocFromComputed(computed, {
+    existingId: route.metals[index]._id,
+    omitConnectionType: isFirstMetal,
+  });
   route.markModified('metals');
   const summary = summarizeMetals(route.metals.map(toComputed));
   Object.assign(route, applySummaryToMetals(route.metals, summary));
@@ -1362,13 +1399,22 @@ export async function exportProjectRoutesExcel(projectId: string, routeId?: stri
 }
 
 export function serializeRouteForClient(route: Record<string, unknown>) {
-  const metals = ((route.metals as MetalEntrySubdoc[]) ?? []).map((metal) => ({
-    ...metal,
-    _id: metal._id?.toString() ?? '',
-    pdkModuleId: metal.pdkModuleId?.toString() ?? '',
-    connectionType: metal.connectionType === 'parallel' ? 'parallel' : 'series',
-    schematicCurrentDensity: metal.schematicCurrentDensity ?? metal.givenCurrentDensity,
-  }));
+  const metals = ((route.metals as MetalEntrySubdoc[]) ?? []).map((metal, index) => {
+    const mapped = {
+      ...metal,
+      _id: metal._id?.toString() ?? '',
+      pdkModuleId: metal.pdkModuleId?.toString() ?? '',
+      schematicCurrentDensity: metal.schematicCurrentDensity ?? metal.givenCurrentDensity,
+    };
+    if (index > 0) {
+      const connectionType = resolveConnectionType(metal.connectionType) ?? 'series';
+      return { ...mapped, connectionType };
+    }
+    const { connectionType: _omit, ...withoutConnection } = mapped as MetalEntrySubdoc & {
+      connectionType?: string;
+    };
+    return withoutConnection;
+  });
   const signal = routeSignalLabel(route);
 
   return {

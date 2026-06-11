@@ -90,28 +90,28 @@ export function MetalRoutingCellRoutingProjectTable({
   const rangeEnd = Math.min(currentPage * effectivePageSize, filtered.length)
 
   return (
-    <section className="metal-routing-overview-card metal-routing-cell-routing-table">
-      <div className="metal-routing-overview-toolbar metal-routing-pdk-modules-toolbar">
-        <h2 className="metal-routing-section-title">Projects</h2>
-        <div className="metal-routing-overview-controls metal-routing-pdk-modules-toolbar__controls">
-          <label className="metal-routing-search-field metal-routing-pdk-modules-toolbar__search">
-            <Search className="h-4 w-4 shrink-0 text-muted" aria-hidden />
-            <input
-              type="search"
-              placeholder="Search projects..."
-              value={search}
-              onChange={(e) => onSearchChange(e.target.value)}
-            />
-          </label>
+    <section className="metal-routing-overview-card metal-routing-cell-routing-table metal-routing-signal-projects-card">
+      <div className="metal-routing-signal-projects-toolbar metal-routing-overview-toolbar metal-routing-pdk-modules-toolbar">
+        <h2 className="metal-routing-signal-projects-toolbar__title">Projects</h2>
+        <label className="metal-routing-search-field metal-routing-signal-projects-toolbar__search">
+          <Search className="h-4 w-4 shrink-0 text-muted" aria-hidden />
+          <input
+            type="search"
+            placeholder="Search projects..."
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+          />
+        </label>
+        <div className="metal-routing-signal-projects-toolbar__controls metal-routing-overview-controls metal-routing-pdk-modules-toolbar__controls">
           <CellRoutingStatusFilter
             value={statusFilter}
             onChange={onStatusFilterChange}
             projects={projects}
           />
-          <div className="relative">
-            <ArrowUpDown className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+          <div className="metal-routing-signal-projects-sort">
+            <ArrowUpDown className="metal-routing-signal-projects-sort__icon" aria-hidden />
             <select
-              className="metal-routing-toolbar-select pl-8"
+              className="metal-routing-toolbar-select metal-routing-signal-projects-sort__select"
               value={sortKey}
               onChange={(e) => setSortKey(e.target.value as SortKey)}
               aria-label="Sort projects"
@@ -159,21 +159,21 @@ export function MetalRoutingCellRoutingProjectTable({
         )}
       </div>
 
-      <footer className="metal-routing-overview-footer metal-routing-cell-routing-footer">
-        <p className="text-sm text-muted">
+      <footer className="metal-routing-overview-footer metal-routing-cell-routing-footer metal-routing-signal-projects-footer">
+        <p className="metal-routing-signal-projects-footer__count">
           Showing {rangeStart} to {rangeEnd} of {filtered.length} project
           {filtered.length === 1 ? '' : 's'}
         </p>
 
-        <div className="flex flex-wrap items-center justify-center gap-1">
+        <div className="metal-routing-signal-projects-pagination">
           <button
             type="button"
-            className="metal-routing-page-btn"
+            className="metal-routing-page-btn metal-routing-page-btn--nav"
             disabled={currentPage <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
-            aria-label="Previous page"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-4 w-4" aria-hidden />
+            Previous
           </button>
           {Array.from({ length: totalPages }, (_, i) => i + 1)
             .filter((n) => n === 1 || n === totalPages || Math.abs(n - currentPage) <= 1)
@@ -195,17 +195,17 @@ export function MetalRoutingCellRoutingProjectTable({
             })}
           <button
             type="button"
-            className="metal-routing-page-btn"
+            className="metal-routing-page-btn metal-routing-page-btn--nav"
             disabled={currentPage >= totalPages}
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            aria-label="Next page"
           >
-            <ChevronRight className="h-4 w-4" />
+            Next
+            <ChevronRight className="h-4 w-4" aria-hidden />
           </button>
         </div>
 
         {viewMode === 'list' ? (
-          <label className="metal-routing-page-size">
+          <label className="metal-routing-page-size metal-routing-signal-projects-footer__size">
             <span className="text-sm text-muted">Show</span>
             <select
               className="metal-routing-toolbar-select"
@@ -247,10 +247,10 @@ export function CellRoutingStatusFilter({
   }, [projects])
 
   return (
-    <div className="relative">
-      <Filter className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+    <div className="metal-routing-signal-projects-filter relative">
+      <Filter className="metal-routing-signal-projects-filter__icon" aria-hidden />
       <select
-        className="metal-routing-toolbar-select pl-8"
+        className="metal-routing-toolbar-select metal-routing-signal-projects-filter__select"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         aria-label="Filter projects"

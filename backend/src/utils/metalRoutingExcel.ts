@@ -69,13 +69,13 @@ const HEADERS: Record<RouteColumnKey, string> = {
   fromSignal: 'From Signal (Name)',
   toSignal: 'To Signal (Name)',
   metalType: 'Metal Type',
-  width: 'Metal Width (µm)',
-  length: 'Metal Length (µm)',
+  width: 'Metal Width(µm)',
+  length: 'Metal Length(µm)',
   givenDensity: 'Given Current Density (mA)',
-  implementedCapacity: 'Implemented Metal Current Capacity (mA)',
-  minCapacity: 'Minimum Metal Current Capacity (mA)',
-  routingImpedance: 'Routing Metal Impedance (Ω)',
-  totalImpedance: 'Total Impedance (Ω)',
+  implementedCapacity: 'Implemented Metal Current Capability(mA)',
+  minCapacity: 'Minimum Metal Current Capability(mA)',
+  routingImpedance: 'Routing Metal Impedence(mΩ)',
+  totalImpedance: 'Total Impedence(mΩ)',
 };
 
 const COL_ORDER: RouteColumnKey[] = [
@@ -133,8 +133,8 @@ function classifyColumn(header: string): RouteColumnKey | null {
   if (h.includes('given current density')) return 'givenDensity';
   if (h.includes('implemented metal current')) return 'implementedCapacity';
   if (h.includes('minimum metal current')) return 'minCapacity';
-  if (h.includes('routing metal impedance')) return 'routingImpedance';
-  if (h.includes('total impedance')) return 'totalImpedance';
+  if (h.includes('routing metal imped')) return 'routingImpedance';
+  if (h.includes('total imped')) return 'totalImpedance';
 
   return null;
 }

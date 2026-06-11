@@ -14,7 +14,7 @@ export interface MetalEntrySubdoc {
   sheetResistance: number;
   implementedCurrentMetalCapacity: number;
   routingMetalImpedance: number;
-  connectionType: MetalConnectionType;
+  connectionType?: MetalConnectionType;
 }
 
 export interface MetalRoutingAnalysisDocument extends Document {
@@ -51,7 +51,7 @@ const metalEntrySchema = new Schema<MetalEntrySubdoc>(
     sheetResistance: { type: Number, required: true, min: 0 },
     implementedCurrentMetalCapacity: { type: Number, required: true, min: 0 },
     routingMetalImpedance: { type: Number, required: true, min: 0 },
-    connectionType: { type: String, enum: ['series', 'parallel'], default: 'series' },
+    connectionType: { type: String, enum: ['series', 'parallel'] },
   },
   { _id: true },
 );

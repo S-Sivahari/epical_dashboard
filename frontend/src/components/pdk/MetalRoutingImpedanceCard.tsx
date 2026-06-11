@@ -84,10 +84,10 @@ function ImpedanceTooltip({
     <div className="metal-routing-impedance-tooltip">
       <p className="metal-routing-impedance-tooltip__title">Route {point.routeLabel}</p>
       <p>{point.routeName}</p>
-      <p className="metal-routing-impedance-tooltip__value">{point.impedance.toFixed(2)} Ω</p>
+      <p className="metal-routing-impedance-tooltip__value">{point.impedance.toFixed(2)} mΩ</p>
       <p>
         vs avg: {point.deltaFromAverage >= 0 ? '+' : ''}
-        {point.deltaFromAverage.toFixed(2)} Ω ({point.percentFromAverage >= 0 ? '+' : ''}
+        {point.deltaFromAverage.toFixed(2)} mΩ ({point.percentFromAverage >= 0 ? '+' : ''}
         {point.percentFromAverage}%)
       </p>
     </div>
@@ -109,7 +109,7 @@ function CurrentPointLabel(props: {
     <g transform={`translate(${x}, ${y - 14})`}>
       <rect x={-28} y={-11} width={56} height={22} rx={6} className="metal-routing-impedance-badge" />
       <text x={0} y={4} textAnchor="middle" className="metal-routing-impedance-badge__text">
-        {numeric.toFixed(2)} Ω
+        {numeric.toFixed(2)} mΩ
       </text>
     </g>
   )
@@ -219,7 +219,7 @@ export function MetalRoutingImpedanceCard({
                 <Info className="metal-routing-impedance-card__info" aria-label="Per-route impedance analytics" />
               </div>
               <p className="metal-routing-impedance-card__value">
-                <motion.span layout>{animatedCurrent.toFixed(2)}</motion.span> Ω
+                <motion.span layout>{animatedCurrent.toFixed(2)}</motion.span> mΩ
               </p>
               <p className="metal-routing-impedance-card__context">
                 Σ route impedance{projectName ? ` · ${projectName}` : ''}
@@ -229,7 +229,7 @@ export function MetalRoutingImpedanceCard({
                 {trendDown ? <ArrowDownRight className="h-3.5 w-3.5" /> : null}
                 {!trendUp && !trendDown ? <Minus className="h-3.5 w-3.5" /> : null}
                 {trend.changeOhm >= 0 ? '+' : ''}
-                {trend.changeOhm.toFixed(2)} Ω ({trend.changePercent >= 0 ? '+' : ''}
+                {trend.changeOhm.toFixed(2)} mΩ ({trend.changePercent >= 0 ? '+' : ''}
                 {trend.changePercent}%) vs last run
               </p>
             </div>
@@ -290,14 +290,14 @@ export function MetalRoutingImpedanceCard({
               {trend.direction === 'increasing' ? 'Increasing' : trend.direction === 'decreasing' ? 'Decreasing' : 'Stable'}
             </p>
             <p className="metal-routing-impedance-trend-panel__line">
-              Previous: {trend.previousImpedance.toFixed(2)} Ω
+              Previous: {trend.previousImpedance.toFixed(2)} mΩ
             </p>
             <p className="metal-routing-impedance-trend-panel__line">
-              Current: {trend.currentImpedance.toFixed(2)} Ω
+              Current: {trend.currentImpedance.toFixed(2)} mΩ
             </p>
             <p className="metal-routing-impedance-trend-panel__change">
               {trend.changeOhm >= 0 ? '+' : ''}
-              {trend.changeOhm.toFixed(2)} Ω · {trend.changePercent >= 0 ? '+' : ''}
+              {trend.changeOhm.toFixed(2)} mΩ · {trend.changePercent >= 0 ? '+' : ''}
               {trend.changePercent}%
             </p>
           </div>
@@ -339,7 +339,7 @@ export function MetalRoutingImpedanceCard({
                   width={38}
                   tickFormatter={(v: number) => v.toFixed(1)}
                   label={{
-                    value: 'Impedance (Ω)',
+                    value: 'Impedance (mΩ)',
                     angle: -90,
                     position: 'insideLeft',
                     fill: '#a78bfa',

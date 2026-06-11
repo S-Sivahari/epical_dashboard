@@ -4,6 +4,7 @@ import { Activity, Download, Pencil, Plus, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { AddSignalModal } from '@components/pdk/AddSignalModal'
 import { EditSignalModal } from '@components/pdk/EditSignalModal'
+import { MetalRoutingColumnUnit } from '@components/pdk/MetalRoutingColumnHeader'
 import { MetalRoutingPageShell } from '@components/pdk/MetalRoutingPageShell'
 import { Button } from '@components/ui/Button'
 import type { ProjectCellsByType, ProjectRoutingContext, SignalRouteSummary } from '@/types/pdkMetalRouting'
@@ -157,10 +158,10 @@ export function ProjectSignalAnalysisPage({ basePath }: { basePath: string }) {
         `signal-analysis_${context?.project.projectName ?? 'project'}`.replace(/\s+/g, '_'),
         [
           { key: 'signal', label: 'Signal' },
-          { key: 'fromCell', label: 'From Cell' },
-          { key: 'toCell', label: 'To Cell' },
-          { key: 'totalImpedance', label: 'Total Impedance (Ω)' },
-          { key: 'minimumMetalCurrentCapacity', label: 'Minimum Current Density (mA)' },
+          { key: 'fromCell', label: 'From' },
+          { key: 'toCell', label: 'To' },
+          { key: 'totalImpedance', label: 'Total Impedance (mΩ)' },
+          { key: 'minimumMetalCurrentCapacity', label: 'Minimum Current Capability (mA)' },
         ],
         {
           compactHeader: true,
@@ -261,13 +262,29 @@ export function ProjectSignalAnalysisPage({ basePath }: { basePath: string }) {
               </p>
             ) : (
               <table className="min-w-full text-left text-sm">
-                <thead className="bg-yellow-300 text-[11px] font-bold uppercase text-black">
-                  <tr>
-                    <th className="border border-yellow-400 px-3 py-2">Signal</th>
-                    <th className="border border-yellow-400 px-3 py-2">From cell</th>
-                    <th className="border border-yellow-400 px-3 py-2">To cell</th>
-                    <th className="border border-yellow-400 px-3 py-2">Total impedance (Ω)</th>
-                    <th className="border border-yellow-400 px-3 py-2">Minimum current density (mA)</th>
+                <thead className="bg-yellow-300 text-[11px] font-bold text-black">
+                  <tr className="metal-routing-metal-table__head">
+                    <th className="border border-yellow-400 px-3 py-2">
+                      <span className="metal-routing-col-label">Signal</span>
+                    </th>
+                    <th className="border border-yellow-400 px-3 py-2">
+                      <span className="metal-routing-col-label">From</span>
+                    </th>
+                    <th className="border border-yellow-400 px-3 py-2">
+                      <span className="metal-routing-col-label">To</span>
+                    </th>
+                    <th className="border border-yellow-400 px-3 py-2">
+                      <span className="metal-routing-col-label">Total impedance</span>
+                      <span className="metal-routing-col-unit">
+                        <MetalRoutingColumnUnit text="(mΩ)" />
+                      </span>
+                    </th>
+                    <th className="border border-yellow-400 px-3 py-2">
+                      <span className="metal-routing-col-label">Minimum current capability</span>
+                      <span className="metal-routing-col-unit">
+                        <MetalRoutingColumnUnit text="(mA)" />
+                      </span>
+                    </th>
                     <th className="border border-yellow-400 w-14 px-2 py-2" />
                   </tr>
                 </thead>

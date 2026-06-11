@@ -73,8 +73,8 @@ function ReportChartTooltip({
   return (
     <div className="impedance-report-tooltip">
       <p className="impedance-report-tooltip__title">{point.routeLabel} · {point.routeName}</p>
-      <p><strong>{point.impedance.toFixed(2)} Ω</strong></p>
-      <p>vs avg: {point.deltaFromAverage >= 0 ? '+' : ''}{point.deltaFromAverage.toFixed(2)} Ω</p>
+      <p><strong>{point.impedance.toFixed(2)} mΩ</strong></p>
+      <p>vs avg: {point.deltaFromAverage >= 0 ? '+' : ''}{point.deltaFromAverage.toFixed(2)} mΩ</p>
       <p>Rank: #{point.rank}</p>
     </div>
   )
@@ -309,7 +309,7 @@ export function MetalRoutingImpedanceReportModal({
                   <TrendingUp className="impedance-report-kpi__icon is-green" aria-hidden />
                   <div>
                     <p className="impedance-report-kpi__label">Average Impedance</p>
-                    <p className="impedance-report-kpi__value">{stats.average.toFixed(2)} Ω</p>
+                    <p className="impedance-report-kpi__value">{stats.average.toFixed(2)} mΩ</p>
                     <span className={cn('impedance-report-kpi__status', `is-${avgStatus.tone}`)}>
                       Status: {avgStatus.label}
                     </span>
@@ -319,7 +319,7 @@ export function MetalRoutingImpedanceReportModal({
                   <TrendingDown className="impedance-report-kpi__icon is-green" aria-hidden />
                   <div>
                     <p className="impedance-report-kpi__label">Minimum Impedance</p>
-                    <p className="impedance-report-kpi__value">{stats.min.toFixed(2)} Ω</p>
+                    <p className="impedance-report-kpi__value">{stats.min.toFixed(2)} mΩ</p>
                     <span className="impedance-report-kpi__sub">Route {stats.minRouteLabel}</span>
                   </div>
                 </article>
@@ -327,7 +327,7 @@ export function MetalRoutingImpedanceReportModal({
                   <TrendingUp className="impedance-report-kpi__icon is-red" aria-hidden />
                   <div>
                     <p className="impedance-report-kpi__label">Maximum Impedance</p>
-                    <p className="impedance-report-kpi__value">{stats.max.toFixed(2)} Ω</p>
+                    <p className="impedance-report-kpi__value">{stats.max.toFixed(2)} mΩ</p>
                     <span className="impedance-report-kpi__sub">Route {stats.maxRouteLabel}</span>
                   </div>
                 </article>
@@ -335,7 +335,7 @@ export function MetalRoutingImpedanceReportModal({
                   <Sigma className="impedance-report-kpi__icon is-blue" aria-hidden />
                   <div>
                     <p className="impedance-report-kpi__label">Total Impedance</p>
-                    <p className="impedance-report-kpi__value">{stats.total.toFixed(2)} Ω</p>
+                    <p className="impedance-report-kpi__value">{stats.total.toFixed(2)} mΩ</p>
                     <span className="impedance-report-kpi__sub">
                       Across {stats.measuredRouteCount} route{stats.measuredRouteCount === 1 ? '' : 's'}
                     </span>
@@ -389,7 +389,7 @@ export function MetalRoutingImpedanceReportModal({
                     </ResponsiveContainer>
                   </div>
                   <p className="impedance-report__trend-note">
-                    Run trend: {trend.direction} · {trend.changeOhm >= 0 ? '+' : ''}{trend.changeOhm.toFixed(2)} Ω ({trend.changePercent}%)
+                    Run trend: {trend.direction} · {trend.changeOhm >= 0 ? '+' : ''}{trend.changeOhm.toFixed(2)} mΩ ({trend.changePercent}%)
                   </p>
                 </div>
 
@@ -416,12 +416,12 @@ export function MetalRoutingImpedanceReportModal({
                           {selectedRoute.layerContributions.map((layer) => (
                             <li key={`${selectedRoute.routeId}-${layer.metalType}`}>
                               <span>{layer.metalType}</span>
-                              <span>{layer.impedance.toFixed(2)} Ω</span>
+                              <span>{layer.impedance.toFixed(2)} mΩ</span>
                             </li>
                           ))}
                         </ul>
                         <p className="impedance-report__breakdown-total">
-                          Total: <strong>{selectedRoute.impedance.toFixed(2)} Ω</strong>
+                          Total: <strong>{selectedRoute.impedance.toFixed(2)} mΩ</strong>
                         </p>
                       </>
                     ) : (
@@ -467,8 +467,8 @@ export function MetalRoutingImpedanceReportModal({
                       <tr>
                         {([
                           ['routeLabel', 'Route'],
-                          ['impedance', 'Impedance'],
-                          ['vsAverage', 'Vs Average'],
+                          ['impedance', 'Impedance (mΩ)'],
+                          ['vsAverage', 'Vs Average (mΩ)'],
                           ['changePercent', 'Change %'],
                           ['rank', 'Rank'],
                         ] as [SortKey, string][]).map(([key, label]) => (
@@ -489,8 +489,8 @@ export function MetalRoutingImpedanceReportModal({
                           onClick={() => setSelectedRouteId(row.routeId)}
                         >
                           <td>{row.routeLabel}</td>
-                          <td>{row.impedance.toFixed(2)} Ω</td>
-                          <td>{row.vsAverage >= 0 ? '+' : ''}{row.vsAverage.toFixed(2)} Ω</td>
+                          <td>{row.impedance.toFixed(2)} mΩ</td>
+                          <td>{row.vsAverage >= 0 ? '+' : ''}{row.vsAverage.toFixed(2)} mΩ</td>
                           <td>{row.changePercent >= 0 ? '+' : ''}{row.changePercent}%</td>
                           <td>#{row.rank}</td>
                           <td>

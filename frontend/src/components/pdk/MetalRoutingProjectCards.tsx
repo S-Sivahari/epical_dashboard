@@ -240,11 +240,11 @@ export function MetalRoutingProjectListRows({
             >
               <FolderKanban className={isSimpleList ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
             </span>
-            <div className="min-w-0 flex-1 text-left">
-              <p className={cn('font-semibold text-ink break-words', isSimpleList && 'text-sm')}>
+            <div className={cn('min-w-0 flex-1 text-left', isSimpleList && 'metal-routing-pdk-list-row__content')}>
+              <p className={cn('font-semibold text-ink break-words', isSimpleList && 'metal-routing-pdk-list-row__name')}>
                 {project.projectName}
               </p>
-              <p className={cn('text-muted', isSimpleList ? 'text-[11px]' : 'text-xs')}>
+              <p className={cn('text-muted', isSimpleList ? 'metal-routing-pdk-list-row__meta' : 'text-xs')}>
                 {projectCode} · {project.clientName}
                 {isSimpleList && project.pdkModuleName ? ` · ${project.pdkModuleName}` : ''}
               </p>
@@ -268,14 +268,7 @@ export function MetalRoutingProjectListRows({
                     {status.label}
                   </MetalRoutingPill>
                 </div>
-              ) : (
-                <MetalRoutingPill
-                  className="mt-1"
-                  tone={status.variant as 'success' | 'warning' | 'neutral' | 'danger'}
-                >
-                  {status.label}
-                </MetalRoutingPill>
-              )}
+              ) : null}
               {variant === 'dashboard' ? (
                 <select
                   className="metal-routing-pdk-select mt-2 w-full max-w-full"
@@ -302,8 +295,19 @@ export function MetalRoutingProjectListRows({
                 </p>
               ) : null}
             </div>
+            {isSimpleList ? (
+              <MetalRoutingPill
+                className="metal-routing-pdk-list-row__status"
+                tone={status.variant as 'success' | 'warning' | 'neutral' | 'danger'}
+              >
+                {status.label}
+              </MetalRoutingPill>
+            ) : null}
             <ChevronRight
-              className={cn('shrink-0 text-muted', isSimpleList ? 'h-3.5 w-3.5' : 'h-4 w-4')}
+              className={cn(
+                'shrink-0 text-muted',
+                isSimpleList ? 'metal-routing-pdk-list-row__chevron h-4 w-4' : 'h-4 w-4',
+              )}
               aria-hidden
             />
           </button>

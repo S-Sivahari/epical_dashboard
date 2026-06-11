@@ -1,5 +1,7 @@
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@components/ui/Button'
+import { MetalRoutingColumnHeaderCell } from '@components/pdk/MetalRoutingColumnHeader'
+import { METAL_ROUTING_TABLE_HEADERS } from '@/constants/metalRoutingTableHeaders'
 import type { MetalConnectionType, MetalEntry, MetalRoutingRoute } from '@/types/pdkMetalRouting'
 import { cn } from '@/utils/cn'
 
@@ -7,14 +9,13 @@ function fmt(n: number): string {
   return Number.isFinite(n) ? n.toFixed(4) : '—'
 }
 
-function isCapacityBelowSchematic(
-  metal: MetalEntry,
-  routeSchematic?: number,
-): boolean {
-  const schematic = routeSchematic ?? metal.givenCurrentDensity
-  if (!Number.isFinite(schematic) || schematic <= 0 || metal.width <= 0) return false
-  const implementedDensity = metal.implementedCurrentMetalCapacity / metal.width
-  return implementedDensity < schematic
+function isImplementedBelowGiven(metal: MetalEntry): boolean {
+  const { implementedCurrentMetalCapacity, givenCurrentDensity } = metal
+  return (
+    Number.isFinite(implementedCurrentMetalCapacity)
+    && Number.isFinite(givenCurrentDensity)
+    && implementedCurrentMetalCapacity < givenCurrentDensity
+  )
 }
 
 const thClass = 'border border-yellow-400 px-2 py-2'
@@ -75,20 +76,20 @@ export function MetalRoutingTable({
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
         <div className="grid flex-1 gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <span className="text-xs font-medium uppercase text-muted">Signal</span>
+            <span className="text-xs font-medium uppercase text-muted">Signal Name</span>
             <p className="font-semibold text-ink">{route.signal}</p>
           </div>
           <div>
-            <span className="text-xs font-medium uppercase text-muted">From Cell</span>
+            <span className="text-xs font-medium uppercase text-muted">From</span>
             <p className="font-semibold text-ink">{route.fromCell}</p>
           </div>
           <div>
-            <span className="text-xs font-medium uppercase text-muted">To Cell</span>
+            <span className="text-xs font-medium uppercase text-muted">To</span>
             <p className="font-semibold text-ink">{route.toCell}</p>
           </div>
           {route.schematicCurrentDensity != null ? (
             <div>
-              <span className="text-xs font-medium uppercase text-muted">Schematic J</span>
+              <span className="text-xs font-medium uppercase text-muted">Schematic</span>
               <p className="font-semibold text-ink">{fmt(route.schematicCurrentDensity)} mA/µm</p>
             </div>
           ) : null}
@@ -101,15 +102,31 @@ export function MetalRoutingTable({
       <div className={cn('overflow-auto', fullScreen ? 'min-h-0 flex-1' : '')}>
         <table className="min-w-full border-collapse text-left text-xs sm:text-sm">
           <thead className="sticky top-0 z-10">
-            <tr className="bg-yellow-300 text-[11px] font-bold uppercase text-black">
-              <th className={thClass}>Metal Type</th>
-              <th className={thClass}>Metal Width (µm)</th>
-              <th className={thClass}>Metal Length (µm)</th>
-              <th className={thClass}>Given Current Density (mA)</th>
-              <th className={thClass}>Implemented Metal Current Capacity (mA)</th>
-              <th className={thClass}>Minimum Metal Current Capacity (mA)</th>
-              <th className={thClass}>Routing Metal Impedance (Ω)</th>
-              <th className={thClass}>Total Impedance (Ω)</th>
+            <tr className="metal-routing-metal-table__head bg-yellow-300 text-[11px] font-bold text-black">
+              <th className={thClass}>
+                <MetalRoutingColumnHeaderCell header={METAL_ROUTING_TABLE_HEADERS.metalType} />
+              </th>
+              <th className={thClass}>
+                <MetalRoutingColumnHeaderCell header={METAL_ROUTING_TABLE_HEADERS.width} />
+              </th>
+              <th className={thClass}>
+                <MetalRoutingColumnHeaderCell header={METAL_ROUTING_TABLE_HEADERS.length} />
+              </th>
+              <th className={thClass}>
+                <MetalRoutingColumnHeaderCell header={METAL_ROUTING_TABLE_HEADERS.givenDensity} />
+              </th>
+              <th className={thClass}>
+                <MetalRoutingColumnHeaderCell header={METAL_ROUTING_TABLE_HEADERS.implementedCapacity} />
+              </th>
+              <th className={thClass}>
+                <MetalRoutingColumnHeaderCell header={METAL_ROUTING_TABLE_HEADERS.minCapacity} />
+              </th>
+              <th className={thClass}>
+                <MetalRoutingColumnHeaderCell header={METAL_ROUTING_TABLE_HEADERS.routingImpedance} />
+              </th>
+              <th className={thClass}>
+                <MetalRoutingColumnHeaderCell header={METAL_ROUTING_TABLE_HEADERS.totalImpedance} />
+              </th>
               <th className={cn(thClass, 'w-20')} />
             </tr>
           </thead>
@@ -122,42 +139,38 @@ export function MetalRoutingTable({
               </tr>
             ) : (
               metals.map((metal, index) => {
-                const isMin = metal._id === route.minCapacityMetalId
+                const belowGiven = isImplementedBelowGiven(metal)
                 const isMaxZ = metal._id === route.highestImpedanceMetalId
-                const belowSchematic = isCapacityBelowSchematic(metal, route.schematicCurrentDensity)
 
                 return (
                   <tr
                     key={metal._id}
                     className={cn(
                       'bg-lime-400/70 font-medium text-black',
-                      isMin && 'ring-1 ring-inset ring-amber-500/70',
-                      isMaxZ && !isMin && 'ring-1 ring-inset ring-orange-500/70',
-                      isMin && isMaxZ && 'ring-2 ring-inset ring-amber-600',
+                      belowGiven && 'ring-1 ring-inset ring-amber-500/70',
+                      isMaxZ && !belowGiven && 'ring-1 ring-inset ring-orange-500/70',
+                      belowGiven && isMaxZ && 'ring-2 ring-inset ring-amber-600',
                     )}
                   >
                     <td className={tdClass}>
                       <span className="inline-flex items-center">
                         {metal.metalType}
-                        <ConnectionIcon type={metal.connectionType} />
+                        {index > 0 ? <ConnectionIcon type={metal.connectionType} /> : null}
                       </span>
                     </td>
                     <td className={tdClass}>{metal.width}</td>
                     <td className={tdClass}>{metal.length}</td>
                     <td className={tdClass}>{fmt(metal.givenCurrentDensity)}</td>
                     <td
-                      className={cn(
-                        tdClass,
-                        belowSchematic && 'bg-rose-100/80',
-                      )}
+                      className={cn(tdClass, belowGiven && 'bg-rose-100/80')}
                       title={
-                        belowSchematic
-                          ? 'Implemented metal density is below schematic current density'
+                        belowGiven
+                          ? 'Implemented metal current capability is below given current density'
                           : undefined
                       }
                     >
                       {fmt(metal.implementedCurrentMetalCapacity)}
-                      {isMin ? <FlagBadge label="MIN" tone="min" /> : null}
+                      {belowGiven ? <FlagBadge label="MIN" tone="min" /> : null}
                     </td>
                     {index === 0 ? (
                       <td

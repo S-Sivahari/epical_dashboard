@@ -394,6 +394,28 @@
   box-shadow: 0 1px 2px rgba(46, 125, 50, 0.25);
 }
 
+/* Metal routing signal table — uppercase labels only; preserve µm, mA, mΩ units */
+.metal-routing-metal-table__head th {
+  text-transform: none;
+}
+
+.metal-routing-metal-table__head .metal-routing-col-label {
+  text-transform: uppercase;
+}
+
+.metal-routing-metal-table__head .metal-routing-col-unit {
+  text-transform: none !important;
+  letter-spacing: normal;
+  font-weight: 700;
+}
+
+.metal-routing-metal-table__head .metal-routing-col-unit__prefix,
+.metal-routing-si-prefix {
+  text-transform: none !important;
+  font-size: 1em;
+  line-height: inherit;
+}
+
 /* ── Tables ── */
 .metal-routing-view .metal-routing-overview-table-wrap {
   max-height: min(32rem, 55vh);
@@ -2687,6 +2709,369 @@
 
   .impedance-report__chart {
     height: 14rem;
+  }
+}
+
+/* Signal Analysis — projects landing */
+.metal-routing-view .metal-routing-signal-projects-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 1.25rem 1.5rem 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .metal-routing-view .metal-routing-signal-projects-page {
+    padding: 1.5rem 2rem 1.75rem;
+  }
+}
+
+.metal-routing-view .metal-routing-signal-projects-header {
+  flex-shrink: 0;
+}
+
+.metal-routing-view .metal-routing-signal-projects-header__panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem 2rem;
+  padding: 1.125rem 1.375rem;
+  border: 1px solid var(--mr-border);
+  border-radius: var(--mr-radius-lg);
+  background: linear-gradient(135deg, #ffffff 0%, #fafbfa 52%, #f3f8f5 100%);
+  box-shadow: var(--mr-shadow-card);
+}
+
+.metal-routing-view .metal-routing-signal-projects-header__panel--compact {
+  padding: 0.875rem 1.25rem;
+}
+
+.metal-routing-view .metal-routing-signal-projects-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.metal-routing-view .metal-routing-signal-projects-header__icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(145deg, rgba(46, 125, 50, 0.16) 0%, rgba(46, 125, 50, 0.08) 100%);
+  color: var(--mr-primary);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.metal-routing-view .metal-routing-signal-projects-header__copy {
+  min-width: 0;
+}
+
+.metal-routing-view .metal-routing-signal-projects-header__title {
+  margin: 0;
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--mr-text);
+}
+
+.metal-routing-view .metal-routing-signal-projects-header__subtitle {
+  margin: 0.3rem 0 0;
+  max-width: 36rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--mr-text-secondary);
+}
+
+.metal-routing-view .metal-routing-signal-projects-header__stats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-top: 0.625rem;
+}
+
+.metal-routing-view .metal-routing-signal-projects-header__stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.2rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--mr-text-secondary);
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.metal-routing-view .metal-routing-signal-projects-header__stat strong {
+  font-weight: 700;
+  color: var(--mr-text);
+}
+
+.metal-routing-view .metal-routing-signal-projects-header__stat--accent {
+  color: #2a5c3d;
+  background: rgba(46, 125, 50, 0.1);
+  border-color: rgba(46, 125, 50, 0.18);
+}
+
+.metal-routing-view .metal-routing-signal-projects-header__stat--accent strong {
+  color: #1e5a3d;
+}
+
+.metal-routing-view .metal-routing-signal-projects-header__cta {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.metal-routing-view .metal-routing-signal-projects-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.metal-routing-view .metal-routing-signal-projects-toolbar {
+  display: grid;
+  grid-template-columns: auto minmax(12rem, 1fr) auto;
+  align-items: center;
+  gap: 1rem 1.25rem;
+  flex-shrink: 0;
+  padding: 1.125rem 1.5rem;
+}
+
+.metal-routing-view .metal-routing-signal-projects-toolbar__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--mr-text);
+  white-space: nowrap;
+}
+
+.metal-routing-view .metal-routing-signal-projects-toolbar__search {
+  justify-self: center;
+  width: min(100%, 22rem);
+  max-width: 100%;
+}
+
+.metal-routing-view .metal-routing-signal-projects-toolbar__controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.metal-routing-view .metal-routing-signal-projects-sort {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.metal-routing-view .metal-routing-signal-projects-sort__icon {
+  pointer-events: none;
+  position: absolute;
+  left: 0.75rem;
+  width: 1rem;
+  height: 1rem;
+  color: var(--mr-text-secondary);
+  z-index: 1;
+}
+
+.metal-routing-view .metal-routing-signal-projects-sort__select {
+  padding-left: 2.125rem;
+  min-width: 11.5rem;
+}
+
+.metal-routing-view .metal-routing-signal-projects-filter {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.metal-routing-view .metal-routing-signal-projects-filter__icon {
+  pointer-events: none;
+  position: absolute;
+  left: 0.75rem;
+  width: 1rem;
+  height: 1rem;
+  color: var(--mr-text-secondary);
+  z-index: 1;
+}
+
+.metal-routing-view .metal-routing-signal-projects-filter__select {
+  padding-left: 2.125rem;
+  min-width: 9.5rem;
+}
+
+.metal-routing-view .metal-routing-cell-routing-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0;
+}
+
+.metal-routing-view .metal-routing-signal-projects-card .metal-routing-cell-routing-body {
+  flex: 1 1 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.metal-routing-view .metal-routing-pdk-list--simple {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+}
+
+.metal-routing-view .metal-routing-pdk-list-row--simple {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 1rem 1.25rem;
+  width: 100%;
+  margin: 0;
+  padding: 1rem 1.5rem;
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid #eef1ef;
+  background: #fff;
+  text-align: left;
+  transition:
+    background-color var(--mr-transition),
+    border-color var(--mr-transition);
+}
+
+.metal-routing-view .metal-routing-pdk-list-row--simple + .metal-routing-pdk-list-row--simple {
+  margin-top: 0;
+  border-top: none;
+}
+
+.metal-routing-view .metal-routing-pdk-list-row--simple:hover {
+  background: rgba(46, 125, 50, 0.04);
+  border-bottom-color: rgba(46, 125, 50, 0.12);
+}
+
+.metal-routing-view .metal-routing-pdk-list-row--simple:focus-visible {
+  outline: 2px solid rgba(46, 125, 50, 0.45);
+  outline-offset: -2px;
+}
+
+.metal-routing-view .metal-routing-pdk-card__icon--compact {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.625rem;
+}
+
+.metal-routing-view .metal-routing-pdk-list-row__name {
+  font-size: 0.9375rem;
+  line-height: 1.35;
+}
+
+.metal-routing-view .metal-routing-pdk-list-row__meta {
+  margin-top: 0.2rem;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--mr-text-secondary);
+}
+
+.metal-routing-view .metal-routing-pdk-list-row__status {
+  justify-self: end;
+  flex-shrink: 0;
+}
+
+.metal-routing-view .metal-routing-pdk-list-row__chevron {
+  color: #9ca3af;
+}
+
+.metal-routing-view .metal-routing-signal-projects-footer {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  flex-shrink: 0;
+  padding: 1rem 1.5rem;
+}
+
+.metal-routing-view .metal-routing-signal-projects-footer__count {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--mr-text-secondary);
+}
+
+.metal-routing-view .metal-routing-signal-projects-pagination {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.375rem;
+}
+
+.metal-routing-view .metal-routing-signal-projects-footer__size {
+  justify-self: end;
+}
+
+@media (max-width: 720px) {
+  .metal-routing-view .metal-routing-signal-projects-header__panel {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .metal-routing-view .metal-routing-signal-projects-header__cta {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 960px) {
+  .metal-routing-view .metal-routing-signal-projects-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .metal-routing-view .metal-routing-signal-projects-toolbar__search {
+    justify-self: stretch;
+    width: 100%;
+  }
+
+  .metal-routing-view .metal-routing-signal-projects-toolbar__controls {
+    justify-content: flex-start;
+  }
+
+  .metal-routing-view .metal-routing-pdk-list-row--simple {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    row-gap: 0.5rem;
+  }
+
+  .metal-routing-view .metal-routing-pdk-list-row__status {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .metal-routing-view .metal-routing-pdk-list-row__chevron {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+
+  .metal-routing-view .metal-routing-signal-projects-footer {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .metal-routing-view .metal-routing-signal-projects-footer__size {
+    justify-self: center;
   }
 }
 
