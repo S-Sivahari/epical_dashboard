@@ -48,7 +48,7 @@ export function defaultCellWorkflow(): CellWorkflowStage[] {
   return CELL_WORKFLOW_STAGES.map((stage) => ({
     stageKey: stage.key,
     stageLabel: stage.label,
-    status: stage.key === 'floor_plan' ? 'in_progress' : 'not_started',
+    status: 'not_started',
   }))
 }
 
