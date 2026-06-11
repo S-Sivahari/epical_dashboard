@@ -3,6 +3,7 @@ import { ROUTES } from '@constants/routes'
 import { cn } from '@/utils/cn'
 import type { ProjectCell } from '@/types/projectWorkspace'
 import {
+  CELL_TYPE_LABELS,
   STATUS_LABELS,
   WORKFLOW_STATUS_LABELS,
   cellCompletionProgressPercent,
@@ -18,6 +19,7 @@ type ProjectWorkflowOverviewProps = {
   totalCellCount?: number
   completedCellCount?: number
   libraryNameById: Map<string, string>
+  getCellPath?: (projectId: string, cellId: string) => string
 }
 
 export function ProjectWorkflowOverview({
@@ -26,8 +28,10 @@ export function ProjectWorkflowOverview({
   totalCellCount = 0,
   completedCellCount = 0,
   libraryNameById,
+  getCellPath,
 }: ProjectWorkflowOverviewProps) {
   const projectProgress = projectCellProgressPercent(completedCellCount, totalCellCount)
+  const cellPath = getCellPath ?? ((pid, cid) => ROUTES.PROJECT_CELL(pid, cid))
   if (cells.length === 0) {
     return (
       <div className="admin-projects-workflow-overview-wrap">
@@ -66,14 +70,14 @@ export function ProjectWorkflowOverview({
               <tr key={cell.id}>
                 <td>
                   <Link
-                    to={ROUTES.PROJECT_CELL(projectId, cell.id)}
+                    to={cellPath(projectId, cell.id)}
                     className="admin-projects-workflow-cell-link"
                   >
                     {cell.name}
                   </Link>
                 </td>
                 <td>{libraryNameById.get(cell.libraryId) || '—'}</td>
-                <td>{cell.cellType}</td>
+                <td>{CELL_TYPE_LABELS[cell.cellType] ?? cell.cellType}</td>
                 <td>
                   <div className="admin-projects-workflow-overview-progress">
                     <div className="admin-projects-workflow-compact-bar" aria-hidden>

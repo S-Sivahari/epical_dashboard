@@ -267,7 +267,7 @@ export function CellTypeChecklistTab({ projectId, cellId, cellStatus, onUpdated 
   }
 
   const handleCompleteFinalDetails = async () => {
-    if (!canCompleteFinalDetails || cellStatus === 'completed') return
+    if (!canCompleteFinalDetails) return
 
     const parsedX = Number(extensionDrafts.dimensionX)
     const parsedY = Number(extensionDrafts.dimensionY)

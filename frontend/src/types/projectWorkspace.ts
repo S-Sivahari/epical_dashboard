@@ -167,14 +167,16 @@ export interface CellChecklistItem {
 }
 
 export interface CellChecklistDetail {
-  checklistId: string | null
-  checklistName: string
+  checklistId?: string | null
+  checklistName?: string
   cellType?: string
-  cellStatus: CellChecklistStatus
+  cellStatus?: CellChecklistStatus
+  fileName?: string
+  hasFile?: boolean
   isFilled?: boolean
   extension?: CellChecklistExtensionFields
   isExtensionFilled?: boolean
-  items: CellChecklistItem[]
+  items: Array<CellChecklistItem | CellTypeChecklistItem>
 }
 
 export interface CellChecklistRowSummary {
@@ -420,6 +422,8 @@ export interface EmployeeProjectWorkspace {
     cellCount: number
     assignedToMe: number
     completedCells: number
+    notStartedCells: number
+    inProgressCells: number
     blockedCells: number
     readyCells: number
     unassignedCells: number
@@ -429,6 +433,7 @@ export interface EmployeeProjectWorkspace {
 export interface EmployeeCellDetail {
   project: { id: string; name: string }
   isTeamLead?: boolean
+  isAdmin?: boolean
   permissions?: {
     canManageWorkflow?: boolean
     canReview?: boolean

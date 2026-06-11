@@ -13,7 +13,6 @@ import {
   resolveBaseHoursInput,
 } from '../services/effortEstimationService';
 import {
-  buildWorkflowTimingMap,
   ensureWorkLogsInitialized,
   getCellWorkflowTiming,
   syncWorkLogsFromWorkflowChange,
@@ -72,6 +71,25 @@ import {
 } from '../services/cellAssignmentNotificationService';
 import { updateCellChecklistItemResponse, syncChecklistMappingsForCell } from '../services/checklistService';
 import { normalizeCellType } from '../services/projectTypeChecklistService';
+import {
+  evaluateCellCompletionReadiness,
+  isFinalCellDetailsComplete,
+  markCellTouched,
+} from '../services/cellCompletionService';
+import { isAdminRole } from '../utils/generateToken';
+import type { WorkflowActorRole } from '../utils/cellWorkflow';
+import {
+  areTypeChecklistItemsFilled,
+  commentRequiredForAnswer,
+  getCellTypeChecklistDetail,
+  getTypeChecklistItems,
+  isValidChecklistYesNo,
+  isValidTypeChecklistAnswer,
+  resolveCellContext,
+  updateCellChecklistExtension,
+  updateCustomChecklistItemResponse,
+} from '../services/projectTypeChecklistService';
+import { CellTypeChecklistResponseModel } from '../models/CellTypeChecklistResponse';
 
 function paramId(value: string | string[]): string {
   return Array.isArray(value) ? value[0] : value;
@@ -84,6 +102,16 @@ function actorFromReq(req: Request) {
     userName: user?.name || user?.email || 'Employee',
     email: user?.email || '',
   };
+}
+
+function isAdminFromReq(req: Request): boolean {
+  return isAdminRole((req as any).user?.role || '');
+}
+
+function workflowActorRole(req: Request, project: { teamLead?: string }, tokens: string[]): WorkflowActorRole {
+  if (isAdminFromReq(req)) return 'Admin';
+  if (isTeamLeadOnProject(project, tokens)) return 'TeamLead';
+  return 'Employee';
 }
 
 async function resolveEmployeeRecord(userId: string) {
@@ -106,8 +134,12 @@ function cellAssignedToTokens(cell: { assignedEmployeeId?: string }, tokens: str
   return tokens.includes(assigned);
 }
 
-async function assertProjectAccess(projectId: string, tokens: string[]) {
+async function assertProjectAccess(projectId: string, tokens: string[], req?: Request) {
   if (!Types.ObjectId.isValid(projectId)) return null;
+  if (req && isAdminFromReq(req)) {
+    return ProjectModel.findById(projectId);
+  }
+
   const project = await ProjectModel.findById(projectId);
   if (!project) return null;
 
@@ -133,9 +165,14 @@ async function assertAssignedCell(projectId: string, cellId: string, tokens: str
   return cell;
 }
 
-async function assertManageableCell(projectId: string, cellId: string, tokens: string[]) {
+async function assertManageableCell(projectId: string, cellId: string, tokens: string[], req?: Request) {
   if (!Types.ObjectId.isValid(cellId)) return null;
-  const project = await assertProjectAccess(projectId, tokens);
+  if (req && isAdminFromReq(req)) {
+    const cell = await ProjectCellModel.findOne({ _id: cellId, projectId });
+    return cell;
+  }
+
+  const project = await assertProjectAccess(projectId, tokens, req);
   if (!project) return null;
   const cell = await ProjectCellModel.findOne({ _id: cellId, projectId });
   if (!cell) return null;
@@ -143,9 +180,9 @@ async function assertManageableCell(projectId: string, cellId: string, tokens: s
   return null;
 }
 
-async function assertProjectCell(projectId: string, cellId: string, tokens: string[]) {
+async function assertProjectCell(projectId: string, cellId: string, tokens: string[], req?: Request) {
   if (!Types.ObjectId.isValid(cellId)) return null;
-  const project = await assertProjectAccess(projectId, tokens);
+  const project = await assertProjectAccess(projectId, tokens, req);
   if (!project) return null;
   const cell = await ProjectCellModel.findOne({ _id: cellId, projectId });
   if (!cell) return null;
@@ -159,8 +196,12 @@ function isTeamLeadOnProject(project: { teamLead?: string }, tokens: string[]): 
   return tokens.some((token) => token.trim().toLowerCase() === leadLower);
 }
 
-async function assertTeamLeadAccess(projectId: string, tokens: string[]) {
-  const project = await assertProjectAccess(projectId, tokens);
+async function assertTeamLeadAccess(projectId: string, tokens: string[], req?: Request) {
+  if (req && isAdminFromReq(req)) {
+    return ProjectModel.findById(projectId);
+  }
+
+  const project = await assertProjectAccess(projectId, tokens, req);
   if (!project || !isTeamLeadOnProject(project, tokens)) return null;
   return project;
 }
@@ -390,9 +431,30 @@ async function toEmployeeCellWithTiming(
     normalizeStatus(doc.status || 'ready'),
     doc.activityLog ?? [],
     workflow,
-    doc.updatedAt,
   );
   return toEmployeeCell(doc, tokens, dependencyMeta, timing);
+}
+
+async function buildEmployeeTypeChecklistDetail(projectId: string, cellId: string) {
+  const detail = await getCellTypeChecklistDetail(projectId, cellId);
+  if (!detail) return null;
+
+  const extension = detail.extension ?? {
+    dimensionX: null,
+    dimensionY: null,
+    area: null,
+    highestMetalUsed: '',
+    virtualConnection: null,
+    overallSubstrateContact: null,
+    waivableDrcError: null,
+  };
+
+  return {
+    ...detail,
+    checklistName: detail.fileName || `${detail.cellType} Checklist`,
+    isFilled: areTypeChecklistItemsFilled(detail.items),
+    isExtensionFilled: isFinalCellDetailsComplete(extension),
+  };
 }
 
 function toReview(doc: any) {
@@ -440,11 +502,10 @@ export const employeeProjectController = {
         ),
       );
 
-      const timingMap = await buildWorkflowTimingMap(projectId, cells);
       const cellsWithMeta = await Promise.all(
         cells.map(async (cell) => {
           const meta = await computeDependencyMeta(projectObjectId, cell);
-          return toEmployeeCell(cell, tokens, meta, timingMap.get(cell._id.toString()));
+          return toEmployeeCellWithTiming(cell, tokens, meta);
         }),
       );
 
@@ -479,6 +540,8 @@ export const employeeProjectController = {
           cellCount: cells.length,
           assignedToMe: assignedCount,
           completedCells: cells.filter((c) => c.status === 'completed').length,
+          notStartedCells: cells.filter((c) => c.status === 'ready').length,
+          inProgressCells: cells.filter((c) => c.status === 'in_progress').length,
           blockedCells: cellsWithMeta.filter((c) => c.isBlocked).length,
           readyCells: cellsWithMeta.filter((c) => c.isReady).length,
           unassignedCells: cells.filter((c) => !c.assignedEmployeeId).length,
@@ -496,13 +559,13 @@ export const employeeProjectController = {
       const cellId = paramId(req.params.cellId);
       const tokens = await getAssignmentTokens(req);
 
-      const project = await assertProjectAccess(projectId, tokens);
+      const project = await assertProjectAccess(projectId, tokens, req);
       if (!project) {
         res.status(404).json({ error: 'Project not found or access denied' });
         return;
       }
 
-      const cell = await assertProjectCell(projectId, cellId, tokens);
+      const cell = await assertProjectCell(projectId, cellId, tokens, req);
       if (!cell) {
         res.status(404).json({ error: 'Cell not found' });
         return;
@@ -511,16 +574,19 @@ export const employeeProjectController = {
       const library = await ProjectLibraryModel.findById(cell.libraryId);
       const reviews = await CellReviewModel.find({ projectId, cellId }).sort({ createdAt: -1 }).limit(20);
       const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
+      const isAdmin = isAdminFromReq(req);
+      const isTeamLead = isTeamLeadOnProject(project, tokens);
 
       res.json({
         project: {
           id: project._id.toString(),
           name: project.projectName,
         },
-        isTeamLead: isTeamLeadOnProject(project, tokens),
+        isTeamLead,
+        isAdmin,
         permissions: {
-          canManageWorkflow: cellAssignedToTokens(cell, tokens) || isTeamLeadOnProject(project, tokens),
-          canReview: isTeamLeadOnProject(project, tokens),
+          canManageWorkflow: isAdmin || cellAssignedToTokens(cell, tokens) || isTeamLead,
+          canReview: isAdmin || isTeamLead,
         },
         library: library ? toLibrary(library) : null,
         cell: await toEmployeeCellWithTiming(cell, tokens, meta),
@@ -646,14 +712,23 @@ export const employeeProjectController = {
       const stageKey = paramId(req.params.stageKey);
       const tokens = await getAssignmentTokens(req);
       const actor = actorFromReq(req);
-      const { status } = req.body as { status?: string };
+      const { status, rejectReturnTo } = req.body as {
+        status?: string;
+        rejectReturnTo?: 'floor_plan' | 'routing';
+      };
 
       if (!isValidStageKey(stageKey)) {
         res.status(400).json({ error: 'Invalid workflow stage' });
         return;
       }
 
-      const cell = await assertManageableCell(projectId, cellId, tokens);
+      const project = await assertProjectAccess(projectId, tokens, req);
+      if (!project) {
+        res.status(404).json({ error: 'Project not found or access denied' });
+        return;
+      }
+
+      const cell = await assertManageableCell(projectId, cellId, tokens, req);
       if (!cell) {
         res.status(404).json({ error: 'Cell not found or you cannot manage this cell' });
         return;
@@ -663,7 +738,11 @@ export const employeeProjectController = {
       const stageMeta = CELL_WORKFLOW_STAGES.find((s) => s.key === stageKey);
       const prevWorkflow = normalizeCellWorkflow(cell.workflow);
       const prevStatus = prevWorkflow.find((s) => s.stageKey === stageKey)?.status ?? 'not_started';
-      const result = applyWorkflowStageUpdate(prevWorkflow, stageKey, nextStatus, 'Employee');
+      const actorRole = workflowActorRole(req, project, tokens);
+      const result = applyWorkflowStageUpdate(prevWorkflow, stageKey, nextStatus, actorRole, {
+        rejectReturnTo:
+          rejectReturnTo === 'floor_plan' || rejectReturnTo === 'routing' ? rejectReturnTo : undefined,
+      });
       if (!result.ok) {
         res.status(400).json({ error: result.error });
         return;
@@ -887,17 +966,223 @@ export const employeeProjectController = {
       const cellId = paramId(req.params.cellId);
       const tokens = await getAssignmentTokens(req);
 
-      const cell = await assertProjectCell(projectId, cellId, tokens);
+      const cell = await assertProjectCell(projectId, cellId, tokens, req);
       if (!cell) {
         res.status(404).json({ error: 'Cell not found' });
         return;
       }
 
-      const detail = await buildCellChecklistDetail(projectId, cellId);
+      const detail = await buildEmployeeTypeChecklistDetail(projectId, cellId);
+      if (!detail) {
+        res.status(404).json({ error: 'Cell not found in this project' });
+        return;
+      }
+
       res.json(detail);
     } catch (err) {
       console.error('[employee-projects] cell checklist', err);
       res.status(500).json({ error: 'Failed to fetch cell checklist' });
+    }
+  },
+
+  updateMyTypeChecklistResponse: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const cellId = paramId(req.params.cellId);
+      const itemIndex = Number(paramId(req.params.itemIndex));
+      const tokens = await getAssignmentTokens(req);
+      const actor = actorFromReq(req);
+      const { response, comment } = req.body as { response?: string; comment?: string };
+
+      if (!Number.isInteger(itemIndex) || itemIndex < 0) {
+        res.status(400).json({ error: 'Invalid item index' });
+        return;
+      }
+
+      if (!response || !isValidTypeChecklistAnswer(response)) {
+        res.status(400).json({ error: 'Response must be yes, no, or not_applicable' });
+        return;
+      }
+
+      const trimmedComment = String(comment ?? '').trim();
+      if (commentRequiredForAnswer(response) && !trimmedComment) {
+        res.status(400).json({ error: 'Comment is required for No and Not applicable' });
+        return;
+      }
+
+      const cell = await assertManageableCell(projectId, cellId, tokens, req);
+      if (!cell) {
+        res.status(404).json({ error: 'Cell not found or you cannot manage this cell' });
+        return;
+      }
+
+      const context = await resolveCellContext(projectId, cellId);
+      if (!context) {
+        res.status(404).json({ error: 'Cell not found in this project' });
+        return;
+      }
+
+      const parsedItems = await getTypeChecklistItems(context.projectObjectId, context.cellType);
+      const item = parsedItems.find((entry) => entry.itemIndex === itemIndex);
+      if (!item) {
+        res.status(404).json({ error: 'Checklist item not found for this cell type' });
+        return;
+      }
+
+      await CellTypeChecklistResponseModel.findOneAndUpdate(
+        { cellId: context.cellObjectId, itemIndex },
+        {
+          projectId: context.projectObjectId,
+          cellId: context.cellObjectId,
+          cellType: context.cellType,
+          itemIndex,
+          itemName: item.itemName,
+          response,
+          comment: commentRequiredForAnswer(response) ? trimmedComment : '',
+          answeredById: actor.userId,
+          answeredByName: actor.userName,
+          answeredAt: new Date(),
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      );
+
+      await markCellTouched(projectId, cellId);
+
+      const detail = await buildEmployeeTypeChecklistDetail(projectId, cellId);
+      res.json(detail);
+    } catch (err: any) {
+      res.status(400).json({ error: err?.message || 'Failed to save checklist response' });
+    }
+  },
+
+  updateMyCustomTypeChecklistResponse: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const cellId = paramId(req.params.cellId);
+      const customItemId = paramId(req.params.customItemId);
+      const tokens = await getAssignmentTokens(req);
+      const { response, comment } = req.body as { response?: string; comment?: string };
+
+      if (!response || !isValidTypeChecklistAnswer(response)) {
+        res.status(400).json({ error: 'Response must be yes, no, or not_applicable' });
+        return;
+      }
+
+      const trimmedComment = String(comment ?? '').trim();
+      if (commentRequiredForAnswer(response) && !trimmedComment) {
+        res.status(400).json({ error: 'Comment is required for No and Not applicable' });
+        return;
+      }
+
+      const cell = await assertManageableCell(projectId, cellId, tokens, req);
+      if (!cell) {
+        res.status(404).json({ error: 'Cell not found or you cannot manage this cell' });
+        return;
+      }
+
+      const item = await updateCustomChecklistItemResponse(
+        projectId,
+        cellId,
+        customItemId,
+        {
+          response,
+          comment: commentRequiredForAnswer(response) ? trimmedComment : '',
+        },
+        actorFromReq(req),
+      );
+
+      if (!item) {
+        res.status(404).json({ error: 'Custom checklist question not found' });
+        return;
+      }
+
+      await markCellTouched(projectId, cellId);
+
+      const detail = await buildEmployeeTypeChecklistDetail(projectId, cellId);
+      res.json(detail);
+    } catch (err: any) {
+      res.status(400).json({ error: err?.message || 'Failed to save checklist response' });
+    }
+  },
+
+  updateMyTypeChecklistExtension: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const cellId = paramId(req.params.cellId);
+      const tokens = await getAssignmentTokens(req);
+
+      const cell = await assertManageableCell(projectId, cellId, tokens, req);
+      if (!cell) {
+        res.status(404).json({ error: 'Cell not found or you cannot manage this cell' });
+        return;
+      }
+
+      const body = req.body as {
+        dimensionX?: number | string | null;
+        dimensionY?: number | string | null;
+        highestMetalUsed?: string;
+        virtualConnection?: string | null;
+        overallSubstrateContact?: string | null;
+        waivableDrcError?: string | null;
+      };
+
+      const payload: Record<string, unknown> = {};
+
+      if (body.dimensionX !== undefined) {
+        const raw = body.dimensionX;
+        if (raw === null || raw === '') payload.dimensionX = null;
+        else {
+          const parsed = Number(raw);
+          if (!Number.isFinite(parsed)) {
+            res.status(400).json({ error: 'Dimension X must be a number' });
+            return;
+          }
+          payload.dimensionX = parsed;
+        }
+      }
+
+      if (body.dimensionY !== undefined) {
+        const raw = body.dimensionY;
+        if (raw === null || raw === '') payload.dimensionY = null;
+        else {
+          const parsed = Number(raw);
+          if (!Number.isFinite(parsed)) {
+            res.status(400).json({ error: 'Dimension Y must be a number' });
+            return;
+          }
+          payload.dimensionY = parsed;
+        }
+      }
+
+      if (body.highestMetalUsed !== undefined) {
+        payload.highestMetalUsed = String(body.highestMetalUsed ?? '');
+      }
+
+      for (const key of ['virtualConnection', 'overallSubstrateContact', 'waivableDrcError'] as const) {
+        if (body[key] !== undefined) {
+          const value = body[key];
+          if (value === null || value === '') payload[key] = null;
+          else if (!isValidChecklistYesNo(String(value))) {
+            res.status(400).json({ error: `${key} must be yes or no` });
+            return;
+          } else {
+            payload[key] = value;
+          }
+        }
+      }
+
+      const extension = await updateCellChecklistExtension(projectId, cellId, payload);
+      if (!extension) {
+        res.status(404).json({ error: 'Cell not found in this project' });
+        return;
+      }
+
+      await markCellTouched(projectId, cellId);
+
+      const detail = await buildEmployeeTypeChecklistDetail(projectId, cellId);
+      res.json(detail);
+    } catch (err: any) {
+      res.status(400).json({ error: err?.message || 'Failed to save final cell details' });
     }
   },
 
@@ -1319,9 +1604,9 @@ export const employeeProjectController = {
       const cellId = paramId(req.params.cellId);
       const reviewId = paramId(req.params.reviewId);
       const tokens = await getAssignmentTokens(req);
-      const project = await assertTeamLeadAccess(projectId, tokens);
+      const project = await assertTeamLeadAccess(projectId, tokens, req);
       if (!project) {
-        res.status(403).json({ error: 'Only the project team lead can resolve reviews' });
+        res.status(403).json({ error: 'Only the project team lead or admin can resolve reviews' });
         return;
       }
 
@@ -1435,6 +1720,53 @@ export const employeeProjectController = {
       });
     } catch (err: any) {
       res.status(400).json({ error: err?.message || 'Failed to resolve review' });
+    }
+  },
+
+  completeMyCell: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const cellId = paramId(req.params.cellId);
+      const tokens = await getAssignmentTokens(req);
+      const actor = actorFromReq(req);
+
+      const cell = await assertManageableCell(projectId, cellId, tokens, req);
+      if (!cell) {
+        res.status(404).json({ error: 'Cell not found or you cannot manage this cell' });
+        return;
+      }
+
+      const readiness = await evaluateCellCompletionReadiness(projectId, cellId);
+      if (!readiness?.canComplete) {
+        res.status(400).json({
+          error: 'Cell cannot be completed until all required sections are finished',
+          missing: readiness?.missing ?? [],
+        });
+        return;
+      }
+
+      cell.status = 'completed';
+      cell.activityLog.push({
+        action: 'completed',
+        detail: `Marked completed by ${actor.userName}`,
+        userId: actor.userId,
+        userName: actor.userName,
+        at: new Date(),
+      });
+      await cell.save();
+
+      await syncProjectProgress(new Types.ObjectId(projectId));
+
+      const openReviews = await CellReviewModel.find({ cellId, status: 'open' });
+      for (const review of openReviews) {
+        review.status = 'resolved';
+        await review.save();
+      }
+
+      const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
+      res.json(toEmployeeCell(cell, tokens, meta));
+    } catch (err: any) {
+      res.status(400).json({ error: err?.message || 'Failed to complete cell' });
     }
   },
 };

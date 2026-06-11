@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 import { EMPTY_CHECKLIST_EXTENSION } from '@/types/projectWorkspace'
-import { updateMyCellChecklistExtension } from '@services/employeeProjectService'
+import {
+  completeMyCell,
+  updateMyCellChecklistExtension,
+} from '@services/employeeProjectService'
+import { Button } from '@components/employee/ui/button'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { cn } from '@pages/employee/lib/utils'
 import { isChecklistExtensionComplete } from '@/utils/checklistExtensionUtils'
@@ -39,21 +43,30 @@ export function EmployeeFinalCellDetailsSection({
   projectId,
   cellId,
   checklist,
+  cellStatus = 'ready',
   readOnly = false,
   showCompletionRequirement = false,
   onChange,
+  onCellCompleted,
 }) {
   const extension = checklist?.extension ?? EMPTY_CHECKLIST_EXTENSION
   const checklistComplete = checklist?.isFilled ?? false
   const totalCount = checklist?.items?.length ?? 0
-  const locked = totalCount > 0 && !checklistComplete
+  const hasChecklistConfigured = Boolean(checklist?.hasFile || totalCount > 0)
+  const locked = hasChecklistConfigured && totalCount > 0 && !checklistComplete
   const [drafts, setDrafts] = useState({
     dimensionX: '',
     dimensionY: '',
     highestMetalUsed: '',
   })
   const [saving, setSaving] = useState(false)
+  const [completing, setCompleting] = useState(false)
+  const [completed, setCompleted] = useState(cellStatus === 'completed')
   const { toast } = useToast()
+
+  useEffect(() => {
+    setCompleted(cellStatus === 'completed')
+  }, [cellStatus])
 
   useEffect(() => {
     setDrafts({
@@ -118,10 +131,40 @@ export function EmployeeFinalCellDetailsSection({
       ? parsedX * parsedY
       : extension.area
 
-  const fieldsDisabled = readOnly || locked || saving
-  const complete = isChecklistExtensionComplete(extension)
+  const fieldsDisabled = readOnly || locked || saving || completing
+  const extensionComplete = isChecklistExtensionComplete(extension)
+  const isCellCompleted = cellStatus === 'completed' || completed
+  const canComplete =
+    showCompletionRequirement &&
+    !readOnly &&
+    checklistComplete &&
+    extensionComplete &&
+    !isCellCompleted
 
-  if (totalCount === 0) return null
+  const handleComplete = async () => {
+    if (!canComplete) return
+    setCompleting(true)
+    try {
+      const updatedCell = await completeMyCell(projectId, cellId)
+      setCompleted(true)
+      onCellCompleted?.(updatedCell)
+      toast({ title: 'Cell completed', description: 'This cell has been marked complete.' })
+    } catch (err) {
+      const data = err?.response?.data
+      if (data?.missing?.length) {
+        toast({
+          title: 'Cannot complete yet',
+          description: `Complete all sections first: ${data.missing.join(', ')}`,
+        })
+      } else {
+        toast({ title: 'Error', description: data?.error || 'Failed to complete cell' })
+      }
+    } finally {
+      setCompleting(false)
+    }
+  }
+
+  if (!hasChecklistConfigured) return null
 
   return (
     <section
@@ -140,7 +183,7 @@ export function EmployeeFinalCellDetailsSection({
           Complete all checklist questions first ({checklist?.items?.filter((item) => item.response).length ?? 0}/
           {totalCount} answered).
         </p>
-      ) : showCompletionRequirement && !complete ? (
+      ) : showCompletionRequirement && !extensionComplete ? (
         <p className="emp-wf-final-cell-details-lock-note is-warning">
           Complete all final cell details before completing the final stage.
         </p>
@@ -230,6 +273,20 @@ export function EmployeeFinalCellDetailsSection({
             onSelect={handleYesNo}
           />
         </div>
+
+        {showCompletionRequirement ? (
+          <div className="emp-wf-final-cell-details-footer">
+            <Button
+              type="button"
+              size="sm"
+              className="emp-wf-final-cell-complete-btn"
+              disabled={!canComplete || saving || completing}
+              onClick={() => void handleComplete()}
+            >
+              {completing ? 'Completing…' : isCellCompleted ? 'Completed' : 'Complete cell'}
+            </Button>
+          </div>
+        ) : null}
       </div>
     </section>
   )

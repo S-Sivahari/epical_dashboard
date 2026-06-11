@@ -3,6 +3,7 @@ import {
   BookOpen,
   CalendarDays,
   CalendarOff,
+  CircuitBoard,
   Clock,
   FileText,
   FolderKanban,
@@ -42,6 +43,12 @@ export const EMPLOYEE_NAV_ITEMS: EmployeeNavItem[] = [
     label: 'Projects',
     navLabel: 'Projects',
     icon: FolderKanban,
+  },
+  {
+    to: '/employee/metal-routing',
+    label: 'Signal Analysis',
+    navLabel: 'Signal Analysis',
+    icon: CircuitBoard,
   },
   {
     to: '/employee/leave',
@@ -100,6 +107,7 @@ export const EMPLOYEE_ROUTE_TITLES: Record<string, string> = {
   '/employee': 'Dashboard',
   '/employee/timesheet': 'Timesheet',
   '/employee/projects': 'Projects',
+  '/employee/metal-routing': 'Metal Routing',
   '/employee/leave': 'Leave Request',
   '/employee/calendar': 'Company Calendar',
   '/employee/documents': 'Documents',

@@ -125,3 +125,5 @@ export function EmployeeProjectsLayout() {
     </div>
   )
 }
+
+export default EmployeeProjectsLayout

@@ -46,12 +46,15 @@ import {
   resolveBaseHoursInput,
 } from '../services/effortEstimationService';
 import { isAdminRole } from '../utils/generateToken';
+import { assertProjectForRequest } from '../utils/projectAccessHelper';
 import {
-  buildWorkflowTimingMap,
+  buildWorkflowDurationMap,
   closeAllOpenWorkLogs,
   ensureWorkLogsInitialized,
+  getCellWorkflowDuration,
   getCellWorkflowTiming,
   syncWorkLogsFromWorkflowChange,
+  type CellWorkflowDuration,
   type CellWorkflowTiming,
 } from '../services/cellWorkflowWorkLogService';
 
@@ -68,9 +71,8 @@ function actorFromReq(req: Request): { userId: string; userName: string; role: '
   };
 }
 
-async function assertProject(projectId: string) {
-  if (!Types.ObjectId.isValid(projectId)) return null;
-  return ProjectModel.findById(projectId);
+async function assertProject(req: Request, projectId: string) {
+  return assertProjectForRequest(req, projectId);
 }
 
 function normalizeStatus(value: string): CellStatus {
@@ -96,6 +98,7 @@ function toLibrary(doc: any) {
 function toCell(
   doc: any,
   dependencyMeta?: { isBlocked: boolean; isReady: boolean },
+  workflowDuration?: CellWorkflowDuration,
   workflowTiming?: CellWorkflowTiming,
 ) {
   const viewWorkflow = normalizeViewWorkflow(doc.viewWorkflow);
@@ -125,7 +128,7 @@ function toCell(
     workflowCompletedStages,
     workflowTotalStages: workflow.length,
     currentWorkflowStage: currentWorkflowStageLabel(workflow),
-    workflowDuration: workflowTiming?.workflowDuration ?? {
+    workflowDuration: workflowDuration ?? workflowTiming?.workflowDuration ?? {
       totalMs: 0,
       formatted: '0m',
       isActive: false,
@@ -136,7 +139,7 @@ function toCell(
       stages: [],
       latestActivityTime: null,
       workflowCompletionTime: null,
-      workflowDuration: {
+      workflowDuration: workflowDuration ?? {
         totalMs: 0,
         formatted: '0m',
         isActive: false,
@@ -160,15 +163,15 @@ async function toCellWithDuration(
 ) {
   const viewWorkflow = normalizeViewWorkflow(doc.viewWorkflow);
   const workflow = syncCellWorkflowFromViewWorkflow(viewWorkflow);
-  const timing = await getCellWorkflowTiming(
-    doc.projectId.toString(),
-    doc._id.toString(),
-    normalizeStatus(doc.status || 'ready'),
-    doc.activityLog ?? [],
-    workflow,
-    doc.updatedAt,
-  );
-  return toCell(doc, dependencyMeta, timing);
+  const cellId = doc._id.toString();
+  const projectId = doc.projectId.toString();
+  const cellStatus = normalizeStatus(doc.status || 'ready');
+  const activityLog = doc.activityLog ?? [];
+  const [duration, timing] = await Promise.all([
+    getCellWorkflowDuration(projectId, cellId, cellStatus, activityLog, workflow),
+    getCellWorkflowTiming(projectId, cellId, cellStatus, activityLog, workflow),
+  ]);
+  return toCell(doc, dependencyMeta, duration, timing);
 }
 
 function toReview(doc: any) {
@@ -225,7 +228,7 @@ export const projectWorkspaceController = {
   getWorkspaceSummary: async (req: Request, res: Response): Promise<void> => {
     try {
       const projectId = paramId(req.params.projectId);
-      const project = await assertProject(projectId);
+      const project = await assertProject(req, projectId);
       if (!project) {
         res.status(404).json({ error: 'Project not found' });
         return;
@@ -247,11 +250,11 @@ export const projectWorkspaceController = {
           ),
         ),
       );
-      const timingMap = await buildWorkflowTimingMap(projectId, cells);
+      const durationMap = await buildWorkflowDurationMap(projectId, cells);
       const cellsWithMeta = await Promise.all(
         cells.map(async (cell) => {
           const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
-          return toCell(cell, meta, timingMap.get(cell._id.toString()));
+          return toCell(cell, meta, durationMap.get(cell._id.toString()));
         }),
       );
 
@@ -306,7 +309,7 @@ export const projectWorkspaceController = {
   listLibraries: async (req: Request, res: Response): Promise<void> => {
     try {
       const projectId = paramId(req.params.projectId);
-      if (!(await assertProject(projectId))) {
+      if (!(await assertProject(req, projectId))) {
         res.status(404).json({ error: 'Project not found' });
         return;
       }
@@ -320,7 +323,7 @@ export const projectWorkspaceController = {
   createLibrary: async (req: Request, res: Response): Promise<void> => {
     try {
       const projectId = paramId(req.params.projectId);
-      const project = await assertProject(projectId);
+      const project = await assertProject(req, projectId);
       if (!project) {
         res.status(404).json({ error: 'Project not found' });
         return;
@@ -403,7 +406,7 @@ export const projectWorkspaceController = {
     try {
       const projectId = paramId(req.params.projectId);
       const libraryId = paramId(req.params.libraryId);
-      const project = await assertProject(projectId);
+      const project = await assertProject(req, projectId);
       const library = await ProjectLibraryModel.findOne({ _id: libraryId, projectId });
       if (!project || !library) {
         res.status(404).json({ error: 'Project or library not found' });
@@ -790,7 +793,7 @@ export const projectWorkspaceController = {
   getEffortPrediction: async (req: Request, res: Response): Promise<void> => {
     try {
       const projectId = paramId(req.params.projectId);
-      const project = await assertProject(projectId);
+      const project = await assertProject(req, projectId);
       if (!project) {
         res.status(404).json({ error: 'Project not found' });
         return;

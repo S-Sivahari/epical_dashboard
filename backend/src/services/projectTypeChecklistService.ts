@@ -533,3 +533,16 @@ export function isValidTypeChecklistAnswer(value: string): value is TypeChecklis
 export function commentRequiredForAnswer(response: TypeChecklistAnswer | null): boolean {
   return response === 'no' || response === 'not_applicable';
 }
+
+export function areTypeChecklistItemsFilled(
+  items: Array<{ response?: TypeChecklistAnswer | null; comment?: string }>,
+): boolean {
+  if (!items.length) return true;
+  return items.every((item) => {
+    if (!item.response) return false;
+    if (commentRequiredForAnswer(item.response)) {
+      return Boolean(String(item.comment ?? '').trim());
+    }
+    return true;
+  });
+}

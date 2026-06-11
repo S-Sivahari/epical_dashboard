@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { Button } from '@components/ui/Button'
-import { ROUTES } from '@constants/routes'
+import { useProjectPortal } from './projectPortal'
 import { getEmployees } from '@services/employeeService'
 import {
   completeCell,
@@ -83,6 +83,7 @@ const TAB_ITEMS: { id: CellTab; label: string; icon: typeof Layers }[] = [
 export function ProjectCellPage() {
   const { projectId = '', cellId = '' } = useParams()
   const navigate = useNavigate()
+  const { projectWorkspacePath } = useProjectPortal()
   const [summary, setSummary] = useState<WorkspaceSummary | null>(null)
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
@@ -258,7 +259,7 @@ export function ProjectCellPage() {
     try {
       await deleteCell(projectId, cellId)
       toast.success('Cell deleted')
-      navigate(ROUTES.PROJECT_WORKSPACE(projectId))
+      navigate(projectWorkspacePath(projectId))
     } catch {
       toast.error('Failed to delete cell')
     }
@@ -276,7 +277,7 @@ export function ProjectCellPage() {
     return (
       <PageWrapper className="admin-hub-page-wrap py-8 text-center" data-page-scrollable>
         <p className="text-slate-600">Cell not found.</p>
-        <Link to={ROUTES.PROJECT_WORKSPACE(projectId)} className="mt-2 inline-block text-sm font-semibold text-emerald-700">
+        <Link to={projectWorkspacePath(projectId)} className="mt-2 inline-block text-sm font-semibold text-emerald-700">
           Back to workspace
         </Link>
       </PageWrapper>
@@ -301,7 +302,7 @@ export function ProjectCellPage() {
           <header className="admin-projects-workspace-head admin-projects-workspace-head--cell admin-projects-cell-page-head">
             <div className="admin-projects-cell-head-top">
               <Link
-                to={ROUTES.PROJECT_WORKSPACE(projectId)}
+                to={projectWorkspacePath(projectId)}
                 className="admin-projects-back-btn admin-projects-back-btn--icon-only"
                 aria-label={`Back to ${project.name}`}
               >
