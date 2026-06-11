@@ -8,14 +8,8 @@ import { useAuthStore } from '@store/authStore'
 import type { CellReview, CellWorkflowStageKey, ProjectCell, WorkflowStageStatus } from '@/types/projectWorkspace'
 import { WORK_STAGE_STATUSES } from '@/types/projectWorkspace'
 import { updateWorkflowStage } from '@/services/projectWorkspaceService'
-import {
-  WORKFLOW_STATUS_LABELS,
-  isReviewStageKey,
-  isStageLocked,
-  normalizeCellWorkflow,
-  workflowProgressPercent,
-  workflowStageStatusClass,
-} from './projectWorkspaceUi'
+import { CellWorkflowStageTimingMeta } from './CellWorkflowStageTimingMeta'
+import { getStageTiming } from '@/utils/cellWorkflowTiming'
 
 type CellWorkflowPanelProps = {
   projectId: string
@@ -218,6 +212,7 @@ export function CellWorkflowPanel({
               const badgeClass = reviewActionable && stage.status === 'not_started'
                 ? 'is-progress'
                 : workflowStageStatusClass(stage.status)
+              const stageTiming = getStageTiming(cell.workflowTiming, stage.stageKey)
 
               return (
                 <section
@@ -253,6 +248,11 @@ export function CellWorkflowPanel({
                     {meta ? (
                       <p className="admin-projects-workflow-column-meta">{meta}</p>
                     ) : null}
+                    <CellWorkflowStageTimingMeta
+                      timing={stageTiming}
+                      status={stage.status}
+                      compact
+                    />
                   </div>
 
                   <div className="admin-projects-workflow-column-body">

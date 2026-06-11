@@ -32,6 +32,7 @@ import { CELL_STATUS_FILTER_OPTIONS, CELL_TYPE_LABELS, STATUS_LABELS, WORKFLOW_S
 const INLINE_FIELD_CLASS = 'admin-projects-cell-details-inline-field'
 import { CellWorkflowPanel } from './CellWorkflowPanel'
 import { CellWorkflowDurationLabel } from './CellWorkflowDurationLabel'
+import { CellWorkflowTimingSummary } from './CellWorkflowTimingSummary'
 import { CellTypeChecklistTab } from './CellTypeChecklistTab'
 import { calculateEstimatedHours, CELL_COMPLEXITY_OPTIONS, DEFAULT_BASE_HOURS, formatComplexityFactor, normalizeComplexity } from '@/utils/effortEstimationUtils'
 import './adminProjects.css'
@@ -327,6 +328,7 @@ export function ProjectCellPage() {
                 workflowDuration={cell.workflowDuration}
                 fetchedAt={durationFetchedAt}
               />
+              <CellWorkflowTimingSummary timing={cell.workflowTiming} />
               {cell.status === 'completed' ? (
                 <Button
                   size="sm"

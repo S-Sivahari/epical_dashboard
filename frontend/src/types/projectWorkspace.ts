@@ -296,6 +296,25 @@ export interface CellWorkflowDuration {
   wasReopened: boolean
 }
 
+export interface StageWorkflowTiming {
+  stageKey: CellWorkflowStageKey
+  checkInTime: string | null
+  checkOutTime: string | null
+  stageStartTime: string | null
+  stageCompletionTime: string | null
+  latestActivityTime: string | null
+  totalMs: number
+  formattedTotal: string
+  isActive: boolean
+}
+
+export interface CellWorkflowTiming {
+  stages: StageWorkflowTiming[]
+  latestActivityTime: string | null
+  workflowCompletionTime: string | null
+  workflowDuration: CellWorkflowDuration
+}
+
 export interface ProjectCell {
   id: string
   projectId: string
@@ -319,6 +338,7 @@ export interface ProjectCell {
   workflowTotalStages: number
   currentWorkflowStage: string
   workflowDuration: CellWorkflowDuration
+  workflowTiming: CellWorkflowTiming
   views: CellViews
   viewWorkflow: CellViewWorkflow
   isBlocked: boolean

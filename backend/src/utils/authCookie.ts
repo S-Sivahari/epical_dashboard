@@ -41,11 +41,22 @@ export function getBaseCookieOptions(): CookieOptions {
   const isProd = env.nodeEnv === 'production';
   const crossOrigin = isCrossOriginFrontend();
   const sameSite: CookieOptions['sameSite'] = crossOrigin ? 'none' : 'lax';
+  const localhostDev =
+    !isProd &&
+    (() => {
+      try {
+        const frontend = new URL(env.FRONTEND_URL);
+        const api = new URL(getApiOrigin());
+        return frontend.hostname === 'localhost' && api.hostname === 'localhost';
+      } catch {
+        return false;
+      }
+    })();
 
   return {
     httpOnly: true,
-    secure: isProd || crossOrigin,
-    sameSite,
+    secure: isProd || (crossOrigin && !localhostDev),
+    sameSite: localhostDev ? 'lax' : sameSite,
     path: '/',
     maxAge: cookieMaxAgeMs(),
   };

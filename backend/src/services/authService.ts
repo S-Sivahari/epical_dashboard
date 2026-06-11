@@ -113,11 +113,19 @@ export async function ensureDefaultAdminUser(): Promise<{ created: boolean; upda
     return { created: true, updated: false };
   }
 
+  const updates: Record<string, unknown> = {};
   if (existing.name !== admin.name) {
-    await col.updateOne(
-      { email: admin.email },
-      { $set: { name: admin.name, updatedAt: new Date() } },
-    );
+    updates.name = admin.name;
+  }
+
+  const passwordMatches = await bcrypt.compare(admin.password, existing.passwordHash);
+  if (!passwordMatches) {
+    updates.passwordHash = await bcrypt.hash(admin.password, 10);
+  }
+
+  if (Object.keys(updates).length > 0) {
+    updates.updatedAt = new Date();
+    await col.updateOne({ email: admin.email }, { $set: updates });
     return { created: false, updated: true };
   }
 

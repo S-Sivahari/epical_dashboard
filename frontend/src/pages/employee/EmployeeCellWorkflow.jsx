@@ -17,6 +17,8 @@ import {
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { cn } from '@pages/employee/lib/utils'
 import { VIEW_TABS, getAdvancePayload, isFinalLayoutStage } from '@/utils/cellWorkflowUi'
+import { CellWorkflowDurationLabel } from '@pages/admin/Projects/CellWorkflowDurationLabel'
+import { CellWorkflowTimingSummary } from '@pages/admin/Projects/CellWorkflowTimingSummary'
 import { cellDisplayStatus, isReviewStageKey } from '@pages/admin/Projects/projectWorkspaceUi'
 import '@pages/admin/Projects/adminProjects.css'
 import '@components/employee/projects/employeeProjectWorkflow.css'
@@ -29,6 +31,7 @@ export default function EmployeeCellWorkflow() {
   const [saving, setSaving] = useState(false)
   const [viewTab, setViewTab] = useState('layout')
   const [checklistReady, setChecklistReady] = useState(true)
+  const [durationFetchedAt, setDurationFetchedAt] = useState(() => Date.now())
   const { toast } = useToast()
 
   const reload = useCallback(async () => {
@@ -37,6 +40,7 @@ export default function EmployeeCellWorkflow() {
     try {
       const data = await fetchMyCell(projectId, cellId)
       setDetail(data)
+      setDurationFetchedAt(Date.now())
     } catch {
       toast({ title: 'Error', description: 'Failed to load cell workflow' })
     } finally {
@@ -47,6 +51,14 @@ export default function EmployeeCellWorkflow() {
   useEffect(() => {
     void reload()
   }, [reload])
+
+  useEffect(() => {
+    if (!detail?.cell || detail.cell.status === 'completed') return undefined
+    const timer = window.setInterval(() => {
+      void reload()
+    }, 60_000)
+    return () => window.clearInterval(timer)
+  }, [detail?.cell?.status, reload])
 
   const updateCellInState = (updatedCell) => {
     setDetail((prev) => (prev ? { ...prev, cell: { ...prev.cell, ...updatedCell } } : prev))
@@ -172,6 +184,12 @@ export default function EmployeeCellWorkflow() {
                 >
                   {cellDisplayStatus(cell)}
                 </span>
+                <CellWorkflowDurationLabel
+                  cellStatus={cell.status}
+                  workflowDuration={cell.workflowDuration}
+                  fetchedAt={durationFetchedAt}
+                />
+                <CellWorkflowTimingSummary timing={cell.workflowTiming} />
                 {cell.isAssignedToMe ? (
                   <span className="admin-projects-employee-assigned-badge">Yours</span>
                 ) : null}
@@ -195,6 +213,10 @@ export default function EmployeeCellWorkflow() {
           ) : null}
           <div className="admin-projects-employee-cell-toolbar">
             <CellDetailsSummary cell={cell} libraryName={library?.name} variant="employee" />
+            <CellWorkflowTimingSummary
+              timing={cell.workflowTiming}
+              className="admin-projects-workflow-timing-summary admin-projects-workflow-timing-summary--inline"
+            />
           </div>
 
           <div className="admin-projects-employee-cell-main">
