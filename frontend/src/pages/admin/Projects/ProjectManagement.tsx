@@ -20,6 +20,7 @@ import {
 } from '@/lib/textLimits'
 import { stringToHue, stringToHueColor } from '@/utils/stringColor'
 import { Analytics } from '@pages/admin/Analytics/Analytics'
+import { ProjectAnalysisLaunchButton } from '@components/admin/ProjectAnalysisLaunchButton'
 import {
   BarChart3,
   Clock,
@@ -2676,7 +2677,8 @@ export function ProjectManagement() {
       {/* Unified grid layout holding the permanently visible sidebar on the left and the main content on the right */}
       <div className="projects-body-grid">
         {/* Left Sidebar with Navigation and Filters */}
-        <aside className="projects-sidebar space-y-4">
+        <aside className="projects-sidebar projects-sidebar--with-footer flex flex-col">
+          <div className="projects-sidebar__body flex flex-1 flex-col space-y-4">
           <div>
             {/* Create Project Button */}
             {activeTab !== 'analytics' && activeTab !== 'archived' && (
@@ -2954,6 +2956,11 @@ export function ProjectManagement() {
               )}
             </div>
           ) : null}
+          </div>
+
+          <div className="projects-sidebar__footer shrink-0 border-t border-slate-100 pt-4">
+            <ProjectAnalysisLaunchButton className="project-analysis-launch-btn--sidebar" />
+          </div>
         </aside>
 
         {/* Unified main content panel */}

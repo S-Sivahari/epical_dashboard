@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { BarChart3, ClipboardList, FileCheck2, Users } from 'lucide-react'
+import { BarChart3, ClipboardList, FileCheck2, LineChart, Users } from 'lucide-react'
+import { AdminModuleEntryCard } from '@components/admin/AdminModuleEntryCard'
 import { DashboardActivityLogPanel } from './DashboardActivityLogPanel'
 import { DashboardLeftInsights } from './DashboardLeftInsights'
 import { DashboardPendingApprovalsPanel } from './DashboardPendingApprovalsPanel'
@@ -49,7 +50,7 @@ export function DashboardHome() {
       value: data.activeProjectsCount,
       icon: BarChart3,
       tone: 'blue' as const,
-      route: ROUTES.PROJECTS,
+      route: ROUTES.PROJECT_ANALYSIS_PROJECTS,
       layout: 'minimal' as const,
     },
     {
@@ -73,6 +74,15 @@ export function DashboardHome() {
         <div className="dashboard-main-grid min-h-0 flex-1">
           <aside className="dashboard-left-column min-h-0">
             <DashboardKpiStrip items={kpiItems} loading={data.loading} variant="column" />
+            <AdminModuleEntryCard
+              to={ROUTES.PROJECT_ANALYSIS_PROJECTS}
+              title="Project Analysis"
+              description="Access Projects, Notes, and Signal Analysis modules."
+              icon={LineChart}
+              tone="emerald"
+              size="compact"
+              openInNewTab
+            />
             <DashboardLeftInsights className="dashboard-left-insights-column min-h-0 flex-1" />
           </aside>
 

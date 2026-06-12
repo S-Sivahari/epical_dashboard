@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, Navigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import { Briefcase, Eye, Globe, Lock, Search } from 'lucide-react'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { DataTable, type Column } from '@components/tables/DataTable'
@@ -7,6 +7,7 @@ import { PaginationBar } from '@components/tables/Pagination'
 import { Avatar } from '@components/ui/Avatar'
 import { Badge } from '@components/ui/Badge'
 import { ROUTES } from '@constants/routes'
+import { isProjectAnalysisAdminPath } from './projectPortal'
 import { fetchMyAssignedProjects } from '@/services/employeeProjectService'
 import api from '@/services/api'
 import { useProjectPortal } from './projectPortal'
@@ -24,6 +25,7 @@ type SortKey =
 
 export function ProjectsDashboard() {
   const { isEmployee, projectWorkspacePath } = useProjectPortal()
+  const { pathname } = useLocation()
   const [searchParams] = useSearchParams()
   const tab = searchParams.get('tab')
   const [projects, setProjects] = useState<AdminProjectRow[]>([])
@@ -203,7 +205,10 @@ export function ProjectsDashboard() {
   }
 
   if (tab) {
-    return <Navigate to={`${ROUTES.TIMESHEET}?${searchParams.toString()}`} replace />
+    const base = isProjectAnalysisAdminPath(pathname)
+      ? ROUTES.PROJECT_ANALYSIS_PROJECTS
+      : ROUTES.TIMESHEET
+    return <Navigate to={`${base}?${searchParams.toString()}`} replace />
   }
 
   return (

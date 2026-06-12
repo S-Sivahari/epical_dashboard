@@ -6,6 +6,12 @@ export const ROUTES = {
   EMPLOYEE: (id: string) => `/admin/employees/${id}`,
   EMPLOYEE_EDIT: (id: string) => `/admin/employees/${id}/edit`,
   LEAVES: '/admin/leaves',
+  PROJECT_ANALYSIS: '/admin/project-analysis',
+  PROJECT_ANALYSIS_PROJECTS: '/admin/project-analysis/projects',
+  PROJECT_ANALYSIS_PROJECT_WORKSPACE: (id: string) => `/admin/project-analysis/projects/${id}`,
+  PROJECT_ANALYSIS_PROJECT_CELL: (projectId: string, cellId: string) =>
+    `/admin/project-analysis/projects/${projectId}/cells/${cellId}`,
+  PROJECT_ANALYSIS_SIGNAL: '/admin/project-analysis/signal-analysis',
   PROJECTS: '/admin/projects',
   PROJECT_WORKSPACE: (id: string) => `/admin/projects/${id}`,
   PROJECT_CELL: (projectId: string, cellId: string) => `/admin/projects/${projectId}/cells/${cellId}`,

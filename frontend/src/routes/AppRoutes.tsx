@@ -117,6 +117,16 @@ const AdminMetalRoutingPage = lazy(async () => {
   return { default: m.AdminMetalRoutingPage }
 })
 
+const ProjectAnalysisLayout = lazy(async () => {
+  const m = await import('@layouts/ProjectAnalysisLayout')
+  return { default: m.ProjectAnalysisLayout }
+})
+
+const ProjectAnalysisSignalPage = lazy(async () => {
+  const m = await import('@pages/admin/ProjectAnalysis/ProjectAnalysisSignalPage')
+  return { default: m.ProjectAnalysisSignalPage }
+})
+
 // ── Employee Pages ────────────────────────────────────────────
 const EmployeeDashboardPage = lazy(() =>
   import('@pages/employee/Dashboard')
@@ -239,6 +249,14 @@ export function AppRoutes() {
             />
 
             <Route path="timesheet" element={<ProjectManagement />} />
+
+            <Route path="project-analysis" element={<ProjectAnalysisLayout />}>
+              <Route index element={<Navigate to="projects" replace />} />
+              <Route path="projects/:projectId/cells/:cellId" element={<ProjectCellPage />} />
+              <Route path="projects/:projectId" element={<ProjectWorkspace />} />
+              <Route path="projects" element={<AdminProjectsPage />} />
+              <Route path="signal-analysis/*" element={<ProjectAnalysisSignalPage />} />
+            </Route>
 
             <Route path="projects" element={<AdminProjectsPage />} />
             <Route path="projects/:projectId/cells/:cellId" element={<ProjectCellPage />} />

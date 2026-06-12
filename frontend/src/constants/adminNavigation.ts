@@ -1,10 +1,8 @@
 import type { LucideIcon } from 'lucide-react'
 import {
   BookOpen,
-  Briefcase,
   CalendarCheck,
   CalendarDays,
-  CircuitBoard,
   Clock,
   FileText,
   HelpCircle,
@@ -57,8 +55,6 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     label: 'Work',
     items: [
       { to: ROUTES.TIMESHEET, label: 'Projects & Timesheets', navLabel: 'Timesheet', icon: Clock },
-      { to: ROUTES.PROJECTS, label: 'Projects', navLabel: 'Projects', icon: Briefcase },
-      { to: ROUTES.METAL_ROUTING, label: 'Signal Analysis', navLabel: 'Signal Analysis', icon: CircuitBoard },
       { to: ROUTES.CALENDAR, label: 'Company Calendar', navLabel: 'Calendar', icon: CalendarDays },
     ],
   },
@@ -92,6 +88,11 @@ export const ADMIN_ROUTE_TITLES: Record<string, string> = {
   [ROUTES.EMPLOYEE_ADD]: 'Add Employee',
   [ROUTES.LEAVES]: 'Manage Leaves',
   [ROUTES.TIMESHEET]: 'Projects & Timesheets',
+  [ROUTES.PROJECT_ANALYSIS]: 'Project Analysis',
+  [ROUTES.PROJECT_ANALYSIS_PROJECTS]: 'Projects',
+  [`${ROUTES.PROJECT_ANALYSIS_PROJECTS}/`]: 'Project workspace',
+  [ROUTES.PROJECT_ANALYSIS_SIGNAL]: 'Signal Analysis',
+  [`${ROUTES.PROJECT_ANALYSIS_SIGNAL}/`]: 'Signal Analysis',
   [ROUTES.PROJECTS]: 'Projects',
   [`${ROUTES.PROJECTS}/`]: 'Project workspace',
   [ROUTES.METAL_ROUTING]: 'Metal Routing',
