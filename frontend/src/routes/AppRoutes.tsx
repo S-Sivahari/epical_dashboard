@@ -117,6 +117,16 @@ const AdminMetalRoutingPage = lazy(async () => {
   return { default: m.AdminMetalRoutingPage }
 })
 
+const AdminNotesPage = lazy(async () => {
+  const m = await import('@pages/admin/Notes/AdminNotesPage')
+  return { default: m.AdminNotesPage }
+})
+
+const AdminNotesDayRedirect = lazy(async () => {
+  const m = await import('@pages/admin/Notes/AdminNotesPage')
+  return { default: m.AdminNotesDayRedirect }
+})
+
 // ── Employee Pages ────────────────────────────────────────────
 const EmployeeDashboardPage = lazy(() =>
   import('@pages/employee/Dashboard')
@@ -237,6 +247,9 @@ export function AppRoutes() {
             <Route path="projects/:projectId" element={<ProjectWorkspace />} />
 
             <Route path="metal-routing/*" element={<AdminMetalRoutingPage />} />
+
+            <Route path="notes" element={<AdminNotesPage />} />
+            <Route path="notes/day/:dateKey" element={<AdminNotesDayRedirect />} />
 
             <Route
               path="calendar"

@@ -19,6 +19,15 @@ export const ROUTES = {
   TICKETS: '/admin/tickets',
   PAYSLIPS: '/admin/payslips',
   METAL_ROUTING: '/admin/metal-routing',
+  NOTES: '/admin/notes',
+  NOTES_DAY: (dateKey: string, options?: { childId?: string; highlight?: string }) => {
+    const path = `/admin/notes/day/${dateKey}`
+    if (!options?.childId && !options?.highlight) return path
+    const params = new URLSearchParams()
+    if (options.childId) params.set('child', options.childId)
+    if (options.highlight) params.set('highlight', options.highlight)
+    return `${path}?${params.toString()}`
+  },
   SETTINGS: '/admin/settings',
   HELP: '/admin/help',
   EMPLOYEE_METAL_ROUTING: '/employee/metal-routing',
