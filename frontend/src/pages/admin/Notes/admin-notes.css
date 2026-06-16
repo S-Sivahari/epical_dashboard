@@ -2485,7 +2485,11 @@
 .notes-notepad-pad {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.35rem;
+  width: 50%;
+  max-width: 36rem;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .notes-notepad-pad__toolbar {
@@ -2495,34 +2499,25 @@
 
 .notes-notepad-pad__paper {
   position: relative;
-  min-height: 8.5rem;
-  border-radius: 0.65rem;
+  min-height: 5rem;
+  border-radius: 0.55rem;
   border: 1px solid var(--notes-line);
-  background:
-    repeating-linear-gradient(
-      180deg,
-      transparent,
-      transparent 1.55rem,
-      rgba(226, 232, 240, 0.45) 1.55rem,
-      rgba(226, 232, 240, 0.45) calc(1.55rem + 1px)
-    ),
-    linear-gradient(180deg, #fffef9 0%, #ffffff 14%, #ffffff 100%);
-  background-position: 0 2.75rem, 0 0;
+  background: #ffffff;
   box-shadow:
     inset 3px 0 0 rgba(30, 90, 61, 0.35),
     0 2px 12px rgba(15, 23, 42, 0.04);
-  padding: 1rem 1.25rem 1.1rem 1.4rem;
+  padding: 0.65rem 0.85rem 0.7rem 1rem;
 }
 
 .notes-notepad-pad__empty {
   display: flex;
-  min-height: 7.5rem;
+  min-height: 5rem;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.45rem;
+  gap: 0.3rem;
   text-align: center;
-  padding: 1.25rem 1rem;
+  padding: 0.75rem 0.65rem;
 }
 
 .notes-notepad-pad__empty-icon {
@@ -2558,58 +2553,62 @@
 
 .notes-notepad-pad__letter {
   font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  font-size: 0.875rem;
-  line-height: 1.65;
-  color: #111827;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: #000000;
 }
 
 .notes-notepad-pad__project + .notes-notepad-pad__project {
-  margin-top: 1.1rem;
-  padding-top: 1rem;
+  margin-top: 0.55rem;
+  padding-top: 0.5rem;
   border-top: 1px dashed var(--notes-line);
 }
 
 .notes-notepad-pad__project-name {
-  margin: 0 0 0.55rem;
-  font-size: 0.8125rem;
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  color: #c0392b;
+  color: var(--notes-accent);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .notes-notepad-pad__employee {
-  margin-bottom: 0.75rem;
-  padding-left: 0.15rem;
+  margin-bottom: 0.35rem;
+  padding-left: 0.1rem;
+}
+
+.notes-notepad-pad__employee:last-child {
+  margin-bottom: 0;
 }
 
 .notes-notepad-pad__employee-name {
-  margin: 0 0 0.25rem;
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: #111827;
+  margin: 0 0 0.1rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #2563eb;
 }
 
 .notes-notepad-pad__lines {
   margin: 0;
-  padding: 0 0 0 1rem;
+  padding: 0 0 0 0.85rem;
   list-style: none;
 }
 
 .notes-notepad-pad__lines li {
   position: relative;
-  margin: 0.2rem 0;
-  padding-left: 0.35rem;
-  font-size: 0.875rem;
+  margin: 0.05rem 0;
+  padding-left: 0.25rem;
+  font-size: 0.8125rem;
   font-weight: 400;
-  color: #334155;
+  color: #000000;
 }
 
 .notes-notepad-pad__lines li::before {
   content: '\2013';
   position: absolute;
-  left: -0.65rem;
-  color: #94a3b8;
+  left: -0.55rem;
+  color: #64748b;
 }
 
 .notes-notepad-pad__no-updates {
@@ -2707,9 +2706,14 @@
     padding: 0;
   }
 
+  .notes-notepad-pad {
+    width: 100%;
+    max-width: none;
+  }
+
   .notes-notepad-pad__paper {
-    padding: 1rem;
-    min-height: 8rem;
+    padding: 0.65rem 0.75rem;
+    min-height: 5rem;
   }
 
   .add-note-modal__form {

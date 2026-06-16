@@ -128,7 +128,15 @@ async function findRouteDocumentByKey(k: ReturnType<typeof normalizeKey>) {
     route = await MetalRoutingAnalysisModel.findOne({
       ...base,
       fromSignal: k.signal,
-      toSignal: k.toSignal || k.fromSignal,
+      $or: [{ toSignal: '' }, { toSignal: { $exists: false } }],
+    });
+  }
+
+  if (!route && k.fromSignal) {
+    route = await MetalRoutingAnalysisModel.findOne({
+      ...base,
+      fromSignal: k.fromSignal,
+      toSignal: k.toSignal ?? '',
     });
   }
 
@@ -1529,7 +1537,12 @@ export async function importProjectRoutesFromExcel(
       routesImported += 1;
       metalsImported += block.metals.length;
     } catch (err) {
-      const reason = err instanceof Error ? err.message : 'Import failed';
+      let reason = err instanceof Error ? err.message : 'Import failed';
+      if (reason.includes('duplicate key')) {
+        reason =
+          `This signal route already exists (${routeLabel}). Import should update it — restart the backend if this error persists, `
+          + 'or open that signal in Signal Analysis and use Import Excel on the route page.';
+      }
       const failure: MetalRoutingImportFailure = {
         routeLabel,
         fromCell: block.fromCell,

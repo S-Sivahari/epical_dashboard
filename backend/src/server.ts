@@ -367,6 +367,13 @@ export async function startServer() {
     await ensureAttendanceIndexes();
 
     try {
+      const { ensureMetalRoutingIndexes } = await import('./utils/ensureMetalRoutingIndexes');
+      await ensureMetalRoutingIndexes();
+    } catch (err) {
+      console.warn('⚠ Metal routing index migration skipped:', err);
+    }
+
+    try {
       const { ensureCellTypeChecklists } = await import('./services/cellTypeChecklistService');
       const checklistSeed = await ensureCellTypeChecklists();
       if (checklistSeed.created > 0) {
