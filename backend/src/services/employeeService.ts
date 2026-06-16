@@ -296,10 +296,19 @@ export async function getAllEmployees(
   const sortObj: Record<string, 1 | -1> = { statusRank: 1 };
   if (filters.sortColumn) {
     sortObj[filters.sortColumn] = sortDirectionVal;
+    // Secondary keys so ties on the primary column sort predictably across pages.
+    if (filters.sortColumn === 'firstName') {
+      sortObj.lastName = sortDirectionVal;
+    } else if (filters.sortColumn !== 'lastName') {
+      sortObj.firstName = 1;
+      sortObj.lastName = 1;
+    }
   } else {
     sortObj.firstName = 1;
     sortObj.lastName = 1;
   }
+  // Unique tiebreaker — without this, $skip/$limit can repeat or skip rows when sort keys tie.
+  sortObj._id = 1;
 
   // Get total count and page in parallel — projection skips photo/doc blobs
   const skip = (page - 1) * pageSize;
@@ -662,7 +671,12 @@ export async function updateEmployee(
   let result = await collection.findOneAndUpdate({ id }, updateDoc as any, { returnDocument: 'after' });
 
   if (result) {
-    return result as Employee;
+    const updated = result as Employee;
+    const { propagateEmployeeProfileChanges } = await import('./employeeProfilePropagation');
+    await propagateEmployeeProfileChanges(existing, updated).catch((err) => {
+      console.error('[Employee Service] Failed to propagate profile changes:', err);
+    });
+    return updated;
   }
 
   // Try updating by MongoDB ObjectId
@@ -673,7 +687,12 @@ export async function updateEmployee(
       { returnDocument: 'after' },
     );
     if (result) {
-      return result as Employee;
+      const updated = result as Employee;
+      const { propagateEmployeeProfileChanges } = await import('./employeeProfilePropagation');
+      await propagateEmployeeProfileChanges(existing, updated).catch((err) => {
+        console.error('[Employee Service] Failed to propagate profile changes:', err);
+      });
+      return updated;
     }
   }
 

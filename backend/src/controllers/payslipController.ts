@@ -60,6 +60,8 @@ function payslipDownloadNameForBatch(batch: PayrollBatch, storageFileName: strin
 
 async function notifyAdminsAndEmployee(params: {
   employeeDbId: string
+  /** HR / payroll employee ID shown in emails (e.g. EPL-001) — not the internal users.id */
+  employeeHrId: string
   employeeName: string
   employeeEmail: string
   payMonth: string
@@ -68,8 +70,17 @@ async function notifyAdminsAndEmployee(params: {
   fileName?: string
   regenerated?: boolean
 }): Promise<void> {
-  const { employeeDbId, employeeName, employeeEmail, payMonth, payslipId, batchId, fileName, regenerated } =
-    params
+  const {
+    employeeDbId,
+    employeeHrId,
+    employeeName,
+    employeeEmail,
+    payMonth,
+    payslipId,
+    batchId,
+    fileName,
+    regenerated,
+  } = params
 
   const employeeType = regenerated ? 'PayslipRegenerated' : 'PayslipSent'
   const employeeTitle = regenerated ? 'Payslip Regenerated' : 'Payslip Received'
@@ -83,7 +94,15 @@ async function notifyAdminsAndEmployee(params: {
     type: employeeType,
     title: employeeTitle,
     message: employeeMessage,
-    relatedData: { employeeId: employeeDbId, employeeName, employeeEmail, payslipId, batchId, payMonth, fileName },
+    relatedData: {
+      employeeId: employeeHrId,
+      employeeName,
+      employeeEmail,
+      payslipId,
+      batchId,
+      payMonth,
+      fileName,
+    },
   })
 
   const admins = await getUserCollection().find({ role: 'Admin' }).toArray()
@@ -96,7 +115,15 @@ async function notifyAdminsAndEmployee(params: {
       message: regenerated
         ? `Regenerated payslip for ${employeeName} (${payMonth}) has been sent to the employee dashboard.`
         : `Payslip for ${employeeName} (${payMonth}) has been sent successfully.`,
-      relatedData: { employeeId: employeeDbId, employeeName, employeeEmail, payslipId, batchId, payMonth, fileName },
+      relatedData: {
+        employeeId: employeeHrId,
+        employeeName,
+        employeeEmail,
+        payslipId,
+        batchId,
+        payMonth,
+        fileName,
+      },
     })
   }
 }
@@ -286,6 +313,7 @@ export const payslipController = {
       for (const record of resent) {
         await notifyAdminsAndEmployee({
           employeeDbId: record.employeeDbId,
+          employeeHrId: record.employeeId,
           employeeName: record.employeeName,
           employeeEmail: record.employeeEmail,
           payMonth: record.payMonth,
@@ -445,6 +473,7 @@ export const payslipController = {
       // Fire notifications for employee + admins
       await notifyAdminsAndEmployee({
         employeeDbId: record.employeeDbId,
+        employeeHrId: record.employeeId,
         employeeName: record.employeeName,
         employeeEmail: record.employeeEmail,
         payMonth: record.payMonth,
@@ -492,6 +521,7 @@ export const payslipController = {
       for (const rec of result.sentRecords) {
         await notifyAdminsAndEmployee({
           employeeDbId: String(rec.employeeDbId),
+          employeeHrId: String(rec.employeeId),
           employeeName: String(rec.employeeName),
           employeeEmail: String(rec.employeeEmail),
           payMonth: String(rec.payMonth),
@@ -556,6 +586,63 @@ export const payslipController = {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to download payslip'
       res.status(500).json({ error: message })
+    }
+  },
+
+  /** Employee: email payslip PDF to their registered email */
+  sendMyPayslipEmail: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user?.email) {
+        res.status(401).json({ error: 'Unauthorized' })
+        return
+      }
+
+      const record = await getPayslipByIdForEmployee(
+        req.params.payslipId as string,
+        String(req.user.id),
+        String(req.user.email),
+      )
+      if (!record) {
+        res.status(404).json({ error: 'Payslip not found' })
+        return
+      }
+
+      const filePath = await ensurePayslipPdfExists(record.batchId, record.fileName)
+      const { sendPayslipEmail } = await import('../services/emailService')
+      const attachment = {
+        filename: formatPayslipDownloadFileName(
+          record.employeeName,
+          record.payMonth,
+          record.payPeriodKey,
+        ),
+        content: readFileSync(filePath),
+        contentType: 'application/pdf',
+      }
+
+      const sent = await sendPayslipEmail(
+        {
+          recipientEmail: String(req.user.email),
+          recipientName: record.employeeName,
+          employeeName: record.employeeName,
+          employeeId: record.employeeId,
+          payMonth: record.payMonth,
+          fileName: record.fileName,
+        },
+        undefined,
+        attachment,
+      )
+
+      if (!sent) {
+        res.status(500).json({ error: 'Failed to send payslip email. Please try again later.' })
+        return
+      }
+
+      res.json({ message: `Payslip sent to ${req.user.email}` })
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to send payslip email'
+      const status =
+        message.includes('not found') || message.includes('Invalid payslip') ? 404 : 500
+      res.status(status).json({ error: message })
     }
   },
 

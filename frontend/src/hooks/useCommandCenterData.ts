@@ -31,6 +31,7 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
   const user = useAuthStore((s) => s.user)
   const { leaves, holidays } = useLeaves()
   const totalEmployees = useEmployeeStore((s) => s.pagination.total)
+  const employeesRevision = useEmployeeStore((s) => s.employeesRevision)
   const [allEmployees, setAllEmployees] = useState<any[]>([])
   const notifications = useNotificationStore((s) => s.notifications)
   const tickets = useTicketStore((s) => s.tickets)
@@ -95,7 +96,7 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
       }
     }
     void load()
-  }, [chartPeriod])
+  }, [chartPeriod, employeesRevision])
 
   const pendingLeaves = leaves.filter((l) => l.status === 'Pending')
   const approvedLeaves = leaves.filter((l) => l.status === 'Approved')

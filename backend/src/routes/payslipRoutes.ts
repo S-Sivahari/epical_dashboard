@@ -56,6 +56,11 @@ payslipRoutes.get(
   authMiddleware,
   payslipController.downloadMyPayslip
 )
+payslipRoutes.post(
+  '/my-payslips/:payslipId/send-mail',
+  authMiddleware,
+  payslipController.sendMyPayslipEmail
+)
 
 // Admin: payslip send history
 payslipRoutes.get('/send-history', ...adminOnly, payslipController.getSendHistory)

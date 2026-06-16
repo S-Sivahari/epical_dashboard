@@ -1119,4 +1119,48 @@ export const projectController = {
       res.status(500).json({ error: 'Failed to restore project' });
     }
   },
+
+  downloadImportTemplate: async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const { generateProjectImportTemplateBuffer, PROJECT_IMPORT_TEMPLATE_FILENAME } =
+        await import('../services/projectImportTemplate');
+      const buffer = await generateProjectImportTemplateBuffer();
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader('Content-Disposition', `attachment; filename="${PROJECT_IMPORT_TEMPLATE_FILENAME}"`);
+      res.send(buffer);
+    } catch (error) {
+      console.error('Error generating project import template:', error);
+      res.status(500).json({ error: 'Failed to generate import template' });
+    }
+  },
+
+  importResetFromExcel: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const file = (req as Request & { file?: Express.Multer.File }).file;
+      if (!file?.buffer?.length) {
+        res.status(400).json({ error: 'No Excel file uploaded' });
+        return;
+      }
+
+      const createdBy = (req as any).user?.email || (req as any).user?.name || 'Admin';
+      const { importProjectsFromExcel } = await import('../services/projectImportService');
+      const result = await importProjectsFromExcel(file.buffer, createdBy);
+
+      const formatLabel =
+        result.importFormat === 'timesheet_matrix' ? 'timesheet matrix' : 'assignment sheet';
+      const timesheetPart =
+        result.timesheetEntries > 0 ? ` Imported ${result.timesheetEntries} timesheet entries.` : '';
+      res.json({
+        message: `Archived ${result.archivedCount} project(s), created ${result.createdCount} from ${formatLabel}.${timesheetPart}`,
+        ...result,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to import projects';
+      console.error('Error importing projects from Excel:', error);
+      res.status(400).json({ error: message });
+    }
+  },
 };

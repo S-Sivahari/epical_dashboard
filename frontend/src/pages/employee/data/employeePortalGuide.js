@@ -98,7 +98,7 @@ export const employeePortalGuideSections = [
       'To request a document: choose type, enter a clear document name and reason, then submit.',
       'Track status in Request History — Pending, Approved, or Rejected (rejection may include a reason).',
       'When approved, download the PDF from My Documents or from the approved row where download is offered.',
-      'Under Payslips, filter by period, preview or download salary slips once admin has published them for your account.',
+      'Under Payslips, filter by period and use Send Mail to email a payslip PDF to your registered address once admin has published it for your account.',
     ],
     notes: [
       'Request history refreshes automatically so you can wait for admin approval without reloading the page.',

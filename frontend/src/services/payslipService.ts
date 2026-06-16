@@ -25,7 +25,7 @@ export interface EmployeeDashboardPayslip {
   fileName: string
   sentAt: string
   /** Present when the API includes payroll breakdown fields */
-  status?: 'Paid' | 'Pending'
+  status?: 'Uploaded' | 'Pending'
   netSalary?: number | string
   basicPay?: number | string
   allowances?: number | string
@@ -324,6 +324,13 @@ export async function downloadMyPayslipPdf(payslipId: string, downloadName: stri
   link.click()
   link.remove()
   window.URL.revokeObjectURL(url)
+}
+
+export async function sendMyPayslipEmail(payslipId: string): Promise<{ message: string }> {
+  const response = await api.post<{ message: string }>(
+    `${base}/my-payslips/${encodeURIComponent(payslipId)}/send-mail`,
+  )
+  return response.data
 }
 
 export async function deletePayrollBatch(batchId: string): Promise<void> {

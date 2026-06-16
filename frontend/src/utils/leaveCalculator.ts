@@ -1,4 +1,10 @@
+import { eachIsoDateInRange, isWeekendIso } from '@/utils/dateValidation'
+
 export type LeaveHoliday = { date: string }
+
+function normalizeHolidayDate(date: string): string {
+  return date.trim().slice(0, 10)
+}
 
 /** Working days between two dates, excluding weekends and holidays. */
 export function getBusinessDays(
@@ -6,19 +12,14 @@ export function getBusinessDays(
   to: string,
   holidays: LeaveHoliday[] = [],
 ): number {
-  const start = new Date(from)
-  const end = new Date(to)
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
-    return 0
-  }
+  const dates = eachIsoDateInRange(from, to)
+  if (dates.length === 0) return 0
 
-  const holidayDates = new Set(holidays.map((h) => h.date))
+  const holidayDates = new Set(holidays.map((h) => normalizeHolidayDate(h.date)))
   let count = 0
 
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const dayOfWeek = d.getDay()
-    const dateString = d.toISOString().split('T')[0]
-    if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidayDates.has(dateString)) {
+  for (const iso of dates) {
+    if (!isWeekendIso(iso) && !holidayDates.has(iso)) {
       count++
     }
   }

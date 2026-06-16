@@ -45,6 +45,7 @@ import {
   Edit2,
   RefreshCw,
   Layers,
+  Upload,
 } from 'lucide-react'
 import { formatDate } from '@/utils/formatDate'
 import ExcelJS from 'exceljs'
@@ -58,6 +59,11 @@ import {
 import { timesheetReportFileName } from '@/utils/exportFileName'
 import api from '@/services/api'
 import { getEmployees } from '@/services/employeeService'
+import {
+  downloadProjectImportTemplate,
+  importProjectsReset,
+} from '@/services/projectImportService'
+import { useEmployeeStore } from '@store/employeeStore'
 import { MOCK_EMPLOYEES } from '@/services/mockData'
 import type { Employee } from '@/types'
 import { cn } from '@/utils/cn'
@@ -1377,8 +1383,7 @@ export function ProjectManagement() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [techNodeError, setTechNodeError] = useState<string>('')
   const [employees, setEmployees] = useState<Employee[]>([])
-
-
+  const employeesRevision = useEmployeeStore((s) => s.employeesRevision)
 
   // ── Project Audit Trail Modal States ────────────────────────────
   const [auditTrailModalOpen, setAuditTrailModalOpen] = useState(false)
@@ -1392,6 +1397,11 @@ export function ProjectManagement() {
   const [loadingArchived, setLoadingArchived] = useState(false)
   const [restoringArchivedId, setRestoringArchivedId] = useState<string | null>(null)
   const archivedCount = archivedProjects.length
+
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importingProjects, setImportingProjects] = useState(false)
+  const [importConfirmOpen, setImportConfirmOpen] = useState(false)
+  const importFileInputRef = useRef<HTMLInputElement>(null)
 
   const openAuditTrail = useCallback((id: string, name: string) => {
     setSelectedAuditProjectId(id)
@@ -1496,6 +1506,39 @@ export function ProjectManagement() {
     await Promise.all([fetchProjects(), fetchTimesheetsData(), fetchArchivedProjects()])
   }, [fetchProjects, fetchTimesheetsData, fetchArchivedProjects])
 
+  const handleDownloadProjectTemplate = useCallback(async () => {
+    try {
+      await downloadProjectImportTemplate()
+      toast.success('Template downloaded')
+    } catch {
+      toast.error('Failed to download template')
+    }
+  }, [])
+
+  const handleConfirmProjectImport = useCallback(async () => {
+    if (!importFile) return
+    setImportConfirmOpen(false)
+    setImportingProjects(true)
+    try {
+      const result = await importProjectsReset(importFile)
+      setImportFile(null)
+      if (importFileInputRef.current) importFileInputRef.current.value = ''
+      await refreshAllData()
+      toast.success(result.message)
+      if (result.warnings.length) {
+        toast.warning(`${result.warnings.length} row(s) skipped — check import warnings in console.`)
+        console.info('[Project Import] Warnings:', result.warnings)
+      }
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        (err instanceof Error ? err.message : 'Import failed')
+      toast.error(message)
+    } finally {
+      setImportingProjects(false)
+    }
+  }, [importFile, refreshAllData])
+
   const handleRestoreArchivedProject = useCallback(
     async (id: string, name: string) => {
       if (
@@ -1528,7 +1571,7 @@ export function ProjectManagement() {
     fetchProjects()
     fetchEmployees()
     void fetchArchivedProjects()
-  }, [fetchProjects, fetchEmployees, fetchArchivedProjects])
+  }, [fetchProjects, fetchEmployees, fetchArchivedProjects, employeesRevision])
 
   useEffect(() => {
     if (activeTab === 'archived') {
@@ -2760,6 +2803,67 @@ export function ProjectManagement() {
             <div className="my-3 border-t border-slate-100" />
           )}
 
+          {activeTab === 'projects' ? (
+            <div className="space-y-2.5">
+              <p className="projects-sidebar-title">Bulk Import</p>
+              <p className="text-[11px] leading-relaxed text-slate-600">
+                Upload your Excel to archive all active projects and rebuild from the file. Supports the
+                timesheet matrix (EMP_ID + date columns with JSON task cells) or the assignment template.
+              </p>
+              <button
+                type="button"
+                onClick={() => void handleDownloadProjectTemplate()}
+                className="projects-show-filters-btn inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-[rgba(38,107,28,0.2)] bg-white/50 px-3 py-2 text-sm font-semibold text-slate-800 transition-all hover:bg-white/70"
+              >
+                <FileDown className="h-3.5 w-3.5 shrink-0 text-[var(--emerald-dark)]" />
+                Download Template
+              </button>
+              <input
+                ref={importFileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+              />
+              <button
+                type="button"
+                onClick={() => importFileInputRef.current?.click()}
+                disabled={importingProjects}
+                className="projects-show-filters-btn inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-[rgba(38,107,28,0.2)] bg-white/50 px-3 py-2 text-sm font-semibold text-slate-800 transition-all hover:bg-white/70 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Upload className="h-3.5 w-3.5 shrink-0 text-[var(--emerald-dark)]" />
+                {importFile ? 'Change File' : 'Choose Excel File'}
+              </button>
+              {importFile ? (
+                <p className="truncate px-0.5 text-[11px] font-medium text-[var(--emerald-dark)]" title={importFile.name}>
+                  {importFile.name}
+                </p>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setImportConfirmOpen(true)}
+                disabled={!importFile || importingProjects}
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-[rgba(220,38,38,0.25)] bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 transition-all hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {importingProjects ? (
+                  <>
+                    <Spinner className="h-3.5 w-3.5" />
+                    Importing…
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 shrink-0" />
+                    Import &amp; Reset Projects
+                  </>
+                )}
+              </button>
+            </div>
+          ) : null}
+
+          {activeTab === 'projects' ? (
+            <div className="my-3 border-t border-slate-100" />
+          ) : null}
+
           {/* DYNAMIC FILTERS & SETTINGS SECTION */}
           {activeTab === 'projects' ? (
             <div className="space-y-4">
@@ -3641,6 +3745,16 @@ export function ProjectManagement() {
           onConfirm={handleConfirmArchive}
         />
       )}
+
+      <ConfirmModal
+        isOpen={importConfirmOpen}
+        title="Reset All Projects from Excel?"
+        description={`This will archive every active project (visible under Archived Projects) and recreate projects from "${importFile?.name ?? 'your file'}". For timesheet-matrix files, task history is imported into timesheets. This cannot be undone.`}
+        confirmLabel="Import & Reset"
+        danger
+        onClose={() => setImportConfirmOpen(false)}
+        onConfirm={handleConfirmProjectImport}
+      />
 
       </PageWrapper>
     </div>

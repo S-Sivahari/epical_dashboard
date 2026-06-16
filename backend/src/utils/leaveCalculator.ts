@@ -1,5 +1,6 @@
 import { Holiday } from '../models/Holiday';
 import { LeaveRequest } from '../models/Leave';
+import { eachIsoDateInRange, isWeekendIso } from './dateValidation';
 
 export const LEAVE_ALLOCATIONS = {
   'Casual Leave': 12,
@@ -290,19 +291,20 @@ export function calculateMonthlyLopSummary(
   };
 }
 
+function normalizeHolidayDate(date: string): string {
+  return date.trim().slice(0, 10);
+}
+
 // Calculates total business days excluding weekends and provided holidays
 export function getBusinessDays(from: string, to: string, holidays: Holiday[]): number {
-  const start = new Date(from);
-  const end = new Date(to);
+  const dates = eachIsoDateInRange(from, to);
+  if (dates.length === 0) return 0;
+
+  const holidayDates = new Set(holidays.map((h) => normalizeHolidayDate(h.date)));
   let count = 0;
 
-  const holidayStrings = holidays.map((h) => h.date);
-
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const dayOfWeek = d.getDay();
-    const dateString = d.toISOString().split('T')[0];
-
-    if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidayStrings.includes(dateString)) {
+  for (const iso of dates) {
+    if (!isWeekendIso(iso) && !holidayDates.has(iso)) {
       count++;
     }
   }

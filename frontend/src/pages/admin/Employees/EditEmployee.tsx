@@ -16,6 +16,7 @@ import { useAuthStore } from '@store/authStore'
 import { useUnsavedChangesGuard } from '@hooks/useUnsavedChangesGuard'
 import { useFormSessionDraft } from '@hooks/useFormSessionDraft'
 import { deleteDocument, openEmployeeDocument, uploadDocuments, uploadPhoto } from '@services/uploadService'
+import { ROUTES } from '@constants/routes'
 import { ExternalLink, FileText, Trash2, HelpCircle, X } from 'lucide-react'
 
 // ── Validation ────────────────────────────────────────────────────────────────
@@ -609,7 +610,7 @@ export function EditEmployee() {
 
       clearDraft()
       allowNavigation()
-      navigate('/admin/employees')
+      navigate(ROUTES.EMPLOYEE(id))
     } catch (err: any) {
       const msg =
         err?.response?.data?.error ?? (err instanceof Error ? err.message : 'Update failed')

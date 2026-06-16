@@ -154,7 +154,11 @@ export async function getLeaveById(id: string): Promise<LeaveRequest | null> {
 }
 
 function normalizeDate(date: string) {
-  return new Date(date).toISOString().slice(0, 10);
+  const trimmed = String(date || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) return trimmed;
+  return parsed.toISOString().slice(0, 10);
 }
 
 export async function createLeave(payload: CreateLeavePayload): Promise<LeaveRequest> {
