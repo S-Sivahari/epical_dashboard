@@ -6,7 +6,6 @@ import { useEmployeeStore } from '@store/employeeStore'
 import { useNotificationStore } from '@store/notificationStore'
 import { useTicketStore } from '@store/ticketStore'
 import {
-  aggregateChartData,
   getChartRange,
   type ChartPeriod,
 } from '@/pages/admin/Dashboard/dashboardChartUtils'
@@ -40,6 +39,8 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
   const ticketsInitialized = useTicketStore((s) => s.initialized)
 
   const [timesheets, setTimesheets] = useState<any[]>([])
+  const [chartData, setChartData] = useState<{ name: string; hours: number }[]>([])
+  const [totalPeriodHours, setTotalPeriodHours] = useState(0)
   const [projects, setProjects] = useState<any[]>([])
   const [employeeHours, setEmployeeHours] = useState<any[]>([])
   const [documentRequests, setDocumentRequests] = useState<any[]>([])
@@ -58,8 +59,9 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
       try {
         if (!silent) setLoading(true)
         const { from, to } = getChartRange(chartPeriod)
-        const [tsRes, projRes, empHoursRes, docRes, batchRes, empRes, ticketList] = await Promise.all([
+        const [tsRes, chartRes, projRes, empHoursRes, docRes, batchRes, empRes, ticketList] = await Promise.all([
           api.get('/timesheets', { params: { from, to } }),
+          api.get('/timesheets/project-hours-chart', { params: { from, to, period: chartPeriod } }),
           api.get('/projects', { params: { syncCompletion: true } }),
           api.get('/timesheets/employee-hours', { params: { from, to } }),
           fetchAdminDocumentRequests({ status: 'Requested', page: 1, limit: 50 }).catch(() => ({
@@ -74,6 +76,12 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
         ])
         if (cancelled) return
         setTimesheets(tsRes.data || [])
+        const chartPayload = chartRes.data as {
+          chartData?: { name: string; hours: number }[]
+          totalPeriodHours?: number
+        }
+        setChartData(Array.isArray(chartPayload?.chartData) ? chartPayload.chartData : [])
+        setTotalPeriodHours(Number(chartPayload?.totalPeriodHours ?? 0))
         setProjects(projRes.data || [])
         setEmployeeHours(empHoursRes.data || [])
         const docPayload = docRes as { items?: DocumentRequestRecord[] }
@@ -119,16 +127,6 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
   ) as DocumentRequestRecord[]
   const pendingTickets = tickets.filter((t) => t.status === 'Pending' || t.status === 'In Progress')
   const pendingTicketsCount = tickets.filter((t) => t.status === 'Pending').length
-
-  const chartData = useMemo(
-    () => aggregateChartData(timesheets, chartPeriod),
-    [timesheets, chartPeriod],
-  )
-
-  const totalPeriodHours = useMemo(
-    () => Math.round(chartData.reduce((s, d) => s + d.hours, 0) * 100) / 100,
-    [chartData],
-  )
 
   const attendanceRate = useMemo(() => {
     if (totalEmployees === 0) return 0
