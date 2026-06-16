@@ -22,6 +22,9 @@ notificationRoutes.get('/counts-by-category', notificationController.getUnreadCo
 // Mark all as read (before /:id/read so "read-all" is not captured as an id)
 notificationRoutes.patch('/read-all', notificationController.markAllAsRead);
 
+// Mark notifications as read by type list
+notificationRoutes.patch('/read-by-types', notificationController.markAsReadByTypes);
+
 // Mark as read
 notificationRoutes.patch('/:id/read', notificationController.markAsRead);
 

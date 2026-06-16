@@ -36,7 +36,6 @@ body,
 .admin-portal.cmd-portal .cmd-main:has([data-admin-calendar]),
 .admin-portal.cmd-portal .cmd-main:has([data-metal-routing]),
 .employee-portal.cmd-portal .cmd-main:has([data-employee-calendar]),
-.employee-portal.cmd-portal .cmd-main:has([data-employee-leave]),
 .employee-portal.cmd-portal .cmd-main:has([data-employee-dashboard]),
 .employee-portal.cmd-portal .cmd-main:has([data-employee-project-workspace]),
 .employee-portal.cmd-portal .cmd-main:has([data-employee-project-cell]),
@@ -1895,23 +1894,25 @@ body,
   overflow: visible;
 }
 
-/* Long pages (timesheet, help, etc.) — grow with content; cmd-main scrolls */
-.employee-portal [data-employee-page]:has([data-page-scrollable]) {
+/* Long pages (timesheet, help, leave, etc.) — grow with content; cmd-main scrolls */
+.employee-portal [data-employee-page]:has([data-page-scrollable]),
+.employee-portal [data-employee-page].admin-dashboard-view:has([data-page-scrollable]) {
   flex: 1 1 auto;
   max-height: none;
+  height: auto;
   overflow: visible;
 }
 
-.employee-portal [data-employee-page]:has([data-page-scrollable]) > .emp-portal-page__content {
+.employee-portal [data-employee-page]:has([data-page-scrollable]) > .emp-portal-page__content,
+.employee-portal [data-employee-page].admin-dashboard-view:has([data-page-scrollable]) > .emp-portal-page__content {
   flex: 1 1 auto;
   min-height: auto;
   overflow: visible;
 }
 
-/* Employee dashboard, calendar, leave — viewport-fit with internal panel scroll */
+/* Employee dashboard, calendar, timesheet — viewport-fit with internal panel scroll */
 .employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-dashboard]),
 .employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-calendar]),
-.employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-leave]),
 .employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-timesheet]) {
   flex: 1 1 0;
   max-height: var(--viewport-page-h);
@@ -1920,7 +1921,6 @@ body,
 
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-dashboard]),
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]),
-.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-leave]),
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-timesheet]) {
   display: flex;
   flex: 1 1 0;

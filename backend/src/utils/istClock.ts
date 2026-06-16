@@ -1,6 +1,6 @@
 import { env } from '../config/env';
 
-/** Fixed offset for Asia/Kolkata (no DST). */
+/** Fixed offset for Asia/Kolkata (no DST). Must match env.schedulerTimezone when set to IST. */
 const SCHEDULER_TZ_OFFSET = '+05:30';
 
 export function getSchedulerDateKey(date: Date): string {
@@ -19,6 +19,15 @@ export function getSchedulerHourMinute(date: Date): { hours: number; minutes: nu
   return { hours: hour === 24 ? 0 : hour, minutes: minute };
 }
 
+/** Parse HH:mm configured in admin auto-checkout settings (interpreted in scheduler timezone). */
+export function parseSchedulerClockTime(timeStr: string): { hours: number; minutes: number } {
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return { hours: 0, minutes: 0 };
+  }
+  return { hours, minutes };
+}
+
 export function buildClockTimeOnDate(dateKey: string, hours: number, minutes: number): Date {
   return new Date(
     `${dateKey}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00${SCHEDULER_TZ_OFFSET}`,
@@ -35,8 +44,31 @@ export function buildNextSchedulerClockTime(from: Date, hours: number, minutes: 
   return buildClockTimeOnDate(nextKey, hours, minutes);
 }
 
+/** First scheduled auto-checkout instant after check-in (always IST wall clock, never UTC midnight). */
+export function resolveSchedulerAutoCheckoutDeadline(
+  checkInTime: Date,
+  autoCheckoutTime = '00:00',
+): Date {
+  const { hours, minutes } = parseSchedulerClockTime(autoCheckoutTime);
+  return buildNextSchedulerClockTime(checkInTime, hours, minutes);
+}
+
 export function isSchedulerClockTimeReached(from: Date, hours: number, minutes: number): boolean {
   const dateKey = getSchedulerDateKey(from);
   const cutoff = buildClockTimeOnDate(dateKey, hours, minutes);
   return from.getTime() >= cutoff.getTime();
+}
+
+/** Format an instant for logs/UI in scheduler timezone. */
+export function formatSchedulerDateTime(date: Date): string {
+  return new Intl.DateTimeFormat('en-IN', {
+    timeZone: env.schedulerTimezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(date);
 }

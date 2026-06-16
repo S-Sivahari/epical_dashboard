@@ -1,6 +1,11 @@
 import { Collection } from 'mongodb';
 import { getDB } from '../config/db';
-import { findEmployeeByLoginEmail, findUserForEmployee, resolveEmployeeForAuthUser } from '../utils/employeeAuth';
+import {
+  findEmployeeByLoginEmail,
+  findUserForEmployee,
+  getEmployeeLoginEmails,
+  resolveEmployeeForAuthUser,
+} from '../utils/employeeAuth';
 import { LeaveRequest, CreateLeavePayload } from '../models/Leave';
 import { Holiday } from '../models/Holiday';
 import {
@@ -55,6 +60,12 @@ export async function resolveLeaveEmployeeIds(employeeId: string): Promise<strin
   if (emp) {
     const linkedUser = await findUserForEmployee(emp as any);
     if (linkedUser?.id) ids.add(String(linkedUser.id));
+
+    const userCol = getDB().collection('users');
+    for (const email of getEmployeeLoginEmails(emp as { email?: string; personalEmail?: string })) {
+      const byEmail = await userCol.findOne({ email });
+      if (byEmail?.id) ids.add(String(byEmail.id));
+    }
   }
 
   const userCol = getDB().collection('users');
@@ -131,6 +142,7 @@ function leaveBalanceOptions(
     compensationLeaveCredits,
     employeeAllocations: employeeAllocationOverrides(employee),
     refDate,
+    earnedLeaveMonthEndAccrual: employee?.earnedLeaveMonthEndAccrual === true,
   };
 }
 
@@ -263,29 +275,7 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
   }
   await col.insertOne(leave);
 
-  if (lopDays > 0) {
-    try {
-      await notificationService.createNotification({
-        recipientId: payload.employeeId,
-        recipientType: 'Employee',
-        type: 'LeaveLop',
-        title: 'LOP days recorded',
-        message:
-          payload.type === LOP_LEAVE_TYPE
-            ? `Your LOP leave request (${payload.from} to ${payload.to}) will add ${lopDays} LOP day${lopDays === 1 ? '' : 's'} once approved.`
-            : `Your casual leave request includes ${lopDays} LOP day${lopDays === 1 ? '' : 's'} because it was applied for the same day or exceeds your casual balance.`,
-        relatedData: {
-          leaveId: id,
-          employeeId: payload.employeeId,
-          lopDays,
-        },
-      });
-    } catch (error) {
-      console.error('Error creating LOP notification:', error);
-    }
-  }
-
-  // Create notification for manager/admin
+  // Notify admins only — employees are notified when leave is approved/rejected/cancelled.
   try {
     // Notify all admins
     const userCollection = getDB().collection('users');
@@ -535,6 +525,9 @@ export async function updateLeaveStatus(
     }
   }
 
+  const trimmedRejectionReason =
+    status === 'Rejected' ? rejectionReason?.trim() : undefined;
+
   const updateDoc: any = {
     status,
     updatedAt: new Date(),
@@ -603,8 +596,8 @@ export async function updateLeaveStatus(
     if (actionBy) updateDoc.approvedBy = actionBy;
   }
 
-  if (status === 'Rejected' && rejectionReason) {
-    updateDoc.rejectionReason = rejectionReason;
+  if (status === 'Rejected' && trimmedRejectionReason) {
+    updateDoc.rejectionReason = trimmedRejectionReason;
     updateDoc.rejectedAt = new Date();
     if (actionBy) updateDoc.rejectedBy = actionBy;
   }
@@ -626,7 +619,9 @@ export async function updateLeaveStatus(
       const message =
         status === 'Approved'
           ? `Your ${result.type} leave request from ${result.from} to ${result.to} has been approved.`
-          : `Your ${result.type} leave request from ${result.from} to ${result.to} has been rejected.`;
+          : trimmedRejectionReason
+            ? `Your ${result.type} leave request from ${result.from} to ${result.to} has been rejected. Reason: ${trimmedRejectionReason}`
+            : `Your ${result.type} leave request from ${result.from} to ${result.to} has been rejected.`;
 
       await notificationService.createNotification({
         recipientId: result.employeeId,
@@ -638,6 +633,7 @@ export async function updateLeaveStatus(
           leaveId: id,
           employeeId: result.employeeId,
           employeeName: result.employeeName,
+          ...(trimmedRejectionReason ? { rejectionReason: trimmedRejectionReason } : {}),
         },
       });
     } catch (error) {

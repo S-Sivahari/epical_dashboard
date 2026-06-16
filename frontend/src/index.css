@@ -1534,8 +1534,8 @@
   -webkit-overflow-scrolling: touch;
 }
 
-/* Employee portal pages — default grow with content; dashboard/calendar/leave are viewport-fit */
-.employee-portal [data-employee-page].admin-dashboard-view:not(:has([data-employee-dashboard])):not(:has([data-employee-calendar])):not(:has([data-employee-leave])):not(:has([data-employee-project-workspace])):not(:has([data-employee-project-cell])) {
+/* Employee portal pages — default grow with content; dashboard/calendar/timesheet are viewport-fit */
+.employee-portal [data-employee-page].admin-dashboard-view:not(:has([data-employee-dashboard])):not(:has([data-employee-calendar])):not(:has([data-employee-timesheet])):not(:has([data-employee-project-workspace])):not(:has([data-employee-project-cell])) {
   flex: 1 1 auto;
   height: auto;
   max-height: none;
@@ -2872,6 +2872,13 @@
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
 }
 
+@media (min-width: 1024px) {
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack {
+    display: grid;
+    grid-template-rows: minmax(0, 2fr) minmax(0, 3fr);
+  }
+}
+
 .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack-section.dashboard-panel {
   border: none;
   border-radius: 0;
@@ -2881,11 +2888,28 @@
 
 .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack-section.dashboard-center-chart {
   flex: 0 1 42%;
+  min-height: 0;
   border-bottom: 1px solid var(--dash-border-neutral, rgba(148, 163, 184, 0.35));
+  overflow: hidden;
+}
+
+.admin-dashboard-view[data-admin-dashboard] .dashboard-center-chart.dashboard-panel {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-dashboard-view[data-admin-dashboard] .dashboard-project-chart-body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  padding-bottom: 0.75rem;
 }
 
 .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack-section.dashboard-center-table {
   flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* Solid primary header bars â€” center & right major cards */
@@ -2896,6 +2920,11 @@
   border-bottom: none;
   background: var(--dash-forest-header);
   padding: 0.75rem var(--dashboard-panel-pad-x, 1.125rem);
+}
+
+.admin-dashboard-view[data-admin-dashboard] .dashboard-center-chart .dashboard-panel-header--primary {
+  flex-wrap: wrap;
+  row-gap: 0.5rem;
 }
 
 .admin-dashboard-view[data-admin-dashboard] .dashboard-panel-header--primary .dashboard-panel-title {
@@ -5980,16 +6009,14 @@
   overflow: hidden;
 }
 
-.employee-portal main:has([data-employee-calendar]),
-.employee-portal main:has([data-employee-leave]) {
+.employee-portal main:has([data-employee-calendar]) {
   overflow: hidden;
   flex: 1 1 0;
   min-height: 0;
   max-height: calc(100dvh - var(--admin-cmd-bar-h) - var(--admin-top-nav-h));
 }
 
-.employee-portal main:has([data-employee-calendar]) > .relative,
-.employee-portal main:has([data-employee-leave]) > .relative {
+.employee-portal main:has([data-employee-calendar]) > .relative {
   display: flex;
   flex: 1 1 0;
   flex-direction: column;

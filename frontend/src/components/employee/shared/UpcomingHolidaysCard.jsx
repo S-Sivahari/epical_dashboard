@@ -2,7 +2,6 @@ import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, CalendarDays } from 'lucide-react'
 import {
-  addDays,
   differenceInCalendarDays,
   format,
   isToday,
@@ -12,8 +11,7 @@ import {
 import { cn } from '@pages/employee/lib/utils'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 import { Badge } from '@components/employee/ui/badge'
-
-export const HOLIDAY_WINDOW_DAYS = 30
+import { filterUpcomingHolidays, HOLIDAY_WINDOW_DAYS } from '@components/employee/shared/upcomingHolidays'
 
 const TYPE_STYLES = {
   National: { accent: 'border-[#a0c4ab]/60 bg-[#dff0e4]/80', dot: 'bg-[#276749]', badge: 'success', label: 'National' },
@@ -28,19 +26,6 @@ function parseHolidayDate(dateStr) {
   if (!dateStr) return null
   const d = startOfDay(new Date(dateStr))
   return Number.isNaN(d.getTime()) ? null : d
-}
-
-export function filterUpcomingHolidays(holidays, windowDays = HOLIDAY_WINDOW_DAYS) {
-  const today = startOfDay(new Date())
-  const end = addDays(today, windowDays)
-
-  return (Array.isArray(holidays) ? holidays : [])
-    .filter((h) => {
-      if (h.skipped) return false
-      const d = parseHolidayDate(h.date)
-      return d && d >= today && d <= end
-    })
-    .sort((a, b) => parseHolidayDate(a.date) - parseHolidayDate(b.date))
 }
 
 function getCountdownLabel(date) {

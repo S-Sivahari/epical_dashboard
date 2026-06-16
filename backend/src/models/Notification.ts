@@ -56,6 +56,7 @@ export interface Notification {
     to?: string;
     days?: number;
     lopDays?: number;
+    rejectionReason?: string;
     ticketId?: string;
     ticketTitle?: string;
     ticketStatus?: string;
@@ -106,6 +107,7 @@ export interface CreateNotificationPayload {
     to?: string;
     days?: number;
     lopDays?: number;
+    rejectionReason?: string;
     ticketId?: string;
     ticketTitle?: string;
     ticketStatus?: string;

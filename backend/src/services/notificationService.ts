@@ -168,6 +168,12 @@ export async function getUnreadCount(recipientId: string): Promise<number> {
   return await col.countDocuments({ recipientId, isRead: false });
 }
 
+function notificationCategoryForType(type: Notification['type']): 'leaves' | 'documents' | 'other' {
+  if (type.startsWith('Leave')) return 'leaves';
+  if (type.startsWith('Document') || type.startsWith('Payslip')) return 'documents';
+  return 'other';
+}
+
 export async function getUnreadCountsByCategory(recipientId: string): Promise<{
   leaves: number;
   documents: number;
@@ -175,31 +181,42 @@ export async function getUnreadCountsByCategory(recipientId: string): Promise<{
   total: number;
 }> {
   const col = getNotificationCol();
-  
+
   const unreadNotifications = await col
     .find({ recipientId, isRead: false })
     .toArray() as Notification[];
-  
+
   let leaves = 0;
   let documents = 0;
   let other = 0;
-  
+
   unreadNotifications.forEach((notif) => {
-    if (notif.type.startsWith('Leave')) {
-      leaves++;
-    } else if (notif.type.startsWith('Document')) {
-      documents++;
-    } else {
-      other++;
-    }
+    const category = notificationCategoryForType(notif.type);
+    if (category === 'leaves') leaves++;
+    else if (category === 'documents') documents++;
+    else other++;
   });
-  
+
   return {
     leaves,
     documents,
     other,
     total: unreadNotifications.length,
   };
+}
+
+export async function markAsReadByTypes(
+  recipientId: string,
+  types: Notification['type'][],
+): Promise<number> {
+  if (!types.length) return 0;
+
+  const col = getNotificationCol();
+  const result = await col.updateMany(
+    { recipientId, isRead: false, type: { $in: types } },
+    { $set: { isRead: true, updatedAt: new Date() } },
+  );
+  return result.modifiedCount;
 }
 
 async function loadPayslipPdfAttachment(

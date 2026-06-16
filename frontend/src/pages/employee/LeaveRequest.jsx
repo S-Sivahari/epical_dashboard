@@ -16,6 +16,8 @@ import { LeaveBalancePanel } from '@components/employee/leave/LeaveBalancePanel'
 import { LeaveApplyForm } from '@components/employee/leave/LeaveApplyForm'
 import { LeavePendingPanel } from '@components/employee/leave/LeavePendingPanel'
 import { LeaveHistoryPanel } from '@components/employee/leave/LeaveHistoryPanel'
+import { Badge } from '@components/employee/ui/badge'
+import { statusVariant } from '@components/employee/ui/badge-utils'
 import {
   formatAppliedDate,
   formatLeaveDayCount,
@@ -25,7 +27,7 @@ import { useToast } from '@components/employee/shared/ToastProvider'
 import { useAuthStore } from '@store/authStore'
 
 import * as leaveService from '@services/leaveService'
-import { listCompensation } from '@services/compensationService'
+import * as employeeService from '@services/employeeService'
 import {
   getLeaveDateBounds,
   ISO_DATE_REGEX,
@@ -112,42 +114,43 @@ const historyColumns = [
             {row.reason}
           </div>
         ) : null}
-        {row.status === 'Rejected' && row.rejectionReason ? (
-          <div className="emp-leave-history-note mt-1.5 max-w-[200px] rounded-md border border-border bg-slate-50 px-2 py-1.5 text-[11px] leading-snug">
-            {row.rejectionReason}
+      </div>
+    ),
+  },
+  {
+    key: 'status',
+    label: 'Status',
+    render: (row) => (
+      <div className="min-w-[8rem]">
+        <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
+        {row.status === 'Rejected' ? (
+          <div className="emp-leave-history-note mt-1.5 max-w-[240px] rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-[11px] leading-snug text-red-900">
+            <span className="font-semibold">Reason: </span>
+            {row.rejectionReason?.trim() || 'No reason provided'}
           </div>
         ) : null}
         {row.status === 'Cancelled' && row.cancelReason ? (
-          <div className="emp-leave-history-note mt-1.5 max-w-[200px] rounded-md border border-border bg-slate-50 px-2 py-1.5 text-[11px] leading-snug">
+          <div className="emp-leave-history-note mt-1.5 max-w-[240px] rounded-md border border-border bg-slate-50 px-2 py-1.5 text-[11px] leading-snug">
+            <span className="font-semibold">Note: </span>
             {row.cancelReason}
           </div>
         ) : null}
       </div>
     ),
   },
-  { key: 'status', label: 'Status' },
 ]
 
 export default function LeaveRequest() {
   const { requests, fetchRequests, addRequest } = useLeaveStore()
   const { toast } = useToast()
   const user = useAuthStore((s) => s.user)
+  const [employeeProfile, setEmployeeProfile] = useState(null)
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('approved')
   const [historyFromDate, setHistoryFromDate] = useState('')
   const [historyToDate, setHistoryToDate] = useState('')
   const [leaveBalances, setLeaveBalances] = useState(() => formatLeaveBalances({}, { includeLop: true }))
   const [holidays, setHolidays] = useState([])
-  const [compensationEntries, setCompensationEntries] = useState([])
-
-  const loadCompensation = async () => {
-    try {
-      const data = await listCompensation()
-      setCompensationEntries(data)
-    } catch {
-      console.error('Failed to load compensation entries')
-    }
-  }
 
   const leaveFormDefaults = {
     leaveDuration: 'Full Day',
@@ -174,6 +177,29 @@ export default function LeaveRequest() {
   const selectedLeaveType = watch('type')
 
   const monthPrefix = currentMonthPrefix()
+
+  const leaveOwnerIds = useMemo(() => {
+    const ids = new Set()
+    if (user?.id) ids.add(String(user.id))
+    if (employeeProfile?.id) ids.add(String(employeeProfile.id))
+    if (employeeProfile?.employeeId) {
+      ids.add(String(employeeProfile.employeeId))
+      ids.add(String(employeeProfile.employeeId).toUpperCase())
+    }
+    return ids
+  }, [user?.id, employeeProfile?.id, employeeProfile?.employeeId])
+
+  const resolvedEmployeeId = employeeProfile?.id || user?.id || ''
+  const resolvedEmployeeName = useMemo(() => {
+    if (employeeProfile) {
+      const name = [employeeProfile.firstName, employeeProfile.middleName, employeeProfile.lastName]
+        .filter(Boolean)
+        .join(' ')
+        .trim()
+      if (name) return name
+    }
+    return user?.name || 'Unknown'
+  }, [employeeProfile, user?.name])
 
   const pendingSickDays = useMemo(
     () =>
@@ -318,7 +344,7 @@ export default function LeaveRequest() {
     const selectedDates = getDateRange(selectedFrom, selectedTo)
     const selectedEntries = selectedDates.map((date) => ({ date, session: leaveDuration === 'Half Day' ? halfDaySession : 'Full Day' }))
     const existing = requests.filter(
-      (r) => r.employeeId === user.id && ['Approved', 'Pending'].includes(r.status)
+      (r) => leaveOwnerIds.has(String(r.employeeId)) && ['Approved', 'Pending'].includes(r.status)
     )
 
     for (const request of existing) {
@@ -352,6 +378,10 @@ export default function LeaveRequest() {
   useEffect(() => {
     // Initial fetch
     fetchRequests()
+
+    employeeService.getMyEmployee()
+      .then((profile) => setEmployeeProfile(profile))
+      .catch(() => {})
     
     // Fetch Balances
     leaveService.getBalances().then((data) => {
@@ -366,8 +396,6 @@ export default function LeaveRequest() {
       setHolidays(formatted)
     }).catch(console.error)
 
-    void loadCompensation()
-
     // Poll for updates every 5 seconds WITHOUT loading indicator
     const leaveInterval = setInterval(() => {
       fetchRequests()
@@ -379,14 +407,9 @@ export default function LeaveRequest() {
       }).catch(console.error)
     }, 5000)
 
-    const compensationInterval = setInterval(() => {
-      void loadCompensation()
-    }, 30000)
-
     return () => {
       clearInterval(leaveInterval)
       clearInterval(balanceInterval)
-      clearInterval(compensationInterval)
     }
   }, [fetchRequests])
 
@@ -506,19 +529,6 @@ export default function LeaveRequest() {
     }
   }, [fromDate, toDate, holidays])
 
-  const filtered = requests.filter((r) => {
-    const matchSearch =
-      !search ||
-      r.type.toLowerCase().includes(search.toLowerCase()) ||
-      (r.reason && r.reason.toLowerCase().includes(search.toLowerCase()))
-    const matchStatus =
-      statusFilter === 'all' ||
-      r.status.toLowerCase() === statusFilter ||
-      (statusFilter === 'approved' && r.status === 'Approved') ||
-      (statusFilter === 'cancelled' && r.status === 'Cancelled')
-    return matchSearch && matchStatus
-  })
-
   const onError = (errors) => {
     console.log('Leave request validation failed', errors)
     toast({ title: 'Validation error', description: 'Please complete all required fields before submitting.' })
@@ -585,25 +595,14 @@ export default function LeaveRequest() {
     [cancellingId],
   )
 
-  const compensationHistoryRows = useMemo(
-    () =>
-      compensationEntries.map((entry) => ({
-        id: `comp-${entry.id}`,
-        recordKind: 'compensation',
-        type: 'Compensation Leave',
-        leaveDuration: '—',
-        from: entry.appliedDate,
-        to: entry.appliedDate,
-        days: `+${entry.days}`,
-        createdAt: entry.appliedDate,
-        status: 'Credited',
-        reason: entry.reason,
-        createdBy: entry.createdBy,
-      })),
-    [compensationEntries],
-  )
-
   const historyLeaves = useMemo(() => {
+    const statusMap = {
+      approved: 'Approved',
+      rejected: 'Rejected',
+      cancelled: 'Cancelled',
+    }
+    const selectedStatus = statusMap[statusFilter]
+
     const matchesHistoryDateRange = (row) => {
       if (!historyFromDate && !historyToDate) return true
       const rowDate = normalizeDate(row.from) || normalizeDate(row.createdAt)
@@ -613,33 +612,29 @@ export default function LeaveRequest() {
       return true
     }
 
-    const leaveRows = filtered
-      .filter((r) => r.status !== 'Pending')
-      .map((r) => ({ ...r, recordKind: 'leave' }))
-      .filter(matchesHistoryDateRange)
-
     const term = search.trim().toLowerCase()
-    const compRows = compensationHistoryRows
-      .filter((entry) => {
-        const matchSearch =
-          !term ||
-          entry.type.toLowerCase().includes(term) ||
-          (entry.reason && entry.reason.toLowerCase().includes(term))
-        const matchStatus = statusFilter === 'all' || statusFilter === 'credited'
-        return matchSearch && matchStatus
+
+    return requests
+      .filter((r) => r.status === selectedStatus)
+      .filter((r) => {
+        if (!term) return true
+        return (
+          (r.reason && r.reason.toLowerCase().includes(term)) ||
+          (r.employeeName && r.employeeName.toLowerCase().includes(term))
+        )
       })
       .filter(matchesHistoryDateRange)
-
-    return [...leaveRows, ...compRows].sort((a, b) => {
-      const da = new Date(a.createdAt || a.from || 0).getTime()
-      const db = new Date(b.createdAt || b.from || 0).getTime()
-      return db - da
-    })
-  }, [filtered, compensationHistoryRows, search, statusFilter, historyFromDate, historyToDate])
+      .map((r) => ({ ...r, recordKind: 'leave' }))
+      .sort((a, b) => {
+        const da = new Date(a.createdAt || a.from || 0).getTime()
+        const db = new Date(b.createdAt || b.from || 0).getTime()
+        return db - da
+      })
+  }, [requests, search, statusFilter, historyFromDate, historyToDate])
 
   const onSubmit = async (data) => {
     console.log('Leave request submitted', data)
-    if (!user) {
+    if (!user || !resolvedEmployeeId) {
       toast({ title: 'Error', description: 'User not authenticated' })
       return
     }
@@ -671,8 +666,8 @@ export default function LeaveRequest() {
 
     try {
       await addRequest({
-        employeeId: user.id,
-        employeeName: user.name,
+        employeeId: resolvedEmployeeId,
+        employeeName: resolvedEmployeeName,
         type: data.type,
         leaveDuration: data.leaveDuration,
         halfDaySession: data.leaveDuration === 'Half Day' ? data.halfDaySession : undefined,
@@ -694,10 +689,11 @@ export default function LeaveRequest() {
 
   return (
     <div
-      className="emp-leave-page flex min-h-0 flex-1 flex-col overflow-hidden"
+      className="emp-leave-page flex w-full flex-col pb-8"
       data-employee-leave
+      data-page-scrollable
     >
-      <div className="emp-leave-top flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="emp-leave-top flex flex-col">
         <div className="emp-leave-layout">
           <div className="emp-leave-column emp-leave-column--left">
             <LeaveApplyForm

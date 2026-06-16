@@ -911,21 +911,29 @@
   overflow-y: auto;
 }
 
-/* ── Compensation Management tab (single full-width column) ── */
+/* ── Compensation Management tab (form | entries, two columns) ── */
 .admin-leaves-view .admin-comp-layout {
-  display: flex;
   flex: 1;
-  flex-direction: column;
   min-height: 0;
   height: 100%;
   width: 100%;
   font-size: 0.9375rem;
 }
 
-.admin-leaves-view .admin-comp-main-panel {
-  flex: 1;
+.admin-leaves-view .admin-leaves-compensation-wrap .admin-comp-layout.admin-leaves-two-col {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 1024px) {
+  .admin-leaves-view .admin-leaves-compensation-wrap .admin-comp-layout.admin-leaves-two-col {
+    grid-template-columns: minmax(16rem, 0.95fr) minmax(0, 1.55fr);
+  }
+}
+
+.admin-leaves-view .admin-comp-form-panel,
+.admin-leaves-view .admin-comp-entries-panel {
   min-height: 0;
-  width: 100%;
+  height: 100%;
 }
 
 .admin-leaves-view .admin-comp-section-head {
@@ -979,18 +987,12 @@
   background-color: #991b1b !important;
 }
 
-.admin-leaves-view .admin-comp-form-row {
-  grid-template-columns: minmax(6.5rem, 1fr) minmax(0, 2fr) auto;
+.admin-leaves-view .admin-comp-form-panel .admin-comp-form-row {
+  grid-template-columns: 1fr;
 }
 
-@media (max-width: 639px) {
-  .admin-leaves-view .admin-comp-form-row {
-    grid-template-columns: 1fr;
-  }
-
-  .admin-leaves-view .admin-comp-form-actions {
-    justify-content: flex-end;
-  }
+.admin-leaves-view .admin-comp-form-panel .admin-comp-form-actions {
+  justify-content: flex-start;
 }
 
 .admin-leaves-view .admin-comp-entries-scroll {

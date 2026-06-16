@@ -35,8 +35,9 @@ import { AuthRequest } from '../middleware/authMiddleware'
 import {
   sendPayslipToEmployee,
   getPayslipsForAuthUser,
-  getPayslipByIdForEmployee,
   getAllSentPayslips,
+  resendPayslipEmailToEmployee,
+  toEmployeePayslipSummary,
 } from '../services/employeePayslipService'
 import { getPayrollBatch as fetchBatch } from '../services/payrollBatchService'
 import { createNotification } from '../services/notificationService'
@@ -74,8 +75,8 @@ async function notifyAdminsAndEmployee(params: {
   const employeeType = regenerated ? 'PayslipRegenerated' : 'PayslipSent'
   const employeeTitle = regenerated ? 'Payslip Regenerated' : 'Payslip Received'
   const employeeMessage = regenerated
-    ? `Your payslip for ${payMonth} has been regenerated with updated payroll data. Download the latest version from the Payslips section.`
-    : `Your payslip for ${payMonth} has been published. You can download it from the Payslips section.`
+    ? `Your payslip for ${payMonth} has been regenerated. Check your email for the updated PDF, or use Send to email on the Payslips page if you need another copy.`
+    : `Your payslip for ${payMonth} has been published. Check your email inbox for the PDF. You can request another copy from the Payslips section if needed.`
 
   await createNotification({
     recipientId: employeeDbId,
@@ -521,41 +522,38 @@ export const payslipController = {
         return
       }
       const payslips = await getPayslipsForAuthUser(req.user.id, req.user.email)
-      res.json(payslips)
+      res.json(payslips.map(toEmployeePayslipSummary))
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to load payslips'
       res.status(500).json({ error: message })
     }
   },
 
-  /** Employee: download a payslip PDF from dashboard */
-  downloadMyPayslip: async (req: AuthRequest, res: Response): Promise<void> => {
+  /** Employee: payslips are delivered by email only — no in-app download. */
+  downloadMyPayslip: async (_req: AuthRequest, res: Response): Promise<void> => {
+    res.status(403).json({
+      error:
+        'Payslips are delivered by email only. Check your inbox or use Send to email on the Payslips page.',
+    })
+  },
+
+  /** Employee: resend payslip PDF to registered email */
+  resendMyPayslipEmail: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       if (!req.user?.email) {
         res.status(401).json({ error: 'Unauthorized' })
         return
       }
-      const record = await getPayslipByIdForEmployee(
+      const result = await resendPayslipEmailToEmployee(
         req.params.payslipId as string,
         String(req.user.id),
         String(req.user.email),
       )
-      if (!record) {
-        res.status(404).json({ error: 'Payslip not found' })
-        return
-      }
-      const filePath = await ensurePayslipPdfExists(record.batchId, record.fileName)
-      const downloadName = formatPayslipDownloadFileName(
-        record.employeeName,
-        record.payMonth,
-        record.payPeriodKey,
-      )
-      res.setHeader('Content-Type', 'application/pdf')
-      res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`)
-      res.sendFile(filePath)
+      res.json({ message: 'Payslip sent to your email', sentTo: result.sentTo })
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Failed to download payslip'
-      res.status(500).json({ error: message })
+      const message = error instanceof Error ? error.message : 'Failed to send payslip email'
+      const status = message === 'Payslip not found' ? 404 : 500
+      res.status(status).json({ error: message })
     }
   },
 

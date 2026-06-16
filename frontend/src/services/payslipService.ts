@@ -299,31 +299,13 @@ export async function getMyPayslips(): Promise<EmployeeDashboardPayslip[]> {
   return response.data
 }
 
-function myPayslipDownloadUrl(payslipId: string): string {
-  return `${base}/my-payslips/${encodeURIComponent(payslipId)}/download`
-}
-
-/** Blob object URL for in-app preview (caller should revoke when done). */
-export async function fetchMyPayslipPdfUrl(payslipId: string): Promise<string> {
-  const blob = await fetchPdfBlob(myPayslipDownloadUrl(payslipId))
-  return window.URL.createObjectURL(blob)
-}
-
-export async function openMyPayslipPdf(payslipId: string): Promise<void> {
-  const url = await fetchMyPayslipPdfUrl(payslipId)
-  window.open(url, '_blank', 'noopener,noreferrer')
-}
-
-export async function downloadMyPayslipPdf(payslipId: string, downloadName: string): Promise<void> {
-  const blob = await fetchPdfBlob(myPayslipDownloadUrl(payslipId))
-  const url = window.URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.setAttribute('download', downloadName)
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  window.URL.revokeObjectURL(url)
+export async function resendMyPayslipEmail(
+  payslipId: string,
+): Promise<{ message: string; sentTo: string }> {
+  const response = await api.post<{ message: string; sentTo: string }>(
+    `${base}/my-payslips/${encodeURIComponent(payslipId)}/resend-email`,
+  )
+  return response.data
 }
 
 export async function deletePayrollBatch(batchId: string): Promise<void> {

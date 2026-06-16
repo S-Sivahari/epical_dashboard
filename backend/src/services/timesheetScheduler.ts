@@ -2,6 +2,7 @@ import cron, { type ScheduledTask } from 'node-cron';
 import { getAutoCheckoutSettings } from './autoCheckoutService';
 import { processReminders, processAutoCheckouts } from './autoCheckoutService';
 import { env } from '../config/env';
+import { formatSchedulerDateTime } from '../utils/istClock';
 
 let reminderJob: ScheduledTask | null = null;
 let autoCheckoutJob: ScheduledTask | null = null;
@@ -71,8 +72,10 @@ async function scheduleJobs() {
   autoCheckoutJob = cron.schedule(
     autoCheckoutCron,
     async () => {
-      const tickAt = new Date().toISOString();
-      console.log(`[Scheduler] Auto-checkout cron tick at ${tickAt}`);
+      const tickAt = new Date();
+      console.log(
+        `[Scheduler] Auto-checkout cron tick at ${tickAt.toISOString()} (${formatSchedulerDateTime(tickAt)} ${env.schedulerTimezone})`,
+      );
       try {
         await processAutoCheckouts();
       } catch (error) {

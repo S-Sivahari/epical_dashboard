@@ -134,6 +134,8 @@ export async function getEmployeeDashboardBundle(userId: string, userEmail?: str
   const balanceOptions = {
     compensationLeaveCredits: compCredits,
     employeeAllocations: (employeeRecord as { leaveAllocations?: Record<string, number> }).leaveAllocations,
+    earnedLeaveMonthEndAccrual:
+      (employeeRecord as { earnedLeaveMonthEndAccrual?: boolean }).earnedLeaveMonthEndAccrual === true,
   };
   const balances = calculateBalances(leaves, employeeRecord.joinedAt as string | undefined, balanceOptions);
   const lop = calculateMonthlyLopSummary(

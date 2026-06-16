@@ -4,7 +4,7 @@ import { useLeaves } from '@hooks/useLeaves'
 import {
   filterUpcomingHolidays,
   HOLIDAY_WINDOW_DAYS,
-} from '@components/employee/shared/UpcomingHolidaysCard'
+} from '@components/employee/shared/upcomingHolidays'
 import { cn } from '@/utils/cn'
 import { formatDate } from '@/utils/formatDate'
 import type { OutTodayEntry } from './dashboardLeftPanelsData'

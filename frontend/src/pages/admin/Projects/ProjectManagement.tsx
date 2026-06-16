@@ -13,11 +13,6 @@ import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { ProjectAuditTrailModal } from '@components/modals/ProjectAuditTrailModal'
 import { Spinner } from '@components/ui/Spinner'
 import { toast } from 'sonner'
-import {
-  countWords,
-  enforceMaxWords,
-  MAX_PROJECT_DESCRIPTION_WORDS,
-} from '@/lib/textLimits'
 import { stringToHue, stringToHueColor } from '@/utils/stringColor'
 import { Analytics } from '@pages/admin/Analytics/Analytics'
 import { ProjectAnalysisLaunchButton } from '@components/admin/ProjectAnalysisLaunchButton'
@@ -750,7 +745,7 @@ function CheckboxList({
       <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-450">
         {label}
       </label>
-      <div className="rounded-xl border border-border bg-[var(--bg-input)] p-2 max-h-32 overflow-y-auto space-y-0.5">
+      <div className="rounded-xl border border-border bg-[var(--bg-input)] p-2 max-h-24 overflow-y-auto space-y-0.5">
         {items.map((item) => (
           <label
             key={item}
@@ -1677,15 +1672,8 @@ export function ProjectManagement() {
         toast.error('Please specify Project Name and Client.')
         return
       }
-      const descriptionWords = countWords(form.description)
       if (!form.description.trim()) {
         toast.error('Project description is required.')
-        return
-      }
-      if (descriptionWords > MAX_PROJECT_DESCRIPTION_WORDS) {
-        toast.error(
-          `Project description must be ${MAX_PROJECT_DESCRIPTION_WORDS} words or fewer (currently ${descriptionWords}).`
-        )
         return
       }
 
@@ -3427,9 +3415,10 @@ export function ProjectManagement() {
         title={modalMode === 'create' ? 'Create New Project' : 'Edit Project Details'}
         onClose={() => setModalOpen(false)}
         size="lg"
+        className="max-h-none overflow-y-visible p-5 [&>div:first-child]:mb-3"
       >
-        <form onSubmit={handleSaveProject} className="space-y-4 pt-1">
-          <div className="grid gap-4 sm:grid-cols-2">
+        <form onSubmit={handleSaveProject} className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <Input
               label="Project Name"
               placeholder="e.g. Project Apollo"
@@ -3446,23 +3435,32 @@ export function ProjectManagement() {
             />
           </div>
 
-          <div className="w-full">
+          <div className="grid gap-3 sm:grid-cols-2">
             <Input
               label="Technology Node"
-              placeholder="e.g. 7nm FinFET, 28nm FD-SOI"
+              placeholder="e.g. 7nm"
               value={form.technologyNode}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                 setForm({ ...form, technologyNode: e.target.value })
               }
             />
-            <p className="mt-1 text-[11px] text-slate-400">
-              Optional — e.g. <span className="font-mono text-slate-600">7nm</span>,{' '}
-              <span className="font-mono text-slate-600">28nm FD-SOI</span>
-            </p>
+            <SelectField
+              label="Team Lead"
+              id="m-proj-team-lead"
+              value={form.teamLead}
+              onChange={(e) => setForm({ ...form, teamLead: e.target.value })}
+              options={[
+                { value: '', label: 'Select team lead...' },
+                ...employees.map((e) => ({
+                  value: `${e.firstName} ${e.lastName || ''}`.trim(),
+                  label: `${e.firstName} ${e.lastName || ''}`.trim() + ` (${e.department})`,
+                })),
+              ]}
+            />
           </div>
 
           <SelectField
-            label="Access Control Configuration"
+            label="Access Control"
             id="m-proj-access"
             value={form.accessType}
             onChange={(e) => {
@@ -3473,78 +3471,49 @@ export function ProjectManagement() {
               })
             }}
             options={[
-              { value: 'public', label: 'Public — Allotted members can access this project' },
-              { value: 'private', label: 'Private — Restricted to allotted members only' },
+              { value: 'public', label: 'Public — allotted members can access' },
+              { value: 'private', label: 'Private — restricted to allotted members' },
             ]}
           />
 
-          {/* Team Lead Selection - Always Available */}
-          <SelectField
-            label="Team Lead"
-            id="m-proj-team-lead"
-            value={form.teamLead}
-            onChange={(e) => setForm({ ...form, teamLead: e.target.value })}
-            options={[
-              { value: '', label: 'Select team lead...' },
-              ...employees.map((e) => ({
-                value: `${e.firstName} ${e.lastName || ''}`.trim(),
-                label: `${e.firstName} ${e.lastName || ''}`.trim() + ` (${e.department})`,
-              })),
-            ]}
+          <CheckboxList
+            label="Allotted Members"
+            items={employees.map((e) => `${e.firstName} ${e.lastName || ''}`.trim())}
+            selected={form.visibleUsers}
+            onChange={(next) => setForm({ ...form, visibleUsers: next })}
           />
-
-          <div className="grid gap-4 sm:grid-cols-2 rounded-2xl border border-border bg-emerald-50/40 p-4 animate-fadeIn">
-            <CheckboxList
-              label="Allotted Members"
-              items={employees.map((e) => `${e.firstName} ${e.lastName || ''}`.trim())}
-              selected={form.visibleUsers}
-              onChange={(next) => setForm({ ...form, visibleUsers: next })}
-            />
-          </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-700">
-              Project Description scope
+            <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-700">
+              Project Description
             </label>
             <textarea
-              placeholder="Provide a detailed scope of this project, goals, and standard specifications..."
+              placeholder="Project scope, goals, and specifications..."
               value={form.description}
-              onChange={(e) =>
-                setForm({ ...form, description: enforceMaxWords(e.target.value) })
-              }
-              rows={3}
-              className="w-full rounded-xl border border-border bg-[var(--bg-input)] p-3 text-xs text-ink outline-none transition-all placeholder:text-slate-600 focus:border-[var(--emerald-dark)] focus:ring-2 focus:ring-[rgba(38,107,28,0.15)]"
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              rows={2}
+              className="w-full rounded-xl border border-border bg-[var(--bg-input)] p-2.5 text-xs text-ink outline-none transition-all placeholder:text-slate-600 focus:border-[var(--emerald-dark)] focus:ring-2 focus:ring-[rgba(38,107,28,0.15)]"
               required
             />
-            <p
-              className={`mt-1 text-right text-[11px] font-semibold ${
-                countWords(form.description) >= MAX_PROJECT_DESCRIPTION_WORDS
-                  ? 'text-amber-500'
-                  : 'text-slate-600'
-              }`}
-            >
-              {countWords(form.description)} / {MAX_PROJECT_DESCRIPTION_WORDS} words
-            </p>
           </div>
 
           {modalMode === 'edit' && (
-            <div>
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-700">
-                Project Status
-              </label>
-              <select
-                value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value as 'Active' | 'Completed' | 'Cancelled' })}
-                className="w-full rounded-xl border border-border bg-[var(--bg-input)] p-2.5 text-xs text-ink outline-none transition-all focus:border-[var(--emerald-dark)] focus:ring-2 focus:ring-[rgba(38,107,28,0.15)]"
-              >
-                <option value="Active">In Progress</option>
-                <option value="Completed">Completed</option>
-                <option value="Cancelled">Cancelled</option>
-              </select>
-            </div>
+            <SelectField
+              label="Project Status"
+              id="m-proj-status"
+              value={form.status}
+              onChange={(e) =>
+                setForm({ ...form, status: e.target.value as 'Active' | 'Completed' | 'Cancelled' })
+              }
+              options={[
+                { value: 'Active', label: 'In Progress' },
+                { value: 'Completed', label: 'Completed' },
+                { value: 'Cancelled', label: 'Cancelled' },
+              ]}
+            />
           )}
 
-          <div className="flex justify-end gap-3 border-t border-border pt-4 mt-2">
+          <div className="flex justify-end gap-3 border-t border-border pt-3">
             <Button
               type="button"
               variant="secondary"

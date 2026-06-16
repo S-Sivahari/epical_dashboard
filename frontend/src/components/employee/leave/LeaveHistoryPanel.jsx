@@ -27,7 +27,7 @@ export function LeaveHistoryPanel({
     <InteractiveCard
       className={cn(
         CARD_CLASS,
-        'emp-leave-history-card emp-leave-top-panel flex min-h-0 flex-1 flex-col overflow-hidden',
+        'emp-leave-history-card emp-leave-top-panel flex w-full flex-col',
       )}
     >
       <div className="emp-leave-history-head">
@@ -84,19 +84,18 @@ export function LeaveHistoryPanel({
         <FilterDropdown
           value={statusFilter}
           onChange={onStatusFilterChange}
+          placeholder="Status"
           options={[
-            { value: 'all', label: 'All Status' },
             { value: 'approved', label: 'Approved' },
             { value: 'rejected', label: 'Rejected' },
             { value: 'cancelled', label: 'Cancelled' },
-            { value: 'credited', label: 'Credited' },
           ]}
         />
 
         <SearchBar
           value={search}
           onChange={onSearchChange}
-          placeholder="Search leave history…"
+          placeholder="Search by reason…"
           className="emp-leave-history-toolbar__search"
         />
       </div>

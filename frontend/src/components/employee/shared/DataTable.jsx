@@ -1,5 +1,6 @@
 import { cn } from '@pages/employee/lib/utils'
-import { Badge, statusVariant } from '@components/employee/ui/badge'
+import { Badge } from '@components/employee/ui/badge'
+import { statusVariant } from '@components/employee/ui/badge-utils'
 import { portalCardClass } from '@components/employee/shared/interactiveCard'
 
 export function DataTable({

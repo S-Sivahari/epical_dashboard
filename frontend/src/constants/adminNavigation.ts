@@ -157,9 +157,19 @@ export function isAdminEmployeeProfilePath(pathname: string): boolean {
   )
 }
 
+export function isAdminEmployeeFormPath(pathname: string): boolean {
+  const parts = pathname.split('/').filter(Boolean)
+  return (
+    parts[0] === 'admin' &&
+    parts[1] === 'employees' &&
+    (parts[2] === 'add' || (parts.length === 4 && parts[3] === 'edit'))
+  )
+}
+
 export function shouldShowAdminBackButton(pathname: string): boolean {
   const parts = pathname.split('/').filter(Boolean)
   if (parts.length <= 2) return false
   if (isAdminEmployeeProfilePath(pathname)) return false
+  if (isAdminEmployeeFormPath(pathname)) return false
   return true
 }

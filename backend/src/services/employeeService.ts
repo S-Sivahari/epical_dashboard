@@ -482,6 +482,7 @@ export async function createEmployee(payload: CreateEmployeePayload): Promise<Em
     personalEmail: payload.personalEmail?.trim().toLowerCase() || undefined,
     employeeId: payload.employeeId?.trim().toUpperCase() ?? id,
     status: payload.status ?? 'Active',
+    earnedLeaveMonthEndAccrual: true,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -510,6 +511,32 @@ export async function createEmployee(payload: CreateEmployeePayload): Promise<Em
 
   return { ...employee, _id: result.insertedId };
 }
+
+export async function bulkCreateEmployees(payloads: CreateEmployeePayload[]): Promise<{
+  created: Employee[];
+  failed: { rowNumber: number; employeeId?: string; name?: string; error: string }[];
+}> {
+  const created: Employee[] = [];
+  const failed: { rowNumber: number; employeeId?: string; name?: string; error: string }[] = [];
+
+  for (let index = 0; index < payloads.length; index += 1) {
+    const payload = payloads[index];
+    try {
+      const employee = await createEmployee(payload);
+      created.push(employee);
+    } catch (error: any) {
+      failed.push({
+        rowNumber: index + 1,
+        employeeId: payload.employeeId,
+        name: `${payload.firstName} ${payload.lastName ?? ''}`.trim(),
+        error: error?.message || 'Failed to create employee',
+      });
+    }
+  }
+
+  return { created, failed };
+}
+
 export async function checkEmployeeIdExists(
   employeeId: string,
   excludeId?: string

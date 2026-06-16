@@ -48,23 +48,34 @@ export function ProjectHoursAreaChart({
   }, [data])
 
   const labelCount = data.length
-  const needsAngledLabels = labelCount > 5
+  const useAngledLabels = labelCount > 3
   const chartHeight = fillParent ? undefined : height
+  const xAxisHeight = useAngledLabels ? 64 : 28
   const margin = compact
-    ? { top: 4, right: 4, left: -16, bottom: needsAngledLabels ? 16 : 4 }
-    : { top: 16, right: 12, left: 4, bottom: needsAngledLabels ? 32 : 12 }
+    ? {
+        top: 4,
+        right: 8,
+        left: -12,
+        bottom: useAngledLabels ? 8 : 4,
+      }
+    : {
+        top: 12,
+        right: 20,
+        left: 4,
+        bottom: useAngledLabels ? 4 : 8,
+      }
 
   return (
     <div
       className={cn(
-        'w-full shrink-0 overflow-hidden',
-        fillParent ? 'h-full min-h-[180px] flex-1' : '',
+        'w-full',
+        fillParent ? 'h-full min-h-0 flex-1' : 'shrink-0',
         compact && 'project-hours-chart-compact',
         className,
       )}
-      style={chartHeight != null ? { height: chartHeight } : undefined}
+      style={chartHeight != null ? { height: chartHeight + (useAngledLabels ? 28 : 0) } : undefined}
     >
-      <ResponsiveContainer width="100%" height={fillParent ? '100%' : chartHeight}>
+      <ResponsiveContainer width="100%" height={fillParent ? '100%' : chartHeight! + (useAngledLabels ? 28 : 0)}>
         <ComposedChart data={data} margin={margin}>
           <defs>
             <linearGradient id={`hoursAreaGrad-${gradId}`} x1="0" y1="0" x2="0" y2="1">
@@ -78,16 +89,18 @@ export function ProjectHoursAreaChart({
             dataKey="name"
             tick={{
               fill: CHART_GREEN.axis,
-              fontSize: labelCount > 8 ? 10 : compact ? 11 : 12,
+              fontSize: labelCount > 7 ? 9 : compact ? 10 : 11,
               fontWeight: 500,
             }}
             axisLine={false}
             tickLine={false}
-            dy={needsAngledLabels ? 0 : compact ? 2 : 6}
-            interval={labelCount > 8 ? Math.max(0, Math.floor(labelCount / 6) - 1) : compact ? 'preserveStartEnd' : 0}
-            angle={needsAngledLabels ? -35 : 0}
-            textAnchor={needsAngledLabels ? 'end' : 'middle'}
-            height={needsAngledLabels ? 52 : undefined}
+            dy={useAngledLabels ? 4 : compact ? 2 : 6}
+            interval={0}
+            angle={useAngledLabels ? -38 : 0}
+            textAnchor={useAngledLabels ? 'end' : 'middle'}
+            height={xAxisHeight}
+            minTickGap={0}
+            padding={{ left: 12, right: 12 }}
           />
           {!compact && (
             <YAxis

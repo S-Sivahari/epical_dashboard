@@ -9,7 +9,7 @@ import { formatDistanceToNow } from 'date-fns'
 
 export function NotificationDropdown() {
   const navigate = useNavigate()
-  const { notifications, unreadCount, fetchNotifications, fetchNotificationsSilent, fetchUnreadCount, fetchUnreadCountSilent, markAsRead, markAllAsRead, deleteNotification, deleteAllNotifications } = useNotificationStore()
+  const { notifications, unreadCount, fetchNotificationsSilent, fetchUnreadCount, fetchUnreadCountSilent, markAllAsRead, deleteNotification, deleteAllNotifications } = useNotificationStore()
 
   useEffect(() => {
     fetchUnreadCount()
@@ -22,7 +22,6 @@ export function NotificationDropdown() {
 
   const handleNotificationClick = async (notification) => {
     const route = getNotificationRoute(notification)
-    await deleteNotification(notification.id)
     if (route) navigate(route)
   }
 

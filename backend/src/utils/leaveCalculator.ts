@@ -23,6 +23,8 @@ export interface LeaveBalanceOptions {
   compensationEarnedBonus?: number;
   /** Admin-defined per-employee allotment overrides (Casual, Sick, Earned only — not Compensation). */
   employeeAllocations?: Partial<Record<'Casual Leave' | 'Sick Leave' | 'Earned Leave', number>>;
+  /** When true, earned leave stays 0 until each calendar month completes (new employees). */
+  earnedLeaveMonthEndAccrual?: boolean;
   /** Defaults to today; useful for reports. */
   refDate?: Date;
 }
@@ -63,13 +65,14 @@ export function resolveLeaveAllocationTotals(
   joinedAt?: string,
   refDate = new Date(),
   compensationLeaveCredits = 0,
+  earnedLeaveMonthEndAccrual = false,
 ): Record<LeaveAllocationType, number> {
   const credits = Math.max(0, Number(compensationLeaveCredits) || 0);
   const earnedOverride = employeeAllocations?.['Earned Leave'];
   const earnedTotal =
     earnedOverride !== undefined && earnedOverride !== null && !Number.isNaN(Number(earnedOverride))
       ? Math.max(0, Number(earnedOverride))
-      : calculateEarnedLeaveAllocation(joinedAt, refDate);
+      : calculateEarnedLeaveAllocation(joinedAt, refDate, earnedLeaveMonthEndAccrual);
 
   return {
     'Casual Leave': Math.max(
@@ -118,11 +121,15 @@ function endOfMonth(year: number, monthIndex: number): Date {
 }
 
 /**
- * Completed calendar months for earned-leave accrual.
- * A month counts only after refDate passes that month's end (join month included once it closes).
- * New joiners therefore stay at 0 EL until their first month-end is crossed.
+ * Completed calendar months for earned-leave accrual in the current year.
+ * Legacy employees count the current month immediately; new employees (month-end policy)
+ * accrue only after each calendar month closes (e.g. join 15 Jun → 0 EL in June, 0.5 on 1 Jul).
  */
-export function monthsWorkedInCurrentYear(joinedAt?: string, refDate = new Date()): number {
+export function monthsWorkedInCurrentYear(
+  joinedAt?: string,
+  refDate = new Date(),
+  earnedLeaveMonthEndAccrual = false,
+): number {
   const year = refDate.getFullYear();
   const refMs = refDate.getTime();
   const currentMonthIdx = refDate.getMonth();
@@ -144,7 +151,11 @@ export function monthsWorkedInCurrentYear(joinedAt?: string, refDate = new Date(
 
   let completed = 0;
   for (let month = firstMonth; month <= currentMonthIdx; month++) {
-    if (refMs > endOfMonth(year, month).getTime()) {
+    if (earnedLeaveMonthEndAccrual) {
+      if (refMs > endOfMonth(year, month).getTime()) {
+        completed++;
+      }
+    } else {
       completed++;
     }
   }
@@ -152,8 +163,15 @@ export function monthsWorkedInCurrentYear(joinedAt?: string, refDate = new Date(
 }
 
 /** Earned Leave accrues 0.5 day per completed calendar month (resets each year). */
-export function calculateEarnedLeaveAllocation(joinedAt?: string, refDate = new Date()): number {
-  return monthsWorkedInCurrentYear(joinedAt, refDate) * EARNED_LEAVE_ACCRUAL_PER_MONTH;
+export function calculateEarnedLeaveAllocation(
+  joinedAt?: string,
+  refDate = new Date(),
+  earnedLeaveMonthEndAccrual = false,
+): number {
+  return (
+    monthsWorkedInCurrentYear(joinedAt, refDate, earnedLeaveMonthEndAccrual) *
+    EARNED_LEAVE_ACCRUAL_PER_MONTH
+  );
 }
 
 function paidCasualDays(leave: LeaveRequest): number {
@@ -228,6 +246,7 @@ export function computeCasualLeaveLopForRequest(
     joinedAt,
     refDate,
     compensationCredits,
+    options?.earnedLeaveMonthEndAccrual ?? false,
   );
   const casualTotal = totals['Casual Leave'];
   const consumed = casualCreditUsedThisMonth(employeeLeaves, refDate, excludeLeaveId);
@@ -290,19 +309,28 @@ export function calculateMonthlyLopSummary(
   };
 }
 
+function addDaysIso(iso: string, days: number): string {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() + days);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 // Calculates total business days excluding weekends and provided holidays
 export function getBusinessDays(from: string, to: string, holidays: Holiday[]): number {
-  const start = new Date(from);
-  const end = new Date(to);
+  const start = from.slice(0, 10);
+  const end = to.slice(0, 10);
+  if (!start || !end || end < start) return 0;
+
+  const holidayDates = new Set(holidays.map((h) => h.date));
   let count = 0;
 
-  const holidayStrings = holidays.map((h) => h.date);
-
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const dayOfWeek = d.getDay();
-    const dateString = d.toISOString().split('T')[0];
-
-    if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidayStrings.includes(dateString)) {
+  for (let cur = start; cur <= end; cur = addDaysIso(cur, 1)) {
+    const [y, m, d] = cur.split('-').map(Number);
+    const dayOfWeek = new Date(y, m - 1, d).getDay();
+    if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidayDates.has(cur)) {
       count++;
     }
   }
@@ -322,6 +350,7 @@ export function calculateBalances(
     joinedAt,
     refDate,
     compensationCredits,
+    options?.earnedLeaveMonthEndAccrual ?? false,
   );
 
   const balances: Record<string, { total: number; used: number; remaining: number }> = {

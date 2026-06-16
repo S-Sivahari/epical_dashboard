@@ -263,6 +263,17 @@ export function aggregateProjectTableRows(
   })
 }
 
+function formatBucketLabel(start: Date, end: Date): string {
+  const sameMonth =
+    start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()
+  const startLabel = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  if (sameMonth) {
+    return `${startLabel}–${end.getDate()}`
+  }
+  const endLabel = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return `${startLabel}–${endLabel}`
+}
+
 export function aggregateChartData(
   timesheets: Array<{ loginTime?: string; logoutTime?: string; overriddenHours?: number }>,
   period: ChartPeriod,
@@ -295,7 +306,7 @@ export function aggregateChartData(
     if (bucketEnd > rangeEnd) bucketEnd.setTime(rangeEnd.getTime())
 
     buckets.push({
-      name: bucketStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      name: formatBucketLabel(bucketStart, bucketEnd),
       start: bucketStart,
       end: bucketEnd,
     })

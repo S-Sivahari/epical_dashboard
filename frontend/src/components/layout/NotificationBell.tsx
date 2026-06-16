@@ -33,7 +33,6 @@ export function NotificationBell() {
 
   const handleNotificationClick = async (notification: NotificationData) => {
     const route = getNotificationRoute(notification)
-    await deleteNotification(notification.id)
     if (route) navigate(route)
   }
 

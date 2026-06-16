@@ -18,9 +18,8 @@ import {
 import { sendCheckoutReminderEmail, sendAutoCheckoutConfirmationEmail } from './emailService';
 import { env } from '../config/env';
 import {
-  buildClockTimeOnDate,
-  getSchedulerDateKey,
-  isSchedulerClockTimeReached,
+  formatSchedulerDateTime,
+  resolveSchedulerAutoCheckoutDeadline,
 } from '../utils/istClock';
 
 function finalizePauseAccumulation(
@@ -38,6 +37,13 @@ function isTransactionUnsupportedError(error: unknown): boolean {
   return /replica set|mongos|Transaction numbers are only allowed/i.test(message);
 }
 
+function resolveAutoCheckoutDeadline(
+  attendance: { checkInTime: Date },
+  settings: { autoCheckoutTime: string },
+): Date {
+  return resolveSchedulerAutoCheckoutDeadline(attendance.checkInTime, settings.autoCheckoutTime);
+}
+
 function isAutoCheckoutDue(
   attendance: { checkInTime: Date; autoCheckoutTime?: Date | null },
   settings: { autoCheckoutTime: string },
@@ -48,16 +54,8 @@ function isAutoCheckoutDue(
     return elapsedMs >= 5 * 60 * 1000;
   }
 
-  const deadline = attendance.autoCheckoutTime;
-  if (deadline instanceof Date && now.getTime() >= deadline.getTime() - 30_000) {
-    return true;
-  }
-
-  const [ah, am] = settings.autoCheckoutTime.split(':').map(Number);
-  if (Number.isNaN(ah) || Number.isNaN(am)) return false;
-
-  const todayCutoff = buildClockTimeOnDate(getSchedulerDateKey(now), ah, am);
-  return isSchedulerClockTimeReached(now, ah, am) && attendance.checkInTime.getTime() < todayCutoff.getTime();
+  const deadline = resolveAutoCheckoutDeadline(attendance, settings);
+  return now.getTime() >= deadline.getTime() - 30_000;
 }
 
 async function findOpenTimesheetsForAutoCheckout(
@@ -220,9 +218,10 @@ type AutoCheckoutResult = {
 async function performAutoCheckoutForAttendance(
   attendance: InstanceType<typeof EmployeeAttendanceModel>,
   now: Date,
+  settings: { autoCheckoutTime: string },
   session?: ClientSession
 ): Promise<AutoCheckoutResult | null> {
-  const checkoutTimestamp = attendance.autoCheckoutTime || now;
+  const checkoutTimestamp = resolveAutoCheckoutDeadline(attendance, settings);
 
   const claimQuery = EmployeeAttendanceModel.findOneAndUpdate(
     openAttendanceFilter({ _id: attendance._id }),
@@ -302,13 +301,14 @@ async function performAutoCheckoutForAttendance(
 
 async function runAutoCheckoutWithOptionalTransaction(
   attendance: InstanceType<typeof EmployeeAttendanceModel>,
-  now: Date
+  now: Date,
+  settings: { autoCheckoutTime: string },
 ): Promise<AutoCheckoutResult | null> {
   const session = await mongoose.startSession();
   try {
     let result: AutoCheckoutResult | null = null;
     await session.withTransaction(async () => {
-      result = await performAutoCheckoutForAttendance(attendance, now, session);
+      result = await performAutoCheckoutForAttendance(attendance, now, settings, session);
     });
     return result;
   } catch (error) {
@@ -316,7 +316,7 @@ async function runAutoCheckoutWithOptionalTransaction(
     console.warn(
       `[Auto-Checkout Job] MongoDB transactions unavailable — falling back to non-transactional checkout for ${attendance.employeeName}.`
     );
-    return performAutoCheckoutForAttendance(attendance, now);
+    return performAutoCheckoutForAttendance(attendance, now, settings);
   } finally {
     session.endSession();
   }
@@ -343,9 +343,10 @@ export async function processAutoCheckouts(): Promise<number> {
     const checkInTime = attendance.checkInTime;
     const elapsedMinutes = Math.floor((now.getTime() - checkInTime.getTime()) / (60 * 1000));
     const isEligible = isAutoCheckoutDue(attendance, settings, now);
+    const resolvedDeadline = resolveAutoCheckoutDeadline(attendance, settings);
 
     console.log(
-      `[Auto-Checkout Job] Session: ID=${attendance._id}, EmployeeID=${attendance.employeeId}, EmployeeName=${attendance.employeeName}, Status=${attendance.sessionStatus}, Check-in=${checkInTime.toISOString()}, AutoCheckoutTime=${attendance.autoCheckoutTime?.toISOString() ?? 'n/a'}, ElapsedMinutes=${elapsedMinutes}, AutoCheckoutEligible=${isEligible}`
+      `[Auto-Checkout Job] Session: ID=${attendance._id}, EmployeeID=${attendance.employeeId}, EmployeeName=${attendance.employeeName}, Status=${attendance.sessionStatus}, Check-in=${checkInTime.toISOString()}, StoredAutoCheckout=${attendance.autoCheckoutTime?.toISOString() ?? 'n/a'}, ResolvedDeadline=${resolvedDeadline.toISOString()} (${formatSchedulerDateTime(resolvedDeadline)} ${env.schedulerTimezone}), ElapsedMinutes=${elapsedMinutes}, AutoCheckoutEligible=${isEligible}`
     );
 
     if (!isEligible) continue;
@@ -353,7 +354,7 @@ export async function processAutoCheckouts(): Promise<number> {
     console.log(`[Auto-Checkout Job] Auto checkout triggered for ${attendance.employeeName}`);
 
     try {
-      const result = await runAutoCheckoutWithOptionalTransaction(attendance, now);
+      const result = await runAutoCheckoutWithOptionalTransaction(attendance, now, settings);
       if (!result?.checkedOut) {
         console.warn(
           `[Auto-Checkout Job] Auto-checkout did not complete for ${attendance.employeeName}.`

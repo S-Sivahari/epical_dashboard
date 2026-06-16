@@ -5,11 +5,13 @@ import { AdminTopNav } from '@components/layout/AdminTopNav'
 import { CommandBar } from '@components/layout/CommandBar'
 import { PageLoading } from '@components/layout/PageLoading'
 import { ROUTES } from '@constants/routes'
+import { useNotificationRouteSync } from '@hooks/useNotificationRouteSync'
 import { cn } from '@/utils/cn'
 
 export function AdminLayout() {
   const { pathname } = useLocation()
   const isProjectAnalysis = pathname.startsWith(ROUTES.PROJECT_ANALYSIS)
+  useNotificationRouteSync()
 
   return (
     <div

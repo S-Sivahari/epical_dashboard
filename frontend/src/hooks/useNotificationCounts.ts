@@ -1,34 +1,32 @@
-import { useEffect, useState } from 'react'
-import { getUnreadCountsByCategory, type NotificationCounts } from '@services/notificationService'
+import { useEffect } from 'react'
+import { useNotificationStore, NOTIFICATION_POLL_MS } from '@store/notificationStore'
+import type { NotificationCounts } from '@services/notificationService'
 
-export function useNotificationCounts(refreshInterval = 30000) {
-  const [counts, setCounts] = useState<NotificationCounts>({
-    leaves: 0,
-    documents: 0,
-    other: 0,
-    total: 0,
-  })
-  const [loading, setLoading] = useState(true)
-
-  const fetchCounts = async () => {
-    try {
-      const data = await getUnreadCountsByCategory()
-      setCounts(data)
-    } catch (error) {
-      console.error('Failed to fetch notification counts:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+export function useNotificationCounts(refreshInterval = NOTIFICATION_POLL_MS) {
+  const tabIndicatorCounts = useNotificationStore((state) => state.tabIndicatorCounts)
+  const isInitialized = useNotificationStore((state) => state.isInitialized)
+  const fetchCategoryCounts = useNotificationStore((state) => state.fetchCategoryCounts)
 
   useEffect(() => {
-    fetchCounts()
+    void fetchCategoryCounts()
 
-    // Poll for updates
-    const interval = setInterval(fetchCounts, refreshInterval)
+    const interval = setInterval(() => {
+      void fetchCategoryCounts()
+    }, refreshInterval)
 
     return () => clearInterval(interval)
-  }, [refreshInterval])
+  }, [fetchCategoryCounts, refreshInterval])
 
-  return { counts, loading, refresh: fetchCounts }
+  const counts: NotificationCounts = {
+    leaves: tabIndicatorCounts.leaves,
+    documents: tabIndicatorCounts.documents,
+    other: 0,
+    total: tabIndicatorCounts.leaves + tabIndicatorCounts.documents,
+  }
+
+  return {
+    counts,
+    loading: !isInitialized,
+    refresh: fetchCategoryCounts,
+  }
 }

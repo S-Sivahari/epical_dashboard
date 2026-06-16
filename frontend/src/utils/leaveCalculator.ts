@@ -1,24 +1,31 @@
 export type LeaveHoliday = { date: string }
 
+function addDaysIso(iso: string, days: number): string {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  date.setDate(date.getDate() + days)
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
+}
+
 /** Working days between two dates, excluding weekends and holidays. */
 export function getBusinessDays(
   from: string,
   to: string,
   holidays: LeaveHoliday[] = [],
 ): number {
-  const start = new Date(from)
-  const end = new Date(to)
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
-    return 0
-  }
+  const start = from.slice(0, 10)
+  const end = to.slice(0, 10)
+  if (!start || !end || end < start) return 0
 
   const holidayDates = new Set(holidays.map((h) => h.date))
   let count = 0
 
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const dayOfWeek = d.getDay()
-    const dateString = d.toISOString().split('T')[0]
-    if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidayDates.has(dateString)) {
+  for (let cur = start; cur <= end; cur = addDaysIso(cur, 1)) {
+    const [y, m, d] = cur.split('-').map(Number)
+    const dayOfWeek = new Date(y, m - 1, d).getDay()
+    if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidayDates.has(cur)) {
       count++
     }
   }

@@ -288,6 +288,76 @@ export async function getPayslipByIdForEmployee(
   })
 }
 
+/** Safe fields for employee dashboard — no salary figures or PDF access hints. */
+export function toEmployeePayslipSummary(record: EmployeePayslipRecord) {
+  return {
+    id: record.id,
+    employeeId: record.employeeId,
+    payMonth: record.payMonth,
+    payPeriodKey: record.payPeriodKey,
+    fileName: record.fileName,
+    sentAt: record.sentAt,
+    employeeName: record.employeeName,
+  }
+}
+
+export async function resendPayslipEmailToEmployee(
+  payslipId: string,
+  userId: string,
+  email?: string
+): Promise<{ sentTo: string }> {
+  const record = await getPayslipByIdForEmployee(payslipId, userId, email)
+  if (!record) {
+    throw new Error('Payslip not found')
+  }
+
+  const recipientEmail = record.employeeEmail?.trim()
+  if (!recipientEmail) {
+    throw new Error('No email on file for this payslip')
+  }
+
+  const { readFileSync } = await import('fs')
+  const { sendPayslipEmail } = await import('./emailService')
+  const { ensurePayslipPdfExists } = await import('./payrollBatchService')
+  const { formatPayslipDownloadFileName } = await import('./payslipDownloadName')
+
+  let attachment: import('./emailService').EmailAttachment | undefined
+
+  try {
+    const filePath = await ensurePayslipPdfExists(record.batchId, record.fileName)
+    attachment = {
+      filename: formatPayslipDownloadFileName(
+        record.employeeName,
+        record.payMonth,
+        record.payPeriodKey
+      ),
+      content: readFileSync(filePath),
+      contentType: 'application/pdf',
+    }
+  } catch (error) {
+    console.warn('[Payslip Service] Could not attach payslip PDF for resend:', error)
+  }
+
+  const sent = await sendPayslipEmail(
+    {
+      recipientEmail,
+      recipientName: record.employeeName,
+      employeeName: record.employeeName,
+      employeeId: record.employeeId,
+      payMonth: record.payMonth,
+      fileName: record.fileName,
+    },
+    undefined,
+    attachment
+  )
+
+  if (!sent) {
+    throw new Error('Failed to send payslip email')
+  }
+
+  return { sentTo: recipientEmail }
+}
+
 export async function getAllSentPayslips(limit = 100): Promise<EmployeePayslipRecord[]> {
   return payslipsCollection()
     .find({})

@@ -1,5 +1,6 @@
 import type { Employee } from '@/types'
 import api from '@services/api'
+import { downloadWithAuth } from '@/utils/downloadWithAuth'
 
 export async function getEmployees(params?: {
   name?: string
@@ -118,4 +119,29 @@ export async function getEmployeeDocuments(id: string) {
     name: doc.name,
     uploadedAt: doc.uploadedAt,
   }))
+}
+
+export async function downloadEmployeeImportTemplate() {
+  await downloadWithAuth('/employees/import/template', 'employee_import_template.xlsx')
+}
+
+export type EmployeeImportParseRow = {
+  rowNumber: number
+  payload: Omit<Employee, 'id'>
+  errors: string[]
+}
+
+export async function parseEmployeeImportFile(file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+  const response = await api.post('/employees/import/parse', formData)
+  return response.data.rows as EmployeeImportParseRow[]
+}
+
+export async function bulkCreateEmployees(employees: Omit<Employee, 'id'>[]) {
+  const response = await api.post('/employees/import/bulk', { employees })
+  return response.data as {
+    created: Employee[]
+    failed: { rowNumber: number; employeeId?: string; name?: string; error: string }[]
+  }
 }

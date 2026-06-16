@@ -16,6 +16,8 @@ import {
   Mail,
   Calendar,
   Hash,
+  Upload,
+  Download,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@components/ui/Button'
@@ -38,6 +40,18 @@ import { ROUTES } from '@constants/routes'
 import {
   activeDirectoryExportFilename,
 } from '@/constants/employeeExport'
+import {
+  downloadEmployeeImportTemplate,
+  parseEmployeeImportFile,
+} from '@services/employeeService'
+import {
+  EmployeeBulkImportModal,
+  type EmployeeImportPreviewRow,
+} from './EmployeeBulkImportModal'
+
+function makeImportTempId(rowNumber: number) {
+  return `import-row-${rowNumber}-${Math.random().toString(36).slice(2, 8)}`
+}
 
 const STATUS_OPTIONS: { value: Employee['status']; label: string }[] = [
   { value: 'Active', label: 'Active' },
@@ -68,6 +82,11 @@ export function EmployeeList() {
 
   const [savingStatusId, setSavingStatusId] = useState<string | null>(null)
   const [exporting, setExporting] = useState<'excel' | 'pdf' | null>(null)
+  const [importModalOpen, setImportModalOpen] = useState(false)
+  const [importRows, setImportRows] = useState<EmployeeImportPreviewRow[]>([])
+  const [parsingImport, setParsingImport] = useState(false)
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false)
+  const importFileInputRef = useRef<HTMLInputElement>(null)
 
   // Free-text search debounce
   const [searchInput, setSearchInput] = useState(filters.name)
@@ -124,6 +143,48 @@ export function EmployeeList() {
     } finally {
       setExporting(null)
     }
+  }
+
+  const handleDownloadImportTemplate = async () => {
+    try {
+      setDownloadingTemplate(true)
+      await downloadEmployeeImportTemplate()
+      toast.success('Employee import template downloaded')
+    } catch {
+      toast.error('Failed to download template')
+    } finally {
+      setDownloadingTemplate(false)
+    }
+  }
+
+  const handleImportFileChange = async (fileList: FileList | null) => {
+    const file = fileList?.[0]
+    if (!file) return
+
+    try {
+      setParsingImport(true)
+      const parsed = await parseEmployeeImportFile(file)
+      const withIds = parsed.map((row) => ({
+        ...row,
+        tempId: makeImportTempId(row.rowNumber),
+      }))
+      setImportRows(withIds)
+      setImportModalOpen(true)
+      toast.success(`Loaded ${withIds.length} employee${withIds.length === 1 ? '' : 's'} from Excel`)
+    } catch (err) {
+      const message =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        (err instanceof Error ? err.message : 'Failed to parse Excel file')
+      toast.error(message)
+    } finally {
+      setParsingImport(false)
+      if (importFileInputRef.current) importFileInputRef.current.value = ''
+    }
+  }
+
+  const handleCloseImportModal = () => {
+    setImportModalOpen(false)
+    setImportRows([])
   }
 
   const statusVariant = (s: string) => {
@@ -410,6 +471,31 @@ export function EmployeeList() {
             <button
               type="button"
               className="employee-directory-export-btn"
+              onClick={() => void handleDownloadImportTemplate()}
+              disabled={downloadingTemplate}
+            >
+              <Download className="h-4 w-4 text-[#266b1c]" strokeWidth={2} />
+              Download Template
+            </button>
+            <button
+              type="button"
+              className="employee-directory-export-btn"
+              onClick={() => importFileInputRef.current?.click()}
+              disabled={parsingImport}
+            >
+              <Upload className="h-4 w-4 text-[#266b1c]" strokeWidth={2} />
+              {parsingImport ? 'Uploading…' : 'Upload Excel'}
+            </button>
+            <input
+              ref={importFileInputRef}
+              type="file"
+              accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+              className="hidden"
+              onChange={(event) => void handleImportFileChange(event.target.files)}
+            />
+            <button
+              type="button"
+              className="employee-directory-export-btn"
               onClick={() => void handleExport('pdf')}
               disabled={exporting === 'pdf'}
             >
@@ -678,6 +764,13 @@ export function EmployeeList() {
           </div>
         )}
       </Modal>
+
+      <EmployeeBulkImportModal
+        open={importModalOpen}
+        onClose={handleCloseImportModal}
+        rows={importRows}
+        onRowsChange={setImportRows}
+      />
     </div>
   )
 }

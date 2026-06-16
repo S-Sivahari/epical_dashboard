@@ -5,12 +5,13 @@
   --emp-leave-apply-bg: rgba(227, 247, 235, 1);
   --emp-leave-balance-bg: rgba(221, 246, 240, 1);
   --emp-leave-pending-bg: rgba(219, 245, 247, 1);
-  --emp-leave-history-row-h: calc(2.75rem * var(--els));
+  --emp-leave-history-row-h: calc(3.75rem * var(--els));
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
-  height: 100%;
+  height: auto;
   min-height: 0;
+  overflow: visible;
   font-size: calc(1rem * var(--els));
 }
 
@@ -64,10 +65,10 @@
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-leave]) {
   --els: 0.9;
   display: flex;
-  flex: 1 1 0;
+  flex: 1 1 auto;
   flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
+  min-height: auto;
+  overflow: visible;
   padding: calc(0.75rem * var(--els));
 }
 
@@ -77,14 +78,14 @@
   }
 }
 
-/* White shell — fills available page height; only history table scrolls inside */
+/* White shell — grows with content; cmd-main scrolls the full page */
 .emp-leave-top {
   display: flex;
-  flex: 1 1 0;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: calc(0.75rem * var(--els));
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
   border-radius: calc(1rem * var(--els));
   padding: calc(0.75rem * var(--els));
   background: #ffffff;
@@ -109,10 +110,10 @@
 /* Two-column layout: left = apply + pending, right = balance + history */
 .emp-leave-layout {
   display: grid;
-  flex: 1 1 0;
+  flex: 1 1 auto;
   gap: calc(0.75rem * var(--els));
-  min-height: 0;
-  overflow: hidden;
+  min-height: min-content;
+  overflow: visible;
   align-items: stretch;
   grid-template-columns: 1fr;
 }
@@ -128,9 +129,9 @@
   display: flex;
   flex-direction: column;
   gap: calc(0.75rem * var(--els));
-  min-height: 0;
+  min-height: min-content;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .emp-leave-column--left > .emp-leave-apply-card {
@@ -153,8 +154,8 @@
 }
 
 .emp-leave-column--right > .emp-leave-history-card {
-  flex: 1 1 0;
-  min-height: calc(10rem * var(--els));
+  flex: 0 0 auto;
+  min-height: 0;
 }
 
 .emp-leave-column > .emp-leave-apply-card,
@@ -170,7 +171,7 @@
   flex-direction: column;
   min-height: 0;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .emp-leave-pending-body {
@@ -704,25 +705,19 @@
 }
 
 .emp-leave-history-scroll {
-  display: flex;
-  flex: 1 1 0;
-  flex-direction: column;
+  display: block;
+  flex: 0 0 auto;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
   border-radius: calc(0.75rem * var(--els));
   font-size: calc(0.875rem * var(--els));
 }
 
 .emp-leave-history-scroll > [data-portal-card],
 .emp-leave-history-scroll > .rounded-lg {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  min-height: 100%;
+  display: block;
   width: 100%;
-  overflow-x: auto;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow: visible;
   background: #ffffff !important;
 }
 
@@ -754,16 +749,22 @@
   font-size: calc(0.875rem * var(--els));
 }
 
-.emp-leave-pending-body table,
-.emp-leave-history-scroll table {
+.emp-leave-pending-body table {
   font-size: calc(0.8125rem * var(--els));
 }
 
 .emp-leave-pending-body th,
-.emp-leave-pending-body td,
+.emp-leave-pending-body td {
+  padding: calc(0.5rem * var(--els)) calc(0.625rem * var(--els));
+}
+
+.emp-leave-history-scroll table {
+  font-size: calc(0.9375rem * var(--els));
+}
+
 .emp-leave-history-scroll th,
 .emp-leave-history-scroll td {
-  padding: calc(0.5rem * var(--els)) calc(0.625rem * var(--els));
+  padding: calc(1rem * var(--els)) calc(0.875rem * var(--els));
 }
 
 /* Pending requests — green header bar, larger labels, smaller row data */
@@ -826,16 +827,18 @@
 /* Leave history — black larger headers, gray row data */
 .emp-leave-history-scroll table thead th {
   color: #0f172a !important;
-  font-size: calc(1rem * var(--els)) !important;
+  font-size: calc(1.0625rem * var(--els)) !important;
   font-weight: 700 !important;
   text-align: center !important;
   text-transform: none;
   letter-spacing: normal;
+  padding-top: calc(0.75rem * var(--els)) !important;
+  padding-bottom: calc(0.75rem * var(--els)) !important;
 }
 
 .emp-leave-history-scroll table tbody td {
   color: #0f172a !important;
-  font-size: calc(0.8125rem * var(--els)) !important;
+  font-size: calc(0.9375rem * var(--els)) !important;
   font-weight: 500 !important;
   text-align: center !important;
   vertical-align: middle;
@@ -846,8 +849,7 @@
   color: #64748b !important;
 }
 
-.emp-leave-pending-body table tbody td .rounded-full,
-.emp-leave-history-scroll table tbody td .rounded-full {
+.emp-leave-pending-body table tbody td .rounded-full {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -857,6 +859,31 @@
   font-size: calc(0.75rem * var(--els)) !important;
   font-weight: 600 !important;
   text-align: center;
+}
+
+.emp-leave-history-scroll table tbody td .rounded-full {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: calc(6rem * var(--els));
+  border-radius: calc(0.375rem * var(--els)) !important;
+  padding: calc(0.375rem * var(--els)) calc(0.75rem * var(--els)) !important;
+  font-size: calc(0.8125rem * var(--els)) !important;
+  font-weight: 600 !important;
+  text-align: center;
+}
+
+.emp-leave-history-scroll table tbody td .emp-leave-history-note {
+  font-size: calc(0.8125rem * var(--els)) !important;
+  padding: calc(0.375rem * var(--els)) calc(0.5rem * var(--els)) !important;
+  margin-top: calc(0.5rem * var(--els)) !important;
+}
+
+.emp-leave-history-scroll table tbody td .emp-leave-history-note.text-red-900,
+.emp-leave-history-scroll table tbody td .emp-leave-history-note.border-red-200 {
+  color: #7f1d1d !important;
+  background-color: #fef2f2 !important;
+  border-color: #fecaca !important;
 }
 
 .emp-leave-pending-body table tbody td .bg-green-100,

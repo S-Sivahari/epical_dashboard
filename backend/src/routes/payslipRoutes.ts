@@ -1,9 +1,28 @@
 import { Router } from 'express'
 import multer from 'multer'
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 import { payslipController } from '../controllers/payslipController'
 import { authMiddleware, requireRole } from '../middleware/authMiddleware'
 
 export const payslipRoutes = Router()
+
+/** Max 10 payslip resend emails per employee per hour. */
+const payslipResendEmailLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const userId = req.user?.id?.trim()
+    if (userId) return `payslip-resend:${userId}`
+    const ip = req.ip
+    if (!ip) return 'payslip-resend:ip:unknown'
+    return `payslip-resend:ip:${ipKeyGenerator(ip)}`
+  },
+  message: {
+    error: 'You can only request payslip emails 10 times per hour. Please try again later.',
+  },
+})
 
 const imageUpload = multer({
   storage: multer.memoryStorage(),
@@ -55,6 +74,12 @@ payslipRoutes.get(
   '/my-payslips/:payslipId/download',
   authMiddleware,
   payslipController.downloadMyPayslip
+)
+payslipRoutes.post(
+  '/my-payslips/:payslipId/resend-email',
+  authMiddleware,
+  payslipResendEmailLimiter,
+  payslipController.resendMyPayslipEmail
 )
 
 // Admin: payslip send history

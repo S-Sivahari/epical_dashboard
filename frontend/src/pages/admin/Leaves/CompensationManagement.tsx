@@ -298,16 +298,15 @@ export function CompensationManagement({
   ]
 
   return (
-    <div className="admin-comp-layout">
-      <div className="admin-comp-main-panel rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col min-h-0">
-        {/* Add / Edit Form */}
-        <div className="border-b border-gray-100">
-          <div className="admin-comp-section-head">
-            <h3 className="admin-comp-section-title">
-              {editingId ? 'Edit Compensation Entry' : 'Add Compensation'}
-            </h3>
-          </div>
-          <div className="admin-comp-form-body space-y-4">
+    <div className="admin-comp-layout admin-leaves-two-col">
+      {/* Add / Edit Form — left column */}
+      <div className="admin-comp-form-panel rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col min-h-0">
+        <div className="admin-comp-section-head">
+          <h3 className="admin-comp-section-title">
+            {editingId ? 'Edit Compensation Entry' : 'Add Compensation'}
+          </h3>
+        </div>
+        <div className="admin-comp-form-body space-y-4 min-h-0 flex-1 overflow-y-auto">
             {/* Employee multi-select */}
             {!editingId && (
               <div>
@@ -474,9 +473,10 @@ export function CompensationManagement({
               </div>
             </div>
           </div>
-        </div>
+      </div>
 
-        {/* Search & Table */}
+      {/* Compensation Entries — right column */}
+      <div className="admin-comp-entries-panel rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col min-h-0">
         <div className="admin-comp-section-head">
           <h3 className="admin-comp-section-title">Compensation Entries</h3>
           <div className="relative w-40">
@@ -493,7 +493,6 @@ export function CompensationManagement({
           </div>
         </div>
 
-        {/* Table — fixed height, scroll inside */}
         <div className="admin-comp-entries-scroll min-h-0 flex-1">
           <DataTable
             columns={columns}

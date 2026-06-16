@@ -27,7 +27,7 @@ export function ProjectHoursChartPanel({
   const [periodOpen, setPeriodOpen] = useState(false)
 
   return (
-    <section className={cn('dashboard-panel dashboard-project-chart', className)}>
+    <section className={cn('dashboard-panel dashboard-project-chart min-h-0', className)}>
       <header className="dashboard-panel-header dashboard-panel-header--primary">
         <div>
           <h2 className="dashboard-panel-title">Project Hours</h2>
@@ -67,11 +67,11 @@ export function ProjectHoursChartPanel({
           </div>
         </div>
       </header>
-      <div className="dashboard-project-chart-body min-h-0 flex-1 px-4 pb-4 pt-2">
+      <div className="dashboard-project-chart-body min-h-0 flex-1 px-2 pb-3 pt-2">
         {loading ? (
-          <SkeletonBlock className="h-full min-h-[160px] rounded-xl" />
+          <SkeletonBlock className="h-full min-h-[200px] rounded-xl" />
         ) : (
-          <ProjectHoursAreaChart data={chartData} fillParent height={180} />
+          <ProjectHoursAreaChart data={chartData} fillParent height={200} />
         )}
       </div>
     </section>

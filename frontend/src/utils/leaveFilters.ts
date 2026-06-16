@@ -115,6 +115,15 @@ function leaveMatchesMonthFilter(leave: LeaveRequest, filters: LeaveFilters): bo
   const { dateFrom, dateTo } = filters
   const periodMatch = leavePeriodOverlapsRange(leave.from, leave.to, dateFrom, dateTo)
 
+  // Pending requests applied this month should appear even when leave dates fall in a future month.
+  if (leave.status === 'Pending' && dateFrom && dateTo) {
+    const appliedKey = toDateKey(leave.createdAt)
+    const appliedThisMonth =
+      appliedKey != null && isDateKeyInRange(appliedKey, dateFrom, dateTo)
+    if (appliedThisMonth || periodMatch) return true
+    return false
+  }
+
   if (leave.status !== 'Rejected' || !dateFrom || !dateTo) {
     return periodMatch
   }

@@ -63,7 +63,7 @@ export function ContributionHistoryPanel({
   className?: string
 }) {
   return (
-    <section className={cn('dashboard-panel dashboard-contribution-history', className)}>
+    <section className={cn('dashboard-panel dashboard-contribution-history min-h-0', className)}>
       <header className="dashboard-panel-header dashboard-panel-header--primary dashboard-panel-header-compact dashboard-contribution-header">
         <div className="min-w-0">
           <h2 className="dashboard-panel-title">Contribution History</h2>

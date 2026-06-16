@@ -14,7 +14,7 @@ import { computeTotalHoursDecimal } from '../utils/durationFormat';
 import { getAutoCheckoutSettings, updateAutoCheckoutSettings } from '../services/autoCheckoutService';
 import { restartScheduler } from '../services/timesheetScheduler';
 import { sendCheckoutReminderEmail } from '../services/emailService';
-import { buildNextSchedulerClockTime, getSchedulerHourMinute } from '../utils/istClock';
+import { buildNextSchedulerClockTime, getSchedulerDateKey, getSchedulerHourMinute, resolveSchedulerAutoCheckoutDeadline } from '../utils/istClock';
 
 type ResolvedEmployee = {
   id: string;
@@ -26,7 +26,7 @@ type ResolvedEmployee = {
 };
 
 function todayDateKey(): string {
-  return new Date().toISOString().split('T')[0];
+  return getSchedulerDateKey(new Date());
 }
 
 function computeAttendanceHours(checkInTime: Date, checkOutTime?: Date | null, now = new Date()): number {
@@ -670,10 +670,9 @@ export const employeeTimesheetController = {
       };
       const buildAutoCheckout = () => {
         if (isLateCheckIn) {
-          return buildNextSchedulerClockTime(now, 0, 0);
+          return resolveSchedulerAutoCheckoutDeadline(now, '00:00');
         }
-        const [ah, am] = settings.autoCheckoutTime.split(':').map(Number);
-        return buildNextSchedulerClockTime(now, ah, am);
+        return resolveSchedulerAutoCheckoutDeadline(now, settings.autoCheckoutTime);
       };
 
       if (openAttendance) {
@@ -947,7 +946,7 @@ export const employeeTimesheetController = {
         });
 
         // Trigger reminder email immediately if checking in late (9 PM IST or later)
-        const checkInHour = now.getHours();
+        const { hours: checkInHour } = getSchedulerHourMinute(now);
         if (checkInHour >= 21 && attendance && !attendance.reminderSent) {
           attendance.reminderSent = true;
           await attendance.save();

@@ -758,8 +758,8 @@ export async function sendPayslipEmail(
 ): Promise<boolean> {
   const subject = `[Epical EMS] Your Payslip for ${data.payMonth} is Ready`;
   const message = pdfAttachment
-    ? `Your payslip for the pay period of <strong>${data.payMonth}</strong> is attached to this email. You can also download it anytime from your dashboard.`
-    : `Your payslip for the pay period of <strong>${data.payMonth}</strong> has been published and is now available for download in your dashboard.`;
+    ? `Your payslip for the pay period of <strong>${data.payMonth}</strong> is attached to this email. Open the PDF attachment to view your payslip.`
+    : `Your payslip for the pay period of <strong>${data.payMonth}</strong> has been issued. Please contact HR if you need a copy.`;
 
   const details: DetailField[] = [
     { label: 'Employee Name', value: data.employeeName },
@@ -775,12 +775,12 @@ export async function sendPayslipEmail(
     details.push({ label: 'Document', value: data.fileName });
   }
 
-  const payslipUrl = actionUrl || frontendUrl('/employee/documents?tab=payslips');
+  const payslipUrl = actionUrl ?? frontendUrl('/employee/documents?tab=payslips');
   const html = buildHtmlTemplate(data.recipientName, 'Payslip Available', message, details, payslipUrl);
 
   const attachmentNote = pdfAttachment
     ? '\nYour payslip PDF is attached to this email.\n'
-    : '\nPlease log in to your dashboard to download your payslip.\n';
+    : '\nPlease contact HR if you need a copy of your payslip.\n';
   const text = `Hi ${data.recipientName},\n\nYour payslip for ${data.payMonth} is now available.${attachmentNote}\n${data.employeeId ? `Employee ID: ${data.employeeId}\n` : ''}Pay Period: ${data.payMonth}\n${data.fileName ? `Document: ${data.fileName}\n` : ''}`;
 
   return await sendEmail({

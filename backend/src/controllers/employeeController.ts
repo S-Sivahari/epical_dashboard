@@ -5,6 +5,10 @@ import { AuthRequest } from '../middleware/authMiddleware';
 import { isAdminRole, isEmployeeRole } from '../utils/generateToken';
 import { resolveEmployeeForAuthUser, employeeBelongsToAuthUser, findEmployeeByLoginEmail } from '../utils/employeeAuth';
 import { sanitizeEmployeeForDetail } from '../utils/sanitizeEmployee';
+import {
+  buildEmployeeImportTemplate,
+  parseEmployeeImportWorkbook,
+} from '../utils/employeeImportExcel';
 
 export const employeeController = {
   getDailyActivityLog: async (req: AuthRequest, res: Response): Promise<void> => {
@@ -323,6 +327,68 @@ export const employeeController = {
     } catch (error) {
       console.error('Error checking employee ID:', error);
       res.status(500).json({ error: 'Failed to check employee ID' });
+    }
+  },
+
+  downloadImportTemplate: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!isAdminRole(req.user?.role ?? '')) {
+        res.status(403).json({ error: 'Forbidden' });
+        return;
+      }
+      const buffer = await buildEmployeeImportTemplate();
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader('Content-Disposition', 'attachment; filename="employee_import_template.xlsx"');
+      res.send(buffer);
+    } catch (error) {
+      console.error('Error building employee import template:', error);
+      res.status(500).json({ error: 'Failed to generate employee import template' });
+    }
+  },
+
+  parseImportUpload: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!isAdminRole(req.user?.role ?? '')) {
+        res.status(403).json({ error: 'Forbidden' });
+        return;
+      }
+      if (!req.file?.buffer) {
+        res.status(400).json({ error: 'No file uploaded' });
+        return;
+      }
+      const rows = await parseEmployeeImportWorkbook(req.file.buffer);
+      res.json({
+        rows: rows.map((row) => ({
+          rowNumber: row.rowNumber,
+          payload: row.payload,
+          errors: row.errors,
+        })),
+      });
+    } catch (error: any) {
+      console.error('Error parsing employee import file:', error);
+      res.status(400).json({ error: error?.message || 'Failed to parse employee import file' });
+    }
+  },
+
+  bulkCreateEmployees: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!isAdminRole(req.user?.role ?? '')) {
+        res.status(403).json({ error: 'Forbidden' });
+        return;
+      }
+      const employees = req.body?.employees;
+      if (!Array.isArray(employees) || employees.length === 0) {
+        res.status(400).json({ error: 'employees array is required' });
+        return;
+      }
+      const result = await employeeService.bulkCreateEmployees(employees as CreateEmployeePayload[]);
+      res.status(result.failed.length && !result.created.length ? 400 : 201).json(result);
+    } catch (error) {
+      console.error('Error bulk creating employees:', error);
+      res.status(500).json({ error: 'Failed to bulk create employees' });
     }
   },
 };

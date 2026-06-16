@@ -165,6 +165,10 @@ export const leaveController = {
         return;
       }
 
+      let resolvedEmployeeId = String(employeeId);
+      let resolvedEmployeeName =
+        typeof employeeName === 'string' && employeeName.trim() ? employeeName.trim() : 'Unknown';
+
       if (req.user && isEmployeeRole(req.user.role)) {
         const own = await resolveEmployeeForAuthUser(req.user.id, req.user.email);
         const ownId = own?.id ? String(own.id) : req.user.id;
@@ -172,11 +176,16 @@ export const leaveController = {
           res.status(403).json({ error: 'You can only submit leave requests for your own account.' });
           return;
         }
+        resolvedEmployeeId = ownId;
+        if (own) {
+          const name = [own.firstName, own.middleName, own.lastName].filter(Boolean).join(' ').trim();
+          if (name) resolvedEmployeeName = name;
+        }
       }
 
       const leave = await leaveService.createLeave({
-        employeeId,
-        employeeName: employeeName || 'Unknown',
+        employeeId: resolvedEmployeeId,
+        employeeName: resolvedEmployeeName,
         type,
         leaveDuration,
         halfDaySession,

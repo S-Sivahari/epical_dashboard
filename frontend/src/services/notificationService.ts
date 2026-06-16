@@ -16,3 +16,12 @@ export async function getUnreadCount(): Promise<number> {
   const { data } = await api.get<{ count: number }>('/notifications/count/unread')
   return data.count
 }
+
+export async function markNotificationsAsReadByTypes(
+  types: string[],
+): Promise<number> {
+  const { data } = await api.patch<{ modifiedCount: number }>('/notifications/read-by-types', {
+    types,
+  })
+  return data.modifiedCount
+}

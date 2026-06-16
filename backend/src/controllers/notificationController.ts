@@ -84,6 +84,29 @@ export const notificationController = {
     }
   },
 
+  // PATCH /api/notifications/read-by-types - Mark unread notifications of given types as read
+  markAsReadByTypes: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user?.id) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+      const { types } = req.body as { types?: string[] };
+      if (!Array.isArray(types) || types.length === 0) {
+        res.json({ modifiedCount: 0 });
+        return;
+      }
+      const modifiedCount = await notificationService.markAsReadByTypes(
+        req.user.id,
+        types as any,
+      );
+      res.json({ modifiedCount });
+    } catch (error) {
+      console.error('Mark as read by types error:', error);
+      res.status(500).json({ error: 'Failed to mark notifications as read' });
+    }
+  },
+
   // PATCH /api/notifications/read-all - Mark all as read
   markAllAsRead: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
