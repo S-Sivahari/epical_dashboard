@@ -1,11 +1,8 @@
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { NavLink, Navigate, Outlet } from 'react-router-dom'
 import { Briefcase, CircuitBoard, NotebookPen } from 'lucide-react'
 import { ROUTES } from '@constants/routes'
-import {
-  clearProjectAnalysisSession,
-  consumeProjectAnalysisAccess,
-} from '@/utils/projectAnalysisAccess'
+import { consumeProjectAnalysisAccess } from '@/utils/projectAnalysisAccess'
 import { cn } from '@/utils/cn'
 
 const TABS = [
@@ -31,10 +28,6 @@ const TABS = [
 
 export function ProjectAnalysisLayout() {
   const allowed = useMemo(() => consumeProjectAnalysisAccess(), [])
-
-  useEffect(() => {
-    return () => clearProjectAnalysisSession()
-  }, [])
 
   if (!allowed) {
     return <Navigate to={ROUTES.TIMESHEET} replace />

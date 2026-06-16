@@ -126,6 +126,39 @@ export function validateIsoInRange(
   return parsed
 }
 
+/** Parse yyyy-mm-dd as local calendar midnight (avoids UTC shift from Date.parse). */
+export function parseIsoToLocalDate(iso: string): Date | null {
+  if (!ISO_DATE_REGEX.test(iso)) return null
+  const [year, month, day] = iso.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
+export function formatLocalDateIso(date: Date): string {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
+}
+
+/** Inclusive list of yyyy-mm-dd strings from `from` through `to` in local calendar time. */
+export function eachIsoDateInRange(from: string, to: string): string[] {
+  const start = parseIsoToLocalDate(from)
+  const end = parseIsoToLocalDate(to)
+  if (!start || !end || end < start) return []
+
+  const dates: string[] = []
+  const cursor = new Date(start)
+  while (cursor <= end) {
+    dates.push(formatLocalDateIso(cursor))
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  return dates
+}
+
+export function isWeekendIso(iso: string): boolean {
+  const date = parseIsoToLocalDate(iso)
+  if (!date) return false
+  const dow = date.getDay()
+  return dow === 0 || dow === 6
+}
+
 export function leaveRangeError(fromIso: string, toIso: string): string | null {
   const bounds = getLeaveDateBounds()
   const fromCheck = validateIsoInRange(fromIso, bounds.min, bounds.max)

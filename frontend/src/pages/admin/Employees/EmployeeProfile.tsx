@@ -37,6 +37,7 @@ import {
 } from '@/constants/employeeExport'
 import { documentListFromEmployee } from '@/utils/employeeDocuments'
 import { useAuthStore } from '@store/authStore'
+import { useEmployeeStore } from '@store/employeeStore'
 import { ROUTES } from '@constants/routes'
 import { cn } from '@/utils/cn'
 
@@ -125,6 +126,7 @@ export function EmployeeProfile() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
+  const employeesRevision = useEmployeeStore((s) => s.employeesRevision)
   const [employee, setEmployee] = useState<Employee | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -201,7 +203,7 @@ export function EmployeeProfile() {
     return () => {
       cancelled = true
     }
-  }, [id])
+  }, [id, employeesRevision])
 
   if (loading) {
     return (
@@ -307,13 +309,13 @@ export function EmployeeProfile() {
 
     setSavingStatus(true)
     try {
-      await employeeService.updateEmployeeStatus(
+      const refreshed = await employeeService.updateEmployeeStatus(
         employee.id!,
         pendingStatus,
         reason,
         user?.email || user?.name,
       )
-      const refreshed = await employeeService.getEmployee(id)
+      useEmployeeStore.getState().applyEmployeeRecord(refreshed)
       setEmployee(refreshed)
       setStatusModalOpen(false)
       setPendingStatus(null)

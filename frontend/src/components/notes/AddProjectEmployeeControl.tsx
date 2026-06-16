@@ -87,7 +87,7 @@ export function AddProjectEmployeeControl({
         icon={addingId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
         disabled={disabled || noneLeft || Boolean(addingId)}
         onClick={() => setOpen((current) => !current)}
-        title={noneLeft ? 'All employees already have a box for this project' : 'Add another employee to this project'}
+        title={noneLeft ? 'All employees already have a note on this project today' : 'Add another employee to this project'}
       >
         Add employee
       </Button>

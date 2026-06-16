@@ -58,7 +58,7 @@ export type DailyNotesEmailSendOptions = {
 
 function employeeNames(child: NoteChildBlock): string {
   if (Array.isArray(child.employees) && child.employees.length > 0) {
-    return child.employees.map((employee) => employee.name).filter(Boolean).join(' / ');
+    return child.employees.map((employee) => employee.name).filter(Boolean).join('/');
   }
   if (child.employeeName?.trim()) return child.employeeName.trim();
   return '—';

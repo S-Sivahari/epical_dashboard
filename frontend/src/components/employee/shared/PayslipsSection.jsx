@@ -89,7 +89,7 @@ function parsePayPeriod(payMonth) {
 
 function getPayslipStatus(payslip) {
   if (payslip.status === 'Pending') return 'Pending'
-  return payslip.sentAt ? 'Paid' : 'Pending'
+  return payslip.sentAt ? 'Uploaded' : 'Pending'
 }
 
 function enrichPayslip(payslip) {
@@ -319,7 +319,7 @@ export function PayslipsSection({ payslips, loading }) {
                 onChange={setStatusFilter}
                 options={[
                   { value: 'all', label: 'All status' },
-                  { value: 'Paid', label: 'Paid' },
+                  { value: 'Uploaded', label: 'Uploaded' },
                   { value: 'Pending', label: 'Pending' },
                 ]}
                 placeholder="Status"

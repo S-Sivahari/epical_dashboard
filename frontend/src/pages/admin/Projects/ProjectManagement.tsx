@@ -41,6 +41,7 @@ import {
   Edit2,
   RefreshCw,
   Layers,
+  Upload,
 } from 'lucide-react'
 import { formatDate } from '@/utils/formatDate'
 import ExcelJS from 'exceljs'
@@ -54,6 +55,11 @@ import {
 import { timesheetReportFileName } from '@/utils/exportFileName'
 import api from '@/services/api'
 import { getEmployees } from '@/services/employeeService'
+import {
+  downloadProjectImportTemplate,
+  importProjectsReset,
+} from '@/services/projectImportService'
+import { useEmployeeStore } from '@store/employeeStore'
 import { MOCK_EMPLOYEES } from '@/services/mockData'
 import type { Employee } from '@/types'
 import { cn } from '@/utils/cn'
@@ -1372,8 +1378,7 @@ export function ProjectManagement() {
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [employees, setEmployees] = useState<Employee[]>([])
-
-
+  const employeesRevision = useEmployeeStore((s) => s.employeesRevision)
 
   // ── Project Audit Trail Modal States ────────────────────────────
   const [auditTrailModalOpen, setAuditTrailModalOpen] = useState(false)
@@ -1387,6 +1392,11 @@ export function ProjectManagement() {
   const [loadingArchived, setLoadingArchived] = useState(false)
   const [restoringArchivedId, setRestoringArchivedId] = useState<string | null>(null)
   const archivedCount = archivedProjects.length
+
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importingProjects, setImportingProjects] = useState(false)
+  const [importConfirmOpen, setImportConfirmOpen] = useState(false)
+  const importFileInputRef = useRef<HTMLInputElement>(null)
 
   const openAuditTrail = useCallback((id: string, name: string) => {
     setSelectedAuditProjectId(id)
@@ -1491,6 +1501,39 @@ export function ProjectManagement() {
     await Promise.all([fetchProjects(), fetchTimesheetsData(), fetchArchivedProjects()])
   }, [fetchProjects, fetchTimesheetsData, fetchArchivedProjects])
 
+  const handleDownloadProjectTemplate = useCallback(async () => {
+    try {
+      await downloadProjectImportTemplate()
+      toast.success('Template downloaded')
+    } catch {
+      toast.error('Failed to download template')
+    }
+  }, [])
+
+  const handleConfirmProjectImport = useCallback(async () => {
+    if (!importFile) return
+    setImportConfirmOpen(false)
+    setImportingProjects(true)
+    try {
+      const result = await importProjectsReset(importFile)
+      setImportFile(null)
+      if (importFileInputRef.current) importFileInputRef.current.value = ''
+      await refreshAllData()
+      toast.success(result.message)
+      if (result.warnings.length) {
+        toast.warning(`${result.warnings.length} row(s) skipped — check import warnings in console.`)
+        console.info('[Project Import] Warnings:', result.warnings)
+      }
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        (err instanceof Error ? err.message : 'Import failed')
+      toast.error(message)
+    } finally {
+      setImportingProjects(false)
+    }
+  }, [importFile, refreshAllData])
+
   const handleRestoreArchivedProject = useCallback(
     async (id: string, name: string) => {
       if (
@@ -1523,7 +1566,7 @@ export function ProjectManagement() {
     fetchProjects()
     fetchEmployees()
     void fetchArchivedProjects()
-  }, [fetchProjects, fetchEmployees, fetchArchivedProjects])
+  }, [fetchProjects, fetchEmployees, fetchArchivedProjects, employeesRevision])
 
   useEffect(() => {
     if (activeTab === 'archived') {
@@ -2517,12 +2560,13 @@ export function ProjectManagement() {
               </div>
               
               {/* Vertical Separator */}
-              <div className="h-24 w-px bg-gradient-to-b from-transparent via-white/20 to-transparent"></div>
-              
-              {/* Center: Compact Donut Chart */}
-              <div className="flex items-center justify-center flex-shrink-0">
-                <div className="relative">
-                  <svg width="140" height="140" viewBox="0 0 140 140" className="transform -rotate-90">
+              <div className="projects-hero-separator" aria-hidden />
+
+              {/* Donut + status pills grouped together */}
+              <div className="projects-hero-metrics-group">
+                <div className="projects-hero-donut">
+                  <div className="projects-hero-donut-inner">
+                    <svg width="96" height="96" viewBox="0 0 140 140" className="transform -rotate-90">
                     {(() => {
                       const total = projectMetrics.total || 1;
                       const radius = 55;
@@ -2613,21 +2657,16 @@ export function ProjectManagement() {
                     })()}
                   </svg>
                   
-                  {/* Center total count */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <div className="projects-hero-donut-center">
                     <span className="projects-hero-donut-total">{projectMetrics.total}</span>
                     <span className="projects-hero-donut-label">Total</span>
                   </div>
                 </div>
               </div>
-              
-              {/* Vertical Separator */}
-              <div className="h-24 w-px bg-gradient-to-b from-transparent via-white/20 to-transparent"></div>
-              
-              {/* Right: Status Metrics - Horizontal Row */}
-              <div className="flex flex-1 flex-wrap items-stretch gap-4">
+
+              <div className="projects-hero-stats-row">
                 <div className="projects-hero-stat-card">
-                  <div className="flex items-center gap-2">
+                  <div className="projects-hero-stat-head">
                     <span className="projects-hero-stat-dot projects-hero-stat-dot--progress" />
                     <span className="projects-hero-stat-label">In Progress</span>
                   </div>
@@ -2637,7 +2676,7 @@ export function ProjectManagement() {
                 </div>
 
                 <div className="projects-hero-stat-card">
-                  <div className="flex items-center gap-2">
+                  <div className="projects-hero-stat-head">
                     <span className="projects-hero-stat-dot projects-hero-stat-dot--completed" />
                     <span className="projects-hero-stat-label">Completed</span>
                   </div>
@@ -2647,7 +2686,7 @@ export function ProjectManagement() {
                 </div>
 
                 <div className="projects-hero-stat-card">
-                  <div className="flex items-center gap-2">
+                  <div className="projects-hero-stat-head">
                     <span className="projects-hero-stat-dot projects-hero-stat-dot--cancelled" />
                     <span className="projects-hero-stat-label">Cancelled</span>
                   </div>
@@ -2658,11 +2697,11 @@ export function ProjectManagement() {
               </div>
             </div>
           </div>
+        </div>
 
       {/* ================================================================
            TAB 1 – PROJECTS
            ================================================================ */}
-      {/* Unified grid layout holding the permanently visible sidebar on the left and the main content on the right */}
       <div className="projects-body-grid">
         {/* Left Sidebar with Navigation and Filters */}
         <aside className="projects-sidebar projects-sidebar--with-footer flex flex-col">
@@ -2724,151 +2763,55 @@ export function ProjectManagement() {
             <div className="my-3 border-t border-slate-100" />
           )}
 
-          {/* DYNAMIC FILTERS & SETTINGS SECTION */}
           {activeTab === 'projects' ? (
-            <div className="space-y-4">
-              <p className="projects-sidebar-title">Project Filters</p>
-              
-              {/* Search */}
-              <div className="relative min-w-0">
-                <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-[var(--emerald-dark)]" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search projects, clients…"
-                  className="admin-field projects-search-input pl-9 pr-8 font-medium text-ink shadow-sm"
-                />
-                {searchQuery ? (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 z-10 -translate-y-1/2 rounded-md p-0.5 text-slate-700 hover:bg-white/60 hover:text-ink"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                ) : null}
-              </div>
-
-              {/* Show/Hide Filters Button */}
+            <div className="space-y-2.5">
               <button
                 type="button"
-                onClick={() => setShowFilters(!showFilters)}
-                className={`projects-show-filters-btn inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 transition-all ${
-                  showFilters || activeFiltersCount > 0
-                    ? 'border-[rgba(38,107,28,0.35)] bg-white/80 text-[var(--emerald-dark)]'
-                    : 'border-[rgba(38,107,28,0.2)] bg-white/50 text-slate-800 hover:bg-white/70'
-                }`}
+                onClick={() => void handleDownloadProjectTemplate()}
+                className="projects-show-filters-btn inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-[rgba(38,107,28,0.2)] bg-white/50 px-3 py-2 font-semibold text-slate-800 transition-all hover:bg-white/70"
               >
-                <SlidersHorizontal className="h-3.5 w-3.5" />
-                Show Filters
-                {activeFiltersCount > 0 ? (
-                  <span className="admin-dash-action-btn-sm inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1 text-[10px] font-black text-white">
-                    {activeFiltersCount}
-                  </span>
-                ) : null}
+                <FileDown className="h-3.5 w-3.5 shrink-0 text-[var(--emerald-dark)]" />
+                Download Template
               </button>
-
-              {/* Filters Panel */}
-              {showFilters ? (
-                <div className="space-y-3 rounded-lg border border-[rgba(38,107,28,0.15)] bg-white/55 p-3 animate-fadeIn">
-                  <FilterCheckboxGroup
-                    label="Client Name"
-                    placeholder="All Clients"
-                    compact
-                    options={uniqueClients.map((c) => ({ value: c, label: c }))}
-                    selected={filterClients}
-                    onChange={setFilterClients}
-                  />
-                  <FilterCheckboxGroup
-                    label="Employee"
-                    placeholder="All Employees"
-                    compact
-                    options={uniqueEmployees.map((emp) => ({ value: emp, label: emp }))}
-                    selected={filterEmployees}
-                    onChange={setFilterEmployees}
-                  />
-                  <FilterCheckboxGroup
-                    label="Project Status"
-                    placeholder="All Statuses"
-                    compact
-                    options={[
-                      { value: 'Active', label: 'In Progress' },
-                      { value: 'Completed', label: 'Completed' },
-                      { value: 'Cancelled', label: 'Cancelled' },
-                    ]}
-                    selected={filterStatuses}
-                    onChange={setFilterStatuses}
-                  />
-                  <FilterCheckboxGroup
-                    label="Access Control"
-                    placeholder="All Access"
-                    compact
-                    options={[
-                      { value: 'public', label: 'Public' },
-                      { value: 'private', label: 'Private' },
-                    ]}
-                    selected={filterAccessTypes}
-                    onChange={setFilterAccessTypes}
-                  />
-                  {activeFiltersCount > 0 ? (
-                    <button
-                      onClick={clearProjectsFilters}
-                      className="w-full text-center text-xs font-bold text-[var(--emerald-dark)] hover:text-[var(--green-600)] transition-colors"
-                    >
-                      Reset All Filters
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {/* Project Health Overview */}
-              {!showFilters && (
-                <div className="rounded-lg border border-[rgba(38,107,28,0.12)] bg-white/45 p-3">
-                  <p className="workspace-summary-label mb-2">Quick Overview</p>
-                  <div className="space-y-2">
-                    <div className="workspace-overview-row flex items-center justify-between">
-                      <span className="font-semibold text-slate-700">In Progress</span>
-                      <span className="font-bold text-blue-600">{projectMetrics.inProgress}</span>
-                    </div>
-                    <div className="workspace-overview-row flex items-center justify-between">
-                      <span className="font-semibold text-slate-700">Completed</span>
-                      <span className="font-bold text-emerald-600">{projectMetrics.completed}</span>
-                    </div>
-                    <div className="workspace-overview-row flex items-center justify-between">
-                      <span className="font-semibold text-slate-700">Cancelled</span>
-                      <span className="font-bold text-rose-600">{projectMetrics.cancelled}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* View Switcher */}
-              <div className="rounded-lg border border-[rgba(38,107,28,0.12)] bg-white/45 p-3">
-                <p className="projects-view-count font-semibold text-slate-700 tabular-nums mb-2">
-                  <span className="font-bold text-[var(--emerald-dark)]">{filteredProjects.length}</span>
-                  <span className="text-slate-600"> / {projects.length} projects</span>
+              <input
+                ref={importFileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+              />
+              <button
+                type="button"
+                onClick={() => importFileInputRef.current?.click()}
+                disabled={importingProjects}
+                className="projects-show-filters-btn inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-[rgba(38,107,28,0.2)] bg-white/50 px-3 py-2 font-semibold text-slate-800 transition-all hover:bg-white/70 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Upload className="h-3.5 w-3.5 shrink-0 text-[var(--emerald-dark)]" />
+                {importFile ? 'Change File' : 'Choose Excel File'}
+              </button>
+              {importFile ? (
+                <p className="projects-sidebar-import-filename truncate px-0.5" title={importFile.name}>
+                  {importFile.name}
                 </p>
-                <div className="projects-view-toggle">
-                  <button
-                    onClick={() => setViewMode('grid')}
-                    className={`flex-1 rounded-md p-2 transition-all ${
-                      viewMode === 'grid' ? 'admin-projects-green-solid shadow-sm' : 'text-slate-600 hover:text-ink'
-                    }`}
-                    title="Grid view"
-                  >
-                    <LayoutGrid className="mx-auto h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => setViewMode('list')}
-                    className={`flex-1 rounded-md p-2 transition-all ${
-                      viewMode === 'list' ? 'admin-projects-green-solid shadow-sm' : 'text-slate-600 hover:text-ink'
-                    }`}
-                    title="List view"
-                  >
-                    <List className="mx-auto h-4 w-4" />
-                  </button>
-                </div>
-              </div>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setImportConfirmOpen(true)}
+                disabled={!importFile || importingProjects}
+                className="projects-sidebar-import-btn inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-[rgba(220,38,38,0.25)] bg-red-50 px-3 py-2 font-semibold text-red-700 transition-all hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {importingProjects ? (
+                  <>
+                    <Spinner className="h-3.5 w-3.5" />
+                    Importing…
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 shrink-0" />
+                    Import &amp; Reset Projects
+                  </>
+                )}
+              </button>
             </div>
           ) : activeTab === 'timesheets' ? (
             <div className="space-y-4">
@@ -2966,13 +2909,137 @@ export function ProjectManagement() {
             />
           ) : activeTab === 'projects' ? (
             <div className="projects-directory-section animate-fadeIn">
-              <div className="projects-directory-table-head">
-                <h2 className="projects-directory-table-title">Project Directory</h2>
-                <p className="projects-directory-table-subtitle">
-                  {viewMode === 'grid' ? 'Grid view' : 'List view'} · {filteredProjects.length} result{filteredProjects.length === 1 ? '' : 's'}
-                </p>
+              <div className="projects-directory-header">
+                <div className="projects-directory-header-title">
+                  <h2 className="projects-directory-table-title">Project Directory</h2>
+                  <p className="projects-directory-table-subtitle">
+                    {filteredProjects.length} project{filteredProjects.length === 1 ? '' : 's'}
+                  </p>
+                </div>
+
+                <div className="projects-directory-header-controls">
+                  <div className="projects-directory-search-group">
+                    <div className="relative min-w-0 flex-1">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-[var(--emerald-dark)]" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search projects, clients…"
+                        className="admin-field projects-search-input w-full pl-9 pr-8 font-medium text-ink shadow-sm"
+                      />
+                      {searchQuery ? (
+                        <button
+                          type="button"
+                          onClick={() => setSearchQuery('')}
+                          className="absolute right-2.5 top-1/2 z-10 -translate-y-1/2 rounded-md p-0.5 text-slate-700 hover:bg-white/60 hover:text-ink"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      ) : null}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowFilters(!showFilters)}
+                      aria-label="Filters"
+                      title="Filters"
+                      className={`projects-directory-filters-btn inline-flex shrink-0 items-center justify-center gap-1 rounded-lg border transition-all ${
+                        showFilters || activeFiltersCount > 0
+                          ? 'border-[rgba(38,107,28,0.35)] bg-white/80 text-[var(--emerald-dark)]'
+                          : 'border-[rgba(38,107,28,0.2)] bg-white/50 text-slate-800 hover:bg-white/70'
+                      }`}
+                    >
+                      <SlidersHorizontal className="h-3.5 w-3.5" />
+                      {activeFiltersCount > 0 ? (
+                        <span className="inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-[var(--emerald-dark)] px-1 text-[10px] font-bold leading-none text-white">
+                          {activeFiltersCount}
+                        </span>
+                      ) : null}
+                    </button>
+                  </div>
+
+                  <div className="projects-directory-view-toggle projects-view-toggle shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('grid')}
+                      className={`rounded-md p-2 transition-all ${
+                        viewMode === 'grid' ? 'admin-projects-green-solid shadow-sm' : 'text-slate-600 hover:text-ink'
+                      }`}
+                      title="Grid view"
+                      aria-label="Grid view"
+                    >
+                      <LayoutGrid className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('list')}
+                      className={`rounded-md p-2 transition-all ${
+                        viewMode === 'list' ? 'admin-projects-green-solid shadow-sm' : 'text-slate-600 hover:text-ink'
+                      }`}
+                      title="List view"
+                      aria-label="List view"
+                    >
+                      <List className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
               </div>
-              
+
+              {showFilters ? (
+                <div className="projects-directory-filters space-y-3 rounded-lg border border-[rgba(38,107,28,0.15)] bg-white/55 p-3 animate-fadeIn">
+                    <FilterCheckboxGroup
+                      label="Client Name"
+                      placeholder="All Clients"
+                      compact
+                      options={uniqueClients.map((c) => ({ value: c, label: c }))}
+                      selected={filterClients}
+                      onChange={setFilterClients}
+                    />
+                    <FilterCheckboxGroup
+                      label="Employee"
+                      placeholder="All Employees"
+                      compact
+                      options={uniqueEmployees.map((emp) => ({ value: emp, label: emp }))}
+                      selected={filterEmployees}
+                      onChange={setFilterEmployees}
+                    />
+                    <FilterCheckboxGroup
+                      label="Project Status"
+                      placeholder="All Statuses"
+                      compact
+                      options={[
+                        { value: 'Active', label: 'In Progress' },
+                        { value: 'Completed', label: 'Completed' },
+                        { value: 'Cancelled', label: 'Cancelled' },
+                      ]}
+                      selected={filterStatuses}
+                      onChange={setFilterStatuses}
+                    />
+                    <FilterCheckboxGroup
+                      label="Access Control"
+                      placeholder="All Access"
+                      compact
+                      options={[
+                        { value: 'public', label: 'Public' },
+                        { value: 'private', label: 'Private' },
+                      ]}
+                      selected={filterAccessTypes}
+                      onChange={setFilterAccessTypes}
+                    />
+                    {activeFiltersCount > 0 ? (
+                      <button
+                        type="button"
+                        onClick={clearProjectsFilters}
+                        className="w-full text-center text-xs font-bold text-[var(--emerald-dark)] transition-colors hover:text-[var(--green-600)]"
+                      >
+                        Reset All Filters
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+
+              <div className="projects-directory-scroll">
               {viewMode === 'grid' ? (
                 <>
                   {filteredProjects.length > 0 ? (
@@ -3044,6 +3111,8 @@ export function ProjectManagement() {
                   </div>
                 </div>
               )}
+
+              </div>
 
               {/* Projects Pagination Controls */}
               {totalProjectsPages > 1 && (
@@ -3566,6 +3635,16 @@ export function ProjectManagement() {
           onConfirm={handleConfirmArchive}
         />
       )}
+
+      <ConfirmModal
+        isOpen={importConfirmOpen}
+        title="Reset All Projects from Excel?"
+        description={`This will archive every active project (visible under Archived Projects) and recreate projects from "${importFile?.name ?? 'your file'}". For timesheet-matrix files, task history is imported into timesheets. This cannot be undone.`}
+        confirmLabel="Import & Reset"
+        danger
+        onClose={() => setImportConfirmOpen(false)}
+        onConfirm={handleConfirmProjectImport}
+      />
 
       </PageWrapper>
     </div>
