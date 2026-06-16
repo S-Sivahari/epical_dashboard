@@ -2274,6 +2274,13 @@
 }
 
 .project-analysis-layout {
+  --project-analysis-font-scale: 1.2;
+  display: flex;
+  flex: 1 1 0;
+  min-height: 0;
+  height: 100%;
+  flex-direction: column;
+  overflow: hidden;
   background: #f8fafc;
 }
 
@@ -2356,21 +2363,227 @@
 }
 
 .project-analysis-layout__tab.is-active {
-  border-color: rgba(30, 90, 61, 0.28);
-  background: #ecfdf5;
-  color: #166534;
-  box-shadow: inset 0 0 0 1px rgba(30, 90, 61, 0.08);
+  border-color: rgba(30, 90, 61, 0.45);
+  background: var(--dash-forest-header, #2f6b4f);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+
+.project-analysis-layout__tab.is-active svg {
+  color: #ffffff;
 }
 
 .project-analysis-layout__content {
   display: flex;
+  flex: 1 1 0;
   flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .project-analysis-layout__content > * {
   height: 100%;
   min-height: 0;
   flex: 1 1 0;
+}
+
+/* Project Analysis — full viewport height + tab typography */
+.admin-portal--project-analysis .cmd-main,
+.admin-portal--project-analysis .cmd-main > .relative {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 0;
+  flex-direction: column;
+}
+
+.project-analysis-layout .admin-projects-page-wrap,
+.project-analysis-layout .admin-projects-page,
+.project-analysis-layout .admin-notes-page-wrap,
+.project-analysis-layout .admin-notes-page,
+.project-analysis-layout .admin-notes-shell,
+.project-analysis-layout [data-metal-routing] {
+  flex: 1 1 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.project-analysis-layout .admin-projects-directory-view {
+  flex: 1 1 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.project-analysis-layout .admin-projects-directory-view .admin-projects-shell {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.project-analysis-layout .admin-projects-directory-view .admin-projects-head,
+.project-analysis-layout .admin-projects-directory-view .admin-projects-toolbar {
+  flex-shrink: 0;
+}
+
+.project-analysis-layout .admin-projects-directory-view .admin-projects-table-section {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.project-analysis-layout .admin-projects-directory-view .admin-projects-directory-table.admin-table-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  margin-bottom: 0;
+  overflow: hidden;
+}
+
+.project-analysis-layout .admin-projects-directory-view .admin-projects-directory-table.admin-table-fill-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.project-analysis-layout .admin-projects-directory-view .admin-table-fill-rows table {
+  flex: 1 1 0;
+  min-height: 0;
+  height: 100%;
+  table-layout: fixed;
+  display: flex;
+  flex-direction: column;
+}
+
+.project-analysis-layout .admin-projects-directory-view .admin-table-fill-rows thead {
+  flex: 0 0 auto;
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.project-analysis-layout .admin-projects-directory-view .admin-table-fill-rows tbody {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.project-analysis-layout .admin-projects-directory-view .admin-table-fill-rows tbody tr {
+  flex: 1 1 0;
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+  min-height: 2.5rem;
+}
+
+.project-analysis-layout .admin-projects-directory-view .admin-table-fill-rows tbody td {
+  vertical-align: middle;
+}
+
+.project-analysis-layout .admin-projects-directory-view .employee-directory-pagination {
+  flex-shrink: 0;
+}
+
+.project-analysis-layout .admin-notes-shell {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 0;
+}
+
+.project-analysis-layout .admin-notes-scroll-body {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.project-analysis-layout .notes-week-board {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.project-analysis-layout .notes-week-feed {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 0.5rem;
+}
+
+.project-analysis-layout [data-metal-routing] .metal-routing-page-shell,
+.project-analysis-layout [data-metal-routing] .metal-routing-page-shell--bleed {
+  min-height: 0;
+  flex: 1 1 0;
+  padding-bottom: 0 !important;
+}
+
+.project-analysis-layout [data-metal-routing] {
+  font-size: calc(15px * var(--project-analysis-font-scale, 1.2));
+}
+
+.project-analysis-layout [data-metal-routing] .metal-routing-page-title,
+.project-analysis-layout [data-metal-routing] .metal-routing-signal-projects-header__title,
+.project-analysis-layout [data-metal-routing] .metal-routing-cell-project-hero__title {
+  font-size: calc(1.375rem * var(--project-analysis-font-scale, 1.2));
+}
+
+.project-analysis-layout [data-metal-routing] .metal-routing-section-title,
+.project-analysis-layout [data-metal-routing] .metal-routing-signal-projects-toolbar__title,
+.project-analysis-layout [data-metal-routing] .metal-routing-cell-project-panel__title {
+  font-size: calc(1rem * var(--project-analysis-font-scale, 1.2));
+}
+
+.project-analysis-layout [data-metal-routing] .metal-routing-page-desc,
+.project-analysis-layout [data-metal-routing] .metal-routing-cell-project-panel__desc,
+.project-analysis-layout [data-metal-routing] .metal-routing-signal-projects-header__subtitle {
+  font-size: calc(0.875rem * var(--project-analysis-font-scale, 1.2));
+}
+
+.project-analysis-layout [data-metal-routing] .metal-routing-overview-table th {
+  font-size: calc(0.75rem * var(--project-analysis-font-scale, 1.2));
+}
+
+.project-analysis-layout [data-metal-routing] .metal-routing-overview-table td,
+.project-analysis-layout [data-metal-routing] .metal-routing-stat-label,
+.project-analysis-layout [data-metal-routing] .metal-routing-sidebar__link {
+  font-size: calc(0.875rem * var(--project-analysis-font-scale, 1.2));
+}
+
+.project-analysis-layout [data-metal-routing] .metal-routing-stat-value {
+  font-size: calc(1.875rem * var(--project-analysis-font-scale, 1.2));
+}
+
+.project-analysis-layout [data-admin-notes] {
+  font-size: calc(15px * var(--project-analysis-font-scale, 1.2));
+}
+
+.project-analysis-layout [data-admin-notes] .admin-notes-header__title {
+  font-size: calc(1.125rem * var(--project-analysis-font-scale, 1.2));
+}
+
+.project-analysis-layout [data-admin-notes] .notes-toolbar__week-label,
+.project-analysis-layout [data-admin-notes] .notes-toolbar__search-input,
+.project-analysis-layout [data-admin-notes] .notes-notepad__title {
+  font-size: calc(0.9375rem * var(--project-analysis-font-scale, 1.2));
+}
+
+.project-analysis-layout [data-admin-notes] .notes-toolbar__date {
+  font-size: calc(0.8125rem * var(--project-analysis-font-scale, 1.2));
+}
+
+.project-analysis-layout [data-admin-notes] .notes-notepad__project,
+.project-analysis-layout [data-admin-notes] .notes-notepad__employees,
+.project-analysis-layout [data-admin-notes] .notes-notepad__description pre,
+.project-analysis-layout [data-admin-notes] .notes-notepad__textarea,
+.project-analysis-layout [data-admin-notes] .notes-notepad__placeholder,
+.project-analysis-layout [data-admin-notes] .notes-notepad-pad__project-name,
+.project-analysis-layout [data-admin-notes] .notes-notepad-pad__employee-names,
+.project-analysis-layout [data-admin-notes] .notes-notepad-pad__note-line,
+.project-analysis-layout [data-admin-notes] .notes-notepad-pad__note-body {
+  font-size: calc(0.875rem * var(--project-analysis-font-scale, 1.2));
 }
 
 .dashboard-kpi-icon {
@@ -4714,9 +4927,10 @@
 
 /* ── Projects hub: full-width light green layout ── */
 .admin-projects-view {
-  --admin-projects-font-scale: 1;
+  --admin-projects-ui-scale: 0.8;
+  --admin-projects-font-scale: var(--admin-projects-ui-scale);
   font-family: 'Plus Jakarta Sans', Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 15px;
+  font-size: calc(15px * var(--admin-projects-ui-scale));
   line-height: 1.55;
   color: #0f172a;
 }
@@ -4789,7 +5003,7 @@
 /* Date picker portal is outside .admin-projects-view — keep same scale */
 .projects-date-calendar-portal,
 .projects-date-calendar {
-  --admin-projects-font-scale: 1.125;
+  --admin-projects-font-scale: calc(1.125 * var(--admin-projects-ui-scale, 0.8));
 }
 
 .admin-portal .admin-projects-view.crewiq-dashboard,
@@ -4801,11 +5015,11 @@
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
-  gap: 1.25rem;
+  gap: calc(1.25rem * var(--admin-projects-ui-scale, 0.8));
   min-height: 0;
   overflow: hidden;
   padding-bottom: 0;
-  font-size: 15px;
+  font-size: calc(15px * var(--admin-projects-ui-scale, 0.8));
   line-height: 1.55;
 }
 
@@ -4814,19 +5028,76 @@
   flex-shrink: 0;
   background: #1a5c38 !important;
   border-color: rgba(255, 255, 255, 0.15) !important;
-  padding: 1.75rem 2rem !important;
+  padding: calc(1.25rem * var(--admin-projects-ui-scale, 0.8)) calc(1.5rem * var(--admin-projects-ui-scale, 0.8)) !important;
 }
 
-.admin-projects-view .projects-hero-heading {
-  font-size: 32px;
-  font-weight: 800;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
-  color: #ffffff;
+.admin-projects-view .projects-hero-section > .flex {
+  gap: calc(1rem * var(--admin-projects-ui-scale, 0.8));
+}
+
+@media (min-width: 1024px) {
+  .admin-projects-view .projects-hero-section > .flex {
+    gap: calc(1.25rem * var(--admin-projects-ui-scale, 0.8));
+  }
+}
+
+.admin-projects-view .projects-hero-separator {
+  display: none;
+  width: 1px;
+  height: calc(3.5rem * var(--admin-projects-ui-scale, 0.8));
+  flex-shrink: 0;
+  background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.2), transparent);
+}
+
+@media (min-width: 1024px) {
+  .admin-projects-view .projects-hero-separator {
+    display: block;
+  }
+}
+
+.admin-projects-view .projects-hero-metrics-group {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: calc(0.625rem * var(--admin-projects-ui-scale, 0.8));
+}
+
+@media (min-width: 1024px) {
+  .admin-projects-view .projects-hero-metrics-group {
+    justify-content: flex-end;
+    margin-left: auto;
+  }
+}
+
+.admin-projects-view .projects-hero-donut {
+  flex-shrink: 0;
+}
+
+.admin-projects-view .projects-hero-donut-inner {
+  position: relative;
+  width: calc(96px * var(--admin-projects-ui-scale, 0.8));
+  height: calc(96px * var(--admin-projects-ui-scale, 0.8));
+}
+
+.admin-projects-view .projects-hero-donut-inner svg {
+  display: block;
+  width: calc(96px * var(--admin-projects-ui-scale, 0.8));
+  height: calc(96px * var(--admin-projects-ui-scale, 0.8));
+}
+
+.admin-projects-view .projects-hero-donut-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .admin-projects-view .projects-hero-donut-total {
-  font-size: 40px;
+  font-size: calc(1.5rem * var(--admin-projects-ui-scale, 0.8));
   font-weight: 700;
   line-height: 1;
   color: #ffffff;
@@ -4834,28 +5105,35 @@
 }
 
 .admin-projects-view .projects-hero-donut-label {
-  margin-top: 0.25rem;
-  font-size: 11px;
+  margin-top: calc(0.125rem * var(--admin-projects-ui-scale, 0.8));
+  font-size: calc(9px * var(--admin-projects-ui-scale, 0.8));
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.85);
 }
 
+.admin-projects-view .projects-hero-heading {
+  font-size: calc(32px * var(--admin-projects-ui-scale, 0.8));
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+}
+
 .admin-projects-view .projects-hero-stat-card {
-  flex: 1;
-  min-width: 5.5rem;
-  min-height: 0;
+  flex: 0 0 auto;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 0.2rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 8px;
+  flex-direction: row;
+  align-items: center;
+  gap: calc(0.5rem * var(--admin-projects-ui-scale, 0.8));
+  padding: calc(0.35rem * var(--admin-projects-ui-scale, 0.8)) calc(0.55rem * var(--admin-projects-ui-scale, 0.8));
+  border-radius: calc(7px * var(--admin-projects-ui-scale, 0.8));
   border: 1px solid rgba(226, 232, 240, 0.85);
   background: #ffffff;
-  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
   transition: box-shadow 0.2s ease;
+  white-space: nowrap;
 }
 
 .admin-projects-view .projects-hero-stat-card:hover {
@@ -4863,7 +5141,7 @@
 }
 
 .admin-projects-view .projects-hero-stat-label {
-  font-size: 10px;
+  font-size: calc(10px * var(--admin-projects-ui-scale, 0.8));
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -4871,7 +5149,7 @@
 }
 
 .admin-projects-view .projects-hero-stat-value {
-  font-size: 1.75rem;
+  font-size: calc(1.375rem * var(--admin-projects-ui-scale, 0.8));
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -4890,8 +5168,8 @@
 }
 
 .admin-projects-view .projects-hero-stat-dot {
-  width: 7px;
-  height: 7px;
+  width: calc(7px * var(--admin-projects-ui-scale, 0.8));
+  height: calc(7px * var(--admin-projects-ui-scale, 0.8));
   border-radius: 9999px;
   flex-shrink: 0;
 }
@@ -4910,16 +5188,17 @@
 
 .admin-projects-view .projects-hero-stats-row {
   display: flex;
-  flex: 1;
+  flex: 0 1 auto;
   flex-wrap: wrap;
-  align-items: stretch;
-  gap: 0.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: calc(0.375rem * var(--admin-projects-ui-scale, 0.8));
 }
 
 .admin-projects-view .projects-hero-stat-head {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
+  gap: calc(0.375rem * var(--admin-projects-ui-scale, 0.8));
 }
 
 .admin-projects-view .projects-hero {
@@ -5004,7 +5283,7 @@
 .admin-projects-view .projects-body-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1.5rem;
+  gap: calc(1.5rem * var(--admin-projects-ui-scale, 0.8));
   flex: 1 1 auto;
   align-items: stretch;
   min-height: 0;
@@ -5013,12 +5292,12 @@
 
 @media (min-width: 1024px) {
   .admin-projects-view .projects-body-grid {
-    grid-template-columns: 341px minmax(0, 1fr);
+    grid-template-columns: calc(341px * var(--admin-projects-ui-scale, 0.8)) minmax(0, 1fr);
   }
 }
 
 .admin-projects-view .projects-sidebar {
-  --projects-sidebar-scale: 1.28;
+  --projects-sidebar-scale: calc(1.28 * var(--admin-projects-ui-scale, 0.8));
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -5049,7 +5328,7 @@
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   padding-right: 0.125rem;
-  font-size: calc(15px * var(--projects-sidebar-scale, 1.28));
+  font-size: calc(15px * var(--projects-sidebar-scale, 1.024));
   line-height: 1.45;
 }
 
@@ -5071,8 +5350,8 @@
 }
 
 .admin-projects-view .projects-sidebar-title {
-  margin-bottom: calc(0.875rem * var(--projects-sidebar-scale, 1.1));
-  font-size: calc(11px * var(--projects-sidebar-scale, 1.1));
+  margin-bottom: calc(0.875rem * var(--projects-sidebar-scale, 1.024));
+  font-size: calc(11px * var(--projects-sidebar-scale, 1.024));
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -5083,18 +5362,18 @@
 .admin-projects-view .sidebar-nav-list {
   display: flex;
   flex-direction: column;
-  gap: calc(0.375rem * var(--projects-sidebar-scale, 1.1));
+  gap: calc(0.375rem * var(--projects-sidebar-scale, 1.024));
 }
 
 .admin-projects-view .sidebar-nav-item {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: calc(0.75rem * var(--projects-sidebar-scale, 1.1));
-  min-height: calc(44px * var(--projects-sidebar-scale, 1.1));
-  padding: calc(0.625rem * var(--projects-sidebar-scale, 1.1)) calc(1rem * var(--projects-sidebar-scale, 1.1));
+  gap: calc(0.75rem * var(--projects-sidebar-scale, 1.024));
+  min-height: calc(44px * var(--projects-sidebar-scale, 1.024));
+  padding: calc(0.625rem * var(--projects-sidebar-scale, 1.024)) calc(1rem * var(--projects-sidebar-scale, 1.024));
   border-radius: 9999px;
-  font-size: calc(16px * var(--projects-sidebar-scale, 1.28));
+  font-size: calc(16px * var(--projects-sidebar-scale, 1.024));
   font-weight: 500;
   line-height: 1.45;
   color: #334155;
@@ -5107,8 +5386,8 @@
 
 .admin-projects-view .projects-sidebar .sidebar-nav-item svg,
 .admin-projects-view .projects-sidebar .sidebar-create-btn svg {
-  width: calc(16px * var(--projects-sidebar-scale, 1.1));
-  height: calc(16px * var(--projects-sidebar-scale, 1.1));
+  width: calc(16px * var(--projects-sidebar-scale, 1.024));
+  height: calc(16px * var(--projects-sidebar-scale, 1.024));
   flex-shrink: 0;
   color: inherit;
   stroke: currentColor;
@@ -5130,10 +5409,10 @@
 }
 
 .admin-projects-view .sidebar-nav-badge {
-  min-width: calc(28px * var(--projects-sidebar-scale, 1.1));
-  font-size: calc(13px * var(--projects-sidebar-scale, 1.1));
+  min-width: calc(28px * var(--projects-sidebar-scale, 1.024));
+  font-size: calc(13px * var(--projects-sidebar-scale, 1.024));
   font-weight: 700;
-  padding: calc(0.25rem * var(--projects-sidebar-scale, 1.1)) calc(0.5rem * var(--projects-sidebar-scale, 1.1));
+  padding: calc(0.25rem * var(--projects-sidebar-scale, 1.024)) calc(0.5rem * var(--projects-sidebar-scale, 1.024));
   border-radius: 9999px;
   text-align: center;
   background: rgba(38, 107, 28, 0.1);
@@ -5151,18 +5430,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: calc(0.5rem * var(--projects-sidebar-scale, 1.1));
+  gap: calc(0.5rem * var(--projects-sidebar-scale, 1.024));
   background: var(--emerald-dark) !important;
   color: #ffffff !important;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: calc(16px * var(--projects-sidebar-scale, 1.28));
+  font-size: calc(16px * var(--projects-sidebar-scale, 1.024));
   font-weight: 700;
-  border-radius: calc(10px * var(--projects-sidebar-scale, 1.1));
-  min-height: calc(44px * var(--projects-sidebar-scale, 1.1));
-  height: calc(44px * var(--projects-sidebar-scale, 1.1));
+  border-radius: calc(10px * var(--projects-sidebar-scale, 1.024));
+  min-height: calc(44px * var(--projects-sidebar-scale, 1.024));
+  height: calc(44px * var(--projects-sidebar-scale, 1.024));
   box-shadow: 0 4px 12px rgba(38, 107, 28, 0.2);
   transition: all 0.22s ease;
-  margin-bottom: calc(0.75rem * var(--projects-sidebar-scale, 1.1));
+  margin-bottom: calc(0.75rem * var(--projects-sidebar-scale, 1.024));
 }
 
 .admin-projects-view .sidebar-create-btn:hover {
@@ -5183,12 +5462,12 @@
   flex: 1 1 auto;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 16px;
+  border-radius: calc(16px * var(--admin-projects-ui-scale, 0.8));
   border: 1px solid rgba(38, 107, 28, 0.14);
   background: rgba(255, 255, 255, 0.97);
-  padding: 24px;
+  padding: calc(24px * var(--admin-projects-ui-scale, 0.8));
   box-shadow: 0 4px 16px -4px rgba(38, 107, 28, 0.08);
-  font-size: 15px;
+  font-size: calc(15px * var(--admin-projects-ui-scale, 0.8));
   line-height: 1.55;
 }
 
@@ -5197,14 +5476,14 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
+  gap: calc(1rem * var(--admin-projects-ui-scale, 0.8));
+  margin-bottom: calc(1.5rem * var(--admin-projects-ui-scale, 0.8));
+  padding-bottom: calc(1rem * var(--admin-projects-ui-scale, 0.8));
   border-bottom: 1px solid rgba(38, 107, 28, 0.12);
 }
 
 .admin-projects-view .projects-section-heading {
-  font-size: 22px;
+  font-size: calc(22px * var(--admin-projects-ui-scale, 0.8));
   font-weight: 700;
   line-height: 1.25;
   color: var(--emerald-dark);
@@ -5213,13 +5492,13 @@
 
 .admin-projects-view .projects-section-subheading {
   margin-top: 0.25rem;
-  font-size: 14px;
+  font-size: calc(14px * var(--admin-projects-ui-scale, 0.8));
   font-weight: 500;
   color: #64748b;
 }
 
 .admin-projects-view .projects-list-row {
-  --projects-card-font-scale: 1.3;
+  --projects-card-font-scale: calc(1.3 * var(--admin-projects-ui-scale, 0.8));
 }
 
 .admin-projects-view .projects-card {
@@ -5233,13 +5512,13 @@
 }
 
 .admin-projects-view .projects-directory-section {
-  --projects-directory-font-scale: 1.35;
+  --projects-directory-font-scale: calc(1.35 * var(--admin-projects-ui-scale, 0.8));
   display: flex;
   min-height: 0;
   flex: 1 1 auto;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 1rem;
+  border-radius: calc(1rem * var(--admin-projects-ui-scale, 0.8));
   border: 1px solid rgba(30, 90, 61, 0.1);
   background: #ffffff;
   box-shadow: 0 4px 24px rgba(30, 90, 61, 0.07);
@@ -5261,14 +5540,14 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem 1rem;
-  padding: 1rem 1.25rem;
+  gap: calc(0.75rem * var(--admin-projects-ui-scale, 0.8)) calc(1rem * var(--admin-projects-ui-scale, 0.8));
+  padding: calc(1rem * var(--admin-projects-ui-scale, 0.8)) calc(1.25rem * var(--admin-projects-ui-scale, 0.8));
   border-bottom: 1px solid rgba(38, 107, 28, 0.1);
 }
 
 @media (min-width: 768px) {
   .admin-projects-view .projects-directory-header {
-    padding: 1rem 1.5rem;
+    padding: calc(1rem * var(--admin-projects-ui-scale, 0.8)) calc(1.5rem * var(--admin-projects-ui-scale, 0.8));
     flex-wrap: nowrap;
   }
 }
@@ -5299,12 +5578,12 @@
 
 .admin-projects-view .projects-directory-filters {
   flex-shrink: 0;
-  margin: 0 1.25rem 0.75rem;
+  margin: 0 calc(1.25rem * var(--admin-projects-ui-scale, 0.8)) calc(0.75rem * var(--admin-projects-ui-scale, 0.8));
 }
 
 @media (min-width: 768px) {
   .admin-projects-view .projects-directory-filters {
-    margin: 0 1.5rem 0.75rem;
+    margin: 0 calc(1.5rem * var(--admin-projects-ui-scale, 0.8)) calc(0.75rem * var(--admin-projects-ui-scale, 0.8));
   }
 }
 
@@ -5370,13 +5649,13 @@
 }
 
 .admin-projects-view .projects-sidebar-import-filename {
-  font-size: calc(12px * var(--projects-sidebar-scale, 1.28));
+  font-size: calc(12px * var(--projects-sidebar-scale, 1.024));
   font-weight: 500;
   color: var(--emerald-dark);
 }
 
 .admin-projects-view .projects-directory-table-title {
-  font-size: calc(1.0625rem * var(--projects-directory-font-scale, 1.35));
+  font-size: calc(1.0625rem * var(--projects-directory-font-scale, 1.08));
   font-weight: 700;
   letter-spacing: 0.02em;
   color: #1a4712;
@@ -5384,50 +5663,50 @@
 
 .admin-projects-view .projects-directory-table-subtitle {
   margin-top: 0;
-  font-size: calc(0.9375rem * var(--projects-directory-font-scale, 1.35));
+  font-size: calc(0.9375rem * var(--projects-directory-font-scale, 1.08));
   font-weight: 500;
   color: #64748b;
   white-space: nowrap;
 }
 
 .admin-projects-view .projects-directory-section .text-xs {
-  font-size: calc(0.75rem * var(--projects-directory-font-scale, 1.35)) !important;
+  font-size: calc(0.75rem * var(--projects-directory-font-scale, 1.08)) !important;
 }
 
 .admin-projects-view .projects-directory-section .text-sm {
-  font-size: calc(0.875rem * var(--projects-directory-font-scale, 1.35)) !important;
+  font-size: calc(0.875rem * var(--projects-directory-font-scale, 1.08)) !important;
 }
 
 .admin-projects-view .projects-directory-section .text-base {
-  font-size: calc(1rem * var(--projects-directory-font-scale, 1.35)) !important;
+  font-size: calc(1rem * var(--projects-directory-font-scale, 1.08)) !important;
 }
 
 .admin-projects-view .projects-directory-section .text-lg {
-  font-size: calc(1.125rem * var(--projects-directory-font-scale, 1.35)) !important;
+  font-size: calc(1.125rem * var(--projects-directory-font-scale, 1.08)) !important;
 }
 
 .admin-projects-view .projects-directory-section .text-xl {
-  font-size: calc(1.25rem * var(--projects-directory-font-scale, 1.35)) !important;
+  font-size: calc(1.25rem * var(--projects-directory-font-scale, 1.08)) !important;
 }
 
 .admin-projects-view .projects-directory-section [class*='text-[9px]'] {
-  font-size: calc(9px * var(--projects-directory-font-scale, 1.35)) !important;
+  font-size: calc(9px * var(--projects-directory-font-scale, 1.08)) !important;
 }
 
 .admin-projects-view .projects-directory-section [class*='text-[10px]'] {
-  font-size: calc(10px * var(--projects-directory-font-scale, 1.35)) !important;
+  font-size: calc(10px * var(--projects-directory-font-scale, 1.08)) !important;
 }
 
 .admin-projects-view .projects-directory-section [class*='text-[11px]'] {
-  font-size: calc(11px * var(--projects-directory-font-scale, 1.35)) !important;
+  font-size: calc(11px * var(--projects-directory-font-scale, 1.08)) !important;
 }
 
 .admin-projects-view .projects-directory-section .projects-card {
-  --projects-card-font-scale: var(--projects-directory-font-scale, 1.35);
+  --projects-card-font-scale: var(--projects-directory-font-scale, 1.08);
 }
 
 .admin-projects-view .projects-directory-section .projects-list-row {
-  --projects-card-font-scale: var(--projects-directory-font-scale, 1.35);
+  --projects-card-font-scale: var(--projects-directory-font-scale, 1.08);
 }
 
 .admin-projects-view .projects-grid {
@@ -5579,11 +5858,11 @@
 }
 
 .admin-projects-view .projects-search-input {
-  height: calc(42px * var(--projects-sidebar-scale, 1.1));
+  height: calc(42px * var(--projects-sidebar-scale, 1.024));
   width: 100%;
-  font-size: calc(14px * var(--projects-sidebar-scale, 1.1));
+  font-size: calc(14px * var(--projects-sidebar-scale, 1.024));
   font-weight: 500;
-  padding-left: calc(2.25rem * var(--projects-sidebar-scale, 1.1)) !important;
+  padding-left: calc(2.25rem * var(--projects-sidebar-scale, 1.024)) !important;
 }
 
 .admin-projects-view .projects-sidebar .projects-search-input + button,
@@ -5593,8 +5872,8 @@
 
 .admin-projects-view .projects-sidebar .projects-search-input + button svg,
 .admin-projects-view .projects-sidebar .relative > svg {
-  width: calc(16px * var(--projects-sidebar-scale, 1.1));
-  height: calc(16px * var(--projects-sidebar-scale, 1.1));
+  width: calc(16px * var(--projects-sidebar-scale, 1.024));
+  height: calc(16px * var(--projects-sidebar-scale, 1.024));
   color: var(--emerald-dark);
   stroke: currentColor;
 }
@@ -5610,48 +5889,48 @@
 }
 
 .admin-projects-view .projects-show-filters-btn {
-  min-height: calc(44px * var(--projects-sidebar-scale, 1.28));
+  min-height: calc(44px * var(--projects-sidebar-scale, 1.024));
   width: 100%;
-  font-size: calc(15px * var(--projects-sidebar-scale, 1.28));
+  font-size: calc(15px * var(--projects-sidebar-scale, 1.024));
   font-weight: 600;
-  padding: calc(0.5rem * var(--projects-sidebar-scale, 1.28)) calc(0.75rem * var(--projects-sidebar-scale, 1.28));
-  gap: calc(0.375rem * var(--projects-sidebar-scale, 1.28));
+  padding: calc(0.5rem * var(--projects-sidebar-scale, 1.024)) calc(0.75rem * var(--projects-sidebar-scale, 1.024));
+  gap: calc(0.375rem * var(--projects-sidebar-scale, 1.024));
 }
 
 .admin-projects-view .projects-sidebar-import-btn {
-  min-height: calc(44px * var(--projects-sidebar-scale, 1.28));
+  min-height: calc(44px * var(--projects-sidebar-scale, 1.024));
   width: 100%;
-  font-size: calc(15px * var(--projects-sidebar-scale, 1.28));
+  font-size: calc(15px * var(--projects-sidebar-scale, 1.024));
   font-weight: 600;
-  padding: calc(0.5rem * var(--projects-sidebar-scale, 1.28)) calc(0.75rem * var(--projects-sidebar-scale, 1.28));
-  gap: calc(0.375rem * var(--projects-sidebar-scale, 1.28));
+  padding: calc(0.5rem * var(--projects-sidebar-scale, 1.024)) calc(0.75rem * var(--projects-sidebar-scale, 1.024));
+  gap: calc(0.375rem * var(--projects-sidebar-scale, 1.024));
 }
 
 .admin-projects-view .projects-sidebar .projects-show-filters-btn svg {
-  width: calc(14px * var(--projects-sidebar-scale, 1.1));
-  height: calc(14px * var(--projects-sidebar-scale, 1.1));
+  width: calc(14px * var(--projects-sidebar-scale, 1.024));
+  height: calc(14px * var(--projects-sidebar-scale, 1.024));
   color: currentColor;
   stroke: currentColor;
 }
 
 .admin-projects-view .projects-sidebar .workspace-summary-label {
-  font-size: calc(13px * var(--projects-sidebar-scale, 1.1));
+  font-size: calc(13px * var(--projects-sidebar-scale, 1.024));
   font-weight: 700;
   color: #1e293b;
-  margin-bottom: calc(0.5rem * var(--projects-sidebar-scale, 1.1));
+  margin-bottom: calc(0.5rem * var(--projects-sidebar-scale, 1.024));
 }
 
 .admin-projects-view .projects-sidebar .workspace-overview-row {
-  font-size: calc(12px * var(--projects-sidebar-scale, 1.1));
+  font-size: calc(12px * var(--projects-sidebar-scale, 1.024));
 }
 
 .admin-projects-view .projects-sidebar .projects-view-count {
-  font-size: calc(12px * var(--projects-sidebar-scale, 1.1));
+  font-size: calc(12px * var(--projects-sidebar-scale, 1.024));
 }
 
 .admin-projects-view .projects-sidebar .projects-view-toggle button svg {
-  width: calc(16px * var(--projects-sidebar-scale, 1.1));
-  height: calc(16px * var(--projects-sidebar-scale, 1.1));
+  width: calc(16px * var(--projects-sidebar-scale, 1.024));
+  height: calc(16px * var(--projects-sidebar-scale, 1.024));
   color: currentColor;
   stroke: currentColor;
 }
@@ -5661,11 +5940,11 @@
 }
 
 .admin-projects-view .projects-sidebar .rounded-lg.border {
-  padding: calc(0.75rem * var(--projects-sidebar-scale, 1.1));
+  padding: calc(0.75rem * var(--projects-sidebar-scale, 1.024));
 }
 
 .admin-projects-view .projects-archived-card {
-  --projects-card-font-scale: 1.3;
+  --projects-card-font-scale: calc(1.3 * var(--admin-projects-ui-scale, 0.8));
   position: relative;
   overflow: hidden;
   min-width: 0;
@@ -5746,7 +6025,7 @@
   text-transform: uppercase;
   font-size: calc(9.5px * var(--admin-projects-font-scale));
   letter-spacing: 0.05em;
-  padding: 0.75rem 1.25rem;
+  padding: calc(0.75rem * var(--admin-projects-ui-scale, 0.8)) calc(1.25rem * var(--admin-projects-ui-scale, 0.8));
   position: sticky;
   top: 0;
   z-index: 20;
@@ -5754,9 +6033,9 @@
 }
 
 .admin-projects-view .projects-ts-table-wrap thead th {
-  font-size: 13px;
+  font-size: calc(13px * var(--admin-projects-ui-scale, 0.8));
   letter-spacing: 0.07em;
-  padding: 0.875rem 1.25rem;
+  padding: calc(0.875rem * var(--admin-projects-ui-scale, 0.8)) calc(1.25rem * var(--admin-projects-ui-scale, 0.8));
 }
 
 .admin-projects-view .projects-table-shell tbody tr,
@@ -5771,15 +6050,15 @@
 
 .admin-projects-view .projects-table-shell tbody td,
 .admin-projects-view .projects-ts-table-wrap tbody td {
-  padding: 0.875rem 1.25rem;
+  padding: calc(0.875rem * var(--admin-projects-ui-scale, 0.8)) calc(1.25rem * var(--admin-projects-ui-scale, 0.8));
   font-size: calc(0.875rem * var(--admin-projects-font-scale));
 }
 
 .admin-projects-view .projects-ts-filters {
-  border-radius: 16px;
+  border-radius: calc(16px * var(--admin-projects-ui-scale, 0.8));
   border: 1px solid rgba(38, 107, 28, 0.14);
   background: rgba(255, 255, 255, 0.9);
-  padding: 1.5rem;
+  padding: calc(1.5rem * var(--admin-projects-ui-scale, 0.8));
   box-shadow: 0 4px 16px -4px rgba(38, 107, 28, 0.08);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -5787,14 +6066,14 @@
 
 .admin-projects-view .projects-analytics-card {
   overflow: hidden;
-  border-radius: 16px;
+  border-radius: calc(16px * var(--admin-projects-ui-scale, 0.8));
   border: 1px solid rgba(38, 107, 28, 0.14);
   background: rgba(255, 255, 255, 0.95);
   box-shadow: 0 4px 16px -4px rgba(38, 107, 28, 0.08);
 }
 
 .admin-projects-view .projects-analytics-head {
-  padding: 1.125rem 1.375rem;
+  padding: calc(1.125rem * var(--admin-projects-ui-scale, 0.8)) calc(1.375rem * var(--admin-projects-ui-scale, 0.8));
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   background: linear-gradient(to right, #1e5a3d, #236b48, #276749);
   color: #ffffff;
@@ -5802,7 +6081,7 @@
 
 .admin-projects-view .projects-analytics-head h3 {
   color: #ffffff !important;
-  font-size: 15px;
+  font-size: calc(15px * var(--admin-projects-ui-scale, 0.8));
   letter-spacing: 0.08em;
   line-height: 1.35;
 }
@@ -5815,11 +6094,11 @@
 .admin-projects-view .projects-analytics-head > span {
   color: rgba(255, 255, 255, 0.9) !important;
   font-weight: 700;
-  font-size: 13px;
+  font-size: calc(13px * var(--admin-projects-ui-scale, 0.8));
 }
 
 .admin-projects-view .projects-analytics-body {
-  padding: 1.25rem;
+  padding: calc(1.25rem * var(--admin-projects-ui-scale, 0.8));
   background: linear-gradient(180deg, rgba(240, 253, 244, 0.55) 0%, #ffffff 100%);
 }
 
@@ -5852,13 +6131,13 @@
 }
 
 .admin-projects-view .projects-analytics-embed .admin-analytics-shell {
-  gap: 1.25rem;
-  padding-bottom: 0.5rem;
+  gap: calc(1.25rem * var(--admin-projects-ui-scale, 0.8));
+  padding-bottom: calc(0.5rem * var(--admin-projects-ui-scale, 0.8));
 }
 
 .admin-projects-view .projects-analytics-embed .admin-analytics-view {
-  --admin-analytics-font-scale: 1.12;
-  font-size: 15px;
+  --admin-analytics-font-scale: 0.896;
+  font-size: calc(15px * var(--admin-projects-ui-scale, 0.8));
 }
 
 .admin-projects-view .projects-analytics-embed .admin-analytics-view .admin-analytics-hub-header {
@@ -5867,7 +6146,7 @@
 
 .admin-projects-view .projects-ts-table-wrap {
   overflow: hidden;
-  border-radius: 16px;
+  border-radius: calc(16px * var(--admin-projects-ui-scale, 0.8));
   border: 1px solid rgba(38, 107, 28, 0.14);
   background: #f5f5f5;
   box-shadow: 0 4px 16px -4px rgba(38, 107, 28, 0.08);
@@ -5886,8 +6165,8 @@
   flex-shrink: 0;
   margin-top: 0;
   border-top: 1px solid rgba(38, 107, 28, 0.1);
-  padding: 0.75rem 1.25rem;
-  border-radius: 0 0 1rem 1rem;
+  padding: calc(0.75rem * var(--admin-projects-ui-scale, 0.8)) calc(1.25rem * var(--admin-projects-ui-scale, 0.8));
+  border-radius: 0 0 calc(1rem * var(--admin-projects-ui-scale, 0.8)) calc(1rem * var(--admin-projects-ui-scale, 0.8));
   background: rgba(38, 107, 28, 0.04);
 }
 
@@ -6083,7 +6362,7 @@
 .projects-date-preset {
   color: #475569 !important;
   font-weight: 600 !important;
-  font-size: calc(11px * var(--admin-projects-font-scale, 1.125)) !important;
+  font-size: calc(11px * var(--admin-projects-font-scale, 0.8)) !important;
   padding: 0.45rem 0.75rem !important;
   border-radius: 6px !important;
   background: transparent;

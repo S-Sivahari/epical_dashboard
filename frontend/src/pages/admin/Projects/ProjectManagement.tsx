@@ -2560,12 +2560,13 @@ export function ProjectManagement() {
               </div>
               
               {/* Vertical Separator */}
-              <div className="h-24 w-px bg-gradient-to-b from-transparent via-white/20 to-transparent"></div>
-              
-              {/* Center: Compact Donut Chart */}
-              <div className="flex items-center justify-center flex-shrink-0">
-                <div className="relative">
-                  <svg width="140" height="140" viewBox="0 0 140 140" className="transform -rotate-90">
+              <div className="projects-hero-separator" aria-hidden />
+
+              {/* Donut + status pills grouped together */}
+              <div className="projects-hero-metrics-group">
+                <div className="projects-hero-donut">
+                  <div className="projects-hero-donut-inner">
+                    <svg width="96" height="96" viewBox="0 0 140 140" className="transform -rotate-90">
                     {(() => {
                       const total = projectMetrics.total || 1;
                       const radius = 55;
@@ -2656,18 +2657,13 @@ export function ProjectManagement() {
                     })()}
                   </svg>
                   
-                  {/* Center total count */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <div className="projects-hero-donut-center">
                     <span className="projects-hero-donut-total">{projectMetrics.total}</span>
                     <span className="projects-hero-donut-label">Total</span>
                   </div>
                 </div>
               </div>
-              
-              {/* Vertical Separator */}
-              <div className="h-24 w-px bg-gradient-to-b from-transparent via-white/20 to-transparent"></div>
-              
-              {/* Right: Status Metrics - Horizontal Row */}
+
               <div className="projects-hero-stats-row">
                 <div className="projects-hero-stat-card">
                   <div className="projects-hero-stat-head">
@@ -2701,11 +2697,11 @@ export function ProjectManagement() {
               </div>
             </div>
           </div>
+        </div>
 
       {/* ================================================================
            TAB 1 – PROJECTS
            ================================================================ */}
-      {/* Unified grid layout holding the permanently visible sidebar on the left and the main content on the right */}
       <div className="projects-body-grid">
         {/* Left Sidebar with Navigation and Filters */}
         <aside className="projects-sidebar projects-sidebar--with-footer flex flex-col">

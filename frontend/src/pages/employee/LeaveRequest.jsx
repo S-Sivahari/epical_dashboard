@@ -148,7 +148,7 @@ export default function LeaveRequest() {
   const user = useAuthStore((s) => s.user)
   const [employeeProfile, setEmployeeProfile] = useState(null)
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('approved')
+  const [statusFilter, setStatusFilter] = useState('all')
   const [historyFromDate, setHistoryFromDate] = useState('')
   const [historyToDate, setHistoryToDate] = useState('')
   const [leaveBalances, setLeaveBalances] = useState(() => formatLeaveBalances({}, { includeLop: true }))
@@ -586,7 +586,12 @@ export default function LeaveRequest() {
       rejected: 'Rejected',
       cancelled: 'Cancelled',
     }
-    const selectedStatus = statusMap[statusFilter]
+    const historyStatuses = Object.values(statusMap)
+
+    const matchesStatus = (row) => {
+      if (statusFilter === 'all') return historyStatuses.includes(row.status)
+      return row.status === statusMap[statusFilter]
+    }
 
     const matchesHistoryDateRange = (row) => {
       if (!historyFromDate && !historyToDate) return true
@@ -600,7 +605,7 @@ export default function LeaveRequest() {
     const term = search.trim().toLowerCase()
 
     return requests
-      .filter((r) => r.status === selectedStatus)
+      .filter(matchesStatus)
       .filter((r) => {
         if (!term) return true
         return (

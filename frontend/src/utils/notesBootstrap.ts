@@ -27,10 +27,15 @@ export function entryEmployeeKeys(entry: NoteChildBlock): string[] {
   return []
 }
 
-export function employeeIdsOnProjectForDay(block: DailyNoteBlock, projectId: string): Set<string> {
+export function employeeIdsOnProjectForDay(
+  block: DailyNoteBlock,
+  projectId: string,
+  excludeChildId?: string,
+): Set<string> {
   const ids = new Set<string>()
   for (const child of block.childBlocks) {
     if (child.archived || child.projectId !== projectId) continue
+    if (excludeChildId && child._id === excludeChildId) continue
     for (const employeeId of entryEmployeeKeys(child)) {
       ids.add(employeeId)
     }
@@ -38,20 +43,52 @@ export function employeeIdsOnProjectForDay(block: DailyNoteBlock, projectId: str
   return ids
 }
 
+export function isEmployeeOnProject(
+  block: DailyNoteBlock,
+  projectId: string,
+  employee: Employee,
+  excludeChildId?: string,
+): boolean {
+  const onProject = employeeIdsOnProjectForDay(block, projectId, excludeChildId)
+  if (onProject.has(employee.id)) return true
+  if (employee.employeeId && onProject.has(employee.employeeId)) return true
+
+  const name = employeeDisplayName(employee).trim().toLowerCase()
+  if (!name) return false
+
+  for (const child of block.childBlocks) {
+    if (child.archived || child.projectId !== projectId) continue
+    if (excludeChildId && child._id === excludeChildId) continue
+    for (const person of child.employees) {
+      if (person.name.trim().toLowerCase() === name) return true
+    }
+  }
+
+  return false
+}
+
 export function employeesAvailableForProjectDay(
   allEmployees: Employee[],
   block: DailyNoteBlock,
   projectId: string,
+  excludeChildId?: string,
 ): NoteProjectEmployee[] {
-  const existing = employeeIdsOnProjectForDay(block, projectId)
   return allEmployees
-    .filter((employee) => !existing.has(employee.id))
+    .filter((employee) => !isEmployeeOnProject(block, projectId, employee, excludeChildId))
     .map((employee) => ({
       id: employee.id,
       employeeId: employee.employeeId,
       name: employeeDisplayName(employee),
     }))
     .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export function findEntryForEmployee(block: DailyNoteBlock, employeeId: string): NoteChildBlock | null {
+  for (const child of block.childBlocks) {
+    if (child.archived) continue
+    if (entryEmployeeKeys(child).includes(employeeId)) return child
+  }
+  return null
 }
 
 export function findEntryForProjectEmployee(
@@ -66,10 +103,22 @@ export function findEntryForProjectEmployee(
   return null
 }
 
-export function needsPerEmployeeNormalization(block: DailyNoteBlock): boolean {
-  return block.childBlocks.some(
-    (entry) => !entry.archived && entryEmployeeKeys(entry).length > 1,
+export function employeesSelectableForNoteEdit(
+  allEmployees: Employee[],
+  block: DailyNoteBlock,
+  entry: NoteChildBlock,
+): NoteProjectEmployee[] {
+  return employeesAvailableForProjectDay(
+    allEmployees,
+    block,
+    entry.projectId,
+    entry._id,
   )
+}
+
+export function needsPerEmployeeNormalization(block: DailyNoteBlock): boolean {
+  // Multi-employee notes are intentional — do not auto-split child blocks.
+  return false
 }
 
 function projectEmployeeKey(projectId: string, employeeId: string) {
@@ -241,7 +290,7 @@ export function employeeNamesLabel(child: DailyNoteBlock['childBlocks'][number])
     return child.employees[0].name
   }
   if (child.employees.length > 1) {
-    return child.employees.map((employee) => employee.name).join(' / ')
+    return child.employees.map((employee) => employee.name).join('/')
   }
   return '—'
 }
