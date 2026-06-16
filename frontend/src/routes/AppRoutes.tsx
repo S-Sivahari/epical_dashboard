@@ -127,6 +127,16 @@ const ProjectAnalysisSignalPage = lazy(async () => {
   return { default: m.ProjectAnalysisSignalPage }
 })
 
+const AdminNotesPage = lazy(async () => {
+  const m = await import('@pages/admin/Notes/AdminNotesPage')
+  return { default: m.AdminNotesPage }
+})
+
+const AdminNotesDayRedirect = lazy(async () => {
+  const m = await import('@pages/admin/Notes/AdminNotesPage')
+  return { default: m.AdminNotesDayRedirect }
+})
+
 // ── Employee Pages ────────────────────────────────────────────
 const EmployeeDashboardPage = lazy(() =>
   import('@pages/employee/Dashboard')
@@ -256,6 +266,8 @@ export function AppRoutes() {
               <Route path="projects/:projectId" element={<ProjectWorkspace />} />
               <Route path="projects" element={<AdminProjectsPage />} />
               <Route path="signal-analysis/*" element={<ProjectAnalysisSignalPage />} />
+              <Route path="notes" element={<AdminNotesPage />} />
+              <Route path="notes/day/:dateKey" element={<AdminNotesDayRedirect />} />
             </Route>
 
             <Route path="projects" element={<AdminProjectsPage />} />
@@ -263,6 +275,9 @@ export function AppRoutes() {
             <Route path="projects/:projectId" element={<ProjectWorkspace />} />
 
             <Route path="metal-routing/*" element={<AdminMetalRoutingPage />} />
+
+            <Route path="notes" element={<Navigate to={ROUTES.PROJECT_ANALYSIS_NOTES} replace />} />
+            <Route path="notes/day/:dateKey" element={<AdminNotesDayRedirect />} />
 
             <Route
               path="calendar"

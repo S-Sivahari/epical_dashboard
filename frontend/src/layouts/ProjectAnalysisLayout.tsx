@@ -1,6 +1,11 @@
-import { NavLink, Outlet } from 'react-router-dom'
-import { ArrowLeft, Briefcase, CircuitBoard, LineChart } from 'lucide-react'
+import { useEffect, useMemo } from 'react'
+import { NavLink, Navigate, Outlet } from 'react-router-dom'
+import { Briefcase, CircuitBoard, NotebookPen } from 'lucide-react'
 import { ROUTES } from '@constants/routes'
+import {
+  clearProjectAnalysisSession,
+  consumeProjectAnalysisAccess,
+} from '@/utils/projectAnalysisAccess'
 import { cn } from '@/utils/cn'
 
 const TABS = [
@@ -16,21 +21,28 @@ const TABS = [
     icon: CircuitBoard,
     end: false,
   },
+  {
+    to: ROUTES.PROJECT_ANALYSIS_NOTES,
+    label: 'Notes',
+    icon: NotebookPen,
+    end: false,
+  },
 ] as const
 
 export function ProjectAnalysisLayout() {
+  const allowed = useMemo(() => consumeProjectAnalysisAccess(), [])
+
+  useEffect(() => {
+    return () => clearProjectAnalysisSession()
+  }, [])
+
+  if (!allowed) {
+    return <Navigate to={ROUTES.TIMESHEET} replace />
+  }
+
   return (
     <div className="project-analysis-layout flex min-h-0 flex-1 flex-col overflow-hidden">
       <header className="project-analysis-layout__header shrink-0">
-        <a
-          href={ROUTES.TIMESHEET}
-          className="project-analysis-back-empwr"
-          aria-label="Back to Empwr — Projects and Timesheets"
-        >
-          <ArrowLeft className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
-          <span>Back to Empwr</span>
-        </a>
-
         <div className="project-analysis-layout__brand">
           
           <div className="min-w-0">

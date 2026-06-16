@@ -43,6 +43,8 @@ import { companyCalendarEventRoutes } from './routes/companyCalendarEventRoutes'
 import { achievementRoutes } from './routes/achievementRoutes';
 import { employeeDashboardRoutes } from './routes/employeeDashboardRoutes';
 import { pdkMetalRoutingRoutes } from './routes/pdkMetalRoutingRoutes';
+import { notesRoutes } from './routes/notesRoutes';
+import { projectMgmtRoutes } from './routes/projectMgmtRoutes';
 
 // Seed helpers
 import { ensureDefaultAdminUser, seedDefaultUsers } from './services/authService';
@@ -182,6 +184,8 @@ app.use('/api/tickets', ticketRoutes);
 app.use('/api/timesheets', timesheetRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/metal-routing', pdkMetalRoutingRoutes);
+app.use('/api/notes', notesRoutes);
+app.use('/api/project-mgmt', projectMgmtRoutes);
 app.use('/api/checklists', checklistRoutes);
 app.use('/api/payslips', payslipRoutes);
 app.use('/api/compensation', compensationRoutes);

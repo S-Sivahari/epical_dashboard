@@ -12,14 +12,20 @@ export const ROUTES = {
   PROJECT_ANALYSIS_PROJECT_CELL: (projectId: string, cellId: string) =>
     `/admin/project-analysis/projects/${projectId}/cells/${cellId}`,
   PROJECT_ANALYSIS_SIGNAL: '/admin/project-analysis/signal-analysis',
+  PROJECT_ANALYSIS_NOTES: '/admin/project-analysis/notes',
   PROJECTS: '/admin/projects',
   PROJECT_WORKSPACE: (id: string) => `/admin/projects/${id}`,
   PROJECT_CELL: (projectId: string, cellId: string) => `/admin/projects/${projectId}/cells/${cellId}`,
+  PROJECT_MGMT: '/admin/project-mgmt',
+  PROJECT_MGMT_REVIEWS: '/admin/project-mgmt/reviews',
+  PROJECT_MGMT_PROJECT: (id: string) => `/admin/project-mgmt/projects/${id}`,
+  PROJECT_MGMT_CELL: (id: string) => `/admin/project-mgmt/cells/${id}`,
   EMPLOYEE_PROJECTS: '/employee/projects',
   EMPLOYEE_MY_PROJECTS: '/employee/projects/my-projects',
   EMPLOYEE_PROJECT_WORKSPACE: (id: string) => `/employee/projects/${id}`,
   EMPLOYEE_PROJECT_CELL: (projectId: string, cellId: string) =>
     `/employee/projects/${projectId}/cells/${cellId}`,
+  EMPLOYEE_CELL: (id: string) => `/employee/cells/${id}`,
   TIMESHEET: '/admin/timesheet',
   CALENDAR: '/admin/calendar',
   TRAINING: '/admin/training',
@@ -30,6 +36,15 @@ export const ROUTES = {
   TICKETS: '/admin/tickets',
   PAYSLIPS: '/admin/payslips',
   METAL_ROUTING: '/admin/metal-routing',
+  NOTES: '/admin/project-analysis/notes',
+  NOTES_DAY: (dateKey: string, options?: { childId?: string; highlight?: string }) => {
+    const path = `/admin/project-analysis/notes/day/${dateKey}`
+    if (!options?.childId && !options?.highlight) return path
+    const params = new URLSearchParams()
+    if (options.childId) params.set('child', options.childId)
+    if (options.highlight) params.set('highlight', options.highlight)
+    return `${path}?${params.toString()}`
+  },
   SETTINGS: '/admin/settings',
   HELP: '/admin/help',
   EMPLOYEE_METAL_ROUTING: '/employee/metal-routing',

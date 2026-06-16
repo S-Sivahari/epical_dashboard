@@ -2,8 +2,18 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@components/ui/Button'
 import { updateCellChecklistItem } from '@/services/checklistService'
-import type { CellChecklistDetail, CellChecklistItemResponse } from '@/types/projectWorkspace'
+import type {
+  CellChecklistDetail,
+  CellChecklistItem,
+  CellChecklistItemResponse,
+  CellTypeChecklistItem,
+} from '@/types/projectWorkspace'
 import { cn } from '@/utils/cn'
+
+function getChecklistItemMappingId(item: CellChecklistItem | CellTypeChecklistItem): string {
+  if ('id' in item) return item.id
+  return item.customItemId ?? item.itemKey
+}
 
 const RESPONSE_LABELS: Record<CellChecklistItemResponse, string> = {
   yes: 'Yes',
@@ -61,12 +71,13 @@ export function CellChecklistResponses({
     item: CellChecklistDetail['items'][number],
     response: CellChecklistItemResponse,
   ) => {
+    const mappingId = getChecklistItemMappingId(item)
     if (response === 'yes') {
-      void saveResponse(item.id, 'yes')
+      void saveResponse(mappingId, 'yes')
       return
     }
     setCommentTarget({
-      mappingId: item.id,
+      mappingId,
       itemName: item.itemName,
       response,
     })
@@ -89,8 +100,12 @@ export function CellChecklistResponses({
   return (
     <div className={cn('admin-projects-checklist-responses', compact && 'is-compact')}>
       <ul className="admin-projects-checklist-responses-list">
-        {checklist.items.map((item) => (
-          <li key={item.id} className="admin-projects-checklist-response-item">
+        {checklist.items.map((item) => {
+          const mappingId = getChecklistItemMappingId(item)
+          const activeComment =
+            commentTarget?.mappingId === mappingId ? commentTarget : null
+          return (
+          <li key={mappingId} className="admin-projects-checklist-response-item">
             <p className="admin-projects-checklist-response-question">{item.itemName}</p>
             <div
               className="admin-projects-checklist-response-options"
@@ -103,7 +118,7 @@ export function CellChecklistResponses({
                 <button
                   key={option}
                   type="button"
-                  disabled={savingId === item.id}
+                  disabled={savingId === mappingId}
                   className={cn(
                     'admin-projects-checklist-response-btn',
                     item.response === option && 'is-selected',
@@ -122,14 +137,14 @@ export function CellChecklistResponses({
                 <span className="font-semibold">Reason:</span> {item.comment}
               </p>
             ) : null}
-            {commentTarget?.mappingId === item.id ? (
+            {activeComment ? (
               <div
                 className="admin-projects-checklist-comment-box"
                 onClick={(e) => e.stopPropagation()}
               >
                 <p className="admin-projects-checklist-comment-label">
-                  Reason for <strong>{RESPONSE_LABELS[commentTarget.response]}</strong> —{' '}
-                  {commentTarget.itemName}
+                  Reason for <strong>{RESPONSE_LABELS[activeComment.response]}</strong> —{' '}
+                  {activeComment.itemName}
                 </p>
                 <textarea
                   className="admin-projects-checklist-comment-input"
@@ -151,14 +166,14 @@ export function CellChecklistResponses({
                   >
                     Cancel
                   </Button>
-                  <Button type="button" size="sm" onClick={submitComment} disabled={savingId === item.id}>
+                  <Button type="button" size="sm" onClick={submitComment} disabled={savingId === mappingId}>
                     Save
                   </Button>
                 </div>
               </div>
             ) : null}
           </li>
-        ))}
+        )})}
       </ul>
     </div>
   )

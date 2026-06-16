@@ -11,7 +11,6 @@ import {
   ChevronRight,
   Search,
   Cpu,
-  Layers,
   Upload,
   Eye,
 } from 'lucide-react'

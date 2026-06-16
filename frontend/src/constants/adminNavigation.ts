@@ -93,6 +93,8 @@ export const ADMIN_ROUTE_TITLES: Record<string, string> = {
   [`${ROUTES.PROJECT_ANALYSIS_PROJECTS}/`]: 'Project workspace',
   [ROUTES.PROJECT_ANALYSIS_SIGNAL]: 'Signal Analysis',
   [`${ROUTES.PROJECT_ANALYSIS_SIGNAL}/`]: 'Signal Analysis',
+  [ROUTES.PROJECT_ANALYSIS_NOTES]: 'Notes',
+  [`${ROUTES.PROJECT_ANALYSIS_NOTES}/`]: 'Notes',
   [ROUTES.PROJECTS]: 'Projects',
   [`${ROUTES.PROJECTS}/`]: 'Project workspace',
   [ROUTES.METAL_ROUTING]: 'Metal Routing',

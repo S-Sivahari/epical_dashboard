@@ -10,7 +10,6 @@ import {
   Clock,
   Eye,
   Users,
-  AlertTriangle,
 } from 'lucide-react'
 import {
   fetchCellDetail,

@@ -1,5 +1,6 @@
 import { ArrowRight, type LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { isProjectAnalysisPath, openProjectAnalysisTab } from '@/utils/projectAnalysisAccess'
 import { cn } from '@/utils/cn'
 
 type AdminModuleEntryCardProps = {
@@ -41,6 +42,19 @@ export function AdminModuleEntryCard({
   )
 
   if (openInNewTab) {
+    if (isProjectAnalysisPath(to)) {
+      return (
+        <button
+          type="button"
+          onClick={() => openProjectAnalysisTab(to)}
+          className={className}
+          aria-label={`${title}. ${description}. Opens in a new tab`}
+        >
+          {content}
+        </button>
+      )
+    }
+
     return (
       <a
         href={to}

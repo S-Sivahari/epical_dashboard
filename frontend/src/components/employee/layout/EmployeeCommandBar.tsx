@@ -60,7 +60,7 @@ export function EmployeeCommandBar() {
       </div>
 
       <div className="flex min-w-0 shrink-0 items-center justify-center px-1 sm:px-2">
-        <DashboardActiveTimer variant="commandBar" />
+        <DashboardActiveTimer className="" variant="commandBar" />
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
