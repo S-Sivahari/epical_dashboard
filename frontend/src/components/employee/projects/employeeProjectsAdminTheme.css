@@ -136,10 +136,7 @@
 }
 
 [data-employee-project-cell] .admin-projects-cell-details-views-panel .admin-projects-workflow-board-wrap {
-  overflow-x: auto;
-  overflow-y: visible;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
+  overflow: visible;
 }
 
 [data-employee-project-cell] .emp-wf-cell-checklist-split {

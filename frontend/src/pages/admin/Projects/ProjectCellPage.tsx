@@ -54,22 +54,24 @@ type CellViewStatusButtonsProps = {
 
 function CellViewStatusButtons({ status, disabled, onChange }: CellViewStatusButtonsProps) {
   return (
-    <div className="admin-projects-view-status-btns">
-      {WORK_STAGE_STATUSES.map((value) => (
-        <button
-          key={value}
-          type="button"
-          className={cn(
-            'admin-projects-view-status-btn',
-            workflowStageStatusClass(value),
-            status === value && 'is-active',
-          )}
-          disabled={disabled}
-          onClick={() => onChange(value)}
-        >
-          {WORKFLOW_STATUS_LABELS[value]}
-        </button>
-      ))}
+    <div className="admin-projects-view-status-scroll">
+      <div className="admin-projects-view-status-btns">
+        {WORK_STAGE_STATUSES.map((value) => (
+          <button
+            key={value}
+            type="button"
+            className={cn(
+              'admin-projects-view-status-btn',
+              workflowStageStatusClass(value),
+              status === value && 'is-active',
+            )}
+            disabled={disabled}
+            onClick={() => onChange(value)}
+          >
+            {WORKFLOW_STATUS_LABELS[value]}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
