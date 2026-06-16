@@ -46,6 +46,7 @@ import type {
 } from '@/types/notes'
 import { formatDateTime } from '@/utils/formatDate'
 import { highlightPlainText } from '@/utils/notesHighlight'
+import { employeeIdsOnProjectForDay } from '@/utils/notesBootstrap'
 import { formatDailyBlockTitle, toDateKey } from '@/utils/notesWeek'
 import { parseISO } from 'date-fns'
 import './admin-notes.css'
@@ -291,6 +292,24 @@ export function AdminNotesDayPage() {
     if (!childForm.projectId) {
       setNotice({ kind: 'error', title: 'Project required', details: ['Select a project from the list.'] })
       return
+    }
+
+    const requestedEmployeeIds = childForm.employeeIds || []
+    if (requestedEmployeeIds.length > 0) {
+      const existingOnProject = employeeIdsOnProjectForDay(
+        block,
+        childForm.projectId,
+        editingChild?._id,
+      )
+      const duplicates = requestedEmployeeIds.filter((id) => existingOnProject.has(id))
+      if (duplicates.length > 0) {
+        setNotice({
+          kind: 'error',
+          title: 'Employee already has a note on this project',
+          details: ['Each employee can only have one note per project per day.'],
+        })
+        return
+      }
     }
 
     setSavingChild(true)

@@ -203,6 +203,69 @@ function activeChildCount(childBlocks: Array<{ archived?: boolean }>): number {
   return childBlocks.filter((child) => !child.archived).length;
 }
 
+function childEntryEmployeeIds(child: {
+  archived?: boolean;
+  employeeIds?: string[];
+  employees?: NoteActor[];
+  employeeId?: string;
+  employeeName?: string;
+}): string[] {
+  if (child.archived) return [];
+  const employeeIds = Array.isArray(child.employeeIds)
+    ? child.employeeIds.map((id) => String(id).trim()).filter(Boolean)
+    : [];
+  if (employeeIds.length > 0) return employeeIds;
+  const legacyId = String(child.employeeId ?? '').trim();
+  return legacyId ? [legacyId] : [];
+}
+
+function employeeIdsOnProjectForDay(
+  childBlocks: Array<{
+    _id?: unknown;
+    archived?: boolean;
+    projectId?: string;
+    employeeIds?: string[];
+    employees?: NoteActor[];
+    employeeId?: string;
+  }>,
+  projectId: string,
+  excludeChildId?: string,
+): Set<string> {
+  const ids = new Set<string>();
+  const normalizedProjectId = String(projectId).trim();
+  for (const child of childBlocks) {
+    if (child.archived || String(child.projectId ?? '').trim() !== normalizedProjectId) continue;
+    if (excludeChildId && String(child._id) === excludeChildId) continue;
+    for (const employeeId of childEntryEmployeeIds(child)) {
+      ids.add(employeeId);
+    }
+  }
+  return ids;
+}
+
+function assertEmployeesUniqueOnProject(
+  childBlocks: Array<{
+    _id?: unknown;
+    archived?: boolean;
+    projectId?: string;
+    employeeIds?: string[];
+    employees?: NoteActor[];
+    employeeId?: string;
+  }>,
+  projectId: string,
+  employeeIds: string[],
+  excludeChildId?: string,
+) {
+  const existing = employeeIdsOnProjectForDay(childBlocks, projectId, excludeChildId);
+  const duplicates = employeeIds.filter((id) => existing.has(id));
+  if (duplicates.length > 0) {
+    throw Object.assign(
+      new Error('Each employee can only have one note per project per day.'),
+      { status: 400 },
+    );
+  }
+}
+
 export function serializeDailyBlock(doc: Record<string, unknown>) {
   const childBlocks = Array.isArray(doc.childBlocks) ? doc.childBlocks : [];
   return {
@@ -342,6 +405,7 @@ export async function createChildBlock(
   const actor = await resolveActor(userId, email);
   const nextOrder = doc.childBlocks.reduce((max, child) => Math.max(max, child.sortOrder ?? 0), -1) + 1;
   const relations = await resolveChildProjectAndEmployees(input);
+  assertEmployeesUniqueOnProject(doc.childBlocks, relations.projectId, relations.employeeIds);
 
   doc.childBlocks.push({
     title,
@@ -395,6 +459,12 @@ export async function updateChildBlock(
       projectId: patch.projectId !== undefined ? patch.projectId : child.projectId,
       employeeIds: patch.employeeIds !== undefined ? patch.employeeIds : child.employeeIds,
     });
+    assertEmployeesUniqueOnProject(
+      doc.childBlocks,
+      relations.projectId,
+      relations.employeeIds,
+      childBlockId,
+    );
     child.projectId = relations.projectId;
     child.projectName = relations.projectName;
     child.employeeIds = relations.employeeIds;

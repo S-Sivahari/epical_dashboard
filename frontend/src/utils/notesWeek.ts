@@ -47,6 +47,11 @@ export function toDateKey(date: Date): string {
   return format(date, 'yyyy-MM-dd')
 }
 
+/** True when the calendar day is strictly before today (notes are read-only). */
+export function isPastNotesDay(dateKey: string, today = new Date()): boolean {
+  return dateKey < toDateKey(today)
+}
+
 export function formatDailyBlockTitle(date: Date): string {
   return format(date, 'EEE dd MMM yyyy')
 }

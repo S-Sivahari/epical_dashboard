@@ -1,26 +1,25 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronDown, NotebookPen, Plus, Send } from 'lucide-react'
+import { ChevronDown, NotebookPen, Pencil, Plus, Send } from 'lucide-react'
 import { Button } from '@components/ui/Button'
 import { AddNoteModal } from '@components/notes/AddNoteModal'
+import { EditNoteModal } from '@components/notes/EditNoteModal'
 import { EmailDeliveryBadge } from '@components/notes/DailyNotesEmailModal'
 import type { DailyNoteBlock, DailyNoteStatus, NoteChildBlock, NoteProjectOption } from '@/types/notes'
 import type { Employee } from '@/types'
-import { employeeDisplayName } from '@/services/analyticsService'
 import {
   employeeNamesLabel,
-  expandEntriesPerEmployee,
   groupEntriesByProject,
 } from '@/utils/notesBootstrap'
 import { computeDayStats } from '@/utils/notesDashboardUtils'
-import { noteHtmlToPlainText } from '@/utils/notesPlainText'
-import { formatDailyBlockTitle } from '@/utils/notesWeek'
+import { formatNoteDisplayLine, noteHtmlToPlainText } from '@/utils/notesPlainText'
+import { formatDailyBlockTitle, isPastNotesDay } from '@/utils/notesWeek'
 import { cn } from '@/utils/cn'
 
 function deliveryStatusLabel(status: DailyNoteStatus) {
   return status === 'email_sent' ? 'Email sent' : 'Not sent'
 }
 
-function employeeLabel(entry: NoteChildBlock, projects: NoteProjectOption[]): string {
+function employeeNamesDisplay(entry: NoteChildBlock, projects: NoteProjectOption[]): string {
   const names = employeeNamesLabel(entry)
   if (names !== '—') return names
   const project = projects.find((item) => item.id === entry.projectId)
@@ -65,18 +64,6 @@ export function DailyNotesNotepad({
   const title = useMemo(() => formatDailyBlockTitle(date), [date])
   const dayStats = useMemo(() => computeDayStats(block), [block])
 
-  const employeeOptions = useMemo(
-    () =>
-      [...employees]
-        .map((employee) => ({
-          id: employee.id,
-          employeeId: employee.employeeId,
-          name: employeeDisplayName(employee),
-        }))
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [employees],
-  )
-
   const entries = useMemo(() => {
     if (!block) return []
     return block.childBlocks
@@ -85,14 +72,14 @@ export function DailyNotesNotepad({
   }, [block])
 
   const projectGroups = useMemo(() => {
-    const expanded = expandEntriesPerEmployee(entries)
-    return groupEntriesByProject(expanded).filter((group) =>
+    return groupEntriesByProject(entries).filter((group) =>
       group.entries.some((entry) => noteHtmlToPlainText(entry.description).trim()),
     )
   }, [entries])
 
   const [expanded, setExpanded] = useState(defaultExpanded || highlighted)
   const [addNoteOpen, setAddNoteOpen] = useState(false)
+  const [editingEntry, setEditingEntry] = useState<NoteChildBlock | null>(null)
 
   useEffect(() => {
     if (highlighted) setExpanded(true)
@@ -100,6 +87,9 @@ export function DailyNotesNotepad({
 
   const hasBlock = Boolean(block)
   const status = block?.status ?? 'draft'
+  const isPastDay = isPastNotesDay(dateKey)
+  const canEditNotes = hasBlock && block && !block.archived && !isPastDay
+  const canSendEmail = hasBlock && block && !block.archived && !isPastDay
   const emailIncludeCount = entries.filter((entry) => entry.includeInEmail).length
   const hasContent = projectGroups.length > 0
 
@@ -145,14 +135,14 @@ export function DailyNotesNotepad({
             ) : null}
           </button>
 
-          {hasBlock && block ? (
+          {hasBlock && block && canSendEmail ? (
             <div className="notes-day-card__actions">
               <Button
                 type="button"
                 size="sm"
                 variant="primary"
                 icon={<Send className="h-3.5 w-3.5" />}
-                disabled={busy || block.archived || emailIncludeCount === 0}
+                disabled={busy || emailIncludeCount === 0}
                 onClick={() => onSendEmail(block)}
               >
                 Send
@@ -197,23 +187,36 @@ export function DailyNotesNotepad({
                             {group.projectName.toUpperCase()}:
                           </h3>
                           {group.entries.map((entry) => {
-                            const name = employeeLabel(entry, projects)
+                            const names = employeeNamesDisplay(entry, projects)
                             const plain = noteHtmlToPlainText(entry.description)
                             const lines = descriptionLines(plain)
-                            const employeeKey =
-                              entry.employees[0]?.id ?? entry.employeeIds[0] ?? entry._id
                             return (
-                              <div
-                                key={`${entry._id}-${employeeKey}`}
-                                className="notes-notepad-pad__employee"
-                              >
-                                <p className="notes-notepad-pad__employee-name">{name}</p>
+                              <div key={entry._id} className="notes-notepad-pad__employee">
+                                <div className="notes-notepad-pad__employee-head">
+                                  <p className="notes-notepad-pad__employee-names">{names}</p>
+                                  {canEditNotes ? (
+                                    <button
+                                      type="button"
+                                      className="notes-notepad-pad__edit-btn"
+                                      title="Edit note"
+                                      aria-label={`Edit note for ${names}`}
+                                      onClick={() => setEditingEntry(entry)}
+                                    >
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </button>
+                                  ) : null}
+                                </div>
                                 {lines.length > 0 ? (
-                                  <ul className="notes-notepad-pad__lines">
+                                  <div className="notes-notepad-pad__note-body">
                                     {lines.map((line) => (
-                                      <li key={`${entry._id}-${line}`}>{line}</li>
+                                      <p
+                                        key={`${entry._id}-${line}`}
+                                        className="notes-notepad-pad__note-line"
+                                      >
+                                        {formatNoteDisplayLine(line)}
+                                      </p>
                                     ))}
-                                  </ul>
+                                  </div>
                                 ) : (
                                   <p className="notes-notepad-pad__no-updates">No updates recorded.</p>
                                 )}
@@ -241,10 +244,25 @@ export function DailyNotesNotepad({
         <AddNoteModal
           block={block}
           projects={projects}
-          employees={employeeOptions}
+          employees={employees}
           isOpen={addNoteOpen}
           onClose={() => setAddNoteOpen(false)}
           onSaved={onBlockChange}
+          onError={onError}
+        />
+      ) : null}
+
+      {block && editingEntry ? (
+        <EditNoteModal
+          block={block}
+          entry={editingEntry}
+          employees={employees}
+          isOpen={Boolean(editingEntry)}
+          onClose={() => setEditingEntry(null)}
+          onSaved={(updated) => {
+            onBlockChange(updated)
+            setEditingEntry(null)
+          }}
           onError={onError}
         />
       ) : null}

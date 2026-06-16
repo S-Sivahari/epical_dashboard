@@ -28,3 +28,40 @@ export function noteHtmlToPlainText(html: string): string {
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 }
+
+export type NoteDescriptionMode = 'paragraph' | 'points'
+
+export function inferDescriptionMode(text: string): NoteDescriptionMode {
+  const lines = text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+  return lines.length > 1 ? 'points' : 'paragraph'
+}
+
+export function plainTextToPoints(text: string): string[] {
+  return text
+    .split('\n')
+    .map((line) => line.replace(/^[-–—]\s*/, '').trim())
+    .filter(Boolean)
+}
+
+export function pointsToPlainText(points: string[]): string {
+  return points.map((point) => point.trim()).filter(Boolean).join('\n')
+}
+
+export function descriptionModeToPlainText(
+  mode: NoteDescriptionMode,
+  paragraph: string,
+  points: string[],
+): string {
+  if (mode === 'points') return pointsToPlainText(points)
+  return paragraph.trim()
+}
+
+/** Notepad / email line prefix for work updates. */
+export function formatNoteDisplayLine(line: string): string {
+  const trimmed = line.trim()
+  if (!trimmed) return ''
+  return trimmed.startsWith('--') ? trimmed : `-- ${trimmed}`
+}
