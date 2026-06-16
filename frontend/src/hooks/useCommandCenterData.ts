@@ -33,6 +33,7 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
   const user = useAuthStore((s) => s.user)
   const { leaves, holidays } = useLeaves()
   const totalEmployees = useEmployeeStore((s) => s.pagination.total)
+  const employeesRevision = useEmployeeStore((s) => s.employeesRevision)
   const [allEmployees, setAllEmployees] = useState<any[]>([])
   const notifications = useNotificationStore((s) => s.notifications)
   const tickets = useTicketStore((s) => s.tickets)
@@ -99,7 +100,6 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
         if (!cancelled && !silent) setLoading(false)
       }
     }
-
     void load(false)
     const refreshId = window.setInterval(() => {
       if (document.visibilityState === 'visible') void load(true)
@@ -109,7 +109,7 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
       cancelled = true
       window.clearInterval(refreshId)
     }
-  }, [chartPeriod])
+  }, [chartPeriod, employeesRevision])
 
   const pendingLeaves = leaves.filter((l) => l.status === 'Pending')
   const approvedLeaves = leaves.filter((l) => l.status === 'Approved')

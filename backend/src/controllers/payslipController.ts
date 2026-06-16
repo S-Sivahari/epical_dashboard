@@ -61,6 +61,8 @@ function payslipDownloadNameForBatch(batch: PayrollBatch, storageFileName: strin
 
 async function notifyAdminsAndEmployee(params: {
   employeeDbId: string
+  /** HR / payroll employee ID shown in emails (e.g. EPL-001) — not the internal users.id */
+  employeeHrId: string
   employeeName: string
   employeeEmail: string
   payMonth: string
@@ -69,8 +71,17 @@ async function notifyAdminsAndEmployee(params: {
   fileName?: string
   regenerated?: boolean
 }): Promise<void> {
-  const { employeeDbId, employeeName, employeeEmail, payMonth, payslipId, batchId, fileName, regenerated } =
-    params
+  const {
+    employeeDbId,
+    employeeHrId,
+    employeeName,
+    employeeEmail,
+    payMonth,
+    payslipId,
+    batchId,
+    fileName,
+    regenerated,
+  } = params
 
   const employeeType = regenerated ? 'PayslipRegenerated' : 'PayslipSent'
   const employeeTitle = regenerated ? 'Payslip Regenerated' : 'Payslip Received'
@@ -84,7 +95,15 @@ async function notifyAdminsAndEmployee(params: {
     type: employeeType,
     title: employeeTitle,
     message: employeeMessage,
-    relatedData: { employeeId: employeeDbId, employeeName, employeeEmail, payslipId, batchId, payMonth, fileName },
+    relatedData: {
+      employeeId: employeeHrId,
+      employeeName,
+      employeeEmail,
+      payslipId,
+      batchId,
+      payMonth,
+      fileName,
+    },
   })
 
   const admins = await getUserCollection().find({ role: 'Admin' }).toArray()
@@ -97,7 +116,15 @@ async function notifyAdminsAndEmployee(params: {
       message: regenerated
         ? `Regenerated payslip for ${employeeName} (${payMonth}) has been sent to the employee dashboard.`
         : `Payslip for ${employeeName} (${payMonth}) has been sent successfully.`,
-      relatedData: { employeeId: employeeDbId, employeeName, employeeEmail, payslipId, batchId, payMonth, fileName },
+      relatedData: {
+        employeeId: employeeHrId,
+        employeeName,
+        employeeEmail,
+        payslipId,
+        batchId,
+        payMonth,
+        fileName,
+      },
     })
   }
 }
@@ -287,6 +314,7 @@ export const payslipController = {
       for (const record of resent) {
         await notifyAdminsAndEmployee({
           employeeDbId: record.employeeDbId,
+          employeeHrId: record.employeeId,
           employeeName: record.employeeName,
           employeeEmail: record.employeeEmail,
           payMonth: record.payMonth,
@@ -446,6 +474,7 @@ export const payslipController = {
       // Fire notifications for employee + admins
       await notifyAdminsAndEmployee({
         employeeDbId: record.employeeDbId,
+        employeeHrId: record.employeeId,
         employeeName: record.employeeName,
         employeeEmail: record.employeeEmail,
         payMonth: record.payMonth,
@@ -493,6 +522,7 @@ export const payslipController = {
       for (const rec of result.sentRecords) {
         await notifyAdminsAndEmployee({
           employeeDbId: String(rec.employeeDbId),
+          employeeHrId: String(rec.employeeId),
           employeeName: String(rec.employeeName),
           employeeEmail: String(rec.employeeEmail),
           payMonth: String(rec.payMonth),

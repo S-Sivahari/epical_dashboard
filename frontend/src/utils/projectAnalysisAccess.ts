@@ -1,8 +1,10 @@
 const GRANT_KEY = 'epical:project-analysis-grant'
-const SESSION_KEY = 'epical:project-analysis-session'
 
 /** Time allowed between clicking the launch button and the new tab loading. */
 const GRANT_TTL_MS = 60_000
+
+/** In-memory only — survives SPA navigation but not a full page reload. */
+let activeSession = false
 
 /**
  * Called from the Timesheet "Project Analysis" button before opening a new tab.
@@ -13,7 +15,7 @@ export function grantProjectAnalysisAccess(): void {
 }
 
 export function hasProjectAnalysisSession(): boolean {
-  return sessionStorage.getItem(SESSION_KEY) === '1'
+  return activeSession
 }
 
 /**
@@ -21,7 +23,7 @@ export function hasProjectAnalysisSession(): boolean {
  * or when the user is already browsing inside Project Analysis in this tab.
  */
 export function consumeProjectAnalysisAccess(): boolean {
-  if (hasProjectAnalysisSession()) {
+  if (activeSession) {
     return true
   }
 
@@ -37,12 +39,12 @@ export function consumeProjectAnalysisAccess(): boolean {
   }
 
   localStorage.removeItem(GRANT_KEY)
-  sessionStorage.setItem(SESSION_KEY, '1')
+  activeSession = true
   return true
 }
 
 export function clearProjectAnalysisSession(): void {
-  sessionStorage.removeItem(SESSION_KEY)
+  activeSession = false
 }
 
 export function isProjectAnalysisPath(path: string): boolean {

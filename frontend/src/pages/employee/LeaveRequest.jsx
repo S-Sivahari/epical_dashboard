@@ -29,8 +29,10 @@ import { useAuthStore } from '@store/authStore'
 import * as leaveService from '@services/leaveService'
 import * as employeeService from '@services/employeeService'
 import {
+  eachIsoDateInRange,
   getLeaveDateBounds,
   ISO_DATE_REGEX,
+  isWeekendIso,
   leaveRangeError,
   parseIsoDate,
 } from '@/utils/dateValidation'
@@ -307,19 +309,14 @@ export default function LeaveRequest() {
 
   const normalizeDate = (date) => {
     if (!date) return ''
-    const d = new Date(date)
+    const trimmed = String(date).trim()
+    if (ISO_DATE_REGEX.test(trimmed)) return trimmed
+    const d = new Date(trimmed)
+    if (Number.isNaN(d.getTime())) return ''
     return d.toISOString().slice(0, 10)
   }
 
-  const getDateRange = (start, end) => {
-    const startDate = new Date(start)
-    const endDate = new Date(end)
-    const dates = []
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-      dates.push(d.toISOString().slice(0, 10))
-    }
-    return dates
-  }
+  const getDateRange = (start, end) => eachIsoDateInRange(start, end)
 
   const getRequestDates = (request) => {
     const start = normalizeDate(request.from)
@@ -392,7 +389,7 @@ export default function LeaveRequest() {
     leaveService.getHolidays().then((data) => {
       const formatted = data
         .filter((h) => !h.skipped)
-        .map((h) => ({ date: h.date, name: h.title }))
+        .map((h) => ({ date: String(h.date).slice(0, 10), name: h.title }))
       setHolidays(formatted)
     }).catch(console.error)
 
@@ -477,39 +474,27 @@ export default function LeaveRequest() {
   }, [leaveDuration, fromDate, setValue])
 
   useEffect(() => {
-    if (errors.fromDate?.type === 'manual' || errors.toDate?.type === 'manual') {
-      clearErrors(['fromDate', 'toDate'])
-    }
-  }, [fromDate, toDate, errors.fromDate, errors.toDate, clearErrors])
-
-  useEffect(() => {
     const conflict = validateLeaveConflict()
     setConflictMessage(conflict.message)
+  }, [fromDate, toDate, leaveDuration, halfDaySession, requests, user])
 
-    clearErrors(['fromDate', 'toDate', 'halfDaySession'])
-    if (conflict.message) {
-      conflict.fields.forEach((field) => {
-        setError(field, { type: 'manual', message: conflict.message })
-      })
-    }
-  }, [fromDate, toDate, leaveDuration, halfDaySession, requests, user, setError, clearErrors])
+  const requestedWorkingDays = useMemo(() => {
+    if (!fromDate || !toDate) return null
+    return getRequestedLeaveDays(leaveDuration, fromDate, toDate, holidays)
+  }, [fromDate, toDate, leaveDuration, holidays])
 
   // Holiday guidance: check if selected date range contains holidays/weekends
   useEffect(() => {
     if (!fromDate || !toDate) { setHolidayWarning(''); return }
-    const start = new Date(fromDate)
-    const end = new Date(toDate)
-    if (end < start) { setHolidayWarning(''); return }
+    if (toDate < fromDate) { setHolidayWarning(''); return }
 
     const holidayHits = []
     let weekendCount = 0
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const iso = d.toISOString().slice(0, 10)
-      const dow = d.getDay()
-      if (dow === 0 || dow === 6) {
+    for (const iso of eachIsoDateInRange(fromDate, toDate)) {
+      if (isWeekendIso(iso)) {
         weekendCount++
       } else {
-        const hol = holidays.find((h) => h.date === iso)
+        const hol = holidays.find((h) => h.date.slice(0, 10) === iso)
         if (hol) holidayHits.push(hol.name)
       }
     }

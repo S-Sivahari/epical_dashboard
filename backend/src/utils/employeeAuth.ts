@@ -171,6 +171,42 @@ export async function findUserForEmployee(
   return byEmail;
 }
 
+/** Keep the linked users row aligned with the canonical employee profile. */
+export async function syncUserAccountFromEmployee(employee: {
+  id: string;
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  email?: string;
+  personalEmail?: string;
+  designation?: string;
+  joinedAt?: string;
+}): Promise<void> {
+  const user = await findUserForEmployee(employee);
+  if (!user) return;
+
+  const name =
+    [employee.firstName, employee.middleName, employee.lastName].filter(Boolean).join(' ').trim() ||
+    'Employee';
+  const loginEmail =
+    (employee.email && String(employee.email).trim()) ||
+    (employee.personalEmail && String(employee.personalEmail).trim()) ||
+    user.email;
+
+  const updates: Record<string, unknown> = {
+    id: employee.id,
+    name,
+    email: normalizeLoginEmail(String(loginEmail)),
+    designation: employee.designation || user.designation || 'Employee',
+    updatedAt: new Date(),
+  };
+  if (employee.joinedAt) {
+    updates.joinedAt = employee.joinedAt;
+  }
+
+  await getUserCollection().updateOne({ _id: user._id }, { $set: updates });
+}
+
 export async function ensureUserAccountForEmployee(
   employee: {
     id: string;
