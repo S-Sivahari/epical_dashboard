@@ -1,6 +1,7 @@
 ﻿.admin-notes-page {
   --notes-accent: #1e5a3d;
   --notes-accent-soft: rgba(30, 90, 61, 0.08);
+  --notes-project-color: #dc2626;
   --notes-border: rgba(30, 90, 61, 0.14);
 }
 
@@ -2565,11 +2566,12 @@
   border-top: 1px dashed var(--notes-line);
 }
 
-.notes-notepad-pad__project-name {
+[data-admin-notes] .notes-notepad-pad__project-name,
+.notes-notepad-pad__letter .notes-notepad-pad__project-name {
   margin: 0 0 0.55rem;
   font-size: 0.75rem;
   font-weight: 700;
-  color: var(--notes-accent);
+  color: var(--notes-project-color) !important;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -2862,23 +2864,53 @@
   border-radius: 0.25rem;
 }
 
+.notes-notepad-inline-editor__surface {
+  display: grid;
+  position: relative;
+}
+
+.notes-notepad-inline-editor__highlight,
 .notes-notepad-inline-editor__textarea {
+  grid-area: 1 / 1;
   width: 100%;
   min-height: 14rem;
-  resize: vertical;
-  border: 1px solid #cbd5e1;
-  border-radius: 0.5rem;
-  background: #fff;
+  margin: 0;
   padding: 0.75rem 0.85rem;
   font-family: inherit;
   font-size: 0.8125rem;
   line-height: 1.55;
-  color: #0f172a;
-  outline: none;
   white-space: pre-wrap;
+  word-wrap: break-word;
+  border-radius: 0.5rem;
+  border: 1px solid #cbd5e1;
+  overflow: auto;
 }
 
-.notes-notepad-inline-editor__textarea:focus {
+.notes-notepad-inline-editor__textarea {
+  resize: vertical;
+  z-index: 1;
+  background: transparent !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent;
+  caret-color: #0f172a;
+  outline: none;
+}
+
+.notes-notepad-inline-editor__highlight {
+  pointer-events: none;
+  z-index: 0;
+  color: #0f172a;
+  background: #fff;
+  resize: none;
+}
+
+[data-admin-notes] .notes-notepad-inline-editor__highlight .notes-notepad-inline-editor__project-line {
+  color: var(--notes-project-color) !important;
+  font-weight: 700 !important;
+}
+
+.notes-notepad-inline-editor__surface:focus-within .notes-notepad-inline-editor__highlight,
+.notes-notepad-inline-editor__surface:focus-within .notes-notepad-inline-editor__textarea {
   border-color: rgba(30, 90, 61, 0.45);
   box-shadow: 0 0 0 3px rgba(30, 90, 61, 0.08);
 }

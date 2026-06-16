@@ -60,6 +60,11 @@ function resolveEmployeeIds(nameLine: string, employees: Employee[]): { ids: str
   return { ids, names }
 }
 
+export function isNotepadProjectHeaderLine(line: string): boolean {
+  const trimmed = line.trim()
+  return trimmed.length > 0 && trimmed.endsWith(':') && !trimmed.startsWith('--')
+}
+
 export function serializeBlockToNotepadText(entries: NoteChildBlock[]): string {
   const groups = groupEntriesByProject(
     entries.filter((entry) => !entry.archived).sort((a, b) => a.sortOrder - b.sortOrder),

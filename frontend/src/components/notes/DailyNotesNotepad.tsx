@@ -85,10 +85,19 @@ export function DailyNotesNotepad({
   const hasBlock = Boolean(block)
   const status = block?.status ?? 'draft'
   const isPastDay = isPastNotesDay(dateKey)
-  const canEditNotes = hasBlock && block && !block.archived && !isPastDay
-  const canSendEmail = hasBlock && block && !block.archived && !isPastDay
+  const isEmailSent = status === 'email_sent'
+  const canEditNotes = hasBlock && block && !block.archived && !isPastDay && !isEmailSent
+  const canSendEmail =
+    hasBlock && block && !block.archived && !isPastDay && !isEmailSent
   const emailIncludeCount = entries.filter((entry) => entry.includeInEmail).length
   const hasContent = projectGroups.length > 0
+
+  useEffect(() => {
+    if (isEmailSent) {
+      setIsEditing(false)
+      setAddNoteOpen(false)
+    }
+  }, [isEmailSent])
 
   return (
     <>
@@ -181,7 +190,7 @@ export function DailyNotesNotepad({
               ) : null}
 
               <div className="notes-notepad-pad__paper">
-                {isEditing && block ? (
+                {isEditing && block && canEditNotes ? (
                   <DailyNotesInlineEditor
                     block={block}
                     projects={projects}
@@ -206,9 +215,9 @@ export function DailyNotesNotepad({
                   <div className="notes-notepad-pad__letter">
                     {projectGroups.map((group) => (
                       <section key={group.projectId} className="notes-notepad-pad__project">
-                        <h3 className="notes-notepad-pad__project-name">
+                        <p className="notes-notepad-pad__project-name">
                           {group.projectName.toUpperCase()}:
-                        </h3>
+                        </p>
                         {group.entries.map((entry) => {
                           const names = employeeNamesDisplay(entry, projects)
                           const plain = noteHtmlToPlainText(entry.description)
@@ -250,7 +259,7 @@ export function DailyNotesNotepad({
       ) : null}
     </article>
 
-    {block && addNoteOpen ? (
+    {block && addNoteOpen && canEditNotes ? (
       <AddNoteModal
         block={block}
         projects={projects}
