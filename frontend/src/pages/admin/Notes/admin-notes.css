@@ -2560,13 +2560,13 @@
 }
 
 .notes-notepad-pad__project + .notes-notepad-pad__project {
-  margin-top: 0.55rem;
-  padding-top: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 0.85rem;
   border-top: 1px dashed var(--notes-line);
 }
 
 .notes-notepad-pad__project-name {
-  margin: 0 0 0.25rem;
+  margin: 0 0 0.55rem;
   font-size: 0.75rem;
   font-weight: 700;
   color: var(--notes-accent);
@@ -2575,8 +2575,8 @@
 }
 
 .notes-notepad-pad__employee {
-  margin-bottom: 0.35rem;
-  padding-left: 0.1rem;
+  margin-bottom: 0.75rem;
+  padding-left: 1.5rem;
 }
 
 .notes-notepad-pad__employee-head {
@@ -2614,11 +2614,12 @@
 }
 
 .notes-notepad-pad__note-body {
-  margin: 0.1rem 0 0;
+  margin: 0.2rem 0 0;
+  padding-left: 1.35rem;
 }
 
 .notes-notepad-pad__note-line {
-  margin: 0.05rem 0 0;
+  margin: 0.08rem 0 0;
   font-size: 0.8125rem;
   font-weight: 400;
   color: #000000;
@@ -2677,7 +2678,8 @@
 }
 
 .notes-notepad-pad__no-updates {
-  margin: 0 0 0 1rem;
+  margin: 0.2rem 0 0;
+  padding-left: 1.35rem;
   font-size: 0.8125rem;
   font-style: italic;
   color: var(--notes-muted);
