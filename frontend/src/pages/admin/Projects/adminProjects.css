@@ -4328,8 +4328,12 @@
   background: linear-gradient(180deg, #f8fcf9 0%, #fff 100%);
   padding: 1rem;
   min-height: 11.5rem;
+  max-height: min(26rem, 52vh);
+  overflow: auto;
   container-type: inline-size;
   container-name: cell-views-workflow;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
 }
 
 .admin-projects-cell-details-views-panel .admin-projects-pill-rail {
@@ -4374,29 +4378,31 @@
   padding: 0;
   overflow-x: auto;
   overflow-y: visible;
+  max-width: 100%;
   scrollbar-width: thin;
   -webkit-overflow-scrolling: touch;
 }
 
 .admin-projects-cell-details-views-panel .admin-projects-workflow-board {
   display: grid;
-  width: 100%;
-  min-width: 0;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  width: max-content;
+  min-width: 47rem;
+  max-width: none;
+  grid-template-columns: repeat(7, minmax(6.5rem, 1fr));
   gap: clamp(0.3125rem, 0.8cqw, 0.5625rem);
   align-items: stretch;
 }
 
 .admin-projects-cell-details-views-panel .admin-projects-workflow-column {
   display: grid;
-  grid-template-rows: auto 1.25rem minmax(0, 1fr);
+  grid-template-rows: auto minmax(1.25rem, auto) minmax(2.5rem, 1fr);
   width: 100%;
   min-width: 0;
-  min-height: 10.5rem;
+  min-height: 11rem;
   height: auto;
   max-height: none;
   aspect-ratio: unset;
-  overflow: hidden;
+  overflow: visible;
   isolation: isolate;
 }
 
@@ -4472,51 +4478,45 @@
   border-radius: 0.5rem;
 }
 
-@container cell-views-workflow (max-width: 52rem) {
-  .admin-projects-cell-details-views-panel .admin-projects-workflow-board {
-    grid-template-columns: repeat(7, minmax(6.25rem, 1fr));
-    min-width: 46rem;
-    width: max-content;
-    max-width: none;
-  }
-
-  .admin-projects-cell-details-views-panel .admin-projects-workflow-column {
-    min-height: 10.25rem;
-  }
-}
-
-@container cell-views-workflow (min-width: 52.01rem) {
-  .admin-projects-cell-details-views-panel .admin-projects-cell-details-view-box .admin-projects-workflow-board-wrap {
-    overflow-x: visible;
-  }
-
-  .admin-projects-cell-details-views-panel .admin-projects-workflow-board {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-    min-width: 0;
-    width: 100%;
-  }
-
-  .admin-projects-cell-details-views-panel .admin-projects-workflow-column {
-    min-height: 11.5rem;
-  }
+.admin-projects-cell-details-views-panel .admin-projects-view-status-scroll {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
 }
 
 .admin-projects-cell-details-views-panel .admin-projects-view-status-btns {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: stretch;
   justify-content: flex-start;
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   min-height: 3.5rem;
   gap: 0.75rem;
+  padding-bottom: 0.125rem;
 }
 
 .admin-projects-cell-details-views-panel .admin-projects-view-status-btn {
-  flex: 1 1 8rem;
-  min-width: 8rem;
-  max-width: 12rem;
+  flex: 0 0 auto;
+  min-width: 7.5rem;
+  max-width: none;
   height: 2.75rem;
   font-size: 0.875rem;
+}
+
+@container cell-views-workflow (max-width: 52rem) {
+  .admin-projects-cell-details-views-panel .admin-projects-workflow-column {
+    min-height: 10.75rem;
+  }
+}
+
+@container cell-views-workflow (min-width: 52.01rem) {
+  .admin-projects-cell-details-views-panel .admin-projects-workflow-column {
+    min-height: 11.5rem;
+  }
 }
 
 .admin-projects-cell-details-split {
