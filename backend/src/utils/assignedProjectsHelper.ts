@@ -93,6 +93,20 @@ export async function getAssignedProjectsForUser(
 
   const assignmentTokens = buildAssignmentIdentityTokens(user, employeeRecord as any);
 
+  const cellProjectIds = await ProjectCellModel.distinct('projectId', {
+    assignedEmployeeId: { $in: assignmentTokens },
+  });
+
+  const projectFilter =
+    cellProjectIds.length > 0
+      ? {
+          $or: [
+            ...(buildAssignedProjectsFilter(assignmentTokens).$or as Record<string, unknown>[]),
+            { _id: { $in: cellProjectIds } },
+          ],
+        }
+      : buildAssignedProjectsFilter(assignmentTokens);
+
   if (options?.syncTasks === true) {
     void ensureAssignedTasksForEmployee({
       id: user.id,
@@ -103,7 +117,7 @@ export async function getAssignedProjectsForUser(
     }).catch((err) => console.error('Background assigned-task sync failed:', err));
   }
 
-  const assignedProjects = await ProjectModel.find(buildAssignedProjectsFilter(assignmentTokens))
+  const assignedProjects = await ProjectModel.find(projectFilter)
     .sort({ createdAt: -1 })
     .lean();
 

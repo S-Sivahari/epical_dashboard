@@ -28,6 +28,7 @@ import {
 } from '@/types/projectWorkspace'
 import type { Employee } from '@/types'
 import { CELL_STATUS_FILTER_OPTIONS, CELL_TYPE_LABELS, STATUS_LABELS, WORKFLOW_STATUS_LABELS, cellDisplayStatus, cellTypeLabel, normalizeCellType, normalizeViewStatus, workflowStageStatusClass } from './projectWorkspaceUi'
+import { buildEmployeeFullName } from '@/utils/employeeDisplayName'
 
 const INLINE_FIELD_CLASS = 'admin-projects-cell-details-inline-field'
 import { CellWorkflowPanel } from './CellWorkflowPanel'
@@ -565,13 +566,13 @@ export function ProjectCellPage() {
                                 setCellForm((f) => f && {
                                   ...f,
                                   assignedEmployeeId: e.target.value,
-                                  assignedEmployeeName: emp ? `${emp.firstName} ${emp.lastName}` : '',
+                                  assignedEmployeeName: emp ? buildEmployeeFullName(emp) : '',
                                 })
                               }}
                             >
                               <option value="">Unassigned</option>
                               {employees.map((e) => (
-                                <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>
+                                <option key={e.id} value={e.id}>{buildEmployeeFullName(e)}</option>
                               ))}
                             </select>
                           ) : (

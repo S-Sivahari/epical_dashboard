@@ -5,7 +5,13 @@ import { ProjectModel } from '../models/Project';
 import { ProjectLibraryModel } from '../models/ProjectLibrary';
 import { ProjectCellModel, CELL_STATUSES, type CellStatus } from '../models/ProjectCell';
 import { CellReviewModel } from '../models/CellReview';
-import { buildAssignmentIdentityTokens, isProjectMemberDisplayName, resolveProjectMemberAssignees } from '../utils/assignedTaskSync';
+import { resolveEmployeeForAuthUser } from '../utils/employeeAuth';
+import { enrichAssigneeNames } from '../utils/cellAssigneeHelper';
+import {
+  buildAssignmentIdentityTokens,
+  isProjectMemberDisplayName,
+  resolveProjectMemberAssignees,
+} from '../utils/assignedTaskSync';
 import {
   deriveBaseHours,
   normalizeComplexity,
@@ -124,14 +130,15 @@ async function resolveEmployeeRecord(userId: string) {
 
 async function getAssignmentTokens(req: Request): Promise<string[]> {
   const actor = actorFromReq(req);
-  const employee = await resolveEmployeeRecord(actor.userId);
+  const employee = await resolveEmployeeForAuthUser(actor.userId, actor.email);
   return buildAssignmentIdentityTokens(actor, employee as any);
 }
 
 function cellAssignedToTokens(cell: { assignedEmployeeId?: string }, tokens: string[]): boolean {
   const assigned = cell.assignedEmployeeId?.trim();
   if (!assigned) return false;
-  return tokens.includes(assigned);
+  const assignedLower = assigned.toLowerCase();
+  return tokens.some((token) => token.trim().toLowerCase() === assignedLower);
 }
 
 async function assertProjectAccess(projectId: string, tokens: string[], req?: Request) {
@@ -502,11 +509,13 @@ export const employeeProjectController = {
         ),
       );
 
-      const cellsWithMeta = await Promise.all(
-        cells.map(async (cell) => {
-          const meta = await computeDependencyMeta(projectObjectId, cell);
-          return toEmployeeCellWithTiming(cell, tokens, meta);
-        }),
+      const cellsWithMeta = await enrichAssigneeNames(
+        await Promise.all(
+          cells.map(async (cell) => {
+            const meta = await computeDependencyMeta(projectObjectId, cell);
+            return toEmployeeCellWithTiming(cell, tokens, meta);
+          }),
+        ),
       );
 
       const assignedCount = cellsWithMeta.filter((c) => c.isAssignedToMe).length;

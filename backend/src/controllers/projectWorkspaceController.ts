@@ -47,6 +47,7 @@ import {
 } from '../services/effortEstimationService';
 import { isAdminRole } from '../utils/generateToken';
 import { assertProjectForRequest } from '../utils/projectAccessHelper';
+import { resolveCellAssignee, enrichAssigneeNames } from '../utils/cellAssigneeHelper';
 import {
   buildWorkflowDurationMap,
   closeAllOpenWorkLogs,
@@ -251,11 +252,13 @@ export const projectWorkspaceController = {
         ),
       );
       const durationMap = await buildWorkflowDurationMap(projectId, cells);
-      const cellsWithMeta = await Promise.all(
-        cells.map(async (cell) => {
-          const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
-          return toCell(cell, meta, durationMap.get(cell._id.toString()));
-        }),
+      const cellsWithMeta = await enrichAssigneeNames(
+        await Promise.all(
+          cells.map(async (cell) => {
+            const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
+            return toCell(cell, meta, durationMap.get(cell._id.toString()));
+          }),
+        ),
       );
 
       const cellCount = cells.length;
@@ -447,6 +450,10 @@ export const projectWorkspaceController = {
         baseHours: resolvedBaseHours,
       });
 
+      const assignment = assignedEmployeeId?.trim()
+        ? await resolveCellAssignee(assignedEmployeeId, assignedEmployeeName)
+        : { assignedEmployeeId: undefined, assignedEmployeeName: undefined };
+
       const cell = await ProjectCellModel.create({
         projectId: project._id,
         libraryId: library._id,
@@ -460,8 +467,8 @@ export const projectWorkspaceController = {
         smartEstimate: prediction.smartEstimate,
         estimateConfidence: prediction.confidence,
         actualEffort: 0,
-        assignedEmployeeId: assignedEmployeeId || undefined,
-        assignedEmployeeName: assignedEmployeeName || undefined,
+        assignedEmployeeId: assignment.assignedEmployeeId,
+        assignedEmployeeName: assignment.assignedEmployeeName,
         dependencyCellIds: deps,
         status: 'ready',
         workflow: defaultCellWorkflow(),
@@ -489,14 +496,14 @@ export const projectWorkspaceController = {
       );
       const meta = await computeDependencyMeta(project._id, cell);
 
-      if (assignedEmployeeId?.trim()) {
+      if (assignment.assignedEmployeeId?.trim()) {
         void notifyEmployeeCellAssigned({
           projectId: project._id.toString(),
           cellId: cell._id.toString(),
           projectName: project.projectName || 'Project',
           cellName: cell.name,
-          assignedEmployeeId: String(assignedEmployeeId).trim(),
-          assignedEmployeeName: assignedEmployeeName || undefined,
+          assignedEmployeeId: String(assignment.assignedEmployeeId).trim(),
+          assignedEmployeeName: assignment.assignedEmployeeName || undefined,
           assignedByName: actor.userName,
         }).catch((notifyErr) => {
           console.error('[workspace] cell assignment notification failed:', notifyErr);
@@ -525,7 +532,7 @@ export const projectWorkspaceController = {
       const previousAssignee = cell.assignedEmployeeId?.trim() || '';
       const fields = [
         'name', 'description', 'cellType', 'technologyNode', 'complexity',
-        'baseHours', 'estimatedEffort', 'actualEffort', 'assignedEmployeeId', 'assignedEmployeeName', 'views',
+        'baseHours', 'estimatedEffort', 'actualEffort', 'views',
       ] as const;
 
       for (const field of fields) {
@@ -534,6 +541,15 @@ export const projectWorkspaceController = {
             ? normalizeCellType(String(req.body[field]))
             : req.body[field];
         }
+      }
+
+      if (req.body.assignedEmployeeId !== undefined) {
+        const assignment = await resolveCellAssignee(
+          req.body.assignedEmployeeId,
+          req.body.assignedEmployeeName,
+        );
+        cell.assignedEmployeeId = assignment.assignedEmployeeId;
+        cell.assignedEmployeeName = assignment.assignedEmployeeName;
       }
 
       if (req.body.complexity !== undefined) {

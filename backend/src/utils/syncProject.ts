@@ -1,5 +1,6 @@
 import { ClientSession, Types } from 'mongoose';
 import { ProjectModel } from '../models/Project';
+import { ProjectCellModel } from '../models/ProjectCell';
 import { TimesheetModel } from '../models/Timesheet';
 import { AssignedTaskModel } from '../models/AssignedTask';
 
@@ -72,6 +73,10 @@ export async function updateProjectCompletionStatus(
 
   if (project.status === 'Rejected' || project.status === 'Cancelled') return project;
 
+  const cellsQuery = ProjectCellModel.find({ projectId: objectId });
+  if (session) cellsQuery.session(session);
+  const cells = await cellsQuery;
+
   const timesheetQuery = TimesheetModel.find({ projectId: objectId });
   if (session) timesheetQuery.session(session);
   const relatedEntries = await timesheetQuery;
@@ -90,7 +95,10 @@ export async function updateProjectCompletionStatus(
   let totalTasks: number;
   let completedTasks: number;
 
-  if (assignedTasks.length > 0) {
+  if (cells.length > 0) {
+    totalTasks = cells.length;
+    completedTasks = cells.filter((cell) => cell.status === 'completed').length;
+  } else if (assignedTasks.length > 0) {
     totalTasks = assignedTasks.length;
     completedTasks = assignedTasks.filter(isAssignedTaskComplete).length;
   } else {

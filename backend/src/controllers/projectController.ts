@@ -166,7 +166,20 @@ export const projectController = {
       const payload = await getAssignedProjectsForUser(user, employeeRecord as any, {
         syncTasks: false,
       });
-      res.json(await enrichProjectsWithAnalysisStatus(payload));
+      const projects = await Promise.all(
+        payload.map(async (project) => {
+          const result = await updateProjectCompletionStatus(project.id);
+          if (!result) return project;
+          return {
+            ...project,
+            completedTasks: result.completedTasks,
+            totalTasks: result.totalTasks,
+            completionPercentage: result.completionPercentage,
+            status: result.status,
+          };
+        }),
+      );
+      res.json(await enrichProjectsWithAnalysisStatus(projects));
     } catch (error) {
       console.error('Error fetching assigned projects:', error);
       res.status(500).json({ error: 'Failed to fetch assigned projects' });

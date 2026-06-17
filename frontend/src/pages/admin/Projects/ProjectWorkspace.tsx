@@ -48,6 +48,7 @@ import {
   projectCellProgressPercent,
 } from './projectWorkspaceUi'
 import { calculateEstimatedHours, CELL_COMPLEXITY_OPTIONS, DEFAULT_BASE_HOURS, formatComplexityFactor } from '@/utils/effortEstimationUtils'
+import { buildEmployeeFullName } from '@/utils/employeeDisplayName'
 import './adminProjects.css'
 
 type DeleteTarget = { type: 'library' | 'cell'; id: string; name: string }
@@ -1072,13 +1073,13 @@ export function ProjectWorkspace() {
                   setCellForm((f) => f && {
                     ...f,
                     assignedEmployeeId: e.target.value,
-                    assignedEmployeeName: emp ? `${emp.firstName} ${emp.lastName}` : '',
+                    assignedEmployeeName: emp ? buildEmployeeFullName(emp) : '',
                   })
                 }}
               >
                 <option value="">Unassigned</option>
                 {employees.map((e) => (
-                  <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>
+                  <option key={e.id} value={e.id}>{buildEmployeeFullName(e)}</option>
                 ))}
               </select>
             </label>
