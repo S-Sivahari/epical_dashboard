@@ -29,6 +29,17 @@ function PreviewField({ label, value }: { label: string; value?: string | number
   )
 }
 
+function displayValue(value: unknown): string | number | null | undefined {
+  if (value === null || value === undefined || value === '') return null
+  if (typeof value === 'string' || typeof value === 'number') return value
+  return String(value)
+}
+
+function displayDate(value: unknown): string {
+  if (typeof value === 'string' || value instanceof Date) return formatDate(value)
+  return ''
+}
+
 export function EmployeeBulkImportModal({
   open,
   onClose,
@@ -92,7 +103,10 @@ export function EmployeeBulkImportModal({
       } else if (result.failed.length) {
         const failedIds = new Set(result.failed.map((item) => item.employeeId))
         onRowsChange(
-          rows.filter((row) => failedIds.has(row.payload.employeeId) || row.errors.length > 0),
+          rows.filter((row) => {
+            const employeeId = displayValue(row.payload.employeeId)
+            return (typeof employeeId === 'string' && failedIds.has(employeeId)) || row.errors.length > 0
+          }),
         )
         setCurrentIndex(0)
       }
@@ -175,42 +189,42 @@ export function EmployeeBulkImportModal({
             <div>
               <h3 className="font-semibold text-ink">Personal Information</h3>
               <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <PreviewField label="Employee ID" value={payload.employeeId} />
+                <PreviewField label="Employee ID" value={displayValue(payload.employeeId)} />
                 <PreviewField
                   label="Full Name"
-                  value={`${payload.firstName} ${payload.middleName ? `${payload.middleName} ` : ''}${payload.lastName ?? ''}`.trim()}
+                  value={`${displayValue(payload.firstName) ?? ''} ${payload.middleName ? `${displayValue(payload.middleName)} ` : ''}${displayValue(payload.lastName) ?? ''}`.trim()}
                 />
-                <PreviewField label="Personal Email" value={payload.personalEmail} />
-                <PreviewField label="Company Email" value={payload.email} />
-                <PreviewField label="Phone" value={payload.phone} />
-                <PreviewField label="Date of Birth" value={payload.dob ? formatDate(payload.dob) : ''} />
-                <PreviewField label="Gender" value={payload.gender} />
-                <PreviewField label="Role" value={payload.role} />
-                <PreviewField label="Employment Type" value={payload.employmentType} />
-                <PreviewField label="Joined At" value={payload.joinedAt ? formatDate(payload.joinedAt) : ''} />
+                <PreviewField label="Personal Email" value={displayValue(payload.personalEmail)} />
+                <PreviewField label="Company Email" value={displayValue(payload.email)} />
+                <PreviewField label="Phone" value={displayValue(payload.phone)} />
+                <PreviewField label="Date of Birth" value={displayDate(payload.dob)} />
+                <PreviewField label="Gender" value={displayValue(payload.gender)} />
+                <PreviewField label="Role" value={displayValue(payload.role)} />
+                <PreviewField label="Employment Type" value={displayValue(payload.employmentType)} />
+                <PreviewField label="Joined At" value={displayDate(payload.joinedAt)} />
               </div>
             </div>
 
             <div>
               <h3 className="font-semibold text-ink">Address</h3>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <PreviewField label="Permanent Address" value={payload.permanentAddress} />
-                <PreviewField label="Communication Address" value={payload.communicationAddress} />
+                <PreviewField label="Permanent Address" value={displayValue(payload.permanentAddress)} />
+                <PreviewField label="Communication Address" value={displayValue(payload.communicationAddress)} />
               </div>
             </div>
 
             <div>
               <h3 className="font-semibold text-ink">Account & ID</h3>
               <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <PreviewField label="PAN" value={payload.pan} />
-                <PreviewField label="Aadhaar" value={payload.aadhaar} />
-                <PreviewField label="Passport" value={payload.passport} />
-                <PreviewField label="Bank Name" value={payload.bankName} />
-                <PreviewField label="Account Number" value={payload.accountNumber} />
-                <PreviewField label="IFSC" value={payload.ifsc} />
-                <PreviewField label="UAN" value={payload.uan} />
-                <PreviewField label="PF / ESI" value={payload.pfEsi} />
-                <PreviewField label="CTC" value={payload.ctc} />
+                <PreviewField label="PAN" value={displayValue(payload.pan)} />
+                <PreviewField label="Aadhaar" value={displayValue(payload.aadhaar)} />
+                <PreviewField label="Passport" value={displayValue(payload.passport)} />
+                <PreviewField label="Bank Name" value={displayValue(payload.bankName)} />
+                <PreviewField label="Account Number" value={displayValue(payload.accountNumber)} />
+                <PreviewField label="IFSC" value={displayValue(payload.ifsc)} />
+                <PreviewField label="UAN" value={displayValue(payload.uan)} />
+                <PreviewField label="PF / ESI" value={displayValue(payload.pfEsi)} />
+                <PreviewField label="CTC" value={displayValue(payload.ctc)} />
               </div>
             </div>
 
