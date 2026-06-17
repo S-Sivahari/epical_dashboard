@@ -49,8 +49,10 @@ body,
 .employee-portal.cmd-portal:has([data-metal-routing]) .admin-top-nav,
 .employee-portal.cmd-portal:has([data-metal-routing]) .admin-top-nav-refined {
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.65),
-    0 3px 10px rgba(15, 23, 42, 0.07);
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 2px 4px rgba(15, 23, 42, 0.34),
+    0 4px 8px rgba(26, 67, 41, 0.28),
+    0 6px 12px rgba(15, 23, 42, 0.2);
   border-bottom: 1px solid rgba(26, 67, 41, 0.12);
   position: relative;
   z-index: 2;

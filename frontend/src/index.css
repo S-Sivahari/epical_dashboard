@@ -4964,7 +4964,6 @@
 .employee-portal .admin-top-nav-refined {
   background: linear-gradient(180deg, #f6faf6 0%, #eef6ec 48%, #dff0e4 100%);
   border-top-color: rgba(47, 107, 79, 0.08);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
   outline: none;
 }
 
@@ -5009,6 +5008,12 @@
 .employee-portal .admin-top-nav-refined .admin-top-nav-link-active .admin-top-nav-link-text {
   color: var(--dash-forest, #1a4329);
   font-weight: 600;
+}
+
+.employee-portal .admin-top-nav,
+.employee-portal .admin-top-nav-refined {
+  background: linear-gradient(180deg, #ffffff 0%, #fafbfc 55%, #f6f8fa 100%);
+  border-top-color: rgba(15, 23, 42, 0.06);
 }
 
 .admin-top-nav-refined .admin-top-nav-link-active .admin-top-nav-link-icon {
@@ -15261,7 +15266,6 @@ html:has(.admin-portal) [role="dialog"] {
   background: linear-gradient(180deg, #f4f7f5 0%, var(--dash-canvas, #e6ebe8) 100%);
   border: none;
   border-top: 1px solid rgba(26, 67, 41, 0.06);
-  box-shadow: none;
   outline: none;
 }
 
@@ -15384,6 +15388,26 @@ html:has(.admin-portal) [role="dialog"] {
 
 .admin-top-nav-link-active .admin-top-nav-link-icon {
   color: #1e5a3d;
+}
+
+/* Deep compact drop shadow on section nav (after base nav rules — avoids box-shadow:none override) */
+.admin-portal .admin-top-nav.admin-top-nav-refined,
+.employee-portal .admin-top-nav.admin-top-nav-refined {
+  position: relative;
+  z-index: 2;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 2px 4px rgba(15, 23, 42, 0.34),
+    0 4px 8px rgba(26, 67, 41, 0.28),
+    0 6px 12px rgba(15, 23, 42, 0.2);
+}
+
+.employee-portal .admin-top-nav.admin-top-nav-refined {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    0 2px 4px rgba(15, 23, 42, 0.34),
+    0 4px 8px rgba(26, 67, 41, 0.28),
+    0 6px 12px rgba(15, 23, 42, 0.2);
 }
 
 .cmd-bar-icon-btn {

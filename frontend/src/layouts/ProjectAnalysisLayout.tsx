@@ -3,7 +3,8 @@ import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { Briefcase, CircuitBoard, NotebookPen } from 'lucide-react'
 import { CompanyLogo } from '@components/auth/CompanyLogo'
 import { ROUTES } from '@constants/routes'
-import { consumeProjectAnalysisAccess } from '@/utils/projectAnalysisAccess'
+import { useAuthStore } from '@store/authStore'
+import { canAccessProjectAnalysis } from '@/utils/projectAnalysisAccess'
 import { cn } from '@/utils/cn'
 
 const TABS = [
@@ -35,11 +36,17 @@ function activeSectionLabel(pathname: string): string {
 
 export function ProjectAnalysisLayout() {
   const { pathname } = useLocation()
-  const allowed = useMemo(() => consumeProjectAnalysisAccess(), [])
+  const isHydrated = useAuthStore((s) => s.isHydrated)
+  const role = useAuthStore((s) => s.role)
+  const allowed = useMemo(() => canAccessProjectAnalysis(role), [role])
   const sectionLabel = activeSectionLabel(pathname)
 
+  if (!isHydrated) {
+    return null
+  }
+
   if (!allowed) {
-    return <Navigate to={ROUTES.TIMESHEET} replace />
+    return <Navigate to={ROUTES.DASHBOARD} replace />
   }
 
   return (

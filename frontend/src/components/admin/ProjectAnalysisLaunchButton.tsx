@@ -24,7 +24,7 @@ export function ProjectAnalysisLaunchButton({ className }: ProjectAnalysisLaunch
       type="button"
       onClick={openProjectAnalysis}
       className={cn('project-analysis-launch-btn', className)}
-      aria-label="Open Project Management in a new tab"
+      aria-label="Open Project Management"
     >
       <LineChart className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
       <span>Project Management</span>

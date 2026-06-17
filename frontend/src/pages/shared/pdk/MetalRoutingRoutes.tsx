@@ -13,6 +13,10 @@ export const METAL_ROUTING_VIEW_CLASS =
 
 export function MetalRoutingRoutes({ basePath }: { basePath: string }) {
   const hideSignalProjectsHeader = basePath.includes('/project-analysis')
+  const usePremiumProjectsLayout =
+    hideSignalProjectsHeader
+    || basePath.includes('/employee/metal-routing')
+    || basePath.includes('/admin/metal-routing')
 
   return (
     <div className={METAL_ROUTING_VIEW_CLASS} data-metal-routing>
@@ -20,7 +24,11 @@ export function MetalRoutingRoutes({ basePath }: { basePath: string }) {
         <Route
           index
           element={
-            <SignalAnalysisProjectsPage basePath={basePath} hidePageHeader={hideSignalProjectsHeader} />
+            <SignalAnalysisProjectsPage
+              basePath={basePath}
+              hidePageHeader={hideSignalProjectsHeader}
+              premiumLayout={usePremiumProjectsLayout}
+            />
           }
         />
 

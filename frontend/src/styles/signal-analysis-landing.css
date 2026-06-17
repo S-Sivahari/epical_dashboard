@@ -758,6 +758,11 @@
   box-shadow: none !important;
 }
 
+.employee-portal [data-employee-page]:has(.signal-analysis-landing),
+.employee-portal .cmd-main:has(.signal-analysis-landing) {
+  background: var(--sa-page);
+}
+
 .project-analysis-layout__content:has(.signal-analysis-landing) {
   background: var(--sa-page);
 }

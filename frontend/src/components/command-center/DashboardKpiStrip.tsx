@@ -1,6 +1,8 @@
 import type { LucideIcon } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { NotificationBadge } from '@components/ui/NotificationBadge'
+import { ROUTES } from '@constants/routes'
+import { ensureProjectAnalysisSession } from '@/utils/projectAnalysisAccess'
 import { cn } from '@/utils/cn'
 
 export type DashboardKpiItem = {
@@ -78,7 +80,12 @@ export function DashboardKpiStrip({
             <button
               key={item.label}
               type="button"
-              onClick={() => navigate(item.route)}
+              onClick={() => {
+                if (item.route.startsWith(ROUTES.PROJECT_ANALYSIS)) {
+                  ensureProjectAnalysisSession()
+                }
+                navigate(item.route)
+              }}
               className={cn(
                 'dashboard-kpi-card dashboard-kpi-card--link dashboard-kpi-card--minimal',
                 `dashboard-kpi-card--tone-${item.tone}`,

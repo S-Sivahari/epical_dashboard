@@ -36,6 +36,11 @@ export function hasProjectAnalysisSession(): boolean {
   return activeSession || readStoredSession()
 }
 
+export function ensureProjectAnalysisSession(): void {
+  grantProjectAnalysisAccess()
+  persistSession()
+}
+
 /**
  * Accept entry when this tab was opened from the launch button (one-time grant)
  * or when the user is already browsing Project Analysis in this tab (sessionStorage).
@@ -62,6 +67,10 @@ export function consumeProjectAnalysisAccess(): boolean {
   return true
 }
 
+export function canAccessProjectAnalysis(role: string | null | undefined): boolean {
+  return role === 'admin' || consumeProjectAnalysisAccess()
+}
+
 export function clearProjectAnalysisSession(): void {
   activeSession = false
   try {
@@ -77,6 +86,6 @@ export function isProjectAnalysisPath(path: string): boolean {
 
 /** Open Project Analysis in a new tab with a one-time launch grant. */
 export function openProjectAnalysisTab(url: string): void {
-  grantProjectAnalysisAccess()
+  ensureProjectAnalysisSession()
   window.open(url, '_blank', 'noopener,noreferrer')
 }

@@ -60,7 +60,7 @@ export function SignalAnalysisProjectsPage({
       hideTechnology
       hideToolbarTitle={hidePageHeader}
       layoutVariant={usePremium ? 'premium' : 'default'}
-      pdkModulesHref={hidePageHeader ? `${basePath}/pdk-modules` : undefined}
+      pdkModulesHref={usePremium ? `${basePath}/pdk-modules` : undefined}
       onSearchChange={setSearch}
       onStatusFilterChange={setStatusFilter}
       onOpenRouting={(projectId) =>
