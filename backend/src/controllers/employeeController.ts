@@ -5,6 +5,7 @@ import { AuthRequest } from '../middleware/authMiddleware';
 import { isAdminRole, isEmployeeRole } from '../utils/generateToken';
 import { resolveEmployeeForAuthUser, employeeBelongsToAuthUser, findEmployeeByLoginEmail } from '../utils/employeeAuth';
 import { sanitizeEmployeeForDetail } from '../utils/sanitizeEmployee';
+import { sendEmployeeWriteError } from '../utils/employeeWriteErrors';
 import {
   buildEmployeeImportTemplate,
   parseEmployeeImportWorkbook,
@@ -133,40 +134,11 @@ export const employeeController = {
         return;
       }
       const payload: CreateEmployeePayload = req.body;
-
-        // Validate essential fields dynamically
-        const required = ['firstName', 'lastName'];
-        const missing = required.filter(f => !(payload as any)[f]?.toString?.()?.trim?.());
-        if (missing.length) {
-          res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` });
-          return;
-        }
-
       const employee = await employeeService.createEmployee(payload);
-      res.status(201).json(employee);
+      const profile = await employeeService.getEmployeeProfileById(employee.id);
+      res.status(201).json(sanitizeEmployeeForDetail((profile ?? employee) as any));
     } catch (error: any) {
-        // Handle validation errors from service
-        if (error?.code === 'VALIDATION_ERROR') {
-          res.status(400).json({ error: error.message });
-          return;
-        }
-        // Duplicate email
-        if (error?.code === 'DUPLICATE_EMAIL') {
-          res.status(409).json({ error: error.message });
-          return;
-        }
-        // Duplicate employee ID
-        if (error?.code === 'DUPLICATE_EMPLOYEE_ID') {
-          res.status(409).json({ error: error.message });
-          return;
-        }
-        // MongoDB native duplicate key fallback
-        if (error?.code === 11000 || error?.message?.includes('E11000')) {
-          res.status(409).json({ error: 'A duplicate entry already exists.' });
-          return;
-        }
-        console.error('Error creating employee:', error);
-        res.status(500).json({ error: error?.message ?? 'Failed to create employee' });
+      sendEmployeeWriteError(res, error, 'Failed to create employee', 'Error creating employee:');
     }
   },
 
@@ -186,22 +158,10 @@ export const employeeController = {
         return;
       }
 
-      res.json(employee);
+      const profile = await employeeService.getEmployeeProfileById(id);
+      res.json(sanitizeEmployeeForDetail((profile ?? employee) as any));
     } catch (error: any) {
-      if (error?.code === 'DUPLICATE_EMAIL') {
-        res.status(409).json({ error: error.message });
-        return;
-      }
-      if (error?.code === 'COMPANY_EMAIL_REQUIRED') {
-        res.status(400).json({ error: error.message });
-        return;
-      }
-      if (error?.code === 'VALIDATION_ERROR') {
-        res.status(400).json({ error: error.message });
-        return;
-      }
-      console.error('Error updating employee:', error);
-      res.status(500).json({ error: 'Failed to update employee' });
+      sendEmployeeWriteError(res, error, 'Failed to update employee', 'Error updating employee:');
     }
   },
 
