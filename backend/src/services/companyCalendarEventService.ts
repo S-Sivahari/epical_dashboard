@@ -3,10 +3,28 @@ import { getDB } from '../config/db';
 import type { CompanyCalendarEvent } from '../models/CompanyCalendarEvent';
 
 let calendarEventCollection: Collection<CompanyCalendarEvent> | null = null;
+let indexesCreated = false;
+
+async function createIndexes(): Promise<void> {
+  try {
+    const collection = getDB().collection('company_calendar_events');
+    await Promise.all([
+      collection.createIndex({ id: 1 }, { unique: true }),
+      collection.createIndex({ date: 1 }),
+      collection.createIndex({ date: 1, title: 1 }),
+    ]);
+  } catch (error) {
+    console.error('Failed to create company_calendar_events indexes:', error);
+  }
+}
 
 function getCollection(): Collection<CompanyCalendarEvent> {
   if (!calendarEventCollection) {
     calendarEventCollection = getDB().collection<CompanyCalendarEvent>('company_calendar_events');
+    if (!indexesCreated) {
+      void createIndexes();
+      indexesCreated = true;
+    }
   }
   return calendarEventCollection;
 }

@@ -17,9 +17,18 @@ import {
   downloadDocumentPdf,
 } from '@services/documentRequestService'
 
-type AdminTab = 'requested' | 'approved' | 'history'
+import type { AdminHistoryStatusFilter } from '@services/documentRequestService'
+
+type AdminTab = 'requested' | 'history'
+type HistoryFilter = 'all' | AdminHistoryStatusFilter
 
 const PAGE_SIZE = 10
+
+const historyFilterOptions: Array<{ key: HistoryFilter; label: string }> = [
+  { key: 'all', label: 'All' },
+  { key: 'Approved', label: 'Approved' },
+  { key: 'Rejected', label: 'Rejected' },
+]
 
 const tabConfig: Array<{
   key: AdminTab
@@ -34,16 +43,10 @@ const tabConfig: Array<{
     description: 'Review pending requests, attach fulfillment files, then approve or reject.',
   },
   {
-    key: 'approved',
-    label: 'Approved',
-    icon: CheckCircle2,
-    description: 'Download fulfilled documents that are ready for employees.',
-  },
-  {
     key: 'history',
     label: 'History',
     icon: History,
-    description: 'Full audit trail of approved and rejected document requests.',
+    description: 'Browse approved and rejected requests. Filter by outcome and download fulfilled files.',
   },
 ]
 
@@ -64,6 +67,7 @@ function formatWhen(iso?: string): string {
 
 export function DocumentManagement({ embedded = false }: { embedded?: boolean }) {
   const [tab, setTab] = useState<AdminTab>('requested')
+  const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('all')
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [items, setItems] = useState<DocumentRequestRecord[]>([])
@@ -82,8 +86,11 @@ export function DocumentManagement({ embedded = false }: { embedded?: boolean })
         page,
         limit: PAGE_SIZE,
         ...(tab === 'history'
-          ? { mode: 'history' }
-          : { status: tab === 'requested' ? 'Requested' : 'Approved' }),
+          ? {
+              mode: 'history' as const,
+              ...(historyFilter !== 'all' ? { status: historyFilter } : {}),
+            }
+          : { status: 'Requested' }),
       })
       setItems(res.items)
       setTotal(res.total)
@@ -94,7 +101,7 @@ export function DocumentManagement({ embedded = false }: { embedded?: boolean })
     } finally {
       setLoading(false)
     }
-  }, [tab, page])
+  }, [tab, historyFilter, page])
 
   useEffect(() => {
     void load()
@@ -102,7 +109,7 @@ export function DocumentManagement({ embedded = false }: { embedded?: boolean })
 
   useEffect(() => {
     setPage(1)
-  }, [tab])
+  }, [tab, historyFilter])
 
   const startUploadPick = (id: string) => {
     uploadTargetRef.current = id
@@ -275,51 +282,6 @@ setRejectOpen(false)
             ))}
           </tbody>
         </table>
-      ) : tab === 'approved' ? (
-        <table className="admin-doc-table min-w-full border-collapse text-left text-sm">
-          <thead className="sticky top-0 z-[1]">
-            <tr className="text-[11px] font-semibold uppercase tracking-wide text-slate-900">
-              <th className="px-4 py-3 text-slate-900">Document</th>
-              <th className="px-4 py-3 text-slate-900">Employee / ID</th>
-              <th className="px-4 py-3 text-slate-900">Reason</th>
-              <th className="px-4 py-3 text-slate-900">Processed</th>
-              <th className="min-w-[120px] px-4 py-3 text-right text-slate-900">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((row) => (
-              <tr key={row.id} className="admin-doc-row">
-                <td className="px-4 py-3 align-top">
-                  <p className="font-semibold text-ink">{row.documentName}</p>
-                  <p className="text-xs text-muted">{row.documentType}</p>
-                </td>
-                <td className="px-4 py-3 align-top">
-                  <p className="font-medium text-ink">{row.employeeName}</p>
-                  <p className="font-mono text-xs text-muted">{row.employeeId}</p>
-                </td>
-                <td className="max-w-[240px] px-4 py-3 align-top">
-                  <p className="line-clamp-3 text-muted">{row.reason}</p>
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 text-muted">{formatWhen(row.processedAt)}</td>
-                <td className="px-4 py-3 text-right">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    type="button"
-                    className="admin-doc-secondary-btn"
-                    onClick={() =>
-                      void downloadDocumentPdf(row.id, row.documentName, row.documentType).catch(() =>
-                        toast.error('Download failed'),
-                      )
-                    }
-                  >
-                    Download
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       ) : (
         <table className="admin-doc-table min-w-full border-collapse text-left text-sm">
           <thead className="sticky top-0 z-[1]">
@@ -385,7 +347,7 @@ setRejectOpen(false)
     <div
       className={cn(
         'crewiq-dashboard relative',
-        !embedded && 'admin-documents-view flex min-h-0 flex-1 flex-col overflow-hidden',
+        !embedded && 'admin-documents-view flex min-h-0 flex-1 flex-col',
       )}
     >
       {!embedded ? (
@@ -411,7 +373,7 @@ setRejectOpen(false)
           setRejectId(null)
         }}
         size="md"
-        className="admin-modal"
+        modal
       >
         <p className="mb-3 text-sm text-muted">
           The employee will not receive a document file. Explain why this request was declined.
@@ -443,7 +405,7 @@ setRejectOpen(false)
 
       <div
         className={cn(
-          !embedded && 'admin-documents-shell relative z-10 flex min-h-0 flex-1 animate-fadeIn flex-col overflow-hidden',
+          !embedded && 'admin-documents-shell relative z-10 flex min-h-0 flex-1 animate-fadeIn flex-col',
         )}
       >
         {!embedded ? (
@@ -489,9 +451,11 @@ setRejectOpen(false)
                     <p className="admin-documents-metric-value font-display">{pendingUploadCount}</p>
                   </div>
                 ) : (
-                  <div className="admin-documents-metric-tile admin-documents-metric-tile--muted" aria-hidden>
-                    <p className="admin-documents-metric-label">Awaiting Upload</p>
-                    <p className="admin-documents-metric-value font-display">—</p>
+                  <div className="admin-documents-metric-tile">
+                    <p className="admin-documents-metric-label">History Filter</p>
+                    <p className="admin-documents-metric-value font-display text-base sm:text-lg">
+                      {historyFilter === 'all' ? 'All' : historyFilter}
+                    </p>
                   </div>
                 )}
               </div>
@@ -513,7 +477,9 @@ setRejectOpen(false)
                 <div className="admin-documents-panel-header">
                   <div>
                     <h2 className="admin-documents-panel-title font-display">
-                      {activeTabMeta.label} Documents
+                      {tab === 'history' && historyFilter !== 'all'
+                        ? `${historyFilter} Documents`
+                        : `${activeTabMeta.label} Documents`}
                     </h2>
                     <p className="admin-documents-panel-sub">
                       {loading
@@ -523,6 +489,29 @@ setRejectOpen(false)
                           : `Showing page ${page} · ${total} total record${total === 1 ? '' : 's'}`}
                     </p>
                   </div>
+                  {tab === 'history' ? (
+                    <div
+                      className="admin-documents-history-filter"
+                      role="group"
+                      aria-label="Filter history by status"
+                    >
+                      {historyFilterOptions.map((option) => (
+                        <button
+                          key={option.key}
+                          type="button"
+                          className={
+                            historyFilter === option.key
+                              ? 'admin-documents-history-filter-btn admin-documents-history-filter-btn--active'
+                              : 'admin-documents-history-filter-btn'
+                          }
+                          aria-pressed={historyFilter === option.key}
+                          onClick={() => setHistoryFilter(option.key)}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="admin-doc-table-wrap">{tableShell}</div>
                 {!loading && total > 0 ? (
@@ -535,22 +524,44 @@ setRejectOpen(false)
           </>
         ) : (
           <>
-            <div className="mb-6 flex flex-wrap gap-2 border-b border-border pb-3">
-              {tabConfig.map((t) => (
-                <button
-                  key={t.key}
-                  type="button"
-                  onClick={() => setTab(t.key)}
-                  className={cn(
-                    'rounded-lg px-4 py-2 text-sm font-medium transition-colors',
-                    tab === t.key
-                      ? 'bg-emerald-50 text-emerald-900 ring-1 ring-primary/40'
-                      : 'text-muted hover:bg-surface',
-                  )}
-                >
-                  {t.label}
-                </button>
-              ))}
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+              <div className="flex flex-wrap gap-2">
+                {tabConfig.map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => setTab(t.key)}
+                    className={cn(
+                      'rounded-lg px-4 py-2 text-sm font-medium transition-colors',
+                      tab === t.key
+                        ? 'bg-emerald-50 text-emerald-900 ring-1 ring-primary/40'
+                        : 'text-muted hover:bg-surface',
+                    )}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              {tab === 'history' ? (
+                <div className="flex flex-wrap gap-2" role="group" aria-label="Filter history by status">
+                  {historyFilterOptions.map((option) => (
+                    <button
+                      key={option.key}
+                      type="button"
+                      aria-pressed={historyFilter === option.key}
+                      onClick={() => setHistoryFilter(option.key)}
+                      className={cn(
+                        'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
+                        historyFilter === option.key
+                          ? 'bg-primary text-white'
+                          : 'bg-surface text-muted hover:text-ink',
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
             <div className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
               <div className="max-h-[min(560px,calc(100vh-240px))] overflow-auto">{tableShell}</div>
@@ -568,7 +579,7 @@ setRejectOpen(false)
 
   if (embedded) return content
   return (
-    <PageWrapper fillViewport className="admin-hub-page-wrap relative z-10 !py-3 font-body">
+    <PageWrapper fillViewport className="admin-hub-page-wrap admin-documents-page-wrap relative z-10 !py-3 font-body">
       {content}
     </PageWrapper>
   )

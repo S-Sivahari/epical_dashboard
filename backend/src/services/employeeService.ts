@@ -502,6 +502,10 @@ export async function createEmployee(payload: CreateEmployeePayload): Promise<Em
     employeeId: normalizedEmployeeId,
     status: payload.status ?? 'Active',
     earnedLeaveMonthEndAccrual: true,
+    leaveAllocations: {
+      'Casual Leave': 12,
+      'Sick Leave': 12,
+    },
     createdAt: new Date(),
     updatedAt: new Date(),
   };

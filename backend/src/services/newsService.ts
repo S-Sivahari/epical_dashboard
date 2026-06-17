@@ -2,9 +2,10 @@ import { randomUUID } from 'crypto'
 import { getDB } from '../config/db'
 import type { News, NewsImageBlob, NewsListItem } from '../models/News'
 import {
-  assertPastNewsDateKey,
+  coercePastNewsDateKey,
+  publishedAtFromAnyDateKey,
   publishedAtFromDateKey,
-  yesterdayLocalDateKey,
+  toLocalDateKey,
 } from '../utils/newsDateRules'
 
 function col() {
@@ -21,27 +22,31 @@ function toListItem(doc: News): NewsListItem {
   }
 }
 
-function resolvePublishedAt(input?: string | Date): string {
+function resolvePublishedAt(input?: string | Date, fallbackDateKey?: string): string {
   if (!input) {
-    return publishedAtFromDateKey(yesterdayLocalDateKey())
+    const key = coercePastNewsDateKey(undefined, fallbackDateKey)
+    return publishedAtFromDateKey(key)
+  }
+  if (typeof input === 'string') {
+    const key = coercePastNewsDateKey(input, fallbackDateKey)
+    return publishedAtFromDateKey(key)
+  }
+  const key = coercePastNewsDateKey(input.toISOString(), fallbackDateKey)
+  return publishedAtFromDateKey(key)
+}
+
+function resolveManualPublishedAt(input?: string | Date): string {
+  if (!input) {
+    return publishedAtFromAnyDateKey(toLocalDateKey(new Date()))
   }
   if (typeof input === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input.trim())) {
-    return publishedAtFromDateKey(input.trim())
+    return publishedAtFromAnyDateKey(input.trim())
   }
   const parsed = typeof input === 'string' ? new Date(input) : input
   if (Number.isNaN(parsed.getTime())) {
-    return publishedAtFromDateKey(yesterdayLocalDateKey())
+    return publishedAtFromAnyDateKey(toLocalDateKey(new Date()))
   }
-  const dateKey = toLocalDateKeyFromInstant(parsed)
-  assertPastNewsDateKey(dateKey)
   return parsed.toISOString()
-}
-
-function toLocalDateKeyFromInstant(date: Date): string {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
 }
 
 export async function listNews(limit?: number): Promise<NewsListItem[]> {
@@ -71,7 +76,7 @@ export async function createNews(payload: {
     imageUrl: payload.image ? undefined : payload.imageUrl?.trim() || undefined,
     image: payload.image,
     link: payload.link?.trim(),
-    publishedAt: resolvePublishedAt(payload.publishedAt),
+    publishedAt: resolveManualPublishedAt(payload.publishedAt),
     createdAt: now,
     updatedAt: now,
   }
@@ -87,10 +92,12 @@ export async function createNewsBatch(
     image?: NewsImageBlob
     link?: string
     publishedAt?: string | Date
-  }>
+  }>,
+  options?: { defaultDateKey?: string }
 ): Promise<NewsListItem[]> {
   if (items.length === 0) return []
   const now = new Date()
+  const defaultDateKey = options?.defaultDateKey
   const docs: News[] = items.map((item) => {
     const title = item.title.trim()
     const content = item.content.trim() || title
@@ -102,7 +109,7 @@ export async function createNewsBatch(
       imageUrl: item.imageUrl?.trim() || undefined,
       image: item.image,
       link: item.link?.trim(),
-      publishedAt: resolvePublishedAt(item.publishedAt),
+      publishedAt: resolvePublishedAt(item.publishedAt, defaultDateKey),
       createdAt: now,
       updatedAt: now,
     }
