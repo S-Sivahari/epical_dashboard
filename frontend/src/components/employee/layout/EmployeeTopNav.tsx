@@ -4,6 +4,7 @@ import {
   isEmployeeNavActive,
 } from '@constants/employeeNavigation'
 import { useNotificationCounts } from '@hooks/useNotificationCounts'
+import { resolveNavNotificationCount } from '@utils/notificationCategories'
 import { NotificationBadge } from '@components/ui/NotificationBadge'
 import { cn } from '@/utils/cn'
 
@@ -20,9 +21,11 @@ export function EmployeeTopNav() {
         {EMPLOYEE_NAV_ITEMS.map((item) => {
           const Icon = item.icon
           const active = isEmployeeNavActive(pathname, item.to, item.end)
-          const notificationCount = item.notificationKey
-            ? notificationCounts[item.notificationKey]
-            : undefined
+          const notificationCount = resolveNavNotificationCount({
+            notificationKey: item.notificationKey,
+            isActive: active,
+            counts: notificationCounts,
+          })
           const displayLabel = item.navLabel ?? item.label
 
           return (

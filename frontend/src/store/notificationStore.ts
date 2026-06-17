@@ -243,7 +243,16 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       const notifications = applyReadState(get().notifications, (n) => n.id === notificationId)
       const unreadCount = notifications.filter((n) => !n.isRead).length
       const categoryCounts = countUnreadByCategory(notifications)
-      set({ notifications, unreadCount, categoryCounts, lastUnreadCount: unreadCount })
+      set({
+        notifications,
+        unreadCount,
+        categoryCounts,
+        tabIndicatorCounts: {
+          leaves: categoryCounts.leaves,
+          documents: categoryCounts.documents,
+        },
+        lastUnreadCount: unreadCount,
+      })
     } catch (error) {
       console.error('Error marking notification as read:', error)
     }
@@ -272,9 +281,23 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     try {
       await markNotificationsAsReadByTypes(types)
 
-      if (get().notifications.length > 0) {
-        const notifications = applyReadState(get().notifications, (n) => types.includes(n.type))
-        set({ notifications })
+      const notifications =
+        get().notifications.length > 0
+          ? applyReadState(get().notifications, (n) => types.includes(n.type))
+          : get().notifications
+
+      if (notifications.length > 0) {
+        const categoryCounts = countUnreadByCategory(notifications)
+        set({
+          notifications,
+          unreadCount: categoryCounts.total,
+          lastUnreadCount: categoryCounts.total,
+          categoryCounts,
+          tabIndicatorCounts: {
+            leaves: categoryCounts.leaves,
+            documents: categoryCounts.documents,
+          },
+        })
       }
 
       await get().fetchUnreadCountSilent()

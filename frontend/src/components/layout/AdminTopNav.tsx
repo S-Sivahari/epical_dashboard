@@ -2,6 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { ADMIN_NAV_ITEMS, isAdminNavActive } from '@constants/adminNavigation'
 import { useNotificationCounts } from '@hooks/useNotificationCounts'
 import { useLeaves } from '@hooks/useLeaves'
+import { resolveNavNotificationCount } from '@utils/notificationCategories'
 import { NotificationBadge } from '@components/ui/NotificationBadge'
 import { cn } from '@/utils/cn'
 
@@ -20,12 +21,12 @@ export function AdminTopNav() {
         {ADMIN_NAV_ITEMS.map((item) => {
           const Icon = item.icon
           const active = isAdminNavActive(pathname, item.to, item.end)
-          const notificationCount =
-            item.notificationKey === 'leaves'
-              ? Math.max(notificationCounts.leaves ?? 0, pendingLeaves)
-              : item.notificationKey
-                ? notificationCounts[item.notificationKey]
-                : undefined
+          const notificationCount = resolveNavNotificationCount({
+            notificationKey: item.notificationKey,
+            isActive: active,
+            counts: notificationCounts,
+            pendingLeaves,
+          })
           const displayLabel = item.navLabel ?? item.label
 
           return (

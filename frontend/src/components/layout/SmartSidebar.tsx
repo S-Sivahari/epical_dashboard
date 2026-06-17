@@ -102,7 +102,11 @@ function NavItem({
             )}
           </AnimatePresence>
           {expanded && item.notificationKey && (
-            <NotificationBadge count={notificationCount ?? 0} size="sm" className="right-2" />
+            <NotificationBadge
+              count={isActive ? 0 : (notificationCount ?? 0)}
+              size="sm"
+              className="right-2"
+            />
           )}
         </>
       )}
