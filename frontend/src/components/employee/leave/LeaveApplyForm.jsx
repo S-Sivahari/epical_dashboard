@@ -96,7 +96,7 @@ export function LeaveApplyForm({
           </Select>
         </FormField>
 
-        <FormField label="From Date" required error={errors.fromDate?.message}>
+        <FormField label="From Date" required>
           <Controller
             name="fromDate"
             control={control}
@@ -113,7 +113,7 @@ export function LeaveApplyForm({
           />
         </FormField>
 
-        <FormField label="To Date" required error={errors.toDate?.message}>
+        <FormField label="To Date" required>
           <Controller
             name="toDate"
             control={control}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -163,7 +163,7 @@ export default function LeaveRequest() {
     reason: '',
   }
 
-  const { control, register, handleSubmit, setValue, watch, reset, setError, clearErrors, formState: { errors, isSubmitting } } = useForm({
+  const { control, register, handleSubmit, setValue, watch, reset, setError, clearErrors, trigger, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(leaveSchema),
     defaultValues: leaveFormDefaults,
   })
@@ -298,10 +298,9 @@ export default function LeaveRequest() {
 
   const showLopNotice = selectedLeaveType === 'LOP'
 
-  const [conflictMessage, setConflictMessage] = useState('')
-  const [holidayWarning, setHolidayWarning] = useState('')
-
   const [cancellingId, setCancellingId] = useState(null)
+  const [holidayWarning, setHolidayWarning] = useState('')
+  const overlapErrorActiveRef = useRef(false)
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false)
   const [leaveToCancel, setLeaveToCancel] = useState(null)
   const [exceedDialogOpen, setExceedDialogOpen] = useState(false)
@@ -475,8 +474,16 @@ export default function LeaveRequest() {
 
   useEffect(() => {
     const conflict = validateLeaveConflict()
-    setConflictMessage(conflict.message)
-  }, [fromDate, toDate, leaveDuration, halfDaySession, requests, user])
+    if (conflict.message) {
+      overlapErrorActiveRef.current = true
+      setError('toDate', { type: 'overlap', message: conflict.message })
+      clearErrors('fromDate')
+    } else if (overlapErrorActiveRef.current) {
+      overlapErrorActiveRef.current = false
+      clearErrors('toDate')
+      void trigger('toDate')
+    }
+  }, [fromDate, toDate, leaveDuration, halfDaySession, requests, user, leaveOwnerIds, setError, clearErrors, trigger])
 
   const requestedWorkingDays = useMemo(() => {
     if (!fromDate || !toDate) return null
@@ -638,9 +645,8 @@ export default function LeaveRequest() {
 
     const conflict = validateLeaveConflict()
     if (conflict.message) {
-      conflict.fields.forEach((field) => {
-        setError(field, { type: 'manual', message: conflict.message })
-      })
+      setError('toDate', { type: 'overlap', message: conflict.message })
+      clearErrors('fromDate')
       toast({ title: 'Validation error', description: conflict.message })
       return
     }
