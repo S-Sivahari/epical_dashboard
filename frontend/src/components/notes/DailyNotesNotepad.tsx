@@ -39,6 +39,7 @@ type Props = {
   employees: Employee[]
   highlighted?: boolean
   busy?: boolean
+  canEdit?: boolean
   defaultExpanded?: boolean
   onBlockChange: (block: DailyNoteBlock) => void
   onSendEmail: (block: DailyNoteBlock) => void
@@ -53,6 +54,7 @@ export function DailyNotesNotepad({
   employees,
   highlighted = false,
   busy = false,
+  canEdit = true,
   defaultExpanded = false,
   onBlockChange,
   onSendEmail,
@@ -86,9 +88,10 @@ export function DailyNotesNotepad({
   const status = block?.status ?? 'draft'
   const isPastDay = isPastNotesDay(dateKey)
   const isEmailSent = status === 'email_sent'
-  const canEditNotes = hasBlock && block && !block.archived && !isPastDay && !isEmailSent
+  const canEditNotes =
+    hasBlock && block && !block.archived && !isPastDay && !isEmailSent && canEdit
   const canSendEmail =
-    hasBlock && block && !block.archived && !isPastDay && !isEmailSent
+    hasBlock && block && !block.archived && !isPastDay && !isEmailSent && canEdit
   const emailIncludeCount = entries.filter((entry) => entry.includeInEmail).length
   const hasContent = projectGroups.length > 0
 
@@ -187,6 +190,12 @@ export function DailyNotesNotepad({
                     Edit note
                   </Button>
                 </div>
+              ) : null}
+
+              {hasBlock && !canEditNotes && !isEditing ? (
+                <p className="notes-notepad-pad__read-only-hint">
+                  View only — you are not assigned to manage notes for this date.
+                </p>
               ) : null}
 
               <div className="notes-notepad-pad__paper">

@@ -50,6 +50,7 @@ export interface Notification {
     calendarEventId?: string;
     calendarEventTitle?: string;
     calendarEventDate?: string;
+    calendarEventTime?: string;
     skippedReason?: string;
     leaveType?: string;
     from?: string;
@@ -101,6 +102,7 @@ export interface CreateNotificationPayload {
     calendarEventId?: string;
     calendarEventTitle?: string;
     calendarEventDate?: string;
+    calendarEventTime?: string;
     skippedReason?: string;
     leaveType?: string;
     from?: string;

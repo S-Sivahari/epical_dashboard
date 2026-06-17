@@ -48,4 +48,5 @@ export const ROUTES = {
   SETTINGS: '/admin/settings',
   HELP: '/admin/help',
   EMPLOYEE_METAL_ROUTING: '/employee/metal-routing',
+  EMPLOYEE_NOTES: '/employee/notes',
 } as const

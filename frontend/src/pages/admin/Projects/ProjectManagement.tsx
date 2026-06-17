@@ -1592,6 +1592,14 @@ export function ProjectManagement() {
     return [...empSet].sort()
   }, [projects])
 
+  const projectEmployeeFilterOptions = useMemo(() => {
+    return uniqueEmployees.map((empName) => {
+      const emp = employees.find((e) => employeeDisplayName(e) === empName)
+      const label = emp?.employeeId ? `${empName} (${emp.employeeId})` : empName
+      return { value: empName, label }
+    })
+  }, [uniqueEmployees, employees])
+
 
 
   // ── Projects Tab Filter Implementation ──────────────────────
@@ -2987,7 +2995,7 @@ export function ProjectManagement() {
               </div>
 
               {showFilters ? (
-                <div className="projects-directory-filters space-y-3 rounded-lg border border-[rgba(38,107,28,0.15)] bg-white/55 p-3 animate-fadeIn">
+                <div className="projects-directory-filters rounded-lg border border-[rgba(38,107,28,0.15)] bg-white/55 p-3 animate-fadeIn">
                     <FilterCheckboxGroup
                       label="Client Name"
                       placeholder="All Clients"
@@ -3000,7 +3008,7 @@ export function ProjectManagement() {
                       label="Employee"
                       placeholder="All Employees"
                       compact
-                      options={uniqueEmployees.map((emp) => ({ value: emp, label: emp }))}
+                      options={projectEmployeeFilterOptions}
                       selected={filterEmployees}
                       onChange={setFilterEmployees}
                     />
@@ -3031,7 +3039,7 @@ export function ProjectManagement() {
                       <button
                         type="button"
                         onClick={clearProjectsFilters}
-                        className="w-full text-center text-xs font-bold text-[var(--emerald-dark)] transition-colors hover:text-[var(--green-600)]"
+                        className="projects-directory-filters-reset shrink-0 whitespace-nowrap text-xs font-bold text-[var(--emerald-dark)] transition-colors hover:text-[var(--green-600)]"
                       >
                         Reset All Filters
                       </button>

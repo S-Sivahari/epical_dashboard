@@ -33,7 +33,6 @@ interface CalendarSidebarEvent {
   title: string
   date: string
   time?: string
-  description?: string
   holidayType?: Holiday['type']
 }
 
@@ -46,16 +45,33 @@ function dateInViewMonth(dateStr: string, monthIdx: number, year: number): boole
   return d.getMonth() === monthIdx && d.getFullYear() === year
 }
 
+const CAL_SIDEBAR_ACTION_BTN = 'h-7 w-7 shrink-0 p-0 shadow-sm'
+const CAL_SIDEBAR_EDIT_BTN = cn(
+  CAL_SIDEBAR_ACTION_BTN,
+  'border border-[rgba(38,107,28,0.28)] bg-white text-[#266b1c] hover:bg-[#e8f2e6]',
+)
+const CAL_SIDEBAR_DELETE_BTN = cn(
+  CAL_SIDEBAR_ACTION_BTN,
+  'admin-cal-delete-btn border border-red-600 bg-red-600 text-white hover:bg-red-700 hover:border-red-700',
+)
+
 export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
   const isEmployeeCal = variant === 'employee'
   const useAdminLayout = variant === 'admin' || isEmployeeCal
   const canManage = variant === 'admin'
   const { holidays, leaves, loading, companyCalendarEvents } = useLeaves()
   const [teamLeaves, setTeamLeaves] = useState<TeamLeaveEntry[]>([])
+  const [ownApprovedLeaves, setOwnApprovedLeaves] = useState<LeaveRequest[]>([])
 
   useEffect(() => {
     if (!isEmployeeCal) return
     leaveService.getTeamLeaves().then(setTeamLeaves).catch(() => {})
+    leaveService
+      .getLeaveHistory()
+      .then((history) =>
+        setOwnApprovedLeaves(history.filter((l) => l.status === 'Approved')),
+      )
+      .catch(() => {})
   }, [isEmployeeCal])
   const addHoliday = useLeaveStore((s) => s.addHoliday)
   const updateHoliday = useLeaveStore((s) => s.updateHoliday)
@@ -83,7 +99,6 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
         title: e.title,
         date: e.date,
         time: e.time,
-        description: e.description,
       })),
     [companyCalendarEvents],
   )
@@ -92,7 +107,6 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
   const [title, setTitle] = useState('')
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
-  const [description, setDescription] = useState('')
   const [type, setType] = useState<'National' | 'Company' | 'Optional' | 'Company Event'>('National')
 
   // Calendar logic
@@ -109,9 +123,8 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
   const currentYear = currentDate.getFullYear()
 
   const approvedLeaves = useMemo(() => {
-    const own = leaves.filter((l) => l.status === 'Approved')
-    if (!isEmployeeCal) return own
-    const ownIds = new Set(own.map((l) => l.id))
+    if (!isEmployeeCal) return leaves.filter((l) => l.status === 'Approved')
+    const ownIds = new Set(ownApprovedLeaves.map((l) => l.id))
     const fromTeam: LeaveRequest[] = teamLeaves
       .filter((t) => !ownIds.has(t.id))
       .map((t) => ({
@@ -126,8 +139,8 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
         reason: '',
         status: 'Approved',
       }))
-    return [...own, ...fromTeam]
-  }, [leaves, teamLeaves, isEmployeeCal])
+    return [...ownApprovedLeaves, ...fromTeam]
+  }, [leaves, teamLeaves, ownApprovedLeaves, isEmployeeCal])
 
   const holidayEvents = useMemo((): CalendarSidebarEvent[] => {
     return holidays
@@ -136,7 +149,6 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
         id: h.id,
         title: h.title,
         date: h.date,
-        description: h.description,
         holidayType: h.type,
       }))
   }, [holidays])
@@ -176,7 +188,6 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
     setTitle('')
     setDate('')
     setTime('')
-    setDescription('')
     setType('National')
     setEditingId(null)
     setEditingKind(null)
@@ -202,21 +213,19 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
           await updateCompanyCalendarEvent(editingId, {
             title,
             date,
-            description,
             time: time.trim() || undefined,
           })
         } else {
-          await updateHoliday(editingId, { title, date, description, type })
+          await updateHoliday(editingId, { title, date, type })
         }
       } else if (type === 'Company Event') {
         await addCompanyCalendarEvent({
           title,
           date,
-          description,
           time: time.trim() || undefined,
         })
       } else {
-        await addHoliday({ title, date, description, type })
+        await addHoliday({ title, date, type })
       }
       await fetchHolidays()
       setCurrentDate(startOfMonth(parseISO(date)))
@@ -231,7 +240,6 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
   const handleEditHoliday = (holiday: Holiday) => {
     setTitle(holiday.title)
     setDate(holiday.date)
-    setDescription(holiday.description || '')
     setType(holiday.type)
     setTime('')
     setEditingId(holiday.id)
@@ -242,7 +250,6 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
   const handleEditEvent = (event: CalendarSidebarEvent) => {
     setTitle(event.title)
     setDate(event.date)
-    setDescription(event.description || '')
     setTime(event.time || '')
     setType('Company Event')
     setEditingId(event.id)
@@ -317,7 +324,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
         className={cn(
           'grid w-full pl-0 pr-0',
           useAdminLayout
-            ? 'admin-calendar-grid min-h-0 flex-1 grid-cols-1 gap-3 pb-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]'
+            ? 'admin-calendar-grid min-h-0 flex-1 gap-3 pb-0'
             : 'grid-cols-1 gap-4 pb-4 lg:grid-cols-3 xl:grid-cols-4',
         )}
       >
@@ -327,14 +334,14 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
           className={cn(
             'flex w-full min-w-0 flex-col',
             !useAdminLayout && 'lg:col-span-2 xl:col-span-3',
-            useAdminLayout && 'admin-cal-main-col h-full min-h-0',
+            useAdminLayout && 'admin-cal-main-col min-h-0',
           )}
         >
           <div
             className={cn(
               'flex w-full flex-col overflow-hidden',
               useAdminLayout
-                ? 'admin-cal-main h-full min-h-0'
+                ? 'admin-cal-main min-h-0'
                 : 'rounded-xl border border-border bg-white shadow-sm',
             )}
           >
@@ -653,7 +660,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
           className={cn(
             'flex min-h-0 flex-col',
             !useAdminLayout && 'lg:col-span-1 gap-3',
-            useAdminLayout && 'admin-cal-sidebar h-full min-h-0',
+            useAdminLayout && 'admin-cal-sidebar min-h-0',
           )}
         >
           <div
@@ -750,21 +757,23 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                           <div
                             key={holiday.id}
                             className={cn(
-                              'group flex items-center justify-between rounded-lg border p-2 transition-all',
+                              'group flex items-center justify-between rounded-lg border transition-all',
                               useAdminLayout
                                 ? 'admin-cal-list-item border-[rgba(38,107,28,0.12)] hover:border-[rgba(38,107,28,0.28)]'
-                                : 'border-border hover:border-primary/40 hover:shadow-sm',
+                                : 'border-border p-2 hover:border-primary/40 hover:shadow-sm',
                             )}
                           >
                             <div className="flex min-w-0 flex-1 items-center gap-2">
                               <div
-                                className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-xs font-bold text-white shadow-sm ${
+                                className={cn(
+                                  'flex flex-shrink-0 items-center justify-center rounded-md text-xs font-bold text-white shadow-sm',
+                                  useAdminLayout ? 'admin-cal-list-icon h-7 w-7 text-xs' : 'h-7 w-7',
                                   holiday.type === 'National'
                                     ? 'bg-green-500'
                                     : holiday.type === 'Company'
                                       ? 'bg-blue-500'
-                                      : 'bg-green-500'
-                                }`}
+                                      : 'bg-green-500',
+                                )}
                               >
                                 🎉
                               </div>
@@ -785,28 +794,30 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                             {canManage ? (
                               <div
                                 className={cn(
-                                  'ml-2 flex flex-shrink-0 gap-1 transition-opacity',
+                                  'admin-cal-item-actions ml-2 flex flex-shrink-0 gap-2 transition-opacity',
                                   useAdminLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
                                 )}
                               >
                                 <Button
                                   size="sm"
                                   variant="secondary"
-                                  className="h-6 w-6 p-0"
+                                  className={CAL_SIDEBAR_EDIT_BTN}
                                   onClick={() => handleEditHoliday(holiday)}
+                                  aria-label="Edit holiday"
                                 >
-                                  <Edit2 className="h-3 w-3" />
+                                  <Edit2 className="h-3.5 w-3.5" />
                                 </Button>
                                 <Button
                                   size="sm"
                                   variant="danger"
-                                  className="h-6 w-6 p-0"
+                                  className={CAL_SIDEBAR_DELETE_BTN}
                                   onClick={() => {
                                     setHolidayToDelete(holiday)
                                     setDeleteConfirmOpen(true)
                                   }}
+                                  aria-label="Delete holiday"
                                 >
-                                  <Trash2 className="h-3 w-3" />
+                                  <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
                               </div>
                             ) : null}
@@ -875,13 +886,18 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                         <div
                           key={event.id}
                           className={cn(
-                            'group flex items-center rounded-lg border p-2 transition-all',
+                            'group flex items-center rounded-lg border transition-all',
                             useAdminLayout
                               ? 'admin-cal-list-item border-[rgba(38,107,28,0.12)] hover:border-[rgba(38,107,28,0.28)]'
-                              : 'border-border hover:border-primary/40 hover:shadow-sm',
+                              : 'border-border p-2 hover:border-primary/40 hover:shadow-sm',
                           )}
                         >
-                          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-amber-100 to-amber-50 text-sm font-semibold text-amber-700 shadow-sm">
+                          <div
+                            className={cn(
+                              'flex flex-shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-amber-100 to-amber-50 text-sm font-semibold text-amber-700 shadow-sm',
+                              useAdminLayout ? 'admin-cal-list-icon h-7 w-7 text-base' : 'h-7 w-7',
+                            )}
+                          >
                             📢
                           </div>
                           <div className="ml-2 min-w-0 flex-1">
@@ -900,28 +916,30 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                           {canManage ? (
                             <div
                               className={cn(
-                                'ml-1 flex flex-shrink-0 gap-1 transition-opacity',
+                                'admin-cal-item-actions ml-2 flex flex-shrink-0 gap-2 transition-opacity',
                                 useAdminLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
                               )}
                             >
                               <Button
                                 size="sm"
                                 variant="secondary"
-                                className="h-6 w-6 p-0"
+                                className={CAL_SIDEBAR_EDIT_BTN}
                                 onClick={() => handleEditEvent(event)}
+                                aria-label="Edit event"
                               >
-                                <Edit2 className="h-3 w-3" />
+                                <Edit2 className="h-3.5 w-3.5" />
                               </Button>
                               <Button
                                 size="sm"
                                 variant="danger"
-                                className="h-6 w-6 p-0"
+                                className={CAL_SIDEBAR_DELETE_BTN}
                                 onClick={() => {
                                   setEventToDelete(event)
                                   setEventDeleteConfirmOpen(true)
                                 }}
+                                aria-label="Delete event"
                               >
-                                <Trash2 className="h-3 w-3" />
+                                <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             </div>
                           ) : null}
@@ -1116,7 +1134,6 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                     <div key={e.id} className="text-sm p-3 rounded-lg bg-amber-50 border border-amber-100">
                       <span className="font-medium text-amber-900">{e.title}</span>
                       {e.time && <span className="text-amber-700 text-xs block mt-1">{e.time}</span>}
-                      {e.description && <span className="text-amber-700 text-xs block mt-1">{e.description}</span>}
                     </div>
                   ))}
                 </div>
@@ -1160,11 +1177,14 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
         }} title={editingId ? 'Edit Event' : 'Add Event'}>
           <div className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-ink">EventName <span className="text-red-500">*</span></label>
+              <label className="mb-1.5 block text-sm font-medium text-ink">
+                Event Name <span className="text-red-500">*</span>
+              </label>
               <Input
                 placeholder="e.g., Independence Day"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                className="h-10"
               />
             </div>
             <div>
@@ -1201,16 +1221,6 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                 />
               </div>
             )}
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-ink">Description (Optional)</label>
-              <textarea
-                placeholder="Details..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none transition-shadow"
-                rows={3}
-              />
-            </div>
             <div className="flex gap-3 justify-end pt-2">
               <Button
                 variant="secondary"

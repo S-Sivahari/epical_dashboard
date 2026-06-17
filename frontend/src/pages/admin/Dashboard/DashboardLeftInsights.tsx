@@ -50,9 +50,18 @@ type DashboardLeftInsightsProps = {
 }
 
 export function DashboardLeftInsights({ className }: DashboardLeftInsightsProps) {
-  const { leaves, holidays } = useLeaves()
+  const { leaves, holidays, companyCalendarEvents } = useLeaves()
 
-  const upcomingHolidays = useMemo(() => filterUpcomingHolidays(holidays), [holidays])
+  const upcomingHolidays = useMemo(() => {
+    const eventsAsHolidays = companyCalendarEvents.map((e) => ({
+      id: e.id,
+      title: e.title,
+      date: e.date,
+      description: e.description,
+      type: 'Company Event' as const,
+    }))
+    return filterUpcomingHolidays([...holidays, ...eventsAsHolidays])
+  }, [holidays, companyCalendarEvents])
 
   const outToday = useMemo((): OutTodayEntry[] => {
     return leaves
