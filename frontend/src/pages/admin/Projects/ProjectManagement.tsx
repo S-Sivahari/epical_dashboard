@@ -16,6 +16,7 @@ import { toast } from 'sonner'
 import { stringToHue, stringToHueColor } from '@/utils/stringColor'
 import { Analytics } from '@pages/admin/Analytics/Analytics'
 import { ProjectAnalysisLaunchButton } from '@components/admin/ProjectAnalysisLaunchButton'
+import { ProjectsTotalDonut } from '@components/admin/ProjectsTotalDonut'
 import {
   BarChart3,
   Clock,
@@ -1426,12 +1427,6 @@ export function ProjectManagement() {
     }
   }, [searchParams])
   const [allProjects, setAllProjects] = useState<Project[]>([])
-  const [isAnimated, setIsAnimated] = useState(false)
-  
-  useEffect(() => {
-    const timer = setTimeout(() => setIsAnimated(true), 200)
-    return () => clearTimeout(timer)
-  }, [])
   const [timesheets, setTimesheets] = useState<TimesheetLog[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -2651,109 +2646,10 @@ export function ProjectManagement() {
               {/* Vertical Separator */}
               <div className="projects-hero-separator" aria-hidden />
 
-              {/* Donut + status pills grouped together */}
-              <div className="projects-hero-metrics-group">
-                <div className="projects-hero-donut">
-                  <div className="projects-hero-donut-inner">
-                    <svg width="96" height="96" viewBox="0 0 140 140" className="transform -rotate-90">
-                    {(() => {
-                      const total = projectMetrics.total || 1;
-                      const radius = 55;
-                      const circumference = 2 * Math.PI * radius;
-                      
-                      const progressPercent = (projectMetrics.inProgress / total) * 100;
-                      const completedPercent = (projectMetrics.completed / total) * 100;
-                      const cancelledPercent = (projectMetrics.cancelled / total) * 100;
-                      
-                      const progressDash = (progressPercent / 100) * circumference;
-                      const completedDash = (completedPercent / 100) * circumference;
-                      const cancelledDash = (cancelledPercent / 100) * circumference;
-                      
-                      const progressOffset = 0;
-                      const completedOffset = -progressDash;
-                      const cancelledOffset = -(progressDash + completedDash);
-                      
-                      return (
-                        <>
-                          {/* Background ring */}
-                          <circle 
-                            cx="70" 
-                            cy="70" 
-                            r={radius} 
-                            fill="none" 
-                            stroke="rgba(38, 107, 28, 0.08)" 
-                            strokeWidth="18"
-                          />
-                          
-                          {/* In Progress segment (Blue) */}
-                          {projectMetrics.inProgress > 0 && (
-                            <circle
-                              cx="70"
-                              cy="70"
-                              r={radius}
-                              fill="none"
-                              stroke="#3b82f6"
-                              strokeWidth="18"
-                              strokeDasharray={`${isAnimated ? progressDash : 0} ${circumference}`}
-                              strokeDashoffset={progressOffset}
-                              strokeLinecap="round"
-                              className="transition-all duration-1000 ease-out"
-                              style={{ 
-                                filter: 'drop-shadow(0 2px 6px rgba(59, 130, 246, 0.4))'
-                              }}
-                            />
-                          )}
-                          
-                          {/* Completed segment (Green) */}
-                          {projectMetrics.completed > 0 && (
-                            <circle
-                              cx="70"
-                              cy="70"
-                              r={radius}
-                              fill="none"
-                              stroke="#22c55e"
-                              strokeWidth="18"
-                              strokeDasharray={`${isAnimated ? completedDash : 0} ${circumference}`}
-                              strokeDashoffset={completedOffset}
-                              strokeLinecap="round"
-                              className="transition-all duration-1000 ease-out delay-200"
-                              style={{ 
-                                filter: 'drop-shadow(0 2px 6px rgba(34, 197, 94, 0.4))'
-                              }}
-                            />
-                          )}
-                          
-                          {/* Cancelled segment (Red) */}
-                          {projectMetrics.cancelled > 0 && (
-                            <circle
-                              cx="70"
-                              cy="70"
-                              r={radius}
-                              fill="none"
-                              stroke="#ef4444"
-                              strokeWidth="18"
-                              strokeDasharray={`${isAnimated ? cancelledDash : 0} ${circumference}`}
-                              strokeDashoffset={cancelledOffset}
-                              strokeLinecap="round"
-                              className="transition-all duration-1000 ease-out delay-500"
-                              style={{ 
-                                filter: 'drop-shadow(0 2px 6px rgba(239, 68, 68, 0.4))'
-                              }}
-                            />
-                          )}
-                        </>
-                      );
-                    })()}
-                  </svg>
-                  
-                  <div className="projects-hero-donut-center">
-                    <span className="projects-hero-donut-total">{projectMetrics.total}</span>
-                    <span className="projects-hero-donut-label">Total</span>
-                  </div>
-                </div>
-              </div>
+              {/* Metrics + launch — equal-size cards */}
+              <div className="projects-hero-cards-row">
+                <ProjectAnalysisLaunchButton className="project-analysis-launch-btn--hero projects-hero-stat-card" />
 
-              <div className="projects-hero-stats-row">
                 <div className="projects-hero-stat-card">
                   <div className="projects-hero-stat-head">
                     <span className="projects-hero-stat-dot projects-hero-stat-dot--progress" />
@@ -2786,7 +2682,6 @@ export function ProjectManagement() {
               </div>
             </div>
           </div>
-        </div>
 
       {/* ================================================================
            TAB 1 – PROJECTS
@@ -2901,6 +2796,16 @@ export function ProjectManagement() {
                   </>
                 )}
               </button>
+
+              <div className="projects-sidebar-import-donut">
+                <ProjectsTotalDonut
+                  key="projects-total-donut"
+                  total={projectMetrics.total}
+                  inProgress={projectMetrics.inProgress}
+                  completed={projectMetrics.completed}
+                  cancelled={projectMetrics.cancelled}
+                />
+              </div>
             </div>
           ) : activeTab === 'timesheets' ? (
             <div className="space-y-4">
@@ -2976,10 +2881,6 @@ export function ProjectManagement() {
               )}
             </div>
           ) : null}
-          </div>
-
-          <div className="projects-sidebar__footer shrink-0 border-t border-slate-100 pt-4">
-            <ProjectAnalysisLaunchButton className="project-analysis-launch-btn--sidebar" />
           </div>
         </aside>
 

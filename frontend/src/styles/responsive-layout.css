@@ -403,7 +403,7 @@
     font-size: calc(22px * var(--admin-projects-ui-scale, 0.68)) !important;
   }
 
-  .admin-projects-view .projects-hero-metrics-group {
+  .admin-projects-view .projects-hero-cards-row {
     width: 100%;
     justify-content: center;
   }
