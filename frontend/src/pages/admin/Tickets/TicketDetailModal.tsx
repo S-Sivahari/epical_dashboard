@@ -73,30 +73,24 @@ export function TicketDetailModal({
   }
 
   return (
-    <Modal
-      isOpen={isOpen}
-      title={`Ticket ${ticket.id}`}
-      onClose={onClose}
-      size="lg"
-      className="admin-modal admin-tickets-modal"
-    >
-      <div className="admin-tickets-modal-body space-y-4 text-sm">
-        <div className="admin-tickets-modal-meta grid gap-3 sm:grid-cols-2">
+    <Modal isOpen={isOpen} title={`Ticket ${ticket.id}`} onClose={onClose} size="lg">
+      <div className="space-y-4 text-sm">
+        <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <p className="admin-tickets-modal-label">Employee</p>
-            <p className="font-semibold text-[var(--emerald-dark)]">{ticket.employeeName}</p>
-            <p className="font-mono text-xs text-slate-600">{ticket.employeeId}</p>
+            <p className="text-xs font-medium uppercase text-muted">Employee</p>
+            <p className="font-medium text-ink">{ticket.employeeName}</p>
+            <p className="text-muted">{ticket.employeeId}</p>
           </div>
           <div>
-            <p className="admin-tickets-modal-label">Created</p>
-            <p className="text-slate-700">{formatDateTime(ticket.createdAt)}</p>
+            <p className="text-xs font-medium uppercase text-muted">Created</p>
+            <p className="text-ink">{formatDateTime(ticket.createdAt)}</p>
           </div>
         </div>
 
         {ticket.projectName ? (
           <div>
-            <p className="admin-tickets-modal-label">Project</p>
-            <p className="font-medium text-slate-800">{ticket.projectName}</p>
+            <p className="text-xs font-medium uppercase text-muted">Project</p>
+            <p className="text-ink">{ticket.projectName}</p>
           </div>
         ) : null}
 
@@ -106,16 +100,14 @@ export function TicketDetailModal({
         </div>
 
         <div>
-          <p className="admin-tickets-modal-label">Issue Title</p>
-          <p className="font-semibold capitalize text-[var(--emerald-dark)]">{ticket.title}</p>
+          <p className="text-xs font-medium uppercase text-muted">Issue Title</p>
+          <p className="font-medium text-ink">{ticket.title}</p>
         </div>
 
-        <div className="admin-tickets-modal-description rounded-lg p-3">
-          <p className="admin-tickets-modal-label mb-1">Employee Description</p>
-          <p className="whitespace-pre-wrap text-slate-800">
-            {ticket.description || 'No description provided.'}
-          </p>
-          <p className="mt-2 text-xs text-slate-500">Original submission — read only</p>
+        <div className="rounded-lg border border-border bg-surface/40 p-3">
+          <p className="mb-1 text-xs font-medium uppercase text-muted">Employee Description</p>
+          <p className="whitespace-pre-wrap text-ink">{ticket.description || 'No description provided.'}</p>
+          <p className="mt-2 text-xs text-muted">Original submission — read only</p>
         </div>
 
         {(ticket.hasAttachment || ticket.attachment) && (
@@ -126,7 +118,7 @@ export function TicketDetailModal({
                 toast.error('Failed to open attachment'),
               )
             }
-            className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--emerald-dark)] hover:underline"
+            className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
           >
             <Paperclip className="h-4 w-4" />
             {ticket.attachment?.filename || 'View attachment'}
@@ -135,35 +127,34 @@ export function TicketDetailModal({
 
         {ticket.comments && ticket.comments.length > 0 && (
           <div>
-            <p className="admin-tickets-modal-label mb-2 flex items-center gap-1.5">
+            <p className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase text-muted">
               <MessageSquare className="h-3.5 w-3.5" /> Admin Remarks
             </p>
-            <div className="admin-tickets-modal-comments max-h-40 space-y-2 overflow-y-auto rounded-lg p-2">
+            <div className="max-h-40 space-y-2 overflow-y-auto rounded-lg border border-border p-2">
               {ticket.comments.map((c) => (
-                <div key={c.id} className="admin-tickets-modal-comment rounded-md px-3 py-2">
-                  <p className="text-xs text-slate-500">
+                <div key={c.id} className="rounded-md bg-surface/60 px-3 py-2">
+                  <p className="text-xs text-muted">
                     {c.authorName} · {formatDateTime(c.createdAt)}
                   </p>
-                  <p className="text-slate-800">{c.text}</p>
+                  <p className="text-ink">{c.text}</p>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        <div className="admin-tickets-modal-section space-y-2 pt-3">
-          <label className="admin-tickets-modal-label">Add Remark</label>
+        <div className="space-y-2 border-t border-border pt-3">
+          <label className="text-xs font-medium uppercase text-muted">Add Remark</label>
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             rows={2}
             placeholder="Internal note or update for the employee..."
-            className="admin-tickets-modal-textarea w-full rounded-lg px-3 py-2 text-sm outline-none"
+            className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
           />
           <Button
             size="sm"
             variant="secondary"
-            className="admin-tickets-secondary-btn"
             disabled={!comment.trim() || submittingComment}
             onClick={() => void handleComment()}
           >
@@ -172,14 +163,14 @@ export function TicketDetailModal({
         </div>
 
         {(prevStatus || nextStatus) && (
-          <div className="admin-tickets-modal-section space-y-2 pt-3">
-            <p className="admin-tickets-modal-label">Change status</p>
+          <div className="space-y-2 border-t border-border pt-3">
+            <p className="text-xs font-medium uppercase text-muted">Change status</p>
             <textarea
               value={statusRemark}
               onChange={(e) => setStatusRemark(e.target.value)}
               rows={2}
               placeholder="Optional note stored with this status change..."
-              className="admin-tickets-modal-textarea w-full rounded-lg px-3 py-2 text-sm outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
             />
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant={statusVariant(ticket.status)}>{ticket.status}</Badge>
@@ -187,7 +178,6 @@ export function TicketDetailModal({
                 <Button
                   size="sm"
                   variant="secondary"
-                  className="admin-tickets-secondary-btn"
                   disabled={advancing}
                   onClick={() => void changeStatus(prevStatus)}
                 >
@@ -198,8 +188,9 @@ export function TicketDetailModal({
               {nextStatus ? (
                 <Button
                   size="sm"
+                  variant="primary"
                   disabled={advancing}
-                  className="admin-dash-action-btn border-0"
+                  className={ticket.status === 'In Progress' ? 'bg-emerald-700 hover:bg-emerald-800' : undefined}
                   onClick={() => void changeStatus(nextStatus)}
                 >
                   {nextStatus === 'Completed' ? 'Mark as completed' : `Move to ${nextStatus}`}
