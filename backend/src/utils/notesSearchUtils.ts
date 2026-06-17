@@ -43,6 +43,22 @@ function addDaysToDateKey(dateKey: string, days: number): string {
   return `${nextYear}-${nextMonth}-${nextDay}`;
 }
 
+export function enumerateDateKeys(from: string, to: string): string[] {
+  const start = assertDateKey(from, 'from');
+  const end = assertDateKey(to, 'to');
+  if (start > end) {
+    throw Object.assign(new Error('from must be on or before to'), { status: 400 });
+  }
+
+  const dates: string[] = [];
+  let current = start;
+  while (current <= end) {
+    dates.push(current);
+    current = addDaysToDateKey(current, 1);
+  }
+  return dates;
+}
+
 export function resolveSearchDateRange(query: NotesSearchQuery): { from?: string; to?: string } {
   if (query.week?.trim()) {
     const monday = assertDateKey(query.week, 'week');

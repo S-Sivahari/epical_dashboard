@@ -4,8 +4,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Filter,
+  Layers,
   Search,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import {
   MetalRoutingCardGridSkeleton,
   MetalRoutingEmptyState,
@@ -29,6 +31,8 @@ export function MetalRoutingCellRoutingProjectTable({
   search,
   statusFilter,
   hideTechnology,
+  hideToolbarTitle,
+  pdkModulesHref,
   onSearchChange,
   onStatusFilterChange,
   onOpenRouting,
@@ -38,6 +42,8 @@ export function MetalRoutingCellRoutingProjectTable({
   search: string
   statusFilter: string
   hideTechnology?: boolean
+  hideToolbarTitle?: boolean
+  pdkModulesHref?: string
   onSearchChange: (value: string) => void
   onStatusFilterChange: (value: string) => void
   onOpenRouting: (projectId: string) => void
@@ -92,7 +98,9 @@ export function MetalRoutingCellRoutingProjectTable({
   return (
     <section className="metal-routing-overview-card metal-routing-cell-routing-table metal-routing-signal-projects-card">
       <div className="metal-routing-signal-projects-toolbar metal-routing-overview-toolbar metal-routing-pdk-modules-toolbar">
-        <h2 className="metal-routing-signal-projects-toolbar__title">Projects</h2>
+        {!hideToolbarTitle ? (
+          <h2 className="metal-routing-signal-projects-toolbar__title">Projects</h2>
+        ) : null}
         <label className="metal-routing-search-field metal-routing-signal-projects-toolbar__search">
           <Search className="h-4 w-4 shrink-0 text-muted" aria-hidden />
           <input
@@ -103,6 +111,15 @@ export function MetalRoutingCellRoutingProjectTable({
           />
         </label>
         <div className="metal-routing-signal-projects-toolbar__controls metal-routing-overview-controls metal-routing-pdk-modules-toolbar__controls">
+          {pdkModulesHref ? (
+            <Link
+              to={pdkModulesHref}
+              className="metal-routing-signal-projects-header__cta metal-routing-pdk-modules-cta shrink-0"
+            >
+              <Layers className="h-[1.125rem] w-[1.125rem]" aria-hidden />
+              PDK Modules
+            </Link>
+          ) : null}
           <CellRoutingStatusFilter
             value={statusFilter}
             onChange={onStatusFilterChange}
