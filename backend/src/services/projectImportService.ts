@@ -302,18 +302,19 @@ function buildSessionTimes(
   dateStr: string,
   entry: TaskCellEntry,
 ): { loginTime: Date; logoutTime?: Date } {
-  if (entry.timestamp) {
-    const ts = new Date(entry.timestamp);
-    if (!Number.isNaN(ts.getTime())) {
-      const logoutTime = entry.end ? combineDateAndTime(dateStr, entry.end) : undefined;
-      return { loginTime: ts, logoutTime };
-    }
-  }
-
+  // Matrix JSON: `start` = task check-in, `end` = task checkout for that project.
+  // `timestamp` is optional metadata — only used as login fallback when `start` is absent.
   const loginTime = entry.start
     ? combineDateAndTime(dateStr, entry.start)
-    : new Date(`${dateStr}T09:00:00`);
+    : entry.timestamp
+      ? (() => {
+          const ts = new Date(entry.timestamp);
+          return !Number.isNaN(ts.getTime()) ? ts : new Date(`${dateStr}T09:00:00`);
+        })()
+      : new Date(`${dateStr}T09:00:00`);
+
   const logoutTime = entry.end ? combineDateAndTime(dateStr, entry.end) : undefined;
+
   return { loginTime, logoutTime };
 }
 

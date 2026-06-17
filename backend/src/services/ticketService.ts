@@ -11,9 +11,31 @@ import { syncProjectStatus } from '../utils/syncProject';
 import * as notificationService from './notificationService';
 
 let ticketCollection: Collection<any> | null = null;
+let indexesCreated = false;
+
+async function createIndexes(): Promise<void> {
+  try {
+    const collection = getDB().collection('tickets');
+    await Promise.all([
+      collection.createIndex({ id: 1 }, { unique: true }),
+      collection.createIndex({ employeeId: 1 }),
+      collection.createIndex({ status: 1 }),
+      collection.createIndex({ createdAt: -1 }),
+      collection.createIndex({ status: 1, createdAt: -1 }),
+    ]);
+  } catch (error) {
+    console.error('Failed to create tickets indexes:', error);
+  }
+}
 
 function getTicketCol(): Collection<any> {
-  if (!ticketCollection) ticketCollection = getDB().collection('tickets');
+  if (!ticketCollection) {
+    ticketCollection = getDB().collection('tickets');
+    if (!indexesCreated) {
+      void createIndexes();
+      indexesCreated = true;
+    }
+  }
   return ticketCollection;
 }
 

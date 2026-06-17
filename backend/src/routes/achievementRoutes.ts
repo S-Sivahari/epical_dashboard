@@ -17,7 +17,7 @@ const imageUpload = multer({
       cb(null, true)
       return
     }
-    cb(null, false)
+    cb(new Error('Only JPEG, PNG, and WebP images are allowed'))
   },
 })
 

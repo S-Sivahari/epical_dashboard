@@ -98,7 +98,6 @@ export function TicketManagement() {
   const fetchTickets = useTicketStore((s) => s.fetchTickets)
   const fetchTicketsSilent = useTicketStore((s) => s.fetchTicketsSilent)
   const updateStatus = useTicketStore((s) => s.updateStatus)
-  const addComment = useTicketStore((s) => s.addComment)
   const removeTicket = useTicketStore((s) => s.removeTicket)
 
   const [q, setQ] = useState('')
@@ -231,14 +230,6 @@ export function TicketManagement() {
     [updateStatus, fetchTickets, q, priority],
   )
 
-  const handleModalAddComment = useCallback(
-    async (id: string, text: string) => {
-      await addComment(id, text)
-      const full = await fetchTicketById(id)
-      setDetailTicket(full)
-    },
-    [addComment],
-  )
 
   const modalTicket =
     detailTicket ?? (selectedId ? (tickets.find((t) => t.id === selectedId) ?? null) : null)
@@ -579,7 +570,6 @@ export function TicketManagement() {
           isOpen={detailOpen}
           onClose={closeDetail}
           onUpdateStatus={handleModalUpdateStatus}
-          onAddComment={handleModalAddComment}
           onDelete={
             modalTicket
               ? () => {

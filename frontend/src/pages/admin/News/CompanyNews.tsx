@@ -29,10 +29,11 @@ import {
 } from '@services/newsService'
 import { formatDate } from '@/utils/formatDate'
 import {
+  FETCH_PAST_NEWS_DATE_HINT,
   isPastNewsDateInput,
+  isValidNewsDateInput,
   maxPastNewsDateInputValue,
-  PAST_NEWS_DATE_HINT,
-  publishedAtIsoFromDateInput,
+  todayDateInputValue,
   yesterdayDateInputValue,
 } from '@/utils/newsDateRules'
 
@@ -55,7 +56,7 @@ const DEFAULT_FETCH_FILTERS = [
   'Artificial Intelligence',
 ]
 
-const FETCH_LIMIT_OPTIONS = [5, 10, 15, 20, 25, 30, 50] as const
+const DEFAULT_FETCH_LIMIT = 10
 
 const NEWS_TAB_IDS: TabId[] = ['current', 'publish', 'fetch']
 
@@ -87,8 +88,7 @@ export function CompanyNews() {
   const [externalItems, setExternalItems] = useState<ExternalNewsItem[]>([])
   const [selectedExternal, setSelectedExternal] = useState<Set<string>>(new Set())
   const [fetchDate, setFetchDate] = useState(() => yesterdayDateInputValue())
-  const [publishDate, setPublishDate] = useState(() => yesterdayDateInputValue())
-  const [fetchLimit, setFetchLimit] = useState<number>(10)
+  const [publishDate, setPublishDate] = useState(() => todayDateInputValue())
   const [fetchFilters, setFetchFilters] = useState<string[]>(() => [...DEFAULT_FETCH_FILTERS])
   const [newFilterInput, setNewFilterInput] = useState('')
   const [fetchingExternal, setFetchingExternal] = useState(false)
@@ -224,7 +224,7 @@ export function CompanyNews() {
     try {
       const response = await fetchExternalNews({
         date: fetchDate,
-        limit: fetchLimit,
+        limit: DEFAULT_FETCH_LIMIT,
         filters: activeFetchFilters.length > 0 ? activeFetchFilters : undefined,
       })
       setExternalItems(response.items)
@@ -240,7 +240,7 @@ export function CompanyNews() {
     if (toImport.length === 0) return false
     setImportError(null)
     try {
-      const created = await importExternalNews(toImport)
+      const created = await importExternalNews(toImport, fetchDate)
       setItems((prev) => [...created, ...prev])
       setExternalItems((prev) => prev.filter((item) => !linksToClear.has(item.link)))
       setSelectedExternal((prev) => {
@@ -282,7 +282,7 @@ export function CompanyNews() {
   }
 
   const handleAdd = async () => {
-    if (!title || !content || !isPastNewsDateInput(publishDate)) {
+    if (!title || !content || !isValidNewsDateInput(publishDate)) {
       return
     }
     setSaving(true)
@@ -397,12 +397,10 @@ export function CompanyNews() {
     setImageFile(null)
     setImagePreview(null)
     setLink('')
-    setPublishDate(yesterdayDateInputValue())
+    setPublishDate(todayDateInputValue())
   }
 
   const previewImageSrc = imagePreview || imageUrl.trim() || null
-
-  const contentPreview = content.trim() || 'Your announcement content will appear here...'
 
   return (
     <PageWrapper fillViewport className="admin-hub-page-wrap relative z-10 !py-3 font-body">
@@ -611,14 +609,10 @@ export function CompanyNews() {
                         <input
                           type="date"
                           value={publishDate}
-                          max={MAX_PAST_NEWS_DATE}
-                          onChange={(e) => setPublishDate(clampPastNewsDate(e.target.value))}
+                          onChange={(e) => setPublishDate(e.target.value)}
                           className="admin-news-fetch-bar-input w-full"
                           required
                         />
-                        <p className="admin-news-past-date-hint" role="note">
-                          {PAST_NEWS_DATE_HINT}
-                        </p>
                       </label>
                       <Input
                         label="Image URL (optional)"
@@ -653,48 +647,23 @@ export function CompanyNews() {
                         placeholder="https://example.com/read-more"
                       />
                     </div>
-                  </div>
 
-                  <div className="admin-news-publish-image-row" aria-label="Image preview">
-                    <p className="admin-news-live-preview-label">Image preview</p>
-                    <div className="admin-news-publish-preview-inner admin-news-publish-preview-inner--image">
-                      <div className="admin-news-publish-preview-media shrink-0">
+                    <div className="admin-news-publish-preview-col" aria-label="Image preview">
+                      <p className="admin-news-live-preview-label">Image preview</p>
+                      <div className="admin-news-publish-preview-frame">
                         {previewImageSrc ? (
                           <img
                             src={previewImageSrc}
                             alt=""
-                            className="h-full w-full object-cover"
                             onError={(e) => {
                               ;(e.target as HTMLImageElement).style.display = 'none'
                             }}
                           />
                         ) : (
-                          <div className="admin-news-preview-placeholder flex h-full min-h-[7rem] items-center justify-center">
-                            <Megaphone className="h-8 w-8 text-white/80" aria-hidden />
+                          <div className="admin-news-preview-placeholder flex min-h-[14rem] w-full items-center justify-center lg:min-h-[20rem]">
+                            <Megaphone className="h-10 w-10 text-white/80" aria-hidden />
                           </div>
                         )}
-                      </div>
-                      <div className="admin-news-publish-preview-copy min-w-0 flex-1">
-                        <span className="admin-news-tag-pill inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider">
-                          <Megaphone className="h-2.5 w-2.5" aria-hidden />
-                          Company News
-                        </span>
-                        <h3 className="mt-2 line-clamp-2 font-display text-sm font-bold text-slate-800">
-                          {title.trim() || 'Announcement title'}
-                        </h3>
-                        <p className="mt-2 line-clamp-4 whitespace-pre-line text-sm font-medium text-slate-600">
-                          {contentPreview}
-                        </p>
-                        <p className="mt-1 text-[10px] font-semibold text-slate-500">
-                          {isPastNewsDateInput(publishDate)
-                            ? `Publish date: ${formatDate(publishedAtIsoFromDateInput(publishDate))}`
-                            : PAST_NEWS_DATE_HINT}
-                        </p>
-                        {link.trim() ? (
-                          <p className="truncate text-[10px] font-semibold admin-news-text-brand">
-                            {link}
-                          </p>
-                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -712,7 +681,7 @@ export function CompanyNews() {
                         saving ||
                         !title.trim() ||
                         !content.trim() ||
-                        !isPastNewsDateInput(publishDate)
+                        !isValidNewsDateInput(publishDate)
                       }
                     >
                       <PlusCircle className="h-4 w-4" />
@@ -728,11 +697,14 @@ export function CompanyNews() {
           {activeTab === 'fetch' && (
             <section className="admin-news-fetch-page" aria-label="Fetch streams">
               <div className="admin-news-fetch-bar">
-                <p className="admin-news-past-date-hint admin-news-past-date-hint--bar" role="note">
-                  {PAST_NEWS_DATE_HINT}
-                </p>
-                <div className="admin-news-fetch-bar-controls">
-                  <label className="admin-news-fetch-bar-field">
+                <div className="admin-news-fetch-bar-top">
+                  <p
+                    className="admin-news-past-date-hint admin-news-past-date-hint--bar"
+                    role="note"
+                  >
+                    {FETCH_PAST_NEWS_DATE_HINT}
+                  </p>
+                  <label className="admin-news-fetch-bar-field admin-news-fetch-bar-field--inline">
                     <span className="admin-news-fetch-bar-label">Date</span>
                     <input
                       type="date"
@@ -742,27 +714,13 @@ export function CompanyNews() {
                       className="admin-news-fetch-bar-input"
                     />
                   </label>
-                  <label className="admin-news-fetch-bar-field">
-                    <span className="admin-news-fetch-bar-label">Count</span>
-                    <select
-                      className="admin-news-fetch-bar-input admin-news-fetch-select"
-                      value={fetchLimit}
-                      onChange={(e) => setFetchLimit(Number(e.target.value))}
-                    >
-                      {FETCH_LIMIT_OPTIONS.map((n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
                   <Button
                     className="admin-news-fetch-primary-btn shrink-0 border-0"
                     onClick={() => void handleFetchExternal()}
                     disabled={fetchingExternal || !isPastNewsDateInput(fetchDate)}
                   >
                     <Rss className="h-4 w-4" />
-                    {fetchingExternal ? 'Fetching...' : `Fetch ${fetchLimit}`}
+                    {fetchingExternal ? 'Fetching...' : 'Fetch'}
                   </Button>
                   <Button
                     variant="secondary"
@@ -851,8 +809,8 @@ export function CompanyNews() {
                       <Rss className="h-7 w-7 text-slate-400" aria-hidden />
                     </div>
                     <p className="max-w-md text-sm font-medium leading-relaxed text-slate-600">
-                      Ready to fetch headlines. Set date, count, and filters in the bar above, then
-                      run a search to preview external news here.
+                      Ready to fetch headlines. Set date and filters in the bar above, then run a
+                      search to preview external news here.
                     </p>
                   </div>
                 ) : (

@@ -1705,6 +1705,14 @@ body,
   overflow: hidden;
 }
 
+.admin-portal .admin-hub-page-wrap.admin-training-page-wrap .admin-training-main-panel,
+.admin-portal .admin-hub-page-wrap.admin-training-page-wrap .admin-training-sidebar,
+.admin-portal .admin-hub-page-wrap.admin-training-page-wrap .admin-training-body-grid {
+  min-height: auto;
+  max-height: none;
+  overflow: visible;
+}
+
 .admin-portal .admin-training-main-panel > .admin-training-panel-scroll,
 .admin-portal .admin-training-main-panel .admin-table-scroll {
   flex: 1 1 0;

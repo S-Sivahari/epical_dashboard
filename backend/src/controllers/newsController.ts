@@ -4,7 +4,7 @@ import * as newsService from '../services/newsService'
 import { fetchTopHeadlinesByDate } from '../services/externalNewsService'
 import {
   assertPastNewsDateKey,
-  normalizeExternalNewsDateKey,
+  coercePastNewsDateKey,
   normalizeNewsDateInput,
   yesterdayLocalDateKey,
 } from '../utils/newsDateRules'
@@ -31,17 +31,6 @@ function normalizeDate(input: string | string[] | ParsedQs | ParsedQs[] | undefi
 function trimOrEmpty(value: unknown): string {
   if (typeof value !== 'string') return ''
   return value.trim()
-}
-
-function toLocalDateKeyFromBodyInstant(iso: string): string {
-  const parsed = new Date(iso)
-  if (Number.isNaN(parsed.getTime())) {
-    throw Object.assign(new Error('Invalid published date.'), { status: 400 })
-  }
-  const year = parsed.getFullYear()
-  const month = String(parsed.getMonth() + 1).padStart(2, '0')
-  const day = String(parsed.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
 }
 
 export const newsController = {
@@ -89,13 +78,6 @@ export const newsController = {
       }
       const image = fileToBlob(req.file)
       const publishedAt = trimOrEmpty(req.body.publishedAt) || trimOrEmpty(req.body.publishedDate)
-      if (publishedAt) {
-        assertPastNewsDateKey(
-          /^\d{4}-\d{2}-\d{2}$/.test(publishedAt)
-            ? publishedAt
-            : toLocalDateKeyFromBodyInstant(publishedAt),
-        )
-      }
       const item = await newsService.createNews({
         title,
         content,
@@ -207,6 +189,8 @@ export const newsController = {
         return
       }
 
+      const defaultDate = normalizeDate(req.body.defaultDate) ?? undefined
+
       const sanitized = payload
         .map((item: any) => {
           const title = trimOrEmpty(item.title)
@@ -214,22 +198,9 @@ export const newsController = {
           const link = trimOrEmpty(item.link)
           const imageUrl = trimOrEmpty(item.imageUrl)
           const publishedAt = trimOrEmpty(item.publishedAt)
-          if (!title || !content || !link) return null
+          if (!title || !link) return null
 
-          let publishedDateKey: string | undefined
-          if (publishedAt) {
-            if (/^\d{4}-\d{2}-\d{2}$/.test(publishedAt)) {
-              try {
-                assertPastNewsDateKey(publishedAt)
-                publishedDateKey = publishedAt
-              } catch {
-                return null
-              }
-            } else {
-              publishedDateKey = normalizeExternalNewsDateKey(publishedAt) ?? undefined
-              if (!publishedDateKey) return null
-            }
-          }
+          const publishedDateKey = coercePastNewsDateKey(publishedAt || undefined, defaultDate)
 
           return {
             title,
@@ -246,7 +217,7 @@ export const newsController = {
         return
       }
 
-      const items = await newsService.createNewsBatch(sanitized)
+      const items = await newsService.createNewsBatch(sanitized, { defaultDateKey: defaultDate })
       res.status(201).json(items)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to import news'

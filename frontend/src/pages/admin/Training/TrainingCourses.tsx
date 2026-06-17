@@ -238,7 +238,7 @@ export function TrainingCourses() {
   )
 
   return (
-    <PageWrapper fillViewport scrollable className="admin-hub-page-wrap relative z-10 !py-2 font-body">
+    <PageWrapper fillViewport className="admin-hub-page-wrap admin-training-page-wrap relative z-10 !py-2 font-body">
       <div className="crewiq-dashboard admin-training-view relative flex min-h-0 flex-1 flex-col">
         <div className="dashboard-page-bg" aria-hidden>
           <div className="dashboard-page-bg-gradient" />
@@ -501,13 +501,7 @@ export function TrainingCourses() {
                     </p>
                   </div>
                 </div>
-                <div
-                  className="admin-training-panel-scroll"
-                  role="region"
-                  aria-label={tab === 'enrollment' ? 'Active enrollments list' : 'Completed training list'}
-                >
-                  {enrollmentTable}
-                </div>
+                {enrollmentTable}
               </div>
             </div>
           )}

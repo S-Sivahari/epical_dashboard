@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { motion } from 'framer-motion'
-import { Search, BookOpen, CheckCircle2, ExternalLink } from 'lucide-react'
+import { Search, BookOpen, CheckCircle2, ExternalLink, GraduationCap } from 'lucide-react'
 import { Button } from '@components/employee/ui/button'
 import { Input } from '@components/employee/ui/input'
 import { Badge } from '@components/employee/ui/badge'
@@ -8,7 +7,13 @@ import { KPIStatCard } from '@components/employee/shared/KPIStatCard'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { listCourses, listEnrollments, enrollEmployee, markComplete } from '@services/trainingService'
 import { useAuthStore } from '@store/authStore'
-import { portalCardClass } from '@components/employee/shared/interactiveCard'
+import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
+import { cn } from '@pages/employee/lib/utils'
+
+const tabs = [
+  { id: 'enrollment', label: 'Enrollment', icon: BookOpen },
+  { id: 'completed', label: 'Completed', icon: CheckCircle2 },
+]
 
 export default function Training() {
   const [courses, setCourses] = useState([])
@@ -142,35 +147,42 @@ export default function Training() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="employee-training-page space-y-6 pb-8" data-page-scrollable>
       <div className="grid gap-4 sm:grid-cols-3">
         <KPIStatCard title="Available Courses" value={String(courses.length)} icon={BookOpen} toneIndex={0} />
-        <KPIStatCard title="Enrolled" value={String(enrolledCount)} icon={BookOpen} toneIndex={1} />
+        <KPIStatCard title="Enrolled" value={String(enrolledCount)} icon={GraduationCap} toneIndex={1} />
         <KPIStatCard title="Completed" value={String(completedCount)} icon={CheckCircle2} toneIndex={2} />
       </div>
 
-      <div className="flex flex-wrap gap-2 border-b border-border pb-3">
-        {[
-          ['enrollment', 'Enrollment'],
-          ['completed', 'Completed'],
-        ].map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setTab(key)}
-            className={`rounded-lg px-3 py-2 text-sm font-medium ${
-              tab === key
-                ? 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200'
-                : 'text-muted hover:bg-muted/30'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+      <div
+        className="employee-documents-tab-rail inline-flex w-full max-w-md rounded-xl border p-1 sm:w-auto"
+        role="tablist"
+        aria-label="Training sections"
+      >
+        {tabs.map((t) => {
+          const Icon = t.icon
+          return (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.id}
+              onClick={() => setTab(t.id)}
+              className={cn(
+                'employee-documents-tab-btn flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-200 sm:flex-none sm:min-w-[10.5rem]',
+                tab === t.id ? 'employee-documents-tab-btn--active' : 'employee-documents-tab-btn--inactive',
+              )}
+            >
+              <Icon className="h-4 w-4 shrink-0" aria-hidden />
+              {t.label}
+            </button>
+          )
+        })}
       </div>
 
+      <div className="transition-opacity duration-200">
       {tab === 'enrollment' ? (
-        <div className="space-y-4">
+        <div className="space-y-4" role="tabpanel" aria-label="Enrollment">
           <div className="relative max-w-xl">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
             <Input
@@ -181,8 +193,17 @@ export default function Training() {
             />
           </div>
           <div>
-            <h3 className="mb-2 font-heading text-lg font-semibold">Courses in progress & available</h3>
-            <p className="mb-4 text-sm text-muted">Browse and enroll in new courses or mark enrolled ones complete.</p>
+            <div className="mb-4 flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <GraduationCap className="h-5 w-5" aria-hidden />
+              </div>
+              <div>
+                <h3 className="font-heading text-lg font-semibold text-foreground">Courses in progress & available</h3>
+                <p className="mt-0.5 text-sm text-muted">
+                  Browse and enroll in new courses or mark enrolled ones complete.
+                </p>
+              </div>
+            </div>
             {loading || loadingEnrollments ? (
               <p className="text-sm text-muted">Loading courses…</p>
             ) : enrollmentTabCourses.length === 0 ? (
@@ -190,9 +211,9 @@ export default function Training() {
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {enrollmentTabCourses.map((course) => (
-                  <motion.div
+                  <InteractiveCard
                     key={course.id}
-                    whileHover={{ y: -4 }}
+                    selectable={false}
                     className={portalCardClass({ className: 'p-5' })}
                   >
                     <div className="flex items-start justify-between">
@@ -221,7 +242,6 @@ export default function Training() {
                       ) : (
                         <Button
                           size="sm"
-                          variant="danger"
                           disabled={enrollingId === course.id}
                           onClick={() => void handleEnroll(course.id)}
                         >
@@ -229,14 +249,14 @@ export default function Training() {
                         </Button>
                       )}
                     </div>
-                  </motion.div>
+                  </InteractiveCard>
                 ))}
               </div>
             )}
           </div>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-4" role="tabpanel" aria-label="Completed">
           <div className="relative max-w-xl">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
             <Input
@@ -247,8 +267,15 @@ export default function Training() {
             />
           </div>
           <div>
-            <h3 className="mb-2 font-heading text-lg font-semibold">Completed</h3>
-            <p className="mb-4 text-sm text-muted">Courses you have finished.</p>
+            <div className="mb-4 flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <CheckCircle2 className="h-5 w-5" aria-hidden />
+              </div>
+              <div>
+                <h3 className="font-heading text-lg font-semibold text-foreground">Completed</h3>
+                <p className="mt-0.5 text-sm text-muted">Courses you have finished.</p>
+              </div>
+            </div>
             {loadingEnrollments ? (
               <p className="text-sm text-muted">Loading…</p>
             ) : completedCards.length === 0 ? (
@@ -258,9 +285,9 @@ export default function Training() {
                 {completedCards.map((e) => {
                   const link = courses.find((c) => c.id === e.courseId)?.link
                   return (
-                    <motion.div
+                    <InteractiveCard
                       key={e.id}
-                      whileHover={{ y: -4 }}
+                      selectable={false}
                       className={portalCardClass({ className: 'p-5' })}
                     >
                       <Badge variant="success">Completed</Badge>
@@ -278,7 +305,7 @@ export default function Training() {
                           <span className="text-xs text-muted">Course link unavailable</span>
                         )}
                       </div>
-                    </motion.div>
+                    </InteractiveCard>
                   )
                 })}
               </div>
@@ -286,6 +313,7 @@ export default function Training() {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }

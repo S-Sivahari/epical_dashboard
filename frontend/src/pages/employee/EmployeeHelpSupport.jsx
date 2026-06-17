@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -17,7 +17,8 @@ import {
   ArrowRight,
   Info,
 } from 'lucide-react'
-import { employeePortalGuideSections } from '@pages/employee/data/employeePortalGuide'
+import { employeePortalGuideSections as fallbackEmployeeGuide } from '@pages/employee/data/employeePortalGuide'
+import { fetchEmployeePortalGuide } from '@services/portalGuideService'
 import { cn } from '@pages/employee/lib/utils'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 
@@ -37,12 +38,19 @@ const guideIcons = {
 
 export default function EmployeeHelpSupport() {
   const [activeKey, setActiveKey] = useState(null)
+  const [sections, setSections] = useState(fallbackEmployeeGuide)
+
+  useEffect(() => {
+    void fetchEmployeePortalGuide()
+      .then(setSections)
+      .catch(() => setSections(fallbackEmployeeGuide))
+  }, [])
 
   const toggleGuide = (key) => {
     setActiveKey((prev) => (prev === key ? null : key))
   }
 
-  const activeSection = employeePortalGuideSections.find((s) => s.key === activeKey)
+  const activeSection = sections.find((s) => s.key === activeKey)
 
   return (
     <div
@@ -83,7 +91,7 @@ export default function EmployeeHelpSupport() {
         </div>
 
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {employeePortalGuideSections.map((section) => {
+          {sections.map((section) => {
             const Icon = guideIcons[section.key] ?? BookOpen
             const isActive = activeKey === section.key
             return (
