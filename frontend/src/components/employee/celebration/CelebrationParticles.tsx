@@ -1,12 +1,16 @@
 import { useMemo } from 'react'
 import './celebration.css'
 
-const CELEBRATION_EMOJI = '🥳'
+export type CelebrationVariant = 'approved' | 'rejected'
+
+const APPROVED_EMOJIS = ['🥳', '🎉'] as const
+const REJECTED_EMOJIS = ['😭'] as const
 const LANE_COUNT = 4
 const SPAWN_INTERVAL_S = 0.52
 
 export type CelebrationParticle = {
   id: string
+  emoji: string
   lane: number
   delay: number
   duration: number
@@ -16,10 +20,22 @@ export type CelebrationParticle = {
 
 type CelebrationParticlesProps = {
   active: boolean
+  variant?: CelebrationVariant
   particleCount?: number
 }
 
-function createMeetStyleParticles(count: number, seed: string): CelebrationParticle[] {
+function pickEmoji(variant: CelebrationVariant, rand: number): string {
+  if (variant === 'rejected') {
+    return REJECTED_EMOJIS[0]
+  }
+  return APPROVED_EMOJIS[Math.floor(rand * APPROVED_EMOJIS.length)]
+}
+
+function createMeetStyleParticles(
+  count: number,
+  seed: string,
+  variant: CelebrationVariant,
+): CelebrationParticle[] {
   let hash = 0
   for (let i = 0; i < seed.length; i += 1) {
     hash = (hash * 31 + seed.charCodeAt(i)) >>> 0
@@ -32,6 +48,7 @@ function createMeetStyleParticles(count: number, seed: string): CelebrationParti
 
   return Array.from({ length: count }, (_, index) => ({
     id: `${seed}-${index}`,
+    emoji: pickEmoji(variant, rand(index + 3)),
     lane: index % LANE_COUNT,
     delay: index * SPAWN_INTERVAL_S,
     duration: 3.6 + rand(index) * 0.8,
@@ -40,11 +57,15 @@ function createMeetStyleParticles(count: number, seed: string): CelebrationParti
   }))
 }
 
-export function CelebrationParticles({ active, particleCount = 10 }: CelebrationParticlesProps) {
+export function CelebrationParticles({
+  active,
+  variant = 'approved',
+  particleCount = 12,
+}: CelebrationParticlesProps) {
   const particles = useMemo(() => {
     if (!active) return []
-    return createMeetStyleParticles(particleCount, String(Date.now()))
-  }, [active, particleCount])
+    return createMeetStyleParticles(particleCount, String(Date.now()), variant)
+  }, [active, particleCount, variant])
 
   if (!active || particles.length === 0) return null
 
@@ -55,6 +76,7 @@ export function CelebrationParticles({ active, particleCount = 10 }: Celebration
           key={particle.id}
           className="celebration-particle celebration-particle--meet"
           data-lane={particle.lane}
+          data-variant={variant}
           style={{
             ['--delay' as string]: `${particle.delay}s`,
             ['--duration' as string]: `${particle.duration}s`,
@@ -62,7 +84,7 @@ export function CelebrationParticles({ active, particleCount = 10 }: Celebration
             ['--size' as string]: `${particle.size}rem`,
           }}
         >
-          {CELEBRATION_EMOJI}
+          {particle.emoji}
         </span>
       ))}
     </div>

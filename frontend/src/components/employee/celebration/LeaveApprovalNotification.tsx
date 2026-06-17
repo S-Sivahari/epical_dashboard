@@ -1,23 +1,42 @@
 import { useEffect } from 'react'
 import { X } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
+import type { CelebrationVariant } from '@components/employee/celebration/CelebrationParticles'
+import { cn } from '@/utils/cn'
 import './celebration.css'
 
 type LeaveApprovalNotificationProps = {
   open: boolean
+  variant?: CelebrationVariant
   title?: string
   message?: string
   autoDismissMs?: number
   onDismiss: () => void
 }
 
+const DEFAULTS: Record<CelebrationVariant, { title: string; message: string; icon: string }> = {
+  approved: {
+    title: '🎉 Leave Approved!',
+    message: 'Your leave request has been approved.',
+    icon: '🎉',
+  },
+  rejected: {
+    title: '😭 Leave Rejected',
+    message: 'Your leave request was not approved.',
+    icon: '😭',
+  },
+}
+
 export function LeaveApprovalNotification({
   open,
-  title = '🎉 Leave Approved!',
-  message = 'Your leave request has been approved.',
+  variant = 'approved',
+  title,
+  message,
   autoDismissMs = 6500,
   onDismiss,
 }: LeaveApprovalNotificationProps) {
+  const defaults = DEFAULTS[variant]
+
   useEffect(() => {
     if (!open) return undefined
     const timer = window.setTimeout(onDismiss, autoDismissMs)
@@ -28,7 +47,10 @@ export function LeaveApprovalNotification({
     <AnimatePresence>
       {open ? (
         <motion.div
-          className="leave-approval-notification"
+          className={cn(
+            'leave-approval-notification',
+            variant === 'rejected' && 'leave-approval-notification--rejected',
+          )}
           role="status"
           aria-live="polite"
           initial={{ opacity: 0, y: -16, scale: 0.96 }}
@@ -39,11 +61,11 @@ export function LeaveApprovalNotification({
           <div className="leave-approval-notification__accent" />
           <div className="leave-approval-notification__body">
             <div className="leave-approval-notification__icon" aria-hidden>
-              🎉
+              {defaults.icon}
             </div>
             <div className="min-w-0 flex-1">
-              <h3 className="leave-approval-notification__title">{title}</h3>
-              <p className="leave-approval-notification__message">{message}</p>
+              <h3 className="leave-approval-notification__title">{title ?? defaults.title}</h3>
+              <p className="leave-approval-notification__message">{message ?? defaults.message}</p>
             </div>
             <button
               type="button"
