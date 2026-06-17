@@ -22,15 +22,11 @@ const upload = multer({
   },
 });
 
-// Public endpoints (no auth required)
-// Get profile photo - public so img tags can load the image
-router.get('/employees/:id/photo', uploadController.getPhoto);
-
-// Get a specific document - public for document retrieval
-router.get('/employees/:id/documents/:docType', uploadController.getDocument);
-
-// Protected endpoints (require authentication)
 router.use(authMiddleware);
+
+// Fetch profile photo or document (admin or owning employee only)
+router.get('/employees/:id/photo', uploadController.getPhoto);
+router.get('/employees/:id/documents/:docType', uploadController.getDocument);
 
 // Upload multiple documents for an employee
 router.post(

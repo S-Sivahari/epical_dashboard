@@ -5692,8 +5692,23 @@
 }
 
 .admin-projects-view .projects-directory-filters {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: calc(0.75rem * var(--admin-projects-ui-scale, 0.8));
   flex-shrink: 0;
   margin: 0 calc(1.25rem * var(--admin-projects-ui-scale, 0.8)) calc(0.75rem * var(--admin-projects-ui-scale, 0.8));
+}
+
+.admin-projects-view .projects-directory-filters > .relative {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.admin-projects-view .projects-directory-filters-reset {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 0 0.25rem;
 }
 
 @media (min-width: 768px) {
@@ -6519,6 +6534,13 @@
   --cal-sage-row: #f0f3f0;
 }
 
+.admin-portal .admin-calendar-page,
+.employee-portal .admin-calendar-page,
+.admin-portal .admin-hub-page-wrap.admin-calendar-page {
+  container-type: inline-size;
+  container-name: admin-cal;
+}
+
 .admin-calendar-view .text-xs {
   font-size: calc(0.75rem * var(--calendar-font-scale));
 }
@@ -6665,17 +6687,142 @@
   padding-left: calc(0.5rem * var(--calendar-font-scale)) !important;
   padding-right: calc(0.5rem * var(--calendar-font-scale)) !important;
   box-sizing: border-box;
+  grid-template-columns: 1fr;
 }
 
-@media (min-width: 1024px) {
+/* Side-by-side only when the calendar container is wide enough (responds to zoom) */
+@container admin-cal (min-width: 68rem) {
   .admin-calendar-view .admin-calendar-grid {
     grid-template-columns: minmax(0, 1fr) minmax(0, calc(22rem * var(--calendar-font-scale))) !important;
+  }
+
+  .admin-calendar-view .admin-cal-main-col,
+  .admin-calendar-view .admin-cal-sidebar {
+    height: 100%;
+  }
+
+  .admin-calendar-view .admin-cal-main {
+    height: 100%;
+  }
+}
+
+/* Stacked layout — sidebar below calendar (narrow container / heavy zoom) */
+@container admin-cal (max-width: 67.999rem) {
+  .admin-portal main > .relative > .admin-calendar-view[data-admin-calendar],
+  .admin-portal .admin-calendar-view[data-admin-calendar],
+  .employee-portal .admin-calendar-view[data-employee-calendar] {
+    flex: 1 1 auto;
+    max-height: var(--viewport-page-h);
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-calendar-view .admin-calendar-grid {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: auto;
+    grid-template-columns: 1fr !important;
+  }
+
+  .admin-calendar-view .admin-cal-main-col,
+  .admin-calendar-view .admin-cal-sidebar {
+    height: auto;
+  }
+
+  .admin-calendar-view .admin-cal-main {
+    height: auto;
+    max-height: none;
+  }
+
+  .admin-calendar-view .admin-cal-grid-wrap {
+    max-height: min(32rem, 55vh);
+  }
+
+  .admin-calendar-view .admin-cal-side-unified {
+    height: auto;
+    max-height: none;
+  }
+}
+
+/* Stacked layout or short viewport (small screens) — page scroll via cmd-main */
+@media (max-width: 1023px), (max-height: 45rem) {
+  .admin-portal.cmd-portal .cmd-main:has([data-admin-calendar]),
+  .employee-portal.cmd-portal .cmd-main:has([data-employee-calendar]) {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .admin-portal main:has([data-admin-calendar]),
+  .employee-portal main:has([data-employee-calendar]) {
+    overflow-x: hidden;
+    overflow-y: auto;
+    max-height: none;
+  }
+
+  .admin-portal main:has([data-admin-calendar]) > .relative,
+  .employee-portal main:has([data-employee-calendar]) > .relative {
+    overflow: visible;
+    flex: 1 1 auto;
+    height: auto;
+  }
+
+  .admin-portal .admin-calendar-page,
+  .admin-portal .admin-hub-page-wrap.admin-calendar-page,
+  .employee-portal .admin-calendar-page {
+    overflow-x: hidden;
+    overflow-y: visible;
+    flex: 1 1 auto;
+    max-height: none;
+  }
+
+  .admin-portal main > .relative > .admin-calendar-view[data-admin-calendar],
+  .admin-portal .admin-calendar-view.crewiq-dashboard,
+  .employee-portal .admin-calendar-view.crewiq-dashboard {
+    flex: 1 1 auto;
+    max-height: none;
+    overflow: visible;
+    min-height: auto;
+  }
+
+  .admin-calendar-view .admin-calendar-grid {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: auto;
+    overflow: visible;
+    grid-template-columns: 1fr !important;
+  }
+
+  .admin-calendar-view .admin-cal-main-col,
+  .admin-calendar-view .admin-cal-sidebar {
+    height: auto;
+    min-height: 0;
+  }
+
+  .admin-calendar-view .admin-cal-main {
+    height: auto;
+    max-height: none;
+  }
+
+  .admin-calendar-view .admin-cal-grid-wrap {
+    max-height: min(32rem, 55vh);
+  }
+
+  .admin-calendar-view .admin-cal-side-unified {
+    height: auto;
+    max-height: none;
+  }
+
+  .employee-portal [data-employee-page]:has([data-employee-calendar]),
+  .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]) {
+    flex: 1 1 auto;
+    max-height: none;
+    overflow: visible;
   }
 }
 
 .admin-calendar-view .admin-cal-main-col,
 .admin-calendar-view .admin-cal-sidebar {
-  height: 100%;
   min-height: 0;
 }
 
@@ -7104,6 +7251,32 @@
   padding: calc(0.4375rem * var(--calendar-font-scale)) calc(0.625rem * var(--calendar-font-scale)) !important;
   font-size: calc(0.75rem * var(--calendar-font-scale));
   background: rgba(255, 255, 255, 0.72);
+}
+
+.admin-calendar-view .admin-cal-list-icon {
+  flex-shrink: 0;
+}
+
+.admin-calendar-view .admin-cal-item-actions button {
+  min-height: calc(1.75rem * var(--calendar-font-scale));
+  min-width: calc(1.75rem * var(--calendar-font-scale));
+}
+
+.admin-calendar-view .admin-cal-delete-btn {
+  background-color: #dc2626 !important;
+  border-color: #dc2626 !important;
+  color: #ffffff !important;
+}
+
+.admin-calendar-view .admin-cal-delete-btn:hover {
+  background-color: #b91c1c !important;
+  border-color: #b91c1c !important;
+  color: #ffffff !important;
+}
+
+.admin-calendar-view .admin-cal-delete-btn svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
 }
 
 .admin-calendar-view .admin-cal-list-item:hover {
