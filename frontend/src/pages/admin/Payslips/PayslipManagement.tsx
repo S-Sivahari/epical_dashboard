@@ -868,7 +868,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
           )}
         </div>
       ),
-      className: 'min-w-[420px] admin-payslip-actions-th',
+      className: 'min-w-0 lg:min-w-[22rem] admin-payslip-actions-th',
       render: (r) => {
         if (!batch || r.status !== 'success' || !r.fileName) {
           return <span className="text-sm text-muted">—</span>

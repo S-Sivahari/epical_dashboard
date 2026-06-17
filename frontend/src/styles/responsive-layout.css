@@ -105,6 +105,16 @@
   overflow-x: hidden;
   overflow-y: auto;
   max-height: none;
+  min-height: 0;
+  flex: 1 1 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-portal .admin-hub-page-wrap:has(.admin-payslips-view)[data-page-scrollable],
+.admin-portal .admin-hub-page-wrap:has(.admin-training-view)[data-page-scrollable],
+.admin-portal .admin-hub-page-wrap:has(.admin-documents-view)[data-page-scrollable] {
+  flex: 1 1 auto;
+  min-height: auto;
 }
 
 .admin-portal .admin-documents-view,
@@ -116,6 +126,66 @@
   min-height: 0;
 }
 
+@media (max-width: 1023px) {
+  .admin-portal .admin-payslips-view .admin-payslips-body-grid,
+  .admin-portal .admin-payslips-view .admin-payslips-body-grid--fill {
+    overflow: visible;
+    min-height: auto;
+    flex: 1 1 auto;
+  }
+
+  .admin-portal .admin-payslips-view .admin-payslips-main-panel,
+  .admin-portal .admin-payslips-view .admin-payslips-main-panel--history {
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .admin-portal .admin-payslips-view .admin-payslips-list-scroll,
+  .admin-portal .admin-payslips-view .admin-payslips-list-scroll--upload,
+  .admin-portal .admin-payslips-view .admin-payslips-list-scroll--history {
+    flex: none;
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .admin-portal .admin-training-view .admin-training-body-grid,
+  .admin-portal .admin-training-view .admin-training-body-grid--fill {
+    overflow: visible;
+    min-height: auto;
+    flex: 1 1 auto;
+  }
+
+  .admin-portal .admin-training-view .admin-training-main-panel {
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .admin-portal .admin-training-view .admin-training-catalog-scroll,
+  .admin-portal .admin-training-view .admin-training-panel-scroll {
+    flex: none;
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .admin-portal .admin-documents-view .admin-documents-body-grid,
+  .admin-portal .admin-documents-view .admin-documents-body-grid--fill {
+    overflow: visible;
+    min-height: auto;
+    flex: 1 1 auto;
+  }
+
+  .admin-portal .admin-documents-view .admin-documents-main-panel {
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .admin-portal .admin-documents-view .admin-doc-table-wrap {
+    flex: none;
+    min-height: auto;
+    overflow: visible;
+  }
+}
+
 @media (min-width: 1024px) {
   .admin-portal .admin-documents-view .admin-documents-body-grid,
   .admin-portal .admin-training-view .admin-training-body-grid,
@@ -123,6 +193,17 @@
     flex: 1 1 0;
     min-height: 0;
     overflow: hidden;
+  }
+
+  .admin-hub-page-wrap[data-page-scrollable] .admin-payslips-body-grid,
+  .admin-hub-page-wrap[data-page-scrollable] .admin-payslips-body-grid--fill,
+  .admin-hub-page-wrap[data-page-scrollable] .admin-training-body-grid,
+  .admin-hub-page-wrap[data-page-scrollable] .admin-training-body-grid--fill,
+  .admin-hub-page-wrap[data-page-scrollable] .admin-documents-body-grid,
+  .admin-hub-page-wrap[data-page-scrollable] .admin-documents-body-grid--fill {
+    flex: 1 1 auto;
+    min-height: auto;
+    overflow: visible;
   }
 }
 
@@ -277,6 +358,8 @@
 
   .admin-portal .admin-training-main-panel,
   .admin-portal .admin-training-sidebar,
+  .admin-portal .admin-documents-view .admin-documents-main-panel,
+  .admin-portal .admin-documents-view .admin-documents-sidebar,
   .admin-portal .admin-analytics-view .admin-analytics-main-panel,
   .admin-portal .admin-analytics-view .admin-analytics-sidebar {
     max-height: none;

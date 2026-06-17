@@ -2304,6 +2304,31 @@
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
+.project-analysis-layout__nav-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.project-analysis-layout__section-title {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.project-analysis-layout__brand-title {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
 .project-analysis-layout__brand {
   display: flex;
   min-width: 0;
@@ -2321,13 +2346,6 @@
   border-radius: 0.75rem;
   background: linear-gradient(165deg, #ecfdf5 0%, #d1fae5 100%);
   color: #059669;
-}
-
-.project-analysis-layout__brand-title {
-  font-size: 1.0625rem;
-  font-weight: 700;
-  line-height: 1.2;
-  color: #0f172a;
 }
 
 .project-analysis-layout__brand-desc {
@@ -8400,11 +8418,11 @@
   --dash-cream-mint-body: #f4faf6;
   --dash-sage-row: #f0f3f0;
   --dash-border-green: rgba(26, 67, 41, 0.12);
-  --admin-docs-gap-page: 1.25rem;
-  --admin-docs-gap-section: 1.25rem;
-  --admin-docs-pad-panel: 1.5rem 1.75rem;
+  --admin-docs-gap-page: clamp(0.625rem, 0.5rem + 0.5vw, 0.875rem);
+  --admin-docs-gap-section: clamp(0.75rem, 0.65rem + 0.5vw, 1rem);
+  --admin-docs-pad-panel: clamp(0.875rem, 0.75rem + 0.5vw, 1rem) clamp(1rem, 0.85rem + 0.75vw, 1.25rem);
   --admin-docs-line-body: 1.6;
-  --admin-documents-font-scale: 1.12;
+  --admin-documents-font-scale: clamp(0.92, 0.85rem + 0.35vw, 1.15);
 }
 
 .admin-documents-view .admin-documents-text-brand {
@@ -8620,8 +8638,9 @@
 }
 
 @media (min-width: 1024px) {
-  .admin-documents-view .admin-documents-body-grid {
-    grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+  .admin-documents-view .admin-documents-body-grid,
+  .admin-documents-view .admin-documents-body-grid--fill {
+    grid-template-columns: minmax(min(100%, 15rem), 18.75rem) minmax(0, 1fr);
   }
 }
 
@@ -8893,6 +8912,102 @@
 }
 
 /* â”€â”€ Admin Analytics â€” green dashboard layout â”€â”€ */
+.admin-documents-view .admin-documents-shell > .admin-documents-body-grid--fill {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.admin-documents-view .admin-documents-body-grid--fill {
+  align-items: stretch;
+}
+
+/* Page scroll — PageWrapper scrolls; inner panels grow with content (documents) */
+.admin-hub-page-wrap[data-page-scrollable] .admin-documents-view,
+.admin-hub-page-wrap[data-page-scrollable] .admin-documents-shell {
+  flex: 1 1 auto;
+  min-height: auto;
+  overflow: visible;
+}
+
+.admin-hub-page-wrap[data-page-scrollable] .admin-documents-body-grid,
+.admin-hub-page-wrap[data-page-scrollable] .admin-documents-body-grid--fill {
+  flex: 1 1 auto;
+  min-height: auto;
+  overflow: visible;
+}
+
+.admin-hub-page-wrap[data-page-scrollable] .admin-documents-main-panel {
+  flex: 0 0 auto;
+  min-height: auto;
+  overflow: visible;
+}
+
+.admin-hub-page-wrap[data-page-scrollable] .admin-documents-view .admin-doc-table-wrap {
+  flex: none;
+  min-height: auto;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+@media (max-width: 1023px) {
+  .admin-documents-view {
+    --admin-docs-pad-panel: 1rem 1rem;
+    --admin-docs-gap-page: 0.875rem;
+    --admin-documents-font-scale: 1;
+  }
+
+  .admin-documents-view .admin-documents-sidebar {
+    position: static;
+    top: auto;
+  }
+
+  .admin-documents-view .admin-documents-body-grid,
+  .admin-documents-view .admin-documents-body-grid--fill {
+    overflow: visible;
+    min-height: auto;
+    flex: 1 1 auto;
+  }
+
+  .admin-documents-view .admin-documents-main-panel {
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .admin-documents-view .admin-doc-table-wrap {
+    flex: none;
+    min-height: auto;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-documents-view .admin-documents-hero-top {
+    padding: 0.875rem 1rem;
+  }
+
+  .admin-documents-view .admin-documents-metrics-band {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-inline: 1rem;
+  }
+
+  .admin-documents-view .admin-documents-tab-rail {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 639px) {
+  .admin-documents-view .admin-documents-metrics-band {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-documents-view .admin-documents-tab-btn {
+    flex: 1 1 calc(50% - 0.25rem);
+    min-width: min(100%, 9.5rem);
+    padding-inline: 0.625rem;
+  }
+}
+
 .admin-analytics-view {
   --dash-forest: #1a4329;
   --dash-forest-header: #1a5c38;
@@ -10689,7 +10804,7 @@
 }
 
 .admin-payslips-view .admin-payslips-shell > .admin-payslips-body-grid--fill {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-height: 0;
 }
 
@@ -11257,6 +11372,91 @@
   font-size: calc(0.875rem * var(--admin-payslips-font-scale));
 }
 
+/* Page scroll — PageWrapper scrolls; inner panels grow with content */
+.admin-hub-page-wrap[data-page-scrollable] .admin-payslips-view,
+.admin-hub-page-wrap[data-page-scrollable] .admin-payslips-shell {
+  flex: 1 1 auto;
+  min-height: auto;
+  overflow: visible;
+}
+
+.admin-hub-page-wrap[data-page-scrollable] .admin-payslips-body-grid,
+.admin-hub-page-wrap[data-page-scrollable] .admin-payslips-body-grid--fill {
+  flex: 1 1 auto;
+  min-height: auto;
+  overflow: visible;
+}
+
+.admin-hub-page-wrap[data-page-scrollable] .admin-payslips-main-panel,
+.admin-hub-page-wrap[data-page-scrollable] .admin-payslips-main-panel--history {
+  flex: 0 0 auto;
+  min-height: auto;
+  overflow: visible;
+}
+
+.admin-hub-page-wrap[data-page-scrollable] .admin-payslips-list-scroll,
+.admin-hub-page-wrap[data-page-scrollable] .admin-payslips-list-scroll--upload,
+.admin-hub-page-wrap[data-page-scrollable] .admin-payslips-list-scroll--history {
+  flex: none;
+  min-height: auto;
+  overflow: visible;
+}
+
+.admin-hub-page-wrap[data-page-scrollable] .admin-payslip-table-wrap .admin-table-scroll {
+  max-height: none;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+@media (max-width: 1023px) {
+  .admin-payslips-view {
+    --admin-payslips-pad-panel: 1rem 1rem;
+    --admin-payslips-gap-page: 0.875rem;
+    --admin-payslips-font-scale: 1;
+  }
+
+  .admin-payslips-view .admin-payslips-sidebar {
+    position: static;
+    top: auto;
+  }
+
+  .admin-payslips-view .admin-payslip-batch-switcher-row {
+    flex-wrap: wrap;
+  }
+
+  .admin-payslips-view .admin-payslip-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-payslips-view .admin-payslip-table-wrap .admin-table-scroll {
+    max-height: none;
+  }
+
+  .admin-payslips-view .admin-payslip-actions-th {
+    min-width: 0 !important;
+  }
+
+  .admin-payslips-view .admin-payslips-hero-top {
+    padding: 0.875rem 1rem;
+  }
+
+  .admin-payslips-view .admin-payslips-metrics-band {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 639px) {
+  .admin-payslips-view .admin-payslips-metrics-band {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-payslips-view .admin-payslips-tab-btn {
+    padding-left: 0.625rem;
+    padding-right: 0.625rem;
+  }
+}
+
 .admin-payslips-view .font-display.text-sm {
   font-size: calc(0.875rem * var(--admin-payslips-font-scale)) !important;
 }
@@ -11647,9 +11847,9 @@
   --dash-mint-soft: #bbf7d0;
   --dash-canvas: #e6ebe8;
   --dash-border-green: rgba(26, 67, 41, 0.12);
-  --admin-training-gap-page: 0.75rem;
-  --admin-training-pad-panel: 1rem 1.25rem;
-  --admin-training-font-scale: 1.15;
+  --admin-training-gap-page: clamp(0.625rem, 0.5rem + 0.5vw, 0.875rem);
+  --admin-training-pad-panel: clamp(0.875rem, 0.75rem + 0.5vw, 1rem) clamp(1rem, 0.85rem + 0.75vw, 1.25rem);
+  --admin-training-font-scale: clamp(0.92, 0.85rem + 0.35vw, 1.15);
   --admin-training-line-body: 1.5;
 }
 
@@ -11754,7 +11954,8 @@
   font-size: calc(0.9375rem * var(--admin-training-font-scale));
   font-weight: 700;
   line-height: 1.35;
-  white-space: nowrap;
+  white-space: normal;
+  text-align: center;
   transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
 }
 
@@ -11861,7 +12062,7 @@
 
 @media (min-width: 1024px) {
   .admin-training-view .admin-training-body-grid {
-    grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+    grid-template-columns: minmax(min(100%, 16.25rem), 18.75rem) minmax(0, 1fr);
   }
 }
 
@@ -12063,6 +12264,117 @@
 .admin-training-view .admin-training-empty {
   border: 1px dashed var(--dash-border-green);
   background: rgba(244, 250, 246, 0.75);
+}
+
+.admin-training-view .admin-training-shell > .admin-training-body-grid--fill {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.admin-training-view .admin-training-body-grid--fill {
+  align-items: stretch;
+}
+
+.admin-training-view .admin-training-course-grid {
+  display: grid;
+  gap: clamp(0.5rem, 0.45rem + 0.35vw, 0.75rem);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16.5rem), 1fr));
+}
+
+/* Page scroll — PageWrapper scrolls; inner panels grow with content */
+.admin-hub-page-wrap[data-page-scrollable] .admin-training-view,
+.admin-hub-page-wrap[data-page-scrollable] .admin-training-shell {
+  flex: 1 1 auto;
+  min-height: auto;
+  overflow: visible;
+}
+
+.admin-hub-page-wrap[data-page-scrollable] .admin-training-body-grid,
+.admin-hub-page-wrap[data-page-scrollable] .admin-training-body-grid--fill {
+  flex: 1 1 auto;
+  min-height: auto;
+  overflow: visible;
+}
+
+.admin-hub-page-wrap[data-page-scrollable] .admin-training-main-panel {
+  flex: 0 0 auto;
+  min-height: auto;
+  overflow: visible;
+}
+
+.admin-hub-page-wrap[data-page-scrollable] .admin-training-catalog-scroll,
+.admin-hub-page-wrap[data-page-scrollable] .admin-training-panel-scroll {
+  flex: none;
+  min-height: auto;
+  overflow: visible;
+}
+
+.admin-hub-page-wrap[data-page-scrollable] .admin-training-main-panel > .admin-training-panel-scroll,
+.admin-hub-page-wrap[data-page-scrollable] .admin-training-main-panel .admin-table-scroll {
+  max-height: none;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+@media (max-width: 1023px) {
+  .admin-training-view .admin-training-sidebar {
+    position: static;
+    top: auto;
+  }
+
+  .admin-training-view .admin-training-body-grid,
+  .admin-training-view .admin-training-body-grid--fill {
+    overflow: visible;
+    min-height: auto;
+    flex: 1 1 auto;
+  }
+
+  .admin-training-view .admin-training-main-panel {
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .admin-training-view .admin-training-catalog-scroll,
+  .admin-training-view .admin-training-panel-scroll {
+    flex: none;
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .admin-training-view .admin-training-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-training-view .admin-training-table-wrap .admin-table-scroll {
+    max-height: none;
+  }
+
+  .admin-training-view .admin-training-hero-top {
+    padding: 0.875rem 1rem;
+  }
+
+  .admin-training-view .admin-training-metrics-band {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-inline: 1rem;
+  }
+
+  .admin-training-view .admin-training-tab-rail {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 639px) {
+  .admin-training-view .admin-training-metrics-band {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-training-view .admin-training-tab-btn {
+    flex: 1 1 calc(50% - 0.25rem);
+    min-width: min(100%, 9.5rem);
+    padding-inline: 0.625rem;
+  }
 }
 
 /* ── Admin Leaves — dash palette on existing 3-column template ── */

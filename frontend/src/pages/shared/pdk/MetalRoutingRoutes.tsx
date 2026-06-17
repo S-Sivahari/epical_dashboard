@@ -12,10 +12,17 @@ export const METAL_ROUTING_VIEW_CLASS =
   'metal-routing-view relative z-10 flex min-h-0 flex-1 flex-col font-body'
 
 export function MetalRoutingRoutes({ basePath }: { basePath: string }) {
+  const hideSignalProjectsHeader = basePath.includes('/project-analysis')
+
   return (
     <div className={METAL_ROUTING_VIEW_CLASS} data-metal-routing>
       <Routes>
-        <Route index element={<SignalAnalysisProjectsPage basePath={basePath} />} />
+        <Route
+          index
+          element={
+            <SignalAnalysisProjectsPage basePath={basePath} hidePageHeader={hideSignalProjectsHeader} />
+          }
+        />
 
         <Route path="pdk-modules" element={<SignalAnalysisPdkModulesPage basePath={basePath} />} />
 

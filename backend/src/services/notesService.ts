@@ -148,6 +148,50 @@ export async function listProjectAssignedEmployees(projectId: string) {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** Active employees for Daily Notes pickers — available to any authenticated notes user. */
+export async function listActiveEmployeesForNotes() {
+  const db = getDB();
+  const employeeDocs = await db
+    .collection('employees')
+    .find({ status: 'Active' })
+    .project({
+      id: 1,
+      employeeId: 1,
+      firstName: 1,
+      middleName: 1,
+      lastName: 1,
+      email: 1,
+      department: 1,
+      designation: 1,
+      role: 1,
+      employmentType: 1,
+      joinedAt: 1,
+      status: 1,
+    })
+    .toArray();
+
+  return employeeDocs
+    .map((employee) => {
+      const id = String(employee.id ?? employee.employeeId ?? '');
+      return {
+        id,
+        employeeId: String(employee.employeeId ?? id),
+        firstName: String(employee.firstName ?? ''),
+        middleName: employee.middleName ? String(employee.middleName) : undefined,
+        lastName: employee.lastName ? String(employee.lastName) : undefined,
+        email: String(employee.email ?? ''),
+        department: String(employee.department ?? ''),
+        designation: String(employee.designation ?? ''),
+        role: String(employee.role ?? 'Employee'),
+        employmentType: employee.employmentType ?? 'Full-time',
+        joinedAt: String(employee.joinedAt ?? ''),
+        status: employee.status ?? 'Active',
+      };
+    })
+    .filter((employee) => employee.id)
+    .sort((a, b) => employeeDisplayName(a).localeCompare(employeeDisplayName(b)));
+}
+
 async function resolveEmployeesByIds(employeeIds: string[]): Promise<NoteActor[]> {
   if (employeeIds.length === 0) return [];
 

@@ -59,15 +59,27 @@ export const notesController = {
   createDelegation: async (req: Request, res: Response): Promise<void> => {
     try {
       const date = paramStr(req.body?.date);
+      const to = paramStr(req.body?.to);
       const employeeId = paramStr(req.body?.employeeId);
       if (!date || !employeeId) {
         res.status(400).json({ error: 'date and employeeId are required' });
         return;
       }
+      const assignedBy = actorFromRequest(req);
+      if (to) {
+        const items = await notesDelegationService.createNotesDelegationsForRange({
+          from: date,
+          to,
+          employeeId,
+          assignedBy,
+        });
+        res.status(201).json({ items, count: items.length });
+        return;
+      }
       const item = await notesDelegationService.createNotesDelegation({
         date,
         employeeId,
-        assignedBy: actorFromRequest(req),
+        assignedBy,
       });
       res.status(201).json(item);
     } catch (err) {
@@ -91,6 +103,15 @@ export const notesController = {
       res.json(items);
     } catch (err) {
       handleError(res, err, 'Failed to load projects');
+    }
+  },
+
+  listEmployees: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const items = await notesService.listActiveEmployeesForNotes();
+      res.json(items);
+    } catch (err) {
+      handleError(res, err, 'Failed to load employees');
     }
   },
 

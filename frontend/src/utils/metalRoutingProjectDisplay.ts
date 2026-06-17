@@ -19,6 +19,13 @@ export function getProjectCode(project: DashboardProject, index: number): string
   return project.projectCode ?? `PRJ-${String(index + 1).padStart(3, '0')}`
 }
 
+/** Client label for project lists; omits the default "Imported" placeholder. */
+export function displayProjectClientName(clientName?: string | null): string | null {
+  const trimmed = clientName?.trim()
+  if (!trimmed || trimmed.toLowerCase() === 'imported') return null
+  return trimmed
+}
+
 export function dashboardStatusVariant(status: string): 'success' | 'warning' | 'neutral' | 'danger' {
   const normalized = status.toLowerCase()
   if (normalized === 'active') return 'success'

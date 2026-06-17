@@ -18,6 +18,7 @@ router.get('/search', notesController.search);
 router.get('/search/options', notesController.searchOptions);
 router.get('/by-date/:date', notesController.getByDate);
 router.get('/projects', notesController.listProjects);
+router.get('/employees', notesController.listEmployees);
 router.get('/projects/:projectId/employees', notesController.listProjectEmployees);
 router.get('/:id/email/preview', notesController.previewEmail);
 router.post('/:id/email/send', notesController.sendEmail);

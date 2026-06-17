@@ -1714,6 +1714,36 @@ body,
   overflow-y: auto;
 }
 
+.admin-hub-page-wrap[data-page-scrollable] .admin-training-main-panel > .admin-training-panel-scroll,
+.admin-hub-page-wrap[data-page-scrollable] .admin-training-main-panel .admin-table-scroll {
+  flex: none;
+  min-height: auto;
+  max-height: none;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.admin-portal .admin-documents-main-panel {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-portal .admin-documents-view .admin-doc-table-wrap {
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: min(28rem, calc(var(--viewport-page-h) - 14rem));
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+.admin-hub-page-wrap[data-page-scrollable] .admin-documents-view .admin-doc-table-wrap {
+  flex: none;
+  min-height: auto;
+  max-height: none;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
 /* Employee directory, forms, profiles — page scroll via cmd-main */
 .admin-portal .employee-directory-view.employee-pages {
   display: flex;
