@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { useAuthStore } from '@store/authStore'
 import * as employeeService from '@services/employeeService'
 import { getEmployeeAvatarUrl } from '@/utils/getAvatarUrl'
+import { buildEmployeeFullName } from '@/utils/employeeDisplayName'
 
-/** Uploaded profile photo or OAuth avatar for the logged-in employee. */
+/** Keep command-bar avatar and display name aligned with the canonical employee profile. */
 export function useMyEmployeeAvatar(): string | undefined {
   const user = useAuthStore((s) => s.user)
   const patchUser = useAuthStore((s) => s.patchUser)
@@ -22,9 +23,12 @@ export function useMyEmployeeAvatar(): string | undefined {
         if (cancelled) return
         const url = getEmployeeAvatarUrl(emp) ?? user.avatarUrl
         setAvatarUrl(url)
-        if (url && url !== user.avatarUrl) {
-          patchUser({ avatarUrl: url })
-        }
+
+        const nextName = buildEmployeeFullName(emp)
+        const patch: { avatarUrl?: string; name?: string } = {}
+        if (url && url !== user.avatarUrl) patch.avatarUrl = url
+        if (nextName && nextName !== user.name) patch.name = nextName
+        if (Object.keys(patch).length > 0) patchUser(patch)
       } catch {
         if (!cancelled) setAvatarUrl(user.avatarUrl)
       }
@@ -33,7 +37,7 @@ export function useMyEmployeeAvatar(): string | undefined {
     return () => {
       cancelled = true
     }
-  }, [user?.id, user?.avatarUrl, patchUser])
+  }, [user?.id, user?.avatarUrl, user?.name, patchUser])
 
   return avatarUrl ?? user?.avatarUrl
 }

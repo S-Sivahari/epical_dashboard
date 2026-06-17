@@ -1,15 +1,28 @@
 import { NavLink, useLocation } from 'react-router-dom'
+import { useMemo } from 'react'
 import {
   EMPLOYEE_NAV_ITEMS,
+  EMPLOYEE_NOTES_NAV_ITEM,
   isEmployeeNavActive,
 } from '@constants/employeeNavigation'
 import { useNotificationCounts } from '@hooks/useNotificationCounts'
+import { useEmployeeNotesAccess } from '@hooks/useEmployeeNotesAccess'
 import { NotificationBadge } from '@components/ui/NotificationBadge'
 import { cn } from '@/utils/cn'
 
 export function EmployeeTopNav() {
   const { pathname } = useLocation()
   const { counts: notificationCounts } = useNotificationCounts()
+  const { showNotesNav } = useEmployeeNotesAccess()
+
+  const navItems = useMemo(() => {
+    if (!showNotesNav) return EMPLOYEE_NAV_ITEMS
+    const items = [...EMPLOYEE_NAV_ITEMS]
+    const signalIndex = items.findIndex((item) => item.to === '/employee/metal-routing')
+    const insertAt = signalIndex >= 0 ? signalIndex + 1 : 4
+    items.splice(insertAt, 0, EMPLOYEE_NOTES_NAV_ITEM)
+    return items
+  }, [showNotesNav])
 
   return (
     <nav
@@ -17,12 +30,14 @@ export function EmployeeTopNav() {
       aria-label="Employee navigation"
     >
       <div className="admin-top-nav-spread">
-        {EMPLOYEE_NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const Icon = item.icon
           const active = isEmployeeNavActive(pathname, item.to, item.end)
-          const notificationCount = item.notificationKey
-            ? notificationCounts[item.notificationKey]
-            : undefined
+          const notificationCount = resolveNavNotificationCount({
+            notificationKey: item.notificationKey,
+            isActive: active,
+            counts: notificationCounts,
+          })
           const displayLabel = item.navLabel ?? item.label
 
           return (

@@ -70,23 +70,33 @@ export function getNotificationTypesForPath(pathname: string): NotificationData[
   return []
 }
 
-/** Tab badges only rise with new server unread counts; they clear via Mark all read in the bell. */
+/** Tab badges follow server unread counts and clear when route notifications are marked read. */
 export function syncTabIndicators(
-  tabIndicators: TabIndicatorCounts,
+  _tabIndicators: TabIndicatorCounts,
   serverCategories: TabIndicatorCounts,
-  isInitialized: boolean,
+  _isInitialized: boolean,
 ): TabIndicatorCounts {
-  if (!isInitialized) {
-    return {
-      leaves: serverCategories.leaves,
-      documents: serverCategories.documents,
-    }
+  return {
+    leaves: serverCategories.leaves,
+    documents: serverCategories.documents,
+  }
+}
+
+export function resolveNavNotificationCount(options: {
+  notificationKey?: 'leaves' | 'documents'
+  isActive: boolean
+  counts: TabIndicatorCounts
+  pendingLeaves?: number
+}): number | undefined {
+  const { notificationKey, isActive, counts, pendingLeaves = 0 } = options
+  if (!notificationKey) return undefined
+  if (isActive) return 0
+
+  if (notificationKey === 'leaves') {
+    return Math.max(counts.leaves ?? 0, pendingLeaves)
   }
 
-  return {
-    leaves: Math.max(tabIndicators.leaves, serverCategories.leaves),
-    documents: Math.max(tabIndicators.documents, serverCategories.documents),
-  }
+  return counts[notificationKey] ?? 0
 }
 
 export function countUnreadByCategory(notifications: NotificationData[]) {
