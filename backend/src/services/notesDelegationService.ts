@@ -1,6 +1,6 @@
 import { NotesDelegationModel, type NotesDelegationActor } from '../models/NotesDelegation';
 import { getDB } from '../config/db';
-import { assertDateKey } from '../utils/notesSearchUtils';
+import { assertDateKey, enumerateDateKeys } from '../utils/notesSearchUtils';
 
 function assertValidDateKey(date: string): string {
   return assertDateKey(date, 'date');
@@ -65,6 +65,52 @@ export async function listDelegationsForEmployee(employeeId: string, from?: stri
 
   const items = await NotesDelegationModel.find(filter).sort({ date: 1 }).lean();
   return items.map((item) => serializeDelegation(item as unknown as Record<string, unknown>));
+}
+
+export async function createNotesDelegationsForRange(input: {
+  from: string;
+  to: string;
+  employeeId: string;
+  assignedBy: NotesDelegationActor;
+}) {
+  const from = assertValidDateKey(input.from);
+  const to = assertValidDateKey(input.to);
+  const dates = enumerateDateKeys(from, to);
+  const employee = await resolveEmployeeName(input.employeeId);
+
+  const existing = await NotesDelegationModel.find({ date: { $in: dates } })
+    .select('date employeeName')
+    .lean();
+  if (existing.length > 0) {
+    const taken = existing.map((item) => String(item.date)).join(', ');
+    throw Object.assign(
+      new Error(`Notes already assigned for: ${taken}`),
+      { status: 409 },
+    );
+  }
+
+  try {
+    const created = await NotesDelegationModel.insertMany(
+      dates.map((date) => ({
+        date,
+        employeeId: employee.id,
+        employeeName: employee.name,
+        assignedBy: input.assignedBy,
+      })),
+    );
+    return created.map((item) =>
+      serializeDelegation(item.toObject() as unknown as Record<string, unknown>),
+    );
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : '';
+    if (message.includes('duplicate key')) {
+      throw Object.assign(
+        new Error('One or more dates in this range are already assigned'),
+        { status: 409 },
+      );
+    }
+    throw err;
+  }
 }
 
 export async function createNotesDelegation(input: {

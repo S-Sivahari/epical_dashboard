@@ -17,24 +17,31 @@ import type { Employee } from '@/types'
 type Props = {
   weekFrom: string
   weekTo: string
+  embedded?: boolean
 }
 
 function formatDelegationDate(dateKey: string) {
   try {
-    return format(parseISO(dateKey), 'EEE dd MMM yyyy')
+    return format(parseISO(dateKey), 'EEE d MMM')
   } catch {
     return dateKey
   }
 }
 
-export function NotesDelegationPanel({ weekFrom, weekTo }: Props) {
+export function NotesDelegationPanel({ weekFrom, weekTo, embedded = false }: Props) {
   const [delegations, setDelegations] = useState<NotesDelegation[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [assignDate, setAssignDate] = useState('')
+  const [assignFrom, setAssignFrom] = useState('')
+  const [assignTo, setAssignTo] = useState('')
   const [assignEmployeeId, setAssignEmployeeId] = useState('')
+
+  const handleRangeChange = (from: string, to: string) => {
+    setAssignFrom(from)
+    setAssignTo(to)
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -69,15 +76,18 @@ export function NotesDelegationPanel({ weekFrom, weekTo }: Props) {
   )
 
   const handleAssign = async () => {
-    if (!assignDate || !assignEmployeeId) {
-      setError('Choose a date and employee to assign notes duty.')
+    if (!assignFrom || !assignEmployeeId) {
+      setError('Choose a date range and employee to assign notes duty.')
       return
     }
 
     setBusy(true)
     setError(null)
     try {
-      await createNotesDelegation(assignDate, assignEmployeeId)
+      const to = assignTo && assignTo !== assignFrom ? assignTo : undefined
+      await createNotesDelegation(assignFrom, assignEmployeeId, to)
+      setAssignFrom('')
+      setAssignTo('')
       setAssignEmployeeId('')
       await load()
     } catch (err: unknown) {
@@ -102,73 +112,112 @@ export function NotesDelegationPanel({ weekFrom, weekTo }: Props) {
     }
   }
 
-  return (
-    <section className="notes-delegation-panel" aria-label="Notes substitute assignments">
-      <div className="notes-delegation-panel__head">
-        <div>
-          <h2 className="notes-delegation-panel__title">Assign notes substitute</h2>
-          <p className="notes-delegation-panel__hint">
-            Pick a date and employee when you are away. Only that employee can manage Daily Notes on
-            that date.
-          </p>
-        </div>
-      </div>
-
-      <div className="notes-delegation-panel__form">
-        <label className="notes-delegation-panel__field">
-          <span className="notes-delegation-panel__label">Date</span>
-          <DateInput value={assignDate} onChange={setAssignDate} disabled={busy} />
-        </label>
+  const assignForm = (
+    <>
+      <label className="notes-delegation-panel__field notes-delegation-panel__field--dates">
+        {!embedded ? <span className="notes-delegation-panel__label">Dates</span> : null}
+        <DateInput
+          selectionMode="range"
+          rangeFrom={assignFrom}
+          rangeTo={assignTo}
+          onRangeChange={handleRangeChange}
+          disabled={busy}
+          placeholder={embedded ? 'Dates…' : undefined}
+          className={embedded ? 'notes-delegation-panel__compact-input' : undefined}
+          aria-label="Substitute dates"
+        />
+      </label>
+      <div className="notes-delegation-panel__field notes-delegation-panel__field--employee">
         <SelectField
-          label="Employee"
+          label={embedded ? undefined : 'Employee'}
           value={assignEmployeeId}
           onChange={(event) => setAssignEmployeeId(event.target.value)}
           options={[{ value: '', label: 'Select employee…' }, ...employeeOptions]}
           disabled={busy || employeeOptions.length === 0}
+          showChevron
+          className={embedded ? 'notes-delegation-panel__compact-input' : undefined}
+          aria-label="Substitute employee"
         />
+      </div>
+      <div className="notes-delegation-panel__assign">
         <Button
           type="button"
           size="sm"
           variant="secondary"
           icon={<UserPlus className="h-3.5 w-3.5" />}
-          disabled={busy || !assignDate || !assignEmployeeId}
+          disabled={busy || !assignFrom || !assignEmployeeId}
           onClick={handleAssign}
         >
           Assign
         </Button>
       </div>
+    </>
+  )
 
+  const assignMeta = (
+    <>
       {error ? <p className="notes-delegation-panel__error">{error}</p> : null}
+      {loading ? (
+        <span className="notes-delegation-panel__empty">…</span>
+      ) : delegations.length > 0 ? (
+        <ul className="notes-delegation-panel__list">
+          {delegations.map((item) => (
+            <li key={item._id} className="notes-delegation-panel__item">
+              <span className="notes-delegation-panel__item-date">
+                {formatDelegationDate(item.date)}
+              </span>
+              <span className="notes-delegation-panel__item-sep" aria-hidden>
+                ·
+              </span>
+              <span className="notes-delegation-panel__item-employee">{item.employeeName}</span>
+              <button
+                type="button"
+                className="notes-delegation-panel__remove"
+                disabled={busy}
+                onClick={() => void handleRemove(item._id)}
+                aria-label={`Remove assignment for ${item.employeeName} on ${item.date}`}
+              >
+                <Trash2 className="h-3 w-3" aria-hidden />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : embedded ? null : (
+        <p className="notes-delegation-panel__empty">No substitute assigned for this week.</p>
+      )}
+    </>
+  )
 
-      <div className="notes-delegation-panel__list-wrap">
-        {loading ? (
-          <p className="notes-delegation-panel__empty">Loading assignments…</p>
-        ) : delegations.length === 0 ? (
-          <p className="notes-delegation-panel__empty">No substitute assigned for this week.</p>
-        ) : (
-          <ul className="notes-delegation-panel__list">
-            {delegations.map((item) => (
-              <li key={item._id} className="notes-delegation-panel__item">
-                <div className="notes-delegation-panel__item-main">
-                  <span className="notes-delegation-panel__item-date">
-                    {formatDelegationDate(item.date)}
-                  </span>
-                  <span className="notes-delegation-panel__item-employee">{item.employeeName}</span>
-                </div>
-                <button
-                  type="button"
-                  className="notes-delegation-panel__remove"
-                  disabled={busy}
-                  onClick={() => void handleRemove(item._id)}
-                  aria-label={`Remove assignment for ${item.employeeName} on ${item.date}`}
-                >
-                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+  if (embedded) {
+    return (
+      <section
+        className="notes-delegation-panel notes-delegation-panel--embedded"
+        aria-label="Notes substitute assignments"
+      >
+        <span
+          className="notes-delegation-panel__inline-label"
+          title="Assign notes substitute. Shift+click the calendar to select a date range."
+        >
+          Substitute
+        </span>
+        <div className="notes-delegation-panel__form">{assignForm}</div>
+        <div className="notes-delegation-panel__meta">{assignMeta}</div>
+      </section>
+    )
+  }
+
+  return (
+    <section className="notes-delegation-panel" aria-label="Notes substitute assignments">
+      <div className="notes-delegation-panel__body">
+        <div className="notes-delegation-panel__head">
+          <h2 className="notes-delegation-panel__title">Assign notes substitute</h2>
+          <p className="notes-delegation-panel__hint">
+            Choose dates and an employee. Shift+click the calendar to select a range.
+          </p>
+        </div>
+        <div className="notes-delegation-panel__form">{assignForm}</div>
       </div>
+      <div className="notes-delegation-panel__meta">{assignMeta}</div>
     </section>
   )
 }
