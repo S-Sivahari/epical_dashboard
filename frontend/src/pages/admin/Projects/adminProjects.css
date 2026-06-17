@@ -6029,6 +6029,11 @@
   width: 100%;
 }
 
+.admin-projects-status-chip.is-in-progress {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
 .admin-projects-status-chip.is-started {
   background: #dbeafe;
   color: #1d4ed8;

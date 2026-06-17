@@ -15,6 +15,7 @@ import { getUserById } from '../services/authService';
 import { resolveEmployeeForAuthUser } from '../utils/employeeAuth';
 import { normalizeProjectDescription, validateProjectDescription } from '../utils/textLimits';
 import { enrichProjectsWithChecklist } from '../services/checklistService';
+import { enrichProjectsWithAnalysisStatus } from '../services/projectAnalysisStatusService';
 
 function computeTotalHours(loginTime: Date, logoutTime?: Date, overriddenHours?: number): number {
   if (overriddenHours !== undefined && overriddenHours !== null) {
@@ -138,7 +139,8 @@ export const projectController = {
         );
         projectsToMap = synced.map((result, index) => result?.project || refreshedProjects[index]);
       }
-      res.json(await enrichProjectsWithChecklist(projectsToMap.map(toFrontendProject)));
+      const withChecklist = await enrichProjectsWithChecklist(projectsToMap.map(toFrontendProject));
+      res.json(await enrichProjectsWithAnalysisStatus(withChecklist));
     } catch (error) {
       console.error('Error fetching projects:', error);
       res.status(500).json({ error: 'Failed to fetch projects' });
@@ -164,7 +166,7 @@ export const projectController = {
       const payload = await getAssignedProjectsForUser(user, employeeRecord as any, {
         syncTasks: false,
       });
-      res.json(payload);
+      res.json(await enrichProjectsWithAnalysisStatus(payload));
     } catch (error) {
       console.error('Error fetching assigned projects:', error);
       res.status(500).json({ error: 'Failed to fetch assigned projects' });

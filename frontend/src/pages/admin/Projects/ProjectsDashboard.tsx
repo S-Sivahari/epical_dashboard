@@ -14,17 +14,17 @@ import api from '@/services/api'
 import { useProjectPortal } from './projectPortal'
 import { cn } from '@/utils/cn'
 import { stringToHueColor, stringToHueHoverBg } from '@/utils/stringColor'
-import type { AdminProjectRow } from '@/types/projectWorkspace'
+import type { AdminProjectRow, ProjectAnalysisStatus } from '@/types/projectWorkspace'
 import './adminProjects.css'
 
-type DisplayStatus = 'Not Started' | 'Started' | 'Completed'
+type DisplayStatus = ProjectAnalysisStatus
 
 type SortKey =
   | 'name'
   | 'client'
   | 'accessType'
   | 'teamLead'
-  | 'status'
+  | 'analysisStatus'
   | 'completionPercentage'
 
 type ProgressFilter = 'all' | 'not_started' | 'in_progress' | 'completed'
@@ -34,20 +34,22 @@ const FILTER_SELECT_CLASS =
 
 const STATUS_SORT_ORDER: Record<DisplayStatus, number> = {
   'Not Started': 0,
-  Started: 1,
+  'In Progress': 1,
   Completed: 2,
 }
 
-function deriveDisplayStatus(project: AdminProjectRow): DisplayStatus {
+function getProjectAnalysisStatus(project: AdminProjectRow): ProjectAnalysisStatus {
+  if (project.analysisStatus) return project.analysisStatus
+
   const pct = project.completionPercentage ?? 0
   if (project.status === 'Completed' || pct >= 100) return 'Completed'
   if (pct <= 0) return 'Not Started'
-  return 'Started'
+  return 'In Progress'
 }
 
 function statusChipClass(status: DisplayStatus): string {
   if (status === 'Completed') return 'is-completed'
-  if (status === 'Started') return 'is-started'
+  if (status === 'In Progress') return 'is-in-progress'
   return 'is-not-started'
 }
 
@@ -193,9 +195,9 @@ export function ProjectsDashboard() {
         const bVal = b.completionPercentage ?? 0
         return (aVal - bVal) * dir
       }
-      if (sortColumn === 'status') {
-        const aVal = STATUS_SORT_ORDER[deriveDisplayStatus(a)]
-        const bVal = STATUS_SORT_ORDER[deriveDisplayStatus(b)]
+      if (sortColumn === 'analysisStatus') {
+        const aVal = STATUS_SORT_ORDER[getProjectAnalysisStatus(a)]
+        const bVal = STATUS_SORT_ORDER[getProjectAnalysisStatus(b)]
         return (aVal - bVal) * dir
       }
       const aVal = String(a[sortColumn as keyof AdminProjectRow] ?? '').toLowerCase()
@@ -269,12 +271,12 @@ export function ProjectsDashboard() {
         render: (p) => <TruncateText text={p.teamLead || ''} className="text-slate-700" />,
       },
       {
-        key: 'status',
+        key: 'analysisStatus',
         header: 'Status',
         sortable: true,
         className: 'admin-projects-col-status',
         render: (p) => {
-          const status = deriveDisplayStatus(p)
+          const status = getProjectAnalysisStatus(p)
           return (
             <span
               className={cn('admin-projects-status-chip whitespace-nowrap', statusChipClass(status))}
