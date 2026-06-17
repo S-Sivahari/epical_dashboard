@@ -21,8 +21,8 @@ function isImplementedBelowGiven(
   )
 }
 
-const thClass = 'border border-yellow-400 px-2 py-2'
-const tdClass = 'border border-lime-500 px-2 py-2'
+const thClass = 'border border-black px-2 py-2'
+const tdClass = 'border border-black px-2 py-2'
 const dataTdClass = cn(tdClass, 'bg-white')
 const summaryTdClass = cn(
   tdClass,

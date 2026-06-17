@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { Briefcase, CircuitBoard, NotebookPen } from 'lucide-react'
+import { CompanyLogo } from '@components/auth/CompanyLogo'
 import { ROUTES } from '@constants/routes'
 import { consumeProjectAnalysisAccess } from '@/utils/projectAnalysisAccess'
 import { cn } from '@/utils/cn'
@@ -44,7 +45,13 @@ export function ProjectAnalysisLayout() {
   return (
     <div className="project-analysis-layout flex min-h-0 flex-1 flex-col overflow-hidden">
       <header className="project-analysis-layout__header shrink-0">
-        <p className="project-analysis-layout__brand-title">Project Management</p>
+        <div className="project-analysis-layout__brand">
+          <CompanyLogo
+            className="project-analysis-layout__brand-logo"
+            alt="Epical Layouts"
+          />
+          <p className="project-analysis-layout__brand-title">Project Management</p>
+        </div>
 
         <nav
           className="project-analysis-layout__nav-cluster"

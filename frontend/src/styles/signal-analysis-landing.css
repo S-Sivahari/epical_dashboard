@@ -1,0 +1,801 @@
+/* Signal Analysis — rugged modern landing (light theme) */
+
+.signal-analysis-landing {
+  --sa-page: #f1f4f7;
+  --sa-surface: #ffffff;
+  --sa-surface-muted: #f8fafc;
+  --sa-border: rgba(15, 23, 42, 0.1);
+  --sa-border-light: rgba(15, 23, 42, 0.07);
+  --sa-text: #1a222d;
+  --sa-text-muted: #64748b;
+  --sa-text-dim: #94a3b8;
+  --sa-accent: #2f6b4f;
+  --sa-accent-hover: #265a42;
+  --sa-accent-soft: rgba(47, 107, 79, 0.1);
+  --sa-warn: #b45309;
+  --sa-warn-soft: rgba(180, 83, 9, 0.1);
+  --sa-radius: 0.375rem;
+  --sa-radius-lg: 0.5rem;
+  --sa-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 16px rgba(15, 23, 42, 0.05);
+  --sa-shadow-lg: 0 4px 20px rgba(15, 23, 42, 0.08);
+}
+
+@keyframes signal-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes signal-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.signal-analysis-landing {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding: 1rem 1.25rem 1.25rem;
+  color: var(--sa-text);
+}
+
+.signal-analysis-landing.metal-routing-signal-projects-page {
+  padding: 1rem 1.25rem 1.25rem;
+  gap: 0;
+}
+
+@media (min-width: 1024px) {
+  .signal-analysis-landing {
+    padding: 1.25rem 1.75rem 1.5rem;
+  }
+}
+
+.signal-analysis-landing__ambient {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, #f8fafc 0%, var(--sa-page) 50%, #eef1f5 100%);
+}
+
+.signal-analysis-landing__grid-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.4;
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.035) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: linear-gradient(180deg, black 0%, transparent 90%);
+}
+
+.signal-analysis-landing__inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  gap: 0.85rem;
+  animation: signal-fade-up 0.4s ease;
+}
+
+/* Stats */
+.signal-analysis-landing__stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+  .signal-analysis-landing__stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.625rem;
+  }
+}
+
+.signal-analysis-landing__stat {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.95rem 1.05rem;
+  border-radius: var(--sa-radius-lg);
+  border: 1px solid var(--sa-border);
+  background: var(--sa-surface);
+  box-shadow: var(--sa-shadow);
+  overflow: hidden;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.signal-analysis-landing__stat::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--sa-accent);
+}
+
+.signal-analysis-landing__stat:hover {
+  transform: translateY(-1px);
+  border-color: rgba(47, 107, 79, 0.25);
+  box-shadow: var(--sa-shadow-lg);
+}
+
+.signal-analysis-landing__stat--teal::before {
+  background: #0d9488;
+}
+
+.signal-analysis-landing__stat--violet::before {
+  background: #6366f1;
+}
+
+.signal-analysis-landing__stat--amber::before {
+  background: #d97706;
+}
+
+.signal-analysis-landing__stat-icon {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  height: 2.4rem;
+  width: 2.4rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--sa-radius);
+  border: 1px solid var(--sa-border-light);
+  background: var(--sa-surface-muted);
+  color: var(--sa-accent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.signal-analysis-landing__stat--teal .signal-analysis-landing__stat-icon {
+  color: #0d9488;
+  background: rgba(13, 148, 136, 0.08);
+  border-color: rgba(13, 148, 136, 0.2);
+}
+
+.signal-analysis-landing__stat--violet .signal-analysis-landing__stat-icon {
+  color: #6366f1;
+  background: rgba(99, 102, 241, 0.08);
+  border-color: rgba(99, 102, 241, 0.2);
+}
+
+.signal-analysis-landing__stat--amber .signal-analysis-landing__stat-icon {
+  color: #d97706;
+  background: rgba(217, 119, 6, 0.08);
+  border-color: rgba(217, 119, 6, 0.2);
+}
+
+.signal-analysis-landing__stat-label {
+  position: relative;
+  z-index: 1;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sa-text-muted);
+}
+
+.signal-analysis-landing__stat-value {
+  position: relative;
+  z-index: 1;
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--sa-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Panel */
+.signal-analysis-panel {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: var(--sa-radius-lg);
+  border: 1px solid var(--sa-border);
+  background: var(--sa-surface);
+  box-shadow: var(--sa-shadow-lg);
+  animation: signal-fade-up 0.45s ease 0.06s backwards;
+}
+
+.signal-analysis-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--sa-accent);
+  z-index: 2;
+}
+
+.signal-analysis-panel__command {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  flex-shrink: 0;
+  padding: 0.85rem 1.125rem;
+  border-bottom: 1px solid var(--sa-border-light);
+  background: var(--sa-surface-muted);
+}
+
+.signal-analysis-panel__search {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex: 1 1 16rem;
+  min-width: 0;
+  height: 2.75rem;
+  padding: 0 0.9rem;
+  border-radius: var(--sa-radius);
+  border: 1px solid var(--sa-border);
+  background: var(--sa-surface);
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.signal-analysis-panel__search svg {
+  color: var(--sa-text-dim);
+}
+
+.signal-analysis-panel__search:focus-within {
+  border-color: var(--sa-accent);
+  box-shadow:
+    inset 0 1px 2px rgba(15, 23, 42, 0.04),
+    0 0 0 3px var(--sa-accent-soft);
+}
+
+.signal-analysis-panel__search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--sa-text);
+  outline: none;
+}
+
+.signal-analysis-panel__search input::placeholder {
+  color: var(--sa-text-dim);
+}
+
+.signal-analysis-panel__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.signal-analysis-panel .metal-routing-toolbar-select,
+.signal-analysis-panel .metal-routing-signal-projects-filter__select,
+.signal-analysis-panel .metal-routing-signal-projects-sort__select {
+  border: 1px solid var(--sa-border) !important;
+  background: var(--sa-surface) !important;
+  color: var(--sa-text) !important;
+  border-radius: var(--sa-radius) !important;
+  font-weight: 600 !important;
+  font-size: 0.8125rem !important;
+}
+
+.signal-analysis-panel .metal-routing-signal-projects-sort__icon,
+.signal-analysis-panel .metal-routing-signal-projects-filter__icon {
+  pointer-events: none;
+  color: var(--sa-text-muted) !important;
+}
+
+.signal-analysis-panel .metal-routing-signal-projects-filter__select,
+.signal-analysis-panel .metal-routing-signal-projects-sort__select {
+  position: relative;
+  z-index: 1;
+  cursor: pointer;
+}
+
+.signal-analysis-panel__body {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--sa-surface);
+}
+
+.signal-analysis-panel__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-shrink: 0;
+  padding: 0.7rem 1.125rem;
+  border-top: 1px solid var(--sa-border-light);
+  background: var(--sa-surface-muted);
+}
+
+.signal-analysis-panel .metal-routing-signal-projects-footer__count {
+  color: var(--sa-text-muted) !important;
+  font-weight: 600 !important;
+  font-size: 0.8125rem !important;
+}
+
+.signal-analysis-panel .metal-routing-page-size,
+.signal-analysis-panel .metal-routing-page-size .text-muted {
+  color: var(--sa-text-muted) !important;
+}
+
+.signal-analysis-panel .metal-routing-page-btn {
+  border: 1px solid var(--sa-border) !important;
+  background: var(--sa-surface) !important;
+  color: var(--sa-text-muted) !important;
+  border-radius: var(--sa-radius) !important;
+  font-weight: 700 !important;
+}
+
+.signal-analysis-panel .metal-routing-page-btn:hover:not(:disabled) {
+  background: var(--sa-surface-muted) !important;
+  color: var(--sa-text) !important;
+  border-color: var(--sa-border) !important;
+}
+
+.signal-analysis-panel .metal-routing-page-btn.is-active {
+  background: var(--sa-accent) !important;
+  border-color: var(--sa-accent) !important;
+  color: #fff !important;
+}
+
+.signal-analysis-panel .metal-routing-signal-projects-header__cta,
+.signal-analysis-panel .metal-routing-pdk-modules-cta {
+  background: var(--sa-accent) !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  color: #fff !important;
+  border-radius: var(--sa-radius) !important;
+  font-weight: 700 !important;
+  font-size: 0.8125rem !important;
+  box-shadow: 0 2px 6px rgba(47, 107, 79, 0.25) !important;
+  transition: background-color 0.15s ease !important;
+}
+
+.signal-analysis-panel .metal-routing-signal-projects-header__cta:hover,
+.signal-analysis-panel .metal-routing-pdk-modules-cta:hover {
+  background: var(--sa-accent-hover) !important;
+  transform: none !important;
+}
+
+.signal-analysis-panel .metal-routing-view-toggle button {
+  border: 1px solid var(--sa-border) !important;
+  background: var(--sa-surface) !important;
+  color: var(--sa-text-muted) !important;
+  border-radius: var(--sa-radius) !important;
+}
+
+.signal-analysis-panel .metal-routing-view-toggle button.is-active {
+  background: var(--sa-accent) !important;
+  border-color: var(--sa-accent) !important;
+  color: #fff !important;
+}
+
+/* Table */
+.signal-analysis-table {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.signal-analysis-table__head {
+  display: grid;
+  grid-template-columns: 3rem 1.4fr 1.2fr 0.9fr 0.75fr 0.85fr 2rem;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.65rem 1.125rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  background: linear-gradient(180deg, #357a58 0%, #2f6b4f 48%, #285c43 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.signal-analysis-table__head--no-tech {
+  grid-template-columns: 3rem 1.5fr 1.3fr 0.8fr 0.9fr 2rem;
+}
+
+.signal-analysis-table__th {
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+.signal-analysis-table__body {
+  display: flex;
+  flex-direction: column;
+}
+
+.signal-analysis-table__row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 3rem 1.4fr 1.2fr 0.9fr 0.75fr 0.85fr 2rem;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  width: 100%;
+  padding: 0.7rem 1.125rem;
+  border: 0;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+  background: var(--pdk-card-bg, transparent);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.22s ease,
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    border-color 0.22s ease;
+  animation: signal-fade-up 0.35s ease backwards;
+  animation-delay: calc(var(--row-i, 0) * 30ms);
+}
+
+.signal-analysis-table__row--no-tech {
+  grid-template-columns: 3rem 1.5fr 1.3fr 0.8fr 0.9fr 2rem;
+}
+
+.signal-analysis-table__row:hover {
+  background: var(--pdk-card-bg-hover, var(--pdk-card-bg));
+  transform: translateX(4px) scale(1.006);
+  border-bottom-color: color-mix(in srgb, var(--pdk-card-accent, var(--sa-accent)) 18%, transparent);
+  box-shadow:
+    inset -4px 0 0 var(--pdk-card-accent, var(--sa-accent)),
+    0 4px 14px rgba(15, 23, 42, 0.06),
+    0 1px 4px color-mix(in srgb, var(--pdk-card-accent, var(--sa-accent)) 10%, transparent);
+  z-index: 2;
+}
+
+.signal-analysis-table__row:focus-visible {
+  outline: 2px solid var(--sa-accent);
+  outline-offset: -2px;
+}
+
+.signal-analysis-table__row:last-child {
+  border-bottom: 0;
+}
+
+.signal-analysis-table__cell {
+  min-width: 0;
+}
+
+.signal-analysis-table__cell--name {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.signal-analysis-table__cell--code {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+.signal-analysis-table__avatar {
+  display: flex;
+  height: 2.25rem;
+  width: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--sa-radius);
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  color: var(--pdk-card-icon-color, var(--sa-accent));
+  background: var(--pdk-card-icon-bg, var(--sa-accent-soft));
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    background 0.22s ease,
+    color 0.22s ease,
+    border-color 0.22s ease;
+}
+
+.signal-analysis-table__row:hover .signal-analysis-table__avatar {
+  transform: scale(1.1);
+  color: var(--pdk-card-icon-color-hover, var(--pdk-card-icon-color));
+  background: var(--pdk-card-icon-bg-hover, var(--pdk-card-icon-bg));
+  border-color: color-mix(in srgb, var(--pdk-card-accent, var(--sa-accent)) 32%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    0 3px 8px color-mix(in srgb, var(--pdk-card-accent, var(--sa-accent)) 18%, transparent);
+}
+
+.signal-analysis-table__project-name {
+  font-size: 0.9375rem;
+  font-weight: 800;
+  line-height: 1.3;
+  color: var(--sa-text);
+  letter-spacing: -0.01em;
+  transition: color 0.22s ease, font-weight 0.22s ease, font-size 0.22s ease;
+}
+
+.signal-analysis-table__client {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--sa-text-muted);
+  transition: color 0.22s ease;
+}
+
+.signal-analysis-table__code {
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+  color: #475569;
+  transition: color 0.22s ease;
+}
+
+.signal-analysis-table__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  max-width: 100%;
+  padding: 0.12rem 0.45rem;
+  border-radius: var(--sa-radius);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #475569;
+  background: #f1f5f9;
+  border: 1px solid var(--sa-border);
+  transition:
+    color 0.22s ease,
+    background 0.22s ease,
+    border-color 0.22s ease;
+}
+
+.signal-analysis-table__node {
+  display: inline-flex;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--sa-radius);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  font-family: ui-monospace, monospace;
+  color: var(--sa-text-muted);
+  background: #f8fafc;
+  border: 1px solid var(--sa-border-light);
+  transition:
+    color 0.22s ease,
+    background 0.22s ease,
+    border-color 0.22s ease;
+}
+
+.signal-analysis-table__row:hover .signal-analysis-table__project-name {
+  font-size: 1.0625rem;
+  color: #0a0f1a;
+  font-weight: 900;
+}
+
+.signal-analysis-table__row:hover .signal-analysis-table__client {
+  color: color-mix(in srgb, var(--pdk-card-icon-color-hover, var(--sa-text-muted)) 55%, var(--sa-text-muted));
+}
+
+.signal-analysis-table__row:hover .signal-analysis-table__code {
+  color: var(--pdk-card-icon-color-hover, #475569);
+}
+
+.signal-analysis-table__row:hover .signal-analysis-table__tag {
+  color: var(--pdk-card-icon-color-hover, #475569);
+  background: color-mix(in srgb, var(--pdk-card-accent, var(--sa-accent)) 10%, #ffffff);
+  border-color: color-mix(in srgb, var(--pdk-card-accent, var(--sa-accent)) 28%, transparent);
+}
+
+.signal-analysis-table__row:hover .signal-analysis-table__node {
+  color: var(--pdk-card-icon-color-hover, var(--sa-text-muted));
+  background: color-mix(in srgb, var(--pdk-card-accent, var(--sa-accent)) 8%, #ffffff);
+  border-color: color-mix(in srgb, var(--pdk-card-accent, var(--sa-accent)) 22%, transparent);
+}
+
+.signal-analysis-table__status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: var(--sa-radius) !important;
+  font-weight: 700 !important;
+  font-size: 0.625rem !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+}
+
+.signal-analysis-table__status-pill.metal-routing-pill--success {
+  background: var(--sa-accent-soft) !important;
+  border: 1px solid rgba(47, 107, 79, 0.3) !important;
+  color: #166534 !important;
+  box-shadow: none !important;
+}
+
+.signal-analysis-table__status-pill.metal-routing-pill--warning {
+  background: var(--sa-warn-soft) !important;
+  border: 1px solid rgba(180, 83, 9, 0.25) !important;
+  color: var(--sa-warn) !important;
+}
+
+.signal-analysis-table__pdk {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  max-width: 9.5rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--sa-radius);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #334155;
+  background: #f8fafc;
+  border: 1px solid var(--sa-border);
+  transition:
+    color 0.22s ease,
+    background 0.22s ease,
+    border-color 0.22s ease;
+}
+
+.signal-analysis-table__pdk-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.signal-analysis-table__unassigned {
+  display: inline-flex;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--sa-radius);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--sa-warn);
+  background: var(--sa-warn-soft);
+  border: 1px solid rgba(180, 83, 9, 0.25);
+  transition:
+    color 0.22s ease,
+    background 0.22s ease,
+    border-color 0.22s ease;
+}
+
+.signal-analysis-table__row:hover .signal-analysis-table__status-pill.metal-routing-pill--success {
+  background: color-mix(in srgb, var(--pdk-card-accent, var(--sa-accent)) 14%, #ffffff) !important;
+  border-color: color-mix(in srgb, var(--pdk-card-accent, var(--sa-accent)) 32%, transparent) !important;
+  color: var(--pdk-card-icon-color-hover, #166534) !important;
+}
+
+.signal-analysis-table__row:hover .signal-analysis-table__status-pill.metal-routing-pill--warning {
+  background: var(--sa-warn-soft) !important;
+  border-color: rgba(180, 83, 9, 0.3) !important;
+  color: var(--sa-warn) !important;
+}
+
+.signal-analysis-table__row:hover .signal-analysis-table__status-pill.metal-routing-pill--neutral,
+.signal-analysis-table__row:hover .signal-analysis-table__status-pill.metal-routing-pill--danger {
+  background: color-mix(in srgb, var(--pdk-card-accent, var(--sa-accent)) 12%, #ffffff) !important;
+  border-color: color-mix(in srgb, var(--pdk-card-accent, var(--sa-accent)) 28%, transparent) !important;
+  color: var(--pdk-card-icon-color-hover, var(--sa-text)) !important;
+  box-shadow: none !important;
+}
+
+.signal-analysis-table__row:hover .signal-analysis-table__pdk {
+  color: var(--pdk-card-icon-color-hover, #334155);
+  background: color-mix(in srgb, var(--pdk-card-accent, var(--sa-accent)) 10%, #ffffff);
+  border-color: color-mix(in srgb, var(--pdk-card-accent, var(--sa-accent)) 28%, transparent);
+}
+
+.signal-analysis-table__row:hover .signal-analysis-table__unassigned {
+  color: var(--sa-warn);
+  background: var(--sa-warn-soft);
+  border-color: rgba(180, 83, 9, 0.3);
+}
+
+.signal-analysis-table__chevron {
+  height: 1rem;
+  width: 1rem;
+  color: var(--sa-text-dim);
+  transition: color 0.22s ease, transform 0.22s ease;
+}
+
+.signal-analysis-table__row:hover .signal-analysis-table__chevron {
+  color: var(--pdk-card-accent, var(--sa-accent));
+  transform: translateX(4px) scale(1.15);
+}
+
+.signal-analysis-table__loading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.75rem 1.125rem;
+}
+
+.signal-analysis-table__skeleton-row {
+  height: 3.1rem;
+  border-radius: var(--sa-radius);
+  border: 1px solid var(--sa-border-light);
+  background: linear-gradient(
+    90deg,
+    #f1f5f9 0%,
+    #e8edf2 50%,
+    #f1f5f9 100%
+  );
+  background-size: 200% 100%;
+  animation:
+    signal-shimmer 1.6s ease infinite,
+    signal-fade-up 0.35s ease backwards;
+  animation-delay: calc(var(--row-i, 0) * 50ms), calc(var(--row-i, 0) * 50ms);
+}
+
+.signal-analysis-panel .metal-routing-empty-state,
+.signal-analysis-panel .metal-routing-empty-state__title {
+  color: var(--sa-text-muted);
+}
+
+.metal-routing-view:has(.signal-analysis-landing) {
+  background: var(--sa-page) !important;
+  box-shadow: none !important;
+}
+
+.project-analysis-layout__content:has(.signal-analysis-landing) {
+  background: var(--sa-page);
+}
+
+@media (max-width: 1023px) {
+  .signal-analysis-table__head {
+    display: none;
+  }
+
+  .signal-analysis-table__row,
+  .signal-analysis-table__row--no-tech {
+    grid-template-columns: 2.5rem 1fr auto;
+    gap: 0.65rem;
+    padding: 0.8rem 1rem;
+  }
+
+  .signal-analysis-table__cell--code,
+  .signal-analysis-table__cell--node,
+  .signal-analysis-table__cell--assign {
+    display: none;
+  }
+
+  .signal-analysis-table__cell--status {
+    justify-self: end;
+  }
+}
+
+@media (max-width: 767px) {
+  .signal-analysis-panel__command {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .signal-analysis-panel__controls {
+    justify-content: stretch;
+  }
+
+  .signal-analysis-panel__controls > * {
+    flex: 1 1 auto;
+  }
+}
