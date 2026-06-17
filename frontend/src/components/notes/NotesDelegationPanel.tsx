@@ -189,19 +189,23 @@ export function NotesDelegationPanel({ weekFrom, weekTo, embedded = false }: Pro
   )
 
   if (embedded) {
+    const showMeta = Boolean(error) || loading || delegations.length > 0
+
     return (
       <section
         className="notes-delegation-panel notes-delegation-panel--embedded"
         aria-label="Notes substitute assignments"
       >
-        <span
-          className="notes-delegation-panel__inline-label"
-          title="Assign notes substitute. Shift+click the calendar to select a date range."
-        >
-          Substitute
-        </span>
-        <div className="notes-delegation-panel__form">{assignForm}</div>
-        <div className="notes-delegation-panel__meta">{assignMeta}</div>
+        <div className="notes-delegation-panel__controls-row">
+          <span
+            className="notes-delegation-panel__inline-label"
+            title="Assign notes substitute. Shift+click the calendar to select a date range."
+          >
+            Substitute
+          </span>
+          <div className="notes-delegation-panel__form">{assignForm}</div>
+        </div>
+        {showMeta ? <div className="notes-delegation-panel__meta">{assignMeta}</div> : null}
       </section>
     )
   }

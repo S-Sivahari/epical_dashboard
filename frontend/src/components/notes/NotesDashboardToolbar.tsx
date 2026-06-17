@@ -102,7 +102,7 @@ export function NotesDashboardToolbar({
       </div>
 
       {trailingAction ? (
-        <div className="notes-toolbar__trailing shrink-0">{trailingAction}</div>
+        <div className="notes-toolbar__trailing">{trailingAction}</div>
       ) : null}
     </div>
   )
