@@ -45,6 +45,17 @@ export function publishedAtFromDateKey(dateKey: string): string {
   return new Date(`${normalizeNewsDateInput(dateKey)!}T12:00:00`).toISOString();
 }
 
+export function assertNewsDateKey(dateKey: string): void {
+  if (!normalizeNewsDateInput(dateKey)) {
+    throw Object.assign(new Error('Invalid date format. Use YYYY-MM-DD.'), { status: 400 });
+  }
+}
+
+export function publishedAtFromAnyDateKey(dateKey: string): string {
+  assertNewsDateKey(dateKey);
+  return new Date(`${normalizeNewsDateInput(dateKey)!}T12:00:00`).toISOString();
+}
+
 export function toUtcDateKey(date: Date): string {
   const year = date.getUTCFullYear();
   const month = String(date.getUTCMonth() + 1).padStart(2, '0');
@@ -65,4 +76,36 @@ export function normalizeExternalNewsDateKey(iso: string): string | null {
   const utcKey = utcDateKeyFromIsoInstant(iso);
   if (!utcKey || !isPastNewsDateKey(utcKey)) return null;
   return utcKey;
+}
+
+/** Resolve a past calendar day for external/imported news, with optional fetch-date fallback. */
+export function coercePastNewsDateKey(input?: string, fallbackDateKey?: string): string {
+  const yesterday = yesterdayLocalDateKey();
+  let candidate: string | null = null;
+
+  const trimmed = input?.trim();
+  if (trimmed) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      candidate = normalizeNewsDateInput(trimmed);
+    } else {
+      candidate = utcDateKeyFromIsoInstant(trimmed);
+      if (!candidate) {
+        const parsed = new Date(trimmed);
+        if (!Number.isNaN(parsed.getTime())) {
+          candidate = toLocalDateKey(parsed);
+        }
+      }
+    }
+  }
+
+  if (candidate && isPastNewsDateKey(candidate)) {
+    return candidate;
+  }
+
+  const fallback = fallbackDateKey ? normalizeNewsDateInput(fallbackDateKey) : null;
+  if (fallback && isPastNewsDateKey(fallback)) {
+    return fallback;
+  }
+
+  return yesterday;
 }

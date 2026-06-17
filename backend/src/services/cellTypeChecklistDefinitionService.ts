@@ -123,7 +123,9 @@ export async function upsertCellTypeChecklistFromExcel(
 }
 
 export async function resyncAllCellsForCellType(cellType: CellTypeKey): Promise<number> {
-  const cells = await ProjectCellModel.find({ cellType });
+  const cellTypeFilter =
+    cellType === 'IO' ? { $in: ['IO', 'IOP'] } : cellType;
+  const cells = await ProjectCellModel.find({ cellType: cellTypeFilter });
   for (const cell of cells) {
     await syncCellTypeChecklistForCell(cell.projectId, cell._id);
   }

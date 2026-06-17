@@ -5,6 +5,7 @@ import { Button } from '@components/ui/Button'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { cn } from '@/utils/cn'
 import { CELL_TYPES, type CellType, type ProjectTypeChecklistMeta } from '@/types/projectWorkspace'
+import { CELL_TYPE_LABELS } from '@/pages/admin/Projects/projectWorkspaceUi'
 import {
   deleteTypeChecklist,
   downloadChecklistTemplate,
@@ -67,7 +68,7 @@ export function ProjectTypeChecklistPanel({ projectId }: ProjectTypeChecklistPan
     try {
       const updated = await uploadTypeChecklist(projectId, uploadType, file)
       setItems((prev) => prev.map((item) => (item.cellType === updated.cellType ? updated : item)))
-      toast.success(`${uploadType} checklist uploaded`)
+      toast.success(`${CELL_TYPE_LABELS[uploadType]} checklist uploaded`)
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
       toast.error(msg || 'Upload failed')
@@ -104,7 +105,7 @@ export function ProjectTypeChecklistPanel({ projectId }: ProjectTypeChecklistPan
             : item,
         ),
       )
-      toast.success(`${deleteType} checklist removed`)
+      toast.success(`${CELL_TYPE_LABELS[deleteType]} checklist removed`)
     } catch {
       toast.error('Failed to delete checklist')
     } finally {
@@ -134,7 +135,7 @@ export function ProjectTypeChecklistPanel({ projectId }: ProjectTypeChecklistPan
               onChange={(e) => setSelectedType(e.target.value as CellType)}
             >
               {CELL_TYPES.map((type) => (
-                <option key={type} value={type}>{type}</option>
+                <option key={type} value={type}>{CELL_TYPE_LABELS[type]}</option>
               ))}
             </select>
           </label>
@@ -171,7 +172,7 @@ export function ProjectTypeChecklistPanel({ projectId }: ProjectTypeChecklistPan
               )}
             >
               <div className="admin-projects-type-checklist-card-head">
-                <span className="admin-projects-type-checklist-type">{cellType}</span>
+                <span className="admin-projects-type-checklist-type">{CELL_TYPE_LABELS[cellType]}</span>
                 {item.hasFile ? (
                   <span className="admin-projects-type-checklist-badge">Uploaded</span>
                 ) : (
@@ -221,7 +222,7 @@ export function ProjectTypeChecklistPanel({ projectId }: ProjectTypeChecklistPan
                   <button
                     type="button"
                     className="admin-projects-icon-btn admin-projects-icon-btn--danger"
-                    title={`Delete ${cellType} checklist`}
+                    title={`Delete ${CELL_TYPE_LABELS[cellType]} checklist`}
                     onClick={() => setDeleteType(cellType)}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -237,7 +238,7 @@ export function ProjectTypeChecklistPanel({ projectId }: ProjectTypeChecklistPan
       <ConfirmModal
         isOpen={Boolean(deleteType)}
         title="Delete checklist"
-        description={`Remove the uploaded checklist for type "${deleteType}"?`}
+        description={deleteType ? `Remove the uploaded checklist for type "${CELL_TYPE_LABELS[deleteType]}"?` : ''}
         confirmLabel="Delete"
         danger
         onClose={() => setDeleteType(null)}

@@ -1,4 +1,5 @@
 import {
+  CELL_TYPES,
   CELL_WORKFLOW_STAGES,
   REVIEW_STAGE_KEYS,
   type CellType,
@@ -11,9 +12,23 @@ import {
 
 export const CELL_TYPE_LABELS: Record<CellType, string> = {
   block: 'BLOCK',
-  IOP: 'IO',
+  IO: 'IO',
   ESD: 'ESD',
   TOP: 'TOP',
+}
+
+export function normalizeCellType(value?: string): CellType {
+  const raw = String(value ?? '').trim()
+  const lowered = raw.toLowerCase()
+  if (lowered === 'io' || lowered === 'iop') return 'IO'
+  if ((CELL_TYPES as readonly string[]).includes(raw)) return raw as CellType
+  const match = CELL_TYPES.find((type) => type.toLowerCase() === lowered)
+  return (match ?? 'block') as CellType
+}
+
+export function cellTypeLabel(value?: string): string {
+  if (!value) return ''
+  return CELL_TYPE_LABELS[normalizeCellType(value)] ?? normalizeCellType(value)
 }
 
 export const STATUS_LABELS: Record<CellStatus, string> = {

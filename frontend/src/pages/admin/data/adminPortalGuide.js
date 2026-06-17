@@ -68,9 +68,10 @@ export const adminPortalGuideSections = [
     linkTo: '/admin/documents',
     linkLabel: 'Documents',
     steps: [
-      'Review requested documents in the queue.',
+      'Open Requested to review pending employee document requests.',
       'Upload the fulfillment file before approving a request.',
-      'Approve or reject with a reason; rejected requests are visible to the employee.',
+      'Approve or reject with a reason; rejected requests show the reason to the employee.',
+      'Use History to browse past requests; filter by Approved or Rejected and download fulfilled files.',
     ],
   },
   {
@@ -93,6 +94,7 @@ export const adminPortalGuideSections = [
     linkLabel: 'Calendar',
     steps: [
       'Add national, company, or optional holidays.',
+      'Add company events with date and optional time.',
       'Skip a holiday when it is a working day for your team.',
       'Employees see the same calendar when planning leave.',
     ],
@@ -105,7 +107,9 @@ export const adminPortalGuideSections = [
     linkLabel: 'Tickets',
     steps: [
       'View open tickets in the kanban board.',
-      'Update status and reply as issues are handled.',
+      'Open a ticket to review the employee description and update status.',
+      'Move tickets between Pending, In Progress, and Completed as work progresses.',
+      'Delete a ticket only when it should be permanently removed from the system.',
     ],
   },
   {

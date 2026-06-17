@@ -64,6 +64,8 @@ export async function generateProjectImportTemplateBuffer(): Promise<Buffer> {
     '2) Timesheet matrix — row 1: EMP_ID | date columns (YYYY-MM-DD).',
     '   Each cell contains JSON task arrays, e.g.',
     '   [{"project":"Sigma","task":"Layout","start":"09:00:00","end":"11:30:00","timestamp":"2025-08-05T..."}]',
+    '   start = task check-in time; end = task checkout time for that project (required for duration).',
+    '   timestamp is optional — used only when start is omitted.',
     '   Projects are derived from unique project names; timesheet history is imported per cell.',
     '   Client/tech node reuse existing project metadata when names match; otherwise defaults apply.',
     '',

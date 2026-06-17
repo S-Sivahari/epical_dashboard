@@ -42,6 +42,8 @@ import {
   STATUS_LABELS,
   WORKFLOW_STATUS_LABELS,
   cellDisplayStatus,
+  cellTypeLabel,
+  normalizeCellType,
   normalizeCellWorkflow,
   projectCellProgressPercent,
 } from './projectWorkspaceUi'
@@ -200,7 +202,9 @@ export function ProjectWorkspace() {
     if (statFilter === 'unassigned') cells = cells.filter((c) => !c.assignedEmployeeId)
     const q = filterSearch.trim().toLowerCase()
     if (q) cells = cells.filter((c) => c.name.toLowerCase().includes(q))
-    if (filterTypeSelect !== 'all') cells = cells.filter((c) => c.cellType === filterTypeSelect)
+    if (filterTypeSelect !== 'all') {
+      cells = cells.filter((c) => normalizeCellType(c.cellType) === filterTypeSelect)
+    }
     if (filterStatusSelect !== 'all') {
       cells = cells.filter((c) => c.status === filterStatusSelect)
     }
@@ -688,7 +692,7 @@ export function ProjectWorkspace() {
                           {showAllCells ? (
                             <td className="admin-projects-table-col-library">{libraryNameById.get(cell.libraryId) || '—'}</td>
                           ) : null}
-                          <td className="admin-projects-table-col-type">{CELL_TYPE_LABELS[cell.cellType] ?? cell.cellType}</td>
+                          <td className="admin-projects-table-col-type">{cellTypeLabel(cell.cellType)}</td>
                           <td className="admin-projects-table-col-assigned">{cell.assignedEmployeeName || '—'}</td>
                           <td className="admin-projects-table-col-status">
                             <span className={cn(

@@ -20,7 +20,7 @@ const CELL_TYPE_CHECKLIST_SEEDS: Record<
       'Antenna cell review',
     ],
   },
-  IOP: {
+  IO: {
     name: 'IO Cell Verification',
     description: 'Standard verification checklist for IO pad ring cells',
     items: [
@@ -57,12 +57,30 @@ const CELL_TYPE_CHECKLIST_SEEDS: Record<
 
 export function normalizeChecklistCellType(value?: string | null): CellTypeKey {
   const raw = String(value ?? '').trim();
-  if (raw.toLowerCase() === 'io') return 'IOP';
+  const lowered = raw.toLowerCase();
+  if (lowered === 'io' || lowered === 'iop') return 'IO';
   if ((CELL_TYPES as readonly string[]).includes(raw)) return raw as CellTypeKey;
   return 'block';
 }
 
+async function migrateLegacyIopCellType(): Promise<void> {
+  const { CellTypeChecklistDefinitionModel } = await import('../models/CellTypeChecklistDefinition');
+  const { ProjectTypeChecklistModel } = await import('../models/ProjectTypeChecklist');
+  const { CellTypeChecklistResponseModel } = await import('../models/CellTypeChecklistResponse');
+  const { CellCustomChecklistItemModel } = await import('../models/CellCustomChecklistItem');
+
+  await Promise.all([
+    ChecklistModel.updateMany({ cellType: 'IOP' }, { $set: { cellType: 'IO' } }),
+    CellTypeChecklistDefinitionModel.updateMany({ cellType: 'IOP' }, { $set: { cellType: 'IO' } }),
+    ProjectCellModel.updateMany({ cellType: 'IOP' }, { $set: { cellType: 'IO' } }),
+    ProjectTypeChecklistModel.updateMany({ cellType: 'IOP' }, { $set: { cellType: 'IO' } }),
+    CellTypeChecklistResponseModel.updateMany({ cellType: 'IOP' }, { $set: { cellType: 'IO' } }),
+    CellCustomChecklistItemModel.updateMany({ cellType: 'IOP' }, { $set: { cellType: 'IO' } }),
+  ]);
+}
+
 export async function ensureCellTypeChecklists(): Promise<{ created: number }> {
+  await migrateLegacyIopCellType();
   const { ensureCellTypeDefinitionsFromSeeds } = await import('./cellTypeChecklistDefinitionService');
   return ensureCellTypeDefinitionsFromSeeds(CELL_TYPE_CHECKLIST_SEEDS);
 }

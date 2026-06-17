@@ -41,6 +41,7 @@ import { newsRoutes } from './routes/newsRoutes';
 import { documentRequestRoutes } from './routes/documentRequestRoutes';
 import { companyCalendarEventRoutes } from './routes/companyCalendarEventRoutes';
 import { achievementRoutes } from './routes/achievementRoutes';
+import { portalGuideRoutes } from './routes/portalGuideRoutes';
 import { employeeDashboardRoutes } from './routes/employeeDashboardRoutes';
 import { pdkMetalRoutingRoutes } from './routes/pdkMetalRoutingRoutes';
 import { notesRoutes } from './routes/notesRoutes';
@@ -190,6 +191,7 @@ app.use('/api/checklists', checklistRoutes);
 app.use('/api/payslips', payslipRoutes);
 app.use('/api/compensation', compensationRoutes);
 app.use('/api/document-requests', documentRequestRoutes);
+app.use('/api/portal-guide', portalGuideRoutes);
 
 app.use('/api', courseRoutes);
 app.use('/api', newsRoutes);

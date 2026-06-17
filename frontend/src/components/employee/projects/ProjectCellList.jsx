@@ -3,6 +3,7 @@ import { ChevronRight, Eye } from 'lucide-react'
 import { EmployeePhotoAvatar } from '@components/employee/shared/EmployeePhotoAvatar'
 import { complexityTag } from '@/utils/cellWorkflowUi'
 import { CellStageStatusRow } from './CellStageStatusRow'
+import { cellTypeLabel } from '@pages/admin/Projects/projectWorkspaceUi'
 
 export function ProjectCellList({ cells, projectId, user, emptyMessage = 'No cells in this library.' }) {
   const navigate = useNavigate()
@@ -41,7 +42,7 @@ export function ProjectCellList({ cells, projectId, user, emptyMessage = 'No cel
                 <CellStageStatusRow cell={cell} viewTab="layout" className="emp-wf-cell-list-stage-row" />
                 <div className="emp-wf-cell-list-tags">
                   <span className="emp-wf-tag emp-wf-tag--complexity">{complexityTag(cell.complexity)}</span>
-                  <span className="emp-wf-tag emp-wf-tag--type">{String(cell.cellType || 'block').toUpperCase()}</span>
+                  <span className="emp-wf-tag emp-wf-tag--type">{cellTypeLabel(cell.cellType || 'block').toUpperCase()}</span>
                   {cell.isBlocked ? <span className="emp-wf-tag emp-wf-tag--blocked">Blocked</span> : null}
                 </div>
               </div>

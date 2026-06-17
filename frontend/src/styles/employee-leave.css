@@ -698,6 +698,9 @@
     0 4px 14px rgba(26, 67, 41, 0.08) !important;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .emp-leave-history-card > :not(.emp-leave-history-scroll) {
@@ -708,7 +711,11 @@
   display: block;
   flex: 0 0 auto;
   min-height: 0;
-  overflow: visible;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
   border-radius: calc(0.75rem * var(--els));
   font-size: calc(0.875rem * var(--els));
 }
@@ -717,7 +724,9 @@
 .emp-leave-history-scroll > .rounded-lg {
   display: block;
   width: 100%;
-  overflow: visible;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
   background: #ffffff !important;
 }
 
@@ -730,6 +739,7 @@
 
 .emp-leave-history-scroll table tbody tr {
   min-height: var(--emp-leave-history-row-h);
+  height: auto;
 }
 
 .emp-leave-history-footer {
@@ -841,7 +851,21 @@
   font-size: calc(0.9375rem * var(--els)) !important;
   font-weight: 500 !important;
   text-align: center !important;
-  vertical-align: middle;
+  vertical-align: top;
+  min-width: 0;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.emp-leave-history-scroll table tbody td:last-child {
+  min-width: calc(7.5rem * var(--els));
+  max-width: calc(12rem * var(--els));
+}
+
+.emp-leave-history-status,
+.emp-leave-history-applied {
+  box-sizing: border-box;
 }
 
 .emp-leave-history-scroll table tbody td .text-muted,
@@ -877,6 +901,13 @@
   font-size: calc(0.8125rem * var(--els)) !important;
   padding: calc(0.375rem * var(--els)) calc(0.5rem * var(--els)) !important;
   margin-top: calc(0.5rem * var(--els)) !important;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .emp-leave-history-scroll table tbody td .emp-leave-history-note.text-red-900,

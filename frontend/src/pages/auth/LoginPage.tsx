@@ -9,17 +9,12 @@ import { TopDismissNotice, type TopNotice } from '@components/pdk/TopDismissNoti
 import { useAuthStore } from '@store/authStore'
 import { useFormSessionDraft } from '@hooks/useFormSessionDraft'
 import { prefetchEmployeeDashboard } from '@/utils/prefetchEmployeeRoutes'
-import { getApiBaseUrl, getGoogleOAuthStartUrl } from '@/config/apiBase'
+import { prefetchGoogleAuthConfig, type GoogleOAuthConfig } from '@/utils/googleAuthConfig'
+import { getGoogleOAuthStartUrl } from '@/config/apiBase'
 import axios from 'axios'
 
 const LOGIN_WORDMARK_SRC = '/pic/epical-layouts-wordmark.png?v=5'
 const LOGIN_CHIP_SRC = '/pic/epical_layouts.jpeg?v=3'
-
-type GoogleOAuthConfig = {
-  enabled?: boolean
-  redirectUri?: string
-  oauthStartUrl?: string
-}
 
 function GoogleMark() {
   return (
@@ -53,6 +48,19 @@ type FormValues = z.infer<typeof schema>
 
 const GOOGLE_CLIENT_CONFIGURED = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim())
 
+function applyGoogleConfig(
+  data: GoogleOAuthConfig | null,
+  setGoogleSignInEnabled: (enabled: boolean) => void,
+  setGoogleOAuthStartUrl: (url: string | null) => void,
+) {
+  setGoogleSignInEnabled(Boolean(data?.enabled))
+  if (data?.oauthStartUrl) {
+    setGoogleOAuthStartUrl(data.oauthStartUrl)
+  } else if (data?.redirectUri) {
+    setGoogleOAuthStartUrl(data.redirectUri.replace(/\/callback\/?$/, ''))
+  }
+}
+
 function showLoginNotice(
   setNotice: (notice: TopNotice | null) => void,
   title: string,
@@ -69,28 +77,26 @@ export function LoginPage() {
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
-  const [googleSignInEnabled, setGoogleSignInEnabled] = useState(GOOGLE_CLIENT_CONFIGURED)
+  const [googleConfigReady, setGoogleConfigReady] = useState(false)
+  const [googleSignInEnabled, setGoogleSignInEnabled] = useState(false)
   const [notice, setNotice] = useState<TopNotice | null>(null)
   const dismissNotice = useCallback(() => setNotice(null), [])
   const [googleOAuthStartUrl, setGoogleOAuthStartUrl] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    fetch(`${getApiBaseUrl()}/auth/google/config`, { credentials: 'include' })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: GoogleOAuthConfig | null) => {
+    void prefetchGoogleAuthConfig()
+      .then((data) => {
         if (cancelled) return
-        setGoogleSignInEnabled(Boolean(data?.enabled))
-        if (data?.oauthStartUrl) {
-          setGoogleOAuthStartUrl(data.oauthStartUrl)
-        } else if (data?.redirectUri) {
-          setGoogleOAuthStartUrl(data.redirectUri.replace(/\/callback\/?$/, ''))
-        }
+        applyGoogleConfig(data, setGoogleSignInEnabled, setGoogleOAuthStartUrl)
       })
       .catch(() => {
         if (!cancelled && GOOGLE_CLIENT_CONFIGURED) {
           setGoogleSignInEnabled(true)
         }
+      })
+      .finally(() => {
+        if (!cancelled) setGoogleConfigReady(true)
       })
     return () => {
       cancelled = true
@@ -201,7 +207,7 @@ export function LoginPage() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45, ease: 'easeOut' }}
-          className={`login-split-card ${googleSignInEnabled ? '' : 'login-split-card--single'}`}
+          className={`login-split-card ${!googleConfigReady || !googleSignInEnabled ? 'login-split-card--single' : ''}`}
         >
           <div className="login-split-left">
             <div className="login-split-wordmark-wrap">

@@ -22,6 +22,8 @@ type ReactionNotificationType = (typeof REACTION_NOTIFICATION_TYPES)[number]
 
 const NOTIFICATION_AUTO_DISMISS_MS = 6500
 const PARTICLE_DURATION_MS = 10000
+/** Ignore very old leave reactions so historic notifications do not celebrate on first deploy. */
+const MAX_REACTION_AGE_MS = 30 * 24 * 60 * 60 * 1000
 
 function isReactionType(type: NotificationData['type']): type is ReactionNotificationType {
   return REACTION_NOTIFICATION_TYPES.includes(type as ReactionNotificationType)
@@ -31,13 +33,24 @@ function toVariant(type: ReactionNotificationType): CelebrationVariant {
   return type === 'LeaveRejected' ? 'rejected' : 'approved'
 }
 
+function isRecentReaction(notification: NotificationData): boolean {
+  const createdAt = new Date(notification.createdAt).getTime()
+  if (Number.isNaN(createdAt)) return true
+  return Date.now() - createdAt <= MAX_REACTION_AGE_MS
+}
+
 function findPendingLeaveReactions(notifications: NotificationData[]): NotificationData[] {
-  return notifications.filter(
-    (notification) =>
-      isReactionType(notification.type) &&
-      !notification.isRead &&
-      !hasAcknowledgedLeaveReaction(notification.id),
-  )
+  return notifications
+    .filter(
+      (notification) =>
+        isReactionType(notification.type) &&
+        isRecentReaction(notification) &&
+        !hasAcknowledgedLeaveReaction(notification.id),
+    )
+    .sort(
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    )
 }
 
 function toPayload(notification: NotificationData): LeaveStatusCelebrationPayload {
@@ -60,8 +73,9 @@ function toPayload(notification: NotificationData): LeaveStatusCelebrationPayloa
 
 export function useLeaveApprovalCelebration() {
   const notifications = useNotificationStore((state) => state.notifications)
-  const isInitialized = useNotificationStore((state) => state.isInitialized)
+  const fetchNotifications = useNotificationStore((state) => state.fetchNotifications)
   const fetchNotificationsSilent = useNotificationStore((state) => state.fetchNotificationsSilent)
+  const markAsRead = useNotificationStore((state) => state.markAsRead)
 
   const [activeCelebration, setActiveCelebration] = useState<LeaveStatusCelebrationPayload | null>(null)
   const [particlesActive, setParticlesActive] = useState(false)
@@ -71,6 +85,7 @@ export function useLeaveApprovalCelebration() {
   const isPlayingRef = useRef(false)
   const notificationTimerRef = useRef<number | null>(null)
   const particleTimerRef = useRef<number | null>(null)
+  const hasBootstrappedRef = useRef(false)
 
   const clearTimers = useCallback(() => {
     if (notificationTimerRef.current != null) {
@@ -89,6 +104,7 @@ export function useLeaveApprovalCelebration() {
       clearTimers()
       isPlayingRef.current = true
       markLeaveReactionAcknowledged(notification.id)
+      void markAsRead(notification.id)
       setParticleVariant(payload.variant)
       setActiveCelebration(payload)
       setParticlesActive(true)
@@ -107,7 +123,7 @@ export function useLeaveApprovalCelebration() {
         }
       }, PARTICLE_DURATION_MS)
     },
-    [clearTimers],
+    [clearTimers, markAsRead],
   )
 
   const enqueueCelebrations = useCallback(
@@ -133,8 +149,20 @@ export function useLeaveApprovalCelebration() {
     setActiveCelebration(null)
   }, [])
 
+  const syncPendingReactions = useCallback(() => {
+    enqueueCelebrations(findPendingLeaveReactions(notifications))
+  }, [notifications, enqueueCelebrations])
+
   useEffect(() => {
-    void fetchNotificationsSilent()
+    if (hasBootstrappedRef.current) return
+    hasBootstrappedRef.current = true
+
+    void fetchNotifications().finally(() => {
+      syncPendingReactions()
+    })
+  }, [fetchNotifications, syncPendingReactions])
+
+  useEffect(() => {
     const interval = window.setInterval(() => {
       void fetchNotificationsSilent()
     }, NOTIFICATION_POLL_MS)
@@ -142,9 +170,20 @@ export function useLeaveApprovalCelebration() {
   }, [fetchNotificationsSilent])
 
   useEffect(() => {
-    if (!isInitialized) return
-    enqueueCelebrations(findPendingLeaveReactions(notifications))
-  }, [notifications, isInitialized, enqueueCelebrations])
+    syncPendingReactions()
+  }, [syncPendingReactions])
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      void fetchNotificationsSilent().finally(() => {
+        syncPendingReactions()
+      })
+    }
+
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [fetchNotificationsSilent, syncPendingReactions])
 
   useEffect(() => () => clearTimers(), [clearTimers])
 

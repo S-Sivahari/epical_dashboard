@@ -1,4 +1,4 @@
-export const CELL_TYPES = ['block', 'IOP', 'ESD', 'TOP'] as const
+export const CELL_TYPES = ['block', 'IO', 'ESD', 'TOP'] as const
 
 export const CELL_STATUSES = ['ready', 'in_progress', 'completed'] as const
 

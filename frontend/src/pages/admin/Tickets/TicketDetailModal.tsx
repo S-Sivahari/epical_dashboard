@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { toast } from 'sonner'
 import { Badge } from '@components/ui/Badge'
 import { Button } from '@components/ui/Button'
@@ -26,7 +25,6 @@ export function TicketDetailModal({
   isOpen,
   onClose,
   onUpdateStatus,
-  onAddComment,
   onDelete,
   deleting,
   advancing,
@@ -35,15 +33,10 @@ export function TicketDetailModal({
   isOpen: boolean
   onClose: () => void
   onUpdateStatus: (id: string, next: TicketStatus, remark?: string) => Promise<void>
-  onAddComment: (id: string, text: string) => Promise<void>
   onDelete?: () => void
   deleting?: boolean
   advancing?: boolean
 }) {
-  const [statusRemark, setStatusRemark] = useState('')
-  const [comment, setComment] = useState('')
-  const [submittingComment, setSubmittingComment] = useState(false)
-
   if (!ticket) return null
 
   const nextStatus = getNextStatus(ticket.status)
@@ -51,24 +44,10 @@ export function TicketDetailModal({
 
   const changeStatus = async (target: TicketStatus) => {
     try {
-      await onUpdateStatus(ticket.id, target, statusRemark.trim() || undefined)
-      setStatusRemark('')
+      await onUpdateStatus(ticket.id, target)
     } catch (error: unknown) {
       const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error
       toast.error(message || 'Failed to update status')
-    }
-  }
-
-  const handleComment = async () => {
-    if (!comment.trim()) return
-    setSubmittingComment(true)
-    try {
-      await onAddComment(ticket.id, comment.trim())
-      setComment('')
-    } catch {
-      toast.error('Failed to add remark')
-    } finally {
-      setSubmittingComment(false)
     }
   }
 
@@ -107,7 +86,6 @@ export function TicketDetailModal({
         <div className="rounded-lg border border-border bg-surface/40 p-3">
           <p className="mb-1 text-xs font-medium uppercase text-muted">Employee Description</p>
           <p className="whitespace-pre-wrap text-ink">{ticket.description || 'No description provided.'}</p>
-          <p className="mt-2 text-xs text-muted">Original submission — read only</p>
         </div>
 
         {(ticket.hasAttachment || ticket.attachment) && (
@@ -143,35 +121,9 @@ export function TicketDetailModal({
           </div>
         )}
 
-        <div className="space-y-2 border-t border-border pt-3">
-          <label className="text-xs font-medium uppercase text-muted">Add Remark</label>
-          <textarea
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            rows={2}
-            placeholder="Internal note or update for the employee..."
-            className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
-          />
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={!comment.trim() || submittingComment}
-            onClick={() => void handleComment()}
-          >
-            Save Remark
-          </Button>
-        </div>
-
         {(prevStatus || nextStatus) && (
           <div className="space-y-2 border-t border-border pt-3">
             <p className="text-xs font-medium uppercase text-muted">Change status</p>
-            <textarea
-              value={statusRemark}
-              onChange={(e) => setStatusRemark(e.target.value)}
-              rows={2}
-              placeholder="Optional note stored with this status change..."
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
-            />
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant={statusVariant(ticket.status)}>{ticket.status}</Badge>
               {prevStatus ? (

@@ -27,7 +27,7 @@ import {
   type WorkspaceSummary,
 } from '@/types/projectWorkspace'
 import type { Employee } from '@/types'
-import { CELL_STATUS_FILTER_OPTIONS, CELL_TYPE_LABELS, STATUS_LABELS, WORKFLOW_STATUS_LABELS, cellDisplayStatus, normalizeViewStatus, workflowStageStatusClass } from './projectWorkspaceUi'
+import { CELL_STATUS_FILTER_OPTIONS, CELL_TYPE_LABELS, STATUS_LABELS, WORKFLOW_STATUS_LABELS, cellDisplayStatus, cellTypeLabel, normalizeCellType, normalizeViewStatus, workflowStageStatusClass } from './projectWorkspaceUi'
 
 const INLINE_FIELD_CLASS = 'admin-projects-cell-details-inline-field'
 import { CellWorkflowPanel } from './CellWorkflowPanel'
@@ -115,7 +115,7 @@ export function ProjectCellPage() {
       setDurationFetchedAt(Date.now())
       const cell = ws.cells.find((c) => c.id === cellId)
       if (cell) {
-        setCellForm(cell)
+        setCellForm({ ...cell, cellType: normalizeCellType(cell.cellType) })
         setSelectedDepIds(cell.dependencyCellIds ?? [])
       }
     } catch {
@@ -172,7 +172,7 @@ export function ProjectCellPage() {
   }
 
   const cancelEdit = () => {
-    if (cell) setCellForm(cell)
+    if (cell) setCellForm({ ...cell, cellType: normalizeCellType(cell.cellType) })
     setIsEditing(false)
   }
 
@@ -180,7 +180,10 @@ export function ProjectCellPage() {
     if (!projectId || !cellForm) return
     setSaving(true)
     try {
-      await updateCell(projectId, cellForm.id, cellForm)
+      await updateCell(projectId, cellForm.id, {
+        ...cellForm,
+        cellType: normalizeCellType(cellForm.cellType),
+      })
       toast.success('Cell updated')
       setIsEditing(false)
       await reload()
@@ -313,7 +316,7 @@ export function ProjectCellPage() {
               <div className="admin-projects-cell-head-identity">
                 <h1 className="admin-projects-head-title">{cell.name}</h1>
                 <p className="admin-projects-workspace-meta">
-                  {activeLibrary?.name || 'Library'} · {CELL_TYPE_LABELS[cell.cellType] ?? cell.cellType} · {cellDisplayStatus(cell)}
+                  {activeLibrary?.name || 'Library'} · {cellTypeLabel(cell.cellType)} · {cellDisplayStatus(cell)}
                 </p>
               </div>
               <div className="admin-projects-workspace-head-actions">
@@ -379,7 +382,7 @@ export function ProjectCellPage() {
                     onClick={() => {
                       setActiveTab(tab.id)
                       setIsEditing(false)
-                      if (cell) setCellForm(cell)
+                      if (cell) setCellForm({ ...cell, cellType: normalizeCellType(cell.cellType) })
                     }}
                   >
                     <Icon className="h-3.5 w-3.5" aria-hidden />
@@ -435,7 +438,7 @@ export function ProjectCellPage() {
                           {isEditing ? (
                             <select
                               className={INLINE_FIELD_CLASS}
-                              value={cellForm.cellType}
+                              value={normalizeCellType(cellForm.cellType)}
                               onChange={(e) => setCellForm((f) => f && { ...f, cellType: e.target.value as ProjectCell['cellType'] })}
                             >
                               {CELL_TYPES.map((t) => (
@@ -443,7 +446,7 @@ export function ProjectCellPage() {
                               ))}
                             </select>
                           ) : (
-                            CELL_TYPE_LABELS[cell.cellType] ?? cell.cellType
+                            cellTypeLabel(cell.cellType)
                           )}
                         </dd>
                       </div>
@@ -706,7 +709,7 @@ export function ProjectCellPage() {
                           <span className="min-w-0 flex-1 text-left">
                             <span className="block font-semibold text-slate-900">{option.name}</span>
                             <span className="block text-xs text-slate-500">
-                              {libraryNameById.get(option.libraryId) || 'Library'} · {option.cellType} · {STATUS_LABELS[option.status]}
+                              {libraryNameById.get(option.libraryId) || 'Library'} · {cellTypeLabel(option.cellType)} · {STATUS_LABELS[option.status]}
                             </span>
                           </span>
                         </button>
