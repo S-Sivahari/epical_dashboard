@@ -86,6 +86,7 @@ export function LeaveHistoryPanel({
           onChange={onStatusFilterChange}
           placeholder="Status"
           options={[
+            { value: 'all', label: 'All' },
             { value: 'approved', label: 'Approved' },
             { value: 'rejected', label: 'Rejected' },
             { value: 'cancelled', label: 'Cancelled' },

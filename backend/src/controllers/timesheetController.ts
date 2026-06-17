@@ -3,6 +3,10 @@ import mongoose, { Types } from 'mongoose';
 import { TimesheetModel } from '../models/Timesheet';
 import { ProjectModel } from '../models/Project';
 import { syncProjectForTimesheet, getTimesheetWorkflowStatus } from '../utils/syncProject';
+import {
+  buildDashboardProjectHoursChart,
+  type DashboardChartPeriod,
+} from '../services/dashboardProjectHoursService';
 
 const MOCK_EMPLOYEES = [
   { id: 'E-1001', name: 'Asha Menon', team: 'Design', hue: 155 },
@@ -588,6 +592,20 @@ export const timesheetController = {
     } catch (error) {
       console.error('Error deleting timesheet entry:', error);
       res.status(500).json({ error: 'Failed to delete timesheet entry' });
+    }
+  },
+
+  // GET /api/timesheets/project-hours-chart
+  getProjectHoursChart: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const period = (req.query.period as DashboardChartPeriod) || 'This Week';
+      const from = typeof req.query.from === 'string' ? req.query.from : undefined;
+      const to = typeof req.query.to === 'string' ? req.query.to : undefined;
+      const payload = await buildDashboardProjectHoursChart(period, from, to);
+      res.json(payload);
+    } catch (error) {
+      console.error('Error building dashboard project hours chart:', error);
+      res.status(500).json({ error: 'Failed to build project hours chart' });
     }
   },
 

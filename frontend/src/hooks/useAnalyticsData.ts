@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Employee } from '@/types'
+import { useEmployeeStore } from '@store/employeeStore'
 import {
   fetchActiveEmployees,
   fetchAnalyticsData,
@@ -74,6 +75,7 @@ export function useAnalyticsData(
   const [comparison, setComparison] = useState<EmployeePerformanceRow[]>([])
   const [comparisonSummary, setComparisonSummary] = useState<ComparisonSummary>(EMPTY_COMPARISON_SUMMARY)
   const [individualPerformance, setIndividualPerformance] = useState<IndividualPerformance | null>(null)
+  const employeesRevision = useEmployeeStore((s) => s.employeesRevision)
 
   useEffect(() => {
     let cancelled = false
@@ -93,7 +95,7 @@ export function useAnalyticsData(
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [employeesRevision])
 
   const refresh = useCallback(async () => {
     if (employeesLoading) return

@@ -17,6 +17,7 @@ import {
   type LeaveFilters,
 } from '@/utils/leaveFilters'
 import * as leaveService from '@services/leaveService'
+import { isLopLeaveType, resolveLeaveBalanceApiKey } from '@/utils/leaveBalances'
 
 import { X, ChevronLeft, ChevronRight, Check, AlertTriangle, ShieldCheck } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'
@@ -62,7 +63,13 @@ export function LeaveRequests({
   // Approve Confirmation Modal State (shows balance before confirming)
   const [isApproveModalOpen, setIsApproveModalOpen] = useState(false)
   const [leaveToApprove, setLeaveToApprove] = useState<any | null>(null)
-  const [approveBalance, setApproveBalance] = useState<{ total: number; used: number; remaining: number } | null>(null)
+  const [approveBalance, setApproveBalance] = useState<{
+    total: number
+    used: number
+    remaining: number
+    approved?: number
+    pending?: number
+  } | null>(null)
   const [loadingBalance, setLoadingBalance] = useState(false)
 
   // Rejection Modal State
@@ -242,7 +249,8 @@ export function LeaveRequests({
     setLoadingBalance(true)
     try {
       const balances = await leaveService.getBalances(leave.employeeId)
-      setApproveBalance(balances[leave.type] ?? null)
+      const balanceKey = resolveLeaveBalanceApiKey(leave.type)
+      setApproveBalance(balances[balanceKey] ?? null)
     } catch {
       toast.error('Could not load leave balance for this employee')
     } finally {
@@ -497,6 +505,30 @@ export function LeaveRequests({
               <div className="flex items-center gap-2 text-sm text-muted py-2">
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                 Checking leave balance...
+              </div>
+            ) : approveBalance && isLopLeaveType(leaveToApprove.type) ? (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm space-y-1">
+                <div className="mb-2 flex items-center gap-2 font-medium">
+                  <ShieldCheck className="h-4 w-4 text-slate-600" />
+                  <span className="text-slate-800">LOP — Loss of Pay</span>
+                </div>
+                <p className="text-xs text-muted">
+                  LOP is unpaid leave. It does not deduct from casual, sick, earned, or compensation balances.
+                </p>
+                <div className="flex justify-between">
+                  <span className="text-muted">Approved LOP this month</span>
+                  <span className="font-medium">{approveBalance.approved ?? 0} days</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted">Pending LOP this month</span>
+                  <span className="font-medium">{approveBalance.pending ?? 0} days</span>
+                </div>
+                <div className="mt-1 flex justify-between border-t border-slate-200 pt-1 font-semibold">
+                  <span>Total LOP after approval</span>
+                  <span className="text-slate-800">
+                    {((approveBalance.approved ?? 0) + Number(leaveToApprove.days || 0)).toFixed(1)} days this month
+                  </span>
+                </div>
               </div>
             ) : approveBalance ? (
               <div className={`rounded-lg p-3 border text-sm space-y-1 ${approveBalance.remaining >= leaveToApprove.days

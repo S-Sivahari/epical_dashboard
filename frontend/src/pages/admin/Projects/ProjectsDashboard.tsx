@@ -24,7 +24,7 @@ type SortKey =
   | 'completionPercentage'
 
 export function ProjectsDashboard() {
-  const { isEmployee, projectWorkspacePath } = useProjectPortal()
+  const { isEmployee, inProjectAnalysis, projectWorkspacePath } = useProjectPortal()
   const { pathname } = useLocation()
   const [searchParams] = useSearchParams()
   const tab = searchParams.get('tab')
@@ -253,6 +253,7 @@ export function ProjectsDashboard() {
               columns={columns}
               data={paginated}
               loading={loading}
+              fillRows={inProjectAnalysis && !loading && paginated.length > 0}
               brandHeader
               striped
               sortColumn={sortColumn}

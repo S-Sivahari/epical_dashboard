@@ -1859,6 +1859,15 @@
   color: #fff;
 }
 
+.admin-projects-directory-view .admin-projects-head,
+.admin-projects-directory-view .admin-projects-head .admin-projects-head-title {
+  color: #ffffff;
+}
+
+.admin-projects-view.admin-projects-directory-view .admin-projects-head .admin-projects-head-title {
+  color: #ffffff !important;
+}
+
 /* ── Projects directory table (matches employee list layout) ─── */
 
 .admin-projects-directory-view .admin-projects-shell {

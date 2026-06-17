@@ -108,3 +108,13 @@ export function findLeaveBalance(
 ): FormattedLeaveBalance | undefined {
   return balances.find((b) => b.key === key)
 }
+
+/** Map leave request type to `/leaves/balances` response key. */
+export function resolveLeaveBalanceApiKey(leaveType: string): string {
+  if (leaveType === 'LOP') return 'LOP Days'
+  return leaveType
+}
+
+export function isLopLeaveType(leaveType: string): boolean {
+  return leaveType === 'LOP'
+}

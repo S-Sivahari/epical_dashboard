@@ -25,7 +25,7 @@ export interface EmployeeDashboardPayslip {
   fileName: string
   sentAt: string
   /** Present when the API includes payroll breakdown fields */
-  status?: 'Paid' | 'Pending'
+  status?: 'Uploaded' | 'Pending'
   netSalary?: number | string
   basicPay?: number | string
   allowances?: number | string

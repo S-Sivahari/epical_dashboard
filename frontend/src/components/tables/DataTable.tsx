@@ -24,6 +24,7 @@ export function DataTable<T extends { id?: string }>({
   striped = false,
   tableTheme = 'directory',
   getRowStyle,
+  fillRows = false,
 }: {
   columns: Column<T>[]
   data?: T[]
@@ -38,6 +39,8 @@ export function DataTable<T extends { id?: string }>({
   /** `payslip-hub` uses bb color (#2f6b4f) when rendered inside `.admin-payslips-view`. */
   tableTheme?: 'directory' | 'payslip-hub'
   getRowStyle?: (row: T) => CSSProperties | undefined
+  /** Stretch tbody rows to fill the table container height (equal row heights). */
+  fillRows?: boolean
 }) {
   const isPayslipHubHeader = brandHeader && tableTheme === 'payslip-hub'
   if (loading) {
@@ -67,9 +70,17 @@ export function DataTable<T extends { id?: string }>({
   return (
     <div
       className={cn(
-        'admin-table-scroll table-scroll-x max-h-[70vh] overflow-x-auto overflow-y-auto rounded-xl border border-border bg-white shadow-glass',
+        'admin-table-scroll table-scroll-x overflow-x-auto rounded-xl border border-border bg-white shadow-glass',
+        fillRows
+          ? 'admin-table-fill-rows max-h-none overflow-y-hidden'
+          : 'max-h-[70vh] overflow-y-auto',
         className,
       )}
+      style={
+        fillRows && data.length > 0
+          ? ({ '--data-table-row-count': data.length } as CSSProperties)
+          : undefined
+      }
     >
       <table className="min-w-full divide-y divide-border text-sm">
         <thead

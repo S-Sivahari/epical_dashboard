@@ -4,6 +4,26 @@ const SESSION_KEY = 'epical:project-analysis-session'
 /** Time allowed between clicking the launch button and the new tab loading. */
 const GRANT_TTL_MS = 60_000
 
+/** In-memory mirror of sessionStorage — avoids re-reading storage on every check in one navigation. */
+let activeSession = false
+
+function readStoredSession(): boolean {
+  try {
+    return sessionStorage.getItem(SESSION_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function persistSession(): void {
+  activeSession = true
+  try {
+    sessionStorage.setItem(SESSION_KEY, '1')
+  } catch {
+    /* private mode / storage blocked — in-memory only for this navigation */
+  }
+}
+
 /**
  * Called from the Timesheet "Project Analysis" button before opening a new tab.
  * Uses localStorage so the grant is visible to the newly opened tab.
@@ -13,15 +33,16 @@ export function grantProjectAnalysisAccess(): void {
 }
 
 export function hasProjectAnalysisSession(): boolean {
-  return sessionStorage.getItem(SESSION_KEY) === '1'
+  return activeSession || readStoredSession()
 }
 
 /**
  * Accept entry when this tab was opened from the launch button (one-time grant)
- * or when the user is already browsing inside Project Analysis in this tab.
+ * or when the user is already browsing Project Analysis in this tab (sessionStorage).
  */
 export function consumeProjectAnalysisAccess(): boolean {
-  if (hasProjectAnalysisSession()) {
+  if (activeSession || readStoredSession()) {
+    persistSession()
     return true
   }
 
@@ -37,12 +58,17 @@ export function consumeProjectAnalysisAccess(): boolean {
   }
 
   localStorage.removeItem(GRANT_KEY)
-  sessionStorage.setItem(SESSION_KEY, '1')
+  persistSession()
   return true
 }
 
 export function clearProjectAnalysisSession(): void {
-  sessionStorage.removeItem(SESSION_KEY)
+  activeSession = false
+  try {
+    sessionStorage.removeItem(SESSION_KEY)
+  } catch {
+    /* ignore */
+  }
 }
 
 export function isProjectAnalysisPath(path: string): boolean {

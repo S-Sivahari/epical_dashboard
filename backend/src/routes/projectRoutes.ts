@@ -14,6 +14,28 @@ const checklistUpload = multer({
   limits: { fileSize: 15 * 1024 * 1024 },
 });
 
+const excelUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+      'application/octet-stream',
+    ];
+    const ext = file.originalname.toLowerCase();
+    if (
+      allowed.includes(file.mimetype) ||
+      ext.endsWith('.xlsx') ||
+      ext.endsWith('.xls')
+    ) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only Excel (.xlsx, .xls) files are allowed.'));
+    }
+  },
+});
+
 router.use(authMiddleware);
 
 router.get('/assigned/me', projectController.getAssignedForCurrentUser);
@@ -53,6 +75,14 @@ router.patch(
   employeeProjectController.updateMyTypeChecklistExtension,
 );
 router.patch('/:projectId/cells/:cellId/mine/complete', employeeProjectController.completeMyCell);
+
+router.get('/import/template', adminOnly, projectController.downloadImportTemplate);
+router.post(
+  '/import/reset',
+  adminOnly,
+  excelUpload.single('projects'),
+  projectController.importResetFromExcel,
+);
 
 router.get('/', adminOnly, projectController.getAll);
 router.get('/archived', adminOnly, projectController.getArchivedProjects);

@@ -47,20 +47,37 @@ export function getChartRange(period: ChartPeriod) {
   return { from: formatDateKey(start), to: formatDateKey(end) }
 }
 
-function hoursFromTimesheet(t: {
-  loginTime?: string
-  logoutTime?: string
-  overriddenHours?: number
-  totalHours?: number
-}) {
-  if (t.totalHours != null) return Number(t.totalHours)
+function hoursFromTimesheet(
+  t: {
+    loginTime?: string
+    logoutTime?: string
+    overriddenHours?: number
+    totalHours?: number
+    totalPausedMs?: number
+    taskStatus?: string
+  },
+  now = new Date(),
+) {
   if (t.overriddenHours != null) return Number(t.overriddenHours)
-  if (!t.loginTime || !t.logoutTime) return 0
-  return (
-    Math.round(
-      ((new Date(t.logoutTime).getTime() - new Date(t.loginTime).getTime()) / 3600000) * 10,
-    ) / 10
-  )
+  if (!t.loginTime) return 0
+
+  const login = new Date(t.loginTime)
+  let end = t.logoutTime ? new Date(t.logoutTime) : now
+
+  if (!t.logoutTime) {
+    const elapsedMs = now.getTime() - login.getTime()
+    const maxOpenMs = 16 * 60 * 60 * 1000
+    if (elapsedMs > maxOpenMs) {
+      end = new Date(login.getTime() + maxOpenMs)
+    }
+  } else if (t.totalHours != null && t.totalHours > 0) {
+    return Number(t.totalHours)
+  }
+
+  const paused = t.totalPausedMs ?? 0
+  const diffMs = end.getTime() - login.getTime() - paused
+  if (diffMs <= 0) return 0
+  return Math.round((diffMs / 3600000) * 10) / 10
 }
 
 export type ProjectContributionStatus = 'In Progress' | 'Completed' | 'Cancelled'
@@ -154,6 +171,8 @@ type DashboardTimesheet = {
   logoutTime?: string
   overriddenHours?: number
   totalHours?: number
+  totalPausedMs?: number
+  taskStatus?: string
 }
 
 export function aggregateProjectTableRows(

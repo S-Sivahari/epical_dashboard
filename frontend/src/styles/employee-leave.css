@@ -678,8 +678,8 @@
 }
 
 .emp-leave-history-toolbar .w-\[160px\] {
-  width: calc(7.5rem * var(--els));
-  min-width: calc(7.5rem * var(--els));
+  width: calc(8.5rem * var(--els));
+  min-width: calc(8.5rem * var(--els));
   height: calc(2.25rem * var(--els));
   font-size: calc(0.8125rem * var(--els));
 }
