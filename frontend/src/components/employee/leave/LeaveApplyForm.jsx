@@ -44,6 +44,8 @@ export function LeaveApplyForm({
   selectedLeaveType,
   casualBalanceRemaining,
   earnedBalanceRemaining,
+  sickBalanceRemaining,
+  requestedWorkingDays,
   isCasualSameDay,
   holidayWarning,
 }) {
@@ -175,6 +177,8 @@ export function LeaveApplyForm({
         selectedLeaveType={selectedLeaveType}
         casualBalanceRemaining={casualBalanceRemaining}
         earnedBalanceRemaining={earnedBalanceRemaining}
+        sickBalanceRemaining={sickBalanceRemaining}
+        requestedWorkingDays={requestedWorkingDays}
         isCasualSameDay={isCasualSameDay}
         holidayWarning={holidayWarning}
       />

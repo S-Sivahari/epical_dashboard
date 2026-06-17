@@ -2,7 +2,8 @@ import api from './api'
 import type { DocumentRequestRecord } from '@/types'
 import { documentDownloadFileName } from '@/utils/exportFileName'
 
-export type AdminDocumentTab = 'Requested' | 'Approved' | 'History'
+export type AdminDocumentTab = 'Requested' | 'History'
+export type AdminHistoryStatusFilter = 'Approved' | 'Rejected'
 
 export interface AdminListResponse {
   items: DocumentRequestRecord[]

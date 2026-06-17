@@ -66,16 +66,7 @@ function buildRequestColumns(onDownload, onDownloadError) {
     {
       key: 'requestedDate',
       label: 'Request date',
-      render: (row) => (
-        <div className="min-w-[6.5rem]">
-          <span className="text-muted">{row.requestedDate}</span>
-          {row.status === 'Rejected' && row.rejectionReason ? (
-            <div className="mt-1.5 max-w-[200px] rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-[11px] leading-snug text-red-900">
-              {row.rejectionReason}
-            </div>
-          ) : null}
-        </div>
-      ),
+      render: (row) => <span className="text-muted">{row.requestedDate}</span>,
     },
     { key: 'type', label: 'Document type' },
     { key: 'name', label: 'Document name' },
@@ -132,7 +123,7 @@ function mapRequestRow(row) {
       ? `Approved on ${formatDate(row.processedAt)}${row.processedBy ? ` by ${row.processedBy}` : ''}`
       : 'Approved by admin'
   } else if (row.status === 'Rejected') {
-    responseDetails = 'Rejected by admin'
+    responseDetails = row.rejectionReason?.trim() || 'Rejected by admin'
   }
 
   return {
@@ -141,7 +132,6 @@ function mapRequestRow(row) {
     name: row.documentName ?? '—',
     requestedDate: formatDate(row.requestedAt),
     status: row.status ?? 'Requested',
-    rejectionReason: row.rejectionReason ?? '',
     responseDetails,
   }
 }
