@@ -176,6 +176,42 @@ function buildProfileEditSummary(fields: string[]): string {
   return `Updated ${labels.slice(0, 3).join(', ')} and ${labels.length - 3} more`;
 }
 
+/** Optional profile strings that can be cleared by sending null or an empty value. */
+const OPTIONAL_CLEARABLE_STRING_FIELDS = [
+  'middleName',
+  'passport',
+  'aadhaar',
+  'bankName',
+  'accountNumber',
+  'ifsc',
+  'uan',
+] as const;
+
+function extractOptionalFieldUnsets(payload: Record<string, unknown>): Record<string, ''> {
+  const unset: Record<string, ''> = {};
+
+  for (const field of OPTIONAL_CLEARABLE_STRING_FIELDS) {
+    if (!(field in payload)) continue;
+    const value = payload[field];
+    if (value === null || value === undefined) {
+      unset[field] = '';
+      delete payload[field];
+      continue;
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) {
+        unset[field] = '';
+        delete payload[field];
+      } else {
+        payload[field] = trimmed;
+      }
+    }
+  }
+
+  return unset;
+}
+
 function buildActivityHistoryUpdate(entries: EmployeeActivityEntry[]): Record<string, unknown> {
   if (entries.length === 0) return {};
   return {
@@ -683,6 +719,8 @@ export async function updateEmployee(
     });
   }
 
+  const unsetFields = extractOptionalFieldUnsets(cleanPayload as Record<string, unknown>);
+
   const updateData = {
     ...cleanPayload,
     updatedAt: now,
@@ -691,6 +729,7 @@ export async function updateEmployee(
   const historyUpdate = buildActivityHistoryUpdate(historyEntries);
   const updateDoc = {
     $set: updateData,
+    ...(Object.keys(unsetFields).length > 0 ? { $unset: unsetFields } : {}),
     ...historyUpdate,
   };
 
