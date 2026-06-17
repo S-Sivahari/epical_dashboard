@@ -129,7 +129,12 @@ export async function fetchExternalNews(
   return data
 }
 
-export async function importExternalNews(items: ExternalNewsItem[]): Promise<NewsItem[]> {
-  const { data } = await api.post<NewsItem[]>('/news/import', { items })
+export async function importExternalNews(
+  items: ExternalNewsItem[],
+  defaultDate?: string
+): Promise<NewsItem[]> {
+  const body: { items: ExternalNewsItem[]; defaultDate?: string } = { items }
+  if (defaultDate?.trim()) body.defaultDate = defaultDate.trim()
+  const { data } = await api.post<NewsItem[]>('/news/import', body)
   return data
 }

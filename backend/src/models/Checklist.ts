@@ -28,7 +28,7 @@ const checklistSchema = new Schema<ChecklistDocument>(
   {
     name: { type: String, required: true, trim: true },
     description: { type: String, default: '', trim: true },
-    cellType: { type: String, enum: ['block', 'IOP', 'ESD', 'TOP'] },
+    cellType: { type: String, enum: ['block', 'IO', 'ESD', 'TOP'] },
     items: { type: [checklistItemSchema], default: [] },
     createdBy: { type: String },
   },

@@ -21,26 +21,63 @@ function InlineAlert({ children, tone = 'amber' }) {
   )
 }
 
+function formatSplitMessage(paid, lop, leaveLabel) {
+  if (lop <= 0) return null
+  if (paid <= 0) {
+    return (
+      <>
+        This request will be recorded entirely as <strong>LOP</strong> ({lop} day
+        {lop === 1 ? '' : 's'}) and will not use your {leaveLabel} balance.
+      </>
+    )
+  }
+  return (
+    <>
+      {paid} day{paid === 1 ? '' : 's'} will use {leaveLabel}; {lop} day
+      {lop === 1 ? '' : 's'} will be recorded as <strong>LOP</strong>.
+    </>
+  )
+}
+
 export function LeaveFormAlerts({
   showLopNotice,
   selectedLeaveType,
   casualBalanceRemaining,
+  sickBalanceRemaining,
   earnedBalanceRemaining,
   isCasualSameDay,
   holidayWarning,
+  requestedWorkingDays,
 }) {
+  const requestedDays = Number(requestedWorkingDays)
+  const hasRequestedDays = Number.isFinite(requestedDays) && requestedDays > 0
+
+  const casualPaid =
+    selectedLeaveType === 'Casual Leave' && hasRequestedDays
+      ? isCasualSameDay
+        ? 0
+        : Math.min(requestedDays, Math.max(0, casualBalanceRemaining))
+      : 0
+  const casualLop =
+    selectedLeaveType === 'Casual Leave' && hasRequestedDays
+      ? Math.max(0, requestedDays - casualPaid)
+      : 0
+
+  const sickPaid =
+    selectedLeaveType === 'Sick Leave' && hasRequestedDays
+      ? Math.min(requestedDays, Math.max(0, sickBalanceRemaining))
+      : 0
+  const sickLop =
+    selectedLeaveType === 'Sick Leave' && hasRequestedDays
+      ? Math.max(0, requestedDays - sickPaid)
+      : 0
+
   return (
     <div className="flex flex-col gap-2">
       {showLopNotice ? (
         <InlineAlert tone="red">
           This request will be recorded as <strong>LOP (Loss of Pay)</strong> and added to your LOP
           count.
-        </InlineAlert>
-      ) : null}
-
-      {selectedLeaveType === 'Casual Leave' && casualBalanceRemaining <= 0 ? (
-        <InlineAlert>
-          Your casual leave balance is used up. Select <strong>LOP</strong> to apply unpaid leave.
         </InlineAlert>
       ) : null}
 
@@ -53,15 +90,23 @@ export function LeaveFormAlerts({
       {selectedLeaveType === 'Casual Leave' && casualBalanceRemaining > 0 && !isCasualSameDay ? (
         <p className="text-xs leading-relaxed text-muted">
           {casualBalanceRemaining} casual day{casualBalanceRemaining === 1 ? '' : 's'} left this
-          month. Apply before your leave date. If you need more days, submit separate casual and LOP
-          requests.
+          month. Apply before your leave date for paid casual leave.
         </p>
       ) : null}
 
       {selectedLeaveType === 'Casual Leave' && isCasualSameDay ? (
         <InlineAlert>
-          Same-day leave cannot be casual. Select <strong>LOP</strong> instead.
+          Same-day casual leave is treated entirely as <strong>LOP</strong> and will not deduct from
+          your casual balance.
         </InlineAlert>
+      ) : null}
+
+      {selectedLeaveType === 'Casual Leave' && casualLop > 0 && !isCasualSameDay ? (
+        <InlineAlert>{formatSplitMessage(casualPaid, casualLop, 'Casual Leave')}</InlineAlert>
+      ) : null}
+
+      {selectedLeaveType === 'Sick Leave' && sickLop > 0 ? (
+        <InlineAlert>{formatSplitMessage(sickPaid, sickLop, 'Sick Leave')}</InlineAlert>
       ) : null}
 
       {holidayWarning ? <InlineAlert>{holidayWarning}</InlineAlert> : null}

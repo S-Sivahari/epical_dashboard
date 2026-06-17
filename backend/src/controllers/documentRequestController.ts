@@ -68,7 +68,9 @@ export const documentRequestController = {
 
       let result;
       if (mode === 'history') {
-        result = await svc.listHistory({ page, limit });
+        const historyStatus: 'Approved' | 'Rejected' | undefined =
+          status === 'Approved' || status === 'Rejected' ? status : undefined;
+        result = await svc.listHistory({ page, limit, status: historyStatus });
       } else if (status && ['Requested', 'Approved', 'Rejected'].includes(status)) {
         result = await svc.listForAdmin({ status: status as DocumentRequestStatus, page, limit });
       } else {

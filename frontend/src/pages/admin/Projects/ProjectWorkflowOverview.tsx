@@ -7,6 +7,7 @@ import {
   STATUS_LABELS,
   WORKFLOW_STATUS_LABELS,
   cellCompletionProgressPercent,
+  cellTypeLabel,
   normalizeCellWorkflow,
   projectCellProgressPercent,
   workflowStageStatusClass,
@@ -77,7 +78,7 @@ export function ProjectWorkflowOverview({
                   </Link>
                 </td>
                 <td>{libraryNameById.get(cell.libraryId) || '—'}</td>
-                <td>{CELL_TYPE_LABELS[cell.cellType] ?? cell.cellType}</td>
+                <td>{cellTypeLabel(cell.cellType)}</td>
                 <td>
                   <div className="admin-projects-workflow-overview-progress">
                     <div className="admin-projects-workflow-compact-bar" aria-hidden>

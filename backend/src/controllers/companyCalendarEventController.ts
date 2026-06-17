@@ -50,10 +50,11 @@ export const companyCalendarEventController = {
 
   create: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { title, date, time } = req.body as {
+      const { title, date, time, description } = req.body as {
         title?: string;
         date?: string;
         time?: string;
+        description?: string;
       };
       if (!title?.trim() || !date?.trim()) {
         res.status(400).json({ error: 'title and date are required' });
@@ -63,6 +64,7 @@ export const companyCalendarEventController = {
         title: title.trim(),
         date: date.trim(),
         time: time?.trim() || undefined,
+        description: typeof description === 'string' ? description.trim() || undefined : undefined,
       });
 
       const adminPayload = {
@@ -102,10 +104,11 @@ export const companyCalendarEventController = {
         res.status(400).json({ error: 'Missing event id' });
         return;
       }
-      const { title, date, time } = req.body as {
+      const { title, date, time, description } = req.body as {
         title?: string;
         date?: string;
         time?: string;
+        description?: string;
       };
       const existing = await companyCalendarEventService.getCompanyCalendarEventById(id);
       if (!existing) {
@@ -125,6 +128,7 @@ export const companyCalendarEventController = {
         title: title?.trim(),
         date: date?.trim(),
         time: time?.trim(),
+        description: typeof description === 'string' ? description.trim() : undefined,
       };
       const changed = calendarEventChanged(existing, updatePayload);
       const event = await companyCalendarEventService.updateCompanyCalendarEvent(id, updatePayload);

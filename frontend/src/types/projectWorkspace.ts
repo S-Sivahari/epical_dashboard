@@ -1,4 +1,4 @@
-export const CELL_TYPES = ['block', 'IOP', 'ESD', 'TOP'] as const
+export const CELL_TYPES = ['block', 'IO', 'ESD', 'TOP'] as const
 
 export const CELL_STATUSES = ['ready', 'in_progress', 'completed'] as const
 
@@ -103,6 +103,8 @@ export interface CellWorkflowStage {
   updatedAt?: string
 }
 
+export type ProjectAnalysisStatus = 'Not Started' | 'In Progress' | 'Completed'
+
 export interface AdminProjectRow {
   id: string
   name: string
@@ -112,6 +114,8 @@ export interface AdminProjectRow {
   status: string
   teamLead?: string
   completionPercentage?: number
+  analysisStatus?: ProjectAnalysisStatus
+  analysisStatusKey?: 'not_started' | 'in_progress' | 'completed'
   checklistName?: string
   checklistStatus?: 'Applied' | 'Partial' | 'Not Applied'
   checklistCompletionPercentage?: number

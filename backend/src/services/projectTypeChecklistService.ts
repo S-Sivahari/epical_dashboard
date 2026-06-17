@@ -22,8 +22,10 @@ export interface ParsedChecklistItem {
 
 export function normalizeCellType(value: string): CellType {
   const trimmed = String(value || '').trim();
+  const lowered = trimmed.toLowerCase();
+  if (lowered === 'io' || lowered === 'iop') return 'IO';
   if ((CELL_TYPES as readonly string[]).includes(trimmed)) return trimmed as CellType;
-  const match = CELL_TYPES.find((type) => type.toLowerCase() === trimmed.toLowerCase());
+  const match = CELL_TYPES.find((type) => type.toLowerCase() === lowered);
   return (match ?? 'block') as CellType;
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -109,10 +109,10 @@ const historyColumns = [
     key: 'createdAt',
     label: 'Applied',
     render: (row) => (
-      <div className="min-w-[6.5rem]">
+      <div className="emp-leave-history-applied mx-auto w-full min-w-0 max-w-full">
         <span>{formatAppliedDate(row.createdAt)}</span>
         {row.recordKind === 'compensation' && row.reason ? (
-          <div className="emp-leave-history-note mt-1.5 max-w-[200px] rounded-md border border-border bg-slate-50 px-2 py-1.5 text-[11px] leading-snug">
+          <div className="emp-leave-history-note mt-1.5 w-full max-w-full rounded-md border border-border bg-slate-50 px-2 py-1.5 text-[11px] leading-snug">
             {row.reason}
           </div>
         ) : null}
@@ -123,16 +123,18 @@ const historyColumns = [
     key: 'status',
     label: 'Status',
     render: (row) => (
-      <div className="min-w-[8rem]">
-        <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
+      <div className="emp-leave-history-status mx-auto w-full min-w-0 max-w-full">
+        <div className="flex justify-center">
+          <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
+        </div>
         {row.status === 'Rejected' ? (
-          <div className="emp-leave-history-note mt-1.5 max-w-[240px] rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-[11px] leading-snug text-red-900">
+          <div className="emp-leave-history-note emp-leave-history-note--rejected mt-1.5 w-full max-w-full rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-[11px] leading-snug text-red-900">
             <span className="font-semibold">Reason: </span>
             {row.rejectionReason?.trim() || 'No reason provided'}
           </div>
         ) : null}
         {row.status === 'Cancelled' && row.cancelReason ? (
-          <div className="emp-leave-history-note mt-1.5 max-w-[240px] rounded-md border border-border bg-slate-50 px-2 py-1.5 text-[11px] leading-snug">
+          <div className="emp-leave-history-note mt-1.5 w-full max-w-full rounded-md border border-border bg-slate-50 px-2 py-1.5 text-[11px] leading-snug">
             <span className="font-semibold">Note: </span>
             {row.cancelReason}
           </div>
@@ -163,7 +165,7 @@ export default function LeaveRequest() {
     reason: '',
   }
 
-  const { control, register, handleSubmit, setValue, watch, reset, setError, clearErrors, formState: { errors, isSubmitting } } = useForm({
+  const { control, register, handleSubmit, setValue, watch, reset, setError, clearErrors, trigger, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(leaveSchema),
     defaultValues: leaveFormDefaults,
   })
@@ -213,7 +215,10 @@ export default function LeaveRequest() {
             typeof r.from === 'string' &&
             r.from.startsWith(monthPrefix),
         )
-        .reduce((sum, r) => sum + (Number(r.days) || 0), 0),
+        .reduce((sum, r) => {
+          const lop = Number(r.lopDays ?? 0) || 0
+          return sum + Math.max(0, (Number(r.days) || 0) - lop)
+        }, 0),
     [requests, monthPrefix],
   )
 
@@ -270,11 +275,10 @@ export default function LeaveRequest() {
   const availableLeaveTypes = useMemo(
     () =>
       leaveTypes.filter((t) => {
-        if (t === 'Sick Leave') return sickBalanceRemaining > 0
         if (t === 'Compensation Leave') return compensationBalanceRemaining > 0
         return true
       }),
-    [sickBalanceRemaining, compensationBalanceRemaining],
+    [compensationBalanceRemaining],
   )
 
   const casualBalanceRemaining = useMemo(() => {
@@ -288,7 +292,10 @@ export default function LeaveRequest() {
           typeof r.from === 'string' &&
           r.from.startsWith(monthPrefix),
       )
-      .reduce((sum, r) => sum + (Number(r.days) || 0), 0)
+      .reduce((sum, r) => {
+        const lop = Number(r.lopDays ?? 0) || 0
+        return sum + Math.max(0, (Number(r.days) || 0) - lop)
+      }, 0)
     const remaining = casual.remaining ?? Math.max(0, casual.total - casual.used)
     return Math.max(0, remaining - pendingCasual)
   }, [leaveBalances, requests, monthPrefix])
@@ -298,10 +305,9 @@ export default function LeaveRequest() {
 
   const showLopNotice = selectedLeaveType === 'LOP'
 
-  const [conflictMessage, setConflictMessage] = useState('')
-  const [holidayWarning, setHolidayWarning] = useState('')
-
   const [cancellingId, setCancellingId] = useState(null)
+  const [holidayWarning, setHolidayWarning] = useState('')
+  const overlapErrorActiveRef = useRef(false)
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false)
   const [leaveToCancel, setLeaveToCancel] = useState(null)
   const [exceedDialogOpen, setExceedDialogOpen] = useState(false)
@@ -411,37 +417,15 @@ export default function LeaveRequest() {
   }, [fetchRequests])
 
   useEffect(() => {
-    if (selectedLeaveType === 'Sick Leave' && sickBalanceRemaining <= 0) {
-      setValue('type', '', { shouldValidate: true })
-    }
     if (selectedLeaveType === 'Compensation Leave' && compensationBalanceRemaining <= 0) {
       setValue('type', '', { shouldValidate: true })
     }
-  }, [selectedLeaveType, sickBalanceRemaining, compensationBalanceRemaining, setValue])
+  }, [selectedLeaveType, compensationBalanceRemaining, setValue])
 
   const getLeaveBalanceError = (data) => {
     const requestedDays = getRequestedLeaveDays(data.leaveDuration, data.fromDate, data.toDate, holidays)
     if (requestedDays <= 0) {
       return 'Selected dates have no working days. Adjust your dates or choose a working day for half-day leave.'
-    }
-
-    if (data.type === 'Casual Leave') {
-      if (isCasualSameDayLeave(data.fromDate)) {
-        return 'Casual leave must be applied before your leave date. Please submit same-day leave as LOP.'
-      }
-      if (casualBalanceRemaining <= 0) {
-        return 'Your casual leave balance is used up for this month. Please apply as LOP instead.'
-      }
-      if (requestedDays > casualBalanceRemaining) {
-        const paid = casualBalanceRemaining
-        const excess = requestedDays - paid
-        return (
-          `Your request is for ${requestedDays} working day${requestedDays === 1 ? '' : 's'} but only ${paid} casual day${paid === 1 ? '' : 's'} ${paid === 1 ? 'is' : 'are'} left this month.\n\n` +
-          `Please submit separate requests:\n` +
-          `• ${paid} day${paid === 1 ? '' : 's'} as Casual Leave\n` +
-          `• ${excess} day${excess === 1 ? '' : 's'} as LOP`
-        )
-      }
     }
 
     if (data.type === 'Earned Leave') {
@@ -454,10 +438,6 @@ export default function LeaveRequest() {
           `Please submit separate requests for earned leave and LOP.`
         )
       }
-    }
-
-    if (data.type === 'Sick Leave' && requestedDays > sickBalanceRemaining) {
-      return `Insufficient sick leave balance. You have ${sickBalanceRemaining} day${sickBalanceRemaining === 1 ? '' : 's'} left.`
     }
 
     if (data.type === 'Compensation Leave' && requestedDays > compensationBalanceRemaining) {
@@ -475,8 +455,16 @@ export default function LeaveRequest() {
 
   useEffect(() => {
     const conflict = validateLeaveConflict()
-    setConflictMessage(conflict.message)
-  }, [fromDate, toDate, leaveDuration, halfDaySession, requests, user])
+    if (conflict.message) {
+      overlapErrorActiveRef.current = true
+      setError('toDate', { type: 'overlap', message: conflict.message })
+      clearErrors('fromDate')
+    } else if (overlapErrorActiveRef.current) {
+      overlapErrorActiveRef.current = false
+      clearErrors('toDate')
+      void trigger('toDate')
+    }
+  }, [fromDate, toDate, leaveDuration, halfDaySession, requests, user, leaveOwnerIds, setError, clearErrors, trigger])
 
   const requestedWorkingDays = useMemo(() => {
     if (!fromDate || !toDate) return null
@@ -638,9 +626,8 @@ export default function LeaveRequest() {
 
     const conflict = validateLeaveConflict()
     if (conflict.message) {
-      conflict.fields.forEach((field) => {
-        setError(field, { type: 'manual', message: conflict.message })
-      })
+      setError('toDate', { type: 'overlap', message: conflict.message })
+      clearErrors('fromDate')
       toast({ title: 'Validation error', description: conflict.message })
       return
     }
@@ -655,7 +642,7 @@ export default function LeaveRequest() {
     }
 
     try {
-      await addRequest({
+      const created = await addRequest({
         employeeId: resolvedEmployeeId,
         employeeName: resolvedEmployeeName,
         type: data.type,
@@ -665,7 +652,16 @@ export default function LeaveRequest() {
         to: data.toDate,
         reason: data.reason.trim(),
       })
-      toast({ title: 'Success', description: 'Leave request submitted successfully!' })
+      const lopDays = Number(created?.lopDays ?? 0) || 0
+      const paidDays = Math.max(0, (Number(created?.days) || 0) - lopDays)
+      let description = 'Leave request submitted successfully!'
+      if (lopDays > 0 && data.type !== 'LOP') {
+        description =
+          paidDays > 0
+            ? `Submitted: ${paidDays} day${paidDays === 1 ? '' : 's'} from ${data.type}, ${lopDays} day${lopDays === 1 ? '' : 's'} as LOP.`
+            : `Submitted as LOP (${lopDays} day${lopDays === 1 ? '' : 's'}).`
+      }
+      toast({ title: 'Success', description })
       clearDraft()
       reset(leaveFormDefaults)
       
@@ -702,6 +698,8 @@ export default function LeaveRequest() {
               selectedLeaveType={selectedLeaveType}
               casualBalanceRemaining={casualBalanceRemaining}
               earnedBalanceRemaining={earnedBalanceRemaining}
+              sickBalanceRemaining={sickBalanceRemaining}
+              requestedWorkingDays={requestedWorkingDays}
               isCasualSameDay={isCasualSameDay}
               holidayWarning={holidayWarning}
             />

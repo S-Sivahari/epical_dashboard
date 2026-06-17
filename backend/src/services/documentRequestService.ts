@@ -249,12 +249,15 @@ export async function listForAdmin(filters: {
   };
 }
 
-/** History tab: Approved + Rejected chronological */
+/** History tab: Approved + Rejected chronological, optionally filtered by status */
 export async function listHistory(filters: {
   page: number;
   limit: number;
+  status?: Extract<DocumentRequestStatus, 'Approved' | 'Rejected'>;
 }): Promise<{ items: DocumentRequestDoc[]; total: number }> {
-  const query = { status: { $in: ['Approved', 'Rejected'] } as const };
+  const query: Record<string, unknown> = filters.status
+    ? { status: filters.status }
+    : { status: { $in: ['Approved', 'Rejected'] } };
   const total = await getCol().countDocuments(query);
   const skip = Math.max(0, (filters.page - 1) * filters.limit);
   const items = await getCol()

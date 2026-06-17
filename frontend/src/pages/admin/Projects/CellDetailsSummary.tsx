@@ -1,4 +1,4 @@
-import { CELL_TYPE_LABELS } from './projectWorkspaceUi'
+import { cellTypeLabel } from './projectWorkspaceUi'
 
 type CellDetailsSummaryProps = {
   cell: {
@@ -34,8 +34,7 @@ export function CellDetailsSummary({
   libraryName,
   variant = 'admin',
 }: CellDetailsSummaryProps) {
-  const cellType = cell.cellType || 'block'
-  const typeLabel = CELL_TYPE_LABELS[cellType as keyof typeof CELL_TYPE_LABELS] ?? cellType
+  const typeLabel = cellTypeLabel(cell.cellType || 'block')
   const description = cell.description?.trim()
   const styles = DETAILS_CLASS[variant]
 

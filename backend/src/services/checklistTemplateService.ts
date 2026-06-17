@@ -14,6 +14,7 @@ function escapeRegex(value: string): string {
 function formatCellTypeLabel(cellType: string): string {
   const labels: Record<string, string> = {
     block: 'BLOCK',
+    IO: 'IO',
     IOP: 'IO',
     ESD: 'ESD',
     TOP: 'TOP',

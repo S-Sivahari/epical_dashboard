@@ -44,6 +44,8 @@ export function LeaveApplyForm({
   selectedLeaveType,
   casualBalanceRemaining,
   earnedBalanceRemaining,
+  sickBalanceRemaining,
+  requestedWorkingDays,
   isCasualSameDay,
   holidayWarning,
 }) {
@@ -96,7 +98,7 @@ export function LeaveApplyForm({
           </Select>
         </FormField>
 
-        <FormField label="From Date" required error={errors.fromDate?.message}>
+        <FormField label="From Date" required>
           <Controller
             name="fromDate"
             control={control}
@@ -113,7 +115,7 @@ export function LeaveApplyForm({
           />
         </FormField>
 
-        <FormField label="To Date" required error={errors.toDate?.message}>
+        <FormField label="To Date" required>
           <Controller
             name="toDate"
             control={control}
@@ -175,6 +177,8 @@ export function LeaveApplyForm({
         selectedLeaveType={selectedLeaveType}
         casualBalanceRemaining={casualBalanceRemaining}
         earnedBalanceRemaining={earnedBalanceRemaining}
+        sickBalanceRemaining={sickBalanceRemaining}
+        requestedWorkingDays={requestedWorkingDays}
         isCasualSameDay={isCasualSameDay}
         holidayWarning={holidayWarning}
       />

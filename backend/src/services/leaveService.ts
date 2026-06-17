@@ -13,7 +13,7 @@ import {
   calculateBalances,
   calculateMonthlyLopSummary,
   computeCasualLeaveLopForRequest,
-  isCasualSameDayLeave,
+  computeSickLeaveLopForRequest,
   LOP_LEAVE_TYPE,
   leaveMonth,
   LEAVE_ALLOCATIONS,
@@ -216,19 +216,14 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
   if (payload.type === LOP_LEAVE_TYPE) {
     lopDays = requestedDays;
   } else if (payload.type === 'Sick Leave') {
-    const pendingSick = sumPendingLeaveDays(employeeLeaves, 'Sick Leave');
-    const availableSick = (leaveBalance?.remaining ?? 0) - pendingSick;
-    if (availableSick < requestedDays) {
-      throw new Error(
-        `Insufficient Sick Leave balance. Remaining: ${Math.max(0, availableSick)}, Requested: ${requestedDays}`,
-      );
-    }
+    const split = computeSickLeaveLopForRequest(
+      requestedDays,
+      employeeLeaves,
+      employeeDoc?.joinedAt as string | undefined,
+      balanceOptions,
+    );
+    lopDays = split.lopDays;
   } else if (payload.type === 'Casual Leave') {
-    if (isCasualSameDayLeave(payload.from)) {
-      throw new Error(
-        'Casual leave must be applied before your leave date. Please submit same-day leave as LOP.',
-      );
-    }
     const split = computeCasualLeaveLopForRequest(
       requestedDays,
       employeeLeaves,
@@ -237,19 +232,7 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
       undefined,
       payload.from,
     );
-    if (split.lopDays > 0) {
-      const paid = split.paidDays;
-      const excess = split.lopDays;
-      if (paid <= 0) {
-        throw new Error(
-          'Your casual leave balance is used up for this month. Please apply as LOP instead.',
-        );
-      }
-      throw new Error(
-        `Your request is for ${requestedDays} day${requestedDays === 1 ? '' : 's'} but only ${paid} casual day${paid === 1 ? '' : 's'} ${paid === 1 ? 'is' : 'are'} available. ` +
-          `Please apply for ${paid} casual day${paid === 1 ? '' : 's'} and ${excess} LOP day${excess === 1 ? '' : 's'} as separate requests.`,
-      );
-    }
+    lopDays = split.lopDays;
   } else if (leaveBalance && leaveBalance.remaining < requestedDays) {
     const pendingSameType = sumPendingLeaveDays(
       employeeLeaves,
@@ -556,15 +539,14 @@ export async function updateLeaveStatus(
     );
 
     if (leave.type === 'Sick Leave') {
-      const pendingSick = sumPendingLeaveDays(employeeLeaves, 'Sick Leave', undefined, leave.id);
-      const sickBalance = balances['Sick Leave'];
-      const availableSick = (sickBalance?.remaining ?? 0) - pendingSick;
-      if (availableSick < leave.days) {
-        throw new Error(
-          `Cannot approve: Insufficient Sick Leave balance. ` +
-          `Remaining: ${Math.max(0, availableSick)}, Requested: ${leave.days}`,
-        );
-      }
+      const split = computeSickLeaveLopForRequest(
+        leave.days,
+        employeeLeaves,
+        (employeeDoc as Employee | null)?.joinedAt as string | undefined,
+        balanceOptions,
+        leave.id,
+      );
+      updateDoc.lopDays = split.lopDays;
     } else if (leave.type === LOP_LEAVE_TYPE) {
       updateDoc.lopDays = leave.days;
     } else if (leave.type === 'Casual Leave') {
@@ -576,12 +558,7 @@ export async function updateLeaveStatus(
         leave.id,
         leave.from,
       );
-      if (split.lopDays > 0) {
-        throw new Error(
-          `Cannot approve: only ${split.paidDays} casual day${split.paidDays === 1 ? '' : 's'} available. ` +
-            `Employee must submit separate casual and LOP requests.`,
-        );
-      }
+      updateDoc.lopDays = split.lopDays;
     } else {
       const balanceKey = resolveLeaveBalanceKey(leave.type);
       const leaveBalance = balances[balanceKey];

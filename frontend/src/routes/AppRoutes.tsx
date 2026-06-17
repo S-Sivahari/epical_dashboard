@@ -10,12 +10,7 @@ import { EmployeeLayout } from '@layouts/EmployeeLayout'
 
 import { ProtectedRoute } from '@routes/ProtectedRoute'
 import { useAuthStore } from '@store/authStore'
-
-// ── Auth ──────────────────────────────────────────────────────
-const LoginPage = lazy(async () => {
-  const m = await import('@pages/auth/LoginPage')
-  return { default: m.LoginPage }
-})
+import { LoginPage } from '@pages/auth/LoginPage'
 
 // ── Admin Pages ───────────────────────────────────────────────
 const DashboardHome = lazy(async () => {
@@ -231,6 +226,22 @@ function RootRedirect() {
   )
 }
 
+function AuthLoginRoute() {
+  const isHydrated = useAuthStore((s) => s.isHydrated)
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const role = useAuthStore((s) => s.role)
+
+  if (!isHydrated) {
+    return <PageLoading />
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to={role === 'admin' ? '/admin' : '/employee'} replace />
+  }
+
+  return <LoginPage />
+}
+
 // ── App Routes ────────────────────────────────────────────────
 export function AppRoutes() {
   return (
@@ -243,7 +254,7 @@ export function AppRoutes() {
 
         {/* Auth */}
         <Route path="/auth" element={<AuthLayout />}>
-          <Route path="login" element={<LoginPage />} />
+          <Route path="login" element={<AuthLoginRoute />} />
         </Route>
 
         {/* Admin */}

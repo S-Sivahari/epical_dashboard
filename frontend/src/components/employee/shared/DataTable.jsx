@@ -24,7 +24,7 @@ export function DataTable({
     <div
       data-portal-card=""
       className={cn(
-        portalCardClass({ className: 'w-full max-w-full rounded-lg bg-background/40 shadow-none' }),
+        portalCardClass({ className: 'w-full max-w-full min-w-0 rounded-lg bg-background/40 shadow-none' }),
         stickyHeader && 'overflow-visible',
       )}
     >

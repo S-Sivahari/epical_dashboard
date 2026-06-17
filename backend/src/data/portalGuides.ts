@@ -1,0 +1,298 @@
+export type PortalGuideSection = {
+  key: string
+  title: string
+  summary: string
+  linkTo: string
+  linkLabel: string
+  steps: string[]
+  notes?: string[]
+}
+
+export const adminPortalGuideSections: PortalGuideSection[] = [
+  {
+    key: 'dashboard',
+    title: 'Dashboard',
+    summary: 'Overview, pending approvals queue, activity, and company news.',
+    linkTo: '/admin',
+    linkLabel: 'Dashboard',
+    steps: [
+      'Open Dashboard from the top navigation.',
+      'Review KPIs and charts on the left — headcount, attendance, leave trends.',
+      'Use the Pending approvals queue on the right to approve or reject leave and document requests.',
+      'Rejecting always requires a reason; the employee sees it in their portal.',
+      'Scroll activity and news panels for recent changes across the company.',
+    ],
+  },
+  {
+    key: 'leaves',
+    title: 'Leave management',
+    summary: 'Approve, reject, revoke, and manage compensation credits.',
+    linkTo: '/admin/leaves',
+    linkLabel: 'Manage Leaves',
+    steps: [
+      'Leave Requests tab shows Pending, Approved, and Rejected for the current month.',
+      'Pending — approve or reject (reason required). Employee applications appear here immediately.',
+      'Approved — revoke with reason if plans change; revoked leaves move to Rejected and balance is restored.',
+      'Rejected — includes both rejected applications and revoked approved leaves for the month.',
+      'Approved column (left) lists all approved leaves in the month; Recent Activity shows applies, approvals, rejections, and employee cancellations.',
+      'Compensation tab — credit compensation leave days to employees; they can use them once credited.',
+    ],
+    notes: [
+      'You cannot revoke approved leave that has already ended (past end date).',
+      'Employee-cancelled pending requests appear in Recent Activity, not in the status tabs.',
+    ],
+  },
+  {
+    key: 'employees',
+    title: 'Employees',
+    summary: 'Add, edit, and view employee profiles and leave allocations.',
+    linkTo: '/admin/employees',
+    linkLabel: 'Manage Employees',
+    steps: [
+      'Browse the employee list and open a profile for full details.',
+      'Add Employee to onboard someone new — set join date for earned-leave accrual.',
+      'Edit employee to update role, contact, photo, and optional per-person leave allotments.',
+      'From an employee profile or leave hub, open leave summary to see balances and history.',
+    ],
+  },
+  {
+    key: 'projects',
+    title: 'Projects & timesheets',
+    summary: 'Projects, task assignment, and timesheet review.',
+    linkTo: '/admin/projects',
+    linkLabel: 'Projects',
+    steps: [
+      'Create and manage projects; assign employees to tasks.',
+      'Employees check in on assigned tasks from their Timesheet page.',
+      'Review submitted sessions, approvals, and analytics from the Projects hub.',
+    ],
+  },
+  {
+    key: 'documents',
+    title: 'Document requests',
+    summary: 'Fulfill employee document requests and upload files.',
+    linkTo: '/admin/documents',
+    linkLabel: 'Documents',
+    steps: [
+      'Open Requested to review pending employee document requests.',
+      'Upload the fulfillment file before approving a request.',
+      'Approve or reject with a reason; the employee sees rejection reasons in their portal.',
+      'Use History to browse past requests; filter by Approved or Rejected and download fulfilled files.',
+    ],
+  },
+  {
+    key: 'payslips',
+    title: 'Payslips',
+    summary: 'Upload and publish payslip batches for employees.',
+    linkTo: '/admin/payslips',
+    linkLabel: 'Payslips',
+    steps: [
+      'Create or open a payslip batch for a pay period.',
+      'Upload PDFs per employee and publish when ready.',
+      'Employees download payslips from their Documents page after publication.',
+    ],
+  },
+  {
+    key: 'calendar',
+    title: 'Company calendar',
+    summary: 'Holidays and company events visible to everyone.',
+    linkTo: '/admin/calendar',
+    linkLabel: 'Calendar',
+    steps: [
+      'Add national, company, or optional holidays.',
+      'Add company events with date and optional time.',
+      'Skip a holiday when it is a working day for your team.',
+      'Employees see the same calendar when planning leave.',
+    ],
+  },
+  {
+    key: 'tickets',
+    title: 'Tickets',
+    summary: 'Employee support tickets and status updates.',
+    linkTo: '/admin/tickets',
+    linkLabel: 'Tickets',
+    steps: [
+      'View open tickets in the kanban board.',
+      'Open a ticket to review the employee description and update status.',
+      'Move tickets between Pending, In Progress, and Completed as work progresses.',
+      'Delete a ticket only when it should be permanently removed from the system.',
+    ],
+  },
+  {
+    key: 'news',
+    title: 'Company news',
+    summary: 'Announcements shown on employee and admin dashboards.',
+    linkTo: '/admin/news',
+    linkLabel: 'News',
+    steps: [
+      'Publish news items with title, body, and optional image.',
+      'Active items appear in the dashboard marquee and news panels.',
+    ],
+  },
+]
+
+export const employeePortalGuideSections: PortalGuideSection[] = [
+  {
+    key: 'dashboard',
+    title: 'Dashboard',
+    summary: 'Your home view — profile, leave snapshot, projects, news, and quick links.',
+    linkTo: '/employee',
+    linkLabel: 'Dashboard',
+    steps: [
+      'Open Dashboard from the top navigation (first item).',
+      'Review your profile card, leave balance summary, and KPIs such as monthly hours and assigned projects.',
+      'Check announcements and upcoming holidays without leaving the page.',
+      'Use the quick links on each card to jump to Leave, Timesheet, Documents, or other sections.',
+    ],
+  },
+  {
+    key: 'timesheet',
+    title: 'Timesheet & attendance',
+    summary: 'Check in, log work on assigned tasks, pause or resume, and check out for the day.',
+    linkTo: '/employee/timesheet',
+    linkLabel: 'Timesheet',
+    steps: [
+      'Go to Timesheet and select an assigned project task from the dropdown (tasks come from projects assigned to you).',
+      'Add an optional work note, then tap Check In — the timer starts for that task.',
+      'While checked in you can Pause or Resume the active task, or switch work by completing the current session first.',
+      'Tap Check Out, review your summary note, and confirm — your session is saved for admin review.',
+      'Scroll to Session History and use the date filter to see past entries and project-wise hours.',
+    ],
+    notes: [
+      'You must pick a task before check-in. If you have no assigned tasks, ask your manager or admin to assign work on a project.',
+      'Only one active check-in per day is expected; complete checkout before ending your workday.',
+    ],
+  },
+  {
+    key: 'apply-leave',
+    title: 'Apply for leave',
+    summary: 'Request Casual, Sick, Earned, Compensation, or LOP — full day or half day.',
+    linkTo: '/employee/leave',
+    linkLabel: 'Leave Request',
+    steps: [
+      'Open Leave Request and check your balance tiles at the top.',
+      'In Apply for leave, choose type, reason, duration, and dates. Half-day must be a single working day with First or Second half selected.',
+      'Enter a reason (required) and submit. The request appears under Pending requests until admin approves or rejects it.',
+      'You can cancel a pending request from the Pending table if your plans change (no reason required).',
+      'Approved, rejected, and cancelled leave show in Leave history; rejection may include a reason from admin.',
+    ],
+    notes: [
+      'Only working days count — weekends and company holidays in the range are excluded automatically.',
+      'Dates must be today or within the allowed booking window shown on the form (up to 45 days ahead).',
+      'Casual leave must be applied before your leave date; same-day leave must be submitted as LOP.',
+    ],
+  },
+  {
+    key: 'leave-balances',
+    title: 'Leave balances & when leave is blocked',
+    summary: 'How balances work, pending days, and what happens if you have no leave left.',
+    linkTo: '/employee/leave',
+    linkLabel: 'Leave Request',
+    steps: [
+      'Each type shows used and left (LOP shows count only). Pending is leave you applied for but admin has not approved yet.',
+      'When you submit, the system compares remaining balance to the business days you requested (0.5 for half-day).',
+      'If remaining is less than requested days, submission fails with an insufficient balance message — the request is not created.',
+      'If admin approves but your balance was used up by other approvals in the meantime, approval can fail; your status may stay Pending or become Rejected with a reason.',
+      'Casual and Sick leave usage is counted for the current calendar month; balances refresh at the start of each month.',
+      'Earned leave is tracked for the calendar year (0.5 days per month). Compensation leave comes from admin credits.',
+    ],
+    notes: [
+      'Applying when balance is zero: sick and compensation types are hidden; casual and earned stay visible but cannot be submitted — use LOP. If requested days exceed casual or earned balance, submit separate casual/earned and LOP requests.',
+      'Pending days do not reduce your left count until approved, but pending sick days are reserved when you apply.',
+      'Compensation credits from admin appear in your Compensation balance on the same page.',
+    ],
+  },
+  {
+    key: 'company-calendar',
+    title: 'Company calendar',
+    summary: 'Holidays, events, and who is on approved leave.',
+    linkTo: '/employee/calendar',
+    linkLabel: 'Company Calendar',
+    steps: [
+      'Open Company Calendar from the navigation bar.',
+      'Browse the month view for public holidays and company events.',
+      'See colleagues on approved leave for a given day (names shown per policy).',
+      'Use this when planning your own leave dates to avoid clashes with team coverage.',
+    ],
+  },
+  {
+    key: 'documents',
+    title: 'Documents & payslips',
+    summary: 'Request documents and download payslips when published.',
+    linkTo: '/employee/documents',
+    linkLabel: 'Documents',
+    steps: [
+      'Go to Documents. Use the Payslip or Document Request tab.',
+      'To request a document: choose type, enter a clear document name and reason, then submit.',
+      'Track status in Request history — Pending, Approved, or Rejected. Admin responses appear in the Admin response column.',
+      'When approved, download from Approved downloads or the history table.',
+      'Under Payslips, view published payslips for your account when admin has released them.',
+    ],
+    notes: [
+      'Request history refreshes automatically so you can wait for admin approval without reloading the page.',
+    ],
+  },
+  {
+    key: 'training',
+    title: 'Training & courses',
+    summary: 'Enrolled courses, progress, and suggested learning.',
+    linkTo: '/employee/training',
+    linkLabel: 'Training',
+    steps: [
+      'Open Training & Courses to see courses assigned or available to you.',
+      'Continue in-progress courses and track completion percentage on each card.',
+      'Suggested courses may appear for optional enrollment depending on admin setup.',
+      'Finish required compliance or role-based training before deadlines set by your manager.',
+    ],
+  },
+  {
+    key: 'achievements',
+    title: 'Company achievements',
+    summary: 'Company-wide awards and milestones published by admin.',
+    linkTo: '/employee/achievements',
+    linkLabel: 'Achievements',
+    steps: [
+      'Open Company Achievements to view recognition entries published for the company.',
+      'Each card shows a title and description added by admin.',
+      'This page is read-only; raise a ticket if content looks incorrect or outdated.',
+    ],
+  },
+  {
+    key: 'raise-ticket',
+    title: 'Raise a support ticket',
+    summary: 'Report IT or workplace issues to the admin team.',
+    linkTo: '/employee/tickets',
+    linkLabel: 'Raise Tickets',
+    steps: [
+      'Open Raise Tickets from the navigation bar.',
+      'Enter a short title, description, and priority (Low, Medium, or High).',
+      'Submit — the ticket appears immediately in Ticket History.',
+      'Check Status (Pending, In Progress, Completed) for updates.',
+      'The list auto-refreshes about every 30 seconds; you can also reload the page.',
+    ],
+  },
+  {
+    key: 'profile',
+    title: 'My profile',
+    summary: 'View your employment details on file.',
+    linkTo: '/employee/profile',
+    linkLabel: 'My Profile',
+    steps: [
+      'Click your avatar in the command bar or open My Profile from the navigation.',
+      'Review name, employee ID, designation, join date, and contact details on file.',
+      'Profile data is maintained by admin — use Raise Tickets to request corrections.',
+    ],
+  },
+  {
+    key: 'sign-in',
+    title: 'Signing in',
+    summary: 'How to access the employee portal securely.',
+    linkTo: '/employee',
+    linkLabel: 'Dashboard',
+    steps: [
+      'From the login page, use Continue with Google with your company Gmail registered with admin.',
+      'There is no separate portal password; only approved company accounts can sign in.',
+      'If sign-in fails, confirm you are using the correct Google account or contact admin to link your employee record.',
+    ],
+  },
+]

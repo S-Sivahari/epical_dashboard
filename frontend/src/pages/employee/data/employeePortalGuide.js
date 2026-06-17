@@ -94,11 +94,11 @@ export const employeePortalGuideSections = [
     linkTo: '/employee/documents',
     linkLabel: 'Documents',
     steps: [
-      'Go to Documents. Use the tabs for Document Requests, My Documents, or Payslips.',
+      'Go to Documents. Use the Payslip or Document Request tab.',
       'To request a document: choose type, enter a clear document name and reason, then submit.',
-      'Track status in Request History — Pending, Approved, or Rejected (rejection may include a reason).',
-      'When approved, download the PDF from My Documents or from the approved row where download is offered.',
-      'Under Payslips, filter by period and use Send Mail to email a payslip PDF to your registered address once admin has published it for your account.',
+      'Track status in Request history — Pending, Approved, or Rejected. Admin responses appear in the Admin response column.',
+      'When approved, download from Approved downloads or the history table.',
+      'Under Payslips, view published payslips for your account when admin has released them.',
     ],
     notes: [
       'Request history refreshes automatically so you can wait for admin approval without reloading the page.',
@@ -120,13 +120,13 @@ export const employeePortalGuideSections = [
   {
     key: 'achievements',
     title: 'Company achievements',
-    summary: 'Awards and milestones recorded for you by the company.',
+    summary: 'Company-wide awards and milestones published by admin.',
     linkTo: '/employee/achievements',
     linkLabel: 'Achievements',
     steps: [
-      'Open Company Achievements to view recognition entries on your record.',
-      'Each card shows title, date, and description added by admin.',
-      'This section is read-only; raise a ticket if an achievement is missing or incorrect.',
+      'Open Company Achievements to view recognition entries published for the company.',
+      'Each card shows a title and description added by admin.',
+      'This page is read-only; raise a ticket if content looks incorrect or outdated.',
     ],
   },
   {
@@ -137,9 +137,9 @@ export const employeePortalGuideSections = [
     linkLabel: 'Raise Tickets',
     steps: [
       'Open Raise Tickets from the navigation bar.',
-      'Enter a short title, a detailed description, and priority (Low, Medium, or High).',
+      'Enter a short title, description, and priority (Low, Medium, or High).',
       'Submit — the ticket appears immediately in Ticket History.',
-      'Check Status (Pending, In Progress, Completed) and Admin Remarks for updates.',
+      'Check Status (Pending, In Progress, Completed) for updates.',
       'The list auto-refreshes about every 30 seconds; you can also reload the page.',
     ],
   },

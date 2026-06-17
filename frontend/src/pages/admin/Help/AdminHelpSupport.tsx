@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -17,7 +17,8 @@ import {
 } from 'lucide-react'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { cn } from '@/utils/cn'
-import { adminPortalGuideSections } from '@pages/admin/data/adminPortalGuide'
+import { adminPortalGuideSections as fallbackAdminGuide } from '@pages/admin/data/adminPortalGuide'
+import { fetchAdminPortalGuide, type PortalGuideSection } from '@services/portalGuideService'
 
 const guideIcons: Record<string, typeof BookOpen> = {
   dashboard: LayoutGrid,
@@ -33,12 +34,19 @@ const guideIcons: Record<string, typeof BookOpen> = {
 
 export function AdminHelpSupport() {
   const [activeKey, setActiveKey] = useState<string | null>(null)
+  const [sections, setSections] = useState<PortalGuideSection[]>(fallbackAdminGuide)
+
+  useEffect(() => {
+    void fetchAdminPortalGuide()
+      .then(setSections)
+      .catch(() => setSections(fallbackAdminGuide))
+  }, [])
 
   const toggleGuide = (key: string) => {
     setActiveKey((prev) => (prev === key ? null : key))
   }
 
-  const activeSection = adminPortalGuideSections.find((s) => s.key === activeKey)
+  const activeSection = sections.find((s) => s.key === activeKey)
 
   return (
     <PageWrapper fillViewport className="admin-hub-page-wrap relative z-10 !py-3 font-body">
@@ -70,7 +78,7 @@ export function AdminHelpSupport() {
               </div>
 
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {adminPortalGuideSections.map((section) => {
+                {sections.map((section) => {
                   const Icon = guideIcons[section.key] ?? BookOpen
                   const isActive = activeKey === section.key
                   return (
