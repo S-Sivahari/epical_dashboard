@@ -1,4 +1,4 @@
-import { useId, useMemo } from 'react'
+import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   Area,
   CartesianGrid,
@@ -33,6 +33,8 @@ export function ProjectHoursAreaChart({
   className?: string
 }) {
   const gradId = useId().replace(/:/g, '')
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [measuredHeight, setMeasuredHeight] = useState(height)
 
   const { yMax, yTicks } = useMemo(() => {
     const peak = data.reduce((max, row) => Math.max(max, row.hours ?? 0), 0)
@@ -49,7 +51,8 @@ export function ProjectHoursAreaChart({
 
   const labelCount = data.length
   const useAngledLabels = labelCount > 3
-  const chartHeight = fillParent ? undefined : height
+  const labelExtra = useAngledLabels ? 28 : 0
+  const minHeight = height + labelExtra
   const xAxisHeight = useAngledLabels ? 64 : 28
   const margin = compact
     ? {
@@ -65,17 +68,40 @@ export function ProjectHoursAreaChart({
         bottom: useAngledLabels ? 4 : 8,
       }
 
+  useLayoutEffect(() => {
+    if (!fillParent) {
+      setMeasuredHeight(minHeight)
+      return
+    }
+
+    const node = containerRef.current
+    if (!node) return
+
+    const measure = () => {
+      const next = Math.round(node.getBoundingClientRect().height)
+      setMeasuredHeight(next > 0 ? next : minHeight)
+    }
+
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [fillParent, minHeight, data.length])
+
+  const renderHeight = fillParent ? measuredHeight : minHeight
+
   return (
     <div
+      ref={containerRef}
       className={cn(
         'w-full',
         fillParent ? 'h-full min-h-0 flex-1' : 'shrink-0',
         compact && 'project-hours-chart-compact',
         className,
       )}
-      style={chartHeight != null ? { height: chartHeight + (useAngledLabels ? 28 : 0) } : undefined}
+      style={fillParent ? { minHeight } : { height: minHeight }}
     >
-      <ResponsiveContainer width="100%" height={fillParent ? '100%' : chartHeight! + (useAngledLabels ? 28 : 0)}>
+      <ResponsiveContainer width="100%" height={renderHeight}>
         <ComposedChart data={data} margin={margin}>
           <defs>
             <linearGradient id={`hoursAreaGrad-${gradId}`} x1="0" y1="0" x2="0" y2="1">

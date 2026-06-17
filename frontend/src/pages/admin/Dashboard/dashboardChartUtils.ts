@@ -52,13 +52,16 @@ function hoursFromTimesheet(t: {
   logoutTime?: string
   overriddenHours?: number
   totalHours?: number
+  totalPausedMs?: number
 }) {
   if (t.totalHours != null) return Number(t.totalHours)
   if (t.overriddenHours != null) return Number(t.overriddenHours)
   if (!t.loginTime || !t.logoutTime) return 0
+  const pausedMs = Number(t.totalPausedMs ?? 0)
   return (
     Math.round(
-      ((new Date(t.logoutTime).getTime() - new Date(t.loginTime).getTime()) / 3600000) * 10,
+      ((new Date(t.logoutTime).getTime() - new Date(t.loginTime).getTime() - pausedMs) / 3600000) *
+        10,
     ) / 10
   )
 }
@@ -275,7 +278,13 @@ function formatBucketLabel(start: Date, end: Date): string {
 }
 
 export function aggregateChartData(
-  timesheets: Array<{ loginTime?: string; logoutTime?: string; overriddenHours?: number }>,
+  timesheets: Array<{
+    loginTime?: string
+    logoutTime?: string
+    overriddenHours?: number
+    totalHours?: number
+    totalPausedMs?: number
+  }>,
   period: ChartPeriod,
 ) {
   if (period === 'This Week') {

@@ -137,7 +137,7 @@ export function Analytics({ embedded = false }: { embedded?: boolean }) {
 
   const analyticsBody = (
     <div
-      className={`crewiq-dashboard admin-analytics-view relative flex min-h-0 flex-1 flex-col overflow-hidden${embedded ? ' admin-analytics-view--embedded' : ''}`}
+      className={`crewiq-dashboard admin-analytics-view relative flex min-h-0 flex-1 flex-col${embedded ? ' admin-analytics-view--embedded overflow-visible' : ' overflow-hidden'}`}
     >
       {!embedded && (
         <div className="dashboard-page-bg" aria-hidden>
@@ -145,7 +145,7 @@ export function Analytics({ embedded = false }: { embedded?: boolean }) {
           <div className="dashboard-page-bg-pattern" />
         </div>
       )}
-      <div className="admin-analytics-shell relative z-10 flex min-h-0 flex-1 animate-fadeIn flex-col overflow-y-auto overflow-x-hidden">
+      <div className={`admin-analytics-shell relative z-10 flex min-h-0 flex-1 animate-fadeIn flex-col${embedded ? ' overflow-visible' : ' overflow-y-auto overflow-x-hidden'}`}>
           <header className="admin-analytics-hub-header">
             <div className="admin-analytics-hero-top">
               <h1 className="admin-analytics-hero-title font-display">Workforce Analytics Hub</h1>
