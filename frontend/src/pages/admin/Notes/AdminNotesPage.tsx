@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Navigate, useParams, useSearchParams } from 'react-router-dom'
+import { Navigate, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { parseISO } from 'date-fns'
 import { NotebookPen, Plus } from 'lucide-react'
 import { PageWrapper } from '@components/layout/PageWrapper'
@@ -10,6 +10,7 @@ import { NotesDashboardToolbar } from '@components/notes/NotesDashboardToolbar'
 import { NotesSearchResults } from '@components/notes/NotesSearchPanel'
 import { TopDismissNotice, type TopNotice } from '@components/pdk/TopDismissNotice'
 import { ROUTES } from '@/constants/routes'
+import { isProjectAnalysisAdminPath } from '@pages/admin/Projects/projectPortal'
 import { NotesDelegationPanel } from '@components/notes/NotesDelegationPanel'
 import {
   getOrCreateDailyBlock,
@@ -48,6 +49,7 @@ type DailyNotesPageProps = {
 }
 
 export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
+  const { pathname } = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const legacyDateKey = searchParams.get('focus')
 
@@ -77,6 +79,7 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
   const [delegatedDateKeys, setDelegatedDateKeys] = useState<ReadonlySet<string>>(new Set())
 
   const isEmployeeView = variant === 'employee'
+  const inProjectManagement = !isEmployeeView && isProjectAnalysisAdminPath(pathname)
 
   const showSearchResults = hasActiveNotesSearch(searchFilters)
   const weekdays = useMemo(() => getWorkingWeekdays(weekMonday), [weekMonday])
@@ -320,26 +323,28 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
         </div>
 
         <div className="admin-notes-shell relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
-          <header className="admin-notes-header admin-notes-header--single shrink-0">
-            <div className="admin-notes-header__title-wrap">
-              <span className="admin-notes-header__icon" aria-hidden>
-                <NotebookPen className="h-4 w-4" />
-              </span>
-              <div className="min-w-0">
-                <h1 className="admin-notes-header__title">Daily Notes</h1>
+          {!inProjectManagement ? (
+            <header className="admin-notes-header admin-notes-header--single shrink-0">
+              <div className="admin-notes-header__title-wrap">
+                <span className="admin-notes-header__icon" aria-hidden>
+                  <NotebookPen className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <h1 className="admin-notes-header__title">Daily Notes</h1>
+                </div>
               </div>
-            </div>
 
-            <Button
-              type="button"
-              variant="primary"
-              icon={<Plus className="h-4 w-4" />}
-              disabled={!canAddToday}
-              onClick={handleAddTodayNotes}
-            >
-              Add today&apos;s notes
-            </Button>
-          </header>
+              <Button
+                type="button"
+                variant="primary"
+                icon={<Plus className="h-4 w-4" />}
+                disabled={!canAddToday}
+                onClick={handleAddTodayNotes}
+              >
+                Add today&apos;s notes
+              </Button>
+            </header>
+          ) : null}
 
           <NotesDashboardToolbar
             weekLabel={weekLabel}
@@ -350,6 +355,19 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
             onWeekCurrent={() => handleWeekChange(getMondayOfWeek(new Date()))}
             onFiltersChange={handleFiltersChange}
             onQueryChange={handleQueryChange}
+            trailingAction={
+              inProjectManagement ? (
+                <Button
+                  type="button"
+                  variant="primary"
+                  icon={<Plus className="h-4 w-4" />}
+                  disabled={!canAddToday}
+                  onClick={handleAddTodayNotes}
+                >
+                  Add today&apos;s notes
+                </Button>
+              ) : null
+            }
           />
 
           {!isEmployeeView ? (

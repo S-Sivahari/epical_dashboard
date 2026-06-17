@@ -2151,6 +2151,19 @@
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
+.notes-toolbar__trailing {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+@media (max-width: 639px) {
+  .notes-toolbar__trailing {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
 .notes-toolbar__week {
   display: inline-flex;
   flex-wrap: nowrap;

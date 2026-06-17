@@ -2300,6 +2300,31 @@
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
+.project-analysis-layout__nav-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.project-analysis-layout__section-title {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.project-analysis-layout__brand-title {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
 .project-analysis-layout__brand {
   display: flex;
   min-width: 0;
@@ -2317,13 +2342,6 @@
   border-radius: 0.75rem;
   background: linear-gradient(165deg, #ecfdf5 0%, #d1fae5 100%);
   color: #059669;
-}
-
-.project-analysis-layout__brand-title {
-  font-size: 1.0625rem;
-  font-weight: 700;
-  line-height: 1.2;
-  color: #0f172a;
 }
 
 .project-analysis-layout__brand-desc {
