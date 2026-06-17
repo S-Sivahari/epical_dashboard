@@ -174,6 +174,11 @@ const EmployeeHelpSupport = lazy(() =>
   import('@pages/employee/EmployeeHelpSupport')
 )
 
+const EmployeeNotesPage = lazy(async () => {
+  const m = await import('@pages/employee/EmployeeNotesPage')
+  return { default: m.EmployeeNotesPage }
+})
+
 const EmployeeProfilePage = lazy(() =>
   import('@pages/employee/EmployeeProfile')
 )
@@ -347,6 +352,8 @@ export function AppRoutes() {
             </Route>
 
             <Route path="metal-routing/*" element={<EmployeeMetalRoutingPage />} />
+
+            <Route path="notes" element={<EmployeeNotesPage />} />
 
             <Route
               path="leave"

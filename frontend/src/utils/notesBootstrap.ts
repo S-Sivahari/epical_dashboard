@@ -116,7 +116,7 @@ export function employeesSelectableForNoteEdit(
   )
 }
 
-export function needsPerEmployeeNormalization(block: DailyNoteBlock): boolean {
+export function needsPerEmployeeNormalization(_block: DailyNoteBlock): boolean {
   // Multi-employee notes are intentional — do not auto-split child blocks.
   return false
 }

@@ -10,8 +10,10 @@ import { NotesDashboardToolbar } from '@components/notes/NotesDashboardToolbar'
 import { NotesSearchResults } from '@components/notes/NotesSearchPanel'
 import { TopDismissNotice, type TopNotice } from '@components/pdk/TopDismissNotice'
 import { ROUTES } from '@/constants/routes'
+import { NotesDelegationPanel } from '@components/notes/NotesDelegationPanel'
 import {
   getOrCreateDailyBlock,
+  getNotesAccess,
   listDailyBlocksInRange,
   searchNotes,
 } from '@/services/notesService'
@@ -41,7 +43,11 @@ import {
 } from '@/utils/notesWeek'
 import './admin-notes.css'
 
-export function AdminNotesPage() {
+type DailyNotesPageProps = {
+  variant?: 'admin' | 'employee'
+}
+
+export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
   const [searchParams, setSearchParams] = useSearchParams()
   const legacyDateKey = searchParams.get('focus')
 
@@ -68,6 +74,9 @@ export function AdminNotesPage() {
   const [searchLoading, setSearchLoading] = useState(false)
   const [normalizingBlocks, setNormalizingBlocks] = useState(false)
   const normalizedBlockSignatures = useRef<Set<string>>(new Set())
+  const [delegatedDateKeys, setDelegatedDateKeys] = useState<ReadonlySet<string>>(new Set())
+
+  const isEmployeeView = variant === 'employee'
 
   const showSearchResults = hasActiveNotesSearch(searchFilters)
   const weekdays = useMemo(() => getWorkingWeekdays(weekMonday), [weekMonday])
@@ -138,6 +147,15 @@ export function AdminNotesPage() {
   useEffect(() => {
     void loadWeek()
   }, [loadWeek])
+
+  useEffect(() => {
+    if (!isEmployeeView) return
+    const from = toDateKey(weekdays[0])
+    const to = toDateKey(weekdays[weekdays.length - 1])
+    void getNotesAccess({ from, to })
+      .then((access) => setDelegatedDateKeys(new Set(access.delegatedDates)))
+      .catch(() => setDelegatedDateKeys(new Set()))
+  }, [isEmployeeView, weekdays])
 
   useEffect(() => {
     if (loading || normalizingBlocks) return
@@ -279,7 +297,16 @@ export function AdminNotesPage() {
     [weekMonday, blocksByDate],
   )
 
-  const canAddToday = isCurrentWeek && !busy
+  const todayDateKey = toDateKey(new Date())
+  const canAddToday =
+    isCurrentWeek &&
+    !busy &&
+    (!isEmployeeView || delegatedDateKeys.has(todayDateKey))
+
+  const canEditDate = useCallback(
+    (dateKey: string) => !isEmployeeView || delegatedDateKeys.has(dateKey),
+    [delegatedDateKeys, isEmployeeView],
+  )
 
   return (
     <PageWrapper
@@ -325,6 +352,13 @@ export function AdminNotesPage() {
             onQueryChange={handleQueryChange}
           />
 
+          {!isEmployeeView ? (
+            <NotesDelegationPanel
+              weekFrom={toDateKey(weekdays[0])}
+              weekTo={toDateKey(weekdays[weekdays.length - 1])}
+            />
+          ) : null}
+
           <div className="admin-notes-scroll-body timesheet-panel-scroll">
             {showSearchResults ? (
               <NotesSearchResults
@@ -358,6 +392,7 @@ export function AdminNotesPage() {
                     employees={employees}
                     highlighted={highlightDateKey === dateKey}
                     busy={busy}
+                    canEdit={canEditDate(dateKey)}
                     defaultExpanded={editingDateKey === dateKey || highlightDateKey === dateKey}
                     onBlockChange={(updated) => handleBlockChange(dateKey, updated)}
                     onSendEmail={setEmailBlock}

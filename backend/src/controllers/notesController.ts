@@ -1,7 +1,15 @@
 import { Request, Response } from 'express';
 import type { DailyNoteStatus } from '../models/DailyNoteBlock';
+import type { NotesDelegationActor } from '../models/NotesDelegation';
 import * as notesService from '../services/notesService';
 import * as notesEmailService from '../services/notesEmailService';
+import * as notesDelegationService from '../services/notesDelegationService';
+import {
+  assertEmployeeCanMutateNotesForBlockId,
+  assertEmployeeCanMutateNotesForDate,
+  getNotesAccessPayload,
+  isNotesAdmin,
+} from '../utils/notesAccessHelper';
 
 function paramStr(value: unknown): string {
   if (typeof value === 'string') return value;
@@ -17,8 +25,67 @@ function handleError(res: Response, err: unknown, fallback: string): void {
   res.status(status).json({ error: message });
 }
 
+function actorFromRequest(req: Request): NotesDelegationActor {
+  return {
+    id: req.user?.id || '',
+    name: req.user?.email || 'Admin',
+    email: req.user?.email,
+  };
+}
+
 export const notesController = {
-  listProjects: async (_req: Request, res: Response): Promise<void> => {
+  getAccess: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const from = paramStr(req.query.from);
+      const to = paramStr(req.query.to);
+      const payload = await getNotesAccessPayload(req, from || undefined, to || undefined);
+      res.json(payload);
+    } catch (err) {
+      handleError(res, err, 'Failed to resolve notes access');
+    }
+  },
+
+  listDelegations: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const from = paramStr(req.query.from);
+      const to = paramStr(req.query.to);
+      const items = await notesDelegationService.listNotesDelegations(from || undefined, to || undefined);
+      res.json(items);
+    } catch (err) {
+      handleError(res, err, 'Failed to load notes delegations');
+    }
+  },
+
+  createDelegation: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const date = paramStr(req.body?.date);
+      const employeeId = paramStr(req.body?.employeeId);
+      if (!date || !employeeId) {
+        res.status(400).json({ error: 'date and employeeId are required' });
+        return;
+      }
+      const item = await notesDelegationService.createNotesDelegation({
+        date,
+        employeeId,
+        assignedBy: actorFromRequest(req),
+      });
+      res.status(201).json(item);
+    } catch (err) {
+      handleError(res, err, 'Failed to assign notes delegate');
+    }
+  },
+
+  removeDelegation: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const id = paramStr(req.params.id);
+      const item = await notesDelegationService.deleteNotesDelegation(id);
+      res.json(item);
+    } catch (err) {
+      handleError(res, err, 'Failed to remove notes delegate');
+    }
+  },
+
+  listProjects: async (req: Request, res: Response): Promise<void> => {
     try {
       const items = await notesService.listActiveProjects();
       res.json(items);
@@ -112,6 +179,7 @@ export const notesController = {
     try {
       const date = paramStr(req.body?.date);
       const status = req.body?.status as DailyNoteStatus | undefined;
+      await assertEmployeeCanMutateNotesForDate(req, date);
       const userId = req.user?.id || '';
       const email = req.user?.email;
       const item = await notesService.createDailyBlock(date, userId, email, status);
@@ -124,6 +192,7 @@ export const notesController = {
   update: async (req: Request, res: Response): Promise<void> => {
     try {
       const id = paramStr(req.params.id);
+      await assertEmployeeCanMutateNotesForBlockId(req, id);
       const userId = req.user?.id || '';
       const email = req.user?.email;
       const patch: { status?: DailyNoteStatus; archived?: boolean } = {};
@@ -139,6 +208,10 @@ export const notesController = {
   remove: async (req: Request, res: Response): Promise<void> => {
     try {
       const id = paramStr(req.params.id);
+      if (!isNotesAdmin(req)) {
+        res.status(403).json({ error: 'Forbidden: Insufficient permissions' });
+        return;
+      }
       const item = await notesService.deleteDailyBlock(id);
       res.json(item);
     } catch (err) {
@@ -149,6 +222,7 @@ export const notesController = {
   createChild: async (req: Request, res: Response): Promise<void> => {
     try {
       const dailyBlockId = paramStr(req.params.id);
+      await assertEmployeeCanMutateNotesForBlockId(req, dailyBlockId);
       const userId = req.user?.id || '';
       const email = req.user?.email;
       const item = await notesService.createChildBlock(dailyBlockId, userId, email, {
@@ -169,6 +243,7 @@ export const notesController = {
   updateChild: async (req: Request, res: Response): Promise<void> => {
     try {
       const dailyBlockId = paramStr(req.params.id);
+      await assertEmployeeCanMutateNotesForBlockId(req, dailyBlockId);
       const childBlockId = paramStr(req.params.childId);
       const userId = req.user?.id || '';
       const email = req.user?.email;
@@ -191,6 +266,7 @@ export const notesController = {
   removeChild: async (req: Request, res: Response): Promise<void> => {
     try {
       const dailyBlockId = paramStr(req.params.id);
+      await assertEmployeeCanMutateNotesForBlockId(req, dailyBlockId);
       const childBlockId = paramStr(req.params.childId);
       const userId = req.user?.id || '';
       const email = req.user?.email;
@@ -221,6 +297,7 @@ export const notesController = {
   sendEmail: async (req: Request, res: Response): Promise<void> => {
     try {
       const id = paramStr(req.params.id);
+      await assertEmployeeCanMutateNotesForBlockId(req, id);
       const userId = req.user?.id || '';
       const email = req.user?.email;
       const recipientEmployeeIds = Array.isArray(req.body?.recipientEmployeeIds)
@@ -238,6 +315,7 @@ export const notesController = {
   reorderChildren: async (req: Request, res: Response): Promise<void> => {
     try {
       const dailyBlockId = paramStr(req.params.id);
+      await assertEmployeeCanMutateNotesForBlockId(req, dailyBlockId);
       const childBlockIds = Array.isArray(req.body?.childBlockIds)
         ? req.body.childBlockIds.map((id: unknown) => String(id))
         : [];

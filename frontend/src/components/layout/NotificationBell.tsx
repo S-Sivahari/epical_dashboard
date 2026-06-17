@@ -16,6 +16,7 @@ export function NotificationBell() {
     fetchUnreadCount,
     fetchUnreadCountSilent,
     markAllAsRead,
+    markAsRead,
     deleteNotification,
     deleteAllNotifications,
   } = useNotificationStore()
@@ -32,6 +33,9 @@ export function NotificationBell() {
   const displayNotifications = notifications.slice(0, 5)
 
   const handleNotificationClick = async (notification: NotificationData) => {
+    if (!notification.isRead) {
+      await markAsRead(notification.id)
+    }
     const route = getNotificationRoute(notification)
     if (route) navigate(route)
   }
