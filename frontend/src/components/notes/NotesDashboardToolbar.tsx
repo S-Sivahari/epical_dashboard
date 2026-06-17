@@ -43,6 +43,18 @@ export function NotesDashboardToolbar({
 
   return (
     <div className="notes-toolbar" role="toolbar" aria-label="Notes filters and navigation">
+      <div className="notes-toolbar__search">
+        <Search className="notes-toolbar__search-icon" aria-hidden />
+        <input
+          type="search"
+          value={queryDraft}
+          onChange={(e) => setQueryDraft(e.target.value)}
+          placeholder="Search notes…"
+          className="notes-toolbar__search-input"
+          aria-label="Search notes"
+        />
+      </div>
+
       <div className="notes-toolbar__week">
         <Button
           type="button"
@@ -72,19 +84,7 @@ export function NotesDashboardToolbar({
         ) : null}
       </div>
 
-      <div className="notes-toolbar__filters">
-        <div className="notes-toolbar__search">
-          <Search className="notes-toolbar__search-icon" aria-hidden />
-          <input
-            type="search"
-            value={queryDraft}
-            onChange={(e) => setQueryDraft(e.target.value)}
-            placeholder="Search notes…"
-            className="notes-toolbar__search-input"
-            aria-label="Search notes"
-          />
-        </div>
-
+      <div className="notes-toolbar__dates">
         <input
           type="date"
           value={filters.from}

@@ -1,7 +1,6 @@
 import type { Employee } from '@/types'
 import api from '@/services/api'
 import { employeeDisplayName } from '@/services/analyticsService'
-import { getEmployees } from '@/services/employeeService'
 import type {
   ChildBlockInput,
   DailyNoteBlock,
@@ -28,9 +27,9 @@ type TimesheetProject = {
   visibleUsers?: string[]
 }
 
-/** Same project list as the admin timesheet workspace (`GET /api/projects`). */
+/** Project directory for Daily Notes (`GET /api/notes/projects`). */
 export async function listNoteProjects() {
-  const res = await api.get<TimesheetProject[]>('/projects')
+  const res = await api.get<TimesheetProject[]>('/notes/projects')
   return res.data.map((project) => ({
     id: project.id,
     name: project.name,
@@ -42,9 +41,9 @@ export async function listNoteProjects() {
   }))
 }
 
-/** Same employee directory as the admin timesheet workspace. */
+/** Active employees for Daily Notes pickers (`GET /api/notes/employees`). */
 export async function listTimesheetEmployees() {
-  const res = await getEmployees({ pageSize: 1000, status: 'Active' })
+  const res = await api.get<Employee[]>('/notes/employees')
   return res.data
 }
 
@@ -194,11 +193,19 @@ export async function listNotesDelegations(params?: { from?: string; to?: string
   return res.data
 }
 
-export async function createNotesDelegation(date: string, employeeId: string) {
-  const res = await api.post<NotesDelegation>('/notes/delegations', {
-    date,
-    employeeId,
-  })
+export async function createNotesDelegation(
+  date: string,
+  employeeId: string,
+  to?: string,
+): Promise<NotesDelegation | { items: NotesDelegation[]; count: number }> {
+  const res = await api.post<NotesDelegation | { items: NotesDelegation[]; count: number }>(
+    '/notes/delegations',
+    {
+      date,
+      employeeId,
+      ...(to ? { to } : {}),
+    },
+  )
   return res.data
 }
 

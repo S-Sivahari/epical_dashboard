@@ -370,12 +370,14 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
             }
           />
 
-          {!isEmployeeView ? (
-            <NotesDelegationPanel
-              weekFrom={toDateKey(weekdays[0])}
-              weekTo={toDateKey(weekdays[weekdays.length - 1])}
-            />
-          ) : null}
+            {!isEmployeeView ? (
+              <NotesDelegationPanel
+                embedded
+                weekFrom={toDateKey(weekdays[0])}
+                weekTo={toDateKey(weekdays[weekdays.length - 1])}
+              />
+            ) : null}
+          </section>
 
           <div className="admin-notes-scroll-body timesheet-panel-scroll">
             {showSearchResults ? (
