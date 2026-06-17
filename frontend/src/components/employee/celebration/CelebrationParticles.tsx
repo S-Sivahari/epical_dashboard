@@ -4,7 +4,7 @@ import './celebration.css'
 export type CelebrationVariant = 'approved' | 'rejected'
 
 const APPROVED_EMOJIS = ['🥳', '🎉'] as const
-const REJECTED_EMOJIS = ['😭'] as const
+const REJECTED_EMOJIS = ['😭', '💔'] as const
 const LANE_COUNT = 4
 const SPAWN_INTERVAL_S = 0.52
 
@@ -25,10 +25,8 @@ type CelebrationParticlesProps = {
 }
 
 function pickEmoji(variant: CelebrationVariant, rand: number): string {
-  if (variant === 'rejected') {
-    return REJECTED_EMOJIS[0]
-  }
-  return APPROVED_EMOJIS[Math.floor(rand * APPROVED_EMOJIS.length)]
+  const pool = variant === 'rejected' ? REJECTED_EMOJIS : APPROVED_EMOJIS
+  return pool[Math.floor(rand * pool.length)]
 }
 
 function createMeetStyleParticles(
