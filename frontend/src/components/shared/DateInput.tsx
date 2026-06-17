@@ -70,6 +70,10 @@ export type DateInputRangeProps = DateInputBaseProps & {
 
 export type DateInputProps = DateInputSingleProps | DateInputRangeProps
 
+function isRangeDateInputProps(props: DateInputProps): props is DateInputRangeProps {
+  return props.selectionMode === 'range'
+}
+
 function isInsideDatePicker(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false
   return Boolean(
@@ -153,8 +157,7 @@ function formatRangeDisplay(from: string, to: string) {
 
 export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
   (props, ref) => {
-    const selectionMode = props.selectionMode ?? 'single'
-    const isRangeMode = selectionMode === 'range'
+    const isRangeMode = isRangeDateInputProps(props)
     const value = isRangeMode ? '' : props.value
     const onChange = isRangeMode ? () => {} : props.onChange
     const rangeFrom = isRangeMode ? props.rangeFrom : ''
@@ -178,7 +181,14 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
       rangeTo: _rangeTo,
       onRangeChange: _onRangeChange,
       ...restProps
-    } = props
+    } = props as DateInputBaseProps & {
+      selectionMode?: 'single' | 'range'
+      value?: string
+      onChange?: (iso: string) => void
+      rangeFrom?: string
+      rangeTo?: string
+      onRangeChange?: (from: string, to: string) => void
+    }
     /** ISO yyyy-mm-dd — drives highlight + input display while picker is open */
     const [selectedDate, setSelectedDate] = useState(value)
     const [display, setDisplay] = useState(() =>
@@ -449,7 +459,7 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
                       type="button"
                       tabIndex={0}
                       disabled={!inRange}
-                      aria-pressed={isSelected || isInSelectedRange}
+                      aria-pressed={Boolean(isSelected || isInSelectedRange)}
                       aria-label={cell.dateString}
                       onPointerDown={
                         isRangeMode

@@ -34,13 +34,60 @@ export function dashboardStatusVariant(status: string): 'success' | 'warning' | 
   return 'warning'
 }
 
+export function isProjectPdkAssigned(project: DashboardProject): boolean {
+  return Boolean(project.pdkModuleId?.trim())
+}
+
+export function getCellRoutingFilterKey(project: DashboardProject): string {
+  if (!isProjectPdkAssigned(project)) return 'unassigned'
+  return (project.status ?? '').trim().toLowerCase() || 'active'
+}
+
+export function matchesCellRoutingStatusFilter(
+  project: DashboardProject,
+  statusFilter: string,
+): boolean {
+  if (statusFilter === 'all') return true
+  if (statusFilter === 'unassigned') return !isProjectPdkAssigned(project)
+  if (statusFilter === 'assigned') return isProjectPdkAssigned(project)
+
+  const normalizedFilter = statusFilter.trim().toLowerCase()
+  return getCellRoutingFilterKey(project) === normalizedFilter
+}
+
+export function matchesCellRoutingProjectSearch(
+  project: DashboardProject,
+  query: string,
+  hideTechnology?: boolean,
+): boolean {
+  const normalizedQuery = query.trim().toLowerCase()
+  if (!normalizedQuery) return true
+
+  const fields = [
+    project.projectName,
+    project.clientName,
+    project.projectCode,
+    project.pdkModuleName,
+    hideTechnology ? '' : project.technologyNode,
+  ]
+
+  return fields.some((field) => (field ?? '').toLowerCase().includes(normalizedQuery))
+}
+
+export function cellRoutingStatusFilterLabel(value: string): string {
+  if (value === 'all') return 'All projects'
+  if (value === 'unassigned') return 'Unassigned PDK'
+  if (value === 'assigned') return 'PDK assigned'
+  return value
+}
+
 export function cellRoutingDisplayStatus(
   project: DashboardProject,
 ): { label: string; variant: 'success' | 'warning' } {
-  if (!project.pdkModuleId) {
+  if (!isProjectPdkAssigned(project)) {
     return { label: 'Unassigned', variant: 'warning' }
   }
-  const normalized = project.status.toLowerCase()
+  const normalized = (project.status ?? '').trim().toLowerCase()
   if (normalized === 'active') return { label: 'Active', variant: 'success' }
   return { label: project.status || 'Active', variant: 'success' }
 }

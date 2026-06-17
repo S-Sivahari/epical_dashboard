@@ -569,13 +569,71 @@ body,
 }
 
 .metal-routing-pdk-list-row--colorful {
+  position: relative;
   border-radius: 0.75rem;
   margin: 0.25rem 0.75rem;
   border: 1px solid transparent;
+  background: var(--pdk-card-bg, transparent);
+  transition:
+    background 0.22s ease,
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    border-color 0.22s ease;
 }
 
 .metal-routing-pdk-list-row--colorful:hover {
-  border-color: color-mix(in srgb, var(--pdk-card-accent) 28%, #ffffff);
+  background: var(--pdk-card-bg-hover, var(--pdk-card-bg));
+  transform: translateX(4px) scale(1.006);
+  border-color: color-mix(in srgb, var(--pdk-card-accent) 18%, transparent);
+  box-shadow:
+    inset -4px 0 0 var(--pdk-card-accent),
+    0 4px 14px rgba(15, 23, 42, 0.06),
+    0 1px 4px color-mix(in srgb, var(--pdk-card-accent) 10%, transparent);
+  z-index: 2;
+}
+
+.metal-routing-pdk-list-row__name {
+  font-size: 0.9375rem;
+  font-weight: 800;
+  line-height: 1.3;
+  color: var(--ink, #0f172a);
+  letter-spacing: -0.01em;
+  transition: color 0.22s ease, font-weight 0.22s ease, font-size 0.22s ease;
+}
+
+.metal-routing-pdk-list-row__chevron {
+  color: var(--muted, #94a3b8);
+  transition: color 0.22s ease, transform 0.22s ease;
+}
+
+.metal-routing-pdk-list-row--colorful:hover .metal-routing-pdk-list-row__name {
+  font-size: 1.0625rem;
+  color: #0a0f1a;
+  font-weight: 900;
+}
+
+.metal-routing-pdk-list-row--colorful:hover .metal-routing-pdk-card__icon {
+  transform: scale(1.1);
+  color: var(--pdk-card-icon-color-hover, var(--pdk-card-icon-color));
+  background: var(--pdk-card-icon-bg-hover, var(--pdk-card-icon-bg));
+  border-color: color-mix(in srgb, var(--pdk-card-accent) 32%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    0 3px 8px color-mix(in srgb, var(--pdk-card-accent) 18%, transparent);
+}
+
+.metal-routing-pdk-list-row--colorful:hover .metal-routing-pdk-list-row__chevron {
+  color: var(--pdk-card-accent);
+  transform: translateX(4px) scale(1.15);
+}
+
+.metal-routing-pdk-list-row--colorful .metal-routing-pdk-card__icon {
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    background 0.22s ease,
+    color 0.22s ease,
+    border-color 0.22s ease;
 }
 
 .metal-routing-meta-chip--node-themed {
@@ -641,7 +699,7 @@ body,
   transition: background-color 0.15s ease;
 }
 
-.metal-routing-pdk-list-row:hover {
+.metal-routing-pdk-list-row:hover:not(.metal-routing-pdk-list-row--colorful) {
   background: var(--emerald-surface, #e8f2e6);
 }
 

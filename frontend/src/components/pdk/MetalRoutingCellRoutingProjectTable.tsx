@@ -17,7 +17,14 @@ import {
   MetalRoutingProjectListRows,
 } from '@components/pdk/MetalRoutingProjectCards'
 import { MetalRoutingViewToggle, type MetalRoutingViewMode } from '@components/pdk/MetalRoutingViewToggle'
+import { SignalAnalysisProjectRows } from '@components/pdk/SignalAnalysisProjectRows'
 import type { DashboardProject } from '@/types/pdkMetalRouting'
+import {
+  cellRoutingStatusFilterLabel,
+  isProjectPdkAssigned,
+  matchesCellRoutingProjectSearch,
+  matchesCellRoutingStatusFilter,
+} from '@/utils/metalRoutingProjectDisplay'
 import { cn } from '@/utils/cn'
 
 const PAGE_SIZE_OPTIONS = [8, 10, 20] as const
@@ -33,6 +40,7 @@ export function MetalRoutingCellRoutingProjectTable({
   hideTechnology,
   hideToolbarTitle,
   pdkModulesHref,
+  layoutVariant = 'default',
   onSearchChange,
   onStatusFilterChange,
   onOpenRouting,
@@ -44,6 +52,7 @@ export function MetalRoutingCellRoutingProjectTable({
   hideTechnology?: boolean
   hideToolbarTitle?: boolean
   pdkModulesHref?: string
+  layoutVariant?: 'default' | 'premium'
   onSearchChange: (value: string) => void
   onStatusFilterChange: (value: string) => void
   onOpenRouting: (projectId: string) => void
@@ -55,23 +64,13 @@ export function MetalRoutingCellRoutingProjectTable({
 
   useEffect(() => {
     setPage(1)
-  }, [search, statusFilter, viewMode])
+  }, [search, statusFilter, viewMode, sortKey])
 
   const filtered = useMemo(() => {
-    const query = search.trim().toLowerCase()
     let items = projects.filter((project) => {
-      const matchesFilter =
-        statusFilter === 'all'
-        || (statusFilter === 'unassigned' && !project.pdkModuleId)
-        || (statusFilter !== 'unassigned' && project.status === statusFilter)
-      if (!matchesFilter) return false
-      if (!query) return true
       return (
-        project.projectName.toLowerCase().includes(query)
-        || project.clientName.toLowerCase().includes(query)
-        || (project.projectCode ?? '').toLowerCase().includes(query)
-        || (!hideTechnology && project.technologyNode.toLowerCase().includes(query))
-        || (project.pdkModuleName ?? '').toLowerCase().includes(query)
+        matchesCellRoutingStatusFilter(project, statusFilter)
+        && matchesCellRoutingProjectSearch(project, search, hideTechnology)
       )
     })
 
@@ -86,22 +85,46 @@ export function MetalRoutingCellRoutingProjectTable({
     })
 
     return items
-  }, [projects, search, statusFilter, sortKey])
+  }, [projects, search, statusFilter, sortKey, hideTechnology])
 
   const effectivePageSize = viewMode === 'grid' ? GRID_PAGE_SIZE : pageSize
   const totalPages = Math.max(1, Math.ceil(filtered.length / effectivePageSize))
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages)
+    }
+  }, [page, totalPages])
+
   const currentPage = Math.min(page, totalPages)
   const pageItems = filtered.slice((currentPage - 1) * effectivePageSize, currentPage * effectivePageSize)
   const rangeStart = filtered.length === 0 ? 0 : (currentPage - 1) * effectivePageSize + 1
   const rangeEnd = Math.min(currentPage * effectivePageSize, filtered.length)
 
+  const isPremium = layoutVariant === 'premium'
+
   return (
-    <section className="metal-routing-overview-card metal-routing-cell-routing-table metal-routing-signal-projects-card">
-      <div className="metal-routing-signal-projects-toolbar metal-routing-overview-toolbar metal-routing-pdk-modules-toolbar">
-        {!hideToolbarTitle ? (
+    <section
+      className={cn(
+        'metal-routing-overview-card metal-routing-cell-routing-table metal-routing-signal-projects-card',
+        isPremium && 'signal-analysis-panel',
+      )}
+    >
+      <div
+        className={cn(
+          'metal-routing-signal-projects-toolbar metal-routing-overview-toolbar metal-routing-pdk-modules-toolbar',
+          isPremium && 'signal-analysis-panel__command',
+        )}
+      >
+        {!hideToolbarTitle && !isPremium ? (
           <h2 className="metal-routing-signal-projects-toolbar__title">Projects</h2>
         ) : null}
-        <label className="metal-routing-search-field metal-routing-signal-projects-toolbar__search">
+        <label
+          className={cn(
+            'metal-routing-search-field metal-routing-signal-projects-toolbar__search',
+            isPremium && 'signal-analysis-panel__search',
+          )}
+        >
           <Search className="h-4 w-4 shrink-0 text-muted" aria-hidden />
           <input
             type="search"
@@ -110,7 +133,12 @@ export function MetalRoutingCellRoutingProjectTable({
             onChange={(e) => onSearchChange(e.target.value)}
           />
         </label>
-        <div className="metal-routing-signal-projects-toolbar__controls metal-routing-overview-controls metal-routing-pdk-modules-toolbar__controls">
+        <div
+          className={cn(
+            'metal-routing-signal-projects-toolbar__controls metal-routing-overview-controls metal-routing-pdk-modules-toolbar__controls',
+            isPremium && 'signal-analysis-panel__controls',
+          )}
+        >
           {pdkModulesHref ? (
             <Link
               to={pdkModulesHref}
@@ -148,9 +176,23 @@ export function MetalRoutingCellRoutingProjectTable({
         </div>
       </div>
 
-      <div className="metal-routing-cell-routing-body">
+      <div
+        className={cn(
+          'metal-routing-cell-routing-body',
+          isPremium && 'signal-analysis-panel__body',
+        )}
+      >
         {loading ? (
-          <MetalRoutingCardGridSkeleton count={6} />
+          isPremium ? (
+            <SignalAnalysisProjectRows
+              projects={[]}
+              loading
+              hideTechnology={hideTechnology}
+              onOpenRouting={onOpenRouting}
+            />
+          ) : (
+            <MetalRoutingCardGridSkeleton count={6} />
+          )
         ) : pageItems.length === 0 ? (
           <MetalRoutingEmptyState
             title="No projects found"
@@ -166,6 +208,13 @@ export function MetalRoutingCellRoutingProjectTable({
               onOpenRouting={onOpenRouting}
             />
           </div>
+        ) : isPremium ? (
+          <SignalAnalysisProjectRows
+            projects={pageItems}
+            startIndex={(currentPage - 1) * effectivePageSize}
+            hideTechnology={hideTechnology}
+            onOpenRouting={onOpenRouting}
+          />
         ) : (
           <MetalRoutingProjectListRows
             projects={pageItems}
@@ -176,7 +225,12 @@ export function MetalRoutingCellRoutingProjectTable({
         )}
       </div>
 
-      <footer className="metal-routing-overview-footer metal-routing-cell-routing-footer metal-routing-signal-projects-footer">
+      <footer
+        className={cn(
+          'metal-routing-overview-footer metal-routing-cell-routing-footer metal-routing-signal-projects-footer',
+          isPremium && 'signal-analysis-panel__footer',
+        )}
+      >
         <p className="metal-routing-signal-projects-footer__count">
           Showing {rangeStart} to {rangeEnd} of {filtered.length} project
           {filtered.length === 1 ? '' : 's'}
@@ -259,8 +313,13 @@ export function CellRoutingStatusFilter({
   projects: DashboardProject[]
 }) {
   const statuses = useMemo(() => {
-    const set = new Set(projects.map((p) => p.status).filter(Boolean))
-    return ['all', 'unassigned', ...Array.from(set)]
+    const statusSet = new Set<string>()
+    projects.forEach((project) => {
+      if (!isProjectPdkAssigned(project)) return
+      const status = project.status?.trim()
+      if (status) statusSet.add(status)
+    })
+    return ['all', 'assigned', 'unassigned', ...Array.from(statusSet).sort((a, b) => a.localeCompare(b))]
   }, [projects])
 
   return (
@@ -274,11 +333,7 @@ export function CellRoutingStatusFilter({
       >
         {statuses.map((status) => (
           <option key={status} value={status}>
-            {status === 'all'
-              ? 'All projects'
-              : status === 'unassigned'
-                ? 'Unassigned PDK'
-                : status}
+            {cellRoutingStatusFilterLabel(status)}
           </option>
         ))}
       </select>

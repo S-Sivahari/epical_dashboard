@@ -13,6 +13,7 @@ import {
 } from '@components/pdk/MetalRoutingSkeleton'
 import { MetalRoutingViewToggle, type MetalRoutingViewMode } from '@components/pdk/MetalRoutingViewToggle'
 import type { PdkModule } from '@/types/pdkMetalRouting'
+import { metalRoutingListRowStyle } from '@/utils/metalRoutingCardTheme'
 import { stringToHue, stringToHueColor } from '@/utils/stringColor'
 
 const PAGE_SIZE = 9
@@ -268,6 +269,18 @@ export function MetalRoutingPdkModuleCatalog({
   )
 }
 
+function pdkModuleListRowStyle(seed: string): CSSProperties {
+  const theme = getPdkModuleCardTheme(seed)
+  return {
+    ...metalRoutingListRowStyle(seed),
+    '--pdk-chip-node-bg': theme.chipNodeBg,
+    '--pdk-chip-node-text': theme.chipNodeText,
+    '--pdk-chip-metals-bg': theme.chipMetalsBg,
+    '--pdk-chip-metals-text': theme.chipMetalsText,
+    borderColor: theme.border,
+  } as CSSProperties
+}
+
 function moduleCardStyle(seed: string): CSSProperties {
   const theme = getPdkModuleCardTheme(seed)
   return {
@@ -364,14 +377,14 @@ function PdkModuleListRow({ module, onOpen }: { module: PdkModule; onOpen: () =>
       type="button"
       className="metal-routing-pdk-list-row metal-routing-pdk-list-row--colorful"
       onClick={onOpen}
-      style={moduleCardStyle(seed)}
+      style={pdkModuleListRowStyle(seed)}
     >
       <span className="metal-routing-pdk-list-row__accent" aria-hidden />
       <span className="metal-routing-pdk-card__icon" aria-hidden>
         <Layers className="h-4 w-4" />
       </span>
       <div className="min-w-0 flex-1 text-left">
-        <p className="font-semibold text-ink break-words">{module.name}</p>
+        <p className="metal-routing-pdk-list-row__name">{module.name}</p>
         <div className="mt-1 flex flex-wrap gap-1.5">
           <span
             className={
@@ -387,7 +400,7 @@ function PdkModuleListRow({ module, onOpen }: { module: PdkModule; onOpen: () =>
           </span>
         </div>
       </div>
-      <ChevronRight className="h-4 w-4 shrink-0 text-muted" aria-hidden />
+      <ChevronRight className="metal-routing-pdk-list-row__chevron h-4 w-4 shrink-0" aria-hidden />
     </button>
   )
 }
