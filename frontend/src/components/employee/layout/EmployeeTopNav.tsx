@@ -8,6 +8,7 @@ import {
 import { useNotificationCounts } from '@hooks/useNotificationCounts'
 import { useEmployeeNotesAccess } from '@hooks/useEmployeeNotesAccess'
 import { NotificationBadge } from '@components/ui/NotificationBadge'
+import { resolveNavNotificationCount } from '@utils/notificationCategories'
 import { cn } from '@/utils/cn'
 
 export function EmployeeTopNav() {
