@@ -3,13 +3,15 @@ import { LeaveApprovalNotification } from '@components/employee/celebration/Leav
 import { useLeaveApprovalCelebration } from '@hooks/useLeaveApprovalCelebration'
 
 export function LeaveApprovalCelebrationHost() {
-  const { activeCelebration, particlesActive, dismissCelebration } = useLeaveApprovalCelebration()
+  const { activeCelebration, particlesActive, particleVariant, dismissCelebration } =
+    useLeaveApprovalCelebration()
 
   return (
     <>
-      <CelebrationParticles active={particlesActive} />
+      <CelebrationParticles active={particlesActive} variant={particleVariant} />
       <LeaveApprovalNotification
         open={Boolean(activeCelebration)}
+        variant={activeCelebration?.variant ?? 'approved'}
         title={activeCelebration?.title}
         message={activeCelebration?.message}
         onDismiss={dismissCelebration}

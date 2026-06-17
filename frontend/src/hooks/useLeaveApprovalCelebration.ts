@@ -1,35 +1,58 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { CelebrationVariant } from '@components/employee/celebration/CelebrationParticles'
 import {
   NOTIFICATION_POLL_MS,
   useNotificationStore,
   type NotificationData,
 } from '@store/notificationStore'
 import {
-  hasCelebratedLeaveApproval,
-  markLeaveApprovalCelebrated,
+  hasAcknowledgedLeaveReaction,
+  markLeaveReactionAcknowledged,
 } from '@utils/celebrationAckStorage'
 
-export type LeaveApprovalCelebrationPayload = {
+export type LeaveStatusCelebrationPayload = {
   notificationId: string
+  variant: CelebrationVariant
   title: string
   message: string
 }
 
-const NOTIFICATION_AUTO_DISMISS_MS = 6500
-const PARTICLE_DURATION_MS = 9200
+const REACTION_NOTIFICATION_TYPES = ['LeaveApproved', 'LeaveRejected'] as const
+type ReactionNotificationType = (typeof REACTION_NOTIFICATION_TYPES)[number]
 
-function findPendingLeaveApprovals(notifications: NotificationData[]): NotificationData[] {
+const NOTIFICATION_AUTO_DISMISS_MS = 6500
+const PARTICLE_DURATION_MS = 10000
+
+function isReactionType(type: NotificationData['type']): type is ReactionNotificationType {
+  return REACTION_NOTIFICATION_TYPES.includes(type as ReactionNotificationType)
+}
+
+function toVariant(type: ReactionNotificationType): CelebrationVariant {
+  return type === 'LeaveRejected' ? 'rejected' : 'approved'
+}
+
+function findPendingLeaveReactions(notifications: NotificationData[]): NotificationData[] {
   return notifications.filter(
     (notification) =>
-      notification.type === 'LeaveApproved' &&
+      isReactionType(notification.type) &&
       !notification.isRead &&
-      !hasCelebratedLeaveApproval(notification.id),
+      !hasAcknowledgedLeaveReaction(notification.id),
   )
 }
 
-function toPayload(notification: NotificationData): LeaveApprovalCelebrationPayload {
+function toPayload(notification: NotificationData): LeaveStatusCelebrationPayload {
+  const variant = toVariant(notification.type as ReactionNotificationType)
+  if (variant === 'rejected') {
+    return {
+      notificationId: notification.id,
+      variant,
+      title: notification.title || '😭 Leave Rejected',
+      message: notification.message || 'Your leave request was not approved.',
+    }
+  }
   return {
     notificationId: notification.id,
+    variant,
     title: notification.title || '🎉 Leave Approved!',
     message: notification.message || 'Your leave request has been approved.',
   }
@@ -40,8 +63,9 @@ export function useLeaveApprovalCelebration() {
   const isInitialized = useNotificationStore((state) => state.isInitialized)
   const fetchNotificationsSilent = useNotificationStore((state) => state.fetchNotificationsSilent)
 
-  const [activeCelebration, setActiveCelebration] = useState<LeaveApprovalCelebrationPayload | null>(null)
+  const [activeCelebration, setActiveCelebration] = useState<LeaveStatusCelebrationPayload | null>(null)
   const [particlesActive, setParticlesActive] = useState(false)
+  const [particleVariant, setParticleVariant] = useState<CelebrationVariant>('approved')
 
   const queueRef = useRef<NotificationData[]>([])
   const isPlayingRef = useRef(false)
@@ -61,10 +85,12 @@ export function useLeaveApprovalCelebration() {
 
   const startCelebration = useCallback(
     (notification: NotificationData) => {
+      const payload = toPayload(notification)
       clearTimers()
       isPlayingRef.current = true
-      markLeaveApprovalCelebrated(notification.id)
-      setActiveCelebration(toPayload(notification))
+      markLeaveReactionAcknowledged(notification.id)
+      setParticleVariant(payload.variant)
+      setActiveCelebration(payload)
       setParticlesActive(true)
 
       notificationTimerRef.current = window.setTimeout(() => {
@@ -117,7 +143,7 @@ export function useLeaveApprovalCelebration() {
 
   useEffect(() => {
     if (!isInitialized) return
-    enqueueCelebrations(findPendingLeaveApprovals(notifications))
+    enqueueCelebrations(findPendingLeaveReactions(notifications))
   }, [notifications, isInitialized, enqueueCelebrations])
 
   useEffect(() => () => clearTimers(), [clearTimers])
@@ -125,6 +151,7 @@ export function useLeaveApprovalCelebration() {
   return {
     activeCelebration,
     particlesActive,
+    particleVariant,
     dismissCelebration,
   }
 }

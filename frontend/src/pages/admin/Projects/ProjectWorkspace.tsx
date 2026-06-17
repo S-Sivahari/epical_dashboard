@@ -60,10 +60,10 @@ const ACTIVITY_FILTER_SELECT_CLASS =
 
 const SECTION_ITEMS: { id: WorkspaceSection; label: string; icon: typeof LayoutGrid }[] = [
   { id: 'home', label: 'Home', icon: LayoutGrid },
-  { id: 'workflow', label: 'Workflow', icon: ListChecks },
-  { id: 'graph', label: 'Dependency graph', icon: GitBranch },
+  { id: 'workflow', label: 'Work progress', icon: ListChecks },
+  { id: 'graph', label: 'Dependency cell', icon: GitBranch },
   { id: 'activity', label: 'Activity log', icon: History },
-  { id: 'checklist', label: 'Checklist', icon: ClipboardList },
+  { id: 'checklist', label: 'Checklists', icon: ClipboardList },
 ]
 
 function emptyCellForm(libraryId: string, technologyNode: string): Partial<ProjectCell> & { libraryId: string } {
@@ -813,7 +813,7 @@ export function ProjectWorkspace() {
             {workspaceSection === 'graph' && (
               <div className="admin-projects-section-panel admin-projects-section-panel--graph">
                 <div className="admin-projects-graph-section">
-                  <h2 className="admin-projects-graph-title">Dependency graph</h2>
+                  <h2 className="admin-projects-graph-title">Dependency cell</h2>
                   <p className="admin-projects-graph-hint">
                     Horizontal workflow map of cell dependencies.
                   </p>

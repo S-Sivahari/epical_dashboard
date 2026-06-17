@@ -1722,8 +1722,29 @@ body,
   overflow-y: auto;
 }
 
-.admin-portal .admin-hub-page-wrap.admin-training-page-wrap .admin-training-main-panel > .admin-training-panel-scroll,
-.admin-portal .admin-hub-page-wrap.admin-training-page-wrap .admin-training-main-panel .admin-table-scroll {
+.admin-hub-page-wrap[data-page-scrollable] .admin-training-main-panel > .admin-training-panel-scroll,
+.admin-hub-page-wrap[data-page-scrollable] .admin-training-main-panel .admin-table-scroll {
+  flex: none;
+  min-height: auto;
+  max-height: none;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.admin-portal .admin-documents-main-panel {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-portal .admin-documents-view .admin-doc-table-wrap {
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: min(28rem, calc(var(--viewport-page-h) - 14rem));
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+.admin-hub-page-wrap[data-page-scrollable] .admin-documents-view .admin-doc-table-wrap {
   flex: none;
   min-height: auto;
   max-height: none;
@@ -1850,7 +1871,7 @@ body,
 .viewport-panel-scroll {
   min-height: 0;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
@@ -1972,7 +1993,7 @@ body,
   grid-template-columns: minmax(0, 1fr);
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   [data-employee-dashboard] .emp-dash-widgets-row--top {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
@@ -2038,9 +2059,9 @@ body,
   gap: 0.375rem;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   [data-employee-dashboard] .emp-dash-widgets-grid {
-    overflow-y: auto;
+    overflow-y: visible;
   }
 
   [data-employee-dashboard] .emp-dash-widgets-row--top,

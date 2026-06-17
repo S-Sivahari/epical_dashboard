@@ -348,6 +348,7 @@ setRejectOpen(false)
       className={cn(
         'crewiq-dashboard relative',
         !embedded && 'admin-documents-view flex min-h-0 flex-1 flex-col',
+        !embedded && 'admin-documents-view flex min-h-0 flex-1 flex-col',
       )}
     >
       {!embedded ? (
@@ -461,7 +462,7 @@ setRejectOpen(false)
               </div>
             </header>
 
-            <div className="admin-documents-body-grid">
+            <div className="admin-documents-body-grid admin-documents-body-grid--fill">
               <aside className="admin-documents-sidebar">
                 <p className="admin-documents-sidebar-title">{activeTabMeta.label}</p>
                 <p className="admin-documents-sidebar-desc">{activeTabMeta.description}</p>

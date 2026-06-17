@@ -868,7 +868,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
           )}
         </div>
       ),
-      className: 'min-w-[420px] admin-payslip-actions-th',
+      className: 'min-w-0 lg:min-w-[22rem] admin-payslip-actions-th',
       render: (r) => {
         if (!batch || r.status !== 'success' || !r.fileName) {
           return <span className="text-sm text-muted">—</span>
@@ -1049,9 +1049,10 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
   return (
     <PageWrapper
       fillViewport={isAdminPayslips}
+      scrollable={isAdminPayslips}
       className={cn(
         isAdminPayslips
-          ? 'admin-hub-page-wrap admin-payslips-page relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden !px-0 !py-3 font-body max-w-none'
+          ? 'admin-hub-page-wrap admin-payslips-page relative z-10 flex min-h-0 flex-1 flex-col !px-0 !py-3 font-body max-w-none'
           : 'admin-page',
       )}
     >

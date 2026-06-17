@@ -53,8 +53,8 @@ export const adminPortalGuideSections = [
     key: 'projects',
     title: 'Projects & timesheets',
     summary: 'Projects, task assignment, and timesheet review.',
-    linkTo: '/admin/projects',
-    linkLabel: 'Projects',
+    linkTo: '/admin/timesheet?tab=timesheets',
+    linkLabel: 'Timesheets',
     steps: [
       'Create and manage projects; assign employees to tasks.',
       'Employees check in on assigned tasks from their Timesheet page.',

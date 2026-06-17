@@ -63,6 +63,7 @@ import { useEmployeeStore } from '@store/employeeStore'
 import { MOCK_EMPLOYEES } from '@/services/mockData'
 import type { Employee } from '@/types'
 import { cn } from '@/utils/cn'
+import { getVisiblePageNumbers } from '@hooks/usePagination'
 import {
   ProjectHoursHoverCard,
   ProjectHoursHoverCardProvider,
@@ -1128,6 +1129,86 @@ function EmployeeLeaderboard({
           No hours logged in this period.
         </p>
       )}
+    </div>
+  )
+}
+
+/* ================================================================
+   COMPONENT – Compact pagination (ellipsis for large page counts)
+   ================================================================ */
+function ProjectsPaginationBar({
+  currentPage,
+  totalPages,
+  rangeStart,
+  rangeEnd,
+  totalItems,
+  itemLabel,
+  onPageChange,
+}: {
+  currentPage: number
+  totalPages: number
+  rangeStart: number
+  rangeEnd: number
+  totalItems: number
+  itemLabel: string
+  onPageChange: (page: number) => void
+}) {
+  const visiblePages = getVisiblePageNumbers(currentPage, totalPages)
+
+  return (
+    <div className="projects-pagination-bar flex flex-wrap items-center justify-between gap-3">
+      <span className="text-[11px] font-semibold text-slate-600">
+        Showing {rangeStart}–{rangeEnd} of {totalItems} {itemLabel}
+      </span>
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
+        <button
+          type="button"
+          disabled={currentPage === 1}
+          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+          className="inline-flex h-7 items-center justify-center rounded-lg border border-border bg-[var(--bg-card)] px-3 text-[11px] font-bold text-slate-700 transition-all hover:bg-emerald-50/60 hover:text-ink disabled:pointer-events-none disabled:opacity-40"
+        >
+          Previous
+        </button>
+        {visiblePages.map((pageNum, index) => {
+          const prevPage = visiblePages[index - 1]
+          const showEllipsis = prevPage != null && pageNum - prevPage > 1
+
+          return (
+            <span key={pageNum} className="inline-flex items-center gap-1.5">
+              {showEllipsis ? (
+                <span
+                  className="inline-flex h-7 min-w-7 items-center justify-center px-0.5 text-[11px] font-bold text-slate-400"
+                  aria-hidden
+                >
+                  …
+                </span>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => onPageChange(pageNum)}
+                className={cn(
+                  'inline-flex h-7 min-w-7 items-center justify-center rounded-lg px-1.5 text-[11px] font-black transition-all',
+                  currentPage === pageNum
+                    ? 'admin-projects-green-solid shadow-sm'
+                    : 'border border-border bg-[var(--bg-card)] text-slate-700 hover:bg-emerald-50/60 hover:text-ink',
+                )}
+                aria-label={`Page ${pageNum}`}
+                aria-current={currentPage === pageNum ? 'page' : undefined}
+              >
+                {pageNum}
+              </button>
+            </span>
+          )
+        })}
+        <button
+          type="button"
+          disabled={currentPage === totalPages}
+          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+          className="inline-flex h-7 items-center justify-center rounded-lg border border-border bg-[var(--bg-card)] px-3 text-[11px] font-bold text-slate-700 transition-all hover:bg-emerald-50/60 hover:text-ink disabled:pointer-events-none disabled:opacity-40"
+        >
+          Next
+        </button>
+      </div>
     </div>
   )
 }
@@ -2905,16 +2986,22 @@ export function ProjectManagement() {
         {/* Unified main content panel */}
         <div className="projects-main-panel">
           {activeTab === 'analytics' ? (
-            <div className="projects-analytics-embed animate-fadeIn">
-              <Analytics embedded />
+            <div className="projects-tab-panel projects-analytics-embed animate-fadeIn">
+              <div className="projects-tab-scroll">
+                <Analytics embedded />
+              </div>
             </div>
           ) : activeTab === 'archived' ? (
-            <ArchivedProjectsPanel
-              archivedProjects={archivedProjects}
-              loading={loadingArchived}
-              restoringId={restoringArchivedId}
-              onRestore={handleRestoreArchivedProject}
-            />
+            <div className="projects-tab-panel animate-fadeIn">
+              <div className="projects-tab-scroll">
+                <ArchivedProjectsPanel
+                  archivedProjects={archivedProjects}
+                  loading={loadingArchived}
+                  restoringId={restoringArchivedId}
+                  onRestore={handleRestoreArchivedProject}
+                />
+              </div>
+            </div>
           ) : activeTab === 'projects' ? (
             <div className="projects-directory-section animate-fadeIn">
               <div className="projects-directory-header">
@@ -3124,47 +3211,20 @@ export function ProjectManagement() {
 
               {/* Projects Pagination Controls */}
               {totalProjectsPages > 1 && (
-                <div className="projects-pagination-bar flex flex-wrap items-center justify-between gap-3">
-                  <span className="text-[11px] font-semibold text-slate-600">
-                    Showing {indexOfFirstProject + 1}–{Math.min(indexOfLastProject, filteredProjects.length)} of {filteredProjects.length} projects
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      disabled={projectsCurrentPage === 1}
-                      onClick={() => setProjectsCurrentPage((p) => Math.max(1, p - 1))}
-                      className="inline-flex h-7 items-center justify-center rounded-lg border border-border bg-[var(--bg-card)] px-3 text-[11px] font-bold text-slate-700 transition-all hover:bg-emerald-50/60 hover:text-ink disabled:opacity-40 disabled:pointer-events-none"
-                    >
-                      Previous
-                    </button>
-                    {Array.from({ length: totalProjectsPages }, (_, i) => i + 1).map((page) => (
-                      <button
-                        key={page}
-                        type="button"
-                        onClick={() => setProjectsCurrentPage(page)}
-                        className={`inline-flex h-7 w-7 items-center justify-center rounded-lg text-[11px] font-black transition-all ${
-                          projectsCurrentPage === page
-                            ? 'admin-projects-green-solid shadow-sm'
-                            : 'border border-border bg-[var(--bg-card)] text-slate-700 hover:bg-emerald-50/60 hover:text-ink'
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      disabled={projectsCurrentPage === totalProjectsPages}
-                      onClick={() => setProjectsCurrentPage((p) => Math.min(totalProjectsPages, p + 1))}
-                      className="inline-flex h-7 items-center justify-center rounded-lg border border-border bg-[var(--bg-card)] px-3 text-[11px] font-bold text-slate-700 transition-all hover:bg-emerald-50/60 hover:text-ink disabled:opacity-40 disabled:pointer-events-none"
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
+                <ProjectsPaginationBar
+                  currentPage={projectsCurrentPage}
+                  totalPages={totalProjectsPages}
+                  rangeStart={indexOfFirstProject + 1}
+                  rangeEnd={Math.min(indexOfLastProject, filteredProjects.length)}
+                  totalItems={filteredProjects.length}
+                  itemLabel="projects"
+                  onPageChange={setProjectsCurrentPage}
+                />
               )}
             </div>
           ) : (
-            <div className="space-y-5 animate-fadeIn">
+            <div className="projects-tab-panel animate-fadeIn">
+              <div className="projects-tab-scroll space-y-5">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
                 <div>
                   <h2 className="projects-section-heading">Timesheet Records</h2>
@@ -3331,7 +3391,7 @@ export function ProjectManagement() {
 
           {/* Timesheet log table */}
           <div className="projects-ts-table-wrap">
-            <div className="max-h-[min(32rem,70vh)] overflow-auto timesheet-panel-scroll">
+            <div className="overflow-x-auto timesheet-panel-scroll">
               <table className="w-full min-w-[640px] border-collapse text-left">
                 <thead className="sticky top-0 z-10 bg-gradient-to-r from-[#1e5a3d] via-[#236b48] to-[#276749]">
                   <tr className="border-b border-white/10">
@@ -3438,45 +3498,18 @@ export function ProjectManagement() {
           </div>
 
           {totalTimesheetsPages > 1 && (
-            <div className="projects-pagination-bar flex flex-wrap items-center justify-between gap-3">
-              <span className="text-[11px] font-semibold text-slate-600">
-                Showing {indexOfFirstTimesheet + 1}–{Math.min(indexOfLastTimesheet, filteredTimesheets.length)} of {filteredTimesheets.length} logs
-              </span>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  disabled={timesheetsCurrentPage === 1}
-                  onClick={() => setTimesheetsCurrentPage((p) => Math.max(1, p - 1))}
-                  className="inline-flex h-7 items-center justify-center rounded-lg border border-border bg-[var(--bg-card)] px-3 text-[11px] font-bold text-slate-700 transition-all hover:bg-emerald-50/60 hover:text-ink disabled:opacity-40 disabled:pointer-events-none"
-                >
-                  Previous
-                </button>
-                {Array.from({ length: totalTimesheetsPages }, (_, i) => i + 1).map((page) => (
-                  <button
-                    key={page}
-                    type="button"
-                    onClick={() => setTimesheetsCurrentPage(page)}
-                    className={`inline-flex h-7 w-7 items-center justify-center rounded-lg text-[11px] font-black transition-all ${
-                      timesheetsCurrentPage === page
-                        ? 'admin-projects-green-solid shadow-sm'
-                        : 'border border-border bg-[var(--bg-card)] text-slate-700 hover:bg-emerald-50/60 hover:text-ink'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  disabled={timesheetsCurrentPage === totalTimesheetsPages}
-                  onClick={() => setTimesheetsCurrentPage((p) => Math.min(totalTimesheetsPages, p + 1))}
-                  className="inline-flex h-7 items-center justify-center rounded-lg border border-border bg-[var(--bg-card)] px-3 text-[11px] font-bold text-slate-700 transition-all hover:bg-emerald-50/60 hover:text-ink disabled:opacity-40 disabled:pointer-events-none"
-                >
-                  Next
-                </button>
+            <ProjectsPaginationBar
+              currentPage={timesheetsCurrentPage}
+              totalPages={totalTimesheetsPages}
+              rangeStart={indexOfFirstTimesheet + 1}
+              rangeEnd={Math.min(indexOfLastTimesheet, filteredTimesheets.length)}
+              totalItems={filteredTimesheets.length}
+              itemLabel="logs"
+              onPageChange={setTimesheetsCurrentPage}
+            />
+          )}
               </div>
             </div>
-          )}
-        </div>
       )}
     </div>
   </div>

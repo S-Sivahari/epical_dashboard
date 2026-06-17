@@ -293,7 +293,7 @@ export function TrainingCourses() {
           </header>
 
           {tab === 'courses' && (
-            <div className="admin-training-body-grid">
+            <div className="admin-training-body-grid admin-training-body-grid--fill">
               <aside className="admin-training-sidebar space-y-4">
                 <p className="admin-training-sidebar-title">
                   {editingCourseId ? 'Edit Course' : 'Add New Course'}
@@ -363,7 +363,7 @@ export function TrainingCourses() {
                   </div>
                 </div>
 
-                <div className="admin-training-panel-fixed relative max-w-xl">
+                <div className="admin-training-panel-fixed relative w-full min-w-0">
                   <Search
                     className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 admin-training-text-brand-muted"
                     aria-hidden
@@ -392,7 +392,7 @@ export function TrainingCourses() {
                       <p className="mt-1 text-sm text-slate-600">Use the sidebar form to add your first course.</p>
                     </div>
                   ) : (
-                    <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-3">
+                    <div className="admin-training-course-grid">
                       {courses.map((c) => (
                         <div
                           key={c.id}
@@ -447,7 +447,7 @@ export function TrainingCourses() {
           )}
 
           {tab !== 'courses' && (
-            <div className="admin-training-body-grid">
+            <div className="admin-training-body-grid admin-training-body-grid--fill">
               <aside className="admin-training-sidebar space-y-4">
                 <p className="admin-training-sidebar-title">{activeTabMeta.label}</p>
                 <div>

@@ -1,0 +1,432 @@
+/**
+ * Cross-page responsive layout — tablet/mobile fallbacks.
+ * Desktop (≥1024px) keeps viewport-fit internal scroll; smaller viewports use page scroll.
+ */
+
+/* ── Scroll affordance on regions that overflow ── */
+.table-scroll-x,
+.admin-table-scroll,
+.admin-portal .admin-table-scroll,
+.projects-tab-scroll,
+.projects-directory-scroll,
+.viewport-panel-scroll,
+.timesheet-panel-scroll,
+.overflow-x-auto,
+.overflow-y-auto,
+.admin-analytics-comparison-chart-scroll,
+.emp-timesheet-history-scroll,
+.admin-documents-view .admin-doc-table-wrap,
+.admin-training-view .admin-training-catalog-scroll,
+.admin-training-view .admin-training-panel-scroll,
+.admin-payslips-view .admin-payslips-list-scroll,
+[data-employee-dashboard] .emp-dash-widgets-grid {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.45) transparent;
+}
+
+.table-scroll-x::-webkit-scrollbar,
+.admin-table-scroll::-webkit-scrollbar,
+.projects-tab-scroll::-webkit-scrollbar,
+.projects-directory-scroll::-webkit-scrollbar,
+.viewport-panel-scroll::-webkit-scrollbar,
+.timesheet-panel-scroll::-webkit-scrollbar,
+.overflow-x-auto::-webkit-scrollbar,
+.overflow-y-auto::-webkit-scrollbar,
+.admin-analytics-comparison-chart-scroll::-webkit-scrollbar,
+.emp-timesheet-history-scroll::-webkit-scrollbar,
+.admin-documents-view .admin-doc-table-wrap::-webkit-scrollbar,
+.admin-training-view .admin-training-catalog-scroll::-webkit-scrollbar,
+.admin-training-view .admin-training-panel-scroll::-webkit-scrollbar,
+.admin-payslips-view .admin-payslips-list-scroll::-webkit-scrollbar,
+[data-employee-dashboard] .emp-dash-widgets-grid::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.table-scroll-x::-webkit-scrollbar-thumb,
+.admin-table-scroll::-webkit-scrollbar-thumb,
+.projects-tab-scroll::-webkit-scrollbar-thumb,
+.projects-directory-scroll::-webkit-scrollbar-thumb,
+.viewport-panel-scroll::-webkit-scrollbar-thumb,
+.timesheet-panel-scroll::-webkit-scrollbar-thumb,
+.overflow-x-auto::-webkit-scrollbar-thumb,
+.overflow-y-auto::-webkit-scrollbar-thumb,
+.admin-analytics-comparison-chart-scroll::-webkit-scrollbar-thumb,
+.emp-timesheet-history-scroll::-webkit-scrollbar-thumb,
+.admin-documents-view .admin-doc-table-wrap::-webkit-scrollbar-thumb,
+.admin-training-view .admin-training-catalog-scroll::-webkit-scrollbar-thumb,
+.admin-training-view .admin-training-panel-scroll::-webkit-scrollbar-thumb,
+.admin-payslips-view .admin-payslips-list-scroll::-webkit-scrollbar-thumb,
+[data-employee-dashboard] .emp-dash-widgets-grid::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: rgba(100, 116, 139, 0.4);
+}
+
+/* ── Typography & density on smaller screens ── */
+@media (max-width: 1023px) {
+  .admin-dashboard-view {
+    --dashboard-font-scale: 1;
+    --dashboard-gap: 0.75rem;
+    --dashboard-panel-pad-x: 0.875rem;
+  }
+
+  .admin-projects-view {
+    --admin-projects-ui-scale: 0.72;
+    --projects-sidebar-scale: calc(1.08 * var(--admin-projects-ui-scale, 0.72));
+  }
+
+  .admin-analytics-view {
+    --admin-analytics-font-scale: 1;
+  }
+}
+
+@media (max-width: 639px) {
+  .admin-projects-view {
+    --admin-projects-ui-scale: 0.68;
+  }
+
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-shell,
+  .admin-dashboard-view[data-employee-dashboard] .dashboard-shell {
+    padding-left: 0.375rem;
+    padding-right: 0.375rem;
+  }
+}
+
+/* ── Admin hub pages — page scroll (Documents, Training, Payslips) ── */
+.admin-portal.cmd-portal .cmd-main:has([data-page-scrollable]) {
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-portal .admin-hub-page-wrap:has(.admin-documents-view),
+.admin-portal .admin-hub-page-wrap:has(.admin-training-view),
+.admin-portal .admin-hub-page-wrap:has(.admin-payslips-view) {
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-height: none;
+  min-height: 0;
+  flex: 1 1 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-portal .admin-hub-page-wrap:has(.admin-payslips-view)[data-page-scrollable],
+.admin-portal .admin-hub-page-wrap:has(.admin-training-view)[data-page-scrollable],
+.admin-portal .admin-hub-page-wrap:has(.admin-documents-view)[data-page-scrollable] {
+  flex: 1 1 auto;
+  min-height: auto;
+}
+
+.admin-portal .admin-documents-view,
+.admin-portal .admin-training-view,
+.admin-portal .admin-payslips-view,
+.admin-portal .admin-documents-shell,
+.admin-portal .admin-training-shell,
+.admin-portal .admin-payslips-shell {
+  min-height: 0;
+}
+
+@media (max-width: 1023px) {
+  .admin-portal .admin-payslips-view .admin-payslips-body-grid,
+  .admin-portal .admin-payslips-view .admin-payslips-body-grid--fill {
+    overflow: visible;
+    min-height: auto;
+    flex: 1 1 auto;
+  }
+
+  .admin-portal .admin-payslips-view .admin-payslips-main-panel,
+  .admin-portal .admin-payslips-view .admin-payslips-main-panel--history {
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .admin-portal .admin-payslips-view .admin-payslips-list-scroll,
+  .admin-portal .admin-payslips-view .admin-payslips-list-scroll--upload,
+  .admin-portal .admin-payslips-view .admin-payslips-list-scroll--history {
+    flex: none;
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .admin-portal .admin-training-view .admin-training-body-grid,
+  .admin-portal .admin-training-view .admin-training-body-grid--fill {
+    overflow: visible;
+    min-height: auto;
+    flex: 1 1 auto;
+  }
+
+  .admin-portal .admin-training-view .admin-training-main-panel {
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .admin-portal .admin-training-view .admin-training-catalog-scroll,
+  .admin-portal .admin-training-view .admin-training-panel-scroll {
+    flex: none;
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .admin-portal .admin-documents-view .admin-documents-body-grid,
+  .admin-portal .admin-documents-view .admin-documents-body-grid--fill {
+    overflow: visible;
+    min-height: auto;
+    flex: 1 1 auto;
+  }
+
+  .admin-portal .admin-documents-view .admin-documents-main-panel {
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .admin-portal .admin-documents-view .admin-doc-table-wrap {
+    flex: none;
+    min-height: auto;
+    overflow: visible;
+  }
+}
+
+@media (min-width: 1024px) {
+  .admin-portal .admin-documents-view .admin-documents-body-grid,
+  .admin-portal .admin-training-view .admin-training-body-grid,
+  .admin-portal .admin-payslips-view .admin-payslips-body-grid {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .admin-hub-page-wrap[data-page-scrollable] .admin-payslips-body-grid,
+  .admin-hub-page-wrap[data-page-scrollable] .admin-payslips-body-grid--fill,
+  .admin-hub-page-wrap[data-page-scrollable] .admin-training-body-grid,
+  .admin-hub-page-wrap[data-page-scrollable] .admin-training-body-grid--fill,
+  .admin-hub-page-wrap[data-page-scrollable] .admin-documents-body-grid,
+  .admin-hub-page-wrap[data-page-scrollable] .admin-documents-body-grid--fill {
+    flex: 1 1 auto;
+    min-height: auto;
+    overflow: visible;
+  }
+}
+
+/* ── Tablet/mobile: page scroll instead of viewport-fit clipping ── */
+@media (max-width: 1023px) {
+  .admin-portal.cmd-portal .cmd-main:has([data-admin-dashboard]),
+  .admin-portal.cmd-portal .cmd-main:has([data-admin-calendar]),
+  .employee-portal.cmd-portal .cmd-main:has([data-employee-dashboard]),
+  .employee-portal.cmd-portal .cmd-main:has([data-employee-timesheet]),
+  .employee-portal.cmd-portal .cmd-main:has([data-employee-calendar]),
+  .admin-portal.cmd-portal .cmd-main:has(.admin-projects-view),
+  .admin-portal.cmd-portal .cmd-main:has(.admin-hub-page-wrap) {
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-dashboard]),
+  .employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-timesheet]),
+  .employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-calendar]) {
+    flex: 1 1 auto;
+    max-height: none;
+    height: auto;
+    overflow-x: hidden;
+    overflow-y: visible;
+  }
+
+  .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-dashboard]),
+  .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-timesheet]),
+  .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]) {
+    flex: 1 1 auto;
+    min-height: auto;
+    overflow: visible;
+  }
+
+  [data-employee-dashboard] .emp-dash-widgets-grid,
+  [data-employee-dashboard] .emp-dash-widgets-row {
+    flex: none;
+    min-height: auto;
+    overflow: visible;
+  }
+
+  [data-employee-dashboard] .emp-dash-widget-slot {
+    min-height: 11rem;
+    overflow: visible;
+  }
+
+  [data-employee-dashboard] .emp-dash-widget-slot > * {
+    min-height: 11rem;
+  }
+
+  .admin-portal .admin-projects-view,
+  .employee-portal .admin-projects-view {
+    overflow: visible;
+    flex: 1 1 auto;
+    min-height: auto;
+  }
+
+  .admin-portal .admin-projects-view > .projects-page-wrapper,
+  .admin-portal .admin-projects-view .projects-shell,
+  .employee-portal .admin-projects-view > .projects-page-wrapper,
+  .employee-portal .admin-projects-view .projects-shell {
+    overflow: visible;
+    flex: 1 1 auto;
+    min-height: auto;
+  }
+
+  .admin-projects-view .projects-body-grid {
+    overflow: visible;
+    flex: 1 1 auto;
+    min-height: auto;
+  }
+
+  .admin-projects-view .projects-main-panel {
+    min-height: 18rem;
+  }
+
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    min-height: auto;
+    overflow: visible;
+    height: auto;
+  }
+
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack-section.dashboard-center-chart,
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack-section.dashboard-center-table {
+    flex: none;
+    grid-row: auto;
+    min-height: auto;
+    overflow: hidden;
+    border-radius: 0.75rem;
+    border: 1px solid var(--dash-border-neutral, rgba(148, 163, 184, 0.35));
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  }
+
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack-section.dashboard-center-chart {
+    min-height: auto;
+    border-bottom: none;
+  }
+
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack-section.dashboard-center-table {
+    flex: 1 1 auto;
+    min-height: 18rem;
+  }
+
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-center-column {
+    height: auto;
+    min-height: auto;
+  }
+
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-left-insights-column,
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-left-insights,
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-right-column,
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-right-stack {
+    overflow: visible;
+    min-height: auto;
+    height: auto;
+  }
+
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-right-approvals,
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-right-activity {
+    flex: none;
+    max-height: none;
+    min-height: 11rem;
+  }
+
+  .admin-portal .admin-training-shell,
+  .admin-portal .admin-news-shell,
+  .admin-portal .admin-documents-shell,
+  .admin-portal .admin-tickets-shell,
+  .admin-portal .admin-payslips-shell,
+  .admin-portal .admin-leaves-shell,
+  .admin-portal .admin-analytics-shell,
+  .admin-portal .admin-settings-shell,
+  .admin-portal .admin-achievements-shell {
+    overflow: visible;
+    max-height: none;
+  }
+
+  .admin-portal .admin-training-body-grid,
+  .admin-portal .admin-news-body-grid,
+  .admin-portal .admin-documents-body-grid,
+  .admin-portal .admin-tickets-body-grid,
+  .admin-portal .admin-payslips-body-grid,
+  .admin-portal .admin-leaves-three-col {
+    overflow: visible;
+    min-height: auto;
+  }
+
+  .admin-portal .admin-training-main-panel,
+  .admin-portal .admin-training-sidebar,
+  .admin-portal .admin-documents-view .admin-documents-main-panel,
+  .admin-portal .admin-documents-view .admin-documents-sidebar,
+  .admin-portal .admin-analytics-view .admin-analytics-main-panel,
+  .admin-portal .admin-analytics-view .admin-analytics-sidebar {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .emp-timesheet-page {
+    height: auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: visible;
+  }
+}
+
+/* ── Projects / timesheet: horizontal scroll for wide tables ── */
+.projects-tab-scroll,
+.projects-directory-scroll {
+  overflow-x: auto;
+}
+
+.projects-pagination-bar > div:last-child {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* ── Admin dashboard: stack columns on tablet ── */
+@media (max-width: 1023px) {
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-main-grid {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+}
+
+/* ── Projects hero: tighter on small screens ── */
+@media (max-width: 767px) {
+  .admin-projects-view .projects-hero-section {
+    padding: 0.875rem 1rem !important;
+  }
+
+  .admin-projects-view .projects-hero-heading {
+    font-size: calc(22px * var(--admin-projects-ui-scale, 0.68)) !important;
+  }
+
+  .admin-projects-view .projects-hero-metrics-group {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .admin-projects-view .projects-sidebar {
+    max-height: none;
+    flex: none;
+  }
+
+  .admin-projects-view .projects-main-header,
+  .admin-projects-view .projects-directory-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-projects-view .projects-directory-header-controls {
+    flex: 1 1 auto;
+    justify-content: stretch;
+  }
+
+  [data-employee-dashboard] .emp-dash-leave-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    height: auto;
+  }
+}
