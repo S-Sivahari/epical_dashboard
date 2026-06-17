@@ -346,29 +346,30 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
             </header>
           ) : null}
 
-          <NotesDashboardToolbar
-            weekLabel={weekLabel}
-            isCurrentWeek={isCurrentWeek}
-            filters={searchFilters}
-            onWeekPrevious={() => handleWeekChange(shiftWeek(weekMonday, -1))}
-            onWeekNext={() => handleWeekChange(shiftWeek(weekMonday, 1))}
-            onWeekCurrent={() => handleWeekChange(getMondayOfWeek(new Date()))}
-            onFiltersChange={handleFiltersChange}
-            onQueryChange={handleQueryChange}
-            trailingAction={
-              inProjectManagement ? (
-                <Button
-                  type="button"
-                  variant="primary"
-                  icon={<Plus className="h-4 w-4" />}
-                  disabled={!canAddToday}
-                  onClick={handleAddTodayNotes}
-                >
-                  Add today&apos;s notes
-                </Button>
-              ) : null
-            }
-          />
+          <section className="notes-controls-panel" aria-label="Notes controls">
+            <NotesDashboardToolbar
+              weekLabel={weekLabel}
+              isCurrentWeek={isCurrentWeek}
+              filters={searchFilters}
+              onWeekPrevious={() => handleWeekChange(shiftWeek(weekMonday, -1))}
+              onWeekNext={() => handleWeekChange(shiftWeek(weekMonday, 1))}
+              onWeekCurrent={() => handleWeekChange(getMondayOfWeek(new Date()))}
+              onFiltersChange={handleFiltersChange}
+              onQueryChange={handleQueryChange}
+              trailingAction={
+                inProjectManagement ? (
+                  <Button
+                    type="button"
+                    variant="primary"
+                    icon={<Plus className="h-4 w-4" />}
+                    disabled={!canAddToday}
+                    onClick={handleAddTodayNotes}
+                  >
+                    Add today&apos;s notes
+                  </Button>
+                ) : null
+              }
+            />
 
             {!isEmployeeView ? (
               <NotesDelegationPanel
