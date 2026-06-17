@@ -10,7 +10,6 @@ import { useEmployeeNotesAccess } from '@hooks/useEmployeeNotesAccess'
 import { NotificationBadge } from '@components/ui/NotificationBadge'
 import { resolveNavNotificationCount } from '@utils/notificationCategories'
 import { cn } from '@/utils/cn'
-import { resolveNavNotificationCount } from '@utils/notificationCategories'
 
 export function EmployeeTopNav() {
   const { pathname } = useLocation()
