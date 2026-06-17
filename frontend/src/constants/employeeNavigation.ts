@@ -9,6 +9,7 @@ import {
   FolderKanban,
   HelpCircle,
   LayoutGrid,
+  NotebookPen,
   Ticket,
   Trophy,
   User,
@@ -22,6 +23,13 @@ export type EmployeeNavItem = {
   icon: LucideIcon
   end?: boolean
   notificationKey?: 'leaves' | 'documents'
+}
+
+export const EMPLOYEE_NOTES_NAV_ITEM: EmployeeNavItem = {
+  to: '/employee/notes',
+  label: 'Daily Notes',
+  navLabel: 'Notes',
+  icon: NotebookPen,
 }
 
 export const EMPLOYEE_NAV_ITEMS: EmployeeNavItem[] = [
@@ -108,6 +116,7 @@ export const EMPLOYEE_ROUTE_TITLES: Record<string, string> = {
   '/employee/timesheet': 'Timesheet',
   '/employee/projects': 'Projects',
   '/employee/metal-routing': 'Metal Routing',
+  '/employee/notes': 'Daily Notes',
   '/employee/leave': 'Leave Request',
   '/employee/calendar': 'Company Calendar',
   '/employee/documents': 'Documents',
