@@ -10,6 +10,7 @@ import {
   cellRoutingDisplayStatus,
   dashboardStatusVariant,
   formatRelativeUpdated,
+  displayProjectClientName,
   getProjectCode,
 } from '@/utils/metalRoutingProjectDisplay'
 import { metalRoutingCardStyle } from '@/utils/metalRoutingCardTheme'
@@ -64,6 +65,7 @@ export function MetalRoutingProjectCards({
             ? cellRoutingDisplayStatus(project)
             : { label: project.status, variant: dashboardStatusVariant(project.status) }
         const cardSeed = project.id || project.projectName
+        const clientLabel = displayProjectClientName(project.clientName)
 
         return (
           <article
@@ -106,7 +108,9 @@ export function MetalRoutingProjectCards({
             <div className="metal-routing-project-card__content">
               <p className="metal-routing-project-card__title truncate">{project.projectName}</p>
               <p className="metal-routing-project-card__code truncate">{projectCode}</p>
-              <p className="truncate text-sm text-muted">{project.clientName}</p>
+              {clientLabel ? (
+                <p className="truncate text-sm text-muted">{clientLabel}</p>
+              ) : null}
               {!hideTechnology ? (
                 <p className="truncate text-xs text-muted">{project.technologyNode}</p>
               ) : null}
@@ -212,6 +216,10 @@ export function MetalRoutingProjectListRows({
             : { label: project.status, variant: dashboardStatusVariant(project.status) }
         const cardSeed = project.id || project.projectName
         const isSelected = variant === 'dashboard' && selectedProjectId === project.id
+        const clientLabel = displayProjectClientName(project.clientName)
+        const metaParts = [projectCode]
+        if (clientLabel) metaParts.push(clientLabel)
+        if (isSimpleList && project.pdkModuleName) metaParts.push(project.pdkModuleName)
 
         return (
           <button
@@ -245,8 +253,7 @@ export function MetalRoutingProjectListRows({
                 {project.projectName}
               </p>
               <p className={cn('text-muted', isSimpleList ? 'metal-routing-pdk-list-row__meta' : 'text-xs')}>
-                {projectCode} · {project.clientName}
-                {isSimpleList && project.pdkModuleName ? ` · ${project.pdkModuleName}` : ''}
+                {metaParts.join(' · ')}
               </p>
               {!isSimpleList ? (
                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
