@@ -157,3 +157,20 @@ export type NotesSearchParams = {
   page?: number
   limit?: number
 }
+
+export type NotesDelegation = {
+  _id: string
+  date: string
+  employeeId: string
+  employeeName: string
+  assignedBy: NoteActor & { email?: string }
+  createdAt: string
+  updatedAt: string
+}
+
+export type NotesAccess = {
+  role: 'admin' | 'employee'
+  canAccessToday: boolean
+  showNotesNav: boolean
+  delegatedDates: string[]
+}

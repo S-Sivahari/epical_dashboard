@@ -11,6 +11,8 @@ import type {
   DailyNoteStatus,
   NoteProjectEmployee,
   NoteProjectOption,
+  NotesAccess,
+  NotesDelegation,
   NotesSearchFilterOptions,
   NotesSearchParams,
   NotesSearchResponse,
@@ -179,5 +181,28 @@ export async function reorderChildBlocks(dailyBlockId: string, childBlockIds: st
     `/notes/${dailyBlockId}/child-blocks/reorder`,
     { childBlockIds },
   )
+  return res.data
+}
+
+export async function getNotesAccess(params?: { from?: string; to?: string }) {
+  const res = await api.get<NotesAccess>('/notes/access', { params })
+  return res.data
+}
+
+export async function listNotesDelegations(params?: { from?: string; to?: string }) {
+  const res = await api.get<NotesDelegation[]>('/notes/delegations', { params })
+  return res.data
+}
+
+export async function createNotesDelegation(date: string, employeeId: string) {
+  const res = await api.post<NotesDelegation>('/notes/delegations', {
+    date,
+    employeeId,
+  })
+  return res.data
+}
+
+export async function deleteNotesDelegation(id: string) {
+  const res = await api.delete<NotesDelegation>(`/notes/delegations/${id}`)
   return res.data
 }
