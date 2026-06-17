@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import { Button } from '@components/ui/Button'
 import type { NotesSearchFilters } from '@/utils/notesSearchParams'
@@ -12,6 +12,7 @@ type Props = {
   onWeekCurrent: () => void
   onFiltersChange: (filters: NotesSearchFilters) => void
   onQueryChange: (q: string) => void
+  trailingAction?: ReactNode
 }
 
 export function NotesDashboardToolbar({
@@ -23,6 +24,7 @@ export function NotesDashboardToolbar({
   onWeekCurrent,
   onFiltersChange,
   onQueryChange,
+  trailingAction,
 }: Props) {
   const [queryDraft, setQueryDraft] = useState(filters.q)
 
@@ -98,6 +100,10 @@ export function NotesDashboardToolbar({
           aria-label="To date"
         />
       </div>
+
+      {trailingAction ? (
+        <div className="notes-toolbar__trailing shrink-0">{trailingAction}</div>
+      ) : null}
     </div>
   )
 }
