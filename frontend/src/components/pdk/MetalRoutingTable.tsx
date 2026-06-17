@@ -23,6 +23,7 @@ function isImplementedBelowGiven(
 
 const thClass = 'border border-yellow-400 px-2 py-2'
 const tdClass = 'border border-lime-500 px-2 py-2'
+const dataTdClass = cn(tdClass, 'bg-white')
 const summaryTdClass = cn(
   tdClass,
   'metal-routing-metal-table__summary bg-white text-center font-bold align-middle',
@@ -140,7 +141,7 @@ export function MetalRoutingTable({
           </thead>
           <tbody>
             {metals.length === 0 ? (
-              <tr className="bg-lime-400/60 text-black">
+              <tr className="bg-white text-black">
                 <td className={cn(tdClass, 'py-6 text-center text-muted')} colSpan={9}>
                   No metals yet. Click &quot;Add metal&quot; to enter metal type, width, and length.
                 </td>
@@ -150,11 +151,6 @@ export function MetalRoutingTable({
                 const isMinRow = metal._id === route.minCapacityMetalId
                 const isMaxZ = metal._id === route.highestImpedanceMetalId
                 const belowGiven = isImplementedBelowGiven(metal, givenCurrentCapability)
-                const isFlaggedRow = isMinRow || isMaxZ
-                const dataTdClass = cn(
-                  tdClass,
-                  isFlaggedRow ? 'bg-rose-100/90' : 'bg-lime-400/70',
-                )
 
                 return (
                   <tr key={metal._id} className="font-medium text-black">
@@ -173,19 +169,21 @@ export function MetalRoutingTable({
                     ) : null}
                     <td
                       className={cn(
-                        dataTdClass,
-                        belowGiven && 'bg-red-500/75',
+                        tdClass,
+                        belowGiven ? 'bg-red-500/75' : 'bg-white',
                       )}
                       title={
-                        isMinRow
-                          ? 'Minimum implemented metal current capability in this route'
-                          : belowGiven
-                            ? 'Implemented metal current capability is below given current capability'
+                        belowGiven
+                          ? 'Implemented metal current capability is below given current capability'
+                          : isMinRow
+                            ? 'Minimum implemented metal current capability in this route'
                             : undefined
                       }
                     >
-                      {fmt(metal.implementedCurrentMetalCapacity)}
-                      {isMinRow ? <FlagBadge label="MIN" tone="min" /> : null}
+                      <span className="inline-flex items-center gap-1.5">
+                        {fmt(metal.implementedCurrentMetalCapacity)}
+                        {isMinRow ? <FlagBadge label="MIN" tone="min" /> : null}
+                      </span>
                     </td>
                     {index === 0 ? (
                       <td className={summaryTdClass} rowSpan={rowCount}>
@@ -193,8 +191,10 @@ export function MetalRoutingTable({
                       </td>
                     ) : null}
                     <td className={dataTdClass}>
-                      {fmt(metal.routingMetalImpedance)}
-                      {isMaxZ ? <FlagBadge label="MAX" tone="max" /> : null}
+                      <span className="inline-flex items-center gap-1.5">
+                        {fmt(metal.routingMetalImpedance)}
+                        {isMaxZ ? <FlagBadge label="MAX" tone="max" /> : null}
+                      </span>
                     </td>
                     {index === 0 ? (
                       <td className={summaryTdClass} rowSpan={rowCount}>

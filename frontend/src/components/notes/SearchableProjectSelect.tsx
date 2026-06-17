@@ -40,10 +40,7 @@ export function SearchableProjectSelect({
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase()
     if (!query) return projects
-    return projects.filter((project) => {
-      const haystack = `${project.name} ${project.client || ''} ${project.technologyNode || ''}`.toLowerCase()
-      return haystack.includes(query)
-    })
+    return projects.filter((project) => project.name.toLowerCase().includes(query))
   }, [projects, search])
 
   useEffect(() => {
@@ -112,12 +109,7 @@ export function SearchableProjectSelect({
                     value === project.id && 'admin-notes-select-option--selected',
                   )}
                 >
-                  <span className="font-medium">{project.name}</span>
-                  {project.client || project.technologyNode ? (
-                    <span className="text-xs text-slate-500">
-                      {[project.client, project.technologyNode].filter(Boolean).join(' · ')}
-                    </span>
-                  ) : null}
+                  {project.name}
                 </button>
               ))
             )}

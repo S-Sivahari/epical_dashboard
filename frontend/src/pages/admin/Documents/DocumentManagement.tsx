@@ -497,7 +497,7 @@ setRejectOpen(false)
               </div>
             </header>
 
-            <div className="admin-documents-body-grid">
+            <div className="admin-documents-body-grid admin-documents-body-grid--fill">
               <aside className="admin-documents-sidebar">
                 <p className="admin-documents-sidebar-title">{activeTabMeta.label}</p>
                 <p className="admin-documents-sidebar-desc">{activeTabMeta.description}</p>

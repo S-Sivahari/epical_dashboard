@@ -94,6 +94,7 @@ export function DailyNotesNotepad({
     hasBlock && block && !block.archived && !isPastDay && !isEmailSent && canEdit
   const emailIncludeCount = entries.filter((entry) => entry.includeInEmail).length
   const hasContent = projectGroups.length > 0
+  const hasNotes = entries.length > 0
 
   useEffect(() => {
     if (isEmailSent) {
@@ -184,7 +185,7 @@ export function DailyNotesNotepad({
                     size="sm"
                     variant="secondary"
                     icon={<Pencil className="h-3.5 w-3.5" />}
-                    disabled={busy}
+                    disabled={busy || !hasNotes}
                     onClick={() => setIsEditing(true)}
                   >
                     Edit note
@@ -192,7 +193,7 @@ export function DailyNotesNotepad({
                 </div>
               ) : null}
 
-              {hasBlock && !canEditNotes && !isEditing ? (
+              {hasBlock && !canEdit && !isEditing ? (
                 <p className="notes-notepad-pad__read-only-hint">
                   View only — you are not assigned to manage notes for this date.
                 </p>

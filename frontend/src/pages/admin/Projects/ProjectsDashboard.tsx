@@ -223,16 +223,18 @@ export function ProjectsDashboard() {
         </div>
 
         <div className="admin-projects-shell relative z-10">
-          <header className="admin-projects-head">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white">
-                <Briefcase className="h-4.5 w-4.5" />
+          {!inProjectAnalysis ? (
+            <header className="admin-projects-head">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white">
+                  <Briefcase className="h-4.5 w-4.5" />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="admin-projects-head-title">Projects</h1>
+                </div>
               </div>
-              <div className="min-w-0">
-                <h1 className="admin-projects-head-title">Projects</h1>
-              </div>
-            </div>
-          </header>
+            </header>
+          ) : null}
 
           <div className="admin-projects-toolbar">
             <div className="admin-projects-search-wrap">
