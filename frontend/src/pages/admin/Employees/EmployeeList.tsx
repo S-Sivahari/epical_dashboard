@@ -718,23 +718,24 @@ export function EmployeeList() {
         onClose={() => setStatusModalOpen(false)}
         title="Confirm Status Change"
         size="sm"
+        theme="light"
         className="admin-modal"
       >
         {pendingStatusChange && (
           <div className="space-y-4">
-            <p className="text-sm text-[#a1a1aa]">
+            <p className="text-sm text-slate-600">
               You are about to change{' '}
-              <span className="font-semibold text-white">
+              <span className="font-semibold text-slate-900">
                 {pendingStatusChange.employee.firstName} {pendingStatusChange.employee.lastName}
               </span>
               's status from{' '}
-              <span className="font-semibold text-white">{pendingStatusChange.employee.status}</span>
+              <span className="font-semibold text-slate-900">{pendingStatusChange.employee.status}</span>
               {' '}to{' '}
-              <span className="font-semibold text-white">{pendingStatusChange.newStatus}</span>.
+              <span className="font-semibold text-slate-900">{pendingStatusChange.newStatus}</span>.
             </p>
             <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-white">
-                Reason <span className="text-[#f87171]">*</span>
+              <label className="block text-sm font-medium text-slate-800">
+                Reason <span className="text-red-500">*</span>
               </label>
               <textarea
                 ref={reasonInputRef}
@@ -744,16 +745,18 @@ export function EmployeeList() {
                   if (statusReasonError) setStatusReasonError('')
                 }}
                 placeholder="Provide a reason for this status change..."
-                className={`admin-field w-full resize-none px-3 py-2 text-sm transition-shadow ${
-                  statusReasonError ? 'border-[#f87171] focus:ring-[#f87171]/20' : 'focus:ring-[#266b1c]/30'
+                className={`w-full resize-none rounded-lg border px-3 py-2 text-sm text-slate-800 transition-shadow focus:outline-none focus:ring-2 ${
+                  statusReasonError
+                    ? 'border-red-400 focus:ring-red-200'
+                    : 'border-slate-200 focus:ring-emerald-200'
                 }`}
                 rows={3}
               />
               {statusReasonError && (
-                <p className="text-xs text-[#f87171] font-medium">{statusReasonError}</p>
+                <p className="text-xs font-medium text-red-600">{statusReasonError}</p>
               )}
             </div>
-            <div className="flex justify-end gap-3 pt-2 border-t border-[rgba(161,161,170,0.18)]">
+            <div className="flex justify-end gap-3 border-t border-slate-200 pt-2">
               <Button variant="secondary" onClick={() => setStatusModalOpen(false)}>
                 Cancel
               </Button>

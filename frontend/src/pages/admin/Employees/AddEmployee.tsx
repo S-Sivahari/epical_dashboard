@@ -466,7 +466,9 @@ export function AddEmployee() {
       clearDraft()
       navigate('/admin/employees')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Could not create employee'
+      const msg =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+        (err instanceof Error ? err.message : 'Could not create employee')
       setSubmitError(msg)
       setShowPreview(false)
     }

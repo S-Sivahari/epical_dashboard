@@ -67,11 +67,11 @@ export function ProjectHoursChartPanel({
           </div>
         </div>
       </header>
-      <div className="dashboard-project-chart-body min-h-0 flex-1 px-2 pb-3 pt-2">
+      <div className="dashboard-project-chart-body">
         {loading ? (
-          <SkeletonBlock className="h-full min-h-[200px] rounded-xl" />
+          <SkeletonBlock className="h-[200px] rounded-xl" />
         ) : (
-          <ProjectHoursAreaChart data={chartData} fillParent height={200} />
+          <ProjectHoursAreaChart data={chartData} height={200} className="max-w-full overflow-hidden" />
         )}
       </div>
     </section>

@@ -3,6 +3,7 @@ import { TimesheetModel } from '../models/Timesheet';
 import { getUserById } from '../services/authService';
 import { getEmployeeProfileById } from '../services/employeeService';
 import * as leaveService from '../services/leaveService';
+import * as companyCalendarEventService from '../services/companyCalendarEventService';
 import * as documentRequestService from '../services/documentRequestService';
 import { listEnrollments } from '../services/courseService';
 import { resolveEmployeeForAuthUser } from '../utils/employeeAuth';
@@ -98,6 +99,7 @@ export async function getEmployeeDashboardBundle(userId: string, userEmail?: str
     leaves,
     compCredits,
     holidays,
+    calendarEvents,
     documents,
     enrollments,
     openAttendance,
@@ -109,6 +111,7 @@ export async function getEmployeeDashboardBundle(userId: string, userEmail?: str
     leaveService.getAllLeaves(employeeDbId),
     leaveService.getCompensationLeaveCreditsForYear(employeeDbId),
     leaveService.getAllHolidays(),
+    companyCalendarEventService.getAllCompanyCalendarEvents(),
     documentRequestService.listForEmployee(userId),
     listEnrollments({ employee: employeeDbId }),
     EmployeeAttendanceModel.findOne({
@@ -173,6 +176,23 @@ export async function getEmployeeDashboardBundle(userId: string, userEmail?: str
     })
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
+  const upcomingCalendarEvents = calendarEvents
+    .filter((e) => {
+      const d = new Date(e.date);
+      return !Number.isNaN(d.getTime()) && d >= todayStart && d <= holidayWindowEnd;
+    })
+    .map((e) => ({
+      id: e.id,
+      title: e.title,
+      date: e.date,
+      description: e.description,
+      type: 'Company Event' as const,
+    }));
+
+  const upcomingCalendarItems = [...upcomingHolidays, ...upcomingCalendarEvents].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+  );
+
   return {
     profile: profile ? sanitizeEmployeeForDetail(profile) : null,
     balances: balancesWithLop,
@@ -180,7 +200,7 @@ export async function getEmployeeDashboardBundle(userId: string, userEmail?: str
     leaveHistory: leaves.filter((l) =>
       ['Approved', 'Rejected', 'Cancelled', 'Pending'].includes(l.status),
     ),
-    holidays: upcomingHolidays,
+    holidays: upcomingCalendarItems,
     documents,
     enrollments,
     attendance: buildAttendancePayload(openAttendance, latestAttendance),

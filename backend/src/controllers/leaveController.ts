@@ -1,48 +1,9 @@
 import { Request, Response } from 'express';
 import * as leaveService from '../services/leaveService';
 import * as notificationService from '../services/notificationService';
-import { getDB } from '../config/db';
 import { AuthRequest } from '../middleware/authMiddleware';
-import type { NotificationType } from '../models/Notification';
 import { isAdminRole, isEmployeeRole } from '../utils/generateToken';
 import { resolveEmployeeForAuthUser } from '../utils/employeeAuth';
-
-/**
- * Sends an in-app notification (+ email via notificationService) to every active employee.
- */
-async function notifyAllEmployees(params: {
-  type: NotificationType;
-  title: string;
-  message: string;
-  holidayId: string;
-  holidayTitle: string;
-  holidayDate: string;
-  skippedReason?: string;
-}): Promise<void> {
-  try {
-    const employees = await getDB().collection('employees').find({ status: 'Active' }).toArray();
-    const relatedData = {
-      holidayId: params.holidayId,
-      holidayTitle: params.holidayTitle,
-      holidayDate: params.holidayDate,
-      skippedReason: params.skippedReason,
-    };
-    await Promise.all(
-      employees.map((emp) =>
-        notificationService.createNotification({
-          recipientId: String(emp.id),
-          recipientType: 'Employee',
-          type: params.type,
-          title: params.title,
-          message: params.message,
-          relatedData,
-        })
-      )
-    );
-  } catch (error) {
-    console.error('[Holiday Notification] Failed to notify employees:', error);
-  }
-}
 
 const VALID_HOLIDAY_TYPES = ['National', 'Company', 'Optional', 'Company Event'] as const;
 
@@ -448,13 +409,15 @@ export const leaveController = {
       });
 
       // Notify all active employees
-      notifyAllEmployees({
+      void notificationService.notifyAllEmployees({
         type: 'HolidayAdded',
         title: 'New Holiday Added',
         message: `${titleText} on ${dateText} has been added to the company calendar as a ${holidayType} holiday.`,
-        holidayId: holiday.id,
-        holidayTitle: titleText,
-        holidayDate: dateText,
+        relatedData: {
+          holidayId: holiday.id,
+          holidayTitle: titleText,
+          holidayDate: dateText,
+        },
       });
 
       res.status(201).json(holiday);
@@ -483,18 +446,26 @@ export const leaveController = {
       }
       const holiday = await leaveService.updateHoliday(id, { title, date, description, type });
 
-      const updatedTitle = title || existing.title;
-      const updatedDate = date || existing.date;
+      const updatedTitle = title !== undefined ? String(title).trim() : existing.title;
+      const updatedDate = date !== undefined ? String(date).trim() : existing.date;
+      const updatedType = type !== undefined ? type : existing.type;
+      const changed =
+        updatedTitle !== existing.title ||
+        updatedDate !== existing.date ||
+        updatedType !== existing.type;
 
-      // Notify all active employees
-      notifyAllEmployees({
-        type: 'HolidayUpdated',
-        title: 'Holiday Updated',
-        message: `The holiday "${updatedTitle}" on ${updatedDate} has been updated in the company calendar.`,
-        holidayId: id,
-        holidayTitle: updatedTitle,
-        holidayDate: updatedDate,
-      });
+      if (changed) {
+        void notificationService.notifyAllEmployees({
+          type: 'HolidayUpdated',
+          title: 'Holiday Updated',
+          message: `The holiday "${updatedTitle}" on ${updatedDate} has been updated in the company calendar.`,
+          relatedData: {
+            holidayId: id,
+            holidayTitle: updatedTitle,
+            holidayDate: updatedDate,
+          },
+        });
+      }
 
       res.json(holiday);
     } catch {
@@ -513,13 +484,15 @@ export const leaveController = {
       if (!ok) { res.status(404).json({ error: 'Holiday not found' }); return; }
 
       // Notify all active employees
-      notifyAllEmployees({
+      void notificationService.notifyAllEmployees({
         type: 'HolidayDeleted',
         title: 'Holiday Removed',
         message: `"${holiday.title}" on ${holiday.date} has been removed from the company calendar.`,
-        holidayId: id,
-        holidayTitle: holiday.title,
-        holidayDate: holiday.date,
+        relatedData: {
+          holidayId: id,
+          holidayTitle: holiday.title,
+          holidayDate: holiday.date,
+        },
       });
 
       res.json({ message: 'Deleted successfully' });
@@ -546,23 +519,27 @@ export const leaveController = {
       const resolvedReason = newSkipped ? (reason?.trim() || 'Marked as working day') : undefined;
 
       if (newSkipped) {
-        notifyAllEmployees({
+        void notificationService.notifyAllEmployees({
           type: 'HolidaySkipped',
           title: 'Holiday Marked as Working Day',
           message: `"${holiday.title}" on ${holiday.date} has been marked as a working day. The company will be operational on this date.`,
-          holidayId: id,
-          holidayTitle: holiday.title,
-          holidayDate: holiday.date,
-          skippedReason: resolvedReason,
+          relatedData: {
+            holidayId: id,
+            holidayTitle: holiday.title,
+            holidayDate: holiday.date,
+            skippedReason: resolvedReason,
+          },
         });
       } else {
-        notifyAllEmployees({
+        void notificationService.notifyAllEmployees({
           type: 'HolidayUpdated',
           title: 'Holiday Restored',
           message: `"${holiday.title}" on ${holiday.date} has been restored as a holiday. Enjoy your day off!`,
-          holidayId: id,
-          holidayTitle: holiday.title,
-          holidayDate: holiday.date,
+          relatedData: {
+            holidayId: id,
+            holidayTitle: holiday.title,
+            holidayDate: holiday.date,
+          },
         });
       }
 

@@ -40,6 +40,12 @@ const PF_ESI_OPTIONS = ['Enabled', 'Disabled'] as const;
 
 const IMPORT_TEMPLATE_DATA_ROWS = 500;
 
+const COMPANY_NAME = 'EPICAL LAYOUTS PVT LTD';
+const BRAND_GREEN_ARGB = 'FF06C033';
+const TITLE_ROW = 1;
+const HEADER_ROW = 2;
+const FIRST_DATA_ROW = 3;
+
 const COLUMN_KEYS = {
   employeeId: 'Employee ID',
   firstName: 'First Name',
@@ -164,6 +170,17 @@ function findHeaderRow(sheet: ExcelJS.Worksheet): number {
     }
   });
   return headerRow;
+}
+
+function resolveEmployeeImportSheet(wb: ExcelJS.Workbook): ExcelJS.Worksheet | undefined {
+  const employeesSheet = wb.getWorksheet('Employees');
+  if (employeesSheet) return employeesSheet;
+
+  for (const sheet of wb.worksheets) {
+    if (findHeaderRow(sheet) > 0) return sheet;
+  }
+
+  return wb.worksheets[0];
 }
 
 function buildColumnIndex(headerRow: ExcelJS.Row): Map<number, ColumnKey> {
@@ -354,9 +371,19 @@ export async function buildEmployeeImportTemplate(): Promise<Buffer> {
   const pfEsiList = writeListColumn(listsSheet, 4, PF_ESI_OPTIONS);
 
   const sheet = wb.addWorksheet('Employees');
+  const colCount = EMPLOYEE_IMPORT_HEADERS.length;
+
+  sheet.mergeCells(TITLE_ROW, 1, TITLE_ROW, colCount);
+  const titleCell = sheet.getCell(TITLE_ROW, 1);
+  titleCell.value = COMPANY_NAME;
+  titleCell.font = { name: 'Segoe UI', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+  titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND_GREEN_ARGB } };
+  titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  sheet.getRow(TITLE_ROW).height = 28;
+
   sheet.addRow([...EMPLOYEE_IMPORT_HEADERS]);
-  sheet.getRow(1).font = { bold: true, color: { argb: 'FF1A4712' } };
-  sheet.getRow(1).fill = {
+  sheet.getRow(HEADER_ROW).font = { bold: true, color: { argb: 'FF1A4712' } };
+  sheet.getRow(HEADER_ROW).fill = {
     type: 'pattern',
     pattern: 'solid',
     fgColor: { argb: 'FFE8F2E6' },
@@ -371,14 +398,13 @@ export async function buildEmployeeImportTemplate(): Promise<Buffer> {
     sheet.getColumn(index + 1).width = wideColumns.has(index + 1) ? 28 : 18;
   });
 
-  const firstDataRow = 2;
-  const lastDataRow = firstDataRow + IMPORT_TEMPLATE_DATA_ROWS - 1;
-  applyListValidation(sheet, headerColumn('Gender'), genderList, firstDataRow, lastDataRow);
-  applyListValidation(sheet, headerColumn('PF ESI'), pfEsiList, firstDataRow, lastDataRow);
-  applyListValidation(sheet, headerColumn('Employment Type'), employmentTypeList, firstDataRow, lastDataRow);
-  applyListValidation(sheet, headerColumn('Role'), roleList, firstDataRow, lastDataRow);
+  const lastDataRow = FIRST_DATA_ROW + IMPORT_TEMPLATE_DATA_ROWS - 1;
+  applyListValidation(sheet, headerColumn('Gender'), genderList, FIRST_DATA_ROW, lastDataRow);
+  applyListValidation(sheet, headerColumn('PF ESI'), pfEsiList, FIRST_DATA_ROW, lastDataRow);
+  applyListValidation(sheet, headerColumn('Employment Type'), employmentTypeList, FIRST_DATA_ROW, lastDataRow);
+  applyListValidation(sheet, headerColumn('Role'), roleList, FIRST_DATA_ROW, lastDataRow);
 
-  sheet.views = [{ state: 'frozen', ySplit: 1 }];
+  sheet.views = [{ state: 'frozen', ySplit: HEADER_ROW }];
 
   return Buffer.from(await wb.xlsx.writeBuffer());
 }
@@ -386,7 +412,7 @@ export async function buildEmployeeImportTemplate(): Promise<Buffer> {
 export async function parseEmployeeImportWorkbook(buffer: Buffer): Promise<ParsedEmployeeImportRow[]> {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buffer as unknown as ExcelJS.Buffer);
-  const sheet = wb.worksheets[0];
+  const sheet = resolveEmployeeImportSheet(wb);
   if (!sheet) {
     throw new Error('Worksheet not found');
   }

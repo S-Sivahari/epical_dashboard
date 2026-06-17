@@ -385,7 +385,7 @@ setRejectOpen(false)
     <div
       className={cn(
         'crewiq-dashboard relative',
-        !embedded && 'admin-documents-view flex min-h-0 flex-1 flex-col overflow-hidden',
+        !embedded && 'admin-documents-view flex min-h-0 flex-1 flex-col',
       )}
     >
       {!embedded ? (
@@ -443,7 +443,7 @@ setRejectOpen(false)
 
       <div
         className={cn(
-          !embedded && 'admin-documents-shell relative z-10 flex min-h-0 flex-1 animate-fadeIn flex-col overflow-hidden',
+          !embedded && 'admin-documents-shell relative z-10 flex min-h-0 flex-1 animate-fadeIn flex-col',
         )}
       >
         {!embedded ? (
@@ -568,7 +568,7 @@ setRejectOpen(false)
 
   if (embedded) return content
   return (
-    <PageWrapper fillViewport className="admin-hub-page-wrap relative z-10 !py-3 font-body">
+    <PageWrapper fillViewport scrollable className="admin-hub-page-wrap relative z-10 !py-3 font-body">
       {content}
     </PageWrapper>
   )

@@ -736,6 +736,52 @@ export async function sendHolidayNotificationEmail(
   return await sendEmail({ to: data.recipientEmail, subject, html, text });
 }
 
+export interface CalendarEventNotificationData {
+  recipientEmail: string;
+  recipientName: string;
+  eventTitle: string;
+  eventDate: string;
+  eventType: 'added' | 'updated' | 'deleted';
+  eventTime?: string;
+}
+
+export async function sendCalendarEventNotificationEmail(
+  data: CalendarEventNotificationData,
+  actionUrl?: string,
+): Promise<boolean> {
+  let subject = '';
+  let message = '';
+
+  switch (data.eventType) {
+    case 'added':
+      subject = `[Epical EMS] New Company Event: ${data.eventTitle}`;
+      message = `A new company event <strong>${data.eventTitle}</strong> has been scheduled for <strong>${data.eventDate}</strong>.`;
+      break;
+    case 'updated':
+      subject = `[Epical EMS] Company Event Updated: ${data.eventTitle}`;
+      message = `The company event <strong>${data.eventTitle}</strong> on <strong>${data.eventDate}</strong> has been updated.`;
+      break;
+    case 'deleted':
+      subject = `[Epical EMS] Company Event Removed: ${data.eventTitle}`;
+      message = `The company event <strong>${data.eventTitle}</strong> on <strong>${data.eventDate}</strong> has been removed from the calendar.`;
+      break;
+  }
+
+  const details: DetailField[] = [
+    { label: 'Event', value: data.eventTitle },
+    { label: 'Date', value: data.eventDate },
+  ];
+  if (data.eventTime) {
+    details.push({ label: 'Time', value: data.eventTime });
+  }
+
+  const url = actionUrl || frontendUrl('/employee/calendar');
+  const html = buildHtmlTemplate(data.recipientName, subject.replace('[Epical EMS] ', ''), message, details, url);
+  const text = `Hi ${data.recipientName},\n\n${message.replace(/<[^>]+>/g, '')}\n\nView calendar: ${url}`;
+
+  return await sendEmail({ to: data.recipientEmail, subject, html, text });
+}
+
 /**
  * Interface for payslip notification email data
  */

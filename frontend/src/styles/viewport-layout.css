@@ -1833,7 +1833,7 @@ body,
 .viewport-panel-scroll {
   min-height: 0;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
@@ -1955,7 +1955,7 @@ body,
   grid-template-columns: minmax(0, 1fr);
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   [data-employee-dashboard] .emp-dash-widgets-row--top {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
@@ -2021,9 +2021,9 @@ body,
   gap: 0.375rem;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   [data-employee-dashboard] .emp-dash-widgets-grid {
-    overflow-y: auto;
+    overflow-y: visible;
   }
 
   [data-employee-dashboard] .emp-dash-widgets-row--top,

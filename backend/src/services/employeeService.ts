@@ -6,6 +6,13 @@ import * as emailService from './emailService';
 import { ensureUserAccountForEmployee, getAdminLoginEmail, normalizeLoginEmail } from '../utils/employeeAuth';
 import { assertPersonalAndCompanyEmailsDiffer } from '../utils/employeeLoginRules';
 import { sanitizeEmployeeForDetail, sanitizeEmployeeForList } from '../utils/sanitizeEmployee';
+import {
+  isProfileFieldUpdate,
+  mergeEmployeeProfileForValidation,
+  validateCreateEmployeePayload,
+  validateEmployeeProfile,
+  validationError,
+} from '../utils/employeeValidation';
 
 let employeeCollection: Collection<any> | null = null;
 
@@ -460,36 +467,7 @@ export async function deleteEmployeeDocument(id: string, docType: string): Promi
 export async function createEmployee(payload: CreateEmployeePayload): Promise<Employee> {
   const collection = getEmployeeCollection();
 
-  // ==== Validation ==== //
-  const requiredFields: (keyof CreateEmployeePayload)[] = ['firstName', 'lastName'];
-  for (const field of requiredFields) {
-    const value = (payload as any)[field];
-    if (!value || typeof value !== 'string' || value.trim() === '') {
-      const err: any = new Error(`Missing or empty required field: ${field}`);
-      err.code = 'VALIDATION_ERROR';
-      throw err;
-    }
-  }
-
-  // At least one email must be provided
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const hasPersonalEmail = payload.personalEmail && emailRegex.test(payload.personalEmail.trim());
-  const hasCompanyEmail = payload.email && emailRegex.test(payload.email.trim());
-  if (!hasPersonalEmail && !hasCompanyEmail) {
-    const err: any = new Error('At least one valid email (personal or company) is required');
-    err.code = 'VALIDATION_ERROR';
-    throw err;
-  }
-  if (payload.email && !emailRegex.test(payload.email.trim())) {
-    const err: any = new Error('Invalid company email format');
-    err.code = 'VALIDATION_ERROR';
-    throw err;
-  }
-  if (payload.personalEmail && !emailRegex.test(payload.personalEmail.trim())) {
-    const err: any = new Error('Invalid personal email format');
-    err.code = 'VALIDATION_ERROR';
-    throw err;
-  }
+  validateCreateEmployeePayload(payload);
 
   assertPersonalAndCompanyEmailsDiffer(payload.personalEmail, payload.email);
   assertNotAdminPortalEmail(payload.personalEmail);
@@ -504,16 +482,12 @@ export async function createEmployee(payload: CreateEmployeePayload): Promise<Em
     await assertLoginEmailNotUsedByOtherEmployee(payload.email);
   }
 
-  // Check for duplicate employeeId
-  if (payload.employeeId) {
-    const existing = await collection.findOne({
-      employeeId: payload.employeeId.trim().toUpperCase(),
-    });
-    if (existing) {
-      const err: any = new Error('An employee with this Employee ID already exists.');
-      err.code = 'DUPLICATE_EMPLOYEE_ID';
-      throw err;
-    }
+  const normalizedEmployeeId = payload.employeeId!.trim().toUpperCase();
+  const existingByEmployeeId = await collection.findOne({ employeeId: normalizedEmployeeId });
+  if (existingByEmployeeId) {
+    const err: any = new Error('An employee with this Employee ID already exists.');
+    err.code = 'DUPLICATE_EMPLOYEE_ID';
+    throw err;
   }
 
   // Normalise fields — strip designation and department from stored data
@@ -525,7 +499,7 @@ export async function createEmployee(payload: CreateEmployeePayload): Promise<Em
     role: 'Employee',
     email: payload.email?.trim().toLowerCase() || undefined,
     personalEmail: payload.personalEmail?.trim().toLowerCase() || undefined,
-    employeeId: payload.employeeId?.trim().toUpperCase() ?? id,
+    employeeId: normalizedEmployeeId,
     status: payload.status ?? 'Active',
     earnedLeaveMonthEndAccrual: true,
     createdAt: new Date(),
@@ -633,6 +607,32 @@ export async function updateEmployee(
   if (cleanPayload.personalEmail !== undefined) {
     cleanPayload.personalEmail = nextPersonal;
   }
+
+  if (cleanPayload.employeeId !== undefined) {
+    const normalizedEmployeeId = String(cleanPayload.employeeId).trim().toUpperCase();
+    if (!normalizedEmployeeId) {
+      throw validationError('Employee ID is required');
+    }
+    if (normalizedEmployeeId !== existing.employeeId) {
+      const duplicateId = await checkEmployeeIdExists(normalizedEmployeeId, id);
+      if (duplicateId) {
+        const err: any = new Error('An employee with this Employee ID already exists.');
+        err.code = 'DUPLICATE_EMPLOYEE_ID';
+        throw err;
+      }
+    }
+    cleanPayload.employeeId = normalizedEmployeeId;
+  }
+
+  if (isProfileFieldUpdate(cleanPayload)) {
+    validateEmployeeProfile(
+      mergeEmployeeProfileForValidation(existing, cleanPayload, {
+        personalEmail: nextPersonal,
+        companyEmail: nextCompany,
+      }),
+    );
+  }
+
   assertPersonalAndCompanyEmailsDiffer(nextPersonal, nextCompany);
   assertNotAdminPortalEmail(nextPersonal);
   assertNotAdminPortalEmail(nextCompany);

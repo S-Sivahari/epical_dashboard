@@ -294,7 +294,13 @@ function formatBucketLabel(start: Date, end: Date): string {
 }
 
 export function aggregateChartData(
-  timesheets: Array<{ loginTime?: string; logoutTime?: string; overriddenHours?: number }>,
+  timesheets: Array<{
+    loginTime?: string
+    logoutTime?: string
+    overriddenHours?: number
+    totalHours?: number
+    totalPausedMs?: number
+  }>,
   period: ChartPeriod,
 ) {
   if (period === 'This Week') {

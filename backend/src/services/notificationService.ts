@@ -86,6 +86,26 @@ export async function notifyAllAdmins(
   }
 }
 
+/** In-app notification (+ email for employees) for every active employee. */
+export async function notifyAllEmployees(
+  payload: Omit<CreateNotificationPayload, 'recipientId' | 'recipientType'>
+): Promise<void> {
+  try {
+    const employees = await getDB().collection('employees').find({ status: 'Active' }).toArray();
+    await Promise.all(
+      employees.map((emp) =>
+        createNotification({
+          ...payload,
+          recipientId: String(emp.id),
+          recipientType: 'Employee',
+        }),
+      ),
+    );
+  } catch (error) {
+    console.error('[Notification Service] Failed to notify employees:', error);
+  }
+}
+
 export async function createNotification(
   payload: CreateNotificationPayload
 ): Promise<Notification> {
@@ -496,7 +516,25 @@ async function triggerEmailNotification(notification: any): Promise<void> {
         holidayDate: related.holidayDate || '',
         eventType: eventTypeMap[notification.type] || 'updated',
         skippedReason: related.skippedReason,
-      });
+      }, resolveNotificationActionUrl(notification));
+    } else if (
+      notification.type === 'CalendarEventAdded' ||
+      notification.type === 'CalendarEventUpdated' ||
+      notification.type === 'CalendarEventRemoved'
+    ) {
+      const eventTypeMap: Record<string, 'added' | 'updated' | 'deleted'> = {
+        CalendarEventAdded: 'added',
+        CalendarEventUpdated: 'updated',
+        CalendarEventRemoved: 'deleted',
+      };
+      await emailService.sendCalendarEventNotificationEmail({
+        recipientEmail,
+        recipientName,
+        eventTitle: related.calendarEventTitle || 'Company event',
+        eventDate: related.calendarEventDate || '',
+        eventType: eventTypeMap[notification.type] || 'updated',
+        eventTime: related.calendarEventTime,
+      }, resolveNotificationActionUrl(notification));
     } else {
       // Fallback generic notification email
       const fields: { label: string; value: string }[] = [];
