@@ -10,6 +10,7 @@ import {
   normalizeWorkflow,
   VIEW_PROGRESS_LABELS,
 } from '@/utils/cellWorkflowUi'
+import { cellTypeLabel } from '@pages/admin/Projects/projectWorkspaceUi'
 import { formatDateTime } from '@/utils/formatDate'
 import { CellWorkflowDurationLabel } from '@pages/admin/Projects/CellWorkflowDurationLabel'
 import { cn } from '@pages/employee/lib/utils'
@@ -148,7 +149,7 @@ export function EmployeeAssignedCellsList({
                 {statusLabel}
               </span>
               <span className="emp-wf-cell-card-stat">
-                {String(cell.cellType || 'block').toUpperCase()}
+                {cellTypeLabel(cell.cellType || 'block').toUpperCase()}
               </span>
             </div>
 

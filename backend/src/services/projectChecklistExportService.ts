@@ -40,6 +40,7 @@ function normalizeResponse(value: string): 'yes' | 'no' | 'not_applicable' | nul
 function formatCellTypeLabel(cellType: string): string {
   const labels: Record<string, string> = {
     block: 'BLOCK',
+    IO: 'IO',
     IOP: 'IO',
     ESD: 'ESD',
     TOP: 'TOP',

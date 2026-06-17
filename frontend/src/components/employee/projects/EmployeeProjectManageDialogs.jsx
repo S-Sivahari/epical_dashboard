@@ -12,7 +12,7 @@ import { calculateEstimatedHours, CELL_COMPLEXITY_OPTIONS, DEFAULT_BASE_HOURS, f
 import { createMyProjectCell, createMyProjectLibrary, fetchMyEffortPrediction } from '@services/employeeProjectService'
 import { useAuthStore } from '@store/authStore'
 
-const CELL_TYPES = ['block', 'IOP', 'ESD', 'TOP']
+const CELL_TYPES = ['block', 'IO', 'ESD', 'TOP']
 
 function emptyCellForm(libraryId, technologyNode) {
   return {

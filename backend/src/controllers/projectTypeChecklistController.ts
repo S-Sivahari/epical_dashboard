@@ -69,7 +69,13 @@ export const projectTypeChecklistController = {
       }
 
       const docs = await ProjectTypeChecklistModel.find({ projectId: projectObjectId }).lean();
-      const byType = new Map(docs.map((d) => [d.cellType, d]));
+      const byType = new Map<CellType, (typeof docs)[number]>();
+      for (const doc of docs) {
+        const normalized = normalizeCellType(doc.cellType);
+        if (!byType.has(normalized)) {
+          byType.set(normalized, { ...doc, cellType: normalized });
+        }
+      }
 
       res.json(
         CELL_TYPES.map((cellType) => {

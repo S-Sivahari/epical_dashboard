@@ -2457,51 +2457,21 @@
   overflow: hidden;
 }
 
-.project-analysis-layout .admin-projects-directory-view .admin-projects-directory-table.admin-table-scroll {
+.project-analysis-layout .admin-projects-directory-view .admin-projects-directory-table--modern.admin-table-scroll {
   flex: 1 1 0;
   min-height: 0;
   margin-bottom: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
-.project-analysis-layout .admin-projects-directory-view .admin-projects-directory-table.admin-table-fill-rows {
-  display: flex;
-  flex-direction: column;
+.project-analysis-layout .admin-projects-directory-view .admin-projects-filter-toolbar--directory {
+  padding-left: 1rem;
+  padding-right: 1rem;
 }
 
-.project-analysis-layout .admin-projects-directory-view .admin-table-fill-rows table {
-  flex: 1 1 0;
-  min-height: 0;
-  height: 100%;
-  table-layout: fixed;
-  display: flex;
-  flex-direction: column;
-}
-
-.project-analysis-layout .admin-projects-directory-view .admin-table-fill-rows thead {
-  flex: 0 0 auto;
-  display: table;
-  width: 100%;
-  table-layout: fixed;
-}
-
-.project-analysis-layout .admin-projects-directory-view .admin-table-fill-rows tbody {
-  flex: 1 1 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.project-analysis-layout .admin-projects-directory-view .admin-table-fill-rows tbody tr {
-  flex: 1 1 0;
-  display: table;
-  width: 100%;
-  table-layout: fixed;
-  min-height: 2.5rem;
-}
-
-.project-analysis-layout .admin-projects-directory-view .admin-table-fill-rows tbody td {
-  vertical-align: middle;
+.project-analysis-layout .admin-projects-directory-view .admin-projects-table-section--modern {
+  padding: 0.5rem 0.75rem 0;
 }
 
 .project-analysis-layout .admin-projects-directory-view .employee-directory-pagination {

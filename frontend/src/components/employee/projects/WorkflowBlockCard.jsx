@@ -8,6 +8,7 @@ import {
   normalizeWorkflow,
 } from '@/utils/cellWorkflowUi'
 import { CellStageStatusRow } from './CellStageStatusRow'
+import { cellTypeLabel } from '@pages/admin/Projects/projectWorkspaceUi'
 import { cn } from '@pages/employee/lib/utils'
 
 export function WorkflowBlockCard({
@@ -74,7 +75,7 @@ export function WorkflowBlockCard({
       </div>
       <div className="emp-wf-card-tags">
         <span className="emp-wf-tag emp-wf-tag--complexity">{complexityTag(cell.complexity)}</span>
-        <span className="emp-wf-tag emp-wf-tag--type">{String(cell.cellType || 'block').toUpperCase()}</span>
+        <span className="emp-wf-tag emp-wf-tag--type">{cellTypeLabel(cell.cellType || 'block').toUpperCase()}</span>
       </div>
 
       <div className="emp-wf-card-user">
