@@ -15796,10 +15796,10 @@ html:has(.admin-portal) [role="dialog"] {
   isolation: isolate;
   overflow: hidden;
   --cmd-bar-pad-x: 1rem;
-  --cmd-forest-w: 7rem;
-  --cmd-logo-w: 2.75rem;
-  --cmd-brand-gap: 0.75rem;
-  --cmd-slash-band: min(calc(var(--cmd-forest-w) + 12.5rem), 20rem);
+  --cmd-forest-w: 6.75rem;
+  --cmd-logo-w: 2.5rem;
+  --cmd-brand-gap: 0.625rem;
+  --cmd-slash-band: min(calc(var(--cmd-forest-w) + 16.5rem), 24.5rem);
   --cmd-facet-band: min(34%, 18rem);
   --cmd-pattern-band: min(30%, 16rem);
   --cmd-tail-reserve: 13.5rem;
@@ -15890,8 +15890,8 @@ html:has(.admin-portal) [role="dialog"] {
   clip-path: polygon(
     var(--cmd-forest-w) 0,
     100% 0,
-    78% 100%,
-    calc(var(--cmd-forest-w) * 0.54) 100%
+    86% 100%,
+    calc(var(--cmd-forest-w) * 0.5) 100%
   );
 }
 
@@ -15899,7 +15899,7 @@ html:has(.admin-portal) [role="dialog"] {
   position: absolute;
   left: 0;
   width: var(--cmd-slash-band);
-  max-width: 20rem;
+  max-width: var(--cmd-slash-band);
   height: 2px;
   z-index: 3;
   background: linear-gradient(90deg, #86efac 0%, #bbf7d0 55%, transparent 100%);
@@ -15927,10 +15927,15 @@ html:has(.admin-portal) [role="dialog"] {
 
 .employee-portal .employee-cmd-bar__name {
   color: #0f2e1a;
+  font-size: 0.875rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 
 .employee-portal .employee-cmd-bar__page-title {
   color: #1e5a3d;
+  font-size: 0.6875rem;
+  line-height: 1.25;
   letter-spacing: 0.01em;
 }
 
@@ -15968,11 +15973,19 @@ html:has(.admin-portal) [role="dialog"] {
 
 @media (min-width: 640px) {
   .employee-portal .employee-cmd-bar {
-    --cmd-forest-w: 7.5rem;
-    --cmd-logo-w: 3rem;
-    --cmd-brand-gap: 0.875rem;
-    --cmd-slash-band: min(calc(var(--cmd-forest-w) + 13.5rem), 22rem);
+    --cmd-forest-w: 7.25rem;
+    --cmd-logo-w: 2.75rem;
+    --cmd-brand-gap: 0.75rem;
+    --cmd-slash-band: min(calc(var(--cmd-forest-w) + 18rem), 27rem);
     --cmd-tail-reserve: 16rem;
+  }
+
+  .employee-portal .employee-cmd-bar__name {
+    font-size: 0.9375rem;
+  }
+
+  .employee-portal .employee-cmd-bar__page-title {
+    font-size: 0.75rem;
   }
 }
 
