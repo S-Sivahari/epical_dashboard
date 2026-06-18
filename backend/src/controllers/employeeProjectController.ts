@@ -19,11 +19,17 @@ import {
   resolveBaseHoursInput,
 } from '../services/effortEstimationService';
 import {
+  closeAllOpenWorkLogs,
   ensureWorkLogsInitialized,
   getCellWorkflowTiming,
   syncWorkLogsFromWorkflowChange,
   type CellWorkflowTiming,
 } from '../services/cellWorkflowWorkLogService';
+import {
+  closeProductiveSessionsForCell,
+  syncProductiveSessionsForCell,
+  WORK_SESSION_REASONS,
+} from '../services/productiveTimeService';
 
 function normalizeStatus(value: string): CellStatus {
   if (value === 'in_progress' || value === 'drc' || value === 'lvs' || value === 'review') return 'in_progress';
@@ -395,6 +401,17 @@ function toEmployeeCell(
     assignedEmployeeId: doc.assignedEmployeeId || '',
     assignedEmployeeName: doc.assignedEmployeeName || '',
     status: doc.status || 'ready',
+    onHold: Boolean(doc.onHold),
+    holdStartedAt: doc.holdStartedAt ? new Date(doc.holdStartedAt).toISOString() : null,
+    holdReason: doc.holdReason || '',
+    heldByName: doc.heldByName || '',
+    productiveWorkDuration: workflowTiming?.workflowDuration ?? {
+      totalMs: 0,
+      formatted: '0m',
+      isActive: false,
+      wasEverCompleted: false,
+      wasReopened: false,
+    },
     viewWorkflow,
     workflow,
     views,
@@ -503,7 +520,12 @@ export const employeeProjectController = {
           ensureWorkLogsInitialized(
             projectId,
             cell._id.toString(),
-            syncCellWorkflowFromViewWorkflow(normalizeViewWorkflow(cell.viewWorkflow)),
+            {
+              status: cell.status,
+              onHold: cell.onHold,
+              assignedEmployeeId: cell.assignedEmployeeId,
+              workflow: syncCellWorkflowFromViewWorkflow(normalizeViewWorkflow(cell.viewWorkflow)),
+            },
             cell.activityLog ?? [],
           ),
         ),
@@ -691,12 +713,23 @@ export const employeeProjectController = {
       cell.viewWorkflow = nextWorkflow;
       applyCellWorkflowSync(cell, 'viewWorkflow');
       const nextCellWorkflow = syncCellWorkflowFromViewWorkflow(cell.viewWorkflow);
+      if (
+        (cell.status === 'ready' || cell.status === 'completed')
+        && nextCellWorkflow.some((stage) => stage.status === 'in_progress')
+      ) {
+        cell.status = 'in_progress';
+      }
       await syncWorkLogsFromWorkflowChange(
         projectId,
         cellId,
         prevWorkflow,
         nextCellWorkflow,
         actor,
+        {
+          status: cell.status,
+          onHold: cell.onHold,
+          assignedEmployeeId: cell.assignedEmployeeId,
+        },
       );
       cell.activityLog.push({
         action: 'workflow_update',
@@ -759,6 +792,21 @@ export const employeeProjectController = {
 
       cell.workflow = result.workflow;
       applyCellWorkflowSync(cell, 'workflow');
+      if (cell.status === 'completed' || cell.status === 'ready') {
+        cell.status = 'in_progress';
+      }
+      await syncWorkLogsFromWorkflowChange(
+        projectId,
+        cellId,
+        prevWorkflow,
+        result.workflow,
+        actor,
+        {
+          status: cell.status,
+          onHold: cell.onHold,
+          assignedEmployeeId: cell.assignedEmployeeId,
+        },
+      );
       cell.activityLog.push({
         action: 'workflow_update',
         detail: `${stageMeta?.label || stageKey}: ${prevStatus} → ${nextStatus}`,
@@ -766,10 +814,6 @@ export const employeeProjectController = {
         userName: actor.userName,
         at: new Date(),
       });
-
-      if (cell.status === 'completed' || cell.status === 'ready') {
-        cell.status = 'in_progress';
-      }
 
       await cell.save();
 
@@ -849,9 +893,23 @@ export const employeeProjectController = {
         return;
       }
 
+      const prevWorkflow = syncCellWorkflowFromViewWorkflow(workflow);
       const nextWorkflow = markReviewPending(workflow, reviewPoint);
       cell.viewWorkflow = nextWorkflow;
       applyCellWorkflowSync(cell, 'viewWorkflow');
+      const nextCellWorkflow = syncCellWorkflowFromViewWorkflow(cell.viewWorkflow);
+      await syncWorkLogsFromWorkflowChange(
+        projectId,
+        cellId,
+        prevWorkflow,
+        nextCellWorkflow,
+        actor,
+        {
+          status: cell.status,
+          onHold: cell.onHold,
+          assignedEmployeeId: cell.assignedEmployeeId,
+        },
+      );
 
       const review = await CellReviewModel.create({
         projectId: new Types.ObjectId(projectId),
@@ -1673,6 +1731,11 @@ export const employeeProjectController = {
         prevWorkflow,
         nextCellWorkflow,
         actor,
+        {
+          status: cell.status,
+          onHold: cell.onHold,
+          assignedEmployeeId: cell.assignedEmployeeId,
+        },
       );
       review.status = 'resolved';
       review.outcome = outcome;
@@ -1752,13 +1815,15 @@ export const employeeProjectController = {
       }
 
       cell.status = 'completed';
+      const completedAt = new Date();
       cell.activityLog.push({
         action: 'completed',
         detail: `Marked completed by ${actor.userName}`,
         userId: actor.userId,
         userName: actor.userName,
-        at: new Date(),
+        at: completedAt,
       });
+      await closeAllOpenWorkLogs(projectId, cellId, completedAt);
       await cell.save();
 
       await syncProjectProgress(new Types.ObjectId(projectId));
@@ -1773,6 +1838,67 @@ export const employeeProjectController = {
       res.json(toEmployeeCell(cell, tokens, meta));
     } catch (err: any) {
       res.status(400).json({ error: err?.message || 'Failed to complete cell' });
+    }
+  },
+
+  setMyCellHold: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const cellId = paramId(req.params.cellId);
+      const tokens = await getAssignmentTokens(req);
+      const actor = actorFromReq(req);
+      const { hold, reason } = req.body as { hold?: boolean; reason?: string };
+
+      const cell = await assertManageableCell(projectId, cellId, tokens, req);
+      if (!cell) {
+        res.status(404).json({ error: 'Cell not found or you cannot manage this cell' });
+        return;
+      }
+
+      const now = new Date();
+      const shouldHold = hold !== false && hold !== undefined ? Boolean(hold) : !cell.onHold;
+
+      if (shouldHold) {
+        cell.onHold = true;
+        cell.holdStartedAt = now;
+        cell.holdReason = reason?.trim() || '';
+        cell.heldById = actor.userId;
+        cell.heldByName = actor.userName;
+        await closeProductiveSessionsForCell(
+          projectId,
+          cellId,
+          WORK_SESSION_REASONS.HOLD,
+          actor,
+          now,
+        );
+        cell.activityLog.push({
+          action: 'hold',
+          detail: cell.holdReason || 'Cell placed on hold',
+          userId: actor.userId,
+          userName: actor.userName,
+          at: now,
+        });
+      } else {
+        cell.onHold = false;
+        cell.holdStartedAt = undefined;
+        cell.holdReason = '';
+        cell.heldById = undefined;
+        cell.heldByName = undefined;
+        cell.activityLog.push({
+          action: 'hold_released',
+          detail: 'Hold removed',
+          userId: actor.userId,
+          userName: actor.userName,
+          at: now,
+        });
+        await syncProductiveSessionsForCell(projectId, cellId, cell, actor, now);
+      }
+
+      await cell.save();
+      const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
+      res.json(await toEmployeeCellWithTiming(cell, tokens, meta));
+    } catch (err: any) {
+      res.status(400).json({ error: err?.message || 'Failed to update hold status' });
     }
   },
 };

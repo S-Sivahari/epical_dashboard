@@ -8,6 +8,13 @@ import {
   type WorkflowStageStatus,
 } from '../utils/cellWorkflow';
 import { formatWorkflowDurationFromMs } from '../utils/durationFormat';
+import { WORK_SESSION_REASONS } from '../utils/workSessionReason';
+import { isCountableWorkSession } from '../utils/workSessionReason';
+import {
+  filterCountableLogs,
+  syncProductiveSessionsForCell,
+  syncProductiveSessionsFromWorkflowChange,
+} from './productiveTimeService';
 
 export interface CellWorkflowDuration {
   totalMs: number;
@@ -39,7 +46,8 @@ export interface CellWorkflowTiming {
 type WorkflowActor = {
   userId: string;
   userName: string;
-  role: 'Admin' | 'Employee';
+  role?: 'Admin' | 'Employee';
+  email?: string;
 };
 
 function toObjectId(value: string): Types.ObjectId | null {
@@ -47,7 +55,7 @@ function toObjectId(value: string): Types.ObjectId | null {
 }
 
 function isActiveStageStatus(status: WorkflowStageStatus): boolean {
-  return status === 'in_progress' || status === 'pending_review';
+  return status === 'in_progress';
 }
 
 function isCompleteStageStatus(status: WorkflowStageStatus): boolean {
@@ -75,6 +83,7 @@ function computeDurationFromLogs(
     checkInTime: Date;
     checkOutTime?: Date | null;
     workedMs?: number;
+    reason?: string | null;
   }>,
   cellStatus: string,
   activityLog: CellActivityEntry[],
@@ -82,20 +91,21 @@ function computeDurationFromLogs(
 ): CellWorkflowDuration {
   let totalMs = 0;
   let hasOpen = false;
+  const countableLogs = filterCountableLogs(logs);
 
-  for (const log of logs) {
+  for (const log of countableLogs) {
     if (log.checkOutTime) {
       totalMs += log.workedMs && log.workedMs > 0
         ? log.workedMs
         : logWorkedMs(log.checkInTime, log.checkOutTime);
-    } else {
+    } else if (isCountableWorkSession(log.reason)) {
       hasOpen = true;
       totalMs += logWorkedMs(log.checkInTime, now);
     }
   }
 
   const wasEverCompleted = wasCellEverCompleted(cellStatus, activityLog);
-  const isActive = cellStatus !== 'completed' && hasOpen;
+  const isActive = cellStatus !== 'completed' && hasOpen && cellStatus === 'in_progress';
 
   return {
     totalMs,
@@ -116,11 +126,12 @@ function buildStageTiming(
     stageCompletionTime?: Date | null;
     latestActivityTime: Date;
     workedMs?: number;
+    reason?: string | null;
   }>,
   stageStatus: WorkflowStageStatus,
   now = new Date(),
 ): StageWorkflowTiming {
-  const stageLogs = logs.filter((log) => log.stageKey === stageKey);
+  const stageLogs = filterCountableLogs(logs.filter((log) => log.stageKey === stageKey));
   let totalMs = 0;
   let openLog: (typeof stageLogs)[number] | null = null;
 
@@ -186,7 +197,7 @@ function buildCellWorkflowTiming(
     .map((stage) => stage.latestActivityTime)
     .filter(Boolean)
     .sort()
-    .at(-1) ?? null;
+    .slice(-1)[0] ?? null;
 
   const workflowCompletionTime = cellStatus === 'completed'
     ? (activityLog ?? [])
@@ -214,108 +225,18 @@ async function fetchLogsForCell(projectId: string, cellId: string) {
   }).sort({ checkInTime: 1 });
 }
 
-async function openWorkLog(
-  projectId: string,
-  cellId: string,
-  stageKey: CellWorkflowStageKey,
-  at: Date,
-  actor?: WorkflowActor,
-) {
-  const projectObjectId = toObjectId(projectId);
-  const cellObjectId = toObjectId(cellId);
-  if (!projectObjectId || !cellObjectId) return;
-
-  const existingOpen = await CellWorkflowWorkLogModel.findOne({
-    projectId: projectObjectId,
-    cellId: cellObjectId,
-    stageKey,
-    checkOutTime: null,
-  });
-  if (existingOpen) {
-    existingOpen.latestActivityTime = at;
-    await existingOpen.save();
-    return;
-  }
-
-  await CellWorkflowWorkLogModel.create({
-    projectId: projectObjectId,
-    cellId: cellObjectId,
-    stageKey,
-    checkInTime: at,
-    checkOutTime: null,
-    stageStartTime: at,
-    stageCompletionTime: null,
-    latestActivityTime: at,
-    workedMs: 0,
-    openedById: actor?.userId,
-    openedByName: actor?.userName,
-  });
-}
-
-async function closeWorkLog(
-  projectId: string,
-  cellId: string,
-  stageKey: CellWorkflowStageKey,
-  at: Date,
-  options?: {
-    actor?: WorkflowActor;
-    markComplete?: boolean;
-  },
-) {
-  const projectObjectId = toObjectId(projectId);
-  const cellObjectId = toObjectId(cellId);
-  if (!projectObjectId || !cellObjectId) return;
-
-  const openLog = await CellWorkflowWorkLogModel.findOne({
-    projectId: projectObjectId,
-    cellId: cellObjectId,
-    stageKey,
-    checkOutTime: null,
-  });
-  if (!openLog) return;
-
-  openLog.checkOutTime = at;
-  openLog.latestActivityTime = at;
-  openLog.workedMs = logWorkedMs(openLog.checkInTime, at);
-  if (options?.markComplete) {
-    openLog.stageCompletionTime = at;
-  }
-  if (options?.actor) {
-    openLog.closedById = options.actor.userId;
-    openLog.closedByName = options.actor.userName;
-  }
-  await openLog.save();
-}
-
-async function syncWorkflowStageLogs(
-  projectId: string,
-  cellId: string,
-  workflow: CellWorkflowStage[],
-  actor?: WorkflowActor,
-  at = new Date(),
-) {
-  for (const stage of workflow) {
-    if (isActiveStageStatus(stage.status)) {
-      await openWorkLog(projectId, cellId, stage.stageKey, at, actor);
-      continue;
-    }
-
-    if (isCompleteStageStatus(stage.status) || stage.status === 'rejected' || stage.status === 'not_started') {
-      await closeWorkLog(projectId, cellId, stage.stageKey, at, {
-        actor,
-        markComplete: isCompleteStageStatus(stage.status),
-      });
-    }
-  }
-}
-
 export async function ensureWorkLogsInitialized(
   projectId: string,
   cellId: string,
-  workflow: CellWorkflowStage[],
+  cell: {
+    status?: string;
+    onHold?: boolean;
+    assignedEmployeeId?: string;
+    workflow?: CellWorkflowStage[];
+  },
   _activityLog: CellActivityEntry[] = [],
 ): Promise<void> {
-  await syncWorkflowStageLogs(projectId, cellId, workflow);
+  await syncProductiveSessionsForCell(projectId, cellId, cell);
 }
 
 export async function closeAllOpenWorkLogs(
@@ -331,6 +252,7 @@ export async function closeAllOpenWorkLogs(
     projectId: projectObjectId,
     cellId: cellObjectId,
     checkOutTime: null,
+    reason: WORK_SESSION_REASONS.WORKING,
   });
 
   await Promise.all(
@@ -349,25 +271,21 @@ export async function syncWorkLogsFromWorkflowChange(
   prevWorkflow: CellWorkflowStage[],
   nextWorkflow: CellWorkflowStage[],
   actor: WorkflowActor,
+  cell?: {
+    status?: string;
+    onHold?: boolean;
+    assignedEmployeeId?: string;
+    workflow?: CellWorkflowStage[];
+  },
 ): Promise<void> {
-  const now = new Date();
-
-  for (const stage of nextWorkflow) {
-    const prevStatus = prevWorkflow.find((item) => item.stageKey === stage.stageKey)?.status ?? 'not_started';
-    if (prevStatus === stage.status) continue;
-
-    if (isActiveStageStatus(stage.status)) {
-      await openWorkLog(projectId, cellId, stage.stageKey, now, actor);
-      continue;
-    }
-
-    if (isCompleteStageStatus(stage.status) || stage.status === 'rejected' || stage.status === 'not_started') {
-      await closeWorkLog(projectId, cellId, stage.stageKey, now, {
-        actor,
-        markComplete: isCompleteStageStatus(stage.status),
-      });
-    }
-  }
+  await syncProductiveSessionsFromWorkflowChange(
+    projectId,
+    cellId,
+    prevWorkflow,
+    nextWorkflow,
+    { ...cell, workflow: nextWorkflow },
+    actor,
+  );
 }
 
 export async function getCellWorkflowDuration(

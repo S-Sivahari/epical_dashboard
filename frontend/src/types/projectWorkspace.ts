@@ -337,6 +337,11 @@ export interface ProjectCell {
   assignedEmployeeName: string
   dependencyCellIds: string[]
   status: CellStatus
+  onHold?: boolean
+  holdStartedAt?: string | null
+  holdReason?: string
+  heldByName?: string
+  productiveWorkDuration?: CellWorkflowDuration
   workflow: CellWorkflowStage[]
   workflowCompletedStages: number
   workflowTotalStages: number

@@ -36,6 +36,11 @@ function complexityMeta(complexity) {
   }
 }
 
+function productiveHours(cell) {
+  const ms = cell.productiveWorkDuration?.totalMs ?? cell.workflowDuration?.totalMs ?? 0
+  return roundHours(ms / 3_600_000)
+}
+
 export function buildEffortEstimationRows(cells = []) {
   return cells.map((cell) => {
     const { label, tone, factor } = complexityMeta(cell.complexity)
@@ -43,6 +48,7 @@ export function buildEffortEstimationRows(cells = []) {
     const estimated = Number(cell.estimatedEffort) || calculateEstimatedHours(base, cell.complexity)
     const smartEst = Number(cell.smartEstimate) || estimated
     const actual = Number(cell.actualEffort) || 0
+    const productive = productiveHours(cell)
     const variance = actual - estimated
 
     return {
@@ -55,6 +61,7 @@ export function buildEffortEstimationRows(cells = []) {
       estimated,
       smartEst,
       actual,
+      productive,
       variance,
       varianceTone: variance < 0 ? 'under' : variance > 0 ? 'over' : 'neutral',
       confidence: cell.estimateConfidence || 'Low',
@@ -69,6 +76,7 @@ export function buildEffortEstimationSummary(cells = []) {
   const totalEstimated = rows.reduce((sum, row) => sum + row.estimated, 0)
   const totalSmart = rows.reduce((sum, row) => sum + row.smartEst, 0)
   const totalActual = rows.reduce((sum, row) => sum + row.actual, 0)
+  const totalProductive = rows.reduce((sum, row) => sum + row.productive, 0)
   const variance = totalActual - totalEstimated
   const completed = rows.filter((row) => row.isComplete).length
   const total = rows.length
@@ -78,6 +86,7 @@ export function buildEffortEstimationSummary(cells = []) {
     totalEstimated,
     totalSmart,
     totalActual,
+    totalProductive,
     variance,
     varianceTone: variance < 0 ? 'under' : variance > 0 ? 'over' : 'neutral',
     percentComplete,

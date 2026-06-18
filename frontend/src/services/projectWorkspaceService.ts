@@ -98,6 +98,18 @@ export async function updateWorkflowStage(
   return data
 }
 
+export async function setCellHold(
+  projectId: string,
+  cellId: string,
+  payload: { hold: boolean; reason?: string },
+) {
+  const { data } = await api.patch<ProjectCell>(
+    `/projects/${projectId}/cells/${cellId}/hold`,
+    payload,
+  )
+  return data
+}
+
 export type CellCompletionSectionKey =
   | 'layoutDetails'
   | 'checklist'

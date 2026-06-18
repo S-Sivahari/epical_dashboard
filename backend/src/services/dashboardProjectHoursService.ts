@@ -1,4 +1,5 @@
 import { CellWorkflowWorkLogModel } from '../models/CellWorkflowWorkLog';
+import { WORK_SESSION_REASONS } from '../utils/workSessionReason';
 import { TimesheetModel } from '../models/Timesheet';
 
 export type DashboardChartPeriod = 'This Week' | 'This Month' | 'Last Month' | 'Last 2 Months';
@@ -217,6 +218,10 @@ export async function buildDashboardProjectHoursChart(
       .lean(),
     CellWorkflowWorkLogModel.find({
       checkInTime: { $gte: loginFrom, $lte: loginTo },
+      $or: [
+        { reason: WORK_SESSION_REASONS.WORKING },
+        { reason: { $exists: false } },
+      ],
     })
       .select('checkInTime checkOutTime workedMs')
       .lean(),

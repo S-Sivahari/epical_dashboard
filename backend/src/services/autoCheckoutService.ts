@@ -21,6 +21,10 @@ import {
   formatSchedulerDateTime,
   resolveSchedulerAutoCheckoutDeadline,
 } from '../utils/istClock';
+import {
+  closeProductiveSessionsForEmployee,
+  WORK_SESSION_REASONS,
+} from './productiveTimeService';
 
 function finalizePauseAccumulation(
   timesheet: { pausedAt?: Date | null; totalPausedMs?: number },
@@ -272,6 +276,12 @@ async function performAutoCheckoutForAttendance(
       await assignedTask.save(session ? { session } : undefined);
     }
   }
+
+  void closeProductiveSessionsForEmployee(
+    identityTokens,
+    WORK_SESSION_REASONS.SESSION_EXPIRED,
+    checkoutTimestamp,
+  ).catch((err) => console.error('[auto-checkout] productive time sync failed:', err));
 
   const totalDurationMs =
     openLogs.length > 0

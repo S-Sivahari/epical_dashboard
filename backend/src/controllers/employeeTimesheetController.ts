@@ -15,6 +15,12 @@ import { getAutoCheckoutSettings, updateAutoCheckoutSettings } from '../services
 import { restartScheduler } from '../services/timesheetScheduler';
 import { sendCheckoutReminderEmail } from '../services/emailService';
 import { buildNextSchedulerClockTime, getSchedulerDateKey, getSchedulerHourMinute, resolveSchedulerAutoCheckoutDeadline } from '../utils/istClock';
+import {
+  closeProductiveSessionsForEmployee,
+  closeProductiveSessionsForProjectEmployee,
+  resumeProductiveSessionsForProjectEmployee,
+  WORK_SESSION_REASONS,
+} from '../services/productiveTimeService';
 
 type ResolvedEmployee = {
   id: string;
@@ -783,6 +789,12 @@ export const employeeTimesheetController = {
           await attendance.save({ session });
         });
 
+        void closeProductiveSessionsForEmployee(
+          employee.identityTokens,
+          WORK_SESSION_REASONS.PROJECT_CHECKED_OUT,
+          now,
+        ).catch((err) => console.error('[timesheet] productive time checkout sync failed:', err));
+
         res.json({
           serverTime: new Date().toISOString(),
           checkedIn: false,
@@ -939,6 +951,13 @@ export const employeeTimesheetController = {
           }
         });
 
+        void resumeProductiveSessionsForProjectEmployee(
+          resolvedProject._id.toString(),
+          employee.identityTokens,
+          { userId: employee.id, userName: employee.employeeName || employee.name, role: 'Employee' },
+          now,
+        ).catch((err) => console.error('[timesheet] productive time start-task sync failed:', err));
+
         res.status(201).json({
           timesheet: toFrontendTimesheet(timesheet),
           assignedTask: toFrontendAssignedTask(assigned),
@@ -1018,6 +1037,13 @@ export const employeeTimesheetController = {
           await releaseAssignedTask(openLog._id.toString(), session);
         });
 
+        void closeProductiveSessionsForProjectEmployee(
+          openLog.projectId.toString(),
+          employee.identityTokens,
+          WORK_SESSION_REASONS.PROJECT_CHECKED_OUT,
+          now,
+        ).catch((err) => console.error('[timesheet] productive time stop-task sync failed:', err));
+
         res.json({
           timesheet: toFrontendTimesheet(openLog),
           stoppedAt: now.toISOString(),
@@ -1069,6 +1095,13 @@ export const employeeTimesheetController = {
       openLog.pausedAt = now;
       await openLog.save();
       await syncProjectForTimesheet(openLog);
+
+      void closeProductiveSessionsForProjectEmployee(
+        openLog.projectId.toString(),
+        employee.identityTokens,
+        WORK_SESSION_REASONS.PROJECT_CHECKED_OUT,
+        now,
+      ).catch((err) => console.error('[timesheet] productive time pause sync failed:', err));
 
       res.json({
         timesheet: toFrontendTimesheet(openLog),
@@ -1136,6 +1169,12 @@ export const employeeTimesheetController = {
       openLog.taskStatus = 'In Progress';
       await openLog.save();
       await syncProjectForTimesheet(openLog);
+
+      void resumeProductiveSessionsForProjectEmployee(
+        openLog.projectId.toString(),
+        employee.identityTokens,
+        { userId: employee.id, userName: employee.employeeName || employee.name, role: 'Employee' },
+      ).catch((err) => console.error('[timesheet] productive time resume sync failed:', err));
 
       res.json({
         timesheet: toFrontendTimesheet(openLog),

@@ -57,6 +57,11 @@ export interface ProjectCell extends Document {
   views: CellViews;
   viewWorkflow: CellViewWorkflow;
   checklistExtension?: CellChecklistExtension;
+  onHold?: boolean;
+  holdStartedAt?: Date;
+  holdReason?: string;
+  heldById?: string;
+  heldByName?: string;
   activityLog: CellActivityEntry[];
   createdBy?: string;
   createdAt: Date;
@@ -124,6 +129,11 @@ const ProjectCellSchema = new Schema<ProjectCell>(
       overallSubstrateContact: { type: String, enum: ['yes', 'no', null], default: null },
       waivableDrcError: { type: String, enum: ['yes', 'no', null], default: null },
     },
+    onHold: { type: Boolean, default: false },
+    holdStartedAt: { type: Date },
+    holdReason: { type: String, default: '' },
+    heldById: { type: String },
+    heldByName: { type: String },
     activityLog: [
       {
         action: { type: String, required: true },

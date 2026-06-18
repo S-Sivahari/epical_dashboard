@@ -38,7 +38,7 @@ export function CellWorkflowDurationLabel({
 
     if (liveMs <= 0 && !shouldTickLive) return null
 
-    const prefix = isCompleted ? 'Total Effort:' : 'Worked So Far:'
+    const prefix = isCompleted ? 'Total productive time:' : 'Productive time:'
     return { prefix, formatted, liveMs }
   }, [workflowDuration, shouldTickLive, isCompleted, now, fetchedAt])
 

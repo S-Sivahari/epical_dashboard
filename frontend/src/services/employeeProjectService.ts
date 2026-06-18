@@ -139,6 +139,18 @@ export async function updateMyWorkflowStage(
   return data
 }
 
+export async function setMyCellHold(
+  projectId: string,
+  cellId: string,
+  payload: { hold: boolean; reason?: string },
+) {
+  const { data } = await api.patch<EmployeeProjectCell>(
+    `/projects/${projectId}/cells/${cellId}/mine/hold`,
+    payload,
+  )
+  return data
+}
+
 export async function requestCellReview(projectId: string, cellId: string, comment?: string) {
   const { data } = await api.post<{ cell: EmployeeProjectCell; review: CellReview }>(
     `/projects/${projectId}/cells/${cellId}/mine/reviews`,

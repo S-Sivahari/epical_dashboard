@@ -42,6 +42,7 @@ export function EmployeeProjectEffortPanel({ cells = [], projectId }) {
           <div className="emp-wf-effort-summary-grid">
             <SummaryCard label="Total estimated" value={formatHours(summary.totalEstimated)} />
             <SummaryCard label="Total actual" value={formatHours(summary.totalActual)} />
+            <SummaryCard label="Total productive time" value={formatHours(summary.totalProductive)} />
             <SummaryCard
               label="Variance"
               value={formatVariance(summary.variance)}
@@ -65,6 +66,7 @@ export function EmployeeProjectEffortPanel({ cells = [], projectId }) {
                   <th>Est.</th>
                   <th>Smart est.</th>
                   <th>Actual</th>
+                  <th>Productive</th>
                   <th>Variance</th>
                   <th>Log</th>
                   <th>Prediction insight</th>
@@ -94,6 +96,7 @@ export function EmployeeProjectEffortPanel({ cells = [], projectId }) {
                     <td>{formatHours(row.estimated)}</td>
                     <td>{formatHours(row.smartEst)}</td>
                     <td>{formatHours(row.actual)}</td>
+                    <td>{formatHours(row.productive)}</td>
                     <td>
                       <span className={`emp-wf-effort-variance is-${row.varianceTone}`}>
                         {formatVariance(row.variance)}

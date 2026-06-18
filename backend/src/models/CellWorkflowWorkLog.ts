@@ -1,5 +1,7 @@
 import { Schema, model, Document, Types } from 'mongoose';
 import type { CellWorkflowStageKey } from '../utils/cellWorkflow';
+import type { WorkSessionReason } from '../utils/workSessionReason';
+import { WORK_SESSION_REASONS } from '../utils/workSessionReason';
 
 export interface CellWorkflowWorkLog extends Document {
   projectId: Types.ObjectId;
@@ -11,6 +13,8 @@ export interface CellWorkflowWorkLog extends Document {
   stageCompletionTime?: Date | null;
   latestActivityTime: Date;
   workedMs: number;
+  reason: WorkSessionReason;
+  employeeId?: string;
   openedById?: string;
   openedByName?: string;
   closedById?: string;
@@ -30,6 +34,12 @@ const CellWorkflowWorkLogSchema = new Schema<CellWorkflowWorkLog>(
     stageCompletionTime: { type: Date, default: null },
     latestActivityTime: { type: Date, required: true },
     workedMs: { type: Number, default: 0 },
+    reason: {
+      type: String,
+      enum: Object.values(WORK_SESSION_REASONS),
+      default: WORK_SESSION_REASONS.WORKING,
+    },
+    employeeId: { type: String },
     openedById: { type: String },
     openedByName: { type: String },
     closedById: { type: String },

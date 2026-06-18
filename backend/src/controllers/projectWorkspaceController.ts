@@ -54,6 +54,11 @@ import {
   parseCellImportWorkbook,
 } from '../services/cellImportService';
 import {
+  closeProductiveSessionsForCell,
+  syncProductiveSessionsForCell,
+  WORK_SESSION_REASONS,
+} from '../services/productiveTimeService';
+import {
   buildWorkflowDurationMap,
   closeAllOpenWorkLogs,
   ensureWorkLogsInitialized,
@@ -130,11 +135,22 @@ function toCell(
     assignedEmployeeName: doc.assignedEmployeeName || '',
     dependencyCellIds: (doc.dependencyCellIds || []).map((id: Types.ObjectId) => id.toString()),
     status: normalizeStatus(doc.status || 'ready'),
+    onHold: Boolean(doc.onHold),
+    holdStartedAt: doc.holdStartedAt ? new Date(doc.holdStartedAt).toISOString() : null,
+    holdReason: doc.holdReason || '',
+    heldByName: doc.heldByName || '',
     workflow,
     workflowCompletedStages,
     workflowTotalStages: workflow.length,
     currentWorkflowStage: currentWorkflowStageLabel(workflow),
     workflowDuration: workflowDuration ?? workflowTiming?.workflowDuration ?? {
+      totalMs: 0,
+      formatted: '0m',
+      isActive: false,
+      wasEverCompleted: false,
+      wasReopened: false,
+    },
+    productiveWorkDuration: workflowDuration ?? workflowTiming?.workflowDuration ?? {
       totalMs: 0,
       formatted: '0m',
       isActive: false,
@@ -251,7 +267,12 @@ export const projectWorkspaceController = {
           ensureWorkLogsInitialized(
             projectId,
             cell._id.toString(),
-            normalizeCellWorkflow(cell.workflow),
+            {
+              status: cell.status,
+              onHold: cell.onHold,
+              assignedEmployeeId: cell.assignedEmployeeId,
+              workflow: normalizeCellWorkflow(cell.workflow),
+            },
             cell.activityLog ?? [],
           ),
         ),
@@ -496,7 +517,12 @@ export const projectWorkspaceController = {
       await ensureWorkLogsInitialized(
         project._id.toString(),
         cell._id.toString(),
-        normalizeCellWorkflow(cell.workflow),
+        {
+          status: cell.status,
+          onHold: cell.onHold,
+          assignedEmployeeId: cell.assignedEmployeeId,
+          workflow: normalizeCellWorkflow(cell.workflow),
+        },
         cell.activityLog ?? [],
       );
       const meta = await computeDependencyMeta(project._id, cell);
@@ -1010,6 +1036,7 @@ export const projectWorkspaceController = {
 
       const actor = actorFromReq(req);
       const workflow = normalizeViewWorkflow(cell.viewWorkflow);
+      const prevWorkflow = syncCellWorkflowFromViewWorkflow(workflow);
       let nextWorkflow = workflow;
 
       if (outcome === 'approved') {
@@ -1020,6 +1047,19 @@ export const projectWorkspaceController = {
 
       cell.viewWorkflow = nextWorkflow;
       applyCellWorkflowSync(cell, 'viewWorkflow');
+      const nextCellWorkflow = syncCellWorkflowFromViewWorkflow(cell.viewWorkflow);
+      await syncWorkLogsFromWorkflowChange(
+        projectId,
+        cellId,
+        prevWorkflow,
+        nextCellWorkflow,
+        actor,
+        {
+          status: cell.status,
+          onHold: cell.onHold,
+          assignedEmployeeId: cell.assignedEmployeeId,
+        },
+      );
       review.status = 'resolved';
       review.outcome = outcome;
       review.returnToStage = outcome === 'rejected' ? returnToStage : undefined;
@@ -1107,12 +1147,20 @@ export const projectWorkspaceController = {
       }
 
       const nextWorkflow = result.workflow;
+      if (cell.status === 'completed' || cell.status === 'ready') {
+        cell.status = 'in_progress';
+      }
       await syncWorkLogsFromWorkflowChange(
         projectId,
         cellId,
         prevWorkflow,
         nextWorkflow,
         actor,
+        {
+          status: cell.status,
+          onHold: cell.onHold,
+          assignedEmployeeId: cell.assignedEmployeeId,
+        },
       );
 
       cell.workflow = nextWorkflow;
@@ -1124,10 +1172,6 @@ export const projectWorkspaceController = {
         userName: actor.userName,
         at: new Date(),
       });
-
-      if (cell.status === 'completed' || cell.status === 'ready') {
-        cell.status = 'in_progress';
-      }
 
       await cell.save();
 
@@ -1220,6 +1264,67 @@ export const projectWorkspaceController = {
       const message = err instanceof Error ? err.message : 'Failed to import cells';
       console.error('[workspace] importCells', err);
       res.status(400).json({ error: message });
+    }
+  },
+
+  setCellHold: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const cellId = paramId(req.params.cellId);
+      const { hold, reason } = req.body as { hold?: boolean; reason?: string };
+
+      const cell = await ProjectCellModel.findOne({ _id: cellId, projectId });
+      if (!cell) {
+        res.status(404).json({ error: 'Cell not found' });
+        return;
+      }
+
+      const actor = actorFromReq(req);
+      const now = new Date();
+      const shouldHold = hold !== false && hold !== undefined ? Boolean(hold) : !cell.onHold;
+
+      if (shouldHold) {
+        cell.onHold = true;
+        cell.holdStartedAt = now;
+        cell.holdReason = reason?.trim() || '';
+        cell.heldById = actor.userId;
+        cell.heldByName = actor.userName;
+        await closeProductiveSessionsForCell(
+          projectId,
+          cellId,
+          WORK_SESSION_REASONS.HOLD,
+          actor,
+          now,
+        );
+        cell.activityLog.push({
+          action: 'hold',
+          detail: cell.holdReason || 'Cell placed on hold',
+          userId: actor.userId,
+          userName: actor.userName,
+          at: now,
+        });
+      } else {
+        cell.onHold = false;
+        cell.holdStartedAt = undefined;
+        cell.holdReason = '';
+        cell.heldById = undefined;
+        cell.heldByName = undefined;
+        cell.activityLog.push({
+          action: 'hold_released',
+          detail: 'Hold removed',
+          userId: actor.userId,
+          userName: actor.userName,
+          at: now,
+        });
+        await syncProductiveSessionsForCell(projectId, cellId, cell, actor, now);
+      }
+
+      await cell.save();
+      const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
+      res.json(await toCellWithDuration(cell, meta));
+    } catch (err) {
+      console.error('[workspace] setCellHold', err);
+      res.status(500).json({ error: 'Failed to update hold status' });
     }
   },
 };

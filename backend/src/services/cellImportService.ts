@@ -181,7 +181,12 @@ export async function importCellsForLibrary(params: {
     await ensureWorkLogsInitialized(
       projectId.toString(),
       cell._id.toString(),
-      normalizeCellWorkflow(cell.workflow),
+      {
+        status: cell.status,
+        onHold: cell.onHold,
+        assignedEmployeeId: cell.assignedEmployeeId,
+        workflow: normalizeCellWorkflow(cell.workflow),
+      },
       cell.activityLog ?? [],
     );
   }
