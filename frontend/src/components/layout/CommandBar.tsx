@@ -17,6 +17,7 @@ const routeTitles: Record<string, string> = {
   '/admin/employees': 'Employees',
   '/admin/leaves': 'Leave Management',
   '/admin/timesheet': 'Projects & Timesheets',
+  '/admin/project-management': 'Project Management',
   '/admin/project-analysis': 'Project Management',
   '/admin/projects': 'Projects',
   '/admin/tickets': 'Tickets',
@@ -36,7 +37,9 @@ export function CommandBar() {
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
   const pageTitle = useMemo(() => {
-    if (pathname.startsWith('/admin/project-analysis')) return 'Project Management'
+    if (pathname.startsWith('/admin/project-management') || pathname.startsWith('/admin/project-analysis')) {
+      return 'Project Management'
+    }
     if (routeTitles[pathname]) return routeTitles[pathname]
     const parts = pathname.split('/').filter(Boolean)
     if (parts.length > 2) {

@@ -12,7 +12,7 @@ export const METAL_ROUTING_VIEW_CLASS =
   'metal-routing-view relative z-10 flex min-h-0 flex-1 flex-col font-body'
 
 export function MetalRoutingRoutes({ basePath }: { basePath: string }) {
-  const hideSignalProjectsHeader = basePath.includes('/project-analysis')
+  const hideSignalProjectsHeader = basePath.includes('/project-management') || basePath.includes('/project-analysis')
   const usePremiumProjectsLayout =
     hideSignalProjectsHeader
     || basePath.includes('/employee/metal-routing')

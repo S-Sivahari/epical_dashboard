@@ -81,7 +81,7 @@ export function clearProjectAnalysisSession(): void {
 }
 
 export function isProjectAnalysisPath(path: string): boolean {
-  return path.startsWith('/admin/project-analysis')
+  return path.startsWith('/admin/project-management') || path.startsWith('/admin/project-analysis')
 }
 
 /** Open Project Analysis in a new tab with a one-time launch grant. */
