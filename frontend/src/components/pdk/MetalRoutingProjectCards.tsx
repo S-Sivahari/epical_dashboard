@@ -14,6 +14,7 @@ import {
   getProjectCode,
 } from '@/utils/metalRoutingProjectDisplay'
 import { metalRoutingCardStyle } from '@/utils/metalRoutingCardTheme'
+import { PdkListRowScales } from '@components/pdk/PdkListRowScales'
 import { cn } from '@/utils/cn'
 
 export function MetalRoutingProjectCards({
@@ -238,6 +239,7 @@ export function MetalRoutingProjectListRows({
             }}
             style={isSimpleList ? undefined : metalRoutingCardStyle(cardSeed)}
           >
+            {!isSimpleList ? <PdkListRowScales /> : null}
             {!isSimpleList ? <span className="metal-routing-pdk-list-row__accent" aria-hidden /> : null}
             <span
               className={cn(

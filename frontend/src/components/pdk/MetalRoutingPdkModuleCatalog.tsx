@@ -13,8 +13,9 @@ import {
 } from '@components/pdk/MetalRoutingSkeleton'
 import { MetalRoutingViewToggle, type MetalRoutingViewMode } from '@components/pdk/MetalRoutingViewToggle'
 import { Button } from '@components/ui/Button'
+import { PdkListRowScales } from '@components/pdk/PdkListRowScales'
 import type { PdkModule } from '@/types/pdkMetalRouting'
-import { metalRoutingCardStyle, metalRoutingListRowStyle } from '@/utils/metalRoutingCardTheme'
+import { metalRoutingCardStyle } from '@/utils/metalRoutingCardTheme'
 import { cn } from '@/utils/cn'
 import { stringToHue, stringToHueColor } from '@/utils/stringColor'
 
@@ -277,7 +278,16 @@ export function MetalRoutingPdkModuleCatalog({
 }
 
 function pdkModuleListRowStyle(seed: string): CSSProperties {
-  return metalRoutingListRowStyle(seed)
+  const theme = getPdkModuleCardTheme(seed)
+  const hue = stringToHue(seed)
+  return {
+    '--pdk-card-accent': theme.accent,
+    '--pdk-card-icon-bg': theme.iconBg,
+    '--pdk-card-icon-color': theme.iconColor,
+    '--pdk-card-icon-bg-hover': `hsl(${hue} 68% 91%)`,
+    '--pdk-card-icon-color-hover': `hsl(${hue} 44% 32%)`,
+    borderColor: theme.border,
+  } as CSSProperties
 }
 
 function moduleCardStyle(seed: string): CSSProperties {
@@ -356,7 +366,7 @@ function PdkModuleListRow({
   return (
     <div
       className={cn(
-        'metal-routing-pdk-list-row metal-routing-pdk-list-row--colorful',
+        'metal-routing-pdk-list-row metal-routing-pdk-list-row--colorful metal-routing-pdk-list-row--module',
         isHighlighted && 'is-selected',
       )}
       style={pdkModuleListRowStyle(seed)}
@@ -370,13 +380,14 @@ function PdkModuleListRow({
         }
       }}
     >
+      <PdkListRowScales />
       <span className="metal-routing-pdk-list-row__accent" aria-hidden />
       <span className="metal-routing-pdk-card__icon" aria-hidden>
         <Layers className="h-4 w-4" />
       </span>
-      <div className="min-w-0 flex-1 text-left">
-        <p className="metal-routing-pdk-list-row__name">{module.name}</p>
-      </div>
+      <p className="metal-routing-pdk-list-row__name metal-routing-pdk-list-row__name--inline">
+        {module.name}
+      </p>
       <Button
         type="button"
         size="sm"
