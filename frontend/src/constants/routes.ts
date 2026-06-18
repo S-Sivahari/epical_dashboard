@@ -49,4 +49,10 @@ export const ROUTES = {
   HELP: '/admin/help',
   EMPLOYEE_METAL_ROUTING: '/employee/metal-routing',
   EMPLOYEE_NOTES: '/employee/notes',
+  EMPLOYEE_PROJECT_ANALYSIS: '/employee/project-analysis',
+  EMPLOYEE_PROJECT_ANALYSIS_PROJECTS: '/employee/project-analysis/projects',
+  EMPLOYEE_PROJECT_ANALYSIS_PROJECT_WORKSPACE: (id: string) => `/employee/project-analysis/projects/${id}`,
+  EMPLOYEE_PROJECT_ANALYSIS_PROJECT_CELL: (projectId: string, cellId: string) =>
+    `/employee/project-analysis/projects/${projectId}/cells/${cellId}`,
+  EMPLOYEE_PROJECT_ANALYSIS_SIGNAL: '/employee/project-analysis/signal-analysis',
 } as const

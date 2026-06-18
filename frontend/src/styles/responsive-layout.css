@@ -11,6 +11,7 @@
 .projects-directory-scroll,
 .viewport-panel-scroll,
 .timesheet-panel-scroll,
+.emp-timesheet-page,
 .overflow-x-auto,
 .overflow-y-auto,
 .admin-analytics-comparison-chart-scroll,
@@ -30,6 +31,7 @@
 .projects-directory-scroll::-webkit-scrollbar,
 .viewport-panel-scroll::-webkit-scrollbar,
 .timesheet-panel-scroll::-webkit-scrollbar,
+.emp-timesheet-page::-webkit-scrollbar,
 .overflow-x-auto::-webkit-scrollbar,
 .overflow-y-auto::-webkit-scrollbar,
 .admin-analytics-comparison-chart-scroll::-webkit-scrollbar,
@@ -49,6 +51,7 @@
 .projects-directory-scroll::-webkit-scrollbar-thumb,
 .viewport-panel-scroll::-webkit-scrollbar-thumb,
 .timesheet-panel-scroll::-webkit-scrollbar-thumb,
+.emp-timesheet-page::-webkit-scrollbar-thumb,
 .overflow-x-auto::-webkit-scrollbar-thumb,
 .overflow-y-auto::-webkit-scrollbar-thumb,
 .admin-analytics-comparison-chart-scroll::-webkit-scrollbar-thumb,
@@ -218,6 +221,7 @@
   .admin-portal.cmd-portal .cmd-main:has(.admin-hub-page-wrap) {
     overflow-x: hidden;
     overflow-y: auto;
+    scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
   }
 
