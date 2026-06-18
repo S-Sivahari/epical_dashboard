@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Badge } from '@components/ui/Badge'
 import { Button } from '@components/ui/Button'
@@ -6,6 +6,7 @@ import { Modal } from '@components/ui/Modal'
 import { DataTable, type Column } from '@components/tables/DataTable'
 import type { EmployeeLeaveSummary, LeaveRequest } from '@/types'
 import * as leaveService from '@services/leaveService'
+import { useEmployeeStore } from '@store/employeeStore'
 import { formatDate } from '@/utils/formatDate'
 
 const LEAVE_TYPE_COLORS: Record<string, string> = {
@@ -47,6 +48,26 @@ export function EmployeeLeaveProfileModal({
   const [loading, setLoading] = useState(false)
   const [allocationDraft, setAllocationDraft] = useState<Record<string, string>>({})
   const [savingAllocations, setSavingAllocations] = useState(false)
+  const employees = useEmployeeStore((s) => s.employees)
+  const fetchEmployees = useEmployeeStore((s) => s.fetchEmployees)
+
+  useEffect(() => {
+    if (isOpen && employees.length === 0) {
+      void fetchEmployees()
+    }
+  }, [isOpen, employees.length, fetchEmployees])
+
+  const displayEmployeeId = useMemo(() => {
+    const lookupId = employeeId ?? summary?.employeeId ?? ''
+    if (!lookupId) return ''
+
+    const employee = employees.find(
+      (e) =>
+        String(e.id) === String(lookupId) ||
+        String(e.employeeId) === String(lookupId),
+    )
+    return employee?.employeeId || summary?.employeeId || lookupId
+  }, [employeeId, employees, summary?.employeeId])
 
   const loadSummary = async (id: string) => {
     setLoading(true)
@@ -163,7 +184,7 @@ export function EmployeeLeaveProfileModal({
         </div>
       ) : summary ? (
         <div className="space-y-6">
-          <p className="text-sm text-muted">{summary.employeeId}</p>
+          <p className="text-sm text-muted">{displayEmployeeId}</p>
 
           <section>
             <h3 className="text-sm font-semibold text-ink mb-2">Allotted leave days (admin)</h3>

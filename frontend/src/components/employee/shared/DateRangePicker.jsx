@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Calendar, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { formatDate } from '@/utils/formatDate'
+import { cn } from '@/utils/cn'
 import { getPresetDateRange } from '@pages/employee/lib/dateFilters'
 
 const QUICK_PRESETS = [
@@ -21,6 +22,9 @@ export function DateRangePicker({ startDate, endDate, preset, onChange }) {
   const [currentMonth, setCurrentMonth] = useState(() => new Date(`${startDate}T12:00:00`))
   const [tempStart, setTempStart] = useState(startDate)
   const [tempEnd, setTempEnd] = useState(endDate)
+  const [selectionMode, setSelectionMode] = useState(
+    () => (preset === 'Custom' && startDate !== endDate ? 'range' : 'single'),
+  )
   const containerRef = useRef(null)
   const calendarRef = useRef(null)
   const [calendarPosition, setCalendarPosition] = useState({ top: 0, left: 0 })
@@ -86,9 +90,10 @@ export function DateRangePicker({ startDate, endDate, preset, onChange }) {
     if (open) {
       setTempStart(startDate)
       setTempEnd(endDate)
+      setSelectionMode(preset === 'Custom' && startDate !== endDate ? 'range' : 'single')
       setCurrentMonth(new Date(`${startDate}T12:00:00`))
     }
-  }, [open, startDate, endDate])
+  }, [open, startDate, endDate, preset])
 
   const applySingleDay = (dateStr) => {
     setTempStart(dateStr)
@@ -110,8 +115,8 @@ export function DateRangePicker({ startDate, endDate, preset, onChange }) {
     setOpen(false)
   }
 
-  const handleDayClick = (dateStr, e) => {
-    if (e.shiftKey) {
+  const handleDayClick = (dateStr) => {
+    if (selectionMode === 'range') {
       if (!tempStart || (tempStart && tempEnd)) {
         setTempStart(dateStr)
         setTempEnd(null)
@@ -124,6 +129,13 @@ export function DateRangePicker({ startDate, endDate, preset, onChange }) {
     }
     applySingleDay(dateStr)
   }
+
+  const selectionHint =
+    selectionMode === 'single'
+      ? 'Click a date to filter that day.'
+      : tempStart && !tempEnd
+        ? 'Now click an end date.'
+        : 'Click a start date, then click an end date.'
 
   const calendarCells = useMemo(() => {
     const year = currentMonth.getFullYear()
@@ -207,6 +219,37 @@ export function DateRangePicker({ startDate, endDate, preset, onChange }) {
           </button>
         </div>
 
+        <div className="projects-date-mode-toggle mb-2.5 flex gap-1 rounded-lg border border-emerald-200/60 bg-white/60 p-0.5">
+          <button
+            type="button"
+            onClick={() => {
+              setSelectionMode('single')
+              setTempStart(startDate)
+              setTempEnd(endDate)
+            }}
+            className={cn(
+              'flex-1 rounded-md px-2 py-1 text-[10px] font-bold transition-all',
+              selectionMode === 'single' ? 'projects-date-preset-active' : '',
+            )}
+          >
+            Single day
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectionMode('range')
+              setTempStart(null)
+              setTempEnd(null)
+            }}
+            className={cn(
+              'flex-1 rounded-md px-2 py-1 text-[10px] font-bold transition-all',
+              selectionMode === 'range' ? 'projects-date-preset-active' : '',
+            )}
+          >
+            Date range
+          </button>
+        </div>
+
         <div className="projects-date-weekdays type-calendar-weekday mb-1.5 grid grid-cols-7 gap-1 text-center">
           {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
             <span key={d} className="py-1">
@@ -235,7 +278,7 @@ export function DateRangePicker({ startDate, endDate, preset, onChange }) {
               <button
                 key={idx}
                 type="button"
-                onClick={(e) => handleDayClick(cell.dateString, e)}
+                onClick={() => handleDayClick(cell.dateString)}
                 className={`
                       projects-date-day flex h-7 w-7 items-center justify-center rounded-lg font-semibold transition-all
                       ${cell.isCurrentMonth ? 'projects-date-day-current' : 'projects-date-day-muted'}
@@ -250,7 +293,7 @@ export function DateRangePicker({ startDate, endDate, preset, onChange }) {
           })}
         </div>
         <p className="projects-date-hint mt-3 text-[10px] font-medium">
-          Click any date to filter that day. Hold Shift, click a start date, then another date for a custom range.
+          {selectionHint}
         </p>
       </div>
 
