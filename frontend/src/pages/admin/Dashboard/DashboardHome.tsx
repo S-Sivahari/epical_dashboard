@@ -10,12 +10,13 @@ import { ROUTES } from '@constants/routes'
 import { useCommandCenterData } from '@hooks/useCommandCenterData'
 import {
   aggregateProjectTableRows,
-  type ChartPeriod,
+  getDefaultChartDateRange,
+  type ChartDateRange,
 } from './dashboardChartUtils'
 import { formatEmployeesAddedThisMonth } from './dashboardBackendUtils'
 export function DashboardHome() {
-  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('This Week')
-  const data = useCommandCenterData(chartPeriod)
+  const [chartDateRange, setChartDateRange] = useState<ChartDateRange>(() => getDefaultChartDateRange())
+  const data = useCommandCenterData(chartDateRange)
   const projectTableRows = useMemo(
     () => aggregateProjectTableRows(data.timesheets, data.projects),
     [data.timesheets, data.projects],
@@ -81,8 +82,8 @@ export function DashboardHome() {
               <ProjectHoursChartPanel
                 loading={data.loading}
                 chartData={data.chartData}
-                chartPeriod={chartPeriod}
-                onPeriodChange={setChartPeriod}
+                chartDateRange={chartDateRange}
+                onDateRangeChange={setChartDateRange}
                 totalPeriodHours={data.totalPeriodHours}
                 className="dashboard-center-chart dashboard-center-stack-section"
               />

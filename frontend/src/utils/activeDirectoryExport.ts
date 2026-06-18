@@ -14,7 +14,7 @@ import {
 } from '@/utils/exportLogo'
 
 const COMPANY_NAME = 'EPICAL LAYOUTS PVT LTD'
-const REPORT_TITLE = 'Employee Active Directory Report'
+const REPORT_TITLE = 'Employee Directory Report'
 const BRAND_GREEN: [number, number, number] = [6, 192, 51]
 const BRAND_GREEN_ARGB = 'FF06C033'
 const MARGIN_X = 40

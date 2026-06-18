@@ -214,7 +214,7 @@ export function EmployeeProfile() {
         </div>
         <div className="employee-directory-shell">
           <header className="employee-directory-header">
-            <h1 className="employee-directory-title">Employee Active Directory</h1>
+            <h1 className="employee-directory-title">Employee Directory</h1>
           </header>
           <div className="employee-profile-content flex items-center justify-center py-20">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -234,14 +234,14 @@ export function EmployeeProfile() {
         </div>
         <div className="employee-directory-shell">
           <header className="employee-directory-header">
-            <h1 className="employee-directory-title">Employee Active Directory</h1>
+            <h1 className="employee-directory-title">Employee Directory</h1>
           </header>
           <div className="employee-profile-content">
             <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
               <p className="text-sm font-medium text-red-700">{loadError ?? 'Employee not found.'}</p>
               <div className="mt-4">
                 <Button asChild variant="secondary">
-                  <Link to={ROUTES.EMPLOYEES}>Back to Active Directory</Link>
+                  <Link to={ROUTES.EMPLOYEES}>Back to Employee Directory</Link>
                 </Button>
               </div>
             </div>

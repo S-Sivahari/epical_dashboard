@@ -1,5 +1,19 @@
 export type ChartPeriod = 'This Week' | 'This Month' | 'Last Month' | 'Last 2 Months'
 
+export type ChartDateRange = {
+  from: string
+  to: string
+}
+
+export type ChartQuickFilter = 'This Week' | 'This Month' | 'This Year' | 'Custom'
+
+export const CHART_QUICK_FILTERS: { id: ChartQuickFilter; label: string }[] = [
+  { id: 'This Week', label: 'This Week' },
+  { id: 'This Month', label: 'This Month' },
+  { id: 'This Year', label: 'This Year' },
+  { id: 'Custom', label: 'Custom' },
+]
+
 export const CHART_PERIODS: ChartPeriod[] = [
   'This Week',
   'This Month',
@@ -45,6 +59,89 @@ export function getChartRange(period: ChartPeriod) {
   }
 
   return { from: formatDateKey(start), to: formatDateKey(end) }
+}
+
+export function getDefaultChartDateRange(): ChartDateRange {
+  return getQuickFilterDateRange('This Week')
+}
+
+export function getQuickFilterDateRange(filter: Exclude<ChartQuickFilter, 'Custom'>): ChartDateRange {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  let start = new Date(today)
+  let end = new Date(today)
+
+  switch (filter) {
+    case 'This Week': {
+      const day = today.getDay()
+      const diffToMon = day === 0 ? -6 : 1 - day
+      start.setDate(today.getDate() + diffToMon)
+      end = new Date(start)
+      end.setDate(start.getDate() + 6)
+      break
+    }
+    case 'This Month':
+      start = new Date(today.getFullYear(), today.getMonth(), 1)
+      end = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+      break
+    case 'This Year':
+      start = new Date(today.getFullYear(), 0, 1)
+      end = new Date(today)
+      break
+  }
+
+  return { from: formatDateKey(start), to: formatDateKey(end) }
+}
+
+export function matchQuickFilter(range: ChartDateRange): ChartQuickFilter {
+  if (!range.from || !range.to) return 'Custom'
+  for (const filter of ['This Week', 'This Month', 'This Year'] as const) {
+    const preset = getQuickFilterDateRange(filter)
+    if (preset.from === range.from && preset.to === range.to) return filter
+  }
+  return 'Custom'
+}
+
+export function getChartRangeDayCount(from: string, to: string) {
+  if (!from || !to) return 0
+  const start = new Date(`${from}T00:00:00`)
+  const end = new Date(`${to}T00:00:00`)
+  return Math.round((end.getTime() - start.getTime()) / 86400000) + 1
+}
+
+export function normalizeChartDateRange(from: string, to: string): ChartDateRange {
+  if (!from) return { from: '', to: '' }
+  const end = to || from
+  return from <= end ? { from, to: end } : { from: end, to: from }
+}
+
+export function formatChartRangeLabel(from: string, to: string) {
+  if (!from) return 'Select dates'
+  const range = normalizeChartDateRange(from, to)
+  const start = new Date(`${range.from}T12:00:00`)
+  const end = new Date(`${range.to}T12:00:00`)
+  if (range.from === range.to) {
+    return start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+  const sameYear = start.getFullYear() === end.getFullYear()
+  const startLabel = start.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: sameYear ? undefined : 'numeric',
+  })
+  const endLabel = end.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+  return `${startLabel} – ${endLabel}`
+}
+
+export function getChartSubtitleForRange(from: string, to: string) {
+  const days = getChartRangeDayCount(from, to)
+  if (!from || !to) return 'Choose a custom date range'
+  if (days <= 7) return `Hours logged daily · ${formatChartRangeLabel(from, to)}`
+  return `Hours logged by week · ${formatChartRangeLabel(from, to)}`
 }
 
 function hoursFromTimesheet(
@@ -291,6 +388,94 @@ function formatBucketLabel(start: Date, end: Date): string {
   }
   const endLabel = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   return `${startLabel}–${endLabel}`
+}
+
+function aggregateDailyChartForRange(
+  timesheets: Array<{
+    loginTime?: string
+    logoutTime?: string
+    overriddenHours?: number
+    totalHours?: number
+    totalPausedMs?: number
+  }>,
+  from: string,
+  to: string,
+) {
+  const buckets: { name: string; start: Date; end: Date }[] = []
+  let cursor = new Date(`${from}T00:00:00`)
+  const rangeEnd = new Date(`${to}T23:59:59`)
+
+  while (cursor <= rangeEnd) {
+    const bucketStart = new Date(cursor)
+    const bucketEnd = new Date(cursor)
+    bucketEnd.setHours(23, 59, 59, 999)
+    buckets.push({
+      name: bucketStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      start: bucketStart,
+      end: bucketEnd,
+    })
+    cursor.setDate(cursor.getDate() + 1)
+  }
+
+  return buckets.map((bucket) => {
+    let hours = 0
+    timesheets.forEach((t) => {
+      if (!t.loginTime) return
+      const d = new Date(t.loginTime)
+      if (d >= bucket.start && d <= bucket.end) {
+        hours += hoursFromTimesheet(t)
+      }
+    })
+    return { name: bucket.name, hours: Math.round(hours * 10) / 10 }
+  })
+}
+
+export function aggregateChartDataForRange(
+  timesheets: Array<{
+    loginTime?: string
+    logoutTime?: string
+    overriddenHours?: number
+    totalHours?: number
+    totalPausedMs?: number
+  }>,
+  from: string,
+  to: string,
+) {
+  const days = getChartRangeDayCount(from, to)
+  if (days <= 7) {
+    return aggregateDailyChartForRange(timesheets, from, to)
+  }
+
+  const buckets: { name: string; start: Date; end: Date }[] = []
+  let cursor = new Date(`${from}T00:00:00`)
+  const rangeEnd = new Date(`${to}T23:59:59`)
+
+  while (cursor <= rangeEnd) {
+    const bucketStart = new Date(cursor)
+    const bucketEnd = new Date(cursor)
+    bucketEnd.setDate(bucketEnd.getDate() + 6)
+    if (bucketEnd > rangeEnd) bucketEnd.setTime(rangeEnd.getTime())
+
+    buckets.push({
+      name: formatBucketLabel(bucketStart, bucketEnd),
+      start: bucketStart,
+      end: bucketEnd,
+    })
+
+    cursor.setDate(cursor.getDate() + 7)
+  }
+
+  return buckets.map((b) => {
+    let hours = 0
+    timesheets.forEach((t) => {
+      if (!t.loginTime) return
+      const d = new Date(t.loginTime)
+      if (d >= b.start && d <= b.end) {
+        hours += hoursFromTimesheet(t)
+      }
+    })
+    return { name: b.name, hours: Math.round(hours * 10) / 10 }
+  })
 }
 
 export function aggregateChartData(

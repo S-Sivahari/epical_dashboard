@@ -6,8 +6,9 @@ import { useEmployeeStore } from '@store/employeeStore'
 import { useNotificationStore } from '@store/notificationStore'
 import { useTicketStore } from '@store/ticketStore'
 import {
-  getChartRange,
-  type ChartPeriod,
+  aggregateChartDataForRange,
+  formatChartRangeLabel,
+  type ChartDateRange,
 } from '@/pages/admin/Dashboard/dashboardChartUtils'
 import {
   buildPendingApprovals,
@@ -28,7 +29,7 @@ export interface DepartmentStats {
 
 const DASHBOARD_REFRESH_MS = 15 * 60 * 1000
 
-export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
+export function useCommandCenterData(chartDateRange: ChartDateRange) {
   const user = useAuthStore((s) => s.user)
   const { leaves, holidays } = useLeaves()
   const totalEmployees = useEmployeeStore((s) => s.pagination.total)
@@ -59,10 +60,14 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
     async function load(silent = false) {
       try {
         if (!silent) setLoading(true)
-        const { from, to } = getChartRange(chartPeriod)
+        const { from, to } = chartDateRange
+        if (!from || !to) {
+          if (!silent) setLoading(false)
+          return
+        }
         const [tsRes, chartRes, projRes, empHoursRes, docRes, batchRes, empRes, ticketList] = await Promise.all([
           api.get('/timesheets', { params: { from, to } }),
-          api.get('/timesheets/project-hours-chart', { params: { from, to, period: chartPeriod } }),
+          api.get('/timesheets/project-hours-chart', { params: { from, to, period: 'Custom' } }),
           api.get('/projects', { params: { syncCompletion: true } }),
           api.get('/timesheets/employee-hours', { params: { from, to } }),
           fetchAdminDocumentRequests({ status: 'Requested', page: 1, limit: 50 }).catch(() => ({
@@ -76,13 +81,21 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
           ticketService.getTickets().catch(() => []),
         ])
         if (cancelled) return
-        setTimesheets(tsRes.data || [])
+        const timesheetList = tsRes.data || []
+        setTimesheets(timesheetList)
         const chartPayload = chartRes.data as {
           chartData?: { name: string; hours: number }[]
           totalPeriodHours?: number
         }
-        setChartData(Array.isArray(chartPayload?.chartData) ? chartPayload.chartData : [])
-        setTotalPeriodHours(Number(chartPayload?.totalPeriodHours ?? 0))
+        const apiChart = Array.isArray(chartPayload?.chartData) ? chartPayload.chartData : []
+        const resolvedChart =
+          apiChart.length > 0 ? apiChart : aggregateChartDataForRange(timesheetList, from, to)
+        const resolvedTotal =
+          apiChart.length > 0
+            ? Number(chartPayload?.totalPeriodHours ?? 0)
+            : Math.round(resolvedChart.reduce((sum, point) => sum + point.hours, 0) * 10) / 10
+        setChartData(resolvedChart)
+        setTotalPeriodHours(resolvedTotal)
         setProjects(projRes.data || [])
         setEmployeeHours(empHoursRes.data || [])
         const docPayload = docRes as { items?: DocumentRequestRecord[] }
@@ -117,7 +130,7 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
       cancelled = true
       window.clearInterval(refreshId)
     }
-  }, [chartPeriod, employeesRevision])
+  }, [chartDateRange.from, chartDateRange.to, employeesRevision])
 
   const pendingLeaves = leaves.filter((l) => l.status === 'Pending')
   const approvedLeaves = leaves.filter((l) => l.status === 'Approved')
@@ -231,7 +244,7 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
       id: 'engagement',
       type: 'info' as const,
       title: 'Employee engagement signal',
-      body: `${activeProjects.length} active projects with ${totalPeriodHours}h logged ${chartPeriod.toLowerCase()}. Cross-team collaboration is ${activeProjects.length > 2 ? 'healthy' : 'moderate'}.`,
+      body: `${activeProjects.length} active projects with ${totalPeriodHours}h logged for ${formatChartRangeLabel(chartDateRange.from, chartDateRange.to)}. Cross-team collaboration is ${activeProjects.length > 2 ? 'healthy' : 'moderate'}.`,
       action: 'Open timesheets',
       route: '/admin/timesheet',
     })
@@ -242,7 +255,7 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
     payrollStatus,
     activeProjects.length,
     totalPeriodHours,
-    chartPeriod,
+    chartDateRange,
   ])
 
   const pendingApprovalTasks = useMemo(
@@ -310,7 +323,7 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
     pendingLeavesCount: pendingLeaves.length,
     pendingTicketsCount,
     chartData,
-    chartPeriod,
+    chartDateRange,
     totalPeriodHours,
     timesheets,
     projects,
