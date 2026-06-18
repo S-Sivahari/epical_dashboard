@@ -8,8 +8,16 @@ export function isProjectAnalysisAdminPath(pathname: string): boolean {
   return pathname.startsWith(ROUTES.PROJECT_ANALYSIS)
 }
 
+export function isProjectAnalysisEmployeePath(pathname: string): boolean {
+  return pathname.startsWith(ROUTES.EMPLOYEE_PROJECT_ANALYSIS)
+}
+
+export function isProjectAnalysisShellPath(pathname: string): boolean {
+  return isProjectAnalysisAdminPath(pathname) || isProjectAnalysisEmployeePath(pathname)
+}
+
 export function getProjectPortalFromPath(pathname: string): ProjectPortal {
-  return pathname.startsWith('/employee/projects') ? 'employee' : 'admin'
+  return pathname.startsWith('/employee/') ? 'employee' : 'admin'
 }
 
 export function useProjectPortal() {
@@ -18,24 +26,30 @@ export function useProjectPortal() {
   return useMemo(() => {
     const portal = getProjectPortalFromPath(pathname)
     const isEmployee = portal === 'employee'
-    const inProjectAnalysis = !isEmployee && isProjectAnalysisAdminPath(pathname)
+    const inProjectAnalysis = isProjectAnalysisShellPath(pathname)
 
     return {
       portal,
       isEmployee,
       inProjectAnalysis,
       projectsListPath: isEmployee
-        ? ROUTES.EMPLOYEE_PROJECTS
+        ? inProjectAnalysis
+          ? ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECTS
+          : ROUTES.EMPLOYEE_PROJECTS
         : inProjectAnalysis
           ? ROUTES.PROJECT_ANALYSIS_PROJECTS
           : ROUTES.PROJECTS,
       projectWorkspacePath: isEmployee
-        ? ROUTES.EMPLOYEE_PROJECT_WORKSPACE
+        ? inProjectAnalysis
+          ? ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECT_WORKSPACE
+          : ROUTES.EMPLOYEE_PROJECT_WORKSPACE
         : inProjectAnalysis
           ? ROUTES.PROJECT_ANALYSIS_PROJECT_WORKSPACE
           : ROUTES.PROJECT_WORKSPACE,
       projectCellPath: isEmployee
-        ? ROUTES.EMPLOYEE_PROJECT_CELL
+        ? inProjectAnalysis
+          ? ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECT_CELL
+          : ROUTES.EMPLOYEE_PROJECT_CELL
         : inProjectAnalysis
           ? ROUTES.PROJECT_ANALYSIS_PROJECT_CELL
           : ROUTES.PROJECT_CELL,
