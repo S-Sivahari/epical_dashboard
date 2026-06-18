@@ -533,8 +533,6 @@ export function ProjectCellPage() {
                         <dt>Smart estimate (hours)</dt>
                         <dd>
                           {cell.smartEstimate ?? cell.estimatedEffort ?? 0}
-                          {' '}
-                          <span className="text-xs text-slate-500">({cell.estimateConfidence ?? 'Low'} confidence)</span>
                         </dd>
                       </div>
                       <div className="admin-projects-cell-details-item">

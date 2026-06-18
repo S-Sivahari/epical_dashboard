@@ -37,21 +37,22 @@ function ProfileStatMini({ title, value, trend, icon: Icon, horizontal = false, 
   const accentClass = accent ? STAT_ACCENT_CLASS[accent] : null
   const statClassName = cn(
     horizontal
-      ? 'flex min-w-[6.75rem] flex-col justify-center rounded-xl border border-white/25 bg-black/10 px-3 py-2.5 transition-colors sm:min-w-[7.5rem]'
+      ? 'emp-dashboard-hero__stat-chip flex min-w-[6.75rem] flex-col justify-center rounded-xl px-3 py-2.5 transition-colors sm:min-w-[7.5rem]'
       : 'flex min-w-[5.25rem] flex-1 flex-col justify-center rounded-lg border border-white/25 bg-black/10 px-2 py-2 transition-colors',
-    to && 'cursor-pointer hover:bg-black/20',
+    to && horizontal && 'emp-dashboard-hero__stat-chip--link',
+    to && !horizontal && 'cursor-pointer hover:bg-black/20',
     accentClass,
   )
 
   if (horizontal) {
     const content = (
       <>
-        <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-white/75 sm:text-[11px]">
+        <p className="emp-dashboard-hero__stat-label truncate text-[10px] font-semibold uppercase tracking-wide sm:text-[11px]">
           {title}
         </p>
-        <p className="mt-1 text-lg font-bold leading-none text-white sm:text-xl">{value}</p>
+        <p className="emp-dashboard-hero__stat-value mt-1 text-lg font-bold leading-none sm:text-xl">{value}</p>
         {trend ? (
-          <p className="mt-1 truncate text-[10px] text-emerald-100/90 sm:text-[11px]">{trend}</p>
+          <p className="emp-dashboard-hero__stat-trend mt-1 truncate text-[10px] sm:text-[11px]">{trend}</p>
         ) : null}
       </>
     )
@@ -152,7 +153,7 @@ export function ProfileCard({
       className={cn(
         'flex gap-2',
         horizontal
-          ? 'w-full flex-wrap justify-start gap-2 sm:ml-auto sm:w-auto sm:shrink-0 sm:justify-end sm:gap-2.5'
+          ? 'emp-dashboard-hero__stats-row w-full flex-wrap justify-start gap-2 sm:justify-end sm:gap-2.5'
           : 'mt-4 grid grid-cols-2 gap-2 border-t border-white/15 pt-4 sm:grid-cols-4',
       )}
     >
@@ -161,7 +162,7 @@ export function ProfileCard({
           key={i}
           className={cn(
             'animate-pulse rounded-lg bg-black/10',
-            horizontal ? 'h-16 min-w-[6.75rem] sm:min-w-[7.5rem]' : 'h-[4.25rem]',
+            horizontal ? 'emp-dashboard-hero__stat-skeleton emp-dashboard-hero__stat-chip h-16 min-w-[6.75rem] sm:min-w-[7.5rem]' : 'h-[4.25rem]',
           )}
         />
       ))}
@@ -171,7 +172,7 @@ export function ProfileCard({
       className={cn(
         'flex gap-2',
         horizontal
-          ? 'w-full flex-wrap justify-start gap-2 sm:ml-auto sm:w-auto sm:shrink-0 sm:justify-end sm:gap-2.5'
+          ? 'emp-dashboard-hero__stats-row w-full flex-wrap justify-start gap-2 sm:justify-end sm:gap-2.5'
           : 'mt-4 grid grid-cols-2 gap-2 border-t border-white/15 pt-4 sm:grid-cols-4',
       )}
     >
@@ -187,33 +188,54 @@ export function ProfileCard({
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         className={cn(
-          'emp-dashboard-hero relative min-h-[7rem] min-w-0 flex-1 overflow-hidden rounded-xl p-3 shadow-card sm:min-h-[7.5rem] sm:p-4',
+          'emp-dashboard-hero emp-dashboard-hero--comb relative min-h-[7rem] min-w-0 flex-1 overflow-hidden rounded-xl shadow-card sm:min-h-[7.5rem]',
           className,
         )}
       >
-        <div className="relative z-10 flex h-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-          <div className="flex min-w-0 items-center gap-3">
-            <EmployeePhotoAvatar
-              employeeId={employee.id}
-              name={employee.name}
-              className="h-14 w-14 shrink-0 border-2 border-white/40 shadow-md sm:h-16 sm:w-16"
-              fallbackClassName="bg-white/20 text-lg text-white sm:text-xl"
-            />
+        <div className="emp-dashboard-hero__decor" aria-hidden>
+          <div className="emp-dashboard-hero__decor-base" />
+          <div className="emp-dashboard-hero__decor-grid emp-dashboard-hero__decor-grid--soft" />
+          <div className="emp-dashboard-hero__decor-grid emp-dashboard-hero__decor-grid--sharp" />
+          <div className="emp-dashboard-hero__decor-circuit" />
+          <span className="emp-dashboard-hero__decor-vline emp-dashboard-hero__decor-vline--1" />
+          <span className="emp-dashboard-hero__decor-vline emp-dashboard-hero__decor-vline--2" />
+          <span className="emp-dashboard-hero__decor-vline emp-dashboard-hero__decor-vline--3" />
+          <span className="emp-dashboard-hero__decor-shard" />
+          <span className="emp-dashboard-hero__decor-dot emp-dashboard-hero__decor-dot--1" />
+          <span className="emp-dashboard-hero__decor-dot emp-dashboard-hero__decor-dot--2" />
+          <span className="emp-dashboard-hero__decor-dot emp-dashboard-hero__decor-dot--3" />
+          <span className="emp-dashboard-hero__decor-dot emp-dashboard-hero__decor-dot--4" />
+        </div>
 
-            <div className="min-w-[8rem] shrink-0 sm:min-w-[10rem]">
-              <p className="truncate text-xs text-white/80 sm:text-sm">{greeting()},</p>
-              <h2 className="truncate font-heading text-xl font-bold text-white sm:text-2xl">{employee.name}</h2>
-              <p className="truncate text-xs text-white/75 sm:text-sm">{roleLabel ?? employeeCode}</p>
+        <div className="emp-dashboard-hero__inner">
+          <div className="emp-dashboard-hero__identity">
+            <div className="emp-dashboard-hero__avatar-ring shrink-0">
+              <EmployeePhotoAvatar
+                employeeId={employee.id}
+                name={employee.name}
+                className="emp-dashboard-hero__avatar h-14 w-14 sm:h-16 sm:w-16"
+                fallbackClassName="bg-transparent text-base font-semibold text-white sm:text-lg"
+              />
+            </div>
+
+            <span className="emp-dashboard-hero__divider hidden sm:block" aria-hidden />
+
+            <div className="emp-dashboard-hero__identity-copy min-w-0">
+              <p className="truncate text-xs text-[#4b6b5c] sm:text-sm">{greeting()},</p>
+              <h2 className="truncate font-heading text-xl font-bold uppercase tracking-wide text-[#1a4329] sm:text-2xl">
+                {employee.name}
+              </h2>
+              <p className="truncate text-xs text-[#5c7a6a] sm:text-sm">{roleLabel ?? employeeCode}</p>
               {attendance?.checkedIn && !attendance?.checkOutTime ? (
-                <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] text-white sm:text-xs">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300" />
+                <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#e8f3ed] px-2 py-0.5 text-[10px] font-medium text-[#1a4329] sm:text-xs">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
                   Checked in
                 </p>
               ) : null}
             </div>
           </div>
 
-          {statsRow}
+          <div className="emp-dashboard-hero__stats-panel">{statsRow}</div>
         </div>
       </motion.div>
     )

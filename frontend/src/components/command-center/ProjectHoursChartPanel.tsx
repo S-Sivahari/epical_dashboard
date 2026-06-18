@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
-import { ProjectHoursAreaChart } from '@components/charts/ProjectHoursAreaChart'
+import { ProjectHoursDynamicBarChart } from '@components/charts/ProjectHoursDynamicBarChart'
+import { AnimatedCounter } from './AnimatedCounter'
 import { SkeletonBlock } from './shared'
 import {
   CHART_PERIODS,
@@ -25,6 +26,10 @@ export function ProjectHoursChartPanel({
   className?: string
 }) {
   const [periodOpen, setPeriodOpen] = useState(false)
+  const chartKey = useMemo(
+    () => `${chartPeriod}-${chartData.map((p) => `${p.name}:${p.hours}`).join('|')}`,
+    [chartPeriod, chartData],
+  )
 
   return (
     <section className={cn('dashboard-panel dashboard-project-chart min-h-0', className)}>
@@ -36,7 +41,18 @@ export function ProjectHoursChartPanel({
         <div className="flex items-center gap-3">
           <div className="text-right">
             <p className="dashboard-panel-meta">Total</p>
-            <p className="dashboard-panel-stat">{loading ? '—' : `${totalPeriodHours}h`}</p>
+            <p className="dashboard-panel-stat">
+              {loading ? (
+                '—'
+              ) : (
+                <AnimatedCounter
+                  value={totalPeriodHours}
+                  suffix="h"
+                  duration={0.85}
+                  className="tabular-nums"
+                />
+              )}
+            </p>
           </div>
           <div className="relative">
             <button
@@ -69,9 +85,18 @@ export function ProjectHoursChartPanel({
       </header>
       <div className="dashboard-project-chart-body">
         {loading ? (
-          <SkeletonBlock className="h-[200px] rounded-xl" />
+          <SkeletonBlock className="h-[240px] rounded-xl" />
+        ) : chartData.length === 0 ? (
+          <div className="flex h-[240px] items-center justify-center rounded-xl text-sm font-medium text-slate-500">
+            No hours logged for this period
+          </div>
         ) : (
-          <ProjectHoursAreaChart data={chartData} height={200} className="max-w-full overflow-hidden" />
+          <ProjectHoursDynamicBarChart
+            data={chartData}
+            chartKey={chartKey}
+            height={240}
+            className="max-w-full overflow-hidden"
+          />
         )}
       </div>
     </section>

@@ -54,7 +54,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   {
     label: 'Work',
     items: [
-      { to: ROUTES.TIMESHEET, label: 'Projects & Timesheets', navLabel: 'Timesheet', icon: Clock },
+      { to: ROUTES.TIMESHEET, label: 'Projects & Timesheets', navLabel: 'Projects & Timesheets', icon: Clock },
       { to: ROUTES.CALENDAR, label: 'Company Calendar', navLabel: 'Calendar', icon: CalendarDays },
     ],
   },
