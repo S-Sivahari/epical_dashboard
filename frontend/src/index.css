@@ -1,6 +1,7 @@
 @import './styles/typography.css';
 @import './styles/employee-timesheet.css';
 @import './styles/employee-leave.css';
+@import './styles/employee-nav-wheel.css';
 @import './styles/viewport-layout.css';
 @import './styles/responsive-layout.css';
 @import './styles/metal-routing-premium.css';

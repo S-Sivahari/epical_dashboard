@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { LogIn, LogOut, Loader2, AlertTriangle } from 'lucide-react'
+import { LogIn, LogOut, Loader2, AlertTriangle, Pause, Play } from 'lucide-react'
 import { ProjectAnalysisLaunchButton } from '@components/admin/ProjectAnalysisLaunchButton'
 import { Button } from '@components/employee/ui/button'
 import { Textarea } from '@components/employee/ui/textarea'
@@ -12,16 +12,10 @@ import { useTimesheetStore } from '@store/employee/timesheetStore'
 import { formatSessionDuration, formatDurationFromMs } from '@utils/durationFormat'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { formatDateKey, getPresetDateRange, getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
-import { TimesheetLiveSessionPanel } from '@pages/employee/TimesheetLiveSessionPanel'
 import { TimesheetCheckInDialog } from '@pages/employee/TimesheetCheckInDialog'
 
 const TimesheetWeeklyChart = lazy(() =>
   import('@pages/employee/TimesheetWeeklyChart').then((m) => ({ default: m.TimesheetWeeklyChart })),
-)
-const TimesheetProjectWiseChart = lazy(() =>
-  import('@pages/employee/TimesheetProjectWiseChart').then((m) => ({
-    default: m.TimesheetProjectWiseChart,
-  })),
 )
 
 function stripTaskLabelPrefix(taskText, { taskTitle, projectName } = {}) {
@@ -59,6 +53,7 @@ const historyColumns = [
 ]
 
 const CHART_HEIGHT = 220
+const HISTORY_INLINE_ROW_LIMIT = 10
 
 function hoursFromMs(ms) {
   return Math.round((ms / 3600000) * 10) / 10
@@ -106,7 +101,6 @@ export default function Timesheet() {
     serverTimeSkew,
     sessionsLoading,
     projectWiseHours,
-    allTimeProjectWiseHours,
   } = useTimesheetStore()
   const { toast } = useToast()
   const defaultHistoryRange = getPresetDateRange('This Month')
@@ -124,12 +118,6 @@ export default function Timesheet() {
   useEffect(() => {
     hydrate()
   }, [hydrate])
-
-  useEffect(() => {
-    if (initialized) {
-      void useTimesheetStore.getState().refreshAllTimeProjectWiseHours()
-    }
-  }, [initialized])
 
   useEffect(() => {
     let active = true
@@ -222,8 +210,17 @@ export default function Timesheet() {
 
     return { total, inProgress, completed, cancelled }
   }, [assignedTasks])
+
+  const workNoteFromTask = (work) =>
+    stripTaskLabelPrefix(work?.description, {
+      taskTitle: work?.taskTitle,
+      projectName: work?.project,
+    })
+
   const selectedTask = startableTasks.find((t) => t.id === selectedTaskId)
   const currentWorkTask = activeTask || pausedTasks[0] || null
+  const activeWorkDescription = workNoteFromTask(currentWorkTask)
+  const isSessionPaused = checkedIn && !activeTask && Boolean(pausedTasks?.[0])
 
   useEffect(() => {
     if (checkedIn && currentWorkTask) {
@@ -292,12 +289,6 @@ export default function Timesheet() {
     setCheckoutError('')
     setCheckInDialogOpen(true)
   }
-
-  const workNoteFromTask = (work) =>
-    stripTaskLabelPrefix(work?.description, {
-      taskTitle: work?.taskTitle,
-      projectName: work?.project,
-    })
 
   const beginCheckOut = () => {
     setCheckoutReview(true)
@@ -465,44 +456,6 @@ export default function Timesheet() {
     return Array.from(deduped.values()).sort((a, b) => b.sortAt - a.sortAt)
   }, [sessions, historyRange])
 
-  const projectBreakdown = useMemo(() => {
-    const hoursByProjectId = new Map()
-    const hoursByProjectName = new Map()
-    ;(allTimeProjectWiseHours ?? []).forEach((row) => {
-      if (row.projectId) hoursByProjectId.set(String(row.projectId), row)
-      if (row.project) hoursByProjectName.set(String(row.project).trim(), row)
-    })
-
-    const seen = new Set()
-    const rows = []
-    for (const task of startableTasks) {
-      const projectId = task.projectId ? String(task.projectId) : ''
-      const projectName = String(task.projectName || '').trim()
-      const key = projectId || projectName
-      if (!key || seen.has(key)) continue
-      seen.add(key)
-
-      const hoursRow =
-        (projectId && hoursByProjectId.get(projectId)) ||
-        (projectName && hoursByProjectName.get(projectName)) ||
-        null
-
-      rows.push({
-        projectId: projectId || hoursRow?.projectId || '',
-        project: projectName || hoursRow?.project || 'Unknown',
-        hours: hoursRow?.hours ?? 0,
-        sessions: hoursRow?.sessions ?? 0,
-      })
-    }
-
-    return rows.sort((a, b) => b.hours - a.hours || a.project.localeCompare(b.project))
-  }, [startableTasks, allTimeProjectWiseHours])
-
-  const projectWiseTotal = useMemo(
-    () => projectBreakdown.reduce((sum, p) => sum + (p.hours || 0), 0),
-    [projectBreakdown],
-  )
-
   if (!initialized) {
     return (
       <div className="flex min-h-[280px] items-center justify-center text-muted">
@@ -546,9 +499,6 @@ export default function Timesheet() {
         <section className="emp-timesheet-card emp-timesheet-session-compact emp-timesheet-top-panel" id="work-session">
           <div className="emp-timesheet-card-header emp-timesheet-card-header--compact">
             <h3 className="emp-timesheet-card-title">Work Session</h3>
-            {projectBreakdown.length > 0 ? (
-              <span className="emp-timesheet-session-projects-total">{projectWiseTotal.toFixed(1)}h</span>
-            ) : null}
           </div>
           <div className="emp-timesheet-card-body emp-timesheet-session-compact-body">
             {!checkedIn && attendance?.autoCheckedOut ? (
@@ -557,46 +507,6 @@ export default function Timesheet() {
                   <AlertTriangle className="h-3 w-3 shrink-0" />
                   Auto checked out
                 </div>
-              </div>
-            ) : null}
-
-            {!checkoutReview ? (
-              <div className="emp-timesheet-session-top emp-timesheet-session-projects">
-                <Suspense
-                  fallback={
-                    <div className="flex items-center justify-center py-2 text-[10px] text-muted">
-                      Loading…
-                    </div>
-                  }
-                >
-                  <TimesheetProjectWiseChart
-                    embedded
-                    data={projectBreakdown}
-                    emptyHint={
-                      startableTasks.length === 0
-                        ? 'No projects assigned yet.'
-                        : 'Hours appear after you log time.'
-                    }
-                  />
-                </Suspense>
-              </div>
-            ) : null}
-
-            {!checkoutReview && checkedIn && checkInTime ? (
-              <div className="emp-timesheet-session-active">
-                <TimesheetLiveSessionPanel
-                  checkedIn={checkedIn}
-                  checkInTime={checkInTime}
-                  activeTask={activeTask}
-                  pausedTasks={pausedTasks}
-                  currentWorkTask={currentWorkTask}
-                  serverTimeSkew={serverTimeSkew}
-                  checkoutReview={checkoutReview}
-                  submitting={submitting}
-                  slim
-                  onPause={() => activeTask && onPauseTask(activeTask.timesheetId)}
-                  onResume={() => pausedTasks[0] && onResumeTask(pausedTasks[0].timesheetId)}
-                />
               </div>
             ) : null}
 
@@ -616,7 +526,36 @@ export default function Timesheet() {
                   </p>
                 ) : null}
               </div>
-            ) : !checkedIn ? (
+            ) : checkedIn ? (
+              <div className="emp-timesheet-session-main emp-timesheet-session-stack">
+                <div className="emp-timesheet-session-desc emp-timesheet-session-desc--active">
+                  {activeWorkDescription || (
+                    <span className="emp-timesheet-session-desc-placeholder">No work description</span>
+                  )}
+                </div>
+                {isSessionPaused ? (
+                  <Button
+                    type="button"
+                    onClick={() => pausedTasks[0] && onResumeTask(pausedTasks[0].timesheetId)}
+                    disabled={submitting}
+                    className="emp-ts-btn-primary emp-timesheet-session-action h-10 w-full gap-2 text-sm"
+                  >
+                    <Play className="h-4 w-4 shrink-0" />
+                    Resume
+                  </Button>
+                ) : activeTask ? (
+                  <Button
+                    type="button"
+                    onClick={() => onPauseTask(activeTask.timesheetId)}
+                    disabled={submitting}
+                    className="emp-ts-btn-pause emp-timesheet-session-action h-10 w-full gap-2 text-sm"
+                  >
+                    <Pause className="h-4 w-4 shrink-0" />
+                    Pause
+                  </Button>
+                ) : null}
+              </div>
+            ) : (
               <div className="emp-timesheet-session-main emp-timesheet-session-stack">
                 <button
                   type="button"
@@ -638,7 +577,7 @@ export default function Timesheet() {
                   Check In
                 </Button>
               </div>
-            ) : null}
+            )}
 
             {checkoutReview ? (
               <div className="emp-timesheet-session-footer">
@@ -725,20 +664,29 @@ export default function Timesheet() {
               <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/60" />
             </div>
           ) : (
-            <div className="relative flex min-h-0 flex-1 flex-col">
+            <div className="relative flex flex-col">
               {(isInitialLoading || sessionsLoading) && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-[1px]">
                   <Loader2 className="h-5 w-5 animate-spin text-primary" />
                 </div>
               )}
-              <div className="emp-timesheet-history-scroll timesheet-panel-scroll">
+              <div
+                className={`emp-timesheet-history-scroll timesheet-panel-scroll${
+                  unifiedHistory.length > HISTORY_INLINE_ROW_LIMIT
+                    ? ' emp-timesheet-history-scroll--bounded'
+                    : ''
+                }`}
+              >
                 <DataTable
                   columns={historyColumns}
                   data={unifiedHistory}
                   compact
-                  stickyHeader={true}
+                  stickyHeader={unifiedHistory.length > HISTORY_INLINE_ROW_LIMIT}
                   emptyMessage="No work logs for this date range."
                 />
+                {unifiedHistory.length > HISTORY_INLINE_ROW_LIMIT ? (
+                  <div className="emp-timesheet-history-fade" aria-hidden />
+                ) : null}
               </div>
             </div>
           )}

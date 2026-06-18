@@ -4,6 +4,7 @@ import { LoginBackground } from '@components/auth/LoginBackground'
 import { PageLoading } from '@components/layout/PageLoading'
 import { PortalErrorBoundary } from '@components/employee/shared/PortalErrorBoundary'
 import { EmployeeCommandBar } from './EmployeeCommandBar'
+import { EmployeeNavWheel } from './EmployeeNavWheel'
 import { EmployeePageShell } from './EmployeePageShell'
 import { EmployeeTopNav } from './EmployeeTopNav'
 import { EmployeeTimesheetSync } from '@components/employee/shared/EmployeeTimesheetSync'
@@ -41,6 +42,7 @@ export function AppLayout() {
     >
       <EmployeeTimesheetSync />
       <EmployeeAuthProfileSync />
+      <EmployeeNavWheel />
       {!isProjectAnalysis ? (
         <div className="employee-portal-chrome relative z-20 shrink-0">
           <EmployeeCommandBar />
