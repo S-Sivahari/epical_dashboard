@@ -6,13 +6,13 @@ export const ROUTES = {
   EMPLOYEE: (id: string) => `/admin/employees/${id}`,
   EMPLOYEE_EDIT: (id: string) => `/admin/employees/${id}/edit`,
   LEAVES: '/admin/leaves',
-  PROJECT_ANALYSIS: '/admin/project-analysis',
-  PROJECT_ANALYSIS_PROJECTS: '/admin/project-analysis/projects',
-  PROJECT_ANALYSIS_PROJECT_WORKSPACE: (id: string) => `/admin/project-analysis/projects/${id}`,
+  PROJECT_ANALYSIS: '/admin/project-management',
+  PROJECT_ANALYSIS_PROJECTS: '/admin/project-management/projects',
+  PROJECT_ANALYSIS_PROJECT_WORKSPACE: (id: string) => `/admin/project-management/projects/${id}`,
   PROJECT_ANALYSIS_PROJECT_CELL: (projectId: string, cellId: string) =>
-    `/admin/project-analysis/projects/${projectId}/cells/${cellId}`,
-  PROJECT_ANALYSIS_SIGNAL: '/admin/project-analysis/signal-analysis',
-  PROJECT_ANALYSIS_NOTES: '/admin/project-analysis/notes',
+    `/admin/project-management/projects/${projectId}/cells/${cellId}`,
+  PROJECT_ANALYSIS_SIGNAL: '/admin/project-management/signal-analysis',
+  PROJECT_ANALYSIS_NOTES: '/admin/project-management/notes',
   PROJECTS: '/admin/projects',
   PROJECT_WORKSPACE: (id: string) => `/admin/projects/${id}`,
   PROJECT_CELL: (projectId: string, cellId: string) => `/admin/projects/${projectId}/cells/${cellId}`,
@@ -36,9 +36,9 @@ export const ROUTES = {
   TICKETS: '/admin/tickets',
   PAYSLIPS: '/admin/payslips',
   METAL_ROUTING: '/admin/metal-routing',
-  NOTES: '/admin/project-analysis/notes',
+  NOTES: '/admin/project-management/notes',
   NOTES_DAY: (dateKey: string, options?: { childId?: string; highlight?: string }) => {
-    const path = `/admin/project-analysis/notes/day/${dateKey}`
+    const path = `/admin/project-management/notes/day/${dateKey}`
     if (!options?.childId && !options?.highlight) return path
     const params = new URLSearchParams()
     if (options.childId) params.set('child', options.childId)

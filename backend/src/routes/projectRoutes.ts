@@ -152,6 +152,13 @@ router.put('/:projectId/libraries/:libraryId', adminOnly, projectWorkspaceContro
 router.delete('/:projectId/libraries/:libraryId', adminOnly, projectWorkspaceController.deleteLibrary);
 router.get('/:projectId/libraries/:libraryId/cells', adminOnly, projectWorkspaceController.listCells);
 router.post('/:projectId/libraries/:libraryId/cells', adminOnly, projectWorkspaceController.createCell);
+router.get('/:projectId/cells/import-template', adminOnly, projectWorkspaceController.downloadCellImportTemplate);
+router.post(
+  '/:projectId/libraries/:libraryId/cells/import',
+  adminOnly,
+  excelUpload.single('file'),
+  projectWorkspaceController.importCells,
+);
 router.put('/:projectId/cells/:cellId', adminOnly, projectWorkspaceController.updateCell);
 router.delete('/:projectId/cells/:cellId', adminOnly, projectWorkspaceController.deleteCell);
 router.patch('/:projectId/cells/:cellId/status', adminOnly, projectWorkspaceController.updateCellStatus);

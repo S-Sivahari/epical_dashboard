@@ -217,7 +217,7 @@ export function ProjectsDashboard() {
     () => [
       {
         key: 'name',
-        header: 'Project',
+        header: 'Project Name',
         sortable: true,
         className: 'admin-projects-col-project max-w-0',
         render: (p) => (
@@ -239,7 +239,7 @@ export function ProjectsDashboard() {
       },
       {
         key: 'client',
-        header: 'Client',
+        header: 'Client Name',
         sortable: true,
         className: 'admin-projects-col-client max-w-0',
         render: (p) => <TruncateText text={p.client} className="text-slate-700" />,
@@ -305,7 +305,7 @@ export function ProjectsDashboard() {
       },
       {
         key: 'ops' as const,
-        header: 'Open Workshop',
+        header: 'Open Workspace',
         className: 'admin-projects-col-action text-center',
         render: (p) => (
           <div
@@ -479,9 +479,9 @@ export function ProjectsDashboard() {
                   aria-label="Filter by progress"
                 >
                   <option value="all">All progress</option>
-                  <option value="not_started">Not started (0%)</option>
-                  <option value="in_progress">In progress (1–99%)</option>
-                  <option value="completed">Completed (100%)</option>
+                  <option value="not_started">Not started</option>
+                  <option value="in_progress">In progress</option>
+                  <option value="completed">Completed</option>
                 </select>
                 <ChevronDown className="admin-projects-filter-select-icon" aria-hidden />
               </div>

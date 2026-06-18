@@ -1,6 +1,7 @@
 import { MetalRoutingRoutes } from '@pages/shared/pdk/MetalRoutingRoutes'
+import { ROUTES } from '@constants/routes'
 
-const BASE = '/admin/project-analysis/signal-analysis'
+const BASE = ROUTES.PROJECT_ANALYSIS_SIGNAL
 
 export function ProjectAnalysisSignalPage() {
   return <MetalRoutingRoutes basePath={BASE} />
