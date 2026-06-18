@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { LogIn, LogOut, Loader2, AlertTriangle } from 'lucide-react'
+import { ProjectAnalysisLaunchButton } from '@components/admin/ProjectAnalysisLaunchButton'
 import { Button } from '@components/employee/ui/button'
 import { Textarea } from '@components/employee/ui/textarea'
 import { DataTable } from '@components/employee/shared/DataTable'
@@ -516,6 +517,10 @@ export default function Timesheet() {
       <div className="emp-timesheet-hero">
         <h1 className="emp-timesheet-hero-title">Projects & Timesheets</h1>
         <div className="emp-timesheet-hero-stats">
+          <ProjectAnalysisLaunchButton
+            audience="employee"
+            className="project-analysis-launch-btn--hero emp-timesheet-hero-stat emp-timesheet-hero-stat--launch"
+          />
           <div className="emp-timesheet-hero-stat emp-timesheet-hero-stat--plain">
             <span className="emp-timesheet-hero-stat-label">Total</span>
             <span className="emp-timesheet-hero-stat-value">{taskStatusCounts.total}</span>

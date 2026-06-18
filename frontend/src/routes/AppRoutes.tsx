@@ -363,6 +363,14 @@ export function AppRoutes() {
               element={<EmployeeTimesheet />}
             />
 
+            <Route path="project-analysis" element={<ProjectAnalysisLayout />}>
+              <Route index element={<Navigate to="projects" replace />} />
+              <Route path="projects/:projectId/cells/:cellId" element={<ProjectCellPage />} />
+              <Route path="projects/:projectId" element={<ProjectWorkspace />} />
+              <Route path="projects" element={<AdminProjectsPage />} />
+              <Route path="signal-analysis/*" element={<ProjectAnalysisSignalPage />} />
+            </Route>
+
             <Route path="projects" element={<EmployeeProjectsLayout />}>
               <Route index element={<EmployeeProjectsDashboard />} />
               <Route path="my-projects" element={<Navigate to="/employee/projects" replace />} />

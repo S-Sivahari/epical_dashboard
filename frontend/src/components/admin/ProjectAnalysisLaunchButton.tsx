@@ -6,17 +6,23 @@ import { cn } from '@/utils/cn'
 
 type ProjectAnalysisLaunchButtonProps = {
   className?: string
+  audience?: 'admin' | 'employee'
 }
 
-export function ProjectAnalysisLaunchButton({ className }: ProjectAnalysisLaunchButtonProps) {
+export function ProjectAnalysisLaunchButton({
+  className,
+  audience = 'admin',
+}: ProjectAnalysisLaunchButtonProps) {
   const { pathname } = useLocation()
+  const base =
+    audience === 'employee' ? ROUTES.EMPLOYEE_PROJECT_ANALYSIS : ROUTES.PROJECT_ANALYSIS
 
-  if (pathname.startsWith(ROUTES.PROJECT_ANALYSIS)) {
+  if (pathname.startsWith(base)) {
     return null
   }
 
   const openProjectAnalysis = () => {
-    openProjectAnalysisTab(`${ROUTES.PROJECT_ANALYSIS}/projects`)
+    openProjectAnalysisTab(`${base}/projects`)
   }
 
   return (
