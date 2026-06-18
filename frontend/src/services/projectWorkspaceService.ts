@@ -52,6 +52,33 @@ export async function deleteCell(projectId: string, cellId: string) {
   await api.delete(`/projects/${projectId}/cells/${cellId}`)
 }
 
+function triggerBlobDownload(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = fileName
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
+
+export async function downloadCellImportTemplate(projectId: string) {
+  const { data } = await api.get(`/projects/${projectId}/cells/import-template`, {
+    responseType: 'blob',
+  })
+  triggerBlobDownload(data, 'cell-import-template.xlsx')
+}
+
+export async function importCellsForLibrary(projectId: string, libraryId: string, file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+  const { data } = await api.post<{ created: number; skipped: number; message: string }>(
+    `/projects/${projectId}/libraries/${libraryId}/cells/import`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  )
+  return data
+}
+
 export async function updateCellStatus(projectId: string, cellId: string, status: string) {
   const { data } = await api.patch<ProjectCell>(`/projects/${projectId}/cells/${cellId}/status`, { status })
   return data
