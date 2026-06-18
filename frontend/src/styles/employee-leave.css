@@ -47,6 +47,21 @@
   font-size: calc(0.875rem * var(--els));
 }
 
+/* Portaled employee selects — keep dropdown options left-aligned */
+.emp-ui-select-content,
+.emp-ui-select-content [data-radix-select-viewport] {
+  text-align: left;
+}
+
+.emp-ui-select-item {
+  justify-content: flex-start !important;
+  text-align: left !important;
+}
+
+.emp-ui-select-item span {
+  text-align: left;
+}
+
 .emp-leave-page .emp-leave-control,
 .emp-leave-page input:not([type='checkbox']):not([type='radio']),
 .emp-leave-page textarea,

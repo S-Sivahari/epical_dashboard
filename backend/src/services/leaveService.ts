@@ -440,6 +440,10 @@ export async function getEmployeeLeaveSummary(employeeId: string): Promise<Emplo
       'Unknown'
     : leaves[0]?.employeeName ?? 'Unknown';
 
+  const displayEmployeeId = employee?.employeeId
+    ? String(employee.employeeId)
+    : employeeId;
+
   return {
     employeeId: employee?.employeeId ? String(employee.employeeId) : canonicalId,
     employeeName,

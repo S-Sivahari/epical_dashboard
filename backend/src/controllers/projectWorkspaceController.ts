@@ -49,6 +49,11 @@ import { isAdminRole } from '../utils/generateToken';
 import { assertProjectForRequest } from '../utils/projectAccessHelper';
 import { resolveCellAssignee, enrichAssigneeNames } from '../utils/cellAssigneeHelper';
 import {
+  buildCellImportTemplateBuffer,
+  importCellsForLibrary,
+  parseCellImportWorkbook,
+} from '../services/cellImportService';
+import {
   buildWorkflowDurationMap,
   closeAllOpenWorkLogs,
   ensureWorkLogsInitialized,
@@ -1163,6 +1168,58 @@ export const projectWorkspaceController = {
       res.json(toReview(review));
     } catch (err) {
       res.status(500).json({ error: 'Failed to add message' });
+    }
+  },
+
+  downloadCellImportTemplate: async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const buffer = await buildCellImportTemplateBuffer();
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename="cell-import-template.xlsx"');
+      res.send(buffer);
+    } catch (err) {
+      console.error('[workspace] downloadCellImportTemplate', err);
+      res.status(500).json({ error: 'Failed to generate cell template' });
+    }
+  },
+
+  importCells: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const libraryId = paramId(req.params.libraryId);
+      const project = await assertProject(req, projectId);
+      const library = await ProjectLibraryModel.findOne({ _id: libraryId, projectId });
+      if (!project || !library) {
+        res.status(404).json({ error: 'Project or library not found' });
+        return;
+      }
+
+      const file = (req as Request & { file?: Express.Multer.File }).file;
+      if (!file?.buffer?.length) {
+        res.status(400).json({ error: 'Upload an Excel file (.xlsx)' });
+        return;
+      }
+
+      const rows = await parseCellImportWorkbook(file.buffer);
+      const actor = actorFromReq(req);
+      const result = await importCellsForLibrary({
+        projectId: project._id,
+        libraryId: library._id,
+        rows,
+        actor: { userId: actor.userId, userName: actor.userName },
+      });
+
+      await syncProjectProgress(project._id);
+      await refreshBlockedStatuses(project._id);
+
+      res.json({
+        message: `Imported ${result.created} cell${result.created === 1 ? '' : 's'}`,
+        ...result,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to import cells';
+      console.error('[workspace] importCells', err);
+      res.status(400).json({ error: message });
     }
   },
 };

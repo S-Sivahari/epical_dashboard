@@ -1,8 +1,12 @@
-import { MetalRoutingRoutes } from '@pages/shared/pdk/MetalRoutingRoutes'
+import { useLocation } from 'react-router-dom'
 import { ROUTES } from '@constants/routes'
-
-const BASE = ROUTES.PROJECT_ANALYSIS_SIGNAL
+import { MetalRoutingRoutes } from '@pages/shared/pdk/MetalRoutingRoutes'
 
 export function ProjectAnalysisSignalPage() {
-  return <MetalRoutingRoutes basePath={BASE} />
+  const { pathname } = useLocation()
+  const base = pathname.startsWith(ROUTES.EMPLOYEE_PROJECT_ANALYSIS)
+    ? ROUTES.EMPLOYEE_PROJECT_ANALYSIS_SIGNAL
+    : ROUTES.PROJECT_ANALYSIS_SIGNAL
+
+  return <MetalRoutingRoutes basePath={base} />
 }

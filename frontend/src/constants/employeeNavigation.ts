@@ -3,10 +3,8 @@ import {
   BookOpen,
   CalendarDays,
   CalendarOff,
-  CircuitBoard,
   Clock,
   FileText,
-  FolderKanban,
   HelpCircle,
   LayoutGrid,
   NotebookPen,
@@ -42,21 +40,9 @@ export const EMPLOYEE_NAV_ITEMS: EmployeeNavItem[] = [
   },
   {
     to: '/employee/timesheet',
-    label: 'Timesheet',
-    navLabel: 'Timesheet',
+    label: 'Projects & Timesheets',
+    navLabel: 'Projects & Timesheets',
     icon: Clock,
-  },
-  {
-    to: '/employee/projects',
-    label: 'Projects',
-    navLabel: 'Projects',
-    icon: FolderKanban,
-  },
-  {
-    to: '/employee/metal-routing',
-    label: 'Signal Analysis',
-    navLabel: 'Signal Analysis',
-    icon: CircuitBoard,
   },
   {
     to: '/employee/leave',
@@ -113,7 +99,8 @@ export const EMPLOYEE_NAV_ITEMS: EmployeeNavItem[] = [
 /** Command bar subtitle — current page short title */
 export const EMPLOYEE_ROUTE_TITLES: Record<string, string> = {
   '/employee': 'Dashboard',
-  '/employee/timesheet': 'Timesheet',
+  '/employee/timesheet': 'Projects & Timesheets',
+  '/employee/project-analysis': 'Project Management',
   '/employee/projects': 'Projects',
   '/employee/metal-routing': 'Metal Routing',
   '/employee/notes': 'Daily Notes',
