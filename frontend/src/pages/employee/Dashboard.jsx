@@ -12,7 +12,6 @@ import { ProfileCard } from '@components/employee/shared/ProfileCard'
 import { LeaveCard } from '@components/employee/shared/LeaveCard'
 import { AssignedProjectsSection } from '@components/employee/shared/AssignedProjectsSection'
 import { DashboardWorkInsights } from '@components/employee/shared/DashboardWorkInsights'
-import { AnnouncementBanner } from '@components/employee/shared/AnnouncementBanner'
 import { UpcomingHolidaysCard } from '@components/employee/shared/UpcomingHolidaysCard'
 import { DashboardDocumentRequests } from '@components/employee/shared/DashboardDocumentRequests'
 import { useAuthStore } from '@store/authStore'
@@ -231,8 +230,6 @@ export default function Dashboard() {
     >
       <div className="dashboard-shell flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
         <div className="shrink-0 space-y-2">
-          <AnnouncementBanner compact />
-
           <div className="pb-0.5">
             <ProfileCard
               employee={employee}
