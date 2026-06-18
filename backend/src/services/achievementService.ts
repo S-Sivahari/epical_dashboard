@@ -1,10 +1,6 @@
 import { randomUUID } from 'crypto'
 import { getDB } from '../config/db'
 import type { AchievementImageBlob, AchievementItemDoc, AchievementPageDoc } from '../models/CompanyAchievement'
-import {
-  type AchievementPageColors,
-  resolvePageColors,
-} from '../utils/achievementPageColors'
 
 const PAGE_KEY = 'settings' as const
 
@@ -32,12 +28,9 @@ async function createIndexes(): Promise<void> {
   try {
     const pageCollection = getDB().collection('achievement_page')
     const itemsCollection = getDB().collection('achievement_items')
-    
+
     await Promise.all([
-      // Page collection indexes
       pageCollection.createIndex({ key: 1 }, { unique: true }),
-      
-      // Items collection indexes
       itemsCollection.createIndex({ id: 1 }, { unique: true }),
       itemsCollection.createIndex({ sortOrder: 1 }),
       itemsCollection.createIndex({ createdAt: -1 }),
@@ -51,31 +44,10 @@ export async function getPage(): Promise<AchievementPageDoc | null> {
   return pageCol().findOne({ key: PAGE_KEY })
 }
 
-export async function upsertPage(payload: {
-  title: string
-  subtitle: string
-  sectionTitle: string
-  sectionSubtitle: string
-  colors: AchievementPageColors
-  coverImage?: AchievementImageBlob
-  clearCover?: boolean
-}): Promise<AchievementPageDoc> {
-  const existing = await getPage()
-  let coverImage = existing?.coverImage
-  if (payload.clearCover) {
-    coverImage = undefined
-  } else if (payload.coverImage) {
-    coverImage = payload.coverImage
-  }
-
+export async function upsertPage(payload: { title: string }): Promise<AchievementPageDoc> {
   const doc: AchievementPageDoc = {
     key: PAGE_KEY,
     title: payload.title.trim(),
-    subtitle: payload.subtitle.trim(),
-    sectionTitle: payload.sectionTitle.trim(),
-    sectionSubtitle: payload.sectionSubtitle.trim(),
-    colors: resolvePageColors(payload.colors),
-    coverImage,
     updatedAt: new Date(),
   }
   await pageCol().updateOne({ key: PAGE_KEY }, { $set: doc }, { upsert: true })

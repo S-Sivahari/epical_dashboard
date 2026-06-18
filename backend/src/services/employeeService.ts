@@ -3,8 +3,9 @@ import { getDB } from '../config/db';
 import { Employee, CreateEmployeePayload, UpdateEmployeePayload, EmployeeActivityEntry } from '../models/Employee';
 import { EmployeeAttendanceModel } from '../models/EmployeeAttendance';
 import * as emailService from './emailService';
-import { ensureUserAccountForEmployee, getAdminLoginEmail, normalizeLoginEmail } from '../utils/employeeAuth';
+import { ensureUserAccountForEmployee, getAdminLoginEmail, normalizeLoginEmail, syncPortalAdminForEmployee } from '../utils/employeeAuth';
 import { assertPersonalAndCompanyEmailsDiffer } from '../utils/employeeLoginRules';
+import { normalizePortalAccess, assertValidPortalAccess } from '../utils/portalAccess';
 import { sanitizeEmployeeForDetail, sanitizeEmployeeForList } from '../utils/sanitizeEmployee';
 import {
   isProfileFieldUpdate,
@@ -48,14 +49,6 @@ function assertNotAdminPortalEmail(email?: string): void {
   }
 }
 
-function assertEmployeeRoleOnly(role?: string): void {
-  if (role && String(role).trim() !== '' && String(role).trim() !== 'Employee') {
-    const err: any = new Error('Only the system admin account can have Admin role. Employees must use role Employee.');
-    err.code = 'ADMIN_ROLE_NOT_ALLOWED';
-    throw err;
-  }
-}
-
 /** List queries — exclude binary blobs at the DB layer (not just in JSON). */
 const EMPLOYEE_LIST_PROJECTION = {
   id: 1,
@@ -68,6 +61,7 @@ const EMPLOYEE_LIST_PROJECTION = {
   joinedAt: 1,
   status: 1,
   role: 1,
+  portalAccess: 1,
   createdAt: 1,
   updatedAt: 1,
   'photo.filename': 1,
@@ -100,6 +94,7 @@ const PROFILE_TRACKED_FIELDS = [
   'dob',
   'gender',
   'role',
+  'portalAccess',
   'employmentType',
   'joinedAt',
   'ctc',
@@ -126,6 +121,7 @@ const FIELD_LABELS: Record<string, string> = {
   dob: 'Date of birth',
   gender: 'Gender',
   role: 'Role',
+  portalAccess: 'Portal access',
   employmentType: 'Employment type',
   joinedAt: 'Joined date',
   ctc: 'CTC',
@@ -472,7 +468,11 @@ export async function createEmployee(payload: CreateEmployeePayload): Promise<Em
   assertPersonalAndCompanyEmailsDiffer(payload.personalEmail, payload.email);
   assertNotAdminPortalEmail(payload.personalEmail);
   assertNotAdminPortalEmail(payload.email);
-  assertEmployeeRoleOnly(payload.role);
+
+  const portalAccess = normalizePortalAccess(
+    (payload as { portalAccess?: string }).portalAccess ?? payload.role,
+  );
+  assertValidPortalAccess(portalAccess);
 
   // ==== Duplicate checks ==== //
   if (payload.personalEmail) {
@@ -497,6 +497,7 @@ export async function createEmployee(payload: CreateEmployeePayload): Promise<Em
     ...payloadWithoutDesignation,
     id,
     role: 'Employee',
+    portalAccess,
     email: payload.email?.trim().toLowerCase() || undefined,
     personalEmail: payload.personalEmail?.trim().toLowerCase() || undefined,
     employeeId: normalizedEmployeeId,
@@ -504,7 +505,7 @@ export async function createEmployee(payload: CreateEmployeePayload): Promise<Em
     earnedLeaveMonthEndAccrual: true,
     leaveAllocations: {
       'Casual Leave': 12,
-      'Sick Leave': 12,
+      'Sick Leave': 6,
     },
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -514,6 +515,9 @@ export async function createEmployee(payload: CreateEmployeePayload): Promise<Em
 
   await ensureUserAccountForEmployee(employee).catch((err) => {
     console.error('[Employee Service] Failed to ensure login account for employee:', err);
+  });
+  await syncPortalAdminForEmployee(employee).catch((err) => {
+    console.error('[Employee Service] Failed to sync portal admin flag:', err);
   });
 
   // Send welcome email — personal email first, then company email if different
@@ -640,8 +644,14 @@ export async function updateEmployee(
   assertPersonalAndCompanyEmailsDiffer(nextPersonal, nextCompany);
   assertNotAdminPortalEmail(nextPersonal);
   assertNotAdminPortalEmail(nextCompany);
-  assertEmployeeRoleOnly(cleanPayload.role);
-  delete cleanPayload.role;
+
+  if (cleanPayload.portalAccess !== undefined) {
+    cleanPayload.portalAccess = normalizePortalAccess(String(cleanPayload.portalAccess));
+    assertValidPortalAccess(cleanPayload.portalAccess);
+  }
+  if (cleanPayload.role !== undefined) {
+    delete cleanPayload.role;
+  }
 
   if (cleanPayload.personalEmail && cleanPayload.personalEmail !== existing.personalEmail) {
     await assertLoginEmailNotUsedByOtherEmployee(cleanPayload.personalEmail, id);
@@ -746,6 +756,9 @@ export async function updateEmployee(
     await propagateEmployeeProfileChanges(existing, updated).catch((err) => {
       console.error('[Employee Service] Failed to propagate profile changes:', err);
     });
+    await syncPortalAdminForEmployee(updated).catch((err) => {
+      console.error('[Employee Service] Failed to sync portal admin flag:', err);
+    });
     return updated;
   }
 
@@ -761,6 +774,9 @@ export async function updateEmployee(
       const { propagateEmployeeProfileChanges } = await import('./employeeProfilePropagation');
       await propagateEmployeeProfileChanges(existing, updated).catch((err) => {
         console.error('[Employee Service] Failed to propagate profile changes:', err);
+      });
+      await syncPortalAdminForEmployee(updated).catch((err) => {
+        console.error('[Employee Service] Failed to sync portal admin flag:', err);
       });
       return updated;
     }

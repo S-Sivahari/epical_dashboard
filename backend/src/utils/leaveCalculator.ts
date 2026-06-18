@@ -4,7 +4,7 @@ import { eachIsoDateInRange, isWeekendIso } from './dateValidation';
 
 export const LEAVE_ALLOCATIONS = {
   'Casual Leave': 12,
-  'Sick Leave': 12,
+  'Sick Leave': 6,
 };
 
 export const EARNED_LEAVE_ACCRUAL_PER_MONTH = 0.5;
@@ -66,7 +66,7 @@ export function resolveLeaveAllocationTotals(
   joinedAt?: string,
   refDate = new Date(),
   compensationLeaveCredits = 0,
-  earnedLeaveMonthEndAccrual = false,
+  earnedLeaveMonthEndAccrual = true,
 ): Record<LeaveAllocationType, number> {
   const credits = Math.max(0, Number(compensationLeaveCredits) || 0);
   const earnedOverride = employeeAllocations?.['Earned Leave'];
@@ -105,15 +105,31 @@ export function currentLeaveMonthKey(refDate = new Date()): string {
   return `${y}-${m}`;
 }
 
-const CASUAL_SICK_TYPES = new Set(['Casual Leave', 'Sick Leave']);
+const YEARLY_LEAVE_TYPES = new Set(['Casual Leave', 'Sick Leave', 'Earned Leave', 'Compensation Leave']);
 
 /**
  * Parse yyyy-MM-dd join date for accrual (UTC noon avoids DST edge cases).
  */
-function parseJoinDate(joinedAt: string): { year: number; month: number } | null {
+function parseJoinDate(joinedAt: string): { year: number; month: number; day: number } | null {
   const join = new Date(`${joinedAt.trim()}T12:00:00Z`);
   if (Number.isNaN(join.getTime())) return null;
-  return { year: join.getFullYear(), month: join.getMonth() };
+  return { year: join.getUTCFullYear(), month: join.getUTCMonth(), day: join.getUTCDate() };
+}
+
+/** True when the employee was employed for the entire calendar month. */
+function wasEmployedFullCalendarMonth(
+  joinedAt: string | undefined,
+  year: number,
+  monthIndex: number,
+): boolean {
+  if (!joinedAt?.trim()) return false;
+  const join = parseJoinDate(joinedAt);
+  if (!join) return false;
+  if (join.year > year) return false;
+  if (join.year < year) return true;
+  if (join.month > monthIndex) return false;
+  if (join.month < monthIndex) return true;
+  return join.day <= 1;
 }
 
 /** Last moment of a calendar month (local time). */
@@ -123,13 +139,13 @@ function endOfMonth(year: number, monthIndex: number): Date {
 
 /**
  * Completed calendar months for earned-leave accrual in the current year.
- * Legacy employees count the current month immediately; new employees (month-end policy)
- * accrue only after each calendar month closes (e.g. join 15 Jun → 0 EL in June, 0.5 on 1 Jul).
+ * Accrues 0.5 day only after a full calendar month of employment ends
+ * (e.g. join 15 Jun → 0 EL on 1 Jul; 0.5 on 1 Aug after completing July).
  */
 export function monthsWorkedInCurrentYear(
   joinedAt?: string,
   refDate = new Date(),
-  earnedLeaveMonthEndAccrual = false,
+  earnedLeaveMonthEndAccrual = true,
 ): number {
   const year = refDate.getFullYear();
   const refMs = refDate.getTime();
@@ -143,15 +159,15 @@ export function monthsWorkedInCurrentYear(
     if (join.year > year) return 0;
     if (join.year === year && join.month > currentMonthIdx) return 0;
     if (join.year === year) {
-      firstMonth = join.month;
+      firstMonth = join.day > 1 ? join.month + 1 : join.month;
     }
   } else {
-    // No join date — no earned-leave accrual until HR sets a joining date.
     return 0;
   }
 
   let completed = 0;
   for (let month = firstMonth; month <= currentMonthIdx; month++) {
+    if (!wasEmployedFullCalendarMonth(joinedAt, year, month)) continue;
     if (earnedLeaveMonthEndAccrual) {
       if (refMs > endOfMonth(year, month).getTime()) {
         completed++;
@@ -167,7 +183,7 @@ export function monthsWorkedInCurrentYear(
 export function calculateEarnedLeaveAllocation(
   joinedAt?: string,
   refDate = new Date(),
-  earnedLeaveMonthEndAccrual = false,
+  earnedLeaveMonthEndAccrual = true,
 ): number {
   return (
     monthsWorkedInCurrentYear(joinedAt, refDate, earnedLeaveMonthEndAccrual) *
@@ -199,9 +215,8 @@ export function sumPendingLeaveDays(
   refDate = new Date(),
   excludeLeaveId?: string,
 ): number {
-  const calendarMonth = currentLeaveMonthKey(refDate);
   const calendarYear = String(refDate.getFullYear());
-  const isYearlyType = type === 'Earned Leave' || type === 'Compensation Leave';
+  const isYearlyType = YEARLY_LEAVE_TYPES.has(type);
 
   return employeeLeaves.reduce((sum, leave) => {
     if (leave.status !== 'Pending') return sum;
@@ -210,25 +225,26 @@ export function sumPendingLeaveDays(
     if (typeof leave.from !== 'string' || leave.from.length < 7) return sum;
     if (isYearlyType) {
       if (leaveYear(leave.from) !== calendarYear) return sum;
-    } else if (leaveMonth(leave.from) !== calendarMonth) {
+    } else if (leaveMonth(leave.from) !== currentLeaveMonthKey(refDate)) {
       return sum;
     }
     return sum + leave.days;
   }, 0);
 }
 
-/** How much casual credit is already consumed this month (paid days only). */
+/** How much casual credit is already consumed this calendar year (paid days only). */
 export function casualCreditUsedThisMonth(
   employeeLeaves: LeaveRequest[],
   refDate = new Date(),
   excludeLeaveId?: string,
 ): number {
-  const calendarMonth = currentLeaveMonthKey(refDate);
+  const calendarYear = String(refDate.getFullYear());
   return employeeLeaves.reduce((sum, leave) => {
     if (leave.type !== 'Casual Leave') return sum;
     if (leave.status !== 'Approved' && leave.status !== 'Pending') return sum;
     if (excludeLeaveId && leave.id === excludeLeaveId) return sum;
-    if (!isLeaveInCurrentMonth(leave, calendarMonth)) return sum;
+    if (typeof leave.from !== 'string' || leave.from.length < 4) return sum;
+    if (leaveYear(leave.from) !== calendarYear) return sum;
     if (leave.status === 'Approved') {
       return sum + paidCasualDays(leave);
     }
@@ -240,18 +256,19 @@ export function casualCreditUsedThisMonth(
   }, 0);
 }
 
-/** How much sick credit is already consumed this month (paid days only). */
+/** How much sick credit is already consumed this calendar year (paid days only). */
 export function sickCreditUsedThisMonth(
   employeeLeaves: LeaveRequest[],
   refDate = new Date(),
   excludeLeaveId?: string,
 ): number {
-  const calendarMonth = currentLeaveMonthKey(refDate);
+  const calendarYear = String(refDate.getFullYear());
   return employeeLeaves.reduce((sum, leave) => {
     if (leave.type !== 'Sick Leave') return sum;
     if (leave.status !== 'Approved' && leave.status !== 'Pending') return sum;
     if (excludeLeaveId && leave.id === excludeLeaveId) return sum;
-    if (!isLeaveInCurrentMonth(leave, calendarMonth)) return sum;
+    if (typeof leave.from !== 'string' || leave.from.length < 4) return sum;
+    if (leaveYear(leave.from) !== calendarYear) return sum;
     if (leave.status === 'Approved') {
       return sum + paidSickDays(leave);
     }
@@ -282,7 +299,7 @@ export function computeCasualLeaveLopForRequest(
     joinedAt,
     refDate,
     compensationCredits,
-    options?.earnedLeaveMonthEndAccrual ?? false,
+    options?.earnedLeaveMonthEndAccrual ?? true,
   );
   const casualTotal = totals['Casual Leave'];
   const consumed = casualCreditUsedThisMonth(employeeLeaves, refDate, excludeLeaveId);
@@ -307,7 +324,7 @@ export function computeSickLeaveLopForRequest(
     joinedAt,
     refDate,
     compensationCredits,
-    options?.earnedLeaveMonthEndAccrual ?? false,
+    options?.earnedLeaveMonthEndAccrual ?? true,
   );
   const sickTotal = totals['Sick Leave'];
   const consumed = sickCreditUsedThisMonth(employeeLeaves, refDate, excludeLeaveId);
@@ -413,7 +430,7 @@ export function calculateBalances(
     joinedAt,
     refDate,
     compensationCredits,
-    options?.earnedLeaveMonthEndAccrual ?? false,
+    options?.earnedLeaveMonthEndAccrual ?? true,
   );
 
   const balances: Record<string, { total: number; used: number; remaining: number }> = {
@@ -428,7 +445,6 @@ export function calculateBalances(
   };
 
   const calendarYear = String(refDate.getFullYear());
-  const calendarMonth = currentLeaveMonthKey(refDate);
 
   employeeLeaves.forEach((leave) => {
     if (leave.status !== 'Approved' || typeof leave.from !== 'string' || leave.from.length < 7) {
@@ -438,14 +454,7 @@ export function calculateBalances(
     if (leave.type === LOP_LEAVE_TYPE) return;
 
     const balanceKey = resolveLeaveBalanceKey(leave.type);
-    const isYearlyType = balanceKey === 'Earned Leave' || balanceKey === 'Compensation Leave';
-    if (isYearlyType) {
-      if (leaveYear(leave.from) !== calendarYear) return;
-    } else if (CASUAL_SICK_TYPES.has(leave.type)) {
-      if (leaveMonth(leave.from) !== calendarMonth) return;
-    } else if (leaveYear(leave.from) !== calendarYear) {
-      return;
-    }
+    if (leaveYear(leave.from) !== calendarYear) return;
 
     const debitDays =
       leave.type === 'Casual Leave'

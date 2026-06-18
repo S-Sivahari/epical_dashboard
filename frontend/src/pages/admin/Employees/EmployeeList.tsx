@@ -245,7 +245,7 @@ export function EmployeeList() {
   const dataColumns: Column<Employee>[] = [
     {
       key: 'firstName',
-      header: 'Employee',
+      header: 'Employee Name',
       sortable: true,
       render: (e) => {
         const name = `${e.firstName} ${e.lastName}`
@@ -380,7 +380,7 @@ export function EmployeeList() {
 
       <div className="employee-directory-shell">
         <header className="employee-directory-header">
-          <h1 className="employee-directory-title">Employee Active Directory</h1>
+          <h1 className="employee-directory-title">Employee Directory</h1>
         </header>
 
         <div className="employee-directory-toolbar">
@@ -523,7 +523,7 @@ export function EmployeeList() {
         <section className="employee-directory-table-section">
           <div className="employee-directory-table-head">
             <h2 className="employee-directory-table-title">
-              {viewMode === 'grid' ? 'Employee Active Directory' : 'Employees List'}
+              {viewMode === 'grid' ? 'Employee Directory' : 'Employees List'}
             </h2>
           </div>
 

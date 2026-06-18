@@ -107,7 +107,7 @@ export function Modal({
           }}
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
-          <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
             <Dialog.Title className={cn(
               "font-display text-lg font-bold tracking-tight",
               isDark ? "text-white" : "text-ink"

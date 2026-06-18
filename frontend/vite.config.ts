@@ -1,12 +1,47 @@
+import { copyFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+/** Production builds inject the JS bundle before the main CSS chunk — reorder them. */
+function cssBeforeJs(): Plugin {
+  return {
+    name: 'css-before-js',
+    enforce: 'post',
+    transformIndexHtml(html) {
+      const bundleCss = html.match(/<link rel="stylesheet" crossorigin href="\/assets\/[^"]+">/)?.[0]
+      const scriptTag = html.match(/<script type="module" crossorigin[^>]*><\/script>/)?.[0]
+      if (!bundleCss || !scriptTag || html.indexOf(bundleCss) < html.indexOf(scriptTag)) {
+        return html
+      }
+      return html
+        .replace(bundleCss, '')
+        .replace(scriptTag, '')
+        .replace('</head>', `    ${bundleCss}\n    ${scriptTag}\n  </head>`)
+    },
+  }
+}
+
+/** Login styles must paint before JS — sync to public/ for an early <link> in index.html. */
+function syncLoginCriticalCss(): Plugin {
+  const src = path.resolve(__dirname, 'src/styles/login.css')
+  const dest = path.resolve(__dirname, 'public/login-critical.css')
+  return {
+    name: 'sync-login-critical-css',
+    buildStart() {
+      copyFileSync(src, dest)
+    },
+    configureServer() {
+      copyFileSync(src, dest)
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), syncLoginCriticalCss(), cssBeforeJs()],
   server: {
     port: 5173,
     strictPort: true,

@@ -8,6 +8,7 @@ declare global {
       id: string;
       email: string;
       role: string;
+      portalAdmin?: boolean;
     }
     interface Request {
       user?: User;

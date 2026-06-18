@@ -26,11 +26,6 @@ const adminMutate = [authMiddleware, requireRole('Admin')]
 
 // Readable by any logged-in user (admin or employee)
 achievementRoutes.get('/company-achievements/page', ...authenticated, achievementController.getPageMeta)
-achievementRoutes.get(
-  '/company-achievements/page/cover-image',
-  ...authenticated,
-  achievementController.getCoverImage
-)
 achievementRoutes.get('/company-achievements', ...authenticated, achievementController.list)
 achievementRoutes.get(
   '/company-achievements/:id/image',
@@ -39,12 +34,7 @@ achievementRoutes.get(
 )
 
 // Admin only
-achievementRoutes.put(
-  '/company-achievements/page',
-  ...adminMutate,
-  imageUpload.single('cover'),
-  achievementController.updatePage
-)
+achievementRoutes.put('/company-achievements/page', ...adminMutate, achievementController.updatePage)
 achievementRoutes.post(
   '/company-achievements',
   ...adminMutate,
