@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, LogOut } from 'lucide-react'
 import { CompanyLogo } from '@components/auth/CompanyLogo'
 import { EmployeePhotoAvatar } from '@components/employee/shared/EmployeePhotoAvatar'
@@ -30,7 +30,9 @@ export function EmployeeCommandBar() {
   return (
     <header className="cmd-bar flex h-[4.25rem] shrink-0 items-center gap-3 px-4 lg:px-5">
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <CompanyLogo className="h-9 w-9 shrink-0 sm:h-10 sm:w-10" alt="Epical Layouts" />
+        <Link to="/employee" className="shrink-0" aria-label="Go to dashboard home">
+          <CompanyLogo className="h-9 w-9 shrink-0 sm:h-10 sm:w-10" alt="Epical Layouts" />
+        </Link>
 
         {user ? (
           <div className="min-w-0 shrink-0">
