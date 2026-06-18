@@ -52,6 +52,7 @@ const historyColumns = [
 ]
 
 const CHART_HEIGHT = 220
+const HISTORY_INLINE_ROW_LIMIT = 10
 
 function hoursFromMs(ms) {
   return Math.round((ms / 3600000) * 10) / 10
@@ -664,14 +665,23 @@ export default function Timesheet() {
                   <Loader2 className="h-5 w-5 animate-spin text-primary" />
                 </div>
               )}
-              <div className="emp-timesheet-history-scroll timesheet-panel-scroll">
+              <div
+                className={`emp-timesheet-history-scroll timesheet-panel-scroll${
+                  unifiedHistory.length > HISTORY_INLINE_ROW_LIMIT
+                    ? ' emp-timesheet-history-scroll--bounded'
+                    : ''
+                }`}
+              >
                 <DataTable
                   columns={historyColumns}
                   data={unifiedHistory}
                   compact
-                  stickyHeader={true}
+                  stickyHeader={unifiedHistory.length > HISTORY_INLINE_ROW_LIMIT}
                   emptyMessage="No work logs for this date range."
                 />
+                {unifiedHistory.length > HISTORY_INLINE_ROW_LIMIT ? (
+                  <div className="emp-timesheet-history-fade" aria-hidden />
+                ) : null}
               </div>
             </div>
           )}
