@@ -51,7 +51,7 @@ const editSchema = z.object({
     .min(1, 'Joining date is required')
     .refine(isValidDate, 'Enter a valid joining date'),
   employmentType: z.enum(['Full-time', 'Contract', 'Intern']),
-  role: z.string().min(1, 'Role is required'),
+  role: z.enum(['Employee', 'Employee+Admin']),
   ctc: z.preprocess(
     (v) => (v === '' || v === null || v === undefined ? undefined : Number(v)),
     z.number().positive('CTC must be a positive number').optional(),
@@ -119,6 +119,12 @@ function normalizeEmploymentType(value: unknown): FormValues['employmentType'] {
   return 'Full-time'
 }
 
+function normalizePortalAccess(value?: string): 'Employee' | 'Employee+Admin' {
+  const trimmed = String(value ?? '').trim()
+  if (trimmed === 'Employee+Admin' || trimmed === 'Admin') return 'Employee+Admin'
+  return 'Employee'
+}
+
 function employeeToFormValues(e: Awaited<ReturnType<typeof employeeService.getEmployee>>): FormValues {
   return {
     employeeId: e.employeeId ?? '',
@@ -139,7 +145,7 @@ function employeeToFormValues(e: Awaited<ReturnType<typeof employeeService.getEm
     pfEsi: normalizePfEsi(e.pfEsi),
     joinedAt: e.joinedAt ?? '',
     employmentType: normalizeEmploymentType(e.employmentType),
-    role: e.role ?? 'Employee',
+    role: normalizePortalAccess(e.portalAccess ?? e.role),
     ctc: e.ctc,
     aadhaar: e.aadhaar ?? '',
     pan: e.pan ?? '',
@@ -553,7 +559,7 @@ export function EditEmployee() {
         uan: values.uan?.trim() ?? '',
         pfEsi: values.pfEsi,
         employmentType: values.employmentType,
-        role: values.role,
+        portalAccess: values.role,
         joinedAt: values.joinedAt ?? '',
         ctc: values.ctc,
         pan: values.pan?.trim() || undefined,
@@ -864,10 +870,14 @@ export function EditEmployee() {
                 ]}
                 {...form.register('employmentType')}
               />
-              <Input
-                label="Role"
+              <SelectField
+                label="Portal access"
                 required
                 error={form.formState.errors.role?.message}
+                options={[
+                  { value: 'Employee', label: 'Employee' },
+                  { value: 'Employee+Admin', label: 'Employee + Admin' },
+                ]}
                 {...form.register('role')}
               />
               <Input

@@ -2,13 +2,16 @@ import bcrypt from 'bcryptjs';
 import { Collection } from 'mongodb';
 import { getDB } from '../config/db';
 import { User, CreateUserPayload } from '../models/User';
-import { generateToken } from '../utils/generateToken';
+import { generateToken, normalizeApiRole } from '../utils/generateToken';
 import {
   ensureUserAccountForEmployee,
   getAdminLoginEmail,
   normalizeLoginEmail,
+  resolveEmployeeForAuthUser,
+  canTogglePortal,
   resolveUserForPasswordLogin,
 } from '../utils/employeeAuth';
+import { defaultActivePortalForLogin, employeeHasPortalAdmin } from '../utils/portalAccess';
 import { EmployeeLoginError } from '../utils/employeeLoginRules';
 import { env } from '../config/env';
 
@@ -24,7 +27,7 @@ function getUserCollection(): Collection<any> {
 export async function loginUser(
   email: string,
   password: string
-): Promise<{ token: string; user: Omit<User, 'passwordHash'>; role: string }> {
+): Promise<{ token: string; user: Omit<User, 'passwordHash'>; role: string; portalAdmin: boolean }> {
   const normalized = normalizeLoginEmail(email);
   if (normalized !== getAdminLoginEmail()) {
     throw Object.assign(
@@ -82,6 +85,7 @@ export async function loginUser(
     token,
     user: { ...safeUser, email: sessionEmail },
     role: user.role === 'Admin' ? 'admin' : 'employee',
+    portalAdmin: false,
   };
 }
 
@@ -91,6 +95,93 @@ export async function getUserById(id: string): Promise<Omit<User, 'passwordHash'
   if (!user) return null;
   const { passwordHash, _id, ...safeUser } = user;
   return safeUser;
+}
+
+export async function resolveSessionPortalAdmin(
+  userId: string,
+  userEmail?: string,
+): Promise<boolean> {
+  const user = await getUserById(userId);
+  if (!user) return false;
+  const employee = await resolveEmployeeForAuthUser(userId, userEmail);
+  return canTogglePortal(user, employee);
+}
+
+export function buildAuthTokenForUser(
+  user: { id: string; email: string; role?: string; portalAdmin?: boolean },
+  employee?: { portalAccess?: string; role?: string } | null,
+  activePortal?: 'admin' | 'employee',
+): string {
+  const canToggle = employee ? canTogglePortal(user, employee) : false;
+  const role =
+    activePortal ??
+    defaultActivePortalForLogin(user, employee ?? undefined);
+  return generateToken({
+    id: user.id,
+    email: user.email,
+    role,
+    portalAdmin: canToggle || undefined,
+  });
+}
+
+export async function switchUserPortal(
+  userId: string,
+  userEmail: string,
+  targetPortal: 'admin' | 'employee',
+): Promise<{ token: string; role: 'admin' | 'employee'; portalAdmin: boolean }> {
+  const user = await getUserById(userId);
+  if (!user) {
+    throw Object.assign(new Error('User not found'), { status: 404 });
+  }
+
+  const employee = await resolveEmployeeForAuthUser(userId, userEmail);
+  const portalAdmin = canTogglePortal(user, employee);
+
+  if (!portalAdmin) {
+    throw Object.assign(new Error('Portal switching is not available for this account.'), {
+      status: 403,
+    });
+  }
+
+  if (targetPortal === 'admin' && !employeeHasPortalAdmin(employee)) {
+    throw Object.assign(new Error('You do not have admin portal access.'), { status: 403 });
+  }
+
+  const role = normalizeApiRole(targetPortal);
+  const token = generateToken({
+    id: user.id,
+    email: userEmail || user.email,
+    role,
+    portalAdmin: portalAdmin || undefined,
+  });
+
+  return { token, role, portalAdmin };
+}
+
+export async function updateUserName(
+  id: string,
+  name: string,
+): Promise<Omit<User, 'passwordHash'>> {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    throw Object.assign(new Error('Name is required'), { status: 400 });
+  }
+
+  const col = getUserCollection();
+  const user = await col.findOne({ id });
+  if (!user) {
+    throw Object.assign(new Error('User not found'), { status: 404 });
+  }
+  if (String(user.role) !== 'Admin') {
+    throw Object.assign(new Error('Only admin accounts can update this profile'), { status: 403 });
+  }
+
+  await col.updateOne({ id }, { $set: { name: trimmed, updatedAt: new Date() } });
+  const updated = await getUserById(id);
+  if (!updated) {
+    throw Object.assign(new Error('User not found'), { status: 404 });
+  }
+  return updated;
 }
 
 export async function createUser(payload: CreateUserPayload): Promise<Omit<User, 'passwordHash'>> {
@@ -144,11 +235,13 @@ async function purgeExtraAdminUsers(canonicalEmail: string): Promise<number> {
   return result.deletedCount;
 }
 
-/** Employees cannot be portal admins — only the env-backed users row is Admin. */
-async function demoteEmployeeAdminRoles(): Promise<void> {
+/** Legacy employees with role Admin become Employee+Admin portal access. */
+async function migrateEmployeeAdminRoles(): Promise<void> {
   await getDB()
     .collection('employees')
-    .updateMany({ role: 'Admin' }, { $set: { role: 'Employee', updatedAt: new Date() } });
+    .updateMany({ role: 'Admin' }, {
+      $set: { portalAccess: 'Employee+Admin', role: 'Employee', updatedAt: new Date() },
+    });
 }
 
 /** Create the single env admin account, sync credentials, and remove any other admins. */
@@ -164,7 +257,7 @@ export async function ensureDefaultAdminUser(): Promise<{ created: boolean; upda
   if (!existing) {
     await createUser(admin);
     await purgeExtraAdminUsers(admin.email);
-    await demoteEmployeeAdminRoles();
+    await migrateEmployeeAdminRoles();
     return { created: true, updated: false };
   }
 
@@ -198,7 +291,7 @@ export async function ensureDefaultAdminUser(): Promise<{ created: boolean; upda
   }
 
   await purgeExtraAdminUsers(admin.email);
-  await demoteEmployeeAdminRoles();
+  await migrateEmployeeAdminRoles();
 
   return { created: false, updated };
 }

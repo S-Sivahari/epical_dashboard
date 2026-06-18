@@ -62,7 +62,7 @@ const step3 = z.object({
     .min(1, 'Joining date is required')
     .refine(isValidDate, 'Enter a valid joining date'),
   employmentType: z.enum(['Full-time', 'Contract', 'Intern']),
-  role: z.enum(['Employee', 'Admin'], { required_error: 'Role is required' }),
+  role: z.enum(['Employee', 'Employee+Admin'], { required_error: 'Portal access is required' }),
   managerId: z.string().optional(),
   ctc: z.preprocess(
     (value) => (value === '' || value === null || value === undefined ? undefined : Number(value)),
@@ -393,7 +393,7 @@ export function AddEmployee() {
       lastName: values.lastName.trim(),
       permanentAddress: values.permanentAddress,
       communicationAddress: values.communicationAddress,
-      role: values.role,
+      portalAccess: values.role,
       managerId: values.managerId || undefined,
       employmentType: values.employmentType,
       joinedAt: values.joinedAt,
@@ -661,12 +661,12 @@ export function AddEmployee() {
                 {...form.register('employmentType')}
               />
               <SelectField
-                label="Role"
+                label="Portal access"
                 required
                 error={form.formState.errors.role?.message}
                 options={[
                   { value: 'Employee', label: 'Employee' },
-                  { value: 'Admin', label: 'Admin' },
+                  { value: 'Employee+Admin', label: 'Employee + Admin' },
                 ]}
                 {...form.register('role')}
               />

@@ -1,6 +1,5 @@
 import { Request, Response } from 'express'
 import * as achievementService from '../services/achievementService'
-import { parsePageColorsFromBody, resolvePageColors } from '../utils/achievementPageColors'
 
 function paramStr(v: string | string[] | undefined): string {
   if (typeof v === 'string') return v
@@ -21,14 +20,8 @@ export const achievementController = {
   getPageMeta: async (_req: Request, res: Response): Promise<void> => {
     try {
       const page = await achievementService.getPage()
-      const colors = resolvePageColors(page?.colors)
       res.json({
         title: page?.title?.trim() || 'Company Achievements',
-        subtitle: page?.subtitle?.trim() || '',
-        sectionTitle: page?.sectionTitle?.trim() || 'Our achievements',
-        sectionSubtitle: page?.sectionSubtitle?.trim() || '',
-        colors,
-        hasCoverImage: !!(page?.coverImage?.data && page?.coverImage?.contentType),
         updatedAt: page?.updatedAt?.toISOString() ?? null,
       })
     } catch (err: unknown) {
@@ -37,67 +30,22 @@ export const achievementController = {
     }
   },
 
-  /** Binary cover for <img> via blob fetch (Authorization header) */
-  getCoverImage: async (_req: Request, res: Response): Promise<void> => {
-    try {
-      const page = await achievementService.getPage()
-      const img = page?.coverImage
-      if (!img?.data) {
-        res.status(404).json({ error: 'No cover image' })
-        return
-      }
-      const buffer = Buffer.from(img.data, 'base64')
-      res.setHeader('Content-Type', img.contentType || 'image/jpeg')
-      res.setHeader('Cache-Control', 'private, max-age=600')
-      res.send(buffer)
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to load cover'
-      res.status(500).json({ error: message })
-    }
-  },
-
   updatePage: async (req: Request, res: Response): Promise<void> => {
     try {
       const title = typeof req.body.title === 'string' ? req.body.title : ''
-      const subtitle = typeof req.body.subtitle === 'string' ? req.body.subtitle : ''
-      const sectionTitle = typeof req.body.sectionTitle === 'string' ? req.body.sectionTitle : ''
-      const sectionSubtitle =
-        typeof req.body.sectionSubtitle === 'string' ? req.body.sectionSubtitle : ''
-      const clearCover = req.body.clearCover === 'true' || req.body.clearCover === true
-      const file = req.file
-      const coverImage = file ? fileToBlob(file) : undefined
 
       if (!title.trim()) {
-        res.status(400).json({ error: 'Hero title is required' })
-        return
-      }
-      if (!sectionTitle.trim()) {
-        res.status(400).json({ error: 'Section title is required' })
+        res.status(400).json({ error: 'Page title is required' })
         return
       }
 
-      const colors = parsePageColorsFromBody(req.body as Record<string, unknown>)
-
-      const page = await achievementService.upsertPage({
-        title,
-        subtitle,
-        sectionTitle,
-        sectionSubtitle,
-        colors,
-        coverImage,
-        clearCover: clearCover && !file,
-      })
+      const page = await achievementService.upsertPage({ title })
       res.json({
         title: page.title,
-        subtitle: page.subtitle,
-        sectionTitle: page.sectionTitle,
-        sectionSubtitle: page.sectionSubtitle,
-        colors: page.colors,
-        hasCoverImage: !!(page.coverImage?.data),
         updatedAt: page.updatedAt.toISOString(),
       })
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to update cover'
+      const message = err instanceof Error ? err.message : 'Failed to update page'
       res.status(500).json({ error: message })
     }
   },

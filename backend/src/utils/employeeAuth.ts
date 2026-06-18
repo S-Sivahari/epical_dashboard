@@ -6,6 +6,7 @@ import {
   assertLoginEmailAllowedForEmployee,
   EmployeeLoginError,
 } from './employeeLoginRules';
+import { defaultActivePortalForLogin, canTogglePortal, employeeHasPortalAdmin } from './portalAccess';
 
 /** Env-configured admin portal login email (password is ADMIN_PASSWORD). */
 export function getAdminLoginEmail(): string {
@@ -172,6 +173,21 @@ export async function findUserForEmployee(
 }
 
 /** Keep the linked users row aligned with the canonical employee profile. */
+export async function syncPortalAdminForEmployee(employee: {
+  id: string;
+  portalAccess?: string;
+  role?: string;
+}): Promise<void> {
+  const portalAdmin = employeeHasPortalAdmin(employee);
+  const user = await findUserForEmployee(employee);
+  if (!user) return;
+
+  await getUserCollection().updateOne(
+    { _id: user._id },
+    { $set: { portalAdmin, role: 'Employee', updatedAt: new Date() } },
+  );
+}
+
 export async function syncUserAccountFromEmployee(employee: {
   id: string;
   firstName?: string;
@@ -181,6 +197,8 @@ export async function syncUserAccountFromEmployee(employee: {
   personalEmail?: string;
   designation?: string;
   joinedAt?: string;
+  portalAccess?: string;
+  role?: string;
 }): Promise<void> {
   const user = await findUserForEmployee(employee);
   if (!user) return;
@@ -203,6 +221,8 @@ export async function syncUserAccountFromEmployee(employee: {
   if (employee.joinedAt) {
     updates.joinedAt = employee.joinedAt;
   }
+  updates.portalAdmin = employeeHasPortalAdmin(employee);
+  updates.role = 'Employee';
 
   await getUserCollection().updateOne({ _id: user._id }, { $set: updates });
 }
@@ -215,6 +235,7 @@ export async function ensureUserAccountForEmployee(
     email?: string;
     personalEmail?: string;
     role?: string;
+    portalAccess?: string;
     designation?: string;
     joinedAt?: string;
   },
@@ -229,6 +250,7 @@ export async function ensureUserAccountForEmployee(
         { $set: { id: employee.id, updatedAt: new Date() } },
       );
     }
+    await syncPortalAdminForEmployee(employee);
     return existing;
   }
 
@@ -245,7 +267,8 @@ export async function ensureUserAccountForEmployee(
     name,
     email: normalizeLoginEmail(loginEmail),
     passwordHash,
-    role: employee.role === 'Admin' ? 'Admin' : 'Employee',
+    role: 'Employee',
+    portalAdmin: employeeHasPortalAdmin(employee),
     designation: employee.designation || 'Employee',
     joinedAt: employee.joinedAt || new Date().toISOString().split('T')[0],
     createdAt: new Date(),
@@ -304,6 +327,8 @@ export async function resolveUserForOAuthLogin(email: string) {
 
   return { user, employee };
 }
+
+export { canTogglePortal, employeeHasPortalAdmin };
 
 export async function getPayslipEmailCandidates(userId: string, userEmail?: string): Promise<string[]> {
   const employee = await resolveEmployeeForAuthUser(userId, userEmail);
