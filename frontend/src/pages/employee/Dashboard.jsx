@@ -10,9 +10,7 @@ import {
 } from 'lucide-react'
 import { ProfileCard } from '@components/employee/shared/ProfileCard'
 import { LeaveCard } from '@components/employee/shared/LeaveCard'
-import { AssignedProjectsSection } from '@components/employee/shared/AssignedProjectsSection'
 import { DashboardWorkInsights } from '@components/employee/shared/DashboardWorkInsights'
-import { AnnouncementBanner } from '@components/employee/shared/AnnouncementBanner'
 import { UpcomingHolidaysCard } from '@components/employee/shared/UpcomingHolidaysCard'
 import { DashboardDocumentRequests } from '@components/employee/shared/DashboardDocumentRequests'
 import { useAuthStore } from '@store/authStore'
@@ -112,7 +110,6 @@ export default function Dashboard() {
   const [monthlyHours, setMonthlyHours] = useState(0)
   const [weeklyHours, setWeeklyHours] = useState(0)
   const [projectCount, setProjectCount] = useState(0)
-  const [assignedProjects, setAssignedProjects] = useState(null)
   const [profile, setProfile] = useState(null)
 
   useEffect(() => {
@@ -130,7 +127,6 @@ export default function Dashboard() {
         const projects = Array.isArray(data.projects) ? data.projects : []
 
         setProfile(data.profile ?? null)
-        setAssignedProjects(projects)
         setBalances(formatLeaveBalances(balanceData))
         setLeaves(Array.isArray(data.leaves) ? data.leaves : [])
         setHolidays(Array.isArray(data.holidays) ? data.holidays : [])
@@ -180,10 +176,10 @@ export default function Dashboard() {
         icon: Clock,
         trend: `${weeklyHours}h this week`,
         accent: 'sage',
-        to: '/employee/projects',
+        to: '/employee/timesheet',
       },
       {
-        title: 'Pending Leave',
+        title: 'Pending for Approval',
         value: String(pendingLeaves.length),
         icon: CalendarOff,
         trend: pendingLeaves.length ? 'Awaiting admin approval' : 'None pending',
@@ -196,7 +192,7 @@ export default function Dashboard() {
         icon: FolderKanban,
         trend: projectCount ? 'Assigned to you' : 'None assigned',
         accent: 'sage',
-        to: '/employee/projects',
+        to: '/employee/project-analysis/projects',
       },
       {
         title: 'Training',
@@ -231,8 +227,6 @@ export default function Dashboard() {
     >
       <div className="dashboard-shell flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
         <div className="shrink-0 space-y-2">
-          <AnnouncementBanner compact />
-
           <div className="pb-0.5">
             <ProfileCard
               employee={employee}
@@ -250,15 +244,6 @@ export default function Dashboard() {
           <div className="emp-dash-widgets-row emp-dash-widgets-row--top">
             <div className="emp-dash-widget-slot">
               <DashboardWorkInsights compact fill />
-            </div>
-            <div className="emp-dash-widget-slot">
-              <AssignedProjectsSection
-                compact
-                fill
-                className="emp-dash-card emp-dash-card--violet"
-                initialProjects={assignedProjects}
-                loading={loading && assignedProjects == null}
-              />
             </div>
           </div>
 

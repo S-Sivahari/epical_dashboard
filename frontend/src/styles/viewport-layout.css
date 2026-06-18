@@ -2055,7 +2055,7 @@ body,
 
 @media (min-width: 1024px) {
   [data-employee-dashboard] .emp-dash-widgets-row--top {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
 
   [data-employee-dashboard] .emp-dash-widgets-row--bottom {

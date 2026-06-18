@@ -3,7 +3,6 @@ import { ROUTES } from '@constants/routes'
 import { cn } from '@/utils/cn'
 import type { ProjectCell } from '@/types/projectWorkspace'
 import {
-  CELL_TYPE_LABELS,
   STATUS_LABELS,
   WORKFLOW_STATUS_LABELS,
   cellCompletionProgressPercent,

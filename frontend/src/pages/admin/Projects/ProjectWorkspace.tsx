@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  ArrowLeft, BookOpen, CheckCircle2, ChevronDown, ClipboardList, GitBranch, History, Layers, LayoutGrid, ListChecks, Plus, Search, Trash2, User, X,
+  ArrowLeft, BookOpen, CheckCircle2, ChevronDown, ClipboardList, GitBranch, History, Layers, LayoutGrid, ListChecks, Plus, Search, User, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageWrapper } from '@components/layout/PageWrapper'
@@ -16,9 +16,12 @@ import {
   createLibrary,
   deleteCell,
   deleteLibrary,
+  downloadCellImportTemplate,
   fetchDependencyGraph,
   fetchEffortPrediction,
   fetchWorkspaceSummary,
+  importCellsForLibrary,
+  updateLibrary,
   type EffortPrediction,
 } from '@/services/projectWorkspaceService'
 import { cn } from '@/utils/cn'
@@ -49,6 +52,7 @@ import {
 } from './projectWorkspaceUi'
 import { calculateEstimatedHours, CELL_COMPLEXITY_OPTIONS, DEFAULT_BASE_HOURS, formatComplexityFactor } from '@/utils/effortEstimationUtils'
 import { buildEmployeeFullName } from '@/utils/employeeDisplayName'
+import { WorkspaceLibraryCard, WorkspaceLibraryToolbar } from './WorkspaceLibraryCard'
 import './adminProjects.css'
 
 type DeleteTarget = { type: 'library' | 'cell'; id: string; name: string }
@@ -96,8 +100,14 @@ export function ProjectWorkspace() {
   const [loading, setLoading] = useState(true)
   const [activeLibraryId, setActiveLibraryId] = useState<string | null>(null)
   const [libraryModal, setLibraryModal] = useState(false)
+  const [editingLibrary, setEditingLibrary] = useState<ProjectLibrary | null>(null)
   const [libraryName, setLibraryName] = useState('')
   const [libraryDesc, setLibraryDesc] = useState('')
+  const [openLibraryMenuId, setOpenLibraryMenuId] = useState<string | null>(null)
+  const [downloadingCellTemplate, setDownloadingCellTemplate] = useState(false)
+  const [importingLibraryId, setImportingLibraryId] = useState<string | null>(null)
+  const cellImportInputRef = useRef<HTMLInputElement>(null)
+  const importLibraryIdRef = useRef<string | null>(null)
   const [cellModal, setCellModal] = useState(false)
   const [cellForm, setCellForm] = useState<ReturnType<typeof emptyCellForm> | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
@@ -371,11 +381,82 @@ export function ProjectWorkspace() {
 
   const saveLibrary = async () => {
     if (!projectId || !libraryName.trim()) return
-    await createLibrary(projectId, { name: libraryName, description: libraryDesc })
-    setLibraryModal(false)
+    try {
+      if (editingLibrary) {
+        await updateLibrary(projectId, editingLibrary.id, {
+          name: libraryName.trim(),
+          description: libraryDesc,
+        })
+        toast.success('Library updated')
+      } else {
+        await createLibrary(projectId, { name: libraryName, description: libraryDesc })
+        toast.success('Library created')
+      }
+      setLibraryModal(false)
+      setEditingLibrary(null)
+      setLibraryName('')
+      setLibraryDesc('')
+      await reload()
+    } catch {
+      toast.error(editingLibrary ? 'Failed to update library' : 'Failed to create library')
+    }
+  }
+
+  const openCreateLibraryModal = () => {
+    setEditingLibrary(null)
     setLibraryName('')
     setLibraryDesc('')
-    await reload()
+    setLibraryModal(true)
+  }
+
+  const openEditLibraryModal = (library: ProjectLibrary) => {
+    setEditingLibrary(library)
+    setLibraryName(library.name)
+    setLibraryDesc(library.description || '')
+    setOpenLibraryMenuId(null)
+    setLibraryModal(true)
+  }
+
+  const handleDownloadCellTemplate = async () => {
+    if (!projectId) return
+    setDownloadingCellTemplate(true)
+    try {
+      await downloadCellImportTemplate(projectId)
+      toast.success('Cell template downloaded')
+    } catch {
+      toast.error('Failed to download cell template')
+    } finally {
+      setDownloadingCellTemplate(false)
+    }
+  }
+
+  const startLibraryCellImport = (libraryId: string) => {
+    importLibraryIdRef.current = libraryId
+    setOpenLibraryMenuId(null)
+    cellImportInputRef.current?.click()
+  }
+
+  const handleLibraryCellImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    const libraryId = importLibraryIdRef.current
+    importLibraryIdRef.current = null
+    if (!file || !projectId || !libraryId) return
+
+    setImportingLibraryId(libraryId)
+    try {
+      const result = await importCellsForLibrary(projectId, libraryId, file)
+      const skippedNote = result.skipped > 0 ? ` (${result.skipped} skipped as duplicates)` : ''
+      toast.success(`${result.message}${skippedNote}`)
+      setActiveLibraryId(libraryId)
+      setShowAllCells(false)
+      await reload()
+    } catch (err: unknown) {
+      const message = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+      toast.error(message || 'Failed to import cells')
+    } finally {
+      setImportingLibraryId(null)
+    }
   }
 
   const handleConfirmDelete = async () => {
@@ -535,42 +616,48 @@ export function ProjectWorkspace() {
                   </p>
                   <span className="admin-projects-libraries-count">{libraries.length}</span>
                 </div>
-                <button
-                  type="button"
-                  className="admin-projects-libraries-create"
-                  onClick={() => setLibraryModal(true)}
-                >
-                  <Plus className="h-4 w-4" /> Add library
-                </button>
+                <WorkspaceLibraryToolbar
+                  onAddLibrary={openCreateLibraryModal}
+                  onDownloadTemplate={() => void handleDownloadCellTemplate()}
+                  downloading={downloadingCellTemplate}
+                />
+                <input
+                  ref={cellImportInputRef}
+                  type="file"
+                  accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  className="hidden"
+                  onChange={(event) => void handleLibraryCellImport(event)}
+                />
                 <div className="admin-projects-libraries-list">
                   {libraries.map((lib: ProjectLibrary) => (
-                    <div key={lib.id} className="admin-projects-library-row">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveLibraryId(lib.id)
-                          setShowAllCells(false)
-                          clearFilters()
-                          setWorkspaceSection('home')
-                        }}
-                        className={cn(
-                          'admin-projects-library-nav',
-                          activeLibraryId === lib.id && !showAllCells && 'is-active',
-                        )}
-                      >
-                        <span className="admin-projects-library-nav-label">{lib.name}</span>
-                        <span className="admin-projects-library-badge">{libraryCellCounts.get(lib.id) ?? 0}</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="admin-projects-icon-btn admin-projects-icon-btn--danger"
-                        title={`Delete ${lib.name}`}
-                        onClick={() => setDeleteTarget({ type: 'library', id: lib.id, name: lib.name })}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+                    <WorkspaceLibraryCard
+                      key={lib.id}
+                      library={lib}
+                      cellCount={libraryCellCounts.get(lib.id) ?? 0}
+                      isActive={activeLibraryId === lib.id && !showAllCells}
+                      menuOpen={openLibraryMenuId === lib.id}
+                      onSelect={() => {
+                        setActiveLibraryId(lib.id)
+                        setShowAllCells(false)
+                        clearFilters()
+                        setWorkspaceSection('home')
+                        setOpenLibraryMenuId(null)
+                      }}
+                      onToggleMenu={() => {
+                        setOpenLibraryMenuId((prev) => (prev === lib.id ? null : lib.id))
+                      }}
+                      onCloseMenu={() => setOpenLibraryMenuId(null)}
+                      onImport={() => startLibraryCellImport(lib.id)}
+                      onEdit={() => openEditLibraryModal(lib)}
+                      onDelete={() => {
+                        setOpenLibraryMenuId(null)
+                        setDeleteTarget({ type: 'library', id: lib.id, name: lib.name })
+                      }}
+                    />
                   ))}
+                  {importingLibraryId ? (
+                    <p className="px-2 py-2 text-xs text-slate-500">Importing cells…</p>
+                  ) : null}
                   {libraries.length === 0 && (
                     <p className="px-2 py-4 text-xs text-slate-500">No libraries yet.</p>
                   )}
@@ -972,15 +1059,28 @@ export function ProjectWorkspace() {
         </div>
       </div>
 
-      <Modal isOpen={libraryModal} title="New library" onClose={() => setLibraryModal(false)}>
+      <Modal
+        isOpen={libraryModal}
+        title={editingLibrary ? 'Edit library' : 'New library'}
+        onClose={() => {
+          setLibraryModal(false)
+          setEditingLibrary(null)
+        }}
+      >
         <div className="grid gap-3">
           <Input label="Library name" value={libraryName} onChange={(e) => setLibraryName(e.target.value)} />
           <label className="text-sm font-medium">Description
             <textarea className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" value={libraryDesc} onChange={(e) => setLibraryDesc(e.target.value)} />
           </label>
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setLibraryModal(false)}>Cancel</Button>
-            <Button onClick={() => void saveLibrary()}>Create</Button>
+            <Button variant="secondary" onClick={() => {
+              setLibraryModal(false)
+              setEditingLibrary(null)
+            }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={() => void saveLibrary()}>{editingLibrary ? 'Save changes' : 'Create'}</Button>
           </div>
         </div>
       </Modal>
@@ -1049,10 +1149,6 @@ export function ProjectWorkspace() {
                 <div>
                   <dt className="text-xs uppercase tracking-wide text-slate-500">Smart estimate</dt>
                   <dd>{effortPreview?.smartEstimate ?? calculateEstimatedHours(cellForm.baseHours ?? 0, cellForm.complexity)}h</dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase tracking-wide text-slate-500">Confidence</dt>
-                  <dd>{effortPreview?.confidence ?? 'Low'}</dd>
                 </div>
               </dl>
               {effortPreview && effortPreview.similarBlockCount > 0 ? (

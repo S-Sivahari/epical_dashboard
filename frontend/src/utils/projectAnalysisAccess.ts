@@ -68,7 +68,8 @@ export function consumeProjectAnalysisAccess(): boolean {
 }
 
 export function canAccessProjectAnalysis(role: string | null | undefined): boolean {
-  return role === 'admin' || consumeProjectAnalysisAccess()
+  if (role === 'admin' || role === 'employee') return true
+  return consumeProjectAnalysisAccess()
 }
 
 export function clearProjectAnalysisSession(): void {
@@ -81,7 +82,11 @@ export function clearProjectAnalysisSession(): void {
 }
 
 export function isProjectAnalysisPath(path: string): boolean {
-  return path.startsWith('/admin/project-analysis')
+  return (
+    path.startsWith('/admin/project-management') ||
+    path.startsWith('/admin/project-analysis') ||
+    path.startsWith('/employee/project-analysis')
+  )
 }
 
 /** Open Project Analysis in a new tab with a one-time launch grant. */

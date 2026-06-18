@@ -19,8 +19,8 @@ export function EmployeeTopNav() {
   const navItems = useMemo(() => {
     if (!showNotesNav) return EMPLOYEE_NAV_ITEMS
     const items = [...EMPLOYEE_NAV_ITEMS]
-    const signalIndex = items.findIndex((item) => item.to === '/employee/metal-routing')
-    const insertAt = signalIndex >= 0 ? signalIndex + 1 : 4
+    const timesheetIndex = items.findIndex((item) => item.to === '/employee/timesheet')
+    const insertAt = timesheetIndex >= 0 ? timesheetIndex + 1 : 2
     items.splice(insertAt, 0, EMPLOYEE_NOTES_NAV_ITEM)
     return items
   }, [showNotesNav])

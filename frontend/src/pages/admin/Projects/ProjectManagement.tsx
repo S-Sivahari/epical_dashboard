@@ -41,7 +41,6 @@ import {
   ArrowUpRight,
   Edit2,
   RefreshCw,
-  Layers,
 } from 'lucide-react'
 import { formatDate } from '@/utils/formatDate'
 import ExcelJS from 'exceljs'
@@ -1272,6 +1271,164 @@ function ProjectsPaginationBar({
 }
 
 /* ================================================================
+   COMPONENT – Archived Project Card (matches ProjectCard layout)
+   ================================================================ */
+const ArchivedProjectCard = memo(function ArchivedProjectCard({
+  project,
+  onRestore,
+  restoring,
+}: {
+  project: ArchivedProjectSummary
+  onRestore: () => void
+  restoring: boolean
+}) {
+  const isCompleted = project.status === 'Completed'
+  const isRejected = project.status === 'Rejected'
+  const leadName = project.teamLead || 'Not assigned'
+  const memberCount = project.visibleUsers.length
+  const maxVisibleNames = 3
+  const visibleNames = project.visibleUsers.slice(0, maxVisibleNames)
+  const remainingCount = memberCount - maxVisibleNames
+  const membersText =
+    memberCount > 0
+      ? visibleNames.join(' • ') + (remainingCount > 0 ? ` • +${remainingCount} more` : '')
+      : 'None assigned'
+  const projectInitial = project.name.charAt(project.name.indexOf(' ') + 1) || project.name.charAt(0)
+  const statusLabel = isRejected ? 'Rejected' : isCompleted ? 'Completed' : 'In Progress'
+  let ringColor = 'border-blue-500 ring-blue-500/20 text-blue-700 bg-blue-50'
+  let badgeColor = 'bg-blue-100 text-blue-700 border-blue-200'
+  if (isCompleted) {
+    ringColor = 'border-emerald-600 ring-emerald-500/20 text-emerald-700 bg-emerald-50'
+    badgeColor = 'bg-emerald-100 text-emerald-700 border-emerald-200'
+  } else if (isRejected) {
+    ringColor = 'border-red-500 ring-red-500/20 text-red-700 bg-red-50'
+    badgeColor = 'bg-red-100 text-red-700 border-red-200'
+  }
+  const hue = stringToHue(project.id || project.name)
+  const startColor = `hsl(${hue} 75% 95%)`
+  const borderColor = `hsl(${hue} 50% 86%)`
+  const archivedLabel = new Date(project.archivedAt).toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+
+  return (
+    <div
+      className="projects-card group flex min-w-0 flex-col gap-4 rounded-2xl border p-5 shadow-[0_4px_15px_rgba(0,0,0,0.02)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] animate-fadeIn"
+      style={{ background: `linear-gradient(135deg, ${startColor} 0%, #ffffff 100%)`, borderColor }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex shrink-0 flex-col items-center gap-2">
+          <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 ring-4 ${ringColor}`}>
+            <span className="text-xl font-bold">{projectInitial}</span>
+          </div>
+          <span className={`max-w-[6.5rem] whitespace-nowrap rounded-full border px-2.5 py-0.5 text-center text-[9px] font-bold uppercase tracking-wider ${badgeColor}`}>
+            {statusLabel}
+          </span>
+        </div>
+        <div className="flex shrink-0 items-start pt-1">
+          <button
+            type="button"
+            onClick={onRestore}
+            disabled={restoring}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-emerald-500/25 bg-emerald-50 px-3 text-xs font-bold text-[var(--emerald-dark)] transition-colors hover:bg-emerald-100/80 disabled:opacity-60"
+            title="Restore Project"
+          >
+            <RefreshCw className={cn('h-4 w-4', restoring && 'animate-spin')} />
+            Restore
+          </button>
+        </div>
+      </div>
+      <div className="min-w-0">
+        <h3 className="truncate text-base font-bold leading-snug text-slate-800 group-hover:text-emerald-700">{project.name}</h3>
+        <p className="mt-1 truncate text-xs text-slate-500">{project.client}</p>
+      </div>
+      {project.description ? <p className="line-clamp-2 text-xs text-slate-600">{project.description}</p> : null}
+      <div className="flex flex-col gap-2 border-b border-slate-100/60 pb-4">
+        <div className="flex min-w-0 items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700">
+          {project.accessType === 'private' ? <Lock className="mr-1.5 h-3.5 w-3.5 shrink-0 text-amber-600" /> : <Globe className="mr-1.5 h-3.5 w-3.5 shrink-0 text-slate-500" />}
+          <span className="truncate">{project.accessType === 'private' ? 'Private' : 'Public'}</span>
+        </div>
+        <div className="flex min-w-0 items-center rounded-lg border border-slate-200 bg-slate-50/50 px-2.5 py-1.5 text-xs font-medium text-slate-700">
+          <Cpu className="mr-1.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+          <span className="truncate font-mono">{project.technologyNode}</span>
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-2 text-center text-[10px] font-bold text-slate-600">
+        <div className="rounded-lg border border-slate-200/80 bg-white/70 px-2 py-1.5">
+          <p className="text-[9px] uppercase tracking-wide text-slate-400">Tasks</p>
+          <p className="mt-0.5 tabular-nums">{project.tasksCount}</p>
+        </div>
+        <div className="rounded-lg border border-slate-200/80 bg-white/70 px-2 py-1.5">
+          <p className="text-[9px] uppercase tracking-wide text-slate-400">Logs</p>
+          <p className="mt-0.5 tabular-nums">{project.timesheetsCount}</p>
+        </div>
+        <div className="rounded-lg border border-slate-200/80 bg-white/70 px-2 py-1.5">
+          <p className="text-[9px] uppercase tracking-wide text-slate-400">Archived</p>
+          <p className="mt-0.5 truncate" title={archivedLabel}>{archivedLabel}</p>
+        </div>
+      </div>
+      <div className="project-members-section grid grid-cols-[auto_1fr] gap-x-3 gap-y-2.5 text-xs text-slate-600">
+        <span className="font-bold text-slate-400">Lead:</span>
+        <span className="break-words font-medium text-slate-700">{leadName}</span>
+        <span className="font-bold text-slate-400">Members:</span>
+        <span className="break-words font-medium text-slate-700">
+          {membersText}
+          {memberCount > 0 ? <span className="ml-1 text-slate-400">({memberCount})</span> : null}
+        </span>
+      </div>
+    </div>
+  )
+})
+
+const ArchivedProjectListRow = memo(function ArchivedProjectListRow({
+  project,
+  onRestore,
+  restoring,
+}: {
+  project: ArchivedProjectSummary
+  onRestore: () => void
+  restoring: boolean
+}) {
+  const isCompleted = project.status === 'Completed'
+  const isRejected = project.status === 'Rejected'
+  const projectInitial = project.name.charAt(project.name.indexOf(' ') + 1) || project.name.charAt(0)
+  const archivedLabel = new Date(project.archivedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+
+  return (
+    <tr className={cn('projects-list-row group border-b border-border transition-colors hover:bg-emerald-50/50', isCompleted ? 'bg-emerald-50/60' : '')}>
+      <td className="px-5 py-4">
+        <div className="flex items-center gap-3">
+          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--emerald-surface)] text-sm font-extrabold text-[var(--emerald-dark)] ring-1 ring-[rgba(38,107,28,0.22)]">{projectInitial}</span>
+          <p className="truncate text-sm font-bold text-ink group-hover:text-[var(--emerald-dark)]">{project.name}</p>
+        </div>
+      </td>
+      <td className="px-5 py-4 text-sm font-semibold text-slate-800">{project.client}</td>
+      <td className="px-5 py-4 font-mono text-sm">{project.technologyNode}</td>
+      <td className="px-5 py-4 tabular-nums text-sm">{project.tasksCount}</td>
+      <td className="px-5 py-4 tabular-nums text-sm">{project.timesheetsCount}</td>
+      <td className="px-5 py-4 text-sm text-slate-600">{archivedLabel}</td>
+      <td className="px-5 py-4">
+        {isRejected ? (
+          <Badge variant="neutral">Rejected</Badge>
+        ) : isCompleted ? (
+          <Badge variant="success"><CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />Completed</Badge>
+        ) : (
+          <Badge variant="info">In Progress</Badge>
+        )}
+      </td>
+      <td className="px-5 py-4 text-right">
+        <button type="button" onClick={onRestore} disabled={restoring} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-50 px-3 text-xs font-bold text-[var(--emerald-dark)] hover:bg-emerald-100/80 disabled:opacity-60">
+          <RefreshCw className={cn('h-4 w-4', restoring && 'animate-spin')} />
+          Restore
+        </button>
+      </td>
+    </tr>
+  )
+})
+
+/* ================================================================
    COMPONENT – Archived Projects (inline workspace view)
    ================================================================ */
 function ArchivedProjectsPanel({
@@ -1285,6 +1442,9 @@ function ArchivedProjectsPanel({
   restoringId: string | null
   onRestore: (id: string, name: string) => Promise<void>
 }) {
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [searchQuery, setSearchQuery] = useState('')
+
   const sortedList = useMemo(
     () =>
       [...archivedProjects].sort(
@@ -1293,160 +1453,100 @@ function ArchivedProjectsPanel({
     [archivedProjects],
   )
 
-  const formatArchivedDate = (isoString: string) => {
-    const d = new Date(isoString)
-    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-  }
+  const filteredList = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return sortedList
+    return sortedList.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.client.toLowerCase().includes(q) ||
+        (p.teamLead || '').toLowerCase().includes(q) ||
+        p.technologyNode.toLowerCase().includes(q),
+    )
+  }, [sortedList, searchQuery])
 
   return (
-    <div className="animate-fadeIn space-y-5">
-      <div className="projects-main-header !mb-0">
-        <div>
-          <h2 className="projects-section-heading">Archived Projects</h2>
-          <p className="projects-section-subheading">
-            Review legacy projects and restore them to the active directory when needed.
+    <div className="projects-directory-section animate-fadeIn">
+      <div className="projects-directory-header">
+        <div className="projects-directory-header-title">
+          <h2 className="projects-directory-table-title">Archived Projects</h2>
+          <p className="projects-directory-table-subtitle">
+            {filteredList.length} archived project{filteredList.length === 1 ? '' : 's'}
           </p>
         </div>
-        {!loading && sortedList.length > 0 && (
-          <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-bold tabular-nums text-emerald-700">
-            {sortedList.length} archived
-          </span>
-        )}
+        <div className="projects-directory-header-controls">
+          <div className="projects-directory-search-group">
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-[var(--emerald-dark)]" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search archived projects…"
+                className="admin-field projects-search-input w-full pl-9 pr-8 font-medium text-ink shadow-sm"
+              />
+              {searchQuery ? (
+                <button type="button" onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 z-10 -translate-y-1/2 rounded-md p-0.5 text-slate-700 hover:bg-white/60 hover:text-ink">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
+            </div>
+          </div>
+          <div className="projects-directory-view-toggle projects-view-toggle shrink-0">
+            <button type="button" onClick={() => setViewMode('grid')} className={`rounded-md p-2 transition-all ${viewMode === 'grid' ? 'admin-projects-green-solid shadow-sm' : 'text-slate-600 hover:text-ink'}`} title="Grid view" aria-label="Grid view">
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button type="button" onClick={() => setViewMode('list')} className={`rounded-md p-2 transition-all ${viewMode === 'list' ? 'admin-projects-green-solid shadow-sm' : 'text-slate-600 hover:text-ink'}`} title="List view" aria-label="List view">
+              <List className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       </div>
 
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-20">
-          <Spinner className="text-[var(--emerald-dark)]" />
-          <p className="mt-3 text-sm font-medium text-slate-500">Loading archived projects…</p>
-        </div>
-      ) : sortedList.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 py-16 text-center">
-          <Archive className="mb-3 h-12 w-12 text-slate-300" />
-          <p className="text-base font-bold text-slate-700">No archived projects found</p>
-          <p className="mt-1 max-w-sm px-4 text-sm font-medium text-slate-500">
-            Projects you archive from the active workspace will appear here.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-5">
-          {sortedList.map((p) => {
-            const initial = p.name.charAt(p.name.indexOf(' ') + 1) || p.name.charAt(0)
-            const isRestoring = restoringId === p.id
-            const memberCount = p.visibleUsers.length
-            const visibleNames = p.visibleUsers.slice(0, 2)
-            const remainingCount = memberCount - 2
-            const membersText =
-              memberCount > 0
-                ? visibleNames.join(', ') + (remainingCount > 0 ? ` +${remainingCount} more` : '')
-                : p.accessType === 'public'
-                  ? 'All Members'
-                  : 'None'
-
-            return (
-              <article key={p.id} className="projects-archived-card">
-                <div className="absolute inset-y-4 left-0 w-1 rounded-full bg-emerald-400" />
-                <div className="flex flex-col gap-4 pl-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-sm font-extrabold text-emerald-700">
-                      {initial}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="projects-card-title truncate">{p.name}</h3>
-                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        {p.status === 'Completed' ? (
-                          <span className="projects-status-badge projects-status-badge--completed">
-                            <CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />
-                            Completed
-                          </span>
-                        ) : (
-                          <span className="projects-status-badge projects-status-badge--progress">
-                            {p.status === 'Active' ? 'In Progress' : p.status}
-                          </span>
-                        )}
-                        <span
-                          className={cn(
-                            'projects-access-badge',
-                            p.accessType === 'private'
-                              ? 'projects-access-badge--private'
-                              : 'projects-access-badge--public',
-                          )}
-                        >
-                          {p.accessType === 'private' ? 'Private' : 'Public'}
-                        </span>
-                      </div>
-                      <p className="projects-card-client mt-1">Client: {p.client}</p>
-                    </div>
-                  </div>
-
-                  <Button
-                    onClick={() => void onRestore(p.id, p.name)}
-                    disabled={isRestoring}
-                    className="flex min-h-[44px] items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-50 px-4 text-sm font-bold text-[var(--emerald-dark)] hover:bg-emerald-100/80 disabled:opacity-60"
-                  >
-                    <RefreshCw className={cn('h-4 w-4', isRestoring && 'animate-spin')} />
-                    Restore
-                  </Button>
-                </div>
-
-                {p.description ? (
-                  <p className="mt-3 break-words pl-2 text-sm leading-relaxed text-slate-600">
-                    {p.description}
-                  </p>
-                ) : (
-                  <p className="mt-3 pl-2 text-sm italic text-slate-400">No description provided.</p>
-                )}
-
-                <div className="mt-4 grid grid-cols-2 gap-3 pl-2 sm:grid-cols-4">
-                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/30 px-3 py-2.5">
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-600">Tech Node</p>
-                    <p className="mt-1 flex items-center gap-1.5 truncate text-sm font-semibold text-slate-700">
-                      <Cpu className="h-4 w-4 shrink-0 text-[var(--emerald-dark)]" />
-                      {p.technologyNode || '—'}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/30 px-3 py-2.5">
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-600">Tasks</p>
-                    <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-slate-700">
-                      <Layers className="h-4 w-4 shrink-0 text-emerald-600" />
-                      {p.tasksCount} assigned
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/30 px-3 py-2.5">
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-600">Timesheets</p>
-                    <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-slate-700">
-                      <Clock className="h-4 w-4 shrink-0 text-emerald-600" />
-                      {p.timesheetsCount} logs
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/30 px-3 py-2.5">
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-600">Archived Date</p>
-                    <p className="mt-1 flex items-center gap-1.5 truncate text-sm font-semibold text-slate-700">
-                      <CalendarIcon className="h-4 w-4 shrink-0 text-emerald-600" />
-                      {formatArchivedDate(p.archivedAt)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex flex-col gap-2 border-t border-slate-100 pt-4 pl-2">
-                  <div className="flex items-start gap-2">
-                    <span className="projects-card-meta-label">Lead:</span>
-                    <span className="projects-card-meta-value break-words">{p.teamLead || 'Not assigned'}</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="projects-card-meta-label">Members:</span>
-                    <span className="projects-card-meta-value break-words">
-                      {membersText}
-                      {memberCount > 0 && (
-                        <span className="ml-1 text-xs font-semibold text-slate-400">({memberCount})</span>
-                      )}
-                    </span>
-                  </div>
-                </div>
-              </article>
-            )
-          })}
-        </div>
-      )}
+      <div className="projects-directory-scroll">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <Spinner className="text-[var(--emerald-dark)]" />
+            <p className="mt-3 text-sm font-medium text-slate-500">Loading archived projects…</p>
+          </div>
+        ) : filteredList.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 py-16 text-center">
+            <Archive className="mb-3 h-12 w-12 text-slate-300" />
+            <p className="text-base font-bold text-slate-700">{searchQuery ? 'No archived projects match your search.' : 'No archived projects found'}</p>
+            <p className="mt-1 max-w-sm px-4 text-sm font-medium text-slate-500">Projects you archive from the active workspace will appear here.</p>
+          </div>
+        ) : viewMode === 'grid' ? (
+          <div className="projects-grid grid-cols-1 gap-6 p-6 sm:grid-cols-2 xl:grid-cols-3">
+            {filteredList.map((p) => (
+              <ArchivedProjectCard key={p.id} project={p} restoring={restoringId === p.id} onRestore={() => void onRestore(p.id, p.name)} />
+            ))}
+          </div>
+        ) : (
+          <div className="projects-table-shell">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left">
+                <thead className="sticky top-0 z-20 bg-white">
+                  <tr className="border-b border-border bg-white shadow-sm">
+                    <th className="bg-white px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Project</th>
+                    <th className="bg-white px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Client</th>
+                    <th className="bg-white px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Tech Node</th>
+                    <th className="bg-white px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Tasks</th>
+                    <th className="bg-white px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Timesheets</th>
+                    <th className="bg-white px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Archived</th>
+                    <th className="bg-white px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Status</th>
+                    <th className="bg-white px-5 py-3 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5 text-sm">
+                  {filteredList.map((p) => (
+                    <ArchivedProjectListRow key={p.id} project={p} restoring={restoringId === p.id} onRestore={() => void onRestore(p.id, p.name)} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -1519,7 +1619,7 @@ export function ProjectManagement() {
   const [selectedAuditProjectName, setSelectedAuditProjectName] = useState<string>('')
 
   // ── Project Archiving & Delete Confirmation States ──────────────
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [archiveConfirmStep, setArchiveConfirmStep] = useState<0 | 1 | 2>(0)
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
   const [archivedProjects, setArchivedProjects] = useState<ArchivedProjectSummary[]>([])
   const [loadingArchived, setLoadingArchived] = useState(false)
@@ -1868,42 +1968,46 @@ export function ProjectManagement() {
     [form, modalMode, editingId, refreshAllData, allProjects]
   )
 
-  const handleDeleteProject = useCallback(
-    (p: Project) => {
-      setProjectToDelete(p)
-      setDeleteConfirmOpen(true)
-    },
-    []
-  )
+  const handleDeleteProject = useCallback((p: Project) => {
+    setProjectToDelete(p)
+    setArchiveConfirmStep(1)
+  }, [])
+
+  const closeArchiveConfirm = useCallback(() => {
+    setArchiveConfirmStep(0)
+    setProjectToDelete(null)
+  }, [])
+
+  const handleArchiveFirstConfirm = useCallback(() => {
+    setArchiveConfirmStep(2)
+  }, [])
 
   const handleConfirmArchive = useCallback(async () => {
     if (!projectToDelete || !projectToDelete.id) {
       toast.error('Invalid project. Please try again.')
       return
     }
-    
-    setDeleteConfirmOpen(false)
+
+    setArchiveConfirmStep(0)
     setLoading(true)
     const pName = projectToDelete.name
     const projectId = projectToDelete.id
-    
+
     try {
       const response = await api.post(`/projects/${projectId}/archive`)
-      
+
       if (response.status === 200) {
         setTsProjectFilters((prev) => prev.filter((n) => n !== pName))
         setProjectToDelete(null)
-        
-        // Small delay to ensure UI updates before refresh
+
         setTimeout(() => {
           refreshAllData()
         }, 300)
-        
       }
     } catch (err: any) {
       console.error('Archive error:', err)
       setProjectToDelete(null)
-      
+
       const errorMsg = err.response?.data?.error || err.message || 'Failed to archive project.'
       toast.error(errorMsg)
     } finally {
@@ -2862,16 +2966,12 @@ export function ProjectManagement() {
               </div>
             </div>
           ) : activeTab === 'archived' ? (
-            <div className="projects-tab-panel animate-fadeIn">
-              <div className="projects-tab-scroll">
-                <ArchivedProjectsPanel
-                  archivedProjects={archivedProjects}
-                  loading={loadingArchived}
-                  restoringId={restoringArchivedId}
-                  onRestore={handleRestoreArchivedProject}
-                />
-              </div>
-            </div>
+            <ArchivedProjectsPanel
+              archivedProjects={archivedProjects}
+              loading={loadingArchived}
+              restoringId={restoringArchivedId}
+              onRestore={handleRestoreArchivedProject}
+            />
           ) : activeTab === 'projects' ? (
             <div className="projects-directory-section animate-fadeIn">
               <div className="projects-directory-header">
@@ -3531,21 +3631,30 @@ export function ProjectManagement() {
         />
       )}
 
-      {/* Project Archive Confirmation Modal */}
-      {projectToDelete && (
+      {/* Project Archive — step 1 confirmation */}
+      {projectToDelete && archiveConfirmStep === 1 ? (
         <ConfirmModal
-          isOpen={deleteConfirmOpen}
+          isOpen
           title="Archive Project"
-          description={`Are you sure you want to archive the project "${projectToDelete.name}"? All associated history will be safely archived and this action cannot be undone.`}
-          confirmLabel="Archive Project"
+          description={`Archive "${projectToDelete.name}"? The project and its history (tasks and timesheets) will move to Archived Projects. You can restore it later.`}
+          confirmLabel="Continue"
+          onClose={closeArchiveConfirm}
+          onConfirm={handleArchiveFirstConfirm}
+        />
+      ) : null}
+
+      {/* Project Archive — step 2 final confirmation */}
+      {projectToDelete && archiveConfirmStep === 2 ? (
+        <ConfirmModal
+          isOpen
+          title="Confirm Archive"
+          description={`This is your final confirmation. Archive "${projectToDelete.name}" now? This cannot be undone from the active projects list.`}
+          confirmLabel="Yes, Archive Project"
           danger
-          onClose={() => {
-            setDeleteConfirmOpen(false)
-            setProjectToDelete(null)
-          }}
+          onClose={closeArchiveConfirm}
           onConfirm={handleConfirmArchive}
         />
-      )}
+      ) : null}
 
       </PageWrapper>
     </div>
