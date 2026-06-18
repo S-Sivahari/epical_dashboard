@@ -1050,10 +1050,6 @@ export function ProjectWorkspace() {
                   <dt className="text-xs uppercase tracking-wide text-slate-500">Smart estimate</dt>
                   <dd>{effortPreview?.smartEstimate ?? calculateEstimatedHours(cellForm.baseHours ?? 0, cellForm.complexity)}h</dd>
                 </div>
-                <div>
-                  <dt className="text-xs uppercase tracking-wide text-slate-500">Confidence</dt>
-                  <dd>{effortPreview?.confidence ?? 'Low'}</dd>
-                </div>
               </dl>
               {effortPreview && effortPreview.similarBlockCount > 0 ? (
                 <p className="mt-2 text-xs text-slate-500">
