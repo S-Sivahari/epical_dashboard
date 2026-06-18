@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertCircle, ChevronDown, Clock, Download, Hash, Layers, Plus, Upload } from 'lucide-react'
+import { AlertCircle, ChevronDown, Clock, Cpu, Download, Hash, Layers, Plus, Upload } from 'lucide-react'
 import { TopDismissNotice, type TopNotice } from '@components/pdk/TopDismissNotice'
 import { showPortalError, showPortalSuccess } from '@/utils/portalNotice'
 import { PdkModulesAnalyticsChart } from '@components/pdk/PdkModulesAnalyticsChart'
 import { MetalRoutingInsightsPanel } from '@components/pdk/MetalRoutingInsightsPanel'
 import {
-  buildPdkModuleStats,
+  getPdkModuleNodeLabel,
+  isRecentModule,
   MetalRoutingPdkModuleCatalog,
 } from '@components/pdk/MetalRoutingPdkModuleCatalog'
 import { PdkModuleDetailPanel } from '@components/pdk/PdkModuleDetailPanel'
@@ -150,6 +151,7 @@ export function PdkModulesPage({ embedded = false }: { embedded?: boolean }) {
   const dismissNotice = useCallback(() => setNotice(null), [])
   const [search, setSearch] = useState('')
   const [nodeFilter, setNodeFilter] = useState('all')
+  const [highlightedModuleId, setHighlightedModuleId] = useState<string | null>(null)
 
   const load = async () => {
     setLoading(true)
@@ -303,34 +305,64 @@ export function PdkModulesPage({ embedded = false }: { embedded?: boolean }) {
 
   const showDetail = Boolean(selectedId && selectedModule)
 
-  const moduleStats = useMemo(() => buildPdkModuleStats(modules), [modules])
+  const highlightedModule = useMemo(
+    () => modules.find((mod) => mod._id === highlightedModuleId) ?? null,
+    [modules, highlightedModuleId],
+  )
 
-  const insightCards = useMemo(
-    () => [
+  const insightCards = useMemo(() => {
+    if (!highlightedModule) {
+      return [
+        {
+          label: 'Tech Node',
+          value: '—',
+          hint: 'Select a module on the left',
+          icon: Cpu,
+          tone: 'green' as const,
+        },
+        {
+          label: 'Total Metal Types',
+          value: '—',
+          hint: 'Select a module on the left',
+          icon: Hash,
+          tone: 'blue' as const,
+        },
+        {
+          label: 'Recently Added',
+          value: '—',
+          hint: 'Select a module on the left',
+          icon: Clock,
+          tone: 'orange' as const,
+        },
+      ]
+    }
+
+    return [
       {
-        label: 'Total Modules',
-        value: moduleStats.totalModules,
-        hint: 'Available in system',
-        icon: Layers,
+        label: 'Tech Node',
+        value: getPdkModuleNodeLabel(highlightedModule),
+        hint: '',
+        icon: Cpu,
         tone: 'green' as const,
       },
       {
         label: 'Total Metal Types',
-        value: moduleStats.totalMetalTypes,
-        hint: 'Across all modules',
+        value: highlightedModule.metals.length,
+        hint: '',
         icon: Hash,
         tone: 'blue' as const,
       },
       {
         label: 'Recently Added',
-        value: moduleStats.recentlyAdded,
+        value: isRecentModule(highlightedModule) ? 'Yes' : 'No',
         hint: 'In last 30 days',
         icon: Clock,
         tone: 'orange' as const,
       },
-    ],
-    [moduleStats],
-  )
+    ]
+  }, [highlightedModule])
+
+  const chartModules = highlightedModule ? [highlightedModule] : []
 
   const pageBody = (
     <>
@@ -370,6 +402,8 @@ export function PdkModulesPage({ embedded = false }: { embedded?: boolean }) {
                   nodeFilter={nodeFilter}
                   onSearchChange={setSearch}
                   onNodeFilterChange={setNodeFilter}
+                  highlightedModuleId={highlightedModuleId}
+                  onHighlightModule={setHighlightedModuleId}
                   onOpenModule={(id) => void openModule(id)}
                 />
               ) : modules.length === 0 ? (
@@ -397,6 +431,8 @@ export function PdkModulesPage({ embedded = false }: { embedded?: boolean }) {
                   nodeFilter={nodeFilter}
                   onSearchChange={setSearch}
                   onNodeFilterChange={setNodeFilter}
+                  highlightedModuleId={highlightedModuleId}
+                  onHighlightModule={setHighlightedModuleId}
                   onOpenModule={(id) => void openModule(id)}
                 />
               )}
@@ -415,8 +451,15 @@ export function PdkModulesPage({ embedded = false }: { embedded?: boolean }) {
               loading={loading}
               embedded
               compact
+              title="Insights"
             />
-            <PdkModulesAnalyticsChart modules={modules} loading={loading} sidebar fill />
+            <PdkModulesAnalyticsChart
+              modules={chartModules}
+              loading={loading}
+              sidebar
+              fill
+              emptyMessage="Select a module on the left to preview its metal types."
+            />
           </aside>
         </div>
       )}

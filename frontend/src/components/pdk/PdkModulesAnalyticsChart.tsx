@@ -27,6 +27,20 @@ type ChartRow = {
   color: string
 }
 
+type MetalLayerRow = {
+  id: string
+  label: string
+  color: string
+}
+
+function buildMetalLayerRows(module: PdkModule): MetalLayerRow[] {
+  return module.metals.map((metal, index) => ({
+    id: metal._id ?? `${metal.metalType}-${index}`,
+    label: metal.metalType,
+    color: stringToHueColor(`${module._id}-${metal.metalType}`),
+  }))
+}
+
 function shortenLabel(value: string, max: number): string {
   if (value.length <= max) return value
   return `${value.slice(0, max - 1)}…`
@@ -184,6 +198,31 @@ function DefaultVerticalChart({ data, height }: { data: ChartRow[]; height: numb
   )
 }
 
+function ModuleMetalLayersPanel({ module }: { module: PdkModule }) {
+  const layers = useMemo(() => buildMetalLayerRows(module), [module])
+
+  if (layers.length === 0) {
+    return (
+      <p className="metal-routing-analytics-empty">No metal types defined for this module.</p>
+    )
+  }
+
+  return (
+    <ul className="metal-routing-analytics-metal-list">
+      {layers.map((layer) => (
+        <li key={layer.id} className="metal-routing-analytics-metal-list__item">
+          <span
+            className="metal-routing-analytics-metal-list__bar"
+            style={{ backgroundColor: layer.color }}
+            aria-hidden
+          />
+          <span className="metal-routing-analytics-metal-list__name">{layer.label}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 function MetalsPerModuleModal({
   isOpen,
   onClose,
@@ -227,11 +266,13 @@ export function PdkModulesAnalyticsChart({
   loading,
   sidebar,
   fill,
+  emptyMessage,
 }: {
   modules: PdkModule[]
   loading?: boolean
   sidebar?: boolean
   fill?: boolean
+  emptyMessage?: string
 }) {
   const [viewAllOpen, setViewAllOpen] = useState(false)
 
@@ -260,6 +301,7 @@ export function PdkModulesAnalyticsChart({
   )
 
   const hasTruncatedLabels = sidebarRows.some((row) => row.label !== row.fullName)
+  const singleModule = sidebar && modules.length === 1 ? modules[0] : null
 
   if (loading) {
     return (
@@ -290,8 +332,10 @@ export function PdkModulesAnalyticsChart({
           sidebar && 'metal-routing-analytics-card--sidebar',
         )}
       >
-        <h3 className="metal-routing-analytics-title">Metal overview</h3>
-        <p className="metal-routing-analytics-empty">Add modules to see distribution.</p>
+        <h3 className="metal-routing-analytics-title">Metal types per module</h3>
+        <p className="metal-routing-analytics-empty">
+          {emptyMessage ?? 'Add modules to see distribution.'}
+        </p>
       </article>
     )
   }
@@ -307,11 +351,14 @@ export function PdkModulesAnalyticsChart({
       >
         <div className="metal-routing-analytics-card__header">
           <div className="min-w-0">
-            <h3 className="metal-routing-analytics-title">Metal types per module</h3>
+            <h3 className="metal-routing-analytics-title">
+              {singleModule ? 'Metal Types' : 'Metal types per module'}
+            </h3>
             {sidebar ? (
               <p className="metal-routing-analytics-subtitle">
-                {modules.length} module{modules.length === 1 ? '' : 's'}
-                {modules.length > 4 ? ' · scroll for more' : ''}
+                {singleModule
+                  ? `${singleModule.metals.length} type${singleModule.metals.length === 1 ? '' : 's'}`
+                  : `${modules.length} module${modules.length === 1 ? '' : 's'}${modules.length > 4 ? ' · scroll for more' : ''}`}
               </p>
             ) : null}
           </div>
@@ -326,7 +373,16 @@ export function PdkModulesAnalyticsChart({
           ) : null}
         </div>
 
-        {sidebar ? (
+        {singleModule ? (
+          <div
+            className={cn(
+              'metal-routing-analytics-metal-list-wrap',
+              fill && 'is-fill',
+            )}
+          >
+            <ModuleMetalLayersPanel module={singleModule} />
+          </div>
+        ) : sidebar ? (
           <div
             className={cn(
               'metal-routing-analytics-chart metal-routing-analytics-chart--sidebar-horizontal',
@@ -343,7 +399,7 @@ export function PdkModulesAnalyticsChart({
           <DefaultVerticalChart data={defaultRows} height={150} />
         )}
 
-        {sidebar && hasTruncatedLabels ? (
+        {sidebar && !singleModule && hasTruncatedLabels ? (
           <p className="metal-routing-analytics-hint">Hover labels or open View all for full names.</p>
         ) : null}
       </article>

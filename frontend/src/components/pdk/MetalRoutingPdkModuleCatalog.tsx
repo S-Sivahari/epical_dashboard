@@ -15,6 +15,7 @@ import { MetalRoutingViewToggle, type MetalRoutingViewMode } from '@components/p
 import { Button } from '@components/ui/Button'
 import type { PdkModule } from '@/types/pdkMetalRouting'
 import { metalRoutingCardStyle, metalRoutingListRowStyle } from '@/utils/metalRoutingCardTheme'
+import { cn } from '@/utils/cn'
 import { stringToHue, stringToHueColor } from '@/utils/stringColor'
 
 const PAGE_SIZE = 9
@@ -36,7 +37,7 @@ export function filterValidPdkModules(modules: PdkModule[]): PdkModule[] {
   return modules.filter(hasValidTechnologyNode)
 }
 
-function isRecentModule(module: PdkModule): boolean {
+export function isRecentModule(module: PdkModule): boolean {
   if (!module.createdAt) return false
   const created = new Date(module.createdAt)
   if (Number.isNaN(created.getTime())) return false
@@ -101,6 +102,8 @@ export function MetalRoutingPdkModuleCatalog({
   onSearchChange,
   onNodeFilterChange,
   onOpenModule,
+  highlightedModuleId = null,
+  onHighlightModule,
 }: {
   modules: PdkModule[]
   loading?: boolean
@@ -109,6 +112,8 @@ export function MetalRoutingPdkModuleCatalog({
   onSearchChange: (value: string) => void
   onNodeFilterChange: (value: string) => void
   onOpenModule: (id: string) => void
+  highlightedModuleId?: string | null
+  onHighlightModule?: (id: string) => void
 }) {
   const [sortKey, setSortKey] = useState<SortKey>('name-asc')
   const [viewMode, setViewMode] = useState<MetalRoutingViewMode>('list')
@@ -214,14 +219,26 @@ export function MetalRoutingPdkModuleCatalog({
           <div className="metal-routing-project-grid-wrap">
             <div className="metal-routing-pdk-grid">
               {pageItems.map((mod) => (
-                <PdkModuleCard key={mod._id} module={mod} onOpen={() => onOpenModule(mod._id)} />
+                <PdkModuleCard
+                  key={mod._id}
+                  module={mod}
+                  isHighlighted={highlightedModuleId === mod._id}
+                  onHighlight={() => onHighlightModule?.(mod._id)}
+                  onOpen={() => onOpenModule(mod._id)}
+                />
               ))}
             </div>
           </div>
         ) : (
           <div className="metal-routing-pdk-list">
             {pageItems.map((mod) => (
-              <PdkModuleListRow key={mod._id} module={mod} onOpen={() => onOpenModule(mod._id)} />
+              <PdkModuleListRow
+                key={mod._id}
+                module={mod}
+                isHighlighted={highlightedModuleId === mod._id}
+                onHighlight={() => onHighlightModule?.(mod._id)}
+                onOpen={() => onOpenModule(mod._id)}
+              />
             ))}
           </div>
         )}
@@ -267,13 +284,35 @@ function moduleCardStyle(seed: string): CSSProperties {
   return metalRoutingCardStyle(seed)
 }
 
-function PdkModuleCard({ module, onOpen }: { module: PdkModule; onOpen: () => void }) {
+function PdkModuleCard({
+  module,
+  isHighlighted,
+  onHighlight,
+  onOpen,
+}: {
+  module: PdkModule
+  isHighlighted?: boolean
+  onHighlight?: () => void
+  onOpen: () => void
+}) {
   const seed = module._id || module.name
 
   return (
     <article
-      className="metal-routing-pdk-card metal-routing-pdk-card--colorful"
+      className={cn(
+        'metal-routing-pdk-card metal-routing-pdk-card--colorful',
+        isHighlighted && 'is-selected',
+      )}
       style={moduleCardStyle(seed)}
+      role="button"
+      tabIndex={0}
+      onClick={onHighlight}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onHighlight?.()
+        }
+      }}
     >
       <span className="metal-routing-pdk-card__accent" aria-hidden />
       <div className="metal-routing-pdk-card__body">
@@ -285,7 +324,15 @@ function PdkModuleCard({ module, onOpen }: { module: PdkModule; onOpen: () => vo
         </div>
       </div>
       <div className="metal-routing-pdk-card__footer metal-routing-pdk-card__footer--action">
-        <Button type="button" size="sm" variant="secondary" onClick={onOpen}>
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={(e) => {
+            e.stopPropagation()
+            onOpen()
+          }}
+        >
           View
         </Button>
       </div>
@@ -293,13 +340,35 @@ function PdkModuleCard({ module, onOpen }: { module: PdkModule; onOpen: () => vo
   )
 }
 
-function PdkModuleListRow({ module, onOpen }: { module: PdkModule; onOpen: () => void }) {
+function PdkModuleListRow({
+  module,
+  isHighlighted,
+  onHighlight,
+  onOpen,
+}: {
+  module: PdkModule
+  isHighlighted?: boolean
+  onHighlight?: () => void
+  onOpen: () => void
+}) {
   const seed = module._id || module.name
 
   return (
     <div
-      className="metal-routing-pdk-list-row metal-routing-pdk-list-row--colorful"
+      className={cn(
+        'metal-routing-pdk-list-row metal-routing-pdk-list-row--colorful',
+        isHighlighted && 'is-selected',
+      )}
       style={pdkModuleListRowStyle(seed)}
+      role="button"
+      tabIndex={0}
+      onClick={onHighlight}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onHighlight?.()
+        }
+      }}
     >
       <span className="metal-routing-pdk-list-row__accent" aria-hidden />
       <span className="metal-routing-pdk-card__icon" aria-hidden>
@@ -313,7 +382,10 @@ function PdkModuleListRow({ module, onOpen }: { module: PdkModule; onOpen: () =>
         size="sm"
         variant="secondary"
         className="metal-routing-pdk-list-row__view shrink-0"
-        onClick={onOpen}
+        onClick={(e) => {
+          e.stopPropagation()
+          onOpen()
+        }}
       >
         View
       </Button>
