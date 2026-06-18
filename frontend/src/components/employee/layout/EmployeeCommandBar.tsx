@@ -4,6 +4,7 @@ import { ArrowLeft, LogOut } from 'lucide-react'
 import { CompanyLogo } from '@components/auth/CompanyLogo'
 import { EmployeePhotoAvatar } from '@components/employee/shared/EmployeePhotoAvatar'
 import { NotificationBell } from '@components/layout/NotificationBell'
+import { CommandBarNewsMarquee } from '@components/layout/CommandBarNewsMarquee'
 import { useAuthStore } from '@store/authStore'
 import { useMyEmployeeAvatar } from '@hooks/useMyEmployeeAvatar'
 import {
@@ -28,21 +29,44 @@ export function EmployeeCommandBar() {
   }
 
   return (
-    <header className="cmd-bar flex h-[4.25rem] shrink-0 items-center gap-3 px-4 lg:px-5">
-      <div className="flex min-w-0 flex-1 items-center gap-3">
-        <Link to="/employee" className="shrink-0" aria-label="Go to dashboard home">
-          <CompanyLogo className="h-9 w-9 shrink-0 sm:h-10 sm:w-10" alt="Epical Layouts" />
+    <header className="cmd-bar employee-cmd-bar flex h-[4.25rem] shrink-0 items-center gap-2 px-4 sm:gap-3 lg:px-5">
+      <div className="employee-cmd-bar__decor" aria-hidden>
+        <span className="employee-cmd-bar__facets employee-cmd-bar__facets--right" />
+        <span className="employee-cmd-bar__grid employee-cmd-bar__grid--right" />
+      </div>
+
+      <div className="employee-cmd-bar__news">
+        <CommandBarNewsMarquee className="w-full min-w-0" />
+      </div>
+
+      <div className="employee-cmd-bar__slashes" aria-hidden>
+        <span className="employee-cmd-bar__slash employee-cmd-bar__slash--forest" />
+        <span className="employee-cmd-bar__slash employee-cmd-bar__slash--mint" />
+        <span className="employee-cmd-bar__slash-accent employee-cmd-bar__slash-accent--top" />
+        <span className="employee-cmd-bar__slash-accent employee-cmd-bar__slash-accent--bottom" />
+      </div>
+
+      <div className="employee-cmd-bar__brand flex shrink-0 items-center gap-2.5 sm:gap-3">
+        <Link
+          to="/employee"
+          className="employee-cmd-bar__logo-link inline-flex shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--neon-green)]"
+          title="Dashboard"
+          aria-label="Go to dashboard"
+        >
+          <CompanyLogo className="employee-cmd-bar__logo h-9 w-9 shrink-0 sm:h-10 sm:w-10" alt="Epical Layouts" />
         </Link>
 
         {user ? (
-          <div className="min-w-0 shrink-0">
-            <p className="truncate font-display text-base font-extrabold text-[#1a4712] sm:text-lg">
+          <div className="employee-cmd-bar__identity min-w-0">
+            <p className="employee-cmd-bar__name truncate font-display text-base font-extrabold sm:text-lg">
               {user.name}
             </p>
-            <p className="truncate text-xs font-medium text-slate-600 sm:text-sm">{pageTitle}</p>
+            <p className="employee-cmd-bar__page-title truncate text-xs font-medium sm:text-sm">
+              {pageTitle}
+            </p>
           </div>
         ) : (
-          <div className="min-w-0 shrink-0">
+          <div className="employee-cmd-bar__identity min-w-0">
             <p className="truncate font-display text-lg font-semibold tracking-tight text-[var(--text-primary)] lg:text-xl">
               {pageTitle}
             </p>
@@ -61,20 +85,27 @@ export function EmployeeCommandBar() {
         )}
       </div>
 
-      <div className="flex min-w-0 shrink-0 items-center justify-center px-1 sm:px-2">
-        <DashboardActiveTimer className="" variant="commandBar" />
-      </div>
+      <div className="employee-cmd-bar__rail min-w-0 flex-1" aria-hidden />
 
-      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+      <div className="employee-cmd-bar__tail flex shrink-0 items-center gap-1.5 sm:gap-2">
+        <DashboardActiveTimer variant="commandBar" />
+
         <NotificationBell />
 
-        <EmployeePhotoAvatar
-          employeeId={user?.id}
-          name={user?.name ?? 'Employee'}
-          fallbackSrc={avatarUrl ?? user?.avatarUrl}
-          className="h-8 w-8 cmd-profile-btn shrink-0"
-          fallbackClassName="bg-[#266b1c] text-xs text-white"
-        />
+        <Link
+          to="/employee/profile"
+          className="cmd-profile-btn inline-flex shrink-0 overflow-hidden rounded-full"
+          title="My profile"
+          aria-label="Go to my profile"
+        >
+          <EmployeePhotoAvatar
+            employeeId={user?.id}
+            name={user?.name ?? 'Employee'}
+            fallbackSrc={avatarUrl ?? user?.avatarUrl}
+            className="h-8 w-8"
+            fallbackClassName="bg-[#266b1c] text-xs text-white"
+          />
+        </Link>
 
         <button
           type="button"
