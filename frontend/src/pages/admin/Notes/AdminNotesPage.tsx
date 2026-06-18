@@ -6,6 +6,7 @@ import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
 import { DailyNotesEmailModal } from '@components/notes/DailyNotesEmailModal'
 import { DailyNotesNotepad } from '@components/notes/DailyNotesNotepad'
+import { DailyNotesWeekStats } from '@components/notes/DailyNotesWeekStats'
 import { NotesDashboardToolbar } from '@components/notes/NotesDashboardToolbar'
 import { NotesSearchResults } from '@components/notes/NotesSearchPanel'
 import { TopDismissNotice, type TopNotice } from '@components/pdk/TopDismissNotice'
@@ -42,6 +43,11 @@ import {
   shiftWeek,
   toDateKey,
 } from '@/utils/notesWeek'
+import { cn } from '@/utils/cn'
+import {
+  computeDayStats,
+  entryHasNoteContent,
+} from '@/utils/notesDashboardUtils'
 import './admin-notes.css'
 
 type DailyNotesPageProps = {
@@ -300,6 +306,34 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
     [weekMonday, blocksByDate],
   )
 
+  const weekSummary = useMemo(() => {
+    let totalNotes = 0
+    let activeDays = 0
+    let sentDays = 0
+    let pendingDays = 0
+
+    for (const { block } of weekDays) {
+      const stats = computeDayStats(block)
+      totalNotes += stats.totalNotes
+
+      if (!block || block.archived) continue
+
+      const hasContent =
+        stats.totalNotes > 0 ||
+        block.childBlocks.some((child) => !child.archived && entryHasNoteContent(child))
+
+      if (hasContent) activeDays += 1
+
+      if (block.status === 'email_sent') {
+        sentDays += 1
+      } else {
+        pendingDays += 1
+      }
+    }
+
+    return { totalNotes, activeDays, sentDays, pendingDays }
+  }, [weekDays])
+
   const todayDateKey = toDateKey(new Date())
   const canAddToday =
     isCurrentWeek &&
@@ -316,7 +350,13 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
       fillViewport
       className="admin-hub-page-wrap admin-notes-page-wrap relative z-10 max-w-none !px-0 !py-0 font-body"
     >
-      <div className="crewiq-dashboard admin-notes-page relative flex min-h-0 flex-1 flex-col overflow-hidden" data-admin-notes>
+      <div
+        className={cn(
+          'crewiq-dashboard admin-notes-page relative flex min-h-0 flex-1 flex-col overflow-hidden',
+          !isEmployeeView && 'daily-notes-premium',
+        )}
+        data-admin-notes
+      >
         <div className="dashboard-page-bg pointer-events-none" aria-hidden>
           <div className="dashboard-page-bg-gradient" />
           <div className="dashboard-page-bg-pattern" />
@@ -392,9 +432,11 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
                 onPageChange={setSearchPage}
                 onOpenResult={handleOpenSearchResult}
               />
-            ) : null}
+            ) : (
+              <>
+                {!isEmployeeView ? <DailyNotesWeekStats summary={weekSummary} /> : null}
 
-            <section className="notes-week-board" aria-label={`Notes for ${weekLabel}`}>
+                <section className="notes-week-board" aria-label={`Notes for ${weekLabel}`}>
               {loading ? (
                 <div className="notes-week-feed__loading" aria-busy="true">
                   {Array.from({ length: 5 }).map((_, index) => (
@@ -424,7 +466,9 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
                   ))}
                 </div>
               )}
-            </section>
+                </section>
+              </>
+            )}
           </div>
         </div>
       </div>

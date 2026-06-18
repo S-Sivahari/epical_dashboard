@@ -1,0 +1,346 @@
+/* Daily Notes — premium layout (Project Management + admin notes) */
+
+.daily-notes-premium.admin-notes-page {
+  --dn-page: #f1f4f7;
+  --dn-surface: #ffffff;
+  --dn-border: rgba(15, 23, 42, 0.09);
+  --dn-text: #1a222d;
+  --dn-muted: #64748b;
+  --dn-accent: #2f6b4f;
+  --dn-shadow: 0 2px 6px rgba(15, 23, 42, 0.06), 0 8px 22px rgba(15, 23, 42, 0.06);
+  --dn-shadow-lg: 0 4px 14px rgba(15, 23, 42, 0.08), 0 12px 32px rgba(47, 107, 79, 0.1);
+}
+
+.daily-notes-premium .dashboard-page-bg-gradient {
+  background: linear-gradient(180deg, #f8fafc 0%, var(--dn-page) 42%, #e8ecf2 100%);
+}
+
+.daily-notes-premium .dashboard-page-bg-pattern {
+  opacity: 0.45;
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.03) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: linear-gradient(180deg, black 0%, transparent 88%);
+}
+
+.daily-notes-premium .admin-notes-shell {
+  padding: 0.75rem 0.85rem 0.65rem;
+  gap: 0.75rem;
+}
+
+/* Week summary stats */
+.daily-notes-week-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+  .daily-notes-week-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.625rem;
+  }
+}
+
+.daily-notes-week-stats__card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 0.625rem;
+  border: 1px solid var(--dn-border);
+  background: var(--dn-surface);
+  box-shadow: var(--dn-shadow);
+  overflow: hidden;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.daily-notes-week-stats__card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--dn-stat-accent, var(--dn-accent));
+}
+
+.daily-notes-week-stats__card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(47, 107, 79, 0.22);
+  box-shadow: var(--dn-shadow-lg);
+}
+
+.daily-notes-week-stats__card--forest {
+  --dn-stat-accent: #2f6b4f;
+}
+
+.daily-notes-week-stats__card--teal {
+  --dn-stat-accent: #0d9488;
+}
+
+.daily-notes-week-stats__card--violet {
+  --dn-stat-accent: #6366f1;
+}
+
+.daily-notes-week-stats__card--amber {
+  --dn-stat-accent: #d97706;
+}
+
+.daily-notes-week-stats__icon {
+  display: flex;
+  height: 2.35rem;
+  width: 2.35rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.55rem;
+  background: color-mix(in srgb, var(--dn-stat-accent) 12%, white);
+  color: var(--dn-stat-accent);
+}
+
+.daily-notes-week-stats__body {
+  min-width: 0;
+}
+
+.daily-notes-week-stats__value {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--dn-text);
+}
+
+.daily-notes-week-stats__label {
+  margin: 0.12rem 0 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--dn-muted);
+}
+
+/* Controls panel */
+.daily-notes-premium .notes-controls-panel {
+  position: relative;
+  border-radius: 0.75rem;
+  border: 1px solid var(--dn-border);
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 55%, #f1f5f9 100%);
+  box-shadow: var(--dn-shadow);
+  overflow: hidden;
+}
+
+.daily-notes-premium .notes-controls-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    #2f6b4f 0%,
+    #0d9488 28%,
+    #6366f1 56%,
+    #d97706 78%,
+    #ec4899 100%
+  );
+  pointer-events: none;
+}
+
+.daily-notes-premium .notes-controls-panel .notes-toolbar {
+  border-bottom-color: rgba(15, 23, 42, 0.07);
+}
+
+.daily-notes-premium .notes-toolbar__week-pill {
+  background: linear-gradient(135deg, rgba(47, 107, 79, 0.14) 0%, rgba(13, 148, 136, 0.12) 100%);
+  color: #1a5c40;
+}
+
+.daily-notes-premium .notes-toolbar__search-input,
+.daily-notes-premium .notes-toolbar__date {
+  border-color: rgba(15, 23, 42, 0.1);
+  background: #fff;
+}
+
+.daily-notes-premium .notes-delegation-panel--embedded .notes-delegation-panel__item {
+  border-color: rgba(99, 102, 241, 0.2);
+  background: linear-gradient(135deg, #fff 0%, #f5f3ff 100%);
+}
+
+.daily-notes-premium .notes-delegation-panel--embedded .notes-delegation-panel__item-employee {
+  color: #4f46e5;
+}
+
+/* Week board */
+.daily-notes-premium .notes-week-board {
+  border-radius: 0.85rem;
+  border: 1px solid var(--dn-border);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: var(--dn-shadow-lg);
+}
+
+.daily-notes-premium .notes-week-board::before {
+  height: 4px;
+  background: linear-gradient(
+    90deg,
+    #2f6b4f 0%,
+    #3b82f6 20%,
+    #8b5cf6 40%,
+    #f59e0b 60%,
+    #ec4899 80%,
+    #2f6b4f 100%
+  );
+}
+
+/* Per-weekday accent colors */
+.daily-notes-premium .notes-week-feed .notes-day-card:nth-child(1) {
+  --dn-day-accent: #3b82f6;
+  --dn-day-soft: rgba(59, 130, 246, 0.1);
+}
+
+.daily-notes-premium .notes-week-feed .notes-day-card:nth-child(2) {
+  --dn-day-accent: #10b981;
+  --dn-day-soft: rgba(16, 185, 129, 0.1);
+}
+
+.daily-notes-premium .notes-week-feed .notes-day-card:nth-child(3) {
+  --dn-day-accent: #8b5cf6;
+  --dn-day-soft: rgba(139, 92, 246, 0.1);
+}
+
+.daily-notes-premium .notes-week-feed .notes-day-card:nth-child(4) {
+  --dn-day-accent: #f59e0b;
+  --dn-day-soft: rgba(245, 158, 11, 0.12);
+}
+
+.daily-notes-premium .notes-week-feed .notes-day-card:nth-child(5) {
+  --dn-day-accent: #ec4899;
+  --dn-day-soft: rgba(236, 72, 153, 0.1);
+}
+
+.daily-notes-premium .notes-day-card__header {
+  border-left: 3px solid var(--dn-day-accent, var(--dn-accent));
+  padding-left: 0.85rem;
+}
+
+.daily-notes-premium .notes-day-card:nth-child(odd) .notes-day-card__header {
+  background: linear-gradient(90deg, var(--dn-day-soft, rgba(248, 250, 252, 0.8)) 0%, #fff 55%);
+}
+
+.daily-notes-premium .notes-day-card:nth-child(even) .notes-day-card__header {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--dn-day-accent) 6%, white) 0%, #fff 55%);
+}
+
+.daily-notes-premium .notes-day-card:hover .notes-day-card__header {
+  background: linear-gradient(90deg, var(--dn-day-soft) 0%, #fff 60%);
+}
+
+.daily-notes-premium .notes-day-card--highlight {
+  background: var(--dn-day-soft);
+  box-shadow: inset 4px 0 0 var(--dn-day-accent);
+}
+
+.daily-notes-premium .notes-day-card--highlight .notes-day-card__header {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--dn-day-accent) 14%, white) 0%, #fff 65%);
+}
+
+.daily-notes-premium .notes-day-card__chevron {
+  border-color: color-mix(in srgb, var(--dn-day-accent) 35%, #e2e8f0);
+  background: color-mix(in srgb, var(--dn-day-accent) 8%, white);
+  color: var(--dn-day-accent);
+}
+
+.daily-notes-premium .notes-day-card--expanded .notes-day-card__chevron {
+  border-color: color-mix(in srgb, var(--dn-day-accent) 45%, #e2e8f0);
+  color: var(--dn-day-accent);
+}
+
+.daily-notes-premium .notes-day-card__badge.is-sent {
+  background: color-mix(in srgb, var(--dn-day-accent) 14%, white);
+  color: color-mix(in srgb, var(--dn-day-accent) 85%, #0f172a);
+}
+
+.daily-notes-premium .notes-day-card__panel {
+  background: linear-gradient(180deg, #fafbfc 0%, #f4f6f8 100%);
+}
+
+.daily-notes-premium .notes-day-card__meta {
+  border-color: color-mix(in srgb, var(--dn-day-accent) 22%, #e2e8f0);
+  background: color-mix(in srgb, var(--dn-day-accent) 6%, white);
+  color: var(--dn-muted);
+}
+
+/* Notepad paper */
+.daily-notes-premium .notes-notepad-pad__paper {
+  border: 1px solid color-mix(in srgb, var(--dn-day-accent, var(--dn-accent)) 28%, #e2e8f0);
+  background-color: #fffef8;
+  background-image:
+    repeating-linear-gradient(
+      transparent,
+      transparent 1.45rem,
+      rgba(15, 23, 42, 0.045) 1.45rem,
+      rgba(15, 23, 42, 0.045) calc(1.45rem + 1px)
+    ),
+    linear-gradient(180deg, #fffef8 0%, #fff9eb 100%);
+  box-shadow:
+    inset 4px 0 0 color-mix(in srgb, var(--dn-day-accent, var(--dn-accent)) 55%, transparent),
+    0 4px 16px rgba(15, 23, 42, 0.06);
+}
+
+.daily-notes-premium .notes-notepad-pad__project:nth-child(5n + 1) .notes-notepad-pad__project-name {
+  color: #dc2626 !important;
+}
+
+.daily-notes-premium .notes-notepad-pad__project:nth-child(5n + 2) .notes-notepad-pad__project-name {
+  color: #2563eb !important;
+}
+
+.daily-notes-premium .notes-notepad-pad__project:nth-child(5n + 3) .notes-notepad-pad__project-name {
+  color: #7c3aed !important;
+}
+
+.daily-notes-premium .notes-notepad-pad__project:nth-child(5n + 4) .notes-notepad-pad__project-name {
+  color: #d97706 !important;
+}
+
+.daily-notes-premium .notes-notepad-pad__project:nth-child(5n + 5) .notes-notepad-pad__project-name {
+  color: #059669 !important;
+}
+
+.daily-notes-premium .notes-notepad-pad__employee-names {
+  color: #1e40af;
+}
+
+.daily-notes-premium .notes-notepad-pad__empty-icon {
+  color: var(--dn-day-accent, var(--dn-accent));
+  opacity: 0.85;
+}
+
+.daily-notes-premium .admin-notes-skeleton--panel,
+.daily-notes-premium .notes-notepad-skeleton {
+  background: linear-gradient(
+    90deg,
+    #f1f5f9 0%,
+    color-mix(in srgb, var(--dn-accent) 8%, #e2e8f0) 50%,
+    #f1f5f9 100%
+  );
+  background-size: 200% 100%;
+}
+
+/* Project analysis layout — fill height */
+.project-analysis-layout .daily-notes-premium.admin-notes-page {
+  background: var(--dn-page);
+}
+
+.project-analysis-layout .daily-notes-premium .admin-notes-scroll-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
