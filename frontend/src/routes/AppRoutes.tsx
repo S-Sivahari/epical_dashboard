@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { ROUTES } from '@constants/routes'
 
 import { PageLoading } from '@components/layout/PageLoading'
@@ -242,6 +242,13 @@ function AuthLoginRoute() {
   return <LoginPage />
 }
 
+/** Redirect old /admin/project-analysis/* bookmarks to /admin/project-management/*. */
+function ProjectManagementLegacyRedirect() {
+  const location = useLocation()
+  const next = location.pathname.replace(/^\/admin\/project-analysis/, '/admin/project-management')
+  return <Navigate to={`${next}${location.search}${location.hash}`} replace />
+}
+
 // ── App Routes ────────────────────────────────────────────────
 export function AppRoutes() {
   return (
@@ -276,7 +283,7 @@ export function AppRoutes() {
 
             <Route path="timesheet" element={<ProjectManagement />} />
 
-            <Route path="project-analysis" element={<ProjectAnalysisLayout />}>
+            <Route path="project-management" element={<ProjectAnalysisLayout />}>
               <Route index element={<Navigate to="projects" replace />} />
               <Route path="projects/:projectId/cells/:cellId" element={<ProjectCellPage />} />
               <Route path="projects/:projectId" element={<ProjectWorkspace />} />
@@ -285,6 +292,8 @@ export function AppRoutes() {
               <Route path="notes" element={<AdminNotesPage />} />
               <Route path="notes/day/:dateKey" element={<AdminNotesDayRedirect />} />
             </Route>
+
+            <Route path="project-analysis/*" element={<ProjectManagementLegacyRedirect />} />
 
             <Route path="projects" element={<AdminProjectsPage />} />
             <Route path="projects/:projectId/cells/:cellId" element={<ProjectCellPage />} />

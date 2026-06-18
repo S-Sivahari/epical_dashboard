@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, LogOut } from 'lucide-react'
 import { CompanyLogo } from '@components/auth/CompanyLogo'
 import { Avatar } from '@components/ui/Avatar'
@@ -7,6 +7,7 @@ import { CommandBarNewsMarquee } from '@components/layout/CommandBarNewsMarquee'
 import { NotificationBell } from '@components/layout/NotificationBell'
 import { useAuthStore } from '@store/authStore'
 import { shouldShowAdminBackButton } from '@constants/adminNavigation'
+import { ROUTES } from '@constants/routes'
 function titleCase(slug: string) {
   return slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
@@ -16,6 +17,7 @@ const routeTitles: Record<string, string> = {
   '/admin/employees': 'Employees',
   '/admin/leaves': 'Leave Management',
   '/admin/timesheet': 'Projects & Timesheets',
+  '/admin/project-management': 'Project Management',
   '/admin/project-analysis': 'Project Management',
   '/admin/projects': 'Projects',
   '/admin/tickets': 'Tickets',
@@ -35,7 +37,9 @@ export function CommandBar() {
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
   const pageTitle = useMemo(() => {
-    if (pathname.startsWith('/admin/project-analysis')) return 'Project Management'
+    if (pathname.startsWith('/admin/project-management') || pathname.startsWith('/admin/project-analysis')) {
+      return 'Project Management'
+    }
     if (routeTitles[pathname]) return routeTitles[pathname]
     const parts = pathname.split('/').filter(Boolean)
     if (parts.length > 2) {
@@ -57,7 +61,9 @@ export function CommandBar() {
   return (
     <header className="cmd-bar flex h-[4.25rem] shrink-0 items-center gap-3 px-4 lg:px-5">
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <CompanyLogo className="h-9 w-9 shrink-0 sm:h-10 sm:w-10" alt="Epical Layouts" />
+        <Link to={ROUTES.DASHBOARD} className="shrink-0" aria-label="Go to dashboard home">
+          <CompanyLogo className="h-9 w-9 shrink-0 sm:h-10 sm:w-10" alt="Epical Layouts" />
+        </Link>
 
         {user ? (
           <div className="min-w-0 shrink-0">
