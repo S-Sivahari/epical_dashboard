@@ -43,7 +43,7 @@ const navItems: {
   { to: ROUTES.DASHBOARD, label: 'Dashboard', icon: LayoutGrid, end: true },
   { to: ROUTES.EMPLOYEES, label: 'Employees', icon: Users, end: true },
   { to: ROUTES.LEAVES, label: 'Leaves', icon: CalendarCheck, notificationKey: 'leaves' },
-  { to: ROUTES.TIMESHEET, label: 'Timesheet', icon: Clock },
+  { to: ROUTES.TIMESHEET, label: 'Projects & Timesheets', icon: Clock },
   { to: ROUTES.PROJECTS, label: 'Projects', icon: Briefcase },
   { to: ROUTES.CALENDAR, label: 'Calendar', icon: CalendarDays },
   { to: ROUTES.TICKETS, label: 'Tickets', icon: Ticket },
