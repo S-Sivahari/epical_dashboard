@@ -175,6 +175,10 @@ function employeeDisplayName(e: Employee): string {
   return `${e.firstName} ${e.lastName || ''}`.trim()
 }
 
+function allEmployeeDisplayNames(employees: Employee[]): string[] {
+  return employees.map(employeeDisplayName)
+}
+
 /** Hours-by-project and employee leaderboard from filtered logs (export/PDF). */
 function buildTimesheetExportAnalytics(logs: TimesheetLog[], employees: Employee[]) {
   const byProject: Record<string, number> = {}
@@ -1492,6 +1496,20 @@ export function ProjectManagement() {
   }
   const [form, setForm] = useState(emptyForm)
 
+  const allEmployeeNames = useMemo(() => allEmployeeDisplayNames(employees), [employees])
+
+  useEffect(() => {
+    if (!modalOpen || form.accessType !== 'public' || allEmployeeNames.length === 0) return
+    setForm((prev) => {
+      if (prev.accessType !== 'public') return prev
+      const allSelected =
+        prev.visibleUsers.length === allEmployeeNames.length &&
+        allEmployeeNames.every((name) => prev.visibleUsers.includes(name))
+      if (allSelected) return prev
+      return { ...prev, visibleUsers: allEmployeeNames }
+    })
+  }, [modalOpen, form.accessType, allEmployeeNames])
+
   // ── Timesheets Date Range Picker States ─────────────────────
   // FIXED: Initialize with current month using timezone-safe date formatting
   const getCurrentMonthDates = () => {
@@ -1769,9 +1787,7 @@ export function ProjectManagement() {
   // ── Projects State Handlers ──────────────────────────────────
   const openCreateProject = useCallback(() => {
     setModalMode('create')
-    setForm({
-      ...emptyForm,
-    })
+    setForm({ ...emptyForm })
     setEditingId(null)
     setModalOpen(true)
   }, [])
@@ -1785,12 +1801,13 @@ export function ProjectManagement() {
       technologyNode: p.technologyNode,
       accessType: p.accessType,
       description: p.description,
-      visibleUsers: [...p.visibleUsers],
+      visibleUsers:
+        p.accessType === 'public' ? allEmployeeDisplayNames(employees) : [...p.visibleUsers],
       teamLead: p.teamLead || '',
       status: (p.status === 'Rejected' ? 'Cancelled' : p.status) as 'Active' | 'Completed' | 'Cancelled',
     })
     setModalOpen(true)
-  }, [])
+  }, [employees])
 
   const handleSaveProject = useCallback(
     async (e: React.FormEvent) => {
@@ -3479,6 +3496,7 @@ export function ProjectManagement() {
               setForm({
                 ...form,
                 accessType,
+                visibleUsers: accessType === 'public' ? allEmployeeNames : [],
               })
             }}
             options={[
@@ -3489,7 +3507,7 @@ export function ProjectManagement() {
 
           <CheckboxList
             label="Allotted Members"
-            items={employees.map((e) => `${e.firstName} ${e.lastName || ''}`.trim())}
+            items={allEmployeeNames}
             selected={form.visibleUsers}
             onChange={(next) => setForm({ ...form, visibleUsers: next })}
           />
