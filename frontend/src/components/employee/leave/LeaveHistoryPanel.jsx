@@ -74,7 +74,7 @@ export function LeaveHistoryPanel({
             type="button"
             variant="outline"
             size="sm"
-            className="emp-leave-history-toolbar__clear h-9 shrink-0"
+            className="emp-dash-btn emp-dash-btn--sm emp-leave-history-toolbar__clear h-9 shrink-0"
             onClick={onClearDateRange}
           >
             Clear

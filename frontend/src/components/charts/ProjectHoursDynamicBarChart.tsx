@@ -1,5 +1,5 @@
 import { useId, useMemo } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
   Bar,
   BarChart,
@@ -71,27 +71,26 @@ export function ProjectHoursDynamicBarChart({
 
   const labelCount = data.length
   const useAngledLabels = labelCount > 4
-  const chartHeight = height + (useAngledLabels ? 20 : 0)
-  const barSize = labelCount > 6 ? 20 : labelCount > 4 ? 24 : 30
+  const xTickInterval = labelCount > 12 ? Math.max(0, Math.floor(labelCount / 10)) : 0
+  const chartHeight = height + (useAngledLabels ? 28 : 0)
+  const barSize = labelCount > 14 ? 14 : labelCount > 8 ? 18 : labelCount > 4 ? 24 : 30
 
   return (
-    <div className={cn('project-hours-dynamic-bar-chart', className)} style={{ height: chartHeight }}>
+    <div className={cn('project-hours-dynamic-bar-chart', className)} style={{ height: chartHeight, minHeight: chartHeight }}>
       <div className="project-hours-dynamic-bar-chart__ambient" aria-hidden />
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={chartKey}
-          className="project-hours-dynamic-bar-chart__canvas"
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -12 }}
-          transition={{ duration: 0.42, ease: easeOut }}
-        >
-          <ResponsiveContainer width="100%" height={chartHeight}>
-            <BarChart
-              data={data}
-              margin={{ top: 20, right: 12, left: 0, bottom: useAngledLabels ? 0 : 4 }}
-              barCategoryGap={labelCount > 6 ? '22%' : '32%'}
-            >
+      <motion.div
+        key={chartKey}
+        className="project-hours-dynamic-bar-chart__canvas"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: easeOut }}
+      >
+        <ResponsiveContainer width="100%" height={chartHeight} minHeight={chartHeight}>
+          <BarChart
+            data={data}
+            margin={{ top: 20, right: 12, left: 4, bottom: useAngledLabels ? 8 : 4 }}
+            barCategoryGap={labelCount > 10 ? '18%' : '32%'}
+          >
               <defs>
                 <linearGradient id={`dynBarBase-${gradId}`} x1="0" y1="1" x2="0" y2="0">
                   <stop offset="0%" stopColor="#1f5516" stopOpacity={1} />
@@ -119,15 +118,15 @@ export function ProjectHoursDynamicBarChart({
                 dataKey="name"
                 tick={{
                   fill: '#475569',
-                  fontSize: labelCount > 7 ? 9 : 11,
+                  fontSize: labelCount > 10 ? 9 : 11,
                   fontWeight: 600,
                 }}
                 axisLine={false}
                 tickLine={false}
-                interval={0}
-                angle={useAngledLabels ? -32 : 0}
+                interval={xTickInterval}
+                angle={useAngledLabels ? -35 : 0}
                 textAnchor={useAngledLabels ? 'end' : 'middle'}
-                height={useAngledLabels ? 54 : 28}
+                height={useAngledLabels ? 58 : 28}
                 dy={useAngledLabels ? 4 : 8}
               />
               <YAxis
@@ -180,9 +179,8 @@ export function ProjectHoursDynamicBarChart({
                 />
               </Bar>
             </BarChart>
-          </ResponsiveContainer>
-        </motion.div>
-      </AnimatePresence>
+        </ResponsiveContainer>
+      </motion.div>
     </div>
   )
 }
