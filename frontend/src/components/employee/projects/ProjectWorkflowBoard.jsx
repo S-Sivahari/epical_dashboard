@@ -6,6 +6,7 @@ import {
   getPipelineColumnStatus,
   normalizeWorkflow,
 } from '@/utils/cellWorkflowUi'
+import { normalizeSchematicWorkflow } from '@pages/admin/Projects/schematicWorkflowUi'
 import { ViewProgressStatusBadge } from './ViewProgressStatusBadge'
 import { WorkflowBlockCard } from './WorkflowBlockCard'
 
@@ -50,10 +51,14 @@ export function ProjectWorkflowBoard({
   const boardMinWidth = compact
     ? viewTab === 'layout'
       ? '680px'
-      : '420px'
+      : viewTab === 'schematic' || viewTab === 'style'
+        ? '560px'
+        : '420px'
     : viewTab === 'layout'
       ? '920px'
-      : '720px'
+      : viewTab === 'schematic' || viewTab === 'style'
+        ? '760px'
+        : '720px'
 
   return (
     <div className={cn('emp-project-workflow', compact && 'emp-project-workflow--compact')}>
@@ -93,7 +98,11 @@ export function ProjectWorkflowBoard({
             const pendingReview =
               isCurrentStage && viewTab === 'layout'
                 ? normalizeWorkflow(pipelineCell?.viewWorkflow).layout.pendingReview
-                : null
+                : isCurrentStage && (viewTab === 'schematic' || viewTab === 'style')
+                  ? normalizeSchematicWorkflow(pipelineCell?.schematicWorkflow).find(
+                      (s) => s.stageKey === 'schematic_review',
+                    )?.status === 'pending_review'
+                  : null
 
             return (
               <section
@@ -112,7 +121,11 @@ export function ProjectWorkflowBoard({
                     <span className="emp-wf-column-dot" style={{ backgroundColor: column.dot }} />
                     {column.label.toUpperCase()}
                     {pendingReview ? (
-                      <span className="emp-wf-column-review-hint"> · Awaiting {pendingReview.toUpperCase()}</span>
+                      <span className="emp-wf-column-review-hint">
+                        {viewTab === 'layout'
+                          ? ` · Awaiting ${String(pendingReview).toUpperCase()}`
+                          : ' · Awaiting review'}
+                      </span>
                     ) : null}
                   </span>
                   {pipelineCell ? (

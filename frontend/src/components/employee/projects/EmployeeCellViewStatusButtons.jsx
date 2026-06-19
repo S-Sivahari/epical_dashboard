@@ -31,7 +31,6 @@ export function EmployeeCellViewStatusButtons({ status, disabled, onChange }) {
 }
 
 export function getEmployeeViewStatus(cell, viewTab) {
-  if (viewTab === 'style') return normalizeViewStatus(cell?.viewWorkflow?.style?.status)
   if (viewTab === 'symbol') return normalizeViewStatus(cell?.viewWorkflow?.symbol?.status)
   return 'not_started'
 }

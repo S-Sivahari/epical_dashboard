@@ -1,3 +1,8 @@
+import {
+  isSchematicReviewStageKey,
+  normalizeSchematicWorkflow,
+} from '@pages/admin/Projects/schematicWorkflowUi'
+
 export const VIEW_PROGRESS_LABELS = {
   not_started: 'Not Started',
   in_progress: 'In Progress',
@@ -12,11 +17,20 @@ export const LAYOUT_STAGE_LABELS = {
   lvs_r2: 'LVS (R2)',
 }
 
+export const SCHEMATIC_STAGE_LABELS = {
+  design: 'Design',
+  simulation: 'Simulation',
+  data_collection: 'Data Collection',
+  review: 'Review',
+}
+
 /** Strict layout pipeline — no other order allowed */
 export const LAYOUT_STAGES = ['floor_plan', 'drc_r1', 'routing', 'drc', 'lvs_r2']
 
+export const SCHEMATIC_PIPELINE_STAGES = ['design', 'simulation', 'data_collection', 'review']
+
 export const VIEW_TABS = [
-  { id: 'style', label: 'Style' },
+  { id: 'schematic', label: 'Schematic' },
   { id: 'symbol', label: 'Symbol' },
   { id: 'layout', label: 'Layout' },
 ]
@@ -36,11 +50,19 @@ export const LAYOUT_KANBAN_COLUMNS = [
   { id: 'lvs_r2', label: 'LVS (R2)', dot: '#0d9488', pill: 'emp-wf-pill--teal' },
 ]
 
+export const SCHEMATIC_KANBAN_COLUMNS = [
+  { id: 'design', label: 'Design', dot: '#2563eb', pill: 'emp-wf-pill--blue' },
+  { id: 'simulation', label: 'Simulation', dot: '#7c3aed', pill: 'emp-wf-pill--purple' },
+  { id: 'data_collection', label: 'Data Collection', dot: '#0d9488', pill: 'emp-wf-pill--teal' },
+  { id: 'review', label: 'Review', dot: '#ea580c', pill: 'emp-wf-pill--orange' },
+]
+
 /** @deprecated use getKanbanColumnsForView */
 export const KANBAN_COLUMNS = LAYOUT_KANBAN_COLUMNS
 
 export function getKanbanColumnsForView(viewTab) {
-  if (viewTab === 'style' || viewTab === 'symbol') return SIMPLE_VIEW_COLUMNS
+  if (viewTab === 'symbol') return SIMPLE_VIEW_COLUMNS
+  if (viewTab === 'schematic' || viewTab === 'style') return SCHEMATIC_KANBAN_COLUMNS
   return LAYOUT_KANBAN_COLUMNS
 }
 
@@ -48,6 +70,7 @@ export function defaultViewWorkflow() {
   return {
     style: { status: 'not_started' },
     symbol: { status: 'not_started' },
+    schematic: { stage: 'design', status: 'not_started', pendingReview: false },
     layout: { stage: 'floor_plan', status: 'not_started', pendingReview: null },
   }
 }
@@ -55,15 +78,40 @@ export function defaultViewWorkflow() {
 export function normalizeWorkflow(raw) {
   if (!raw || typeof raw !== 'object') return defaultViewWorkflow()
   const layout = raw.layout || {}
+  const schematic = raw.schematic || {}
+  const legacyStyleStatus = raw.style?.status
+  const schematicStage = SCHEMATIC_PIPELINE_STAGES.includes(schematic.stage)
+    ? schematic.stage
+    : legacyStyleStatus
+      ? 'design'
+      : 'design'
   return {
     style: { status: raw.style?.status || 'not_started' },
     symbol: { status: raw.symbol?.status || 'not_started' },
+    schematic: {
+      stage: schematicStage,
+      status: schematic.status || legacyStyleStatus || 'not_started',
+      pendingReview: Boolean(schematic.pendingReview),
+    },
     layout: {
       stage: LAYOUT_STAGES.includes(layout.stage) ? layout.stage : 'floor_plan',
       status: layout.status || 'not_started',
       pendingReview: layout.pendingReview === 'r1' || layout.pendingReview === 'r2' ? layout.pendingReview : null,
     },
   }
+}
+
+function getSchematicKanbanColumn(cell) {
+  const wf = normalizeSchematicWorkflow(cell?.schematicWorkflow)
+  const reviewStatus = wf.find((s) => s.stageKey === 'schematic_review')?.status
+  if (reviewStatus === 'pending_review' || reviewStatus === 'approved' || reviewStatus === 'rejected') {
+    return 'review'
+  }
+  for (const key of ['design', 'simulation', 'data_collection']) {
+    const stage = wf.find((s) => s.stageKey === key)
+    if (stage && stage.status !== 'completed') return key
+  }
+  return 'review'
 }
 
 /** Cell appears in the column matching its current layout stage only */
@@ -73,15 +121,15 @@ export function getLayoutKanbanColumn(cell) {
 }
 
 export function getCellKanbanColumn(cell, viewTab = 'layout') {
+  if (viewTab === 'schematic' || viewTab === 'style') return getSchematicKanbanColumn(cell)
   const wf = normalizeWorkflow(cell?.viewWorkflow)
-  if (viewTab === 'style') return wf.style.status
   if (viewTab === 'symbol') return wf.symbol.status
   return getLayoutKanbanColumn(cell)
 }
 
 export function getViewProgressStatus(cell, viewTab = 'layout') {
   const wf = normalizeWorkflow(cell?.viewWorkflow)
-  if (viewTab === 'style') return wf.style.status
+  if (viewTab === 'schematic' || viewTab === 'style') return wf.schematic.status
   if (viewTab === 'symbol') return wf.symbol.status
   return wf.layout.status
 }
@@ -92,6 +140,32 @@ const REVIEW_LAYOUT_STAGES = new Set(['drc_r1', 'lvs_r2'])
 
 function isLayoutReviewStage(stage) {
   return REVIEW_LAYOUT_STAGES.has(stage)
+}
+
+function schematicStageToViewStatus(status) {
+  if (status === 'completed' || status === 'approved') return 'completed'
+  if (status === 'in_progress' || status === 'pending_review') return 'in_progress'
+  return 'not_started'
+}
+
+function schematicPipelineColumnStatus(cell, columnId) {
+  const wf = normalizeSchematicWorkflow(cell?.schematicWorkflow)
+  const currentColumn = getSchematicKanbanColumn(cell)
+  const currentIndex = SCHEMATIC_PIPELINE_STAGES.indexOf(currentColumn)
+  const columnIndex = SCHEMATIC_PIPELINE_STAGES.indexOf(columnId)
+  if (columnIndex < 0) return 'not_started'
+  if (columnIndex < currentIndex) return 'completed'
+  if (columnIndex > currentIndex) return 'not_started'
+
+  if (columnId === 'review') {
+    const review = wf.find((s) => s.stageKey === 'schematic_review')
+    if (review?.status === 'approved') return 'completed'
+    if (review?.status === 'pending_review') return 'in_progress'
+    return 'not_started'
+  }
+
+  const stage = wf.find((s) => s.stageKey === columnId)
+  return schematicStageToViewStatus(stage?.status || 'not_started')
 }
 
 /** Review stages count as completed only after admin approval */
@@ -105,7 +179,11 @@ function currentReviewStageStatus(layout, stageId) {
 
 /** Per-column status for single-cell pipeline boards */
 export function getPipelineColumnStatus(cell, columnId, viewTab = 'layout') {
-  if (viewTab === 'style' || viewTab === 'symbol') {
+  if (viewTab === 'schematic' || viewTab === 'style') {
+    return schematicPipelineColumnStatus(cell, columnId)
+  }
+
+  if (viewTab === 'symbol') {
     const currentStatus = getViewProgressStatus(cell, viewTab)
     const currentIndex = SIMPLE_STATUS_ORDER.indexOf(currentStatus)
     const columnIndex = SIMPLE_STATUS_ORDER.indexOf(columnId)
@@ -158,15 +236,25 @@ export function actionRequiresChecklist(cell, payload) {
 export function getAdvancePayload(cell, viewTab = 'layout') {
   const wf = normalizeWorkflow(cell?.viewWorkflow)
 
-  if (viewTab === 'style') {
-    if (wf.style.status === 'not_started') return { view: 'style', action: 'set_status', status: 'in_progress' }
-    if (wf.style.status === 'in_progress') return { view: 'style', action: 'set_status', status: 'completed' }
-    return null
-  }
-
   if (viewTab === 'symbol') {
     if (wf.symbol.status === 'not_started') return { view: 'symbol', action: 'set_status', status: 'in_progress' }
     if (wf.symbol.status === 'in_progress') return { view: 'symbol', action: 'set_status', status: 'completed' }
+    return null
+  }
+
+  if (viewTab === 'schematic' || viewTab === 'style') {
+    const pipeline = normalizeSchematicWorkflow(cell?.schematicWorkflow)
+    const active = pipeline.find((stage) =>
+      !isSchematicReviewStageKey(stage.stageKey)
+      && (stage.status === 'not_started' || stage.status === 'in_progress'),
+    )
+    if (!active) return null
+    if (active.status === 'not_started') {
+      return { type: 'schematic', stageKey: active.stageKey, status: 'in_progress' }
+    }
+    if (active.status === 'in_progress') {
+      return { type: 'schematic', stageKey: active.stageKey, status: 'completed' }
+    }
     return null
   }
 
@@ -191,6 +279,21 @@ export function getAdvancePayload(cell, viewTab = 'layout') {
   }
 
   return null
+}
+
+export function schematicStageButtonLabel(cell) {
+  const pipeline = normalizeSchematicWorkflow(cell?.schematicWorkflow)
+  const review = pipeline.find((s) => s.stageKey === 'schematic_review')
+  if (review?.status === 'pending_review') return 'Awaiting review'
+  if (review?.status === 'approved') return 'Schematic complete'
+  const advance = getAdvancePayload(cell, 'schematic')
+  if (!advance) return 'Schematic complete'
+  if (advance.status === 'in_progress') return 'Start stage'
+  if (advance.status === 'completed') {
+    const label = SCHEMATIC_STAGE_LABELS[advance.stageKey] || advance.stageKey
+    return `Complete ${label}`
+  }
+  return 'Advance Stage'
 }
 
 export function layoutStageButtonLabel(cell) {

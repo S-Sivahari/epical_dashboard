@@ -139,6 +139,20 @@ export async function updateMyWorkflowStage(
   return data
 }
 
+export async function updateMySchematicWorkflowStage(
+  projectId: string,
+  cellId: string,
+  stageKey: import('@/pages/admin/Projects/schematicWorkflowUi').SchematicWorkflowStageKey,
+  status: WorkflowStageStatus,
+  options?: { rejectReturnTo?: 'design' | 'simulation' | 'data_collection' },
+) {
+  const { data } = await api.patch<EmployeeProjectCell>(
+    `/projects/${projectId}/cells/${cellId}/mine/schematic-workflow/${stageKey}`,
+    { status, ...options },
+  )
+  return data
+}
+
 export async function setMyCellHold(
   projectId: string,
   cellId: string,

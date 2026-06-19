@@ -1,3 +1,11 @@
+import {
+  defaultSchematicViewState,
+  normalizeSchematicViewState,
+  schematicViewSummary,
+  syncSchematicViewFromWorkflow,
+  syncSchematicWorkflowFromView,
+} from './schematicWorkflow';
+
 export const CELL_WORKFLOW_STAGE_KEYS = [
   'floor_plan',
   'drc_first',
@@ -416,6 +424,7 @@ export interface LayoutViewState {
 export interface CellViewWorkflow {
   style: SimpleViewState;
   symbol: SimpleViewState;
+  schematic: import('./schematicWorkflow').SchematicViewState;
   layout: LayoutViewState;
 }
 
@@ -454,6 +463,7 @@ export function defaultViewWorkflow(): CellViewWorkflow {
   return {
     style: { status: 'not_started' },
     symbol: { status: 'not_started' },
+    schematic: defaultSchematicViewState(),
     layout: { stage: 'floor_plan', status: 'not_started', pendingReview: null },
   };
 }
@@ -478,9 +488,11 @@ function normalizeReviewPoint(value: unknown): ReviewPoint | null {
 export function normalizeViewWorkflow(raw: unknown): CellViewWorkflow {
   if (!raw || typeof raw !== 'object') return defaultViewWorkflow();
   const data = raw as Partial<CellViewWorkflow>;
+  const legacyStyleStatus = data.style?.status;
   return {
     style: { status: normalizeProgressStatus(data.style?.status) },
     symbol: { status: normalizeProgressStatus(data.symbol?.status) },
+    schematic: normalizeSchematicViewState(data.schematic, legacyStyleStatus),
     layout: {
       stage: normalizeLayoutStage(data.layout?.stage),
       status: normalizeProgressStatus(data.layout?.status),
@@ -797,8 +809,12 @@ export function syncViewsFromViewWorkflow(cell: {
   cell.views = {
     layout: cell.views?.layout || '',
     symbol: vw.symbol.status,
-    schematic: vw.style.status,
+    schematic: schematicViewSummary(vw.schematic),
   };
+  vw.style.status = vw.schematic.stage === 'review' && vw.schematic.status === 'completed'
+    ? 'completed'
+    : vw.schematic.status;
+  cell.viewWorkflow = vw;
 }
 
 export function syncViewWorkflowSimpleViewsFromCellViews(cell: {
@@ -810,9 +826,31 @@ export function syncViewWorkflowSimpleViewsFromCellViews(cell: {
     vw.symbol.status = normalizeProgressStatus(cell.views.symbol);
   }
   if (cell.views?.schematic) {
-    vw.style.status = normalizeProgressStatus(cell.views.schematic);
+    const status = normalizeProgressStatus(cell.views.schematic);
+    vw.schematic = { stage: 'design', status, pendingReview: false };
+    vw.style.status = status;
   }
   cell.viewWorkflow = vw;
+}
+
+/** Keep admin schematic workflow and employee view workflow aligned. */
+export function applySchematicWorkflowSync(
+  cell: {
+    schematicWorkflow?: unknown;
+    viewWorkflow?: unknown;
+    views?: { layout?: string; symbol?: string; schematic?: string };
+  },
+  source: 'schematicWorkflow' | 'viewWorkflow',
+): void {
+  const vw = normalizeViewWorkflow(cell.viewWorkflow);
+  if (source === 'viewWorkflow') {
+    cell.schematicWorkflow = syncSchematicWorkflowFromView(vw.schematic);
+    syncViewsFromViewWorkflow(cell);
+    return;
+  }
+  vw.schematic = syncSchematicViewFromWorkflow(cell.schematicWorkflow, vw.schematic);
+  cell.viewWorkflow = vw;
+  syncViewsFromViewWorkflow(cell);
 }
 
 /** Keep admin workflow and employee view workflow aligned after either side changes. */

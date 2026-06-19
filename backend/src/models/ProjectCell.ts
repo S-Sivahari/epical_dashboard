@@ -1,5 +1,6 @@
 import { Schema, model, Document, Types } from 'mongoose';
 import { type CellViewWorkflow, type CellWorkflowStage } from '../utils/cellWorkflow';
+import type { SchematicWorkflowStage } from '../utils/schematicWorkflow';
 
 export const CELL_TYPES = ['block', 'IO', 'ESD', 'TOP'] as const;
 
@@ -54,6 +55,7 @@ export interface ProjectCell extends Document {
   dependencyCellIds: Types.ObjectId[];
   status: string;
   workflow: CellWorkflowStage[];
+  schematicWorkflow: SchematicWorkflowStage[];
   views: CellViews;
   viewWorkflow: CellViewWorkflow;
   checklistExtension?: CellChecklistExtension;
@@ -98,6 +100,14 @@ const ProjectCellSchema = new Schema<ProjectCell>(
         updatedAt: { type: Date },
       },
     ],
+    schematicWorkflow: [
+      {
+        stageKey: { type: String, required: true },
+        stageLabel: { type: String, required: true },
+        status: { type: String, default: 'not_started' },
+        updatedAt: { type: Date },
+      },
+    ],
     views: {
       layout: { type: String, default: '' },
       symbol: { type: String, default: '' },
@@ -109,6 +119,15 @@ const ProjectCellSchema = new Schema<ProjectCell>(
       },
       symbol: {
         status: { type: String, enum: ['not_started', 'in_progress', 'completed'], default: 'not_started' },
+      },
+      schematic: {
+        stage: {
+          type: String,
+          enum: ['design', 'simulation', 'data_collection', 'review'],
+          default: 'design',
+        },
+        status: { type: String, enum: ['not_started', 'in_progress', 'completed'], default: 'not_started' },
+        pendingReview: { type: Boolean, default: false },
       },
       layout: {
         stage: {

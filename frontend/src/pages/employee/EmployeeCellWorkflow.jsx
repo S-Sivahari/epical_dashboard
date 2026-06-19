@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { EmployeeCellChecklistSidebar } from '@components/employee/projects/EmployeeCellChecklistSidebar'
 import { EmployeeCellWorkflowPanel } from '@components/employee/projects/EmployeeCellWorkflowPanel'
+import { EmployeeSchematicWorkflowPanel } from '@components/employee/projects/EmployeeSchematicWorkflowPanel'
 import {
   EmployeeCellViewStatusButtons,
   getEmployeeViewStatus,
@@ -31,7 +32,7 @@ export default function EmployeeCellWorkflow() {
   const [detail, setDetail] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [viewTab, setViewTab] = useState('layout')
+  const [viewTab, setViewTab] = useState('schematic')
   const [checklistReady, setChecklistReady] = useState(true)
   const [durationFetchedAt, setDurationFetchedAt] = useState(() => Date.now())
   const { toast } = useToast()
@@ -276,6 +277,18 @@ export default function EmployeeCellWorkflow() {
                       onWorkStageChange={handleWorkStageChange}
                       onHoldChange={handleHoldChange}
                       onRequestReview={handleRequestReview}
+                    />
+                  ) : viewTab === 'schematic' ? (
+                    <EmployeeSchematicWorkflowPanel
+                      cell={cell}
+                      saving={saving}
+                      canManageWorkflow={canManageWorkflow}
+                      canReview={canReview || isAdmin}
+                      onHoldChange={handleHoldChange}
+                      onUpdated={(updatedCell) => {
+                        updateCellInState(updatedCell)
+                        setDurationFetchedAt(Date.now())
+                      }}
                     />
                   ) : (
                     <EmployeeCellViewStatusButtons

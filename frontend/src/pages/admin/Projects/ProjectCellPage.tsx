@@ -33,6 +33,7 @@ import { buildEmployeeFullName } from '@/utils/employeeDisplayName'
 
 const INLINE_FIELD_CLASS = 'admin-projects-cell-details-inline-field'
 import { CellWorkflowPanel } from './CellWorkflowPanel'
+import { SchematicWorkflowPanel } from './SchematicWorkflowPanel'
 import { CellWorkflowDurationLabel } from './CellWorkflowDurationLabel'
 import { CellCompletionTimeSummary } from './CellCompletionTimeSummary'
 import { CellTypeChecklistTab } from './CellTypeChecklistTab'
@@ -678,6 +679,23 @@ export function ProjectCellPage() {
                             cell={cell}
                             embedded
                             showReviews={false}
+                            onUpdated={(updated) => {
+                              setCellForm(updated)
+                              setDurationFetchedAt(Date.now())
+                              setSummary((prev) => {
+                                if (!prev) return prev
+                                return {
+                                  ...prev,
+                                  cells: prev.cells.map((c) => (c.id === cellId ? { ...c, ...updated } : c)),
+                                }
+                              })
+                            }}
+                          />
+                        ) : viewTab === 'schematic' ? (
+                          <SchematicWorkflowPanel
+                            projectId={projectId}
+                            cell={cell}
+                            embedded
                             onUpdated={(updated) => {
                               setCellForm(updated)
                               setDurationFetchedAt(Date.now())

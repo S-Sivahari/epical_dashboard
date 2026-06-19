@@ -14,10 +14,11 @@ import {
   currentWorkflowStageLabel,
   defaultCellWorkflow,
   defaultViewWorkflow,
+  applySchematicWorkflowSync,
+  normalizeViewWorkflow,
   isReviewStageKey,
   isValidStageKey,
   normalizeCellWorkflow,
-  normalizeViewWorkflow,
   normalizeWorkflowStageStatus,
   returnOptionsForReview,
   syncCellWorkflowFromViewWorkflow,
@@ -67,6 +68,14 @@ import {
   type CellWorkflowDuration,
   type CellWorkflowTiming,
 } from '../services/cellWorkflowWorkLogService';
+import {
+  applySchematicWorkflowStageUpdate,
+  defaultSchematicWorkflow,
+  isValidSchematicStageKey,
+  normalizeSchematicWorkflow,
+  SCHEMATIC_WORKFLOW_STAGES,
+  syncSchematicWorkflowFromView,
+} from '../utils/schematicWorkflow';
 
 function paramId(value: string | string[]): string {
   return Array.isArray(value) ? value[0] : value;
@@ -139,6 +148,9 @@ function toCell(
     holdReason: doc.holdReason || '',
     heldByName: doc.heldByName || '',
     workflow,
+    schematicWorkflow: normalizeSchematicWorkflow(
+      doc.schematicWorkflow ?? syncSchematicWorkflowFromView(viewWorkflow.schematic),
+    ),
     workflowCompletedStages,
     workflowTotalStages: workflow.length,
     currentWorkflowStage: currentWorkflowStageLabel(workflow),
@@ -521,6 +533,7 @@ export const projectWorkspaceController = {
         dependencyCellIds: deps,
         status: 'ready',
         workflow: defaultCellWorkflow(),
+        schematicWorkflow: defaultSchematicWorkflow(),
         views: views || { layout: '', symbol: '', schematic: '' },
         viewWorkflow: defaultViewWorkflow(),
         activityLog: [
@@ -1226,6 +1239,66 @@ export const projectWorkspaceController = {
     } catch (err) {
       console.error('[workspace] updateWorkflowStage', err);
       res.status(500).json({ error: 'Failed to update workflow stage' });
+    }
+  },
+
+  updateSchematicWorkflowStage: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const cellId = paramId(req.params.cellId);
+      const stageKey = paramId(req.params.stageKey);
+      const { status, rejectReturnTo } = req.body as {
+        status?: string;
+        rejectReturnTo?: 'design' | 'simulation' | 'data_collection';
+      };
+
+      if (!isValidSchematicStageKey(stageKey)) {
+        res.status(400).json({ error: 'Invalid schematic workflow stage' });
+        return;
+      }
+
+      const nextStatus = normalizeWorkflowStageStatus(String(status || ''));
+      const cell = await ProjectCellModel.findOne({ _id: cellId, projectId });
+      if (!cell) {
+        res.status(404).json({ error: 'Cell not found' });
+        return;
+      }
+
+      const actor = actorFromReq(req);
+      const stageMeta = SCHEMATIC_WORKFLOW_STAGES.find((s) => s.key === stageKey);
+      const prevWorkflow = normalizeSchematicWorkflow(cell.schematicWorkflow);
+      const prevStatus = prevWorkflow.find((s) => s.stageKey === stageKey)?.status ?? 'not_started';
+      const result = applySchematicWorkflowStageUpdate(cell.schematicWorkflow, stageKey, nextStatus, actor.role, {
+        rejectReturnTo:
+          rejectReturnTo === 'design' || rejectReturnTo === 'simulation' || rejectReturnTo === 'data_collection'
+            ? rejectReturnTo
+            : undefined,
+      });
+      if (!result.ok) {
+        res.status(400).json({ error: result.error });
+        return;
+      }
+
+      cell.schematicWorkflow = result.workflow;
+      applySchematicWorkflowSync(cell, 'schematicWorkflow');
+      if (cell.status === 'completed' || cell.status === 'ready') {
+        cell.status = 'in_progress';
+      }
+      cell.activityLog.push({
+        action: 'schematic_workflow_update',
+        detail: `${stageMeta?.label || stageKey}: ${prevStatus} → ${nextStatus}`,
+        userId: actor.userId,
+        userName: actor.userName,
+        at: new Date(),
+      });
+
+      await cell.save();
+
+      const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
+      res.json(await toCellWithDuration(cell, meta));
+    } catch (err) {
+      console.error('[workspace] updateSchematicWorkflowStage', err);
+      res.status(500).json({ error: 'Failed to update schematic workflow stage' });
     }
   },
 

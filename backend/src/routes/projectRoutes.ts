@@ -50,6 +50,7 @@ router.patch('/:projectId/cells/:cellId/mine/assign', employeeProjectController.
 router.get('/:projectId/cells/:cellId/mine', employeeProjectController.getMyCell);
 router.patch('/:projectId/cells/:cellId/mine/workflow', employeeProjectController.updateWorkflow);
 router.patch('/:projectId/cells/:cellId/mine/workflow/:stageKey', employeeProjectController.updateMyWorkflowStage);
+router.patch('/:projectId/cells/:cellId/mine/schematic-workflow/:stageKey', employeeProjectController.updateMySchematicWorkflowStage);
 router.patch('/:projectId/cells/:cellId/mine/hold', employeeProjectController.setMyCellHold);
 router.post('/:projectId/cells/:cellId/mine/reviews', employeeProjectController.requestReview);
 router.patch('/:projectId/cells/:cellId/mine/reviews/:reviewId/resolve', employeeProjectController.resolveCellReview);
@@ -164,6 +165,7 @@ router.put('/:projectId/cells/:cellId', adminOnly, projectWorkspaceController.up
 router.delete('/:projectId/cells/:cellId', adminOnly, projectWorkspaceController.deleteCell);
 router.patch('/:projectId/cells/:cellId/status', adminOnly, projectWorkspaceController.updateCellStatus);
 router.patch('/:projectId/cells/:cellId/workflow/:stageKey', adminOnly, projectWorkspaceController.updateWorkflowStage);
+router.patch('/:projectId/cells/:cellId/schematic-workflow/:stageKey', adminOnly, projectWorkspaceController.updateSchematicWorkflowStage);
 router.patch('/:projectId/cells/:cellId/hold', adminOnly, projectWorkspaceController.setCellHold);
 router.get('/:projectId/effort-prediction', adminOnly, projectWorkspaceController.getEffortPrediction);
 router.get('/:projectId/cells/:cellId/completion-readiness', adminOnly, projectWorkspaceController.getCellCompletionReadiness);

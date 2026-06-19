@@ -52,6 +52,7 @@ import {
   advanceLayoutStage,
   advanceSimpleViewStatus,
   applyCellWorkflowSync,
+  applySchematicWorkflowSync,
   applyReviewApproval,
   applyReviewRejection,
   applyWorkflowStageUpdate,
@@ -74,6 +75,16 @@ import {
   type LayoutStage,
   type ViewProgressStatus,
 } from '../utils/cellWorkflow';
+import {
+  advanceSchematicView,
+  applySchematicWorkflowStageUpdate,
+  canAdvanceSchematicView,
+  defaultSchematicWorkflow,
+  isValidSchematicStageKey,
+  normalizeSchematicWorkflow,
+  SCHEMATIC_WORKFLOW_STAGES,
+  syncSchematicWorkflowFromView,
+} from '../utils/schematicWorkflow';
 import { assertCellChecklistFilled, buildCellChecklistDetail } from '../services/cellTypeChecklistService';
 import { sendReviewNotificationsFromCell } from '../services/cellReviewNotificationService';
 import {
@@ -413,6 +424,9 @@ function toEmployeeCell(
     },
     viewWorkflow,
     workflow,
+    schematicWorkflow: normalizeSchematicWorkflow(
+      doc.schematicWorkflow ?? syncSchematicWorkflowFromView(viewWorkflow.schematic),
+    ),
     views,
     workflowDuration: workflowTiming?.workflowDuration ?? {
       totalMs: 0,
@@ -647,7 +661,7 @@ export const employeeProjectController = {
       const workflow = normalizeViewWorkflow(cell.viewWorkflow);
       const prevWorkflow = syncCellWorkflowFromViewWorkflow(workflow);
       const { view, action, status } = req.body as {
-        view?: 'style' | 'symbol' | 'layout';
+        view?: 'style' | 'symbol' | 'layout' | 'schematic';
         action?: 'set_status' | 'advance_stage';
         status?: ViewProgressStatus;
       };
@@ -663,24 +677,52 @@ export const employeeProjectController = {
 
       let nextWorkflow: CellViewWorkflow = { ...workflow };
 
-      if (view === 'style' || view === 'symbol') {
+      if (view === 'symbol') {
         if (action === 'set_status') {
           if (!status || !['not_started', 'in_progress', 'completed'].includes(status)) {
-            res.status(400).json({ error: 'Invalid status for style/symbol view' });
+            res.status(400).json({ error: 'Invalid status for symbol view' });
             return;
           }
-          validateStatusStepForward(workflow[view].status, status);
-          nextWorkflow = { ...nextWorkflow, [view]: { status } };
+          validateStatusStepForward(workflow.symbol.status, status);
+          nextWorkflow = { ...nextWorkflow, symbol: { status } };
         } else if (action === 'advance_stage') {
-          const current = workflow[view].status;
+          const current = workflow.symbol.status;
           const next = advanceSimpleViewStatus(current);
           if (!next) {
             res.status(400).json({ error: 'View is already completed' });
             return;
           }
-          nextWorkflow = { ...nextWorkflow, [view]: { status: next } };
+          nextWorkflow = { ...nextWorkflow, symbol: { status: next } };
         } else {
-          res.status(400).json({ error: 'Invalid action for style/symbol view' });
+          res.status(400).json({ error: 'Invalid action for symbol view' });
+          return;
+        }
+      } else if (view === 'schematic' || view === 'style') {
+        if (action === 'set_status') {
+          if (!status || !['not_started', 'in_progress', 'completed'].includes(status)) {
+            res.status(400).json({ error: 'Invalid status for schematic view' });
+            return;
+          }
+          if (workflow.schematic.pendingReview) {
+            res.status(400).json({ error: 'Cannot update schematic while review is pending' });
+            return;
+          }
+          validateStatusStepForward(workflow.schematic.status, status);
+          nextWorkflow = {
+            ...nextWorkflow,
+            schematic: { ...workflow.schematic, status },
+          };
+        } else if (action === 'advance_stage') {
+          if (!canAdvanceSchematicView(workflow.schematic)) {
+            res.status(400).json({ error: 'Complete the current schematic stage before advancing' });
+            return;
+          }
+          nextWorkflow = {
+            ...nextWorkflow,
+            schematic: advanceSchematicView(workflow.schematic),
+          };
+        } else {
+          res.status(400).json({ error: 'Invalid action for schematic view' });
           return;
         }
       } else if (view === 'layout') {
@@ -715,6 +757,7 @@ export const employeeProjectController = {
 
       cell.viewWorkflow = nextWorkflow;
       applyCellWorkflowSync(cell, 'viewWorkflow');
+      applySchematicWorkflowSync(cell, 'viewWorkflow');
       const nextCellWorkflow = syncCellWorkflowFromViewWorkflow(cell.viewWorkflow);
       if (
         (cell.status === 'ready' || cell.status === 'completed')
@@ -824,6 +867,73 @@ export const employeeProjectController = {
       res.json(toEmployeeCell(cell, tokens, meta));
     } catch (err: any) {
       res.status(400).json({ error: err?.message || 'Failed to update workflow stage' });
+    }
+  },
+
+  updateMySchematicWorkflowStage: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const projectId = paramId(req.params.projectId);
+      const cellId = paramId(req.params.cellId);
+      const stageKey = paramId(req.params.stageKey);
+      const tokens = await getAssignmentTokens(req);
+      const actor = actorFromReq(req);
+      const { status, rejectReturnTo } = req.body as {
+        status?: string;
+        rejectReturnTo?: 'design' | 'simulation' | 'data_collection';
+      };
+
+      if (!isValidSchematicStageKey(stageKey)) {
+        res.status(400).json({ error: 'Invalid schematic workflow stage' });
+        return;
+      }
+
+      const project = await assertProjectAccess(projectId, tokens, req);
+      if (!project) {
+        res.status(404).json({ error: 'Project not found or access denied' });
+        return;
+      }
+
+      const cell = await assertManageableCell(projectId, cellId, tokens, req);
+      if (!cell) {
+        res.status(404).json({ error: 'Cell not found or you cannot manage this cell' });
+        return;
+      }
+
+      const nextStatus = normalizeWorkflowStageStatus(String(status || ''));
+      const stageMeta = SCHEMATIC_WORKFLOW_STAGES.find((s) => s.key === stageKey);
+      const prevWorkflow = normalizeSchematicWorkflow(cell.schematicWorkflow);
+      const prevStatus = prevWorkflow.find((s) => s.stageKey === stageKey)?.status ?? 'not_started';
+      const actorRole = workflowActorRole(req, project, tokens);
+      const result = applySchematicWorkflowStageUpdate(prevWorkflow, stageKey, nextStatus, actorRole, {
+        rejectReturnTo:
+          rejectReturnTo === 'design' || rejectReturnTo === 'simulation' || rejectReturnTo === 'data_collection'
+            ? rejectReturnTo
+            : undefined,
+      });
+      if (!result.ok) {
+        res.status(400).json({ error: result.error });
+        return;
+      }
+
+      cell.schematicWorkflow = result.workflow;
+      applySchematicWorkflowSync(cell, 'schematicWorkflow');
+      if (cell.status === 'completed' || cell.status === 'ready') {
+        cell.status = 'in_progress';
+      }
+      cell.activityLog.push({
+        action: 'schematic_workflow_update',
+        detail: `${stageMeta?.label || stageKey}: ${prevStatus} → ${nextStatus}`,
+        userId: actor.userId,
+        userName: actor.userName,
+        at: new Date(),
+      });
+
+      await cell.save();
+
+      const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
+      res.json(await toEmployeeCellWithTiming(cell, tokens, meta));
+    } catch (err: any) {
+      res.status(400).json({ error: err?.message || 'Failed to update schematic workflow stage' });
     }
   },
 
@@ -1483,6 +1593,7 @@ export const employeeProjectController = {
         dependencyCellIds: deps,
         status: 'ready',
         workflow: defaultCellWorkflow(),
+        schematicWorkflow: defaultSchematicWorkflow(),
         views: views || { layout: '', symbol: '', schematic: '' },
         viewWorkflow: defaultViewWorkflow(),
         activityLog: [

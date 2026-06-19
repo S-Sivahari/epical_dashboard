@@ -272,9 +272,19 @@ export interface LayoutViewState {
   pendingReview: ReviewPoint | null
 }
 
+export const SCHEMATIC_VIEW_STAGES = ['design', 'simulation', 'data_collection', 'review'] as const
+export type SchematicViewStage = (typeof SCHEMATIC_VIEW_STAGES)[number]
+
+export interface SchematicViewState {
+  stage: SchematicViewStage
+  status: ViewProgressStatus
+  pendingReview: boolean
+}
+
 export interface CellViewWorkflow {
   style: SimpleViewState
   symbol: SimpleViewState
+  schematic: SchematicViewState
   layout: LayoutViewState
 }
 
@@ -343,6 +353,7 @@ export interface ProjectCell {
   heldByName?: string
   productiveWorkDuration?: CellWorkflowDuration
   workflow: CellWorkflowStage[]
+  schematicWorkflow?: import('@/pages/admin/Projects/schematicWorkflowUi').SchematicWorkflowStage[]
   workflowCompletedStages: number
   workflowTotalStages: number
   currentWorkflowStage: string
