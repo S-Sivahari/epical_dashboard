@@ -6,7 +6,7 @@ import { useEmployeeStore } from '@store/employeeStore'
 import { useNotificationStore } from '@store/notificationStore'
 import { useTicketStore } from '@store/ticketStore'
 import {
-  aggregateChartDataForRange,
+  aggregateChartForSelection,
   formatChartRangeLabel,
   type ChartDateRange,
 } from '@/pages/admin/Dashboard/dashboardChartUtils'
@@ -33,7 +33,6 @@ export function useCommandCenterData(chartDateRange: ChartDateRange) {
   const user = useAuthStore((s) => s.user)
   const { leaves, holidays } = useLeaves()
   const totalEmployees = useEmployeeStore((s) => s.pagination.total)
-  const employeesRevision = useEmployeeStore((s) => s.employeesRevision)
   const [allEmployees, setAllEmployees] = useState<any[]>([])
   const notifications = useNotificationStore((s) => s.notifications)
   const tickets = useTicketStore((s) => s.tickets)
@@ -48,6 +47,7 @@ export function useCommandCenterData(chartDateRange: ChartDateRange) {
   const [documentRequests, setDocumentRequests] = useState<any[]>([])
   const [payslipBatches, setPayslipBatches] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [chartLoading, setChartLoading] = useState(true)
 
   useEffect(() => {
     void useEmployeeStore.getState().fetchEmployees()
@@ -57,68 +57,117 @@ export function useCommandCenterData(chartDateRange: ChartDateRange) {
   useEffect(() => {
     let cancelled = false
 
+    async function loadChart() {
+      const { from, to } = chartDateRange
+      if (!from || !to) {
+        setChartLoading(false)
+        return
+      }
+
+      setChartLoading(true)
+      try {
+        const tsRes = await api.get('/timesheets', { params: { from, to } })
+        if (cancelled) return
+
+        const timesheetList = tsRes.data || []
+        setTimesheets(timesheetList)
+
+        const resolvedChart = aggregateChartForSelection(timesheetList, chartDateRange)
+        const resolvedTotal =
+          Math.round(resolvedChart.reduce((sum, point) => sum + point.hours, 0) * 10) / 10
+
+        setChartData(resolvedChart)
+        setTotalPeriodHours(resolvedTotal)
+      } catch (err) {
+        console.error('[CommandCenter] Failed to load chart data:', err)
+        if (!cancelled) {
+          const fallback = aggregateChartForSelection([], chartDateRange)
+          setChartData(fallback)
+          setTotalPeriodHours(0)
+        }
+      } finally {
+        if (!cancelled) setChartLoading(false)
+      }
+    }
+
+    void loadChart()
+    return () => {
+      cancelled = true
+    }
+  }, [
+    chartDateRange.from,
+    chartDateRange.to,
+    chartDateRange.selectionMode,
+    chartDateRange.preset,
+    chartDateRange.dayRangeMode,
+    chartDateRange.selectedDays?.join('|'),
+    chartDateRange.selectedMonths?.join('|'),
+    chartDateRange.selectedYears?.join('|'),
+  ])
+
+  useEffect(() => {
+    let cancelled = false
+    let requestId = 0
+
     async function load(silent = false) {
+      const id = ++requestId
       try {
         if (!silent) setLoading(true)
         const { from, to } = chartDateRange
         if (!from || !to) {
-          if (!silent) setLoading(false)
+          if (!silent && id === requestId) setLoading(false)
           return
         }
-        const [tsRes, chartRes, projRes, empHoursRes, docRes, batchRes, empRes, ticketList] = await Promise.all([
-          api.get('/timesheets', { params: { from, to } }),
-          api.get('/timesheets/project-hours-chart', { params: { from, to, period: 'Custom' } }),
+
+        const results = await Promise.allSettled([
           api.get('/projects', { params: { syncCompletion: true } }),
           api.get('/timesheets/employee-hours', { params: { from, to } }),
-          fetchAdminDocumentRequests({ status: 'Requested', page: 1, limit: 50 }).catch(() => ({
-            items: [],
-            total: 0,
-            page: 1,
-            limit: 50,
-          })),
-          api.get('/payslips/batches').catch(() => ({ data: [] })),
-          api.get('/employees', { params: { pageSize: 500, page: 1 } }).catch(() => ({ data: { employees: [] } })),
-          ticketService.getTickets().catch(() => []),
+          fetchAdminDocumentRequests({ status: 'Requested', page: 1, limit: 50 }),
+          api.get('/payslips/batches'),
+          api.get('/employees', { params: { pageSize: 500, page: 1 } }),
+          ticketService.getTickets(),
         ])
-        if (cancelled) return
-        const timesheetList = tsRes.data || []
-        setTimesheets(timesheetList)
-        const chartPayload = chartRes.data as {
-          chartData?: { name: string; hours: number }[]
-          totalPeriodHours?: number
+
+        if (cancelled || id !== requestId) return
+
+        const [projRes, empHoursRes, docRes, batchRes, empRes, ticketList] = results
+
+        if (projRes.status === 'fulfilled') setProjects(projRes.value.data || [])
+        if (empHoursRes.status === 'fulfilled') setEmployeeHours(empHoursRes.value.data || [])
+
+        if (docRes.status === 'fulfilled') {
+          const docPayload = docRes.value as { items?: DocumentRequestRecord[] }
+          setDocumentRequests(Array.isArray(docPayload.items) ? docPayload.items : [])
+        } else {
+          setDocumentRequests([])
         }
-        const apiChart = Array.isArray(chartPayload?.chartData) ? chartPayload.chartData : []
-        const resolvedChart =
-          apiChart.length > 0 ? apiChart : aggregateChartDataForRange(timesheetList, from, to)
-        const resolvedTotal =
-          apiChart.length > 0
-            ? Number(chartPayload?.totalPeriodHours ?? 0)
-            : Math.round(resolvedChart.reduce((sum, point) => sum + point.hours, 0) * 10) / 10
-        setChartData(resolvedChart)
-        setTotalPeriodHours(resolvedTotal)
-        setProjects(projRes.data || [])
-        setEmployeeHours(empHoursRes.data || [])
-        const docPayload = docRes as { items?: DocumentRequestRecord[] }
-        setDocumentRequests(Array.isArray(docPayload.items) ? docPayload.items : [])
-        setPayslipBatches(batchRes.data || [])
-        useTicketStore.setState({
-          tickets: Array.isArray(ticketList) ? ticketList : [],
-          loading: false,
-          initialized: true,
-          error: null,
-        })
-        const empPayload = empRes.data?.data ?? empRes.data?.employees ?? empRes.data ?? []
-        setAllEmployees(Array.isArray(empPayload) ? empPayload : [])
-        const total = empRes.data?.total
-        if (total != null) {
-          useEmployeeStore.setState((s) => ({
-            pagination: { ...s.pagination, total },
-          }))
+
+        if (batchRes.status === 'fulfilled') setPayslipBatches(batchRes.value.data || [])
+
+        if (ticketList.status === 'fulfilled') {
+          useTicketStore.setState({
+            tickets: Array.isArray(ticketList.value) ? ticketList.value : [],
+            loading: false,
+            initialized: true,
+            error: null,
+          })
+        }
+
+        if (empRes.status === 'fulfilled') {
+          const empPayload =
+            empRes.value.data?.data ?? empRes.value.data?.employees ?? empRes.value.data ?? []
+          setAllEmployees(Array.isArray(empPayload) ? empPayload : [])
+          const total = empRes.value.data?.total
+          if (total != null) {
+            useEmployeeStore.setState((s) => ({
+              pagination: { ...s.pagination, total },
+            }))
+          }
         }
       } catch (err) {
         console.error('[CommandCenter] Failed to load data:', err)
       } finally {
-        if (!cancelled && !silent) setLoading(false)
+        if (!cancelled && id === requestId && !silent) setLoading(false)
       }
     }
     void load(false)
@@ -130,7 +179,7 @@ export function useCommandCenterData(chartDateRange: ChartDateRange) {
       cancelled = true
       window.clearInterval(refreshId)
     }
-  }, [chartDateRange.from, chartDateRange.to, employeesRevision])
+  }, [chartDateRange.from, chartDateRange.to])
 
   const pendingLeaves = leaves.filter((l) => l.status === 'Pending')
   const approvedLeaves = leaves.filter((l) => l.status === 'Approved')
@@ -244,7 +293,7 @@ export function useCommandCenterData(chartDateRange: ChartDateRange) {
       id: 'engagement',
       type: 'info' as const,
       title: 'Employee engagement signal',
-      body: `${activeProjects.length} active projects with ${totalPeriodHours}h logged for ${formatChartRangeLabel(chartDateRange.from, chartDateRange.to)}. Cross-team collaboration is ${activeProjects.length > 2 ? 'healthy' : 'moderate'}.`,
+      body: `${activeProjects.length} active projects with ${totalPeriodHours}h logged for ${formatChartRangeLabel(chartDateRange.from, chartDateRange.to, chartDateRange)}. Cross-team collaboration is ${activeProjects.length > 2 ? 'healthy' : 'moderate'}.`,
       action: 'Open timesheets',
       route: '/admin/timesheet',
     })
@@ -314,6 +363,7 @@ export function useCommandCenterData(chartDateRange: ChartDateRange) {
   return {
     user,
     loading,
+    chartLoading,
     totalEmployees,
     attendanceRate,
     payrollStatus,

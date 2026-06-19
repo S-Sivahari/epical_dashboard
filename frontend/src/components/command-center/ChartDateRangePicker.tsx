@@ -242,7 +242,7 @@ export function ChartDateRangePicker({
               const isInSelectedRange =
                 draftNormalized.from &&
                 cell.dateString >= draftNormalized.from &&
-                cell.dateString <= draftNormalized.end
+                cell.dateString <= draftNormalized.to
               const isRangeStart = cell.dateString === draftNormalized.from
               const isRangeEnd = cell.dateString === draftNormalized.to
               const isSingleDay = isRangeStart && isRangeEnd

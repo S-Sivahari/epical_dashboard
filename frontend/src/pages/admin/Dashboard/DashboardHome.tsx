@@ -80,7 +80,7 @@ export function DashboardHome() {
           <div className="dashboard-center-column min-h-0">
             <div className="dashboard-center-stack min-h-0 flex-1">
               <ProjectHoursChartPanel
-                loading={data.loading}
+                chartLoading={data.chartLoading}
                 chartData={data.chartData}
                 chartDateRange={chartDateRange}
                 onDateRangeChange={setChartDateRange}
