@@ -19,6 +19,8 @@ import {
   pauseActiveTask as apiPauseActiveTask,
   resumeActiveTask as apiResumeActiveTask,
   completeActiveTask as apiCompleteActiveTask,
+  startBreak as apiStartBreak,
+  endBreak as apiEndBreak,
 } from '@services/employeeTimesheetService'
 import { formatSessionDuration } from '@utils/durationFormat'
 
@@ -52,6 +54,22 @@ function mapTaskEntryFromApi(entry) {
 function mapActiveTaskFromApi(activeRes) {
   if (!activeRes?.active) return null
   return mapTaskEntryFromApi(activeRes.active)
+}
+
+function applyBreakStateFromApi(data, set) {
+  if (!data?.breaks) return
+  set((state) => ({
+    attendance: {
+      ...(state.attendance || {}),
+      breaks: data.breaks,
+    },
+  }))
+}
+
+function applyActiveTaskPayload(data, set) {
+  const activeTask = mapActiveTaskFromApi({ active: data.active, pausedTasks: data.pausedTasks })
+  const pausedTasks = (data.pausedTasks || []).map(mapTaskEntryFromApi).filter(Boolean)
+  set({ activeTask, pausedTasks })
 }
 
 function applyBootstrapAttendanceState(data) {
@@ -572,6 +590,20 @@ export const useTimesheetStore = create((set, get) => ({
       await get().refreshAssignedTasks()
       await Promise.all([get().refreshProjectWiseHours(), get().refreshAllTimeProjectWiseHours()])
     }
+    return data
+  },
+
+  startBreak: async (breakType) => {
+    const data = await apiStartBreak(breakType)
+    applyBreakStateFromApi(data, set)
+    applyActiveTaskPayload(data, set)
+    return data
+  },
+
+  endBreak: async () => {
+    const data = await apiEndBreak()
+    applyBreakStateFromApi(data, set)
+    applyActiveTaskPayload(data, set)
     return data
   },
 

@@ -65,6 +65,16 @@ export async function resumeActiveTask(timesheetId) {
   return res.data
 }
 
+export async function startBreak(breakType) {
+  const res = await api.post('/timesheets/mine/start-break', { breakType })
+  return res.data
+}
+
+export async function endBreak() {
+  const res = await api.post('/timesheets/mine/end-break')
+  return res.data
+}
+
 export async function completeActiveTask(timesheetId, description) {
   const res = await api.patch('/timesheets/mine/complete-task', { timesheetId, description })
   return res.data

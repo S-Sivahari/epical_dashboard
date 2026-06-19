@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { LogIn, LogOut, Loader2, AlertTriangle, Pause, Play } from 'lucide-react'
+import { LogIn, LogOut, Loader2, AlertTriangle, Pause, Play, Coffee } from 'lucide-react'
 import { ProjectAnalysisLaunchButton } from '@components/admin/ProjectAnalysisLaunchButton'
 import { Button } from '@components/employee/ui/button'
 import { Textarea } from '@components/employee/ui/textarea'
@@ -13,6 +13,11 @@ import { formatSessionDuration, formatDurationFromMs } from '@utils/durationForm
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { formatDateKey, getPresetDateRange, getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
 import { TimesheetCheckInDialog } from '@pages/employee/TimesheetCheckInDialog'
+import {
+  WORK_BREAK_OPTIONS,
+  computeNetAttendanceMs,
+  formatBreakCountdown,
+} from '@utils/workBreaks'
 
 const TimesheetWeeklyChart = lazy(() =>
   import('@pages/employee/TimesheetWeeklyChart').then((m) => ({ default: m.TimesheetWeeklyChart })),
@@ -69,10 +74,11 @@ function formatTimeLabel(iso) {
 }
 
 function segmentHours(seg, checkedIn, liveNow) {
+  if (typeof seg.hours === 'number' && seg.checkOutTime) {
+    return seg.hours
+  }
   const isOpen = checkedIn && !seg.checkOutTime
-  const startMs = new Date(seg.checkInTime).getTime()
-  const endMs = seg.checkOutTime ? new Date(seg.checkOutTime).getTime() : isOpen ? liveNow : startMs
-  return hoursFromMs(Math.max(0, endMs - startMs))
+  return hoursFromMs(computeNetAttendanceMs(seg.checkInTime, seg.checkOutTime, isOpen ? liveNow : undefined))
 }
 
 function isSessionApprovedByAdmin(session) {
@@ -97,6 +103,8 @@ export default function Timesheet() {
     pauseTask,
     resumeTask,
     completeTask,
+    startBreak,
+    endBreak,
     attendanceHistory,
     serverTimeSkew,
     sessionsLoading,
@@ -176,7 +184,7 @@ export default function Timesheet() {
     if (!checkedIn) return undefined
     const tick = () => setLiveNow(Date.now() + (serverTimeSkew || 0))
     tick()
-    const id = setInterval(tick, 15000)
+    const id = setInterval(tick, 1000)
     return () => clearInterval(id)
   }, [checkedIn, serverTimeSkew])
 
@@ -221,6 +229,27 @@ export default function Timesheet() {
   const currentWorkTask = activeTask || pausedTasks[0] || null
   const activeWorkDescription = workNoteFromTask(currentWorkTask)
   const isSessionPaused = checkedIn && !activeTask && Boolean(pausedTasks?.[0])
+  const breakState = attendance?.breaks
+  const activeBreak = breakState?.activeBreak ?? null
+  const activeBreakRemainingMs = activeBreak?.endsAt
+    ? Math.max(0, new Date(activeBreak.endsAt).getTime() - liveNow)
+    : 0
+  const onBreak = Boolean(activeBreak && activeBreakRemainingMs > 0)
+
+  useEffect(() => {
+    if (!checkedIn || !activeBreak?.endsAt) return undefined
+    const endsAt = new Date(activeBreak.endsAt).getTime()
+    if (endsAt <= liveNow) {
+      void endBreak().catch(() => {})
+      return undefined
+    }
+    const id = window.setInterval(() => {
+      if (Date.now() + (serverTimeSkew || 0) >= endsAt) {
+        void endBreak().catch(() => {})
+      }
+    }, 1000)
+    return () => window.clearInterval(id)
+  }, [checkedIn, activeBreak?.endsAt, liveNow, endBreak, serverTimeSkew])
 
   useEffect(() => {
     if (checkedIn && currentWorkTask) {
@@ -368,27 +397,48 @@ export default function Timesheet() {
     }
   }
 
+  const onStartBreak = async (breakType) => {
+    try {
+      setSubmitting(true)
+      await startBreak(breakType)
+      const option = WORK_BREAK_OPTIONS.find((item) => item.type === breakType)
+      toast({
+        title: `${option?.label || 'Break'} started`,
+        description: `${option?.durationMinutes || 0} minute break in progress.`,
+      })
+    } catch (err) {
+      toast({
+        title: 'Could not start break',
+        description: err.response?.data?.error || 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const onEndBreak = async () => {
+    try {
+      setSubmitting(true)
+      await endBreak()
+      toast({ title: 'Break ended', description: 'You can resume your task.' })
+    } catch (err) {
+      toast({
+        title: 'Could not end break',
+        description: err.response?.data?.error || 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const historyRange = useMemo(
     () => ({ start: historyStart, end: historyEnd }),
     [historyStart, historyEnd],
   )
 
   const weekRange = useMemo(() => getWeekRange(), [liveNow])
-
-  const currentTaskPausedMs = useMemo(() => {
-    if (!checkedIn) return 0
-    let pausedMs = 0
-    if (activeTask) {
-      pausedMs += activeTask.totalPausedMs || 0
-    } else if (pausedTasks?.[0]) {
-      const task = pausedTasks[0]
-      pausedMs += task.totalPausedMs || 0
-      if (task.pausedAt) {
-        pausedMs += Math.max(0, liveNow - new Date(task.pausedAt).getTime())
-      }
-    }
-    return pausedMs
-  }, [checkedIn, activeTask, pausedTasks, liveNow])
 
   const weeklyHours = useMemo(() => {
     const byDay = {}
@@ -414,14 +464,16 @@ export default function Timesheet() {
     let totalMs = 0
     attendanceHistory.forEach((seg) => {
       if (seg.date === todayKey) {
-        const startMs = new Date(seg.checkInTime).getTime()
         const isOpen = checkedIn && !seg.checkOutTime
-        const endMs = seg.checkOutTime ? new Date(seg.checkOutTime).getTime() : isOpen ? liveNow : startMs
-        totalMs += Math.max(0, endMs - startMs)
+        totalMs += computeNetAttendanceMs(
+          seg.checkInTime,
+          seg.checkOutTime,
+          isOpen ? liveNow : undefined,
+        )
       }
     })
-    return Math.max(0, totalMs - (checkedIn ? currentTaskPausedMs : 0))
-  }, [attendanceHistory, checkedIn, liveNow, todayKey, currentTaskPausedMs])
+    return totalMs
+  }, [attendanceHistory, checkedIn, liveNow, todayKey])
 
   const unifiedHistory = useMemo(() => {
     const deduped = new Map()
@@ -527,17 +579,20 @@ export default function Timesheet() {
                 ) : null}
               </div>
             ) : checkedIn ? (
-              <div className="emp-timesheet-session-main emp-timesheet-session-stack">
-                <div className="emp-timesheet-session-desc emp-timesheet-session-desc--active">
-                  {activeWorkDescription || (
-                    <span className="emp-timesheet-session-desc-placeholder">No work description</span>
-                  )}
+              <div className="emp-timesheet-session-main emp-timesheet-session-stack emp-timesheet-session-stack--checked-in">
+                <div className="emp-timesheet-session-desc-panel">
+                  <p className="emp-timesheet-session-desc-label">Work description</p>
+                  <div className="emp-timesheet-session-desc emp-timesheet-session-desc--active timesheet-panel-scroll">
+                    {activeWorkDescription || (
+                      <span className="emp-timesheet-session-desc-placeholder">No work description</span>
+                    )}
+                  </div>
                 </div>
                 {isSessionPaused ? (
                   <Button
                     type="button"
                     onClick={() => pausedTasks[0] && onResumeTask(pausedTasks[0].timesheetId)}
-                    disabled={submitting}
+                    disabled={submitting || onBreak}
                     className="emp-ts-btn-primary emp-timesheet-session-action h-10 w-full gap-2 text-sm"
                   >
                     <Play className="h-4 w-4 shrink-0" />
@@ -547,7 +602,7 @@ export default function Timesheet() {
                   <Button
                     type="button"
                     onClick={() => onPauseTask(activeTask.timesheetId)}
-                    disabled={submitting}
+                    disabled={submitting || onBreak}
                     className="emp-ts-btn-pause emp-timesheet-session-action h-10 w-full gap-2 text-sm"
                   >
                     <Pause className="h-4 w-4 shrink-0" />
@@ -578,6 +633,58 @@ export default function Timesheet() {
                 </Button>
               </div>
             )}
+
+            {checkedIn && !checkoutReview ? (
+              <div className="emp-timesheet-breaks">
+                <div className="emp-timesheet-breaks-header">
+                  <div className="flex items-center gap-1.5">
+                    <Coffee className="h-3.5 w-3.5 text-primary" aria-hidden />
+                    <p className="emp-timesheet-breaks-title">Daily breaks</p>
+                  </div>
+                </div>
+
+                {onBreak ? (
+                  <div className="emp-timesheet-break-active">
+                    <div className="min-w-0">
+                      <p className="emp-timesheet-break-active-label">
+                        {WORK_BREAK_OPTIONS.find((item) => item.type === activeBreak?.type)?.label || 'Break'} in
+                        progress
+                      </p>
+                      <p className="emp-timesheet-break-active-time">
+                        {formatBreakCountdown(activeBreakRemainingMs)} remaining
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => void onEndBreak()}
+                      disabled={submitting}
+                      className="emp-ts-btn-end-break shrink-0"
+                    >
+                      End break
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="emp-timesheet-breaks-grid">
+                    {WORK_BREAK_OPTIONS.map((option) => {
+                      const used = Boolean(breakState?.[option.type]?.used)
+                      return (
+                        <button
+                          key={option.type}
+                          type="button"
+                          className={`emp-timesheet-break-btn${used ? ' is-used' : ''}`}
+                          onClick={() => void onStartBreak(option.type)}
+                          disabled={submitting || used || onBreak}
+                        >
+                          <span className="emp-timesheet-break-btn-label">{option.label}</span>
+                          <span className="emp-timesheet-break-btn-duration">{option.durationMinutes} min</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : null}
 
             {checkoutReview ? (
               <div className="emp-timesheet-session-footer">

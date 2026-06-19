@@ -20,6 +20,13 @@ export interface EmployeeAttendance extends Document {
   reminderSent: boolean;
   autoCheckedOut: boolean;
   sessionStatus: SessionStatus;
+  morningBreakAt?: Date;
+  lunchBreakAt?: Date;
+  eveningBreakAt?: Date;
+  activeBreakType?: 'morning' | 'lunch' | 'evening';
+  activeBreakStartedAt?: Date;
+  activeBreakEndsAt?: Date;
+  breakPausedTimesheetId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -42,6 +49,13 @@ const EmployeeAttendanceSchema = new Schema<EmployeeAttendance>(
       enum: ['Active', 'Paused', 'Completed', 'Auto Checked-Out', 'Session Incomplete'],
       default: 'Active',
     },
+    morningBreakAt: { type: Date },
+    lunchBreakAt: { type: Date },
+    eveningBreakAt: { type: Date },
+    activeBreakType: { type: String, enum: ['morning', 'lunch', 'evening'] },
+    activeBreakStartedAt: { type: Date },
+    activeBreakEndsAt: { type: Date },
+    breakPausedTimesheetId: { type: String },
   },
   { timestamps: true }
 );

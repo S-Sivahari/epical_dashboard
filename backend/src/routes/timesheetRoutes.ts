@@ -24,6 +24,8 @@ router.patch('/mine/stop-task', employeeTimesheetController.stopActiveTask);
 router.patch('/mine/pause-task', employeeTimesheetController.pauseActiveTask);
 router.patch('/mine/resume-task', employeeTimesheetController.resumeActiveTask);
 router.patch('/mine/complete-task', employeeTimesheetController.completeActiveTask);
+router.post('/mine/start-break', employeeTimesheetController.startBreak);
+router.post('/mine/end-break', employeeTimesheetController.endBreak);
 
 router.get('/auto-checkout-settings', adminOnly, employeeTimesheetController.getAutoCheckoutSettings);
 router.put('/auto-checkout-settings', adminOnly, employeeTimesheetController.updateAutoCheckoutSettings);
