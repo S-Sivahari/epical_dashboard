@@ -37,24 +37,24 @@ function ProfileStatMini({ title, value, trend, icon: Icon, horizontal = false, 
   const accentClass = accent ? STAT_ACCENT_CLASS[accent] : null
   const statClassName = cn(
     horizontal
-      ? 'emp-dashboard-hero__stat-chip flex min-w-[6.75rem] flex-col justify-center rounded-xl px-3 py-2.5 transition-colors sm:min-w-[7.5rem]'
+      ? 'emp-dash-btn emp-dash-btn--stat flex min-w-[6.75rem] flex-col justify-center px-3 py-2.5 sm:min-w-[7.5rem]'
       : 'flex min-w-[5.25rem] flex-1 flex-col justify-center rounded-lg border border-white/25 bg-black/10 px-2 py-2 transition-colors',
-    to && horizontal && 'emp-dashboard-hero__stat-chip--link',
+    to && horizontal && 'emp-dash-btn--link',
     to && !horizontal && 'cursor-pointer hover:bg-black/20',
-    accentClass,
+    !horizontal && accentClass,
   )
 
   if (horizontal) {
     const content = (
-      <>
-        <p className="emp-dashboard-hero__stat-label truncate text-[10px] font-semibold uppercase tracking-wide sm:text-[11px]">
+      <span className="emp-dash-btn__label flex min-w-0 flex-col">
+        <p className="emp-dash-btn__stat-title truncate text-[10px] font-semibold uppercase tracking-wide sm:text-[11px]">
           {title}
         </p>
-        <p className="emp-dashboard-hero__stat-value mt-1 text-lg font-bold leading-none sm:text-xl">{value}</p>
+        <p className="emp-dash-btn__stat-value text-lg font-bold leading-none sm:text-xl">{value}</p>
         {trend ? (
-          <p className="emp-dashboard-hero__stat-trend mt-1 truncate text-[10px] sm:text-[11px]">{trend}</p>
+          <p className="emp-dash-btn__stat-trend truncate text-[10px] sm:text-[11px]">{trend}</p>
         ) : null}
-      </>
+      </span>
     )
 
     if (to) {
@@ -162,7 +162,7 @@ export function ProfileCard({
           key={i}
           className={cn(
             'animate-pulse rounded-lg bg-black/10',
-            horizontal ? 'emp-dashboard-hero__stat-skeleton emp-dashboard-hero__stat-chip h-16 min-w-[6.75rem] sm:min-w-[7.5rem]' : 'h-[4.25rem]',
+            horizontal ? 'emp-dash-btn emp-dash-btn--stat emp-dash-btn--skeleton h-16 min-w-[6.75rem] sm:min-w-[7.5rem]' : 'h-[4.25rem]',
           )}
         />
       ))}

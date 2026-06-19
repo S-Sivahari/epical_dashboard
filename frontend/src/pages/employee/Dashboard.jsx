@@ -87,9 +87,9 @@ function SectionLink({ to, label }) {
   return (
     <Link
       to={to}
-      className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:underline"
+      className="emp-dash-btn emp-dash-btn--sm inline-flex shrink-0 items-center gap-1"
     >
-      {label} <ArrowRight className="h-3.5 w-3.5" />
+      {label} <ArrowRight className="h-3 w-3" />
     </Link>
   )
 }
@@ -225,7 +225,7 @@ export default function Dashboard() {
       className="relative flex h-full min-h-0 max-w-full flex-1 flex-col overflow-hidden"
       data-employee-dashboard
     >
-      <div className="dashboard-shell flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+      <div className={cn('dashboard-shell flex min-h-0 flex-1 flex-col gap-3 overflow-hidden', !loading && 'emp-page-content-in')}>
         <div className="shrink-0 space-y-2">
           <div className="pb-0.5">
             <ProfileCard

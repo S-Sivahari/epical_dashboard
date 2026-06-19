@@ -175,7 +175,7 @@ export default function RaiseTickets() {
   }
 
   return (
-    <div className="max-w-full space-y-5 overflow-x-hidden">
+    <div className="max-w-full space-y-5 overflow-x-hidden" data-employee-tickets>
       <div className="grid gap-5 lg:grid-cols-2 lg:items-stretch">
         <InteractiveCard
           as="form"
@@ -221,8 +221,14 @@ export default function RaiseTickets() {
               {errors.priority && <p className="mt-1 text-xs text-danger">{errors.priority.message}</p>}
             </div>
             <div className="mt-auto pt-1">
-              <Button type="submit" disabled={isSubmitting} className="w-full">
-                {isSubmitting ? 'Submitting…' : 'Submit ticket'}
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="emp-dash-btn emp-dash-btn--wide emp-portal-submit-btn w-full"
+              >
+                <span className="emp-dash-btn__label">
+                  {isSubmitting ? 'Submitting…' : 'Submit ticket'}
+                </span>
               </Button>
             </div>
           </div>

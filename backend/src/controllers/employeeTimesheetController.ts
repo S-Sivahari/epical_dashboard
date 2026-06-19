@@ -21,6 +21,14 @@ import {
   resumeProductiveSessionsForProjectEmployee,
   WORK_SESSION_REASONS,
 } from '../services/productiveTimeService';
+import {
+  activeBreakExpired,
+  buildBreaksPayload,
+  computeNetAttendanceHours,
+  isWorkBreakType,
+  WORK_BREAKS,
+  type WorkBreakType,
+} from '../utils/workBreaks';
 
 type ResolvedEmployee = {
   id: string;
@@ -36,10 +44,7 @@ function todayDateKey(): string {
 }
 
 function computeAttendanceHours(checkInTime: Date, checkOutTime?: Date | null, now = new Date()): number {
-  const end = checkOutTime ?? now;
-  const diffMs = end.getTime() - checkInTime.getTime();
-  if (diffMs <= 0) return 0;
-  return Math.round((diffMs / (1000 * 60 * 60)) * 10) / 10;
+  return computeNetAttendanceHours(checkInTime, checkOutTime, now);
 }
 
 function toFrontendAttendance(a: {
@@ -49,6 +54,12 @@ function toFrontendAttendance(a: {
   checkOutTime?: Date | null;
   sessionStatus?: string;
   autoCheckedOut?: boolean;
+  morningBreakAt?: Date | null;
+  lunchBreakAt?: Date | null;
+  eveningBreakAt?: Date | null;
+  activeBreakType?: WorkBreakType | null;
+  activeBreakStartedAt?: Date | null;
+  activeBreakEndsAt?: Date | null;
 }) {
   return {
     id: a._id.toString(),
@@ -58,6 +69,7 @@ function toFrontendAttendance(a: {
     hours: computeAttendanceHours(a.checkInTime, a.checkOutTime ?? null),
     sessionStatus: a.sessionStatus ?? 'Active',
     autoCheckedOut: a.autoCheckedOut ?? false,
+    breaks: buildBreaksPayload(a),
   };
 }
 
@@ -411,6 +423,7 @@ function buildAttendanceResponse(
 ) {
   const date = todayDateKey();
   const attendance = (openAttendance ?? latestAttendance) as any;
+  const breaksSource = openAttendance ?? latestAttendance;
   return {
     checkedIn: !!openAttendance,
     checkInTime: openAttendance?.checkInTime?.toISOString() ?? null,
@@ -422,7 +435,64 @@ function buildAttendanceResponse(
     expectedCheckoutTime: openAttendance?.expectedCheckoutTime?.toISOString() ?? null,
     autoCheckoutTime: openAttendance?.autoCheckoutTime?.toISOString() ?? null,
     autoCheckoutEnabled: openAttendance?.autoCheckoutEnabled ?? attendance?.autoCheckoutEnabled ?? true,
+    breaks: breaksSource ? buildBreaksPayload(breaksSource as any) : buildBreaksPayload({}),
   };
+}
+
+async function finalizeActiveBreak(
+  attendance: InstanceType<typeof EmployeeAttendanceModel>,
+  employee: ResolvedEmployee,
+  now = new Date(),
+) {
+  if (!attendance.activeBreakType || !attendance.activeBreakEndsAt) return false;
+  if (!activeBreakExpired(attendance, now)) return false;
+
+  const timesheetId = attendance.breakPausedTimesheetId;
+  attendance.activeBreakType = undefined;
+  attendance.activeBreakStartedAt = undefined;
+  attendance.activeBreakEndsAt = undefined;
+  attendance.breakPausedTimesheetId = undefined;
+  await attendance.save();
+
+  if (timesheetId && mongoose.Types.ObjectId.isValid(timesheetId)) {
+    const pausedLog = await TimesheetModel.findOne({
+      _id: timesheetId,
+      employeeId: employee.employeeId,
+      taskStatus: 'Paused',
+      $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }],
+    });
+    if (pausedLog) {
+      finalizePauseAccumulation(pausedLog);
+      pausedLog.taskStatus = 'In Progress';
+      await pausedLog.save();
+    }
+  }
+
+  return true;
+}
+
+async function pauseRunningTaskForBreak(employee: ResolvedEmployee, attendance: InstanceType<typeof EmployeeAttendanceModel>) {
+  const openLog = await TimesheetModel.findOne({
+    $and: [
+      {
+        $or: [
+          { employeeId: { $in: employee.identityTokens } },
+          { employee: { $in: employee.identityTokens } },
+        ],
+      },
+      { loginTime: { $gte: attendance.checkInTime } },
+      { $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }] },
+      { taskStatus: { $in: ['In Progress', 'Session Incomplete'] } },
+    ],
+  }).sort({ loginTime: -1 });
+
+  if (!openLog) return null;
+
+  const now = new Date();
+  openLog.taskStatus = 'Paused';
+  openLog.pausedAt = now;
+  await openLog.save();
+  return openLog._id.toString();
 }
 
 async function releaseAssignedTask(timesheetId: string, session?: mongoose.ClientSession) {
@@ -472,9 +542,14 @@ export const employeeTimesheetController = {
         ],
       };
 
-      const [openAttendance, latestAttendance, activePayload, assignedTasks, sessions, attendanceHistory, projectWiseHours] =
+      let openAttendance = await requireOpenAttendance(employee.id);
+      if (openAttendance) {
+        await finalizeActiveBreak(openAttendance, employee);
+        openAttendance = await requireOpenAttendance(employee.id);
+      }
+
+      const [latestAttendance, activePayload, assignedTasks, sessions, attendanceHistory, projectWiseHours] =
         await Promise.all([
-          requireOpenAttendance(employee.id),
           EmployeeAttendanceModel.findOne({ employeeId: employee.id }).sort({ checkInTime: -1 }).lean(),
           fetchActiveTaskPayload(employee),
           fetchAssignedTasksForEmployee(employee),
@@ -1426,6 +1501,125 @@ export const employeeTimesheetController = {
     } catch (error) {
       console.error('Error fetching current elapsed:', error);
       res.status(500).json({ error: 'Failed to fetch elapsed duration' });
+    }
+  },
+
+  startBreak: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const employee = await resolveEmployee(req);
+      if (!employee) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const breakType = req.body?.breakType;
+      if (!isWorkBreakType(breakType)) {
+        res.status(400).json({ error: 'Invalid break type' });
+        return;
+      }
+
+      const attendance = await requireOpenAttendance(employee.id);
+      if (!attendance) {
+        res.status(400).json({ error: 'You are not checked in' });
+        return;
+      }
+
+      await finalizeActiveBreak(attendance, employee);
+
+      const usedField =
+        breakType === 'morning' ? 'morningBreakAt' : breakType === 'lunch' ? 'lunchBreakAt' : 'eveningBreakAt';
+      const alreadyUsed =
+        breakType === 'morning'
+          ? attendance.morningBreakAt
+          : breakType === 'lunch'
+            ? attendance.lunchBreakAt
+            : attendance.eveningBreakAt;
+      if (alreadyUsed) {
+        res.status(400).json({ error: `${WORK_BREAKS[breakType].label} has already been used today` });
+        return;
+      }
+
+      if (attendance.activeBreakType) {
+        res.status(400).json({ error: 'Another break is already in progress' });
+        return;
+      }
+
+      const now = new Date();
+      const breakConfig = WORK_BREAKS[breakType];
+      const pausedTimesheetId = await pauseRunningTaskForBreak(employee, attendance);
+
+      attendance[usedField as 'morningBreakAt' | 'lunchBreakAt' | 'eveningBreakAt'] = now;
+      attendance.activeBreakType = breakType;
+      attendance.activeBreakStartedAt = now;
+      attendance.activeBreakEndsAt = new Date(now.getTime() + breakConfig.durationMs);
+      attendance.breakPausedTimesheetId = pausedTimesheetId ?? undefined;
+      await attendance.save();
+
+      const activePayload = await fetchActiveTaskPayload(employee);
+
+      res.json({
+        serverTime: now.toISOString(),
+        breaks: buildBreaksPayload(attendance, now),
+        active: activePayload.active,
+        pausedTasks: activePayload.pausedTasks,
+      });
+    } catch (error) {
+      console.error('Error starting break:', error);
+      res.status(500).json({ error: 'Failed to start break' });
+    }
+  },
+
+  endBreak: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const employee = await resolveEmployee(req);
+      if (!employee) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const attendance = await requireOpenAttendance(employee.id);
+      if (!attendance) {
+        res.status(400).json({ error: 'You are not checked in' });
+        return;
+      }
+
+      if (!attendance.activeBreakType) {
+        res.status(400).json({ error: 'No break is currently active' });
+        return;
+      }
+
+      const timesheetId = attendance.breakPausedTimesheetId;
+      attendance.activeBreakType = undefined;
+      attendance.activeBreakStartedAt = undefined;
+      attendance.activeBreakEndsAt = undefined;
+      attendance.breakPausedTimesheetId = undefined;
+      await attendance.save();
+
+      if (timesheetId && mongoose.Types.ObjectId.isValid(timesheetId)) {
+        const pausedLog = await TimesheetModel.findOne({
+          _id: timesheetId,
+          employeeId: employee.employeeId,
+          taskStatus: 'Paused',
+          $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }],
+        });
+        if (pausedLog) {
+          finalizePauseAccumulation(pausedLog);
+          pausedLog.taskStatus = 'In Progress';
+          await pausedLog.save();
+        }
+      }
+
+      const activePayload = await fetchActiveTaskPayload(employee);
+
+      res.json({
+        serverTime: new Date().toISOString(),
+        breaks: buildBreaksPayload(attendance),
+        active: activePayload.active,
+        pausedTasks: activePayload.pausedTasks,
+      });
+    } catch (error) {
+      console.error('Error ending break:', error);
+      res.status(500).json({ error: 'Failed to end break' });
     }
   },
 };

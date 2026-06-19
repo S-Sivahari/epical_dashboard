@@ -34,7 +34,7 @@ export function EmployeeCommandBar() {
   return (
     <header
       className={cn(
-        'cmd-bar employee-cmd-bar flex h-[4.5rem] shrink-0 items-center gap-2 px-4 sm:gap-3 lg:px-5',
+        'cmd-bar employee-cmd-bar flex h-16 shrink-0 items-center gap-2 px-4 sm:gap-3 lg:px-5',
         portalAdmin && 'employee-cmd-bar--dual-portal',
       )}
     >
@@ -61,15 +61,15 @@ export function EmployeeCommandBar() {
           title="Dashboard"
           aria-label="Go to dashboard"
         >
-          <CompanyLogo className="employee-cmd-bar__logo h-11 w-11 shrink-0 sm:h-12 sm:w-12" alt="Epical Layouts" />
+          <CompanyLogo className="employee-cmd-bar__logo h-10 w-10 shrink-0 sm:h-11 sm:w-11" alt="Epical Layouts" />
         </Link>
 
         {user ? (
           <div className="employee-cmd-bar__identity min-w-0">
-            <p className="employee-cmd-bar__name truncate font-display text-lg font-extrabold sm:text-xl">
+            <p className="employee-cmd-bar__name truncate font-display font-extrabold">
               {user.name}
             </p>
-            <p className="employee-cmd-bar__page-title truncate text-sm font-medium sm:text-base">
+            <p className="employee-cmd-bar__page-title truncate font-medium">
               {pageTitle}
             </p>
           </div>

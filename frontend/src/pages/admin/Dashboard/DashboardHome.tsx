@@ -10,22 +10,13 @@ import { ROUTES } from '@constants/routes'
 import { useCommandCenterData } from '@hooks/useCommandCenterData'
 import {
   aggregateProjectTableRows,
-  getChartRange,
-  inferChartPeriod,
-  type ChartPeriod,
+  getDefaultChartDateRange,
+  type ChartDateRange,
 } from './dashboardChartUtils'
 import { formatEmployeesAddedThisMonth } from './dashboardBackendUtils'
 
 export function DashboardHome() {
-  const initialRange = getChartRange('This Week')
-  const [chartPeriod, setChartPeriod] = useState<ChartPeriod | 'Custom'>('This Week')
-  const [chartStartDate, setChartStartDate] = useState(initialRange.from)
-  const [chartEndDate, setChartEndDate] = useState(initialRange.to)
-
-  const chartDateRange = useMemo(
-    () => ({ from: chartStartDate, to: chartEndDate }),
-    [chartStartDate, chartEndDate],
-  )
+  const [chartDateRange, setChartDateRange] = useState<ChartDateRange>(() => getDefaultChartDateRange())
 
   const data = useCommandCenterData(chartDateRange)
   const projectTableRows = useMemo(
@@ -91,22 +82,10 @@ export function DashboardHome() {
           <div className="dashboard-center-column min-h-0">
             <div className="dashboard-center-stack min-h-0 flex-1">
               <ProjectHoursChartPanel
-                loading={data.loading}
+                chartLoading={data.chartLoading}
                 chartData={data.chartData}
-                chartPeriod={chartPeriod}
-                onPeriodChange={(period) => {
-                  const range = getChartRange(period)
-                  setChartPeriod(period)
-                  setChartStartDate(range.from)
-                  setChartEndDate(range.to)
-                }}
-                startDate={chartStartDate}
-                endDate={chartEndDate}
-                onDateRangeChange={(start, end) => {
-                  setChartStartDate(start)
-                  setChartEndDate(end)
-                  setChartPeriod(inferChartPeriod(start, end))
-                }}
+                chartDateRange={chartDateRange}
+                onDateRangeChange={setChartDateRange}
                 totalPeriodHours={data.totalPeriodHours}
                 className="dashboard-center-chart dashboard-center-stack-section"
               />

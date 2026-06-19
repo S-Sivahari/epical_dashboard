@@ -61,7 +61,7 @@ export function MetalRoutingInsightsPanel({
               <div className="min-w-0">
                 <p className="metal-routing-insight-label">{card.label}</p>
                 <p className={cn('metal-routing-insight-value', tone.value)}>{card.value}</p>
-                <p className="metal-routing-insight-hint">{card.hint}</p>
+                {card.hint ? <p className="metal-routing-insight-hint">{card.hint}</p> : null}
               </div>
               <span className={cn('metal-routing-insight-icon', tone.iconWrap)} aria-hidden>
                 <Icon className={compact ? 'h-4 w-4' : 'h-5 w-5'} />

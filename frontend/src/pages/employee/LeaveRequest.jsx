@@ -740,7 +740,7 @@ export default function LeaveRequest() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end pt-2">
-            <Button onClick={() => setExceedDialogOpen(false)}>OK</Button>
+            <Button className="emp-dash-btn" onClick={() => setExceedDialogOpen(false)}>OK</Button>
           </div>
         </DialogContent>
       </Dialog>

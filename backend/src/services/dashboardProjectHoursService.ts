@@ -2,7 +2,7 @@ import { CellWorkflowWorkLogModel } from '../models/CellWorkflowWorkLog';
 import { WORK_SESSION_REASONS } from '../utils/workSessionReason';
 import { TimesheetModel } from '../models/Timesheet';
 
-export type DashboardChartPeriod = 'This Week' | 'This Month' | 'Last Month' | 'Last 2 Months';
+export type DashboardChartPeriod = 'This Week' | 'This Month' | 'Last Month' | 'Last 2 Months' | 'Custom';
 
 export type DashboardChartPoint = { name: string; hours: number };
 
@@ -145,6 +145,64 @@ function aggregateWeeklyChart(
   }));
 }
 
+function daysInRange(from: string, to: string) {
+  const start = new Date(`${from}T00:00:00`);
+  const end = new Date(`${to}T00:00:00`);
+  return Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+}
+
+function aggregateDailyChart(
+  timesheets: Array<{
+    loginTime?: Date;
+    logoutTime?: Date | null;
+    overriddenHours?: number | null;
+    totalHours?: number | null;
+    totalPausedMs?: number;
+    taskStatus?: string;
+  }>,
+  cellLogs: Array<{ checkInTime: Date; checkOutTime?: Date | null; workedMs?: number }>,
+  from: string,
+  to: string,
+  now = new Date(),
+): DashboardChartPoint[] {
+  const buckets: { name: string; start: Date; end: Date }[] = [];
+  let cursor = new Date(`${from}T00:00:00`);
+  const rangeEnd = new Date(`${to}T23:59:59`);
+
+  while (cursor <= rangeEnd) {
+    const bucketStart = new Date(cursor);
+    const bucketEnd = new Date(cursor);
+    bucketEnd.setHours(23, 59, 59, 999);
+    buckets.push({
+      name: bucketStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      start: bucketStart,
+      end: bucketEnd,
+    });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return buckets.map((bucket) => {
+    let hours = 0;
+
+    timesheets.forEach((t) => {
+      if (!t.loginTime) return;
+      const login = new Date(t.loginTime);
+      if (login >= bucket.start && login <= bucket.end) {
+        hours += effectiveTimesheetHours(t, now);
+      }
+    });
+
+    cellLogs.forEach((log) => {
+      const checkIn = new Date(log.checkInTime);
+      if (checkIn >= bucket.start && checkIn <= bucket.end) {
+        hours += effectiveCellLogHours(log, now);
+      }
+    });
+
+    return { name: bucket.name, hours: roundHours(hours) };
+  });
+}
+
 function aggregateRangedChart(
   timesheets: Array<{
     loginTime?: Date;
@@ -230,7 +288,9 @@ export async function buildDashboardProjectHoursChart(
   const chartData =
     period === 'This Week'
       ? aggregateWeeklyChart(timesheets, cellLogs, now)
-      : aggregateRangedChart(timesheets, cellLogs, range.from, range.to, now);
+      : period === 'Custom' && daysInRange(range.from, range.to) <= 7
+        ? aggregateDailyChart(timesheets, cellLogs, range.from, range.to, now)
+        : aggregateRangedChart(timesheets, cellLogs, range.from, range.to, now);
 
   const totalPeriodHours = roundHours(chartData.reduce((sum, point) => sum + point.hours, 0));
 

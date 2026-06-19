@@ -769,7 +769,7 @@
   min-width: calc(2rem * var(--els));
 }
 
-.emp-leave-page .emp-leave-submit-btn {
+.emp-leave-page .emp-portal-submit-btn {
   min-height: calc(2.5rem * var(--els));
   font-size: calc(0.875rem * var(--els));
 }

@@ -127,7 +127,7 @@ export function DashboardWorkInsights({ className, compact = false, fill = false
         <Link
           to="/employee/timesheet"
           className={cn(
-            'inline-flex shrink-0 items-center gap-1 font-medium text-primary hover:underline',
+            'emp-dash-btn emp-dash-btn--sm inline-flex shrink-0 items-center gap-1 font-medium',
             compact ? 'text-[10px]' : 'text-xs',
           )}
         >

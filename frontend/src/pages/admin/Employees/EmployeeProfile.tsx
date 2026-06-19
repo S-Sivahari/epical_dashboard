@@ -241,7 +241,7 @@ export function EmployeeProfile() {
               <p className="text-sm font-medium text-red-700">{loadError ?? 'Employee not found.'}</p>
               <div className="mt-4">
                 <Button asChild variant="secondary">
-                  <Link to={ROUTES.EMPLOYEES}>Back to Active Directory</Link>
+                  <Link to={ROUTES.EMPLOYEES}>Back to Employee Directory</Link>
                 </Button>
               </div>
             </div>

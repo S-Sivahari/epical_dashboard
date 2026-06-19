@@ -184,8 +184,14 @@ export function LeaveApplyForm({
       />
 
       <div className="mt-4 shrink-0">
-        <Button type="submit" disabled={isSubmitting} className="emp-leave-submit-btn w-full">
-          {isSubmitting ? 'Submitting…' : 'Submit Request'}
+        <Button
+          type="submit"
+          disabled={isSubmitting}
+          className="emp-dash-btn emp-dash-btn--wide emp-portal-submit-btn w-full"
+        >
+          <span className="emp-dash-btn__label">
+            {isSubmitting ? 'Submitting…' : 'Submit Request'}
+          </span>
         </Button>
       </div>
     </InteractiveCard>

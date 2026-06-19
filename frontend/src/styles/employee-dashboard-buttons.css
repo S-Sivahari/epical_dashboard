@@ -1,0 +1,311 @@
+/* Employee portal — dark green facet buttons (mirrored left/right) */
+
+.employee-portal .emp-dash-btn,
+.employee-portal [data-employee-page] .emp-dash-btn,
+.crewiq-dashboard .emp-dash-btn,
+[data-employee-dashboard] .emp-dash-btn,
+[data-employee-leave] .emp-dash-btn,
+[data-employee-tickets] .emp-dash-btn {
+  --emp-dash-facet-w: min(34%, 5.5rem);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 0.625rem;
+  background: linear-gradient(135deg, #2d6a4f 0%, #1b4332 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  box-shadow:
+    0 2px 8px rgba(12, 24, 18, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  color: #ffffff !important;
+  text-decoration: none !important;
+  transition:
+    filter 0.15s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
+}
+
+[data-employee-dashboard] .emp-dash-btn--wide,
+[data-employee-leave] .emp-dash-btn--wide,
+[data-employee-tickets] .emp-dash-btn--wide {
+  --emp-dash-facet-w: min(38%, 8.5rem);
+}
+
+[data-employee-dashboard] .emp-dash-btn:hover,
+[data-employee-leave] .emp-dash-btn:hover,
+[data-employee-tickets] .emp-dash-btn:hover {
+  filter: brightness(1.06);
+  border-color: rgba(255, 255, 255, 0.24) !important;
+  box-shadow:
+    0 3px 10px rgba(12, 24, 18, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+[data-employee-dashboard] .emp-dash-btn--sm,
+[data-employee-leave] .emp-dash-btn--sm,
+[data-employee-tickets] .emp-dash-btn--sm {
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.625rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.employee-portal .emp-dash-btn::before,
+.employee-portal .emp-dash-btn::after,
+.employee-portal [data-employee-page] .emp-dash-btn::before,
+.employee-portal [data-employee-page] .emp-dash-btn::after,
+.crewiq-dashboard .emp-dash-btn::before,
+.crewiq-dashboard .emp-dash-btn::after,
+[data-employee-dashboard] .emp-dash-btn::before,
+[data-employee-dashboard] .emp-dash-btn::after,
+[data-employee-leave] .emp-dash-btn::before,
+[data-employee-leave] .emp-dash-btn::after,
+[data-employee-tickets] .emp-dash-btn::before,
+[data-employee-tickets] .emp-dash-btn::after {
+  content: '';
+  position: absolute;
+  top: -32%;
+  width: var(--emp-dash-facet-w);
+  height: 164%;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    linear-gradient(152deg, transparent 8%, rgba(255, 255, 255, 0.09) 8%, rgba(255, 255, 255, 0.09) 24%, transparent 24%),
+    linear-gradient(132deg, transparent 30%, rgba(183, 228, 199, 0.14) 30%, rgba(183, 228, 199, 0.14) 46%, transparent 46%),
+    linear-gradient(168deg, transparent 52%, rgba(255, 255, 255, 0.08) 52%, rgba(255, 255, 255, 0.08) 66%, transparent 66%),
+    linear-gradient(142deg, transparent 72%, rgba(149, 213, 178, 0.12) 72%, rgba(149, 213, 178, 0.12) 84%, transparent 84%);
+  clip-path: polygon(18% 0, 100% 0, 100% 100%, 0 100%);
+}
+
+.employee-portal .emp-dash-btn::before,
+.employee-portal [data-employee-page] .emp-dash-btn::before,
+.crewiq-dashboard .emp-dash-btn::before,
+[data-employee-dashboard] .emp-dash-btn::before,
+[data-employee-leave] .emp-dash-btn::before,
+[data-employee-tickets] .emp-dash-btn::before {
+  left: -6%;
+  transform: skewX(-12deg) scaleX(-1);
+  -webkit-mask-image: linear-gradient(90deg, black 0%, black 62%, rgba(0, 0, 0, 0.35) 82%, transparent 100%);
+  mask-image: linear-gradient(90deg, black 0%, black 62%, rgba(0, 0, 0, 0.35) 82%, transparent 100%);
+}
+
+.employee-portal .emp-dash-btn::after,
+.employee-portal [data-employee-page] .emp-dash-btn::after,
+.crewiq-dashboard .emp-dash-btn::after,
+[data-employee-dashboard] .emp-dash-btn::after,
+[data-employee-leave] .emp-dash-btn::after,
+[data-employee-tickets] .emp-dash-btn::after {
+  right: -6%;
+  transform: skewX(12deg);
+  -webkit-mask-image: linear-gradient(270deg, black 0%, black 62%, rgba(0, 0, 0, 0.35) 82%, transparent 100%);
+  mask-image: linear-gradient(270deg, black 0%, black 62%, rgba(0, 0, 0, 0.35) 82%, transparent 100%);
+}
+
+.employee-portal .emp-dash-btn > *,
+.employee-portal [data-employee-page] .emp-dash-btn > *,
+.crewiq-dashboard .emp-dash-btn > *,
+[data-employee-dashboard] .emp-dash-btn > *,
+[data-employee-leave] .emp-dash-btn > *,
+[data-employee-tickets] .emp-dash-btn > *,
+.employee-portal .emp-dash-btn__label,
+.employee-portal [data-employee-page] .emp-dash-btn__label,
+.crewiq-dashboard .emp-dash-btn__label,
+[data-employee-dashboard] .emp-dash-btn__label,
+[data-employee-leave] .emp-dash-btn__label,
+[data-employee-tickets] .emp-dash-btn__label {
+  position: relative;
+  z-index: 1;
+}
+
+.employee-portal .emp-dashboard-hero--comb .emp-dash-btn.emp-dash-btn--stat,
+.crewiq-dashboard .emp-dashboard-hero--comb .emp-dash-btn.emp-dash-btn--stat,
+.employee-portal [data-employee-page] .emp-dashboard-hero--comb .emp-dash-btn.emp-dash-btn--stat,
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-dash-btn.emp-dash-btn--stat {
+  --emp-dash-facet-w: min(44%, 3.35rem);
+  background: linear-gradient(135deg, #2d6a4f 0%, #1b4332 100%) !important;
+  background-color: #1b4332 !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  box-shadow:
+    0 2px 8px rgba(12, 24, 18, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+  color: #ffffff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.employee-portal .emp-dash-btn--stat,
+.crewiq-dashboard .emp-dash-btn--stat,
+[data-employee-dashboard] .emp-dash-btn--stat {
+  border-radius: 0.75rem;
+}
+
+.employee-portal .emp-dash-btn.emp-dash-btn--stat.emp-dash-btn--link:hover,
+.crewiq-dashboard .emp-dashboard-hero--comb .emp-dash-btn.emp-dash-btn--stat.emp-dash-btn--link:hover,
+[data-employee-dashboard] .emp-dash-btn.emp-dash-btn--stat.emp-dash-btn--link:hover {
+  background: linear-gradient(135deg, #326f54 0%, #1f4a38 100%) !important;
+  background-color: #1f4a38 !important;
+  border-color: rgba(255, 255, 255, 0.24) !important;
+  filter: brightness(1.06);
+  box-shadow:
+    0 3px 10px rgba(12, 24, 18, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+}
+
+.employee-portal .emp-dash-btn--stat .emp-dash-btn__stat-title,
+.crewiq-dashboard .emp-dashboard-hero--comb .emp-dash-btn--stat .emp-dash-btn__stat-title,
+[data-employee-dashboard] .emp-dash-btn--stat .emp-dash-btn__stat-title {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.82) !important;
+}
+
+.employee-portal .emp-dash-btn--stat .emp-dash-btn__stat-value,
+.crewiq-dashboard .emp-dashboard-hero--comb .emp-dash-btn--stat .emp-dash-btn__stat-value,
+[data-employee-dashboard] .emp-dash-btn--stat .emp-dash-btn__stat-value {
+  margin: 0.25rem 0 0;
+  color: #ffffff !important;
+}
+
+.employee-portal .emp-dash-btn--stat .emp-dash-btn__stat-trend,
+.crewiq-dashboard .emp-dashboard-hero--comb .emp-dash-btn--stat .emp-dash-btn__stat-trend,
+[data-employee-dashboard] .emp-dash-btn--stat .emp-dash-btn__stat-trend {
+  margin: 0.25rem 0 0;
+  color: rgba(209, 250, 229, 0.9) !important;
+}
+
+[data-employee-dashboard] .emp-dash-btn--stat.emp-dash-btn--skeleton {
+  background: linear-gradient(135deg, rgba(45, 106, 79, 0.55) 0%, rgba(27, 67, 50, 0.65) 100%) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+[data-employee-dashboard] .emp-dash-btn--stat.emp-dash-btn--skeleton::before,
+[data-employee-dashboard] .emp-dash-btn--stat.emp-dash-btn--skeleton::after {
+  display: none !important;
+}
+
+/* Hero stat tiles — diagonal hatch (distinct from banner tree/grid decor) */
+.employee-portal [data-employee-page] .emp-dash-btn--stat::before,
+.crewiq-dashboard .emp-dash-btn--stat::before,
+[data-employee-dashboard] .emp-dash-btn--stat::before {
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
+  background:
+    repeating-linear-gradient(
+      -36deg,
+      transparent 0,
+      transparent 8px,
+      rgba(255, 255, 255, 0.075) 8px,
+      rgba(255, 255, 255, 0.075) 9px
+    ),
+    repeating-linear-gradient(
+      36deg,
+      transparent 0,
+      transparent 14px,
+      rgba(183, 228, 199, 0.09) 14px,
+      rgba(183, 228, 199, 0.09) 15px
+    );
+  clip-path: none;
+  -webkit-mask-image: linear-gradient(115deg, black 4%, rgba(0, 0, 0, 0.55) 38%, rgba(0, 0, 0, 0.2) 62%, transparent 88%);
+  mask-image: linear-gradient(115deg, black 4%, rgba(0, 0, 0, 0.55) 38%, rgba(0, 0, 0, 0.2) 62%, transparent 88%);
+}
+
+.employee-portal [data-employee-page] .emp-dash-btn--stat::after,
+.crewiq-dashboard .emp-dash-btn--stat::after,
+[data-employee-dashboard] .emp-dash-btn--stat::after {
+  left: auto;
+  top: -18%;
+  right: -8%;
+  width: 42%;
+  height: 136%;
+  transform: skewX(14deg);
+  background:
+    linear-gradient(168deg, transparent 46%, rgba(255, 255, 255, 0.12) 46%, rgba(255, 255, 255, 0.12) 54%, transparent 54%),
+    linear-gradient(152deg, transparent 18%, rgba(149, 213, 178, 0.16) 18%, rgba(149, 213, 178, 0.16) 28%, transparent 28%);
+  clip-path: polygon(22% 0, 100% 0, 100% 100%, 0 100%);
+  -webkit-mask-image: linear-gradient(270deg, black 0%, black 55%, transparent 92%);
+  mask-image: linear-gradient(270deg, black 0%, black 55%, transparent 92%);
+}
+
+[data-employee-dashboard] .emp-dash-btn svg,
+[data-employee-leave] .emp-dash-btn svg,
+[data-employee-tickets] .emp-dash-btn svg {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* Full-width portal submit buttons (leave, tickets, …) */
+[data-employee-leave] .emp-dash-btn.emp-portal-submit-btn,
+[data-employee-tickets] .emp-dash-btn.emp-portal-submit-btn {
+  --emp-dash-facet-w: min(40%, 9rem);
+  min-height: 2.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+[data-employee-leave] .emp-dash-btn.emp-portal-submit-btn {
+  min-height: calc(2.5rem * var(--els, 0.9));
+  font-size: calc(0.875rem * var(--els, 0.9));
+}
+
+[data-employee-leave] .emp-dash-btn.emp-leave-history-toolbar__clear {
+  height: calc(2.25rem * var(--els, 0.9)) !important;
+  font-size: calc(0.8125rem * var(--els, 0.9)) !important;
+}
+
+/* Calendar — right facet only on dark green header bars */
+[data-employee-calendar] .admin-cal-header,
+[data-employee-calendar] .admin-cal-side-unified-title {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+[data-employee-calendar] .admin-cal-header::after {
+  content: '';
+  position: absolute;
+  top: -32%;
+  right: -5%;
+  z-index: 0;
+  width: min(58%, 28rem);
+  height: 168%;
+  transform: skewX(12deg);
+  pointer-events: none;
+  background:
+    linear-gradient(152deg, transparent 8%, rgba(255, 255, 255, 0.09) 8%, rgba(255, 255, 255, 0.09) 24%, transparent 24%),
+    linear-gradient(132deg, transparent 30%, rgba(183, 228, 199, 0.14) 30%, rgba(183, 228, 199, 0.14) 46%, transparent 46%),
+    linear-gradient(168deg, transparent 52%, rgba(255, 255, 255, 0.08) 52%, rgba(255, 255, 255, 0.08) 66%, transparent 66%),
+    linear-gradient(142deg, transparent 72%, rgba(149, 213, 178, 0.12) 72%, rgba(149, 213, 178, 0.12) 84%, transparent 84%);
+  clip-path: polygon(12% 0, 100% 0, 100% 100%, 0 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.12) 12%, rgba(0, 0, 0, 0.5) 28%, black 48%);
+  mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.12) 12%, rgba(0, 0, 0, 0.5) 28%, black 48%);
+}
+
+[data-employee-calendar] .admin-cal-side-unified-title::after {
+  content: '';
+  position: absolute;
+  top: -32%;
+  right: -5%;
+  z-index: 0;
+  width: min(64%, 20rem);
+  height: 168%;
+  transform: skewX(12deg);
+  pointer-events: none;
+  background:
+    linear-gradient(152deg, transparent 8%, rgba(255, 255, 255, 0.09) 8%, rgba(255, 255, 255, 0.09) 24%, transparent 24%),
+    linear-gradient(132deg, transparent 30%, rgba(183, 228, 199, 0.14) 30%, rgba(183, 228, 199, 0.14) 46%, transparent 46%),
+    linear-gradient(168deg, transparent 52%, rgba(255, 255, 255, 0.08) 52%, rgba(255, 255, 255, 0.08) 66%, transparent 66%),
+    linear-gradient(142deg, transparent 72%, rgba(149, 213, 178, 0.12) 72%, rgba(149, 213, 178, 0.12) 84%, transparent 84%);
+  clip-path: polygon(12% 0, 100% 0, 100% 100%, 0 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.12) 12%, rgba(0, 0, 0, 0.5) 28%, black 48%);
+  mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.12) 12%, rgba(0, 0, 0, 0.5) 28%, black 48%);
+}
+
+[data-employee-calendar] .admin-cal-header > *,
+[data-employee-calendar] .admin-cal-side-unified-title > * {
+  position: relative;
+  z-index: 1;
+}

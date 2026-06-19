@@ -126,7 +126,7 @@ export function UpcomingHolidaysCard({ holidays = [], className, compact = false
           </div>
           <Link
             to="/employee/calendar"
-            className="inline-flex shrink-0 items-center gap-0.5 text-[10px] font-medium text-primary hover:underline"
+            className="emp-dash-btn emp-dash-btn--sm inline-flex shrink-0 items-center gap-0.5"
           >
             Calendar <ArrowRight className="h-3 w-3" />
           </Link>

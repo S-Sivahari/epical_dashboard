@@ -1,12 +1,13 @@
 import { Suspense } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { LoginBackground } from '@components/auth/LoginBackground'
-import { PageLoading } from '@components/layout/PageLoading'
 import { PortalErrorBoundary } from '@components/employee/shared/PortalErrorBoundary'
 import { EmployeeCommandBar } from './EmployeeCommandBar'
 import { EmployeePageShell } from './EmployeePageShell'
 import { EmployeeTopNav } from './EmployeeTopNav'
 import { EmployeeNavWheel } from './EmployeeNavWheel'
+import { EmployeePageTransition } from './EmployeePageTransition'
+import { EmployeePageLoading } from './EmployeePageLoading'
 import { EmployeeTimesheetSync } from '@components/employee/shared/EmployeeTimesheetSync'
 import { EmployeeAuthProfileSync } from '@components/employee/shared/EmployeeAuthProfileSync'
 import { ROUTES } from '@constants/routes'
@@ -19,14 +20,16 @@ function EmployeeOutlet() {
     || pathname.includes('/metal-routing')
     || pathname.startsWith(ROUTES.EMPLOYEE_PROJECT_ANALYSIS)
 
-  if (skipPageShell) {
-    return <Outlet />
-  }
-  return (
-    <EmployeePageShell>
+  const page = (
+    <EmployeePageTransition>
       <Outlet />
-    </EmployeePageShell>
+    </EmployeePageTransition>
   )
+
+  if (skipPageShell) {
+    return page
+  }
+  return <EmployeePageShell>{page}</EmployeePageShell>
 }
 
 export function AppLayout() {
@@ -53,9 +56,11 @@ export function AppLayout() {
         <LoginBackground variant="admin" />
         <div className="relative z-[1] flex min-h-0 flex-1 flex-col">
           <PortalErrorBoundary>
-            <Suspense fallback={<PageLoading />}>
-              <EmployeeOutlet />
-            </Suspense>
+            <div className="emp-page-stage">
+              <Suspense fallback={<EmployeePageLoading />}>
+                <EmployeeOutlet />
+              </Suspense>
+            </div>
           </PortalErrorBoundary>
         </div>
       </main>
