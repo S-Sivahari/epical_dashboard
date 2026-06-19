@@ -127,6 +127,16 @@ export function matchQuickFilter(range: ChartDateRange): ChartQuickFilter {
   return 'Custom'
 }
 
+export type ChartPeriodPreset = ChartPeriod | 'Custom'
+
+export function inferChartPeriod(from: string, to: string): ChartPeriodPreset {
+  for (const period of CHART_PERIODS) {
+    const range = getChartRange(period)
+    if (range.from === from && range.to === to) return period
+  }
+  return 'Custom'
+}
+
 export function getChartRangeDayCount(from: string, to: string) {
   if (!from || !to) return 0
   const start = new Date(`${from}T00:00:00`)
@@ -904,7 +914,23 @@ export function aggregateChartData(
   })
 }
 
-export function getChartSubtitle(period: ChartPeriod) {
+export function getChartDateRangeSubtitle(from: string, to: string) {
+  const fmt = (d: string) => {
+    const [y, m, day] = d.split('-')
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    return `${months[Number(m) - 1]} ${Number(day)}, ${y}`
+  }
+  if (!from || !to) return 'Hours logged'
+  return from === to
+    ? `Hours logged on ${fmt(from)}`
+    : `Hours logged ${fmt(from)} – ${fmt(to)}`
+}
+
+export function getChartSubtitle(period: ChartPeriod | string, from?: string, to?: string) {
+  if (from && to) {
+    return getChartDateRangeSubtitle(from, to)
+  }
+
   switch (period) {
     case 'This Week':
       return 'Hours logged this week (Mon–Sun)'
@@ -917,4 +943,10 @@ export function getChartSubtitle(period: ChartPeriod) {
     default:
       return 'Hours logged'
   }
+}
+
+/** Pick weekly vs ranged chart aggregation from the selected date span. */
+export function chartPeriodForDateRange(from: string, to: string): ChartPeriod {
+  const week = getChartRange('This Week')
+  return from === week.from && to === week.to ? 'This Week' : 'This Month'
 }

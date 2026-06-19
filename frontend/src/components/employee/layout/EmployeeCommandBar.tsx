@@ -4,9 +4,11 @@ import { ArrowLeft, LogOut } from 'lucide-react'
 import { CompanyLogo } from '@components/auth/CompanyLogo'
 import { EmployeePhotoAvatar } from '@components/employee/shared/EmployeePhotoAvatar'
 import { NotificationBell } from '@components/layout/NotificationBell'
+import { PortalToggle } from '@components/layout/PortalToggle'
 import { CommandBarNewsMarquee } from '@components/layout/CommandBarNewsMarquee'
 import { useAuthStore } from '@store/authStore'
 import { useMyEmployeeAvatar } from '@hooks/useMyEmployeeAvatar'
+import { cn } from '@/utils/cn'
 import {
   getEmployeePageTitle,
   shouldShowEmployeeBackButton,
@@ -17,6 +19,7 @@ export function EmployeeCommandBar() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
+  const portalAdmin = useAuthStore((s) => s.portalAdmin)
   const logout = useAuthStore((s) => s.logout)
   const avatarUrl = useMyEmployeeAvatar()
 
@@ -29,7 +32,12 @@ export function EmployeeCommandBar() {
   }
 
   return (
-    <header className="cmd-bar employee-cmd-bar flex h-[4.25rem] shrink-0 items-center gap-2 px-4 sm:gap-3 lg:px-5">
+    <header
+      className={cn(
+        'cmd-bar employee-cmd-bar flex h-16 shrink-0 items-center gap-2 px-4 sm:gap-3 lg:px-5',
+        portalAdmin && 'employee-cmd-bar--dual-portal',
+      )}
+    >
       <div className="employee-cmd-bar__decor" aria-hidden>
         <span className="employee-cmd-bar__facets employee-cmd-bar__facets--right" />
         <span className="employee-cmd-bar__grid employee-cmd-bar__grid--right" />
@@ -53,15 +61,15 @@ export function EmployeeCommandBar() {
           title="Dashboard"
           aria-label="Go to dashboard"
         >
-          <CompanyLogo className="employee-cmd-bar__logo h-9 w-9 shrink-0 sm:h-10 sm:w-10" alt="Epical Layouts" />
+          <CompanyLogo className="employee-cmd-bar__logo h-10 w-10 shrink-0 sm:h-11 sm:w-11" alt="Epical Layouts" />
         </Link>
 
         {user ? (
           <div className="employee-cmd-bar__identity min-w-0">
-            <p className="employee-cmd-bar__name truncate font-display text-base font-extrabold sm:text-lg">
+            <p className="employee-cmd-bar__name truncate font-display font-extrabold">
               {user.name}
             </p>
-            <p className="employee-cmd-bar__page-title truncate text-xs font-medium sm:text-sm">
+            <p className="employee-cmd-bar__page-title truncate font-medium">
               {pageTitle}
             </p>
           </div>
@@ -91,6 +99,8 @@ export function EmployeeCommandBar() {
         <DashboardActiveTimer variant="commandBar" />
 
         <NotificationBell />
+
+        <PortalToggle />
 
         <Link
           to="/employee/profile"

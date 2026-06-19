@@ -2940,6 +2940,15 @@
   padding: 0;
 }
 
+.metal-routing-view .metal-routing-pdk-list-row__view {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.metal-routing-view .metal-routing-pdk-card__footer--action {
+  justify-content: flex-end;
+}
+
 .metal-routing-view .metal-routing-pdk-list-row--simple {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto auto;

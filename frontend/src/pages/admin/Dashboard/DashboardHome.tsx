@@ -14,8 +14,10 @@ import {
   type ChartDateRange,
 } from './dashboardChartUtils'
 import { formatEmployeesAddedThisMonth } from './dashboardBackendUtils'
+
 export function DashboardHome() {
   const [chartDateRange, setChartDateRange] = useState<ChartDateRange>(() => getDefaultChartDateRange())
+
   const data = useCommandCenterData(chartDateRange)
   const projectTableRows = useMemo(
     () => aggregateProjectTableRows(data.timesheets, data.projects),

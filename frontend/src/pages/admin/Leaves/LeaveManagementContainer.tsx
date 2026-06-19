@@ -175,12 +175,14 @@ function LeaveFeedRow({
         {line2 ? <p className="admin-leaves-feed-row-sub">{line2}</p> : null}
         {line3 ? <p className="admin-leaves-feed-row-meta">{line3}</p> : null}
       </div>
-      {daysLabel ? (
-        <span className="admin-leaves-feed-days" title="Leave duration">
-          {daysLabel}
-        </span>
-      ) : null}
-      <div className="admin-leaves-feed-actions">{actions}</div>
+      <div className="admin-leaves-feed-actions">
+        {actions}
+        {daysLabel ? (
+          <span className="admin-leaves-feed-days" title="Leave duration">
+            {daysLabel}
+          </span>
+        ) : null}
+      </div>
     </div>
   )
 }
@@ -483,7 +485,9 @@ export function LeaveManagementContainer() {
           <header className="admin-leaves-hub-header">
             <div className="admin-leaves-hero-top">
               <div className="min-w-0">
-                <h1 className="admin-leaves-hero-title font-display">Leave Management Hub</h1>
+                <h1 className="admin-leaves-hero-title font-display">
+                  {activeTab === 'compensation' ? 'Compensation Management' : 'Leave Management'}
+                </h1>
               </div>
               <nav className="admin-leaves-tab-rail" aria-label="Leave views">
                 {([
@@ -660,6 +664,7 @@ export function LeaveManagementContainer() {
                     return (
                       <LeaveFeedRow
                         key={l.id}
+                        stackBadge
                         badgeLabel={l.type}
                         badgeClass="bg-emerald-100 text-emerald-800"
                         title={

@@ -245,7 +245,7 @@ export function EmployeeList() {
   const dataColumns: Column<Employee>[] = [
     {
       key: 'firstName',
-      header: 'Employee',
+      header: 'Employee Name',
       sortable: true,
       render: (e) => {
         const name = `${e.firstName} ${e.lastName}`

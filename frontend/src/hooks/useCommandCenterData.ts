@@ -31,6 +31,7 @@ const DASHBOARD_REFRESH_MS = 15 * 60 * 1000
 
 export function useCommandCenterData(chartDateRange: ChartDateRange) {
   const user = useAuthStore((s) => s.user)
+  const employeesRevision = useEmployeeStore((s) => s.employeesRevision)
   const { leaves, holidays } = useLeaves()
   const totalEmployees = useEmployeeStore((s) => s.pagination.total)
   const [allEmployees, setAllEmployees] = useState<any[]>([])
@@ -179,7 +180,7 @@ export function useCommandCenterData(chartDateRange: ChartDateRange) {
       cancelled = true
       window.clearInterval(refreshId)
     }
-  }, [chartDateRange.from, chartDateRange.to])
+  }, [chartDateRange.from, chartDateRange.to, employeesRevision])
 
   const pendingLeaves = leaves.filter((l) => l.status === 'Pending')
   const approvedLeaves = leaves.filter((l) => l.status === 'Approved')

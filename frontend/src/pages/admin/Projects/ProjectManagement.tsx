@@ -41,7 +41,6 @@ import {
   ArrowUpRight,
   Edit2,
   RefreshCw,
-  Upload,
 } from 'lucide-react'
 import { formatDate } from '@/utils/formatDate'
 import ExcelJS from 'exceljs'
@@ -55,10 +54,6 @@ import {
 import { timesheetReportFileName } from '@/utils/exportFileName'
 import api from '@/services/api'
 import { getEmployees } from '@/services/employeeService'
-import {
-  downloadProjectImportTemplate,
-  importProjectsReset,
-} from '@/services/projectImportService'
 import { useEmployeeStore } from '@store/employeeStore'
 import { MOCK_EMPLOYEES } from '@/services/mockData'
 import type { Employee } from '@/types'
@@ -270,11 +265,27 @@ interface DateRangePickerProps {
   onChange: (start: string, end: string, preset: string) => void
 }
 
+const QUICK_DATE_PRESETS = [
+  'Today',
+  'Yesterday',
+  'This Week',
+  'Last Week',
+  'Past Two Weeks',
+  'This Month',
+  'Last Month',
+  'This Year',
+  'Last Year',
+] as const
+
 function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRangePickerProps) {
   const [open, setOpen] = useState(false)
-  const [currentMonth, setCurrentMonth] = useState<Date>(new Date(startDate || new Date().toISOString().split('T')[0]))
-  const [tempStart, setTempStart] = useState<string | null>(startDate)
-  const [tempEnd, setTempEnd] = useState<string | null>(endDate)
+  const [currentMonth, setCurrentMonth] = useState<Date>(
+    new Date(startDate || new Date().toISOString().split('T')[0]),
+  )
+  const [draftStart, setDraftStart] = useState(startDate)
+  const [draftEnd, setDraftEnd] = useState(endDate)
+  const [draftPreset, setDraftPreset] = useState(preset)
+  const [activeField, setActiveField] = useState<'start' | 'end'>('start')
   const containerRef = useRef<HTMLDivElement>(null)
   const calendarRef = useRef<HTMLDivElement>(null)
   const [calendarPosition, setCalendarPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
@@ -284,31 +295,27 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
       const rect = containerRef.current.getBoundingClientRect()
       const viewportHeight = window.innerHeight
       const viewportWidth = window.innerWidth
-      const calendarHeight = 450 // Approximate height of calendar popup
-      const calendarWidth = 520 // Approximate width
-      
+      const calendarHeight = 560
+      const calendarWidth = 700
+
       let top = rect.bottom + 8
       let left = rect.left
-      
-      // If calendar would overflow bottom of viewport, position it above the trigger
+
       if (top + calendarHeight > viewportHeight - 20) {
         top = rect.top - calendarHeight - 8
-        // If it would overflow top, just position at bottom with scroll
         if (top < 20) {
           top = rect.bottom + 8
         }
       }
-      
-      // Ensure calendar doesn't overflow left edge
+
       if (left < 16) {
         left = 16
       }
-      
-      // Ensure calendar doesn't overflow right edge
+
       if (left + calendarWidth > viewportWidth - 16) {
         left = viewportWidth - calendarWidth - 16
       }
-      
+
       setCalendarPosition({ top, left })
     }
   }, [open])
@@ -325,7 +332,6 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
     }
   }, [open, updateCalendarPosition])
 
-  // Handle clicks outside both the trigger and the calendar popup
   useEffect(() => {
     if (!open) return
 
@@ -333,42 +339,31 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
       const target = e.target as Node
       const isClickInsideContainer = containerRef.current?.contains(target)
       const isClickInsideCalendar = calendarRef.current?.contains(target)
-      
+
       if (!isClickInsideContainer && !isClickInsideCalendar) {
         setOpen(false)
-        setTempStart(startDate)
-        setTempEnd(endDate)
+        setDraftStart(startDate)
+        setDraftEnd(endDate)
+        setDraftPreset(preset)
       }
     }
 
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [open, startDate, endDate])
-
-  const applySingleDay = (dateStr: string) => {
-    setTempStart(dateStr)
-    setTempEnd(dateStr)
-    onChange(dateStr, dateStr, 'Custom')
-    setOpen(false)
-  }
-
-  const applyRange = (start: string, end: string) => {
-    setTempStart(start)
-    setTempEnd(end)
-    onChange(start, end, 'Custom')
-    setOpen(false)
-  }
+  }, [open, startDate, endDate, preset])
 
   useEffect(() => {
     if (open) {
-      setTempStart(startDate)
-      setTempEnd(endDate)
+      setDraftStart(startDate)
+      setDraftEnd(endDate)
+      setDraftPreset(preset)
+      setActiveField('start')
       setCurrentMonth(new Date(startDate || new Date().toISOString().split('T')[0]))
     }
-  }, [open, startDate, endDate])
+  }, [open, startDate, endDate, preset])
 
   const getPresetDates = (selectedPreset: string): { start: string; end: string } => {
-    const today = new Date() // Use actual current date
+    const today = new Date()
     let start = new Date()
     let end = new Date()
 
@@ -414,7 +409,6 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
         break
     }
 
-    // Format as YYYY-MM-DD without timezone conversion issues
     const pad = (num: number) => String(num).padStart(2, '0')
     const format = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
     return { start: format(start), end: format(end) }
@@ -422,6 +416,9 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
 
   const handlePresetClick = (p: string) => {
     const { start, end } = getPresetDates(p)
+    setDraftStart(start)
+    setDraftEnd(end)
+    setDraftPreset(p)
     onChange(start, end, p)
     setOpen(false)
   }
@@ -434,20 +431,41 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))
   }
 
-  const handleDayClick = (dateStr: string, e: React.MouseEvent) => {
-    if (e.shiftKey) {
-      if (!tempStart || (tempStart && tempEnd)) {
-        setTempStart(dateStr)
-        setTempEnd(null)
-        return
+  const handleDayClick = (dateStr: string) => {
+    setDraftPreset('Custom')
+
+    if (activeField === 'start') {
+      if (draftEnd && dateStr > draftEnd) {
+        setDraftStart(draftEnd)
+        setDraftEnd(dateStr)
+      } else {
+        setDraftStart(dateStr)
       }
-      const start = dateStr < tempStart ? dateStr : tempStart
-      const end = dateStr < tempStart ? tempStart : dateStr
-      applyRange(start, end)
+      setActiveField('end')
       return
     }
-    applySingleDay(dateStr)
+
+    setDraftEnd(dateStr)
+    if (draftStart && dateStr < draftStart) {
+      setDraftStart(dateStr)
+      setDraftEnd(draftStart)
+    }
   }
+
+  const handleApply = () => {
+    if (!draftStart || !draftEnd) {
+      toast.error('Select both start and end dates')
+      return
+    }
+
+    const start = draftStart <= draftEnd ? draftStart : draftEnd
+    const end = draftStart <= draftEnd ? draftEnd : draftStart
+    onChange(start, end, 'Custom')
+    setOpen(false)
+  }
+
+  const rangeStart = draftStart && draftEnd ? (draftStart <= draftEnd ? draftStart : draftEnd) : draftStart
+  const rangeEnd = draftStart && draftEnd ? (draftStart <= draftEnd ? draftEnd : draftStart) : draftEnd
 
   const calendarCells = useMemo(() => {
     const year = currentMonth.getFullYear()
@@ -500,98 +518,137 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
       </button>
 
       {open && createPortal(
-        <div 
+        <div
           className="projects-date-calendar-portal fixed inset-0 z-[10000]"
           style={{ pointerEvents: 'none' }}
         >
-          {/* Calendar popup */}
-          <div 
+          <div
             ref={calendarRef}
-            className="projects-date-calendar date-range-popover absolute flex w-[92vw] flex-col gap-3 rounded-2xl p-3 shadow-2xl sm:w-auto sm:min-w-[500px] md:flex-row md:p-4"
+            className="projects-date-calendar date-range-popover absolute flex w-[94vw] flex-col gap-0 rounded-2xl shadow-2xl sm:w-auto sm:min-w-[700px] md:flex-row"
             style={{
               top: `${calendarPosition.top}px`,
               left: `${calendarPosition.left}px`,
               pointerEvents: 'auto',
             }}
           >
-            {/* Calendar Grid */}
-            <div className="flex-1 select-none">
-              <div className="projects-date-calendar-header flex items-center justify-between mb-3 rounded-lg px-2 py-1.5">
-                <button type="button" onClick={handlePrevMonth} className="projects-date-nav-btn p-1 rounded-md">
-                  <ChevronLeft className="h-4 w-4" />
+            <div className="projects-date-calendar-main flex-1 select-none">
+              <div className="projects-date-fields">
+                <button
+                  type="button"
+                  onClick={() => setActiveField('start')}
+                  className={cn(
+                    'projects-date-field',
+                    activeField === 'start' && 'projects-date-field-active',
+                  )}
+                >
+                  <span className="projects-date-field-label">Start Date</span>
+                  <span className="projects-date-field-value">
+                    {draftStart ? formatDate(draftStart) : 'Select date'}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveField('end')}
+                  className={cn(
+                    'projects-date-field',
+                    activeField === 'end' && 'projects-date-field-active',
+                  )}
+                >
+                  <span className="projects-date-field-label">End Date</span>
+                  <span className="projects-date-field-value">
+                    {draftEnd ? formatDate(draftEnd) : 'Select date'}
+                  </span>
+                </button>
+              </div>
+
+              <div className="projects-date-calendar-header">
+                <button type="button" onClick={handlePrevMonth} className="projects-date-nav-btn" aria-label="Previous month">
+                  <ChevronLeft className="h-5 w-5" />
                 </button>
                 <span className="date-range-month-title type-calendar-month">
                   {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
                 </span>
-                <button type="button" onClick={handleNextMonth} className="projects-date-nav-btn p-1 rounded-md">
-                  <ChevronRight className="h-4 w-4" />
+                <button type="button" onClick={handleNextMonth} className="projects-date-nav-btn" aria-label="Next month">
+                  <ChevronRight className="h-5 w-5" />
                 </button>
               </div>
 
-              <div className="projects-date-weekdays type-calendar-weekday mb-1.5 grid grid-cols-7 gap-1 text-center">
+              <div className="projects-date-weekdays type-calendar-weekday">
                 {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
-                  <span key={d} className="py-1">
-                    {d}
-                  </span>
+                  <span key={d}>{d}</span>
                 ))}
               </div>
 
-              <div className="grid grid-cols-7 gap-1 text-center text-xs">
+              <div className="projects-date-grid">
                 {calendarCells.map((cell, idx) => {
-                  const isSelectedStart = tempStart && cell.dateString === tempStart
-                  const isSelectedEnd = tempEnd && cell.dateString === tempEnd
-                  const isSingleDay = tempStart && tempEnd && tempStart === tempEnd && cell.dateString === tempStart
+                  const isRangeStart = rangeStart && cell.dateString === rangeStart
+                  const isRangeEnd = rangeEnd && cell.dateString === rangeEnd
+                  const isSingleDay = rangeStart && rangeEnd && rangeStart === rangeEnd && cell.dateString === rangeStart
                   const isWithinRange =
-                    tempStart && tempEnd && tempStart !== tempEnd && cell.dateString > tempStart && cell.dateString < tempEnd
+                    rangeStart &&
+                    rangeEnd &&
+                    rangeStart !== rangeEnd &&
+                    cell.dateString > rangeStart &&
+                    cell.dateString < rangeEnd
+                  const isActiveTarget =
+                    (activeField === 'start' && cell.dateString === draftStart) ||
+                    (activeField === 'end' && cell.dateString === draftEnd)
 
                   return (
                     <button
                       key={idx}
                       type="button"
-                      onClick={(e) => handleDayClick(cell.dateString, e)}
-                      title={`Filter logs for ${cell.dateString}. Shift+click a second date for a range.`}
-                      className={`
-                        projects-date-day h-7 w-7 rounded-lg flex items-center justify-center font-semibold transition-all
-                        ${cell.isCurrentMonth ? 'projects-date-day-current' : 'projects-date-day-muted'}
-                        ${isSingleDay || isSelectedStart || isSelectedEnd ? 'projects-date-day-selected' : ''}
-                        ${isWithinRange ? 'projects-date-day-in-range' : ''}
-                      `}
+                      onClick={() => handleDayClick(cell.dateString)}
+                      className={cn(
+                        'projects-date-day',
+                        cell.isCurrentMonth ? 'projects-date-day-current' : 'projects-date-day-muted',
+                        (isSingleDay || isRangeStart || isRangeEnd) && 'projects-date-day-selected',
+                        isWithinRange && 'projects-date-day-in-range',
+                        isActiveTarget && 'projects-date-day-focus',
+                      )}
                     >
                       {cell.day}
                     </button>
                   )
                 })}
               </div>
-              <p className="projects-date-hint mt-2.5 text-[10px] font-medium">
-                Click any date to filter that day. Hold Shift, click a start date, then another date for a custom range.
-              </p>
+
+              <div className="projects-date-actions">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false)
+                    setDraftStart(startDate)
+                    setDraftEnd(endDate)
+                    setDraftPreset(preset)
+                  }}
+                  className="projects-date-action-btn projects-date-action-btn--ghost"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApply}
+                  className="projects-date-action-btn projects-date-action-btn--primary"
+                >
+                  Apply Filter
+                </button>
+              </div>
             </div>
 
-            {/* Divider */}
             <div className="projects-date-divider hidden md:block" />
 
-            {/* Quick Presets Panel */}
-            <div className="projects-date-presets w-36 flex flex-col gap-0.5">
-              <p className="type-card-label-caps mb-2 text-[9px]">Quick Presets</p>
-              {[
-                'Today',
-                'Yesterday',
-                'This Week',
-                'Last Week',
-                'Past Two Weeks',
-                'This Month',
-                'Last Month',
-                'This Year',
-                'Last Year',
-              ].map((p) => (
+            <div className="projects-date-presets">
+              <p className="type-card-label-caps">Quick Presets</p>
+              {QUICK_DATE_PRESETS.map((p) => (
                 <button
                   key={p}
                   type="button"
                   onClick={() => handlePresetClick(p)}
-                  className={`
-                    projects-date-preset text-left px-2.5 py-1 rounded-lg text-xs font-semibold transition-all
-                    ${preset === p ? 'projects-date-preset-active' : ''}
-                  `}
+                  className={cn(
+                    'projects-date-preset',
+                    draftPreset === p && 'projects-date-preset-active',
+                  )}
                 >
                   {p}
                 </button>
@@ -599,7 +656,7 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
             </div>
           </div>
         </div>,
-        document.body
+        document.body,
       )}
     </div>
   )
@@ -1571,12 +1628,6 @@ export function ProjectManagement() {
   const [archivedProjects, setArchivedProjects] = useState<ArchivedProjectSummary[]>([])
   const [loadingArchived, setLoadingArchived] = useState(false)
   const [restoringArchivedId, setRestoringArchivedId] = useState<string | null>(null)
-  const archivedCount = archivedProjects.length
-
-  const [importFile, setImportFile] = useState<File | null>(null)
-  const [importingProjects, setImportingProjects] = useState(false)
-  const [importConfirmOpen, setImportConfirmOpen] = useState(false)
-  const importFileInputRef = useRef<HTMLInputElement>(null)
 
   const openAuditTrail = useCallback((id: string, name: string) => {
     setSelectedAuditProjectId(id)
@@ -1694,39 +1745,6 @@ export function ProjectManagement() {
   const refreshAllData = useCallback(async () => {
     await Promise.all([fetchProjects(), fetchTimesheetsData(), fetchArchivedProjects()])
   }, [fetchProjects, fetchTimesheetsData, fetchArchivedProjects])
-
-  const handleDownloadProjectTemplate = useCallback(async () => {
-    try {
-      await downloadProjectImportTemplate()
-      toast.success('Template downloaded')
-    } catch {
-      toast.error('Failed to download template')
-    }
-  }, [])
-
-  const handleConfirmProjectImport = useCallback(async () => {
-    if (!importFile) return
-    setImportConfirmOpen(false)
-    setImportingProjects(true)
-    try {
-      const result = await importProjectsReset(importFile)
-      setImportFile(null)
-      if (importFileInputRef.current) importFileInputRef.current.value = ''
-      await refreshAllData()
-      toast.success(result.message)
-      if (result.warnings.length) {
-        toast.warning(`${result.warnings.length} row(s) skipped — check import warnings in console.`)
-        console.info('[Project Import] Warnings:', result.warnings)
-      }
-    } catch (err: unknown) {
-      const message =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-        (err instanceof Error ? err.message : 'Import failed')
-      toast.error(message)
-    } finally {
-      setImportingProjects(false)
-    }
-  }, [importFile, refreshAllData])
 
   const handleRestoreArchivedProject = useCallback(
     async (id: string, name: string) => {
@@ -2768,7 +2786,23 @@ export function ProjectManagement() {
               <div className="projects-hero-separator" aria-hidden />
 
               {/* Metrics + launch — equal-size cards */}
-              <div className="projects-hero-cards-row">
+              <div
+                className={cn(
+                  'projects-hero-cards-row',
+                  activeTab !== 'analytics' && activeTab !== 'archived' && 'projects-hero-cards-row--with-create',
+                )}
+              >
+                {activeTab !== 'analytics' && activeTab !== 'archived' ? (
+                  <button
+                    type="button"
+                    onClick={openCreateProject}
+                    className="projects-hero-create-btn projects-hero-stat-card"
+                  >
+                    <Plus className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
+                    <span>Create Project</span>
+                  </button>
+                ) : null}
+
                 <ProjectAnalysisLaunchButton className="project-analysis-launch-btn--hero projects-hero-stat-card" />
 
                 <div className="projects-hero-stat-card">
@@ -2812,18 +2846,6 @@ export function ProjectManagement() {
         <aside className="projects-sidebar projects-sidebar--with-footer flex flex-col">
           <div className="projects-sidebar__body flex flex-1 flex-col space-y-4">
           <div>
-            {/* Create Project Button */}
-            {activeTab !== 'analytics' && activeTab !== 'archived' && (
-              <button
-                type="button"
-                onClick={openCreateProject}
-                className="sidebar-create-btn"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Create Project</span>
-              </button>
-            )}
-
             {/* Navigation List */}
             <div className="sidebar-nav-list">
               <button
@@ -2833,7 +2855,6 @@ export function ProjectManagement() {
               >
                 <FolderOpen className="h-4 w-4" />
                 <span className="flex-1 text-left">Projects</span>
-                <span className="sidebar-nav-badge">{filteredProjects.length}</span>
               </button>
               <button
                 type="button"
@@ -2842,7 +2863,6 @@ export function ProjectManagement() {
               >
                 <Clock className="h-4 w-4" />
                 <span className="flex-1 text-left">Timesheets</span>
-                <span className="sidebar-nav-badge">{filteredTimesheets.length}</span>
               </button>
               <button
                 type="button"
@@ -2859,7 +2879,6 @@ export function ProjectManagement() {
               >
                 <Archive className="h-4 w-4 shrink-0" />
                 <span className="flex-1 text-left">Archived</span>
-                <span className="sidebar-nav-badge">{archivedCount}</span>
               </button>
             </div>
           </div>
@@ -2869,64 +2888,14 @@ export function ProjectManagement() {
           )}
 
           {activeTab === 'projects' ? (
-            <div className="space-y-2.5">
-              <button
-                type="button"
-                onClick={() => void handleDownloadProjectTemplate()}
-                className="projects-show-filters-btn inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-[rgba(38,107,28,0.2)] bg-white/50 px-3 py-2 font-semibold text-slate-800 transition-all hover:bg-white/70"
-              >
-                <FileDown className="h-3.5 w-3.5 shrink-0 text-[var(--emerald-dark)]" />
-                Download Template
-              </button>
-              <input
-                ref={importFileInputRef}
-                type="file"
-                accept=".xlsx,.xls"
-                className="hidden"
-                onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+            <div className="projects-sidebar-import-donut">
+              <ProjectsTotalDonut
+                key="projects-total-donut"
+                total={projectMetrics.total}
+                inProgress={projectMetrics.inProgress}
+                completed={projectMetrics.completed}
+                cancelled={projectMetrics.cancelled}
               />
-              <button
-                type="button"
-                onClick={() => importFileInputRef.current?.click()}
-                disabled={importingProjects}
-                className="projects-show-filters-btn inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-[rgba(38,107,28,0.2)] bg-white/50 px-3 py-2 font-semibold text-slate-800 transition-all hover:bg-white/70 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Upload className="h-3.5 w-3.5 shrink-0 text-[var(--emerald-dark)]" />
-                {importFile ? 'Change File' : 'Choose Excel File'}
-              </button>
-              {importFile ? (
-                <p className="projects-sidebar-import-filename truncate px-0.5" title={importFile.name}>
-                  {importFile.name}
-                </p>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => setImportConfirmOpen(true)}
-                disabled={!importFile || importingProjects}
-                className="projects-sidebar-import-btn inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-[rgba(220,38,38,0.25)] bg-red-50 px-3 py-2 font-semibold text-red-700 transition-all hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {importingProjects ? (
-                  <>
-                    <Spinner className="h-3.5 w-3.5" />
-                    Importing…
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="h-3.5 w-3.5 shrink-0" />
-                    Import &amp; Reset Projects
-                  </>
-                )}
-              </button>
-
-              <div className="projects-sidebar-import-donut">
-                <ProjectsTotalDonut
-                  key="projects-total-donut"
-                  total={projectMetrics.total}
-                  inProgress={projectMetrics.inProgress}
-                  completed={projectMetrics.completed}
-                  cancelled={projectMetrics.cancelled}
-                />
-              </div>
             </div>
           ) : activeTab === 'timesheets' ? (
             <div className="space-y-4">
@@ -3704,16 +3673,6 @@ export function ProjectManagement() {
           onConfirm={handleConfirmArchive}
         />
       ) : null}
-
-      <ConfirmModal
-        isOpen={importConfirmOpen}
-        title="Reset All Projects from Excel?"
-        description={`This will archive every active project (visible under Archived Projects) and recreate projects from "${importFile?.name ?? 'your file'}". For timesheet-matrix files, task history is imported into timesheets. This cannot be undone.`}
-        confirmLabel="Import & Reset"
-        danger
-        onClose={() => setImportConfirmOpen(false)}
-        onConfirm={handleConfirmProjectImport}
-      />
 
       </PageWrapper>
     </div>

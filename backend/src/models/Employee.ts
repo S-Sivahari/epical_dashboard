@@ -19,6 +19,7 @@ export interface Employee {
   gender?: string;
   designation?: string;
   role: string;
+  portalAccess?: 'Employee' | 'Employee+Admin';
   managerId?: string; // ID of the employee's manager
   employmentType: EmploymentType;
   joinedAt: string;

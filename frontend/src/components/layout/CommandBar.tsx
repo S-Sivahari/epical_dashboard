@@ -1,13 +1,20 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, LogOut } from 'lucide-react'
+import { toast } from 'sonner'
 import { CompanyLogo } from '@components/auth/CompanyLogo'
 import { Avatar } from '@components/ui/Avatar'
+import { Button } from '@components/ui/Button'
+import { Input } from '@components/ui/Input'
+import { Modal } from '@components/ui/Modal'
 import { CommandBarNewsMarquee } from '@components/layout/CommandBarNewsMarquee'
 import { NotificationBell } from '@components/layout/NotificationBell'
+import { PortalToggle } from '@components/layout/PortalToggle'
 import { useAuthStore } from '@store/authStore'
+import api from '@services/api'
 import { shouldShowAdminBackButton } from '@constants/adminNavigation'
 import { ROUTES } from '@constants/routes'
+
 function titleCase(slug: string) {
   return slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
@@ -36,6 +43,11 @@ export function CommandBar() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
+  const patchUser = useAuthStore((s) => s.patchUser)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [nameDraft, setNameDraft] = useState('')
+  const [savingName, setSavingName] = useState(false)
+
   const pageTitle = useMemo(() => {
     if (pathname.startsWith('/admin/project-management') || pathname.startsWith('/admin/project-analysis')) {
       return 'Project Management'
@@ -58,65 +70,142 @@ export function CommandBar() {
     navigate('/auth/login')
   }
 
+  const openProfileModal = () => {
+    setNameDraft(user?.name ?? '')
+    setProfileOpen(true)
+  }
+
+  const handleSaveName = async () => {
+    const trimmed = nameDraft.trim()
+    if (!trimmed) {
+      toast.error('Name is required')
+      return
+    }
+    setSavingName(true)
+    try {
+      const { data } = await api.patch<{ user: { name: string } }>('/auth/me', { name: trimmed })
+      patchUser({ name: data.user.name })
+      toast.success('Display name updated')
+      setProfileOpen(false)
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Failed to update name')
+    } finally {
+      setSavingName(false)
+    }
+  }
+
   return (
-    <header className="cmd-bar flex h-[4.25rem] shrink-0 items-center gap-3 px-4 lg:px-5">
-      <div className="flex min-w-0 flex-1 items-center gap-3">
-        <Link to={ROUTES.DASHBOARD} className="shrink-0" aria-label="Go to dashboard home">
-          <CompanyLogo className="h-9 w-9 shrink-0 sm:h-10 sm:w-10" alt="Epical Layouts" />
-        </Link>
+    <>
+      <header className="cmd-bar flex h-[4.25rem] shrink-0 items-center gap-3 px-4 lg:px-5">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <Link to={ROUTES.DASHBOARD} className="shrink-0" aria-label="Go to dashboard home">
+            <CompanyLogo className="h-9 w-9 shrink-0 sm:h-10 sm:w-10" alt="Epical Layouts" />
+          </Link>
 
-        {user ? (
-          <div className="min-w-0 shrink-0">
-            <p className="truncate font-display text-base font-extrabold text-[#1a4712] sm:text-lg">
-              {user.name}
-            </p>
-            <p className="truncate text-xs font-medium text-slate-600 sm:text-sm">
-              {pageTitle}
-            </p>
-          </div>
-        ) : (
-          <div className="min-w-0 shrink-0">
-            <p className="truncate font-display text-lg font-semibold tracking-tight text-[var(--text-primary)] lg:text-xl">
-              {pageTitle}
-            </p>
-          </div>
-        )}
+          {user ? (
+            <div className="min-w-0 shrink-0">
+              <p className="truncate font-display text-base font-extrabold text-[#1a4712] sm:text-lg">
+                {user.name}
+              </p>
+              <p className="truncate text-xs font-medium text-slate-600 sm:text-sm">
+                {pageTitle}
+              </p>
+            </div>
+          ) : (
+            <div className="min-w-0 shrink-0">
+              <p className="truncate font-display text-lg font-semibold tracking-tight text-[var(--text-primary)] lg:text-xl">
+                {pageTitle}
+              </p>
+            </div>
+          )}
 
-        {showBack && (
+          {showBack && (
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="cmd-bar-icon-btn shrink-0"
+              title="Go back"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+          )}
+
+          <CommandBarNewsMarquee className="ml-1 min-w-0 flex-1" />
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <NotificationBell />
+
+          <PortalToggle />
+
           <button
             type="button"
-            onClick={() => navigate(-1)}
-            className="cmd-bar-icon-btn shrink-0"
-            title="Go back"
+            onClick={openProfileModal}
+            className="cmd-profile-btn inline-flex shrink-0 rounded-full !ring-0"
+            title="Edit display name"
+            aria-label="Edit display name"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <Avatar
+              name={user?.name ?? 'Admin'}
+              src={user?.avatarUrl}
+              size="sm"
+              color="#266b1c"
+              className="!ring-0"
+            />
           </button>
-        )}
 
-        <CommandBarNewsMarquee className="ml-1 min-w-0 flex-1" />
-      </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="cmd-logout-btn inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-sm font-semibold sm:px-3"
+            aria-label="Log out"
+          >
+            <LogOut className="h-4 w-4" />
+            <span className="hidden md:inline">Log out</span>
+          </button>
+        </div>
+      </header>
 
-      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-        <NotificationBell />
-
-        <Avatar
-          name={user?.name ?? 'Admin'}
-          src={user?.avatarUrl}
-          size="sm"
-          color="#266b1c"
-          className="cmd-profile-btn !ring-0"
-        />
-
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="cmd-logout-btn inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-sm font-semibold sm:px-3"
-          aria-label="Log out"
-        >
-          <LogOut className="h-4 w-4" />
-          <span className="hidden md:inline">Log out</span>
-        </button>
-      </div>
-    </header>
+      <Modal
+        isOpen={profileOpen}
+        onClose={() => {
+          if (savingName) return
+          setProfileOpen(false)
+        }}
+        title="Edit display name"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <label htmlFor="admin-display-name" className="block text-sm font-medium text-ink">
+              Name
+            </label>
+            <Input
+              id="admin-display-name"
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              placeholder="Your display name"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void handleSaveName()
+              }}
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setProfileOpen(false)}
+              disabled={savingName}
+            >
+              Cancel
+            </Button>
+            <Button type="button" onClick={() => void handleSaveName()} disabled={savingName}>
+              {savingName ? 'Saving…' : 'Save'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </>
   )
 }
