@@ -1320,7 +1320,10 @@ const ArchivedProjectCard = memo(function ArchivedProjectCard({
   return (
     <div
       className="projects-card group flex min-w-0 flex-col gap-4 rounded-2xl border p-5 shadow-[0_4px_15px_rgba(0,0,0,0.02)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] animate-fadeIn"
-      style={{ background: `linear-gradient(135deg, ${startColor} 0%, #ffffff 100%)`, borderColor }}
+      style={{
+        background: `linear-gradient(135deg, ${startColor} 0%, #ffffff 100%)`,
+        borderColor,
+      }}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex shrink-0 flex-col items-center gap-2">
