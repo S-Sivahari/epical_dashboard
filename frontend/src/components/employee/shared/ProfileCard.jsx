@@ -26,20 +26,20 @@ function greeting() {
 }
 
 const STAT_ACCENT_CLASS = {
-  sage: 'emp-stat-chip--sage',
-  teal: 'emp-stat-chip--teal',
-  amber: 'emp-stat-chip--amber',
-  blue: 'emp-stat-chip--blue',
-  violet: 'emp-stat-chip--violet',
+  sage: 'emp-hero-stat-chip--sage',
+  teal: 'emp-hero-stat-chip--teal',
+  amber: 'emp-hero-stat-chip--amber',
+  blue: 'emp-hero-stat-chip--blue',
+  violet: 'emp-hero-stat-chip--violet',
 }
 
 function ProfileStatMini({ title, value, trend, icon: Icon, horizontal = false, accent, to }) {
   const accentClass = accent ? STAT_ACCENT_CLASS[accent] : null
   const statClassName = cn(
     horizontal
-      ? 'emp-dash-btn emp-dashboard-hero__stat-chip flex min-w-[6.75rem] flex-col justify-center rounded-xl px-3 py-2.5 transition-colors sm:min-w-[7.5rem]'
+      ? 'emp-hero-stat-chip emp-dashboard-hero__stat-chip flex min-w-[6.75rem] flex-col justify-center rounded-xl px-3 py-2.5 transition-colors sm:min-w-[7.5rem]'
       : 'flex min-w-[5.25rem] flex-1 flex-col justify-center rounded-lg border border-white/25 bg-black/10 px-2 py-2 transition-colors',
-    to && horizontal && 'emp-dashboard-hero__stat-chip--link',
+    to && horizontal && 'emp-hero-stat-chip--link emp-dashboard-hero__stat-chip--link',
     to && !horizontal && 'cursor-pointer hover:bg-black/20',
     accentClass,
   )

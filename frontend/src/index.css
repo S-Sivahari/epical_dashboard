@@ -8553,6 +8553,16 @@
   padding-right: 0 !important;
 }
 
+.admin-notes-page .dashboard-page-bg-gradient,
+[data-admin-notes] .dashboard-page-bg-gradient {
+  background: #ffffff;
+}
+
+.admin-notes-page .dashboard-page-bg-pattern,
+[data-admin-notes] .dashboard-page-bg-pattern {
+  opacity: 0;
+}
+
 .admin-portal .admin-news-view.crewiq-dashboard,
 .admin-portal .admin-documents-view.crewiq-dashboard,
 .admin-portal .admin-notes-page.crewiq-dashboard,

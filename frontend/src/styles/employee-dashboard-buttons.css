@@ -196,3 +196,127 @@
   position: relative;
   z-index: 1;
 }
+
+/* Hero profile stat chips — frosted light tiles (not facet buttons) */
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip.emp-dashboard-hero__stat-chip {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.62) !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow:
+    0 2px 10px rgba(12, 24, 18, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88) !important;
+  color: #1a4329 !important;
+  text-decoration: none !important;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip::before,
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+}
+
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip::before {
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 0.75rem 0 0 0.75rem;
+  background: linear-gradient(180deg, #6aab8f, #2f6b4f);
+}
+
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip::after {
+  top: 0;
+  right: 0;
+  width: 42%;
+  height: 100%;
+  background: linear-gradient(118deg, transparent 35%, rgba(255, 255, 255, 0.42) 100%);
+  opacity: 0.7;
+}
+
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip > * {
+  position: relative;
+  z-index: 1;
+}
+
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip--sage::before {
+  background: linear-gradient(180deg, #6aab8f, #2f6b4f);
+}
+
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip--teal::before {
+  background: linear-gradient(180deg, #5eead4, #0f766e);
+}
+
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip--amber::before {
+  background: linear-gradient(180deg, #e8c878, #c9922e);
+}
+
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip--blue::before {
+  background: linear-gradient(180deg, #8eb8d4, #4a7a9a);
+}
+
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip--violet::before {
+  background: linear-gradient(180deg, #b5a8cc, #6b5b8a);
+}
+
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip--sage {
+  background: linear-gradient(145deg, rgba(240, 250, 246, 0.96) 0%, rgba(255, 255, 255, 0.94) 58%) !important;
+}
+
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip--amber {
+  background: linear-gradient(145deg, rgba(255, 251, 235, 0.96) 0%, rgba(255, 255, 255, 0.94) 58%) !important;
+}
+
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip--blue {
+  background: linear-gradient(145deg, rgba(240, 247, 252, 0.96) 0%, rgba(255, 255, 255, 0.94) 58%) !important;
+}
+
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip--violet {
+  background: linear-gradient(145deg, rgba(246, 244, 250, 0.96) 0%, rgba(255, 255, 255, 0.94) 58%) !important;
+}
+
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip--teal {
+  background: linear-gradient(145deg, rgba(236, 253, 245, 0.96) 0%, rgba(255, 255, 255, 0.94) 58%) !important;
+}
+
+[data-employee-dashboard] .emp-dashboard-hero--comb a.emp-hero-stat-chip:hover,
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip--link:hover {
+  background: rgba(255, 255, 255, 0.98) !important;
+  border-color: rgba(255, 255, 255, 0.88) !important;
+  box-shadow:
+    0 4px 14px rgba(12, 24, 18, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+  transform: translateY(-1px);
+  filter: none;
+}
+
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip .emp-dashboard-hero__stat-label {
+  color: #5c7a6a !important;
+}
+
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip .emp-dashboard-hero__stat-value {
+  color: #1a4329 !important;
+}
+
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip .emp-dashboard-hero__stat-trend {
+  color: #2d6b52 !important;
+}
+
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip.emp-dashboard-hero__stat-skeleton {
+  background: rgba(255, 255, 255, 0.28) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+}
+
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip.emp-dashboard-hero__stat-skeleton::before,
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip.emp-dashboard-hero__stat-skeleton::after {
+  display: none;
+}

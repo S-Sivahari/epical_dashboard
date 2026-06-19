@@ -183,7 +183,7 @@ export default function Dashboard() {
         value: String(pendingLeaves.length),
         icon: CalendarOff,
         trend: pendingLeaves.length ? 'Awaiting admin approval' : 'None pending',
-        accent: 'sage',
+        accent: 'amber',
         to: '/employee/leave',
       },
       {
@@ -191,7 +191,7 @@ export default function Dashboard() {
         value: String(projectCount),
         icon: FolderKanban,
         trend: projectCount ? 'Assigned to you' : 'None assigned',
-        accent: 'sage',
+        accent: 'blue',
         to: '/employee/project-analysis/projects',
       },
       {
@@ -206,7 +206,7 @@ export default function Dashboard() {
               : enrolledCourses > 0
                 ? `${enrolledCourses} in progress`
                 : 'No enrollments',
-        accent: 'sage',
+        accent: 'violet',
         to: '/employee/training',
       },
     ],

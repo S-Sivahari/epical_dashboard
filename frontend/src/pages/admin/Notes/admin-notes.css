@@ -1899,7 +1899,7 @@
   width: 100%;
   border-radius: 0.625rem;
   border: 1px solid var(--notes-border);
-  background: #fffefb;
+  background: #ffffff;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
   overflow: hidden;
 }
@@ -1915,7 +1915,7 @@
 }
 
 .notes-notepad--empty {
-  background: rgba(248, 250, 252, 0.85);
+  background: #ffffff;
 }
 
 .notes-notepad__header {
@@ -2139,6 +2139,8 @@
 }
 
 .notes-controls-panel {
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -2147,10 +2149,63 @@
   margin-bottom: 0.35rem;
   padding: 0.65rem 0.85rem;
   border-radius: 0.75rem;
-  border: 1px solid var(--notes-line);
-  background: var(--notes-surface);
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(45, 122, 106, 0.14);
+  background:
+    linear-gradient(
+      128deg,
+      rgba(212, 245, 220, 0.42) 0%,
+      rgba(255, 255, 255, 0.96) 34%,
+      rgba(236, 253, 245, 0.28) 62%,
+      rgba(207, 250, 254, 0.32) 100%
+    );
+  box-shadow:
+    0 1px 3px rgba(15, 23, 42, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88);
   overflow: visible;
+}
+
+.notes-controls-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 0;
+  height: 3px;
+  border-radius: 0.75rem 0.75rem 0 0;
+  background: linear-gradient(
+    90deg,
+    #2d6a4f 0%,
+    #52b788 28%,
+    #74c69d 48%,
+    #89c2d9 72%,
+    rgba(244, 211, 94, 0.85) 100%
+  );
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.notes-controls-panel::after {
+  content: '';
+  position: absolute;
+  top: -18%;
+  right: -4%;
+  z-index: 0;
+  width: min(42%, 14rem);
+  height: 136%;
+  transform: skewX(-14deg);
+  pointer-events: none;
+  background:
+    linear-gradient(152deg, transparent 8%, rgba(255, 255, 255, 0.07) 8%, rgba(255, 255, 255, 0.07) 24%, transparent 24%),
+    linear-gradient(132deg, transparent 30%, rgba(183, 228, 199, 0.12) 30%, rgba(183, 228, 199, 0.12) 46%, transparent 46%),
+    linear-gradient(168deg, transparent 52%, rgba(147, 197, 253, 0.08) 52%, rgba(147, 197, 253, 0.08) 66%, transparent 66%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.15) 22%, rgba(0, 0, 0, 0.55) 42%, black 58%);
+  mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.15) 22%, rgba(0, 0, 0, 0.55) 42%, black 58%);
+}
+
+.notes-controls-panel > * {
+  position: relative;
+  z-index: 1;
 }
 
 .notes-controls-panel .notes-toolbar {
@@ -2167,8 +2222,9 @@
   border-radius: 0;
   box-shadow: none;
   border-right: 0;
-  border-bottom: 1px solid var(--notes-line);
+  border-bottom: 1px solid rgba(45, 122, 106, 0.1);
   justify-content: flex-start;
+  background: transparent;
 }
 
 .notes-controls-panel:not(:has(.notes-delegation-panel--embedded)) .notes-toolbar {
@@ -2549,7 +2605,7 @@
 
 .notes-day-card__panel {
   padding: 0.65rem 0.85rem 0.75rem;
-  background: linear-gradient(180deg, #fafbfc 0%, #f4f6f8 100%);
+  background: #ffffff;
 }
 
 .notes-day-card__footer {
@@ -2580,13 +2636,12 @@
 
 .notes-notepad-pad__paper {
   position: relative;
+  isolation: isolate;
   min-height: 5rem;
   border-radius: 0.55rem;
   border: 1px solid var(--notes-line);
-  background: #ffffff;
-  box-shadow:
-    inset 3px 0 0 rgba(30, 90, 61, 0.35),
-    0 2px 12px rgba(15, 23, 42, 0.04);
+  background-color: #ffffff;
+  box-shadow: inset 3px 0 0 rgba(30, 90, 61, 0.35);
   padding: 0.65rem 0.85rem 0.7rem 1rem;
 }
 
@@ -2774,6 +2829,58 @@
   font-size: 0.75rem;
   color: #64748b;
   text-align: center;
+}
+
+.notes-controls-panel .notes-toolbar__search-input {
+  background: rgba(255, 255, 255, 0.78);
+  border-color: rgba(45, 122, 106, 0.16);
+}
+
+.notes-controls-panel .notes-toolbar__search-input:focus {
+  background: #fff;
+  border-color: rgba(30, 90, 61, 0.35);
+}
+
+.notes-controls-panel .notes-toolbar__date {
+  background: rgba(255, 255, 255, 0.78);
+  border-color: rgba(45, 122, 106, 0.16);
+}
+
+.notes-controls-panel .notes-toolbar__date:focus {
+  background: #fff;
+  border-color: rgba(30, 90, 61, 0.35);
+}
+
+.notes-controls-panel .notes-toolbar__week-pill {
+  background: rgba(30, 90, 61, 0.12);
+}
+
+.notes-controls-panel .notes-delegation-panel--embedded {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 0.55rem;
+  width: 100%;
+  min-width: 0;
+  margin-bottom: 0;
+  padding: 0.65rem 0 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.22) 0%,
+    rgba(254, 252, 232, 0.18) 100%
+  );
+}
+
+.notes-controls-panel .notes-delegation-panel__inline-label {
+  color: #1e5a3d;
+}
+
+.notes-controls-panel .notes-delegation-panel__item {
+  border-color: rgba(45, 122, 106, 0.14);
+  background: rgba(255, 255, 255, 0.82);
 }
 
 .notes-delegation-panel--embedded {
@@ -3447,4 +3554,30 @@
   .notes-delegation-panel:not(.notes-delegation-panel--embedded) .notes-delegation-panel__assign {
     align-self: flex-start;
   }
+}
+
+/* Notepad content — pure white (overrides portal canvas / tinted panels) */
+[data-admin-notes] .notes-week-board,
+[data-admin-notes] .notes-day-card--highlight,
+[data-admin-notes] .notes-day-card__panel,
+[data-admin-notes] .notes-notepad-pad,
+[data-admin-notes] .notes-notepad-pad__paper,
+[data-admin-notes] .notes-notepad-pad__letter,
+[data-admin-notes] .notes-notepad-pad__project,
+[data-admin-notes] .notes-notepad-pad__employee,
+[data-admin-notes] .notes-notepad-pad__empty {
+  background-color: #ffffff !important;
+  background-image: none !important;
+}
+
+[data-admin-notes] .notes-notepad-pad__paper {
+  box-shadow: inset 3px 0 0 rgba(30, 90, 61, 0.35);
+}
+
+[data-admin-notes] .dashboard-page-bg-gradient {
+  background: #ffffff;
+}
+
+[data-admin-notes] .dashboard-page-bg-pattern {
+  opacity: 0;
 }
