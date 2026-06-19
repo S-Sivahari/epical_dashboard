@@ -60,12 +60,8 @@ function isEditableTarget(target: EventTarget | null) {
   )
 }
 
-function isNextWheelKey(event: KeyboardEvent) {
-  return event.key === '>' || (event.code === 'Period' && event.shiftKey)
-}
-
-function isPrevWheelKey(event: KeyboardEvent) {
-  return event.key === '<' || (event.code === 'Comma' && event.shiftKey)
+function cycleWheelIndex(current: number, length: number, direction: 1 | -1) {
+  return (current + direction + length) % length
 }
 
 export function PortalNavWheel({
@@ -107,33 +103,24 @@ export function PortalNavWheel({
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (isEditableTarget(event.target)) return
-      if (!event.ctrlKey || !event.shiftKey || event.altKey || event.metaKey) return
+      if (!event.ctrlKey || event.altKey || event.metaKey) return
       if (itemsRef.current.length === 0) return
 
       if (!openRef.current) {
+        if (!event.shiftKey) return
         setOpen(true)
         openRef.current = true
         const startIndex = currentIndex
         setSelectedIndex(startIndex)
         selectedIndexRef.current = startIndex
-      }
-
-      if (isNextWheelKey(event)) {
-        event.preventDefault()
-        event.stopPropagation()
-        setSelectedIndex((prev) => {
-          const next = (prev + 1) % itemsRef.current.length
-          selectedIndexRef.current = next
-          return next
-        })
         return
       }
 
-      if (isPrevWheelKey(event)) {
+      if (event.key === 'Shift' && !event.repeat) {
         event.preventDefault()
         event.stopPropagation()
         setSelectedIndex((prev) => {
-          const next = (prev - 1 + itemsRef.current.length) % itemsRef.current.length
+          const next = cycleWheelIndex(prev, itemsRef.current.length, 1)
           selectedIndexRef.current = next
           return next
         })
@@ -142,7 +129,7 @@ export function PortalNavWheel({
 
     function handleKeyUp(event: KeyboardEvent) {
       if (!openRef.current) return
-      if (event.key !== 'Control' && event.key !== 'Shift') return
+      if (event.key !== 'Control') return
       event.preventDefault()
       closeAndNavigate()
     }
@@ -178,7 +165,7 @@ export function PortalNavWheel({
       aria-label={ariaLabel}
     >
       <p className="emp-nav-wheel__hint">
-        Hold Ctrl+Shift · press &gt; to cycle · release to open
+        Hold Ctrl+Shift to open · tap Shift to cycle · release Ctrl to go
       </p>
 
       <div className="emp-nav-wheel">
