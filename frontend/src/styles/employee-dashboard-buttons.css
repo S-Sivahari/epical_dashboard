@@ -1,5 +1,8 @@
 /* Employee portal — dark green facet buttons (mirrored left/right) */
 
+.employee-portal .emp-dash-btn,
+.employee-portal [data-employee-page] .emp-dash-btn,
+.crewiq-dashboard .emp-dash-btn,
 [data-employee-dashboard] .emp-dash-btn,
 [data-employee-leave] .emp-dash-btn,
 [data-employee-tickets] .emp-dash-btn {
@@ -47,6 +50,12 @@
   line-height: 1.2;
 }
 
+.employee-portal .emp-dash-btn::before,
+.employee-portal .emp-dash-btn::after,
+.employee-portal [data-employee-page] .emp-dash-btn::before,
+.employee-portal [data-employee-page] .emp-dash-btn::after,
+.crewiq-dashboard .emp-dash-btn::before,
+.crewiq-dashboard .emp-dash-btn::after,
 [data-employee-dashboard] .emp-dash-btn::before,
 [data-employee-dashboard] .emp-dash-btn::after,
 [data-employee-leave] .emp-dash-btn::before,
@@ -68,6 +77,9 @@
   clip-path: polygon(18% 0, 100% 0, 100% 100%, 0 100%);
 }
 
+.employee-portal .emp-dash-btn::before,
+.employee-portal [data-employee-page] .emp-dash-btn::before,
+.crewiq-dashboard .emp-dash-btn::before,
 [data-employee-dashboard] .emp-dash-btn::before,
 [data-employee-leave] .emp-dash-btn::before,
 [data-employee-tickets] .emp-dash-btn::before {
@@ -77,6 +89,9 @@
   mask-image: linear-gradient(90deg, black 0%, black 62%, rgba(0, 0, 0, 0.35) 82%, transparent 100%);
 }
 
+.employee-portal .emp-dash-btn::after,
+.employee-portal [data-employee-page] .emp-dash-btn::after,
+.crewiq-dashboard .emp-dash-btn::after,
 [data-employee-dashboard] .emp-dash-btn::after,
 [data-employee-leave] .emp-dash-btn::after,
 [data-employee-tickets] .emp-dash-btn::after {
@@ -86,9 +101,15 @@
   mask-image: linear-gradient(270deg, black 0%, black 62%, rgba(0, 0, 0, 0.35) 82%, transparent 100%);
 }
 
+.employee-portal .emp-dash-btn > *,
+.employee-portal [data-employee-page] .emp-dash-btn > *,
+.crewiq-dashboard .emp-dash-btn > *,
 [data-employee-dashboard] .emp-dash-btn > *,
 [data-employee-leave] .emp-dash-btn > *,
 [data-employee-tickets] .emp-dash-btn > *,
+.employee-portal .emp-dash-btn__label,
+.employee-portal [data-employee-page] .emp-dash-btn__label,
+.crewiq-dashboard .emp-dash-btn__label,
 [data-employee-dashboard] .emp-dash-btn__label,
 [data-employee-leave] .emp-dash-btn__label,
 [data-employee-tickets] .emp-dash-btn__label {
@@ -96,26 +117,118 @@
   z-index: 1;
 }
 
-[data-employee-dashboard] .emp-dash-btn.emp-dashboard-hero__stat-chip {
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+.employee-portal .emp-dashboard-hero--comb .emp-dash-btn.emp-dash-btn--stat,
+.crewiq-dashboard .emp-dashboard-hero--comb .emp-dash-btn.emp-dash-btn--stat,
+.employee-portal [data-employee-page] .emp-dashboard-hero--comb .emp-dash-btn.emp-dash-btn--stat,
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-dash-btn.emp-dash-btn--stat {
+  --emp-dash-facet-w: min(44%, 3.35rem);
+  background: linear-gradient(135deg, #2d6a4f 0%, #1b4332 100%) !important;
+  background-color: #1b4332 !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  box-shadow:
+    0 2px 8px rgba(12, 24, 18, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+  color: #ffffff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
-[data-employee-dashboard] .emp-dash-btn.emp-dashboard-hero__stat-chip--link:hover {
+.employee-portal .emp-dash-btn--stat,
+.crewiq-dashboard .emp-dash-btn--stat,
+[data-employee-dashboard] .emp-dash-btn--stat {
+  border-radius: 0.75rem;
+}
+
+.employee-portal .emp-dash-btn.emp-dash-btn--stat.emp-dash-btn--link:hover,
+.crewiq-dashboard .emp-dashboard-hero--comb .emp-dash-btn.emp-dash-btn--stat.emp-dash-btn--link:hover,
+[data-employee-dashboard] .emp-dash-btn.emp-dash-btn--stat.emp-dash-btn--link:hover {
   background: linear-gradient(135deg, #326f54 0%, #1f4a38 100%) !important;
-  filter: brightness(1.04);
+  background-color: #1f4a38 !important;
+  border-color: rgba(255, 255, 255, 0.24) !important;
+  filter: brightness(1.06);
+  box-shadow:
+    0 3px 10px rgba(12, 24, 18, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
 }
 
-[data-employee-dashboard] .emp-dash-btn .emp-dashboard-hero__stat-label {
+.employee-portal .emp-dash-btn--stat .emp-dash-btn__stat-title,
+.crewiq-dashboard .emp-dashboard-hero--comb .emp-dash-btn--stat .emp-dash-btn__stat-title,
+[data-employee-dashboard] .emp-dash-btn--stat .emp-dash-btn__stat-title {
+  margin: 0;
   color: rgba(255, 255, 255, 0.82) !important;
 }
 
-[data-employee-dashboard] .emp-dash-btn .emp-dashboard-hero__stat-value {
+.employee-portal .emp-dash-btn--stat .emp-dash-btn__stat-value,
+.crewiq-dashboard .emp-dashboard-hero--comb .emp-dash-btn--stat .emp-dash-btn__stat-value,
+[data-employee-dashboard] .emp-dash-btn--stat .emp-dash-btn__stat-value {
+  margin: 0.25rem 0 0;
   color: #ffffff !important;
 }
 
-[data-employee-dashboard] .emp-dash-btn .emp-dashboard-hero__stat-trend {
+.employee-portal .emp-dash-btn--stat .emp-dash-btn__stat-trend,
+.crewiq-dashboard .emp-dashboard-hero--comb .emp-dash-btn--stat .emp-dash-btn__stat-trend,
+[data-employee-dashboard] .emp-dash-btn--stat .emp-dash-btn__stat-trend {
+  margin: 0.25rem 0 0;
   color: rgba(209, 250, 229, 0.9) !important;
+}
+
+[data-employee-dashboard] .emp-dash-btn--stat.emp-dash-btn--skeleton {
+  background: linear-gradient(135deg, rgba(45, 106, 79, 0.55) 0%, rgba(27, 67, 50, 0.65) 100%) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+[data-employee-dashboard] .emp-dash-btn--stat.emp-dash-btn--skeleton::before,
+[data-employee-dashboard] .emp-dash-btn--stat.emp-dash-btn--skeleton::after {
+  display: none !important;
+}
+
+/* Hero stat tiles — diagonal hatch (distinct from banner tree/grid decor) */
+.employee-portal [data-employee-page] .emp-dash-btn--stat::before,
+.crewiq-dashboard .emp-dash-btn--stat::before,
+[data-employee-dashboard] .emp-dash-btn--stat::before {
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
+  background:
+    repeating-linear-gradient(
+      -36deg,
+      transparent 0,
+      transparent 8px,
+      rgba(255, 255, 255, 0.075) 8px,
+      rgba(255, 255, 255, 0.075) 9px
+    ),
+    repeating-linear-gradient(
+      36deg,
+      transparent 0,
+      transparent 14px,
+      rgba(183, 228, 199, 0.09) 14px,
+      rgba(183, 228, 199, 0.09) 15px
+    );
+  clip-path: none;
+  -webkit-mask-image: linear-gradient(115deg, black 4%, rgba(0, 0, 0, 0.55) 38%, rgba(0, 0, 0, 0.2) 62%, transparent 88%);
+  mask-image: linear-gradient(115deg, black 4%, rgba(0, 0, 0, 0.55) 38%, rgba(0, 0, 0, 0.2) 62%, transparent 88%);
+}
+
+.employee-portal [data-employee-page] .emp-dash-btn--stat::after,
+.crewiq-dashboard .emp-dash-btn--stat::after,
+[data-employee-dashboard] .emp-dash-btn--stat::after {
+  left: auto;
+  top: -18%;
+  right: -8%;
+  width: 42%;
+  height: 136%;
+  transform: skewX(14deg);
+  background:
+    linear-gradient(168deg, transparent 46%, rgba(255, 255, 255, 0.12) 46%, rgba(255, 255, 255, 0.12) 54%, transparent 54%),
+    linear-gradient(152deg, transparent 18%, rgba(149, 213, 178, 0.16) 18%, rgba(149, 213, 178, 0.16) 28%, transparent 28%);
+  clip-path: polygon(22% 0, 100% 0, 100% 100%, 0 100%);
+  -webkit-mask-image: linear-gradient(270deg, black 0%, black 55%, transparent 92%);
+  mask-image: linear-gradient(270deg, black 0%, black 55%, transparent 92%);
 }
 
 [data-employee-dashboard] .emp-dash-btn svg,
@@ -195,128 +308,4 @@
 [data-employee-calendar] .admin-cal-side-unified-title > * {
   position: relative;
   z-index: 1;
-}
-
-/* Hero profile stat chips — frosted light tiles (not facet buttons) */
-[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip.emp-dashboard-hero__stat-chip {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.62) !important;
-  background: rgba(255, 255, 255, 0.9) !important;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow:
-    0 2px 10px rgba(12, 24, 18, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.88) !important;
-  color: #1a4329 !important;
-  text-decoration: none !important;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    box-shadow 0.15s ease,
-    transform 0.15s ease;
-}
-
-[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip::before,
-[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip::after {
-  content: '';
-  position: absolute;
-  pointer-events: none;
-}
-
-[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip::before {
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  border-radius: 0.75rem 0 0 0.75rem;
-  background: linear-gradient(180deg, #6aab8f, #2f6b4f);
-}
-
-[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip::after {
-  top: 0;
-  right: 0;
-  width: 42%;
-  height: 100%;
-  background: linear-gradient(118deg, transparent 35%, rgba(255, 255, 255, 0.42) 100%);
-  opacity: 0.7;
-}
-
-[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip > * {
-  position: relative;
-  z-index: 1;
-}
-
-[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip--sage::before {
-  background: linear-gradient(180deg, #6aab8f, #2f6b4f);
-}
-
-[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip--teal::before {
-  background: linear-gradient(180deg, #5eead4, #0f766e);
-}
-
-[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip--amber::before {
-  background: linear-gradient(180deg, #e8c878, #c9922e);
-}
-
-[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip--blue::before {
-  background: linear-gradient(180deg, #8eb8d4, #4a7a9a);
-}
-
-[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip--violet::before {
-  background: linear-gradient(180deg, #b5a8cc, #6b5b8a);
-}
-
-[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip--sage {
-  background: linear-gradient(145deg, rgba(240, 250, 246, 0.96) 0%, rgba(255, 255, 255, 0.94) 58%) !important;
-}
-
-[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip--amber {
-  background: linear-gradient(145deg, rgba(255, 251, 235, 0.96) 0%, rgba(255, 255, 255, 0.94) 58%) !important;
-}
-
-[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip--blue {
-  background: linear-gradient(145deg, rgba(240, 247, 252, 0.96) 0%, rgba(255, 255, 255, 0.94) 58%) !important;
-}
-
-[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip--violet {
-  background: linear-gradient(145deg, rgba(246, 244, 250, 0.96) 0%, rgba(255, 255, 255, 0.94) 58%) !important;
-}
-
-[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip--teal {
-  background: linear-gradient(145deg, rgba(236, 253, 245, 0.96) 0%, rgba(255, 255, 255, 0.94) 58%) !important;
-}
-
-[data-employee-dashboard] .emp-dashboard-hero--comb a.emp-hero-stat-chip:hover,
-[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip--link:hover {
-  background: rgba(255, 255, 255, 0.98) !important;
-  border-color: rgba(255, 255, 255, 0.88) !important;
-  box-shadow:
-    0 4px 14px rgba(12, 24, 18, 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
-  transform: translateY(-1px);
-  filter: none;
-}
-
-[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip .emp-dashboard-hero__stat-label {
-  color: #5c7a6a !important;
-}
-
-[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip .emp-dashboard-hero__stat-value {
-  color: #1a4329 !important;
-}
-
-[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip .emp-dashboard-hero__stat-trend {
-  color: #2d6b52 !important;
-}
-
-[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip.emp-dashboard-hero__stat-skeleton {
-  background: rgba(255, 255, 255, 0.28) !important;
-  border-color: rgba(255, 255, 255, 0.22) !important;
-}
-
-[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip.emp-dashboard-hero__stat-skeleton::before,
-[data-employee-dashboard] .emp-dashboard-hero--comb .emp-hero-stat-chip.emp-dashboard-hero__stat-skeleton::after {
-  display: none;
 }

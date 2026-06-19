@@ -5,6 +5,7 @@ import { AppRoutes } from '@routes/AppRoutes'
 import { AuthBootstrap } from '@components/auth/AuthBootstrap'
 import { ThemeProvider } from '@context/ThemeContext'
 import './index.css'
+import './styles/employee-dashboard-buttons.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -1,6 +1,5 @@
 @import './styles/typography.css';
 @import './styles/employee-timesheet.css';
-@import './styles/employee-dashboard-buttons.css';
 @import './styles/employee-portal-transitions.css';
 @import './styles/employee-nav-wheel.css';
 @import './styles/employee-leave.css';
@@ -1357,11 +1356,11 @@
 /* Dashboard profile bar — white identity + abstract facet panel (grid / circuit decor) */
 .emp-dashboard-hero--comb {
   --emp-hero-panel: 58%;
-  --emp-hero-bright: #6ecf9a;
-  --emp-hero-mint: #3d8f72;
-  --emp-hero-green: #2f6b4f;
-  --emp-hero-deep: #1a4329;
-  --emp-hero-ink: #0c1812;
+  --emp-hero-bright: #8ee4b0;
+  --emp-hero-mint: #5cb888;
+  --emp-hero-green: #44966e;
+  --emp-hero-deep: #357a59;
+  --emp-hero-ink: #2d6a4f;
   background: #ffffff !important;
   color: #1a4329 !important;
   box-shadow:
@@ -1396,9 +1395,9 @@
   background: linear-gradient(
     102deg,
     var(--emp-hero-bright) 0%,
-    var(--emp-hero-mint) 16%,
-    var(--emp-hero-green) 38%,
-    var(--emp-hero-deep) 68%,
+    var(--emp-hero-mint) 24%,
+    var(--emp-hero-green) 52%,
+    var(--emp-hero-deep) 82%,
     var(--emp-hero-ink) 100%
   );
   clip-path: polygon(10% 0, 100% 0, 100% 100%, 0 100%);
@@ -1430,11 +1429,11 @@
   bottom: 0;
   width: var(--emp-hero-panel);
   background-image:
-    linear-gradient(rgba(0, 0, 0, 0.34) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.34) 1px, transparent 1px);
+    linear-gradient(rgba(0, 0, 0, 0.16) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.16) 1px, transparent 1px);
   background-size: 18px 18px;
-  opacity: 0.55;
-  mix-blend-mode: multiply;
+  opacity: 0.32;
+  mix-blend-mode: soft-light;
   -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.4) 22%, black 48%, black 100%);
   mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.4) 22%, black 48%, black 100%);
 }
@@ -1445,14 +1444,14 @@
   right: 0;
   bottom: 0;
   width: var(--emp-hero-panel);
-  opacity: 0.7;
+  opacity: 0.45;
   background:
-    linear-gradient(90deg, transparent calc(100% - 88px), rgba(0, 0, 0, 0.28) calc(100% - 88px), rgba(0, 0, 0, 0.28) calc(100% - 87px), transparent calc(100% - 87px)),
-    linear-gradient(90deg, transparent calc(100% - 156px), rgba(0, 0, 0, 0.22) calc(100% - 156px), rgba(0, 0, 0, 0.22) calc(100% - 155px), transparent calc(100% - 155px)),
-    linear-gradient(90deg, transparent calc(100% - 228px), rgba(0, 0, 0, 0.18) calc(100% - 228px), rgba(0, 0, 0, 0.18) calc(100% - 227px), transparent calc(100% - 227px)),
-    linear-gradient(0deg, transparent 62%, rgba(0, 0, 0, 0.2) 62%, rgba(0, 0, 0, 0.2) calc(62% + 1px), transparent calc(62% + 1px)),
-    linear-gradient(0deg, transparent 38%, rgba(0, 0, 0, 0.16) 38%, rgba(0, 0, 0, 0.16) calc(38% + 1px), transparent calc(38% + 1px)),
-    linear-gradient(118deg, transparent 44%, rgba(0, 0, 0, 0.14) 44%, rgba(0, 0, 0, 0.14) calc(44% + 1px), transparent calc(44% + 1px));
+    linear-gradient(90deg, transparent calc(100% - 88px), rgba(0, 0, 0, 0.14) calc(100% - 88px), rgba(0, 0, 0, 0.14) calc(100% - 87px), transparent calc(100% - 87px)),
+    linear-gradient(90deg, transparent calc(100% - 156px), rgba(0, 0, 0, 0.11) calc(100% - 156px), rgba(0, 0, 0, 0.11) calc(100% - 155px), transparent calc(100% - 155px)),
+    linear-gradient(90deg, transparent calc(100% - 228px), rgba(0, 0, 0, 0.09) calc(100% - 228px), rgba(0, 0, 0, 0.09) calc(100% - 227px), transparent calc(100% - 227px)),
+    linear-gradient(0deg, transparent 62%, rgba(0, 0, 0, 0.1) 62%, rgba(0, 0, 0, 0.1) calc(62% + 1px), transparent calc(62% + 1px)),
+    linear-gradient(0deg, transparent 38%, rgba(0, 0, 0, 0.08) 38%, rgba(0, 0, 0, 0.08) calc(38% + 1px), transparent calc(38% + 1px)),
+    linear-gradient(118deg, transparent 44%, rgba(0, 0, 0, 0.07) 44%, rgba(0, 0, 0, 0.07) calc(44% + 1px), transparent calc(44% + 1px));
   -webkit-mask-image: linear-gradient(90deg, transparent 8%, black 35%, black 100%);
   mask-image: linear-gradient(90deg, transparent 8%, black 35%, black 100%);
 }
@@ -1465,8 +1464,8 @@
   background: linear-gradient(
     180deg,
     transparent 0%,
-    rgba(0, 0, 0, 0.35) 18%,
-    rgba(0, 0, 0, 0.35) 82%,
+    rgba(0, 0, 0, 0.18) 18%,
+    rgba(0, 0, 0, 0.18) 82%,
     transparent 100%
   );
 }
@@ -1662,7 +1661,7 @@
   z-index: 1;
 }
 
-.emp-dashboard-hero--comb .emp-dashboard-hero__stat-chip {
+.emp-dashboard-hero--comb .emp-dashboard-hero__stat-chip:not(.emp-dash-btn) {
   border: 1px solid rgba(255, 255, 255, 0.28);
   background: rgba(0, 0, 0, 0.22);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
@@ -1671,11 +1670,11 @@
   color: #ffffff;
 }
 
-.emp-dashboard-hero--comb .emp-dashboard-hero__stat-chip--link {
+.emp-dashboard-hero--comb .emp-dashboard-hero__stat-chip--link:not(.emp-dash-btn) {
   cursor: pointer;
 }
 
-.emp-dashboard-hero--comb .emp-dashboard-hero__stat-chip--link:hover {
+.emp-dashboard-hero--comb .emp-dashboard-hero__stat-chip--link:not(.emp-dash-btn):hover {
   background: rgba(0, 0, 0, 0.32);
   border-color: rgba(255, 255, 255, 0.38);
 }
@@ -1732,9 +1731,9 @@
   color: #ffffff !important;
 }
 
-.crewiq-dashboard .emp-dashboard-hero--comb .emp-dashboard-hero__stat-chip,
-.employee-portal [data-employee-page] .emp-dashboard-hero--comb .emp-dashboard-hero__stat-chip,
-.admin-dashboard-view[data-employee-dashboard] .emp-dashboard-hero--comb .emp-dashboard-hero__stat-chip {
+.crewiq-dashboard .emp-dashboard-hero--comb .emp-dashboard-hero__stat-chip:not(.emp-dash-btn):not(.emp-dash-btn--stat),
+.employee-portal [data-employee-page] .emp-dashboard-hero--comb .emp-dashboard-hero__stat-chip:not(.emp-dash-btn):not(.emp-dash-btn--stat),
+.admin-dashboard-view[data-employee-dashboard] .emp-dashboard-hero--comb .emp-dashboard-hero__stat-chip:not(.emp-dash-btn):not(.emp-dash-btn--stat) {
   background-color: rgba(0, 0, 0, 0.22) !important;
   border-color: rgba(255, 255, 255, 0.28) !important;
   color: #ffffff !important;
@@ -17535,6 +17534,47 @@ html:has(.admin-portal) .emp-nav-wheel-overlay {
 .tickets-page .tickets-table tbody tr:hover td [class*='font-mono'],
 .tickets-page .tickets-table tbody tr:hover td .text-muted {
   color: #5c5a66 !important;
+}
+
+/* Hero profile stat buttons — opaque facet tiles (overrides legacy glass stat-chip) */
+.employee-portal [data-employee-page] .emp-dashboard-hero--comb a.emp-dash-btn--stat,
+.employee-portal [data-employee-page] .emp-dashboard-hero--comb div.emp-dash-btn--stat,
+.crewiq-dashboard .emp-dashboard-hero--comb a.emp-dash-btn--stat,
+.crewiq-dashboard .emp-dashboard-hero--comb div.emp-dash-btn--stat,
+.admin-dashboard-view[data-employee-dashboard] .emp-dashboard-hero--comb a.emp-dash-btn--stat,
+.admin-dashboard-view[data-employee-dashboard] .emp-dashboard-hero--comb div.emp-dash-btn--stat,
+[data-employee-dashboard] .emp-dashboard-hero--comb a.emp-dash-btn--stat,
+[data-employee-dashboard] .emp-dashboard-hero--comb div.emp-dash-btn--stat {
+  background: linear-gradient(135deg, #2d6a4f 0%, #1b4332 100%) !important;
+  background-color: #1b4332 !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow:
+    0 2px 8px rgba(12, 24, 18, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+  color: #ffffff !important;
+}
+
+.employee-portal [data-employee-page] .emp-dashboard-hero--comb .emp-dash-btn--stat .emp-dash-btn__stat-title,
+.crewiq-dashboard .emp-dashboard-hero--comb .emp-dash-btn--stat .emp-dash-btn__stat-title,
+.admin-dashboard-view[data-employee-dashboard] .emp-dashboard-hero--comb .emp-dash-btn--stat .emp-dash-btn__stat-title,
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-dash-btn--stat .emp-dash-btn__stat-title {
+  color: rgba(255, 255, 255, 0.82) !important;
+}
+
+.employee-portal [data-employee-page] .emp-dashboard-hero--comb .emp-dash-btn--stat .emp-dash-btn__stat-value,
+.crewiq-dashboard .emp-dashboard-hero--comb .emp-dash-btn--stat .emp-dash-btn__stat-value,
+.admin-dashboard-view[data-employee-dashboard] .emp-dashboard-hero--comb .emp-dash-btn--stat .emp-dash-btn__stat-value,
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-dash-btn--stat .emp-dash-btn__stat-value {
+  color: #ffffff !important;
+}
+
+.employee-portal [data-employee-page] .emp-dashboard-hero--comb .emp-dash-btn--stat .emp-dash-btn__stat-trend,
+.crewiq-dashboard .emp-dashboard-hero--comb .emp-dash-btn--stat .emp-dash-btn__stat-trend,
+.admin-dashboard-view[data-employee-dashboard] .emp-dashboard-hero--comb .emp-dash-btn--stat .emp-dash-btn__stat-trend,
+[data-employee-dashboard] .emp-dashboard-hero--comb .emp-dash-btn--stat .emp-dash-btn__stat-trend {
+  color: rgba(209, 250, 229, 0.9) !important;
 }
 
 
