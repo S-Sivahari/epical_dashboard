@@ -26,6 +26,7 @@ import { stringToHue } from '@/utils/stringColor'
 import { getEmployeeAvatarUrl } from '@/utils/getAvatarUrl'
 import { buildEmployeeFullName } from '@/utils/employeeDisplayName'
 import { cn } from '@/utils/cn'
+import { EmployeePageLoading } from '@components/employee/layout/EmployeePageLoading'
 
 const PROFILE_TABS = [
   { id: 'details', label: 'Profile' },
@@ -161,9 +162,8 @@ export default function EmployeeProfile() {
           <header className="employee-directory-header">
             <h1 className="employee-directory-title">My Profile</h1>
           </header>
-          <div className="employee-profile-content flex items-center justify-center py-20">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            <span className="ml-3 text-sm text-muted">Loading profile…</span>
+          <div className="employee-profile-content">
+            <EmployeePageLoading />
           </div>
         </div>
       </div>
@@ -270,7 +270,7 @@ export default function EmployeeProfile() {
         <div className="employee-directory-bg-leaves" />
       </div>
 
-      <div className="employee-directory-shell employee-profile-detail-page bg-slate-50/35">
+      <div className="employee-directory-shell employee-profile-detail-page emp-page-content-in bg-slate-50/35">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 p-6">
           {/* Left Column: Sidebar Card */}
           <div className="lg:col-span-1 flex flex-col gap-6">

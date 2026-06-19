@@ -1,5 +1,7 @@
 @import './styles/typography.css';
 @import './styles/employee-timesheet.css';
+@import './styles/employee-dashboard-buttons.css';
+@import './styles/employee-portal-transitions.css';
 @import './styles/employee-nav-wheel.css';
 @import './styles/employee-leave.css';
 @import './styles/viewport-layout.css';
@@ -15089,10 +15091,16 @@ input[type='number'] {
   color: var(--text-primary);
 }
 
-html:has(.admin-portal) [role="dialog"] {
+html:has(.admin-portal) [role="dialog"]:not(.emp-nav-wheel-overlay) {
   background-color: #ffffff;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+}
+
+html:has(.admin-portal) .emp-nav-wheel-overlay {
+  background: rgba(15, 23, 42, 0.05);
+  backdrop-filter: blur(8px) saturate(1.05);
+  -webkit-backdrop-filter: blur(8px) saturate(1.05);
 }
 
 .crewiq-dashboard [role="dialog"] .text-ink {
@@ -16281,6 +16289,20 @@ html:has(.admin-portal) [role="dialog"] {
     100% 0,
     86% 100%,
     calc(var(--cmd-forest-w) * 0.5) 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    100deg,
+    #000 0%,
+    #000 89%,
+    rgba(0, 0, 0, 0.45) 94.5%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    100deg,
+    #000 0%,
+    #000 89%,
+    rgba(0, 0, 0, 0.45) 94.5%,
+    transparent 100%
   );
 }
 

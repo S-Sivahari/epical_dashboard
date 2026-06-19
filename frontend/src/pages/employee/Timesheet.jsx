@@ -13,6 +13,8 @@ import { formatSessionDuration, formatDurationFromMs } from '@utils/durationForm
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { formatDateKey, getPresetDateRange, getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
 import { TimesheetCheckInDialog } from '@pages/employee/TimesheetCheckInDialog'
+import { EmpTimesheetHeaderDecor } from '@components/employee/timesheet/EmpTimesheetHeaderDecor'
+import { EmployeePageLoading } from '@components/employee/layout/EmployeePageLoading'
 
 const TimesheetWeeklyChart = lazy(() =>
   import('@pages/employee/TimesheetWeeklyChart').then((m) => ({ default: m.TimesheetWeeklyChart })),
@@ -458,17 +460,19 @@ export default function Timesheet() {
 
   if (!initialized) {
     return (
-      <div className="flex min-h-[280px] items-center justify-center text-muted">
-        <Loader2 className="mr-2 h-6 w-6 animate-spin text-primary" />
-        Loading timesheet…
+      <div className="emp-timesheet-page dashboard-surface flex min-h-0 flex-1 flex-col" data-employee-timesheet>
+        <EmployeePageLoading />
       </div>
     )
   }
 
   return (
-    <div className="emp-timesheet-page dashboard-surface" data-employee-timesheet>
+    <div className="emp-timesheet-page dashboard-surface emp-page-content-in" data-employee-timesheet>
       <div className="emp-timesheet-hero">
-        <h1 className="emp-timesheet-hero-title">Projects & Timesheets</h1>
+        <div className="emp-ts-header-brand emp-ts-header-brand--hero">
+          <EmpTimesheetHeaderDecor />
+          <h1 className="emp-timesheet-hero-title">Projects & Timesheets</h1>
+        </div>
         <div className="emp-timesheet-hero-stats">
           <ProjectAnalysisLaunchButton
             audience="employee"
@@ -498,7 +502,10 @@ export default function Timesheet() {
       <div className="emp-timesheet-top-grid">
         <section className="emp-timesheet-card emp-timesheet-session-compact emp-timesheet-top-panel" id="work-session">
           <div className="emp-timesheet-card-header emp-timesheet-card-header--compact">
-            <h3 className="emp-timesheet-card-title">Work Session</h3>
+            <div className="emp-ts-header-brand">
+              <EmpTimesheetHeaderDecor />
+              <h3 className="emp-timesheet-card-title">Work Session</h3>
+            </div>
           </div>
           <div className="emp-timesheet-card-body emp-timesheet-session-compact-body">
             {!checkedIn && attendance?.autoCheckedOut ? (
@@ -609,7 +616,10 @@ export default function Timesheet() {
 
         <section className="emp-timesheet-card emp-timesheet-chart-panel emp-timesheet-top-panel">
           <div className="emp-timesheet-card-header">
-            <h3 className="emp-timesheet-card-title">Weekly Hours</h3>
+            <div className="emp-ts-header-brand">
+              <EmpTimesheetHeaderDecor />
+              <h3 className="emp-timesheet-card-title">Weekly Hours</h3>
+            </div>
             <div className="emp-timesheet-chart-header-stats">
               <div className="emp-timesheet-chart-stat">
                 <span className="emp-timesheet-chart-stat-label">Today</span>
@@ -637,7 +647,10 @@ export default function Timesheet() {
 
       <section className="emp-timesheet-card emp-timesheet-history-panel">
         <div className="emp-timesheet-history-header flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
-          <h3 className="emp-timesheet-card-title">Work History</h3>
+          <div className="emp-ts-header-brand">
+            <EmpTimesheetHeaderDecor />
+            <h3 className="emp-timesheet-card-title">Work History</h3>
+          </div>
           <div className="relative z-20 shrink-0">
             <DateRangePicker
               startDate={historyStart}
