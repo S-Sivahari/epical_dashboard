@@ -11,6 +11,7 @@ import { CellDetailsSummary } from '@pages/admin/Projects/CellDetailsSummary'
 import {
   fetchMyCell,
   requestCellReview,
+  setMyCellHold,
   updateCellWorkflow,
   updateMyWorkflowStage,
 } from '@services/employeeProjectService'
@@ -19,6 +20,7 @@ import { cn } from '@pages/employee/lib/utils'
 import { VIEW_TABS, getAdvancePayload, isFinalLayoutStage } from '@/utils/cellWorkflowUi'
 import { CellWorkflowDurationLabel } from '@pages/admin/Projects/CellWorkflowDurationLabel'
 import { CellWorkflowTimingSummary } from '@pages/admin/Projects/CellWorkflowTimingSummary'
+import { CellCompletionTimeSummary } from '@pages/admin/Projects/CellCompletionTimeSummary'
 import { cellDisplayStatus, isReviewStageKey } from '@pages/admin/Projects/projectWorkspaceUi'
 import '@pages/admin/Projects/adminProjects.css'
 import '@components/employee/projects/employeeProjectWorkflow.css'
@@ -101,10 +103,30 @@ export default function EmployeeCellWorkflow() {
     try {
       const updated = await updateMyWorkflowStage(projectId, cellId, stageKey, status)
       updateCellInState(updated)
+      setDurationFetchedAt(Date.now())
       toast({ title: 'Stage updated', description: 'Workflow stage saved' })
     } catch (err) {
       const message = err?.response?.data?.error
       toast({ title: 'Error', description: message || 'Failed to update workflow stage' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleHoldChange = async (hold) => {
+    if (!projectId || !cellId || !canManageFromDetail(detail)) return
+    setSaving(true)
+    try {
+      const updated = await setMyCellHold(projectId, cellId, { hold })
+      updateCellInState(updated)
+      setDurationFetchedAt(Date.now())
+      toast({
+        title: hold ? 'Cell on hold' : 'Hold released',
+        description: hold ? 'Productive time is paused.' : 'Productive time can resume when checked in.',
+      })
+    } catch (err) {
+      const message = err?.response?.data?.error
+      toast({ title: 'Error', description: message || 'Failed to update hold status' })
     } finally {
       setSaving(false)
     }
@@ -184,12 +206,6 @@ export default function EmployeeCellWorkflow() {
                 >
                   {cellDisplayStatus(cell)}
                 </span>
-                <CellWorkflowDurationLabel
-                  cellStatus={cell.status}
-                  workflowDuration={cell.workflowDuration}
-                  fetchedAt={durationFetchedAt}
-                />
-                <CellWorkflowTimingSummary timing={cell.workflowTiming} />
                 {cell.isAssignedToMe ? (
                   <span className="admin-projects-employee-assigned-badge">Yours</span>
                 ) : null}
@@ -199,10 +215,22 @@ export default function EmployeeCellWorkflow() {
                 {isAdmin ? (
                   <span className="admin-projects-employee-assigned-badge">Admin</span>
                 ) : null}
+                <CellWorkflowDurationLabel
+                  cellStatus={cell.status}
+                  workflowDuration={cell.productiveWorkDuration ?? cell.workflowDuration}
+                  fetchedAt={durationFetchedAt}
+                  alwaysVisible
+                  variant="header"
+                  onHold={Boolean(cell.onHold)}
+                  holdEnabled={canManageWorkflow && cell.status === 'in_progress'}
+                  onHoldToggle={(hold) => void handleHoldChange(hold)}
+                />
               </div>
             </div>
           </header>
         </div>
+
+        {cell.status === 'completed' ? <CellCompletionTimeSummary cell={cell} /> : null}
 
         <div className="admin-projects-cell-page-body admin-projects-cell-page-body--employee">
           {isTeamLead && !cell.isAssignedToMe ? (
@@ -246,6 +274,7 @@ export default function EmployeeCellWorkflow() {
                       canManageWorkflow={canManageWorkflow}
                       canReview={canReview}
                       onWorkStageChange={handleWorkStageChange}
+                      onHoldChange={handleHoldChange}
                       onRequestReview={handleRequestReview}
                     />
                   ) : (

@@ -12,6 +12,7 @@ import {
   deleteCell,
   fetchCellCompletionReadiness,
   fetchWorkspaceSummary,
+  setCellHold,
   touchCell,
   uncompleteCell,
   updateCell,
@@ -33,7 +34,7 @@ import { buildEmployeeFullName } from '@/utils/employeeDisplayName'
 const INLINE_FIELD_CLASS = 'admin-projects-cell-details-inline-field'
 import { CellWorkflowPanel } from './CellWorkflowPanel'
 import { CellWorkflowDurationLabel } from './CellWorkflowDurationLabel'
-import { CellWorkflowTimingSummary } from './CellWorkflowTimingSummary'
+import { CellCompletionTimeSummary } from './CellCompletionTimeSummary'
 import { CellTypeChecklistTab } from './CellTypeChecklistTab'
 import { calculateEstimatedHours, CELL_COMPLEXITY_OPTIONS, DEFAULT_BASE_HOURS, formatComplexityFactor, normalizeComplexity } from '@/utils/effortEstimationUtils'
 import './adminProjects.css'
@@ -271,6 +272,25 @@ export function ProjectCellPage() {
     }
   }
 
+  const handleHoldToggle = async (hold: boolean) => {
+    if (!projectId || !cellId) return
+    try {
+      const updated = await setCellHold(projectId, cellId, { hold })
+      setDurationFetchedAt(Date.now())
+      setSummary((prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          cells: prev.cells.map((c) => (c.id === cellId ? { ...c, ...updated } : c)),
+        }
+      })
+      toast.success(hold ? 'Productive time paused' : 'Productive time resumed')
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+      toast.error(msg || 'Failed to update hold status')
+    }
+  }
+
   if (loading && !summary) {
     return (
       <PageWrapper className="admin-hub-page-wrap py-8 text-center text-slate-500" data-page-scrollable>
@@ -329,12 +349,6 @@ export function ProjectCellPage() {
               )}>
                 {cellDisplayStatus(cell)}
               </span>
-              <CellWorkflowDurationLabel
-                cellStatus={cell.status}
-                workflowDuration={cell.workflowDuration}
-                fetchedAt={durationFetchedAt}
-              />
-              <CellWorkflowTimingSummary timing={cell.workflowTiming} />
               {cell.status === 'completed' ? (
                 <Button
                   size="sm"
@@ -364,9 +378,21 @@ export function ProjectCellPage() {
               >
                 <Trash2 className="h-4 w-4" />
               </button>
+              <CellWorkflowDurationLabel
+                cellStatus={cell.status}
+                workflowDuration={cell.productiveWorkDuration ?? cell.workflowDuration}
+                fetchedAt={durationFetchedAt}
+                alwaysVisible
+                variant="header"
+                onHold={Boolean(cell.onHold)}
+                holdEnabled={cell.status === 'in_progress'}
+                onHoldToggle={(hold) => void handleHoldToggle(hold)}
+              />
               </div>
             </div>
           </header>
+
+          {cell.status === 'completed' ? <CellCompletionTimeSummary cell={cell} /> : null}
 
           <div className="admin-projects-cell-page-body">
             <nav className="admin-projects-cell-tab-rail" aria-label="Cell sections">
@@ -654,7 +680,14 @@ export function ProjectCellPage() {
                             showReviews={false}
                             onUpdated={(updated) => {
                               setCellForm(updated)
-                              void reload()
+                              setDurationFetchedAt(Date.now())
+                              setSummary((prev) => {
+                                if (!prev) return prev
+                                return {
+                                  ...prev,
+                                  cells: prev.cells.map((c) => (c.id === cellId ? { ...c, ...updated } : c)),
+                                }
+                              })
                             }}
                           />
                         ) : (

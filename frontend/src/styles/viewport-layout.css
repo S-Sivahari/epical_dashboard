@@ -685,6 +685,15 @@ body,
   padding: 0.75rem 1.125rem;
 }
 
+.metal-routing-pdk-card__footer--action {
+  justify-content: flex-end;
+}
+
+.metal-routing-pdk-list-row__view {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
 .metal-routing-pdk-list {
   display: flex;
   flex-direction: column;
@@ -1851,36 +1860,52 @@ body,
   -webkit-overflow-scrolling: touch;
 }
 
-/* Employee directory list view — toolbar stays fixed, table scrolls inside */
-.admin-portal.cmd-portal .cmd-main:has([data-admin-employees][data-view-mode='list']) {
+/* Employee directory listing (grid + list) — fill viewport, pagination pinned to bottom */
+.admin-portal.cmd-portal .cmd-main:has([data-admin-employees]) {
   overflow: hidden;
 }
 
-.admin-portal .employee-directory-view[data-admin-employees][data-view-mode='list'] {
+.admin-portal .employee-directory-view[data-admin-employees] {
   flex: 1 1 0;
   max-height: var(--viewport-page-h);
   overflow: hidden;
 }
 
-.admin-portal .employee-directory-view[data-view-mode='list'] .employee-directory-shell {
+.admin-portal .employee-directory-view[data-admin-employees] .employee-directory-shell {
   overflow: hidden;
 }
 
-.admin-portal .employee-directory-view[data-view-mode='list'] .employee-directory-table-section {
-  flex: 1 1 0;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.admin-portal .employee-directory-view[data-view-mode='list'] .employee-directory-table-head,
-.admin-portal .employee-directory-view[data-view-mode='list'] .employee-directory-pagination {
+.admin-portal .employee-directory-view[data-admin-employees] .employee-directory-header {
   flex-shrink: 0;
 }
 
-.admin-portal .employee-directory-view[data-view-mode='list'] .employee-directory-table.admin-table-scroll {
+.admin-portal .employee-directory-view[data-admin-employees] .employee-directory-table-section {
   flex: 1 1 0;
   min-height: 0;
-  max-height: none;
+  overflow: hidden;
+}
+
+.admin-portal .employee-directory-view[data-admin-employees] .employee-directory-table-head,
+.admin-portal .employee-directory-view[data-admin-employees] .employee-directory-pagination {
+  flex-shrink: 0;
+}
+
+.admin-portal .employee-directory-view[data-admin-employees] .employee-directory-pagination {
+  margin-top: auto;
+}
+
+.admin-portal .employee-directory-view[data-admin-employees] .employee-directory-table-section > :not(.employee-directory-table-head):not(.employee-directory-pagination) {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-portal .employee-directory-view[data-admin-employees] .employee-directory-table.admin-table-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: none !important;
   margin-bottom: 0;
 }
 

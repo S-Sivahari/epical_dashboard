@@ -1270,6 +1270,13 @@ export const employeeTimesheetController = {
           await syncProjectForTimesheet(openLog, session);
         });
 
+        await closeProductiveSessionsForProjectEmployee(
+          openLog.projectId.toString(),
+          employee.identityTokens,
+          WORK_SESSION_REASONS.PROJECT_CHECKED_OUT,
+          now,
+        );
+
         res.json({
           timesheet: toFrontendTimesheet(openLog),
           completedAt: now.toISOString(),

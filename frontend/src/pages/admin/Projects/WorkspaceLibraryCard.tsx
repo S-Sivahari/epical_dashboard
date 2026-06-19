@@ -56,8 +56,10 @@ export function WorkspaceLibraryCard({
             <BookOpen className="h-4 w-4" />
           </span>
           <span className="admin-projects-library-card-copy">
-            <span className="admin-projects-library-card-name">{library.name}</span>
-            <span className="admin-projects-library-card-count">{cellLabel}</span>
+            <span className="admin-projects-library-card-title-row">
+              <span className="admin-projects-library-card-name">{library.name}</span>
+              <span className="admin-projects-library-card-count">{cellLabel}</span>
+            </span>
           </span>
         </button>
         <button

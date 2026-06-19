@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
-import jwt from 'jsonwebtoken';
 import { env } from '../config/env';
-import { normalizeApiRole } from '../utils/generateToken';
 import { setAuthCookies } from '../utils/authCookie';
+import { buildAuthTokenForUser } from '../services/authService';
+import { resolveEmployeeForAuthUser } from '../utils/employeeAuth';
 
 function oauthFailureRedirect(reason = 'auth_failed') {
   return `${env.FRONTEND_URL}/auth/login?error=${encodeURIComponent(reason)}`;
@@ -14,18 +14,15 @@ export async function handleGoogleCallback(req: Request, res: Response) {
       id: string;
       email: string;
       role: string;
+      portalAdmin?: boolean;
     } | undefined;
 
     if (!user) {
       return res.redirect(oauthFailureRedirect('google_auth_failed'));
     }
 
-    const apiRole = normalizeApiRole(user.role);
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: apiRole },
-      env.JWT_SECRET,
-      { expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] },
-    );
+    const employee = await resolveEmployeeForAuthUser(user.id, user.email);
+    const token = buildAuthTokenForUser(user, employee);
 
     setAuthCookies(res, token);
     res.redirect(`${env.FRONTEND_URL}/auth/login?oauth=success`);

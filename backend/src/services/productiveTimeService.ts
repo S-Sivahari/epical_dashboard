@@ -109,6 +109,34 @@ export async function canAccumulateProductiveTime(
   return isEmployeeCheckedInToProject(tokens, projectId);
 }
 
+/** Map cell + check-in state to why productive time is stopped (for session close). */
+export function resolveProductiveTimeStopReason(
+  cell: {
+    status?: string;
+    onHold?: boolean;
+    workflow?: CellWorkflowStage[];
+  },
+  checkedIn: boolean,
+): WorkSessionReason {
+  if (cell.onHold) return WORK_SESSION_REASONS.HOLD;
+  if (cell.status === 'completed' || cell.status === 'ready') return WORK_SESSION_REASONS.INACTIVE;
+
+  const workflow = normalizeCellWorkflow(cell.workflow ?? []);
+  if (isCellWaitingForReview(workflow)) return WORK_SESSION_REASONS.PENDING_REVIEW;
+  if (workflow.some((stage) => stage.status === 'rejected')) {
+    return WORK_SESSION_REASONS.REJECTED_WAITING;
+  }
+  if (cell.status !== 'in_progress') return WORK_SESSION_REASONS.INACTIVE;
+  if (!getActiveWorkStage(workflow)) {
+    if (workflow.some((stage) => stage.status === 'approved')) {
+      return WORK_SESSION_REASONS.PENDING_APPROVAL;
+    }
+    return WORK_SESSION_REASONS.INACTIVE;
+  }
+  if (!checkedIn) return WORK_SESSION_REASONS.PROJECT_CHECKED_OUT;
+  return WORK_SESSION_REASONS.INACTIVE;
+}
+
 async function closeOpenWorkingLogs(
   projectId: string,
   cellId: string,
@@ -203,13 +231,11 @@ export async function syncProductiveSessionsForCell(
   const canWork = await canAccumulateProductiveTime(cell, projectId);
 
   if (!canWork || !activeStage) {
-    const reason = cell.onHold
-      ? WORK_SESSION_REASONS.HOLD
-      : isCellWaitingForReview(workflow)
-        ? WORK_SESSION_REASONS.PENDING_REVIEW
-        : cell.status === 'completed' || cell.status === 'ready'
-          ? WORK_SESSION_REASONS.INACTIVE
-          : WORK_SESSION_REASONS.INACTIVE;
+    const tokens = await getAssigneeIdentityTokens(cell.assignedEmployeeId);
+    const checkedIn = tokens.length
+      ? await isEmployeeCheckedInToProject(tokens, projectId)
+      : false;
+    const reason = resolveProductiveTimeStopReason(cell, checkedIn);
     await closeOpenWorkingLogs(projectId, cellId, at, reason, actor);
     return;
   }

@@ -60,7 +60,6 @@ import {
 } from '../services/productiveTimeService';
 import {
   buildWorkflowDurationMap,
-  closeAllOpenWorkLogs,
   ensureWorkLogsInitialized,
   getCellWorkflowDuration,
   getCellWorkflowTiming,
@@ -187,13 +186,37 @@ async function toCellWithDuration(
   const workflow = syncCellWorkflowFromViewWorkflow(viewWorkflow);
   const cellId = doc._id.toString();
   const projectId = doc.projectId.toString();
-  const cellStatus = normalizeStatus(doc.status || 'ready');
-  const activityLog = doc.activityLog ?? [];
+  const cellContext = {
+    status: normalizeStatus(doc.status || 'ready'),
+    onHold: Boolean(doc.onHold),
+    assignedEmployeeId: doc.assignedEmployeeId,
+    workflow,
+    activityLog: doc.activityLog ?? [],
+  };
   const [duration, timing] = await Promise.all([
-    getCellWorkflowDuration(projectId, cellId, cellStatus, activityLog, workflow),
-    getCellWorkflowTiming(projectId, cellId, cellStatus, activityLog, workflow),
+    getCellWorkflowDuration(projectId, cellId, cellContext),
+    getCellWorkflowTiming(projectId, cellId, cellContext),
   ]);
   return toCell(doc, dependencyMeta, duration, timing);
+}
+
+function cellProductiveTimePayload(doc: any) {
+  const workflow = normalizeCellWorkflow(doc.workflow ?? syncCellWorkflowFromViewWorkflow(normalizeViewWorkflow(doc.viewWorkflow)));
+  return {
+    status: normalizeStatus(doc.status || 'ready'),
+    onHold: Boolean(doc.onHold),
+    assignedEmployeeId: doc.assignedEmployeeId,
+    workflow,
+  };
+}
+
+async function reconcileCellProductiveTime(
+  projectId: string,
+  cellId: string,
+  doc: any,
+  actor?: ReturnType<typeof actorFromReq>,
+) {
+  await syncProductiveSessionsForCell(projectId, cellId, cellProductiveTimePayload(doc), actor);
 }
 
 function toReview(doc: any) {
@@ -635,6 +658,19 @@ export const projectWorkspaceController = {
       const nextAssignee = cell.assignedEmployeeId?.trim() || '';
       if (
         req.body.assignedEmployeeId !== undefined
+        && nextAssignee !== previousAssignee
+      ) {
+        await closeProductiveSessionsForCell(
+          projectId,
+          cellId,
+          WORK_SESSION_REASONS.INACTIVE,
+          actor,
+        );
+      }
+      await reconcileCellProductiveTime(projectId, cellId, cell, actor);
+
+      if (
+        req.body.assignedEmployeeId !== undefined
         && nextAssignee
         && nextAssignee !== previousAssignee
       ) {
@@ -699,6 +735,7 @@ export const projectWorkspaceController = {
         at: new Date(),
       });
       await cell.save();
+      await reconcileCellProductiveTime(projectId, cellId, cell, actor);
       res.json(toCell(cell, await computeDependencyMeta(new Types.ObjectId(projectId), cell)));
     } catch (err) {
       res.status(500).json({ error: 'Failed to update status' });
@@ -741,7 +778,13 @@ export const projectWorkspaceController = {
         at: completedAt,
       });
       await cell.save();
-      await closeAllOpenWorkLogs(projectId, cellId, completedAt);
+      await closeProductiveSessionsForCell(
+        projectId,
+        cellId,
+        WORK_SESSION_REASONS.INACTIVE,
+        actor,
+        completedAt,
+      );
 
       await refreshBlockedStatuses(new Types.ObjectId(projectId));
       await syncProjectProgress(new Types.ObjectId(projectId));
@@ -788,6 +831,7 @@ export const projectWorkspaceController = {
         at: new Date(),
       });
       await cell.save();
+      await reconcileCellProductiveTime(projectId, cellId, cell, actor);
 
       await refreshBlockedStatuses(new Types.ObjectId(projectId));
       await syncProjectProgress(new Types.ObjectId(projectId));
@@ -810,13 +854,15 @@ export const projectWorkspaceController = {
         return;
       }
 
-      if (cell.status === 'ready') {
+      const becameInProgress = cell.status === 'ready';
+      if (becameInProgress) {
         cell.status = 'in_progress';
         await cell.save();
+        await reconcileCellProductiveTime(projectId, cellId, cell);
       }
 
       const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
-      res.json(toCell(cell, meta));
+      res.json(await toCellWithDuration(cell, meta));
     } catch (err) {
       res.status(500).json({ error: 'Failed to update cell activity' });
     }

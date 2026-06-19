@@ -49,6 +49,22 @@ export const WORKFLOW_STATUS_LABELS: Record<WorkflowStageStatus, string> = {
   rejected: 'Rejected',
 }
 
+/** Pseudo-value for work-stage dropdowns — pauses productive time on the cell. */
+export const WORKFLOW_HOLD_VALUE = 'hold' as const
+export const WORKFLOW_HOLD_LABEL = 'Hold'
+
+export function isWorkStageKey(stageKey: CellWorkflowStageKey): boolean {
+  return !isReviewStageKey(stageKey)
+}
+
+export function workStageSelectValue(
+  stageStatus: WorkflowStageStatus,
+  cellOnHold: boolean,
+): WorkflowStageStatus | typeof WORKFLOW_HOLD_VALUE {
+  if (cellOnHold && stageStatus === 'in_progress') return WORKFLOW_HOLD_VALUE
+  return stageStatus
+}
+
 const LEGACY_STAGE_KEY_MAP: Record<string, CellWorkflowStageKey> = {
   drc_review_1: 'drc_first',
   drc: 'drc_final',

@@ -28,6 +28,7 @@ export interface Employee {
   department: string
   designation: string
   role: string
+  portalAccess?: 'Employee' | 'Employee+Admin'
   reportingManager?: string
   managerId?: string
   employmentType: EmploymentType

@@ -1,13 +1,7 @@
 import api from '@services/api'
-import type { AchievementPageColors } from '@/utils/achievementPageColors'
 
 export interface AchievementPageMeta {
   title: string
-  subtitle: string
-  sectionTitle: string
-  sectionSubtitle: string
-  colors: AchievementPageColors
-  hasCoverImage: boolean
   updatedAt: string | null
 }
 
@@ -26,24 +20,9 @@ export async function getAchievementPageMeta(): Promise<AchievementPageMeta> {
   return data
 }
 
-export async function updateAchievementPage(formData: FormData): Promise<AchievementPageMeta> {
-  const { data } = await api.put<AchievementPageMeta>('/company-achievements/page', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
+export async function updateAchievementPage(title: string): Promise<AchievementPageMeta> {
+  const { data } = await api.put<AchievementPageMeta>('/company-achievements/page', { title })
   return data
-}
-
-export async function fetchCoverImageBlob(revision?: string | null): Promise<Blob | null> {
-  try {
-    const { data, status } = await api.get<Blob>('/company-achievements/page/cover-image', {
-      responseType: 'blob',
-      params: revision ? { v: revision } : undefined,
-    })
-    if (status !== 200) return null
-    return data
-  } catch {
-    return null
-  }
 }
 
 export async function listCompanyAchievements(): Promise<CompanyAchievementRow[]> {

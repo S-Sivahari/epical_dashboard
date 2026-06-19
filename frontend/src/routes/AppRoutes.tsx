@@ -211,8 +211,13 @@ const NotFound = lazy(async () => {
 
 // ── Root Redirect ─────────────────────────────────────────────
 function RootRedirect() {
+  const isHydrated = useAuthStore((s) => s.isHydrated)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const role = useAuthStore((s) => s.role)
+
+  if (!isHydrated) {
+    return <PageLoading />
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/auth/login" replace />
@@ -231,11 +236,7 @@ function AuthLoginRoute() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const role = useAuthStore((s) => s.role)
 
-  if (!isHydrated) {
-    return <PageLoading />
-  }
-
-  if (isAuthenticated) {
+  if (isHydrated && isAuthenticated) {
     return <Navigate to={role === 'admin' ? '/admin' : '/employee'} replace />
   }
 

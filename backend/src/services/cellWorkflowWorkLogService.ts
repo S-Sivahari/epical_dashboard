@@ -11,10 +11,12 @@ import { formatWorkflowDurationFromMs } from '../utils/durationFormat';
 import { WORK_SESSION_REASONS } from '../utils/workSessionReason';
 import { isCountableWorkSession } from '../utils/workSessionReason';
 import {
+  canAccumulateProductiveTime,
   filterCountableLogs,
   syncProductiveSessionsForCell,
   syncProductiveSessionsFromWorkflowChange,
 } from './productiveTimeService';
+import { normalizeCellWorkflow } from '../utils/cellWorkflow';
 
 export interface CellWorkflowDuration {
   totalMs: number;
@@ -88,6 +90,8 @@ function computeDurationFromLogs(
   cellStatus: string,
   activityLog: CellActivityEntry[],
   now = new Date(),
+  onHold = false,
+  canAccumulateLive = false,
 ): CellWorkflowDuration {
   let totalMs = 0;
   let hasOpen = false;
@@ -100,12 +104,17 @@ function computeDurationFromLogs(
         : logWorkedMs(log.checkInTime, log.checkOutTime);
     } else if (isCountableWorkSession(log.reason)) {
       hasOpen = true;
-      totalMs += logWorkedMs(log.checkInTime, now);
+      if (canAccumulateLive) {
+        totalMs += logWorkedMs(log.checkInTime, now);
+      }
     }
   }
 
   const wasEverCompleted = wasCellEverCompleted(cellStatus, activityLog);
-  const isActive = cellStatus !== 'completed' && hasOpen && cellStatus === 'in_progress';
+  const isActive = cellStatus === 'in_progress'
+    && !onHold
+    && canAccumulateLive
+    && hasOpen;
 
   return {
     totalMs,
@@ -130,6 +139,7 @@ function buildStageTiming(
   }>,
   stageStatus: WorkflowStageStatus,
   now = new Date(),
+  canAccumulateLive = false,
 ): StageWorkflowTiming {
   const stageLogs = filterCountableLogs(logs.filter((log) => log.stageKey === stageKey));
   let totalMs = 0;
@@ -138,7 +148,9 @@ function buildStageTiming(
   for (const log of stageLogs) {
     if (!log.checkOutTime) {
       openLog = log;
-      totalMs += logWorkedMs(log.checkInTime, now);
+      if (canAccumulateLive) {
+        totalMs += logWorkedMs(log.checkInTime, now);
+      }
       continue;
     }
     totalMs += log.workedMs && log.workedMs > 0
@@ -153,7 +165,6 @@ function buildStageTiming(
   }, null);
 
   const completionLog = stageLogs.find((log) => log.stageCompletionTime) ?? null;
-  const isActive = Boolean(openLog) || (isActiveStageStatus(stageStatus) && totalMs > 0 && !completionLog);
 
   return {
     stageKey,
@@ -168,7 +179,7 @@ function buildStageTiming(
     latestActivityTime: toIso(latestLog?.latestActivityTime ?? null),
     totalMs,
     formattedTotal: formatWorkflowDurationFromMs(totalMs),
-    isActive: Boolean(openLog) || isActiveStageStatus(stageStatus),
+    isActive: Boolean(openLog) && canAccumulateLive,
   };
 }
 
@@ -187,10 +198,11 @@ function buildCellWorkflowTiming(
   cellStatus: string,
   activityLog: CellActivityEntry[],
   now = new Date(),
+  canAccumulateLive = false,
 ): CellWorkflowTiming {
   const stages = CELL_WORKFLOW_STAGES.map(({ key }) => {
     const stage = workflow.find((item) => item.stageKey === key);
-    return buildStageTiming(key, logs, stage?.status ?? 'not_started', now);
+    return buildStageTiming(key, logs, stage?.status ?? 'not_started', now, canAccumulateLive);
   });
 
   const latestActivityTime = stages
@@ -288,32 +300,85 @@ export async function syncWorkLogsFromWorkflowChange(
   );
 }
 
+type CellDurationContext = {
+  status?: string;
+  onHold?: boolean;
+  assignedEmployeeId?: string;
+  workflow?: CellWorkflowStage[];
+  activityLog?: CellActivityEntry[];
+};
+
+async function resolveCanAccumulateLive(
+  projectId: string,
+  cell: CellDurationContext,
+): Promise<boolean> {
+  return canAccumulateProductiveTime(
+    {
+      status: cell.status,
+      onHold: cell.onHold,
+      assignedEmployeeId: cell.assignedEmployeeId,
+      workflow: normalizeCellWorkflow(cell.workflow ?? []),
+    },
+    projectId,
+  );
+}
+
 export async function getCellWorkflowDuration(
   projectId: string,
   cellId: string,
-  cellStatus: string,
-  activityLog: CellActivityEntry[] = [],
-  _workflow: CellWorkflowStage[] = [],
+  cell: CellDurationContext,
 ): Promise<CellWorkflowDuration> {
   const logs = await fetchLogsForCell(projectId, cellId);
-  return computeDurationFromLogs(logs, cellStatus, activityLog);
+  const cellStatus = cell.status || 'ready';
+  const canAccumulateLive = await resolveCanAccumulateLive(projectId, cell);
+  return computeDurationFromLogs(
+    logs,
+    cellStatus,
+    cell.activityLog ?? [],
+    new Date(),
+    Boolean(cell.onHold),
+    canAccumulateLive,
+  );
 }
 
 export async function getCellWorkflowTiming(
   projectId: string,
   cellId: string,
-  cellStatus: string,
-  activityLog: CellActivityEntry[] = [],
-  workflow: CellWorkflowStage[] = [],
+  cell: CellDurationContext,
 ): Promise<CellWorkflowTiming> {
   const logs = await fetchLogsForCell(projectId, cellId);
-  const duration = computeDurationFromLogs(logs, cellStatus, activityLog);
-  return buildCellWorkflowTiming(workflow, logs, duration, cellStatus, activityLog);
+  const workflow = normalizeCellWorkflow(cell.workflow ?? []);
+  const cellStatus = cell.status || 'ready';
+  const canAccumulateLive = await resolveCanAccumulateLive(projectId, cell);
+  const duration = computeDurationFromLogs(
+    logs,
+    cellStatus,
+    cell.activityLog ?? [],
+    new Date(),
+    Boolean(cell.onHold),
+    canAccumulateLive,
+  );
+  return buildCellWorkflowTiming(
+    workflow,
+    logs,
+    duration,
+    cellStatus,
+    cell.activityLog ?? [],
+    new Date(),
+    canAccumulateLive,
+  );
 }
 
 export async function buildWorkflowDurationMap(
   projectId: string,
-  cells: Array<{ _id: Types.ObjectId | string; status?: string; activityLog?: CellActivityEntry[] }>,
+  cells: Array<{
+    _id: Types.ObjectId | string;
+    status?: string;
+    activityLog?: CellActivityEntry[];
+    onHold?: boolean;
+    assignedEmployeeId?: string;
+    workflow?: CellWorkflowStage[];
+  }>,
 ): Promise<Map<string, CellWorkflowDuration>> {
   const projectObjectId = toObjectId(projectId);
   if (!projectObjectId || cells.length === 0) return new Map();
@@ -339,9 +404,17 @@ export async function buildWorkflowDurationMap(
   for (const cell of cells) {
     const cellId = String(cell._id);
     const cellLogs = logsByCell.get(cellId) ?? [];
+    const canAccumulateLive = await resolveCanAccumulateLive(projectId, cell);
     durationMap.set(
       cellId,
-      computeDurationFromLogs(cellLogs, cell.status || 'ready', cell.activityLog ?? []),
+      computeDurationFromLogs(
+        cellLogs,
+        cell.status || 'ready',
+        cell.activityLog ?? [],
+        new Date(),
+        Boolean(cell.onHold),
+        canAccumulateLive,
+      ),
     );
   }
 

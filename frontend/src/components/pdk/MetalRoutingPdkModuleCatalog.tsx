@@ -12,8 +12,9 @@ import {
   MetalRoutingEmptyState,
 } from '@components/pdk/MetalRoutingSkeleton'
 import { MetalRoutingViewToggle, type MetalRoutingViewMode } from '@components/pdk/MetalRoutingViewToggle'
+import { Button } from '@components/ui/Button'
 import type { PdkModule } from '@/types/pdkMetalRouting'
-import { metalRoutingListRowStyle } from '@/utils/metalRoutingCardTheme'
+import { metalRoutingCardStyle, metalRoutingListRowStyle } from '@/utils/metalRoutingCardTheme'
 import { stringToHue, stringToHueColor } from '@/utils/stringColor'
 
 const PAGE_SIZE = 9
@@ -56,17 +57,6 @@ export function getPdkModuleCardTheme(seed: string) {
     chipMetalsBg: `hsl(${hue} 55% 88%)`,
     chipMetalsText: `hsl(${hue} 38% 28%)`,
   }
-}
-
-function sparklineBars(seed: string, count = 7): number[] {
-  let hash = 0
-  for (let i = 0; i < seed.length; i += 1) {
-    hash = (hash * 31 + seed.charCodeAt(i)) % 9973
-  }
-  return Array.from({ length: count }, (_, i) => {
-    const v = (hash + i * 137) % 100
-    return 28 + (v % 72)
-  })
 }
 
 export function PdkModuleNodeFilter({
@@ -270,71 +260,19 @@ export function MetalRoutingPdkModuleCatalog({
 }
 
 function pdkModuleListRowStyle(seed: string): CSSProperties {
-  const theme = getPdkModuleCardTheme(seed)
-  return {
-    ...metalRoutingListRowStyle(seed),
-    '--pdk-chip-node-bg': theme.chipNodeBg,
-    '--pdk-chip-node-text': theme.chipNodeText,
-    '--pdk-chip-metals-bg': theme.chipMetalsBg,
-    '--pdk-chip-metals-text': theme.chipMetalsText,
-    borderColor: theme.border,
-  } as CSSProperties
+  return metalRoutingListRowStyle(seed)
 }
 
 function moduleCardStyle(seed: string): CSSProperties {
-  const theme = getPdkModuleCardTheme(seed)
-  return {
-    '--pdk-card-accent': theme.accent,
-    '--pdk-card-icon-bg': theme.iconBg,
-    '--pdk-card-icon-color': theme.iconColor,
-    '--pdk-chip-node-bg': theme.chipNodeBg,
-    '--pdk-chip-node-text': theme.chipNodeText,
-    '--pdk-chip-metals-bg': theme.chipMetalsBg,
-    '--pdk-chip-metals-text': theme.chipMetalsText,
-    background: `linear-gradient(135deg, ${theme.bgStart} 0%, #ffffff 78%)`,
-    borderColor: theme.border,
-  } as CSSProperties
-}
-
-function ModuleSparkline({ moduleId, accent }: { moduleId: string; accent: string }) {
-  const bars = sparklineBars(moduleId)
-  const max = Math.max(...bars, 1)
-
-  return (
-    <svg className="metal-routing-pdk-card__sparkline" viewBox="0 0 72 36" aria-hidden>
-      {bars.map((value, i) => {
-        const barHeight = (value / max) * 28
-        const x = i * 10 + 2
-        const y = 32 - barHeight
-        return (
-          <rect
-            key={i}
-            x={x}
-            y={y}
-            width={6}
-            height={barHeight}
-            rx={2}
-            fill={accent}
-            opacity={0.35 + (value / max) * 0.45}
-          />
-        )
-      })}
-    </svg>
-  )
+  return metalRoutingCardStyle(seed)
 }
 
 function PdkModuleCard({ module, onOpen }: { module: PdkModule; onOpen: () => void }) {
   const seed = module._id || module.name
-  const theme = getPdkModuleCardTheme(seed)
-  const nodeLabel = getPdkModuleNodeLabel(module)
-  const metalLabel = `${module.metals.length} metal${module.metals.length === 1 ? '' : 's'}`
-  const isNaNode = nodeLabel === 'N/A'
 
   return (
-    <button
-      type="button"
+    <article
       className="metal-routing-pdk-card metal-routing-pdk-card--colorful"
-      onClick={onOpen}
       style={moduleCardStyle(seed)}
     >
       <span className="metal-routing-pdk-card__accent" aria-hidden />
@@ -344,39 +282,23 @@ function PdkModuleCard({ module, onOpen }: { module: PdkModule; onOpen: () => vo
         </span>
         <div className="metal-routing-pdk-card__main">
           <p className="metal-routing-pdk-card__title">{module.name}</p>
-          <ModuleSparkline moduleId={module._id} accent={theme.accent} />
         </div>
       </div>
-      <div className="metal-routing-pdk-card__chips">
-        <span
-          className={
-            isNaNode
-              ? 'metal-routing-meta-chip metal-routing-meta-chip--na'
-              : 'metal-routing-meta-chip metal-routing-meta-chip--node-themed'
-          }
-        >
-          {nodeLabel}
-        </span>
-        <span className="metal-routing-meta-chip metal-routing-meta-chip--metals-themed">{metalLabel}</span>
+      <div className="metal-routing-pdk-card__footer metal-routing-pdk-card__footer--action">
+        <Button type="button" size="sm" variant="secondary" onClick={onOpen}>
+          View
+        </Button>
       </div>
-      <div className="metal-routing-pdk-card__footer">
-        <span>View module details</span>
-        <ChevronRight className="h-4 w-4" aria-hidden />
-      </div>
-    </button>
+    </article>
   )
 }
 
 function PdkModuleListRow({ module, onOpen }: { module: PdkModule; onOpen: () => void }) {
   const seed = module._id || module.name
-  const nodeLabel = getPdkModuleNodeLabel(module)
-  const isNaNode = nodeLabel === 'N/A'
 
   return (
-    <button
-      type="button"
+    <div
       className="metal-routing-pdk-list-row metal-routing-pdk-list-row--colorful"
-      onClick={onOpen}
       style={pdkModuleListRowStyle(seed)}
     >
       <span className="metal-routing-pdk-list-row__accent" aria-hidden />
@@ -385,23 +307,17 @@ function PdkModuleListRow({ module, onOpen }: { module: PdkModule; onOpen: () =>
       </span>
       <div className="min-w-0 flex-1 text-left">
         <p className="metal-routing-pdk-list-row__name">{module.name}</p>
-        <div className="mt-1 flex flex-wrap gap-1.5">
-          <span
-            className={
-              isNaNode
-                ? 'metal-routing-meta-chip metal-routing-meta-chip--na'
-                : 'metal-routing-meta-chip metal-routing-meta-chip--node-themed'
-            }
-          >
-            {nodeLabel}
-          </span>
-          <span className="metal-routing-meta-chip metal-routing-meta-chip--metals-themed">
-            {module.metals.length} metal{module.metals.length === 1 ? '' : 's'}
-          </span>
-        </div>
       </div>
-      <ChevronRight className="metal-routing-pdk-list-row__chevron h-4 w-4 shrink-0" aria-hidden />
-    </button>
+      <Button
+        type="button"
+        size="sm"
+        variant="secondary"
+        className="metal-routing-pdk-list-row__view shrink-0"
+        onClick={onOpen}
+      >
+        View
+      </Button>
+    </div>
   )
 }
 

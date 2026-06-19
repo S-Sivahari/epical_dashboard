@@ -7,12 +7,16 @@ import { cn } from '@/utils/cn'
 import { useAuthStore } from '@store/authStore'
 import type { CellReview, CellWorkflowStageKey, ProjectCell, WorkflowStageStatus } from '@/types/projectWorkspace'
 import { WORK_STAGE_STATUSES } from '@/types/projectWorkspace'
-import { updateWorkflowStage } from '@/services/projectWorkspaceService'
+import { updateWorkflowStage, setCellHold } from '@/services/projectWorkspaceService'
 import {
   WORKFLOW_STATUS_LABELS,
+  WORKFLOW_HOLD_LABEL,
+  WORKFLOW_HOLD_VALUE,
   isReviewStageKey,
   isStageLocked,
+  isWorkStageKey,
   normalizeCellWorkflow,
+  workStageSelectValue,
   workflowProgressPercent,
   workflowStageStatusClass,
 } from './projectWorkspaceUi'
@@ -85,9 +89,10 @@ function reviewStageMeta(stageKey: CellWorkflowStageKey, awaitingReview: boolean
 }
 
 function stageSelectClass(
-  status: WorkflowStageStatus,
+  status: WorkflowStageStatus | typeof WORKFLOW_HOLD_VALUE,
   opts: { locked?: boolean; disabled?: boolean; reviewActionable?: boolean },
 ): string {
+  if (status === WORKFLOW_HOLD_VALUE) return 'is-hold'
   if (opts.reviewActionable) return 'is-review-pending'
   if (opts.disabled && status === 'approved') return 'is-approved-readonly'
   if (opts.disabled || (opts.locked && status === 'not_started')) return 'is-readonly'
@@ -185,6 +190,43 @@ export function CellWorkflowPanel({
     }
   }
 
+  const handleWorkStageSelect = async (
+    stageKey: CellWorkflowStageKey,
+    value: string,
+    currentStatus: WorkflowStageStatus,
+  ) => {
+    if (value === WORKFLOW_HOLD_VALUE) {
+      setSavingStage(stageKey)
+      try {
+        const updated = await setCellHold(projectId, cell.id, { hold: true })
+        onUpdated?.(updated)
+        toast.success('Cell placed on hold — productive time paused')
+      } catch (err: unknown) {
+        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+        toast.error(msg || 'Failed to place cell on hold')
+      } finally {
+        setSavingStage(null)
+      }
+      return
+    }
+
+    if (cell.onHold) {
+      setSavingStage(stageKey)
+      try {
+        const released = await setCellHold(projectId, cell.id, { hold: false })
+        onUpdated?.(released)
+      } catch (err: unknown) {
+        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+        toast.error(msg || 'Failed to release hold')
+        setSavingStage(null)
+        return
+      }
+    }
+
+    if (value === currentStatus && !cell.onHold) return
+    await handleStatusChange(stageKey, value as WorkflowStageStatus)
+  }
+
   if (compact) {
     return (
       <div className="admin-projects-workflow-compact">
@@ -204,6 +246,12 @@ export function CellWorkflowPanel({
     <div className={cn('admin-projects-workflow-panel', embedded && 'is-embedded')}>
       {showStages && (
         <div className="admin-projects-workflow-board-wrap">
+          {cell.onHold ? (
+            <p className="admin-projects-workflow-hold-banner" role="status">
+              On hold{cell.heldByName ? ` by ${cell.heldByName}` : ''}
+              {cell.holdReason ? ` — ${cell.holdReason}` : ''}. Productive time is paused. Select In Progress to resume.
+            </p>
+          ) : null}
           <div className="admin-projects-workflow-board">
             {workflow.map((stage) => {
               const visual = STAGE_VISUAL[stage.stageKey]
@@ -216,10 +264,14 @@ export function CellWorkflowPanel({
               const isActive = activeStageKey === stage.stageKey
               const awaitingReview = isReview && (stage.status === 'pending_review' || reviewActionable)
               const meta = reviewStageMeta(stage.stageKey, awaitingReview)
-              const headerBadge = stageHeaderBadge(stage.status, locked, reviewActionable)
-              const badgeClass = reviewActionable && stage.status === 'not_started'
-                ? 'is-progress'
-                : workflowStageStatusClass(stage.status)
+              const headerBadge = cell.onHold && isWorkStageKey(stage.stageKey) && stage.status === 'in_progress'
+                ? 'On Hold'
+                : stageHeaderBadge(stage.status, locked, reviewActionable)
+              const badgeClass = cell.onHold && isWorkStageKey(stage.stageKey) && stage.status === 'in_progress'
+                ? 'is-hold'
+                : reviewActionable && stage.status === 'not_started'
+                  ? 'is-progress'
+                  : workflowStageStatusClass(stage.status)
               const stageTiming = getStageTiming(cell.workflowTiming, stage.stageKey)
 
               return (
@@ -345,13 +397,19 @@ export function CellWorkflowPanel({
                         <select
                           className={cn(
                             'admin-projects-workflow-stage-select',
-                            stageSelectClass(stage.status, { locked, disabled: locked || saving }),
+                            stageSelectClass(
+                              cell.onHold && stage.status === 'in_progress'
+                                ? WORKFLOW_HOLD_VALUE
+                                : stage.status,
+                              { locked, disabled: locked || saving },
+                            ),
                           )}
-                          value={stage.status}
+                          value={workStageSelectValue(stage.status, Boolean(cell.onHold))}
                           disabled={locked || saving}
-                          onChange={(e) => void handleStatusChange(
+                          onChange={(e) => void handleWorkStageSelect(
                             stage.stageKey,
-                            e.target.value as WorkflowStageStatus,
+                            e.target.value,
+                            stage.status,
                           )}
                           aria-label={`${stage.stageLabel} status`}
                         >
@@ -360,6 +418,7 @@ export function CellWorkflowPanel({
                               {WORKFLOW_STATUS_LABELS[value]}
                             </option>
                           ))}
+                          <option value={WORKFLOW_HOLD_VALUE}>{WORKFLOW_HOLD_LABEL}</option>
                         </select>
                       </div>
                     )}

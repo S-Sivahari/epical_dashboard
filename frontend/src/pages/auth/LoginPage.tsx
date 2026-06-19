@@ -1,5 +1,4 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 import { useCallback, useEffect, useState } from 'react'
@@ -203,11 +202,10 @@ export function LoginPage() {
     <div className="login-page login-page--split">
       <TopDismissNotice notice={notice} onDismiss={dismissNotice} />
       <div className="login-split-wrap">
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45, ease: 'easeOut' }}
-          className={`login-split-card ${!googleConfigReady || !googleSignInEnabled ? 'login-split-card--single' : ''}`}
+        <div
+          className={`login-split-card ${
+            !googleConfigReady || !googleSignInEnabled ? 'login-split-card--single' : ''
+          }`}
         >
           <div className="login-split-left">
             <div className="login-split-wordmark-wrap">
@@ -218,7 +216,8 @@ export function LoginPage() {
                 height={72}
                 className="login-split-wordmark"
                 draggable={false}
-                decoding="async"
+                decoding="sync"
+                fetchPriority="high"
               />
             </div>
 
@@ -311,7 +310,7 @@ export function LoginPage() {
               </button>
             </div>
           ) : null}
-        </motion.div>
+        </div>
       </div>
     </div>
   )

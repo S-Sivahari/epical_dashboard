@@ -26,7 +26,7 @@ export const LEAVE_BALANCE_COLORS: Record<string, string> = {
 
 const DEFAULT_TOTALS: Record<string, number | undefined> = {
   'Casual Leave': 12,
-  'Sick Leave': 12,
+  'Sick Leave': 6,
   'Earned Leave': 0,
   'Compensation Leave': 0,
 }

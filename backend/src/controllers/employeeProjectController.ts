@@ -19,7 +19,6 @@ import {
   resolveBaseHoursInput,
 } from '../services/effortEstimationService';
 import {
-  closeAllOpenWorkLogs,
   ensureWorkLogsInitialized,
   getCellWorkflowTiming,
   syncWorkLogsFromWorkflowChange,
@@ -452,9 +451,13 @@ async function toEmployeeCellWithTiming(
   const timing = await getCellWorkflowTiming(
     doc.projectId.toString(),
     doc._id.toString(),
-    normalizeStatus(doc.status || 'ready'),
-    doc.activityLog ?? [],
-    workflow,
+    {
+      status: normalizeStatus(doc.status || 'ready'),
+      onHold: Boolean(doc.onHold),
+      assignedEmployeeId: doc.assignedEmployeeId,
+      workflow,
+      activityLog: doc.activityLog ?? [],
+    },
   );
   return toEmployeeCell(doc, tokens, dependencyMeta, timing);
 }
@@ -1823,7 +1826,13 @@ export const employeeProjectController = {
         userName: actor.userName,
         at: completedAt,
       });
-      await closeAllOpenWorkLogs(projectId, cellId, completedAt);
+      await closeProductiveSessionsForCell(
+        projectId,
+        cellId,
+        WORK_SESSION_REASONS.INACTIVE,
+        actor,
+        completedAt,
+      );
       await cell.save();
 
       await syncProjectProgress(new Types.ObjectId(projectId));

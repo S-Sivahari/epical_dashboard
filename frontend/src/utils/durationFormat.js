@@ -40,6 +40,17 @@ export function formatWorkflowDurationFromMs(ms) {
   return '0m'
 }
 
+/** Live header timer with days, hours, minutes, and seconds. e.g. "0d 0h 8m 45s". */
+export function formatLiveWorkflowDurationFromMs(ms) {
+  const totalSeconds = Math.floor(Math.max(0, ms) / 1000)
+  const days = Math.floor(totalSeconds / 86400)
+  const hours = Math.floor((totalSeconds % 86400) / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+
+  return `${days}d ${hours}h ${minutes}m ${seconds}s`
+}
+
 export function formatSessionDuration(session) {
   if (!session) return '—'
   const { loginTime, logoutTime, totalHours, totalPausedMs, taskStatus, autoCheckedOut } = session

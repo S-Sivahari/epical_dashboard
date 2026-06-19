@@ -142,7 +142,7 @@ function leaveBalanceOptions(
     compensationLeaveCredits,
     employeeAllocations: employeeAllocationOverrides(employee),
     refDate,
-    earnedLeaveMonthEndAccrual: employee?.earnedLeaveMonthEndAccrual === true,
+    earnedLeaveMonthEndAccrual: employee?.earnedLeaveMonthEndAccrual !== false,
   };
 }
 
@@ -445,7 +445,7 @@ export async function getEmployeeLeaveSummary(employeeId: string): Promise<Emplo
     : employeeId;
 
   return {
-    employeeId: displayEmployeeId,
+    employeeId: employee?.employeeId ? String(employee.employeeId) : canonicalId,
     employeeName,
     allocations: allocationDisplay,
     balances: balanceList,

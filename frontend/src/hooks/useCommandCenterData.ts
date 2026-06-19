@@ -6,8 +6,7 @@ import { useEmployeeStore } from '@store/employeeStore'
 import { useNotificationStore } from '@store/notificationStore'
 import { useTicketStore } from '@store/ticketStore'
 import {
-  getChartRange,
-  type ChartPeriod,
+  chartPeriodForDateRange,
 } from '@/pages/admin/Dashboard/dashboardChartUtils'
 import {
   buildPendingApprovals,
@@ -28,7 +27,14 @@ export interface DepartmentStats {
 
 const DASHBOARD_REFRESH_MS = 15 * 60 * 1000
 
-export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
+export type ChartDateRange = {
+  from: string
+  to: string
+}
+
+export function useCommandCenterData(chartDateRange: ChartDateRange) {
+  const { from, to } = chartDateRange
+  const chartPeriod = useMemo(() => chartPeriodForDateRange(from, to), [from, to])
   const user = useAuthStore((s) => s.user)
   const { leaves, holidays } = useLeaves()
   const totalEmployees = useEmployeeStore((s) => s.pagination.total)
@@ -59,10 +65,11 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
     async function load(silent = false) {
       try {
         if (!silent) setLoading(true)
-        const { from, to } = getChartRange(chartPeriod)
         const [tsRes, chartRes, projRes, empHoursRes, docRes, batchRes, empRes, ticketList] = await Promise.all([
           api.get('/timesheets', { params: { from, to } }),
-          api.get('/timesheets/project-hours-chart', { params: { from, to, period: chartPeriod } }),
+          api.get('/timesheets/project-hours-chart', {
+            params: { from, to, period: chartPeriod },
+          }),
           api.get('/projects', { params: { syncCompletion: true } }),
           api.get('/timesheets/employee-hours', { params: { from, to } }),
           fetchAdminDocumentRequests({ status: 'Requested', page: 1, limit: 50 }).catch(() => ({
@@ -117,7 +124,7 @@ export function useCommandCenterData(chartPeriod: ChartPeriod = 'This Week') {
       cancelled = true
       window.clearInterval(refreshId)
     }
-  }, [chartPeriod, employeesRevision])
+  }, [from, to, chartPeriod, employeesRevision])
 
   const pendingLeaves = leaves.filter((l) => l.status === 'Pending')
   const approvedLeaves = leaves.filter((l) => l.status === 'Approved')
