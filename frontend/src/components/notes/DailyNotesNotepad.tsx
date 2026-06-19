@@ -139,9 +139,9 @@ export function DailyNotesNotepad({
           </div>
           {hasBlock ? (
             <div className="notes-day-card__meta">
-              <span>{dayStats.totalNotes} notes</span>
-              <span>{dayStats.totalEmployees} employees</span>
-              <span>{dayStats.totalProjects} projects</span>
+              <span>{dayStats.totalNotes} Notes</span>
+              <span>{dayStats.totalEmployees} Employees</span>
+              <span>{dayStats.totalProjects} Projects</span>
             </div>
           ) : null}
         </button>

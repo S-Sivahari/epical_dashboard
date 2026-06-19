@@ -282,7 +282,7 @@ export default function Dashboard() {
               {loading ? (
                 widgetSkeleton
               ) : (
-                <UpcomingHolidaysCard
+                    <UpcomingHolidaysCard
                   compact
                   fill
                   className="emp-dash-card emp-dash-card--sky"

@@ -14,6 +14,7 @@ import { useAuthStore } from '@store/authStore'
 import api from '@services/api'
 import { shouldShowAdminBackButton } from '@constants/adminNavigation'
 import { ROUTES } from '@constants/routes'
+import { cn } from '@/utils/cn'
 
 function titleCase(slug: string) {
   return slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
@@ -42,6 +43,7 @@ export function CommandBar() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
+  const portalAdmin = useAuthStore((s) => s.portalAdmin)
   const logout = useAuthStore((s) => s.logout)
   const patchUser = useAuthStore((s) => s.patchUser)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -96,23 +98,49 @@ export function CommandBar() {
 
   return (
     <>
-      <header className="cmd-bar flex h-[4.25rem] shrink-0 items-center gap-3 px-4 lg:px-5">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <Link to={ROUTES.DASHBOARD} className="shrink-0" aria-label="Go to dashboard home">
-            <CompanyLogo className="h-9 w-9 shrink-0 sm:h-10 sm:w-10" alt="Epical Layouts" />
+      <header
+        className={cn(
+          'cmd-bar employee-cmd-bar flex h-16 shrink-0 items-center gap-2 px-4 sm:gap-3 lg:px-5',
+          portalAdmin && 'employee-cmd-bar--dual-portal',
+        )}
+      >
+        <div className="employee-cmd-bar__decor" aria-hidden>
+          <span className="employee-cmd-bar__facets employee-cmd-bar__facets--right" />
+          <span className="employee-cmd-bar__grid employee-cmd-bar__grid--right" />
+        </div>
+
+        <div className="employee-cmd-bar__news">
+          <CommandBarNewsMarquee className="w-full min-w-0" />
+        </div>
+
+        <div className="employee-cmd-bar__slashes" aria-hidden>
+          <span className="employee-cmd-bar__slash employee-cmd-bar__slash--forest" />
+          <span className="employee-cmd-bar__slash employee-cmd-bar__slash--mint" />
+          <span className="employee-cmd-bar__slash-accent employee-cmd-bar__slash-accent--top" />
+          <span className="employee-cmd-bar__slash-accent employee-cmd-bar__slash-accent--bottom" />
+        </div>
+
+        <div className="employee-cmd-bar__brand flex shrink-0 items-center gap-2.5 sm:gap-3">
+          <Link
+            to={ROUTES.DASHBOARD}
+            className="employee-cmd-bar__logo-link inline-flex shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--neon-green)]"
+            title="Dashboard"
+            aria-label="Go to dashboard home"
+          >
+            <CompanyLogo className="employee-cmd-bar__logo h-10 w-10 shrink-0 sm:h-11 sm:w-11" alt="Epical Layouts" />
           </Link>
 
           {user ? (
-            <div className="min-w-0 shrink-0">
-              <p className="truncate font-display text-base font-extrabold text-[#1a4712] sm:text-lg">
+            <div className="employee-cmd-bar__identity min-w-0">
+              <p className="employee-cmd-bar__name truncate font-display font-extrabold">
                 {user.name}
               </p>
-              <p className="truncate text-xs font-medium text-slate-600 sm:text-sm">
+              <p className="employee-cmd-bar__page-title truncate font-medium">
                 {pageTitle}
               </p>
             </div>
           ) : (
-            <div className="min-w-0 shrink-0">
+            <div className="employee-cmd-bar__identity min-w-0">
               <p className="truncate font-display text-lg font-semibold tracking-tight text-[var(--text-primary)] lg:text-xl">
                 {pageTitle}
               </p>
@@ -129,11 +157,11 @@ export function CommandBar() {
               <ArrowLeft className="h-4 w-4" />
             </button>
           )}
-
-          <CommandBarNewsMarquee className="ml-1 min-w-0 flex-1" />
         </div>
 
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+        <div className="employee-cmd-bar__rail min-w-0 flex-1" aria-hidden />
+
+        <div className="employee-cmd-bar__tail flex shrink-0 items-center gap-1.5 sm:gap-2">
           <NotificationBell />
 
           <PortalToggle />
@@ -141,7 +169,7 @@ export function CommandBar() {
           <button
             type="button"
             onClick={openProfileModal}
-            className="cmd-profile-btn inline-flex shrink-0 rounded-full !ring-0"
+            className="cmd-profile-btn inline-flex shrink-0 overflow-hidden rounded-full !ring-0"
             title="Edit display name"
             aria-label="Edit display name"
           >

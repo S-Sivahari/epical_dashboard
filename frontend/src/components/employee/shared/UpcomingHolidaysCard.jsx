@@ -116,7 +116,7 @@ export function UpcomingHolidaysCard({ holidays = [], className, compact = false
 
   if (compact) {
     return (
-      <InteractiveCard to="/employee/calendar" className={cn(cardClass, className)}>
+      <InteractiveCard to="/employee/calendar" className={cn(cardClass, 'emp-dash-card emp-dash-card--sky', className)}>
         <div className="emp-dash-bottom-widget-header">
           <div className="flex min-w-0 items-center gap-2">
             <div className="emp-dash-icon emp-dash-icon--sky h-7 w-7" aria-hidden>
@@ -155,7 +155,7 @@ export function UpcomingHolidaysCard({ holidays = [], className, compact = false
   }
 
   return (
-    <InteractiveCard to="/employee/calendar" className={cn(CARD_CLASS, className)}>
+    <InteractiveCard to="/employee/calendar" className={cn(CARD_CLASS, 'emp-dash-card emp-dash-card--sky', className)}>
       <div className="mb-3 flex shrink-0 flex-wrap items-start justify-between gap-2 border-b border-border pb-3">
         <div className="flex min-w-0 items-start gap-2.5">
           <div className="emp-dash-icon emp-dash-icon--sky" aria-hidden>

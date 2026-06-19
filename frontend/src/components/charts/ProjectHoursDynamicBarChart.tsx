@@ -92,20 +92,32 @@ export function ProjectHoursDynamicBarChart({
             barCategoryGap={labelCount > 10 ? '18%' : '32%'}
           >
               <defs>
-                <linearGradient id={`dynBarBase-${gradId}`} x1="0" y1="1" x2="0" y2="0">
-                  <stop offset="0%" stopColor="#1f5516" stopOpacity={1} />
-                  <stop offset="55%" stopColor="#266b1c" stopOpacity={1} />
-                  <stop offset="100%" stopColor="#3a912d" stopOpacity={0.95} />
+                <linearGradient id={`dynBarBase-${gradId}`} x1="0" y1="1" x2="0.18" y2="0">
+                  <stop offset="0%" stopColor="#1b4332" stopOpacity={1} />
+                  <stop offset="14%" stopColor="#266b1c" stopOpacity={1} />
+                  <stop offset="28%" stopColor="#2f7a24" stopOpacity={0.96} />
+                  <stop offset="42%" stopColor="#266b1c" stopOpacity={1} />
+                  <stop offset="58%" stopColor="#2f7a24" stopOpacity={0.94} />
+                  <stop offset="72%" stopColor="#266b1c" stopOpacity={1} />
+                  <stop offset="86%" stopColor="#3a912d" stopOpacity={0.95} />
+                  <stop offset="100%" stopColor="#4caf50" stopOpacity={0.9} />
                 </linearGradient>
-                <linearGradient id={`dynBarPeak-${gradId}`} x1="0" y1="1" x2="0" y2="0">
+                <linearGradient id={`dynBarPeak-${gradId}`} x1="0" y1="1" x2="0.18" y2="0">
                   <stop offset="0%" stopColor="#1a4a14" stopOpacity={1} />
+                  <stop offset="16%" stopColor="#2f7d24" stopOpacity={1} />
+                  <stop offset="34%" stopColor="#3a912d" stopOpacity={0.98} />
                   <stop offset="50%" stopColor="#2f7d24" stopOpacity={1} />
-                  <stop offset="100%" stopColor="#4caf50" stopOpacity={1} />
+                  <stop offset="68%" stopColor="#45a838" stopOpacity={0.96} />
+                  <stop offset="84%" stopColor="#4caf50" stopOpacity={1} />
+                  <stop offset="100%" stopColor="#6fcf6f" stopOpacity={0.95} />
                 </linearGradient>
-                <linearGradient id={`dynBarHover-${gradId}`} x1="0" y1="1" x2="0" y2="0">
+                <linearGradient id={`dynBarHover-${gradId}`} x1="0" y1="1" x2="0.18" y2="0">
                   <stop offset="0%" stopColor="#266b1c" stopOpacity={1} />
-                  <stop offset="55%" stopColor="#3a912d" stopOpacity={1} />
-                  <stop offset="100%" stopColor="#5cb85c" stopOpacity={1} />
+                  <stop offset="20%" stopColor="#3a912d" stopOpacity={1} />
+                  <stop offset="40%" stopColor="#45a838" stopOpacity={0.96} />
+                  <stop offset="60%" stopColor="#3a912d" stopOpacity={1} />
+                  <stop offset="80%" stopColor="#5cb85c" stopOpacity={0.98} />
+                  <stop offset="100%" stopColor="#7dd87d" stopOpacity={0.92} />
                 </linearGradient>
               </defs>
 

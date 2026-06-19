@@ -258,13 +258,18 @@
 
 /* Calendar — right facet only on dark green header bars */
 [data-employee-calendar] .admin-cal-header,
-[data-employee-calendar] .admin-cal-side-unified-title {
+[data-employee-calendar] .admin-cal-side-unified-title,
+[data-admin-calendar] .admin-cal-header,
+[data-admin-calendar] .admin-cal-side-unified-title {
   position: relative;
   isolation: isolate;
   overflow: hidden;
+  background: linear-gradient(135deg, #2d6a4f 0%, #1b4332 100%) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
-[data-employee-calendar] .admin-cal-header::after {
+[data-employee-calendar] .admin-cal-header::after,
+[data-admin-calendar] .admin-cal-header::after {
   content: '';
   position: absolute;
   top: -32%;
@@ -284,7 +289,8 @@
   mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.12) 12%, rgba(0, 0, 0, 0.5) 28%, black 48%);
 }
 
-[data-employee-calendar] .admin-cal-side-unified-title::after {
+[data-employee-calendar] .admin-cal-side-unified-title::after,
+[data-admin-calendar] .admin-cal-side-unified-title::after {
   content: '';
   position: absolute;
   top: -32%;
@@ -305,7 +311,660 @@
 }
 
 [data-employee-calendar] .admin-cal-header > *,
-[data-employee-calendar] .admin-cal-side-unified-title > * {
+[data-employee-calendar] .admin-cal-side-unified-title > *,
+[data-admin-calendar] .admin-cal-header > *,
+[data-admin-calendar] .admin-cal-side-unified-title > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Admin hub pages — facet stripes on dark forest header bars */
+.admin-dashboard-view[data-admin-dashboard] .dashboard-panel-header--primary,
+.admin-dashboard-view[data-admin-dashboard] .dashboard-workspace-header--forest,
+.admin-leaves-view .admin-leaves-hub-header,
+.admin-leaves-view .admin-leaves-bb-panel.admin-leaves-col-panel .admin-leaves-col-panel-head,
+.admin-payslips-view[data-admin-payslips] .admin-payslips-hub-header,
+.admin-portal .admin-projects-view .admin-projects-head,
+.admin-portal .admin-projects-view .admin-projects-workspace-chrome,
+.admin-portal .admin-projects-view .admin-projects-cells-head,
+.admin-portal .admin-projects-view .admin-projects-activity-head,
+.admin-training-view .admin-training-hub-header,
+.admin-achievements-view .admin-achievements-intro,
+.admin-analytics-view .admin-analytics-hub-header,
+.admin-tickets-view .admin-tickets-hub-header,
+.admin-documents-view .admin-documents-hub-header,
+.admin-news-view .admin-news-hub-header,
+.admin-settings-view .admin-settings-hub-header {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: linear-gradient(135deg, #2d6a4f 0%, #1b4332 100%) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.admin-dashboard-view[data-admin-dashboard] .dashboard-panel-header--primary::after,
+.admin-dashboard-view[data-admin-dashboard] .dashboard-workspace-header--forest::after,
+.admin-leaves-view .admin-leaves-hub-header::after,
+.admin-leaves-view .admin-leaves-bb-panel.admin-leaves-col-panel .admin-leaves-col-panel-head::after,
+.admin-payslips-view[data-admin-payslips] .admin-payslips-hub-header::after,
+.admin-portal .admin-projects-view .admin-projects-head::after,
+.admin-portal .admin-projects-view .admin-projects-workspace-chrome::after,
+.admin-portal .admin-projects-view .admin-projects-cells-head::after,
+.admin-portal .admin-projects-view .admin-projects-activity-head::after,
+.admin-training-view .admin-training-hub-header::after,
+.admin-achievements-view .admin-achievements-intro::after,
+.admin-analytics-view .admin-analytics-hub-header::after,
+.admin-tickets-view .admin-tickets-hub-header::after,
+.admin-documents-view .admin-documents-hub-header::after,
+.admin-news-view .admin-news-hub-header::after,
+.admin-settings-view .admin-settings-hub-header::after {
+  content: '';
+  position: absolute;
+  top: -32%;
+  right: -5%;
+  z-index: 0;
+  width: min(58%, 28rem);
+  height: 168%;
+  transform: skewX(12deg);
+  pointer-events: none;
+  background:
+    linear-gradient(152deg, transparent 8%, rgba(255, 255, 255, 0.09) 8%, rgba(255, 255, 255, 0.09) 24%, transparent 24%),
+    linear-gradient(132deg, transparent 30%, rgba(183, 228, 199, 0.14) 30%, rgba(183, 228, 199, 0.14) 46%, transparent 46%),
+    linear-gradient(168deg, transparent 52%, rgba(255, 255, 255, 0.08) 52%, rgba(255, 255, 255, 0.08) 66%, transparent 66%),
+    linear-gradient(142deg, transparent 72%, rgba(149, 213, 178, 0.12) 72%, rgba(149, 213, 178, 0.12) 84%, transparent 84%);
+  clip-path: polygon(12% 0, 100% 0, 100% 100%, 0 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.12) 12%, rgba(0, 0, 0, 0.5) 28%, black 48%);
+  mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.12) 12%, rgba(0, 0, 0, 0.5) 28%, black 48%);
+}
+
+.admin-dashboard-view[data-admin-dashboard] .dashboard-panel-header--primary > *,
+.admin-dashboard-view[data-admin-dashboard] .dashboard-workspace-header--forest > *,
+.admin-leaves-view .admin-leaves-hub-header > *,
+.admin-leaves-view .admin-leaves-bb-panel.admin-leaves-col-panel .admin-leaves-col-panel-head > *,
+.admin-payslips-view[data-admin-payslips] .admin-payslips-hub-header > *,
+.admin-portal .admin-projects-view .admin-projects-head > *,
+.admin-portal .admin-projects-view .admin-projects-workspace-chrome > *,
+.admin-portal .admin-projects-view .admin-projects-cells-head > *,
+.admin-portal .admin-projects-view .admin-projects-activity-head > *,
+.admin-training-view .admin-training-hub-header > *,
+.admin-achievements-view .admin-achievements-intro > *,
+.admin-analytics-view .admin-analytics-hub-header > *,
+.admin-tickets-view .admin-tickets-hub-header > *,
+.admin-documents-view .admin-documents-hub-header > *,
+.admin-news-view .admin-news-hub-header > *,
+.admin-settings-view .admin-settings-hub-header > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Hub headers — let parent facet show through inner bands */
+.admin-leaves-view .admin-leaves-hub-header .admin-leaves-hero-top,
+.admin-payslips-view[data-admin-payslips] .admin-payslips-hub-header .admin-payslips-hero-top,
+.admin-payslips-view[data-admin-payslips] .admin-payslips-hub-header .admin-payslips-metrics-band,
+.admin-training-view .admin-training-hub-header .admin-training-hero-top,
+.admin-training-view .admin-training-hub-header .admin-training-metrics-band,
+.admin-analytics-view .admin-analytics-hub-header .admin-analytics-hero-top,
+.admin-analytics-view .admin-analytics-hub-header .admin-analytics-metrics-band,
+.admin-tickets-view .admin-tickets-hub-header .admin-tickets-hero-top,
+.admin-tickets-view .admin-tickets-hub-header .admin-tickets-metrics-band,
+.admin-documents-view .admin-documents-hub-header .admin-documents-hero-top,
+.admin-documents-view .admin-documents-hub-header .admin-documents-metrics-band,
+.admin-news-view .admin-news-hub-header .admin-news-hero-top,
+.admin-news-view .admin-news-hub-header .admin-news-metrics-band,
+.admin-settings-view .admin-settings-hub-header .admin-settings-hero-top {
+  background: transparent !important;
+}
+
+.admin-portal .admin-projects-view .admin-projects-workspace-chrome .admin-projects-workspace-head {
+  background: transparent !important;
+  box-shadow: none;
+}
+
+/* Admin hub pages — mint headers (left accent + soft facet, like emp-dash-card) */
+.admin-dashboard-view[data-admin-dashboard] .dashboard-insight-panel--mint .dashboard-insight-panel-header,
+.admin-dashboard-view[data-admin-dashboard] .dashboard-workspace-panel--mint .dashboard-insight-panel-header,
+.admin-leaves-view .admin-leaves-col-panel:not(.admin-leaves-bb-panel) .admin-leaves-col-panel-head,
+.admin-leaves-view .admin-leaves-filter-bar,
+.admin-payslips-view[data-admin-payslips] .admin-payslips-panel-header,
+.admin-tickets-view .admin-tickets-filter-bar,
+.admin-analytics-view .admin-analytics-filters-bar,
+.admin-training-view .admin-training-panel-header,
+.admin-documents-view .admin-documents-panel-header,
+.admin-analytics-view .admin-analytics-panel-header,
+.admin-news-view .admin-news-panel-header {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: linear-gradient(145deg, #e8f5f0 0%, var(--dash-mint-sage-header, #e4f0e8) 52%, #ddeee6 100%) !important;
+}
+
+.admin-dashboard-view[data-admin-dashboard] .dashboard-insight-panel--mint .dashboard-insight-panel-header::before,
+.admin-dashboard-view[data-admin-dashboard] .dashboard-workspace-panel--mint .dashboard-insight-panel-header::before,
+.admin-leaves-view .admin-leaves-col-panel:not(.admin-leaves-bb-panel) .admin-leaves-col-panel-head::before,
+.admin-leaves-view .admin-leaves-filter-bar::before,
+.admin-payslips-view[data-admin-payslips] .admin-payslips-panel-header::before,
+.admin-tickets-view .admin-tickets-filter-bar::before,
+.admin-analytics-view .admin-analytics-filters-bar::before,
+.admin-training-view .admin-training-panel-header::before,
+.admin-documents-view .admin-documents-panel-header::before,
+.admin-analytics-view .admin-analytics-panel-header::before,
+.admin-news-view .admin-news-panel-header::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  z-index: 1;
+  background: linear-gradient(180deg, #6aab8f, #2f6b4f);
+}
+
+.admin-dashboard-view[data-admin-dashboard] .dashboard-insight-panel--mint .dashboard-insight-panel-header::after,
+.admin-dashboard-view[data-admin-dashboard] .dashboard-workspace-panel--mint .dashboard-insight-panel-header::after,
+.admin-leaves-view .admin-leaves-col-panel:not(.admin-leaves-bb-panel) .admin-leaves-col-panel-head::after,
+.admin-leaves-view .admin-leaves-filter-bar::after,
+.admin-payslips-view[data-admin-payslips] .admin-payslips-panel-header::after,
+.admin-tickets-view .admin-tickets-filter-bar::after,
+.admin-analytics-view .admin-analytics-filters-bar::after,
+.admin-training-view .admin-training-panel-header::after,
+.admin-documents-view .admin-documents-panel-header::after,
+.admin-analytics-view .admin-analytics-panel-header::after,
+.admin-news-view .admin-news-panel-header::after {
+  content: '';
+  position: absolute;
+  top: -32%;
+  right: -5%;
+  z-index: 0;
+  width: min(52%, 16rem);
+  height: 168%;
+  transform: skewX(12deg);
+  pointer-events: none;
+  background:
+    linear-gradient(152deg, transparent 8%, rgba(47, 107, 79, 0.07) 8%, rgba(47, 107, 79, 0.07) 24%, transparent 24%),
+    linear-gradient(132deg, transparent 30%, rgba(106, 171, 143, 0.1) 30%, rgba(106, 171, 143, 0.1) 46%, transparent 46%),
+    linear-gradient(168deg, transparent 52%, rgba(47, 107, 79, 0.06) 52%, rgba(47, 107, 79, 0.06) 66%, transparent 66%),
+    linear-gradient(142deg, transparent 72%, rgba(106, 171, 143, 0.08) 72%, rgba(106, 171, 143, 0.08) 84%, transparent 84%);
+  clip-path: polygon(12% 0, 100% 0, 100% 100%, 0 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.08) 14%, rgba(0, 0, 0, 0.35) 30%, black 50%);
+  mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.08) 14%, rgba(0, 0, 0, 0.35) 30%, black 50%);
+}
+
+.admin-dashboard-view[data-admin-dashboard] .dashboard-insight-panel--mint .dashboard-insight-panel-header > *,
+.admin-dashboard-view[data-admin-dashboard] .dashboard-workspace-panel--mint .dashboard-insight-panel-header > *,
+.admin-leaves-view .admin-leaves-col-panel:not(.admin-leaves-bb-panel) .admin-leaves-col-panel-head > *,
+.admin-leaves-view .admin-leaves-filter-bar > *,
+.admin-payslips-view[data-admin-payslips] .admin-payslips-panel-header > *,
+.admin-tickets-view .admin-tickets-filter-bar > *,
+.admin-analytics-view .admin-analytics-filters-bar > *,
+.admin-training-view .admin-training-panel-header > *,
+.admin-documents-view .admin-documents-panel-header > *,
+.admin-analytics-view .admin-analytics-panel-header > *,
+.admin-news-view .admin-news-panel-header > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Employee dashboard cards — visible left accent + right facet stripes ── */
+.employee-portal [data-portal-card].emp-dash-card,
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card,
+[data-employee-dashboard] [data-portal-card].emp-dash-card,
+.employee-portal [data-portal-card].emp-kpi-card,
+.employee-portal [data-employee-page] [data-portal-card].emp-kpi-card,
+[data-employee-dashboard] [data-portal-card].emp-kpi-card {
+  position: relative !important;
+  isolation: isolate;
+  overflow: hidden !important;
+  box-shadow:
+    0 2px 6px rgba(15, 23, 42, 0.07),
+    0 8px 20px rgba(15, 23, 42, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+.employee-portal [data-portal-card].emp-dash-card::before,
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card::before,
+[data-employee-dashboard] [data-portal-card].emp-dash-card::before,
+.employee-portal [data-portal-card].emp-kpi-card::before,
+.employee-portal [data-employee-page] [data-portal-card].emp-kpi-card::before,
+[data-employee-dashboard] [data-portal-card].emp-kpi-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  z-index: 2;
+  border-radius: 0.75rem 0 0 0.75rem;
+}
+
+.employee-portal [data-portal-card].emp-dash-card--sage,
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card--sage,
+[data-employee-dashboard] [data-portal-card].emp-dash-card--sage,
+.employee-portal [data-portal-card].emp-kpi-card--sage,
+.employee-portal [data-employee-page] [data-portal-card].emp-kpi-card--sage,
+[data-employee-dashboard] [data-portal-card].emp-kpi-card--sage {
+  background: linear-gradient(148deg, #e8f5f0 0%, #f6fcfa 38%, #ffffff 72%) !important;
+  border-color: rgba(45, 122, 106, 0.28) !important;
+}
+
+.employee-portal [data-portal-card].emp-dash-card--sage::before,
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card--sage::before,
+[data-employee-dashboard] [data-portal-card].emp-dash-card--sage::before,
+.employee-portal [data-portal-card].emp-kpi-card--sage::before,
+.employee-portal [data-employee-page] [data-portal-card].emp-kpi-card--sage::before,
+[data-employee-dashboard] [data-portal-card].emp-kpi-card--sage::before {
+  background: linear-gradient(180deg, #7bb89a, #2f6b4f);
+  box-shadow: 1px 0 8px rgba(47, 107, 79, 0.22);
+}
+
+.employee-portal [data-portal-card].emp-dash-card--amber,
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card--amber,
+[data-employee-dashboard] [data-portal-card].emp-dash-card--amber,
+.employee-portal [data-portal-card].emp-kpi-card--amber,
+.employee-portal [data-employee-page] [data-portal-card].emp-kpi-card--amber,
+[data-employee-dashboard] [data-portal-card].emp-kpi-card--amber {
+  background: linear-gradient(148deg, #fff8e8 0%, #fffdf6 38%, #ffffff 72%) !important;
+  border-color: rgba(201, 146, 46, 0.32) !important;
+}
+
+.employee-portal [data-portal-card].emp-dash-card--amber::before,
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card--amber::before,
+[data-employee-dashboard] [data-portal-card].emp-dash-card--amber::before,
+.employee-portal [data-portal-card].emp-kpi-card--amber::before,
+.employee-portal [data-employee-page] [data-portal-card].emp-kpi-card--amber::before,
+[data-employee-dashboard] [data-portal-card].emp-kpi-card--amber::before {
+  background: linear-gradient(180deg, #ecc878, #c9922e);
+  box-shadow: 1px 0 8px rgba(201, 146, 46, 0.22);
+}
+
+.employee-portal [data-portal-card].emp-dash-card--sky,
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card--sky,
+[data-employee-dashboard] [data-portal-card].emp-dash-card--sky,
+.employee-portal [data-portal-card].emp-kpi-card--sky,
+.employee-portal [data-employee-page] [data-portal-card].emp-kpi-card--sky,
+[data-employee-dashboard] [data-portal-card].emp-kpi-card--sky {
+  background: linear-gradient(148deg, #eaf4fa 0%, #f5fafd 38%, #ffffff 72%) !important;
+  border-color: rgba(74, 122, 154, 0.28) !important;
+}
+
+.employee-portal [data-portal-card].emp-dash-card--sky::before,
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card--sky::before,
+[data-employee-dashboard] [data-portal-card].emp-dash-card--sky::before,
+.employee-portal [data-portal-card].emp-kpi-card--sky::before,
+.employee-portal [data-employee-page] [data-portal-card].emp-kpi-card--sky::before,
+[data-employee-dashboard] [data-portal-card].emp-kpi-card--sky::before {
+  background: linear-gradient(180deg, #9ec4dc, #4a7a9a);
+  box-shadow: 1px 0 8px rgba(74, 122, 154, 0.2);
+}
+
+.employee-portal [data-portal-card].emp-dash-card--violet,
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card--violet,
+[data-employee-dashboard] [data-portal-card].emp-dash-card--violet,
+.employee-portal [data-portal-card].emp-kpi-card--violet,
+.employee-portal [data-employee-page] [data-portal-card].emp-kpi-card--violet,
+[data-employee-dashboard] [data-portal-card].emp-kpi-card--violet {
+  background: linear-gradient(148deg, #f3f0f8 0%, #faf8fc 38%, #ffffff 72%) !important;
+  border-color: rgba(107, 91, 138, 0.26) !important;
+}
+
+.employee-portal [data-portal-card].emp-dash-card--violet::before,
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card--violet::before,
+[data-employee-dashboard] [data-portal-card].emp-dash-card--violet::before,
+.employee-portal [data-portal-card].emp-kpi-card--violet::before,
+.employee-portal [data-employee-page] [data-portal-card].emp-kpi-card--violet::before,
+[data-employee-dashboard] [data-portal-card].emp-kpi-card--violet::before {
+  background: linear-gradient(180deg, #c0b0d8, #6b5b8a);
+  box-shadow: 1px 0 8px rgba(107, 91, 138, 0.2);
+}
+
+.employee-portal [data-portal-card].emp-dash-card::after,
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card::after,
+[data-employee-dashboard] [data-portal-card].emp-dash-card::after,
+.employee-portal [data-portal-card].emp-kpi-card::after,
+.employee-portal [data-employee-page] [data-portal-card].emp-kpi-card::after,
+[data-employee-dashboard] [data-portal-card].emp-kpi-card::after {
+  content: '';
+  position: absolute;
+  top: -32%;
+  right: -5%;
+  z-index: 0;
+  width: min(52%, 11rem);
+  height: 168%;
+  transform: skewX(12deg);
+  pointer-events: none;
+  clip-path: polygon(12% 0, 100% 0, 100% 100%, 0 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.18) 14%, rgba(0, 0, 0, 0.55) 32%, black 52%);
+  mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.18) 14%, rgba(0, 0, 0, 0.55) 32%, black 52%);
+}
+
+.employee-portal [data-portal-card].emp-dash-card--sage::after,
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card--sage::after,
+[data-employee-dashboard] [data-portal-card].emp-dash-card--sage::after,
+.employee-portal [data-portal-card].emp-kpi-card--sage::after,
+.employee-portal [data-employee-page] [data-portal-card].emp-kpi-card--sage::after,
+[data-employee-dashboard] [data-portal-card].emp-kpi-card--sage::after {
+  background:
+    linear-gradient(152deg, transparent 8%, rgba(106, 171, 143, 0.22) 8%, rgba(106, 171, 143, 0.22) 24%, transparent 24%),
+    linear-gradient(132deg, transparent 30%, rgba(47, 107, 79, 0.16) 30%, rgba(47, 107, 79, 0.16) 46%, transparent 46%),
+    linear-gradient(168deg, transparent 52%, rgba(106, 171, 143, 0.14) 52%, rgba(106, 171, 143, 0.14) 66%, transparent 66%),
+    linear-gradient(142deg, transparent 72%, rgba(47, 107, 79, 0.12) 72%, rgba(47, 107, 79, 0.12) 84%, transparent 84%);
+}
+
+.employee-portal [data-portal-card].emp-dash-card--amber::after,
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card--amber::after,
+[data-employee-dashboard] [data-portal-card].emp-dash-card--amber::after,
+.employee-portal [data-portal-card].emp-kpi-card--amber::after,
+.employee-portal [data-employee-page] [data-portal-card].emp-kpi-card--amber::after,
+[data-employee-dashboard] [data-portal-card].emp-kpi-card--amber::after {
+  background:
+    linear-gradient(152deg, transparent 8%, rgba(236, 200, 120, 0.24) 8%, rgba(236, 200, 120, 0.24) 24%, transparent 24%),
+    linear-gradient(132deg, transparent 30%, rgba(201, 146, 46, 0.17) 30%, rgba(201, 146, 46, 0.17) 46%, transparent 46%),
+    linear-gradient(168deg, transparent 52%, rgba(236, 200, 120, 0.14) 52%, rgba(236, 200, 120, 0.14) 66%, transparent 66%),
+    linear-gradient(142deg, transparent 72%, rgba(201, 146, 46, 0.12) 72%, rgba(201, 146, 46, 0.12) 84%, transparent 84%);
+}
+
+.employee-portal [data-portal-card].emp-dash-card--sky::after,
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card--sky::after,
+[data-employee-dashboard] [data-portal-card].emp-dash-card--sky::after,
+.employee-portal [data-portal-card].emp-kpi-card--sky::after,
+.employee-portal [data-employee-page] [data-portal-card].emp-kpi-card--sky::after,
+[data-employee-dashboard] [data-portal-card].emp-kpi-card--sky::after {
+  background:
+    linear-gradient(152deg, transparent 8%, rgba(158, 196, 220, 0.22) 8%, rgba(158, 196, 220, 0.22) 24%, transparent 24%),
+    linear-gradient(132deg, transparent 30%, rgba(74, 122, 154, 0.15) 30%, rgba(74, 122, 154, 0.15) 46%, transparent 46%),
+    linear-gradient(168deg, transparent 52%, rgba(158, 196, 220, 0.13) 52%, rgba(158, 196, 220, 0.13) 66%, transparent 66%),
+    linear-gradient(142deg, transparent 72%, rgba(74, 122, 154, 0.11) 72%, rgba(74, 122, 154, 0.11) 84%, transparent 84%);
+}
+
+.employee-portal [data-portal-card].emp-dash-card--violet::after,
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card--violet::after,
+[data-employee-dashboard] [data-portal-card].emp-dash-card--violet::after,
+.employee-portal [data-portal-card].emp-kpi-card--violet::after,
+.employee-portal [data-employee-page] [data-portal-card].emp-kpi-card--violet::after,
+[data-employee-dashboard] [data-portal-card].emp-kpi-card--violet::after {
+  background:
+    linear-gradient(152deg, transparent 8%, rgba(192, 176, 216, 0.22) 8%, rgba(192, 176, 216, 0.22) 24%, transparent 24%),
+    linear-gradient(132deg, transparent 30%, rgba(107, 91, 138, 0.15) 30%, rgba(107, 91, 138, 0.15) 46%, transparent 46%),
+    linear-gradient(168deg, transparent 52%, rgba(192, 176, 216, 0.13) 52%, rgba(192, 176, 216, 0.13) 66%, transparent 66%),
+    linear-gradient(142deg, transparent 72%, rgba(107, 91, 138, 0.11) 72%, rgba(107, 91, 138, 0.11) 84%, transparent 84%);
+}
+
+.employee-portal [data-portal-card].emp-dash-card > *,
+.employee-portal [data-employee-page] [data-portal-card].emp-dash-card > *,
+[data-employee-dashboard] [data-portal-card].emp-dash-card > *,
+.employee-portal [data-portal-card].emp-kpi-card > *,
+.employee-portal [data-employee-page] [data-portal-card].emp-kpi-card > *,
+[data-employee-dashboard] [data-portal-card].emp-kpi-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Compact leave balance tiles inside leave card */
+.employee-portal [data-employee-page] .emp-dash-leave-grid > [class*='emp-leave-tint'],
+[data-employee-dashboard] .emp-dash-leave-grid > [class*='emp-leave-tint'] {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.employee-portal [data-employee-page] .emp-dash-leave-grid > [class*='emp-leave-tint']::before,
+[data-employee-dashboard] .emp-dash-leave-grid > [class*='emp-leave-tint']::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  z-index: 1;
+  border-radius: 0.5rem 0 0 0.5rem;
+  opacity: 0.85;
+}
+
+.employee-portal [data-employee-page] .emp-dash-leave-grid > .emp-leave-tint--casual::before,
+[data-employee-dashboard] .emp-dash-leave-grid > .emp-leave-tint--casual::before {
+  background: linear-gradient(180deg, #6aab8f, #2f6b4f);
+}
+
+.employee-portal [data-employee-page] .emp-dash-leave-grid > .emp-leave-tint--sick::before,
+[data-employee-dashboard] .emp-dash-leave-grid > .emp-leave-tint--sick::before {
+  background: linear-gradient(180deg, #8eb8d4, #4a7a9a);
+}
+
+.employee-portal [data-employee-page] .emp-dash-leave-grid > .emp-leave-tint--earned::before,
+[data-employee-dashboard] .emp-dash-leave-grid > .emp-leave-tint--earned::before {
+  background: linear-gradient(180deg, #b5a8cc, #6b5b8a);
+}
+
+.employee-portal [data-employee-page] .emp-dash-leave-grid > .emp-leave-tint--compensation::before,
+[data-employee-dashboard] .emp-dash-leave-grid > .emp-leave-tint--compensation::before {
+  background: linear-gradient(180deg, #e8c878, #c9922e);
+}
+
+/* Projects & Timesheets — distinct ledger hero (not skew facets) */
+.admin-projects-view .projects-hero-section,
+.emp-timesheet-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: linear-gradient(118deg, #1e4d34 0%, #1a5c38 46%, #153d28 100%) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 4px 16px rgba(21, 61, 40, 0.28) !important;
+}
+
+.admin-projects-view .projects-hero-section::before,
+.emp-timesheet-hero::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  z-index: 0;
+  background: linear-gradient(180deg, #f5e6b8 0%, #d4a843 48%, #b8892e 100%);
+  box-shadow: 2px 0 14px rgba(212, 168, 67, 0.32);
+}
+
+.admin-projects-view .projects-hero-section::after,
+.emp-timesheet-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.24;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 10px,
+      rgba(255, 255, 255, 0.065) 10px,
+      rgba(255, 255, 255, 0.065) 11px
+    ),
+    radial-gradient(ellipse 52% 88% at 94% 50%, rgba(240, 215, 140, 0.2) 0%, transparent 70%);
+  -webkit-mask-image: linear-gradient(90deg, black 0%, black 58%, transparent 100%);
+  mask-image: linear-gradient(90deg, black 0%, black 58%, transparent 100%);
+}
+
+.admin-projects-view .projects-hero-section > *,
+.emp-timesheet-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+.admin-projects-view .projects-hero-section .projects-hero-stat-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-color: rgba(255, 255, 255, 0.38) !important;
+  box-shadow:
+    0 1px 3px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.admin-projects-view .projects-hero-section .projects-hero-stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 0;
+  background: linear-gradient(90deg, rgba(212, 168, 67, 0.75) 0%, rgba(212, 168, 67, 0.2) 55%, transparent 100%);
+}
+
+.admin-projects-view .projects-hero-section .projects-hero-stat-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.admin-projects-view .projects-analytics-head {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: linear-gradient(118deg, #1e4d34 0%, #1a5c38 46%, #153d28 100%) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.admin-projects-view .projects-analytics-head::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  z-index: 0;
+  background: linear-gradient(180deg, #f5e6b8 0%, #d4a843 48%, #b8892e 100%);
+}
+
+.admin-projects-view .projects-analytics-head::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.2;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 10px,
+      rgba(255, 255, 255, 0.06) 10px,
+      rgba(255, 255, 255, 0.06) 11px
+    );
+  -webkit-mask-image: linear-gradient(90deg, black 0%, transparent 85%);
+  mask-image: linear-gradient(90deg, black 0%, transparent 85%);
+}
+
+.admin-projects-view .projects-analytics-head > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Payslips panel header — mint bar spacing */
+.admin-payslips-view[data-admin-payslips] .admin-payslips-panel-header {
+  margin: -0.25rem -0.5rem 1.25rem;
+  padding: 0.75rem 0.875rem 1rem !important;
+  border-bottom: 1px solid rgba(26, 67, 41, 0.12) !important;
+  border-radius: 0.625rem 0.625rem 0 0;
+}
+
+/* Admin employee directory — grid cards (decorative only; preserve original card size) */
+.admin-portal .employee-directory-view[data-admin-employees] .employee-directory-grid {
+  display: grid;
+  align-items: start;
+  align-content: start;
+  height: auto;
+  min-height: min-content;
+}
+
+.admin-portal .employee-directory-view[data-admin-employees] .employee-directory-table-section > .employee-directory-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.employee-directory-view[data-admin-employees] .employee-directory-card {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  height: auto;
+  min-height: unset;
+  align-self: start;
+  overflow: visible;
+}
+
+.employee-directory-view[data-admin-employees] .employee-directory-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  z-index: 2;
+  border-radius: 1rem 0 0 1rem;
+  background: linear-gradient(180deg, #7bb89a, #2f6b4f);
+  box-shadow: 1px 0 10px rgba(47, 107, 79, 0.2);
+  pointer-events: none;
+}
+
+.employee-directory-view[data-admin-employees] .employee-directory-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(152deg, transparent 58%, rgba(106, 171, 143, 0.12) 58%, rgba(106, 171, 143, 0.12) 72%, transparent 72%),
+    linear-gradient(132deg, transparent 68%, rgba(47, 107, 79, 0.08) 68%, rgba(47, 107, 79, 0.08) 82%, transparent 82%);
+  -webkit-mask-image: linear-gradient(90deg, black 0%, black 52%, transparent 100%);
+  mask-image: linear-gradient(90deg, black 0%, black 52%, transparent 100%);
+}
+
+.employee-directory-view[data-admin-employees] .employee-directory-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.employee-directory-view[data-admin-employees] .employee-directory-header {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: linear-gradient(145deg, #e8f5f0 0%, #f4faf6 52%, #ffffff 100%) !important;
+  border-bottom: 1px solid rgba(26, 67, 41, 0.12) !important;
+}
+
+.employee-directory-view[data-admin-employees] .employee-directory-header::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  z-index: 1;
+  background: linear-gradient(180deg, #7bb89a, #2f6b4f);
+}
+
+.employee-directory-view[data-admin-employees] .employee-directory-header::after {
+  content: '';
+  position: absolute;
+  top: -32%;
+  right: -5%;
+  z-index: 0;
+  width: min(42%, 14rem);
+  height: 168%;
+  transform: skewX(12deg);
+  pointer-events: none;
+  background:
+    linear-gradient(152deg, transparent 8%, rgba(47, 107, 79, 0.08) 8%, rgba(47, 107, 79, 0.08) 24%, transparent 24%),
+    linear-gradient(132deg, transparent 30%, rgba(106, 171, 143, 0.1) 30%, rgba(106, 171, 143, 0.1) 46%, transparent 46%);
+  clip-path: polygon(12% 0, 100% 0, 100% 100%, 0 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, black 45%);
+  mask-image: linear-gradient(90deg, transparent 0%, black 45%);
+}
+
+.employee-directory-view[data-admin-employees] .employee-directory-header > * {
   position: relative;
   z-index: 1;
 }

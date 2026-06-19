@@ -28,7 +28,7 @@ export function DashboardDocumentRequests({ documents = [], className, compact =
     : portalCardClass({ className: 'flex h-full min-h-0 flex-col overflow-hidden p-4 sm:p-5' })
 
   return (
-    <InteractiveCard to={DOCUMENTS_PATH} className={cn(cardClass, className)}>
+    <InteractiveCard to={DOCUMENTS_PATH} className={cn(cardClass, 'emp-dash-card emp-dash-card--amber', className)}>
       <div className="emp-dash-bottom-widget-header">
         <div className="flex min-w-0 items-center gap-2">
           <div className="emp-dash-icon emp-dash-icon--amber h-7 w-7" aria-hidden>

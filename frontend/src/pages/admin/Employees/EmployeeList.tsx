@@ -537,7 +537,7 @@ export function EmployeeList() {
                 <p className="text-sm font-medium">No employees found matching the filters.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="employee-directory-grid grid grid-cols-1 gap-6 p-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {employees.map((e) => {
                   const name = `${e.firstName} ${e.lastName || ''}`.trim()
                   const initials = `${e.firstName?.[0] ?? ''}${e.lastName?.[0] ?? ''}`.toUpperCase()
@@ -560,7 +560,7 @@ export function EmployeeList() {
                   return (
                     <div
                       key={e.id}
-                      className="group flex flex-col border rounded-2xl p-5 shadow-[0_4px_15px_rgba(0,0,0,0.02)] transition-all hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:-translate-y-1"
+                      className="employee-directory-card group flex flex-col border rounded-2xl p-5 shadow-[0_4px_15px_rgba(0,0,0,0.02)] transition-all hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:-translate-y-1"
                       style={{
                         background: `linear-gradient(135deg, ${startColor} 0%, #ffffff 100%)`,
                         borderColor: borderColor,

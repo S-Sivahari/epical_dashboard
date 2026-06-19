@@ -299,7 +299,7 @@ export function CompanyAchievementsExperience({
       <header
         className={cn(
           adminHub
-            ? 'admin-achievements-intro border-b border-border'
+            ? 'admin-achievements-intro'
             : cn(
                 'border-b border-[#d4e8dc] px-4 sm:px-8 lg:px-12',
                 'bg-[#e8f5ee] py-10 lg:py-14'
@@ -325,7 +325,7 @@ export function CompanyAchievementsExperience({
             <h1
               className={cn(
                 adminHub
-                  ? 'admin-achievements-section-title font-display text-2xl font-extrabold text-[#006400]'
+                  ? 'admin-achievements-section-title font-display text-2xl font-extrabold'
                   : ep
                     ? 'font-sans text-3xl font-bold tracking-tight text-[#006400] sm:text-4xl'
                     : 'font-display text-2xl font-semibold text-[#006400] sm:text-3xl'

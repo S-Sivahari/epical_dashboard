@@ -11,12 +11,6 @@ export function CompanyAchievements() {
         </div>
 
         <div className="admin-achievements-shell relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
-          <header className="admin-achievements-hub-header">
-            <div className="admin-achievements-hero-top">
-              <h1 className="admin-achievements-hero-title font-display">Company Achievements Hub</h1>
-            </div>
-          </header>
-
           <div className="admin-achievements-content">
             <CompanyAchievementsExperience editable adminHub />
           </div>
