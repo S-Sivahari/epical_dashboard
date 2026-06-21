@@ -504,6 +504,20 @@
   z-index: 1;
 }
 
+/* Training + Documents panel headers — inset text from left accent stripe */
+.admin-training-view .admin-training-panel-header,
+.admin-documents-view .admin-documents-panel-header {
+  padding: 0.75rem 1rem 0.875rem 1.125rem !important;
+  margin-left: 0;
+  margin-right: 0;
+  border-radius: 0.625rem 0.625rem 0 0;
+}
+
+.admin-training-view .admin-training-panel-header > div,
+.admin-documents-view .admin-documents-panel-header > div:first-child {
+  min-width: 0;
+}
+
 /* ── Employee dashboard cards — visible left accent + right facet stripes ── */
 .employee-portal [data-portal-card].emp-dash-card,
 .employee-portal [data-employee-page] [data-portal-card].emp-dash-card,
