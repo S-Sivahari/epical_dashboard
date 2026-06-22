@@ -371,6 +371,7 @@ export function EmployeeList() {
     <div
       className="crewiq-dashboard employee-pages employee-directory-view"
       data-admin-employees
+      data-page-scrollable
       data-view-mode={viewMode === 'table' ? 'list' : 'grid'}
     >
       <div className="employee-directory-bg" aria-hidden>
@@ -521,11 +522,11 @@ export function EmployeeList() {
         </div>
 
         <section className="employee-directory-table-section">
-          <div className="employee-directory-table-head">
-            <h2 className="employee-directory-table-title">
-              {viewMode === 'grid' ? 'Employee Directory' : 'Employees List'}
-            </h2>
-          </div>
+          {viewMode === 'table' ? (
+            <div className="employee-directory-table-head">
+              <h2 className="employee-directory-table-title">Employees List</h2>
+            </div>
+          ) : null}
 
           {viewMode === 'grid' ? (
             loading ? (

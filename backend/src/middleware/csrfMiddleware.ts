@@ -8,6 +8,7 @@ const CSRF_EXEMPT_PATHS = [
   '/api/auth/logout',
   '/api/auth/seed',
   '/api/auth/google',
+  '/api/activity',
   '/health',
 ];
 

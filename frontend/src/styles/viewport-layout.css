@@ -2284,29 +2284,31 @@ body,
   -webkit-overflow-scrolling: touch;
 }
 
-/* Employee directory listing (grid + list) — fill viewport, pagination pinned to bottom */
+/* Employee directory listing (grid + list) — page scroll; pagination after all employees */
 .admin-portal.cmd-portal .cmd-main:has([data-admin-employees]) {
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .admin-portal .employee-directory-view[data-admin-employees] {
-  flex: 1 1 0;
-  max-height: var(--viewport-page-h);
-  overflow: hidden;
+  flex: 1 1 auto;
+  max-height: none;
+  overflow: visible;
 }
 
 .admin-portal .employee-directory-view[data-admin-employees] .employee-directory-shell {
-  overflow: hidden;
+  overflow: visible;
 }
 
-.admin-portal .employee-directory-view[data-admin-employees] .employee-directory-header {
+.admin-portal .employee-directory-view[data-admin-employees] .employee-directory-header,
+.admin-portal .employee-directory-view[data-admin-employees] .employee-directory-toolbar {
   flex-shrink: 0;
 }
 
 .admin-portal .employee-directory-view[data-admin-employees] .employee-directory-table-section {
-  flex: 1 1 0;
-  min-height: 0;
-  overflow: hidden;
+  flex: 1 1 auto;
+  min-height: auto;
+  overflow: visible;
 }
 
 .admin-portal .employee-directory-view[data-admin-employees] .employee-directory-table-head,
@@ -2315,22 +2317,22 @@ body,
 }
 
 .admin-portal .employee-directory-view[data-admin-employees] .employee-directory-pagination {
-  margin-top: auto;
+  margin-top: 0;
 }
 
 .admin-portal .employee-directory-view[data-admin-employees] .employee-directory-table-section > :not(.employee-directory-table-head):not(.employee-directory-pagination) {
-  flex: 1 1 0;
+  flex: none;
   min-height: 0;
-  overflow-x: auto;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow: visible;
 }
 
 .admin-portal .employee-directory-view[data-admin-employees] .employee-directory-table.admin-table-scroll {
-  flex: 1 1 0;
+  flex: none;
   min-height: 0;
   max-height: none !important;
   margin-bottom: 0;
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
 /* Projects & other standalone admin views — page scroll via cmd-main */

@@ -18,6 +18,11 @@ import { useFormSessionDraft } from '@hooks/useFormSessionDraft'
 import { deleteDocument, openEmployeeDocument, uploadDocuments, uploadPhoto } from '@services/uploadService'
 import { ROUTES } from '@constants/routes'
 import { ExternalLink, FileText, Trash2, HelpCircle, X } from 'lucide-react'
+import { ConfirmModal } from '@components/modals/ConfirmModal'
+
+const ADMIN_ROLE_CONFIRM_TITLE = 'Grant Employee + Admin access?'
+const ADMIN_ROLE_CONFIRM_DESCRIPTION =
+  'This employee will have access to both the Employee and Admin portals, including admin features and portal switching. Are you sure you want to continue?'
 
 // ── Validation ────────────────────────────────────────────────────────────────
 
@@ -342,6 +347,9 @@ export function EditEmployee() {
   const [photoError, setPhotoError] = useState<string | null>(null)
   const [showFileHelp, setShowFileHelp] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [initialPortalAccess, setInitialPortalAccess] = useState<'Employee' | 'Employee+Admin'>('Employee')
+  const [showAdminRoleConfirm, setShowAdminRoleConfirm] = useState(false)
+  const [pendingFormValues, setPendingFormValues] = useState<FormValues | null>(null)
   const [copyAddressChecked, setCopyAddressChecked] = useState(false)
   const [openingExistingDocKey, setOpeningExistingDocKey] = useState<DocKey | null>(null)
 
@@ -382,6 +390,7 @@ export function EditEmployee() {
         setEmployeeName(`${e.firstName} ${e.lastName ?? ''}`.trim())
         const savedDraft = readDraft()
         const formValues = savedDraft ?? employeeToFormValues(e)
+        setInitialPortalAccess(normalizePortalAccess(e.portalAccess ?? e.role))
         reset(formValues)
         setCopyAddressChecked(
           formValues.permanentAddress.trim() !== '' &&
@@ -535,42 +544,42 @@ export function EditEmployee() {
     setPhotoPreview(URL.createObjectURL(file))
   }
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  const performUpdate = async (values: FormValues) => {
     try {
       await updateEmployee(
         id,
         {
-        employeeId: values.employeeId?.trim().toUpperCase() ?? '',
-        firstName: values.firstName,
-        middleName: values.middleName?.trim() ?? '',
-        lastName: values.lastName ?? '',
-        permanentAddress: values.permanentAddress ?? '',
-        communicationAddress: values.communicationAddress ?? '',
-        dob: values.dob ?? '',
-        gender: values.gender ?? '',
-        phone: values.phone ?? '',
-        personalEmail: values.personalEmail ?? '',
-        email: values.companyEmail ?? '',
-        passport: values.passport?.trim() ?? '',
-        aadhaar: values.aadhaar?.trim() ?? '',
-        bankName: values.bankName?.trim() ?? '',
-        accountNumber: values.accountNumber?.trim() ?? '',
-        ifsc: values.ifsc?.trim() ?? '',
-        uan: values.uan?.trim() ?? '',
-        pfEsi: values.pfEsi,
-        employmentType: values.employmentType,
-        portalAccess: values.role,
-        joinedAt: values.joinedAt ?? '',
-        ctc: values.ctc,
-        pan: values.pan?.trim() || undefined,
-        emergencyContact: {
-          name: values.emergencyContactName || '',
-          phone: values.emergencyContactPhone || '',
-          email: values.emergencyContactEmail || '',
-          relation: values.emergencyContactRelation || '',
-          address: values.emergencyContactAddress || '',
+          employeeId: values.employeeId?.trim().toUpperCase() ?? '',
+          firstName: values.firstName,
+          middleName: values.middleName?.trim() ?? '',
+          lastName: values.lastName ?? '',
+          permanentAddress: values.permanentAddress ?? '',
+          communicationAddress: values.communicationAddress ?? '',
+          dob: values.dob ?? '',
+          gender: values.gender ?? '',
+          phone: values.phone ?? '',
+          personalEmail: values.personalEmail ?? '',
+          email: values.companyEmail ?? '',
+          passport: values.passport?.trim() ?? '',
+          aadhaar: values.aadhaar?.trim() ?? '',
+          bankName: values.bankName?.trim() ?? '',
+          accountNumber: values.accountNumber?.trim() ?? '',
+          ifsc: values.ifsc?.trim() ?? '',
+          uan: values.uan?.trim() ?? '',
+          pfEsi: values.pfEsi,
+          employmentType: values.employmentType,
+          portalAccess: values.role,
+          joinedAt: values.joinedAt ?? '',
+          ctc: values.ctc,
+          pan: values.pan?.trim() || undefined,
+          emergencyContact: {
+            name: values.emergencyContactName || '',
+            phone: values.emergencyContactPhone || '',
+            email: values.emergencyContactEmail || '',
+            relation: values.emergencyContactRelation || '',
+            address: values.emergencyContactAddress || '',
+          },
         },
-      },
         user?.email || user?.name,
       )
       console.info(
@@ -579,12 +588,10 @@ export function EditEmployee() {
         `${values.firstName} ${values.lastName ?? ''}`.trim(),
       )
 
-      // Upload documents if any
       const hasDocuments = Object.values(documentFiles).some((files) => files.length > 0)
       let uploadIssues = false
       if (hasDocuments) {
         try {
-          // Convert File[] to File | null for each document type (take first file)
           const docsToUpload: Record<DocKey, File | null> = {
             aadhaar: documentFiles.aadhaar[0] ?? null,
             pan: documentFiles.pan[0] ?? null,
@@ -602,7 +609,6 @@ export function EditEmployee() {
         }
       }
 
-      // Upload photo if provided
       if (photoFile) {
         try {
           await uploadPhoto(id, photoFile)
@@ -614,8 +620,7 @@ export function EditEmployee() {
 
       if (uploadIssues) {
         toast.warning('Changes saved, but some files failed to upload. Please try again.')
-      } else {
-}
+      }
 
       clearDraft()
       allowNavigation()
@@ -625,6 +630,15 @@ export function EditEmployee() {
         err?.response?.data?.error ?? (err instanceof Error ? err.message : 'Update failed')
       setSubmitError(msg)
     }
+  }
+
+  const onSubmit = form.handleSubmit(async (values) => {
+    if (values.role === 'Employee+Admin' && initialPortalAccess !== 'Employee+Admin') {
+      setPendingFormValues(values)
+      setShowAdminRoleConfirm(true)
+      return
+    }
+    await performUpdate(values)
   })
 
   if (pageLoading) {
@@ -1342,6 +1356,24 @@ export function EditEmployee() {
           </Button>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={showAdminRoleConfirm}
+        title={ADMIN_ROLE_CONFIRM_TITLE}
+        description={ADMIN_ROLE_CONFIRM_DESCRIPTION}
+        confirmLabel="Yes, grant access"
+        onClose={() => {
+          setShowAdminRoleConfirm(false)
+          setPendingFormValues(null)
+        }}
+        onConfirm={async () => {
+          if (!pendingFormValues) return
+          setShowAdminRoleConfirm(false)
+          const values = pendingFormValues
+          setPendingFormValues(null)
+          await performUpdate(values)
+        }}
+      />
 
       {/* ── File Size Help Modal ────────────────────────────────────────────────── */}
       {showFileHelp && (
