@@ -199,7 +199,7 @@ export function NotesDelegationPanel({ weekFrom, weekTo, embedded = false }: Pro
         <div className="notes-delegation-panel__controls-row">
           <span
             className="notes-delegation-panel__inline-label"
-            title="Assign notes substitute. Shift+click the calendar to select a date range."
+            title="Assign notes substitute. Click a start date, then an end date on the calendar."
           >
             Substitute
           </span>
@@ -216,7 +216,7 @@ export function NotesDelegationPanel({ weekFrom, weekTo, embedded = false }: Pro
         <div className="notes-delegation-panel__head">
           <h2 className="notes-delegation-panel__title">Assign notes substitute</h2>
           <p className="notes-delegation-panel__hint">
-            Choose dates and an employee. Shift+click the calendar to select a range.
+            Choose dates and an employee. Click a start date, then an end date on the calendar.
           </p>
         </div>
         <div className="notes-delegation-panel__form">{assignForm}</div>

@@ -364,8 +364,28 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
             const from = anchor <= iso ? anchor : iso
             const to = anchor <= iso ? iso : anchor
             onRangeChange(from, to)
+            setRangeAnchor('')
             return
           }
+        }
+
+        const hasCompleteRange =
+          Boolean(normalizedRange.start) &&
+          Boolean(normalizedRange.end) &&
+          normalizedRange.start !== normalizedRange.end
+
+        const awaitingEndDate =
+          Boolean(rangeAnchor) &&
+          Boolean(rangeFrom) &&
+          (!rangeTo || rangeFrom === rangeTo) &&
+          !hasCompleteRange
+
+        if (awaitingEndDate) {
+          const from = rangeAnchor <= iso ? rangeAnchor : iso
+          const to = rangeAnchor <= iso ? iso : rangeAnchor
+          onRangeChange(from, to)
+          setRangeAnchor('')
+          return
         }
 
         setRangeAnchor(iso)
@@ -499,7 +519,7 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
 
               {isRangeMode ? (
                 <p className="mt-2 text-center text-[10px] text-muted">
-                  Click a date, then Shift+click another to select a range
+                  Click a start date, then click an end date
                 </p>
               ) : null}
 
@@ -518,7 +538,7 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
         : null
 
     return (
-      <div className="w-full min-w-[9.5rem]">
+      <div className={cn(isRangeMode ? 'w-[14rem] shrink-0' : 'w-full min-w-[9.5rem]')}>
         <div ref={anchorRef} className="relative">
           <input
             ref={ref}
@@ -527,6 +547,7 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
             autoComplete="off"
             placeholder={placeholder}
             value={display}
+            title={isRangeMode && display ? display : undefined}
             onChange={handleChange}
             onBlur={handleBlur}
             disabled={disabled}
