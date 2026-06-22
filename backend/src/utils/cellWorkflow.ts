@@ -105,6 +105,20 @@ export function normalizeCellWorkflow(raw: unknown): CellWorkflowStage[] {
   return defaults.map((stage) => byKey.get(stage.stageKey) || stage);
 }
 
+/** Prefer persisted layout workflow; fall back to view workflow only when missing. */
+export function resolveStoredCellWorkflow(cell: {
+  workflow?: unknown;
+  viewWorkflow?: unknown;
+}): CellWorkflowStage[] {
+  if (cell.workflow != null) {
+    const normalized = normalizeCellWorkflow(cell.workflow);
+    if (normalized.length > 0) {
+      return normalized;
+    }
+  }
+  return syncCellWorkflowFromViewWorkflow(normalizeViewWorkflow(cell.viewWorkflow));
+}
+
 function stageByKey(workflow: CellWorkflowStage[], key: CellWorkflowStageKey): CellWorkflowStage {
   return workflow.find((s) => s.stageKey === key)!;
 }

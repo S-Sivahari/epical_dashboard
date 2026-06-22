@@ -19,6 +19,7 @@ import {
   isReviewStageKey,
   isValidStageKey,
   normalizeCellWorkflow,
+  resolveStoredCellWorkflow,
   normalizeWorkflowStageStatus,
   returnOptionsForReview,
   syncCellWorkflowFromViewWorkflow,
@@ -121,7 +122,7 @@ function toCell(
   workflowTiming?: CellWorkflowTiming,
 ) {
   const viewWorkflow = normalizeViewWorkflow(doc.viewWorkflow);
-  const workflow = syncCellWorkflowFromViewWorkflow(viewWorkflow);
+  const workflow = resolveStoredCellWorkflow(doc);
   const views = doc.views || { layout: '', symbol: '', schematic: '' };
   syncViewsFromViewWorkflow({ viewWorkflow, views });
   const workflowCompletedStages = workflowCompletedCount(workflow);
@@ -194,8 +195,7 @@ async function toCellWithDuration(
   doc: any,
   dependencyMeta?: { isBlocked: boolean; isReady: boolean },
 ) {
-  const viewWorkflow = normalizeViewWorkflow(doc.viewWorkflow);
-  const workflow = syncCellWorkflowFromViewWorkflow(viewWorkflow);
+  const workflow = resolveStoredCellWorkflow(doc);
   const cellId = doc._id.toString();
   const projectId = doc.projectId.toString();
   const cellContext = {
@@ -213,7 +213,7 @@ async function toCellWithDuration(
 }
 
 function cellProductiveTimePayload(doc: any) {
-  const workflow = normalizeCellWorkflow(doc.workflow ?? syncCellWorkflowFromViewWorkflow(normalizeViewWorkflow(doc.viewWorkflow)));
+  const workflow = resolveStoredCellWorkflow(doc);
   return {
     status: normalizeStatus(doc.status || 'ready'),
     onHold: Boolean(doc.onHold),
@@ -638,7 +638,7 @@ export const projectWorkspaceController = {
 
       if (req.body.views !== undefined) {
         syncViewWorkflowSimpleViewsFromCellViews(cell);
-        applyCellWorkflowSync(cell, 'viewWorkflow');
+        syncViewsFromViewWorkflow(cell);
       }
 
       if (req.body.libraryId !== undefined) {

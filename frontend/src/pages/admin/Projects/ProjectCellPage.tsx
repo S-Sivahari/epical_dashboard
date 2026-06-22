@@ -128,6 +128,37 @@ export function ProjectCellPage() {
     }
   }, [projectId, cellId])
 
+  const refreshCellTiming = useCallback(async () => {
+    if (!projectId || !cellId) return
+    try {
+      const ws = await fetchWorkspaceSummary(projectId)
+      const updatedCell = ws.cells.find((c) => c.id === cellId)
+      if (!updatedCell) return
+      setSummary((prev) => {
+        if (!prev) return ws
+        return {
+          ...prev,
+          cells: prev.cells.map((c) => (c.id === cellId ? { ...c, ...updatedCell } : c)),
+        }
+      })
+      setDurationFetchedAt(Date.now())
+    } catch {
+      // Keep the live timer running even if a background refresh fails.
+    }
+  }, [projectId, cellId])
+
+  const mergeUpdatedCell = useCallback((updated: ProjectCell) => {
+    setCellForm(updated)
+    setDurationFetchedAt(Date.now())
+    setSummary((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        cells: prev.cells.map((c) => (c.id === cellId ? { ...c, ...updated } : c)),
+      }
+    })
+  }, [cellId])
+
   useEffect(() => {
     void reload()
   }, [reload])
@@ -149,10 +180,10 @@ export function ProjectCellPage() {
   useEffect(() => {
     if (!projectId || !cellId || cell?.status === 'completed') return undefined
     const timer = window.setInterval(() => {
-      void reload()
-    }, 60_000)
+      void refreshCellTiming()
+    }, 30_000)
     return () => window.clearInterval(timer)
-  }, [projectId, cellId, cell?.status, reload])
+  }, [projectId, cellId, cell?.status, refreshCellTiming])
 
   const libraries = summary?.libraries ?? []
   const allCells = summary?.cells ?? []
@@ -252,9 +283,8 @@ export function ProjectCellPage() {
       const updated = await updateCell(projectId, cell.id, {
         views: { ...cell.views, [viewKey]: status },
       })
-      setCellForm(updated)
+      mergeUpdatedCell(updated)
       toast.success(`${VIEW_TAB_LABELS[viewKey]} status updated`)
-      await reload()
     } catch {
       toast.error('Failed to update view status')
     } finally {
@@ -277,14 +307,7 @@ export function ProjectCellPage() {
     if (!projectId || !cellId) return
     try {
       const updated = await setCellHold(projectId, cellId, { hold })
-      setDurationFetchedAt(Date.now())
-      setSummary((prev) => {
-        if (!prev) return prev
-        return {
-          ...prev,
-          cells: prev.cells.map((c) => (c.id === cellId ? { ...c, ...updated } : c)),
-        }
-      })
+      mergeUpdatedCell(updated)
       toast.success(hold ? 'Productive time paused' : 'Productive time resumed')
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
@@ -679,34 +702,14 @@ export function ProjectCellPage() {
                             cell={cell}
                             embedded
                             showReviews={false}
-                            onUpdated={(updated) => {
-                              setCellForm(updated)
-                              setDurationFetchedAt(Date.now())
-                              setSummary((prev) => {
-                                if (!prev) return prev
-                                return {
-                                  ...prev,
-                                  cells: prev.cells.map((c) => (c.id === cellId ? { ...c, ...updated } : c)),
-                                }
-                              })
-                            }}
+                            onUpdated={mergeUpdatedCell}
                           />
                         ) : viewTab === 'schematic' ? (
                           <SchematicWorkflowPanel
                             projectId={projectId}
                             cell={cell}
                             embedded
-                            onUpdated={(updated) => {
-                              setCellForm(updated)
-                              setDurationFetchedAt(Date.now())
-                              setSummary((prev) => {
-                                if (!prev) return prev
-                                return {
-                                  ...prev,
-                                  cells: prev.cells.map((c) => (c.id === cellId ? { ...c, ...updated } : c)),
-                                }
-                              })
-                            }}
+                            onUpdated={mergeUpdatedCell}
                           />
                         ) : (
                           <CellViewStatusButtons
