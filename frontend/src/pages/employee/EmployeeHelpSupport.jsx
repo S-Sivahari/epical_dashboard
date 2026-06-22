@@ -16,6 +16,7 @@ import {
   LogIn,
   ArrowRight,
   Info,
+  Keyboard,
 } from 'lucide-react'
 import { employeePortalGuideSections as fallbackEmployeeGuide } from '@pages/employee/data/employeePortalGuide'
 import { fetchEmployeePortalGuide } from '@services/portalGuideService'
@@ -34,6 +35,7 @@ const guideIcons = {
   'raise-ticket': Ticket,
   profile: User,
   'sign-in': LogIn,
+  shortcuts: Keyboard,
 }
 
 export default function EmployeeHelpSupport() {
