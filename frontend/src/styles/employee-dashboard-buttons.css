@@ -977,8 +977,9 @@
 }
 
 .admin-portal .employee-directory-view[data-admin-employees] .employee-directory-table-section > .employee-directory-grid {
-  flex: 1 1 auto;
+  flex: none;
   min-height: 0;
+  overflow: visible;
 }
 
 .employee-directory-view[data-admin-employees] .employee-directory-card {
@@ -1028,8 +1029,15 @@
   position: relative;
   isolation: isolate;
   overflow: hidden;
+  flex-shrink: 0;
   background: linear-gradient(145deg, #e8f5f0 0%, #f4faf6 52%, #ffffff 100%) !important;
   border-bottom: 1px solid rgba(26, 67, 41, 0.12) !important;
+}
+
+.employee-directory-view[data-admin-employees] .employee-directory-title {
+  position: relative;
+  z-index: 2;
+  max-width: min(100%, calc(100% - 9rem));
 }
 
 .employee-directory-view[data-admin-employees] .employee-directory-header::before {
@@ -1048,8 +1056,9 @@
   position: absolute;
   top: -32%;
   right: -5%;
+  left: auto;
   z-index: 0;
-  width: min(42%, 14rem);
+  width: min(36%, 12rem);
   height: 168%;
   transform: skewX(12deg);
   pointer-events: none;

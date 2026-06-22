@@ -16,6 +16,11 @@ import type { Employee } from '@/types'
 import { uploadDocuments, uploadPhoto } from '@services/uploadService'
 import { checkEmployeeIdExists } from '@services/employeeService'
 import { useFormSessionDraft } from '@hooks/useFormSessionDraft'
+import { ConfirmModal } from '@components/modals/ConfirmModal'
+
+const ADMIN_ROLE_CONFIRM_TITLE = 'Grant Employee + Admin access?'
+const ADMIN_ROLE_CONFIRM_DESCRIPTION =
+  'This employee will have access to both the Employee and Admin portals, including admin features and portal switching. Are you sure you want to continue?'
 
 const isValidDate = (value: string) => !Number.isNaN(Date.parse(value))
 
@@ -209,6 +214,7 @@ export function AddEmployee() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [photoError, setPhotoError] = useState<string | null>(null)
   const [showPreview, setShowPreview] = useState(false)
+  const [showAdminRoleConfirm, setShowAdminRoleConfirm] = useState(false)
   const [previewData, setPreviewData] = useState<FullValues | null>(null)
   const [showFileHelp, setShowFileHelp] = useState(false)
   const [copyAddressChecked, setCopyAddressChecked] = useState(false)
@@ -1104,8 +1110,12 @@ export function AddEmployee() {
               <Button
                 type="button"
                 onClick={() => {
+                  if (previewData.role === 'Employee+Admin') {
+                    setShowAdminRoleConfirm(true)
+                    return
+                  }
                   setShowPreview(false)
-                  handleConfirmCreate(previewData)
+                  void handleConfirmCreate(previewData)
                 }}
               >
                 Confirm & Create
@@ -1116,6 +1126,20 @@ export function AddEmployee() {
           document.body,
         )
         : null}
+
+      <ConfirmModal
+        isOpen={showAdminRoleConfirm}
+        title={ADMIN_ROLE_CONFIRM_TITLE}
+        description={ADMIN_ROLE_CONFIRM_DESCRIPTION}
+        confirmLabel="Yes, grant access"
+        onClose={() => setShowAdminRoleConfirm(false)}
+        onConfirm={() => {
+          if (!previewData) return
+          setShowAdminRoleConfirm(false)
+          setShowPreview(false)
+          void handleConfirmCreate(previewData)
+        }}
+      />
 
       {/* ── File Size Help Modal ─────────────────────────────────────────── */}
       {showFileHelp

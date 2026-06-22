@@ -46,7 +46,7 @@ export function PaginationBar({
               <select
                 value={pageSize}
                 onChange={(e) => onPageSizeChange(Number(e.target.value))}
-                className="admin-field h-9 cursor-pointer appearance-none pl-2.5 pr-8 text-sm font-medium text-ink"
+                className="admin-field h-9 cursor-pointer appearance-none bg-white pl-2.5 pr-8 text-sm font-medium text-ink"
                 aria-label="Rows per page"
               >
                 {pageSizeOptions.map((size) => (
