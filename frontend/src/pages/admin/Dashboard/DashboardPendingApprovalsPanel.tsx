@@ -137,7 +137,7 @@ export function DashboardPendingApprovalsPanel({
         aria-label="Pending approvals queue"
       >
         <header className="dashboard-insight-panel-header">
-          <h3 className="dashboard-insight-panel-title">Pending approvals queue</h3>
+          <h3 className="dashboard-insight-panel-title">Pending Approvals Queue</h3>
           <span className="dashboard-insight-panel-count" aria-label={`${queue.length} pending`}>
             ({queue.length})
           </span>

@@ -110,7 +110,7 @@ export function DashboardLeftInsights({ className }: DashboardLeftInsightsProps)
 
       <section className="dashboard-insight-panel dashboard-insight-panel--mint">
         <header className="dashboard-insight-panel-header">
-          <h3 className="dashboard-insight-panel-title">Upcoming holidays</h3>
+          <h3 className="dashboard-insight-panel-title">Upcoming Holidays</h3>
         </header>
         <div className="dashboard-insight-panel-body">
           <div className="dashboard-insight-panel-scroll">

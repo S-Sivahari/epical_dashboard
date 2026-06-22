@@ -35,7 +35,7 @@ const INLINE_FIELD_CLASS = 'admin-projects-cell-details-inline-field'
 import { CellWorkflowPanel } from './CellWorkflowPanel'
 import { SchematicWorkflowPanel } from './SchematicWorkflowPanel'
 import { CellWorkflowDurationLabel } from './CellWorkflowDurationLabel'
-import { CellCompletionTimeSummary } from './CellCompletionTimeSummary'
+import { CellCompletionTimeSummaryModal } from './CellCompletionTimeSummaryModal'
 import { CellTypeChecklistTab } from './CellTypeChecklistTab'
 import { calculateEstimatedHours, CELL_COMPLEXITY_OPTIONS, DEFAULT_BASE_HOURS, formatComplexityFactor, normalizeComplexity } from '@/utils/effortEstimationUtils'
 import './adminProjects.css'
@@ -102,6 +102,7 @@ export function ProjectCellPage() {
   const [saving, setSaving] = useState(false)
   const [completionReadiness, setCompletionReadiness] = useState<CellCompletionReadiness | null>(null)
   const [durationFetchedAt, setDurationFetchedAt] = useState(() => Date.now())
+  const [timeSummaryOpen, setTimeSummaryOpen] = useState(false)
 
   const reload = useCallback(async () => {
     if (!projectId || !cellId) return
@@ -411,12 +412,17 @@ export function ProjectCellPage() {
                 onHold={Boolean(cell.onHold)}
                 holdEnabled={cell.status === 'in_progress'}
                 onHoldToggle={(hold) => void handleHoldToggle(hold)}
+                onSummaryClick={cell.status === 'completed' ? () => setTimeSummaryOpen(true) : undefined}
               />
               </div>
             </div>
           </header>
 
-          {cell.status === 'completed' ? <CellCompletionTimeSummary cell={cell} /> : null}
+          <CellCompletionTimeSummaryModal
+            cell={cell}
+            isOpen={timeSummaryOpen}
+            onClose={() => setTimeSummaryOpen(false)}
+          />
 
           <div className="admin-projects-cell-page-body">
             <nav className="admin-projects-cell-tab-rail" aria-label="Cell sections">

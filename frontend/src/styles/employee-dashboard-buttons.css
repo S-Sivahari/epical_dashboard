@@ -504,6 +504,20 @@
   z-index: 1;
 }
 
+/* Training + Documents panel headers — inset text from left accent stripe */
+.admin-training-view .admin-training-panel-header,
+.admin-documents-view .admin-documents-panel-header {
+  padding: 0.75rem 1rem 0.875rem 1.125rem !important;
+  margin-left: 0;
+  margin-right: 0;
+  border-radius: 0.625rem 0.625rem 0 0;
+}
+
+.admin-training-view .admin-training-panel-header > div,
+.admin-documents-view .admin-documents-panel-header > div:first-child {
+  min-width: 0;
+}
+
 /* ── Employee dashboard cards — visible left accent + right facet stripes ── */
 .employee-portal [data-portal-card].emp-dash-card,
 .employee-portal [data-employee-page] [data-portal-card].emp-dash-card,
@@ -860,6 +874,62 @@
 .admin-projects-view .projects-analytics-head > * {
   position: relative;
   z-index: 1;
+}
+
+/* Project + timesheet cards — same accent/facet as employee directory cards */
+.admin-projects-view .projects-card,
+.admin-projects-view .projects-analytics-card,
+.admin-projects-view .projects-ts-table-wrap,
+.emp-timesheet-card {
+  position: relative;
+  isolation: isolate;
+  overflow: visible !important;
+}
+
+.admin-projects-view .projects-card::before,
+.admin-projects-view .projects-analytics-card::before,
+.admin-projects-view .projects-ts-table-wrap::before,
+.emp-timesheet-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  z-index: 2;
+  border-radius: 1rem 0 0 1rem;
+  background: linear-gradient(180deg, #7bb89a, #2f6b4f);
+  box-shadow: 1px 0 10px rgba(47, 107, 79, 0.2);
+  pointer-events: none;
+}
+
+.admin-projects-view .projects-card::after,
+.admin-projects-view .projects-analytics-card::after,
+.admin-projects-view .projects-ts-table-wrap::after,
+.emp-timesheet-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(152deg, transparent 58%, rgba(106, 171, 143, 0.12) 58%, rgba(106, 171, 143, 0.12) 72%, transparent 72%),
+    linear-gradient(132deg, transparent 68%, rgba(47, 107, 79, 0.08) 68%, rgba(47, 107, 79, 0.08) 82%, transparent 82%);
+  -webkit-mask-image: linear-gradient(90deg, black 0%, black 52%, transparent 100%);
+  mask-image: linear-gradient(90deg, black 0%, black 52%, transparent 100%);
+}
+
+.admin-projects-view .projects-card > *,
+.admin-projects-view .projects-analytics-card > *,
+.admin-projects-view .projects-ts-table-wrap > *,
+.emp-timesheet-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.admin-projects-view .projects-card.rounded-2xl::before {
+  border-radius: 1rem 0 0 1rem;
 }
 
 /* Payslips panel header — mint bar spacing */

@@ -278,7 +278,9 @@ export function LoginPage() {
 
               <div className="login-split-actions">
                 <button type="submit" className="login-split-submit" disabled={isSubmitting}>
-                  {isSubmitting ? 'Signing in…' : 'Login'}
+                  <span className="login-split-submit__label">
+                    {isSubmitting ? 'Signing in…' : 'Login'}
+                  </span>
                 </button>
               </div>
               </form>

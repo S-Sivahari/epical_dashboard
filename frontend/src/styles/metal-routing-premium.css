@@ -202,7 +202,7 @@
 }
 
 /* ── Toolbar & search ── */
-.metal-routing-view .metal-routing-overview-toolbar,
+.metal-routing-view .metal-routing-overview-toolbar:not(.metal-routing-pdk-modules-toolbar),
 .metal-routing-view .metal-routing-pdk-toolbar {
   padding: 1.125rem 1.5rem;
   border-bottom-color: var(--mr-border);
@@ -214,6 +214,94 @@
   grid-template-columns: auto minmax(12rem, 1fr) auto;
   align-items: center;
   gap: 1rem 1.25rem;
+}
+
+/* PDK modules / signals toolbar — dark forest hub header (matches admin hub bars) */
+.metal-routing-view .metal-routing-pdk-modules-toolbar.metal-routing-overview-toolbar {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  padding: 1.125rem 1.5rem !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: linear-gradient(135deg, #2d6a4f 0%, #1b4332 100%) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.metal-routing-view .metal-routing-pdk-modules-toolbar.metal-routing-overview-toolbar::after {
+  content: '';
+  position: absolute;
+  top: -32%;
+  right: -5%;
+  z-index: 0;
+  width: min(58%, 28rem);
+  height: 168%;
+  transform: skewX(12deg);
+  pointer-events: none;
+  background:
+    linear-gradient(152deg, transparent 8%, rgba(255, 255, 255, 0.09) 8%, rgba(255, 255, 255, 0.09) 24%, transparent 24%),
+    linear-gradient(132deg, transparent 30%, rgba(183, 228, 199, 0.14) 30%, rgba(183, 228, 199, 0.14) 46%, transparent 46%),
+    linear-gradient(168deg, transparent 52%, rgba(255, 255, 255, 0.08) 52%, rgba(255, 255, 255, 0.08) 66%, transparent 66%),
+    linear-gradient(142deg, transparent 72%, rgba(149, 213, 178, 0.12) 72%, rgba(149, 213, 178, 0.12) 84%, transparent 84%);
+  clip-path: polygon(12% 0, 100% 0, 100% 100%, 0 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.12) 12%, rgba(0, 0, 0, 0.5) 28%, black 48%);
+  mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.12) 12%, rgba(0, 0, 0, 0.5) 28%, black 48%);
+}
+
+.metal-routing-view .metal-routing-pdk-modules-toolbar.metal-routing-overview-toolbar > * {
+  position: relative;
+  z-index: 1;
+}
+
+.metal-routing-view .metal-routing-pdk-modules-toolbar .metal-routing-section-title {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.metal-routing-view .metal-routing-pdk-modules-toolbar .metal-routing-search-field {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 1px 2px rgba(12, 24, 18, 0.1);
+}
+
+.metal-routing-view .metal-routing-pdk-modules-toolbar .metal-routing-search-field:focus-within {
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.14);
+}
+
+.metal-routing-view .metal-routing-pdk-modules-toolbar .metal-routing-toolbar-select {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--mr-text);
+}
+
+.metal-routing-view .metal-routing-pdk-modules-toolbar .metal-routing-toolbar-select:hover {
+  border-color: rgba(255, 255, 255, 0.45);
+  background: #ffffff;
+}
+
+.metal-routing-view .metal-routing-pdk-modules-toolbar .metal-routing-view-toggle {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.metal-routing-view .metal-routing-pdk-modules-toolbar .metal-routing-view-toggle button {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.metal-routing-view .metal-routing-pdk-modules-toolbar .metal-routing-view-toggle button:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+.metal-routing-view .metal-routing-pdk-modules-toolbar .metal-routing-view-toggle button.is-active {
+  background: rgba(255, 255, 255, 0.92);
+  color: #1b4332;
+  box-shadow: 0 1px 2px rgba(12, 24, 18, 0.15);
 }
 
 .metal-routing-view .metal-routing-overview-toolbar__title {

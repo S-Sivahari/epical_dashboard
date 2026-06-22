@@ -367,19 +367,19 @@
 
 .signal-analysis-panel .metal-routing-signal-projects-header__cta,
 .signal-analysis-panel .metal-routing-pdk-modules-cta {
-  background: var(--sa-accent) !important;
-  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  background: linear-gradient(180deg, #e8953a 0%, #d97706 42%, #c2410c 100%) !important;
+  border: 1px solid rgba(146, 64, 14, 0.38) !important;
   color: #fff !important;
   border-radius: var(--sa-radius) !important;
   font-weight: 700 !important;
   font-size: 0.8125rem !important;
-  box-shadow: 0 2px 6px rgba(47, 107, 79, 0.25) !important;
-  transition: background-color 0.15s ease !important;
+  box-shadow: 0 2px 6px rgba(180, 83, 9, 0.28) !important;
+  transition: background 0.15s ease !important;
 }
 
 .signal-analysis-panel .metal-routing-signal-projects-header__cta:hover,
 .signal-analysis-panel .metal-routing-pdk-modules-cta:hover {
-  background: var(--sa-accent-hover) !important;
+  background: linear-gradient(180deg, #d97706 0%, #b45309 50%, #9a3412 100%) !important;
   transform: none !important;
 }
 
