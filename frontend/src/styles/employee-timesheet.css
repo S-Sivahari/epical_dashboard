@@ -2,19 +2,15 @@
 
 .emp-timesheet-page {
   display: flex;
-  flex: 1 1 0;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 0.75rem;
   font-family: var(--font-body);
   padding: 0.75rem;
   min-height: 0;
-  height: 100%;
+  height: auto;
   overflow-x: hidden;
-  overflow-y: auto;
-  scroll-behavior: smooth;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-gutter: stable;
+  overflow-y: visible;
 }
 
 @media (min-width: 768px) {
@@ -1240,7 +1236,7 @@
   flex: 0 1 auto;
   overflow-x: auto;
   scroll-behavior: smooth;
-  overscroll-behavior: contain;
+  overscroll-behavior-y: auto;
   border: none;
   border-radius: 0;
 }
@@ -1292,7 +1288,7 @@
   --emp-ts-history-visible-rows: 10;
   position: relative;
   overflow-x: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior-y: auto;
 }
 
 .emp-timesheet-history-scroll table {
@@ -1301,10 +1297,16 @@
 }
 
 .emp-timesheet-history-scroll thead {
+  position: static;
+  z-index: 1;
+  background: rgba(248, 250, 252, 0.98);
+  box-shadow: none;
+}
+
+.emp-timesheet-history-scroll--bounded thead {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: rgba(248, 250, 252, 0.98);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -1314,13 +1316,18 @@
   padding: 0.625rem 0.75rem;
   font-size: 0.8125rem;
   background: rgba(248, 250, 252, 0.98);
-  position: sticky;
-  top: 0;
+  position: static;
+  top: auto;
   font-weight: 700;
   text-transform: none;
   letter-spacing: 0.01em;
   color: #0f172a !important;
   border-bottom: 2px solid rgba(38, 107, 28, 0.15);
+}
+
+.emp-timesheet-history-scroll--bounded thead th {
+  position: sticky;
+  top: 0;
 }
 
 .emp-timesheet-history-scroll tbody td {

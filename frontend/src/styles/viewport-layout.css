@@ -2457,23 +2457,38 @@ body,
   overflow: visible;
 }
 
-/* Employee dashboard, calendar, timesheet — viewport-fit with internal panel scroll */
+/* Employee dashboard, calendar — viewport-fit with internal panel scroll */
 .employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-dashboard]),
-.employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-calendar]),
-.employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-timesheet]) {
+.employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-calendar]) {
   flex: 1 1 0;
   max-height: var(--viewport-page-h);
   overflow: hidden;
 }
 
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-dashboard]),
-.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]),
-.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-timesheet]) {
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]) {
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+}
+
+/* Timesheet — full page scroll (no nested viewport trap) */
+.employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-timesheet]) {
+  flex: 1 1 auto;
+  max-height: none;
+  height: auto;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-timesheet]) {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: auto;
+  overflow: visible;
 }
 
 [data-employee-dashboard] .emp-dash-widgets-grid {

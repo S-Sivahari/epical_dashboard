@@ -210,6 +210,15 @@
   }
 }
 
+/* Employee timesheet — one smooth page scroll (all breakpoints) */
+.employee-portal.cmd-portal .cmd-main:has([data-employee-timesheet]) {
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: auto;
+}
+
 /* ── Tablet/mobile: page scroll instead of viewport-fit clipping ── */
 @media (max-width: 1023px) {
   .admin-portal.cmd-portal .cmd-main:has([data-admin-dashboard]),
