@@ -21,7 +21,7 @@ const REACTION_NOTIFICATION_TYPES = ['LeaveApproved', 'LeaveRejected'] as const
 type ReactionNotificationType = (typeof REACTION_NOTIFICATION_TYPES)[number]
 
 const NOTIFICATION_AUTO_DISMISS_MS = 6500
-const PARTICLE_DURATION_MS = 10000
+const PARTICLE_DURATION_MS = 6200
 /** Ignore very old leave reactions so historic notifications do not celebrate on first deploy. */
 const MAX_REACTION_AGE_MS = 30 * 24 * 60 * 60 * 1000
 
