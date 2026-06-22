@@ -5907,7 +5907,7 @@
   padding-right: 1rem;
 }
 
-.admin-projects-workflow-overview-table th:nth-child(n + 5) {
+.admin-projects-workflow-overview-table th:nth-child(n + 7) {
   text-align: center;
 }
 
@@ -5926,7 +5926,7 @@
   padding-right: 1rem;
 }
 
-.admin-projects-workflow-overview-table td:nth-child(n + 5) {
+.admin-projects-workflow-overview-table td:nth-child(n + 7) {
   text-align: center;
 }
 

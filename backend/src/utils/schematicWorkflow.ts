@@ -251,6 +251,13 @@ export function applySchematicWorkflowStageUpdate(
     return { ok: false, error: 'Invalid status for schematic work stage' };
   }
 
+  if (current === 'in_progress' && nextStatus === 'not_started') {
+    return {
+      ok: false,
+      error: 'A stage in progress cannot be moved back to Not Started. Complete the stage instead.',
+    };
+  }
+
   workflow = setStageStatus(workflow, stageKey, nextStatus);
   return { ok: true, workflow: applySchematicAutoTransitions(workflow) };
 }

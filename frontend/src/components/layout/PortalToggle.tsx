@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useNotificationStore } from '@store/notificationStore'
 import { toast } from 'sonner'
 import { useAuthStore, type PortalTarget, type UserRole } from '@store/authStore'
 import { cn } from '@/utils/cn'
@@ -17,6 +18,8 @@ export function PortalToggle({ className }: PortalToggleProps) {
   const portalAdmin = useAuthStore((s) => s.portalAdmin)
   const role = useAuthStore((s) => s.role)
   const switchPortal = useAuthStore((s) => s.switchPortal)
+  const clearNotifications = useNotificationStore((s) => s.clearNotifications)
+  const fetchUnreadCount = useNotificationStore((s) => s.fetchUnreadCount)
   const navigate = useNavigate()
   const [switching, setSwitching] = useState(false)
 
@@ -27,6 +30,8 @@ export function PortalToggle({ className }: PortalToggleProps) {
     setSwitching(true)
     try {
       await switchPortal(target)
+      clearNotifications()
+      void fetchUnreadCount()
       navigate(target === 'admin' ? '/admin' : '/employee', { replace: true })
     } catch (err: unknown) {
       const message =

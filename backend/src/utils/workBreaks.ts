@@ -1,14 +1,39 @@
 export type WorkBreakType = 'morning' | 'lunch' | 'evening';
 
-export const DAILY_STANDARD_BREAK_MS = 60 * 60 * 1000;
+/** Auto-deducted when no breaks were taken for the day. */
+export const DAILY_STANDARD_BREAK_MS = 50 * 60 * 1000;
 
 export const WORK_BREAKS: Record<
   WorkBreakType,
-  { label: string; durationMs: number; durationMinutes: number }
+  {
+    label: string;
+    durationMs: number;
+    durationMinutes: number;
+    minDurationMs: number;
+    minDurationMinutes: number;
+  }
 > = {
-  morning: { label: 'Morning break', durationMs: 15 * 60 * 1000, durationMinutes: 15 },
-  lunch: { label: 'Lunch break', durationMs: 30 * 60 * 1000, durationMinutes: 30 },
-  evening: { label: 'Evening break', durationMs: 15 * 60 * 1000, durationMinutes: 15 },
+  morning: {
+    label: 'Morning break',
+    durationMs: 15 * 60 * 1000,
+    durationMinutes: 15,
+    minDurationMs: 5 * 60 * 1000,
+    minDurationMinutes: 5,
+  },
+  lunch: {
+    label: 'Lunch break',
+    durationMs: 30 * 60 * 1000,
+    durationMinutes: 30,
+    minDurationMs: 15 * 60 * 1000,
+    minDurationMinutes: 15,
+  },
+  evening: {
+    label: 'Evening break',
+    durationMs: 15 * 60 * 1000,
+    durationMinutes: 15,
+    minDurationMs: 5 * 60 * 1000,
+    minDurationMinutes: 5,
+  },
 };
 
 const BREAK_USED_FIELD: Record<WorkBreakType, 'morningBreakAt' | 'lunchBreakAt' | 'eveningBreakAt'> = {
@@ -31,20 +56,34 @@ export function computeGrossAttendanceMs(
   return diffMs > 0 ? diffMs : 0;
 }
 
+export function computeUsedBreakMs(attendance?: AttendanceBreakFields | null): number {
+  if (!attendance) return 0;
+  let total = 0;
+  if (attendance.morningBreakAt) total += WORK_BREAKS.morning.durationMs;
+  if (attendance.lunchBreakAt) total += WORK_BREAKS.lunch.durationMs;
+  if (attendance.eveningBreakAt) total += WORK_BREAKS.evening.durationMs;
+  return total;
+}
+
 export function computeNetAttendanceMs(
   checkInTime: Date,
   checkOutTime?: Date | null,
+  attendance?: AttendanceBreakFields | null,
   now = new Date(),
 ): number {
-  return Math.max(0, computeGrossAttendanceMs(checkInTime, checkOutTime, now) - DAILY_STANDARD_BREAK_MS);
+  const gross = computeGrossAttendanceMs(checkInTime, checkOutTime, now);
+  const usedBreakMs = computeUsedBreakMs(attendance);
+  const deduction = usedBreakMs > 0 ? usedBreakMs : DAILY_STANDARD_BREAK_MS;
+  return Math.max(0, gross - deduction);
 }
 
 export function computeNetAttendanceHours(
   checkInTime: Date,
   checkOutTime?: Date | null,
+  attendance?: AttendanceBreakFields | null,
   now = new Date(),
 ): number {
-  return Math.round((computeNetAttendanceMs(checkInTime, checkOutTime, now) / (1000 * 60 * 60)) * 10) / 10;
+  return Math.round((computeNetAttendanceMs(checkInTime, checkOutTime, attendance, now) / (1000 * 60 * 60)) * 10) / 10;
 }
 
 type AttendanceBreakFields = {
@@ -56,6 +95,18 @@ type AttendanceBreakFields = {
   activeBreakEndsAt?: Date | null;
 };
 
+export function breakMinEndsAt(attendance: AttendanceBreakFields): Date | null {
+  if (!attendance.activeBreakType || !attendance.activeBreakStartedAt) return null;
+  const config = WORK_BREAKS[attendance.activeBreakType];
+  return new Date(new Date(attendance.activeBreakStartedAt).getTime() + config.minDurationMs);
+}
+
+export function breakMinTimeReached(attendance: AttendanceBreakFields, now = new Date()): boolean {
+  const minEnd = breakMinEndsAt(attendance);
+  if (!minEnd) return true;
+  return now.getTime() >= minEnd.getTime();
+}
+
 export function breakUsedAt(attendance: AttendanceBreakFields, type: WorkBreakType): Date | null {
   const field = BREAK_USED_FIELD[type];
   const value = attendance[field];
@@ -63,16 +114,22 @@ export function breakUsedAt(attendance: AttendanceBreakFields, type: WorkBreakTy
 }
 
 export function buildBreaksPayload(attendance: AttendanceBreakFields, now = new Date()) {
+  const minEndsAt = breakMinEndsAt(attendance);
   const activeBreak =
     attendance.activeBreakType && attendance.activeBreakStartedAt && attendance.activeBreakEndsAt
       ? {
           type: attendance.activeBreakType,
           startedAt: new Date(attendance.activeBreakStartedAt).toISOString(),
           endsAt: new Date(attendance.activeBreakEndsAt).toISOString(),
+          minEndsAt: minEndsAt ? minEndsAt.toISOString() : null,
           remainingMs: Math.max(
             0,
             new Date(attendance.activeBreakEndsAt).getTime() - now.getTime(),
           ),
+          minRemainingMs: minEndsAt
+            ? Math.max(0, minEndsAt.getTime() - now.getTime())
+            : 0,
+          canEnd: breakMinTimeReached(attendance, now),
         }
       : null;
 
@@ -80,18 +137,21 @@ export function buildBreaksPayload(attendance: AttendanceBreakFields, now = new 
     morning: {
       label: WORK_BREAKS.morning.label,
       durationMinutes: WORK_BREAKS.morning.durationMinutes,
+      minDurationMinutes: WORK_BREAKS.morning.minDurationMinutes,
       used: Boolean(attendance.morningBreakAt),
       usedAt: attendance.morningBreakAt ? new Date(attendance.morningBreakAt).toISOString() : null,
     },
     lunch: {
       label: WORK_BREAKS.lunch.label,
       durationMinutes: WORK_BREAKS.lunch.durationMinutes,
+      minDurationMinutes: WORK_BREAKS.lunch.minDurationMinutes,
       used: Boolean(attendance.lunchBreakAt),
       usedAt: attendance.lunchBreakAt ? new Date(attendance.lunchBreakAt).toISOString() : null,
     },
     evening: {
       label: WORK_BREAKS.evening.label,
       durationMinutes: WORK_BREAKS.evening.durationMinutes,
+      minDurationMinutes: WORK_BREAKS.evening.minDurationMinutes,
       used: Boolean(attendance.eveningBreakAt),
       usedAt: attendance.eveningBreakAt ? new Date(attendance.eveningBreakAt).toISOString() : null,
     },

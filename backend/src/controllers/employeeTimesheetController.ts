@@ -17,12 +17,14 @@ import { sendCheckoutReminderEmail } from '../services/emailService';
 import { buildNextSchedulerClockTime, getSchedulerDateKey, getSchedulerHourMinute, resolveSchedulerAutoCheckoutDeadline } from '../utils/istClock';
 import {
   closeProductiveSessionsForEmployee,
+  resumeProductiveSessionsForEmployee,
   closeProductiveSessionsForProjectEmployee,
   resumeProductiveSessionsForProjectEmployee,
   WORK_SESSION_REASONS,
 } from '../services/productiveTimeService';
 import {
   activeBreakExpired,
+  breakMinTimeReached,
   buildBreaksPayload,
   computeNetAttendanceHours,
   isWorkBreakType,
@@ -43,8 +45,17 @@ function todayDateKey(): string {
   return getSchedulerDateKey(new Date());
 }
 
-function computeAttendanceHours(checkInTime: Date, checkOutTime?: Date | null, now = new Date()): number {
-  return computeNetAttendanceHours(checkInTime, checkOutTime, now);
+function computeAttendanceHours(
+  checkInTime: Date,
+  checkOutTime?: Date | null,
+  attendance?: {
+    morningBreakAt?: Date | null;
+    lunchBreakAt?: Date | null;
+    eveningBreakAt?: Date | null;
+  } | null,
+  now = new Date(),
+): number {
+  return computeNetAttendanceHours(checkInTime, checkOutTime, attendance ?? undefined, now);
 }
 
 function toFrontendAttendance(a: {
@@ -66,7 +77,7 @@ function toFrontendAttendance(a: {
     date: a.date,
     checkInTime: a.checkInTime.toISOString(),
     checkOutTime: a.checkOutTime ? a.checkOutTime.toISOString() : null,
-    hours: computeAttendanceHours(a.checkInTime, a.checkOutTime ?? null),
+    hours: computeAttendanceHours(a.checkInTime, a.checkOutTime ?? null, a),
     sessionStatus: a.sessionStatus ?? 'Active',
     autoCheckedOut: a.autoCheckedOut ?? false,
     breaks: buildBreaksPayload(a),
@@ -900,6 +911,11 @@ export const employeeTimesheetController = {
         return;
       }
 
+      if (attendance.activeBreakType && !activeBreakExpired(attendance)) {
+        res.status(400).json({ error: 'Finish your break before starting work again' });
+        return;
+      }
+
       const { assignedTaskId, description } = req.body;
       if (!assignedTaskId) {
         res.status(400).json({ error: 'Select a task before starting' });
@@ -1555,6 +1571,12 @@ export const employeeTimesheetController = {
       attendance.breakPausedTimesheetId = pausedTimesheetId ?? undefined;
       await attendance.save();
 
+      void closeProductiveSessionsForEmployee(
+        employee.identityTokens,
+        WORK_SESSION_REASONS.HOLD,
+        now,
+      ).catch((err) => console.error('[timesheet] cell break hold sync failed:', err));
+
       const activePayload = await fetchActiveTaskPayload(employee);
 
       res.json({
@@ -1588,6 +1610,23 @@ export const employeeTimesheetController = {
         return;
       }
 
+      const now = new Date();
+      if (!breakMinTimeReached(attendance, now)) {
+        const minEndsAt = attendance.activeBreakStartedAt && attendance.activeBreakType
+          ? new Date(
+              new Date(attendance.activeBreakStartedAt).getTime()
+                + WORK_BREAKS[attendance.activeBreakType].minDurationMs,
+            )
+          : null;
+        res.status(400).json({
+          error: 'Please wait until the minimum break time has passed before returning to work.',
+          code: 'BREAK_MIN_NOT_REACHED',
+          minEndsAt: minEndsAt?.toISOString() ?? null,
+          remainingMs: minEndsAt ? Math.max(0, minEndsAt.getTime() - now.getTime()) : 0,
+        });
+        return;
+      }
+
       const timesheetId = attendance.breakPausedTimesheetId;
       attendance.activeBreakType = undefined;
       attendance.activeBreakStartedAt = undefined;
@@ -1608,6 +1647,10 @@ export const employeeTimesheetController = {
           await pausedLog.save();
         }
       }
+
+      void resumeProductiveSessionsForEmployee(employee.identityTokens, undefined, now).catch((err) =>
+        console.error('[timesheet] cell break resume sync failed:', err),
+      );
 
       const activePayload = await fetchActiveTaskPayload(employee);
 

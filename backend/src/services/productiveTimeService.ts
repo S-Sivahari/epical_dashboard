@@ -314,6 +314,34 @@ export async function resumeProductiveSessionsForProjectEmployee(
   );
 }
 
+export async function resumeProductiveSessionsForEmployee(
+  identityTokens: string[],
+  actor?: WorkflowActor,
+  at = new Date(),
+): Promise<void> {
+  if (!identityTokens.length) return;
+
+  const openTasks = await TimesheetModel.find({
+    taskStatus: { $in: ['In Progress', 'Paused', 'Session Incomplete'] },
+    $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }],
+    $and: [
+      {
+        $or: [
+          { employeeId: { $in: identityTokens } },
+          { employee: { $in: identityTokens } },
+        ],
+      },
+    ],
+  }).select('projectId');
+
+  const projectIds = [...new Set(openTasks.map((task) => task.projectId.toString()))];
+  await Promise.all(
+    projectIds.map((projectId) =>
+      resumeProductiveSessionsForProjectEmployee(projectId, identityTokens, actor, at),
+    ),
+  );
+}
+
 export async function closeProductiveSessionsForEmployee(
   identityTokens: string[],
   reason: WorkSessionReason,

@@ -1241,8 +1241,8 @@
 
 @media (min-width: 1024px) {
   .admin-dashboard-view[data-admin-dashboard] {
-    height: calc(100dvh - 4.25rem - 3.125rem);
-    max-height: calc(100dvh - 4.25rem - 3.125rem);
+    height: var(--viewport-page-h);
+    max-height: var(--viewport-page-h);
     overflow: hidden;
   }
 }
@@ -1252,21 +1252,25 @@
   max-width: none;
   width: 100%;
   margin: 0;
-  padding: 0.625rem 0.5rem 0.75rem;
+  /* 0.75 rem (12 px) gives visible breathing room on every laptop size;
+     the old 0.5 rem (8 px) looked edge-to-edge on 1280 px screens */
+  padding: 0.625rem 0.75rem 0.75rem;
   gap: var(--dashboard-gap);
 }
 
 @media (min-width: 768px) {
   .admin-dashboard-view[data-admin-dashboard] .dashboard-shell,
   .admin-dashboard-view[data-employee-dashboard] .dashboard-shell {
-    padding: 0.625rem 0.5rem 0.75rem;
+    padding: 0.625rem 0.75rem 0.75rem;
   }
 }
 
 @media (min-width: 1280px) {
   .admin-dashboard-view[data-admin-dashboard] .dashboard-shell,
   .admin-dashboard-view[data-employee-dashboard] .dashboard-shell {
-    padding: 0.625rem 0.625rem 0.75rem;
+    /* Increase from 0.625 rem to 1 rem — panels no longer crowd the screen edges
+       on common 1280 px and 1366 px laptop resolutions */
+    padding: 0.625rem 1rem 0.75rem;
   }
 }
 
@@ -3185,8 +3189,10 @@
   .admin-dashboard-view[data-admin-dashboard] .dashboard-right-column {
     grid-column: 2;
     grid-row: 2;
-    min-height: 14rem;
-    max-height: 40vh;
+    min-height: 18rem;
+    /* clamp keeps at least 18rem, scales with viewport, caps at 26rem — avoids
+       the fixed 40vh that clipped content at 720 px viewport height */
+    max-height: clamp(18rem, 46vh, 26rem);
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-right-stack {
@@ -3195,14 +3201,16 @@
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-right-approvals {
-    flex: none;
+    flex: 0 0 auto;
     max-height: none;
-    min-height: 9rem;
+    /* 7.5 rem gives header (≈ 2.75 rem) + at least 2 task rows without
+       eating too much of the 46 vh right-column budget */
+    min-height: 7.5rem;
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-right-activity {
-    flex: 1 1 auto;
-    min-height: 11rem;
+    flex: 1 1 0;
+    min-height: 9rem;
   }
 }
 
@@ -3214,6 +3222,10 @@
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-center-column {
     padding-left: 1rem;
+  }
+
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-shell {
+    padding: 0.625rem 1.25rem 0.75rem;
   }
 }
 
@@ -3646,7 +3658,9 @@
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  contain: layout;
+  /* contain: layout was removed — it created an isolated layout boundary that
+     clipped Recharts' absolutely-positioned tooltip overlays, causing them to
+     disappear when the cursor approached the chart edges. */
 }
 
 .admin-dashboard-view[data-admin-dashboard] .dashboard-center-chart.dashboard-panel {
@@ -4357,7 +4371,10 @@
 
 .dashboard-contribution-table {
   width: 100%;
-  min-width: 0;
+  /* 28 rem (448 px) is the minimum before the 5-column layout becomes unreadable.
+     The wrapper already has overflow: auto, so narrower containers will scroll
+     horizontally rather than wrapping/crushing cell text. */
+  min-width: 28rem;
   border-collapse: collapse;
   text-align: left;
 }
@@ -4606,9 +4623,13 @@
 }
 
 .dashboard-right-approvals {
+  /* flex-basis 30% allocates 30% of the right stack's height (which is 100% of
+     the right column = full dashboard height).  max-height caps it with an
+     explicit rem fallback so the rule doesn't silently collapse when the parent
+     has no resolved height (e.g. in some browser paint passes). */
   flex: 0 0 30%;
   min-height: 0;
-  max-height: 30%;
+  max-height: min(30%, 18rem);
 }
 
 .dashboard-right-activity {
@@ -4624,7 +4645,11 @@
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-right-approvals {
     flex: 0 0 32%;
-    max-height: 32%;
+    /* Use min() so that the cap is always the smaller of 32% of the stack
+       height or 20 rem — prevents the approvals panel from becoming enormous
+       on tall 1080 p+ displays while keeping percentage-based sizing at
+       standard laptop heights. */
+    max-height: min(32%, 20rem);
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-right-activity {

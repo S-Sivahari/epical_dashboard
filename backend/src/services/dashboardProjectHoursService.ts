@@ -1,6 +1,5 @@
-import { CellWorkflowWorkLogModel } from '../models/CellWorkflowWorkLog';
-import { WORK_SESSION_REASONS } from '../utils/workSessionReason';
-import { TimesheetModel } from '../models/Timesheet';
+import { EmployeeAttendanceModel } from '../models/EmployeeAttendance';
+import { computeNetAttendanceHours } from '../utils/workBreaks';
 
 export type DashboardChartPeriod = 'This Week' | 'This Month' | 'Last Month' | 'Last 2 Months' | 'Custom';
 
@@ -48,6 +47,25 @@ export function getDashboardChartRange(period: DashboardChartPeriod) {
 
 function roundHours(hours: number) {
   return Math.round(hours * 10) / 10;
+}
+
+export function effectiveAttendanceHours(
+  attendance: {
+    checkInTime: Date;
+    checkOutTime?: Date | null;
+    morningBreakAt?: Date | null;
+    lunchBreakAt?: Date | null;
+    eveningBreakAt?: Date | null;
+  },
+  now = new Date(),
+): number {
+  if (!attendance.checkInTime) return 0;
+  return computeNetAttendanceHours(
+    new Date(attendance.checkInTime),
+    attendance.checkOutTime ? new Date(attendance.checkOutTime) : null,
+    attendance,
+    now,
+  );
 }
 
 export function effectiveTimesheetHours(
@@ -117,26 +135,20 @@ function addHoursToDayBucket(byDay: Record<string, number>, date: Date, hours: n
 }
 
 function aggregateWeeklyChart(
-  timesheets: Array<{
-    loginTime?: Date;
-    logoutTime?: Date | null;
-    overriddenHours?: number | null;
-    totalHours?: number | null;
-    totalPausedMs?: number;
-    taskStatus?: string;
+  attendances: Array<{
+    checkInTime: Date;
+    checkOutTime?: Date | null;
+    morningBreakAt?: Date | null;
+    lunchBreakAt?: Date | null;
+    eveningBreakAt?: Date | null;
   }>,
-  cellLogs: Array<{ checkInTime: Date; checkOutTime?: Date | null; workedMs?: number }>,
   now = new Date(),
 ): DashboardChartPoint[] {
   const byDay: Record<string, number> = {};
 
-  timesheets.forEach((t) => {
-    if (!t.loginTime) return;
-    addHoursToDayBucket(byDay, new Date(t.loginTime), effectiveTimesheetHours(t, now));
-  });
-
-  cellLogs.forEach((log) => {
-    addHoursToDayBucket(byDay, new Date(log.checkInTime), effectiveCellLogHours(log, now));
+  attendances.forEach((attendance) => {
+    if (!attendance.checkInTime) return;
+    addHoursToDayBucket(byDay, new Date(attendance.checkInTime), effectiveAttendanceHours(attendance, now));
   });
 
   return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((name) => ({
@@ -152,15 +164,13 @@ function daysInRange(from: string, to: string) {
 }
 
 function aggregateDailyChart(
-  timesheets: Array<{
-    loginTime?: Date;
-    logoutTime?: Date | null;
-    overriddenHours?: number | null;
-    totalHours?: number | null;
-    totalPausedMs?: number;
-    taskStatus?: string;
+  attendances: Array<{
+    checkInTime: Date;
+    checkOutTime?: Date | null;
+    morningBreakAt?: Date | null;
+    lunchBreakAt?: Date | null;
+    eveningBreakAt?: Date | null;
   }>,
-  cellLogs: Array<{ checkInTime: Date; checkOutTime?: Date | null; workedMs?: number }>,
   from: string,
   to: string,
   now = new Date(),
@@ -184,18 +194,11 @@ function aggregateDailyChart(
   return buckets.map((bucket) => {
     let hours = 0;
 
-    timesheets.forEach((t) => {
-      if (!t.loginTime) return;
-      const login = new Date(t.loginTime);
-      if (login >= bucket.start && login <= bucket.end) {
-        hours += effectiveTimesheetHours(t, now);
-      }
-    });
-
-    cellLogs.forEach((log) => {
-      const checkIn = new Date(log.checkInTime);
+    attendances.forEach((attendance) => {
+      if (!attendance.checkInTime) return;
+      const checkIn = new Date(attendance.checkInTime);
       if (checkIn >= bucket.start && checkIn <= bucket.end) {
-        hours += effectiveCellLogHours(log, now);
+        hours += effectiveAttendanceHours(attendance, now);
       }
     });
 
@@ -204,15 +207,13 @@ function aggregateDailyChart(
 }
 
 function aggregateRangedChart(
-  timesheets: Array<{
-    loginTime?: Date;
-    logoutTime?: Date | null;
-    overriddenHours?: number | null;
-    totalHours?: number | null;
-    totalPausedMs?: number;
-    taskStatus?: string;
+  attendances: Array<{
+    checkInTime: Date;
+    checkOutTime?: Date | null;
+    morningBreakAt?: Date | null;
+    lunchBreakAt?: Date | null;
+    eveningBreakAt?: Date | null;
   }>,
-  cellLogs: Array<{ checkInTime: Date; checkOutTime?: Date | null; workedMs?: number }>,
   from: string,
   to: string,
   now = new Date(),
@@ -239,18 +240,11 @@ function aggregateRangedChart(
   return buckets.map((bucket) => {
     let hours = 0;
 
-    timesheets.forEach((t) => {
-      if (!t.loginTime) return;
-      const login = new Date(t.loginTime);
-      if (login >= bucket.start && login <= bucket.end) {
-        hours += effectiveTimesheetHours(t, now);
-      }
-    });
-
-    cellLogs.forEach((log) => {
-      const checkIn = new Date(log.checkInTime);
+    attendances.forEach((attendance) => {
+      if (!attendance.checkInTime) return;
+      const checkIn = new Date(attendance.checkInTime);
       if (checkIn >= bucket.start && checkIn <= bucket.end) {
-        hours += effectiveCellLogHours(log, now);
+        hours += effectiveAttendanceHours(attendance, now);
       }
     });
 
@@ -268,29 +262,18 @@ export async function buildDashboardProjectHoursChart(
   const loginTo = new Date(`${range.to}T23:59:59.999Z`);
   const now = new Date();
 
-  const [timesheets, cellLogs] = await Promise.all([
-    TimesheetModel.find({
-      loginTime: { $gte: loginFrom, $lte: loginTo },
-    })
-      .select('loginTime logoutTime overriddenHours totalHours totalPausedMs taskStatus')
-      .lean(),
-    CellWorkflowWorkLogModel.find({
-      checkInTime: { $gte: loginFrom, $lte: loginTo },
-      $or: [
-        { reason: WORK_SESSION_REASONS.WORKING },
-        { reason: { $exists: false } },
-      ],
-    })
-      .select('checkInTime checkOutTime workedMs')
-      .lean(),
-  ]);
+  const attendances = await EmployeeAttendanceModel.find({
+    checkInTime: { $gte: loginFrom, $lte: loginTo },
+  })
+    .select('checkInTime checkOutTime morningBreakAt lunchBreakAt eveningBreakAt')
+    .lean();
 
   const chartData =
     period === 'This Week'
-      ? aggregateWeeklyChart(timesheets, cellLogs, now)
+      ? aggregateWeeklyChart(attendances, now)
       : period === 'Custom' && daysInRange(range.from, range.to) <= 7
-        ? aggregateDailyChart(timesheets, cellLogs, range.from, range.to, now)
-        : aggregateRangedChart(timesheets, cellLogs, range.from, range.to, now);
+        ? aggregateDailyChart(attendances, range.from, range.to, now)
+        : aggregateRangedChart(attendances, range.from, range.to, now);
 
   const totalPeriodHours = roundHours(chartData.reduce((sum, point) => sum + point.hours, 0));
 

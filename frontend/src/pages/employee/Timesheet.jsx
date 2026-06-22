@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { LogIn, LogOut, Loader2, AlertTriangle, Pause, Play, Coffee } from 'lucide-react'
+import { LogIn, LogOut, Loader2, AlertTriangle, Coffee } from 'lucide-react'
 import { ProjectAnalysisLaunchButton } from '@components/admin/ProjectAnalysisLaunchButton'
 import { Button } from '@components/employee/ui/button'
 import { Textarea } from '@components/employee/ui/textarea'
@@ -13,6 +13,13 @@ import { formatSessionDuration, formatDurationFromMs } from '@utils/durationForm
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { formatDateKey, getPresetDateRange, getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
 import { TimesheetCheckInDialog } from '@pages/employee/TimesheetCheckInDialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@components/employee/ui/dialog'
 import {
   WORK_BREAK_OPTIONS,
   computeNetAttendanceMs,
@@ -80,7 +87,12 @@ function segmentHours(seg, checkedIn, liveNow) {
     return seg.hours
   }
   const isOpen = checkedIn && !seg.checkOutTime
-  return hoursFromMs(computeNetAttendanceMs(seg.checkInTime, seg.checkOutTime, isOpen ? liveNow : undefined))
+  return hoursFromMs(
+    computeNetAttendanceMs(seg.checkInTime, seg.checkOutTime, {
+      now: isOpen ? liveNow : undefined,
+      breaks: seg.breaks,
+    }),
+  )
 }
 
 function isSessionApprovedByAdmin(session) {
@@ -102,8 +114,6 @@ export default function Timesheet() {
     checkIn,
     checkOut,
     startTask,
-    pauseTask,
-    resumeTask,
     completeTask,
     startBreak,
     endBreak,
@@ -122,6 +132,7 @@ export default function Timesheet() {
   const [checkoutReview, setCheckoutReview] = useState(false)
   const [checkoutError, setCheckoutError] = useState('')
   const [checkInDialogOpen, setCheckInDialogOpen] = useState(false)
+  const [breakWaitDialogOpen, setBreakWaitDialogOpen] = useState(false)
 
   const [isInitialLoading, setIsInitialLoading] = useState(true)
 
@@ -230,16 +241,19 @@ export default function Timesheet() {
   const selectedTask = startableTasks.find((t) => t.id === selectedTaskId)
   const currentWorkTask = activeTask || pausedTasks[0] || null
   const activeWorkDescription = workNoteFromTask(currentWorkTask)
-  const isSessionPaused = checkedIn && !activeTask && Boolean(pausedTasks?.[0])
   const breakState = attendance?.breaks
   const activeBreak = breakState?.activeBreak ?? null
   const activeBreakRemainingMs = activeBreak?.endsAt
     ? Math.max(0, new Date(activeBreak.endsAt).getTime() - liveNow)
     : 0
-  const onBreak = Boolean(activeBreak && activeBreakRemainingMs > 0)
+  const activeBreakMinRemainingMs = activeBreak?.minEndsAt
+    ? Math.max(0, new Date(activeBreak.minEndsAt).getTime() - liveNow)
+    : 0
+  const canEndBreak = activeBreak?.canEnd ?? activeBreakMinRemainingMs <= 0
+  const onBreak = Boolean(activeBreak)
 
   useEffect(() => {
-    if (!checkedIn || !activeBreak?.endsAt) return undefined
+    if (!checkedIn || !activeBreak?.endsAt || !canEndBreak) return undefined
     const endsAt = new Date(activeBreak.endsAt).getTime()
     if (endsAt <= liveNow) {
       void endBreak().catch(() => {})
@@ -251,7 +265,7 @@ export default function Timesheet() {
       }
     }, 1000)
     return () => window.clearInterval(id)
-  }, [checkedIn, activeBreak?.endsAt, liveNow, endBreak, serverTimeSkew])
+  }, [checkedIn, activeBreak?.endsAt, canEndBreak, liveNow, endBreak, serverTimeSkew])
 
   useEffect(() => {
     if (checkedIn && currentWorkTask) {
@@ -367,38 +381,6 @@ export default function Timesheet() {
     }
   }
 
-  const onPauseTask = async (timesheetId) => {
-    try {
-      setSubmitting(true)
-      await pauseTask(timesheetId)
-      toast({ title: 'Task paused', description: 'Timer paused.' })
-    } catch (err) {
-      toast({
-        title: 'Could not pause task',
-        description: err.response?.data?.error || 'Please try again.',
-        variant: 'destructive',
-      })
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const onResumeTask = async (timesheetId) => {
-    try {
-      setSubmitting(true)
-      await resumeTask(timesheetId)
-      toast({ title: 'Task resumed', description: 'Timer running again.' })
-    } catch (err) {
-      toast({
-        title: 'Could not resume task',
-        description: err.response?.data?.error || 'Please try again.',
-        variant: 'destructive',
-      })
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
   const onStartBreak = async (breakType) => {
     try {
       setSubmitting(true)
@@ -420,11 +402,19 @@ export default function Timesheet() {
   }
 
   const onEndBreak = async () => {
+    if (!canEndBreak) {
+      setBreakWaitDialogOpen(true)
+      return
+    }
     try {
       setSubmitting(true)
       await endBreak()
       toast({ title: 'Break ended', description: 'You can resume your task.' })
     } catch (err) {
+      if (err.response?.data?.code === 'BREAK_MIN_NOT_REACHED') {
+        setBreakWaitDialogOpen(true)
+        return
+      }
       toast({
         title: 'Could not end break',
         description: err.response?.data?.error || 'Please try again.',
@@ -595,27 +585,6 @@ export default function Timesheet() {
                     )}
                   </div>
                 </div>
-                {isSessionPaused ? (
-                  <Button
-                    type="button"
-                    onClick={() => pausedTasks[0] && onResumeTask(pausedTasks[0].timesheetId)}
-                    disabled={submitting || onBreak}
-                    className="emp-ts-btn-primary emp-timesheet-session-action h-10 w-full gap-2 text-sm"
-                  >
-                    <Play className="h-4 w-4 shrink-0" />
-                    Resume
-                  </Button>
-                ) : activeTask ? (
-                  <Button
-                    type="button"
-                    onClick={() => onPauseTask(activeTask.timesheetId)}
-                    disabled={submitting || onBreak}
-                    className="emp-ts-btn-pause emp-timesheet-session-action h-10 w-full gap-2 text-sm"
-                  >
-                    <Pause className="h-4 w-4 shrink-0" />
-                    Pause
-                  </Button>
-                ) : null}
               </div>
             ) : (
               <div className="emp-timesheet-session-main emp-timesheet-session-stack">
@@ -660,6 +629,11 @@ export default function Timesheet() {
                       <p className="emp-timesheet-break-active-time">
                         {formatBreakCountdown(activeBreakRemainingMs)} remaining
                       </p>
+                      {!canEndBreak ? (
+                        <p className="emp-timesheet-break-active-min text-xs text-muted-foreground mt-0.5">
+                          Return to work in {formatBreakCountdown(activeBreakMinRemainingMs)}
+                        </p>
+                      ) : null}
                     </div>
                     <Button
                       type="button"
@@ -826,6 +800,26 @@ export default function Timesheet() {
         submitting={submitting}
         onCheckIn={onCheckIn}
       />
+
+      <Dialog open={breakWaitDialogOpen} onOpenChange={setBreakWaitDialogOpen}>
+        <DialogContent className="max-w-md gap-4">
+          <DialogHeader className="text-left">
+            <DialogTitle>Please wait</DialogTitle>
+            <DialogDescription className="text-sm">
+              You cannot end your break yet. Please wait until the minimum break time has passed
+              {activeBreakMinRemainingMs > 0 ? (
+                <> ({formatBreakCountdown(activeBreakMinRemainingMs)} remaining)</>
+              ) : null}
+              .
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end">
+            <Button type="button" onClick={() => setBreakWaitDialogOpen(false)}>
+              OK
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

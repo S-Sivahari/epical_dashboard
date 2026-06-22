@@ -406,6 +406,88 @@
   }
 }
 
+/* ── Short-viewport fallback (desktop widths but ≤ 780 px tall) ──
+   1280×720 and 1366×768 are very common laptop resolutions.  With the
+   viewport-fit (overflow: hidden) mode active, every panel must fit inside
+   ~600–650 px of usable height.  When it does not, the bottom content is
+   silently clipped.  Switching to page-scroll at these heights mirrors the
+   same pattern already used for max-width: 1023 px screens. */
+@media (min-width: 1024px) and (max-height: 780px) {
+  /* Allow cmd-main to scroll the entire dashboard page */
+  .admin-portal.cmd-portal .cmd-main:has([data-admin-dashboard]) {
+    overflow-x: hidden;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Release the fixed-height viewport lock on the dashboard root */
+  .admin-dashboard-view[data-admin-dashboard] {
+    height: auto !important;
+    max-height: none !important;
+    overflow-y: visible;
+    overflow-x: hidden;
+  }
+
+  /* Shell and grid become natural-height flow containers.
+     !important needed because main index.css rules (declared after this
+     @import) would otherwise win the same-specificity cascade. */
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-shell {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-main-grid {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Columns release their 100% height constraint */
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-left-column,
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-center-column,
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-right-column {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Stacks become auto-height */
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack,
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-right-stack {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Left insight panels release their overflow scroll traps */
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-left-insights,
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-left-insights-column {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-insight-panel-scroll {
+    overflow-y: visible !important;
+    flex: none !important;
+    height: auto !important;
+    min-height: 4rem;
+  }
+
+  /* Right panels become natural-height cards */
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-right-approvals,
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-right-activity {
+    flex: none !important;
+    max-height: none !important;
+    min-height: 10rem;
+  }
+
+  /* Contribution table body scrolls within a capped height instead of flex-fill */
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack-section.dashboard-center-table {
+    flex: none !important;
+    min-height: 14rem;
+    max-height: 26rem;
+    overflow: hidden !important;
+  }
+}
+
 /* ── Projects hero: tighter on small screens ── */
 @media (max-width: 767px) {
   .admin-projects-view .projects-hero-section {

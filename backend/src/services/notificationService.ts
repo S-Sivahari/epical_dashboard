@@ -2,6 +2,8 @@ import { Collection } from 'mongodb';
 import { readFileSync } from 'fs';
 import { getDB } from '../config/db';
 import { Notification, CreateNotificationPayload } from '../models/Notification';
+import { resolveEmployeeForAuthUser } from '../utils/employeeAuth';
+import { normalizeApiRole } from '../utils/generateToken';
 import * as emailService from './emailService';
 
 let notificationCollection: Collection<any> | null = null;
@@ -76,11 +78,25 @@ async function createIndexes(): Promise<void> {
 export async function notifyAllAdmins(
   payload: Omit<CreateNotificationPayload, 'recipientId' | 'recipientType'>
 ): Promise<void> {
-  const admins = await getDB().collection('users').find({ role: 'Admin' }).toArray();
+  const db = getDB();
+  const admins = await db.collection('users').find({ role: 'Admin' }).toArray();
   for (const admin of admins) {
     await createNotification({
       ...payload,
       recipientId: String(admin.id),
+      recipientType: 'Admin',
+    });
+  }
+
+  const portalAdmins = await db.collection('employees').find({
+    portalAccess: 'Employee+Admin',
+    status: { $in: ['Active', 'Notice Period'] },
+  }).toArray();
+
+  for (const employee of portalAdmins) {
+    await createNotification({
+      ...payload,
+      recipientId: String(employee.id),
       recipientType: 'Admin',
     });
   }
@@ -126,6 +142,57 @@ export async function createNotification(
   });
 
   return notification as Notification;
+}
+
+export type NotificationRecipient = {
+  recipientId: string;
+  recipientType: 'Admin' | 'Employee' | 'Manager';
+};
+
+/** Resolve which notification inbox to use for the active portal session. */
+export async function resolveNotificationRecipient(
+  userId: string,
+  userEmail: string | undefined,
+  activeRole: string,
+): Promise<NotificationRecipient> {
+  const employee = await resolveEmployeeForAuthUser(userId, userEmail);
+  const portal = normalizeApiRole(activeRole);
+
+  if (portal === 'admin') {
+    return {
+      recipientId: employee?.id ? String(employee.id) : userId,
+      recipientType: 'Admin',
+    };
+  }
+
+  return {
+    recipientId: employee?.id ? String(employee.id) : userId,
+    recipientType: 'Employee',
+  };
+}
+
+function recipientFilter(recipient: NotificationRecipient): Record<string, unknown> {
+  if (recipient.recipientType === 'Admin') {
+    return { recipientId: recipient.recipientId, recipientType: 'Admin' };
+  }
+  return {
+    recipientId: recipient.recipientId,
+    $or: [{ recipientType: 'Employee' }, { recipientType: { $exists: false } }, { recipientType: null }],
+  };
+}
+
+export async function getNotificationsForSession(
+  userId: string,
+  userEmail: string | undefined,
+  activeRole: string,
+): Promise<Notification[]> {
+  const recipient = await resolveNotificationRecipient(userId, userEmail, activeRole);
+  const col = getNotificationCol();
+  const notifications = await col
+    .find(recipientFilter(recipient))
+    .sort({ createdAt: -1 })
+    .toArray();
+  return notifications as Notification[];
 }
 
 export async function getNotificationsByRecipient(recipientId: string): Promise<Notification[]> {
@@ -181,6 +248,119 @@ export async function deleteAllNotifications(recipientId: string): Promise<numbe
   const col = getNotificationCol();
   const result = await col.deleteMany({ recipientId });
   return result.deletedCount;
+}
+
+export async function getUnreadCountForSession(
+  userId: string,
+  userEmail: string | undefined,
+  activeRole: string,
+): Promise<number> {
+  const recipient = await resolveNotificationRecipient(userId, userEmail, activeRole);
+  const col = getNotificationCol();
+  return await col.countDocuments({ ...recipientFilter(recipient), isRead: false });
+}
+
+export async function markAsReadForSession(
+  notificationId: string,
+  userId: string,
+  userEmail: string | undefined,
+  activeRole: string,
+): Promise<Notification | null> {
+  const recipient = await resolveNotificationRecipient(userId, userEmail, activeRole);
+  const col = getNotificationCol();
+  const result = await col.findOneAndUpdate(
+    { id: notificationId, ...recipientFilter(recipient) },
+    { $set: { isRead: true, updatedAt: new Date() } },
+    { returnDocument: 'after' },
+  );
+  return result as Notification | null;
+}
+
+export async function markAllAsReadForSession(
+  userId: string,
+  userEmail: string | undefined,
+  activeRole: string,
+): Promise<boolean> {
+  const recipient = await resolveNotificationRecipient(userId, userEmail, activeRole);
+  const col = getNotificationCol();
+  const result = await col.updateMany(
+    { ...recipientFilter(recipient), isRead: false },
+    { $set: { isRead: true, updatedAt: new Date() } },
+  );
+  return result.modifiedCount > 0;
+}
+
+export async function deleteNotificationForSession(
+  notificationId: string,
+  userId: string,
+  userEmail: string | undefined,
+  activeRole: string,
+): Promise<boolean> {
+  const recipient = await resolveNotificationRecipient(userId, userEmail, activeRole);
+  const col = getNotificationCol();
+  const result = await col.deleteOne({ id: notificationId, ...recipientFilter(recipient) });
+  return result.deletedCount > 0;
+}
+
+export async function deleteAllNotificationsForSession(
+  userId: string,
+  userEmail: string | undefined,
+  activeRole: string,
+): Promise<number> {
+  const recipient = await resolveNotificationRecipient(userId, userEmail, activeRole);
+  const col = getNotificationCol();
+  const result = await col.deleteMany(recipientFilter(recipient));
+  return result.deletedCount;
+}
+
+export async function getUnreadCountsByCategoryForSession(
+  userId: string,
+  userEmail: string | undefined,
+  activeRole: string,
+): Promise<{
+  leaves: number;
+  documents: number;
+  other: number;
+  total: number;
+}> {
+  const recipient = await resolveNotificationRecipient(userId, userEmail, activeRole);
+  const col = getNotificationCol();
+  const unread = await col
+    .find({ ...recipientFilter(recipient), isRead: false })
+    .project({ type: 1 })
+    .toArray();
+
+  let leaves = 0;
+  let documents = 0;
+  let other = 0;
+
+  for (const notification of unread) {
+    const type = String(notification.type || '');
+    if (type.startsWith('Leave')) {
+      leaves += 1;
+    } else if (type.startsWith('Document') || type.startsWith('Payslip')) {
+      documents += 1;
+    } else {
+      other += 1;
+    }
+  }
+
+  return { leaves, documents, other, total: unread.length };
+}
+
+export async function markAsReadByTypesForSession(
+  userId: string,
+  userEmail: string | undefined,
+  activeRole: string,
+  types: string[],
+): Promise<number> {
+  const recipient = await resolveNotificationRecipient(userId, userEmail, activeRole);
+  const col = getNotificationCol();
+  const result = await col.updateMany(
+    { ...recipientFilter(recipient), isRead: false, type: { $in: types } },
+    { $set: { isRead: true, updatedAt: new Date() } },
+  );
+  return result.modifiedCount;
 }
 
 export async function getUnreadCount(recipientId: string): Promise<number> {

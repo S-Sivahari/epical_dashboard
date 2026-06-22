@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ROUTES } from '@constants/routes'
 import { cn } from '@/utils/cn'
+import { formatWorkflowDurationFromMs } from '@/utils/durationFormat'
 import type { ProjectCell } from '@/types/projectWorkspace'
 import {
   STATUS_LABELS,
@@ -57,6 +58,8 @@ export function ProjectWorkflowOverview({
             <th>Library</th>
             <th>Type</th>
             <th>Progress</th>
+            <th>Est. Hours</th>
+            <th>Working Hours</th>
             {CELL_WORKFLOW_STAGES.map((stage) => (
               <th key={stage.key}>{stage.label}</th>
             ))}
@@ -66,6 +69,9 @@ export function ProjectWorkflowOverview({
           {cells.map((cell) => {
             const workflow = normalizeCellWorkflow(cell.workflow)
             const progress = cellCompletionProgressPercent(cell)
+            const workingDuration = cell.productiveWorkDuration ?? cell.workflowDuration
+            const workingHoursLabel = workingDuration?.formatted
+              ?? formatWorkflowDurationFromMs(workingDuration?.totalMs ?? 0)
             return (
               <tr key={cell.id}>
                 <td>
@@ -86,6 +92,8 @@ export function ProjectWorkflowOverview({
                     <span title={STATUS_LABELS[cell.status]}>{progress}%</span>
                   </div>
                 </td>
+                <td>{cell.estimatedEffort ?? 0}h</td>
+                <td>{workingHoursLabel}</td>
                 {workflow.map((stage) => (
                   <td key={`${cell.id}-${stage.stageKey}`}>
                     <span className={cn(

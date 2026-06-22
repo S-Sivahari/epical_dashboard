@@ -171,8 +171,8 @@ export function isStageLocked(workflow: CellWorkflowStage[], stageKey: CellWorkf
 }
 
 function isBackwardWorkTransition(current: WorkflowStageStatus, next: WorkflowStageStatus): boolean {
-  if (current === 'completed' && (next === 'in_progress' || next === 'not_started')) return true;
   if (current === 'in_progress' && next === 'not_started') return true;
+  if (current === 'completed' && (next === 'in_progress' || next === 'not_started')) return true;
   return false;
 }
 
@@ -380,6 +380,13 @@ export function applyWorkflowStageUpdate(
 
   if (!(WORK_STAGE_STATUSES as readonly string[]).includes(nextStatus)) {
     return { ok: false, error: 'Invalid status for this workflow stage' };
+  }
+
+  if (current === 'in_progress' && nextStatus === 'not_started') {
+    return {
+      ok: false,
+      error: 'A stage in progress cannot be moved back to Not Started. Complete the stage instead.',
+    };
   }
 
   if (!backward && hasPendingOrRejectedReview(workflow)) {
