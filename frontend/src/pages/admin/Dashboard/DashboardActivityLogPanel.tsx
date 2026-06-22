@@ -106,7 +106,7 @@ export function DashboardActivityLogPanel({ className }: DashboardActivityLogPan
       aria-label="Employee check-in and check-out activity"
     >
       <header className="dashboard-insight-panel-header dashboard-activity-header">
-        <h3 className="dashboard-insight-panel-title">Activity log</h3>
+        <h3 className="dashboard-insight-panel-title">Activity Log</h3>
         <div className="dashboard-activity-nav" role="group" aria-label="Activity log date">
           <button
             type="button"

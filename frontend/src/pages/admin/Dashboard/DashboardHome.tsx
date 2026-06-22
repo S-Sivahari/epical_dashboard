@@ -28,7 +28,7 @@ export function DashboardHome() {
 
   const kpiItems = [
     {
-      label: 'Active employees',
+      label: 'Active Employees',
       value: data.totalEmployees,
       hint: data.loading
         ? '…'
@@ -39,7 +39,7 @@ export function DashboardHome() {
       layout: 'minimal' as const,
     },
     {
-      label: 'Pending tickets',
+      label: 'Pending Tickets',
       value: data.pendingTicketsCount,
       itemLoading: data.ticketsLoading,
       icon: ClipboardList,
@@ -48,7 +48,7 @@ export function DashboardHome() {
       layout: 'minimal' as const,
     },
     {
-      label: 'Active projects',
+      label: 'Active Projects',
       value: data.activeProjectsCount,
       icon: BarChart3,
       tone: 'blue' as const,
@@ -56,7 +56,7 @@ export function DashboardHome() {
       layout: 'minimal' as const,
     },
     {
-      label: 'Documents pending',
+      label: 'Documents Pending',
       value: pendingDocuments,
       icon: FileCheck2,
       tone: 'violet' as const,

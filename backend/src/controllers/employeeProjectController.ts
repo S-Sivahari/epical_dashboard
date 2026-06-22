@@ -64,6 +64,7 @@ import {
   isValidStageKey,
   markReviewPending,
   normalizeCellWorkflow,
+  resolveStoredCellWorkflow,
   normalizeViewWorkflow,
   normalizeWorkflowStageStatus,
   returnOptionsForReview,
@@ -394,7 +395,7 @@ function toEmployeeCell(
   const viewWorkflow = normalizeViewWorkflow(doc.viewWorkflow);
   const views = doc.views || { layout: '', symbol: '', schematic: '' };
   syncViewsFromViewWorkflow({ viewWorkflow, views });
-  const workflow = syncCellWorkflowFromViewWorkflow(viewWorkflow);
+  const workflow = resolveStoredCellWorkflow(doc);
   return {
     id: doc._id.toString(),
     projectId: doc.projectId.toString(),
@@ -460,8 +461,7 @@ async function toEmployeeCellWithTiming(
   tokens: string[],
   dependencyMeta?: { isBlocked: boolean; isReady: boolean },
 ) {
-  const viewWorkflow = normalizeViewWorkflow(doc.viewWorkflow);
-  const workflow = syncCellWorkflowFromViewWorkflow(viewWorkflow);
+  const workflow = resolveStoredCellWorkflow(doc);
   const timing = await getCellWorkflowTiming(
     doc.projectId.toString(),
     doc._id.toString(),

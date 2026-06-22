@@ -720,24 +720,24 @@ export function EditEmployee() {
                 {...form.register('employeeId')}
               />
               <Input
-                label="First name"
+                label="First Name"
                 required
                 error={form.formState.errors.firstName?.message}
                 {...form.register('firstName')}
               />
               <Input
-                label="Middle name"
+                label="Middle Name"
                 error={form.formState.errors.middleName?.message}
                 {...form.register('middleName')}
               />
               <Input
-                label="Last name"
+                label="Last Name"
                 required
                 error={form.formState.errors.lastName?.message}
                 {...form.register('lastName')}
               />
               <Input
-                label="Date of birth"
+                label="Date of Birth"
                 type="date"
                 required
                 error={form.formState.errors.dob?.message}
@@ -761,14 +761,14 @@ export function EditEmployee() {
                 {...form.register('phone')}
               />
               <Input
-                label="Personal email"
+                label="Personal Email"
                 type="email"
                 required
                 error={form.formState.errors.personalEmail?.message}
                 {...form.register('personalEmail')}
               />
               <Input
-                label="Company email"
+                label="Company Email"
                 type="email"
                 error={form.formState.errors.companyEmail?.message}
                 {...form.register('companyEmail')}
@@ -828,27 +828,27 @@ export function EditEmployee() {
             <h3 className="employee-form-card-title">Account Details</h3>
             <div className="employee-form-fields employee-form-fields--2">
               <Input
-                label="Bank name"
+                label="Bank Name"
                 error={form.formState.errors.bankName?.message}
                 {...form.register('bankName')}
               />
               <Input
-                label="Account number"
+                label="Account Number"
                 error={form.formState.errors.accountNumber?.message}
                 {...form.register('accountNumber')}
               />
               <Input
-                label="IFSC code"
+                label="IFSC Code"
                 error={form.formState.errors.ifsc?.message}
                 {...form.register('ifsc')}
               />
               <Input
-                label="UAN number"
+                label="UAN Number"
                 error={form.formState.errors.uan?.message}
                 {...form.register('uan')}
               />
               <SelectField
-                label="PF / ESI status"
+                label="PF / ESI Status"
                 error={form.formState.errors.pfEsi?.message}
                 options={[
                   { value: 'on', label: 'Enabled' },
@@ -864,7 +864,7 @@ export function EditEmployee() {
             <h3 className="employee-form-card-title">Joining Details</h3>
             <div className="employee-form-fields employee-form-fields--2">
               <Input
-                label="Joining date"
+                label="Joining Date"
                 type="date"
                 required
                 readOnly
@@ -874,7 +874,7 @@ export function EditEmployee() {
                 {...form.register('joinedAt')}
               />
               <SelectField
-                label="Employment type"
+                label="Employment Type"
                 required
                 error={form.formState.errors.employmentType?.message}
                 options={[
@@ -885,7 +885,7 @@ export function EditEmployee() {
                 {...form.register('employmentType')}
               />
               <SelectField
-                label="Portal access"
+                label="Portal Access"
                 required
                 error={form.formState.errors.role?.message}
                 options={[
@@ -895,7 +895,7 @@ export function EditEmployee() {
                 {...form.register('role')}
               />
               <Input
-                label="CTC (annual)"
+                label="CTC (Annual)"
                 type="number"
                 error={form.formState.errors.ctc?.message}
                 {...form.register('ctc', {
@@ -910,7 +910,7 @@ export function EditEmployee() {
             <h3 className="employee-form-card-title">ID Proof</h3>
             <div className="employee-form-fields employee-form-fields--2">
               <Input
-                label="Aadhaar number"
+                label="Aadhaar Number"
                 error={form.formState.errors.aadhaar?.message}
                 {...form.register('aadhaar')}
               />
@@ -921,7 +921,7 @@ export function EditEmployee() {
                 {...form.register('pan')}
               />
               <Input
-                label="Passport number"
+                label="Passport Number"
                 error={form.formState.errors.passport?.message}
                 {...form.register('passport')}
               />

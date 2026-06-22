@@ -2932,10 +2932,9 @@
 }
 
 .notes-delegation-panel--embedded .notes-delegation-panel__field--dates {
-  flex: 0 1 10.5rem;
-  width: 10.5rem;
-  min-width: 10rem;
-  max-width: 12rem;
+  flex: 0 0 14rem;
+  width: 14rem;
+  max-width: 14rem;
 }
 
 .notes-delegation-panel--embedded .notes-delegation-panel__field--employee {
@@ -2987,10 +2986,14 @@
   font-size: 0.75rem;
   padding-top: 0;
   padding-bottom: 0;
+  padding-right: 2rem;
+  white-space: nowrap;
 }
 
 .notes-delegation-panel--embedded .notes-delegation-panel__field--dates .w-full {
-  min-width: 0;
+  width: 14rem;
+  min-width: 14rem;
+  max-width: 14rem;
 }
 
 .notes-delegation-panel--embedded .notes-delegation-panel__meta:empty {
@@ -3056,12 +3059,15 @@
 }
 
 .notes-delegation-panel__field--dates {
-  flex: 0 1 10.5rem;
-  min-width: 9rem;
+  flex: 0 0 14rem;
+  width: 14rem;
+  max-width: 14rem;
 }
 
 .notes-delegation-panel__field--dates .w-full {
-  min-width: 0;
+  width: 14rem;
+  min-width: 14rem;
+  max-width: 14rem;
 }
 
 .notes-delegation-panel__field--employee {

@@ -5,6 +5,7 @@ import { buildCellCompletionTimeSummary } from '@/utils/cellCompletionTimeSummar
 type CellCompletionTimeSummaryProps = {
   cell: ProjectCell
   className?: string
+  variant?: 'inline' | 'modal'
 }
 
 function formatHours(value: number) {
@@ -15,20 +16,29 @@ function formatHours(value: number) {
 export function CellCompletionTimeSummary({
   cell,
   className,
+  variant = 'inline',
 }: CellCompletionTimeSummaryProps) {
   if (cell.status !== 'completed') return null
 
   const summary = buildCellCompletionTimeSummary(cell)
+  const isModal = variant === 'modal'
 
   return (
     <section
-      className={className ?? 'admin-projects-cell-completion-time'}
+      className={
+        className
+          ?? (isModal
+            ? 'admin-projects-cell-completion-time admin-projects-cell-completion-time--modal'
+            : 'admin-projects-cell-completion-time')
+      }
       aria-label="Cell completion time summary"
     >
-      <div className="admin-projects-cell-completion-time-head">
-        <h2>Time summary</h2>
-        <p>Productive time, holds, and completion timestamps for this cell.</p>
-      </div>
+      {!isModal ? (
+        <div className="admin-projects-cell-completion-time-head">
+          <h2>Time Summary</h2>
+          <p>Productive time, holds, and completion timestamps for this cell.</p>
+        </div>
+      ) : null}
 
       <div className="admin-projects-cell-completion-time-grid">
         <div className="admin-projects-cell-completion-time-item">
@@ -54,29 +64,29 @@ export function CellCompletionTimeSummary({
         </div>
 
         <div className="admin-projects-cell-completion-time-item is-highlight">
-          <span className="admin-projects-cell-completion-time-label">Productive time</span>
+          <span className="admin-projects-cell-completion-time-label">Productive Time</span>
           <strong>{summary.productiveFormatted}</strong>
         </div>
 
         <div className="admin-projects-cell-completion-time-item">
-          <span className="admin-projects-cell-completion-time-label">Estimated effort</span>
+          <span className="admin-projects-cell-completion-time-label">Estimated Effort</span>
           <strong>{formatHours(summary.estimatedHours)}</strong>
         </div>
 
         <div className="admin-projects-cell-completion-time-item">
-          <span className="admin-projects-cell-completion-time-label">Actual effort</span>
+          <span className="admin-projects-cell-completion-time-label">Actual Effort</span>
           <strong>{formatHours(summary.actualHours)}</strong>
         </div>
 
         <div className="admin-projects-cell-completion-time-item">
-          <span className="admin-projects-cell-completion-time-label">Total hold time</span>
+          <span className="admin-projects-cell-completion-time-label">Total Hold Time</span>
           <strong>{summary.holdPeriods.length > 0 ? summary.totalHoldFormatted : '—'}</strong>
         </div>
       </div>
 
       {summary.holdPeriods.length > 0 ? (
         <div className="admin-projects-cell-completion-holds">
-          <h3>Hold periods</h3>
+          <h3>Hold Periods</h3>
           <ul className="admin-projects-cell-completion-holds-list">
             {summary.holdPeriods.map((period, index) => (
               <li key={`${period.startedAt}-${index}`} className="admin-projects-cell-completion-holds-item">

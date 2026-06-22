@@ -9,6 +9,8 @@ const INNER_RADIUS = 72
 const OUTER_RADIUS = 168
 const ICON_RADIUS = 128
 const LABEL_RADIUS = 196
+const SHIFT_CYCLE_INITIAL_DELAY_MS = 280
+const SHIFT_CYCLE_FAST_INTERVAL_MS = 70
 
 export type PortalNavWheelItem = {
   to: string
@@ -80,10 +82,43 @@ export function PortalNavWheel({
   const selectedIndexRef = useRef(0)
   const openRef = useRef(false)
   const itemsRef = useRef(items)
+  const shiftHeldRef = useRef(false)
+  const shiftCycleDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const shiftCycleIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   selectedIndexRef.current = selectedIndex
   openRef.current = open
   itemsRef.current = items
+
+  const stepWheel = useCallback(() => {
+    setSelectedIndex((prev) => {
+      const next = cycleWheelIndex(prev, itemsRef.current.length, 1)
+      selectedIndexRef.current = next
+      return next
+    })
+  }, [])
+
+  const stopShiftCycle = useCallback(() => {
+    if (shiftCycleDelayRef.current) {
+      clearTimeout(shiftCycleDelayRef.current)
+      shiftCycleDelayRef.current = null
+    }
+    if (shiftCycleIntervalRef.current) {
+      clearInterval(shiftCycleIntervalRef.current)
+      shiftCycleIntervalRef.current = null
+    }
+    shiftHeldRef.current = false
+  }, [])
+
+  const startShiftCycle = useCallback(() => {
+    if (shiftHeldRef.current) return
+    shiftHeldRef.current = true
+    stepWheel()
+    shiftCycleDelayRef.current = setTimeout(() => {
+      shiftCycleDelayRef.current = null
+      shiftCycleIntervalRef.current = setInterval(stepWheel, SHIFT_CYCLE_FAST_INTERVAL_MS)
+    }, SHIFT_CYCLE_INITIAL_DELAY_MS)
+  }, [stepWheel])
 
   const currentIndex = useMemo(() => {
     const idx = items.findIndex((item) => isItemActive(pathname, item))
@@ -91,6 +126,7 @@ export function PortalNavWheel({
   }, [items, isItemActive, pathname])
 
   const closeAndNavigate = useCallback(() => {
+    stopShiftCycle()
     const index = selectedIndexRef.current
     const target = itemsRef.current[index]
     setOpen(false)
@@ -98,7 +134,7 @@ export function PortalNavWheel({
     if (target) {
       navigate(target.to)
     }
-  }, [navigate])
+  }, [navigate, stopShiftCycle])
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -116,18 +152,17 @@ export function PortalNavWheel({
         return
       }
 
-      if (event.key === 'Shift' && !event.repeat) {
+      if (event.key === 'Shift') {
         event.preventDefault()
         event.stopPropagation()
-        setSelectedIndex((prev) => {
-          const next = cycleWheelIndex(prev, itemsRef.current.length, 1)
-          selectedIndexRef.current = next
-          return next
-        })
+        startShiftCycle()
       }
     }
 
     function handleKeyUp(event: KeyboardEvent) {
+      if (event.key === 'Shift') {
+        stopShiftCycle()
+      }
       if (!openRef.current) return
       if (event.key !== 'Control') return
       event.preventDefault()
@@ -139,8 +174,9 @@ export function PortalNavWheel({
     return () => {
       window.removeEventListener('keydown', handleKeyDown, true)
       window.removeEventListener('keyup', handleKeyUp, true)
+      stopShiftCycle()
     }
-  }, [closeAndNavigate, currentIndex])
+  }, [closeAndNavigate, currentIndex, startShiftCycle, stopShiftCycle])
 
   useEffect(() => {
     if (!open) return undefined
@@ -165,7 +201,7 @@ export function PortalNavWheel({
       aria-label={ariaLabel}
     >
       <p className="emp-nav-wheel__hint">
-        Hold Ctrl+Shift to open · tap Shift to cycle · release Ctrl to go
+        Hold Ctrl+Shift to open · tap or hold Shift to cycle · release Ctrl to go
       </p>
 
       <div className="emp-nav-wheel">

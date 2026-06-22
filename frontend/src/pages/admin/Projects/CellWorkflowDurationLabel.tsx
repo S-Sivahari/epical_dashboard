@@ -34,6 +34,10 @@ type CellWorkflowDurationLabelProps = {
 
   onHoldToggle?: (hold: boolean) => void
 
+  /** When set on a completed cell, clicking the timer opens the time summary. */
+
+  onSummaryClick?: () => void
+
 }
 
 
@@ -64,6 +68,8 @@ export function CellWorkflowDurationLabel({
 
   onHoldToggle,
 
+  onSummaryClick,
+
 }: CellWorkflowDurationLabelProps) {
 
   const [now, setNow] = useState(() => Date.now())
@@ -78,6 +84,8 @@ export function CellWorkflowDurationLabel({
 
   const isInProgress = cellStatus === 'in_progress'
   const shouldTickLive = !isCompleted && !onHold && Boolean(workflowDuration?.isActive)
+
+  const canOpenSummary = isCompleted && Boolean(onSummaryClick)
 
   const canHold = holdEnabled && Boolean(onHoldToggle) && !isCompleted && isInProgress
 
@@ -305,6 +313,8 @@ export function CellWorkflowDurationLabel({
 
       canHold && 'is-interactive',
 
+      canOpenSummary && 'is-clickable',
+
       isPressing && 'is-holding',
 
       className,
@@ -364,6 +374,34 @@ export function CellWorkflowDurationLabel({
           onPointerCancel={handlePressEnd}
 
           onContextMenu={(event) => event.preventDefault()}
+
+        >
+
+          {content}
+
+        </button>
+
+      )
+
+    }
+
+
+
+    if (canOpenSummary) {
+
+      return (
+
+        <button
+
+          type="button"
+
+          className={timerClassName}
+
+          title={`${title}. Click to view time summary.`}
+
+          aria-label={`${title}. View time summary.`}
+
+          onClick={onSummaryClick}
 
         >
 

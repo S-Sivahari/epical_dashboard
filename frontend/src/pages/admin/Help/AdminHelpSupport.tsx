@@ -9,6 +9,7 @@ import {
   CalendarDays,
   ChevronDown,
   FileText,
+  Keyboard,
   LayoutGrid,
   Newspaper,
   Receipt,
@@ -30,6 +31,7 @@ const guideIcons: Record<string, typeof BookOpen> = {
   calendar: CalendarDays,
   tickets: Ticket,
   news: Newspaper,
+  shortcuts: Keyboard,
 }
 
 export function AdminHelpSupport() {

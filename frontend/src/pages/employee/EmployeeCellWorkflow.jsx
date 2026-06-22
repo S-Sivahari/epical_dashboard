@@ -21,7 +21,7 @@ import { cn } from '@pages/employee/lib/utils'
 import { VIEW_TABS, getAdvancePayload, isFinalLayoutStage } from '@/utils/cellWorkflowUi'
 import { CellWorkflowDurationLabel } from '@pages/admin/Projects/CellWorkflowDurationLabel'
 import { CellWorkflowTimingSummary } from '@pages/admin/Projects/CellWorkflowTimingSummary'
-import { CellCompletionTimeSummary } from '@pages/admin/Projects/CellCompletionTimeSummary'
+import { CellCompletionTimeSummaryModal } from '@pages/admin/Projects/CellCompletionTimeSummaryModal'
 import { cellDisplayStatus, isReviewStageKey } from '@pages/admin/Projects/projectWorkspaceUi'
 import '@pages/admin/Projects/adminProjects.css'
 import '@components/employee/projects/employeeProjectWorkflow.css'
@@ -35,6 +35,7 @@ export default function EmployeeCellWorkflow() {
   const [viewTab, setViewTab] = useState('schematic')
   const [checklistReady, setChecklistReady] = useState(true)
   const [durationFetchedAt, setDurationFetchedAt] = useState(() => Date.now())
+  const [timeSummaryOpen, setTimeSummaryOpen] = useState(false)
   const { toast } = useToast()
 
   const reload = useCallback(async () => {
@@ -225,13 +226,18 @@ export default function EmployeeCellWorkflow() {
                   onHold={Boolean(cell.onHold)}
                   holdEnabled={canManageWorkflow && cell.status === 'in_progress'}
                   onHoldToggle={(hold) => void handleHoldChange(hold)}
+                  onSummaryClick={cell.status === 'completed' ? () => setTimeSummaryOpen(true) : undefined}
                 />
               </div>
             </div>
           </header>
         </div>
 
-        {cell.status === 'completed' ? <CellCompletionTimeSummary cell={cell} /> : null}
+        <CellCompletionTimeSummaryModal
+          cell={cell}
+          isOpen={timeSummaryOpen}
+          onClose={() => setTimeSummaryOpen(false)}
+        />
 
         <div className="admin-projects-cell-page-body admin-projects-cell-page-body--employee">
           {isTeamLead && !cell.isAssignedToMe ? (
