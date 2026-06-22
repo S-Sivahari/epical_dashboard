@@ -93,8 +93,8 @@
   letter-spacing: 0.06em;
   line-height: 1.15;
   text-transform: uppercase;
-  color: #f8fafc;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+  color: #0f172a;
+  text-shadow: 0 0 6px rgba(255, 255, 255, 0.85), 0 1px 1px rgba(255, 255, 255, 0.55);
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
@@ -108,7 +108,7 @@
   justify-content: center;
   gap: 0.35rem;
   text-align: center;
-  color: #ffffff;
+  color: #0f172a;
   padding: 0 1.5rem;
 }
 
@@ -116,6 +116,7 @@
   width: 2rem;
   height: 2rem;
   stroke-width: 2;
+  stroke: #0f172a;
 }
 
 .emp-nav-wheel__center-label {
@@ -123,7 +124,8 @@
   font-weight: 800;
   letter-spacing: 0.02em;
   line-height: 1.2;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  color: #0f172a;
+  text-shadow: 0 0 6px rgba(255, 255, 255, 0.85), 0 1px 1px rgba(255, 255, 255, 0.55);
 }
 
 .emp-nav-wheel__hint {

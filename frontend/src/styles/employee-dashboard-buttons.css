@@ -833,6 +833,33 @@
   z-index: 1;
 }
 
+.admin-projects-view .projects-hero-section .projects-hero-create-btn.projects-hero-stat-card,
+.admin-projects-view .projects-hero-section .project-analysis-launch-btn--hero.projects-hero-stat-card {
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
+}
+
+.admin-projects-view .projects-hero-section .projects-hero-create-btn.projects-hero-stat-card::before,
+.admin-projects-view .projects-hero-section .project-analysis-launch-btn--hero.projects-hero-stat-card::before {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.08) 55%, transparent 100%);
+}
+
+.admin-projects-view .projects-hero-section .projects-hero-create-btn.projects-hero-stat-card:hover,
+.admin-projects-view .projects-hero-section .project-analysis-launch-btn--hero.projects-hero-stat-card:hover {
+  border-color: rgba(255, 255, 255, 0.45) !important;
+  background: rgba(255, 255, 255, 0.2) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+}
+
+.admin-projects-view .projects-hero-section .projects-hero-create-btn.projects-hero-stat-card svg,
+.admin-projects-view .projects-hero-section .project-analysis-launch-btn--hero.projects-hero-stat-card svg {
+  color: #ffffff;
+}
+
 .admin-projects-view .projects-analytics-head {
   position: relative;
   isolation: isolate;
