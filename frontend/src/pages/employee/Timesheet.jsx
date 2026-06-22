@@ -66,7 +66,7 @@ const historyColumns = [
   { key: 'duration', label: 'Duration' },
 ]
 
-const CHART_HEIGHT = 220
+const CHART_HEIGHT = 260
 const HISTORY_INLINE_ROW_LIMIT = 10
 
 function hoursFromMs(ms) {
@@ -509,7 +509,7 @@ export default function Timesheet() {
   }
 
   return (
-    <div className="emp-timesheet-page dashboard-surface emp-page-content-in" data-employee-timesheet>
+    <div className="emp-timesheet-page dashboard-surface emp-page-content-in flex min-h-0 flex-1 flex-col" data-employee-timesheet>
       <div className="emp-timesheet-hero">
         <div className="emp-ts-header-brand emp-ts-header-brand--hero">
           <EmpTimesheetHeaderDecor />
@@ -520,7 +520,7 @@ export default function Timesheet() {
             audience="employee"
             className="project-analysis-launch-btn--hero emp-timesheet-hero-stat emp-timesheet-hero-stat--launch"
           />
-          <div className="emp-timesheet-hero-stat emp-timesheet-hero-stat--plain">
+          <div className="emp-timesheet-hero-stat">
             <span className="emp-timesheet-hero-stat-label">Total</span>
             <span className="emp-timesheet-hero-stat-value">{taskStatusCounts.total}</span>
           </div>
@@ -534,7 +534,8 @@ export default function Timesheet() {
             <span className="emp-timesheet-hero-stat-label">Completed</span>
             <span className="emp-timesheet-hero-stat-value">{taskStatusCounts.completed}</span>
           </div>
-          <div className="emp-timesheet-hero-stat emp-timesheet-hero-stat--plain">
+          <div className="emp-timesheet-hero-stat emp-timesheet-hero-stat--red">
+            <span className="emp-timesheet-hero-stat-dot" aria-hidden />
             <span className="emp-timesheet-hero-stat-label">Cancelled</span>
             <span className="emp-timesheet-hero-stat-value">{taskStatusCounts.cancelled}</span>
           </div>
@@ -712,10 +713,10 @@ export default function Timesheet() {
               </div>
             </div>
           </div>
-          <div className="emp-timesheet-card-body" style={{ height: CHART_HEIGHT }}>
+          <div className="emp-timesheet-card-body emp-timesheet-chart-body">
             <Suspense
               fallback={
-                <div className="flex h-full items-center justify-center text-xs text-muted">
+                <div className="flex h-full min-h-[12rem] items-center justify-center text-xs text-muted">
                   Loading chart…
                 </div>
               }
@@ -758,24 +759,24 @@ export default function Timesheet() {
               <div className="h-9 w-full animate-pulse rounded-lg bg-slate-100/60" />
             </div>
           ) : (
-            <div className="relative flex flex-col">
+            <div className="relative flex min-h-0 flex-1 flex-col">
               {(isInitialLoading || sessionsLoading) && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-[1px]">
                   <Loader2 className="h-5 w-5 animate-spin text-primary" />
                 </div>
               )}
               <div
-                className={`emp-timesheet-history-scroll timesheet-panel-scroll${
+                className={`emp-timesheet-history-scroll timesheet-panel-scroll emp-timesheet-history-scroll--bounded${
                   unifiedHistory.length > HISTORY_INLINE_ROW_LIMIT
-                    ? ' emp-timesheet-history-scroll--bounded'
-                    : ''
+                    ? ''
+                    : ' emp-timesheet-history-scroll--short'
                 }`}
               >
                 <DataTable
                   columns={historyColumns}
                   data={unifiedHistory}
                   compact
-                  stickyHeader={unifiedHistory.length > HISTORY_INLINE_ROW_LIMIT}
+                  stickyHeader={unifiedHistory.length > 0}
                   emptyMessage="No work logs for this date range."
                 />
                 {unifiedHistory.length > HISTORY_INLINE_ROW_LIMIT ? (

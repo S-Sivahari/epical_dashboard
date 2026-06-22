@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
+import { ROUTES } from '@constants/routes'
 import { EmployeeCellChecklistSidebar } from '@components/employee/projects/EmployeeCellChecklistSidebar'
 import { EmployeeCellWorkflowPanel } from '@components/employee/projects/EmployeeCellWorkflowPanel'
 import { EmployeeSchematicWorkflowPanel } from '@components/employee/projects/EmployeeSchematicWorkflowPanel'
@@ -184,7 +185,7 @@ export default function EmployeeCellWorkflow() {
           <header className="admin-projects-workspace-head admin-projects-workspace-head--cell admin-projects-cell-page-head">
             <div className="admin-projects-cell-head-top">
               <Link
-                to={`/employee/projects/${projectId}`}
+                to={ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECT_WORKSPACE(projectId)}
                 className="admin-projects-back-btn admin-projects-back-btn--icon-only"
                 aria-label={`Back to ${project.name}`}
               >

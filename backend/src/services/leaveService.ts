@@ -99,6 +99,28 @@ function employeeAllocationOverrides(employee: Employee | null | undefined) {
   return employee?.leaveAllocations;
 }
 
+function employeeBalanceUsedAdjustments(
+  employee: Employee | null | undefined,
+  refDate = new Date(),
+): Partial<Record<string, number>> {
+  const year = String(refDate.getFullYear());
+  return employee?.leaveBalanceAdjustments?.[year] ?? {};
+}
+
+function leaveBalanceOptions(
+  employee: Employee | null | undefined,
+  compensationLeaveCredits: number,
+  refDate = new Date(),
+) {
+  return {
+    compensationLeaveCredits,
+    employeeAllocations: employeeAllocationOverrides(employee),
+    balanceUsedAdjustments: employeeBalanceUsedAdjustments(employee, refDate),
+    refDate,
+    earnedLeaveMonthEndAccrual: employee?.earnedLeaveMonthEndAccrual !== false,
+  };
+}
+
 /** Sum active admin compensation credits for the calendar year (Compensation Leave balance only). */
 export async function getCompensationLeaveCreditsForYear(
   employeeDbId: string,
@@ -131,19 +153,6 @@ export async function getCompensationEarnedLeaveBonusForYear(
   calendarYear = new Date().getFullYear(),
 ): Promise<number> {
   return getCompensationLeaveCreditsForYear(employeeDbId, calendarYear);
-}
-
-function leaveBalanceOptions(
-  employee: Employee | null | undefined,
-  compensationLeaveCredits: number,
-  refDate = new Date(),
-) {
-  return {
-    compensationLeaveCredits,
-    employeeAllocations: employeeAllocationOverrides(employee),
-    refDate,
-    earnedLeaveMonthEndAccrual: employee?.earnedLeaveMonthEndAccrual !== false,
-  };
 }
 
 // ── Leave Requests ──────────────────────────────────────────────
@@ -388,6 +397,12 @@ export function canCancelLeaveRequest(leave: Pick<LeaveRequest, 'status' | 'to'>
   return false;
 }
 
+/** True when the leave period has fully ended (end date before today). */
+export function isLeaveEnded(leave: Pick<LeaveRequest, 'to'>): boolean {
+  const end = typeof leave.to === 'string' ? leave.to.slice(0, 10) : '';
+  return Boolean(end && end < getTodayDateString());
+}
+
 function isApprovedLeaveActiveOnDate(leave: LeaveRequest, dateStr: string): boolean {
   return leave.status === 'Approved' && leave.from <= dateStr && dateStr <= leave.to;
 }
@@ -493,6 +508,91 @@ export async function updateEmployeeLeaveAllocations(
     'Earned Leave': totals['Earned Leave'].total,
     'Compensation Leave': totals['Compensation Leave'].total,
   };
+}
+
+const BALANCE_ADJUSTMENT_TYPES = [
+  'Casual Leave',
+  'Sick Leave',
+  'Earned Leave',
+  'Compensation Leave',
+] as const;
+
+type BalanceAdjustmentType = (typeof BALANCE_ADJUSTMENT_TYPES)[number];
+
+export async function adjustEmployeeLeaveBalance(
+  employeeId: string,
+  type: BalanceAdjustmentType,
+  delta: number,
+  refDate = new Date(),
+): Promise<EmployeeLeaveSummary> {
+  if (!BALANCE_ADJUSTMENT_TYPES.includes(type)) {
+    throw new Error('Invalid leave type for balance adjustment');
+  }
+
+  const step = Number(delta);
+  if (Number.isNaN(step) || step === 0) {
+    throw new Error('Adjustment delta must be a non-zero number');
+  }
+
+  const employee = await findEmployeeDoc(employeeId);
+  if (!employee?.id) {
+    throw new Error('Employee not found');
+  }
+
+  const year = String(refDate.getFullYear());
+  const adjustmentsByYear: Record<string, Record<string, number>> = {
+    ...(employee.leaveBalanceAdjustments ?? {}),
+  };
+  const yearAdjustments: Record<string, number> = { ...(adjustmentsByYear[year] ?? {}) };
+  const currentAdjustment = Number(yearAdjustments[type] ?? 0) || 0;
+  const nextAdjustment = currentAdjustment + step;
+
+  const compCredits = await getCompensationLeaveCreditsForYear(String(employee.id), refDate.getFullYear());
+  const leaves = await getAllLeaves(employeeId);
+  const archivedEarned = await getArchivedEarnedLeavesForBalance(employeeId, refDate);
+  const provisionalAdjustments = { ...yearAdjustments, [type]: nextAdjustment };
+  const balances = calculateBalances(
+    [...leaves, ...archivedEarned],
+    employee.joinedAt as string | undefined,
+    {
+      ...leaveBalanceOptions(employee, compCredits, refDate),
+      balanceUsedAdjustments: provisionalAdjustments,
+    },
+  );
+
+  const bucket = balances[type];
+  if (!bucket) {
+    throw new Error('Could not resolve leave balance for adjustment');
+  }
+  if (bucket.used < 0) {
+    throw new Error('Used days cannot be negative');
+  }
+  if (bucket.remaining < 0) {
+    throw new Error('Remaining balance cannot be negative');
+  }
+
+  if (nextAdjustment === 0) {
+    delete yearAdjustments[type];
+  } else {
+    yearAdjustments[type] = nextAdjustment;
+  }
+
+  if (Object.keys(yearAdjustments).length === 0) {
+    delete adjustmentsByYear[year];
+  } else {
+    adjustmentsByYear[year] = yearAdjustments;
+  }
+
+  const updatePayload =
+    Object.keys(adjustmentsByYear).length === 0
+      ? { $unset: { leaveBalanceAdjustments: '' }, $set: { updatedAt: new Date() } }
+      : { $set: { leaveBalanceAdjustments: adjustmentsByYear, updatedAt: new Date() } };
+
+  await getDB()
+    .collection('employees')
+    .updateOne({ id: String(employee.id) }, updatePayload);
+
+  return getEmployeeLeaveSummary(employeeId);
 }
 
 export async function updateLeaveStatus(
@@ -920,6 +1020,80 @@ export async function ensureMonthlyLeaveHistoryReset(): Promise<{ ran: boolean; 
     `[LeaveReset] Monthly reset for ${monthKey}: archived ${archivedCount}, removed ${deletedCount} leave(s) from prior months (current/future kept)`,
   );
   return { ran: true, deletedCount };
+}
+
+const LEAVE_ANNUAL_RESET_SETTINGS_KEY = 'leaveAnnualResetYear';
+
+async function getLastLeaveAnnualResetYear(): Promise<number | null> {
+  const doc = await getDB().collection('app_settings').findOne({ key: LEAVE_ANNUAL_RESET_SETTINGS_KEY });
+  if (!doc?.value) return null;
+  const parsed = Number(doc.value);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+async function setLastLeaveAnnualResetYear(year: number): Promise<void> {
+  await getDB()
+    .collection('app_settings')
+    .updateOne(
+      { key: LEAVE_ANNUAL_RESET_SETTINGS_KEY },
+      { $set: { key: LEAVE_ANNUAL_RESET_SETTINGS_KEY, value: year, updatedAt: new Date() } },
+      { upsert: true },
+    );
+}
+
+/** Clears prior-year manual balance adjustments so all leave types reset each calendar year. */
+async function clearStaleLeaveBalanceAdjustments(currentYear: number): Promise<number> {
+  const yearStr = String(currentYear);
+  const col = getDB().collection('employees');
+  const employees = await col
+    .find({ leaveBalanceAdjustments: { $exists: true } })
+    .project({ id: 1, leaveBalanceAdjustments: 1 })
+    .toArray();
+
+  let updated = 0;
+  for (const emp of employees) {
+    const raw = emp.leaveBalanceAdjustments as Record<string, Record<string, number>> | undefined;
+    if (!raw) continue;
+
+    const next: Record<string, Record<string, number>> = {};
+    for (const [y, values] of Object.entries(raw)) {
+      if (y >= yearStr) next[y] = values;
+    }
+
+    if (Object.keys(next).length === Object.keys(raw).length) continue;
+
+    if (Object.keys(next).length === 0) {
+      await col.updateOne({ id: emp.id }, { $unset: { leaveBalanceAdjustments: '' }, $set: { updatedAt: new Date() } });
+    } else {
+      await col.updateOne({ id: emp.id }, { $set: { leaveBalanceAdjustments: next, updatedAt: new Date() } });
+    }
+    updated++;
+  }
+  return updated;
+}
+
+/** Runs once per calendar year (typically Jan 1) to reset leave balances for the new year. */
+export async function ensureAnnualLeaveBalanceReset(refDate = new Date()): Promise<{
+  ran: boolean;
+  clearedEmployees?: number;
+}> {
+  const currentYear = refDate.getFullYear();
+  const last = await getLastLeaveAnnualResetYear();
+
+  if (last !== null && last >= currentYear) {
+    return { ran: false };
+  }
+
+  const clearedEmployees = await clearStaleLeaveBalanceAdjustments(currentYear);
+  await setLastLeaveAnnualResetYear(currentYear);
+
+  if (last !== null) {
+    console.log(
+      `[LeaveReset] Annual balance reset for ${currentYear}: cleared adjustments on ${clearedEmployees} employee(s)`,
+    );
+  }
+
+  return { ran: last !== null, clearedEmployees };
 }
 
 // ── Holidays ────────────────────────────────────────────────────

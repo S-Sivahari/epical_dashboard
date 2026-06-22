@@ -132,6 +132,7 @@ export function DashboardPendingApprovalsPanel({
       <section
         className={cn(
           'dashboard-workspace-panel dashboard-workspace-panel--mint dashboard-approvals-panel',
+          queue.length > 0 && 'dashboard-approvals-panel--has-items',
           className,
         )}
         aria-label="Pending approvals queue"

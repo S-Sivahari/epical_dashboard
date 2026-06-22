@@ -6,12 +6,12 @@ import { Input } from '@components/ui/Input'
 import { cn } from '@/utils/cn'
 import { useAuthStore } from '@store/authStore'
 import type { CellReview, CellWorkflowStageKey, ProjectCell, WorkflowStageStatus } from '@/types/projectWorkspace'
-import { WORK_STAGE_STATUSES } from '@/types/projectWorkspace'
 import { updateWorkflowStage, setCellHold } from '@/services/projectWorkspaceService'
 import {
   WORKFLOW_STATUS_LABELS,
   WORKFLOW_HOLD_LABEL,
   WORKFLOW_HOLD_VALUE,
+  editableWorkStageStatuses,
   isReviewStageKey,
   isStageLocked,
   isWorkStageKey,
@@ -31,6 +31,7 @@ type CellWorkflowPanelProps = {
   embedded?: boolean
   showStages?: boolean
   showReviews?: boolean
+  canEdit?: boolean
   reviews?: CellReview[]
   reviewComment?: string
   onReviewCommentChange?: (value: string) => void
@@ -110,6 +111,7 @@ export function CellWorkflowPanel({
   embedded = false,
   showStages = true,
   showReviews = true,
+  canEdit = true,
   reviews = [],
   reviewComment = '',
   onReviewCommentChange,
@@ -121,6 +123,7 @@ export function CellWorkflowPanel({
   const authRole = useAuthStore((s) => s.role)
   const authUser = useAuthStore((s) => s.user)
   const isAdmin = authRole === 'admin' || authUser?.role === 'Admin'
+  const canManageStages = canEdit && isAdmin
   const workflow = normalizeCellWorkflow(cell.workflow)
   const progress = workflowProgressPercent(cell)
   const activeStageKey = useMemo(() => getActiveStageKey(workflow), [workflow])
@@ -258,7 +261,7 @@ export function CellWorkflowPanel({
               const locked = isStageLocked(workflow, stage.stageKey) && !isReviewStageKey(stage.stageKey)
               const isReview = isReviewStageKey(stage.stageKey)
               const saving = savingStage === stage.stageKey
-              const reviewActionable = isReview && canActionReview(stage.stageKey, stage.status) && isAdmin
+              const reviewActionable = isReview && canActionReview(stage.stageKey, stage.status) && canManageStages
               const showReview2Return =
                 stage.stageKey === 'review_2' && review2RejectOpen && reviewActionable
               const isActive = activeStageKey === stage.stageKey
@@ -401,11 +404,11 @@ export function CellWorkflowPanel({
                               cell.onHold && stage.status === 'in_progress'
                                 ? WORKFLOW_HOLD_VALUE
                                 : stage.status,
-                              { locked, disabled: locked || saving },
+                              { locked, disabled: !canEdit || locked || saving },
                             ),
                           )}
                           value={workStageSelectValue(stage.status, Boolean(cell.onHold))}
-                          disabled={locked || saving}
+                          disabled={!canEdit || locked || saving}
                           onChange={(e) => void handleWorkStageSelect(
                             stage.stageKey,
                             e.target.value,
@@ -413,7 +416,7 @@ export function CellWorkflowPanel({
                           )}
                           aria-label={`${stage.stageLabel} status`}
                         >
-                          {WORK_STAGE_STATUSES.map((value) => (
+                          {editableWorkStageStatuses(stage.status).map((value) => (
                             <option key={value} value={value}>
                               {WORKFLOW_STATUS_LABELS[value]}
                             </option>

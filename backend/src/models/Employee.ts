@@ -62,6 +62,10 @@ export interface Employee {
   photo?: { filename: string; data: string; contentType: string; uploadedAt: Date };
   /** Per-employee annual leave day allotments (admin-overridable). */
   leaveAllocations?: Partial<Record<'Casual Leave' | 'Sick Leave' | 'Earned Leave', number>>;
+  /** Admin manual used-day adjustments per calendar year (added to approved usage). */
+  leaveBalanceAdjustments?: Partial<
+    Record<string, Partial<Record<'Casual Leave' | 'Sick Leave' | 'Earned Leave' | 'Compensation Leave', number>>>
+  >;
   /** New joiners: earned leave accrues only after each calendar month ends. */
   earnedLeaveMonthEndAccrual?: boolean;
   activityHistory?: EmployeeActivityEntry[];

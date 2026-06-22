@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { Activity, ChevronRight, Layers } from 'lucide-react'
+import { Activity, ChevronDown, ChevronRight, ChevronUp, Layers } from 'lucide-react'
 import {
   MetalRoutingEmptyState,
   MetalRoutingPill,
@@ -27,12 +27,16 @@ export function SignalAnalysisProjectRows({
   startIndex = 0,
   loading,
   hideTechnology,
+  nameSortAsc = true,
+  onToggleNameSort,
   onOpenRouting,
 }: {
   projects: DashboardProject[]
   startIndex?: number
   loading?: boolean
   hideTechnology?: boolean
+  nameSortAsc?: boolean
+  onToggleNameSort?: () => void
   onOpenRouting: (projectId: string) => void
 }) {
   if (loading) {
@@ -67,11 +71,27 @@ export function SignalAnalysisProjectRows({
         )}
         role="row"
       >
-        <span className="signal-analysis-table__th signal-analysis-table__th--icon" role="columnheader">
-          Project
-        </span>
+        <span className="signal-analysis-table__th signal-analysis-table__th--icon" aria-hidden />
         <span className="signal-analysis-table__th signal-analysis-table__th--name" role="columnheader">
-          Name
+          {onToggleNameSort ? (
+            <button
+              type="button"
+              className="signal-analysis-table__sort-btn"
+              onClick={onToggleNameSort}
+              aria-label={`Sort by project name ${nameSortAsc ? 'ascending' : 'descending'}`}
+            >
+              <span>Project name</span>
+              <span className="signal-analysis-table__sort-icon" aria-hidden>
+                {nameSortAsc ? (
+                  <ChevronUp className="h-3.5 w-3.5" strokeWidth={2.5} />
+                ) : (
+                  <ChevronDown className="h-3.5 w-3.5" strokeWidth={2.5} />
+                )}
+              </span>
+            </button>
+          ) : (
+            'Project name'
+          )}
         </span>
         <span className="signal-analysis-table__th signal-analysis-table__th--code" role="columnheader">
           Code

@@ -24,6 +24,7 @@ import { toast } from 'sonner'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { formatDate } from '@/utils/formatDate'
 import type { Holiday } from '@/types'
+import { sortApprovedLeavesUpcomingFirst } from '@utils/leaveFilters'
 import { useLeaveStore } from '@store/leaveStore'
 
 interface CompanyEvent {
@@ -171,7 +172,7 @@ export function AdminCalendarView() {
   }, [events, currentMonthIdx, currentYear])
 
   const currentMonthLeaves = useMemo(() => {
-    return approvedLeaves.filter((l) => {
+    const filtered = approvedLeaves.filter((l) => {
       const fromDate = new Date(l.from)
       const toDate = new Date(l.to)
       return (
@@ -180,6 +181,7 @@ export function AdminCalendarView() {
         (fromDate < monthStart && toDate > monthEnd)
       )
     })
+    return sortApprovedLeavesUpcomingFirst(filtered)
   }, [approvedLeaves, currentMonthIdx, currentYear, monthStart, monthEnd])
 
   return (

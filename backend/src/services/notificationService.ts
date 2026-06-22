@@ -317,12 +317,7 @@ export async function getUnreadCountsByCategoryForSession(
   userId: string,
   userEmail: string | undefined,
   activeRole: string,
-): Promise<{
-  leaves: number;
-  documents: number;
-  other: number;
-  total: number;
-}> {
+): Promise<ReturnType<typeof emptyCategoryCounts>> {
   const recipient = await resolveNotificationRecipient(userId, userEmail, activeRole);
   const col = getNotificationCol();
   const unread = await col
@@ -330,22 +325,7 @@ export async function getUnreadCountsByCategoryForSession(
     .project({ type: 1 })
     .toArray();
 
-  let leaves = 0;
-  let documents = 0;
-  let other = 0;
-
-  for (const notification of unread) {
-    const type = String(notification.type || '');
-    if (type.startsWith('Leave')) {
-      leaves += 1;
-    } else if (type.startsWith('Document') || type.startsWith('Payslip')) {
-      documents += 1;
-    } else {
-      other += 1;
-    }
-  }
-
-  return { leaves, documents, other, total: unread.length };
+  return tallyUnreadByCategory(unread);
 }
 
 export async function markAsReadByTypesForSession(
@@ -368,41 +348,58 @@ export async function getUnreadCount(recipientId: string): Promise<number> {
   return await col.countDocuments({ recipientId, isRead: false });
 }
 
-function notificationCategoryForType(type: Notification['type']): 'leaves' | 'documents' | 'other' {
+type NotificationTabCategory =
+  | 'leaves'
+  | 'documents'
+  | 'payslips'
+  | 'tickets'
+  | 'calendar'
+  | 'projects'
+  | 'other';
+
+function notificationCategoryForType(type: Notification['type']): NotificationTabCategory {
   if (type.startsWith('Leave')) return 'leaves';
-  if (type.startsWith('Document') || type.startsWith('Payslip')) return 'documents';
+  if (type.startsWith('Document')) return 'documents';
+  if (type.startsWith('Payslip')) return 'payslips';
+  if (type.startsWith('Ticket')) return 'tickets';
+  if (type.startsWith('Holiday') || type.startsWith('CalendarEvent')) return 'calendar';
+  if (type.startsWith('Cell')) return 'projects';
   return 'other';
 }
 
-export async function getUnreadCountsByCategory(recipientId: string): Promise<{
-  leaves: number;
-  documents: number;
-  other: number;
-  total: number;
-}> {
+function emptyCategoryCounts() {
+  return {
+    leaves: 0,
+    documents: 0,
+    payslips: 0,
+    tickets: 0,
+    calendar: 0,
+    projects: 0,
+    other: 0,
+    total: 0,
+  };
+}
+
+function tallyUnreadByCategory(unread: Array<{ type?: string }>) {
+  const counts = emptyCategoryCounts();
+
+  for (const notification of unread) {
+    const category = notificationCategoryForType(String(notification.type || '') as Notification['type']);
+    counts[category] += 1;
+  }
+
+  counts.total = unread.length;
+  return counts;
+}
+
+export async function getUnreadCountsByCategory(recipientId: string): Promise<ReturnType<typeof emptyCategoryCounts>> {
   const col = getNotificationCol();
 
   const unreadNotifications = await col
     .find({ recipientId, isRead: false })
     .toArray() as Notification[];
 
-  let leaves = 0;
-  let documents = 0;
-  let other = 0;
-
-  unreadNotifications.forEach((notif) => {
-    const category = notificationCategoryForType(notif.type);
-    if (category === 'leaves') leaves++;
-    else if (category === 'documents') documents++;
-    else other++;
-  });
-
-  return {
-    leaves,
-    documents,
-    other,
-    total: unreadNotifications.length,
-  };
+  return tallyUnreadByCategory(unreadNotifications);
 }
 
 export async function markAsReadByTypes(

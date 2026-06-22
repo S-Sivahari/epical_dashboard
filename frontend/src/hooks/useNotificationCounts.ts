@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useNotificationStore, NOTIFICATION_POLL_MS } from '@store/notificationStore'
 import type { NotificationCounts } from '@services/notificationService'
+import type { TabIndicatorCounts } from '@utils/notificationCategories'
 
 export function useNotificationCounts(refreshInterval = NOTIFICATION_POLL_MS) {
   const tabIndicatorCounts = useNotificationStore((state) => state.tabIndicatorCounts)
@@ -17,11 +18,16 @@ export function useNotificationCounts(refreshInterval = NOTIFICATION_POLL_MS) {
     return () => clearInterval(interval)
   }, [fetchCategoryCounts, refreshInterval])
 
-  const counts: NotificationCounts = {
-    leaves: tabIndicatorCounts.leaves,
-    documents: tabIndicatorCounts.documents,
+  const counts: NotificationCounts & TabIndicatorCounts = {
+    ...tabIndicatorCounts,
     other: 0,
-    total: tabIndicatorCounts.leaves + tabIndicatorCounts.documents,
+    total:
+      tabIndicatorCounts.leaves +
+      tabIndicatorCounts.documents +
+      tabIndicatorCounts.payslips +
+      tabIndicatorCounts.tickets +
+      tabIndicatorCounts.calendar +
+      tabIndicatorCounts.projects,
   }
 
   return {

@@ -15,8 +15,8 @@ export const WORK_BREAKS: Record<
 > = {
   morning: {
     label: 'Morning break',
-    durationMs: 15 * 60 * 1000,
-    durationMinutes: 15,
+    durationMs: 10 * 60 * 1000,
+    durationMinutes: 10,
     minDurationMs: 5 * 60 * 1000,
     minDurationMinutes: 5,
   },
@@ -29,8 +29,8 @@ export const WORK_BREAKS: Record<
   },
   evening: {
     label: 'Evening break',
-    durationMs: 15 * 60 * 1000,
-    durationMinutes: 15,
+    durationMs: 10 * 60 * 1000,
+    durationMinutes: 10,
     minDurationMs: 5 * 60 * 1000,
     minDurationMinutes: 5,
   },

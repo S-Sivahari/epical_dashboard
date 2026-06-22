@@ -33,6 +33,15 @@ export async function updateEmployeeLeaveAllocations(
   return response.data as { allocations: Record<string, number> }
 }
 
+export async function adjustEmployeeLeaveBalance(
+  employeeId: string,
+  type: 'Casual Leave' | 'Sick Leave' | 'Earned Leave' | 'Compensation Leave',
+  delta: number,
+) {
+  const response = await api.patch(`/leaves/employee/${employeeId}/balance-adjustment`, { type, delta })
+  return response.data as EmployeeLeaveSummary
+}
+
 export async function createLeave(payload: {
   employeeId: string
   employeeName: string
@@ -61,6 +70,10 @@ export async function cancelLeave(id: string) {
 
 export async function revokeApprovedLeave(id: string, reason: string) {
   await api.patch(`/leaves/${id}/revoke`, { reason })
+}
+
+export async function deleteLeave(id: string) {
+  await api.delete(`/leaves/${id}`)
 }
 
 export async function deleteAllLeaves(): Promise<{ deletedCount: number }> {

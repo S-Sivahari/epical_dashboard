@@ -1,9 +1,9 @@
 export const DAILY_STANDARD_BREAK_MINUTES = 50
 
 export const WORK_BREAK_OPTIONS = [
-  { type: 'morning', label: 'Morning', durationMinutes: 15, minDurationMinutes: 5 },
+  { type: 'morning', label: 'Morning', durationMinutes: 10, minDurationMinutes: 5 },
   { type: 'lunch', label: 'Lunch', durationMinutes: 30, minDurationMinutes: 15 },
-  { type: 'evening', label: 'Evening', durationMinutes: 15, minDurationMinutes: 5 },
+  { type: 'evening', label: 'Evening', durationMinutes: 10, minDurationMinutes: 5 },
 ]
 
 export function formatBreakCountdown(ms) {
@@ -14,9 +14,9 @@ export function formatBreakCountdown(ms) {
 }
 
 const BREAK_DURATION_MS = {
-  morning: 15 * 60 * 1000,
+  morning: 10 * 60 * 1000,
   lunch: 30 * 60 * 1000,
-  evening: 15 * 60 * 1000,
+  evening: 10 * 60 * 1000,
 }
 
 export function computeUsedBreakMs(breaks) {

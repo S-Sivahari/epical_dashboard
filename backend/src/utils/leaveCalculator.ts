@@ -24,6 +24,8 @@ export interface LeaveBalanceOptions {
   compensationEarnedBonus?: number;
   /** Admin-defined per-employee allotment overrides (Casual, Sick, Earned only — not Compensation). */
   employeeAllocations?: Partial<Record<'Casual Leave' | 'Sick Leave' | 'Earned Leave', number>>;
+  /** Admin manual used-day adjustments for the refDate calendar year. */
+  balanceUsedAdjustments?: Partial<Record<string, number>>;
   /** When true, earned leave stays 0 until each calendar month completes (new employees). */
   earnedLeaveMonthEndAccrual?: boolean;
   /** Defaults to today; useful for reports. */
@@ -471,8 +473,19 @@ export function calculateBalances(
     }
   });
 
+  const adjustments = options?.balanceUsedAdjustments ?? {};
+  for (const [type, rawDelta] of Object.entries(adjustments)) {
+    const bucket = balances[type];
+    if (!bucket) continue;
+    const delta = Number(rawDelta) || 0;
+    if (delta === 0) continue;
+    bucket.used = Math.max(0, bucket.used + delta);
+    bucket.remaining = bucket.total - bucket.used;
+  }
+
   for (const key of Object.keys(balances)) {
-    balances[key].remaining = Math.max(0, balances[key].remaining);
+    balances[key].used = Math.max(0, balances[key].used);
+    balances[key].remaining = Math.max(0, balances[key].total - balances[key].used);
   }
 
   return balances;

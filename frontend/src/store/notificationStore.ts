@@ -11,6 +11,7 @@ import {
   EMPTY_TAB_INDICATORS,
   getNotificationTypesForPath,
   syncTabIndicators,
+  toTabIndicatorCounts,
   type TabIndicatorCounts,
 } from '@utils/notificationCategories'
 
@@ -20,18 +21,15 @@ export const NOTIFICATION_POLL_MS = 5_000
 const EMPTY_CATEGORY_COUNTS: NotificationCounts = {
   leaves: 0,
   documents: 0,
+  payslips: 0,
+  tickets: 0,
+  calendar: 0,
+  projects: 0,
   other: 0,
   total: 0,
 }
 
 let unreadCountRequest: Promise<void> | null = null
-
-function toTabIndicatorCounts(categoryCounts: NotificationCounts): TabIndicatorCounts {
-  return {
-    leaves: categoryCounts.leaves,
-    documents: categoryCounts.documents,
-  }
-}
 
 async function runUnreadCountFetch(
   set: (partial: Partial<NotificationState>) => void,
@@ -247,10 +245,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         notifications,
         unreadCount,
         categoryCounts,
-        tabIndicatorCounts: {
-          leaves: categoryCounts.leaves,
-          documents: categoryCounts.documents,
-        },
+        tabIndicatorCounts: toTabIndicatorCounts(categoryCounts),
         lastUnreadCount: unreadCount,
       })
     } catch (error) {
@@ -293,10 +288,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
           unreadCount: categoryCounts.total,
           lastUnreadCount: categoryCounts.total,
           categoryCounts,
-          tabIndicatorCounts: {
-            leaves: categoryCounts.leaves,
-            documents: categoryCounts.documents,
-          },
+          tabIndicatorCounts: toTabIndicatorCounts(categoryCounts),
         })
       }
 
@@ -316,7 +308,13 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         unreadCount = Math.max(0, unreadCount - 1)
       }
       const categoryCounts = countUnreadByCategory(notifications)
-      set({ notifications, unreadCount, categoryCounts, lastUnreadCount: unreadCount })
+      set({
+        notifications,
+        unreadCount,
+        categoryCounts,
+        tabIndicatorCounts: toTabIndicatorCounts(categoryCounts),
+        lastUnreadCount: unreadCount,
+      })
     } catch (error) {
       console.error('Error deleting notification:', error)
     }

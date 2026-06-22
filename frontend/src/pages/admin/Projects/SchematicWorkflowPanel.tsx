@@ -4,9 +4,9 @@ import { Button } from '@components/ui/Button'
 import { cn } from '@/utils/cn'
 import { useAuthStore } from '@store/authStore'
 import type { ProjectCell, WorkflowStageStatus } from '@/types/projectWorkspace'
-import { WORK_STAGE_STATUSES } from '@/types/projectWorkspace'
 import { setCellHold, updateSchematicWorkflowStage } from '@/services/projectWorkspaceService'
 import {
+  editableWorkStageStatuses,
   WORKFLOW_HOLD_LABEL,
   WORKFLOW_HOLD_VALUE,
   WORKFLOW_STATUS_LABELS,
@@ -25,6 +25,7 @@ type SchematicWorkflowPanelProps = {
   cell: ProjectCell
   onUpdated?: (cell: ProjectCell) => void
   embedded?: boolean
+  canEdit?: boolean
   canReview?: boolean
 }
 
@@ -67,6 +68,7 @@ export function SchematicWorkflowPanel({
   cell,
   onUpdated,
   embedded = false,
+  canEdit = true,
   canReview = false,
 }: SchematicWorkflowPanelProps) {
   const [savingStage, setSavingStage] = useState<SchematicWorkflowStageKey | null>(null)
@@ -74,7 +76,7 @@ export function SchematicWorkflowPanel({
   const authRole = useAuthStore((s) => s.role)
   const authUser = useAuthStore((s) => s.user)
   const isAdmin = authRole === 'admin' || authUser?.role === 'Admin'
-  const canActionReview = isAdmin || canReview
+  const canActionReview = canEdit && (isAdmin || canReview)
   const workflow = normalizeSchematicWorkflow(cell.schematicWorkflow)
   const activeStageKey = useMemo(() => getActiveStageKey(workflow), [workflow])
 
@@ -303,11 +305,11 @@ export function SchematicWorkflowPanel({
                             cell.onHold && stage.status === 'in_progress'
                               ? WORKFLOW_HOLD_VALUE
                               : stage.status,
-                            { locked, disabled: locked || saving },
+                            { locked, disabled: !canEdit || locked || saving },
                           ),
                         )}
                         value={workStageSelectValue(stage.status, Boolean(cell.onHold))}
-                        disabled={locked || saving}
+                        disabled={!canEdit || locked || saving}
                         onChange={(e) => void handleWorkStageSelect(
                           stage.stageKey,
                           e.target.value,
@@ -315,7 +317,7 @@ export function SchematicWorkflowPanel({
                         )}
                         aria-label={`${stage.stageLabel} status`}
                       >
-                        {WORK_STAGE_STATUSES.map((value) => (
+                        {editableWorkStageStatuses(stage.status).map((value) => (
                           <option key={value} value={value}>
                             {WORKFLOW_STATUS_LABELS[value]}
                           </option>

@@ -11,7 +11,6 @@ import {
   getRangeFromSelectedYears,
   isMonthKeySelectable,
   normalizeChartDateRange,
-  resolveChartBucketKind,
   toMonthKey,
   type ChartDateRange,
   type ChartSelectionMode,
@@ -88,7 +87,7 @@ export function ProjectHoursPeriodDialog({
     value.selectionMode && value.selectionMode !== 'preset' ? value.selectionMode : 'days',
   )
   const [dayPickMode, setDayPickMode] = useState<DayPickMode>(
-    value.dayRangeMode === 'continuous' ? 'continuous' : 'individual',
+    value.dayRangeMode === 'individual' ? 'individual' : 'continuous',
   )
   const [draftDays, setDraftDays] = useState<string[]>(value.selectedDays ?? [])
   const [draftMonths, setDraftMonths] = useState<string[]>(value.selectedMonths ?? [])
@@ -109,7 +108,7 @@ export function ProjectHoursPeriodDialog({
   useEffect(() => {
     if (!open) return
     setActiveTab(value.selectionMode && value.selectionMode !== 'preset' ? value.selectionMode : 'days')
-    setDayPickMode(value.dayRangeMode === 'continuous' ? 'continuous' : 'individual')
+    setDayPickMode(value.dayRangeMode === 'individual' ? 'individual' : 'continuous')
     setDraftDays(value.selectedDays ?? [])
     setDraftMonths(value.selectedMonths ?? [])
     setDraftYears(value.selectedYears ?? [])
@@ -145,7 +144,6 @@ export function ProjectHoursPeriodDialog({
     } satisfies ChartDateRange
   }, [activeTab, dayPickMode, draftDays, draftMonths, draftYears, draftFrom, draftTo, maxDate])
 
-  const bucketKind = resolveChartBucketKind(draftRange)
   const calendarCells = useMemo(() => buildCalendarCells(viewMonth), [viewMonth])
   const yearOptions = useMemo(
     () => Array.from({ length: 6 }, (_, i) => String(maxYear - 5 + i)).filter((y) => Number(y) <= maxYear),
@@ -237,9 +235,6 @@ export function ProjectHoursPeriodDialog({
   return (
     <Modal isOpen={open} onClose={onClose} title="Select period" size="md" modal className="project-hours-period-dialog">
       <div className="project-hours-period-dialog__layout">
-        <p className="project-hours-period-dialog__intro">
-          Use quick select, or pick specific days, months, or years — continuous or not.
-        </p>
         <div className="project-hours-period-dialog__shortcuts">
           <button type="button" className="project-hours-period-dialog__shortcut" onClick={() => handlePreset('This Week')}>
             This Week
@@ -273,16 +268,6 @@ export function ProjectHoursPeriodDialog({
               <div className="project-hours-period-dialog__subtabs">
                 <button
                   type="button"
-                  className={cn('project-hours-period-dialog__subtab', dayPickMode === 'individual' && 'is-active')}
-                  onClick={() => {
-                    setDayPickMode('individual')
-                    setRangeAnchor('')
-                  }}
-                >
-                  Pick days
-                </button>
-                <button
-                  type="button"
                   className={cn('project-hours-period-dialog__subtab', dayPickMode === 'continuous' && 'is-active')}
                   onClick={() => {
                     setDayPickMode('continuous')
@@ -291,6 +276,16 @@ export function ProjectHoursPeriodDialog({
                   }}
                 >
                   Date range
+                </button>
+                <button
+                  type="button"
+                  className={cn('project-hours-period-dialog__subtab', dayPickMode === 'individual' && 'is-active')}
+                  onClick={() => {
+                    setDayPickMode('individual')
+                    setRangeAnchor('')
+                  }}
+                >
+                  Pick days
                 </button>
               </div>
 
@@ -425,16 +420,6 @@ export function ProjectHoursPeriodDialog({
               </div>
             </>
           )}
-        </div>
-
-        <div className="project-hours-period-dialog__summary">
-          <div>
-            <p className="project-hours-period-dialog__summary-label">Selection</p>
-            <p className="project-hours-period-dialog__summary-value">{formatChartSelectionLabel(draftRange)}</p>
-          </div>
-          <div className="project-hours-period-dialog__summary-meta">
-            Chart groups by <strong>{bucketKind}</strong>
-          </div>
         </div>
 
         <div className="project-hours-period-dialog__actions">

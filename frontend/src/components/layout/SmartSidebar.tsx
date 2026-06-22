@@ -29,6 +29,10 @@ import { useMediaQuery } from '@hooks/useMediaQuery'
 import { useNotificationCounts } from '@hooks/useNotificationCounts'
 import { NotificationBadge } from '@components/ui/NotificationBadge'
 import { Avatar } from '@components/ui/Avatar'
+import {
+  resolveNavNotificationCount,
+  type NotificationTabKey,
+} from '@utils/notificationCategories'
 
 export const SMART_SIDEBAR_COLLAPSED = 72
 export const SMART_SIDEBAR_EXPANDED = 248
@@ -38,16 +42,17 @@ const navItems: {
   label: string
   icon: typeof LayoutGrid
   end?: boolean
-  notificationKey?: 'leaves' | 'documents'
+  notificationKey?: NotificationTabKey
+  notificationBadgeKeys?: NotificationTabKey[]
 }[] = [
   { to: ROUTES.DASHBOARD, label: 'Dashboard', icon: LayoutGrid, end: true },
   { to: ROUTES.EMPLOYEES, label: 'Employees', icon: Users, end: true },
   { to: ROUTES.LEAVES, label: 'Leaves', icon: CalendarCheck, notificationKey: 'leaves' },
   { to: ROUTES.TIMESHEET, label: 'Projects & Timesheets', icon: Clock },
-  { to: ROUTES.PROJECTS, label: 'Projects', icon: Briefcase },
-  { to: ROUTES.CALENDAR, label: 'Calendar', icon: CalendarDays },
-  { to: ROUTES.TICKETS, label: 'Tickets', icon: Ticket },
-  { to: ROUTES.PAYSLIPS, label: 'Payslips', icon: Receipt },
+  { to: ROUTES.PROJECTS, label: 'Projects', icon: Briefcase, notificationKey: 'projects' },
+  { to: ROUTES.CALENDAR, label: 'Calendar', icon: CalendarDays, notificationKey: 'calendar' },
+  { to: ROUTES.TICKETS, label: 'Tickets', icon: Ticket, notificationKey: 'tickets' },
+  { to: ROUTES.PAYSLIPS, label: 'Payslips', icon: Receipt, notificationKey: 'payslips' },
   { to: ROUTES.TRAINING, label: 'Training', icon: BookOpen },
   { to: ROUTES.ACHIEVEMENTS, label: 'Achievements', icon: Trophy },
   { to: ROUTES.DOCUMENTS, label: 'Documents', icon: FileText, notificationKey: 'documents' },
@@ -57,15 +62,16 @@ const navItems: {
 function NavItem({
   item,
   expanded,
-  notificationCount,
+  counts,
   onNavigate,
 }: {
   item: (typeof navItems)[number]
   expanded: boolean
-  notificationCount?: number
+  counts: ReturnType<typeof useNotificationCounts>['counts']
   onNavigate: () => void
 }) {
   const Icon = item.icon
+  const showBadge = item.notificationKey || item.notificationBadgeKeys?.length
 
   return (
     <NavLink
@@ -77,7 +83,15 @@ function NavItem({
         cn('cmd-nav-item', !expanded && 'cmd-nav-item-collapsed', isActive && 'cmd-nav-item-active')
       }
     >
-      {({ isActive }) => (
+      {({ isActive }) => {
+        const notificationCount = resolveNavNotificationCount({
+          notificationKey: item.notificationKey,
+          notificationBadgeKeys: item.notificationBadgeKeys,
+          isActive,
+          counts,
+        })
+
+        return (
         <>
           <motion.span
             className="cmd-nav-icon-wrap"
@@ -101,15 +115,16 @@ function NavItem({
               </motion.span>
             )}
           </AnimatePresence>
-          {expanded && item.notificationKey && (
+          {expanded && showBadge && (
             <NotificationBadge
-              count={isActive ? 0 : (notificationCount ?? 0)}
+              count={notificationCount ?? 0}
               size="sm"
               className="right-2"
             />
           )}
         </>
-      )}
+        )
+      }}
     </NavLink>
   )
 }
@@ -191,9 +206,7 @@ export function SmartSidebar() {
               key={item.to}
               item={item}
               expanded={expanded}
-              notificationCount={
-                item.notificationKey ? notificationCounts[item.notificationKey] : undefined
-              }
+              counts={notificationCounts}
               onNavigate={closeMobile}
             />
           ))}

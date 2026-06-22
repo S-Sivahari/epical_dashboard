@@ -107,3 +107,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 export function getDefaultPortalPath(role: UserRole | null): '/admin' | '/employee' {
   return role === 'admin' ? '/admin' : '/employee'
 }
+
+/** True when the session JWT is on the admin portal (env admin or Employee+Admin after switching). */
+export function hasActiveAdminPortal(role: UserRole | null): boolean {
+  return role === 'admin'
+}

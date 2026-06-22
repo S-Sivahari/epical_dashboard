@@ -178,29 +178,18 @@ const EmployeeProfilePage = lazy(() =>
   import('@pages/employee/EmployeeProfile')
 )
 
-const EmployeeProjectsLayout = lazy(() =>
-  import('@components/employee/projects/EmployeeProjectsLayout')
-)
-
-const EmployeeProjectsDashboard = lazy(() =>
-  import('@pages/employee/EmployeeProjectsDashboard')
-)
-
-const EmployeeRequestedReviewsPage = lazy(() =>
-  import('@pages/employee/EmployeeRequestedReviewsPage')
-)
-
-const EmployeeProjectWorkspace = lazy(() =>
-  import('@pages/employee/EmployeeProjectWorkspace')
-)
-
 const EmployeeCellWorkflow = lazy(() =>
   import('@pages/employee/EmployeeCellWorkflow')
 )
 
-const EmployeeMetalRoutingPage = lazy(async () => {
-  const m = await import('@pages/employee/MetalRouting/EmployeeMetalRoutingPage')
-  return { default: m.EmployeeMetalRoutingPage }
+const EmployeeMetalRoutingLegacyRedirect = lazy(async () => {
+  const m = await import('@pages/employee/ProjectAnalysis/EmployeeMetalRoutingLegacyRedirect')
+  return { default: m.EmployeeMetalRoutingLegacyRedirect }
+})
+
+const EmployeeProjectsLegacyRedirect = lazy(async () => {
+  const m = await import('@pages/employee/ProjectAnalysis/EmployeeProjectsLegacyRedirect')
+  return { default: m.EmployeeProjectsLegacyRedirect }
 })
 
 // ── Not Found ────────────────────────────────────────────────
@@ -366,21 +355,15 @@ export function AppRoutes() {
 
             <Route path="project-analysis" element={<ProjectAnalysisLayout />}>
               <Route index element={<Navigate to="projects" replace />} />
-              <Route path="projects/:projectId/cells/:cellId" element={<ProjectCellPage />} />
+              <Route path="projects/:projectId/cells/:cellId" element={<EmployeeCellWorkflow />} />
               <Route path="projects/:projectId" element={<ProjectWorkspace />} />
               <Route path="projects" element={<AdminProjectsPage />} />
               <Route path="signal-analysis/*" element={<ProjectAnalysisSignalPage />} />
             </Route>
 
-            <Route path="projects" element={<EmployeeProjectsLayout />}>
-              <Route index element={<EmployeeProjectsDashboard />} />
-              <Route path="my-projects" element={<Navigate to="/employee/projects" replace />} />
-              <Route path="reviews" element={<EmployeeRequestedReviewsPage />} />
-              <Route path=":projectId" element={<EmployeeProjectWorkspace />} />
-              <Route path=":projectId/cells/:cellId" element={<EmployeeCellWorkflow />} />
-            </Route>
+            <Route path="projects/*" element={<EmployeeProjectsLegacyRedirect />} />
 
-            <Route path="metal-routing/*" element={<EmployeeMetalRoutingPage />} />
+            <Route path="metal-routing/*" element={<EmployeeMetalRoutingLegacyRedirect />} />
 
             <Route path="notes" element={<EmployeeNotesPage />} />
 

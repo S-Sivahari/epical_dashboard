@@ -33,23 +33,17 @@ export function useProjectPortal() {
       isEmployee,
       inProjectAnalysis,
       projectsListPath: isEmployee
-        ? inProjectAnalysis
-          ? ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECTS
-          : ROUTES.EMPLOYEE_PROJECTS
+        ? ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECTS
         : inProjectAnalysis
           ? ROUTES.PROJECT_ANALYSIS_PROJECTS
           : ROUTES.PROJECTS,
       projectWorkspacePath: isEmployee
-        ? inProjectAnalysis
-          ? ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECT_WORKSPACE
-          : ROUTES.EMPLOYEE_PROJECT_WORKSPACE
+        ? ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECT_WORKSPACE
         : inProjectAnalysis
           ? ROUTES.PROJECT_ANALYSIS_PROJECT_WORKSPACE
           : ROUTES.PROJECT_WORKSPACE,
       projectCellPath: isEmployee
-        ? inProjectAnalysis
-          ? ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECT_CELL
-          : ROUTES.EMPLOYEE_PROJECT_CELL
+        ? ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECT_CELL
         : inProjectAnalysis
           ? ROUTES.PROJECT_ANALYSIS_PROJECT_CELL
           : ROUTES.PROJECT_CELL,

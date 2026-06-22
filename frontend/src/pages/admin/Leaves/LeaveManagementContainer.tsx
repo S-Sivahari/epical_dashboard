@@ -22,6 +22,7 @@ import {
   excludeCancelledLeaves,
   canCancelLeave,
   isRevokedApprovedLeave,
+  sortApprovedLeavesUpcomingFirst,
   formatMonthLabel,
   formatLeaveDayCount,
   getCurrentMonthDateRange,
@@ -270,8 +271,15 @@ export function LeaveManagementContainer() {
         setEmpFilterDropOpen(false)
       }
     }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setEmpFilterDropOpen(false)
+    }
     document.addEventListener('mousedown', onPointerDown)
-    return () => document.removeEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
   }, [empFilterDropOpen])
 
   const user = useAuthStore((s) => s.user)
@@ -334,7 +342,7 @@ export function LeaveManagementContainer() {
   )
 
   const upcomingLeaves = useMemo(
-    () => [...approvedLeaves].sort((a, b) => a.from.localeCompare(b.from)),
+    () => sortApprovedLeavesUpcomingFirst(approvedLeaves),
     [approvedLeaves],
   )
 
@@ -525,7 +533,13 @@ export function LeaveManagementContainer() {
 
         {activeTab === 'requests' && (
           <div className="admin-leaves-filter-bar admin-leaves-filter-bar--dense">
-            <div className="admin-leaves-filter-field admin-leaves-filter-field--employee" ref={empFilterDropRef}>
+            <div
+              className={cn(
+                'admin-leaves-filter-field admin-leaves-filter-field--employee',
+                empFilterDropOpen && 'is-open',
+              )}
+              ref={empFilterDropRef}
+            >
               <User className="admin-leaves-filter-field-icon" aria-hidden />
               <button
                 type="button"
@@ -533,12 +547,18 @@ export function LeaveManagementContainer() {
                 className="admin-leaves-filter-input admin-leaves-filter-employee-btn"
                 aria-label="Filter by employee"
                 aria-expanded={empFilterDropOpen}
-                onClick={() => setEmpFilterDropOpen((open) => !open)}
+                aria-haspopup="listbox"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setEmpFilterDropOpen((open) => !open)
+                }}
               >
-                <span className={filterEmployees.length === 0 ? 'text-slate-500' : ''}>
+                <span className={cn('block min-w-0 truncate', filterEmployees.length === 0 && 'text-slate-500')}>
                   {filterEmployees.length === 0
                     ? 'Filter by Employee'
-                    : `${filterEmployees.length} employee${filterEmployees.length > 1 ? 's' : ''} selected`}
+                    : filterEmployees.length === 1
+                      ? filterEmployees[0]
+                      : `${filterEmployees.length} employees selected`}
                 </span>
               </button>
               <ChevronDown
@@ -546,7 +566,13 @@ export function LeaveManagementContainer() {
                 aria-hidden
               />
               {empFilterDropOpen && (
-                <div className="admin-leaves-employee-filter-dropdown">
+                <div
+                  className="admin-leaves-employee-filter-dropdown"
+                  role="listbox"
+                  aria-multiselectable="true"
+                  aria-label="Select employees"
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
                   <div className="admin-leaves-employee-filter-search-wrap">
                     <Search className="h-3.5 w-3.5 text-slate-400" aria-hidden />
                     <input
@@ -558,6 +584,22 @@ export function LeaveManagementContainer() {
                       autoFocus
                     />
                   </div>
+                  {filterEmployees.length > 0 && (
+                    <div className="admin-leaves-employee-filter-chips px-2 py-1.5 border-b border-emerald-900/10">
+                      {filterEmployees.map((name) => (
+                        <span key={name} className="admin-leaves-employee-filter-chip">
+                          {name}
+                          <button
+                            type="button"
+                            aria-label={`Remove ${name}`}
+                            onClick={() => toggleFilterEmployee(name)}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <div className="admin-leaves-employee-filter-actions">
                     <button
                       type="button"

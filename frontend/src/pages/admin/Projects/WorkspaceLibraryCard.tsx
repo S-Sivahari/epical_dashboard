@@ -8,6 +8,7 @@ type WorkspaceLibraryCardProps = {
   cellCount: number
   isActive: boolean
   menuOpen: boolean
+  manageable?: boolean
   onSelect: () => void
   onToggleMenu: () => void
   onCloseMenu: () => void
@@ -21,6 +22,7 @@ export function WorkspaceLibraryCard({
   cellCount,
   isActive,
   menuOpen,
+  manageable = true,
   onSelect,
   onToggleMenu,
   onCloseMenu,
@@ -51,7 +53,12 @@ export function WorkspaceLibraryCard({
       className={cn('admin-projects-library-card', isActive && 'is-active', menuOpen && 'is-menu-open')}
     >
       <div className="admin-projects-library-card-main">
-        <button type="button" className="admin-projects-library-card-select" onClick={onSelect}>
+        <button
+          type="button"
+          className="admin-projects-library-card-select"
+          onClick={onSelect}
+          aria-current={isActive ? 'true' : undefined}
+        >
           <span className="admin-projects-library-card-icon" aria-hidden>
             <BookOpen className="h-4 w-4" />
           </span>
@@ -62,18 +69,20 @@ export function WorkspaceLibraryCard({
             </span>
           </span>
         </button>
-        <button
-          type="button"
-          className="admin-projects-library-card-menu-btn"
-          aria-label={`Library actions for ${library.name}`}
-          aria-expanded={menuOpen}
-          onClick={(event) => {
-            event.stopPropagation()
-            onToggleMenu()
-          }}
-        >
-          <MoreVertical className="h-4 w-4" />
-        </button>
+        {manageable ? (
+          <button
+            type="button"
+            className="admin-projects-library-card-menu-btn"
+            aria-label={`Library actions for ${library.name}`}
+            aria-expanded={menuOpen}
+            onClick={(event) => {
+              event.stopPropagation()
+              onToggleMenu()
+            }}
+          >
+            <MoreVertical className="h-4 w-4" />
+          </button>
+        ) : null}
       </div>
 
       {menuOpen ? (

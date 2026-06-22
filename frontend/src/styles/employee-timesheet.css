@@ -1,16 +1,19 @@
 /* Employee Timesheet — compact green-themed layout */
 
 .emp-timesheet-page {
+  --emp-ts-hub-green: #2f6b4f;
+  --emp-ts-hub-green-shadow: 0 4px 14px rgba(47, 107, 79, 0.28);
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   flex-direction: column;
   gap: 0.75rem;
   font-family: var(--font-body);
   padding: 0.75rem;
   min-height: 0;
-  height: auto;
+  height: 100%;
+  max-height: 100%;
   overflow-x: hidden;
-  overflow-y: visible;
+  overflow-y: hidden;
 }
 
 @media (min-width: 768px) {
@@ -28,10 +31,10 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.625rem 1rem;
+  gap: 0.75rem 1.25rem;
   overflow: hidden;
   border-radius: 0.875rem;
-  padding: 0.625rem 1rem;
+  padding: 0.875rem 1.25rem;
   box-shadow: 0 2px 10px rgba(27, 67, 50, 0.2);
 }
 
@@ -39,7 +42,7 @@
 
 .emp-timesheet-hero-title {
   margin: 0;
-  font-size: 1.125rem;
+  font-size: 1.3125rem;
   font-weight: 800;
   line-height: 1.2;
   letter-spacing: -0.02em;
@@ -47,7 +50,7 @@
 
 @media (min-width: 768px) {
   .emp-timesheet-hero-title {
-    font-size: 1.25rem;
+    font-size: 1.5rem;
   }
 }
 
@@ -55,35 +58,35 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.375rem;
+  gap: 0.5rem;
 }
 
 .emp-timesheet-hero-stat {
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
-  border-radius: 0.5rem;
-  border: 2px solid #000000;
-  background: rgba(255, 255, 255, 0.95);
-  padding: 0.25rem 0.625rem;
+  gap: 0.5rem;
+  border-radius: 0.625rem;
+  border: none;
+  background: #ffffff;
+  padding: 0.5rem 1rem;
+  min-height: 2.625rem;
   white-space: nowrap;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
 }
 
 .emp-timesheet-hero-stat-label {
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.01em;
   color: #334155;
 }
 
 .emp-timesheet-hero-stat-value {
   font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 0.875rem;
-  font-weight: 800;
+  font-size: 1.0625rem;
+  font-weight: 700;
   line-height: 1;
-  color: #0f172a;
+  color: #64748b;
   font-variant-numeric: tabular-nums;
 }
 
@@ -106,51 +109,46 @@
   background: #f87171;
 }
 
-.emp-timesheet-hero-stat--plain {
-  border: none;
-  box-shadow: none;
-  background: #ffffff;
-}
-
-.emp-timesheet-hero-stat--plain .emp-timesheet-hero-stat-label {
-  color: #000000;
-}
-
-.emp-timesheet-hero-stat--plain .emp-timesheet-hero-stat-value {
-  color: #64748b;
-  font-weight: 700;
+[data-employee-timesheet] .project-analysis-launch-btn--hero.emp-timesheet-hero-stat--launch {
+  border: none !important;
+  background: #ffffff !important;
+  color: #334155 !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08) !important;
 }
 
 .emp-timesheet-hero-stat--launch.project-analysis-launch-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
-  min-height: 2rem;
-  border: 2px solid #000000;
-  border-radius: 0.5rem;
-  background: rgba(255, 255, 255, 0.95);
-  padding: 0.25rem 0.625rem;
-  font-size: 0.625rem;
+  gap: 0.5rem;
+  min-height: 2.625rem;
+  border: none;
+  border-radius: 0.625rem;
+  background: #ffffff;
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
   font-weight: 700;
   line-height: 1.2;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #1e5a3d;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: #334155;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   cursor: pointer;
 }
 
 .emp-timesheet-hero-stat--launch.project-analysis-launch-btn:hover {
-  border-color: #000000;
+  border: none;
   background: #ffffff;
-  color: #1a4329;
+  color: #1e293b;
   transform: none;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
 }
 
 .emp-timesheet-hero-stat--launch.project-analysis-launch-btn svg {
-  width: 0.875rem;
-  height: 0.875rem;
+  width: 0.9375rem;
+  height: 0.9375rem;
+  color: #334155;
 }
 
 .emp-timesheet-hero-timer {
@@ -338,30 +336,15 @@
   gap: 0.5rem;
   overflow: hidden;
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-  background: linear-gradient(135deg, #2d6a4f 0%, #1b4332 100%);
+  background: var(--emp-ts-hub-green, #2f6b4f);
+  box-shadow: var(--emp-ts-hub-green-shadow, 0 4px 14px rgba(47, 107, 79, 0.28));
   padding: 0.625rem 1rem;
   color: #ffffff;
 }
 
 .emp-timesheet-card-header::after,
 .emp-timesheet-history-header::after {
-  content: '';
-  position: absolute;
-  top: -25%;
-  right: -3%;
-  z-index: 0;
-  width: min(30%, 11rem);
-  height: 150%;
-  transform: skewX(12deg);
-  pointer-events: none;
-  background:
-    linear-gradient(152deg, transparent 8%, rgba(255, 255, 255, 0.06) 8%, rgba(255, 255, 255, 0.06) 24%, transparent 24%),
-    linear-gradient(132deg, transparent 30%, rgba(183, 228, 199, 0.1) 30%, rgba(183, 228, 199, 0.1) 46%, transparent 46%),
-    linear-gradient(168deg, transparent 52%, rgba(255, 255, 255, 0.05) 52%, rgba(255, 255, 255, 0.05) 66%, transparent 66%),
-    linear-gradient(142deg, transparent 72%, rgba(149, 213, 178, 0.08) 72%, rgba(149, 213, 178, 0.08) 84%, transparent 84%);
-  clip-path: polygon(18% 0, 100% 0, 100% 100%, 0 100%);
-  -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.2) 22%, rgba(0, 0, 0, 0.65) 42%, black 62%);
-  mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.2) 22%, rgba(0, 0, 0, 0.65) 42%, black 62%);
+  display: none;
 }
 
 .emp-timesheet-card-header > *:not(.emp-ts-header-brand),
@@ -553,6 +536,11 @@
   overflow: hidden;
 }
 
+.emp-timesheet-session-stack:not(.emp-timesheet-session-stack--checked-in) {
+  gap: 0.5rem;
+  padding: 0.625rem;
+}
+
 .emp-timesheet-session-stack--checked-in {
   gap: 0.5rem;
   padding: 0.625rem 0.625rem 0;
@@ -565,9 +553,9 @@
   flex: 0 1 auto;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid rgba(46, 125, 50, 0.22);
+  border: 1px solid rgba(47, 107, 79, 0.28);
   border-radius: 0.625rem;
-  background: linear-gradient(180deg, rgba(240, 253, 244, 0.95) 0%, #ffffff 100%);
+  background: linear-gradient(180deg, rgba(47, 107, 79, 0.08) 0%, #ffffff 100%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 
@@ -579,7 +567,7 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #2e7d32;
+  color: var(--emp-ts-hub-green, #2f6b4f);
 }
 
 .emp-timesheet-session-projects-total {
@@ -616,45 +604,53 @@
 }
 
 .emp-timesheet-breaks {
-  flex-shrink: 0;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
   margin: 0 0.625rem;
-  padding: 0.625rem 0.75rem;
-  border: 1px solid rgba(226, 232, 240, 0.95);
+  padding: 0.625rem 0.75rem 0.75rem;
+  border: 1px solid rgba(47, 107, 79, 0.18);
   border-radius: 0.625rem;
-  background: linear-gradient(180deg, rgba(248, 250, 252, 0.95) 0%, rgba(255, 255, 255, 0.98) 100%);
+  background: linear-gradient(180deg, rgba(47, 107, 79, 0.06) 0%, rgba(255, 255, 255, 0.98) 100%);
 }
 
 .emp-timesheet-breaks-header {
   display: flex;
   flex-direction: column;
   gap: 0.125rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.625rem;
+  flex-shrink: 0;
 }
 
 .emp-timesheet-breaks-title {
   margin: 0;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 700;
-  color: #1e293b;
+  color: #1a4329;
 }
 
 .emp-timesheet-breaks-grid {
   display: grid;
+  flex: 1 1 auto;
+  min-height: 5.5rem;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.5rem;
+  gap: 0.625rem;
+  align-items: stretch;
 }
 
 .emp-timesheet-break-btn {
   display: flex;
-  min-height: 3rem;
+  min-height: 5rem;
+  height: 100%;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.125rem;
-  padding: 0.375rem 0.25rem;
-  border: 1px solid rgba(203, 213, 225, 0.95);
-  border-radius: 0.5rem;
-  background: #fff;
+  gap: 0.375rem;
+  padding: 0.625rem 0.375rem;
+  border: 1px solid rgba(47, 107, 79, 0.22);
+  border-radius: 0.625rem;
+  background: rgba(47, 107, 79, 0.1);
   cursor: pointer;
   transition:
     border-color 0.15s ease,
@@ -663,8 +659,8 @@
 }
 
 .emp-timesheet-break-btn:hover:not(:disabled) {
-  border-color: rgba(46, 125, 50, 0.45);
-  background: rgba(236, 253, 245, 0.65);
+  border-color: rgba(47, 107, 79, 0.38);
+  background: rgba(47, 107, 79, 0.16);
 }
 
 .emp-timesheet-break-btn:disabled {
@@ -673,20 +669,22 @@
 }
 
 .emp-timesheet-break-btn.is-used {
-  border-color: rgba(148, 163, 184, 0.55);
-  background: rgba(241, 245, 249, 0.9);
+  border-color: rgba(148, 163, 184, 0.45);
+  background: rgba(241, 245, 249, 0.92);
 }
 
 .emp-timesheet-break-btn-label {
-  font-size: 0.6875rem;
+  font-size: 1rem;
   font-weight: 700;
-  color: #334155;
+  line-height: 1.1;
+  color: #1a4329;
 }
 
 .emp-timesheet-break-btn-duration {
-  font-size: 0.625rem;
+  font-size: 0.875rem;
   font-weight: 600;
-  color: #64748b;
+  line-height: 1.1;
+  color: #3d5f4f;
 }
 
 .emp-timesheet-break-active {
@@ -882,6 +880,13 @@
   justify-content: center;
   text-align: center;
   cursor: pointer;
+  border-top: none;
+  border: 1px solid rgba(47, 107, 79, 0.22);
+  border-radius: 0.625rem;
+  margin: 0;
+  background: linear-gradient(180deg, rgba(47, 107, 79, 0.1) 0%, rgba(47, 107, 79, 0.04) 100%);
+  min-height: 5.5rem;
+  flex: 1 1 auto;
 }
 
 .emp-timesheet-session-desc--idle:disabled {
@@ -936,6 +941,10 @@
 .emp-timesheet-session-action {
   flex-shrink: 0;
   border-radius: 0 !important;
+}
+
+.emp-timesheet-session-stack:not(.emp-timesheet-session-stack--checked-in) .emp-timesheet-session-action {
+  border-radius: 0.625rem !important;
 }
 
 .emp-timesheet-session-btn-row {
@@ -1016,20 +1025,20 @@
   padding-top: 0.25rem;
 }
 
-/* Primary actions — dark green (matches admin dashboard buttons) */
+/* Primary actions — hub mild green (matches timesheet headers) */
 .emp-ts-btn-primary {
-  background: linear-gradient(180deg, #266b1c 0%, #14532d 100%) !important;
+  background: var(--emp-ts-hub-green, #2f6b4f) !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
   color: #ffffff !important;
   font-weight: 600;
-  box-shadow: 0 2px 10px rgba(20, 83, 45, 0.32);
+  box-shadow: var(--emp-ts-hub-green-shadow, 0 4px 14px rgba(47, 107, 79, 0.28));
 }
 
 .emp-ts-btn-primary:hover:not(:disabled) {
-  background: linear-gradient(180deg, #2d7a22 0%, #1a4712 100%) !important;
+  background: #286044 !important;
   border-color: rgba(255, 255, 255, 0.22) !important;
   color: #ffffff !important;
-  box-shadow: 0 4px 14px rgba(20, 83, 45, 0.4);
+  box-shadow: 0 4px 16px rgba(47, 107, 79, 0.34);
 }
 
 .emp-ts-btn-primary svg {
@@ -1123,13 +1132,13 @@
 
 .emp-timesheet-top-panel {
   display: flex;
-  min-height: 14.5rem;
+  min-height: 17.5rem;
   flex-direction: column;
 }
 
 .emp-timesheet-chart-panel {
   display: flex;
-  min-height: 17.5rem;
+  min-height: 20rem;
   flex-direction: column;
 }
 
@@ -1165,11 +1174,12 @@
   font-size: 0.75rem !important;
 }
 
-.emp-timesheet-chart-panel .emp-timesheet-card-body {
+.emp-timesheet-chart-panel .emp-timesheet-card-body,
+.emp-timesheet-chart-panel .emp-timesheet-chart-body {
   display: flex;
   flex: 1;
   flex-direction: column;
-  min-height: 0;
+  min-height: 12rem;
   padding: 0.625rem 0.875rem 0.75rem;
 }
 
@@ -1216,42 +1226,41 @@
 
 .emp-timesheet-history-panel {
   display: flex;
-  flex: 0 1 auto;
+  flex: 1 1 0;
   flex-direction: column;
-  min-height: 14rem;
-  overflow: visible;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .emp-timesheet-history-body {
   display: flex;
-  flex: 0 1 auto;
+  flex: 1 1 0;
   flex-direction: column;
-  min-height: 10rem;
-  overflow: visible;
+  min-height: 0;
+  overflow: hidden;
   padding: 0 !important;
 }
 
 .emp-timesheet-history-panel .emp-timesheet-history-scroll {
   min-height: 0;
-  flex: 0 1 auto;
+  flex: 1 1 0;
   overflow-x: auto;
+  overflow-y: auto;
   scroll-behavior: smooth;
-  overscroll-behavior-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   border: none;
   border-radius: 0;
 }
 
-/* ≤10 rows: grow with page scroll */
+/* Few rows: still fill panel height; table body scrolls inside */
 .emp-timesheet-history-panel .emp-timesheet-history-scroll:not(.emp-timesheet-history-scroll--bounded) {
   max-height: none;
-  overflow-y: visible;
 }
 
-/* >10 rows: cap at 10 visible rows, scroll inside the panel */
+/* Many rows: sticky header inside scroll region */
 .emp-timesheet-history-panel .emp-timesheet-history-scroll--bounded {
-  max-height: calc(
-    var(--emp-ts-history-head-h) + (var(--emp-ts-history-row-h) * var(--emp-ts-history-visible-rows))
-  );
+  max-height: none;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }

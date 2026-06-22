@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
 import {
   BookOpen,
+  Briefcase,
   CalendarCheck,
   CalendarDays,
   Clock,
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react'
 import { ROUTES } from '@constants/routes'
 import { APP_SHORT_NAME } from '@/utils/constants'
+import type { NotificationTabKey } from '@utils/notificationCategories'
 
 export type AdminNavItem = {
   to: string
@@ -24,7 +26,9 @@ export type AdminNavItem = {
   icon: LucideIcon
   /** When true, only exact path matches (e.g. dashboard at /admin) */
   end?: boolean
-  notificationKey?: 'leaves' | 'documents'
+  notificationKey?: NotificationTabKey
+  /** Sum multiple buckets on one nav badge (e.g. employee Documents includes payslips). */
+  notificationBadgeKeys?: NotificationTabKey[]
 }
 
 export type AdminNavGroup = {
@@ -55,13 +59,32 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     label: 'Work',
     items: [
       { to: ROUTES.TIMESHEET, label: 'Projects & Timesheets', navLabel: 'Projects & Timesheets', icon: Clock },
-      { to: ROUTES.CALENDAR, label: 'Company Calendar', navLabel: 'Calendar', icon: CalendarDays },
+      {
+        to: ROUTES.PROJECTS,
+        label: 'Projects',
+        navLabel: 'Projects',
+        icon: Briefcase,
+        notificationKey: 'projects',
+      },
+      {
+        to: ROUTES.CALENDAR,
+        label: 'Company Calendar',
+        navLabel: 'Calendar',
+        icon: CalendarDays,
+        notificationKey: 'calendar',
+      },
     ],
   },
   {
     label: 'Company',
     items: [
-      { to: ROUTES.PAYSLIPS, label: 'Payslips', navLabel: 'Payslips', icon: Receipt },
+      {
+        to: ROUTES.PAYSLIPS,
+        label: 'Payslips',
+        navLabel: 'Payslips',
+        icon: Receipt,
+        notificationKey: 'payslips',
+      },
       { to: ROUTES.TRAINING, label: 'Training & Courses', navLabel: 'Training', icon: BookOpen },
       { to: ROUTES.ACHIEVEMENTS, label: 'Company achievements', navLabel: 'Achievements', icon: Trophy },
       {
@@ -72,7 +95,13 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
         notificationKey: 'documents',
       },
       { to: ROUTES.NEWS, label: 'Manage News', navLabel: 'News', icon: Newspaper },
-      { to: ROUTES.TICKETS, label: 'Tickets', navLabel: 'Tickets', icon: Ticket },
+      {
+        to: ROUTES.TICKETS,
+        label: 'Tickets',
+        navLabel: 'Tickets',
+        icon: Ticket,
+        notificationKey: 'tickets',
+      },
       { to: ROUTES.HELP, label: 'Admin Guide', navLabel: 'Guide', icon: HelpCircle },
     ],
   },

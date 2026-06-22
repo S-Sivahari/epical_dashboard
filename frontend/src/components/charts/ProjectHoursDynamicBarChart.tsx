@@ -17,6 +17,30 @@ import { cn } from '@/utils/cn'
 
 type ChartPoint = { name: string; hours: number }
 
+function computeNiceYAxis(maxValue: number): { yMax: number; ticks: number[] } {
+  if (maxValue <= 0) {
+    return { yMax: 8, ticks: [0, 2, 4, 6, 8] }
+  }
+
+  const targetTickCount = 5
+  const paddedMax = maxValue * 1.12
+  const roughStep = paddedMax / (targetTickCount - 1)
+  const magnitude = 10 ** Math.floor(Math.log10(roughStep))
+  const normalized = roughStep / magnitude
+
+  let step = magnitude
+  if (normalized <= 1) step = magnitude
+  else if (normalized <= 2) step = 2 * magnitude
+  else if (normalized <= 5) step = 5 * magnitude
+  else step = 10 * magnitude
+
+  const yMax = Math.ceil(paddedMax / step) * step
+  const tickCount = Math.round(yMax / step) + 1
+  const ticks = Array.from({ length: tickCount }, (_, index) => index * step)
+
+  return { yMax, ticks }
+}
+
 function formatBarLabel(v: unknown) {
   if (typeof v !== 'number' || Number.isNaN(v) || v === 0) return ''
   return v.toFixed(1)
@@ -59,17 +83,13 @@ export function ProjectHoursDynamicBarChart({
 }) {
   const gradId = useId().replace(/:/g, '')
 
-  const peak = useMemo(
-    () => data.reduce((max, row) => Math.max(max, row.hours ?? 0), 0),
-    [data],
-  )
-
-  const yMax = useMemo(() => {
-    const padded = Math.ceil(peak * 1.25)
-    return Math.max(8, padded <= 10 ? padded : Math.ceil(padded / 5) * 5)
-  }, [peak])
+  const { yMax, ticks: yTicks } = useMemo(() => {
+    const peak = data.reduce((max, row) => Math.max(max, row.hours ?? 0), 0)
+    return computeNiceYAxis(peak)
+  }, [data])
 
   const labelCount = data.length
+  const peak = data.reduce((max, row) => Math.max(max, row.hours ?? 0), 0)
   const useAngledLabels = labelCount > 4
   const xTickInterval = labelCount > 12 ? Math.max(0, Math.floor(labelCount / 10)) : 0
   const chartHeight = height + (useAngledLabels ? 28 : 0)
@@ -148,7 +168,7 @@ export function ProjectHoursDynamicBarChart({
                 width={40}
                 domain={[0, yMax]}
                 allowDecimals={false}
-                tickCount={5}
+                ticks={yTicks}
                 tickFormatter={(v) => `${v}h`}
               />
               <Tooltip

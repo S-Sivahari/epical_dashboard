@@ -6,11 +6,18 @@ const prefetchers = {
       import('@pages/employee/Timesheet'),
       import('@pages/employee/TimesheetWeeklyChart'),
     ]),
+  '/employee/project-analysis': () =>
+    Promise.all([
+      import('@layouts/ProjectAnalysisLayout'),
+      import('@pages/admin/Projects/ProjectsDashboard'),
+      import('@pages/admin/Projects/ProjectWorkspace'),
+      import('@pages/employee/EmployeeCellWorkflow'),
+    ]),
   '/employee/projects': () =>
     Promise.all([
       import('@pages/admin/Projects/ProjectsDashboard'),
       import('@pages/admin/Projects/ProjectWorkspace'),
-      import('@pages/admin/Projects/ProjectCellPage'),
+      import('@pages/employee/EmployeeCellWorkflow'),
     ]),
   '/employee/leave': () => import('@pages/employee/LeaveRequest'),
   '/employee/calendar': () => import('@pages/employee/CompanyCalendar'),

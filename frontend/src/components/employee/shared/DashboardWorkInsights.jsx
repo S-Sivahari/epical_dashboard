@@ -110,28 +110,19 @@ export function DashboardWorkInsights({ className, compact = false, fill = false
             <BarChart3 className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
           </div>
           <div className="min-w-0">
-            <h3 className={cn('font-heading font-semibold text-foreground', compact ? 'text-sm' : 'text-base')}>
+            <h3 className="emp-dash-work-insights__title font-heading font-semibold text-foreground">
               Weekly hours
             </h3>
-            {!compact ? (
-              <p className="mt-0.5 text-xs text-muted">
-                {chartLoading ? 'Loading…' : `${totalWeekly.toFixed(1)}h logged this week`}
-              </p>
-            ) : (
-              <p className="mt-0.5 text-[11px] text-muted">
-                {chartLoading ? 'Loading…' : `${totalWeekly.toFixed(1)}h this week`}
-              </p>
-            )}
+            <p className="emp-dash-work-insights__subtitle mt-0.5 text-muted">
+              {chartLoading ? 'Loading…' : `${totalWeekly.toFixed(1)}h this week`}
+            </p>
           </div>
         </div>
         <Link
           to="/employee/timesheet"
-          className={cn(
-            'emp-dash-btn emp-dash-btn--sm inline-flex shrink-0 items-center gap-1 font-medium',
-            compact ? 'text-[10px]' : 'text-xs',
-          )}
+          className="emp-dash-btn emp-dash-work-insights__link inline-flex shrink-0 items-center gap-1.5 font-semibold"
         >
-          Timesheet <ArrowRight className={compact ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
+          Timesheet <ArrowRight className="h-4 w-4 shrink-0" />
         </Link>
       </div>
 

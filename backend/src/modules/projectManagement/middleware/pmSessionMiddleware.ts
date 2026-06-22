@@ -4,12 +4,13 @@ import { TimesheetModel } from '../../../models/Timesheet';
 import { EmployeeAttendanceModel } from '../../../models/EmployeeAttendance';
 import { resolveEmployeeForAuthUser } from '../../../utils/employeeAuth';
 import { openAttendanceFilter } from '../../../utils/attendanceQueries';
+import { isAdminRole } from '../../../utils/generateToken';
 import { PMAssignmentModel } from '../models/PMAssignment';
 import mongoose from 'mongoose';
 
 export async function pmSessionMiddleware(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-  // Admins bypass all session and project access restrictions
-  if (req.user?.role === 'admin') {
+  // Active admin portal bypasses session and assignment restrictions
+  if (req.user?.role && isAdminRole(req.user.role)) {
     return next();
   }
 

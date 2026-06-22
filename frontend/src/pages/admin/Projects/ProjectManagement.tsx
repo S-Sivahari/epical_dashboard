@@ -16,7 +16,6 @@ import { toast } from 'sonner'
 import { stringToHue, stringToHueColor } from '@/utils/stringColor'
 import { Analytics } from '@pages/admin/Analytics/Analytics'
 import { ProjectAnalysisLaunchButton } from '@components/admin/ProjectAnalysisLaunchButton'
-import { ProjectsTotalDonut } from '@components/admin/ProjectsTotalDonut'
 import {
   BarChart3,
   Clock,
@@ -2788,13 +2787,8 @@ export function ProjectManagement() {
               {/* Vertical Separator */}
               <div className="projects-hero-separator" aria-hidden />
 
-              {/* Metrics + launch — equal-size cards */}
-              <div
-                className={cn(
-                  'projects-hero-cards-row',
-                  activeTab !== 'analytics' && activeTab !== 'archived' && 'projects-hero-cards-row--with-create',
-                )}
-              >
+              {/* Action buttons */}
+              <div className="projects-hero-cards-row">
                 {activeTab !== 'analytics' && activeTab !== 'archived' ? (
                   <button
                     type="button"
@@ -2807,36 +2801,6 @@ export function ProjectManagement() {
                 ) : null}
 
                 <ProjectAnalysisLaunchButton className="project-analysis-launch-btn--hero projects-hero-stat-card" />
-
-                <div className="projects-hero-stat-card">
-                  <div className="projects-hero-stat-head">
-                    <span className="projects-hero-stat-dot projects-hero-stat-dot--progress" />
-                    <span className="projects-hero-stat-label">In Progress</span>
-                  </div>
-                  <span className="projects-hero-stat-value projects-hero-stat-value--progress">
-                    {projectMetrics.inProgress}
-                  </span>
-                </div>
-
-                <div className="projects-hero-stat-card">
-                  <div className="projects-hero-stat-head">
-                    <span className="projects-hero-stat-dot projects-hero-stat-dot--completed" />
-                    <span className="projects-hero-stat-label">Completed</span>
-                  </div>
-                  <span className="projects-hero-stat-value projects-hero-stat-value--completed">
-                    {projectMetrics.completed}
-                  </span>
-                </div>
-
-                <div className="projects-hero-stat-card">
-                  <div className="projects-hero-stat-head">
-                    <span className="projects-hero-stat-dot projects-hero-stat-dot--cancelled" />
-                    <span className="projects-hero-stat-label">Cancelled</span>
-                  </div>
-                  <span className="projects-hero-stat-value projects-hero-stat-value--cancelled">
-                    {projectMetrics.cancelled}
-                  </span>
-                </div>
               </div>
             </div>
           </div>
@@ -2891,14 +2855,36 @@ export function ProjectManagement() {
           )}
 
           {activeTab === 'projects' ? (
-            <div className="projects-sidebar-import-donut">
-              <ProjectsTotalDonut
-                key="projects-total-donut"
-                total={projectMetrics.total}
-                inProgress={projectMetrics.inProgress}
-                completed={projectMetrics.completed}
-                cancelled={projectMetrics.cancelled}
-              />
+            <div className="projects-sidebar-stats">
+              <div className="projects-hero-stat-card projects-sidebar-stat-card">
+                <div className="projects-hero-stat-head">
+                  <span className="projects-hero-stat-dot projects-hero-stat-dot--progress" />
+                  <span className="projects-hero-stat-label">In Progress</span>
+                </div>
+                <span className="projects-hero-stat-value projects-hero-stat-value--progress">
+                  {projectMetrics.inProgress}
+                </span>
+              </div>
+
+              <div className="projects-hero-stat-card projects-sidebar-stat-card">
+                <div className="projects-hero-stat-head">
+                  <span className="projects-hero-stat-dot projects-hero-stat-dot--completed" />
+                  <span className="projects-hero-stat-label">Completed</span>
+                </div>
+                <span className="projects-hero-stat-value projects-hero-stat-value--completed">
+                  {projectMetrics.completed}
+                </span>
+              </div>
+
+              <div className="projects-hero-stat-card projects-sidebar-stat-card">
+                <div className="projects-hero-stat-head">
+                  <span className="projects-hero-stat-dot projects-hero-stat-dot--cancelled" />
+                  <span className="projects-hero-stat-label">Cancelled</span>
+                </div>
+                <span className="projects-hero-stat-value projects-hero-stat-value--cancelled">
+                  {projectMetrics.cancelled}
+                </span>
+              </div>
             </div>
           ) : activeTab === 'timesheets' ? (
             <div className="space-y-4">
@@ -3515,7 +3501,10 @@ export function ProjectManagement() {
         title={modalMode === 'create' ? 'Create New Project' : 'Edit Project Details'}
         onClose={() => setModalOpen(false)}
         size="lg"
-        className="max-h-none overflow-y-visible p-5 [&>div:first-child]:mb-3"
+        className={cn(
+          'max-h-none overflow-y-visible p-5 [&>div:first-child]:mb-3',
+          modalMode === 'create' && 'projects-create-project-modal',
+        )}
       >
         <form onSubmit={handleSaveProject} className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">

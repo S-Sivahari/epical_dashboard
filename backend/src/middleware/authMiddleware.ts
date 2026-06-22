@@ -42,7 +42,10 @@ export function requireRole(...roles: string[]) {
       return;
     }
     if (!hasRole(req.user.role, ...roles)) {
-      res.status(403).json({ error: 'Forbidden: Insufficient permissions' });
+      const switchHint = req.user.portalAdmin
+        ? ' Switch to the Admin portal to perform this action.'
+        : '';
+      res.status(403).json({ error: `Forbidden: Insufficient permissions.${switchHint}` });
       return;
     }
     next();

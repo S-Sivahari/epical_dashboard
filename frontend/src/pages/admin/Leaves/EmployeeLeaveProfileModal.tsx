@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { Minus, Plus } from 'lucide-react'
 import { Badge } from '@components/ui/Badge'
 import { Button } from '@components/ui/Button'
 import { Modal } from '@components/ui/Modal'
@@ -8,6 +9,7 @@ import type { EmployeeLeaveSummary, LeaveRequest } from '@/types'
 import * as leaveService from '@services/leaveService'
 import { useEmployeeStore } from '@store/employeeStore'
 import { formatDate } from '@/utils/formatDate'
+import { cn } from '@/utils/cn'
 
 const LEAVE_TYPE_COLORS: Record<string, string> = {
   'Casual Leave': 'border-green-200 bg-green-50',
@@ -16,7 +18,20 @@ const LEAVE_TYPE_COLORS: Record<string, string> = {
   'Compensation Leave': 'border-amber-200 bg-amber-50',
 }
 
-const EDITABLE_ALLOCATION_TYPES = new Set(['Casual Leave', 'Sick Leave', 'Earned Leave'])
+const ADJUSTABLE_TYPES = new Set([
+  'Casual Leave',
+  'Sick Leave',
+  'Earned Leave',
+  'Compensation Leave',
+])
+
+type PendingAdjustment = {
+  type: string
+  delta: number
+  used: number
+  total: number
+  remaining: number
+}
 
 function getStatusBadgeVariant(status: LeaveRequest['status']) {
   switch (status) {
@@ -46,8 +61,8 @@ export function EmployeeLeaveProfileModal({
 }) {
   const [summary, setSummary] = useState<EmployeeLeaveSummary | null>(null)
   const [loading, setLoading] = useState(false)
-  const [allocationDraft, setAllocationDraft] = useState<Record<string, string>>({})
-  const [savingAllocations, setSavingAllocations] = useState(false)
+  const [pendingAdjustment, setPendingAdjustment] = useState<PendingAdjustment | null>(null)
+  const [savingAdjustment, setSavingAdjustment] = useState(false)
   const employees = useEmployeeStore((s) => s.employees)
   const fetchEmployees = useEmployeeStore((s) => s.fetchEmployees)
 
@@ -74,9 +89,6 @@ export function EmployeeLeaveProfileModal({
     try {
       const data = await leaveService.getEmployeeLeaveSummary(id)
       setSummary(data)
-      setAllocationDraft(
-        Object.fromEntries(data.balances.map((b) => [b.type, String(b.total)])),
-      )
     } catch (error) {
       console.error('[EmployeeLeaveProfile] load failed:', error)
       toast.error('Failed to load employee leave details')
@@ -89,7 +101,7 @@ export function EmployeeLeaveProfileModal({
   useEffect(() => {
     if (!isOpen || !employeeId) {
       setSummary(null)
-      setAllocationDraft({})
+      setPendingAdjustment(null)
       return
     }
 
@@ -104,39 +116,53 @@ export function EmployeeLeaveProfileModal({
     }
   }, [isOpen, employeeId])
 
-  const handleSaveAllocations = async () => {
-    if (!employeeId || !summary) return
+  const openAdjustmentConfirm = (type: string, delta: number) => {
+    if (!summary) return
+    const balance = summary.balances.find((b) => b.type === type)
+    if (!balance) return
 
-    const payload: Partial<Record<'Casual Leave' | 'Sick Leave' | 'Earned Leave', number>> = {}
-    for (const type of EDITABLE_ALLOCATION_TYPES) {
-      const raw = allocationDraft[type]?.trim()
-      const value = Number(raw)
-      if (raw === '' || Number.isNaN(value) || value < 0) {
-        toast.error(`${type} must be a non-negative number`)
-        return
-      }
-      payload[type] = value
+    const nextRemaining = balance.remaining + delta
+    if (nextRemaining < 0) {
+      toast.error('Remaining balance cannot go below zero')
+      return
+    }
+    if (nextRemaining > balance.total) {
+      toast.error('Remaining balance cannot exceed the total allotment')
+      return
     }
 
-    setSavingAllocations(true)
-    try {
-      await leaveService.updateEmployeeLeaveAllocations(employeeId, payload)
-      toast.success('Leave allotments updated')
-      await loadSummary(employeeId)
-    } catch (error) {
-      console.error('[EmployeeLeaveProfile] save allocations failed:', error)
-      toast.error('Failed to update leave allotments')
-    } finally {
-      setSavingAllocations(false)
-    }
+    setPendingAdjustment({
+      type,
+      delta,
+      used: balance.used,
+      total: balance.total,
+      remaining: balance.remaining,
+    })
   }
 
-  const hasAllocationChanges = summary
-    ? [...EDITABLE_ALLOCATION_TYPES].some((type) => {
-        const saved = summary.balances.find((b) => b.type === type)?.total
-        return allocationDraft[type] !== String(saved ?? 0)
-      })
-    : false
+  const handleConfirmAdjustment = async () => {
+    if (!employeeId || !pendingAdjustment) return
+
+    setSavingAdjustment(true)
+    try {
+      const updated = await leaveService.adjustEmployeeLeaveBalance(
+        employeeId,
+        pendingAdjustment.type as 'Casual Leave' | 'Sick Leave' | 'Earned Leave' | 'Compensation Leave',
+        -pendingAdjustment.delta,
+      )
+      setSummary(updated)
+      setPendingAdjustment(null)
+      toast.success('Leave balance updated')
+    } catch (error) {
+      console.error('[EmployeeLeaveProfile] balance adjustment failed:', error)
+      const message =
+        (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        'Failed to update leave balance'
+      toast.error(message)
+    } finally {
+      setSavingAdjustment(false)
+    }
+  }
 
   const historyColumns: Column<LeaveRequest>[] = [
     { key: 'type', header: 'Type' },
@@ -176,101 +202,158 @@ export function EmployeeLeaveProfileModal({
     ? `Leave Profile - ${displayName} (${summary.employeeId})`
     : `Leave Profile - ${displayName}`
 
+  const pendingNextUsed = pendingAdjustment
+    ? pendingAdjustment.used - pendingAdjustment.delta
+    : 0
+  const pendingNextRemaining = pendingAdjustment
+    ? pendingAdjustment.remaining + pendingAdjustment.delta
+    : 0
+
   return (
-    <Modal
-      isOpen={isOpen}
-      title={profileTitle}
-      onClose={onClose}
-      size="xl"
-      className="flex max-h-[min(90vh,40rem)] min-h-0 flex-col overflow-hidden"
-    >
-      {loading ? (
-        <div className="flex min-h-[200px] flex-1 items-center justify-center">
-          <span className="text-sm text-muted">Loading leave details...</span>
-        </div>
-      ) : summary ? (
-        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-hidden">
-          <section className="shrink-0">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold text-ink">Leave balances</h3>
-              {hasAllocationChanges ? (
-                <Button
-                  size="sm"
-                  onClick={() => void handleSaveAllocations()}
-                  loading={savingAllocations}
-                >
-                  Save changes
-                </Button>
-              ) : null}
-            </div>
-            <div className="grid gap-2 sm:grid-cols-3">
-              {summary.balances.map((b) => {
-                const isEditable = EDITABLE_ALLOCATION_TYPES.has(b.type)
-                const draftTotal = Number(allocationDraft[b.type] ?? b.total)
-                const parsedTotal = Number.isNaN(draftTotal) ? b.total : draftTotal
-                const draftRemaining = Math.max(0, parsedTotal - b.used)
+    <>
+      <Modal
+        isOpen={isOpen}
+        title={profileTitle}
+        onClose={onClose}
+        size="xl"
+        className="flex max-h-[min(90vh,40rem)] min-h-0 flex-col overflow-hidden"
+      >
+        {loading ? (
+          <div className="flex min-h-[200px] flex-1 items-center justify-center">
+            <span className="text-sm text-muted">Loading leave details...</span>
+          </div>
+        ) : summary ? (
+          <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-hidden">
+            <section className="shrink-0">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold text-ink">Leave balances</h3>
+                <span className="text-xs text-muted">Calendar year · resets every January</span>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                {summary.balances
+                  .filter((b) => ADJUSTABLE_TYPES.has(b.type))
+                  .map((b) => {
+                    const canDecrease = b.remaining > 0
+                    const canIncrease = b.remaining < b.total
 
-                return (
-                  <div
-                    key={b.type}
-                    className={`rounded-lg border p-3 ${LEAVE_TYPE_COLORS[b.type] ?? 'border-border bg-surface/40'}`}
-                  >
-                    <p className="text-xs font-semibold text-ink mb-2">{b.type}</p>
-                    <ul className="space-y-1 text-xs text-ink">
-                      <li className="flex flex-wrap items-center gap-1">
-                        <span className="text-muted">Taken (approved):</span>
-                        <strong>{b.used}</strong>
-                        <span className="text-muted">/</span>
-                        {isEditable ? (
-                          <input
-                            type="number"
-                            min={0}
-                            step={0.5}
-                            value={allocationDraft[b.type] ?? String(b.total)}
-                            onChange={(e) =>
-                              setAllocationDraft((prev) => ({ ...prev, [b.type]: e.target.value }))
-                            }
-                            className="h-7 w-16 rounded border border-border bg-white px-2 text-xs font-semibold text-ink"
-                            aria-label={`${b.type} allotment`}
-                          />
-                        ) : (
-                          <strong>{b.total}</strong>
+                    return (
+                      <div
+                        key={b.type}
+                        className={cn(
+                          'rounded-lg border p-3',
+                          LEAVE_TYPE_COLORS[b.type] ?? 'border-border bg-surface/40',
                         )}
-                      </li>
-                      <li>
-                        <span className="text-muted">Pending requests:</span>{' '}
-                        <strong>{b.pending}</strong> {b.pending === 1 ? 'day' : 'days'}
-                      </li>
-                      <li>
-                        <span className="text-muted">Remaining:</span>{' '}
-                        <strong>{isEditable && hasAllocationChanges ? draftRemaining : b.remaining}</strong>{' '}
-                        {(isEditable && hasAllocationChanges ? draftRemaining : b.remaining) === 1 ? 'day' : 'days'}
-                      </li>
-                    </ul>
-                  </div>
-                )
-              })}
-            </div>
-          </section>
+                      >
+                        <p className="mb-2 text-xs font-semibold text-ink">{b.type}</p>
+                        <div className="mb-2 flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-white text-ink shadow-sm transition hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
+                            aria-label={`Remove one ${b.type} day`}
+                            disabled={!canDecrease}
+                            onClick={() => openAdjustmentConfirm(b.type, -1)}
+                          >
+                            <Minus className="h-3.5 w-3.5" />
+                          </button>
+                          <span className="min-w-[4.5rem] text-center text-lg font-extrabold tabular-nums text-ink">
+                            {b.remaining}/{b.total}
+                          </span>
+                          <button
+                            type="button"
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-white text-ink shadow-sm transition hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
+                            aria-label={`Add one ${b.type} day`}
+                            disabled={!canIncrease}
+                            onClick={() => openAdjustmentConfirm(b.type, 1)}
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <ul className="space-y-1 text-xs text-ink">
+                          <li>
+                            <span className="text-muted">Pending requests:</span>{' '}
+                            <strong>{b.pending}</strong> {b.pending === 1 ? 'day' : 'days'}
+                          </li>
+                          <li>
+                            <span className="text-muted">Remaining:</span>{' '}
+                            <strong>{b.remaining}</strong>{' '}
+                            {b.remaining === 1 ? 'day' : 'days'}
+                          </li>
+                        </ul>
+                      </div>
+                    )
+                  })}
+              </div>
+            </section>
 
-          <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <h3 className="mb-3 shrink-0 text-sm font-semibold text-ink">Leave history</h3>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-              <DataTable
-                columns={historyColumns}
-                data={summary.history}
-                loading={false}
-                empty="No leave records for this employee."
-                className="max-h-none overflow-y-visible"
-              />
+            <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <h3 className="mb-3 shrink-0 text-sm font-semibold text-ink">Leave history</h3>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                <DataTable
+                  columns={historyColumns}
+                  data={summary.history}
+                  loading={false}
+                  empty="No leave records for this employee."
+                  className="max-h-none overflow-y-visible"
+                />
+              </div>
+            </section>
+          </div>
+        ) : (
+          <div className="flex min-h-[200px] items-center justify-center">
+            <span className="text-sm text-muted">Could not load leave details for this employee.</span>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={Boolean(pendingAdjustment)}
+        title="Confirm balance change"
+        onClose={() => {
+          if (savingAdjustment) return
+          setPendingAdjustment(null)
+        }}
+        size="sm"
+      >
+        {pendingAdjustment ? (
+          <div className="space-y-4">
+            <p className="text-sm text-muted">
+              Adjust <strong className="text-ink">{pendingAdjustment.type}</strong> for{' '}
+              <strong className="text-ink">{displayName}</strong>
+              {displayEmployeeId ? ` (${displayEmployeeId})` : ''}?
+            </p>
+            <div className="rounded-lg border border-border bg-surface/40 p-3 text-sm">
+              <div className="flex justify-between gap-3">
+                <span className="text-muted">Balance (remaining / total)</span>
+                <span className="font-semibold text-ink">
+                  {pendingAdjustment.remaining}/{pendingAdjustment.total}
+                  <span className="mx-1 text-muted">→</span>
+                  {pendingNextRemaining}/{pendingAdjustment.total}
+                </span>
+              </div>
+              <div className="mt-2 flex justify-between gap-3 border-t border-border/70 pt-2">
+                <span className="text-muted">Used (approved)</span>
+                <span className="font-semibold text-ink">
+                  {pendingAdjustment.used}
+                  <span className="mx-1 text-muted">→</span>
+                  {pendingNextUsed} {pendingNextUsed === 1 ? 'day' : 'days'}
+                </span>
+              </div>
             </div>
-          </section>
-        </div>
-      ) : (
-        <div className="flex min-h-[200px] items-center justify-center">
-          <span className="text-sm text-muted">Could not load leave details for this employee.</span>
-        </div>
-      )}
-    </Modal>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="secondary"
+                disabled={savingAdjustment}
+                onClick={() => setPendingAdjustment(null)}
+              >
+                Cancel
+              </Button>
+              <Button disabled={savingAdjustment} onClick={() => void handleConfirmAdjustment()}>
+                {savingAdjustment ? 'Saving…' : 'Confirm change'}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
+    </>
   )
 }

@@ -11,8 +11,10 @@ import {
 import { ProfileCard } from '@components/employee/shared/ProfileCard'
 import { LeaveCard } from '@components/employee/shared/LeaveCard'
 import { DashboardWorkInsights } from '@components/employee/shared/DashboardWorkInsights'
+import { DashboardSessionPanel } from '@components/employee/shared/DashboardSessionPanel'
 import { UpcomingHolidaysCard } from '@components/employee/shared/UpcomingHolidaysCard'
 import { DashboardDocumentRequests } from '@components/employee/shared/DashboardDocumentRequests'
+import { DashboardCalendarCard } from '@components/employee/shared/DashboardCalendarCard'
 import { useAuthStore } from '@store/authStore'
 import { fetchEmployeeDashboard } from '@services/employeeDashboardService'
 import * as leaveService from '@services/leaveService'
@@ -241,66 +243,79 @@ export default function Dashboard() {
         </div>
 
         <div className="emp-dash-widgets-grid">
-          <div className="emp-dash-widgets-row emp-dash-widgets-row--top">
-            <div className="emp-dash-widget-slot">
+          <div className="emp-dash-col emp-dash-col--main">
+            <div className="emp-dash-widget-slot emp-dash-widget-slot--chart">
               <DashboardWorkInsights compact fill />
+            </div>
+
+            <div className="emp-dash-widgets-row emp-dash-widgets-row--triple">
+              <div className="emp-dash-widget-slot">
+                {loading ? (
+                  widgetSkeleton
+                ) : (
+                  <SectionCard
+                    compact
+                    to="/employee/leave"
+                    tone="sage"
+                    icon={CalendarRange}
+                    title="Leave balance"
+                    action={<SectionLink to="/employee/leave" label="Apply" />}
+                  >
+                    <div className="emp-dash-leave-grid">
+                      {balances.map((lb) => (
+                        <LeaveCard
+                          key={lb.key}
+                          compact
+                          type={lb.type}
+                          used={lb.used}
+                          total={lb.total}
+                          remaining={lb.remaining}
+                          color={lb.color ?? LEAVE_COLORS[lb.type] ?? '#3d7a6a'}
+                          tintClass={LEAVE_TINT[lb.key]}
+                        />
+                      ))}
+                    </div>
+                  </SectionCard>
+                )}
+              </div>
+
+              <div className="emp-dash-widget-slot">
+                {loading ? (
+                  widgetSkeleton
+                ) : (
+                  <UpcomingHolidaysCard
+                    compact
+                    fill
+                    className="emp-dash-card emp-dash-card--sky"
+                    holidays={holidays}
+                  />
+                )}
+              </div>
+
+              <div className="emp-dash-widget-slot">
+                {loading ? (
+                  widgetSkeleton
+                ) : (
+                  <DashboardDocumentRequests
+                    compact
+                    fill
+                    className="emp-dash-card emp-dash-card--amber"
+                    documents={documents}
+                  />
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="emp-dash-widgets-row emp-dash-widgets-row--bottom">
-            <div className="emp-dash-widget-slot">
-              {loading ? (
-                widgetSkeleton
-              ) : (
-                <SectionCard
-                  compact
-                  to="/employee/leave"
-                  tone="sage"
-                  icon={CalendarRange}
-                  title="Leave balance"
-                  action={<SectionLink to="/employee/leave" label="Apply" />}
-                >
-                  <div className="emp-dash-leave-grid">
-                    {balances.map((lb) => (
-                      <LeaveCard
-                        key={lb.key}
-                        compact
-                        type={lb.type}
-                        used={lb.used}
-                        total={lb.total}
-                        remaining={lb.remaining}
-                        color={lb.color ?? LEAVE_COLORS[lb.type] ?? '#3d7a6a'}
-                        tintClass={LEAVE_TINT[lb.key]}
-                      />
-                    ))}
-                  </div>
-                </SectionCard>
-              )}
+          <div className="emp-dash-col emp-dash-col--side">
+            <div className="emp-dash-session-slot">
+              <DashboardSessionPanel compact />
             </div>
-
-            <div className="emp-dash-widget-slot">
+            <div className="emp-dash-widget-slot emp-dash-widget-slot--calendar">
               {loading ? (
                 widgetSkeleton
               ) : (
-                    <UpcomingHolidaysCard
-                  compact
-                  fill
-                  className="emp-dash-card emp-dash-card--sky"
-                  holidays={holidays}
-                />
-              )}
-            </div>
-
-            <div className="emp-dash-widget-slot">
-              {loading ? (
-                widgetSkeleton
-              ) : (
-                <DashboardDocumentRequests
-                  compact
-                  fill
-                  className="emp-dash-card emp-dash-card--amber"
-                  documents={documents}
-                />
+                <DashboardCalendarCard fill holidays={holidays} />
               )}
             </div>
           </div>

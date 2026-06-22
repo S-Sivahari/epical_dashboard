@@ -1,4 +1,5 @@
 import type { NotificationData } from '@store/notificationStore'
+import { ROUTES } from '@constants/routes'
 
 export function getNotificationRoute(notification: NotificationData): string | null {
   const { type, relatedData, recipientType } = notification
@@ -45,22 +46,28 @@ export function getNotificationRoute(notification: NotificationData): string | n
     case 'CellReviewApproved':
     case 'CellReviewRejected':
       if (relatedData?.projectId && relatedData?.cellId) {
-        return `/employee/projects/${relatedData.projectId}/cells/${relatedData.cellId}`
+        return ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECT_CELL(relatedData.projectId, relatedData.cellId)
       }
-      return relatedData?.projectId ? `/employee/projects/${relatedData.projectId}` : '/employee/projects'
+      return relatedData?.projectId
+        ? ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECT_WORKSPACE(relatedData.projectId)
+        : ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECTS
     case 'CellCreatedUnassigned':
       if (recipientType === 'Admin' && relatedData?.projectId && relatedData?.cellId) {
         return `/admin/projects/${relatedData.projectId}/cells/${relatedData.cellId}`
       }
       if (relatedData?.projectId && relatedData?.cellId) {
-        return `/employee/projects/${relatedData.projectId}/cells/${relatedData.cellId}`
+        return ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECT_CELL(relatedData.projectId, relatedData.cellId)
       }
-      return relatedData?.projectId ? `/employee/projects/${relatedData.projectId}` : '/employee/projects'
+      return relatedData?.projectId
+        ? ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECT_WORKSPACE(relatedData.projectId)
+        : ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECTS
     case 'CellAssigned':
       if (relatedData?.projectId && relatedData?.cellId) {
-        return `/employee/projects/${relatedData.projectId}/cells/${relatedData.cellId}`
+        return ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECT_CELL(relatedData.projectId, relatedData.cellId)
       }
-      return relatedData?.projectId ? `/employee/projects/${relatedData.projectId}` : '/employee/projects'
+      return relatedData?.projectId
+        ? ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECT_WORKSPACE(relatedData.projectId)
+        : ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECTS
     default:
       return null
   }

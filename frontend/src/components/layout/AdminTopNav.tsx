@@ -1,7 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { ADMIN_NAV_ITEMS, isAdminNavActive } from '@constants/adminNavigation'
 import { useNotificationCounts } from '@hooks/useNotificationCounts'
-import { useLeaves } from '@hooks/useLeaves'
 import { resolveNavNotificationCount } from '@utils/notificationCategories'
 import { NotificationBadge } from '@components/ui/NotificationBadge'
 import { cn } from '@/utils/cn'
@@ -9,8 +8,6 @@ import { cn } from '@/utils/cn'
 export function AdminTopNav() {
   const { pathname } = useLocation()
   const { counts: notificationCounts } = useNotificationCounts()
-  const { leaves } = useLeaves()
-  const pendingLeaves = leaves.filter((l) => l.status === 'Pending').length
 
   return (
     <nav
@@ -23,11 +20,12 @@ export function AdminTopNav() {
           const active = isAdminNavActive(pathname, item.to, item.end)
           const notificationCount = resolveNavNotificationCount({
             notificationKey: item.notificationKey,
+            notificationBadgeKeys: item.notificationBadgeKeys,
             isActive: active,
             counts: notificationCounts,
-            pendingLeaves,
           })
           const displayLabel = item.navLabel ?? item.label
+          const showBadge = item.notificationKey || item.notificationBadgeKeys?.length
 
           return (
             <NavLink
@@ -39,7 +37,7 @@ export function AdminTopNav() {
             >
               <span className="relative inline-flex shrink-0">
                 <Icon className="admin-top-nav-link-icon shrink-0" strokeWidth={2} />
-                {item.notificationKey ? (
+                {showBadge ? (
                   <NotificationBadge count={notificationCount ?? 0} size="sm" className="-right-1 -top-1" />
                 ) : null}
               </span>

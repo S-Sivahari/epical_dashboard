@@ -1,6 +1,6 @@
 import cron, { type ScheduledTask } from 'node-cron';
 import { env } from '../config/env';
-import { ensureMonthlyLeaveHistoryReset } from './leaveService';
+import { ensureMonthlyLeaveHistoryReset, ensureAnnualLeaveBalanceReset } from './leaveService';
 import { ensureFinancialYearSnapshotReset } from './payrollYtdService';
 
 let monthlyResetJob: ScheduledTask | null = null;
@@ -24,6 +24,7 @@ export async function initLeaveMonthlyResetScheduler() {
       console.log(`[LeaveReset] Monthly cron tick at ${tickAt}`);
       try {
         await ensureFinancialYearSnapshotReset();
+        await ensureAnnualLeaveBalanceReset();
         await ensureMonthlyLeaveHistoryReset();
       } catch (error) {
         console.error('[LeaveReset] Monthly reset failed:', error);
@@ -38,6 +39,7 @@ export async function initLeaveMonthlyResetScheduler() {
 
   try {
     await ensureFinancialYearSnapshotReset();
+    await ensureAnnualLeaveBalanceReset();
     const startup = await ensureMonthlyLeaveHistoryReset();
     if (startup.ran) {
       console.log(

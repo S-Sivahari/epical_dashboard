@@ -36,10 +36,12 @@ export function EmployeeTopNav() {
           const active = isEmployeeNavActive(pathname, item.to, item.end)
           const notificationCount = resolveNavNotificationCount({
             notificationKey: item.notificationKey,
+            notificationBadgeKeys: item.notificationBadgeKeys,
             isActive: active,
             counts: notificationCounts,
           })
           const displayLabel = item.navLabel ?? item.label
+          const showBadge = item.notificationKey || item.notificationBadgeKeys?.length
 
           return (
             <NavLink
@@ -51,7 +53,7 @@ export function EmployeeTopNav() {
             >
               <span className="relative inline-flex shrink-0">
                 <Icon className="admin-top-nav-link-icon h-[1.125rem] w-[1.125rem]" strokeWidth={2} />
-                {item.notificationKey ? (
+                {showBadge ? (
                   <NotificationBadge count={notificationCount ?? 0} size="sm" className="-right-1 -top-1" />
                 ) : null}
               </span>

@@ -2,6 +2,7 @@ import {
   CELL_TYPES,
   CELL_WORKFLOW_STAGES,
   REVIEW_STAGE_KEYS,
+  WORK_STAGE_STATUSES,
   type CellType,
   type CellWorkflowStage,
   type CellWorkflowStageKey,
@@ -39,6 +40,19 @@ export const STATUS_LABELS: Record<CellStatus, string> = {
 
 /** Status values shown in workspace filters and editable status pickers. */
 export const CELL_STATUS_FILTER_OPTIONS: CellStatus[] = ['ready', 'in_progress', 'completed']
+
+/** Cell status options for edit controls — drops Not Started once work has begun. */
+export function editableCellStatusOptions(currentStatus: CellStatus): CellStatus[] {
+  const base = CELL_STATUS_FILTER_OPTIONS.filter((status) => status !== 'completed')
+  if (currentStatus === 'ready') return base
+  return base.filter((status) => status !== 'ready')
+}
+
+/** Work-stage dropdown options — Not Started is only available before a stage begins. */
+export function editableWorkStageStatuses(stageStatus: WorkflowStageStatus): WorkflowStageStatus[] {
+  if (stageStatus === 'not_started') return [...WORK_STAGE_STATUSES]
+  return WORK_STAGE_STATUSES.filter((status) => status !== 'not_started')
+}
 
 export const WORKFLOW_STATUS_LABELS: Record<WorkflowStageStatus, string> = {
   not_started: 'Not Started',

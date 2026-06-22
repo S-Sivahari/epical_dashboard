@@ -3,6 +3,10 @@ import api from './api'
 export interface NotificationCounts {
   leaves: number
   documents: number
+  payslips: number
+  tickets: number
+  calendar: number
+  projects: number
   other: number
   total: number
 }

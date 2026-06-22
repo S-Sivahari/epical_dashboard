@@ -644,10 +644,6 @@ export function EditEmployee() {
   if (pageLoading) {
     return (
       <div className="crewiq-dashboard employee-pages employee-directory-view employee-form-view" data-page-scrollable>
-        <div className="employee-directory-bg" aria-hidden>
-          <div className="employee-directory-bg-gradient" />
-          <div className="employee-directory-bg-leaves" />
-        </div>
         <div className="employee-directory-shell">
           <header className="employee-directory-header">
             <h1 className="employee-directory-title">Edit Employee</h1>
@@ -663,10 +659,6 @@ export function EditEmployee() {
   if (loadError) {
     return (
       <div className="crewiq-dashboard employee-pages employee-directory-view employee-form-view" data-page-scrollable>
-        <div className="employee-directory-bg" aria-hidden>
-          <div className="employee-directory-bg-gradient" />
-          <div className="employee-directory-bg-leaves" />
-        </div>
         <div className="employee-directory-shell">
           <header className="employee-directory-header">
             <h1 className="employee-directory-title">Edit Employee</h1>
@@ -689,11 +681,6 @@ export function EditEmployee() {
 
   return (
     <div className="crewiq-dashboard employee-pages employee-directory-view employee-form-view" data-page-scrollable>
-      <div className="employee-directory-bg" aria-hidden>
-        <div className="employee-directory-bg-gradient" />
-        <div className="employee-directory-bg-leaves" />
-      </div>
-
       <div className="employee-directory-shell">
         <header className="employee-directory-header">
           <Breadcrumb

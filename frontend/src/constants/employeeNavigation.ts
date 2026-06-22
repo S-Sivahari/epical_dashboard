@@ -13,6 +13,8 @@ import {
   User,
 } from 'lucide-react'
 
+import type { NotificationTabKey } from '@utils/notificationCategories'
+
 export type EmployeeNavItem = {
   to: string
   label: string
@@ -20,7 +22,8 @@ export type EmployeeNavItem = {
   navLabel?: string
   icon: LucideIcon
   end?: boolean
-  notificationKey?: 'leaves' | 'documents'
+  notificationKey?: NotificationTabKey
+  notificationBadgeKeys?: NotificationTabKey[]
 }
 
 export const EMPLOYEE_NOTES_NAV_ITEM: EmployeeNavItem = {
@@ -56,13 +59,14 @@ export const EMPLOYEE_NAV_ITEMS: EmployeeNavItem[] = [
     label: 'Company Calendar',
     navLabel: 'Calendar',
     icon: CalendarDays,
+    notificationKey: 'calendar',
   },
   {
     to: '/employee/documents',
     label: 'Documents',
     navLabel: 'Documents',
     icon: FileText,
-    notificationKey: 'documents',
+    notificationBadgeKeys: ['documents', 'payslips'],
   },
   {
     to: '/employee/training',
@@ -81,6 +85,7 @@ export const EMPLOYEE_NAV_ITEMS: EmployeeNavItem[] = [
     label: 'Raise Tickets',
     navLabel: 'Tickets',
     icon: Ticket,
+    notificationKey: 'tickets',
   },
   {
     to: '/employee/help',
@@ -101,7 +106,6 @@ export const EMPLOYEE_ROUTE_TITLES: Record<string, string> = {
   '/employee': 'Dashboard',
   '/employee/timesheet': 'Projects & Timesheets',
   '/employee/project-analysis': 'Project Management',
-  '/employee/projects': 'Projects',
   '/employee/metal-routing': 'Metal Routing',
   '/employee/notes': 'Daily Notes',
   '/employee/leave': 'Leave Request',

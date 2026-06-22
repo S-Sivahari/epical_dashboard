@@ -451,9 +451,6 @@ export function EmployeeProjectBoardPage({ routeProjectId = null }) {
                   <div className="admin-projects-cells-head">
                     <div className="admin-projects-cells-head-text">
                       <h2>Cells</h2>
-                      {activeLibrary ? (
-                        <span className="admin-projects-active-lib-pill">{activeLibrary.name}</span>
-                      ) : null}
                     </div>
                     <div className="admin-projects-cells-head-filters">
                       <div className="admin-projects-pill-rail" role="group" aria-label="Filter cells by status">

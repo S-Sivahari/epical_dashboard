@@ -25,6 +25,10 @@ import { useMediaQuery } from '@hooks/useMediaQuery'
 import { useNotificationCounts } from '@hooks/useNotificationCounts'
 import { NotificationBadge } from '@components/ui/NotificationBadge'
 import { Avatar } from '@components/ui/Avatar'
+import {
+  resolveNavNotificationCount,
+  type NotificationTabKey,
+} from '@utils/notificationCategories'
 
 export const ADMIN_SIDEBAR_WIDTH = 260
 export const ADMIN_SIDEBAR_COLLAPSED_WIDTH = 72
@@ -36,7 +40,8 @@ const groups: {
     label: string
     icon: typeof LayoutGrid
     end?: boolean
-    notificationKey?: 'leaves' | 'documents'
+    notificationKey?: NotificationTabKey
+    notificationBadgeKeys?: NotificationTabKey[]
   }[]
 }[] = [
   {
@@ -54,14 +59,14 @@ const groups: {
     label: 'Work',
     items: [
       { to: ROUTES.TIMESHEET, label: 'Projects & Timesheets', icon: Briefcase },
-      { to: ROUTES.PROJECTS, label: 'Projects', icon: Briefcase },
-      { to: ROUTES.CALENDAR, label: 'Company Calendar', icon: CalendarDays },
+      { to: ROUTES.PROJECTS, label: 'Projects', icon: Briefcase, notificationKey: 'projects' },
+      { to: ROUTES.CALENDAR, label: 'Company Calendar', icon: CalendarDays, notificationKey: 'calendar' },
     ],
   },
   {
     label: 'Company',
     items: [
-      { to: ROUTES.PAYSLIPS, label: 'Payslips', icon: Receipt },
+      { to: ROUTES.PAYSLIPS, label: 'Payslips', icon: Receipt, notificationKey: 'payslips' },
       { to: ROUTES.TRAINING, label: 'Training & Courses', icon: BookOpen },
       { to: ROUTES.ACHIEVEMENTS, label: 'Company achievements', icon: Trophy },
       {
@@ -71,7 +76,7 @@ const groups: {
         notificationKey: 'documents',
       },
       { to: ROUTES.NEWS, label: 'Manage News', icon: Newspaper },
-      { to: ROUTES.TICKETS, label: 'Tickets', icon: Ticket },
+      { to: ROUTES.TICKETS, label: 'Tickets', icon: Ticket, notificationKey: 'tickets' },
     ],
   },
 ]
@@ -79,15 +84,16 @@ const groups: {
 function NavItem({
   item,
   collapsed,
-  notificationCount,
+  counts,
   onNavigate,
 }: {
   item: (typeof groups)[number]['items'][number]
   collapsed: boolean
-  notificationCount?: number
+  counts: ReturnType<typeof useNotificationCounts>['counts']
   onNavigate: () => void
 }) {
   const Icon = item.icon
+  const showBadge = item.notificationKey || item.notificationBadgeKeys?.length
 
   return (
     <NavLink
@@ -103,7 +109,15 @@ function NavItem({
         )
       }
     >
-      {({ isActive }) => (
+      {({ isActive }) => {
+        const notificationCount = resolveNavNotificationCount({
+          notificationKey: item.notificationKey,
+          notificationBadgeKeys: item.notificationBadgeKeys,
+          isActive,
+          counts,
+        })
+
+        return (
         <>
           <motion.span
             className="flex shrink-0 items-center justify-center"
@@ -119,15 +133,16 @@ function NavItem({
             />
           </motion.span>
           {!collapsed && <span className="truncate">{item.label}</span>}
-          {!collapsed && item.notificationKey && (
+          {!collapsed && showBadge && (
             <NotificationBadge
-              count={isActive ? 0 : (notificationCount ?? 0)}
+              count={notificationCount ?? 0}
               size="sm"
               className="right-2"
             />
           )}
         </>
-      )}
+        )
+      }}
     </NavLink>
   )
 }
@@ -222,9 +237,7 @@ export function Sidebar() {
                     key={item.to}
                     item={item}
                     collapsed={collapsed}
-                    notificationCount={
-                      item.notificationKey ? notificationCounts[item.notificationKey] : undefined
-                    }
+                    counts={notificationCounts}
                     onNavigate={closeMobile}
                   />
                 ))}

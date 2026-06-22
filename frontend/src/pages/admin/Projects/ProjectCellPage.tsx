@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, CheckCircle2, ClipboardList, GitBranch, Layers, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageWrapper } from '@components/layout/PageWrapper'
+import { PortalToggle } from '@components/layout/PortalToggle'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { Button } from '@components/ui/Button'
 import { useProjectPortal } from './projectPortal'
+import { ROUTES } from '@constants/routes'
 import { getEmployees } from '@services/employeeService'
 import {
   completeCell,
@@ -21,15 +23,15 @@ import {
 import { cn } from '@/utils/cn'
 import {
   CELL_TYPES,
-  WORK_STAGE_STATUSES,
   type CellStatus,
   type ProjectCell,
   type WorkflowStageStatus,
   type WorkspaceSummary,
 } from '@/types/projectWorkspace'
 import type { Employee } from '@/types'
-import { CELL_STATUS_FILTER_OPTIONS, CELL_TYPE_LABELS, STATUS_LABELS, WORKFLOW_STATUS_LABELS, cellDisplayStatus, cellTypeLabel, normalizeCellType, normalizeViewStatus, workflowStageStatusClass } from './projectWorkspaceUi'
+import { CELL_TYPE_LABELS, STATUS_LABELS, WORKFLOW_STATUS_LABELS, cellDisplayStatus, cellTypeLabel, editableCellStatusOptions, editableWorkStageStatuses, normalizeCellType, normalizeViewStatus, workflowStageStatusClass } from './projectWorkspaceUi'
 import { buildEmployeeFullName } from '@/utils/employeeDisplayName'
+import { hasActiveAdminPortal, useAuthStore } from '@store/authStore'
 
 const INLINE_FIELD_CLASS = 'admin-projects-cell-details-inline-field'
 import { CellWorkflowPanel } from './CellWorkflowPanel'
@@ -60,7 +62,7 @@ function CellViewStatusButtons({ status, disabled, onChange }: CellViewStatusBut
   return (
     <div className="admin-projects-view-status-scroll">
       <div className="admin-projects-view-status-btns">
-        {WORK_STAGE_STATUSES.map((value) => (
+        {editableWorkStageStatuses(status).map((value) => (
           <button
             key={value}
             type="button"
@@ -89,7 +91,10 @@ const TAB_ITEMS: { id: CellTab; label: string; icon: typeof Layers }[] = [
 export function ProjectCellPage() {
   const { projectId = '', cellId = '' } = useParams()
   const navigate = useNavigate()
-  const { projectWorkspacePath } = useProjectPortal()
+  const { projectWorkspacePath, isEmployee } = useProjectPortal()
+  const authRole = useAuthStore((s) => s.role)
+  const portalAdmin = useAuthStore((s) => s.portalAdmin)
+  const canEditCells = hasActiveAdminPortal(authRole)
   const [summary, setSummary] = useState<WorkspaceSummary | null>(null)
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
@@ -214,7 +219,7 @@ export function ProjectCellPage() {
   }
 
   const saveCell = async () => {
-    if (!projectId || !cellForm) return
+    if (!projectId || !cellForm || !canEditCells) return
     setSaving(true)
     try {
       await updateCell(projectId, cellForm.id, {
@@ -232,7 +237,7 @@ export function ProjectCellPage() {
   }
 
   const saveDependencies = async () => {
-    if (!projectId || !cellId) return
+    if (!projectId || !cellId || !canEditCells) return
     setSaving(true)
     try {
       await updateCell(projectId, cellId, { dependencyCellIds: selectedDepIds })
@@ -280,7 +285,7 @@ export function ProjectCellPage() {
       : 'Loading completion requirements…'
 
   const handleViewStatusChange = async (viewKey: 'symbol' | 'schematic', status: WorkflowStageStatus) => {
-    if (!projectId || !cell) return
+    if (!projectId || !cell || !canEditCells) return
     setSavingViewStatus(viewKey)
     try {
       const updated = await updateCell(projectId, cell.id, {
@@ -316,6 +321,10 @@ export function ProjectCellPage() {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
       toast.error(msg || 'Failed to update hold status')
     }
+  }
+
+  if (isEmployee) {
+    return <Navigate to={ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECT_CELL(projectId, cellId)} replace />
   }
 
   if (loading && !summary) {
@@ -377,6 +386,7 @@ export function ProjectCellPage() {
                 {cellDisplayStatus(cell)}
               </span>
               {cell.status === 'completed' ? (
+                canEditCells ? (
                 <Button
                   size="sm"
                   variant="secondary"
@@ -385,7 +395,9 @@ export function ProjectCellPage() {
                 >
                   Uncomplete
                 </Button>
+                ) : null
               ) : (
+                canEditCells ? (
                 <Button
                   size="sm"
                   className="admin-projects-cell-header-complete-btn h-8"
@@ -396,7 +408,9 @@ export function ProjectCellPage() {
                   <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
                   Complete
                 </Button>
+                ) : null
               )}
+              {canEditCells ? (
               <button
                 type="button"
                 className="admin-projects-icon-btn admin-projects-icon-btn--light admin-projects-icon-btn--danger"
@@ -405,6 +419,7 @@ export function ProjectCellPage() {
               >
                 <Trash2 className="h-4 w-4" />
               </button>
+              ) : null}
               <CellWorkflowDurationLabel
                 cellStatus={cell.status}
                 workflowDuration={cell.productiveWorkDuration ?? cell.workflowDuration}
@@ -412,8 +427,8 @@ export function ProjectCellPage() {
                 alwaysVisible
                 variant="header"
                 onHold={Boolean(cell.onHold)}
-                holdEnabled={cell.status === 'in_progress'}
-                onHoldToggle={(hold) => void handleHoldToggle(hold)}
+                holdEnabled={canEditCells && cell.status === 'in_progress'}
+                onHoldToggle={canEditCells ? (hold) => void handleHoldToggle(hold) : undefined}
                 onSummaryClick={cell.status === 'completed' ? () => setTimeSummaryOpen(true) : undefined}
               />
               </div>
@@ -433,6 +448,17 @@ export function ProjectCellPage() {
           />
 
           <div className="admin-projects-cell-page-body">
+            {portalAdmin && !canEditCells ? (
+              <div
+                className="mx-4 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+                role="status"
+              >
+                <p className="font-medium">
+                  You are on the Employee portal. Switch to Admin to edit this cell.
+                </p>
+                <PortalToggle />
+              </div>
+            ) : null}
             <nav className="admin-projects-cell-tab-rail" aria-label="Cell sections">
               {TAB_ITEMS.map((tab) => {
                 const Icon = tab.icon
@@ -660,7 +686,7 @@ export function ProjectCellPage() {
                               value={cellForm.status}
                               onChange={(e) => setCellForm((f) => f && { ...f, status: e.target.value as CellStatus })}
                             >
-                              {CELL_STATUS_FILTER_OPTIONS.filter((s) => s !== 'completed').map((s) => (
+                              {editableCellStatusOptions(cell.status).map((s) => (
                                 <option key={s} value={s}>{STATUS_LABELS[s]}</option>
                               ))}
                             </select>
@@ -677,7 +703,7 @@ export function ProjectCellPage() {
                         </dd>
                       </div>
                     </dl>
-                    {!isEditing && (
+                    {!isEditing && canEditCells && (
                       <Button
                         size="sm"
                         variant="secondary"
@@ -725,6 +751,7 @@ export function ProjectCellPage() {
                             cell={cell}
                             embedded
                             showReviews={false}
+                            canEdit={canEditCells}
                             onUpdated={mergeUpdatedCell}
                           />
                         ) : viewTab === 'schematic' ? (
@@ -732,12 +759,13 @@ export function ProjectCellPage() {
                             projectId={projectId}
                             cell={cell}
                             embedded
+                            canEdit={canEditCells}
                             onUpdated={mergeUpdatedCell}
                           />
                         ) : (
                           <CellViewStatusButtons
                             status={normalizeViewStatus(cell.views?.[viewTab])}
-                            disabled={savingViewStatus === viewTab}
+                            disabled={!canEditCells || savingViewStatus === viewTab}
                             onChange={(status) => void handleViewStatusChange(viewTab, status)}
                           />
                         )}
@@ -771,7 +799,8 @@ export function ProjectCellPage() {
                         <button
                           key={option.id}
                           type="button"
-                          onClick={() => toggleDependency(option.id)}
+                          onClick={() => canEditCells && toggleDependency(option.id)}
+                          disabled={!canEditCells}
                           className={cn(
                             'admin-projects-dep-option',
                             selectedDepIds.includes(option.id) && 'is-selected',
@@ -797,12 +826,14 @@ export function ProjectCellPage() {
                       {selectedDepIds.length} dependenc{selectedDepIds.length === 1 ? 'y' : 'ies'} selected
                     </p>
                   )}
+                  {canEditCells ? (
                   <div className="admin-projects-cell-form-actions">
                     <Button onClick={() => void saveDependencies()} disabled={saving}>
                       <GitBranch className="mr-1.5 h-3.5 w-3.5" />
                       {selectedDepIds.length ? 'Save dependencies' : 'Clear dependencies'}
                     </Button>
                   </div>
+                  ) : null}
                 </div>
               )}
 

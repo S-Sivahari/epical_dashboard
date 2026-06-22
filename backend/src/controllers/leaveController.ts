@@ -12,6 +12,44 @@ type HolidayType = (typeof VALID_HOLIDAY_TYPES)[number];
 const isValidHolidayType = (value: any): value is HolidayType =>
   VALID_HOLIDAY_TYPES.includes(value);
 
+const isCalendarEventHolidayType = (type: string): boolean => type === 'Company Event';
+
+function notifyEmployeesCalendarEventHoliday(params: {
+  type: 'CalendarEventAdded' | 'CalendarEventUpdated' | 'CalendarEventRemoved';
+  eventId: string;
+  eventTitle: string;
+  eventDate: string;
+}): void {
+  const copy: Record<
+    typeof params.type,
+    { title: string; message: string }
+  > = {
+    CalendarEventAdded: {
+      title: 'New Company Event',
+      message: `"${params.eventTitle}" was added to the company calendar for ${params.eventDate}.`,
+    },
+    CalendarEventUpdated: {
+      title: 'Company Event Updated',
+      message: `"${params.eventTitle}" on ${params.eventDate} has been updated in the company calendar.`,
+    },
+    CalendarEventRemoved: {
+      title: 'Company Event Removed',
+      message: `"${params.eventTitle}" on ${params.eventDate} has been removed from the company calendar.`,
+    },
+  };
+  const { title, message } = copy[params.type];
+  void notificationService.notifyAllEmployees({
+    type: params.type,
+    title,
+    message,
+    relatedData: {
+      calendarEventId: params.eventId,
+      calendarEventTitle: params.eventTitle,
+      calendarEventDate: params.eventDate,
+    },
+  });
+}
+
 export const leaveController = {
   // GET /api/leaves
   getAll: async (req: AuthRequest, res: Response): Promise<void> => {
@@ -109,6 +147,53 @@ export const leaveController = {
     } catch (error: unknown) {
       res.status(400).json({
         error: error instanceof Error ? error.message : 'Failed to update leave allocations',
+      });
+    }
+  },
+
+  // PATCH /api/leaves/employee/:employeeId/balance-adjustment (Admin only)
+  adjustEmployeeBalance: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user || !isAdminRole(req.user.role)) {
+        res.status(403).json({ error: 'Forbidden: Admin access required' });
+        return;
+      }
+
+      const employeeId = Array.isArray(req.params.employeeId)
+        ? req.params.employeeId[0]
+        : req.params.employeeId;
+
+      if (!employeeId) {
+        res.status(400).json({ error: 'employeeId is required' });
+        return;
+      }
+
+      const { type, delta } = req.body as { type?: string; delta?: number };
+      if (delta === undefined || delta === null || Number(delta) === 0) {
+        res.status(400).json({ error: 'type and a non-zero delta are required' });
+        return;
+      }
+
+      const validTypes = new Set([
+        'Casual Leave',
+        'Sick Leave',
+        'Earned Leave',
+        'Compensation Leave',
+      ]);
+      if (!type || !validTypes.has(type)) {
+        res.status(400).json({ error: 'Invalid leave type' });
+        return;
+      }
+
+      const summary = await leaveService.adjustEmployeeLeaveBalance(
+        employeeId,
+        type as 'Casual Leave' | 'Sick Leave' | 'Earned Leave' | 'Compensation Leave',
+        Number(delta),
+      );
+      res.json(summary);
+    } catch (error: unknown) {
+      res.status(400).json({
+        error: error instanceof Error ? error.message : 'Failed to adjust leave balance',
       });
     }
   },
@@ -329,11 +414,26 @@ export const leaveController = {
     }
   },
 
-  // DELETE /api/leaves/:id
-  delete: async (req: Request, res: Response): Promise<void> => {
+  // DELETE /api/leaves/:id — admin cleanup; never notifies the employee
+  delete: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-    const { id } = req.params as { id: string };
-    const ok = await leaveService.deleteLeave(id);
+      if (!req.user || !isAdminRole(req.user.role)) {
+        res.status(403).json({ error: 'Forbidden: Admin access required' });
+        return;
+      }
+      const { id } = req.params as { id: string };
+      const existing = await leaveService.getLeaveById(id);
+      if (!existing) {
+        res.status(404).json({ error: 'Leave not found' });
+        return;
+      }
+      if (!leaveService.isLeaveEnded(existing)) {
+        res.status(400).json({
+          error: 'Only past approved leaves can be deleted from the calendar. Use revoke for active or upcoming leaves.',
+        });
+        return;
+      }
+      const ok = await leaveService.deleteLeave(id);
       if (!ok) {
         res.status(404).json({ error: 'Leave not found' });
         return;
@@ -408,17 +508,25 @@ export const leaveController = {
         type: holidayType,
       });
 
-      // Notify all active employees
-      void notificationService.notifyAllEmployees({
-        type: 'HolidayAdded',
-        title: 'New Holiday Added',
-        message: `${titleText} on ${dateText} has been added to the company calendar as a ${holidayType} holiday.`,
-        relatedData: {
-          holidayId: holiday.id,
-          holidayTitle: titleText,
-          holidayDate: dateText,
-        },
-      });
+      if (isCalendarEventHolidayType(holidayType)) {
+        notifyEmployeesCalendarEventHoliday({
+          type: 'CalendarEventAdded',
+          eventId: holiday.id,
+          eventTitle: titleText,
+          eventDate: dateText,
+        });
+      } else {
+        void notificationService.notifyAllEmployees({
+          type: 'HolidayAdded',
+          title: 'New Holiday Added',
+          message: `${titleText} on ${dateText} has been added to the company calendar as a ${holidayType} holiday.`,
+          relatedData: {
+            holidayId: holiday.id,
+            holidayTitle: titleText,
+            holidayDate: dateText,
+          },
+        });
+      }
 
       res.status(201).json(holiday);
     } catch {
@@ -449,22 +557,35 @@ export const leaveController = {
       const updatedTitle = title !== undefined ? String(title).trim() : existing.title;
       const updatedDate = date !== undefined ? String(date).trim() : existing.date;
       const updatedType = type !== undefined ? type : existing.type;
-      const changed =
-        updatedTitle !== existing.title ||
-        updatedDate !== existing.date ||
-        updatedType !== existing.type;
+      const titleChanged = updatedTitle !== existing.title;
+      const dateChanged = updatedDate !== existing.date;
+      const typeChanged = updatedType !== existing.type;
+      const isEvent =
+        isCalendarEventHolidayType(updatedType) || isCalendarEventHolidayType(existing.type);
+      const shouldNotify = isEvent
+        ? titleChanged || dateChanged || typeChanged
+        : dateChanged || typeChanged;
 
-      if (changed) {
-        void notificationService.notifyAllEmployees({
-          type: 'HolidayUpdated',
-          title: 'Holiday Updated',
-          message: `The holiday "${updatedTitle}" on ${updatedDate} has been updated in the company calendar.`,
-          relatedData: {
-            holidayId: id,
-            holidayTitle: updatedTitle,
-            holidayDate: updatedDate,
-          },
-        });
+      if (shouldNotify) {
+        if (isCalendarEventHolidayType(updatedType)) {
+          notifyEmployeesCalendarEventHoliday({
+            type: 'CalendarEventUpdated',
+            eventId: id,
+            eventTitle: updatedTitle,
+            eventDate: updatedDate,
+          });
+        } else {
+          void notificationService.notifyAllEmployees({
+            type: 'HolidayUpdated',
+            title: 'Holiday Updated',
+            message: `The holiday "${updatedTitle}" on ${updatedDate} has been updated in the company calendar.`,
+            relatedData: {
+              holidayId: id,
+              holidayTitle: updatedTitle,
+              holidayDate: updatedDate,
+            },
+          });
+        }
       }
 
       res.json(holiday);
@@ -483,17 +604,25 @@ export const leaveController = {
       const ok = await leaveService.deleteHoliday(id);
       if (!ok) { res.status(404).json({ error: 'Holiday not found' }); return; }
 
-      // Notify all active employees
-      void notificationService.notifyAllEmployees({
-        type: 'HolidayDeleted',
-        title: 'Holiday Removed',
-        message: `"${holiday.title}" on ${holiday.date} has been removed from the company calendar.`,
-        relatedData: {
-          holidayId: id,
-          holidayTitle: holiday.title,
-          holidayDate: holiday.date,
-        },
-      });
+      if (isCalendarEventHolidayType(holiday.type)) {
+        notifyEmployeesCalendarEventHoliday({
+          type: 'CalendarEventRemoved',
+          eventId: id,
+          eventTitle: holiday.title,
+          eventDate: holiday.date,
+        });
+      } else {
+        void notificationService.notifyAllEmployees({
+          type: 'HolidayDeleted',
+          title: 'Holiday Removed',
+          message: `"${holiday.title}" on ${holiday.date} has been removed from the company calendar.`,
+          relatedData: {
+            holidayId: id,
+            holidayTitle: holiday.title,
+            holidayDate: holiday.date,
+          },
+        });
+      }
 
       res.json({ message: 'Deleted successfully' });
     } catch {

@@ -221,17 +221,11 @@ export function ProfileCard({
             <span className="emp-dashboard-hero__divider hidden sm:block" aria-hidden />
 
             <div className="emp-dashboard-hero__identity-copy min-w-0">
-              <p className="truncate text-xs text-[#4b6b5c] sm:text-sm">{greeting()},</p>
-              <h2 className="truncate font-heading text-xl font-bold uppercase tracking-wide text-[#1a4329] sm:text-2xl">
+              <p className="emp-dashboard-hero__greeting truncate text-black">{greeting()},</p>
+              <h2 className="emp-dashboard-hero__name truncate font-heading font-bold uppercase tracking-wide text-black">
                 {employee.name}
               </h2>
-              <p className="truncate text-xs text-[#5c7a6a] sm:text-sm">{roleLabel ?? employeeCode}</p>
-              {attendance?.checkedIn && !attendance?.checkOutTime ? (
-                <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#e8f3ed] px-2 py-0.5 text-[10px] font-medium text-[#1a4329] sm:text-xs">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-                  Checked in
-                </p>
-              ) : null}
+              <p className="emp-dashboard-hero__role truncate text-xs sm:text-sm">{roleLabel ?? employeeCode}</p>
             </div>
           </div>
 

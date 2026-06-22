@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FolderKanban, Clock, ArrowRight } from 'lucide-react'
+import { ROUTES } from '@constants/routes'
 import { Badge } from '@components/employee/ui/badge'
 import api from '@services/api'
 import { cn } from '@pages/employee/lib/utils'
@@ -26,7 +27,7 @@ function ProjectRow({ project, compact = false }) {
       )}
     >
       <Link
-        to={`/employee/projects/${project.id}`}
+        to={ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECT_WORKSPACE(project.id)}
         className="col-span-full grid grid-cols-subgrid items-center gap-2 sm:col-span-4 sm:gap-3 hover:bg-[#f6f4fa]/80"
       >
       <div className="min-w-0">
@@ -116,7 +117,7 @@ export function AssignedProjectsSection({
 
   return (
     <InteractiveCard
-      to="/employee/projects"
+      to={ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECTS}
       className={portalCardClass({
         className: cn(
           compact
@@ -168,7 +169,7 @@ export function AssignedProjectsSection({
           </div>
         </div>
         <Link
-          to="/employee/projects"
+          to={ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECTS}
           className={cn(
             'inline-flex shrink-0 items-center gap-1 font-medium text-primary hover:underline',
             compact ? 'text-[10px]' : 'text-xs',

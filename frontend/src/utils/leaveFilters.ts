@@ -93,6 +93,30 @@ export function canCancelLeave(leave: Pick<LeaveRequest, 'status' | 'to'>): bool
   return false
 }
 
+/** True when an approved leave period has fully ended (end date before today). */
+export function isLeaveEnded(leave: Pick<LeaveRequest, 'to'>): boolean {
+  const end = typeof leave.to === 'string' ? leave.to.slice(0, 10) : ''
+  return Boolean(end && end < todayLocalISO())
+}
+
+/** Upcoming/current approved leaves first (by start date), then past approved leaves. */
+export function sortApprovedLeavesUpcomingFirst(leaves: LeaveRequest[]): LeaveRequest[] {
+  const today = todayLocalISO()
+  const upcoming = leaves
+    .filter((l) => {
+      const end = typeof l.to === 'string' ? l.to.slice(0, 10) : ''
+      return Boolean(end && end >= today)
+    })
+    .sort((a, b) => a.from.localeCompare(b.from))
+  const past = leaves
+    .filter((l) => {
+      const end = typeof l.to === 'string' ? l.to.slice(0, 10) : ''
+      return Boolean(end && end < today)
+    })
+    .sort((a, b) => a.from.localeCompare(b.from))
+  return [...upcoming, ...past]
+}
+
 function toDateKey(value: unknown): string | null {
   if (!value) return null
   const d = value instanceof Date ? value : new Date(String(value))

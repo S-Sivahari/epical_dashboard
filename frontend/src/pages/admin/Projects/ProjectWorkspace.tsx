@@ -24,6 +24,8 @@ import {
   updateLibrary,
   type EffortPrediction,
 } from '@/services/projectWorkspaceService'
+import { fetchMyDependencyGraph, fetchMyProjectWorkspace } from '@/services/employeeProjectService'
+import { mapEmployeeWorkspaceToSummary } from '@/utils/employeeWorkspaceAdapter'
 import { cn } from '@/utils/cn'
 import {
   CELL_TYPES,
@@ -93,7 +95,8 @@ function emptyCellForm(libraryId: string, technologyNode: string): Partial<Proje
 export function ProjectWorkspace() {
   const { projectId = '' } = useParams()
   const navigate = useNavigate()
-  const { projectsListPath, projectCellPath } = useProjectPortal()
+  const { projectsListPath, projectCellPath, isEmployee } = useProjectPortal()
+  const canManageWorkspace = !isEmployee
   const [summary, setSummary] = useState<WorkspaceSummary | null>(null)
   const [graph, setGraph] = useState<DependencyGraph | null>(null)
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -128,6 +131,22 @@ export function ProjectWorkspace() {
     if (!projectId) return
     setLoading(true)
     try {
+      if (isEmployee) {
+        const [ws, dg] = await Promise.all([
+          fetchMyProjectWorkspace(projectId),
+          fetchMyDependencyGraph(projectId),
+        ])
+        const summaryData = mapEmployeeWorkspaceToSummary(ws)
+        setSummary(summaryData)
+        setGraph(dg)
+        setEmployees([])
+        setActiveLibraryId((prev) => {
+          if (prev && summaryData.libraries.some((lib) => lib.id === prev)) return prev
+          return summaryData.libraries[0]?.id ?? null
+        })
+        return
+      }
+
       const [ws, dg, empsRes] = await Promise.all([
         fetchWorkspaceSummary(projectId),
         fetchDependencyGraph(projectId),
@@ -145,7 +164,7 @@ export function ProjectWorkspace() {
     } finally {
       setLoading(false)
     }
-  }, [projectId])
+  }, [projectId, isEmployee])
 
   useEffect(() => {
     void reload()
@@ -174,6 +193,16 @@ export function ProjectWorkspace() {
   const refreshGraphData = useCallback(async () => {
     if (!projectId) return
     try {
+      if (isEmployee) {
+        const [ws, dg] = await Promise.all([
+          fetchMyProjectWorkspace(projectId),
+          fetchMyDependencyGraph(projectId),
+        ])
+        setSummary(mapEmployeeWorkspaceToSummary(ws))
+        setGraph(dg)
+        return
+      }
+
       const [ws, dg] = await Promise.all([
         fetchWorkspaceSummary(projectId),
         fetchDependencyGraph(projectId),
@@ -183,7 +212,7 @@ export function ProjectWorkspace() {
     } catch {
       toast.error('Failed to refresh dependency graph')
     }
-  }, [projectId])
+  }, [projectId, isEmployee])
 
   useEffect(() => {
     if (workspaceSection !== 'graph' || !projectId) return
@@ -616,11 +645,13 @@ export function ProjectWorkspace() {
                   </p>
                   <span className="admin-projects-libraries-count">{libraries.length}</span>
                 </div>
-                <WorkspaceLibraryToolbar
-                  onAddLibrary={openCreateLibraryModal}
-                  onDownloadTemplate={() => void handleDownloadCellTemplate()}
-                  downloading={downloadingCellTemplate}
-                />
+                {canManageWorkspace ? (
+                  <WorkspaceLibraryToolbar
+                    onAddLibrary={openCreateLibraryModal}
+                    onDownloadTemplate={() => void handleDownloadCellTemplate()}
+                    downloading={downloadingCellTemplate}
+                  />
+                ) : null}
                 <input
                   ref={cellImportInputRef}
                   type="file"
@@ -636,6 +667,7 @@ export function ProjectWorkspace() {
                       cellCount={libraryCellCounts.get(lib.id) ?? 0}
                       isActive={activeLibraryId === lib.id && !showAllCells}
                       menuOpen={openLibraryMenuId === lib.id}
+                      manageable={canManageWorkspace}
                       onSelect={() => {
                         setActiveLibraryId(lib.id)
                         setShowAllCells(false)
@@ -668,11 +700,6 @@ export function ProjectWorkspace() {
                 <div className="admin-projects-cells-head">
                   <div className="admin-projects-cells-head-text">
                     <h2>Cells</h2>
-                    {showAllCells ? (
-                      <span className="admin-projects-active-lib-pill">All libraries</span>
-                    ) : activeLibrary ? (
-                      <span className="admin-projects-active-lib-pill">{activeLibrary.name}</span>
-                    ) : null}
                   </div>
 
                   <div className="admin-projects-cells-head-filters">
@@ -738,14 +765,16 @@ export function ProjectWorkspace() {
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    className="admin-projects-cells-create"
-                    disabled={libraries.length === 0}
-                    onClick={openCreateCell}
-                  >
-                    <Plus className="h-4 w-4" /> New cell
-                  </button>
+                  {canManageWorkspace ? (
+                    <button
+                      type="button"
+                      className="admin-projects-cells-create"
+                      disabled={libraries.length === 0}
+                      onClick={openCreateCell}
+                    >
+                      <Plus className="h-4 w-4" /> New cell
+                    </button>
+                  ) : null}
                 </div>
 
                 <div className="admin-projects-cells-table-wrap">
@@ -757,6 +786,8 @@ export function ProjectWorkspace() {
                         <th className="admin-projects-table-col-type">Type</th>
                         <th className="admin-projects-table-col-assigned">Assigned</th>
                         <th className="admin-projects-table-col-status">Status</th>
+                        <th className="admin-projects-table-col-est-hours">Est. Hours</th>
+                        <th className="admin-projects-table-col-act-hours">Actual Hours</th>
                         <th className="admin-projects-table-col-workflow">Workflow</th>
                       </tr>
                     </thead>
@@ -792,6 +823,12 @@ export function ProjectWorkspace() {
                               {cellDisplayStatus(cell)}
                             </span>
                           </td>
+                          <td className="admin-projects-table-col-est-hours tabular-nums">
+                            {cell.estimatedEffort ?? 0}h
+                          </td>
+                          <td className="admin-projects-table-col-act-hours tabular-nums">
+                            {cell.actualEffort ?? 0}h
+                          </td>
                           <td className="admin-projects-table-col-workflow" onClick={(e) => e.stopPropagation()}>
                             <CellWorkflowPanel projectId={projectId} cell={cell} compact />
                           </td>
@@ -799,7 +836,7 @@ export function ProjectWorkspace() {
                       ))}
                       {displayedCells.length === 0 && (
                         <tr>
-                          <td colSpan={showAllCells ? 6 : 5} className="admin-projects-table-empty">
+                          <td colSpan={showAllCells ? 8 : 7} className="admin-projects-table-empty">
                             {showAllCells ? 'No cells in this project.' : 'No cells in this library.'}
                           </td>
                         </tr>

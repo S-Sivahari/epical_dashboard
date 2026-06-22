@@ -8,7 +8,7 @@ import { Avatar } from '@components/ui/Avatar'
 import { Badge } from '@components/ui/Badge'
 import { UiTooltip } from '@components/ui/Tooltip'
 import { ROUTES } from '@constants/routes'
-import { isProjectAnalysisAdminPath } from './projectPortal'
+import { isProjectAnalysisAdminPath, isProjectAnalysisEmployeePath } from './projectPortal'
 import { fetchMyAssignedProjects } from '@/services/employeeProjectService'
 import api from '@/services/api'
 import { useProjectPortal } from './projectPortal'
@@ -265,7 +265,7 @@ export function ProjectsDashboard() {
       },
       {
         key: 'teamLead',
-        header: 'Team lead',
+        header: 'Team Lead',
         sortable: true,
         className: 'admin-projects-col-team-lead max-w-0',
         render: (p) => <TruncateText text={p.teamLead || ''} className="text-slate-700" />,
@@ -341,7 +341,9 @@ export function ProjectsDashboard() {
   if (tab) {
     const base = isProjectAnalysisAdminPath(pathname)
       ? ROUTES.PROJECT_ANALYSIS_PROJECTS
-      : ROUTES.TIMESHEET
+      : isProjectAnalysisEmployeePath(pathname)
+        ? ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECTS
+        : ROUTES.TIMESHEET
     return <Navigate to={`${base}?${searchParams.toString()}`} replace />
   }
 
@@ -459,9 +461,9 @@ export function ProjectsDashboard() {
                   value={filterTeamLead}
                   onChange={(e) => setFilterTeamLead(e.target.value)}
                   className={FILTER_SELECT_CLASS}
-                  aria-label="Filter by team lead"
+                  aria-label="Filter by Team Lead"
                 >
-                  <option value="all">All team leads</option>
+                  <option value="all">All Team Leads</option>
                   {filterOptions.teamLeads.map((lead) => (
                     <option key={lead} value={lead}>
                       {lead}

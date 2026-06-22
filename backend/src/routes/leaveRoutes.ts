@@ -25,6 +25,11 @@ router.patch(
   roleMiddleware('Admin'),
   leaveController.updateEmployeeAllocations
 );
+router.patch(
+  '/employee/:employeeId/balance-adjustment',
+  roleMiddleware('Admin'),
+  leaveController.adjustEmployeeBalance
+);
 
 // Leave requests
 router.get('/history', leaveController.getHistory);

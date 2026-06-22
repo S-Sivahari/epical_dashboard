@@ -32,6 +32,13 @@ const GRID_PAGE_SIZE = 9
 
 type SortKey = 'name-asc' | 'name-desc' | 'updated-desc'
 
+export type SignalAnalysisOverviewStats = {
+  total: number
+  active: number
+  assigned: number
+  unassigned: number
+}
+
 export function MetalRoutingCellRoutingProjectTable({
   projects,
   loading,
@@ -41,6 +48,7 @@ export function MetalRoutingCellRoutingProjectTable({
   hideToolbarTitle,
   pdkModulesHref,
   layoutVariant = 'default',
+  stats,
   onSearchChange,
   onStatusFilterChange,
   onOpenRouting,
@@ -53,6 +61,7 @@ export function MetalRoutingCellRoutingProjectTable({
   hideToolbarTitle?: boolean
   pdkModulesHref?: string
   layoutVariant?: 'default' | 'premium'
+  stats?: SignalAnalysisOverviewStats
   onSearchChange: (value: string) => void
   onStatusFilterChange: (value: string) => void
   onOpenRouting: (projectId: string) => void
@@ -102,6 +111,36 @@ export function MetalRoutingCellRoutingProjectTable({
   const rangeEnd = Math.min(currentPage * effectivePageSize, filtered.length)
 
   const isPremium = layoutVariant === 'premium'
+  const nameSortAsc = sortKey !== 'name-desc'
+
+  const toggleNameSort = () => {
+    setSortKey((current) => (current === 'name-asc' ? 'name-desc' : 'name-asc'))
+  }
+
+  const renderInlineStats = () => {
+    if (!isPremium || !stats) return null
+
+    const items = [
+      { label: 'Total projects', value: stats.total },
+      { label: 'Active', value: stats.active },
+      { label: 'PDK assigned', value: stats.assigned },
+      { label: 'Unassigned', value: stats.unassigned },
+    ]
+
+    return (
+      <div className="signal-analysis-panel__inline-stats" aria-label="Project overview">
+        {items.map((item, index) => (
+          <span key={item.label} className="signal-analysis-panel__inline-stat">
+            {index > 0 ? <span className="signal-analysis-panel__inline-stat-sep" aria-hidden>·</span> : null}
+            <span className="signal-analysis-panel__inline-stat-label">{item.label}</span>
+            <span className="signal-analysis-panel__inline-stat-value">
+              {loading ? '—' : item.value}
+            </span>
+          </span>
+        ))}
+      </div>
+    )
+  }
 
   return (
     <section
@@ -153,19 +192,22 @@ export function MetalRoutingCellRoutingProjectTable({
             onChange={onStatusFilterChange}
             projects={projects}
           />
-          <div className="metal-routing-signal-projects-sort">
-            <ArrowUpDown className="metal-routing-signal-projects-sort__icon" aria-hidden />
-            <select
-              className="metal-routing-toolbar-select metal-routing-signal-projects-sort__select"
-              value={sortKey}
-              onChange={(e) => setSortKey(e.target.value as SortKey)}
-              aria-label="Sort projects"
-            >
-              <option value="name-asc">Sort by name (A–Z)</option>
-              <option value="name-desc">Sort by name (Z–A)</option>
-              <option value="updated-desc">Sort by recently updated</option>
-            </select>
-          </div>
+          {renderInlineStats()}
+          {!isPremium ? (
+            <div className="metal-routing-signal-projects-sort">
+              <ArrowUpDown className="metal-routing-signal-projects-sort__icon" aria-hidden />
+              <select
+                className="metal-routing-toolbar-select metal-routing-signal-projects-sort__select"
+                value={sortKey}
+                onChange={(e) => setSortKey(e.target.value as SortKey)}
+                aria-label="Sort projects"
+              >
+                <option value="name-asc">Sort by name (A–Z)</option>
+                <option value="name-desc">Sort by name (Z–A)</option>
+                <option value="updated-desc">Sort by recently updated</option>
+              </select>
+            </div>
+          ) : null}
           <MetalRoutingViewToggle
             value={viewMode}
             onChange={(mode) => {
@@ -213,6 +255,8 @@ export function MetalRoutingCellRoutingProjectTable({
             projects={pageItems}
             startIndex={(currentPage - 1) * effectivePageSize}
             hideTechnology={hideTechnology}
+            nameSortAsc={nameSortAsc}
+            onToggleNameSort={toggleNameSort}
             onOpenRouting={onOpenRouting}
           />
         ) : (

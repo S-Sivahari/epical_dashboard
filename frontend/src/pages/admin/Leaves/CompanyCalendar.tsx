@@ -22,11 +22,12 @@ import { toast } from 'sonner'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { formatDate } from '@/utils/formatDate'
 import type { Holiday } from '@/types'
-import { useLeaveStore } from '@store/leaveStore'
+import { isLeaveEnded, sortApprovedLeavesUpcomingFirst } from '@utils/leaveFilters'
 import { cn } from '@/utils/cn'
 import * as leaveService from '@services/leaveService'
 import type { TeamLeaveEntry } from '@services/leaveService'
 import type { LeaveRequest } from '@/types'
+import { useLeaveStore } from '@store/leaveStore'
 
 interface CalendarSidebarEvent {
   id: string
@@ -45,6 +46,27 @@ function dateInViewMonth(dateStr: string, monthIdx: number, year: number): boole
   return d.getMonth() === monthIdx && d.getFullYear() === year
 }
 
+function isEventFormMode(
+  editingKind: 'holiday' | 'calendarEvent' | null,
+  itemType: Holiday['type'],
+): boolean {
+  return editingKind === 'calendarEvent' || itemType === 'Company Event'
+}
+
+function formatLeaveDayCellLabel(leave: LeaveRequest, showEmployeeName: boolean): string {
+  const typeShort = leave.type.split(' ')[0] || leave.type
+  if (!showEmployeeName) return typeShort
+  const initials = leave.employeeName
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+  return `${initials} - ${typeShort}`
+}
+
+function formatLeavePrimaryLabel(leave: LeaveRequest, showEmployeeName: boolean): string {
+  return showEmployeeName ? leave.employeeName : leave.type
+}
+
 const CAL_SIDEBAR_ACTION_BTN = 'h-7 w-7 shrink-0 p-0 shadow-sm'
 const CAL_SIDEBAR_EDIT_BTN = cn(
   CAL_SIDEBAR_ACTION_BTN,
@@ -57,8 +79,10 @@ const CAL_SIDEBAR_DELETE_BTN = cn(
 
 export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
   const isEmployeeCal = variant === 'employee'
+  const isAdminCal = variant === 'admin'
   const useAdminLayout = variant === 'admin' || isEmployeeCal
-  const canManage = variant === 'admin'
+  const canManage = isAdminCal
+  const showLeaveEmployeeNames = isEmployeeCal
   const { holidays, leaves, loading, companyCalendarEvents } = useLeaves()
   const [teamLeaves, setTeamLeaves] = useState<TeamLeaveEntry[]>([])
   const [ownApprovedLeaves, setOwnApprovedLeaves] = useState<LeaveRequest[]>([])
@@ -80,10 +104,13 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
   const addCompanyCalendarEvent = useLeaveStore((s) => s.addCompanyCalendarEvent)
   const updateCompanyCalendarEvent = useLeaveStore((s) => s.updateCompanyCalendarEvent)
   const deleteCompanyCalendarEvent = useLeaveStore((s) => s.deleteCompanyCalendarEvent)
+  const deleteLeave = useLeaveStore((s) => s.deleteLeave)
 
   const [currentDate, setCurrentDate] = useState(new Date())
   const [eventDeleteConfirmOpen, setEventDeleteConfirmOpen] = useState(false)
   const [eventToDelete, setEventToDelete] = useState<CalendarSidebarEvent | null>(null)
+  const [leaveDeleteConfirmOpen, setLeaveDeleteConfirmOpen] = useState(false)
+  const [leaveToDelete, setLeaveToDelete] = useState<LeaveRequest | null>(null)
   const [selectedDateStr, setSelectedDateStr] = useState<string | null>(null)
   const [isDateModalOpen, setIsDateModalOpen] = useState(false)
   const [isHolidayFormOpen, setIsHolidayFormOpen] = useState(false)
@@ -193,11 +220,40 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
     setEditingKind(null)
   }
 
+  const openAddHolidayForm = () => {
+    resetHolidayForm()
+    setType('National')
+    setIsHolidayFormOpen(true)
+  }
+
+  const openAddEventForm = () => {
+    resetHolidayForm()
+    setType('Company Event')
+    setIsHolidayFormOpen(true)
+  }
+
+  const isEventForm = isEventFormMode(editingKind, type)
+  const formNameLabel = isEventForm ? 'Event Name' : 'Holiday Name'
+  const formTitle = editingId
+    ? isEventForm
+      ? 'Edit Event'
+      : 'Edit Holiday'
+    : isEventForm
+      ? 'Add Event'
+      : 'Add Holiday'
+  const formSaveLabel = editingId
+    ? isEventForm
+      ? 'Update Event'
+      : 'Update Holiday'
+    : isEventForm
+      ? 'Save Event'
+      : 'Save Holiday'
+
   const calendarBounds = getCalendarEntryBounds()
 
   const handleAddHoliday = async () => {
     if (!title.trim() || !date) {
-      toast.error('Please fill holiday name and date')
+      toast.error(`Please fill ${isEventForm ? 'event' : 'holiday'} name and date`)
       return
     }
 
@@ -302,18 +358,29 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
   }, [dbSidebarEvents, holidayEvents, currentMonthIdx, currentYear])
 
   const sidebarLeaves = useMemo(() => {
-    return approvedLeaves
-      .filter((leave) => {
-        const fromDate = parseISO(leave.from)
-        const toDate = parseISO(leave.to)
-        return (
-          dateInViewMonth(leave.from, currentMonthIdx, currentYear) ||
-          dateInViewMonth(leave.to, currentMonthIdx, currentYear) ||
-          (fromDate < monthStart && toDate > monthEnd)
-        )
-      })
-      .sort((a, b) => parseISO(a.from).getTime() - parseISO(b.from).getTime())
+    const filtered = approvedLeaves.filter((leave) => {
+      const fromDate = parseISO(leave.from)
+      const toDate = parseISO(leave.to)
+      return (
+        dateInViewMonth(leave.from, currentMonthIdx, currentYear) ||
+        dateInViewMonth(leave.to, currentMonthIdx, currentYear) ||
+        (fromDate < monthStart && toDate > monthEnd)
+      )
+    })
+    return sortApprovedLeavesUpcomingFirst(filtered)
   }, [approvedLeaves, currentMonthIdx, currentYear, monthStart, monthEnd])
+
+  const handleDeletePastLeave = async () => {
+    if (!leaveToDelete) return
+    try {
+      await deleteLeave(leaveToDelete.id)
+      setLeaveDeleteConfirmOpen(false)
+      setLeaveToDelete(null)
+      toast.success('Past leave removed')
+    } catch {
+      toast.error('Failed to remove past leave')
+    }
+  }
 
   return (
     <Tooltip.Provider delayDuration={300}>
@@ -417,9 +484,9 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                     'h-8 px-3 text-xs shadow-sm',
                     useAdminLayout && 'admin-dash-action-btn border-0 !text-white [&_svg]:!text-white',
                   )}
-                  onClick={() => setIsHolidayFormOpen(true)}
+                  onClick={openAddHolidayForm}
                 >
-                  <Plus className="h-4 w-4 mr-1.5 shrink-0" /> Add
+                  <Plus className="h-4 w-4 mr-1.5 shrink-0" /> Add Holiday
                 </Button>
               ) : null}
             </div>
@@ -563,7 +630,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                               ))}
                               {dayLeaves.slice(0, 1).map((l) => (
                                 <div key={l.id} className="text-[10px] leading-tight truncate px-1.5 py-0.5 rounded bg-lime-100 text-lime-800 border border-lime-200/50">
-                                  {l.employeeName.split(' ').map((n) => n[0]).join('')} - {l.type.split(' ')[0]}
+                                  {formatLeaveDayCellLabel(l, showLeaveEmployeeNames)}
                                 </div>
                               ))}
                               {dayLeaves.length > 1 && (
@@ -628,13 +695,21 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                                 )}
                                 {dayLeaves.length > 0 && (
                                   <div>
-                                    <p className="text-[11px] uppercase tracking-wider text-muted font-bold mb-1.5">Approved Leaves</p>
+                                    <p className="text-[11px] uppercase tracking-wider text-muted font-bold mb-1.5">
+                                      {showLeaveEmployeeNames ? 'Employees on Leave' : 'Approved Leaves'}
+                                    </p>
                                     <div className="space-y-1">
                                       {dayLeaves.map((l) => (
                                         <div key={l.id} className="flex items-center gap-2">
                                           <div className="h-1.5 w-1.5 rounded-full bg-lime-500" />
-                                          <span className="text-ink text-xs font-medium">{l.employeeName}</span>
-                                          <span className="text-muted text-[10px]">({l.type})</span>
+                                          <span className="text-ink text-xs font-medium">
+                                            {formatLeavePrimaryLabel(l, showLeaveEmployeeNames)}
+                                          </span>
+                                          {showLeaveEmployeeNames ? (
+                                            <span className="text-muted text-[10px]">({l.type})</span>
+                                          ) : (
+                                            <span className="text-muted text-[10px]">• {l.days}d</span>
+                                          )}
                                         </div>
                                       ))}
                                     </div>
@@ -722,6 +797,16 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                   >
                     {sidebarHolidays.length}
                   </span>
+                  {canManage ? (
+                    <button
+                      type="button"
+                      className="admin-cal-side-add-btn ml-auto inline-flex h-6 w-6 items-center justify-center rounded-md border border-[rgba(38,107,28,0.2)] text-[#266b1c] hover:bg-[#e8f2e6]"
+                      onClick={openAddHolidayForm}
+                      aria-label="Add holiday"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
                 </div>
 
                 <div
@@ -803,7 +888,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                                   variant="secondary"
                                   className={CAL_SIDEBAR_EDIT_BTN}
                                   onClick={() => handleEditHoliday(holiday)}
-                                  aria-label="Edit holiday"
+                                  aria-label="Edit holiday name"
                                 >
                                   <Edit2 className="h-3.5 w-3.5" />
                                 </Button>
@@ -871,6 +956,16 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                   >
                     {sidebarEvents.length}
                   </span>
+                  {canManage ? (
+                    <button
+                      type="button"
+                      className="admin-cal-side-add-btn ml-auto inline-flex h-6 w-6 items-center justify-center rounded-md border border-amber-300/80 text-amber-800 hover:bg-amber-50"
+                      onClick={openAddEventForm}
+                      aria-label="Add event"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
                 </div>
 
                 {sidebarEvents.length > 0 ? (
@@ -925,7 +1020,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                                 variant="secondary"
                                 className={CAL_SIDEBAR_EDIT_BTN}
                                 onClick={() => handleEditEvent(event)}
-                                aria-label="Edit event"
+                                aria-label="Edit event name"
                               >
                                 <Edit2 className="h-3.5 w-3.5" />
                               </Button>
@@ -1001,14 +1096,24 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                       useAdminLayout ? 'admin-cal-side-section-list admin-cal-side-section-list--fills' : 'max-h-36',
                     )}
                   >
-                    {sidebarLeaves.map((leave) => (
+                    {sidebarLeaves.map((leave) => {
+                      const pastLeave = isLeaveEnded(leave)
+                      return (
                       <div
                         key={leave.id}
                         className={cn(
                           'flex items-center rounded-lg border p-2 transition-all',
                           useAdminLayout
-                            ? 'admin-cal-list-item border-[rgba(38,107,28,0.12)] hover:border-[rgba(38,107,28,0.28)]'
-                            : 'border-border hover:border-primary/40 hover:shadow-sm',
+                            ? cn(
+                                'admin-cal-list-item',
+                                pastLeave
+                                  ? 'border-border/70 opacity-75'
+                                  : 'border-[rgba(38,107,28,0.12)] hover:border-[rgba(38,107,28,0.28)]',
+                              )
+                            : cn(
+                                'border-border hover:border-primary/40 hover:shadow-sm',
+                                pastLeave && 'opacity-75',
+                              ),
                         )}
                       >
                         <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-lime-100 to-lime-50 text-sm shadow-sm">
@@ -1021,11 +1126,12 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                               useAdminLayout ? 'line-clamp-2 leading-snug' : 'truncate',
                             )}
                           >
-                            {leave.employeeName}
+                            {formatLeavePrimaryLabel(leave, showLeaveEmployeeNames)}
                           </h4>
                           <p className="text-[10px] leading-snug text-muted">
-                            {leave.type} • {leave.days}d
-                            {useAdminLayout ? (
+                            {showLeaveEmployeeNames ? `${leave.type} • ${leave.days}d` : `${leave.days}d`}
+                            {pastLeave ? ' • Ended' : ''}
+                            {(useAdminLayout || !showLeaveEmployeeNames) && (
                               <>
                                 {' '}
                                 • {format(parseISO(leave.from), 'MMM d')}
@@ -1033,9 +1139,23 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                                   ? ` – ${format(parseISO(leave.to), 'MMM d')}`
                                   : ''}
                               </>
-                            ) : null}
+                            )}
                           </p>
                         </div>
+                        {canManage && pastLeave ? (
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            className={cn(CAL_SIDEBAR_DELETE_BTN, 'ml-2 flex-shrink-0')}
+                            onClick={() => {
+                              setLeaveToDelete(leave)
+                              setLeaveDeleteConfirmOpen(true)
+                            }}
+                            aria-label="Remove past leave record"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        ) : null}
                         {!useAdminLayout ? (
                           <div className="ml-2 flex-shrink-0 text-right">
                             <span className="block text-xs font-medium text-ink">
@@ -1049,7 +1169,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                           </div>
                         ) : null}
                       </div>
-                    ))}
+                    )})}
                   </div>
                 ) : (
                   <div
@@ -1143,14 +1263,18 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
             {itemsOnSelectedDate.leaves.length > 0 && (
               <div>
                 <h4 className="font-semibold text-ink text-sm mb-2 flex items-center gap-1.5">
-                  ✈️ Employees on Leave
+                  {showLeaveEmployeeNames ? '✈️ Employees on Leave' : '✈️ Approved Leaves'}
                 </h4>
                 <div className="space-y-2">
                   {itemsOnSelectedDate.leaves.map((l) => (
                     <div key={l.id} className="text-sm p-3 rounded-lg bg-green-50 border border-green-100 flex justify-between items-center">
                       <div>
-                        <p className="font-semibold text-green-900">{l.employeeName}</p>
-                        <p className="text-xs text-green-700 mt-0.5">{l.type} • {l.days} days</p>
+                        <p className="font-semibold text-green-900">
+                          {formatLeavePrimaryLabel(l, showLeaveEmployeeNames)}
+                        </p>
+                        <p className="text-xs text-green-700 mt-0.5">
+                          {showLeaveEmployeeNames ? `${l.type} • ${l.days} days` : `${l.days} days • ${formatDate(l.from)}${l.days > 1 ? ` – ${formatDate(l.to)}` : ''}`}
+                        </p>
                       </div>
                       <Badge variant="success">Approved</Badge>
                     </div>
@@ -1174,14 +1298,14 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
         <Modal isOpen={isHolidayFormOpen} onClose={() => {
           setIsHolidayFormOpen(false)
           resetHolidayForm()
-        }} title={editingId ? 'Edit Event' : 'Add Event'}>
+        }} title={formTitle}>
           <div className="space-y-4">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-ink">
-                Event Name <span className="text-red-500">*</span>
+                {formNameLabel} <span className="text-red-500">*</span>
               </label>
               <Input
-                placeholder="e.g., Independence Day"
+                placeholder={isEventForm ? 'e.g., Town Hall' : 'e.g., Independence Day'}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="h-10"
@@ -1197,20 +1321,22 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                 placeholder="dd/mm/yyyy"
               />
             </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-ink">Type</label>
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value as 'National' | 'Company' | 'Optional' | 'Company Event')}
-                disabled={editingKind === 'calendarEvent'}
-                className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow disabled:bg-surface/50 disabled:text-muted"
-              >
-                <option value="National">Public Holiday</option>
-                <option value="Company">Company Holiday</option>
-                <option value="Company Event">Company Event</option>
-              </select>
-            </div>
-            {type === 'Company Event' && (
+            {!isEventForm ? (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink">Holiday Type</label>
+                <select
+                  value={type}
+                  onChange={(e) =>
+                    setType(e.target.value as 'National' | 'Company' | 'Optional' | 'Company Event')
+                  }
+                  className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
+                >
+                  <option value="National">Public Holiday</option>
+                  <option value="Company">Company Holiday</option>
+                </select>
+              </div>
+            ) : null}
+            {isEventForm && (
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-ink">Time (Optional)</label>
                 <Input
@@ -1232,7 +1358,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                 Cancel
               </Button>
               <Button onClick={handleAddHoliday}>
-                {editingId ? 'Update Event' : 'Save Event'}
+                {formSaveLabel}
               </Button>
             </div>
           </div>
@@ -1267,6 +1393,22 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
           title="Delete Event"
           description={`Remove "${eventToDelete.title}" from the calendar?`}
           confirmLabel="Delete"
+          danger
+        />
+      )}
+
+      {/* Remove past approved leave — silent cleanup, no employee notification */}
+      {canManage && leaveDeleteConfirmOpen && leaveToDelete && (
+        <ConfirmModal
+          isOpen={leaveDeleteConfirmOpen}
+          onConfirm={handleDeletePastLeave}
+          onClose={() => {
+            setLeaveDeleteConfirmOpen(false)
+            setLeaveToDelete(null)
+          }}
+          title="Remove Past Leave"
+          description={`Remove ${leaveToDelete.employeeName}'s past ${leaveToDelete.type} (${formatDate(leaveToDelete.from)} – ${formatDate(leaveToDelete.to)}) from records? The employee will not be notified.`}
+          confirmLabel="Remove"
           danger
         />
       )}
