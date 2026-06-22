@@ -2379,18 +2379,20 @@
 
 .project-analysis-launch-btn--hero {
   justify-content: center;
-  border-color: rgba(255, 255, 255, 0.35);
-  background: linear-gradient(165deg, #ffffff 0%, #ecfdf5 100%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   font-size: calc(0.9375rem * var(--admin-projects-ui-scale, 0.8));
   font-weight: 700;
-  color: #1e5a3d;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
 }
 
 .project-analysis-launch-btn--hero:hover {
-  border-color: rgba(38, 107, 28, 0.35);
-  background: linear-gradient(165deg, #f0fdf4 0%, #dcfce7 100%);
-  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.07);
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
   transform: none;
 }
 
@@ -2415,6 +2417,7 @@
   width: calc(1.125rem * var(--admin-projects-ui-scale, 0.8));
   height: calc(1.125rem * var(--admin-projects-ui-scale, 0.8));
   flex-shrink: 0;
+  color: #ffffff;
 }
 
 .admin-projects-view .project-analysis-launch-btn--hero.projects-hero-stat-card span {
@@ -2432,11 +2435,13 @@
   padding: calc(0.5rem * var(--admin-projects-ui-scale, 0.8)) calc(0.75rem * var(--admin-projects-ui-scale, 0.8));
   justify-content: center;
   gap: calc(0.5rem * var(--admin-projects-ui-scale, 0.8));
-  border: 1px solid rgba(255, 255, 255, 0.85);
-  background: linear-gradient(165deg, #ffffff 0%, #ecfdf5 100%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   font-size: calc(0.9375rem * var(--admin-projects-ui-scale, 0.8));
   font-weight: 700;
-  color: #1e5a3d;
+  color: #ffffff;
   line-height: 1.2;
   text-align: center;
   white-space: nowrap;
@@ -2444,14 +2449,20 @@
   text-overflow: ellipsis;
   cursor: pointer;
   font-family: inherit;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
-.admin-projects-view .projects-hero-create-btn.projects-hero-stat-card:hover {
-  border-color: rgba(255, 255, 255, 0.95);
-  background: linear-gradient(165deg, #f0fdf4 0%, #dcfce7 100%);
-  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.07);
+.admin-projects-view .projects-hero-create-btn.projects-hero-stat-card::before,
+.admin-projects-view .project-analysis-launch-btn--hero.projects-hero-stat-card::before {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.08) 55%, transparent 100%);
+}
+
+.admin-projects-view .projects-hero-create-btn.projects-hero-stat-card:hover,
+.admin-projects-view .project-analysis-launch-btn--hero.projects-hero-stat-card:hover {
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
   transform: none;
 }
 
@@ -2459,6 +2470,7 @@
   width: calc(1.125rem * var(--admin-projects-ui-scale, 0.8));
   height: calc(1.125rem * var(--admin-projects-ui-scale, 0.8));
   flex-shrink: 0;
+  color: #ffffff;
 }
 
 .admin-projects-view .projects-hero-create-btn.projects-hero-stat-card span {
