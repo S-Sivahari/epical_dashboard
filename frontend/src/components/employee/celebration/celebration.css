@@ -198,7 +198,7 @@
   flex-direction: column;
   align-items: flex-end;
   width: 16.5rem;
-  animation: leave-helicopter-fly 6.2s cubic-bezier(0.42, 0, 0.2, 1) forwards;
+  animation: leave-helicopter-fly var(--helicopter-fly-duration, 6.2s) cubic-bezier(0.42, 0, 0.2, 1) forwards;
   will-change: transform;
 }
 
@@ -233,8 +233,7 @@
   min-width: 7.5rem;
   padding: 0.42rem 0.85rem;
   border-radius: 0.35rem;
-  border: 2px dashed #b45309;
-  background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
+  border: 2px dashed transparent;
   box-shadow:
     0 4px 10px rgba(15, 23, 42, 0.14),
     inset 0 1px 0 rgba(255, 255, 255, 0.85);
@@ -242,8 +241,22 @@
   font-weight: 900;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #9a3412;
   white-space: nowrap;
+}
+
+.leave-helicopter-flyover__tag--approved {
+  border-color: #b45309;
+  background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
+  color: #9a3412;
+}
+
+.leave-helicopter-flyover__tag--rejected {
+  border-color: #dc2626;
+  background: linear-gradient(180deg, #fef2f2 0%, #fecaca 100%);
+  color: #991b1b;
+  box-shadow:
+    0 4px 10px rgba(127, 29, 29, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88);
 }
 
 @keyframes leave-helicopter-fly {

@@ -1,22 +1,55 @@
-import { useEffect } from 'react'
-import { playHelicopterSound } from '@utils/helicopterSound'
+import { useEffect, useState } from 'react'
+import type { CelebrationVariant } from '@components/employee/celebration/CelebrationParticles'
+import { cn } from '@/utils/cn'
+import { HELICOPTER_FLY_DURATION_MS, playHelicopterSound, stopHelicopterSound } from '@utils/helicopterSound'
 import './celebration.css'
 
-type LeaveApprovedHelicopterProps = {
+type LeaveHelicopterFlyoverProps = {
   active: boolean
+  variant: CelebrationVariant
 }
 
-export function LeaveApprovedHelicopter({ active }: LeaveApprovedHelicopterProps) {
+const BANNER_COPY: Record<CelebrationVariant, string> = {
+  approved: 'Leave Approved',
+  rejected: 'Leave Rejected',
+}
+
+export function LeaveHelicopterFlyover({ active, variant }: LeaveHelicopterFlyoverProps) {
+  const [visible, setVisible] = useState(false)
+  const isRejected = variant === 'rejected'
+
   useEffect(() => {
-    if (!active) return
-    void playHelicopterSound()
+    if (!active) {
+      setVisible(false)
+      stopHelicopterSound()
+      return undefined
+    }
+
+    setVisible(true)
+    void playHelicopterSound(HELICOPTER_FLY_DURATION_MS)
+
+    const hideTimer = window.setTimeout(() => {
+      setVisible(false)
+    }, HELICOPTER_FLY_DURATION_MS)
+
+    return () => {
+      window.clearTimeout(hideTimer)
+      stopHelicopterSound()
+    }
   }, [active])
 
-  if (!active) return null
+  if (!visible) return null
 
   return (
-    <div className="leave-helicopter-flyover" aria-live="polite" aria-label="Leave approved celebration">
-      <div className="leave-helicopter-flyover__craft">
+    <div
+      className={cn('leave-helicopter-flyover', isRejected && 'leave-helicopter-flyover--rejected')}
+      aria-live="polite"
+      aria-label={isRejected ? 'Leave rejected notice' : 'Leave approved celebration'}
+    >
+      <div
+        className="leave-helicopter-flyover__craft"
+        style={{ ['--helicopter-fly-duration' as string]: `${HELICOPTER_FLY_DURATION_MS}ms` }}
+      >
         <svg
           className="leave-helicopter-flyover__svg"
           viewBox="0 0 220 92"
@@ -50,16 +83,28 @@ export function LeaveApprovedHelicopter({ active }: LeaveApprovedHelicopterProps
             y1="58"
             x2="186"
             y2="82"
-            stroke="#78350f"
+            stroke={isRejected ? '#991b1b' : '#78350f'}
             strokeWidth="2"
             strokeLinecap="round"
           />
         </svg>
 
         <div className="leave-helicopter-flyover__banner">
-          <span className="leave-helicopter-flyover__tag">Leave Approved</span>
+          <span
+            className={cn(
+              'leave-helicopter-flyover__tag',
+              isRejected ? 'leave-helicopter-flyover__tag--rejected' : 'leave-helicopter-flyover__tag--approved',
+            )}
+          >
+            {BANNER_COPY[variant]}
+          </span>
         </div>
       </div>
     </div>
   )
+}
+
+/** @deprecated Use LeaveHelicopterFlyover */
+export function LeaveApprovedHelicopter({ active }: { active: boolean }) {
+  return <LeaveHelicopterFlyover active={active} variant="approved" />
 }

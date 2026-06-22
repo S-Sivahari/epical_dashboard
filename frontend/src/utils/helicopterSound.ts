@@ -1,48 +1,55 @@
-const HELICOPTER_SOUND_PATH = '/sounds/helicopter.mp3'
-let activeContext: AudioContext | null = null
+/** Matches helicopter CSS flyover animation length. */
+export const HELICOPTER_FLY_DURATION_MS = 6200
 
-function getAudioContext(): AudioContext | null {
-  const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-  if (!AudioContextClass) return null
-  if (!activeContext) activeContext = new AudioContextClass()
-  return activeContext
+const HELICOPTER_SOUND_PATH = '/sounds/helicopter.wav'
+
+let activeAudio: HTMLAudioElement | null = null
+
+function stopActiveHelicopterAudio() {
+  if (!activeAudio) return
+  activeAudio.pause()
+  activeAudio.currentTime = 0
+  activeAudio = null
 }
 
 function playSynthesizedHelicopter(durationMs: number): void {
-  const ctx = getAudioContext()
-  if (!ctx) return
+  const AudioContextClass =
+    window.AudioContext ||
+    (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+  if (!AudioContextClass) return
 
+  const ctx = new AudioContextClass()
   const start = ctx.currentTime
   const end = start + durationMs / 1000
 
   const master = ctx.createGain()
   master.gain.setValueAtTime(0.0001, start)
-  master.gain.exponentialRampToValueAtTime(0.28, start + 0.35)
-  master.gain.setValueAtTime(0.28, end - 0.45)
+  master.gain.exponentialRampToValueAtTime(0.3, start + 0.4)
+  master.gain.setValueAtTime(0.3, end - 0.5)
   master.gain.exponentialRampToValueAtTime(0.0001, end)
   master.connect(ctx.destination)
 
   const rumble = ctx.createOscillator()
   rumble.type = 'sawtooth'
-  rumble.frequency.setValueAtTime(62, start)
-  rumble.frequency.linearRampToValueAtTime(54, end)
+  rumble.frequency.setValueAtTime(54, start)
+  rumble.frequency.linearRampToValueAtTime(48, end)
   const rumbleGain = ctx.createGain()
-  rumbleGain.gain.value = 0.14
+  rumbleGain.gain.value = 0.15
   rumble.connect(rumbleGain).connect(master)
   rumble.start(start)
   rumble.stop(end)
 
   const rotor = ctx.createOscillator()
   rotor.type = 'triangle'
-  rotor.frequency.setValueAtTime(168, start)
+  rotor.frequency.setValueAtTime(176, start)
   const rotorGain = ctx.createGain()
-  rotorGain.gain.value = 0.16
+  rotorGain.gain.value = 0.17
 
   const chop = ctx.createOscillator()
   chop.type = 'sine'
-  chop.frequency.value = 13.5
+  chop.frequency.value = 13.6
   const chopDepth = ctx.createGain()
-  chopDepth.gain.value = 0.11
+  chopDepth.gain.value = 0.12
   chop.connect(chopDepth)
   chopDepth.connect(rotorGain.gain)
 
@@ -52,34 +59,47 @@ function playSynthesizedHelicopter(durationMs: number): void {
   chop.start(start)
   chop.stop(end)
 
-  const whir = ctx.createOscillator()
-  whir.type = 'square'
-  whir.frequency.setValueAtTime(240, start)
-  whir.frequency.exponentialRampToValueAtTime(190, end)
-  const whirGain = ctx.createGain()
-  whirGain.gain.value = 0.04
-  whir.connect(whirGain).connect(master)
-  whir.start(start)
-  whir.stop(end)
+  window.setTimeout(() => {
+    void ctx.close()
+  }, durationMs + 120)
 }
 
-export async function playHelicopterSound(durationMs = 5800): Promise<void> {
+export async function playHelicopterSound(
+  durationMs: number = HELICOPTER_FLY_DURATION_MS,
+): Promise<void> {
+  stopActiveHelicopterAudio()
+
   try {
     const audio = new Audio(HELICOPTER_SOUND_PATH)
-    audio.volume = 0.55
+    audio.volume = 0.52
+    activeAudio = audio
+
+    const stopTimer = window.setTimeout(() => {
+      stopActiveHelicopterAudio()
+    }, durationMs)
+
+    audio.addEventListener(
+      'ended',
+      () => {
+        window.clearTimeout(stopTimer)
+        activeAudio = null
+      },
+      { once: true },
+    )
+
     await audio.play()
     return
   } catch {
-    /* fall through to synthesized rotor sound */
+    stopActiveHelicopterAudio()
   }
 
   try {
-    const ctx = getAudioContext()
-    if (ctx?.state === 'suspended') {
-      await ctx.resume()
-    }
     playSynthesizedHelicopter(durationMs)
   } catch (error) {
     console.warn('[Sound] Failed to play helicopter sound:', error)
   }
+}
+
+export function stopHelicopterSound(): void {
+  stopActiveHelicopterAudio()
 }
