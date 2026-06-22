@@ -439,15 +439,72 @@
   }
 }
 
+/* Admin dashboard — page scroll on desktop; min-height keeps columns filling the viewport */
+@media (min-width: 1024px) {
+  .admin-portal.cmd-portal .cmd-main:has([data-admin-dashboard]) {
+    overflow-x: hidden;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 /* ── Short-viewport fallback (desktop widths but ≤ 820 px tall) ──
-   1280×720 and 1366×768 are very common laptop resolutions.  With the
-   viewport-fit (overflow: hidden) mode active, every panel must fit inside
-   ~600–650 px of usable height.  When it does not, the bottom content is
-   silently clipped.  Switching to page-scroll at these heights mirrors the
-   same pattern already used for max-width: 1023 px screens. */
+   Tighten spacing; page scrolls so zoomed / short laptops can reach all content. */
 @media (min-width: 1024px) and (max-height: 820px) {
-  /* Allow cmd-main to scroll the entire dashboard page */
-  .admin-portal.cmd-portal .cmd-main:has([data-admin-dashboard]),
+  .admin-portal.cmd-portal .cmd-main:has([data-admin-dashboard]) {
+    overflow-x: hidden;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-dashboard-view[data-admin-dashboard] {
+    --dashboard-font-scale: 0.95;
+    --dashboard-gap: 0.625rem;
+    --dashboard-gap-tight: 0.5rem;
+    --dash-approvals-max-h: 16rem;
+    height: auto !important;
+    max-height: none !important;
+    min-height: var(--viewport-page-h);
+    overflow: visible;
+  }
+
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-shell {
+    height: auto !important;
+    min-height: var(--viewport-page-h);
+    overflow: visible !important;
+  }
+
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-main-grid {
+    height: auto !important;
+    min-height: var(--viewport-page-h);
+    overflow: visible !important;
+  }
+
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-left-column,
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-center-column,
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-right-column {
+    height: auto !important;
+    min-height: 0;
+    overflow: visible !important;
+  }
+
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack,
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-right-stack {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-project-chart-body {
+    min-height: 10rem;
+  }
+
+  .admin-dashboard-view[data-admin-dashboard] .project-hours-dynamic-bar-chart__canvas {
+    min-height: 160px;
+  }
+
+  /* Employee / timesheet — page scroll when the viewport is too short */
   .employee-portal.cmd-portal .cmd-main:has([data-employee-dashboard]),
   .employee-portal.cmd-portal .cmd-main:has([data-employee-timesheet]) {
     overflow-x: hidden;
@@ -456,8 +513,6 @@
     -webkit-overflow-scrolling: touch;
   }
 
-  /* Release the fixed-height viewport lock on the dashboard root */
-  .admin-dashboard-view[data-admin-dashboard],
   .employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-dashboard]),
   .employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-timesheet]) {
     height: auto !important;
@@ -466,7 +521,6 @@
     overflow-x: hidden;
   }
 
-  .admin-dashboard-view[data-admin-dashboard] .dashboard-shell,
   .admin-dashboard-view[data-employee-dashboard] .dashboard-shell,
   [data-employee-dashboard] .emp-dash-widgets-grid {
     height: auto !important;
@@ -515,75 +569,10 @@
     overflow: visible !important;
   }
 
-  .admin-dashboard-view[data-admin-dashboard] .dashboard-main-grid {
-    height: auto !important;
-    overflow: visible !important;
-  }
-
-  /* Columns release their 100% height constraint */
-  .admin-dashboard-view[data-admin-dashboard] .dashboard-left-column,
-  .admin-dashboard-view[data-admin-dashboard] .dashboard-center-column,
-  .admin-dashboard-view[data-admin-dashboard] .dashboard-right-column {
-    height: auto !important;
-    overflow: visible !important;
-  }
-
-  /* Stacks become auto-height */
-  .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack,
-  .admin-dashboard-view[data-admin-dashboard] .dashboard-right-stack {
-    height: auto !important;
-    overflow: visible !important;
-  }
-
-  /* Left insight panels keep internal scroll when zoomed */
-  .admin-dashboard-view[data-admin-dashboard] .dashboard-left-insights-column,
-  .admin-dashboard-view[data-admin-dashboard] .dashboard-left-insights {
-    flex: 1 1 0 !important;
-    min-height: 0 !important;
-    overflow: hidden !important;
-  }
-
-  .admin-dashboard-view[data-admin-dashboard] .dashboard-left-insights .dashboard-insight-panel-scroll {
-    overflow-y: auto !important;
-    flex: 1 1 0 !important;
-    min-height: 0 !important;
-    height: auto !important;
-  }
-
-  /* Right stack matches grid row height; activity fills remaining space */
-  .admin-dashboard-view[data-admin-dashboard] .dashboard-right-stack {
-    height: 100% !important;
-    min-height: 0 !important;
-    max-height: none !important;
-    overflow: hidden !important;
-  }
-
-  .admin-dashboard-view[data-admin-dashboard] .dashboard-right-approvals {
-    flex: 0 0 auto !important;
-    min-height: 0 !important;
-    max-height: var(--dash-approvals-max-h, 26rem) !important;
-  }
-
-  .admin-dashboard-view[data-admin-dashboard] .dashboard-right-activity {
-    flex: 1 1 0 !important;
-    min-height: 0 !important;
-    overflow: hidden !important;
-  }
-
-  .admin-dashboard-view[data-admin-dashboard] .dashboard-approvals-panel--has-items .dashboard-insight-panel-body {
-    overflow-y: auto !important;
-  }
-
-  .admin-dashboard-view[data-admin-dashboard] .dashboard-activity-panel .dashboard-insight-panel-body,
-  .admin-dashboard-view[data-admin-dashboard] .dashboard-activity-body {
-    overflow-y: auto !important;
-  }
-
-  /* Contribution table body scrolls within a capped height instead of flex-fill */
   .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack-section.dashboard-center-table {
-    flex: none !important;
-    min-height: 14rem;
-    max-height: 26rem;
+    flex: 1 1 0 !important;
+    min-height: 10rem;
+    max-height: none;
     overflow: hidden !important;
   }
 }

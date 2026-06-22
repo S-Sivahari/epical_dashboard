@@ -3,7 +3,6 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { LoginBackground } from '@components/auth/LoginBackground'
 import { AdminTopNav } from '@components/layout/AdminTopNav'
 import { AdminNavWheel } from '@components/layout/AdminNavWheel'
-import { SecretQuickSidebar } from '@components/layout/SecretQuickSidebar'
 import { CommandBar } from '@components/layout/CommandBar'
 import { PageLoading } from '@components/layout/PageLoading'
 import { ROUTES } from '@constants/routes'
@@ -23,7 +22,6 @@ export function AdminLayout() {
       )}
     >
       <AdminNavWheel />
-      <SecretQuickSidebar />
       {!isProjectAnalysis ? (
         <div className="admin-portal-chrome relative z-20 shrink-0">
           <CommandBar />
