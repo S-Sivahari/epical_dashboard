@@ -1,4 +1,5 @@
 export { CelebrationParticles } from './CelebrationParticles'
 export type { CelebrationParticle, CelebrationVariant } from './CelebrationParticles'
+export { LeaveHelicopterFlyover, LeaveApprovedHelicopter } from './LeaveHelicopterFlyover'
 export { LeaveApprovalNotification } from './LeaveApprovalNotification'
 export { LeaveApprovalCelebrationHost } from './LeaveApprovalCelebrationHost'

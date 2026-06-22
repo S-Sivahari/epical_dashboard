@@ -36,6 +36,7 @@ import { CellWorkflowPanel } from './CellWorkflowPanel'
 import { SchematicWorkflowPanel } from './SchematicWorkflowPanel'
 import { CellWorkflowDurationLabel } from './CellWorkflowDurationLabel'
 import { CellCompletionTimeSummaryModal } from './CellCompletionTimeSummaryModal'
+import { CellDescriptionModal } from './CellDescriptionModal'
 import { CellTypeChecklistTab } from './CellTypeChecklistTab'
 import { calculateEstimatedHours, CELL_COMPLEXITY_OPTIONS, DEFAULT_BASE_HOURS, formatComplexityFactor, normalizeComplexity } from '@/utils/effortEstimationUtils'
 import './adminProjects.css'
@@ -103,6 +104,7 @@ export function ProjectCellPage() {
   const [completionReadiness, setCompletionReadiness] = useState<CellCompletionReadiness | null>(null)
   const [durationFetchedAt, setDurationFetchedAt] = useState(() => Date.now())
   const [timeSummaryOpen, setTimeSummaryOpen] = useState(false)
+  const [descriptionModalOpen, setDescriptionModalOpen] = useState(false)
 
   const reload = useCallback(async () => {
     if (!projectId || !cellId) return
@@ -424,6 +426,12 @@ export function ProjectCellPage() {
             onClose={() => setTimeSummaryOpen(false)}
           />
 
+          <CellDescriptionModal
+            description={cell.description?.trim() ?? ''}
+            isOpen={descriptionModalOpen}
+            onClose={() => setDescriptionModalOpen(false)}
+          />
+
           <div className="admin-projects-cell-page-body">
             <nav className="admin-projects-cell-tab-rail" aria-label="Cell sections">
               {TAB_ITEMS.map((tab) => {
@@ -517,8 +525,17 @@ export function ProjectCellPage() {
                               placeholder="—"
                               onChange={(e) => setCellForm((f) => f && { ...f, description: e.target.value })}
                             />
+                          ) : cell.description?.trim() ? (
+                            <button
+                              type="button"
+                              className="admin-projects-cell-details-description-trigger"
+                              title="View full description"
+                              onClick={() => setDescriptionModalOpen(true)}
+                            >
+                              {cell.description.trim()}
+                            </button>
                           ) : (
-                            cell.description?.trim() || '—'
+                            '—'
                           )}
                         </dd>
                       </div>
