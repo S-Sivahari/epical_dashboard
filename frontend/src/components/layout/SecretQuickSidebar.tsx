@@ -47,23 +47,59 @@ function getTimeZoneOptions(): string[] {
 }
 
 function formatClock(date: Date, timeZone: string) {
-  return {
-    time: new Intl.DateTimeFormat(undefined, {
-      timeZone,
-      hour: 'numeric',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true,
-    }).format(date),
-    date: new Intl.DateTimeFormat(undefined, {
-      timeZone,
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    }).format(date),
-    zoneLabel: timeZone.replace(/_/g, ' '),
+  try {
+    return {
+      time: new Intl.DateTimeFormat(undefined, {
+        timeZone,
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      }).format(date),
+      date: new Intl.DateTimeFormat(undefined, {
+        timeZone,
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }).format(date),
+      zoneLabel: timeZone.replace(/_/g, ' '),
+    }
+  } catch {
+    if (timeZone === 'UTC') {
+      return { time: '--:--:--', date: 'Invalid timezone', zoneLabel: timeZone }
+    }
+    return formatClock(date, 'UTC')
   }
+}
+
+function formatZoneLabel(zone: string) {
+  return zone.replace(/_/g, ' ')
+}
+
+function zoneMatches(zone: string, query: string) {
+  const trimmed = query.trim().toLowerCase()
+  if (!trimmed) return true
+  const normalized = trimmed.replace(/\s+/g, '_')
+  return (
+    zone.toLowerCase().includes(normalized) ||
+    formatZoneLabel(zone).toLowerCase().includes(trimmed)
+  )
+}
+
+function resolveTimeZone(query: string, options: string[], fallback: string) {
+  const trimmed = query.trim()
+  if (!trimmed) return fallback
+
+  const exact = options.find(
+    (zone) =>
+      zone.toLowerCase() === trimmed.toLowerCase().replace(/\s+/g, '_') ||
+      formatZoneLabel(zone).toLowerCase() === trimmed.toLowerCase(),
+  )
+  if (exact) return exact
+
+  const match = options.find((zone) => zoneMatches(zone, trimmed))
+  return match ?? fallback
 }
 
 export function SecretQuickSidebar() {
@@ -76,11 +112,19 @@ export function SecretQuickSidebar() {
   )
   const [soundError, setSoundError] = useState<string | null>(null)
   const [soundBusy, setSoundBusy] = useState(false)
+  const [timeZoneQuery, setTimeZoneQuery] = useState(() => formatZoneLabel(readStoredTimeZone()))
+  const [timeZoneOpen, setTimeZoneOpen] = useState(false)
+  const [showAllTimeZones, setShowAllTimeZones] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const timeZoneFieldRef = useRef<HTMLDivElement>(null)
 
   openRef.current = open
 
   const timeZoneOptions = useMemo(() => getTimeZoneOptions(), [])
+  const filteredTimeZones = useMemo(() => {
+    if (showAllTimeZones) return timeZoneOptions
+    return timeZoneOptions.filter((zone) => zoneMatches(zone, timeZoneQuery))
+  }, [showAllTimeZones, timeZoneOptions, timeZoneQuery])
   const clock = useMemo(() => formatClock(now, timeZone), [now, timeZone])
 
   const close = useCallback(() => {
@@ -128,12 +172,37 @@ export function SecretQuickSidebar() {
 
   const handleTimeZoneChange = (value: string) => {
     setTimeZone(value)
+    setTimeZoneQuery(formatZoneLabel(value))
     try {
       localStorage.setItem(TIMEZONE_STORAGE_KEY, value)
     } catch {
       /* ignore */
     }
   }
+
+  const commitTimeZoneQuery = useCallback(() => {
+    const resolved = resolveTimeZone(timeZoneQuery, timeZoneOptions, timeZone)
+    handleTimeZoneChange(resolved)
+    setTimeZoneOpen(false)
+  }, [timeZone, timeZoneOptions, timeZoneQuery])
+
+  useEffect(() => {
+    if (!open) return
+    setTimeZoneQuery(formatZoneLabel(timeZone))
+  }, [open, timeZone])
+
+  useEffect(() => {
+    if (!timeZoneOpen) return undefined
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!timeZoneFieldRef.current?.contains(event.target as Node)) {
+        setTimeZoneOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => document.removeEventListener('mousedown', handlePointerDown)
+  }, [timeZoneOpen])
 
   const handleSoundFile = async (file: File | null) => {
     if (!file) return
@@ -200,17 +269,82 @@ export function SecretQuickSidebar() {
           <p className="secret-quick-sidebar__clock-date">{clock.date}</p>
           <label className="secret-quick-sidebar__field">
             <span className="secret-quick-sidebar__field-label">Timezone</span>
-            <select
-              className="secret-quick-sidebar__select"
-              value={timeZone}
-              onChange={(e) => handleTimeZoneChange(e.target.value)}
-            >
-              {timeZoneOptions.map((zone) => (
-                <option key={zone} value={zone}>
-                  {zone.replace(/_/g, ' ')}
-                </option>
-              ))}
-            </select>
+            <div className="secret-quick-sidebar__timezone" ref={timeZoneFieldRef}>
+              <input
+                type="text"
+                className="secret-quick-sidebar__timezone-input"
+                value={timeZoneQuery}
+                onChange={(e) => {
+                  setTimeZoneQuery(e.target.value)
+                  setShowAllTimeZones(false)
+                  setTimeZoneOpen(true)
+                }}
+                onFocus={(e) => {
+                  setTimeZoneOpen(true)
+                  setShowAllTimeZones(true)
+                  e.target.select()
+                }}
+                onBlur={() => {
+                  window.setTimeout(() => {
+                    commitTimeZoneQuery()
+                    setShowAllTimeZones(false)
+                  }, 120)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    const pick = filteredTimeZones[0]
+                    if (pick) handleTimeZoneChange(pick)
+                    setTimeZoneOpen(false)
+                    setShowAllTimeZones(false)
+                  }
+                  if (e.key === 'Escape') {
+                    setTimeZoneOpen(false)
+                    setShowAllTimeZones(false)
+                    setTimeZoneQuery(formatZoneLabel(timeZone))
+                  }
+                }}
+                placeholder="Type city or region…"
+                role="combobox"
+                aria-expanded={timeZoneOpen}
+                aria-controls="secret-sidebar-timezone-list"
+                aria-autocomplete="list"
+              />
+              {timeZoneOpen ? (
+                <ul
+                  id="secret-sidebar-timezone-list"
+                  className="secret-quick-sidebar__timezone-list"
+                  role="listbox"
+                  aria-label="Timezone suggestions"
+                >
+                  {filteredTimeZones.length > 0 ? (
+                    filteredTimeZones.map((zone) => (
+                      <li key={zone}>
+                        <button
+                          type="button"
+                          className={cn(
+                            'secret-quick-sidebar__timezone-option',
+                            zone === timeZone && 'is-active',
+                          )}
+                          role="option"
+                          aria-selected={zone === timeZone}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            handleTimeZoneChange(zone)
+                            setTimeZoneOpen(false)
+                            setShowAllTimeZones(false)
+                          }}
+                        >
+                          {formatZoneLabel(zone)}
+                        </button>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="secret-quick-sidebar__timezone-empty">No matching timezones</li>
+                  )}
+                </ul>
+              ) : null}
+            </div>
           </label>
           <p className="secret-quick-sidebar__clock-zone">{clock.zoneLabel}</p>
         </section>
