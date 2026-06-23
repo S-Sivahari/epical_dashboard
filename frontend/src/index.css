@@ -6448,23 +6448,15 @@
   line-height: 1.55;
 }
 
-/* Hero banner */
+/* Hero banner — aligned with Leave Management hub header */
 .admin-projects-view .projects-hero-section {
   flex-shrink: 0;
+  overflow: hidden;
+  border: none !important;
+  border-radius: 0.875rem !important;
   background: var(--dash-forest-header, #2f6b4f) !important;
-  border-color: rgba(255, 255, 255, 0.12) !important;
-  padding: calc(1.25rem * var(--admin-projects-ui-scale, 0.8)) calc(1.5rem * var(--admin-projects-ui-scale, 0.8)) !important;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
-}
-
-.admin-projects-view .projects-hero-section > .flex {
-  gap: calc(1rem * var(--admin-projects-ui-scale, 0.8));
-}
-
-@media (min-width: 1024px) {
-  .admin-projects-view .projects-hero-section > .flex {
-    gap: calc(1.25rem * var(--admin-projects-ui-scale, 0.8));
-  }
+  padding: 1.125rem 1.375rem !important;
+  box-shadow: 0 4px 14px rgba(47, 107, 79, 0.28) !important;
 }
 
 .admin-projects-view .projects-hero-separator {
@@ -6561,11 +6553,119 @@
 }
 
 .admin-projects-view .projects-hero-heading {
-  font-size: calc(38px * var(--admin-projects-ui-scale, 0.8));
+  margin: 0;
+  font-size: 1.575rem;
   font-weight: 800;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.02em;
+  line-height: 1.35;
   color: #ffffff;
+}
+
+@media (min-width: 640px) {
+  .admin-projects-view .projects-hero-heading {
+    font-size: 1.725rem;
+  }
+}
+
+.admin-projects-view .projects-hero-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+}
+
+.admin-projects-view .projects-hero-tab-rail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.375rem;
+  border-radius: 0.625rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.admin-projects-view .projects-hero-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2.375rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: nowrap;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: none;
+  transform: none;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.admin-projects-view .projects-hero-tab-btn--primary {
+  color: var(--dash-forest, #1a4329);
+  border-color: rgba(255, 255, 255, 0.45);
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.admin-projects-view .projects-hero-tab-btn--primary:hover {
+  background: var(--dash-mint-soft, #bbf7d0);
+  transform: none;
+}
+
+.admin-projects-view .projects-hero-tab-btn--secondary {
+  color: rgba(255, 255, 255, 0.82);
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.admin-projects-view .projects-hero-tab-btn--secondary:hover {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.16);
+  transform: none;
+  box-shadow: none;
+}
+
+.admin-projects-view .project-analysis-launch-btn.projects-hero-tab-btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.35;
+  box-shadow: none;
+}
+
+.admin-projects-view .project-analysis-launch-btn.projects-hero-tab-btn--primary {
+  color: var(--dash-forest, #1a4329);
+  border-color: rgba(255, 255, 255, 0.45);
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.admin-projects-view .project-analysis-launch-btn.projects-hero-tab-btn--primary:hover {
+  background: var(--dash-mint-soft, #bbf7d0);
+}
+
+.admin-projects-view .project-analysis-launch-btn.projects-hero-tab-btn--secondary {
+  color: rgba(255, 255, 255, 0.82);
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.admin-projects-view .project-analysis-launch-btn.projects-hero-tab-btn--secondary:hover {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.admin-projects-view .projects-hero-tab-btn svg,
+.admin-projects-view .project-analysis-launch-btn.projects-hero-tab-btn svg {
+  color: inherit;
 }
 
 .admin-projects-view .projects-hero-stat-card {

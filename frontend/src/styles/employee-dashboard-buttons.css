@@ -402,6 +402,7 @@
 
 /* Hub headers — let parent facet show through inner bands */
 .admin-leaves-view .admin-leaves-hub-header .admin-leaves-hero-top,
+.admin-projects-view .projects-hero-section .projects-hero-top,
 .admin-payslips-view[data-admin-payslips] .admin-payslips-hub-header .admin-payslips-hero-top,
 .admin-payslips-view[data-admin-payslips] .admin-payslips-hub-header .admin-payslips-metrics-band,
 .admin-training-view .admin-training-hub-header .admin-training-hero-top,
@@ -757,14 +758,16 @@
   background: linear-gradient(180deg, #e8c878, #c9922e);
 }
 
-/* Projects & Timesheets hero — match standard admin forest header */
+/* Projects & Timesheets hero — match Leave Management hub header */
 .admin-projects-view .projects-hero-section {
   position: relative;
   isolation: isolate;
   overflow: hidden;
+  padding: 1.125rem 1.375rem;
+  border-radius: 0.875rem !important;
   background: var(--dash-forest-header, #2f6b4f) !important;
-  border-color: rgba(255, 255, 255, 0.12) !important;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08) !important;
+  border: none !important;
+  box-shadow: 0 4px 14px rgba(47, 107, 79, 0.28) !important;
 }
 
 .emp-timesheet-hero {
@@ -822,33 +825,6 @@
 .admin-projects-view .projects-hero-section .projects-hero-stat-card > * {
   position: relative;
   z-index: 1;
-}
-
-.admin-projects-view .projects-hero-section .projects-hero-create-btn.projects-hero-stat-card,
-.admin-projects-view .projects-hero-section .project-analysis-launch-btn--hero.projects-hero-stat-card {
-  border: 1px solid rgba(255, 255, 255, 0.35) !important;
-  background: rgba(255, 255, 255, 0.12) !important;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: #ffffff;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
-}
-
-.admin-projects-view .projects-hero-section .projects-hero-create-btn.projects-hero-stat-card::before,
-.admin-projects-view .projects-hero-section .project-analysis-launch-btn--hero.projects-hero-stat-card::before {
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.08) 55%, transparent 100%);
-}
-
-.admin-projects-view .projects-hero-section .projects-hero-create-btn.projects-hero-stat-card:hover,
-.admin-projects-view .projects-hero-section .project-analysis-launch-btn--hero.projects-hero-stat-card:hover {
-  border-color: rgba(255, 255, 255, 0.45) !important;
-  background: rgba(255, 255, 255, 0.2) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
-}
-
-.admin-projects-view .projects-hero-section .projects-hero-create-btn.projects-hero-stat-card svg,
-.admin-projects-view .projects-hero-section .project-analysis-launch-btn--hero.projects-hero-stat-card svg {
-  color: #ffffff;
 }
 
 .admin-projects-view .projects-analytics-head {
