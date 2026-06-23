@@ -1288,7 +1288,39 @@ body,
 }
 
 .metal-routing-pdk-modules-topbar {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.metal-routing-pdk-modules-embedded-back {
+  flex-shrink: 0;
+  padding: 0.35rem 1rem 0;
+}
+
+.metal-routing-pdk-embedded-root .metal-routing-pdk-workspace-main.metal-routing-page-shell {
+  padding: 0.35rem 1rem 0.75rem !important;
+}
+
+.metal-routing-pdk-embedded-root .metal-routing-pdk-modules-topbar {
+  margin-bottom: 0.25rem;
+}
+
+.metal-routing-pdk-embedded-root .metal-routing-cell-routing-header {
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.metal-routing-pdk-embedded-root .metal-routing-cell-routing-header__icon {
+  width: 2rem;
+  height: 2rem;
+}
+
+.metal-routing-pdk-embedded-root .metal-routing-page-title {
+  font-size: 1.25rem;
+  line-height: 1.25;
+}
+
+.metal-routing-pdk-embedded-root .metal-routing-pdk-catalog-panel {
+  margin-top: 0;
 }
 
 .metal-routing-pdk-modules-shell {
@@ -1301,11 +1333,6 @@ body,
   min-height: 0;
   flex: 1 1 0;
   height: 100%;
-}
-
-.metal-routing-pdk-modules-embedded-back {
-  flex-shrink: 0;
-  padding: 0.75rem 1.25rem 0.25rem;
 }
 
 .metal-routing-pdk-embedded-root {
@@ -1811,14 +1838,32 @@ body,
 }
 
 .metal-routing-pdk-modules-toolbar__controls {
+  display: flex;
   flex: 1 1 auto;
+  align-items: center;
   justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.metal-routing-pdk-catalog-panel .metal-routing-pdk-modules-toolbar__controls {
+  display: contents;
+  flex: unset;
+  justify-content: unset;
+  gap: unset;
+  flex-wrap: unset;
 }
 
 .metal-routing-pdk-modules-toolbar__search {
   flex: 1 1 10rem;
   max-width: 14rem;
   min-width: 9rem;
+}
+
+.metal-routing-pdk-catalog-panel .metal-routing-pdk-modules-toolbar__search {
+  flex: unset;
+  max-width: none;
+  min-width: 0;
 }
 
 
