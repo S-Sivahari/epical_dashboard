@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, lazy, Suspense } from 'react'
+import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
 import { Loader2, BarChart3, ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useTimesheetStore } from '@store/employee/timesheetStore'
@@ -30,9 +30,6 @@ function segmentHours(seg, checkedIn, liveNow) {
 export function DashboardWorkInsights({ className, compact = false, fill = false }) {
   const { checkedIn, attendanceHistory, initialized, hydrate, serverTimeSkew } = useTimesheetStore()
   const [liveNow, setLiveNow] = useState(() => Date.now() + (serverTimeSkew || 0))
-  const chartWrapRef = useRef(null)
-  const fallbackHeight = compact ? 160 : 220
-  const [chartHeight, setChartHeight] = useState(fallbackHeight)
   const cardClass = compact
     ? portalCardClass({ className: 'flex h-full min-h-0 flex-col overflow-hidden p-3' })
     : CARD_CLASS
@@ -40,26 +37,6 @@ export function DashboardWorkInsights({ className, compact = false, fill = false
   useEffect(() => {
     void hydrate()
   }, [hydrate])
-
-  useLayoutEffect(() => {
-    if (!fill) {
-      setChartHeight(fallbackHeight)
-      return
-    }
-
-    const node = chartWrapRef.current
-    if (!node) return
-
-    const measure = () => {
-      const next = Math.round(node.getBoundingClientRect().height)
-      setChartHeight(next > 0 ? next : fallbackHeight)
-    }
-
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [fill, fallbackHeight, initialized])
 
   useEffect(() => {
     if (!checkedIn) return undefined
@@ -127,32 +104,24 @@ export function DashboardWorkInsights({ className, compact = false, fill = false
       </div>
 
       <div
-        ref={chartWrapRef}
         className={cn(
           'min-h-0 flex-1',
-          fill && 'emp-dash-widget-body',
+          fill && 'emp-dash-work-insights-chart flex flex-col',
         )}
-        style={{ minHeight: fallbackHeight }}
       >
         {chartLoading ? (
-          <div
-            className="flex h-full items-center justify-center"
-            style={{ minHeight: fallbackHeight }}
-          >
+          <div className="flex h-full flex-1 items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         ) : (
           <Suspense
             fallback={
-              <div
-                className="flex h-full items-center justify-center text-xs text-muted"
-                style={{ minHeight: fallbackHeight }}
-              >
+              <div className="flex h-full flex-1 items-center justify-center text-xs text-muted">
                 Loading chart…
               </div>
             }
           >
-            <TimesheetWeeklyChart data={weeklyHours} height={chartHeight} />
+            <TimesheetWeeklyChart data={weeklyHours} fill={fill} />
           </Suspense>
         )}
       </div>

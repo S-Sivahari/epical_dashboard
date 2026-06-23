@@ -16,6 +16,89 @@ function fileToBlob(file?: Express.Multer.File) {
   }
 }
 
+function parseTags(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .filter((t): t is string => typeof t === 'string')
+      .map((t) => t.trim().replace(/^#/, ''))
+      .filter(Boolean)
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return []
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed) as unknown
+        return parseTags(parsed)
+      } catch {
+        return []
+      }
+    }
+    return trimmed
+      .split(/[,;]+/)
+      .map((t) => t.trim().replace(/^#/, ''))
+      .filter(Boolean)
+  }
+  return []
+}
+
+function parseAchievementDate(value: unknown, fallback = new Date()): Date | null {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = new Date(value.trim())
+    if (!Number.isNaN(parsed.getTime())) return parsed
+  }
+  if (fallback && !Number.isNaN(fallback.getTime())) return fallback
+  return null
+}
+
+function parseListQuery(req: Request) {
+  const q = typeof req.query.q === 'string' ? req.query.q : undefined
+  const category = typeof req.query.category === 'string' ? req.query.category : undefined
+  const yearRaw = typeof req.query.year === 'string' ? Number(req.query.year) : NaN
+  const monthRaw = typeof req.query.month === 'string' ? Number(req.query.month) : NaN
+  const pageRaw = typeof req.query.page === 'string' ? Number(req.query.page) : NaN
+  const limitRaw = typeof req.query.limit === 'string' ? Number(req.query.limit) : NaN
+
+  return {
+    q,
+    category,
+    year: Number.isFinite(yearRaw) ? yearRaw : undefined,
+    month: Number.isFinite(monthRaw) ? monthRaw : undefined,
+    page: Number.isFinite(pageRaw) ? pageRaw : undefined,
+    limit: Number.isFinite(limitRaw) ? limitRaw : undefined,
+  }
+}
+
+function serializeAchievementRow(r: {
+  id: string
+  title: string
+  description: string
+  category?: string
+  employeeOrTeamName?: string
+  achievementDate?: Date
+  tags?: string[]
+  sortOrder: number
+  image?: { data?: string; contentType?: string }
+  createdAt: Date
+  updatedAt: Date
+}) {
+  const achievementDate = r.achievementDate ?? r.createdAt
+  return {
+    id: r.id,
+    title: r.title,
+    description: r.description,
+    category: r.category?.trim() || 'General',
+    employeeOrTeamName: r.employeeOrTeamName?.trim() || '',
+    achievementDate: achievementDate.toISOString(),
+    tags: Array.isArray(r.tags) ? r.tags : [],
+    sortOrder: r.sortOrder,
+    hasImage: !!(r.image?.data && r.image?.contentType),
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+  }
+}
+
 export const achievementController = {
   getPageMeta: async (_req: Request, res: Response): Promise<void> => {
     try {
@@ -50,22 +133,28 @@ export const achievementController = {
     }
   },
 
-  list: async (_req: Request, res: Response): Promise<void> => {
+  list: async (req: Request, res: Response): Promise<void> => {
     try {
-      const rows = await achievementService.listAchievements()
-      res.json(
-        rows.map((r) => ({
-          id: r.id,
-          title: r.title,
-          description: r.description,
-          sortOrder: r.sortOrder,
-          hasImage: !!(r.image?.data && r.image?.contentType),
-          createdAt: r.createdAt.toISOString(),
-          updatedAt: r.updatedAt.toISOString(),
-        }))
-      )
+      const result = await achievementService.listAchievements(parseListQuery(req))
+      res.json({
+        items: result.items.map(serializeAchievementRow),
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        hasMore: result.hasMore,
+      })
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to list achievements'
+      res.status(500).json({ error: message })
+    }
+  },
+
+  listCategories: async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const categories = await achievementService.listAchievementCategories()
+      res.json(categories)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to list categories'
       res.status(500).json({ error: message })
     }
   },
@@ -96,21 +185,40 @@ export const achievementController = {
     try {
       const title = typeof req.body.title === 'string' ? req.body.title : ''
       const description = typeof req.body.description === 'string' ? req.body.description : ''
+      const category = typeof req.body.category === 'string' ? req.body.category : ''
+      const employeeOrTeamName =
+        typeof req.body.employeeOrTeamName === 'string' ? req.body.employeeOrTeamName : ''
+      const achievementDate = parseAchievementDate(req.body.achievementDate)
+      const tags = parseTags(req.body.tags)
+
       if (!title.trim() || !description.trim()) {
         res.status(400).json({ error: 'Title and description are required' })
         return
       }
+      if (!category.trim()) {
+        res.status(400).json({ error: 'Category is required' })
+        return
+      }
+      if (!employeeOrTeamName.trim()) {
+        res.status(400).json({ error: 'Employee or team name is required' })
+        return
+      }
+      if (!achievementDate) {
+        res.status(400).json({ error: 'Achievement date is required' })
+        return
+      }
+
       const image = fileToBlob(req.file)
-      const doc = await achievementService.createAchievement({ title, description, image })
-      res.status(201).json({
-        id: doc.id,
-        title: doc.title,
-        description: doc.description,
-        sortOrder: doc.sortOrder,
-        hasImage: !!doc.image?.data,
-        createdAt: doc.createdAt.toISOString(),
-        updatedAt: doc.updatedAt.toISOString(),
+      const doc = await achievementService.createAchievement({
+        title,
+        description,
+        category,
+        employeeOrTeamName,
+        achievementDate,
+        tags,
+        image,
       })
+      res.status(201).json(serializeAchievementRow(doc))
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to create achievement'
       res.status(500).json({ error: message })
@@ -122,10 +230,27 @@ export const achievementController = {
       const id = paramStr(req.params.id)
       const title = typeof req.body.title === 'string' ? req.body.title : ''
       const description = typeof req.body.description === 'string' ? req.body.description : ''
+      const category = typeof req.body.category === 'string' ? req.body.category : ''
+      const employeeOrTeamName =
+        typeof req.body.employeeOrTeamName === 'string' ? req.body.employeeOrTeamName : ''
+      const achievementDate = parseAchievementDate(req.body.achievementDate)
+      const tags = parseTags(req.body.tags)
       const removeImage = req.body.removeImage === 'true' || req.body.removeImage === true
 
       if (!title.trim() || !description.trim()) {
         res.status(400).json({ error: 'Title and description are required' })
+        return
+      }
+      if (!category.trim()) {
+        res.status(400).json({ error: 'Category is required' })
+        return
+      }
+      if (!employeeOrTeamName.trim()) {
+        res.status(400).json({ error: 'Employee or team name is required' })
+        return
+      }
+      if (!achievementDate) {
+        res.status(400).json({ error: 'Achievement date is required' })
         return
       }
 
@@ -134,6 +259,10 @@ export const achievementController = {
       const updated = await achievementService.updateAchievement(id, {
         title,
         description,
+        category,
+        employeeOrTeamName,
+        achievementDate,
+        tags,
         image,
         removeImage: removeImage && !req.file,
       })
@@ -141,15 +270,7 @@ export const achievementController = {
         res.status(404).json({ error: 'Achievement not found' })
         return
       }
-      res.json({
-        id: updated.id,
-        title: updated.title,
-        description: updated.description,
-        sortOrder: updated.sortOrder,
-        hasImage: !!(updated.image?.data),
-        createdAt: updated.createdAt.toISOString(),
-        updatedAt: updated.updatedAt.toISOString(),
-      })
+      res.json(serializeAchievementRow(updated))
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to update achievement'
       res.status(500).json({ error: message })

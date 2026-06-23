@@ -48,7 +48,7 @@ function NavItem({ to, label, end, collapsed, onNavigate }) {
       onFocus={() => prefetchEmployeeRoute(to)}
       className={({ isActive }) =>
         cn(
-          'group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-[15px] font-medium leading-snug transition-all duration-200',
+          'group relative flex items-center gap-2 rounded-lg px-2 py-2 text-[13px] font-medium leading-snug transition-all duration-200',
           collapsed ? 'justify-center px-2' : '',
           isActive
             ? 'bg-emerald-50 text-emerald-900 border-l-4 border-primary'
@@ -66,7 +66,7 @@ function NavItem({ to, label, end, collapsed, onNavigate }) {
           >
             <Icon className="h-5 w-5 opacity-90" strokeWidth={2} />
           </span>
-          {!collapsed && <span className="min-w-0 flex-1 truncate pr-1">{label}</span>}
+          {!collapsed && <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{label}</span>}
         </>
       )}
     </NavLink>

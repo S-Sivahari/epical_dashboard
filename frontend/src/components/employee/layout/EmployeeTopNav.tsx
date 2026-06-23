@@ -52,7 +52,7 @@ export function EmployeeTopNav() {
               className={cn('admin-top-nav-link relative', active && 'admin-top-nav-link-active')}
             >
               <span className="relative inline-flex shrink-0">
-                <Icon className="admin-top-nav-link-icon h-[1.125rem] w-[1.125rem]" strokeWidth={2} />
+                <Icon className="admin-top-nav-link-icon" strokeWidth={2} />
                 {showBadge ? (
                   <NotificationBadge count={notificationCount ?? 0} size="sm" className="-right-1 -top-1" />
                 ) : null}
