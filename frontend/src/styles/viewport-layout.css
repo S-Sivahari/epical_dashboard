@@ -1888,9 +1888,15 @@ body,
   width: 100%;
 }
 
-.metal-routing-pdk-sidebar-actions button[type='button'] {
+.metal-routing-pdk-sidebar-actions .pdk-add-menu__trigger {
   width: 100%;
   justify-content: center;
+}
+
+.metal-routing-pdk-sidebar-actions .pdk-add-menu__item {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
 }
 
 .metal-routing-analytics-card--compact {
