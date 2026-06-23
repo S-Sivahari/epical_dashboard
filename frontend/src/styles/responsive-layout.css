@@ -12,6 +12,7 @@
 .viewport-panel-scroll,
 .timesheet-panel-scroll,
 .emp-timesheet-page,
+.emp-timesheet-shell,
 .overflow-x-auto,
 .overflow-y-auto,
 .admin-analytics-comparison-chart-scroll,
@@ -32,6 +33,7 @@
 .viewport-panel-scroll::-webkit-scrollbar,
 .timesheet-panel-scroll::-webkit-scrollbar,
 .emp-timesheet-page::-webkit-scrollbar,
+.emp-timesheet-shell::-webkit-scrollbar,
 .overflow-x-auto::-webkit-scrollbar,
 .overflow-y-auto::-webkit-scrollbar,
 .admin-analytics-comparison-chart-scroll::-webkit-scrollbar,
@@ -52,6 +54,7 @@
 .viewport-panel-scroll::-webkit-scrollbar-thumb,
 .timesheet-panel-scroll::-webkit-scrollbar-thumb,
 .emp-timesheet-page::-webkit-scrollbar-thumb,
+.emp-timesheet-shell::-webkit-scrollbar-thumb,
 .overflow-x-auto::-webkit-scrollbar-thumb,
 .overflow-y-auto::-webkit-scrollbar-thumb,
 .admin-analytics-comparison-chart-scroll::-webkit-scrollbar-thumb,
@@ -452,7 +455,8 @@
 /* ── Short-viewport fallback (desktop widths but ≤ 820 px tall) ──
    Tighten spacing; page scrolls so zoomed / short laptops can reach all content. */
 @media (min-width: 1024px) and (max-height: 820px) {
-  .admin-portal.cmd-portal .cmd-main:has([data-admin-dashboard]) {
+  .admin-portal.cmd-portal .cmd-main:has([data-admin-dashboard]),
+  .employee-portal.cmd-portal .cmd-main:has([data-employee-timesheet]) {
     overflow-x: hidden;
     overflow-y: auto;
     scroll-behavior: smooth;
@@ -562,12 +566,24 @@
   }
 
   .emp-timesheet-history-panel,
-  .emp-timesheet-history-body,
-  .emp-timesheet-history-panel .emp-timesheet-history-scroll {
+  .emp-timesheet-history-body {
     flex: none !important;
-    min-height: auto !important;
+    min-height: calc(14rem + 5cm) !important;
     max-height: none !important;
     overflow: visible !important;
+  }
+
+  .emp-timesheet-history-panel .emp-timesheet-history-scroll {
+    flex: none !important;
+    min-height: calc(12rem + 5cm) !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+  }
+
+  .emp-timesheet-history-panel .emp-timesheet-history-scroll--bounded {
+    flex: none !important;
+    max-height: none !important;
+    overflow-y: auto !important;
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack-section.dashboard-center-table {

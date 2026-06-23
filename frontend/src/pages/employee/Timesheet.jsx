@@ -519,6 +519,7 @@ export default function Timesheet() {
             audience="employee"
             className="project-analysis-launch-btn--hero emp-timesheet-hero-stat emp-timesheet-hero-stat--launch"
           />
+          <div className="emp-timesheet-hero-metrics" aria-label="Project task counts">
           <div className="emp-timesheet-hero-stat">
             <span className="emp-timesheet-hero-stat-label">Total</span>
             <span className="emp-timesheet-hero-stat-value">{taskStatusCounts.total}</span>
@@ -537,6 +538,7 @@ export default function Timesheet() {
             <span className="emp-timesheet-hero-stat-dot" aria-hidden />
             <span className="emp-timesheet-hero-stat-label">Cancelled</span>
             <span className="emp-timesheet-hero-stat-value">{taskStatusCounts.cancelled}</span>
+          </div>
           </div>
         </div>
       </div>
