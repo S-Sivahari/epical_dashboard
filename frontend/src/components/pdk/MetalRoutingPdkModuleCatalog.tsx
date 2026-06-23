@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type CSSProperties, type KeyboardEvent } from 'react'
+import * as Select from '@radix-ui/react-select'
 import {
   ArrowUpDown,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Filter,
@@ -60,6 +62,10 @@ export function getPdkModuleCardTheme(seed: string) {
   }
 }
 
+export function getPdkModuleNodeFilterLabel(node: string): string {
+  return node === 'all' ? 'All nodes' : node
+}
+
 export function PdkModuleNodeFilter({
   value,
   onChange,
@@ -72,25 +78,97 @@ export function PdkModuleNodeFilter({
   const nodeOptions = useMemo(() => {
     const nodes = new Set<string>()
     modules.forEach((mod) => nodes.add(getPdkModuleNodeLabel(mod)))
-    return ['all', ...Array.from(nodes).sort()]
+    return [
+      'all',
+      ...Array.from(nodes).sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }),
+      ),
+    ]
   }, [modules])
 
   return (
-    <div className="relative">
-      <Filter className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-      <select
-        className="metal-routing-toolbar-select pl-8"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+    <Select.Root value={value} onValueChange={onChange}>
+      <Select.Trigger
+        className="metal-routing-toolbar-select metal-routing-signal-projects-filter__select metal-routing-signal-projects-filter__trigger"
         aria-label="Filter by technology node"
       >
-        {nodeOptions.map((node) => (
-          <option key={node} value={node}>
-            {node === 'all' ? 'All nodes' : node}
-          </option>
-        ))}
-      </select>
-    </div>
+        <Filter className="metal-routing-signal-projects-filter__icon" aria-hidden />
+        <span className="metal-routing-signal-projects-filter__label">
+          <Select.Value />
+        </span>
+        <ChevronDown className="metal-routing-signal-projects-filter__chevron" aria-hidden />
+      </Select.Trigger>
+      <Select.Portal>
+        <Select.Content
+          className="metal-routing-signal-projects-filter__menu"
+          position="popper"
+          sideOffset={4}
+          align="start"
+        >
+          <Select.Viewport className="metal-routing-signal-projects-filter__viewport">
+            {nodeOptions.map((node) => (
+              <Select.Item
+                key={node}
+                value={node}
+                className="metal-routing-signal-projects-filter__item"
+              >
+                <Select.ItemText>{getPdkModuleNodeFilterLabel(node)}</Select.ItemText>
+              </Select.Item>
+            ))}
+          </Select.Viewport>
+        </Select.Content>
+      </Select.Portal>
+    </Select.Root>
+  )
+}
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: 'name-asc', label: 'Sort by name (A–Z)' },
+  { value: 'name-desc', label: 'Sort by name (Z–A)' },
+  { value: 'node-asc', label: 'Sort by tech node' },
+  { value: 'metals-desc', label: 'Sort by metal count' },
+]
+
+function PdkModuleSortSelect({
+  value,
+  onChange,
+}: {
+  value: SortKey
+  onChange: (value: SortKey) => void
+}) {
+  return (
+    <Select.Root value={value} onValueChange={(next) => onChange(next as SortKey)}>
+      <Select.Trigger
+        className="metal-routing-toolbar-select metal-routing-signal-projects-sort__select metal-routing-signal-projects-filter__trigger"
+        aria-label="Sort modules"
+      >
+        <ArrowUpDown className="metal-routing-signal-projects-filter__icon" aria-hidden />
+        <span className="metal-routing-signal-projects-filter__label">
+          <Select.Value />
+        </span>
+        <ChevronDown className="metal-routing-signal-projects-filter__chevron" aria-hidden />
+      </Select.Trigger>
+      <Select.Portal>
+        <Select.Content
+          className="metal-routing-signal-projects-filter__menu"
+          position="popper"
+          sideOffset={4}
+          align="start"
+        >
+          <Select.Viewport className="metal-routing-signal-projects-filter__viewport">
+            {SORT_OPTIONS.map((option) => (
+              <Select.Item
+                key={option.value}
+                value={option.value}
+                className="metal-routing-signal-projects-filter__item"
+              >
+                <Select.ItemText>{option.label}</Select.ItemText>
+              </Select.Item>
+            ))}
+          </Select.Viewport>
+        </Select.Content>
+      </Select.Portal>
+    </Select.Root>
   )
 }
 
@@ -178,20 +256,7 @@ export function MetalRoutingPdkModuleCatalog({
             onChange={onNodeFilterChange}
             modules={modules}
           />
-          <div className="relative">
-            <ArrowUpDown className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-            <select
-              className="metal-routing-toolbar-select pl-8"
-              value={sortKey}
-              onChange={(e) => setSortKey(e.target.value as SortKey)}
-              aria-label="Sort modules"
-            >
-              <option value="name-asc">Sort by name (A–Z)</option>
-              <option value="name-desc">Sort by name (Z–A)</option>
-              <option value="node-asc">Sort by tech node</option>
-              <option value="metals-desc">Sort by metal count</option>
-            </select>
-          </div>
+          <PdkModuleSortSelect value={sortKey} onChange={setSortKey} />
           <MetalRoutingViewToggle
             value={viewMode}
             onChange={(mode) => {
