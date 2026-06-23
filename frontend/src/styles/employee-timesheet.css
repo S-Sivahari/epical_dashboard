@@ -59,7 +59,26 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  gap: 0.625rem;
+}
+
+.emp-timesheet-hero-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 0.5rem;
+  padding: 0.125rem 0 0.125rem 0.625rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.28);
+}
+
+@media (max-width: 639px) {
+  .emp-timesheet-hero-metrics {
+    width: 100%;
+    padding-left: 0;
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.22);
+    padding-top: 0.5rem;
+  }
 }
 
 .emp-timesheet-hero-stat {
@@ -111,45 +130,53 @@
 }
 
 [data-employee-timesheet] .project-analysis-launch-btn--hero.emp-timesheet-hero-stat--launch {
-  border: none !important;
-  background: #ffffff !important;
-  color: #334155 !important;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  background: linear-gradient(165deg, #143522 0%, #1a4329 42%, #2f6b4f 100%) !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+  font-weight: 800;
+  letter-spacing: 0.02em;
 }
 
 .emp-timesheet-hero-stat--launch.project-analysis-launch-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  min-height: 2.625rem;
-  border: none;
+  min-height: 2.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 0.625rem;
-  background: #ffffff;
-  padding: 0.5rem 1rem;
-  font-size: 0.75rem;
-  font-weight: 700;
+  background: linear-gradient(165deg, #143522 0%, #1a4329 42%, #2f6b4f 100%);
+  padding: 0.5625rem 1.125rem;
+  font-size: 0.8125rem;
+  font-weight: 800;
   line-height: 1.2;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.02em;
   text-transform: none;
-  color: #334155;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  color: #ffffff;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   cursor: pointer;
 }
 
 .emp-timesheet-hero-stat--launch.project-analysis-launch-btn:hover {
-  border: none;
-  background: #ffffff;
-  color: #1e293b;
-  transform: none;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+  border-color: rgba(255, 255, 255, 0.55);
+  background: linear-gradient(165deg, #1a4329 0%, #245c40 48%, #357a5c 100%);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
 .emp-timesheet-hero-stat--launch.project-analysis-launch-btn svg {
-  width: 0.9375rem;
-  height: 0.9375rem;
-  color: #334155;
+  width: 1rem;
+  height: 1rem;
+  color: #ffffff;
 }
 
 .emp-timesheet-hero-timer {
@@ -329,7 +356,12 @@
   flex-direction: column;
   gap: 0.75rem;
   min-height: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(47, 107, 79, 0.35) transparent;
   border-radius: 1rem;
   padding: 0.75rem;
   background: #ffffff;
@@ -337,6 +369,15 @@
   box-shadow:
     0 1px 2px rgba(26, 67, 41, 0.05),
     0 6px 20px rgba(26, 67, 41, 0.06);
+}
+
+.emp-timesheet-shell::-webkit-scrollbar {
+  width: 6px;
+}
+
+.emp-timesheet-shell::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: rgba(47, 107, 79, 0.35);
 }
 
 @media (min-width: 768px) {
@@ -1131,7 +1172,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Top row: work session + weekly chart ── */
 .emp-timesheet-top-grid {
   display: grid;
   flex-shrink: 0;
@@ -1248,23 +1288,44 @@
 
 .emp-timesheet-history-panel {
   display: flex;
-  flex: 1 1 0;
+  flex: 0 0 auto;
   flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
+  min-height: calc(min(30rem, 50dvh) + 5cm);
+  overflow: visible;
+}
+
+/* Work History — taller header + content area */
+.emp-timesheet-history-panel .emp-timesheet-section-head {
+  padding: 1.125rem 1.25rem;
+  min-height: 4rem;
+}
+
+.emp-timesheet-history-panel .emp-timesheet-section-icon {
+  height: 2.375rem;
+  width: 2.375rem;
+  border-radius: 0.625rem;
+}
+
+.emp-timesheet-history-panel .emp-timesheet-section-icon svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.emp-timesheet-history-panel .emp-timesheet-card-title {
+  font-size: 1.1875rem;
 }
 
 .emp-timesheet-history-body {
   display: flex;
-  flex: 1 1 0;
+  flex: 1 1 auto;
   flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
-  padding: 0 1rem 1rem !important;
+  min-height: calc(12rem + 5cm);
+  overflow: visible;
+  padding: 0 1.25rem 1.25rem !important;
 }
 
 .emp-timesheet-history-panel .emp-timesheet-history-scroll {
-  min-height: 0;
+  min-height: calc(12rem + 5cm);
   flex: 1 1 0;
   overflow-x: auto;
   overflow-y: auto;
@@ -1315,8 +1376,8 @@
 }
 
 .emp-timesheet-history-scroll {
-  --emp-ts-history-row-h: 2.75rem;
-  --emp-ts-history-head-h: 2.75rem;
+  --emp-ts-history-row-h: 3rem;
+  --emp-ts-history-head-h: 3rem;
   --emp-ts-history-visible-rows: 10;
   position: relative;
   overflow-x: auto;

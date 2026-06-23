@@ -2556,10 +2556,11 @@ body,
   overflow: hidden;
 }
 
-/* Timesheet — viewport-fit on desktop; history panel fills remaining height */
+/* Timesheet — viewport-fit on desktop; shell scrolls so history is never clipped */
 .employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-timesheet]) {
   flex: 1 1 0;
   max-height: var(--viewport-page-h);
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -2573,6 +2574,15 @@ body,
 
 .employee-portal.cmd-portal .cmd-main:has([data-employee-timesheet]) {
   overflow: hidden;
+  min-height: 0;
+}
+
+[data-employee-timesheet] .emp-timesheet-shell {
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /**
@@ -2808,8 +2818,19 @@ body,
 }
 
 .employee-portal .emp-timesheet-history-panel {
-  min-height: 0;
-  overflow: hidden;
+  flex: 0 0 auto;
+  min-height: calc(min(28rem, 48dvh) + 5cm);
+  overflow: visible;
+}
+
+.employee-portal .emp-timesheet-history-panel .emp-timesheet-history-body {
+  flex: 1 1 auto;
+  min-height: calc(12rem + 5cm);
+  overflow: visible;
+}
+
+.employee-portal .emp-timesheet-history-panel .emp-timesheet-history-scroll {
+  min-height: calc(12rem + 5cm);
 }
 
 .employee-portal .emp-timesheet-history-panel .emp-timesheet-history-header {

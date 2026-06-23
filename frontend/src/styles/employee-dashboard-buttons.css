@@ -801,6 +801,7 @@
 
 /* Employee timesheet hero — dark green hub header (title + stat pills only) */
 [data-employee-timesheet] .emp-timesheet-hero {
+  flex-shrink: 0;
   background: var(--dash-forest-header, #2f6b4f) !important;
   border: none !important;
   box-shadow: 0 4px 14px rgba(47, 107, 79, 0.28) !important;
@@ -820,8 +821,7 @@
   background: rgba(0, 0, 0, 0.12);
 }
 
-[data-employee-timesheet] .emp-timesheet-hero-stat,
-[data-employee-timesheet] .project-analysis-launch-btn--hero.emp-timesheet-hero-stat--launch {
+[data-employee-timesheet] .emp-timesheet-hero-stat {
   border: 1px solid rgba(255, 255, 255, 0.45) !important;
   background: #ffffff !important;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12) !important;
@@ -836,15 +836,27 @@
 }
 
 [data-employee-timesheet] .emp-timesheet-hero-stat--launch.project-analysis-launch-btn {
-  color: #1a4329 !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  background: linear-gradient(165deg, #143522 0%, #1a4329 42%, #2f6b4f 100%) !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
 }
 
 [data-employee-timesheet] .emp-timesheet-hero-stat--launch.project-analysis-launch-btn svg {
-  color: #1a4329 !important;
+  color: #ffffff !important;
 }
 
-[data-employee-timesheet] .emp-timesheet-hero-stat--launch.project-analysis-launch-btn:hover,
-[data-employee-timesheet] .emp-timesheet-hero-stat:hover {
+[data-employee-timesheet] .emp-timesheet-hero-stat--launch.project-analysis-launch-btn:hover {
+  background: linear-gradient(165deg, #1a4329 0%, #245c40 48%, #357a5c 100%) !important;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+  transform: translateY(-1px);
+}
+
+[data-employee-timesheet] .emp-timesheet-hero-stat:not(.emp-timesheet-hero-stat--launch):hover {
   background: var(--dash-mint-soft, #bbf7d0) !important;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.14) !important;
 }
@@ -865,6 +877,9 @@
   background: #ffffff !important;
   color: #1a4329 !important;
   box-shadow: 0 1px 2px rgba(26, 67, 41, 0.06) !important;
+  min-height: 2.5rem;
+  padding: 0.625rem 1rem !important;
+  font-size: 0.8125rem !important;
 }
 
 [data-employee-timesheet] .emp-timesheet-history-header button:hover {
