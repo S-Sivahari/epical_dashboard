@@ -795,12 +795,54 @@
   display: none;
 }
 
-/* Employee timesheet — leave-inspired shell (overrides hub-green hero/cards below) */
+/* Employee timesheet hero — dark green hub header (title + stat pills only) */
 [data-employee-timesheet] .emp-timesheet-hero {
-  background: transparent !important;
+  background: var(--dash-forest-header, #2f6b4f) !important;
   border: none !important;
-  box-shadow: none !important;
-  padding: 0 0 0.5rem !important;
+  box-shadow: 0 4px 14px rgba(47, 107, 79, 0.28) !important;
+  padding: 1.125rem 1.375rem !important;
+  border-radius: 0.875rem !important;
+}
+
+[data-employee-timesheet] .emp-timesheet-hero-title {
+  color: #ffffff !important;
+  text-shadow: none !important;
+}
+
+[data-employee-timesheet] .emp-timesheet-hero-stats {
+  padding: 0.375rem;
+  border-radius: 0.625rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+[data-employee-timesheet] .emp-timesheet-hero-stat,
+[data-employee-timesheet] .project-analysis-launch-btn--hero.emp-timesheet-hero-stat--launch {
+  border: 1px solid rgba(255, 255, 255, 0.45) !important;
+  background: #ffffff !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12) !important;
+}
+
+[data-employee-timesheet] .emp-timesheet-hero-stat-label {
+  color: #334155 !important;
+}
+
+[data-employee-timesheet] .emp-timesheet-hero-stat-value {
+  color: #1a4329 !important;
+}
+
+[data-employee-timesheet] .emp-timesheet-hero-stat--launch.project-analysis-launch-btn {
+  color: #1a4329 !important;
+}
+
+[data-employee-timesheet] .emp-timesheet-hero-stat--launch.project-analysis-launch-btn svg {
+  color: #1a4329 !important;
+}
+
+[data-employee-timesheet] .emp-timesheet-hero-stat--launch.project-analysis-launch-btn:hover,
+[data-employee-timesheet] .emp-timesheet-hero-stat:hover {
+  background: var(--dash-mint-soft, #bbf7d0) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.14) !important;
 }
 
 [data-employee-timesheet] .emp-timesheet-card::after {

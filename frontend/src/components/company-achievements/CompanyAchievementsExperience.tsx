@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
-import { ImageIcon, Loader2, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { ImageIcon, Loader2, Pencil, Plus, Search, Trophy } from 'lucide-react'
 import { Button } from '@components/ui/Button'
 import { Modal } from '@components/ui/Modal'
 import { Input } from '@components/ui/Input'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
+import { SelectField } from '@components/forms/SelectField'
+import { AchievementFeedCard } from '@components/company-achievements/AchievementFeedCard'
 import {
   type AchievementPageMeta,
   type CompanyAchievementRow,
@@ -11,12 +13,17 @@ import {
   deleteCompanyAchievement,
   fetchAchievementImageBlob,
   getAchievementPageMeta,
+  listAchievementCategories,
   listCompanyAchievements,
   updateAchievementPage,
   updateCompanyAchievement,
 } from '@services/companyAchievementsService'
 import { toast } from 'sonner'
 import { cn } from '@/utils/cn'
+import {
+  ACHIEVEMENT_CATEGORIES,
+  ACHIEVEMENTS_PAGE_SIZE,
+} from '@/utils/achievementConstants'
 
 function useBlobUrl(
   loader: () => Promise<Blob | null>,
@@ -62,14 +69,12 @@ function AchievementPhoto({
   imageRevision,
   alt,
   className,
-  employeePresentation,
 }: {
   achievementId: string
   hasImage: boolean
   imageRevision?: string | null
   alt: string
   className?: string
-  employeePresentation?: boolean
 }) {
   const load = useCallback(
     () =>
@@ -80,42 +85,61 @@ function AchievementPhoto({
   )
   const { url, loading } = useBlobUrl(load, [achievementId, hasImage, imageRevision], hasImage)
 
-  const frame = employeePresentation ? 'rounded-xl border border-zinc-200/80 shadow-md' : 'rounded-2xl border border-border shadow-sm'
-
   if (!hasImage) {
     return (
       <div
         className={cn(
-          'flex flex-col items-center justify-center border border-dashed bg-muted/30 text-muted',
-          employeePresentation ? 'rounded-xl border-zinc-200 bg-zinc-50' : 'rounded-2xl border-border',
+          'flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-[#f0fdf4] text-muted',
           className
         )}
       >
-        <ImageIcon className="mb-2 h-14 w-14 opacity-60" />
-        <span className="text-sm">Image placeholder</span>
+        <ImageIcon className="mb-2 h-12 w-12 opacity-50" />
+        <span className="text-sm">No image</span>
       </div>
     )
   }
 
   if (loading || !url) {
     return (
-      <div
-        className={cn(
-          'flex items-center justify-center border bg-muted/40',
-          frame,
-          className
-        )}
-      >
-        <Loader2 className="h-8 w-8 animate-spin text-muted" />
+      <div className={cn('flex h-full w-full items-center justify-center bg-slate-50', className)}>
+        <Loader2 className="h-8 w-8 animate-spin text-[#06C033]" />
       </div>
     )
   }
 
   return (
-    <div className={cn('overflow-hidden', frame, className)}>
-      <img src={url} alt={alt} className="h-full w-full object-cover" loading="lazy" />
+    <div className={cn('flex h-full w-full items-center justify-center bg-slate-50', className)}>
+      <img
+        src={url}
+        alt={alt}
+        className="max-h-full max-w-full object-contain transition-transform duration-500 group-hover:scale-[1.02]"
+        loading="lazy"
+      />
     </div>
   )
+}
+
+const currentYear = new Date().getFullYear()
+const YEAR_OPTIONS = Array.from({ length: 8 }, (_, i) => currentYear - i)
+const MONTH_OPTIONS = [
+  { value: '', label: 'All months' },
+  { value: '1', label: 'January' },
+  { value: '2', label: 'February' },
+  { value: '3', label: 'March' },
+  { value: '4', label: 'April' },
+  { value: '5', label: 'May' },
+  { value: '6', label: 'June' },
+  { value: '7', label: 'July' },
+  { value: '8', label: 'August' },
+  { value: '9', label: 'September' },
+  { value: '10', label: 'October' },
+  { value: '11', label: 'November' },
+  { value: '12', label: 'December' },
+]
+
+function toDateInputValue(iso?: string | null) {
+  if (!iso) return ''
+  return iso.slice(0, 10)
 }
 
 export function CompanyAchievementsExperience({
@@ -132,33 +156,93 @@ export function CompanyAchievementsExperience({
   const ep = employeePresentation
   const [pageMeta, setPageMeta] = useState<AchievementPageMeta | null>(null)
   const [rows, setRows] = useState<CompanyAchievementRow[]>([])
+  const [total, setTotal] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [categories, setCategories] = useState<string[]>([])
 
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    setLoadError(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterCategory, setFilterCategory] = useState('')
+  const [filterYear, setFilterYear] = useState('')
+  const [filterMonth, setFilterMonth] = useState('')
+
+  const fetchAchievements = useCallback(
+    async (pageNum: number, append: boolean) => {
+      if (append) setLoadingMore(true)
+      else {
+        setLoading(true)
+        setLoadError(null)
+      }
+
+      try {
+        const result = await listCompanyAchievements({
+          q: searchQuery.trim() || undefined,
+          category: filterCategory || undefined,
+          year: filterYear ? Number(filterYear) : undefined,
+          month: filterMonth ? Number(filterMonth) : undefined,
+          page: pageNum,
+          limit: ACHIEVEMENTS_PAGE_SIZE,
+        })
+
+        setRows((prev) => (append ? [...prev, ...result.items] : result.items))
+        setTotal(result.total)
+        setHasMore(result.hasMore)
+        setPage(result.page)
+      } catch (e: unknown) {
+        const msg =
+          (e as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+          'Failed to load achievements'
+        setLoadError(msg)
+        toast.error(msg)
+      } finally {
+        setLoading(false)
+        setLoadingMore(false)
+      }
+    },
+    [searchQuery, filterCategory, filterYear, filterMonth]
+  )
+
+  const loadPageSettings = useCallback(async () => {
     try {
-      const [p, list] = await Promise.all([
-        getAchievementPageMeta(),
-        listCompanyAchievements(),
-      ])
+      const [p, cats] = await Promise.all([getAchievementPageMeta(), listAchievementCategories()])
       setPageMeta(p)
-      setRows(list)
+      setCategories(cats)
     } catch (e: unknown) {
       const msg =
         (e as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-        'Failed to load achievements'
-      setLoadError(msg)
+        'Failed to load page settings'
       toast.error(msg)
-    } finally {
-      setLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    void refresh()
-  }, [refresh])
+    void loadPageSettings()
+  }, [loadPageSettings])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void fetchAchievements(1, false)
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [searchQuery, filterCategory, filterYear, filterMonth, fetchAchievements])
+
+  const categoryOptions = useMemo(() => {
+    const merged = new Set<string>([...ACHIEVEMENT_CATEGORIES, ...categories])
+    return [
+      { value: '', label: 'All categories' },
+      ...Array.from(merged)
+        .sort((a, b) => a.localeCompare(b))
+        .map((c) => ({ value: c, label: c })),
+    ]
+  }, [categories])
+
+  const defaultSectionTitle = 'Our achievements'
+  const defaultSectionSubtitle = ep
+    ? 'Celebrating milestones, recognition, and team wins.'
+    : 'A vibrant gallery of company wins and recognition.'
 
   const [pageEditOpen, setPageEditOpen] = useState(false)
   const [pageTitle, setPageTitle] = useState('')
@@ -166,11 +250,11 @@ export function CompanyAchievementsExperience({
 
   useEffect(() => {
     if (pageEditOpen && pageMeta) {
-      setPageTitle(pageMeta.title || '')
+      setPageTitle(pageMeta.title?.trim() || defaultSectionTitle)
     }
-  }, [pageEditOpen, pageMeta])
+  }, [pageEditOpen, pageMeta, defaultSectionTitle])
 
-  const savePageTitle = async () => {
+  const savePageContent = async () => {
     if (!pageTitle.trim()) {
       toast.error('Page title is required')
       return
@@ -195,6 +279,10 @@ export function CompanyAchievementsExperience({
   const [editTarget, setEditTarget] = useState<CompanyAchievementRow | null>(null)
   const [aTitle, setATitle] = useState('')
   const [aDesc, setADesc] = useState('')
+  const [aCategory, setACategory] = useState<string>(ACHIEVEMENT_CATEGORIES[0])
+  const [aEmployee, setAEmployee] = useState('')
+  const [aDate, setADate] = useState(toDateInputValue(new Date().toISOString()))
+  const [aTags, setATags] = useState('')
   const [aFile, setAFile] = useState<File | null>(null)
   const [aFilePreviewUrl, setAFilePreviewUrl] = useState<string | null>(null)
   const [aRemoveImage, setARemoveImage] = useState(false)
@@ -211,12 +299,20 @@ export function CompanyAchievementsExperience({
     return () => URL.revokeObjectURL(preview)
   }, [aFile])
 
-  const openAdd = () => {
-    setEditTarget(null)
+  const resetForm = () => {
     setATitle('')
     setADesc('')
+    setACategory(ACHIEVEMENT_CATEGORIES[0])
+    setAEmployee('')
+    setADate(toDateInputValue(new Date().toISOString()))
+    setATags('')
     setAFile(null)
     setARemoveImage(false)
+  }
+
+  const openAdd = () => {
+    setEditTarget(null)
+    resetForm()
     setAddOpen(true)
   }
 
@@ -224,6 +320,10 @@ export function CompanyAchievementsExperience({
     setEditTarget(r)
     setATitle(r.title)
     setADesc(r.description)
+    setACategory(r.category || ACHIEVEMENT_CATEGORIES[0])
+    setAEmployee(r.employeeOrTeamName)
+    setADate(toDateInputValue(r.achievementDate))
+    setATags(r.tags.join(', '))
     setAFile(null)
     setARemoveImage(false)
     setAddOpen(true)
@@ -234,22 +334,41 @@ export function CompanyAchievementsExperience({
       toast.error('Title and description are required')
       return
     }
+    if (!aCategory.trim()) {
+      toast.error('Category is required')
+      return
+    }
+    if (!aEmployee.trim()) {
+      toast.error('Employee or team name is required')
+      return
+    }
+    if (!aDate) {
+      toast.error('Achievement date is required')
+      return
+    }
+
     setASaving(true)
     try {
       const fd = new FormData()
       fd.append('title', aTitle.trim())
       fd.append('description', aDesc.trim())
+      fd.append('category', aCategory.trim())
+      fd.append('employeeOrTeamName', aEmployee.trim())
+      fd.append('achievementDate', aDate)
+      fd.append('tags', aTags.trim())
       if (aFile) fd.append('image', aFile)
       if (editTarget && aRemoveImage && !aFile) fd.append('removeImage', 'true')
 
       if (editTarget) {
-        const updated = await updateCompanyAchievement(editTarget.id, fd)
-        setRows((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))
+        await updateCompanyAchievement(editTarget.id, fd)
+        toast.success('Achievement updated')
       } else {
-        const created = await createCompanyAchievement(fd)
-        setRows((prev) => [...prev, created].sort((a, b) => a.sortOrder - b.sortOrder))
+        await createCompanyAchievement(fd)
+        toast.success('Achievement published')
       }
       setAddOpen(false)
+      void fetchAchievements(1, false)
+      void listAchievementCategories().then(setCategories).catch(() => {})
     } catch (e: unknown) {
       const msg =
         (e as { response?: { data?: { error?: string } } })?.response?.data?.error ||
@@ -264,7 +383,8 @@ export function CompanyAchievementsExperience({
     if (!deleteTarget) return
     try {
       await deleteCompanyAchievement(deleteTarget.id)
-      setRows((prev) => prev.filter((x) => x.id !== deleteTarget.id))
+      toast.success('Achievement deleted')
+      void fetchAchievements(1, false)
     } catch (e: unknown) {
       const msg =
         (e as { response?: { data?: { error?: string } } })?.response?.data?.error ||
@@ -275,7 +395,15 @@ export function CompanyAchievementsExperience({
     }
   }
 
-  const displayTitle = pageMeta?.title?.trim() || 'Company achievements'
+  const displaySectionTitle = pageMeta?.title?.trim() || defaultSectionTitle
+  const hasActiveFilters = !!(searchQuery || filterCategory || filterYear || filterMonth)
+
+  const clearFilters = () => {
+    setSearchQuery('')
+    setFilterCategory('')
+    setFilterYear('')
+    setFilterMonth('')
+  }
 
   return (
     <div
@@ -283,59 +411,69 @@ export function CompanyAchievementsExperience({
         'w-full max-w-none text-ink',
         adminHub
           ? 'admin-achievements-experience'
-          : 'min-h-[calc(100vh-4rem)] bg-[#f4faf7]',
+          : cn('min-h-[calc(100vh-4rem)]', ep ? 'bg-[#fafdfb]' : 'bg-background'),
         bleedClassName
       )}
     >
       {loadError && (
         <div className="border-b border-destructive/40 bg-destructive/10 px-4 py-3 text-center text-sm text-destructive">
           {loadError}
-          <Button variant="ghost" size="sm" className="ml-2" onClick={() => void refresh()}>
+          <Button variant="ghost" size="sm" className="ml-2" onClick={() => void fetchAchievements(1, false)}>
             Retry
           </Button>
         </div>
       )}
 
-      <header
+      <div
         className={cn(
           adminHub
             ? 'admin-achievements-intro'
             : cn(
-                'border-b border-[#d4e8dc] px-4 sm:px-8 lg:px-12',
-                'bg-[#e8f5ee] py-10 lg:py-14'
+                'px-4 sm:px-8 lg:px-12',
+                ep
+                  ? 'border-b border-[#06C033]/10 bg-white py-10 lg:py-14'
+                  : 'border-b border-border bg-gradient-to-br from-white to-[#f0fdf4] py-10'
               )
         )}
       >
         <div
           className={cn(
-            adminHub
-              ? 'admin-achievements-intro-inner flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'
-              : cn(
-                  'mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between',
-                  ep && 'text-center sm:text-left'
-                )
+            adminHub ? 'admin-achievements-intro-inner' : 'mx-auto max-w-7xl',
+            ep ? 'text-center' : 'flex flex-col gap-6'
           )}
         >
-          {loading && !pageMeta ? (
-            <div className="flex items-center gap-2 text-muted">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              Loading…
+          <div className={cn(ep && 'mx-auto max-w-2xl')}>
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-[#e6f9ec] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[#047a24]">
+              <Trophy className="h-3.5 w-3.5" />
+              Achievements Feed
             </div>
-          ) : (
-            <h1
+            <h2
               className={cn(
                 adminHub
-                  ? 'admin-achievements-section-title font-display text-2xl font-extrabold'
+                  ? 'admin-achievements-section-title font-display text-2xl font-extrabold text-[#06C033]'
                   : ep
-                    ? 'font-sans text-3xl font-bold tracking-tight text-[#006400] sm:text-4xl'
-                    : 'font-display text-2xl font-semibold text-[#006400] sm:text-3xl'
+                    ? 'font-sans text-3xl font-bold tracking-tight text-[#06C033] sm:text-4xl'
+                    : 'font-display text-2xl font-semibold text-[#06C033] sm:text-3xl'
               )}
             >
-              {displayTitle}
-            </h1>
-          )}
+              {displaySectionTitle}
+            </h2>
+            <p
+              className={cn(
+                adminHub ? 'mt-2 text-sm text-slate-600' : ep ? 'mt-4 font-sans text-base text-slate-600 sm:text-lg' : 'mt-2 text-sm text-slate-600 sm:text-base'
+              )}
+            >
+              {defaultSectionSubtitle}
+            </p>
+          </div>
+
           {editable && (
-            <div className="flex shrink-0 flex-wrap items-center justify-center gap-2 sm:justify-end">
+            <div
+              className={cn(
+                'flex shrink-0 flex-wrap items-center gap-2',
+                ep ? 'mx-auto justify-center' : 'justify-start sm:justify-end'
+              )}
+            >
               <Button
                 type="button"
                 variant="secondary"
@@ -343,12 +481,15 @@ export function CompanyAchievementsExperience({
                 className={adminHub ? 'admin-achievements-secondary-btn' : undefined}
               >
                 <Pencil className="mr-2 h-4 w-4" />
-                Edit title
+                Edit page
               </Button>
               <Button
                 type="button"
                 onClick={openAdd}
-                className={cn(adminHub && 'admin-achievements-primary-btn border-0')}
+                className={cn(
+                  'border-0 bg-[#06C033] text-white hover:bg-[#05a82c]',
+                  adminHub && 'admin-achievements-primary-btn'
+                )}
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Add Achievement
@@ -356,26 +497,83 @@ export function CompanyAchievementsExperience({
             </div>
           )}
         </div>
-      </header>
+      </div>
+
+      <div
+        className={cn(
+          adminHub ? 'admin-achievements-filters px-4 py-4' : 'mx-auto max-w-7xl px-4 py-6 sm:px-8 lg:px-12'
+        )}
+      >
+        <div className="rounded-2xl border border-[#06C033]/15 bg-white p-4 shadow-sm sm:p-5">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="relative lg:col-span-2">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by title..."
+                className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm outline-none transition focus:border-[#06C033] focus:bg-white focus:ring-2 focus:ring-[#06C033]/20"
+              />
+            </div>
+            <SelectField
+              label="Category"
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              options={categoryOptions}
+              showChevron
+            />
+            <SelectField
+              label="Year"
+              value={filterYear}
+              onChange={(e) => setFilterYear(e.target.value)}
+              options={[
+                { value: '', label: 'All years' },
+                ...YEAR_OPTIONS.map((y) => ({ value: String(y), label: String(y) })),
+              ]}
+              showChevron
+            />
+            <SelectField
+              label="Month"
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(e.target.value)}
+              options={MONTH_OPTIONS}
+              showChevron
+              disabled={!filterYear}
+            />
+          </div>
+          {hasActiveFilters ? (
+            <div className="mt-3 flex items-center justify-between gap-2 text-sm">
+              <span className="text-muted">
+                Showing {rows.length} of {total} achievement{total === 1 ? '' : 's'}
+              </span>
+              <Button type="button" variant="ghost" size="sm" onClick={clearFilters}>
+                Clear filters
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      </div>
 
       {loading ? (
         <div
           className={cn(
-            'flex min-h-[200px] items-center justify-center py-20',
+            'flex min-h-[240px] items-center justify-center py-20',
             adminHub && 'admin-achievements-loading'
           )}
         >
-          <Loader2 className="h-10 w-10 animate-spin text-muted" />
+          <Loader2 className="h-10 w-10 animate-spin text-[#06C033]" />
         </div>
       ) : rows.length === 0 ? (
         <div
           className={cn(
             'py-20 text-center text-muted',
-            adminHub ? 'admin-achievements-empty' : 'mx-auto max-w-6xl px-4 sm:px-8'
+            adminHub ? 'admin-achievements-empty' : 'mx-auto max-w-7xl px-4 sm:px-8'
           )}
         >
-          <p>No achievements published yet.</p>
-          {editable && (
+          <Trophy className="mx-auto mb-3 h-10 w-10 text-[#06C033]/40" />
+          <p>{hasActiveFilters ? 'No achievements match your filters.' : 'No achievements published yet.'}</p>
+          {editable && !hasActiveFilters && (
             <Button type="button" variant="secondary" className="mt-4" onClick={openAdd}>
               Add the first one
             </Button>
@@ -384,91 +582,51 @@ export function CompanyAchievementsExperience({
       ) : (
         <div
           className={cn(
-            adminHub ? 'w-full admin-achievements-list' : 'mx-auto max-w-6xl'
+            adminHub ? 'admin-achievements-list px-4 pb-8' : 'mx-auto max-w-7xl px-4 pb-12 sm:px-8 lg:px-12',
+            (ep || adminHub) && 'bg-transparent'
           )}
         >
-          {rows.map((row, index) => (
-            <article
-              key={row.id}
-              className={cn(
-                adminHub
-                  ? 'admin-achievements-row last:border-b-0'
-                  : cn(
-                      'grid gap-8 px-4 sm:px-8 lg:grid-cols-2 lg:px-12',
-                      ep
-                        ? 'border-b border-zinc-100 py-14 last:border-b-0 lg:gap-16 lg:py-20'
-                        : 'border-b border-border py-14 last:border-b-0 lg:gap-12 lg:py-16'
-                    )
-              )}
-            >
-              <div
-                className={cn(
-                  adminHub
-                    ? 'admin-achievements-row-inner grid gap-8 lg:grid-cols-2 lg:gap-12'
-                    : 'contents'
-                )}
-              >
-                <div
-                  className={`flex flex-col justify-center ${
-                    index % 2 === 1 ? 'lg:order-2' : 'lg:order-1'
-                  }`}
-                >
+          <div className="columns-1 gap-5 sm:columns-2 xl:columns-3 [&>article]:mb-5">
+            {rows.map((row) => (
+              <AchievementFeedCard
+                key={row.id}
+                row={row}
+                editable={editable}
+                onEdit={() => openEdit(row)}
+                onDelete={() => setDeleteTarget(row)}
+                imageSlot={
                   <AchievementPhoto
                     achievementId={row.id}
                     hasImage={row.hasImage}
                     imageRevision={row.updatedAt}
                     alt={row.title}
-                    employeePresentation={ep}
-                    className="aspect-[4/3] w-full max-h-[360px] lg:max-h-none"
+                    className="h-full w-full"
                   />
-                </div>
-                <div
-                  className={`flex flex-col justify-center ${
-                    index % 2 === 1 ? 'lg:order-1' : 'lg:order-2'
-                  }`}
-                >
-                  <h3
-                    className={cn(
-                      adminHub
-                        ? 'admin-achievements-item-title font-display text-2xl font-bold text-[#006400] lg:text-3xl'
-                        : ep
-                          ? 'font-sans text-2xl font-bold text-[#006400] sm:text-3xl lg:text-4xl'
-                          : 'font-display text-2xl font-semibold text-[#006400] lg:text-3xl'
-                    )}
-                  >
-                    {row.title}
-                  </h3>
-                  <p
-                    className={cn(
-                      'mt-4 whitespace-pre-wrap leading-relaxed text-zinc-600',
-                      ep ? 'font-sans text-base sm:text-lg' : 'text-base'
-                    )}
-                  >
-                    {row.description}
-                  </p>
-                  {editable && (
-                    <div className="mt-6 flex flex-wrap gap-2">
-                      <Button type="button" variant="secondary" size="sm" onClick={() => openEdit(row)}>
-                        <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                        Edit
-                      </Button>
-                      <Button type="button" variant="danger" size="sm" onClick={() => setDeleteTarget(row)}>
-                        <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                        Delete
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </article>
-          ))}
+                }
+              />
+            ))}
+          </div>
+
+          {hasMore ? (
+            <div className="mt-8 flex justify-center">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={loadingMore}
+                onClick={() => void fetchAchievements(page + 1, true)}
+                className="min-w-[160px] border-[#06C033]/30 text-[#047a24] hover:bg-[#f0fdf4]"
+              >
+                {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Load more'}
+              </Button>
+            </div>
+          ) : null}
         </div>
       )}
 
       <Modal
         isOpen={pageEditOpen}
         onClose={() => setPageEditOpen(false)}
-        title="Edit page title"
+        title="Edit achievements page"
         size="md"
       >
         <div className="grid gap-4">
@@ -476,7 +634,6 @@ export function CompanyAchievementsExperience({
             label="Page title"
             value={pageTitle}
             onChange={(e) => setPageTitle(e.target.value)}
-            placeholder="Company achievements"
           />
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" type="button" onClick={() => setPageEditOpen(false)}>
@@ -485,7 +642,7 @@ export function CompanyAchievementsExperience({
             <Button
               type="button"
               disabled={pageSaving}
-              onClick={() => void savePageTitle()}
+              onClick={() => void savePageContent()}
               className={adminHub ? 'admin-achievements-primary-btn border-0' : undefined}
             >
               {pageSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
@@ -502,32 +659,64 @@ export function CompanyAchievementsExperience({
         size="lg"
       >
         <div className="grid gap-4">
-          <Input label="Title" value={aTitle} onChange={(e) => setATitle(e.target.value)} />
+          <Input label="Title" value={aTitle} onChange={(e) => setATitle(e.target.value)} required />
           <label className="text-sm font-medium text-ink">
             Description
             <textarea
-              className="mt-1 min-h-[140px] w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              className="mt-1 min-h-[120px] w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               value={aDesc}
               onChange={(e) => setADesc(e.target.value)}
+              required
             />
           </label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <SelectField
+              label="Category"
+              value={aCategory}
+              onChange={(e) => setACategory(e.target.value)}
+              options={categoryOptions.filter((o) => o.value !== '')}
+              showChevron
+              required
+            />
+            <Input
+              label="Employee / team name"
+              value={aEmployee}
+              onChange={(e) => setAEmployee(e.target.value)}
+              required
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="Achievement date"
+              type="date"
+              value={aDate}
+              onChange={(e) => setADate(e.target.value)}
+              required
+            />
+            <Input
+              label="Tags (optional)"
+              value={aTags}
+              onChange={(e) => setATags(e.target.value)}
+              placeholder="innovation, milestone"
+            />
+          </div>
           <div>
-            <p className="text-sm font-medium text-ink">Image (JPEG, PNG, WebP)</p>
+            <p className="text-sm font-medium text-ink">Image (JPEG/JPG)</p>
             <input
               type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="mt-2 block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
+              accept="image/jpeg,image/jpg,.jpg,.jpeg"
+              className="mt-2 block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-[#06C033] file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
               onChange={(e) => {
                 setAFile(e.target.files?.[0] ?? null)
                 if (e.target.files?.[0]) setARemoveImage(false)
               }}
             />
             {aFilePreviewUrl && (
-              <div className="mt-3 overflow-hidden rounded-xl border border-border">
+              <div className="mt-3 overflow-hidden rounded-xl border border-border bg-slate-50">
                 <img
                   src={aFilePreviewUrl}
                   alt="New image preview"
-                  className="aspect-[4/3] w-full object-cover"
+                  className="mx-auto max-h-64 w-full object-contain"
                 />
                 <p className="bg-muted/30 px-3 py-1.5 text-xs text-muted">New image (not saved yet)</p>
               </div>
@@ -547,7 +736,12 @@ export function CompanyAchievementsExperience({
             <Button variant="ghost" type="button" onClick={() => setAddOpen(false)}>
               Cancel
             </Button>
-            <Button type="button" disabled={aSaving} onClick={() => void saveAchievement()}>
+            <Button
+              type="button"
+              disabled={aSaving}
+              onClick={() => void saveAchievement()}
+              className="border-0 bg-[#06C033] text-white hover:bg-[#05a82c]"
+            >
               {aSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Save
             </Button>

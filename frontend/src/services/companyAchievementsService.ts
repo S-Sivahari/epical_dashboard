@@ -9,10 +9,31 @@ export interface CompanyAchievementRow {
   id: string
   title: string
   description: string
+  category: string
+  employeeOrTeamName: string
+  achievementDate: string
+  tags: string[]
   sortOrder: number
   hasImage: boolean
   createdAt: string
   updatedAt: string
+}
+
+export interface CompanyAchievementsListResult {
+  items: CompanyAchievementRow[]
+  total: number
+  page: number
+  limit: number
+  hasMore: boolean
+}
+
+export interface ListCompanyAchievementsParams {
+  q?: string
+  category?: string
+  year?: number
+  month?: number
+  page?: number
+  limit?: number
 }
 
 export async function getAchievementPageMeta(): Promise<AchievementPageMeta> {
@@ -25,8 +46,17 @@ export async function updateAchievementPage(title: string): Promise<AchievementP
   return data
 }
 
-export async function listCompanyAchievements(): Promise<CompanyAchievementRow[]> {
-  const { data } = await api.get<CompanyAchievementRow[]>('/company-achievements')
+export async function listCompanyAchievements(
+  params: ListCompanyAchievementsParams = {}
+): Promise<CompanyAchievementsListResult> {
+  const { data } = await api.get<CompanyAchievementsListResult>('/company-achievements', {
+    params,
+  })
+  return data
+}
+
+export async function listAchievementCategories(): Promise<string[]> {
+  const { data } = await api.get<string[]>('/company-achievements/categories')
   return data
 }
 

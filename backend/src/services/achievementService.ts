@@ -1,6 +1,12 @@
 import { randomUUID } from 'crypto'
 import { getDB } from '../config/db'
-import type { AchievementImageBlob, AchievementItemDoc, AchievementPageDoc } from '../models/CompanyAchievement'
+import type {
+  AchievementImageBlob,
+  AchievementItemDoc,
+  AchievementPageDoc,
+  ListAchievementsQuery,
+  ListAchievementsResult,
+} from '../models/CompanyAchievement'
 
 const PAGE_KEY = 'settings' as const
 
@@ -34,6 +40,9 @@ async function createIndexes(): Promise<void> {
       itemsCollection.createIndex({ id: 1 }, { unique: true }),
       itemsCollection.createIndex({ sortOrder: 1 }),
       itemsCollection.createIndex({ createdAt: -1 }),
+      itemsCollection.createIndex({ achievementDate: -1 }),
+      itemsCollection.createIndex({ category: 1 }),
+      itemsCollection.createIndex({ title: 'text' }),
     ])
   } catch (error) {
     console.error('Failed to create achievement indexes:', error)
@@ -59,8 +68,73 @@ async function nextSortOrder(): Promise<number> {
   return (last?.sortOrder ?? -1) + 1
 }
 
-export async function listAchievements(): Promise<AchievementItemDoc[]> {
-  return itemsCol().find({}).sort({ sortOrder: 1, createdAt: -1 }).toArray()
+function buildListFilter(query: ListAchievementsQuery): Record<string, unknown> {
+  const filter: Record<string, unknown> = {}
+  const q = query.q?.trim()
+  if (q) {
+    filter.title = { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' }
+  }
+  const category = query.category?.trim()
+  if (category) {
+    filter.category = category
+  }
+  if (query.year) {
+    const year = query.year
+    const month = query.month
+    let range: { $gte: Date; $lt: Date }
+    if (month && month >= 1 && month <= 12) {
+      range = {
+        $gte: new Date(year, month - 1, 1),
+        $lt: new Date(year, month, 1),
+      }
+    } else {
+      range = {
+        $gte: new Date(year, 0, 1),
+        $lt: new Date(year + 1, 0, 1),
+      }
+    }
+    filter.$or = [
+      { achievementDate: range },
+      { achievementDate: { $exists: false }, createdAt: range },
+      { achievementDate: null, createdAt: range },
+    ]
+  }
+  return filter
+}
+
+export async function listAchievements(
+  query: ListAchievementsQuery = {}
+): Promise<ListAchievementsResult> {
+  const page = Math.max(1, query.page ?? 1)
+  const limit = Math.min(50, Math.max(1, query.limit ?? 12))
+  const skip = (page - 1) * limit
+  const filter = buildListFilter(query)
+  const col = itemsCol()
+
+  const [items, total] = await Promise.all([
+    col
+      .find(filter)
+      .sort({ achievementDate: -1, createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .toArray(),
+    col.countDocuments(filter),
+  ])
+
+  return {
+    items,
+    total,
+    page,
+    limit,
+    hasMore: skip + items.length < total,
+  }
+}
+
+export async function listAchievementCategories(): Promise<string[]> {
+  const rows = await itemsCol().distinct('category')
+  return rows
+    .filter((c): c is string => typeof c === 'string' && c.trim().length > 0)
+    .sort((a, b) => a.localeCompare(b))
 }
 
 export async function getAchievement(id: string): Promise<AchievementItemDoc | null> {
@@ -70,6 +144,10 @@ export async function getAchievement(id: string): Promise<AchievementItemDoc | n
 export async function createAchievement(payload: {
   title: string
   description: string
+  category: string
+  employeeOrTeamName: string
+  achievementDate: Date
+  tags: string[]
   image?: AchievementImageBlob
 }): Promise<AchievementItemDoc> {
   const now = new Date()
@@ -77,6 +155,10 @@ export async function createAchievement(payload: {
     id: randomUUID(),
     title: payload.title.trim(),
     description: payload.description.trim(),
+    category: payload.category.trim(),
+    employeeOrTeamName: payload.employeeOrTeamName.trim(),
+    achievementDate: payload.achievementDate,
+    tags: payload.tags,
     sortOrder: await nextSortOrder(),
     image: payload.image,
     createdAt: now,
@@ -91,33 +173,38 @@ export async function updateAchievement(
   payload: {
     title: string
     description: string
+    category: string
+    employeeOrTeamName: string
+    achievementDate: Date
+    tags: string[]
     image?: AchievementImageBlob
     removeImage?: boolean
   }
 ): Promise<AchievementItemDoc | null> {
   const now = new Date()
+  const baseFields = {
+    title: payload.title.trim(),
+    description: payload.description.trim(),
+    category: payload.category.trim(),
+    employeeOrTeamName: payload.employeeOrTeamName.trim(),
+    achievementDate: payload.achievementDate,
+    tags: payload.tags,
+    updatedAt: now,
+  }
+
   if (payload.removeImage) {
     const res = await itemsCol().findOneAndUpdate(
       { id },
       {
-        $set: {
-          title: payload.title.trim(),
-          description: payload.description.trim(),
-          updatedAt: now,
-        },
+        $set: baseFields,
         $unset: { image: '' },
       },
       { returnDocument: 'after' }
     )
-    const doc = extractAfter(res)
-    return doc
+    return extractAfter(res)
   }
 
-  const $set: Partial<AchievementItemDoc> = {
-    title: payload.title.trim(),
-    description: payload.description.trim(),
-    updatedAt: now,
-  }
+  const $set: Partial<AchievementItemDoc> = { ...baseFields }
   if (payload.image) {
     $set.image = payload.image
   }
