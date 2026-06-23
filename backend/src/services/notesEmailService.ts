@@ -123,7 +123,6 @@ async function resolveAllEmployeeRecipients(): Promise<{
   recipients: NoteEmailRecipient[];
   employeeCount: number;
   missingEmailCount: number;
-  privateEmployeeCount: number;
 }> {
   const db = getDB();
   const employeeDocs = await db
@@ -135,12 +134,10 @@ async function resolveAllEmployeeRecipients(): Promise<{
   const recipients: NoteEmailRecipient[] = [];
   const seenEmails = new Set<string>();
   let missingEmailCount = 0;
-  let privateEmployeeCount = 0;
   let publicEmployeeCount = 0;
 
   for (const employee of employeeDocs) {
     if (!isPublicEmployeeView(employee.view)) {
-      privateEmployeeCount += 1;
       continue;
     }
 
@@ -164,7 +161,6 @@ async function resolveAllEmployeeRecipients(): Promise<{
     recipients,
     employeeCount: publicEmployeeCount,
     missingEmailCount,
-    privateEmployeeCount,
   };
 }
 
@@ -288,7 +284,6 @@ function buildWarnings(
   recipients: NoteEmailRecipient[],
   allRecipients: NoteEmailRecipient[],
   missingEmailCount: number,
-  privateEmployeeCount: number,
   scope: DailyNotesEmailPreview['recipientScope'],
   recipientEmployeeIds?: string[],
 ): string[] {
@@ -310,9 +305,6 @@ function buildWarnings(
   }
   if (missingEmailCount > 0 && scope === 'all_working_employees') {
     warnings.push(`${missingEmailCount} working employee(s) have no email on file and will be skipped.`);
-  }
-  if (privateEmployeeCount > 0 && scope === 'all_working_employees') {
-    warnings.push(`${privateEmployeeCount} private employee record(s) are excluded from daily notes email.`);
   }
   if (scope === 'selected_employees' && recipientEmployeeIds && recipientEmployeeIds.length > 0) {
     const reachableIds = new Set(recipients.map((recipient) => recipient.id));
@@ -346,7 +338,6 @@ export async function buildDailyNotesEmailPreview(
     recipients: allRecipients,
     employeeCount,
     missingEmailCount,
-    privateEmployeeCount,
   } = await resolveAllEmployeeRecipients();
   const { recipients, scope } = filterRecipients(allRecipients, options.recipientEmployeeIds);
   const warnings = buildWarnings(
@@ -354,7 +345,6 @@ export async function buildDailyNotesEmailPreview(
     recipients,
     allRecipients,
     missingEmailCount,
-    privateEmployeeCount,
     scope,
     options.recipientEmployeeIds,
   );
