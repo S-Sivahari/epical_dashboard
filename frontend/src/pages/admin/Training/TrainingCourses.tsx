@@ -184,7 +184,7 @@ export function TrainingCourses() {
       const err = e as { response?: { data?: { error?: string } } }
       toast.error(
         err?.response?.data?.error ||
-          (editingCourseId ? 'Failed to update course' : 'Failed to add course'),
+          (editingCourseId ? 'Failed To Update Course' : 'Failed To Add Course'),
       )
     } finally {
       setSavingCourse(false)
@@ -294,35 +294,37 @@ export function TrainingCourses() {
 
           {tab === 'courses' && (
             <div className="admin-training-body-grid admin-training-body-grid--fill">
-              <aside className="admin-training-sidebar space-y-4">
+              <aside className="admin-training-sidebar">
                 <p className="admin-training-sidebar-title">
                   {editingCourseId ? 'Edit Course' : 'Add New Course'}
                 </p>
-                <Input
-                  label="Course Title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Enter course name"
-                />
-                <Input
-                  label="Topic"
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  placeholder="e.g. Sales, React"
-                />
-                <Input
-                  label="Platform"
-                  value={platform}
-                  onChange={(e) => setPlatform(e.target.value)}
-                  placeholder="e.g. Udemy, Coursera"
-                />
-                <Input
-                  label="Course Link"
-                  value={link}
-                  onChange={(e) => setLink(e.target.value)}
-                  placeholder="https://..."
-                />
-                <div className="flex flex-col gap-2">
+                <div className="admin-training-sidebar-fields">
+                  <Input
+                    label="Course Title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Enter course name"
+                  />
+                  <Input
+                    label="Topic"
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                    placeholder="e.g. Sales, React"
+                  />
+                  <Input
+                    label="Platform"
+                    value={platform}
+                    onChange={(e) => setPlatform(e.target.value)}
+                    placeholder="e.g. Udemy, Coursera"
+                  />
+                  <Input
+                    label="Course Link"
+                    value={link}
+                    onChange={(e) => setLink(e.target.value)}
+                    placeholder="https://..."
+                  />
+                </div>
+                <div className="admin-training-sidebar-actions">
                   <Button
                     className="admin-training-primary-btn w-full border-0"
                     onClick={() => void handleSaveCourse()}
@@ -448,8 +450,9 @@ export function TrainingCourses() {
 
           {tab !== 'courses' && (
             <div className="admin-training-body-grid admin-training-body-grid--fill">
-              <aside className="admin-training-sidebar space-y-4">
+              <aside className="admin-training-sidebar">
                 <p className="admin-training-sidebar-title">{activeTabMeta.label}</p>
+                <div className="admin-training-sidebar-fields">
                 <div>
                   <label className="mb-1 block text-sm font-semibold admin-training-text-brand">
                     Course
@@ -486,6 +489,7 @@ export function TrainingCourses() {
                     <X className="h-4 w-4 mr-1" /> Clear filters
                   </Button>
                 )}
+                </div>
               </aside>
 
               <div className="admin-training-main-panel">

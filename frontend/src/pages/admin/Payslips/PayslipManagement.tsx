@@ -592,7 +592,6 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
       })
       const newBatch = result.batch
       setUploadBatch(newBatch)
-      setSelectedFile(null)
       setReplaceConfirm(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
 
@@ -961,6 +960,8 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
     { id: 'history' as TabId, label: 'History', icon: History },
   ]
 
+  const uploadFileLabel = selectedFile?.name ?? batch?.originalFileName ?? null
+
   const batchSummary = batch ? (
     <div className="admin-payslip-batch-summary rounded-xl p-3">
       <div className="flex flex-wrap justify-end gap-2">
@@ -1142,10 +1143,10 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
                         <Upload className="h-4 w-4" />
                         Choose Excel File
                       </Button>
-                      {selectedFile && (
+                      {uploadFileLabel && (
                         <div className="admin-payslip-file-chip flex w-full items-center gap-2 rounded-lg px-3 py-2.5">
                           <FileSpreadsheet className="h-5 w-5 shrink-0 admin-payslips-text-brand" aria-hidden />
-                          <strong className="min-w-0 flex-1 truncate">{selectedFile.name}</strong>
+                          <strong className="min-w-0 flex-1 truncate">{uploadFileLabel}</strong>
                         </div>
                       )}
                       <p className="text-xs admin-payslips-text-muted">
@@ -1403,9 +1404,9 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
                         <Upload className="h-4 w-4" />
                         Choose Excel File
                       </Button>
-                      {selectedFile && (
+                      {uploadFileLabel && (
                         <span className="inline-flex items-center rounded-lg border border-border bg-surface px-3 py-1.5 text-sm">
-                          <strong className="max-w-[240px] truncate">{selectedFile.name}</strong>
+                          <strong className="max-w-[240px] truncate">{uploadFileLabel}</strong>
                         </span>
                       )}
                       <Button className="sm:ml-auto" onClick={handleUploadAndProcess} disabled={uploading || !selectedFile}>
