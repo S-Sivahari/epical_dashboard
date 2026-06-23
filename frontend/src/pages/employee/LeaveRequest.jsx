@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { X } from 'lucide-react'
+import { ChevronDown, X } from 'lucide-react'
 import { useFormSessionDraft } from '@hooks/useFormSessionDraft'
 import { Button } from '@components/employee/ui/button'
 import {
@@ -39,8 +39,76 @@ import {
 import { canCancelLeave } from '@/utils/leaveFilters'
 import { formatLeaveBalances } from '@/utils/leaveBalances'
 import { getRequestedLeaveDays, isCasualSameDayLeave } from '@/utils/leaveCalculator'
+import { cn } from '@pages/employee/lib/utils'
 
 const leaveBounds = getLeaveDateBounds()
+
+function LeaveHistoryStatusCell({ row }) {
+  const [reasonOpen, setReasonOpen] = useState(false)
+  const rootRef = useRef(null)
+
+  useEffect(() => {
+    if (!reasonOpen) return undefined
+
+    const onPointerDown = (event) => {
+      if (rootRef.current && !rootRef.current.contains(event.target)) {
+        setReasonOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', onPointerDown)
+    return () => document.removeEventListener('mousedown', onPointerDown)
+  }, [reasonOpen])
+
+  const isRejected = row.status === 'Rejected'
+  const rejectionReason = row.rejectionReason?.trim() || 'No reason provided'
+
+  return (
+    <div ref={rootRef} className="emp-leave-history-status mx-auto w-full min-w-0 max-w-full">
+      <div className="relative flex justify-center">
+        {isRejected ? (
+          <>
+            <button
+              type="button"
+              className="emp-leave-rejected-status-trigger"
+              onClick={() => setReasonOpen((open) => !open)}
+              aria-expanded={reasonOpen}
+              aria-haspopup="dialog"
+              aria-label={`Rejected. ${reasonOpen ? 'Hide' : 'Show'} rejection reason`}
+            >
+              <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
+              <ChevronDown
+                className={cn(
+                  'emp-leave-rejected-status-trigger__chevron',
+                  reasonOpen && 'is-open',
+                )}
+                aria-hidden
+              />
+            </button>
+            {reasonOpen ? (
+              <div
+                className="emp-leave-rejected-reason-popover"
+                role="dialog"
+                aria-label="Rejection reason"
+              >
+                <p className="emp-leave-rejected-reason-popover__label">Rejection reason</p>
+                <p className="emp-leave-rejected-reason-popover__text">{rejectionReason}</p>
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
+        )}
+      </div>
+      {row.status === 'Cancelled' && row.cancelReason ? (
+        <div className="emp-leave-history-note mt-1.5 w-full max-w-full rounded-md border border-border bg-slate-50 px-2 py-1.5 text-[11px] leading-snug">
+          <span className="font-semibold">Note: </span>
+          {row.cancelReason}
+        </div>
+      ) : null}
+    </div>
+  )
+}
 
 const leaveSchema = z
   .object({
@@ -122,25 +190,7 @@ const historyColumns = [
   {
     key: 'status',
     label: 'Status',
-    render: (row) => (
-      <div className="emp-leave-history-status mx-auto w-full min-w-0 max-w-full">
-        <div className="flex justify-center">
-          <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
-        </div>
-        {row.status === 'Rejected' ? (
-          <div className="emp-leave-history-note emp-leave-history-note--rejected mt-1.5 w-full max-w-full rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-[11px] leading-snug text-red-900">
-            <span className="font-semibold">Reason: </span>
-            {row.rejectionReason?.trim() || 'No reason provided'}
-          </div>
-        ) : null}
-        {row.status === 'Cancelled' && row.cancelReason ? (
-          <div className="emp-leave-history-note mt-1.5 w-full max-w-full rounded-md border border-border bg-slate-50 px-2 py-1.5 text-[11px] leading-snug">
-            <span className="font-semibold">Note: </span>
-            {row.cancelReason}
-          </div>
-        ) : null}
-      </div>
-    ),
+    render: (row) => <LeaveHistoryStatusCell row={row} />,
   },
 ]
 

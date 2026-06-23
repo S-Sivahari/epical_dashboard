@@ -876,11 +876,74 @@
 .emp-leave-history-scroll table tbody td:last-child {
   min-width: calc(7.5rem * var(--els));
   max-width: calc(12rem * var(--els));
+  overflow: visible;
 }
 
 .emp-leave-history-status,
 .emp-leave-history-applied {
   box-sizing: border-box;
+}
+
+.emp-leave-rejected-status-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 9999px;
+}
+
+.emp-leave-rejected-status-trigger:focus-visible {
+  outline: 2px solid rgba(38, 107, 28, 0.45);
+  outline-offset: 2px;
+}
+
+.emp-leave-rejected-status-trigger__chevron {
+  width: calc(0.875rem * var(--els));
+  height: calc(0.875rem * var(--els));
+  color: #b91c1c;
+  transition: transform 0.18s ease;
+}
+
+.emp-leave-rejected-status-trigger__chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.emp-leave-rejected-reason-popover {
+  position: absolute;
+  top: calc(100% + 0.375rem);
+  left: 50%;
+  z-index: 30;
+  width: min(16rem, calc(100vw - 2rem));
+  transform: translateX(-50%);
+  border-radius: calc(0.625rem * var(--els));
+  border: 1px solid #fecaca;
+  background: #fff;
+  padding: calc(0.625rem * var(--els)) calc(0.75rem * var(--els));
+  box-shadow:
+    0 10px 24px rgba(15, 23, 42, 0.12),
+    0 2px 6px rgba(185, 28, 28, 0.08);
+  text-align: left;
+}
+
+.emp-leave-rejected-reason-popover__label {
+  margin: 0;
+  font-size: calc(0.625rem * var(--els));
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #991b1b;
+}
+
+.emp-leave-rejected-reason-popover__text {
+  margin: calc(0.375rem * var(--els)) 0 0;
+  font-size: calc(0.8125rem * var(--els));
+  line-height: 1.45;
+  color: #7f1d1d;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .emp-leave-history-scroll table tbody td .text-muted,
