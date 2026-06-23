@@ -30,14 +30,14 @@ export function DashboardDocumentRequests({ documents = [], className, compact =
   return (
     <InteractiveCard to={DOCUMENTS_PATH} className={cn(cardClass, 'emp-dash-card emp-dash-card--amber', className)}>
       <div className="emp-dash-bottom-widget-header">
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="emp-dash-icon emp-dash-icon--amber h-7 w-7" aria-hidden>
+        <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+          <div className="emp-dash-icon emp-dash-icon--amber h-7 w-7 shrink-0" aria-hidden>
             <FileText className="h-3.5 w-3.5" />
           </div>
-          <div className="min-w-0">
-            <h3 className="font-heading font-semibold text-foreground">Document requests</h3>
+          <div className="min-w-0 overflow-hidden">
+            <h3 className="font-heading font-semibold text-foreground truncate">Document requests</h3>
             {pending.length > 0 ? (
-              <p className="mt-0.5 text-[11px] text-muted">
+              <p className="mt-0.5 text-[11px] text-muted truncate">
                 {pending.length} pending admin review
               </p>
             ) : null}

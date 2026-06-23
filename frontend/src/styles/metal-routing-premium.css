@@ -2992,8 +2992,13 @@
   text-align-last: left;
 }
 
-.metal-routing-view .metal-routing-signal-projects-sort__select option {
-  text-align: left;
+.metal-routing-view .metal-routing-signal-projects-sort__select.metal-routing-signal-projects-filter__trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  cursor: pointer;
+  outline: none;
 }
 
 .metal-routing-view .metal-routing-signal-projects-filter {
