@@ -75,7 +75,10 @@ export function CellTypeChecklistTab({ projectId, cellId, cellStatus, onUpdated 
       const open: Record<string, boolean> = {}
       for (const item of data.items) {
         drafts[item.itemKey] = item.comment ?? ''
-        if (item.response === 'no' || item.response === 'not_applicable') {
+        if (
+          (item.response === 'no' || item.response === 'not_applicable') &&
+          !item.comment?.trim()
+        ) {
           open[item.itemKey] = true
         }
       }
@@ -137,6 +140,13 @@ export function CellTypeChecklistTab({ projectId, cellId, cellStatus, onUpdated 
       if (response === 'yes') {
         setCommentOpen((prev) => ({ ...prev, [item.itemKey]: false }))
         setCommentDrafts((prev) => ({ ...prev, [item.itemKey]: '' }))
+      } else {
+        setCommentOpen((prev) => ({ ...prev, [item.itemKey]: false }))
+        setPendingResponse((prev) => {
+          const next = { ...prev }
+          delete next[item.itemKey]
+          return next
+        })
       }
       toast.success('Response saved')
       onUpdated?.()
@@ -157,8 +167,10 @@ export function CellTypeChecklistTab({ projectId, cellId, cellStatus, onUpdated 
     void saveResponse(item, response)
   }
 
-  const handleCommentSave = (item: CellTypeChecklistItem) => {
-    const response = pendingResponse[item.itemKey]
+  const handleCommentCommit = (item: CellTypeChecklistItem) => {
+    const response =
+      pendingResponse[item.itemKey] ??
+      (item.response === 'no' || item.response === 'not_applicable' ? item.response : undefined)
     if (response !== 'no' && response !== 'not_applicable') return
     void saveResponse(item, response, commentDrafts[item.itemKey] ?? '')
   }
@@ -437,8 +449,13 @@ export function CellTypeChecklistTab({ projectId, cellId, cellStatus, onUpdated 
             {hasItems
               ? detail!.items.map((item, index) => {
               const needsComment = item.response === 'no' || item.response === 'not_applicable'
-              const showComment = commentOpen[item.itemKey] || needsComment
               const activePending = pendingResponse[item.itemKey]
+              const isPendingEntry = activePending === 'no' || activePending === 'not_applicable'
+              const hasSavedComment = Boolean(item.comment?.trim())
+              const showCommentEditor =
+                isPendingEntry ||
+                (needsComment && (!hasSavedComment || Boolean(commentOpen[item.itemKey])))
+              const showSavedComment = hasSavedComment && needsComment && !showCommentEditor
               const isSaving = savingKey === item.itemKey
               const isDeleting = deletingKey === item.itemKey
 
@@ -448,9 +465,6 @@ export function CellTypeChecklistTab({ projectId, cellId, cellStatus, onUpdated 
                   className={cn(
                     'admin-projects-checklist-response-item',
                     item.response && 'is-answered',
-                    item.response === 'yes' && 'is-yes',
-                    item.response === 'no' && 'is-no',
-                    item.response === 'not_applicable' && 'is-na',
                   )}
                 >
                   <div className="admin-projects-checklist-response-row">
@@ -477,70 +491,70 @@ export function CellTypeChecklistTab({ projectId, cellId, cellStatus, onUpdated 
                         role="group"
                         aria-label={`Response for ${item.itemName}`}
                       >
-                        {RESPONSE_OPTIONS.map((option) => (
-                          <button
-                            key={option.value}
-                            type="button"
-                            className={cn(
-                              'admin-projects-checklist-response-btn',
-                              item.response === option.value && 'is-selected',
-                              item.response === option.value && option.className,
-                            )}
-                            disabled={isSaving}
-                            onClick={() => handleSelect(item, option.value)}
-                          >
-                            {option.label}
-                          </button>
-                        ))}
+                        {RESPONSE_OPTIONS.map((option) => {
+                          const isSelected =
+                            activePending === option.value ||
+                            (item.response === option.value && !isPendingEntry)
+                          return (
+                            <button
+                              key={option.value}
+                              type="button"
+                              className={cn(
+                                'admin-projects-checklist-response-btn',
+                                isSelected && 'is-selected',
+                                isSelected && option.className,
+                              )}
+                              disabled={isSaving}
+                              onClick={() => handleSelect(item, option.value)}
+                            >
+                              {option.label}
+                            </button>
+                          )
+                        })}
                       </div>
                     </div>
                   </div>
 
-                  {showComment ? (
+                  {showCommentEditor ? (
                     <div className="admin-projects-checklist-comment-box">
-                      <p className="admin-projects-checklist-comment-label">
-                        Comment required for No / Not applicable
-                      </p>
-                      <textarea
+                      <input
+                        type="text"
                         className="admin-projects-checklist-comment-input"
-                        rows={2}
                         value={commentDrafts[item.itemKey] ?? ''}
-                        placeholder="Enter reason or notes…"
+                        placeholder="Comment required…"
+                        disabled={isSaving}
                         onChange={(e) =>
                           setCommentDrafts((prev) => ({ ...prev, [item.itemKey]: e.target.value }))
                         }
+                        onBlur={() => handleCommentCommit(item)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            handleCommentCommit(item)
+                          }
+                        }}
                       />
-                      <div className="admin-projects-checklist-comment-actions">
-                        <button
-                          type="button"
-                          className={cn(
-                            'admin-projects-checklist-response-btn',
-                            activePending === 'no' && 'is-selected is-no',
-                          )}
-                          disabled={isSaving || activePending !== 'no'}
-                          onClick={() => void handleCommentSave(item)}
-                        >
-                          Save as No
-                        </button>
-                        <button
-                          type="button"
-                          className={cn(
-                            'admin-projects-checklist-response-btn',
-                            activePending === 'not_applicable' && 'is-selected is-na',
-                          )}
-                          disabled={isSaving || activePending !== 'not_applicable'}
-                          onClick={() => void handleCommentSave(item)}
-                        >
-                          Save as Not applicable
-                        </button>
-                      </div>
                     </div>
                   ) : null}
 
-                  {item.comment && item.response !== 'yes' ? (
-                    <p className="admin-projects-checklist-response-comment">
-                      <span className="font-semibold">Comment:</span> {item.comment}
-                    </p>
+                  {showSavedComment ? (
+                    <button
+                      type="button"
+                      className="admin-projects-checklist-response-comment admin-projects-checklist-response-comment--saved"
+                      onClick={() => {
+                        setCommentOpen((prev) => ({ ...prev, [item.itemKey]: true }))
+                        if (item.response === 'no' || item.response === 'not_applicable') {
+                          setPendingResponse((prev) => ({
+                            ...prev,
+                            [item.itemKey]: item.response,
+                          }))
+                        }
+                      }}
+                      title="Click to edit comment"
+                    >
+                      <span className="admin-projects-checklist-response-comment-label">Comment</span>
+                      <span className="admin-projects-checklist-response-comment-text">{item.comment}</span>
+                    </button>
                   ) : null}
                 </li>
               )

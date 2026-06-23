@@ -239,6 +239,13 @@ function ProjectManagementLegacyRedirect() {
   return <Navigate to={`${next}${location.search}${location.hash}`} replace />
 }
 
+/** Redirect legacy /admin/projects/* bookmarks to the Project Management portal. */
+function AdminProjectsLegacyRedirect() {
+  const location = useLocation()
+  const next = location.pathname.replace(/^\/admin\/projects/, ROUTES.PROJECT_ANALYSIS_PROJECTS)
+  return <Navigate to={`${next}${location.search}${location.hash}`} replace />
+}
+
 // ── App Routes ────────────────────────────────────────────────
 export function AppRoutes() {
   return (
@@ -285,9 +292,7 @@ export function AppRoutes() {
 
             <Route path="project-analysis/*" element={<ProjectManagementLegacyRedirect />} />
 
-            <Route path="projects" element={<AdminProjectsPage />} />
-            <Route path="projects/:projectId/cells/:cellId" element={<ProjectCellPage />} />
-            <Route path="projects/:projectId" element={<ProjectWorkspace />} />
+            <Route path="projects/*" element={<AdminProjectsLegacyRedirect />} />
 
             <Route path="metal-routing/*" element={<AdminMetalRoutingPage />} />
 

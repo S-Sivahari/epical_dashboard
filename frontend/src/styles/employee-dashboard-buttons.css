@@ -405,6 +405,7 @@
 
 /* Hub headers — let parent facet show through inner bands */
 .admin-leaves-view .admin-leaves-hub-header .admin-leaves-hero-top,
+.admin-projects-view .projects-hero-section .projects-hero-top,
 .admin-payslips-view[data-admin-payslips] .admin-payslips-hub-header .admin-payslips-hero-top,
 .admin-payslips-view[data-admin-payslips] .admin-payslips-hub-header .admin-payslips-metrics-band,
 .admin-training-view .admin-training-hub-header .admin-training-hero-top,
@@ -761,14 +762,16 @@
   background: linear-gradient(180deg, #e8c878, #c9922e);
 }
 
-/* Projects & Timesheets hero — match standard admin forest header */
+/* Projects & Timesheets hero — match Leave Management hub header */
 .admin-projects-view .projects-hero-section {
   position: relative;
   isolation: isolate;
   overflow: hidden;
+  padding: 1.125rem 1.375rem;
+  border-radius: 0.875rem !important;
   background: var(--dash-forest-header, #2f6b4f) !important;
-  border-color: rgba(255, 255, 255, 0.12) !important;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08) !important;
+  border: none !important;
+  box-shadow: 0 4px 14px rgba(47, 107, 79, 0.28) !important;
 }
 
 .emp-timesheet-hero {
@@ -794,6 +797,36 @@
 
 .emp-timesheet-hero::after {
   display: none;
+}
+
+/* Employee timesheet — leave-inspired shell (overrides hub-green hero/cards below) */
+[data-employee-timesheet] .emp-timesheet-hero {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 0 0.5rem !important;
+}
+
+[data-employee-timesheet] .emp-timesheet-card::after {
+  display: none !important;
+}
+
+[data-employee-timesheet] .emp-timesheet-card::before {
+  width: 3px;
+  border-radius: 0.875rem 0 0 0.875rem;
+  box-shadow: none;
+  background: linear-gradient(180deg, rgba(123, 184, 154, 0.85), rgba(47, 107, 79, 0.75));
+}
+
+[data-employee-timesheet] .emp-timesheet-history-header button {
+  border-color: rgba(38, 107, 28, 0.14) !important;
+  background: #ffffff !important;
+  color: #1a4329 !important;
+  box-shadow: 0 1px 2px rgba(26, 67, 41, 0.06) !important;
+}
+
+[data-employee-timesheet] .emp-timesheet-history-header button:hover {
+  background: #f8fafc !important;
 }
 
 .admin-projects-view .projects-hero-section > *,
@@ -826,33 +859,6 @@
 .admin-projects-view .projects-hero-section .projects-hero-stat-card > * {
   position: relative;
   z-index: 1;
-}
-
-.admin-projects-view .projects-hero-section .projects-hero-create-btn.projects-hero-stat-card,
-.admin-projects-view .projects-hero-section .project-analysis-launch-btn--hero.projects-hero-stat-card {
-  border: 1px solid rgba(255, 255, 255, 0.35) !important;
-  background: rgba(255, 255, 255, 0.12) !important;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: #ffffff;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
-}
-
-.admin-projects-view .projects-hero-section .projects-hero-create-btn.projects-hero-stat-card::before,
-.admin-projects-view .projects-hero-section .project-analysis-launch-btn--hero.projects-hero-stat-card::before {
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.08) 55%, transparent 100%);
-}
-
-.admin-projects-view .projects-hero-section .projects-hero-create-btn.projects-hero-stat-card:hover,
-.admin-projects-view .projects-hero-section .project-analysis-launch-btn--hero.projects-hero-stat-card:hover {
-  border-color: rgba(255, 255, 255, 0.45) !important;
-  background: rgba(255, 255, 255, 0.2) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
-}
-
-.admin-projects-view .projects-hero-section .projects-hero-create-btn.projects-hero-stat-card svg,
-.admin-projects-view .projects-hero-section .project-analysis-launch-btn--hero.projects-hero-stat-card svg {
-  color: #ffffff;
 }
 
 .admin-projects-view .projects-analytics-head {
@@ -1073,18 +1079,91 @@
   line-height: 1.2;
 }
 
-.emp-weekly-chart--fill {
-  min-height: 0;
-}
-
-.emp-weekly-chart--fill .recharts-responsive-container {
-  min-height: 0 !important;
-}
-
-[data-employee-dashboard] .emp-dash-work-insights-chart {
-  min-height: 0;
-  flex: 1 1 0;
+/* Weekly hours chart — tooltip matches hero stat tiles (HOURS THIS MONTH) */
+.emp-weekly-hours-tooltip {
+  position: relative;
+  isolation: isolate;
   overflow: hidden;
+  min-width: 7.25rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: linear-gradient(135deg, #2d6a4f 0%, #1b4332 100%);
+  box-shadow:
+    0 4px 14px rgba(12, 24, 18, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.emp-weekly-hours-tooltip__pattern {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      -36deg,
+      transparent 0,
+      transparent 8px,
+      rgba(255, 255, 255, 0.075) 8px,
+      rgba(255, 255, 255, 0.075) 9px
+    ),
+    repeating-linear-gradient(
+      36deg,
+      transparent 0,
+      transparent 14px,
+      rgba(183, 228, 199, 0.09) 14px,
+      rgba(183, 228, 199, 0.09) 15px
+    );
+  -webkit-mask-image: linear-gradient(115deg, black 4%, rgba(0, 0, 0, 0.55) 38%, rgba(0, 0, 0, 0.2) 62%, transparent 88%);
+  mask-image: linear-gradient(115deg, black 4%, rgba(0, 0, 0, 0.55) 38%, rgba(0, 0, 0, 0.2) 62%, transparent 88%);
+}
+
+.emp-weekly-hours-tooltip__sheen {
+  position: absolute;
+  top: -18%;
+  right: -8%;
+  z-index: 0;
+  width: 42%;
+  height: 136%;
+  pointer-events: none;
+  transform: skewX(14deg);
+  background:
+    linear-gradient(168deg, transparent 46%, rgba(255, 255, 255, 0.12) 46%, rgba(255, 255, 255, 0.12) 54%, transparent 54%),
+    linear-gradient(152deg, transparent 18%, rgba(149, 213, 178, 0.16) 18%, rgba(149, 213, 178, 0.16) 28%, transparent 28%);
+  clip-path: polygon(22% 0, 100% 0, 100% 100%, 0 100%);
+  -webkit-mask-image: linear-gradient(270deg, black 0%, black 55%, transparent 92%);
+  mask-image: linear-gradient(270deg, black 0%, black 55%, transparent 92%);
+}
+
+.emp-weekly-hours-tooltip__content {
+  position: relative;
+  z-index: 1;
+}
+
+.emp-weekly-hours-tooltip__label {
+  margin: 0;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.emp-weekly-hours-tooltip__value {
+  margin: 0.25rem 0 0;
+  font-size: 1.375rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+.emp-weekly-hours-tooltip__meta {
+  margin: 0.2rem 0 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: rgba(209, 250, 229, 0.9);
 }
 
 /* Employee dashboard — live session rail */

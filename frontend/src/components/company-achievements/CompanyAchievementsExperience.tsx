@@ -351,7 +351,7 @@ export function CompanyAchievementsExperience({
                 className={cn(adminHub && 'admin-achievements-primary-btn border-0')}
               >
                 <Plus className="mr-2 h-4 w-4" />
-                Add achievement
+                Add Achievement
               </Button>
             </div>
           )}

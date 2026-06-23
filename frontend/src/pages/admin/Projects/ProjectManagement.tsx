@@ -2775,33 +2775,27 @@ export function ProjectManagement() {
       >
         <div className="projects-shell animate-fadeIn">
           
-          {/* Modern Enterprise Hero Section - Horizontal Layout with Dark Forest Green */}
-          <div className="projects-hero-section mb-6 rounded-2xl border shadow-lg">
-            <div className="flex flex-col items-center justify-between gap-6 lg:flex-row lg:gap-12 xl:gap-16">
-              
-              {/* Left: Title */}
-              <div className="flex-1 text-center lg:flex-[0_0_30%] lg:text-left">
-                <h1 className="projects-hero-heading">Projects & Timesheets</h1>
+          {/* Hero — matches Leave Management hub header */}
+          <div className="projects-hero-section mb-6">
+            <div className="projects-hero-top">
+              <div className="min-w-0">
+                <h1 className="projects-hero-heading font-display">Projects & Timesheets</h1>
               </div>
-              
-              {/* Vertical Separator */}
-              <div className="projects-hero-separator" aria-hidden />
 
-              {/* Action buttons */}
-              <div className="projects-hero-cards-row">
+              <nav className="projects-hero-tab-rail" aria-label="Project actions">
                 {activeTab !== 'analytics' && activeTab !== 'archived' ? (
                   <button
                     type="button"
                     onClick={openCreateProject}
-                    className="projects-hero-create-btn projects-hero-stat-card"
+                    className="projects-hero-tab-btn projects-hero-tab-btn--primary"
                   >
                     <Plus className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
                     <span>Create Project</span>
                   </button>
                 ) : null}
 
-                <ProjectAnalysisLaunchButton className="project-analysis-launch-btn--hero projects-hero-stat-card" />
-              </div>
+                <ProjectAnalysisLaunchButton className="projects-hero-tab-btn projects-hero-tab-btn--secondary" />
+              </nav>
             </div>
           </div>
 
