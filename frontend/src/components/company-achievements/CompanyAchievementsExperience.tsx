@@ -240,9 +240,7 @@ export function CompanyAchievementsExperience({
   }, [categories])
 
   const defaultSectionTitle = 'Our achievements'
-  const defaultSectionSubtitle = ep
-    ? 'Celebrating milestones, recognition, and team wins.'
-    : 'A vibrant gallery of company wins and recognition.'
+  const employeeSectionSubtitle = 'Celebrating milestones, recognition, and team wins.'
 
   const [pageEditOpen, setPageEditOpen] = useState(false)
   const [pageTitle, setPageTitle] = useState('')
@@ -458,13 +456,11 @@ export function CompanyAchievementsExperience({
             >
               {displaySectionTitle}
             </h2>
-            <p
-              className={cn(
-                adminHub ? 'mt-2 text-sm text-slate-600' : ep ? 'mt-4 font-sans text-base text-slate-600 sm:text-lg' : 'mt-2 text-sm text-slate-600 sm:text-base'
-              )}
-            >
-              {defaultSectionSubtitle}
-            </p>
+            {employeePresentation ? (
+              <p className="mt-4 font-sans text-base text-slate-600 sm:text-lg">
+                {employeeSectionSubtitle}
+              </p>
+            ) : null}
           </div>
 
           {editable && (

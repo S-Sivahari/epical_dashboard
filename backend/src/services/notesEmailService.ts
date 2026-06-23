@@ -8,7 +8,8 @@ import {
 } from '../models/DailyNoteBlock';
 import { sendEmail } from './emailService';
 import { getUserById } from './authService';
-import { normalizeLoginEmail, getEmployeeOfficialEmail } from '../utils/employeeAuth';
+import { getEmployeeOfficialEmail } from '../utils/employeeAuth';
+import { isPublicEmployeeView } from '../utils/employeeView';
 import { stripHtml } from '../utils/notesSearchUtils';
 import { serializeDailyBlock } from './notesService';
 
@@ -117,24 +118,33 @@ function groupContentByProject(doc: DailyNoteBlockDocument): NoteEmailProjectGro
   return Array.from(map.values()).sort((a, b) => a.projectName.localeCompare(b.projectName));
 }
 
-/** All working registered employees — company-wide visibility for daily notes. */
+/** All working public employees — private records are excluded from daily notes email. */
 async function resolveAllEmployeeRecipients(): Promise<{
   recipients: NoteEmailRecipient[];
   employeeCount: number;
   missingEmailCount: number;
+  privateEmployeeCount: number;
 }> {
   const db = getDB();
   const employeeDocs = await db
     .collection('employees')
     .find({ status: { $nin: [...BLOCKED_EMPLOYEE_STATUSES] } })
-    .project({ id: 1, firstName: 1, lastName: 1, employeeId: 1, email: 1, personalEmail: 1, status: 1 })
+    .project({ id: 1, firstName: 1, lastName: 1, employeeId: 1, email: 1, personalEmail: 1, status: 1, view: 1 })
     .toArray();
 
   const recipients: NoteEmailRecipient[] = [];
   const seenEmails = new Set<string>();
   let missingEmailCount = 0;
+  let privateEmployeeCount = 0;
+  let publicEmployeeCount = 0;
 
   for (const employee of employeeDocs) {
+    if (!isPublicEmployeeView(employee.view)) {
+      privateEmployeeCount += 1;
+      continue;
+    }
+
+    publicEmployeeCount += 1;
     const id = String(employee.id);
     const name = employeeDisplayName(employee);
     const officialEmail = getEmployeeOfficialEmail(employee);
@@ -152,8 +162,9 @@ async function resolveAllEmployeeRecipients(): Promise<{
   recipients.sort((a, b) => a.name.localeCompare(b.name) || a.email.localeCompare(b.email));
   return {
     recipients,
-    employeeCount: employeeDocs.length,
+    employeeCount: publicEmployeeCount,
     missingEmailCount,
+    privateEmployeeCount,
   };
 }
 
@@ -277,6 +288,7 @@ function buildWarnings(
   recipients: NoteEmailRecipient[],
   allRecipients: NoteEmailRecipient[],
   missingEmailCount: number,
+  privateEmployeeCount: number,
   scope: DailyNotesEmailPreview['recipientScope'],
   recipientEmployeeIds?: string[],
 ): string[] {
@@ -298,6 +310,9 @@ function buildWarnings(
   }
   if (missingEmailCount > 0 && scope === 'all_working_employees') {
     warnings.push(`${missingEmailCount} working employee(s) have no email on file and will be skipped.`);
+  }
+  if (privateEmployeeCount > 0 && scope === 'all_working_employees') {
+    warnings.push(`${privateEmployeeCount} private employee record(s) are excluded from daily notes email.`);
   }
   if (scope === 'selected_employees' && recipientEmployeeIds && recipientEmployeeIds.length > 0) {
     const reachableIds = new Set(recipients.map((recipient) => recipient.id));
@@ -327,13 +342,19 @@ export async function buildDailyNotesEmailPreview(
   }
 
   const projectGroups = groupContentByProject(doc);
-  const { recipients: allRecipients, employeeCount, missingEmailCount } = await resolveAllEmployeeRecipients();
+  const {
+    recipients: allRecipients,
+    employeeCount,
+    missingEmailCount,
+    privateEmployeeCount,
+  } = await resolveAllEmployeeRecipients();
   const { recipients, scope } = filterRecipients(allRecipients, options.recipientEmployeeIds);
   const warnings = buildWarnings(
     projectGroups,
     recipients,
     allRecipients,
     missingEmailCount,
+    privateEmployeeCount,
     scope,
     options.recipientEmployeeIds,
   );
