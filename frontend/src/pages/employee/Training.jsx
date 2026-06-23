@@ -33,8 +33,8 @@ export default function Training() {
       try {
         const data = await listCourses()
         setCourses(data)
-      } catch (e) {
-        toast({ title: 'Error', description: 'Failed to load courses' })
+      } catch {
+        toast({ title: 'Error', description: 'Failed To Load courses' })
       } finally {
         setLoading(false)
       }
@@ -50,7 +50,7 @@ export default function Training() {
         const data = await listEnrollments({ employee: user.id })
         setAllEnrollments(data)
       } catch {
-        toast({ title: 'Error', description: 'Failed to load enrollments' })
+        toast({ title: 'Error', description: 'Failed To Load Enrollments' })
       } finally {
         setLoadingEnrollments(false)
       }
@@ -95,7 +95,7 @@ export default function Training() {
 
   const enrollmentTabCourses = useMemo(() => {
     return courses.filter((c) => !enrollmentCourseIdsCompleted.has(c.id)).filter(matchesCourseSearch)
-  }, [courses, enrollmentCourseIdsCompleted, term, search])
+  }, [courses, enrollmentCourseIdsCompleted, term])
 
   const completedCards = useMemo(() => {
     return allEnrollments
@@ -110,11 +110,11 @@ export default function Training() {
         const db = new Date(b.completedAt || b.enrolledAt || 0).getTime()
         return db - da
       })
-  }, [allEnrollments, term, search])
+  }, [allEnrollments, term])
 
   const handleEnroll = async (courseId) => {
     if (!user?.id || !user.name) {
-      toast({ title: 'Not allowed', description: 'Login required to enroll.' })
+      toast({ title: 'Not Allowed', description: 'Login Required To Enroll.' })
       return
     }
     setEnrollingId(courseId)
@@ -125,9 +125,9 @@ export default function Training() {
         employeeName: user.name,
       })
       setAllEnrollments((prev) => [record, ...prev])
-      toast({ title: 'Enrolled', description: 'You have been enrolled.' })
-    } catch (e) {
-      toast({ title: 'Error', description: 'Failed to enroll' })
+      toast({ title: 'Enrolled', description: 'You Have Been Enrolled.' })
+    } catch {
+      toast({ title: 'Error', description: 'Failed To Enroll' })
     } finally {
       setEnrollingId(null)
     }
@@ -138,13 +138,196 @@ export default function Training() {
     try {
       const updated = await markComplete(enrollmentId)
       setAllEnrollments((prev) => prev.map((e) => (e.id === enrollmentId ? updated : e)))
-      toast({ title: 'Completed', description: 'Course marked as completed.' })
+      toast({ title: 'Completed', description: 'Course Marked As Completed.' })
     } catch {
-      toast({ title: 'Error', description: 'Failed to update status' })
+      toast({ title: 'Error', description: 'Failed To Update Status' })
     } finally {
       setCompletingId(null)
     }
   }
+
+  const renderSearch = (placeholder) => (
+    <div className="employee-training-search">
+      <Search className="employee-training-search-icon" aria-hidden />
+      <Input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder={placeholder}
+        className="employee-training-search-input"
+        aria-label={placeholder}
+      />
+    </div>
+  )
+
+  const renderEmpty = ({ icon: Icon, title, description }) => (
+    <div className="employee-training-empty">
+      <Icon className="employee-training-empty-icon" aria-hidden />
+      <p className="employee-training-empty-title">{title}</p>
+      <p className="employee-training-empty-text">{description}</p>
+    </div>
+  )
+
+  const renderCourseActions = (course) => {
+    const enrolled = statusByCourse[course.id]?.status === 'Enrolled'
+    const enrollmentId = statusByCourse[course.id]?.enrollmentId
+
+    return (
+      <div className="employee-training-course-actions">
+        <Button size="sm" variant="outline" className="employee-training-outline-btn" asChild>
+          <a href={course.link} target="_blank" rel="noreferrer">
+            <ExternalLink className="mr-1 h-4 w-4" />
+            View Course
+          </a>
+        </Button>
+        {enrolled ? (
+          <Button
+            size="sm"
+            className="employee-training-primary-btn"
+            disabled={completingId === enrollmentId}
+            onClick={() => void handleComplete(enrollmentId)}
+          >
+            {completingId === enrollmentId ? 'Updating…' : 'Mark Complete'}
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            className="employee-training-primary-btn"
+            disabled={enrollingId === course.id}
+            onClick={() => void handleEnroll(course.id)}
+          >
+            {enrollingId === course.id ? 'Enrolling…' : 'Enroll'}
+          </Button>
+        )}
+      </div>
+    )
+  }
+
+  const renderEnrollmentPanel = () => (
+    <section className="employee-training-section" role="tabpanel" aria-label="Enrollment">
+      <header className="employee-training-section-head">
+        <div className="employee-training-section-head-main">
+          <div className="employee-training-section-icon" aria-hidden>
+            <GraduationCap className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="employee-training-section-title">Courses Available</h2>
+            
+          </div>
+        </div>
+        <span className="employee-training-section-count">
+          {loading || loadingEnrollments ? '…' : `${enrollmentTabCourses.length} shown`}
+        </span>
+      </header>
+
+      <div className="employee-training-section-toolbar">{renderSearch('Search Courses To Enroll ')}</div>
+
+      <div className="employee-training-section-body">
+        {loading || loadingEnrollments ? (
+          <p className="employee-training-loading">Loading Courses…</p>
+        ) : enrollmentTabCourses.length === 0 ? (
+          renderEmpty({
+            icon: GraduationCap,
+            title: 'No courses to show',
+            
+          })
+        ) : (
+          <div className="employee-training-course-grid">
+            {enrollmentTabCourses.map((course) => (
+              <InteractiveCard
+                key={course.id}
+                selectable={false}
+                className={portalCardClass({
+                  className: 'employee-training-course-card p-5',
+                })}
+              >
+                <div className="employee-training-course-card-top">
+                  <Badge variant="secondary" className="employee-training-platform-badge">
+                    {course.platform || 'Platform'}
+                  </Badge>
+                  {statusByCourse[course.id]?.status === 'Enrolled' ? (
+                    <Badge variant="default" className="employee-training-status-badge">
+                      In Progress
+                    </Badge>
+                  ) : null}
+                </div>
+                <h3 className="employee-training-course-title">{course.title}</h3>
+                <p className="employee-training-course-topic">Topic: {course.topic}</p>
+                {renderCourseActions(course)}
+              </InteractiveCard>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+
+  const renderCompletedPanel = () => (
+    <section className="employee-training-section" role="tabpanel" aria-label="Completed">
+      <header className="employee-training-section-head">
+        <div className="employee-training-section-head-main">
+          <div className="employee-training-section-icon employee-training-section-icon--completed" aria-hidden>
+            <CheckCircle2 className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="employee-training-section-title">Completed Courses</h2>
+            
+          </div>
+        </div>
+        <span className="employee-training-section-count">
+          {loadingEnrollments ? '…' : `${completedCards.length} total`}
+        </span>
+      </header>
+
+      <div className="employee-training-section-toolbar">{renderSearch('Search completed courses…')}</div>
+
+      <div className="employee-training-section-body">
+        {loadingEnrollments ? (
+          <p className="employee-training-loading">Loading Completed Courses…</p>
+        ) : completedCards.length === 0 ? (
+          renderEmpty({
+            icon: CheckCircle2,
+            title: 'No completed courses yet',
+            description: 'Finish a course and mark it complete to see it here.',
+          })
+        ) : (
+          <div className="employee-training-course-grid">
+            {completedCards.map((e) => {
+              const link = courses.find((c) => c.id === e.courseId)?.link
+              return (
+                <InteractiveCard
+                  key={e.id}
+                  selectable={false}
+                  className={portalCardClass({
+                    className: 'employee-training-course-card employee-training-course-card--completed p-5',
+                  })}
+                >
+                  <div className="employee-training-course-card-top">
+                    <Badge variant="success" className="employee-training-status-badge">
+                      Completed
+                    </Badge>
+                  </div>
+                  <h3 className="employee-training-course-title">{e.courseTitle}</h3>
+                  <p className="employee-training-course-topic">Topic: {e.topic}</p>
+                  <div className="employee-training-course-actions">
+                    {link ? (
+                      <Button size="sm" variant="outline" className="employee-training-outline-btn" asChild>
+                        <a href={link} target="_blank" rel="noreferrer">
+                          <ExternalLink className="mr-1 h-4 w-4" />
+                          View course
+                        </a>
+                      </Button>
+                    ) : (
+                      <span className="employee-training-link-unavailable">Course Link Unavailable</span>
+                    )}
+                  </div>
+                </InteractiveCard>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </section>
+  )
 
   return (
     <div className="employee-training-page space-y-6 pb-8" data-page-scrollable>
@@ -181,138 +364,7 @@ export default function Training() {
       </div>
 
       <div className="transition-opacity duration-200">
-      {tab === 'enrollment' ? (
-        <div className="space-y-4" role="tabpanel" aria-label="Enrollment">
-          <div className="relative max-w-xl">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search courses to enroll or continue…"
-              className="pl-9"
-            />
-          </div>
-          <div>
-            <div className="mb-4 flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <GraduationCap className="h-5 w-5" aria-hidden />
-              </div>
-              <div>
-                <h3 className="font-heading text-lg font-semibold text-foreground">Courses in progress & available</h3>
-                <p className="mt-0.5 text-sm text-muted">
-                  Browse and enroll in new courses or mark enrolled ones complete.
-                </p>
-              </div>
-            </div>
-            {loading || loadingEnrollments ? (
-              <p className="text-sm text-muted">Loading courses…</p>
-            ) : enrollmentTabCourses.length === 0 ? (
-              <p className="text-sm text-muted">No courses match your search, or everything is completed.</p>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {enrollmentTabCourses.map((course) => (
-                  <InteractiveCard
-                    key={course.id}
-                    selectable={false}
-                    className={portalCardClass({ className: 'p-5' })}
-                  >
-                    <div className="flex items-start justify-between">
-                      <Badge variant="secondary">{course.platform || 'Platform'}</Badge>
-                    </div>
-                    <h4 className="mt-3 font-heading font-semibold">{course.title}</h4>
-                    <p className="mt-1 text-sm text-muted">{course.topic}</p>
-                    <div className="mt-4 flex gap-2">
-                      <Button size="sm" variant="outline" asChild>
-                        <a href={course.link} target="_blank" rel="noreferrer">
-                          <ExternalLink className="h-4 w-4 mr-1" />
-                          View Course
-                        </a>
-                      </Button>
-                      {statusByCourse[course.id]?.status === 'Enrolled' ? (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          disabled={completingId === statusByCourse[course.id]?.enrollmentId}
-                          onClick={() => void handleComplete(statusByCourse[course.id].enrollmentId)}
-                        >
-                          {completingId === statusByCourse[course.id]?.enrollmentId
-                            ? 'Updating…'
-                            : 'Mark Complete'}
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          disabled={enrollingId === course.id}
-                          onClick={() => void handleEnroll(course.id)}
-                        >
-                          {enrollingId === course.id ? 'Enrolling…' : 'Enroll'}
-                        </Button>
-                      )}
-                    </div>
-                  </InteractiveCard>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-4" role="tabpanel" aria-label="Completed">
-          <div className="relative max-w-xl">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search completed courses…"
-              className="pl-9"
-            />
-          </div>
-          <div>
-            <div className="mb-4 flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <CheckCircle2 className="h-5 w-5" aria-hidden />
-              </div>
-              <div>
-                <h3 className="font-heading text-lg font-semibold text-foreground">Completed</h3>
-                <p className="mt-0.5 text-sm text-muted">Courses you have finished.</p>
-              </div>
-            </div>
-            {loadingEnrollments ? (
-              <p className="text-sm text-muted">Loading…</p>
-            ) : completedCards.length === 0 ? (
-              <p className="text-sm text-muted">No completed courses yet.</p>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {completedCards.map((e) => {
-                  const link = courses.find((c) => c.id === e.courseId)?.link
-                  return (
-                    <InteractiveCard
-                      key={e.id}
-                      selectable={false}
-                      className={portalCardClass({ className: 'p-5' })}
-                    >
-                      <Badge variant="success">Completed</Badge>
-                      <h4 className="mt-3 font-heading font-semibold">{e.courseTitle}</h4>
-                      <p className="mt-1 text-sm text-muted">{e.topic}</p>
-                      <div className="mt-4">
-                        {link ? (
-                          <Button size="sm" variant="outline" asChild>
-                            <a href={link} target="_blank" rel="noreferrer">
-                              <ExternalLink className="h-4 w-4 mr-1" />
-                              View course
-                            </a>
-                          </Button>
-                        ) : (
-                          <span className="text-xs text-muted">Course link unavailable</span>
-                        )}
-                      </div>
-                    </InteractiveCard>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+        {tab === 'enrollment' ? renderEnrollmentPanel() : renderCompletedPanel()}
       </div>
     </div>
   )

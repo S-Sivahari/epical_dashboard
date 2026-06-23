@@ -265,8 +265,7 @@ export function PayslipsSection({ payslips, loading }) {
           <div>
             <h3 className="font-heading text-lg font-semibold">Payslip history</h3>
             <p className="mt-1 text-sm text-muted">
-              Payslips are delivered to your registered email when admin publishes them. View the PDF
-              in your inbox, or use Send to email if you need another copy.
+            Payslips are emailed when published by the admin. Use "Send to Email" to receive another copy.
             </p>
           </div>
         </div>
@@ -288,8 +287,8 @@ export function PayslipsSection({ payslips, loading }) {
           </div>
           <p className="font-heading text-lg font-semibold text-foreground">No payslips yet</p>
           <p className="mt-2 max-w-md text-sm text-muted">
-            Your payslip history will appear here once admin publishes them from Payslip Management.
-            You will receive each payslip by email when it is issued.
+          Your payslip history will be displayed here once published by the admin. Each issued payslip will also be sent to your registered email.
+
           </p>
         </div>
       ) : (

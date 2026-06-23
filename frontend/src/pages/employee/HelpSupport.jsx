@@ -186,7 +186,7 @@ export default function RaiseTickets() {
           <SectionHeader
             icon={Ticket}
             title="Raise a ticket"
-            description="Submit IT or workplace issues for the admin team"
+            
           />
           <div className="flex flex-1 flex-col space-y-3">
             <div>
