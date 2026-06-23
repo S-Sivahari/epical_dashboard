@@ -795,6 +795,36 @@
   display: none;
 }
 
+/* Employee timesheet — leave-inspired shell (overrides hub-green hero/cards below) */
+[data-employee-timesheet] .emp-timesheet-hero {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 0 0.5rem !important;
+}
+
+[data-employee-timesheet] .emp-timesheet-card::after {
+  display: none !important;
+}
+
+[data-employee-timesheet] .emp-timesheet-card::before {
+  width: 3px;
+  border-radius: 0.875rem 0 0 0.875rem;
+  box-shadow: none;
+  background: linear-gradient(180deg, rgba(123, 184, 154, 0.85), rgba(47, 107, 79, 0.75));
+}
+
+[data-employee-timesheet] .emp-timesheet-history-header button {
+  border-color: rgba(38, 107, 28, 0.14) !important;
+  background: #ffffff !important;
+  color: #1a4329 !important;
+  box-shadow: 0 1px 2px rgba(26, 67, 41, 0.06) !important;
+}
+
+[data-employee-timesheet] .emp-timesheet-history-header button:hover {
+  background: #f8fafc !important;
+}
+
 .admin-projects-view .projects-hero-section > *,
 .emp-timesheet-hero > * {
   position: relative;
