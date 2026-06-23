@@ -792,9 +792,9 @@
 }
 
 .admin-projects-checklist-response-btn.is-selected.is-na {
-  background: #f1f5f9;
-  border-color: #94a3b8;
-  color: #475569;
+  background: #fef3c7;
+  border-color: #fbbf24;
+  color: #92400e;
 }
 
 .admin-projects-checklist-response-btn:disabled {
@@ -3628,30 +3628,29 @@
 .admin-projects-checklist-responses--cell-tab .admin-projects-checklist-response-item {
   padding: 0;
   border-radius: 0.46rem;
-  border: 1px solid rgba(226, 232, 240, 0.95);
-  background: #fff;
+  border: 1px solid rgba(38, 107, 28, 0.16);
+  background: #f4fbf7;
   overflow: hidden;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .admin-projects-checklist-responses--cell-tab .admin-projects-checklist-response-item:hover {
-  border-color: rgba(30, 90, 61, 0.22);
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  border-color: rgba(30, 90, 61, 0.28);
+  box-shadow: 0 2px 8px rgba(26, 67, 41, 0.06);
 }
 
-.admin-projects-checklist-responses--cell-tab .admin-projects-checklist-response-item.is-answered.is-yes {
+.admin-projects-checklist-responses--cell-tab .admin-projects-checklist-response-item.is-answered {
   border-color: rgba(38, 107, 28, 0.28);
-  background: linear-gradient(90deg, rgba(232, 242, 230, 0.35) 0%, #fff 1.75rem);
+  background: linear-gradient(90deg, rgba(232, 242, 230, 0.72) 0%, #f7fcf9 100%);
+  box-shadow: inset 3px 0 0 #266b1c;
 }
 
-.admin-projects-checklist-responses--cell-tab .admin-projects-checklist-response-item.is-answered.is-no {
-  border-color: rgba(248, 113, 113, 0.35);
-  background: linear-gradient(90deg, rgba(254, 242, 242, 0.45) 0%, #fff 1.75rem);
-}
-
+.admin-projects-checklist-responses--cell-tab .admin-projects-checklist-response-item.is-answered.is-yes,
+.admin-projects-checklist-responses--cell-tab .admin-projects-checklist-response-item.is-answered.is-no,
 .admin-projects-checklist-responses--cell-tab .admin-projects-checklist-response-item.is-answered.is-na {
-  border-color: rgba(148, 163, 184, 0.45);
-  background: linear-gradient(90deg, rgba(241, 245, 249, 0.55) 0%, #fff 1.75rem);
+  border-color: rgba(38, 107, 28, 0.28);
+  background: linear-gradient(90deg, rgba(232, 242, 230, 0.72) 0%, #f7fcf9 100%);
+  box-shadow: inset 3px 0 0 #266b1c;
 }
 
 .admin-projects-checklist-response-row {
@@ -3675,17 +3674,15 @@
 
 .admin-projects-checklist-responses--cell-tab .admin-projects-checklist-response-item.is-answered .admin-projects-checklist-response-num {
   color: #1a4329;
-  background: rgba(232, 242, 230, 0.5);
+  background: rgba(232, 242, 230, 0.75);
+  border-right-color: rgba(38, 107, 28, 0.18);
 }
 
-.admin-projects-checklist-responses--cell-tab .admin-projects-checklist-response-item.is-no.is-answered .admin-projects-checklist-response-num {
-  color: #b91c1c;
-  background: rgba(254, 242, 242, 0.65);
-}
-
+.admin-projects-checklist-responses--cell-tab .admin-projects-checklist-response-item.is-no.is-answered .admin-projects-checklist-response-num,
 .admin-projects-checklist-responses--cell-tab .admin-projects-checklist-response-item.is-na.is-answered .admin-projects-checklist-response-num {
-  color: #475569;
-  background: rgba(241, 245, 249, 0.75);
+  color: #1a4329;
+  background: rgba(232, 242, 230, 0.75);
+  border-right-color: rgba(38, 107, 28, 0.18);
 }
 
 .admin-projects-checklist-response-main {
@@ -3757,34 +3754,87 @@
 }
 
 .admin-projects-checklist-responses--cell-tab .admin-projects-checklist-response-btn.is-selected.is-yes {
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
-  color: #1a4329;
+  background: #bbf7d0;
+  box-shadow: 0 1px 2px rgba(22, 101, 52, 0.15);
+  color: #14532d;
 }
 
 .admin-projects-checklist-responses--cell-tab .admin-projects-checklist-response-btn.is-selected.is-no {
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
-  color: #b91c1c;
+  background: #fecaca;
+  box-shadow: 0 1px 2px rgba(185, 28, 28, 0.15);
+  color: #991b1b;
 }
 
 .admin-projects-checklist-responses--cell-tab .admin-projects-checklist-response-btn.is-selected.is-na {
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
-  color: #475569;
+  background: #fde68a;
+  box-shadow: 0 1px 2px rgba(180, 83, 9, 0.15);
+  color: #92400e;
 }
 
 .admin-projects-checklist-responses--cell-tab .admin-projects-checklist-comment-box,
 .admin-projects-checklist-responses--cell-tab .admin-projects-checklist-response-comment {
   margin: 0;
-  padding: 0.46rem 0.46rem 0.46rem 1.85rem;
-  border-top: 1px solid rgba(226, 232, 240, 0.95);
-  background: #fafbfc;
-  font-size: 0.66rem;
+  padding: 0.22rem 0.46rem 0.28rem 1.85rem;
+  border-top: 1px solid rgba(38, 107, 28, 0.12);
+  background: rgba(255, 255, 255, 0.55);
+  font-size: 0.62rem;
+  line-height: 1.2;
 }
 
 .admin-projects-checklist-responses--cell-tab .admin-projects-checklist-comment-box {
-  padding-top: 0.66rem;
+  padding-top: 0.22rem;
+  padding-bottom: 0.28rem;
+}
+
+.admin-projects-checklist-responses--cell-tab .admin-projects-checklist-comment-input {
+  width: 100%;
+  min-height: 1.45rem;
+  padding: 0.18rem 0.38rem;
+  border-radius: 0.33rem;
+  border: 1px solid rgba(38, 107, 28, 0.18);
+  background: #fff;
+  font-size: 0.66rem;
+  line-height: 1.2;
+}
+
+.admin-projects-checklist-responses--cell-tab .admin-projects-checklist-comment-input:focus {
+  outline: none;
+  border-color: #266b1c;
+  box-shadow: 0 0 0 2px rgba(38, 107, 28, 0.12);
+}
+
+.admin-projects-checklist-responses--cell-tab .admin-projects-checklist-response-comment--saved {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.admin-projects-checklist-responses--cell-tab .admin-projects-checklist-response-comment--saved:hover {
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.admin-projects-checklist-responses--cell-tab .admin-projects-checklist-response-comment-label {
+  flex-shrink: 0;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #2f6b4f;
+}
+
+.admin-projects-checklist-responses--cell-tab .admin-projects-checklist-response-comment-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.66rem;
+  font-weight: 500;
+  color: #334155;
 }
 
 .admin-projects-cell-checklist-tab .admin-projects-checklist-response-delete {

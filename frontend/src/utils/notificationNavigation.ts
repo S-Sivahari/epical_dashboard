@@ -40,9 +40,11 @@ export function getNotificationRoute(notification: NotificationData): string | n
       return '/employee/tickets'
     case 'CellReviewRequested':
       if (relatedData?.projectId && relatedData?.cellId) {
-        return `/admin/projects/${relatedData.projectId}/cells/${relatedData.cellId}`
+        return ROUTES.PROJECT_ANALYSIS_PROJECT_CELL(relatedData.projectId, relatedData.cellId)
       }
-      return relatedData?.projectId ? `/admin/projects/${relatedData.projectId}` : '/admin/projects'
+      return relatedData?.projectId
+        ? ROUTES.PROJECT_ANALYSIS_PROJECT_WORKSPACE(relatedData.projectId)
+        : ROUTES.PROJECT_ANALYSIS_PROJECTS
     case 'CellReviewApproved':
     case 'CellReviewRejected':
       if (relatedData?.projectId && relatedData?.cellId) {
@@ -53,7 +55,7 @@ export function getNotificationRoute(notification: NotificationData): string | n
         : ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECTS
     case 'CellCreatedUnassigned':
       if (recipientType === 'Admin' && relatedData?.projectId && relatedData?.cellId) {
-        return `/admin/projects/${relatedData.projectId}/cells/${relatedData.cellId}`
+        return ROUTES.PROJECT_ANALYSIS_PROJECT_CELL(relatedData.projectId, relatedData.cellId)
       }
       if (relatedData?.projectId && relatedData?.cellId) {
         return ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECT_CELL(relatedData.projectId, relatedData.cellId)

@@ -1,7 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
 import {
   BookOpen,
-  Briefcase,
   CalendarCheck,
   CalendarDays,
   Clock,
@@ -58,12 +57,11 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   {
     label: 'Work',
     items: [
-      { to: ROUTES.TIMESHEET, label: 'Projects & Timesheets', navLabel: 'Projects & Timesheets', icon: Clock },
       {
-        to: ROUTES.PROJECTS,
-        label: 'Projects',
-        navLabel: 'Projects',
-        icon: Briefcase,
+        to: ROUTES.TIMESHEET,
+        label: 'Projects & Timesheets',
+        navLabel: 'Projects & Timesheets',
+        icon: Clock,
         notificationKey: 'projects',
       },
       {
