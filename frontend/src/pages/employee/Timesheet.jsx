@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { LogIn, LogOut, Loader2, AlertTriangle, Coffee } from 'lucide-react'
+import { LogIn, LogOut, Loader2, AlertTriangle, Coffee, BarChart3, History } from 'lucide-react'
 import { ProjectAnalysisLaunchButton } from '@components/admin/ProjectAnalysisLaunchButton'
 import { Button } from '@components/employee/ui/button'
 import { Textarea } from '@components/employee/ui/textarea'
@@ -25,7 +25,6 @@ import {
   computeNetAttendanceMs,
   formatBreakCountdown,
 } from '@utils/workBreaks'
-import { EmpTimesheetHeaderDecor } from '@components/employee/timesheet/EmpTimesheetHeaderDecor'
 import { EmployeePageLoading } from '@components/employee/layout/EmployeePageLoading'
 
 const TimesheetWeeklyChart = lazy(() =>
@@ -510,9 +509,9 @@ export default function Timesheet() {
 
   return (
     <div className="emp-timesheet-page dashboard-surface emp-page-content-in flex min-h-0 flex-1 flex-col" data-employee-timesheet>
+      <div className="emp-timesheet-shell">
       <div className="emp-timesheet-hero">
-        <div className="emp-ts-header-brand emp-ts-header-brand--hero">
-          <EmpTimesheetHeaderDecor />
+        <div className="emp-timesheet-hero-intro">
           <h1 className="emp-timesheet-hero-title">Projects & Timesheets</h1>
         </div>
         <div className="emp-timesheet-hero-stats">
@@ -544,9 +543,11 @@ export default function Timesheet() {
 
       <div className="emp-timesheet-top-grid">
         <section className="emp-timesheet-card emp-timesheet-session-compact emp-timesheet-top-panel" id="work-session">
-          <div className="emp-timesheet-card-header emp-timesheet-card-header--compact">
-            <div className="emp-ts-header-brand">
-              <EmpTimesheetHeaderDecor />
+          <div className="emp-timesheet-section-head">
+            <div className="emp-timesheet-section-head__title">
+              <span className="emp-timesheet-section-icon" aria-hidden>
+                <LogIn className="h-4 w-4" />
+              </span>
               <h3 className="emp-timesheet-card-title">Work Session</h3>
             </div>
           </div>
@@ -697,9 +698,11 @@ export default function Timesheet() {
         </section>
 
         <section className="emp-timesheet-card emp-timesheet-chart-panel emp-timesheet-top-panel">
-          <div className="emp-timesheet-card-header">
-            <div className="emp-ts-header-brand">
-              <EmpTimesheetHeaderDecor />
+          <div className="emp-timesheet-section-head emp-timesheet-section-head--split">
+            <div className="emp-timesheet-section-head__title">
+              <span className="emp-timesheet-section-icon" aria-hidden>
+                <BarChart3 className="h-4 w-4" />
+              </span>
               <h3 className="emp-timesheet-card-title">Weekly Hours</h3>
             </div>
             <div className="emp-timesheet-chart-header-stats">
@@ -713,7 +716,7 @@ export default function Timesheet() {
               </div>
             </div>
           </div>
-          <div className="emp-timesheet-card-body emp-timesheet-chart-body">
+          <div className="emp-timesheet-card-body emp-timesheet-chart-body emp-timesheet-panel-surface">
             <Suspense
               fallback={
                 <div className="flex h-full min-h-[12rem] items-center justify-center text-xs text-muted">
@@ -728,9 +731,11 @@ export default function Timesheet() {
       </div>
 
       <section className="emp-timesheet-card emp-timesheet-history-panel">
-        <div className="emp-timesheet-history-header flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
-          <div className="emp-ts-header-brand">
-            <EmpTimesheetHeaderDecor />
+        <div className="emp-timesheet-section-head emp-timesheet-section-head--split emp-timesheet-history-header">
+          <div className="emp-timesheet-section-head__title">
+            <span className="emp-timesheet-section-icon" aria-hidden>
+              <History className="h-4 w-4" />
+            </span>
             <h3 className="emp-timesheet-card-title">Work History</h3>
           </div>
           <div className="relative z-20 shrink-0">
@@ -787,6 +792,7 @@ export default function Timesheet() {
           )}
         </div>
       </section>
+      </div>
 
       <TimesheetCheckInDialog
         open={checkInDialogOpen}
