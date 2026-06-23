@@ -27,13 +27,13 @@ import { cn } from '@/utils/cn'
 const EMPTY_METAL = { metalType: '', currentDensityAt110: '', sheetResistance: '' }
 
 const PDK_MENU_TRIGGER_CLASS = cn(
-  'inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg px-3.5 text-sm font-medium shadow-sm transition-ui',
+  'pdk-add-menu__trigger inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg px-3.5 text-sm font-medium shadow-sm transition-ui',
   'bg-primary text-white hover:bg-[#1f5516] active:bg-[#1a4814] active:translate-y-[1px] active:shadow-none',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
 )
 
 const PDK_MENU_ITEM_CLASS = cn(
-  'flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm text-ink',
+  'pdk-add-menu__item flex w-full cursor-pointer items-center justify-start gap-2 rounded-lg px-3 py-2.5 text-left text-sm text-ink',
   'transition-colors hover:bg-surface focus-visible:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
 )
 
@@ -98,7 +98,7 @@ function PdkAddMenu({
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-[calc(100%+6px)] z-[200] min-w-[240px] rounded-xl border border-border bg-white p-1 shadow-lg"
+          className="pdk-add-menu__dropdown absolute right-0 top-[calc(100%+6px)] z-[200] min-w-[240px] rounded-xl border border-border bg-white p-1 text-left shadow-lg"
         >
           <button type="button" role="menuitem" className={PDK_MENU_ITEM_CLASS} onClick={() => choose(onCreate)}>
             <Plus className="h-4 w-4 text-primary" />
