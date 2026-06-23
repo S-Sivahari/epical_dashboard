@@ -26,21 +26,13 @@ export function ProjectSignalAnalysisLayout({ basePath }: { basePath: string }) 
       <aside className="metal-routing-sidebar" aria-label="Signal Analysis navigation">
 
         <div className="metal-routing-sidebar__brand">
-
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-
-            <CircuitBoard className="h-4 w-4" />
-
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <CircuitBoard className="h-3.5 w-3.5" />
           </span>
-
           <div className="min-w-0">
-
-            <p className="truncate text-sm font-semibold leading-tight text-ink">Signal Analysis</p>
-
-            <p className="truncate text-[11px] leading-tight text-muted">Project workspace</p>
-
+            <p className="truncate text-[0.8125rem] font-semibold leading-tight text-ink">Signal Analysis</p>
+            <p className="truncate text-[0.8125rem] font-medium leading-tight text-muted">Project workspace</p>
           </div>
-
         </div>
 
         <nav className="metal-routing-sidebar__nav">
@@ -55,7 +47,7 @@ export function ProjectSignalAnalysisLayout({ basePath }: { basePath: string }) 
 
           >
 
-            <ArrowLeft className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
+            <ArrowLeft className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
 
             <span className="truncate">All projects</span>
 
@@ -81,7 +73,7 @@ export function ProjectSignalAnalysisLayout({ basePath }: { basePath: string }) 
 
             >
 
-              <Icon className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
+              <Icon className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
 
               <span className="truncate">{label}</span>
 

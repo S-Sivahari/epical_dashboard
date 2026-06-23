@@ -3284,9 +3284,15 @@
 }
 
 .project-analysis-layout [data-metal-routing] .metal-routing-overview-table td,
-.project-analysis-layout [data-metal-routing] .metal-routing-stat-label,
-.project-analysis-layout [data-metal-routing] .metal-routing-sidebar__link {
+.project-analysis-layout [data-metal-routing] .metal-routing-stat-label {
   font-size: calc(0.875rem * var(--project-analysis-font-scale, 1.2));
+}
+
+.project-analysis-layout [data-metal-routing] .metal-routing-sidebar__link,
+.project-analysis-layout [data-metal-routing] .metal-routing-sidebar__link.is-active {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.25rem;
 }
 
 .project-analysis-layout [data-metal-routing] .metal-routing-stat-value {

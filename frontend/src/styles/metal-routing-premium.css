@@ -120,15 +120,15 @@
 .metal-routing-view .metal-routing-sidebar__link:hover {
   background: #f3f4f6;
   color: var(--mr-text);
-  transform: translateX(2px);
+  transform: none;
 }
 
 .metal-routing-view .metal-routing-sidebar__link.is-active {
   border-color: var(--mr-primary-border);
-  background: linear-gradient(90deg, rgba(46, 125, 50, 0.12) 0%, rgba(46, 125, 50, 0.05) 100%);
+  background: rgba(46, 125, 50, 0.08);
   color: var(--mr-primary);
-  font-weight: 600;
-  box-shadow: inset 3px 0 0 var(--mr-primary);
+  font-weight: 500;
+  box-shadow: inset 2px 0 0 var(--mr-primary);
 }
 
 .metal-routing-view .metal-routing-sidebar__help {
@@ -3748,4 +3748,186 @@
   grid-area: impedance;
   min-height: 13rem;
 }
+
+/* PDK Selection — compact uniform typography */
+.metal-routing-view .metal-routing-pdk-selection-shell.metal-routing-page-shell {
+  padding: 0.65rem 1rem 1rem !important;
+}
+
+.metal-routing-view .metal-routing-pdk-selection {
+  gap: 0.65rem;
+}
+
+.metal-routing-view .metal-routing-pdk-selection__header.metal-routing-cell-project-top {
+  padding: 0.75rem 1rem;
+}
+
+.metal-routing-view .metal-routing-pdk-selection__header .metal-routing-cell-project-hero__icon {
+  width: 2rem;
+  height: 2rem;
+}
+
+.metal-routing-view .metal-routing-pdk-selection__eyebrow {
+  margin: 0 0 0.15rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mr-text-secondary);
+}
+
+.metal-routing-view .metal-routing-pdk-selection__title {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: var(--mr-text);
+}
+
+.metal-routing-view .metal-routing-pdk-selection__subtitle {
+  margin: 0.2rem 0 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--mr-text-secondary);
+}
+
+.metal-routing-view .metal-routing-pdk-selection__panel {
+  overflow: hidden;
+}
+
+.metal-routing-view .metal-routing-pdk-selection__loading {
+  padding: 1rem 1.125rem;
+  font-size: 0.875rem;
+  color: var(--mr-text-secondary);
+}
+
+.metal-routing-view .metal-routing-pdk-selection__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0.875rem 1rem 1rem;
+}
+
+.metal-routing-view .metal-routing-pdk-selection__meta {
+  display: grid;
+  gap: 0.75rem 1rem;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+@media (min-width: 640px) {
+  .metal-routing-view .metal-routing-pdk-selection__meta {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.metal-routing-view .metal-routing-pdk-selection__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.metal-routing-view .metal-routing-pdk-selection__label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mr-text-secondary);
+}
+
+.metal-routing-view .metal-routing-pdk-selection__value {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--mr-text);
+}
+
+.metal-routing-view .metal-routing-pdk-selection__assign {
+  padding: 0.875rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--mr-border);
+  background: linear-gradient(180deg, #f8faf9 0%, #ffffff 100%);
+}
+
+.metal-routing-view .metal-routing-pdk-selection__section-title {
+  display: block;
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--mr-text);
+}
+
+.metal-routing-view .metal-routing-pdk-selection__hint,
+.metal-routing-view .metal-routing-pdk-selection__empty,
+.metal-routing-view .metal-routing-pdk-selection__module-meta {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--mr-text-secondary);
+}
+
+.metal-routing-view .metal-routing-pdk-selection__hint {
+  margin-top: 0.25rem;
+}
+
+.metal-routing-view .metal-routing-pdk-selection__select {
+  margin-top: 0.75rem;
+  display: block;
+  width: 100%;
+  max-width: 28rem;
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--mr-border);
+  background: #fff;
+  padding: 0 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--mr-text);
+  text-align: left;
+  text-align-last: left;
+}
+
+.metal-routing-view .metal-routing-pdk-selection__select:focus {
+  outline: none;
+  border-color: var(--mr-primary);
+  box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.12);
+}
+
+.metal-routing-view .metal-routing-pdk-selection__module-card {
+  margin-top: 0.75rem;
+  padding: 0.75rem 0.875rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(46, 125, 50, 0.18);
+  border-top: 3px solid var(--mr-primary);
+  background: rgba(46, 125, 50, 0.05);
+  text-align: left;
+}
+
+.metal-routing-view .metal-routing-pdk-selection__module-name {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #14532d;
+}
+
+.metal-routing-view .metal-routing-pdk-selection__module-meta + .metal-routing-pdk-selection__module-meta {
+  margin-top: 0.2rem;
+}
+
+.metal-routing-view .metal-routing-pdk-selection__module-meta {
+  color: #166534;
+}
+
+.metal-routing-view .metal-routing-pdk-selection__empty {
+  margin-top: 0.75rem;
+  color: #b45309;
+}
+
 
