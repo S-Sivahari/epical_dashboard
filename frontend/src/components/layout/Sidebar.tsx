@@ -1,10 +1,10 @@
 import {
   BookOpen,
-  Briefcase,
   CalendarCheck,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  Clock,
   FileText,
   LayoutGrid,
   Menu,
@@ -58,8 +58,7 @@ const groups: {
   {
     label: 'Work',
     items: [
-      { to: ROUTES.TIMESHEET, label: 'Projects & Timesheets', icon: Briefcase },
-      { to: ROUTES.PROJECTS, label: 'Projects', icon: Briefcase, notificationKey: 'projects' },
+      { to: ROUTES.TIMESHEET, label: 'Projects & Timesheets', icon: Clock, notificationKey: 'projects' },
       { to: ROUTES.CALENDAR, label: 'Company Calendar', icon: CalendarDays, notificationKey: 'calendar' },
     ],
   },
