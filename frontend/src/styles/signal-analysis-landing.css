@@ -347,6 +347,8 @@
   border-radius: var(--sa-radius) !important;
   font-weight: 600 !important;
   font-size: 0.8125rem !important;
+  text-align: left !important;
+  text-align-last: left !important;
 }
 
 .signal-analysis-panel .metal-routing-signal-projects-sort__icon,
@@ -360,6 +362,41 @@
   position: relative;
   z-index: 1;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 2rem;
+  text-align: left;
+  text-align-last: left;
+}
+
+.signal-analysis-panel .metal-routing-signal-projects-filter__trigger {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.signal-analysis-panel .metal-routing-signal-projects-filter__label {
+  text-align: left;
+}
+
+.signal-analysis-panel .metal-routing-signal-projects-filter__menu {
+  border-color: var(--sa-border) !important;
+  background: var(--sa-surface) !important;
+  box-shadow: var(--sa-shadow-lg) !important;
+}
+
+.signal-analysis-panel .metal-routing-signal-projects-filter__item {
+  font-size: 0.8125rem !important;
+  font-weight: 600 !important;
+  color: var(--sa-text) !important;
+}
+
+.signal-analysis-panel .metal-routing-signal-projects-filter__item[data-highlighted] {
+  background: var(--sa-accent) !important;
+  color: #fff !important;
+}
+
+.signal-analysis-panel .metal-routing-signal-projects-sort__select option {
+  text-align: left;
 }
 
 .signal-analysis-panel__body {

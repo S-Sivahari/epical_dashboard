@@ -461,9 +461,9 @@ export function ProjectsDashboard() {
                   value={filterTeamLead}
                   onChange={(e) => setFilterTeamLead(e.target.value)}
                   className={FILTER_SELECT_CLASS}
-                  aria-label="Filter by Team Lead"
+                  aria-label="Filter by team lead"
                 >
-                  <option value="all">All Team Leads</option>
+                  <option value="all">All team leads</option>
                   {filterOptions.teamLeads.map((lead) => (
                     <option key={lead} value={lead}>
                       {lead}

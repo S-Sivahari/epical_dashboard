@@ -280,7 +280,24 @@ body,
   outline: none;
 }
 
-.metal-routing-toolbar-select,
+.metal-routing-toolbar-select {
+  display: inline-block;
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-subtle, #e2e8e0);
+  background: #fff;
+  padding: 0 0.75rem;
+  font-size: 0.875rem;
+  color: var(--text-primary, #0f172a);
+  text-align: left;
+  text-align-last: left;
+  vertical-align: middle;
+}
+
+.metal-routing-toolbar-select option {
+  text-align: left;
+}
+
 .metal-routing-toolbar-btn {
   display: inline-flex;
   align-items: center;

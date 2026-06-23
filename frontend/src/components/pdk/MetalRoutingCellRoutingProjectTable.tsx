@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
+import * as Select from '@radix-ui/react-select'
 import {
   ArrowUpDown,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Filter,
@@ -367,20 +369,37 @@ export function CellRoutingStatusFilter({
   }, [projects])
 
   return (
-    <div className="metal-routing-signal-projects-filter relative">
-      <Filter className="metal-routing-signal-projects-filter__icon" aria-hidden />
-      <select
-        className="metal-routing-toolbar-select metal-routing-signal-projects-filter__select"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+    <Select.Root value={value} onValueChange={onChange}>
+      <Select.Trigger
+        className="metal-routing-toolbar-select metal-routing-signal-projects-filter__select metal-routing-signal-projects-filter__trigger"
         aria-label="Filter projects"
       >
-        {statuses.map((status) => (
-          <option key={status} value={status}>
-            {cellRoutingStatusFilterLabel(status)}
-          </option>
-        ))}
-      </select>
-    </div>
+        <Filter className="metal-routing-signal-projects-filter__icon" aria-hidden />
+        <span className="metal-routing-signal-projects-filter__label">
+          <Select.Value />
+        </span>
+        <ChevronDown className="metal-routing-signal-projects-filter__chevron" aria-hidden />
+      </Select.Trigger>
+      <Select.Portal>
+        <Select.Content
+          className="metal-routing-signal-projects-filter__menu"
+          position="popper"
+          sideOffset={4}
+          align="start"
+        >
+          <Select.Viewport className="metal-routing-signal-projects-filter__viewport">
+            {statuses.map((status) => (
+              <Select.Item
+                key={status}
+                value={status}
+                className="metal-routing-signal-projects-filter__item"
+              >
+                <Select.ItemText>{cellRoutingStatusFilterLabel(status)}</Select.ItemText>
+              </Select.Item>
+            ))}
+          </Select.Viewport>
+        </Select.Content>
+      </Select.Portal>
+    </Select.Root>
   )
 }
