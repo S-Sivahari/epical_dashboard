@@ -118,11 +118,11 @@ export function UpcomingHolidaysCard({ holidays = [], className, compact = false
     return (
       <InteractiveCard to="/employee/calendar" className={cn(cardClass, 'emp-dash-card emp-dash-card--sky', className)}>
         <div className="emp-dash-bottom-widget-header">
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="emp-dash-icon emp-dash-icon--sky h-7 w-7" aria-hidden>
+          <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+            <div className="emp-dash-icon emp-dash-icon--sky h-7 w-7 shrink-0" aria-hidden>
               <CalendarDays className="h-3.5 w-3.5" />
             </div>
-            <h3 className="font-heading font-semibold text-foreground">Upcoming holidays</h3>
+            <h3 className="font-heading font-semibold text-foreground truncate">Upcoming holidays</h3>
           </div>
           <Link
             to="/employee/calendar"

@@ -56,11 +56,11 @@ function SectionCard({ title, subtitle, action, children, className = '', tone, 
             : 'mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border pb-3',
         )}
       >
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2 overflow-hidden">
           {Icon ? (
             <div
               className={cn(
-                'emp-dash-icon',
+                'emp-dash-icon shrink-0',
                 tone && `emp-dash-icon--${tone}`,
                 compact && 'h-7 w-7',
               )}
@@ -69,11 +69,11 @@ function SectionCard({ title, subtitle, action, children, className = '', tone, 
               <Icon className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
             </div>
           ) : null}
-          <div className="min-w-0">
-            <h3 className={cn('font-heading font-semibold text-foreground', compact ? '' : 'text-base')}>
+          <div className="min-w-0 overflow-hidden">
+            <h3 className={cn('font-heading font-semibold text-foreground truncate', compact ? '' : 'text-base')}>
               {title}
             </h3>
-            {subtitle ? <p className="mt-0.5 text-xs text-muted">{subtitle}</p> : null}
+            {subtitle ? <p className="mt-0.5 text-xs text-muted truncate">{subtitle}</p> : null}
           </div>
         </div>
         {action}
@@ -224,7 +224,7 @@ export default function Dashboard() {
 
   return (
     <div
-      className="relative flex h-full min-h-0 max-w-full flex-1 flex-col overflow-hidden"
+      className="relative flex h-full min-h-0 w-full max-w-full flex-1 flex-col overflow-x-clip overflow-y-hidden"
       data-employee-dashboard
     >
       <div className={cn('dashboard-shell flex min-h-0 flex-1 flex-col gap-3 overflow-hidden', !loading && 'emp-page-content-in')}>
@@ -243,6 +243,19 @@ export default function Dashboard() {
         </div>
 
         <div className="emp-dash-widgets-grid">
+          <div className="emp-dash-col emp-dash-col--side">
+            <div className="emp-dash-session-slot">
+              <DashboardSessionPanel compact />
+            </div>
+            <div className="emp-dash-widget-slot emp-dash-widget-slot--calendar">
+              {loading ? (
+                widgetSkeleton
+              ) : (
+                <DashboardCalendarCard fill holidays={holidays} />
+              )}
+            </div>
+          </div>
+
           <div className="emp-dash-col emp-dash-col--main">
             <div className="emp-dash-widget-slot emp-dash-widget-slot--chart">
               <DashboardWorkInsights compact fill />
@@ -304,19 +317,6 @@ export default function Dashboard() {
                   />
                 )}
               </div>
-            </div>
-          </div>
-
-          <div className="emp-dash-col emp-dash-col--side">
-            <div className="emp-dash-session-slot">
-              <DashboardSessionPanel compact />
-            </div>
-            <div className="emp-dash-widget-slot emp-dash-widget-slot--calendar">
-              {loading ? (
-                widgetSkeleton
-              ) : (
-                <DashboardCalendarCard fill holidays={holidays} />
-              )}
             </div>
           </div>
         </div>

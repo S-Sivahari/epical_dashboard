@@ -37,12 +37,20 @@ function ProfileStatMini({ title, value, trend, icon: Icon, horizontal = false, 
   const accentClass = accent ? STAT_ACCENT_CLASS[accent] : null
   const statClassName = cn(
     horizontal
-      ? 'emp-dash-btn emp-dash-btn--stat flex min-w-[6.75rem] flex-col justify-center px-3 py-2.5 sm:min-w-[7.5rem]'
-      : 'flex min-w-[5.25rem] flex-1 flex-col justify-center rounded-lg border border-white/25 bg-black/10 px-2 py-2 transition-colors',
+      ? 'emp-dash-btn emp-dash-btn--stat flex flex-col justify-center'
+      : 'flex flex-1 flex-col justify-center rounded-lg border border-white/25 bg-black/10 transition-colors',
     to && horizontal && 'emp-dash-btn--link',
     to && !horizontal && 'cursor-pointer hover:bg-black/20',
     !horizontal && accentClass,
   )
+  
+  const statStyle = horizontal ? {
+    minWidth: 'clamp(4.2rem, 3.8rem + 2vw, 5rem)',
+    padding: 'clamp(0.45rem, 0.425rem + 0.125vw, 0.55rem) clamp(0.55rem, 0.5rem + 0.25vw, 0.65rem)',
+  } : {
+    minWidth: 'clamp(4rem, 3.6rem + 2vw, 4.8rem)',
+    padding: 'clamp(0.375rem, 0.35rem + 0.125vw, 0.45rem)',
+  }
 
   if (horizontal) {
     const content = (
@@ -59,14 +67,14 @@ function ProfileStatMini({ title, value, trend, icon: Icon, horizontal = false, 
 
     if (to) {
       return (
-        <Link to={to} className={statClassName} title={`Go to ${title}`}>
+        <Link to={to} className={statClassName} style={statStyle} title={`Go to ${title}`}>
           {content}
         </Link>
       )
     }
 
     return (
-      <div className={statClassName}>
+      <div className={statClassName} style={statStyle}>
         {content}
       </div>
     )
@@ -100,9 +108,10 @@ function ProfileStatMini({ title, value, trend, icon: Icon, horizontal = false, 
         to={to}
         title={`Go to ${title}`}
         className={cn(
-          'block rounded-lg border border-white/25 bg-black/10 p-2.5 transition-colors hover:bg-black/20',
+          'block rounded-lg border border-white/25 bg-black/10 transition-colors hover:bg-black/20',
           accentClass,
         )}
+        style={statStyle}
       >
         {verticalContent}
       </Link>
@@ -110,7 +119,7 @@ function ProfileStatMini({ title, value, trend, icon: Icon, horizontal = false, 
   }
 
   return (
-    <div className={cn('rounded-lg border border-white/25 bg-black/10 p-2.5', accentClass)}>
+    <div className={cn('rounded-lg border border-white/25 bg-black/10', accentClass)} style={statStyle}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-white/70">{title}</p>
@@ -213,8 +222,8 @@ export function ProfileCard({
               <EmployeePhotoAvatar
                 employeeId={employee.id}
                 name={employee.name}
-                className="emp-dashboard-hero__avatar h-14 w-14 sm:h-16 sm:w-16"
-                fallbackClassName="bg-transparent text-base font-semibold text-white sm:text-lg"
+                className="emp-dashboard-hero__avatar h-11 w-11 sm:h-12 sm:w-12"
+                fallbackClassName="bg-transparent text-sm font-semibold text-white sm:text-base"
               />
             </div>
 
