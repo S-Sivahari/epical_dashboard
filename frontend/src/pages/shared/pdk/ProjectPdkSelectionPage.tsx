@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Layers } from 'lucide-react'
+import { Layers, ChevronDown } from 'lucide-react'
 import { TopDismissNotice, type TopNotice } from '@components/pdk/TopDismissNotice'
 import { MetalRoutingPageShell } from '@components/pdk/MetalRoutingPageShell'
 import { showPortalError, showPortalSuccess } from '@/utils/portalNotice'
@@ -106,18 +106,21 @@ export function ProjectPdkSelectionPage() {
                   <p className="metal-routing-pdk-selection__hint">
                     Manage PDK module definitions from the global PDK Modules page on the projects dashboard.
                   </p>
-                  <select
-                    id="pdk-module-select"
-                    className="metal-routing-pdk-selection__select"
-                    value={context?.project.pdkModuleId ?? ''}
-                    disabled={assigning}
-                    onChange={(e) => void handleAssign(e.target.value)}
-                  >
-                    <option value="">— Not assigned —</option>
-                    {modules.map((m) => (
-                      <option key={m._id} value={m._id}>{m.name}</option>
-                    ))}
-                  </select>
+                  <div className="metal-routing-pdk-selection__select-wrap">
+                    <select
+                      id="pdk-module-select"
+                      className="metal-routing-pdk-selection__select"
+                      value={context?.project.pdkModuleId ?? ''}
+                      disabled={assigning}
+                      onChange={(e) => void handleAssign(e.target.value)}
+                    >
+                      <option value="">— Not assigned —</option>
+                      {modules.map((m) => (
+                        <option key={m._id} value={m._id}>{m.name}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="metal-routing-pdk-selection__select-icon" aria-hidden />
+                  </div>
 
                   {assignedModule ? (
                     <div className="metal-routing-pdk-selection__module-card">
