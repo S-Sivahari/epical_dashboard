@@ -297,6 +297,13 @@
   gap: 0.35rem 0.5rem;
   min-width: 0;
   padding: 0.2rem 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+.signal-analysis-panel__controls .metal-routing-view-toggle {
+  flex: 0 0 auto;
+  margin-left: 0.25rem;
 }
 
 .signal-analysis-panel__inline-stat {
@@ -491,6 +498,19 @@
   background: var(--sa-accent) !important;
   border-color: var(--sa-accent) !important;
   color: #fff !important;
+  cursor: pointer;
+}
+
+.signal-analysis-panel .metal-routing-view-toggle button.is-inactive {
+  pointer-events: none;
+  cursor: default;
+  opacity: 0.72;
+}
+
+.signal-analysis-panel .metal-routing-view-toggle button.is-inactive:hover {
+  background: var(--sa-surface) !important;
+  color: var(--sa-text-muted) !important;
+  border-color: var(--sa-border) !important;
 }
 
 /* Table */
@@ -941,7 +961,7 @@
     justify-content: stretch;
   }
 
-  .signal-analysis-panel__controls > * {
+  .signal-analysis-panel__controls > *:not(.metal-routing-view-toggle):not(.signal-analysis-panel__inline-stats) {
     flex: 1 1 auto;
   }
 }
