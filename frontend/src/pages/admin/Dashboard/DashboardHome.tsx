@@ -52,7 +52,7 @@ export function DashboardHome() {
       value: data.activeProjectsCount,
       icon: BarChart3,
       tone: 'blue' as const,
-      route: ROUTES.PROJECT_ANALYSIS_PROJECTS,
+      route: ROUTES.TIMESHEET,
       layout: 'minimal' as const,
     },
     {

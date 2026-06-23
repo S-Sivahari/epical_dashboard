@@ -2,6 +2,7 @@ import { getDB } from '../config/db';
 import type { Employee } from '../models/Employee';
 import {
   getEmployeeLoginEmails,
+  getEmployeeOfficialEmail,
   normalizeLoginEmail,
   syncUserAccountFromEmployee,
 } from '../utils/employeeAuth';
@@ -48,12 +49,11 @@ export async function propagateEmployeeProfileChanges(
 
   const nameUpdate = nameDirty ? { employeeName: displayName } : {};
   const idUpdate = idDirty ? { employeeId: String(after.employeeId || '') } : {};
-  const emailUpdate =
-    emailDirty && after.email
-      ? { employeeEmail: normalizeLoginEmail(String(after.email)) }
-      : emailDirty && after.personalEmail
-        ? { employeeEmail: normalizeLoginEmail(String(after.personalEmail)) }
-        : {};
+  const emailUpdate = (() => {
+    if (!emailDirty) return {};
+    const official = getEmployeeOfficialEmail(after);
+    return official ? { employeeEmail: official } : {};
+  })();
 
   const payslipPatch = { ...nameUpdate, ...idUpdate, ...emailUpdate };
   if (Object.keys(payslipPatch).length > 0) {

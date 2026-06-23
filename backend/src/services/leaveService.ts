@@ -4,6 +4,7 @@ import {
   findEmployeeByLoginEmail,
   findUserForEmployee,
   getEmployeeLoginEmails,
+  getEmployeeOfficialEmail,
   resolveEmployeeForAuthUser,
 } from '../utils/employeeAuth';
 import { LeaveRequest, CreateLeavePayload } from '../models/Leave';
@@ -1288,13 +1289,19 @@ export async function notifyEmployeeAboutLeaveStatus(leave: LeaveRequest): Promi
       { projection: { documents: 0, 'photo.data': 0 } }
     );
     
-    if (!employee || !employee.email) {
+    if (!employee) {
+      console.warn(`[Leave Email] No employee found for ${leave.employeeId}`);
+      return;
+    }
+
+    const recipientEmail = getEmployeeOfficialEmail(employee as { email?: string; personalEmail?: string });
+    if (!recipientEmail) {
       console.warn(`[Leave Email] No email found for employee ${leave.employeeId}`);
       return;
     }
     
     await emailService.sendLeaveStatusEmail({
-      recipientEmail: (employee as any).email,
+      recipientEmail,
       recipientName: `${(employee as any).firstName} ${(employee as any).lastName}`,
       employeeName: leave.employeeName,
       type: leave.type,

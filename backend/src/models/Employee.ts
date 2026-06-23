@@ -20,7 +20,7 @@ export interface Employee {
   gender?: string;
   designation?: string;
   role: string;
-  /** Public — projects, leave, and usual HR visibility. Private — payroll/payslip only (UI visibility). */
+  /** Public — included in projects. Private — company record only, excluded from project/cell allocation. */
   view?: EmployeeView;
   portalAccess?: 'Employee' | 'Employee+Admin';
   managerId?: string; // ID of the employee's manager

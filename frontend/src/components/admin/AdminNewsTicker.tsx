@@ -16,7 +16,7 @@ import { Megaphone } from 'lucide-react'
 import { ROUTES } from '@/constants/routes'
 
 const CACHE_KEY = 'admin-news-ticker-v2'
-const MARQUEE_DURATION = '90s'
+const MARQUEE_DURATION = '50s'
 const TICKER_LIMIT = 5
 
 type AdminNewsTickerProps = {

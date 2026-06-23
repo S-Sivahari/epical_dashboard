@@ -1,4 +1,5 @@
 import { getDB } from '../config/db';
+import { getEmployeeOfficialEmail } from '../utils/employeeAuth';
 import { ProjectModel } from '../models/Project';
 import { ProjectCellModel } from '../models/ProjectCell';
 import { notifyAllAdmins, createNotification } from './notificationService';
@@ -28,10 +29,7 @@ async function resolveEmployeeRecipient(assignedEmployeeId?: string | null) {
   if (!employee) return { recipientId: assigned, employeeName: 'Engineer', employeeEmail: '' };
 
   const employeeName = [employee.firstName, employee.lastName].filter(Boolean).join(' ').trim() || 'Engineer';
-  const employeeEmail =
-    (employee.email && String(employee.email).trim()) ||
-    (employee.personalEmail && String(employee.personalEmail).trim()) ||
-    '';
+  const employeeEmail = getEmployeeOfficialEmail(employee) || '';
 
   return {
     recipientId: String(employee.id || assigned),

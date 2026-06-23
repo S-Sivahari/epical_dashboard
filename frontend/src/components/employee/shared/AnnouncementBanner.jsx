@@ -34,7 +34,7 @@ export function AnnouncementBanner({ compact = false, inline = false, className 
     if (items.length <= 1) return
     const timer = setInterval(() => {
       setIndex((i) => (i + 1) % items.length)
-    }, 5000)
+    }, 4400)
     return () => clearInterval(timer)
   }, [items.length])
 

@@ -1,10 +1,9 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
 import { SelectField } from '@components/forms/SelectField'
 import { DataTable, type Column } from '@components/tables/DataTable'
 import { useEmployeeStore } from '@store/employeeStore'
-import { filterPublicEmployees } from '@/utils/employeeView'
 
 interface Row {
   id: string
@@ -15,7 +14,6 @@ interface Row {
 
 export function CompensationLeaves() {
   const { employees, fetchEmployees } = useEmployeeStore()
-  const publicEmployees = useMemo(() => filterPublicEmployees(employees), [employees])
   const [rows, setRows] = useState<Row[]>([])
   const [employeeId, setEmployeeId] = useState('')
   const [days, setDays] = useState(1)
@@ -25,10 +23,10 @@ export function CompensationLeaves() {
   }, [fetchEmployees])
 
   useEffect(() => {
-    if (publicEmployees.length > 0 && !employeeId) {
-      setEmployeeId(publicEmployees[0].id)
+    if (employees.length > 0 && !employeeId) {
+      setEmployeeId(employees[0].id)
     }
-  }, [publicEmployees, employeeId])
+  }, [employees, employeeId])
 
   const columns: Column<Row>[] = [
     { key: 'employeeId', header: 'Employee ID' },
@@ -42,7 +40,7 @@ export function CompensationLeaves() {
         <SelectField
           label="Employee"
           id="comp-employee"
-          options={publicEmployees.map((e) => ({
+          options={employees.map((e) => ({
             value: e.id,
             label: `${e.firstName} ${e.lastName || ''} (${e.id})`,
           }))}
@@ -52,7 +50,7 @@ export function CompensationLeaves() {
         <Input label="Number of leaves" type="number" min={1} value={days} onChange={(e) => setDays(Number(e.target.value))} />
         <Button
           onClick={() => {
-            const emp = publicEmployees.find((e) => e.id === employeeId)
+            const emp = employees.find((e) => e.id === employeeId)
             if (!emp) return
             setRows((r) => [
               {

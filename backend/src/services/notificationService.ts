@@ -2,7 +2,7 @@ import { Collection } from 'mongodb';
 import { readFileSync } from 'fs';
 import { getDB } from '../config/db';
 import { Notification, CreateNotificationPayload } from '../models/Notification';
-import { resolveEmployeeForAuthUser } from '../utils/employeeAuth';
+import { getEmployeeOfficialEmail, resolveEmployeeForAuthUser } from '../utils/employeeAuth';
 import { normalizeApiRole } from '../utils/generateToken';
 import * as emailService from './emailService';
 
@@ -511,10 +511,7 @@ async function triggerEmailNotification(notification: any): Promise<void> {
         { projection: { documents: 0, 'photo.data': 0 } }
       );
       if (employee) {
-        recipientEmail =
-          (employee.email && String(employee.email).trim()) ||
-          (employee.personalEmail && String(employee.personalEmail).trim()) ||
-          '';
+        recipientEmail = getEmployeeOfficialEmail(employee) || '';
         recipientName = `${employee.firstName} ${employee.lastName}`;
       } else {
         // Fallback: Check users collection if not found in employees

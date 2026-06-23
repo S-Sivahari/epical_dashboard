@@ -12,10 +12,8 @@ import { EmployeeTimesheetSync } from '@components/employee/shared/EmployeeTimes
 import { EmployeeAuthProfileSync } from '@components/employee/shared/EmployeeAuthProfileSync'
 import { ROUTES } from '@constants/routes'
 import { cn } from '@/utils/cn'
-import { usePrivateEmployeeRouteGuard } from '@hooks/usePrivateEmployeeRouteGuard'
 
 function EmployeeOutlet() {
-  usePrivateEmployeeRouteGuard()
   const { pathname } = useLocation()
   const skipPageShell =
     pathname.startsWith('/employee/projects')

@@ -53,6 +53,7 @@ import {
 import { timesheetReportFileName } from '@/utils/exportFileName'
 import api from '@/services/api'
 import { getEmployees } from '@/services/employeeService'
+import { filterAllocatableEmployees } from '@/utils/employeeView'
 import { useEmployeeStore } from '@store/employeeStore'
 import { MOCK_EMPLOYEES } from '@/services/mockData'
 import type { Employee } from '@/types'
@@ -1649,7 +1650,8 @@ export function ProjectManagement() {
   }
   const [form, setForm] = useState(emptyForm)
 
-  const allEmployeeNames = useMemo(() => allEmployeeDisplayNames(employees), [employees])
+  const allocatableEmployees = useMemo(() => filterAllocatableEmployees(employees), [employees])
+  const allEmployeeNames = useMemo(() => allEmployeeDisplayNames(allocatableEmployees), [allocatableEmployees])
 
   useEffect(() => {
     if (!modalOpen || form.accessType !== 'public' || allEmployeeNames.length === 0) return
@@ -1697,7 +1699,7 @@ export function ProjectManagement() {
   // ── API Fetch Functions ─────────────────────────────────────
   const fetchEmployees = useCallback(async () => {
     try {
-      const res = await getEmployees({ pageSize: 1000, view: 'Public' })
+      const res = await getEmployees({ pageSize: 1000 })
       setEmployees(res.data)
     } catch (err) {
       console.error('Failed to fetch employees:', err)
@@ -1922,12 +1924,12 @@ export function ProjectManagement() {
       accessType: p.accessType,
       description: p.description,
       visibleUsers:
-        p.accessType === 'public' ? allEmployeeDisplayNames(employees) : [...p.visibleUsers],
+        p.accessType === 'public' ? allEmployeeDisplayNames(allocatableEmployees) : [...p.visibleUsers],
       teamLead: p.teamLead || '',
       status: (p.status === 'Rejected' ? 'Cancelled' : p.status) as 'Active' | 'Completed' | 'Cancelled',
     })
     setModalOpen(true)
-  }, [employees])
+  }, [allocatableEmployees])
 
   const handleSaveProject = useCallback(
     async (e: React.FormEvent) => {
@@ -3534,9 +3536,9 @@ export function ProjectManagement() {
               onChange={(e) => setForm({ ...form, teamLead: e.target.value })}
               options={[
                 { value: '', label: 'Select team lead...' },
-                ...employees.map((e) => ({
-                  value: `${e.firstName} ${e.lastName || ''}`.trim(),
-                  label: `${e.firstName} ${e.lastName || ''}`.trim() + ` (${e.department})`,
+                ...allocatableEmployees.map((e) => ({
+                  value: employeeDisplayName(e),
+                  label: employeeDisplayName(e) + ` (${e.department})`,
                 })),
               ]}
             />

@@ -1173,7 +1173,7 @@
 }
 
 .animate-marquee-vertical {
-  animation: marquee-vertical var(--marquee-duration, 90s) linear infinite;
+  animation: marquee-vertical var(--marquee-duration, 50s) linear infinite;
 }
 
 .admin-portal main > .relative {

@@ -3,7 +3,7 @@ import { getDB } from '../config/db'
 import type { Company } from './payslipGenerator'
 import { parsePayPeriodFromCompany } from './payrollYtdService'
 import {
-  getEmployeeLoginEmails,
+  getEmployeeOfficialEmail,
   getPayslipEmailCandidates,
   resolveEmployeeForAuthUser,
 } from '../utils/employeeAuth'
@@ -77,8 +77,7 @@ export async function sendPayslipToEmployee(params: {
     )
   }
 
-  const loginEmails = getEmployeeLoginEmails(employee as any)
-  const employeeEmail = loginEmails[0]
+  const employeeEmail = getEmployeeOfficialEmail(employee as any)
   if (!employeeEmail) {
     throw new Error('Employee has no email on file — cannot deliver payslip to dashboard')
   }

@@ -7,7 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@components/employee/ui/dialog'
@@ -74,10 +73,6 @@ export function TimesheetCheckInDialog({
       <DialogContent className="emp-timesheet-checkin-dialog max-w-xl gap-5 p-6 sm:p-7">
         <DialogHeader className="space-y-2 text-left">
           <DialogTitle className="text-xl">Check in</DialogTitle>
-          <DialogDescription className="text-sm">
-            Select your assigned project and optionally start cell work at the same time. Project check-in and cell
-            timers run independently.
-          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -137,10 +132,6 @@ export function TimesheetCheckInDialog({
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted">
-              Choose a cell to begin productive cell time together with project check-in, or leave as project-only and
-              start a cell later from Projects.
-            </p>
           </div>
 
           <div className="space-y-2">

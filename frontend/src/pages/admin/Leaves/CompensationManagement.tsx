@@ -14,7 +14,6 @@ import {
   deleteCompensation,
   type CompensationEntry,
 } from '@services/compensationService'
-import { filterPublicEmployees } from '@/utils/employeeView'
 
 export function CompensationManagement({
   onExportDataChange,
@@ -116,7 +115,7 @@ export function CompensationManagement({
   // ── Employee multi-select helpers ──────────────────────────────────────────
   const filteredEmployees = useMemo(() => {
     const q = empSearch.toLowerCase()
-    return filterPublicEmployees(employees).filter(
+    return employees.filter(
       (e) =>
         `${e.firstName} ${e.lastName ?? ''}`.toLowerCase().includes(q) ||
         String(e.employeeId || e.id || '').toLowerCase().includes(q),

@@ -12,20 +12,11 @@ export function isPublicEmployee(employee?: Pick<Employee, 'view'> | null): bool
   return normalizeEmployeeView(employee?.view as string | undefined) === 'Public'
 }
 
-export function filterPublicEmployees<T extends Pick<Employee, 'view'>>(employees: T[]): T[] {
-  return employees.filter((employee) => isPublicEmployee(employee))
+export function isPrivateEmployee(employee?: Pick<Employee, 'view'> | null): boolean {
+  return !isPublicEmployee(employee)
 }
 
-/** Routes hidden for private-view employees (payroll-only visibility). */
-export const PRIVATE_EMPLOYEE_HIDDEN_ROUTES = [
-  '/employee/timesheet',
-  '/employee/leave',
-  '/employee/calendar',
-  '/employee/notes',
-] as const
-
-export function isPrivateEmployeeRoute(pathname: string): boolean {
-  return PRIVATE_EMPLOYEE_HIDDEN_ROUTES.some(
-    (route) => pathname === route || pathname.startsWith(`${route}/`),
-  )
+/** Employees eligible for project creation and cell/member allocation. */
+export function filterAllocatableEmployees<T extends Pick<Employee, 'view'>>(employees: T[]): T[] {
+  return employees.filter((employee) => isPublicEmployee(employee))
 }

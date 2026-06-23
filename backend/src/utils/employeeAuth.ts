@@ -135,6 +135,23 @@ export function getEmployeeLoginEmails(employee: {
   return [...new Set(emails)];
 }
 
+/**
+ * Official outbound email for EMS communications.
+ * Prefer company email; fall back to personal only when company is unavailable
+ * (e.g. intern, contract, training).
+ */
+export function getEmployeeOfficialEmail(employee: {
+  email?: string;
+  personalEmail?: string;
+}): string | undefined {
+  const company = employee.email ? normalizeLoginEmail(String(employee.email)) : '';
+  if (company) return company;
+  const personal = employee.personalEmail
+    ? normalizeLoginEmail(String(employee.personalEmail))
+    : '';
+  return personal || undefined;
+}
+
 export async function findUserForEmployee(
   employee: { id: string; email?: string; personalEmail?: string },
   loginEmail?: string,

@@ -6,7 +6,7 @@ import { EmployeeAttendanceModel } from '../models/EmployeeAttendance';
 import { ProjectModel } from '../models/Project';
 import { getDB } from '../config/db';
 import { getUserById } from '../services/authService';
-import { resolveEmployeeForAuthUser } from '../utils/employeeAuth';
+import { resolveEmployeeForAuthUser, getEmployeeOfficialEmail } from '../utils/employeeAuth';
 import { syncProjectForTimesheet, getTimesheetWorkflowStatus } from '../utils/syncProject';
 import { buildAssignedProjectsFilter, buildAssignmentIdentityTokens, ensureAssignedTasksForEmployee } from '../utils/assignedTaskSync';
 import { openAttendanceFilter } from '../utils/attendanceQueries';
@@ -40,6 +40,7 @@ type ResolvedEmployee = {
   id: string;
   name: string;
   email?: string;
+  officialEmail?: string;
   employeeName: string;
   employeeId: string;
   identityTokens: string[];
@@ -217,6 +218,9 @@ async function resolveEmployee(req: Request): Promise<ResolvedEmployee | null> {
     id: user.id,
     name: user.name,
     email: user.email,
+    officialEmail: employeeRecord
+      ? getEmployeeOfficialEmail(employeeRecord as { email?: string; personalEmail?: string })
+      : undefined,
     employeeName,
     employeeId,
     identityTokens,
@@ -788,7 +792,7 @@ export const employeeTimesheetController = {
       const attendance = await EmployeeAttendanceModel.create({
         employeeId: employee.id,
         employeeName: employee.name,
-        employeeEmail: employee.email,
+        employeeEmail: employee.officialEmail || employee.email,
         date,
         checkInTime: now,
         expectedCheckoutTime: buildExpectedCheckout(),
@@ -1097,9 +1101,10 @@ export const employeeTimesheetController = {
           const displayM = String(am).padStart(2, '0');
           const displayAutoCheckout = `${displayH}:${displayM} ${period}`;
 
-          if (employee.email) {
+          const checkoutEmail = employee.officialEmail || employee.email;
+          if (checkoutEmail) {
             void sendCheckoutReminderEmail({
-              to: employee.email,
+              to: checkoutEmail,
               employeeName: employee.employeeName || employee.name,
               checkInTime: attendance.checkInTime,
               autoCheckoutTime: displayAutoCheckout,

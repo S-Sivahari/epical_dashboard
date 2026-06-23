@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { EmployeeActivitySnapshotModel } from '../models/EmployeeActivitySnapshot';
-import { resolveEmployeeForAuthUser } from '../utils/employeeAuth';
+import { resolveEmployeeForAuthUser, getEmployeeOfficialEmail } from '../utils/employeeAuth';
 import { getSchedulerDateKey } from '../utils/istClock';
 import { hasRole } from '../utils/generateToken';
 
@@ -37,7 +37,7 @@ export const activityController = {
       const snapshot = await EmployeeActivitySnapshotModel.create({
         employeeId: employee.id,
         employeeName: `${employee.firstName || ''} ${employee.lastName || ''}`.trim() || employee.employeeId,
-        employeeEmail: employee.email,
+        employeeEmail: getEmployeeOfficialEmail(employee) || employee.email,
         date: getSchedulerDateKey(reportedAt),
         idleMs,
         isIdle: idleMs >= idleThresholdMs,

@@ -3,7 +3,7 @@ import { getDB } from '../config/db';
 import { Employee, CreateEmployeePayload, UpdateEmployeePayload, EmployeeActivityEntry } from '../models/Employee';
 import { EmployeeAttendanceModel } from '../models/EmployeeAttendance';
 import * as emailService from './emailService';
-import { ensureUserAccountForEmployee, getAdminLoginEmail, normalizeLoginEmail, syncPortalAdminForEmployee } from '../utils/employeeAuth';
+import { ensureUserAccountForEmployee, getAdminLoginEmail, getEmployeeOfficialEmail, normalizeLoginEmail, syncPortalAdminForEmployee } from '../utils/employeeAuth';
 import { assertPersonalAndCompanyEmailsDiffer } from '../utils/employeeLoginRules';
 import { normalizePortalAccess, assertValidPortalAccess } from '../utils/portalAccess';
 import { sanitizeEmployeeForDetail, sanitizeEmployeeForList } from '../utils/sanitizeEmployee';
@@ -545,18 +545,16 @@ export async function createEmployee(payload: CreateEmployeePayload): Promise<Em
     console.error('[Employee Service] Failed to sync portal admin flag:', err);
   });
 
-  // Send welcome email — personal email first, then company email if different
-  const welcomeBase = {
-    firstName: employee.firstName || 'Team Member',
-    lastName: employee.lastName || '',
-    employeeId: employee.employeeId,
-    joinedAt: employee.joinedAt || new Date().toISOString().split('T')[0],
-  };
-  const emailsToNotify: string[] = [];
-  if (employee.personalEmail) emailsToNotify.push(employee.personalEmail);
-  if (employee.email && employee.email !== employee.personalEmail) emailsToNotify.push(employee.email);
-  for (const recipientEmail of emailsToNotify) {
-    emailService.sendWelcomeEmail({ ...welcomeBase, recipientEmail }).catch((err) => {
+  // Send welcome email — company email preferred; personal only when company unavailable
+  const welcomeRecipient = getEmployeeOfficialEmail(employee);
+  if (welcomeRecipient) {
+    const welcomeBase = {
+      firstName: employee.firstName || 'Team Member',
+      lastName: employee.lastName || '',
+      employeeId: employee.employeeId,
+      joinedAt: employee.joinedAt || new Date().toISOString().split('T')[0],
+    };
+    emailService.sendWelcomeEmail({ ...welcomeBase, recipientEmail: welcomeRecipient }).catch((err) => {
       console.error('[Employee Service] Failed to send welcome email:', err);
     });
   }
@@ -709,20 +707,18 @@ export async function updateEmployee(
     cleanPayload.email = normalizedNewEmail;
   }
 
-  // Detect newly added company email → send welcome email (login works with personal or company email)
+  // Detect newly added company email → send welcome email to company email only
   if (cleanPayload.email && !existing.email) {
     const newCompanyEmail = cleanPayload.email;
-    if (newCompanyEmail !== existing.personalEmail) {
-      const welcomeBase = {
-        firstName: existing.firstName || 'Team Member',
-        lastName: existing.lastName || '',
-        employeeId: existing.employeeId,
-        joinedAt: existing.joinedAt || new Date().toISOString().split('T')[0],
-      };
-      emailService.sendWelcomeEmail({ ...welcomeBase, recipientEmail: newCompanyEmail }).catch((err) => {
-        console.error('[Employee Service] Failed to send company email welcome:', err);
-      });
-    }
+    const welcomeBase = {
+      firstName: existing.firstName || 'Team Member',
+      lastName: existing.lastName || '',
+      employeeId: existing.employeeId,
+      joinedAt: existing.joinedAt || new Date().toISOString().split('T')[0],
+    };
+    emailService.sendWelcomeEmail({ ...welcomeBase, recipientEmail: newCompanyEmail }).catch((err) => {
+      console.error('[Employee Service] Failed to send company email welcome:', err);
+    });
 
     try {
       await ensureUserAccountForEmployee({

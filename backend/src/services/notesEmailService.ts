@@ -8,7 +8,7 @@ import {
 } from '../models/DailyNoteBlock';
 import { sendEmail } from './emailService';
 import { getUserById } from './authService';
-import { getEmployeeLoginEmails, normalizeLoginEmail } from '../utils/employeeAuth';
+import { normalizeLoginEmail, getEmployeeOfficialEmail } from '../utils/employeeAuth';
 import { stripHtml } from '../utils/notesSearchUtils';
 import { serializeDailyBlock } from './notesService';
 
@@ -124,24 +124,11 @@ async function resolveAllEmployeeRecipients(): Promise<{
   missingEmailCount: number;
 }> {
   const db = getDB();
-  const [employeeDocs, userDocs] = await Promise.all([
-    db
-      .collection('employees')
-      .find({ status: { $nin: [...BLOCKED_EMPLOYEE_STATUSES] } })
-      .project({ id: 1, firstName: 1, lastName: 1, employeeId: 1, email: 1, personalEmail: 1, status: 1 })
-      .toArray(),
-    db
-      .collection('users')
-      .find({ role: { $ne: 'Admin' } })
-      .project({ id: 1, email: 1 })
-      .toArray(),
-  ]);
-
-  const userEmailByEmployeeId = new Map<string, string>();
-  for (const user of userDocs) {
-    const email = normalizeLoginEmail(String(user.email || ''));
-    if (email) userEmailByEmployeeId.set(String(user.id), email);
-  }
+  const employeeDocs = await db
+    .collection('employees')
+    .find({ status: { $nin: [...BLOCKED_EMPLOYEE_STATUSES] } })
+    .project({ id: 1, firstName: 1, lastName: 1, employeeId: 1, email: 1, personalEmail: 1, status: 1 })
+    .toArray();
 
   const recipients: NoteEmailRecipient[] = [];
   const seenEmails = new Set<string>();
@@ -150,23 +137,16 @@ async function resolveAllEmployeeRecipients(): Promise<{
   for (const employee of employeeDocs) {
     const id = String(employee.id);
     const name = employeeDisplayName(employee);
-    const loginEmails = getEmployeeLoginEmails(employee);
+    const officialEmail = getEmployeeOfficialEmail(employee);
 
-    if (loginEmails.length === 0) {
-      const userEmail = userEmailByEmployeeId.get(id);
-      if (userEmail) loginEmails.push(userEmail);
-    }
-
-    if (loginEmails.length === 0) {
+    if (!officialEmail) {
       missingEmailCount += 1;
       continue;
     }
 
-    for (const email of loginEmails) {
-      if (seenEmails.has(email)) continue;
-      seenEmails.add(email);
-      recipients.push({ id, name, email });
-    }
+    if (seenEmails.has(officialEmail)) continue;
+    seenEmails.add(officialEmail);
+    recipients.push({ id, name, email: officialEmail });
   }
 
   recipients.sort((a, b) => a.name.localeCompare(b.name) || a.email.localeCompare(b.email));

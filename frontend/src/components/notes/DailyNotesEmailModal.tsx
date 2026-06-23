@@ -37,6 +37,19 @@ function filterRecipients(
   return allRecipients.filter((recipient) => idSet.has(recipient.id))
 }
 
+/** One row per employee — official email (company preferred, personal fallback). */
+function uniqueOfficialEmailRecipients(recipients: NoteEmailRecipient[]): NoteEmailRecipient[] {
+  const byEmployeeId = new Map<string, NoteEmailRecipient>()
+  for (const recipient of recipients) {
+    if (!byEmployeeId.has(recipient.id)) {
+      byEmployeeId.set(recipient.id, recipient)
+    }
+  }
+  return [...byEmployeeId.values()].sort(
+    (a, b) => a.name.localeCompare(b.name) || a.email.localeCompare(b.email),
+  )
+}
+
 export function DailyNotesEmailModal({ block, isOpen, onClose, onSent, onError }: Props) {
   const [step, setStep] = useState<'preview' | 'confirm'>('preview')
   const [preview, setPreview] = useState<DailyNotesEmailPreview | null>(null)
@@ -65,16 +78,21 @@ export function DailyNotesEmailModal({ block, isOpen, onClose, onSent, onError }
       .finally(() => setLoadingPreview(false))
   }, [isOpen, block._id, onClose, onError])
 
+  const recipientList = useMemo(() => {
+    if (!preview) return []
+    return uniqueOfficialEmailRecipients(preview.allRecipients)
+  }, [preview])
+
   const effectiveRecipients = useMemo(() => {
     if (!preview) return []
-    return filterRecipients(preview.allRecipients, recipientMode, selectedRecipientIds)
-  }, [preview, recipientMode, selectedRecipientIds])
+    return filterRecipients(recipientList, recipientMode, selectedRecipientIds)
+  }, [preview, recipientList, recipientMode, selectedRecipientIds])
 
   const canSend = useMemo(() => {
     if (!preview || preview.projectGroups.length === 0) return false
-    if (recipientMode === 'all') return preview.allRecipients.length > 0
+    if (recipientMode === 'all') return recipientList.length > 0
     return selectedRecipientIds.length > 0 && effectiveRecipients.length > 0
-  }, [preview, recipientMode, selectedRecipientIds, effectiveRecipients])
+  }, [preview, recipientMode, selectedRecipientIds, effectiveRecipients, recipientList])
 
   const recipientWarnings = useMemo(() => {
     if (!preview) return []
@@ -182,7 +200,7 @@ export function DailyNotesEmailModal({ block, isOpen, onClose, onSent, onError }
                     <button
                       type="button"
                       onClick={() =>
-                        setSelectedRecipientIds(preview.allRecipients.map((recipient) => recipient.id))
+                        setSelectedRecipientIds(recipientList.map((recipient) => recipient.id))
                       }
                     >
                       Select all
@@ -193,7 +211,7 @@ export function DailyNotesEmailModal({ block, isOpen, onClose, onSent, onError }
                   </div>
                 </div>
                 <ul className="admin-notes-email-preview__recipient-checklist">
-                  {preview.allRecipients.map((recipient) => (
+                  {recipientList.map((recipient) => (
                     <li key={recipient.id}>
                       <label>
                         <input
@@ -215,13 +233,13 @@ export function DailyNotesEmailModal({ block, isOpen, onClose, onSent, onError }
             ) : (
               <div className="admin-notes-email-preview__recipients">
                 <p className="admin-notes-email-preview__section-title">
-                  All working employees ({preview.allRecipients.length})
+                  All working employees ({recipientList.length})
                 </p>
                 <ul>
-                  {preview.allRecipients.map((recipient) => (
-                    <li key={recipient.email}>
-                      <strong>{recipient.name}</strong>
-                      <span>{recipient.email}</span>
+                  {recipientList.map((recipient) => (
+                    <li key={recipient.id}>
+                      <span className="admin-notes-email-preview__recipient-name">{recipient.name}</span>
+                      <span className="admin-notes-email-preview__recipient-email">{recipient.email}</span>
                     </li>
                   ))}
                 </ul>

@@ -4,7 +4,7 @@ import { NewsDetailModal } from '@components/news/NewsDetailModal'
 import { cn } from '@/utils/cn'
 
 const CACHE_KEY = 'admin-news-ticker-v2'
-const MARQUEE_DURATION = '50s'
+const MARQUEE_DURATION = '28s'
 const TICKER_LIMIT = 8
 
 type CommandBarNewsMarqueeProps = {
