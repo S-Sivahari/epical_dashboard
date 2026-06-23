@@ -196,6 +196,7 @@ export function EmployeeBulkImportModal({
                 />
                 <PreviewField label="Personal Email" value={displayValue(payload.personalEmail)} />
                 <PreviewField label="Company Email" value={displayValue(payload.email)} />
+                <PreviewField label="View" value={displayValue(payload.view) ?? 'Public'} />
                 <PreviewField label="Phone" value={displayValue(payload.phone)} />
                 <PreviewField label="Date of Birth" value={displayDate(payload.dob)} />
                 <PreviewField label="Gender" value={displayValue(payload.gender)} />

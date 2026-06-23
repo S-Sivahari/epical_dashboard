@@ -1184,6 +1184,9 @@
 }
 
 .admin-portal main:has([data-admin-dashboard]) > .relative {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
   min-height: 0;
   overflow: visible;
 }
@@ -1205,6 +1208,11 @@
 }
 
 /* Employee dashboard scroll — see viewport-layout.css ([data-employee-dashboard] is inside page shell) */
+
+.admin-dashboard-view[data-admin-dashboard] {
+  flex: 1 1 auto;
+  overflow-y: visible;
+}
 
 .admin-dashboard-view {
   --dashboard-font-scale: 1.125;
@@ -1279,31 +1287,31 @@
   .admin-dashboard-view[data-admin-dashboard] .dashboard-shell {
     display: flex;
     flex-direction: column;
-    flex: 1 1 0;
+    flex: 1 1 auto;
     height: auto;
     min-height: var(--viewport-page-h);
     overflow: visible;
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-main-grid {
-    flex: 1 1 0;
-    min-height: 0;
+    flex: 1 1 auto;
+    min-height: var(--viewport-page-h);
     height: auto;
     align-items: stretch;
     overflow: visible;
-    grid-template-rows: minmax(0, 1fr);
+    grid-template-rows: auto;
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-left-column,
   .admin-dashboard-view[data-admin-dashboard] .dashboard-center-column,
   .admin-dashboard-view[data-admin-dashboard] .dashboard-right-column {
-    height: 100%;
-    min-height: 0;
+    height: auto;
+    min-height: 100%;
     align-self: stretch;
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack {
-    flex: 1 1 0;
+    flex: 1 1 auto;
     min-height: 0;
     height: auto;
     overflow: visible;
@@ -1313,40 +1321,37 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-left-insights-column,
   .admin-dashboard-view[data-admin-dashboard] .dashboard-left-insights {
-    flex: 1 1 0;
+    flex: 1 1 auto;
     min-height: 0;
-    height: 100%;
-    overflow: hidden;
+    height: auto;
+    overflow: visible;
     display: flex;
     flex-direction: column;
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-left-insights .dashboard-insight-panel {
-    flex: 1 1 0;
+    flex: 0 0 auto;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-left-insights .dashboard-insight-panel-body {
-    flex: 1 1 0;
+    flex: 0 0 auto;
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-left-insights .dashboard-insight-panel-scroll {
-    flex: 1 1 0;
+    flex: none;
     min-height: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
+    overflow: visible;
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-right-column {
@@ -1358,62 +1363,63 @@
   .admin-dashboard-view[data-admin-dashboard] .dashboard-right-stack {
     display: flex;
     flex-direction: column;
-    flex: 1 1 0;
-    height: 100%;
+    flex: 1 1 auto;
+    height: auto;
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-right-stack > .dashboard-workspace-panel {
     display: flex;
     flex-direction: column;
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-right-approvals,
   .admin-dashboard-view[data-admin-dashboard] .dashboard-approvals-panel {
     flex: 0 0 auto;
     min-height: 0;
-    max-height: var(--dash-approvals-max-h);
+    max-height: none;
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-right-activity,
   .admin-dashboard-view[data-admin-dashboard] .dashboard-activity-panel {
     display: flex;
     flex-direction: column;
-    flex: 1 1 0;
+    flex: 0 0 auto;
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-approvals-panel .dashboard-insight-panel-body {
-    flex: 0 1 auto;
+    flex: 0 0 auto;
     min-height: 0;
-    overflow-x: hidden;
-    overflow-y: visible;
+    overflow: visible;
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-approvals-panel--has-items .dashboard-insight-panel-body {
-    max-height: calc(var(--dash-approvals-max-h) - var(--dash-approvals-header-h));
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
+    max-height: none;
+    overflow: visible;
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-activity-panel .dashboard-insight-panel-body,
   .admin-dashboard-view[data-admin-dashboard] .dashboard-activity-body {
-    flex: 1 1 0;
+    flex: 0 0 auto;
     min-height: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
+    overflow: visible;
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack-section.dashboard-center-table {
-    flex: 1 1 0;
+    flex: 0 0 auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack-section.dashboard-center-table.dashboard-contribution-history--bounded {
+    flex: 1 1 auto;
     min-height: 12rem;
+    max-height: min(28rem, calc(var(--viewport-page-h) - 20rem));
     overflow: hidden;
   }
 }
@@ -1746,43 +1752,25 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: clamp(0.15rem, 0.125rem + 0.125vw, 0.2rem);
+  padding: 2px;
   border-radius: 50%;
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.16) 0.0625rem, transparent 0.0625rem),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.16) 0.0625rem, transparent 0.0625rem),
-    linear-gradient(148deg, #3d8f72 0%, #2f6b4f 32%, #1a4329 68%, #0c1812 100%);
-  background-size: 0.65rem 0.65rem, 0.65rem 0.65rem, 100% 100%;
-  box-shadow:
-    0 0.25rem 0.875rem rgba(12, 24, 18, 0.22),
-    inset 0 0 0 0.0625rem rgba(255, 255, 255, 0.14);
+  border: 2px solid #000000;
+  background: transparent;
+  box-shadow: none;
 }
 
 .emp-dashboard-hero--comb .emp-dashboard-hero__avatar-ring::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  background:
-    linear-gradient(rgba(0, 0, 0, 0.22) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.22) 1px, transparent 1px);
-  background-size: 6px 6px;
-  opacity: 0.45;
-  mix-blend-mode: multiply;
+  content: none;
+  display: none;
 }
 
 .emp-dashboard-hero--comb .emp-dashboard-hero__avatar {
   position: relative;
   z-index: 1;
-  border: 2px solid rgba(255, 255, 255, 0.42) !important;
-  background-color: #1a4329 !important;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.12) 1px, transparent 1px),
-    linear-gradient(165deg, #2f6b4f 0%, #1a4329 100%);
-  background-size: 10px 10px, 10px 10px, 100% 100%;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  border: none !important;
+  background-color: #f8fafc !important;
+  background-image: none;
+  box-shadow: none;
 }
 
 .emp-dashboard-hero--comb .emp-dashboard-hero__avatar img {
@@ -1905,7 +1893,7 @@
 .admin-dashboard-view[data-employee-dashboard] .emp-dashboard-hero--comb .emp-dashboard-hero__identity-copy > p.emp-dashboard-hero__role,
 .crewiq-dashboard .emp-dashboard-hero--comb .emp-dashboard-hero__identity-copy > p.emp-dashboard-hero__role,
 [data-employee-dashboard] .emp-dashboard-hero--comb .emp-dashboard-hero__identity-copy > p.emp-dashboard-hero__role {
-  color: #5c7a6a !important;
+  color: #000000 !important;
 }
 
 @media (min-width: 640px) {
@@ -3414,6 +3402,8 @@
   .admin-dashboard-view[data-admin-dashboard] .dashboard-main-grid {
     grid-template-columns: minmax(12rem, 17%) minmax(0, 1fr) minmax(13rem, 19%);
     gap: var(--dashboard-gap);
+    height: auto;
+    min-height: var(--viewport-page-h);
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-center-column {
@@ -3520,6 +3510,10 @@
   overflow: hidden;
 }
 
+.admin-dashboard-view[data-admin-dashboard] .dashboard-left-insights {
+  overflow: visible;
+}
+
 @media (min-width: 1024px) {
   .admin-dashboard-view[data-admin-dashboard] .dashboard-left-column {
     container-type: size;
@@ -3538,8 +3532,7 @@
 @container dash-left-col (max-height: 34rem) {
   .admin-dashboard-view[data-admin-dashboard] .dashboard-left-insights-column,
   .admin-dashboard-view[data-admin-dashboard] .dashboard-left-insights {
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    overflow-y: visible;
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-left-insights .dashboard-insight-panel {
@@ -3548,15 +3541,16 @@
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-left-insights .dashboard-insight-panel-body {
-    flex: 1 1 auto;
+    flex: 0 0 auto;
     min-height: 5.5rem;
-    max-height: 14rem;
+    max-height: none;
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-left-insights .dashboard-insight-panel-scroll {
-    flex: 1 1 auto;
+    flex: none;
     min-height: 4rem;
-    max-height: 12rem;
+    max-height: none;
+    overflow: visible;
   }
 }
 
@@ -4476,9 +4470,16 @@
 
 .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack-section.dashboard-center-table {
   display: flex;
-  flex: 1 1 0%;
+  flex: 0 0 auto;
   flex-direction: column;
+  min-height: 0;
+  overflow: visible;
+}
+
+.admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack-section.dashboard-center-table.dashboard-contribution-history--bounded {
+  flex: 1 1 auto;
   min-height: 12rem;
+  max-height: min(28rem, calc(var(--viewport-page-h) - 20rem));
   overflow: hidden;
 }
 
@@ -4580,7 +4581,7 @@
 }
 
 .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack > .dashboard-center-table {
-  flex: 1 1 0%;
+  flex: 0 0 auto;
   min-height: 0;
 }
 
@@ -4590,9 +4591,14 @@
 }
 
 .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack .dashboard-center-table {
-  flex: 1 1 0%;
-  min-height: 12rem;
+  flex: 0 0 auto;
+  min-height: 0;
   width: 100%;
+}
+
+.admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack .dashboard-center-table.dashboard-contribution-history--bounded {
+  flex: 1 1 auto;
+  min-height: 12rem;
 }
 
 .dashboard-panel {
@@ -4657,9 +4663,14 @@
 
 .admin-dashboard-view[data-admin-dashboard] .dashboard-contribution-history {
   display: flex;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   flex-direction: column;
   min-height: 0;
+}
+
+.admin-dashboard-view[data-admin-dashboard] .dashboard-contribution-history--bounded {
+  flex: 1 1 auto;
+  min-height: 12rem;
 }
 
 .dashboard-contribution-history {
@@ -4667,12 +4678,29 @@
 }
 
 .dashboard-contribution-table-wrap {
-  flex: 1;
+  border-top: 1px solid rgba(30, 90, 61, 0.06);
+}
+
+.admin-dashboard-view[data-admin-dashboard] .dashboard-contribution-table-wrap--natural {
+  flex: none;
+  overflow: visible;
+}
+
+.admin-dashboard-view[data-admin-dashboard] .dashboard-contribution-table-wrap--bounded {
+  flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  border-top: 1px solid rgba(30, 90, 61, 0.06);
+}
+
+.admin-dashboard-view[data-admin-dashboard] .dashboard-contribution-table-head--sticky th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #f8faf8;
+  box-shadow: 0 1px 0 rgba(30, 90, 61, 0.1);
 }
 
 .dashboard-contribution-table {
@@ -4951,21 +4979,21 @@
     min-height: var(--viewport-page-h);
     height: auto;
     align-items: stretch;
-    grid-template-rows: minmax(0, 1fr);
+    grid-template-rows: auto;
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-left-column,
   .admin-dashboard-view[data-admin-dashboard] .dashboard-center-column,
   .admin-dashboard-view[data-admin-dashboard] .dashboard-right-column {
-    height: 100%;
-    min-height: 0;
+    height: auto;
+    min-height: 100%;
     align-self: stretch;
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack {
-    flex: 1 1 0;
+    flex: 1 1 auto;
     min-height: 0;
-    height: 100%;
+    height: auto;
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-right-stack {

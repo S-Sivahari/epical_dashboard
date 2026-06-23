@@ -1,5 +1,6 @@
 import type { Employee } from '@/types'
 import { buildExportFileName } from '@/utils/exportFileName'
+import { normalizeEmployeeView } from '@/utils/employeeView'
 
 /** Columns shown in Active Directory — used for directory PDF/Excel exports only. */
 export const ACTIVE_DIRECTORY_EXPORT_HEADERS: { key: keyof Employee; label: string }[] = [
@@ -11,6 +12,7 @@ export const ACTIVE_DIRECTORY_EXPORT_HEADERS: { key: keyof Employee; label: stri
   { key: 'employmentType', label: 'Type' },
   { key: 'joinedAt', label: 'Joined' },
   { key: 'status', label: 'Status' },
+  { key: 'view', label: 'View' },
 ]
 
 export type EmployeeExportRow = Record<string, unknown>
@@ -26,6 +28,7 @@ export const FULL_EMPLOYEE_EXPORT_HEADERS: { key: string; label: string }[] = [
   { key: 'phone', label: 'Phone' },
   { key: 'personalEmail', label: 'Personal Email' },
   { key: 'email', label: 'Company Email' },
+  { key: 'view', label: 'View' },
   { key: 'permanentAddress', label: 'Permanent Address' },
   { key: 'communicationAddress', label: 'Communication Address' },
   { key: 'role', label: 'Role' },
@@ -73,6 +76,7 @@ export function employeeToExportRow(employee: Employee): EmployeeExportRow {
   const ec = employee.emergencyContact
   return {
     ...employee,
+    view: normalizeEmployeeView(employee.view),
     permanentAddress: e.permanentAddress ?? e.address ?? '',
     communicationAddress: e.communicationAddress ?? '',
     emergencyContactName: ec?.name ?? '',

@@ -14,6 +14,7 @@ import { validateProductionSecrets } from './config/validateSecurity';
 import { initializePassport } from './config/oauth';
 
 import {
+  backfillMissingEmployeePublicView,
   normalizeEmployeesWithSameCompanyAndPersonalEmail,
   removeDepartmentFromDatabase,
 } from './services/employeeService';
@@ -433,6 +434,15 @@ export async function startServer() {
       }
     } catch (err) {
       console.warn('⚠ Employee email normalization skipped:', err);
+    }
+
+    try {
+      const viewBackfill = await backfillMissingEmployeePublicView();
+      if (viewBackfill > 0) {
+        console.log(`✓ Set view=Public on ${viewBackfill} employee(s) missing the field`);
+      }
+    } catch (err) {
+      console.warn('⚠ Employee view backfill skipped:', err);
     }
 
     // Cleanup department field

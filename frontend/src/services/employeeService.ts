@@ -6,6 +6,7 @@ export async function getEmployees(params?: {
   name?: string
   employmentType?: string
   status?: string
+  view?: 'Public' | 'Private'
   sortColumn?: string
   sortDirection?: 'asc' | 'desc'
   page?: number
@@ -16,6 +17,7 @@ export async function getEmployees(params?: {
       q: params?.name || undefined,
       employmentType: params?.employmentType,
       status: params?.status,
+      view: params?.view,
       sortColumn: params?.sortColumn,
       sortDirection: params?.sortDirection,
       page: params?.page,

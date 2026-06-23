@@ -45,8 +45,24 @@ export async function checkOut() {
   return res.data
 }
 
-export async function startTask(assignedTaskId, description) {
-  const res = await api.post('/timesheets/mine/start-task', { assignedTaskId, description })
+export async function startTask(assignedTaskId, description, cellId) {
+  const res = await api.post('/timesheets/mine/start-task', {
+    assignedTaskId,
+    description,
+    ...(cellId ? { cellId } : {}),
+  })
+  return res.data
+}
+
+export async function fetchStartableCells(assignedTaskId) {
+  const res = await api.get('/timesheets/mine/startable-cells', {
+    params: { assignedTaskId },
+  })
+  return res.data
+}
+
+export async function startCellWork(projectId, cellId) {
+  const res = await api.post('/timesheets/mine/start-cell-work', { projectId, cellId })
   return res.data
 }
 

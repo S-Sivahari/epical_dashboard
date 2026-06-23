@@ -255,7 +255,7 @@ async function resolveCellCreateAssignment(
   body: { assignedEmployeeId?: string; assignedEmployeeName?: string },
 ): Promise<{ assignedEmployeeId?: string; assignedEmployeeName?: string } | { error: string }> {
   if (!isTeamLeadOnProject(project, tokens)) {
-    return { assignedEmployeeId: undefined, assignedEmployeeName: undefined };
+    return resolveSelfAssignment(req);
   }
 
   const requestedId = body.assignedEmployeeId?.trim();
@@ -864,7 +864,7 @@ export const employeeProjectController = {
       await cell.save();
 
       const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
-      res.json(toEmployeeCell(cell, tokens, meta));
+      res.json(await toEmployeeCellWithTiming(cell, tokens, meta));
     } catch (err: any) {
       res.status(400).json({ error: err?.message || 'Failed to update workflow stage' });
     }
@@ -1955,7 +1955,7 @@ export const employeeProjectController = {
       }
 
       const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
-      res.json(toEmployeeCell(cell, tokens, meta));
+      res.json(await toEmployeeCellWithTiming(cell, tokens, meta));
     } catch (err: any) {
       res.status(400).json({ error: err?.message || 'Failed to complete cell' });
     }

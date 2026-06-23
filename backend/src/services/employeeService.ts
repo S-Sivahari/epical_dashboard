@@ -7,6 +7,7 @@ import { ensureUserAccountForEmployee, getAdminLoginEmail, normalizeLoginEmail, 
 import { assertPersonalAndCompanyEmailsDiffer } from '../utils/employeeLoginRules';
 import { normalizePortalAccess, assertValidPortalAccess } from '../utils/portalAccess';
 import { sanitizeEmployeeForDetail, sanitizeEmployeeForList } from '../utils/sanitizeEmployee';
+import { EMPLOYEE_VIEW_DEFAULT, normalizeEmployeeView } from '../utils/employeeView';
 import {
   isProfileFieldUpdate,
   mergeEmployeeProfileForValidation,
@@ -61,6 +62,7 @@ const EMPLOYEE_LIST_PROJECTION = {
   joinedAt: 1,
   status: 1,
   role: 1,
+  view: 1,
   portalAccess: 1,
   createdAt: 1,
   updatedAt: 1,
@@ -93,6 +95,7 @@ const PROFILE_TRACKED_FIELDS = [
   'communicationAddress',
   'dob',
   'gender',
+  'view',
   'role',
   'portalAccess',
   'employmentType',
@@ -120,6 +123,7 @@ const FIELD_LABELS: Record<string, string> = {
   communicationAddress: 'Communication Address',
   dob: 'Date Of Birth',
   gender: 'Gender',
+  view: 'View',
   role: 'Role',
   portalAccess: 'Portal Access',
   employmentType: 'Employment Type',
@@ -275,6 +279,7 @@ export async function getAllEmployees(
     status?: string;
     sortColumn?: string;
     sortDirection?: 'asc' | 'desc';
+    view?: string;
   } = {}
 ): Promise<{ data: Employee[]; total: number }> {
   const collection = getEmployeeCollection();
@@ -317,6 +322,25 @@ export async function getAllEmployees(
   } else {
     // Default: keep deactivated accounts visible so they can be reactivated.
     query.status = { $ne: 'Archived' };
+  }
+
+  if (filters.view === 'Public') {
+    const publicViewClause: Filter<Document> = {
+      $or: [
+        { view: { $exists: false } },
+        { view: 'Public' },
+        { view: null },
+      ],
+    };
+    if (query.$or) {
+      const searchOr = query.$or;
+      delete query.$or;
+      query.$and = [{ $or: searchOr }, publicViewClause];
+    } else {
+      Object.assign(query, publicViewClause);
+    }
+  } else if (filters.view === 'Private') {
+    query.view = 'Private';
   }
 
   const statusRankSwitch = {
@@ -498,6 +522,7 @@ export async function createEmployee(payload: CreateEmployeePayload): Promise<Em
     id,
     role: 'Employee',
     portalAccess,
+    view: normalizeEmployeeView((payload as { view?: string }).view),
     email: payload.email?.trim().toLowerCase() || undefined,
     personalEmail: payload.personalEmail?.trim().toLowerCase() || undefined,
     employeeId: normalizedEmployeeId,
@@ -648,6 +673,9 @@ export async function updateEmployee(
   if (cleanPayload.portalAccess !== undefined) {
     cleanPayload.portalAccess = normalizePortalAccess(String(cleanPayload.portalAccess));
     assertValidPortalAccess(cleanPayload.portalAccess);
+  }
+  if (cleanPayload.view !== undefined) {
+    cleanPayload.view = normalizeEmployeeView(String(cleanPayload.view));
   }
   if (cleanPayload.role !== undefined) {
     delete cleanPayload.role;
@@ -980,6 +1008,26 @@ export async function normalizeEmployeesWithSameCompanyAndPersonalEmail(): Promi
   }
 
   return fixed;
+}
+
+/** Set view=Public on employees missing the field (safe to run on every server start). */
+export async function backfillMissingEmployeePublicView(): Promise<number> {
+  const collection = getEmployeeCollection();
+  const result = await collection.updateMany(
+    { $or: [{ view: { $exists: false } }, { view: null }, { view: '' }] },
+    { $set: { view: 'Public', updatedAt: new Date() } },
+  );
+  return result.modifiedCount;
+}
+
+/** One-time migration: set view=Public on every employee record. */
+export async function setAllEmployeesPublicView(): Promise<number> {
+  const collection = getEmployeeCollection();
+  const result = await collection.updateMany(
+    { view: { $ne: 'Public' } },
+    { $set: { view: 'Public', updatedAt: new Date() } },
+  );
+  return result.modifiedCount;
 }
 
 /** Remove deprecated department field from all employee and user documents. */

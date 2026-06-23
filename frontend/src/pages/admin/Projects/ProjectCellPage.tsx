@@ -117,7 +117,7 @@ export function ProjectCellPage() {
     try {
       const [ws, empsRes, readiness] = await Promise.all([
         fetchWorkspaceSummary(projectId),
-        getEmployees({ status: 'Active', pageSize: 500 }),
+        getEmployees({ status: 'Active', view: 'Public', pageSize: 500 }),
         fetchCellCompletionReadiness(projectId, cellId).catch(() => null),
       ])
       setSummary(ws)

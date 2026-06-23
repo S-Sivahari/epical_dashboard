@@ -39,6 +39,7 @@ const step1Object = z.object({
   phone: z.string().min(10, 'Enter a valid phone number'),
   personalEmail: z.string().email('Enter a valid personal email'),
   companyEmail: z.union([z.string().email('Enter a valid company email'), z.literal('')]).optional(),
+  view: z.enum(['Public', 'Private']),
 })
 
 function refineDistinctEmails(data: { personalEmail: string; companyEmail?: string }, ctx: z.RefinementCtx) {
@@ -114,6 +115,7 @@ const defaultValues: Partial<FullValues> = {
   emergencyContactEmail: '',
   emergencyContactRelation: '',
   emergencyContactAddress: '',
+  view: 'Public',
 }
 
 type DocKey = 'aadhaar' | 'pan' | 'offerLetter' | 'agreement'
@@ -409,6 +411,7 @@ export function AddEmployee() {
       phone: values.phone,
       dob: values.dob,
       gender: values.gender,
+      view: values.view,
       bankName: values.bankName?.trim() || undefined,
       accountNumber: values.accountNumber?.trim() || undefined,
       ifsc: values.ifsc?.trim() || undefined,
@@ -556,6 +559,16 @@ export function AddEmployee() {
                 type="email"
                 error={form.formState.errors.companyEmail?.message}
                 {...form.register('companyEmail')}
+              />
+              <SelectField
+                label="View"
+                required
+                error={form.formState.errors.view?.message}
+                options={[
+                  { value: 'Public', label: 'Public' },
+                  { value: 'Private', label: 'Private' },
+                ]}
+                {...form.register('view')}
               />
             </div>
 

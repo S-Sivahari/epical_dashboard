@@ -24,7 +24,13 @@ import {
   updateLibrary,
   type EffortPrediction,
 } from '@/services/projectWorkspaceService'
-import { fetchMyDependencyGraph, fetchMyProjectWorkspace } from '@/services/employeeProjectService'
+import {
+  createMyProjectCell,
+  createMyProjectLibrary,
+  fetchMyDependencyGraph,
+  fetchMyEffortPrediction,
+  fetchMyProjectWorkspace,
+} from '@/services/employeeProjectService'
 import { mapEmployeeWorkspaceToSummary } from '@/utils/employeeWorkspaceAdapter'
 import { cn } from '@/utils/cn'
 import {
@@ -97,6 +103,7 @@ export function ProjectWorkspace() {
   const navigate = useNavigate()
   const { projectsListPath, projectCellPath, isEmployee } = useProjectPortal()
   const canManageWorkspace = !isEmployee
+  const canCreateInWorkspace = true
   const [summary, setSummary] = useState<WorkspaceSummary | null>(null)
   const [graph, setGraph] = useState<DependencyGraph | null>(null)
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -150,7 +157,7 @@ export function ProjectWorkspace() {
       const [ws, dg, empsRes] = await Promise.all([
         fetchWorkspaceSummary(projectId),
         fetchDependencyGraph(projectId),
-        getEmployees({ status: 'Active', pageSize: 500 }),
+        getEmployees({ status: 'Active', view: 'Public', pageSize: 500 }),
       ])
       setSummary(ws)
       setGraph(dg)
@@ -177,18 +184,20 @@ export function ProjectWorkspace() {
     }
 
     const timer = window.setTimeout(() => {
-      void fetchEffortPrediction(projectId, {
+      const params = {
         cellType: cellForm.cellType || 'block',
         technologyNode: cellForm.technologyNode || summary?.project.technologyNode || '',
         complexity: cellForm.complexity || 'Medium',
         baseHours: cellForm.baseHours ?? 0,
-      })
-        .then(setEffortPreview)
-        .catch(() => setEffortPreview(null))
+      }
+      const prediction = isEmployee
+        ? fetchMyEffortPrediction(projectId, params)
+        : fetchEffortPrediction(projectId, params)
+      void prediction.then(setEffortPreview).catch(() => setEffortPreview(null))
     }, 250)
 
     return () => window.clearTimeout(timer)
-  }, [cellModal, cellForm, projectId, summary?.project.technologyNode])
+  }, [cellModal, cellForm, projectId, summary?.project.technologyNode, isEmployee])
 
   const refreshGraphData = useCallback(async () => {
     if (!projectId) return
@@ -398,7 +407,12 @@ export function ProjectWorkspace() {
       return
     }
     try {
-      await createCell(projectId, cellForm.libraryId, { ...cellForm, name: cellForm.name || 'Untitled' })
+      const payload = { ...cellForm, name: cellForm.name || 'Untitled' }
+      if (isEmployee) {
+        await createMyProjectCell(projectId, cellForm.libraryId, payload)
+      } else {
+        await createCell(projectId, cellForm.libraryId, payload)
+      }
       toast.success('Cell created')
       setActiveLibraryId(cellForm.libraryId)
       setCellModal(false)
@@ -417,6 +431,9 @@ export function ProjectWorkspace() {
           description: libraryDesc,
         })
         toast.success('Library updated')
+      } else if (isEmployee) {
+        await createMyProjectLibrary(projectId, { name: libraryName.trim(), description: libraryDesc })
+        toast.success('Library created')
       } else {
         await createLibrary(projectId, { name: libraryName, description: libraryDesc })
         toast.success('Library created')
@@ -645,11 +662,12 @@ export function ProjectWorkspace() {
                   </p>
                   <span className="admin-projects-libraries-count">{libraries.length}</span>
                 </div>
-                {canManageWorkspace ? (
+                {canCreateInWorkspace ? (
                   <WorkspaceLibraryToolbar
                     onAddLibrary={openCreateLibraryModal}
                     onDownloadTemplate={() => void handleDownloadCellTemplate()}
                     downloading={downloadingCellTemplate}
+                    showTemplateDownload={canManageWorkspace}
                   />
                 ) : null}
                 <input
@@ -765,7 +783,7 @@ export function ProjectWorkspace() {
                     </div>
                   </div>
 
-                  {canManageWorkspace ? (
+                  {canCreateInWorkspace ? (
                     <button
                       type="button"
                       className="admin-projects-cells-create"
@@ -1197,25 +1215,27 @@ export function ProjectWorkspace() {
                 <p className="mt-2 text-xs text-slate-500">No similar completed blocks yet — smart estimate matches base estimate.</p>
               )}
             </div>
-            <label className="text-sm font-medium">Assign employee
-              <select
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                value={cellForm.assignedEmployeeId || ''}
-                onChange={(e) => {
-                  const emp = employees.find((x) => x.id === e.target.value)
-                  setCellForm((f) => f && {
-                    ...f,
-                    assignedEmployeeId: e.target.value,
-                    assignedEmployeeName: emp ? buildEmployeeFullName(emp) : '',
-                  })
-                }}
-              >
-                <option value="">Unassigned</option>
-                {employees.map((e) => (
-                  <option key={e.id} value={e.id}>{buildEmployeeFullName(e)}</option>
-                ))}
-              </select>
-            </label>
+            {!isEmployee ? (
+              <label className="text-sm font-medium">Assign employee
+                <select
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  value={cellForm.assignedEmployeeId || ''}
+                  onChange={(e) => {
+                    const emp = employees.find((x) => x.id === e.target.value)
+                    setCellForm((f) => f && {
+                      ...f,
+                      assignedEmployeeId: e.target.value,
+                      assignedEmployeeName: emp ? buildEmployeeFullName(emp) : '',
+                    })
+                  }}
+                >
+                  <option value="">Unassigned</option>
+                  {employees.map((e) => (
+                    <option key={e.id} value={e.id}>{buildEmployeeFullName(e)}</option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="secondary" onClick={() => setCellModal(false)}>Cancel</Button>
               <Button onClick={() => void saveCell()}>Save</Button>

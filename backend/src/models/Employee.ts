@@ -2,6 +2,7 @@ import { ObjectId } from 'mongodb';
 
 export type EmploymentType = 'Full-time' | 'Contract' | 'Intern';
 export type EmployeeStatus = 'Active' | 'On Leave' | 'Probation' | 'Inactive' | 'Deactivated' | 'Notice Period';
+export type EmployeeView = 'Public' | 'Private';
 
 export interface Employee {
   _id?: ObjectId;
@@ -19,6 +20,8 @@ export interface Employee {
   gender?: string;
   designation?: string;
   role: string;
+  /** Public — projects, leave, and usual HR visibility. Private — payroll/payslip only (UI visibility). */
+  view?: EmployeeView;
   portalAccess?: 'Employee' | 'Employee+Admin';
   managerId?: string; // ID of the employee's manager
   employmentType: EmploymentType;

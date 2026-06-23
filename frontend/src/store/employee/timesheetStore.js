@@ -479,8 +479,8 @@ export const useTimesheetStore = create((set, get) => ({
     ])
   },
 
-  startTask: async ({ assignedTaskId, description }) => {
-    const data = await apiStartTask(assignedTaskId, description)
+  startTask: async ({ assignedTaskId, description, cellId }) => {
+    const data = await apiStartTask(assignedTaskId, description, cellId)
     if (data?.timesheet) {
       const activeTask = mapTaskEntryFromApi({
         timesheet: data.timesheet,

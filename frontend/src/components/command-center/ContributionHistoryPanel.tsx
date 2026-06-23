@@ -38,6 +38,8 @@ function statusLabel(status: ProjectContributionStatus): string {
   }
 }
 
+const CONTRIBUTION_INLINE_ROW_LIMIT = 8
+
 function ContributionStatusCell({ status }: { status: ProjectContributionStatus }) {
   const label = statusLabel(status)
   return (
@@ -62,17 +64,32 @@ export function ContributionHistoryPanel({
   rows: ProjectTableRow[]
   className?: string
 }) {
+  const useBoundedScroll = !loading && rows.length > CONTRIBUTION_INLINE_ROW_LIMIT
+
   return (
-    <section className={cn('dashboard-panel dashboard-contribution-history min-h-0', className)}>
+    <section
+      className={cn(
+        'dashboard-panel dashboard-contribution-history min-h-0',
+        useBoundedScroll && 'dashboard-contribution-history--bounded',
+        className,
+      )}
+    >
       <header className="dashboard-panel-header dashboard-panel-header--primary dashboard-panel-header-compact dashboard-contribution-header">
         <div className="min-w-0">
           <h2 className="dashboard-panel-title">Contribution History</h2>
           <p className="dashboard-panel-subtitle">Hours logged by project for the selected period</p>
         </div>
       </header>
-      <div className="dashboard-contribution-table-wrap min-h-0 flex-1 overflow-auto pb-4">
+      <div
+        className={cn(
+          'dashboard-contribution-table-wrap pb-4',
+          useBoundedScroll
+            ? 'dashboard-contribution-table-wrap--bounded min-h-0 flex-1 overflow-auto'
+            : 'dashboard-contribution-table-wrap--natural',
+        )}
+      >
         <table className="dashboard-contribution-table">
-          <thead>
+          <thead className={useBoundedScroll ? 'dashboard-contribution-table-head--sticky' : undefined}>
             <tr>
               <th>Project</th>
               <th>Client</th>

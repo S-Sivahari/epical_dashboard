@@ -111,29 +111,33 @@ export function WorkspaceLibraryCard({
 
 type WorkspaceLibraryToolbarProps = {
   onAddLibrary: () => void
-  onDownloadTemplate: () => void
+  onDownloadTemplate?: () => void
   downloading?: boolean
+  showTemplateDownload?: boolean
 }
 
 export function WorkspaceLibraryToolbar({
   onAddLibrary,
   onDownloadTemplate,
   downloading = false,
+  showTemplateDownload = true,
 }: WorkspaceLibraryToolbarProps) {
   return (
     <div className="admin-projects-libraries-toolbar">
       <button type="button" className="admin-projects-libraries-create" onClick={onAddLibrary}>
         <span aria-hidden>+</span> Add library
       </button>
-      <button
-        type="button"
-        className="admin-projects-libraries-template"
-        onClick={onDownloadTemplate}
-        disabled={downloading}
-      >
-        <Download className="h-4 w-4" aria-hidden />
-        {downloading ? 'Downloading…' : 'Download cell template'}
-      </button>
+      {showTemplateDownload && onDownloadTemplate ? (
+        <button
+          type="button"
+          className="admin-projects-libraries-template"
+          onClick={onDownloadTemplate}
+          disabled={downloading}
+        >
+          <Download className="h-4 w-4" aria-hidden />
+          {downloading ? 'Downloading…' : 'Download cell template'}
+        </button>
+      ) : null}
     </div>
   )
 }

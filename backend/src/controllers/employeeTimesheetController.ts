@@ -23,6 +23,10 @@ import {
   WORK_SESSION_REASONS,
 } from '../services/productiveTimeService';
 import {
+  beginCellWorkForEmployee,
+  listStartableCellsForProject,
+} from '../services/employeeCellWorkService';
+import {
   activeBreakExpired,
   breakMinTimeReached,
   buildBreaksPayload,
@@ -916,7 +920,11 @@ export const employeeTimesheetController = {
         return;
       }
 
-      const { assignedTaskId, description } = req.body;
+      const { assignedTaskId, description, cellId } = req.body as {
+        assignedTaskId?: string;
+        description?: string;
+        cellId?: string;
+      };
       if (!assignedTaskId) {
         res.status(400).json({ error: 'Select a task before starting' });
         return;
@@ -1049,10 +1057,30 @@ export const employeeTimesheetController = {
           now,
         ).catch((err) => console.error('[timesheet] productive time start-task sync failed:', err));
 
+        let cellWorkStarted: { cellId: string; cellName: string } | null = null;
+        let cellWorkError: string | null = null;
+        const optionalCellId = typeof cellId === 'string' ? cellId.trim() : '';
+        if (optionalCellId) {
+          try {
+            const { cell } = await beginCellWorkForEmployee(
+              resolvedProject._id.toString(),
+              optionalCellId,
+              employee.identityTokens,
+              { userId: employee.id, userName: employee.employeeName || employee.name, role: 'Employee' },
+            );
+            cellWorkStarted = { cellId: cell._id.toString(), cellName: cell.name };
+          } catch (cellErr) {
+            cellWorkError = cellErr instanceof Error ? cellErr.message : 'Failed to start cell work';
+            console.error('[timesheet] optional cell work start failed:', cellErr);
+          }
+        }
+
         res.status(201).json({
           timesheet: toFrontendTimesheet(timesheet),
           assignedTask: toFrontendAssignedTask(assigned),
           startedAt: now.toISOString(),
+          cellWorkStarted,
+          cellWorkError,
         });
 
         // Trigger reminder email immediately if checking in late (9 PM IST or later)
@@ -1663,6 +1691,76 @@ export const employeeTimesheetController = {
     } catch (error) {
       console.error('Error ending break:', error);
       res.status(500).json({ error: 'Failed to end break' });
+    }
+  },
+
+  getStartableCells: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const employee = await resolveEmployee(req);
+      if (!employee) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const assignedTaskId = String(req.query.assignedTaskId || '').trim();
+      if (!assignedTaskId || !Types.ObjectId.isValid(assignedTaskId)) {
+        res.status(400).json({ error: 'assignedTaskId is required' });
+        return;
+      }
+
+      const assigned = await findAssignedTaskForEmployee(employee, assignedTaskId);
+      if (!assigned) {
+        res.status(404).json({ error: 'Assigned task not found' });
+        return;
+      }
+
+      const cells = await listStartableCellsForProject(
+        assigned.projectId.toString(),
+        employee.identityTokens,
+      );
+      res.json({ projectId: assigned.projectId.toString(), cells });
+    } catch (error) {
+      console.error('Error loading startable cells:', error);
+      res.status(500).json({ error: 'Failed to load startable cells' });
+    }
+  },
+
+  startCellWork: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const employee = await resolveEmployee(req);
+      if (!employee) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const attendance = await requireOpenAttendance(employee.id);
+      if (!attendance) {
+        res.status(400).json({ error: 'Please check in before starting cell work' });
+        return;
+      }
+
+      const { projectId, cellId } = req.body as { projectId?: string; cellId?: string };
+      if (!projectId || !cellId) {
+        res.status(400).json({ error: 'projectId and cellId are required' });
+        return;
+      }
+
+      const { cell } = await beginCellWorkForEmployee(
+        projectId,
+        cellId,
+        employee.identityTokens,
+        { userId: employee.id, userName: employee.employeeName || employee.name, role: 'Employee' },
+      );
+
+      res.status(201).json({
+        cellId: cell._id.toString(),
+        cellName: cell.name,
+        projectId,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to start cell work';
+      console.error('Error starting cell work:', error);
+      res.status(400).json({ error: message });
     }
   },
 };

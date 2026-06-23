@@ -2516,6 +2516,29 @@ body,
   }
 }
 
+/* Admin dashboard — page scroll via cmd-main; internal scroll only when contribution history has many rows */
+.admin-portal main > .relative:has([data-admin-dashboard]) {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: visible;
+}
+
+.admin-dashboard-view[data-admin-dashboard] {
+  flex: 1 1 auto;
+  max-height: none;
+  min-height: var(--viewport-page-h);
+  overflow: visible;
+}
+
+.admin-portal.cmd-portal .cmd-main:has([data-admin-dashboard]) {
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
 /* Employee portal — dashboard/timesheet scroll via cmd-main; calendar stays viewport-fit */
 .employee-portal [data-employee-page].admin-dashboard-view {
   flex: 1 1 auto;
@@ -2566,10 +2589,10 @@ body,
 
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-timesheet]) {
   display: flex;
-  flex: 1 1 0;
+  flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .employee-portal.cmd-portal .cmd-main:has([data-employee-timesheet]) {
@@ -2583,6 +2606,7 @@ body,
   max-height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /**
@@ -2820,17 +2844,23 @@ body,
 .employee-portal .emp-timesheet-history-panel {
   flex: 0 0 auto;
   min-height: calc(min(28rem, 48dvh) + 5cm);
-  overflow: visible;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: visible;
 }
 
 .employee-portal .emp-timesheet-history-panel .emp-timesheet-history-body {
   flex: 1 1 auto;
   min-height: calc(12rem + 5cm);
-  overflow: visible;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .employee-portal .emp-timesheet-history-panel .emp-timesheet-history-scroll {
   min-height: calc(12rem + 5cm);
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .employee-portal .emp-timesheet-history-panel .emp-timesheet-history-header {

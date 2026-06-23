@@ -497,7 +497,7 @@ export function buildMetrics(
 }
 
 export async function fetchActiveEmployees() {
-  const { data } = await getEmployees({ status: 'Active', pageSize: 500, page: 1 })
+  const { data } = await getEmployees({ status: 'Active', view: 'Public', pageSize: 500, page: 1 })
   return data.sort((a, b) => employeeDisplayName(a).localeCompare(employeeDisplayName(b)))
 }
 

@@ -71,7 +71,7 @@ export function LibrariesView() {
       setLoading(true)
       const [data, empData] = await Promise.all([
         fetchProjectOverview(projectId),
-        getEmployees({ status: 'Active', pageSize: 500 }),
+        getEmployees({ status: 'Active', view: 'Public', pageSize: 500 }),
       ])
       setOverview(data)
       setEmployees(empData.data || [])

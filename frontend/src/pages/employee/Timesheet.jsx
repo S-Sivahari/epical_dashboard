@@ -53,6 +53,7 @@ function stripTaskLabelPrefix(taskText, { taskTitle, projectName } = {}) {
 
 const taskSchema = z.object({
   assignedTaskId: z.string().min(1, 'Select an assigned project'),
+  cellId: z.string().optional().default(''),
   description: z.string().optional().default(''),
 })
 
@@ -202,10 +203,11 @@ export default function Timesheet() {
 
   const { register, setValue, watch, reset, trigger, formState: { errors } } = useForm({
     resolver: zodResolver(taskSchema),
-    defaultValues: { assignedTaskId: '', description: '' },
+    defaultValues: { assignedTaskId: '', cellId: '', description: '' },
   })
 
   const selectedTaskId = watch('assignedTaskId')
+  const selectedCellId = watch('cellId')
   const workDescription = watch('description')
   const startableTasks = useMemo(
     () => assignedTasks.filter((t) => t.status !== 'completed'),
@@ -291,8 +293,10 @@ export default function Timesheet() {
   ])
 
   const onCheckIn = async () => {
-    const valid = await trigger('assignedTaskId')
+    const valid = await trigger(['assignedTaskId'])
     if (!valid) return
+
+    const cellId = selectedCellId && selectedCellId !== '__none__' ? selectedCellId : undefined
 
     try {
       setSubmitting(true)
@@ -300,10 +304,31 @@ export default function Timesheet() {
       setCheckoutError('')
       await checkIn()
       try {
-        await startTask({
+        const result = await startTask({
           assignedTaskId: selectedTaskId,
           description: String(workDescription || '').trim(),
+          cellId,
         })
+        setCheckInDialogOpen(false)
+        const projectLabel = selectedTask?.projectName || selectedTask?.title || 'your project'
+        if (result?.cellWorkStarted) {
+          toast({
+            title: 'Checked in',
+            description: `Project timer started for ${projectLabel}. Cell work started on ${result.cellWorkStarted.cellName}.`,
+          })
+        } else {
+          toast({
+            title: 'Checked in',
+            description: `Timer started for ${projectLabel}.`,
+          })
+        }
+        if (result?.cellWorkError) {
+          toast({
+            title: 'Cell work not started',
+            description: result.cellWorkError,
+            variant: 'destructive',
+          })
+        }
       } catch (startErr) {
         try {
           await checkOut()
@@ -312,11 +337,6 @@ export default function Timesheet() {
         }
         throw startErr
       }
-      setCheckInDialogOpen(false)
-      toast({
-        title: 'Checked in',
-        description: `Timer started for ${selectedTask?.projectName || selectedTask?.title || 'your project'}.`,
-      })
     } catch (err) {
       toast({
         title: 'Check in failed',
@@ -783,6 +803,7 @@ export default function Timesheet() {
                   columns={historyColumns}
                   data={unifiedHistory}
                   compact
+                  embedded
                   stickyHeader={unifiedHistory.length > 0}
                   emptyMessage="No work logs for this date range."
                 />
@@ -800,7 +821,12 @@ export default function Timesheet() {
         open={checkInDialogOpen}
         onOpenChange={setCheckInDialogOpen}
         selectedTaskId={selectedTaskId}
-        onTaskChange={(v) => setValue('assignedTaskId', v, { shouldValidate: true })}
+        onTaskChange={(v) => {
+          setValue('assignedTaskId', v, { shouldValidate: true })
+          setValue('cellId', '', { shouldValidate: false })
+        }}
+        selectedCellId={selectedCellId}
+        onCellChange={(v) => setValue('cellId', v, { shouldValidate: false })}
         description={workDescription}
         onDescriptionChange={(v) => setValue('description', v, { shouldValidate: true })}
         taskError={errors.assignedTaskId?.message}

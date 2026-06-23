@@ -163,6 +163,7 @@ async function closeOpenWorkingLogs(
       log.checkOutTime = at;
       log.latestActivityTime = at;
       log.workedMs = logWorkedMs(log.checkInTime, at);
+      log.reason = reason;
       if (actor) {
         log.closedById = actor.userId;
         log.closedByName = actor.userName;

@@ -332,8 +332,15 @@
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack-section.dashboard-center-table {
+    flex: 0 0 auto;
+    min-height: 0;
+  }
+
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack-section.dashboard-center-table.dashboard-contribution-history--bounded {
     flex: 1 1 auto;
-    min-height: 18rem;
+    min-height: 14rem;
+    max-height: min(26rem, calc(var(--viewport-page-h) - 18rem));
+    overflow: hidden;
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-center-column {
@@ -343,14 +350,14 @@
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-left-insights-column,
   .admin-dashboard-view[data-admin-dashboard] .dashboard-left-insights {
-    flex: 1 1 0;
+    flex: 1 1 auto;
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-left-insights .dashboard-insight-panel-scroll {
-    overflow-y: auto;
-    flex: 1 1 0;
+    overflow: visible;
+    flex: none;
     min-height: 0;
   }
 
@@ -439,6 +446,16 @@
   .admin-dashboard-view[data-admin-dashboard] .dashboard-main-grid {
     grid-template-columns: 1fr;
     height: auto;
+  }
+}
+
+/* Employee timesheet — page scroll on desktop */
+@media (min-width: 1024px) {
+  .employee-portal.cmd-portal .cmd-main:has([data-employee-timesheet]) {
+    overflow-x: hidden;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
@@ -587,9 +604,16 @@
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack-section.dashboard-center-table {
-    flex: 1 1 0 !important;
-    min-height: 10rem;
+    flex: 0 0 auto !important;
+    min-height: 0;
     max-height: none;
+    overflow: visible !important;
+  }
+
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack-section.dashboard-center-table.dashboard-contribution-history--bounded {
+    flex: 1 1 auto !important;
+    min-height: 10rem;
+    max-height: min(24rem, calc(var(--viewport-page-h) - 18rem));
     overflow: hidden !important;
   }
 }

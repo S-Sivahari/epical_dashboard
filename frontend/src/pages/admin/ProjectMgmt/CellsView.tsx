@@ -74,7 +74,7 @@ export function CellsView() {
       const [libs, cellData, empData] = await Promise.all([
         fetchLibraries(projectId),
         fetchCells(libraryId),
-        getEmployees({ status: 'Active', pageSize: 500 }),
+        getEmployees({ status: 'Active', view: 'Public', pageSize: 500 }),
       ])
       setLibrary(libs.find((l) => l.id === libraryId) || null)
       setCells(cellData)

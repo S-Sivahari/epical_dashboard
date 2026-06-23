@@ -1697,7 +1697,7 @@ export function ProjectManagement() {
   // ── API Fetch Functions ─────────────────────────────────────
   const fetchEmployees = useCallback(async () => {
     try {
-      const res = await getEmployees({ pageSize: 1000 })
+      const res = await getEmployees({ pageSize: 1000, view: 'Public' })
       setEmployees(res.data)
     } catch (err) {
       console.error('Failed to fetch employees:', err)

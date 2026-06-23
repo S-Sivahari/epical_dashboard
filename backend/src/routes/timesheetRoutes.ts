@@ -20,6 +20,8 @@ router.get('/mine/current-elapsed', employeeTimesheetController.getCurrentElapse
 router.post('/mine/check-in', employeeTimesheetController.checkIn);
 router.post('/mine/check-out', employeeTimesheetController.checkOut);
 router.post('/mine/start-task', employeeTimesheetController.startTask);
+router.get('/mine/startable-cells', employeeTimesheetController.getStartableCells);
+router.post('/mine/start-cell-work', employeeTimesheetController.startCellWork);
 router.patch('/mine/stop-task', employeeTimesheetController.stopActiveTask);
 router.patch('/mine/pause-task', employeeTimesheetController.pauseActiveTask);
 router.patch('/mine/resume-task', employeeTimesheetController.resumeActiveTask);

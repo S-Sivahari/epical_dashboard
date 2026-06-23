@@ -223,7 +223,7 @@ export function ProfileCard({
                 employeeId={employee.id}
                 name={employee.name}
                 className="emp-dashboard-hero__avatar h-11 w-11 sm:h-12 sm:w-12"
-                fallbackClassName="bg-transparent text-sm font-semibold text-white sm:text-base"
+                fallbackClassName="bg-transparent text-sm font-semibold text-slate-700 sm:text-base"
               />
             </div>
 
@@ -234,7 +234,7 @@ export function ProfileCard({
               <h2 className="emp-dashboard-hero__name truncate font-heading font-bold uppercase tracking-wide text-black">
                 {employee.name}
               </h2>
-              <p className="emp-dashboard-hero__role truncate text-xs sm:text-sm">{roleLabel ?? employeeCode}</p>
+              <p className="emp-dashboard-hero__role truncate text-xs text-black sm:text-sm">{roleLabel ?? employeeCode}</p>
             </div>
           </div>
 

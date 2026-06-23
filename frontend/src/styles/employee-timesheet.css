@@ -4,16 +4,16 @@
   --emp-ts-hub-green: #2f6b4f;
   --emp-ts-hub-green-shadow: 0 4px 14px rgba(47, 107, 79, 0.28);
   display: flex;
-  flex: 1 1 0;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 0;
   font-family: var(--font-body);
   padding: 0.5rem;
-  min-height: 0;
-  height: 100%;
-  max-height: 100%;
+  min-height: var(--viewport-page-h);
+  height: auto;
+  max-height: none;
   overflow-x: hidden;
-  overflow-y: hidden;
+  overflow-y: visible;
 }
 
 @media (min-width: 768px) {
@@ -352,7 +352,7 @@
 
 .emp-timesheet-shell {
   display: flex;
-  flex: 1 1 0;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 0.75rem;
   min-height: 0;
@@ -546,8 +546,8 @@
   min-height: 0;
   flex: 1;
   flex-direction: column;
-  gap: 0;
-  overflow: hidden;
+  gap: 0.625rem;
+  overflow: visible;
   padding: 0 1rem 1rem;
 }
 
@@ -601,14 +601,22 @@
 
 .emp-timesheet-session-stack--checked-in {
   gap: 0.5rem;
-  padding: 0.625rem 0.625rem 0;
+  padding: 0.625rem;
+}
+
+.emp-timesheet-session-compact-body > .emp-timesheet-session-main.emp-timesheet-session-stack--checked-in {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  min-height: auto;
+  overflow: visible;
 }
 
 .emp-timesheet-session-desc-panel {
   display: flex;
   min-height: 5.5rem;
   max-height: 9rem;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
+  flex-shrink: 0;
   flex-direction: column;
   overflow: hidden;
   border: 1px solid rgba(38, 107, 28, 0.14);
@@ -663,7 +671,8 @@
 
 .emp-timesheet-breaks {
   display: flex;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
+  flex-shrink: 0;
   min-height: 0;
   flex-direction: column;
   margin: 0 0.625rem;
@@ -690,8 +699,8 @@
 
 .emp-timesheet-breaks-grid {
   display: grid;
-  flex: 1 1 auto;
-  min-height: 5.5rem;
+  flex: 0 0 auto;
+  min-height: 0;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.625rem;
   align-items: stretch;
@@ -699,7 +708,7 @@
 
 .emp-timesheet-break-btn {
   display: flex;
-  min-height: 5rem;
+  min-height: 4rem;
   height: 100%;
   flex-direction: column;
   align-items: center;
@@ -1188,8 +1197,12 @@
 
 .emp-timesheet-top-panel {
   display: flex;
-  min-height: 17.5rem;
+  min-height: 0;
   flex-direction: column;
+}
+
+.emp-timesheet-top-panel.emp-timesheet-session-compact {
+  min-height: 0;
 }
 
 /* chart-panel layout + mint bg defined above in shared panel card section */
@@ -1291,7 +1304,14 @@
   flex: 0 0 auto;
   flex-direction: column;
   min-height: calc(min(30rem, 50dvh) + 5cm);
-  overflow: visible;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+[data-employee-timesheet] .emp-timesheet-history-panel.emp-timesheet-card {
+  overflow-x: hidden !important;
+  overflow-y: visible !important;
 }
 
 /* Work History — taller header + content area */
@@ -1315,20 +1335,39 @@
   font-size: 1.1875rem;
 }
 
+.emp-timesheet-history-panel:has(.emp-timesheet-history-scroll--bounded:not(.emp-timesheet-history-scroll--short)) {
+  flex: 1 1 auto;
+  min-height: 14rem;
+  max-height: min(28rem, calc(var(--viewport-page-h) - 20rem));
+  overflow: hidden;
+}
+
 .emp-timesheet-history-body {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   min-height: calc(12rem + 5cm);
-  overflow: visible;
+  min-width: 0;
+  overflow: hidden;
   padding: 0 1.25rem 1.25rem !important;
 }
 
+.emp-timesheet-history-body > .relative {
+  min-width: 0;
+}
+
+.emp-timesheet-history-panel:has(.emp-timesheet-history-scroll--short) .emp-timesheet-history-body {
+  flex: none;
+  overflow: visible;
+}
+
 .emp-timesheet-history-panel .emp-timesheet-history-scroll {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   min-height: calc(12rem + 5cm);
   flex: 1 1 0;
   overflow-x: auto;
-  overflow-y: auto;
   scroll-behavior: smooth;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -1337,13 +1376,26 @@
   background: #ffffff;
 }
 
-/* Few rows: still fill panel height; table body scrolls inside */
-.emp-timesheet-history-panel .emp-timesheet-history-scroll:not(.emp-timesheet-history-scroll--bounded) {
-  max-height: none;
+.emp-timesheet-history-scroll [data-portal-card] {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
+  width: 100%;
+  min-width: 0;
 }
 
-/* Many rows: sticky header inside scroll region */
-.emp-timesheet-history-panel .emp-timesheet-history-scroll--bounded {
+/* Few rows: natural height; page scrolls to reveal the full table */
+.emp-timesheet-history-panel .emp-timesheet-history-scroll--short {
+  flex: none;
+  max-height: none;
+  overflow-y: visible;
+}
+
+/* Many rows: cap height and scroll inside the table region */
+.emp-timesheet-history-panel .emp-timesheet-history-scroll--bounded:not(.emp-timesheet-history-scroll--short) {
+  flex: 1 1 auto;
   max-height: none;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -1462,6 +1514,10 @@
 
 [data-employee-timesheet] .emp-timesheet-session-compact-body > .emp-timesheet-session-main {
   padding: 0.75rem;
+}
+
+[data-employee-timesheet] .emp-timesheet-session-compact-body > .emp-timesheet-session-main.emp-timesheet-session-stack--checked-in {
+  padding: 0.625rem;
 }
 
 [data-employee-timesheet] .emp-timesheet-session-stack:not(.emp-timesheet-session-stack--checked-in) {

@@ -1,5 +1,6 @@
 export type EmploymentType = 'Full-time' | 'Contract' | 'Intern'
 export type EmployeeStatus = 'Active' | 'Inactive' | 'Notice Period' | 'Deactivated' | 'Archived'
+export type EmployeeView = 'Public' | 'Private'
 
 export type EmployeeActivityType = 'status_change' | 'profile_edit'
 
@@ -28,6 +29,8 @@ export interface Employee {
   department: string
   designation: string
   role: string
+  /** Public — projects, leave, and usual HR visibility. Private — payroll/payslip only (UI visibility). */
+  view?: EmployeeView
   portalAccess?: 'Employee' | 'Employee+Admin'
   reportingManager?: string
   managerId?: string

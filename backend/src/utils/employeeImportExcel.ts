@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import type { CreateEmployeePayload, EmploymentType } from '../models/Employee';
+import { normalizeEmployeeView } from './employeeView';
 
 /** Column order matches the Add Employee form sections. */
 export const EMPLOYEE_IMPORT_HEADERS = [
@@ -12,6 +13,7 @@ export const EMPLOYEE_IMPORT_HEADERS = [
   'Phone',
   'Personal Email',
   'Company Email',
+  'View',
   'Permanent Address',
   'Communication Address',
   'Bank Name',
@@ -36,6 +38,7 @@ export const EMPLOYEE_IMPORT_HEADERS = [
 const GENDER_OPTIONS = ['Male', 'Female', 'Not prefer to say'] as const;
 const EMPLOYMENT_TYPE_OPTIONS = ['Full-time', 'Contract', 'Intern'] as const;
 const ROLE_OPTIONS = ['Employee', 'Admin'] as const;
+const VIEW_OPTIONS = ['Public', 'Private'] as const;
 const PF_ESI_OPTIONS = ['Enabled', 'Disabled'] as const;
 
 const IMPORT_TEMPLATE_DATA_ROWS = 500;
@@ -53,6 +56,7 @@ const COLUMN_KEYS = {
   lastName: 'Last Name',
   personalEmail: 'Personal Email',
   companyEmail: 'Company Email',
+  view: 'View',
   phone: 'Phone',
   dob: 'Date of Birth',
   gender: 'Gender',
@@ -89,6 +93,7 @@ const HEADER_ALIASES: Record<string, ColumnKey> = {
   personalemail: 'personalEmail',
   companyemail: 'companyEmail',
   email: 'companyEmail',
+  view: 'view',
   phone: 'phone',
   mobileno: 'phone',
   mobile: 'phone',
@@ -255,6 +260,11 @@ function validateImportRow(values: Record<ColumnKey, string>): string[] {
   if (!values.emergencyContactRelation.trim()) errors.push('Emergency contact relation is required');
   if (!values.emergencyContactAddress.trim()) errors.push('Emergency contact address is required');
 
+  const viewRaw = values.view.trim();
+  if (viewRaw && !VIEW_OPTIONS.some((option) => option.toLowerCase() === viewRaw.toLowerCase())) {
+    errors.push('View must be Public or Private');
+  }
+
   return errors;
 }
 
@@ -274,6 +284,7 @@ function rowToPayload(values: Record<ColumnKey, string>): CreateEmployeePayload 
     lastName: values.lastName.trim(),
     email: values.companyEmail.trim().toLowerCase(),
     personalEmail: values.personalEmail.trim().toLowerCase(),
+    view: normalizeEmployeeView(values.view),
     phone: values.phone.trim(),
     dob: values.dob.trim(),
     gender: values.gender.trim(),
@@ -368,7 +379,8 @@ export async function buildEmployeeImportTemplate(): Promise<Buffer> {
   const genderList = writeListColumn(listsSheet, 1, GENDER_OPTIONS);
   const employmentTypeList = writeListColumn(listsSheet, 2, EMPLOYMENT_TYPE_OPTIONS);
   const roleList = writeListColumn(listsSheet, 3, ROLE_OPTIONS);
-  const pfEsiList = writeListColumn(listsSheet, 4, PF_ESI_OPTIONS);
+  const viewList = writeListColumn(listsSheet, 4, VIEW_OPTIONS);
+  const pfEsiList = writeListColumn(listsSheet, 5, PF_ESI_OPTIONS);
 
   const sheet = wb.addWorksheet('Employees');
   const colCount = EMPLOYEE_IMPORT_HEADERS.length;
@@ -403,6 +415,7 @@ export async function buildEmployeeImportTemplate(): Promise<Buffer> {
   applyListValidation(sheet, headerColumn('PF ESI'), pfEsiList, FIRST_DATA_ROW, lastDataRow);
   applyListValidation(sheet, headerColumn('Employment Type'), employmentTypeList, FIRST_DATA_ROW, lastDataRow);
   applyListValidation(sheet, headerColumn('Role'), roleList, FIRST_DATA_ROW, lastDataRow);
+  applyListValidation(sheet, headerColumn('View'), viewList, FIRST_DATA_ROW, lastDataRow);
 
   sheet.views = [{ state: 'frozen', ySplit: HEADER_ROW }];
 

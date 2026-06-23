@@ -44,6 +44,7 @@ const editSchema = z.object({
   phone: z.string().min(10, 'Enter a valid phone number'),
   personalEmail: z.string().email('Enter a valid personal email'),
   companyEmail: z.union([z.string().email('Enter a valid company email'), z.literal('')]).optional(),
+  view: z.enum(['Public', 'Private']),
   // Account
   bankName: z.string().optional(),
   accountNumber: z.string().optional(),
@@ -113,6 +114,7 @@ const emptyFormValues: FormValues = {
   emergencyContactEmail: '',
   emergencyContactRelation: '',
   emergencyContactAddress: '',
+  view: 'Public',
 }
 
 function normalizePfEsi(value: unknown): 'on' | 'off' {
@@ -143,6 +145,7 @@ function employeeToFormValues(e: Awaited<ReturnType<typeof employeeService.getEm
     phone: e.phone ?? '',
     personalEmail: e.personalEmail ?? '',
     companyEmail: e.email ?? '',
+    view: (e.view === 'Private' ? 'Private' : 'Public') as FormValues['view'],
     bankName: e.bankName ?? '',
     accountNumber: e.accountNumber ?? '',
     ifsc: e.ifsc ?? '',
@@ -557,6 +560,7 @@ export function EditEmployee() {
           communicationAddress: values.communicationAddress ?? '',
           dob: values.dob ?? '',
           gender: values.gender ?? '',
+          view: values.view,
           phone: values.phone ?? '',
           personalEmail: values.personalEmail ?? '',
           email: values.companyEmail ?? '',
@@ -759,6 +763,16 @@ export function EditEmployee() {
                 type="email"
                 error={form.formState.errors.companyEmail?.message}
                 {...form.register('companyEmail')}
+              />
+              <SelectField
+                label="View"
+                required
+                error={form.formState.errors.view?.message}
+                options={[
+                  { value: 'Public', label: 'Public' },
+                  { value: 'Private', label: 'Private' },
+                ]}
+                {...form.register('view')}
               />
             </div>
 

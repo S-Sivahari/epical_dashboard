@@ -44,6 +44,7 @@ export const employeeController = {
       const status = req.query.status as string | undefined;
       const sortColumn = req.query.sortColumn as string | undefined;
       const sortDirection = req.query.sortDirection as 'asc' | 'desc' | undefined;
+      const view = req.query.view as string | undefined;
 
       const result = await employeeService.getAllEmployees(page, pageSize, {
         q,
@@ -51,6 +52,7 @@ export const employeeController = {
         status,
         sortColumn,
         sortDirection,
+        view,
       });
 
       res.json({
