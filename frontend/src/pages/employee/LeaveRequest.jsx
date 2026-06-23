@@ -64,8 +64,8 @@ function LeaveHistoryStatusCell({ row }) {
   const rejectionReason = row.rejectionReason?.trim() || 'No reason provided'
 
   return (
-    <div ref={rootRef} className="emp-leave-history-status mx-auto w-full min-w-0 max-w-full">
-      <div className="relative flex justify-center">
+    <div ref={rootRef} className="emp-leave-history-status">
+      <div className="emp-leave-history-status__main">
         {isRejected ? (
           <>
             <button
@@ -76,14 +76,19 @@ function LeaveHistoryStatusCell({ row }) {
               aria-haspopup="dialog"
               aria-label={`Rejected. ${reasonOpen ? 'Hide' : 'Show'} rejection reason`}
             >
-              <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
-              <ChevronDown
-                className={cn(
-                  'emp-leave-rejected-status-trigger__chevron',
-                  reasonOpen && 'is-open',
-                )}
-                aria-hidden
-              />
+              <Badge
+                variant={statusVariant(row.status)}
+                className="emp-leave-status-badge emp-leave-status-badge--interactive"
+              >
+                <span>{row.status}</span>
+                <ChevronDown
+                  className={cn(
+                    'emp-leave-rejected-status-trigger__chevron',
+                    reasonOpen && 'is-open',
+                  )}
+                  aria-hidden
+                />
+              </Badge>
             </button>
             {reasonOpen ? (
               <div
@@ -97,11 +102,13 @@ function LeaveHistoryStatusCell({ row }) {
             ) : null}
           </>
         ) : (
-          <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
+          <Badge variant={statusVariant(row.status)} className="emp-leave-status-badge">
+            {row.status}
+          </Badge>
         )}
       </div>
       {row.status === 'Cancelled' && row.cancelReason ? (
-        <div className="emp-leave-history-note mt-1.5 w-full max-w-full rounded-md border border-border bg-slate-50 px-2 py-1.5 text-[11px] leading-snug">
+        <div className="emp-leave-history-note emp-leave-history-status__note mt-1.5 w-full max-w-full rounded-md border border-border bg-slate-50 px-2 py-1.5 text-[11px] leading-snug">
           <span className="font-semibold">Note: </span>
           {row.cancelReason}
         </div>

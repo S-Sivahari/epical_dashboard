@@ -861,12 +861,16 @@
   padding-bottom: calc(0.75rem * var(--els)) !important;
 }
 
+.emp-leave-history-scroll table thead th:last-child {
+  min-width: calc(8.5rem * var(--els));
+}
+
 .emp-leave-history-scroll table tbody td {
   color: #0f172a !important;
   font-size: calc(0.9375rem * var(--els)) !important;
   font-weight: 500 !important;
   text-align: center !important;
-  vertical-align: top;
+  vertical-align: middle;
   min-width: 0;
   white-space: normal;
   word-break: break-word;
@@ -874,9 +878,12 @@
 }
 
 .emp-leave-history-scroll table tbody td:last-child {
-  min-width: calc(7.5rem * var(--els));
-  max-width: calc(12rem * var(--els));
+  min-width: calc(8.5rem * var(--els));
+  width: calc(9rem * var(--els));
+  max-width: none;
   overflow: visible;
+  vertical-align: middle;
+  text-align: center !important;
 }
 
 .emp-leave-history-status,
@@ -884,15 +891,52 @@
   box-sizing: border-box;
 }
 
+.emp-leave-history-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  margin-inline: auto;
+}
+
+.emp-leave-history-status__main {
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
+  width: 100%;
+  max-width: 100%;
+}
+
+.emp-leave-history-status__note {
+  text-align: left;
+}
+
+.emp-leave-status-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: calc(0.25rem * var(--els));
+  min-width: calc(6.5rem * var(--els)) !important;
+  border-radius: calc(0.375rem * var(--els)) !important;
+  padding: calc(0.375rem * var(--els)) calc(0.75rem * var(--els)) !important;
+  font-size: calc(0.8125rem * var(--els)) !important;
+  font-weight: 600 !important;
+  text-align: center;
+  white-space: nowrap;
+}
+
 .emp-leave-rejected-status-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  justify-content: center;
   border: none;
   background: transparent;
   padding: 0;
+  margin: 0 auto;
   cursor: pointer;
-  border-radius: 9999px;
+  border-radius: calc(0.375rem * var(--els));
 }
 
 .emp-leave-rejected-status-trigger:focus-visible {
@@ -901,9 +945,10 @@
 }
 
 .emp-leave-rejected-status-trigger__chevron {
-  width: calc(0.875rem * var(--els));
-  height: calc(0.875rem * var(--els));
-  color: #b91c1c;
+  width: calc(0.75rem * var(--els));
+  height: calc(0.75rem * var(--els));
+  flex-shrink: 0;
+  color: currentColor;
   transition: transform 0.18s ease;
 }
 
@@ -963,11 +1008,12 @@
   text-align: center;
 }
 
-.emp-leave-history-scroll table tbody td .rounded-full {
+.emp-leave-history-scroll table tbody td .rounded-full,
+.emp-leave-history-scroll table tbody td .emp-leave-status-badge {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  min-width: calc(6rem * var(--els));
+  min-width: calc(6.5rem * var(--els));
   border-radius: calc(0.375rem * var(--els)) !important;
   padding: calc(0.375rem * var(--els)) calc(0.75rem * var(--els)) !important;
   font-size: calc(0.8125rem * var(--els)) !important;
