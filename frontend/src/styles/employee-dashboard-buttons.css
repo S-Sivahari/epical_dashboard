@@ -1030,6 +1030,93 @@
   line-height: 1.2;
 }
 
+/* Weekly hours chart — tooltip matches hero stat tiles (HOURS THIS MONTH) */
+.emp-weekly-hours-tooltip {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-width: 7.25rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: linear-gradient(135deg, #2d6a4f 0%, #1b4332 100%);
+  box-shadow:
+    0 4px 14px rgba(12, 24, 18, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.emp-weekly-hours-tooltip__pattern {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      -36deg,
+      transparent 0,
+      transparent 8px,
+      rgba(255, 255, 255, 0.075) 8px,
+      rgba(255, 255, 255, 0.075) 9px
+    ),
+    repeating-linear-gradient(
+      36deg,
+      transparent 0,
+      transparent 14px,
+      rgba(183, 228, 199, 0.09) 14px,
+      rgba(183, 228, 199, 0.09) 15px
+    );
+  -webkit-mask-image: linear-gradient(115deg, black 4%, rgba(0, 0, 0, 0.55) 38%, rgba(0, 0, 0, 0.2) 62%, transparent 88%);
+  mask-image: linear-gradient(115deg, black 4%, rgba(0, 0, 0, 0.55) 38%, rgba(0, 0, 0, 0.2) 62%, transparent 88%);
+}
+
+.emp-weekly-hours-tooltip__sheen {
+  position: absolute;
+  top: -18%;
+  right: -8%;
+  z-index: 0;
+  width: 42%;
+  height: 136%;
+  pointer-events: none;
+  transform: skewX(14deg);
+  background:
+    linear-gradient(168deg, transparent 46%, rgba(255, 255, 255, 0.12) 46%, rgba(255, 255, 255, 0.12) 54%, transparent 54%),
+    linear-gradient(152deg, transparent 18%, rgba(149, 213, 178, 0.16) 18%, rgba(149, 213, 178, 0.16) 28%, transparent 28%);
+  clip-path: polygon(22% 0, 100% 0, 100% 100%, 0 100%);
+  -webkit-mask-image: linear-gradient(270deg, black 0%, black 55%, transparent 92%);
+  mask-image: linear-gradient(270deg, black 0%, black 55%, transparent 92%);
+}
+
+.emp-weekly-hours-tooltip__content {
+  position: relative;
+  z-index: 1;
+}
+
+.emp-weekly-hours-tooltip__label {
+  margin: 0;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.emp-weekly-hours-tooltip__value {
+  margin: 0.25rem 0 0;
+  font-size: 1.375rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+.emp-weekly-hours-tooltip__meta {
+  margin: 0.2rem 0 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: rgba(209, 250, 229, 0.9);
+}
+
 /* Employee dashboard — live session rail */
 [data-employee-dashboard] .emp-dash-session-panel {
   display: flex;
