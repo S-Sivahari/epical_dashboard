@@ -29,8 +29,8 @@ import {
   type WorkspaceSummary,
 } from '@/types/projectWorkspace'
 import type { Employee } from '@/types'
-import { CELL_TYPE_LABELS, STATUS_LABELS, WORKFLOW_STATUS_LABELS, cellDisplayStatus, cellTypeLabel, editableCellStatusOptions, editableWorkStageStatuses, normalizeCellType, normalizeViewStatus, workflowStageStatusClass } from './projectWorkspaceUi'
-import { buildEmployeeFullName } from '@/utils/employeeDisplayName'
+import { CELL_TYPE_LABELS, STATUS_LABELS, WORKFLOW_STATUS_LABELS, cellActualEffortHours, cellDisplayStatus, cellTypeLabel, editableCellStatusOptions, editableWorkStageStatuses, normalizeCellType, normalizeViewStatus, viewStatusResetNeedsConfirmation, workflowStageStatusClass } from './projectWorkspaceUi'
+import { buildEmployeeFullName, findEmployeeByAssigneeId, normalizeCellAssigneeFields, resolveAssigneeSelectValue } from '@/utils/employeeDisplayName'
 import { hasActiveAdminPortal, useAuthStore } from '@store/authStore'
 
 const INLINE_FIELD_CLASS = 'admin-projects-cell-details-inline-field'
@@ -110,6 +110,10 @@ export function ProjectCellPage() {
   const [durationFetchedAt, setDurationFetchedAt] = useState(() => Date.now())
   const [timeSummaryOpen, setTimeSummaryOpen] = useState(false)
   const [descriptionModalOpen, setDescriptionModalOpen] = useState(false)
+  const [viewStatusResetConfirm, setViewStatusResetConfirm] = useState<{
+    viewKey: 'symbol' | 'schematic'
+    status: WorkflowStageStatus
+  } | null>(null)
 
   const reload = useCallback(async () => {
     if (!projectId || !cellId) return
@@ -126,7 +130,10 @@ export function ProjectCellPage() {
       setDurationFetchedAt(Date.now())
       const cell = ws.cells.find((c) => c.id === cellId)
       if (cell) {
-        setCellForm({ ...cell, cellType: normalizeCellType(cell.cellType) })
+        setCellForm(normalizeCellAssigneeFields(
+          { ...cell, cellType: normalizeCellType(cell.cellType) },
+          empsRes.data ?? [],
+        ))
         setSelectedDepIds(cell.dependencyCellIds ?? [])
       }
     } catch {
@@ -156,7 +163,10 @@ export function ProjectCellPage() {
   }, [projectId, cellId])
 
   const mergeUpdatedCell = useCallback((updated: ProjectCell) => {
-    setCellForm(updated)
+    setCellForm((prev) => normalizeCellAssigneeFields(
+      prev ? { ...prev, ...updated } : updated,
+      employees,
+    ))
     setDurationFetchedAt(Date.now())
     setSummary((prev) => {
       if (!prev) return prev
@@ -165,7 +175,7 @@ export function ProjectCellPage() {
         cells: prev.cells.map((c) => (c.id === cellId ? { ...c, ...updated } : c)),
       }
     })
-  }, [cellId])
+  }, [cellId, employees])
 
   useEffect(() => {
     void reload()
@@ -207,6 +217,16 @@ export function ProjectCellPage() {
     [allCells, cellId],
   )
 
+  const assignedEmployee = useMemo(
+    () => (cellForm ? findEmployeeByAssigneeId(employees, cellForm.assignedEmployeeId) : undefined),
+    [cellForm, employees],
+  )
+
+  const assigneeSelectValue = useMemo(
+    () => (cellForm ? resolveAssigneeSelectValue(employees, cellForm.assignedEmployeeId) : ''),
+    [cellForm, employees],
+  )
+
   const toggleDependency = (depId: string) => {
     setSelectedDepIds((prev) =>
       prev.includes(depId) ? prev.filter((id) => id !== depId) : [...prev, depId],
@@ -214,8 +234,22 @@ export function ProjectCellPage() {
   }
 
   const cancelEdit = () => {
-    if (cell) setCellForm({ ...cell, cellType: normalizeCellType(cell.cellType) })
+    if (cell) {
+      setCellForm(normalizeCellAssigneeFields(
+        { ...cell, cellType: normalizeCellType(cell.cellType) },
+        employees,
+      ))
+    }
     setIsEditing(false)
+  }
+
+  const beginEdit = () => {
+    if (!cell) return
+    setCellForm(normalizeCellAssigneeFields(
+      { ...cell, cellType: normalizeCellType(cell.cellType) },
+      employees,
+    ))
+    setIsEditing(true)
   }
 
   const saveCell = async () => {
@@ -285,6 +319,27 @@ export function ProjectCellPage() {
       : 'Loading completion requirements…'
 
   const handleViewStatusChange = async (viewKey: 'symbol' | 'schematic', status: WorkflowStageStatus) => {
+    if (!projectId || !cell || !canEditCells) return
+    const currentStatus = normalizeViewStatus(cell.views?.[viewKey])
+    if (viewStatusResetNeedsConfirmation(currentStatus, status)) {
+      setViewStatusResetConfirm({ viewKey, status })
+      return
+    }
+    setSavingViewStatus(viewKey)
+    try {
+      const updated = await updateCell(projectId, cell.id, {
+        views: { ...cell.views, [viewKey]: status },
+      })
+      mergeUpdatedCell(updated)
+      toast.success(`${VIEW_TAB_LABELS[viewKey]} status updated`)
+    } catch {
+      toast.error('Failed to update view status')
+    } finally {
+      setSavingViewStatus(null)
+    }
+  }
+
+  const applyViewStatusChange = async (viewKey: 'symbol' | 'schematic', status: WorkflowStageStatus) => {
     if (!projectId || !cell || !canEditCells) return
     setSavingViewStatus(viewKey)
     try {
@@ -636,20 +691,7 @@ export function ProjectCellPage() {
                       </div>
                       <div className="admin-projects-cell-details-item">
                         <dt>Actual effort (hours)</dt>
-                        <dd>
-                          {isEditing ? (
-                            <input
-                              className={INLINE_FIELD_CLASS}
-                              type="number"
-                              min={0}
-                              step="any"
-                              value={String(cellForm.actualEffort ?? 0)}
-                              onChange={(e) => setCellForm((f) => f && { ...f, actualEffort: Number(e.target.value) })}
-                            />
-                          ) : (
-                            cell.actualEffort ?? 0
-                          )}
-                        </dd>
+                        <dd>{cellActualEffortHours(cell)}</dd>
                       </div>
                       <div className="admin-projects-cell-details-item">
                         <dt>Assigned employee</dt>
@@ -657,17 +699,23 @@ export function ProjectCellPage() {
                           {isEditing ? (
                             <select
                               className={INLINE_FIELD_CLASS}
-                              value={cellForm.assignedEmployeeId || ''}
+                              value={assigneeSelectValue}
                               onChange={(e) => {
-                                const emp = employees.find((x) => x.id === e.target.value)
+                                const emp = findEmployeeByAssigneeId(employees, e.target.value)
+                                  ?? employees.find((x) => x.id === e.target.value)
                                 setCellForm((f) => f && {
                                   ...f,
-                                  assignedEmployeeId: e.target.value,
+                                  assignedEmployeeId: emp?.id ?? e.target.value,
                                   assignedEmployeeName: emp ? buildEmployeeFullName(emp) : '',
                                 })
                               }}
                             >
                               <option value="">Unassigned</option>
+                              {!assignedEmployee && cellForm.assignedEmployeeId ? (
+                                <option value={cellForm.assignedEmployeeId}>
+                                  {cellForm.assignedEmployeeName || cellForm.assignedEmployeeId}
+                                </option>
+                              ) : null}
                               {employees.map((e) => (
                                 <option key={e.id} value={e.id}>{buildEmployeeFullName(e)}</option>
                               ))}
@@ -708,7 +756,7 @@ export function ProjectCellPage() {
                         size="sm"
                         variant="secondary"
                         className="admin-projects-cell-details-summary-edit h-8"
-                        onClick={() => setIsEditing(true)}
+                        onClick={beginEdit}
                       >
                         <Pencil className="mr-1.5 h-3.5 w-3.5" />
                         Edit
@@ -753,6 +801,7 @@ export function ProjectCellPage() {
                             showReviews={false}
                             canEdit={canEditCells}
                             onUpdated={mergeUpdatedCell}
+                            timingFetchedAt={durationFetchedAt}
                           />
                         ) : viewTab === 'schematic' ? (
                           <SchematicWorkflowPanel
@@ -850,6 +899,20 @@ export function ProjectCellPage() {
         danger
         onClose={() => setDeleteOpen(false)}
         onConfirm={() => void handleDelete()}
+      />
+      <ConfirmModal
+        isOpen={viewStatusResetConfirm != null}
+        title="Reset view progress?"
+        description="Current progress on this view will be lost. Do you want to continue?"
+        confirmLabel="Reset progress"
+        danger
+        onClose={() => setViewStatusResetConfirm(null)}
+        onConfirm={async () => {
+          if (!viewStatusResetConfirm) return
+          const pending = viewStatusResetConfirm
+          setViewStatusResetConfirm(null)
+          await applyViewStatusChange(pending.viewKey, pending.status)
+        }}
       />
     </PageWrapper>
   )

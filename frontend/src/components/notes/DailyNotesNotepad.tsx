@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronDown, NotebookPen, Pencil, Plus, Send } from 'lucide-react'
+import { format } from 'date-fns'
+import { ChevronDown, Pencil, Plus, Send, Trash2 } from 'lucide-react'
 import { Button } from '@components/ui/Button'
 import { AddNoteModal } from '@components/notes/AddNoteModal'
 import { DailyNotesInlineEditor } from '@components/notes/DailyNotesInlineEditor'
@@ -41,8 +42,10 @@ type Props = {
   busy?: boolean
   canEdit?: boolean
   defaultExpanded?: boolean
+  layout?: 'card' | 'panel'
   onBlockChange: (block: DailyNoteBlock) => void
   onSendEmail: (block: DailyNoteBlock) => void
+  onDelete?: () => void
   onError: (message: string) => void
 }
 
@@ -56,11 +59,14 @@ export function DailyNotesNotepad({
   busy = false,
   canEdit = true,
   defaultExpanded = false,
+  layout = 'card',
   onBlockChange,
   onSendEmail,
+  onDelete,
   onError,
 }: Props) {
   const title = useMemo(() => formatDailyBlockTitle(date), [date])
+  const isPanelLayout = layout === 'panel'
   const dayStats = useMemo(() => computeDayStats(block), [block])
 
   const entries = useMemo(() => {
@@ -76,32 +82,33 @@ export function DailyNotesNotepad({
     )
   }, [entries])
 
-  const [expanded, setExpanded] = useState(defaultExpanded || highlighted)
+  const [expanded, setExpanded] = useState(isPanelLayout || defaultExpanded || highlighted)
   const [isEditing, setIsEditing] = useState(false)
   const [addNoteOpen, setAddNoteOpen] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
   useEffect(() => {
-    if (highlighted) setExpanded(true)
-  }, [highlighted])
+    if (highlighted || isPanelLayout) setExpanded(true)
+  }, [highlighted, isPanelLayout])
 
   const hasBlock = Boolean(block)
   const status = block?.status ?? 'draft'
   const isPastDay = isPastNotesDay(dateKey)
   const isEmailSent = status === 'email_sent'
   const canEditNotes =
-    hasBlock && block && !block.archived && !isPastDay && !isEmailSent && canEdit
+    hasBlock && block && !block.archived && !isPastDay && canEdit
   const canSendEmail =
-    hasBlock && block && !block.archived && !isPastDay && !isEmailSent && canEdit
+    hasBlock && block && !block.archived && !isPastDay && canEdit
   const emailIncludeCount = entries.filter((entry) => entry.includeInEmail).length
   const hasContent = projectGroups.length > 0
   const hasNotes = entries.length > 0
 
   useEffect(() => {
-    if (isEmailSent) {
+    if (!canEditNotes) {
       setIsEditing(false)
       setAddNoteOpen(false)
     }
-  }, [isEmailSent])
+  }, [canEditNotes])
 
   return (
     <>
@@ -109,65 +116,69 @@ export function DailyNotesNotepad({
       id={`notes-day-${dateKey}`}
       className={cn(
         'notes-day-card',
+        isPanelLayout && 'notes-day-card--panel-layout notes-day-card--expanded notes-day-card--pad',
         highlighted && 'notes-day-card--highlight',
         expanded && 'notes-day-card--expanded',
         !expanded && 'notes-day-card--collapsed',
         !hasBlock && 'notes-day-card--empty',
-        hasBlock && 'notes-day-card--pad',
+        hasBlock && !isPanelLayout && 'notes-day-card--pad',
         isEditing && 'notes-day-card--editing',
       )}
     >
-      <header className="notes-day-card__header">
-        <button
-          type="button"
-          className="notes-day-card__toggle"
-          onClick={() => setExpanded((value) => !value)}
-          aria-expanded={expanded}
-          aria-controls={`notes-day-panel-${dateKey}`}
-        >
-          <ChevronDown className="notes-day-card__chevron" aria-hidden />
-          <div className="notes-day-card__title-wrap">
-            <h2 className="notes-day-card__title">{title}</h2>
-            <span
-              className={cn(
-                'notes-day-card__badge',
-                status === 'email_sent' ? 'is-sent' : 'is-pending',
-              )}
-            >
-              {hasBlock ? deliveryStatusLabel(status) : 'No notepad'}
-            </span>
-          </div>
-          {hasBlock ? (
-            <div className="notes-day-card__meta">
-              <span>{dayStats.totalNotes} Notes</span>
-              <span>{dayStats.totalEmployees} Employees</span>
-              <span>{dayStats.totalProjects} Projects</span>
+      {/* In panel layout the date bar already shows the selected day — no redundant header */}
+      {!isPanelLayout ? (
+        <header className="notes-day-card__header">
+          <button
+            type="button"
+            className="notes-day-card__toggle"
+            onClick={() => setExpanded((value) => !value)}
+            aria-expanded={expanded}
+            aria-controls={`notes-day-panel-${dateKey}`}
+          >
+            <ChevronDown className="notes-day-card__chevron" aria-hidden />
+            <div className="notes-day-card__title-wrap">
+              <h2 className="notes-day-card__title">{title}</h2>
+              <span
+                className={cn(
+                  'notes-day-card__badge',
+                  status === 'email_sent' ? 'is-sent' : 'is-pending',
+                )}
+              >
+                {hasBlock ? deliveryStatusLabel(status) : 'No notepad'}
+              </span>
+            </div>
+            {hasBlock ? (
+              <div className="notes-day-card__meta">
+                <span>{dayStats.totalNotes} Notes</span>
+                <span>{dayStats.totalEmployees} Employees</span>
+                <span>{dayStats.totalProjects} Projects</span>
+              </div>
+            ) : null}
+          </button>
+
+          {hasBlock && block && canSendEmail && !isEditing ? (
+            <div className="notes-day-card__actions">
+              <Button
+                type="button"
+                size="sm"
+                variant="primary"
+                icon={<Send className="h-3.5 w-3.5" />}
+                disabled={busy || emailIncludeCount === 0}
+                onClick={() => onSendEmail(block)}
+              >
+                Send
+              </Button>
             </div>
           ) : null}
-        </button>
-
-        {hasBlock && block && canSendEmail && !isEditing ? (
-          <div className="notes-day-card__actions">
-            <Button
-              type="button"
-              size="sm"
-              variant="primary"
-              icon={<Send className="h-3.5 w-3.5" />}
-              disabled={busy || emailIncludeCount === 0}
-              onClick={() => onSendEmail(block)}
-            >
-              Send
-            </Button>
-          </div>
-        ) : null}
-      </header>
+        </header>
+      ) : null}
 
       {expanded ? (
         <div id={`notes-day-panel-${dateKey}`} className="notes-day-card__panel">
-          {!hasBlock ? (
-            <p className="notes-notepad-pad__no-block">No notepad for this day yet.</p>
+          {(!hasBlock || !hasNotes) && !isEditing ? (
+            <p className="notes-notepad-pad__no-block">No notes added for today.</p>
           ) : (
-            <div className="notes-notepad-pad">
+            <div className={cn('notes-notepad-pad', isPanelLayout && 'notes-notepad-pad--with-footer')}>
               {canEditNotes && !isEditing ? (
                 <div className="notes-notepad-pad__toolbar">
                   <Button
@@ -190,6 +201,18 @@ export function DailyNotesNotepad({
                   >
                     Edit note
                   </Button>
+                  {onDelete ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="danger"
+                      icon={<Trash2 className="h-3.5 w-3.5" />}
+                      disabled={busy || !hasNotes}
+                      onClick={() => setDeleteConfirmOpen(true)}
+                    >
+                      Delete note
+                    </Button>
+                  ) : null}
                 </div>
               ) : null}
 
@@ -212,15 +235,6 @@ export function DailyNotesNotepad({
                     onCancel={() => setIsEditing(false)}
                     onError={onError}
                   />
-                ) : !hasContent ? (
-                  <div className="notes-notepad-pad__empty">
-                    <NotebookPen className="notes-notepad-pad__empty-icon" aria-hidden />
-                    <p className="notes-notepad-pad__empty-title">Blank notepad</p>
-                    <p className="notes-notepad-pad__empty-text">
-                      Click <strong>Add note</strong> or <strong>Edit note</strong> to record project
-                      updates for {title}.
-                    </p>
-                  </div>
                 ) : (
                   <div className="notes-notepad-pad__letter">
                     {projectGroups.map((group) => (
@@ -257,15 +271,48 @@ export function DailyNotesNotepad({
                   </div>
                 )}
               </div>
-
-              {block?.lastEmailDelivery && !isEditing ? (
-                <footer className="notes-day-card__footer">
-                  <EmailDeliveryBadge delivery={block.lastEmailDelivery} />
-                </footer>
-              ) : null}
             </div>
           )}
         </div>
+      ) : null}
+
+      {/* Fixed send footer — panel layout only */}
+      {isPanelLayout && hasBlock && block && canSendEmail && !isEditing ? (
+        <footer className="notes-notepad-send-footer">
+          <div className="notes-notepad-send-footer__info">
+            {block.lastEmailDelivery ? (
+              <>
+                <span className="notes-notepad-send-footer__pill">
+                  {block.lastEmailDelivery.recipientCount} employee{block.lastEmailDelivery.recipientCount === 1 ? '' : 's'}
+                </span>
+                <span className="notes-notepad-send-footer__sent-meta">
+                  Sent {format(new Date(block.lastEmailDelivery.sentAt), 'dd MMM, HH:mm')}
+                  {block.lastEmailDelivery.sentBy?.name
+                    ? ` by ${block.lastEmailDelivery.sentBy.name}`
+                    : ''}
+                </span>
+              </>
+            ) : emailIncludeCount > 0 ? (
+              <span className="notes-notepad-send-footer__pill">
+                {emailIncludeCount} note{emailIncludeCount === 1 ? '' : 's'} to send
+              </span>
+            ) : (
+              <span className="notes-notepad-send-footer__pill notes-notepad-send-footer__pill--muted">
+                No notes selected
+              </span>
+            )}
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="primary"
+            icon={<Send className="h-3.5 w-3.5" />}
+            disabled={busy || emailIncludeCount === 0}
+            onClick={() => onSendEmail(block)}
+          >
+            Send
+          </Button>
+        </footer>
       ) : null}
     </article>
 
@@ -279,6 +326,49 @@ export function DailyNotesNotepad({
         onSaved={onBlockChange}
         onError={onError}
       />
+    ) : null}
+
+    {/* Delete confirmation dialog */}
+    {deleteConfirmOpen ? (
+      <div
+        className="notes-delete-confirm-overlay"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="notes-delete-confirm-title"
+        onClick={(e) => { if (e.target === e.currentTarget) setDeleteConfirmOpen(false) }}
+      >
+        <div className="notes-delete-confirm-modal">
+          <h3 id="notes-delete-confirm-title" className="notes-delete-confirm-modal__title">
+            Delete all notes?
+          </h3>
+          <p className="notes-delete-confirm-modal__body">
+            This will permanently delete all {hasNotes ? entries.length : ''} note
+            {entries.length === 1 ? '' : 's'} for <strong>{title}</strong>. This cannot be undone.
+          </p>
+          <div className="notes-delete-confirm-modal__actions">
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => setDeleteConfirmOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="danger"
+              icon={<Trash2 className="h-3.5 w-3.5" />}
+              onClick={() => {
+                setDeleteConfirmOpen(false)
+                onDelete?.()
+              }}
+            >
+              Delete
+            </Button>
+          </div>
+        </div>
+      </div>
     ) : null}
   </>
   )

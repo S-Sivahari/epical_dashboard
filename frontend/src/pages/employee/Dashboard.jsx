@@ -22,20 +22,6 @@ import { formatLeaveBalances } from '@/utils/leaveBalances'
 import { cn } from '@pages/employee/lib/utils'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 
-const LEAVE_COLORS = {
-  'Casual Leave': '#3d7a6a',
-  'Sick Leave': '#4a7a9a',
-  'Earned Leave': '#6b5b8a',
-  'Compensation Leave': '#c27803',
-}
-
-const LEAVE_TINT = {
-  casual: 'emp-leave-tint--casual',
-  sick: 'emp-leave-tint--sick',
-  earned: 'emp-leave-tint--earned',
-  compensation: 'emp-leave-tint--compensation',
-}
-
 const CARD_CLASS = portalCardClass({ className: 'flex h-full min-h-0 flex-col overflow-hidden p-4 sm:p-5' })
 const COMPACT_CARD_CLASS = portalCardClass({
   className: 'flex h-full min-h-0 flex-col overflow-hidden p-3',
@@ -194,7 +180,7 @@ export default function Dashboard() {
         icon: FolderKanban,
         trend: projectCount ? 'Assigned to you' : 'None assigned',
         accent: 'sage',
-        to: '/employee/project-analysis/projects',
+        to: '/employee/timesheet',
       },
       {
         title: 'Training',
@@ -283,8 +269,6 @@ export default function Dashboard() {
                           used={lb.used}
                           total={lb.total}
                           remaining={lb.remaining}
-                          color={lb.color ?? LEAVE_COLORS[lb.type] ?? '#3d7a6a'}
-                          tintClass={LEAVE_TINT[lb.key]}
                         />
                       ))}
                     </div>

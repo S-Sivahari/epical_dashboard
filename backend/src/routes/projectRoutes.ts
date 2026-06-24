@@ -169,6 +169,7 @@ router.patch('/:projectId/cells/:cellId/schematic-workflow/:stageKey', adminOnly
 router.patch('/:projectId/cells/:cellId/hold', adminOnly, projectWorkspaceController.setCellHold);
 router.get('/:projectId/effort-prediction', adminOnly, projectWorkspaceController.getEffortPrediction);
 router.get('/:projectId/cells/:cellId/completion-readiness', adminOnly, projectWorkspaceController.getCellCompletionReadiness);
+router.patch('/:projectId/cells/:cellId/touch', adminOnly, projectWorkspaceController.touchCell);
 router.patch('/:projectId/cells/:cellId/complete', adminOnly, projectWorkspaceController.completeCell);
 router.patch('/:projectId/cells/:cellId/uncomplete', adminOnly, projectWorkspaceController.uncompleteCell);
 router.get('/:projectId/cells/:cellId/reviews', adminOnly, projectWorkspaceController.listCellReviews);

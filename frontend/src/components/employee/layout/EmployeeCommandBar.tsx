@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useRef } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, LogOut } from 'lucide-react'
 import { CompanyLogo } from '@components/auth/CompanyLogo'
@@ -8,11 +8,9 @@ import { PortalToggle } from '@components/layout/PortalToggle'
 import { CommandBarNewsMarquee } from '@components/layout/CommandBarNewsMarquee'
 import { useAuthStore } from '@store/authStore'
 import { useMyEmployeeAvatar } from '@hooks/useMyEmployeeAvatar'
+import { useEmployeeCmdBarSlashBand } from '@hooks/useEmployeeCmdBarSlashBand'
 import { cn } from '@/utils/cn'
-import {
-  getEmployeePageTitle,
-  shouldShowEmployeeBackButton,
-} from '@constants/employeeNavigation'
+import { shouldShowEmployeeBackButton } from '@constants/employeeNavigation'
 import { DashboardActiveTimer } from '@components/employee/shared/DashboardActiveTimer'
 
 export function EmployeeCommandBar() {
@@ -21,10 +19,13 @@ export function EmployeeCommandBar() {
   const user = useAuthStore((s) => s.user)
   const portalAdmin = useAuthStore((s) => s.portalAdmin)
   const logout = useAuthStore((s) => s.logout)
-  const avatarUrl = useMyEmployeeAvatar()
+  const { avatarUrl, firstName } = useMyEmployeeAvatar()
+  const headerRef = useRef<HTMLElement>(null)
+  const brandRef = useRef<HTMLDivElement>(null)
 
-  const pageTitle = useMemo(() => getEmployeePageTitle(pathname), [pathname])
   const showBack = shouldShowEmployeeBackButton(pathname)
+
+  useEmployeeCmdBarSlashBand(headerRef, brandRef, [firstName, showBack])
 
   const handleLogout = () => {
     void logout()
@@ -33,8 +34,9 @@ export function EmployeeCommandBar() {
 
   return (
     <header
+      ref={headerRef}
       className={cn(
-        'cmd-bar employee-cmd-bar flex h-16 shrink-0 items-center gap-2 px-4 sm:gap-3 lg:px-5',
+        'cmd-bar employee-cmd-bar flex min-h-16 shrink-0 items-center gap-2 px-4 py-2 sm:gap-3 lg:px-5',
         portalAdmin && 'employee-cmd-bar--dual-portal',
       )}
     >
@@ -54,7 +56,7 @@ export function EmployeeCommandBar() {
         <span className="employee-cmd-bar__slash-accent employee-cmd-bar__slash-accent--bottom" />
       </div>
 
-      <div className="employee-cmd-bar__brand flex shrink-0 items-center gap-2.5 sm:gap-3">
+      <div ref={brandRef} className="employee-cmd-bar__brand flex shrink-0 items-center gap-2.5 sm:gap-3">
         <Link
           to="/employee"
           className="employee-cmd-bar__logo-link inline-flex shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--neon-green)]"
@@ -65,21 +67,10 @@ export function EmployeeCommandBar() {
         </Link>
 
         {user ? (
-          <div className="employee-cmd-bar__identity min-w-0">
-            <p className="employee-cmd-bar__name truncate font-display font-extrabold">
-              {user.name}
-            </p>
-            <p className="employee-cmd-bar__page-title truncate font-medium">
-              {pageTitle}
-            </p>
+          <div className="employee-cmd-bar__identity">
+            <p className="employee-cmd-bar__name font-display font-extrabold">{firstName}</p>
           </div>
-        ) : (
-          <div className="employee-cmd-bar__identity min-w-0">
-            <p className="truncate font-display text-lg font-semibold tracking-tight text-[var(--text-primary)] lg:text-xl">
-              {pageTitle}
-            </p>
-          </div>
-        )}
+        ) : null}
 
         {showBack && (
           <button
@@ -110,7 +101,7 @@ export function EmployeeCommandBar() {
         >
           <EmployeePhotoAvatar
             employeeId={user?.id}
-            name={user?.name ?? 'Employee'}
+            name={firstName}
             fallbackSrc={avatarUrl ?? user?.avatarUrl}
             className="h-8 w-8"
             fallbackClassName="bg-[#266b1c] text-xs text-white"

@@ -607,6 +607,7 @@ export interface YearLeaveBalanceRow {
   department?: string;
   balances: LeaveTypeBalanceSummary[];
   lopDays: number;
+  lopThisMonth?: number;
   lopApproved?: number;
   lopPending?: number;
 }
@@ -754,25 +755,37 @@ async function computeEmployeeYearBalances(
   });
 }
 
-async function computeEmployeeYearLop(
+async function computeEmployeeLopForBalanceView(
   employee: Employee,
-  year: number,
-): Promise<{ lopDays: number; lopApproved: number; lopPending: number }> {
-  const refDate = resolveRefDateForCalendarYear(year);
+  calendarYear: number,
+  monthRefDate = new Date(),
+): Promise<{ lopDays: number; lopThisMonth: number; lopApproved: number; lopPending: number }> {
   const internalId = String(employee.id ?? '');
   const leaves = await getAllLeaves(internalId);
-  const compCredits = await getCompensationLeaveCreditsForYear(internalId, year);
-  const lop = calculateYearlyLopSummary(
+  const yearRefDate = resolveRefDateForCalendarYear(calendarYear);
+  const compCreditsYear = await getCompensationLeaveCreditsForYear(internalId, calendarYear);
+  const compCreditsMonth = await getCompensationLeaveCreditsForYear(
+    internalId,
+    monthRefDate.getFullYear(),
+  );
+
+  const yearly = calculateYearlyLopSummary(
     leaves,
-    year,
+    calendarYear,
     employee.joinedAt as string | undefined,
-    leaveBalanceOptions(employee, compCredits, refDate),
+    leaveBalanceOptions(employee, compCreditsYear, yearRefDate),
+  );
+  const monthly = calculateMonthlyLopSummary(
+    leaves,
+    employee.joinedAt as string | undefined,
+    leaveBalanceOptions(employee, compCreditsMonth, monthRefDate),
   );
 
   return {
-    lopDays: lop.totalLopDays,
-    lopApproved: lop.approvedLopDays,
-    lopPending: lop.pendingLopDays,
+    lopDays: yearly.totalLopDays,
+    lopThisMonth: monthly.totalLopDays,
+    lopApproved: yearly.approvedLopDays,
+    lopPending: yearly.pendingLopDays,
   };
 }
 
@@ -780,7 +793,7 @@ function buildYearLeaveBalanceRow(
   employee: Employee,
   calendarYear: number,
   balances: LeaveTypeBalanceSummary[],
-  lop: { lopDays: number; lopApproved: number; lopPending: number },
+  lop: { lopDays: number; lopThisMonth: number; lopApproved: number; lopPending: number },
 ): YearLeaveBalanceRow {
   return {
     internalId: String(employee.id),
@@ -789,6 +802,7 @@ function buildYearLeaveBalanceRow(
     department: employee.department ? String(employee.department) : undefined,
     balances,
     lopDays: lop.lopDays,
+    lopThisMonth: lop.lopThisMonth,
     lopApproved: lop.lopApproved,
     lopPending: lop.lopPending,
   };
@@ -808,7 +822,7 @@ export async function getAllEmployeesYearLeaveBalances(
   for (const employee of employees) {
     if (!employee.id) continue;
     const balances = await computeEmployeeYearBalances(employee, calendarYear);
-    const lop = await computeEmployeeYearLop(employee, calendarYear);
+    const lop = await computeEmployeeLopForBalanceView(employee, calendarYear);
     rows.push(buildYearLeaveBalanceRow(employee, calendarYear, balances, lop));
   }
 
@@ -992,7 +1006,10 @@ export async function updateEmployeeYearLeaveBalances(
     (refreshed ?? employee) as Employee,
     calendarYear,
   );
-  const lop = await computeEmployeeYearLop((refreshed ?? employee) as Employee, calendarYear);
+  const lop = await computeEmployeeLopForBalanceView(
+    (refreshed ?? employee) as Employee,
+    calendarYear,
+  );
 
   return buildYearLeaveBalanceRow(
     (refreshed ?? employee) as Employee,

@@ -86,20 +86,38 @@ export function CompensationManagement({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  const employeeLookup = useMemo(() => {
+    const byAnyId = new Map<string, (typeof employees)[number]>()
+    for (const emp of employees) {
+      byAnyId.set(String(emp.id), emp)
+      if (emp.employeeId) byAnyId.set(String(emp.employeeId), emp)
+    }
+    return byAnyId
+  }, [employees])
+
+  const getEmployeeDisplayId = (storedEmployeeId: string) => {
+    const emp = employeeLookup.get(String(storedEmployeeId))
+    return emp?.employeeId || storedEmployeeId
+  }
+
   // ── Export callback ────────────────────────────────────────────────────────
   const filteredData = useMemo(() => {
-    return compensationData.filter(
-      (item) =>
-        item.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.employeeId.toLowerCase().includes(searchTerm.toLowerCase()),
-    )
-  }, [compensationData, searchTerm])
+    return compensationData.filter((item) => {
+      const displayEmployeeId = getEmployeeDisplayId(item.employeeId)
+      const q = searchTerm.toLowerCase()
+      return (
+        item.employeeName.toLowerCase().includes(q) ||
+        item.employeeId.toLowerCase().includes(q) ||
+        displayEmployeeId.toLowerCase().includes(q)
+      )
+    })
+  }, [compensationData, searchTerm, employeeLookup])
 
   useEffect(() => {
     onExportDataChange?.(
       filteredData.map((item) => ({
         employeeName: item.employeeName,
-        employeeId: item.employeeId,
+        employeeId: getEmployeeDisplayId(item.employeeId),
         compensationDays: item.days,
         reason: item.reason,
         appliedDate: new Date(item.appliedDate).toLocaleDateString(),
@@ -239,7 +257,7 @@ export function CompensationManagement({
       render: (item) => (
         <div>
           <span className="font-medium text-gray-800 block text-[0.9375rem]">{item.employeeName}</span>
-          <span className="text-sm text-gray-500">{item.employeeId}</span>
+          <span className="text-sm text-gray-500">{getEmployeeDisplayId(item.employeeId)}</span>
         </div>
       ),
     },
@@ -423,7 +441,7 @@ export function CompensationManagement({
                 <div className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-800">
                   {compensationData.find((e) => e.id === editingId)?.employeeName}
                   <span className="text-gray-500 ml-2">
-                    ({compensationData.find((e) => e.id === editingId)?.employeeId})
+                    ({getEmployeeDisplayId(compensationData.find((e) => e.id === editingId)?.employeeId ?? '')})
                   </span>
                 </div>
               </div>

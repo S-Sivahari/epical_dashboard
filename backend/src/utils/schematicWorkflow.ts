@@ -47,7 +47,7 @@ export function defaultSchematicWorkflow(): SchematicWorkflowStage[] {
   return SCHEMATIC_WORKFLOW_STAGES.map((stage) => ({
     stageKey: stage.key,
     stageLabel: stage.label,
-    status: stage.key === 'design' ? 'in_progress' : 'not_started',
+    status: 'not_started',
   }));
 }
 
@@ -251,15 +251,12 @@ export function applySchematicWorkflowStageUpdate(
     return { ok: false, error: 'Invalid status for schematic work stage' };
   }
 
-  if (current === 'in_progress' && nextStatus === 'not_started') {
-    return {
-      ok: false,
-      error: 'A stage in progress cannot be moved back to Not Started. Complete the stage instead.',
-    };
-  }
-
   workflow = setStageStatus(workflow, stageKey, nextStatus);
   return { ok: true, workflow: applySchematicAutoTransitions(workflow) };
+}
+
+export function schematicHasWorkflowActivity(workflow: SchematicWorkflowStage[]): boolean {
+  return normalizeSchematicWorkflow(workflow).some((stage) => stage.status !== 'not_started');
 }
 
 /** Derive employee schematic view state from admin schematic workflow. */

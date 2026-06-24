@@ -48,10 +48,55 @@ export function editableCellStatusOptions(currentStatus: CellStatus): CellStatus
   return base.filter((status) => status !== 'ready')
 }
 
-/** Work-stage dropdown options — Not Started is only available before a stage begins. */
-export function editableWorkStageStatuses(stageStatus: WorkflowStageStatus): WorkflowStageStatus[] {
-  if (stageStatus === 'not_started') return [...WORK_STAGE_STATUSES]
-  return WORK_STAGE_STATUSES.filter((status) => status !== 'not_started')
+/** Work-stage dropdown options — Not Started stays available; confirm before resetting progress. */
+export function editableWorkStageStatuses(_stageStatus: WorkflowStageStatus): WorkflowStageStatus[] {
+  return [...WORK_STAGE_STATUSES]
+}
+
+export function hasDownstreamWorkflowProgress(
+  workflow: Array<{ stageKey: string; status: WorkflowStageStatus }>,
+  stageKey: string,
+): boolean {
+  const index = workflow.findIndex((stage) => stage.stageKey === stageKey)
+  if (index < 0) return false
+  return workflow.slice(index + 1).some((stage) => stage.status !== 'not_started')
+}
+
+export function stageStatusResetNeedsConfirmation(
+  workflow: Array<{ stageKey: string; status: WorkflowStageStatus }>,
+  stageKey: string,
+  currentStatus: WorkflowStageStatus,
+  nextStatus: WorkflowStageStatus,
+): boolean {
+  if (nextStatus !== 'not_started') return false
+  if (currentStatus === 'in_progress' || currentStatus === 'completed') return true
+  return hasDownstreamWorkflowProgress(workflow, stageKey)
+}
+
+export function workStageResetNeedsConfirmation(
+  workflow: CellWorkflowStage[],
+  stageKey: CellWorkflowStageKey,
+  currentStatus: WorkflowStageStatus,
+  nextStatus: WorkflowStageStatus,
+): boolean {
+  return stageStatusResetNeedsConfirmation(normalizeCellWorkflow(workflow), stageKey, currentStatus, nextStatus)
+}
+
+export function viewStatusResetNeedsConfirmation(
+  currentStatus: WorkflowStageStatus,
+  nextStatus: WorkflowStageStatus,
+): boolean {
+  return nextStatus === 'not_started'
+    && (currentStatus === 'in_progress' || currentStatus === 'completed')
+}
+
+export function cellActualEffortHours(cell: ProjectCell): number {
+  const ms = cell.productiveWorkDuration?.totalMs
+    ?? cell.workflowDuration?.totalMs
+    ?? cell.workflowTiming?.workflowDuration?.totalMs
+    ?? 0
+  if (ms <= 0) return 0
+  return Math.round((ms / 3_600_000) * 10) / 10
 }
 
 export const WORKFLOW_STATUS_LABELS: Record<WorkflowStageStatus, string> = {

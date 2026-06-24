@@ -79,7 +79,7 @@ export function defaultCellWorkflow(): CellWorkflowStage[] {
   return CELL_WORKFLOW_STAGES.map((stage) => ({
     stageKey: stage.key,
     stageLabel: stage.label,
-    status: stage.key === 'floor_plan' ? 'in_progress' : 'not_started',
+    status: 'not_started',
   }));
 }
 
@@ -382,13 +382,6 @@ export function applyWorkflowStageUpdate(
     return { ok: false, error: 'Invalid status for this workflow stage' };
   }
 
-  if (current === 'in_progress' && nextStatus === 'not_started') {
-    return {
-      ok: false,
-      error: 'A stage in progress cannot be moved back to Not Started. Complete the stage instead.',
-    };
-  }
-
   if (!backward && hasPendingOrRejectedReview(workflow)) {
     return { ok: false, error: 'Cannot advance workflow while a review is pending' };
   }
@@ -410,6 +403,10 @@ export function workflowCompletedCount(workflow: CellWorkflowStage[]): number {
     if (isReviewStageKey(stage.stageKey)) return stage.status === 'approved';
     return stage.status === 'completed';
   }).length;
+}
+
+export function cellHasWorkflowActivity(workflow: CellWorkflowStage[]): boolean {
+  return normalizeCellWorkflow(workflow).some((stage) => stage.status !== 'not_started');
 }
 
 export function currentWorkflowStageLabel(workflow: CellWorkflowStage[]): string {

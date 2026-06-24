@@ -129,7 +129,7 @@ export function buildCellCompletionTimeSummary(cell: ProjectCell): CellCompletio
     productiveMs,
     productiveFormatted: formatWorkflowDurationFromMs(productiveMs),
     estimatedHours: Number(cell.estimatedEffort) || 0,
-    actualHours: Number(cell.actualEffort) || 0,
+    actualHours: Math.round((productiveMs / 3_600_000) * 10) / 10,
     holdPeriods,
     totalHoldMs,
     totalHoldFormatted: formatWorkflowDurationFromMs(totalHoldMs),

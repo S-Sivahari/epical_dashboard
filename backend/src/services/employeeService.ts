@@ -945,10 +945,7 @@ export async function getDailyActivityLog(dateStr: string): Promise<DailyActivit
   const entries: Array<DailyActivityLogEntry & { sortAt: number }> = [];
 
   const attendances = await EmployeeAttendanceModel.find({
-    $or: [
-      { checkInTime: { $gte: start, $lte: end } },
-      { checkOutTime: { $gte: start, $lte: end } },
-    ],
+    checkInTime: { $gte: start, $lte: end },
   })
     .select({ employeeName: 1, checkInTime: 1, checkOutTime: 1, autoCheckedOut: 1, sessionStatus: 1 })
     .lean();
@@ -960,14 +957,6 @@ export async function getDailyActivityLog(dateStr: string): Promise<DailyActivit
     if (Number.isNaN(checkIn.getTime())) continue;
 
     const checkOut = attendance.checkOutTime ? new Date(attendance.checkOutTime) : null;
-    const checkInOnDay = checkIn >= start && checkIn <= end;
-    const checkOutOnDay =
-      checkOut != null &&
-      !Number.isNaN(checkOut.getTime()) &&
-      checkOut >= start &&
-      checkOut <= end;
-
-    if (!checkInOnDay && !checkOutOnDay) continue;
 
     const checkOutType =
       checkOut != null && !Number.isNaN(checkOut.getTime())
@@ -982,7 +971,7 @@ export async function getDailyActivityLog(dateStr: string): Promise<DailyActivit
         : null;
 
     const sortAt =
-      checkOutOnDay && checkOut != null ? checkOut.getTime() : checkIn.getTime();
+      checkOut != null && !Number.isNaN(checkOut.getTime()) ? checkOut.getTime() : checkIn.getTime();
 
     entries.push({
       id: `att-session-${attendanceId}`,

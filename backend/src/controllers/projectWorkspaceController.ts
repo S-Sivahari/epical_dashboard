@@ -21,6 +21,7 @@ import {
   normalizeCellWorkflow,
   resolveStoredCellWorkflow,
   normalizeWorkflowStageStatus,
+  cellHasWorkflowActivity,
   returnOptionsForReview,
   syncCellWorkflowFromViewWorkflow,
   syncViewsFromViewWorkflow,
@@ -72,6 +73,7 @@ import {
 import {
   applySchematicWorkflowStageUpdate,
   defaultSchematicWorkflow,
+  schematicHasWorkflowActivity,
   isValidSchematicStageKey,
   normalizeSchematicWorkflow,
   SCHEMATIC_WORKFLOW_STAGES,
@@ -115,6 +117,12 @@ function toLibrary(doc: any) {
   };
 }
 
+function actualEffortHoursFromDuration(duration?: CellWorkflowDuration): number {
+  const ms = duration?.totalMs ?? 0;
+  if (ms <= 0) return 0;
+  return Math.round((ms / 3_600_000) * 10) / 10;
+}
+
 function toCell(
   doc: any,
   dependencyMeta?: { isBlocked: boolean; isReady: boolean },
@@ -138,7 +146,7 @@ function toCell(
     baseHours: deriveBaseHours(doc.estimatedEffort ?? 0, doc.complexity, doc.baseHours),
     estimatedEffort: doc.estimatedEffort ?? 0,
     smartEstimate: doc.smartEstimate ?? doc.estimatedEffort ?? 0,
-    actualEffort: doc.actualEffort ?? 0,
+    actualEffort: actualEffortHoursFromDuration(workflowDuration ?? workflowTiming?.workflowDuration),
     estimateConfidence: doc.estimateConfidence === 'High' ? 'High' : 'Low',
     assignedEmployeeId: doc.assignedEmployeeId || '',
     assignedEmployeeName: doc.assignedEmployeeName || '',
@@ -599,7 +607,7 @@ export const projectWorkspaceController = {
       const previousAssignee = cell.assignedEmployeeId?.trim() || '';
       const fields = [
         'name', 'description', 'cellType', 'technologyNode', 'complexity',
-        'baseHours', 'estimatedEffort', 'actualEffort', 'views',
+        'baseHours', 'estimatedEffort', 'views',
       ] as const;
 
       for (const field of fields) {
@@ -661,10 +669,6 @@ export const projectWorkspaceController = {
         userName: actor.userName,
         at: new Date(),
       });
-
-      if (cell.status === 'completed' || cell.status === 'ready') {
-        cell.status = 'in_progress';
-      }
 
       await cell.save();
 
@@ -867,12 +871,8 @@ export const projectWorkspaceController = {
         return;
       }
 
-      const becameInProgress = cell.status === 'ready';
-      if (becameInProgress) {
-        cell.status = 'in_progress';
-        await cell.save();
-        await reconcileCellProductiveTime(projectId, cellId, cell);
-      }
+      const actor = actorFromReq(req);
+      await reconcileCellProductiveTime(projectId, cellId, cell, actor);
 
       const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
       res.json(await toCellWithDuration(cell, meta));
@@ -1206,8 +1206,12 @@ export const projectWorkspaceController = {
       }
 
       const nextWorkflow = result.workflow;
-      if (cell.status === 'completed' || cell.status === 'ready') {
-        cell.status = 'in_progress';
+      if (cellHasWorkflowActivity(nextWorkflow)) {
+        if (cell.status === 'ready') {
+          cell.status = 'in_progress';
+        }
+      } else if (cell.status === 'in_progress') {
+        cell.status = 'ready';
       }
       await syncWorkLogsFromWorkflowChange(
         projectId,
@@ -1281,8 +1285,14 @@ export const projectWorkspaceController = {
 
       cell.schematicWorkflow = result.workflow;
       applySchematicWorkflowSync(cell, 'schematicWorkflow');
-      if (cell.status === 'completed' || cell.status === 'ready') {
-        cell.status = 'in_progress';
+      const layoutActive = cellHasWorkflowActivity(normalizeCellWorkflow(cell.workflow));
+      const schematicActive = schematicHasWorkflowActivity(result.workflow);
+      if (layoutActive || schematicActive) {
+        if (cell.status === 'ready') {
+          cell.status = 'in_progress';
+        }
+      } else if (cell.status === 'in_progress') {
+        cell.status = 'ready';
       }
       cell.activityLog.push({
         action: 'schematic_workflow_update',

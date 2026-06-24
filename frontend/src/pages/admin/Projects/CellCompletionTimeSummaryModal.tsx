@@ -2,6 +2,10 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import type { ProjectCell } from '@/types/projectWorkspace'
 import { CellCompletionTimeSummary } from './CellCompletionTimeSummary'
+import {
+  preventModalCloseOnTabSwitch,
+  preventModalCloseWhileHidden,
+} from '@/utils/modalDismissGuards'
 
 type CellCompletionTimeSummaryModalProps = {
   cell: ProjectCell
@@ -29,6 +33,9 @@ export function CellCompletionTimeSummaryModal({
         <Dialog.Content
           className="admin-projects-cell-completion-time-modal"
           onOpenAutoFocus={(event) => event.preventDefault()}
+          onFocusOutside={preventModalCloseOnTabSwitch}
+          onInteractOutside={preventModalCloseWhileHidden}
+          onPointerDownOutside={preventModalCloseWhileHidden}
         >
           <header className="admin-projects-cell-completion-time-modal-head">
             <div className="admin-projects-cell-completion-time-modal-head-pattern" aria-hidden />

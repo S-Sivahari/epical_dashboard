@@ -2,6 +2,10 @@ import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import { cn } from '@pages/employee/lib/utils'
+import {
+  preventModalCloseOnTabSwitch,
+  preventModalCloseWhileHidden,
+} from '@/utils/modalDismissGuards'
 
 const Dialog = DialogPrimitive.Root
 const DialogTrigger = DialogPrimitive.Trigger
@@ -26,6 +30,9 @@ const DialogContent = React.forwardRef(({ className, children, ...props }, ref) 
         'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 rounded-2xl border border-border bg-card p-6 shadow-lg duration-200',
         className
       )}
+      onFocusOutside={preventModalCloseOnTabSwitch}
+      onInteractOutside={preventModalCloseWhileHidden}
+      onPointerDownOutside={preventModalCloseWhileHidden}
       {...props}
     >
       {children}

@@ -1,5 +1,7 @@
+import { useEffect, useMemo, useState } from 'react'
 import type { StageWorkflowTiming, WorkflowStageStatus } from '@/types/projectWorkspace'
 import { formatDateTime } from '@/utils/formatDate'
+import { formatWorkflowDurationFromMs } from '@/utils/durationFormat'
 import {
   hasStageTimingContent,
   isStageCompleteStatus,
@@ -9,7 +11,10 @@ type CellWorkflowStageTimingMetaProps = {
   timing?: StageWorkflowTiming | null
   status: WorkflowStageStatus
   compact?: boolean
+  fetchedAt?: number
 }
+
+const LIVE_TICK_MS = 1_000
 
 function TimestampRow({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null
@@ -27,10 +32,27 @@ export function CellWorkflowStageTimingMeta({
   timing,
   status,
   compact = false,
+  fetchedAt,
 }: CellWorkflowStageTimingMetaProps) {
+  const isActive = Boolean(timing?.isActive)
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    if (!isActive) return undefined
+    const timer = window.setInterval(() => setNow(Date.now()), LIVE_TICK_MS)
+    return () => window.clearInterval(timer)
+  }, [isActive])
+
+  const displayTotal = useMemo(() => {
+    const baseMs = timing?.totalMs ?? 0
+    if (!isActive) return timing?.formattedTotal ?? formatWorkflowDurationFromMs(baseMs)
+    const anchor = fetchedAt ?? Date.now()
+    const liveMs = baseMs + Math.max(0, now - anchor)
+    return formatWorkflowDurationFromMs(liveMs)
+  }, [timing?.totalMs, timing?.formattedTotal, isActive, fetchedAt, now])
+
   if (!hasStageTimingContent(timing, status)) return null
 
-  const isActive = Boolean(timing?.isActive)
   const isComplete = isStageCompleteStatus(status)
   const durationLabel = isActive ? 'Worked so far' : 'Time spent'
 
@@ -55,10 +77,10 @@ export function CellWorkflowStageTimingMeta({
       {timing?.latestActivityTime ? (
         <TimestampRow label="Latest activity" value={timing.latestActivityTime} />
       ) : null}
-      {(isActive || (timing?.totalMs ?? 0) > 0) && timing?.formattedTotal ? (
+      {(isActive || (timing?.totalMs ?? 0) > 0) && displayTotal ? (
         <div className="admin-projects-workflow-stage-timing-row admin-projects-workflow-stage-timing-row--duration">
           <dt>{durationLabel}</dt>
-          <dd>{timing.formattedTotal}</dd>
+          <dd>{displayTotal}</dd>
         </div>
       ) : null}
     </dl>

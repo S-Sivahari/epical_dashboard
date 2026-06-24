@@ -71,9 +71,12 @@ export const newsController = {
 
   create: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { title, content, imageUrl, link } = req.body
-      if (!title || !content) {
-        res.status(400).json({ error: 'Title and content are required' })
+      const title = trimOrEmpty(req.body.title)
+      const content = trimOrEmpty(req.body.content)
+      const imageUrl = trimOrEmpty(req.body.imageUrl)
+      const link = trimOrEmpty(req.body.link)
+      if (!title) {
+        res.status(400).json({ error: 'Title is required' })
         return
       }
       const image = fileToBlob(req.file)
@@ -97,9 +100,12 @@ export const newsController = {
   update: async (req: Request, res: Response): Promise<void> => {
     try {
       const id = paramStr(req.params.id)
-      const { title, content, imageUrl, link } = req.body
-      if (!title || !content) {
-        res.status(400).json({ error: 'Title and content are required' })
+      const title = trimOrEmpty(req.body.title)
+      const content = trimOrEmpty(req.body.content)
+      const imageUrl = trimOrEmpty(req.body.imageUrl)
+      const link = trimOrEmpty(req.body.link)
+      if (!title) {
+        res.status(400).json({ error: 'Title is required' })
         return
       }
       const clearImage = req.body.clearImage === 'true' || req.body.clearImage === true

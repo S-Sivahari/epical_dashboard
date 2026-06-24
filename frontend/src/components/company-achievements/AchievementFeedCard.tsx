@@ -84,7 +84,7 @@ export function AchievementFeedCard({
         ) : null}
 
         {editable ? (
-          <div className="flex flex-wrap gap-2 pt-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+          <div className="flex flex-wrap gap-2 pt-1">
             <Button type="button" variant="secondary" size="sm" onClick={onEdit}>
               <Pencil className="mr-1.5 h-3.5 w-3.5" />
               Edit

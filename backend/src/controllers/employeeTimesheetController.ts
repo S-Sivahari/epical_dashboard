@@ -20,6 +20,7 @@ import {
   resumeProductiveSessionsForEmployee,
   closeProductiveSessionsForProjectEmployee,
   resumeProductiveSessionsForProjectEmployee,
+  resumeProductiveSessionsOnEmployeeCheckIn,
   WORK_SESSION_REASONS,
 } from '../services/productiveTimeService';
 import {
@@ -803,6 +804,10 @@ export const employeeTimesheetController = {
         autoCheckedOut: false,
         sessionStatus: 'Active',
       });
+
+      // Resume productive time for all in-progress cells assigned to this employee.
+      void resumeProductiveSessionsOnEmployeeCheckIn(employee.identityTokens, undefined, now)
+        .catch((err) => console.error('[timesheet] check-in cell resume sync failed:', err));
 
       res.status(201).json({
         serverTime: new Date().toISOString(),

@@ -381,6 +381,120 @@
   overflow: visible;
 }
 
+/* Leave tab — admin-style balance cards (read-only, no +/-) */
+.emp-leave-balance-panel-list .admin-leaves-balance-card,
+.emp-leave-balance-column__list .admin-leaves-balance-card {
+  border-radius: 0.75rem;
+  border: 1px solid rgba(26, 67, 41, 0.12);
+  padding: calc(0.875rem * var(--els)) calc(0.75rem * var(--els));
+  min-height: calc(8rem * var(--els));
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: box-shadow 0.15s ease, outline-color 0.15s ease;
+}
+
+.emp-leave-balance-panel-list .admin-leaves-balance-card--casual,
+.emp-leave-balance-column__list .admin-leaves-balance-card--casual {
+  border-color: rgba(34, 197, 94, 0.35);
+  background: linear-gradient(180deg, #f0fdf4 0%, #ecfdf5 100%);
+}
+
+.emp-leave-balance-panel-list .admin-leaves-balance-card--sick,
+.emp-leave-balance-column__list .admin-leaves-balance-card--sick {
+  border-color: rgba(59, 130, 246, 0.35);
+  background: linear-gradient(180deg, #eff6ff 0%, #f0f9ff 100%);
+}
+
+.emp-leave-balance-panel-list .admin-leaves-balance-card--earned,
+.emp-leave-balance-column__list .admin-leaves-balance-card--earned {
+  border-color: rgba(139, 92, 246, 0.35);
+  background: linear-gradient(180deg, #f5f3ff 0%, #faf5ff 100%);
+}
+
+.emp-leave-balance-panel-list .admin-leaves-balance-card--comp,
+.emp-leave-balance-column__list .admin-leaves-balance-card--comp {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%);
+}
+
+.emp-leave-balance-panel-list .admin-leaves-balance-card--lop,
+.emp-leave-balance-column__list .admin-leaves-balance-card--lop {
+  border-color: rgba(239, 68, 68, 0.28);
+  background: linear-gradient(180deg, #fff5f5 0%, #fef2f2 100%);
+}
+
+.emp-leave-balance-panel-list .admin-leaves-balance-card--selected,
+.emp-leave-balance-column__list .admin-leaves-balance-card--selected {
+  outline: 2px solid var(--dash-forest, #1a4329);
+  outline-offset: 1px;
+  box-shadow: 0 4px 14px rgba(26, 67, 41, 0.12);
+}
+
+.emp-leave-balance-panel-list .admin-leaves-balance-card__title,
+.emp-leave-balance-column__list .admin-leaves-balance-card__title {
+  margin: 0;
+  font-size: calc(0.6875rem * var(--els));
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--dash-forest, #1a4329);
+}
+
+.emp-leave-balance-panel-list .admin-leaves-balance-card__controls,
+.emp-leave-balance-column__list .admin-leaves-balance-card__controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: calc(0.5rem * var(--els)) 0;
+}
+
+.emp-leave-balance-panel-list .admin-leaves-balance-card__controls--static,
+.emp-leave-balance-column__list .admin-leaves-balance-card__controls--static {
+  justify-content: center;
+}
+
+.emp-leave-balance-panel-list .admin-leaves-balance-card__value,
+.emp-leave-balance-column__list .admin-leaves-balance-card__value {
+  min-width: calc(3.75rem * var(--els));
+  text-align: center;
+  font-size: calc(1.125rem * var(--els));
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--dash-forest, #1a4329);
+}
+
+.emp-leave-balance-panel-list .admin-leaves-balance-card__value--lop,
+.emp-leave-balance-column__list .admin-leaves-balance-card__value--lop {
+  color: #b91c1c;
+}
+
+.emp-leave-balance-panel-list .admin-leaves-balance-card__meta,
+.emp-leave-balance-column__list .admin-leaves-balance-card__meta {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: calc(0.2rem * var(--els));
+  font-size: calc(0.757rem * var(--els));
+  font-weight: 600;
+  color: #334155;
+}
+
+.emp-leave-balance-panel-list .admin-leaves-balance-card__meta span,
+.emp-leave-balance-column__list .admin-leaves-balance-card__meta span {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.emp-leave-balance-column__list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: calc(0.5rem * var(--els));
+}
+
 .emp-leave-balance-panel-list .emp-leave-balance-tile--sidebar {
   min-height: calc(5.75rem * var(--els));
   padding: calc(0.75rem * var(--els)) calc(0.4rem * var(--els));

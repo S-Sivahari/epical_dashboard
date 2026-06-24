@@ -2,6 +2,10 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import { useEffect, useRef, type MouseEvent, type ReactNode } from 'react'
 import { cn } from '@/utils/cn'
+import {
+  preventModalCloseOnTabSwitch,
+  preventModalCloseWhileHidden,
+} from '@/utils/modalDismissGuards'
 
 const sizes: Record<string, string> = {
   sm: 'max-w-sm',
@@ -99,15 +103,15 @@ export function Modal({
           )}
           onPointerDownOutside={(e) => {
             if (isModalPopoverTarget(e.target)) e.preventDefault()
+            preventModalCloseWhileHidden(e)
             guardRecentOpen(e)
           }}
           onInteractOutside={(e) => {
             if (isModalPopoverTarget(e.target)) e.preventDefault()
+            preventModalCloseWhileHidden(e)
             guardRecentOpen(e)
           }}
-          onFocusOutside={(e) => {
-            if (isModalPopoverTarget(e.target)) e.preventDefault()
-          }}
+          onFocusOutside={preventModalCloseOnTabSwitch}
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <div className="mb-4 flex shrink-0 items-start justify-between gap-3">

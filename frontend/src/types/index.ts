@@ -118,6 +118,7 @@ export interface YearLeaveBalanceRow {
   department?: string
   balances: LeaveTypeBalanceSummary[]
   lopDays: number
+  lopThisMonth?: number
   lopApproved?: number
   lopPending?: number
 }

@@ -9,6 +9,7 @@ import {
   isRecentModule,
   MetalRoutingPdkModuleCatalog,
 } from '@components/pdk/MetalRoutingPdkModuleCatalog'
+import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { PdkModuleDetailPanel } from '@components/pdk/PdkModuleDetailPanel'
 import { MetalRoutingPageShell } from '@components/pdk/MetalRoutingPageShell'
 import { Button } from '@components/ui/Button'
@@ -17,6 +18,7 @@ import { Modal } from '@components/ui/Modal'
 import type { PdkModule } from '@/types/pdkMetalRouting'
 import {
   createPdkModule,
+  deletePdkModule,
   downloadPdkTemplate,
   fetchPdkModule,
   fetchPdkModules,
@@ -152,6 +154,9 @@ export function PdkModulesPage({ embedded = false }: { embedded?: boolean }) {
   const [search, setSearch] = useState('')
   const [nodeFilter, setNodeFilter] = useState('all')
   const [highlightedModuleId, setHighlightedModuleId] = useState<string | null>(null)
+  const [detailStartInEdit, setDetailStartInEdit] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<PdkModule | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -168,13 +173,51 @@ export function PdkModulesPage({ embedded = false }: { embedded?: boolean }) {
     void load()
   }, [])
 
-  const openModule = async (id: string) => {
+  const openModule = async (id: string, options?: { edit?: boolean }) => {
     setSelectedId(id)
+    setDetailStartInEdit(Boolean(options?.edit))
     try {
       setSelectedModule(await fetchPdkModule(id))
     } catch {
       showPortalError(setNotice, 'Failed to load module', 'Try selecting the module again.')
       setSelectedId(null)
+      setDetailStartInEdit(false)
+    }
+  }
+
+  const handleEditModule = (id: string) => {
+    void openModule(id, { edit: true })
+  }
+
+  const handleDeleteModule = (id: string) => {
+    const mod = modules.find((item) => item._id === id)
+    if (mod) setDeleteTarget(mod)
+  }
+
+  const confirmDeleteModule = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await deletePdkModule(deleteTarget._id)
+      showPortalSuccess(setNotice, 'Module deleted', `"${deleteTarget.name}" was removed.`)
+      if (selectedId === deleteTarget._id) {
+        setSelectedId(null)
+        setSelectedModule(null)
+        setDetailStartInEdit(false)
+      }
+      if (highlightedModuleId === deleteTarget._id) {
+        setHighlightedModuleId(null)
+      }
+      setDeleteTarget(null)
+      await load()
+    } catch (err: unknown) {
+      showPortalError(
+        setNotice,
+        'Delete failed',
+        err instanceof Error ? err.message : 'Failed to delete module.',
+      )
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -367,16 +410,32 @@ export function PdkModulesPage({ embedded = false }: { embedded?: boolean }) {
   const pageBody = (
     <>
       <TopDismissNotice notice={notice} onDismiss={dismissNotice} />
+      <ConfirmModal
+        isOpen={deleteTarget != null}
+        title="Delete PDK module?"
+        description={
+          deleteTarget
+            ? `Delete "${deleteTarget.name}"? This cannot be undone and may affect projects using this module.`
+            : ''
+        }
+        confirmLabel={deleting ? 'Deleting…' : 'Delete'}
+        danger
+        onClose={() => !deleting && setDeleteTarget(null)}
+        onConfirm={() => void confirmDeleteModule()}
+      />
       {showDetail && selectedModule ? (
         <PdkModuleDetailPanel
           module={selectedModule}
+          startInEditMode={detailStartInEdit}
           onBack={() => {
             setSelectedId(null)
             setSelectedModule(null)
+            setDetailStartInEdit(false)
           }}
           onSaved={(updated) => {
             setSelectedModule(updated)
             setModules((prev) => prev.map((m) => (m._id === updated._id ? updated : m)))
+            setDetailStartInEdit(false)
             showPortalSuccess(setNotice, 'Module updated', 'PDK module saved.')
           }}
         />
@@ -405,6 +464,8 @@ export function PdkModulesPage({ embedded = false }: { embedded?: boolean }) {
                   highlightedModuleId={highlightedModuleId}
                   onHighlightModule={setHighlightedModuleId}
                   onOpenModule={(id) => void openModule(id)}
+                  onEditModule={handleEditModule}
+                  onDeleteModule={handleDeleteModule}
                 />
               ) : modules.length === 0 ? (
                 <div className="metal-routing-overview-card metal-routing-pdk-empty-state">
@@ -434,6 +495,8 @@ export function PdkModulesPage({ embedded = false }: { embedded?: boolean }) {
                   highlightedModuleId={highlightedModuleId}
                   onHighlightModule={setHighlightedModuleId}
                   onOpenModule={(id) => void openModule(id)}
+                  onEditModule={handleEditModule}
+                  onDeleteModule={handleDeleteModule}
                 />
               )}
             </div>

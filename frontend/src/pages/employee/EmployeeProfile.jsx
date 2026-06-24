@@ -24,7 +24,6 @@ import { formatDate } from '@pages/employee/lib/utils'
 import { documentListFromEmployee } from '@/utils/employeeDocuments'
 import { stringToHue } from '@/utils/stringColor'
 import { getEmployeeAvatarUrl } from '@/utils/getAvatarUrl'
-import { buildEmployeeFullName } from '@/utils/employeeDisplayName'
 import { cn } from '@/utils/cn'
 import { EmployeePageLoading } from '@components/employee/layout/EmployeePageLoading'
 
@@ -129,8 +128,6 @@ export default function EmployeeProfile() {
         if (!cancelled) {
           setEmployee(profile)
           setDocuments(documentListFromEmployee(profile))
-          const nextName = buildEmployeeFullName(profile)
-          if (nextName) patchUser({ name: nextName })
         }
       } catch (err) {
         if (!cancelled) {

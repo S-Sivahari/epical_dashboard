@@ -1,22 +1,11 @@
 import { Router } from 'express'
-import multer from 'multer'
 import { achievementController } from '../controllers/achievementController'
 import { authMiddleware, requireRole } from '../middleware/authMiddleware'
+import { createImageUpload } from '../utils/imageUploadFilter'
 
 export const achievementRoutes = Router()
 
-const achievementImageUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 4 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    const ok = file.mimetype === 'image/jpeg' || file.mimetype === 'image/jpg'
-    if (ok) {
-      cb(null, true)
-      return
-    }
-    cb(new Error('Only JPEG/JPG images are allowed'))
-  },
-})
+const achievementImageUpload = createImageUpload({ maxFileSize: 4 * 1024 * 1024 })
 
 const authenticated = [authMiddleware]
 const adminMutate = [authMiddleware, requireRole('Admin')]

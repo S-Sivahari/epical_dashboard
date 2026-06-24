@@ -40,20 +40,22 @@ export function PdkModuleDetailPanel({
   module,
   onBack,
   onSaved,
+  startInEditMode = false,
 }: {
   module: PdkModule
   onBack: () => void
   onSaved: (updated: PdkModule) => void
+  startInEditMode?: boolean
 }) {
-  const [editing, setEditing] = useState(false)
+  const [editing, setEditing] = useState(startInEditMode)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [form, setForm] = useState(() => moduleToForm(module))
 
   useEffect(() => {
     setForm(moduleToForm(module))
-    setEditing(false)
-  }, [module])
+    setEditing(startInEditMode)
+  }, [module, startInEditMode])
 
   const handleCancel = () => {
     setForm(moduleToForm(module))

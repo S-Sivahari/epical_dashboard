@@ -4,11 +4,14 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useNotificationStore, NOTIFICATION_POLL_MS, type NotificationData } from '@store/notificationStore'
+import { useAuthStore } from '@store/authStore'
 import { getNotificationRoute } from '@utils/notificationNavigation'
 import { formatDistanceToNow } from 'date-fns'
 
 export function NotificationBell() {
   const navigate = useNavigate()
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const isHydrated = useAuthStore((s) => s.isHydrated)
   const {
     notifications,
     unreadCount,
@@ -22,13 +25,15 @@ export function NotificationBell() {
   } = useNotificationStore()
 
   useEffect(() => {
+    if (!isHydrated || !isAuthenticated) return
+
     fetchUnreadCount()
 
     const interval = setInterval(() => {
       fetchUnreadCountSilent()
     }, NOTIFICATION_POLL_MS)
     return () => clearInterval(interval)
-  }, [fetchUnreadCount, fetchUnreadCountSilent])
+  }, [isHydrated, isAuthenticated, fetchUnreadCount, fetchUnreadCountSilent])
 
   const displayNotifications = notifications.slice(0, 5)
 

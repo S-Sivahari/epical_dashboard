@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { ArrowLeft, LogIn } from 'lucide-react'
 import { ROUTES } from '@constants/routes'
+import { useTimesheetStore } from '@store/employee/timesheetStore'
 import { EmployeeCellChecklistSidebar } from '@components/employee/projects/EmployeeCellChecklistSidebar'
 import { EmployeeCellWorkflowPanel } from '@components/employee/projects/EmployeeCellWorkflowPanel'
 import { EmployeeSchematicWorkflowPanel } from '@components/employee/projects/EmployeeSchematicWorkflowPanel'
@@ -30,6 +31,8 @@ import '@components/employee/projects/employeeProjectsAdminTheme.css'
 
 export default function EmployeeCellWorkflow() {
   const { projectId = '', cellId = '' } = useParams()
+  const navigate = useNavigate()
+  const checkedIn = useTimesheetStore((state) => state.checkedIn)
   const [detail, setDetail] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -73,6 +76,18 @@ export default function EmployeeCellWorkflow() {
     data?.permissions?.canManageWorkflow ?? (data?.cell?.isAssignedToMe || data?.isTeamLead),
   )
 
+  const handleCheckInRequired = (err) => {
+    if (err?.response?.data?.requiresCheckIn) {
+      toast({
+        title: 'Check in required',
+        description: 'You need to check in to the office before updating cell workflow.',
+      })
+      navigate(ROUTES.EMPLOYEE_TIMESHEET)
+      return true
+    }
+    return false
+  }
+
   const handleWorkflowUpdate = async (payload) => {
     if (!projectId || !cellId || !canManageFromDetail(detail)) return
     setSaving(true)
@@ -90,8 +105,10 @@ export default function EmployeeCellWorkflow() {
 
       toast({ title: 'Stage updated', description: 'Workflow status saved' })
     } catch (err) {
-      const message = err?.response?.data?.error
-      toast({ title: 'Error', description: message || 'Failed to update workflow' })
+      if (!handleCheckInRequired(err)) {
+        const message = err?.response?.data?.error
+        toast({ title: 'Error', description: message || 'Failed to update workflow' })
+      }
     } finally {
       setSaving(false)
     }
@@ -109,8 +126,10 @@ export default function EmployeeCellWorkflow() {
       setDurationFetchedAt(Date.now())
       toast({ title: 'Stage updated', description: 'Workflow stage saved' })
     } catch (err) {
-      const message = err?.response?.data?.error
-      toast({ title: 'Error', description: message || 'Failed to update workflow stage' })
+      if (!handleCheckInRequired(err)) {
+        const message = err?.response?.data?.error
+        toast({ title: 'Error', description: message || 'Failed to update workflow stage' })
+      }
     } finally {
       setSaving(false)
     }
@@ -148,8 +167,10 @@ export default function EmployeeCellWorkflow() {
       await reload()
       toast({ title: 'Review requested', description: 'Team lead will review your submission.' })
     } catch (err) {
-      const message = err?.response?.data?.error
-      toast({ title: 'Error', description: message || 'Failed to request review' })
+      if (!handleCheckInRequired(err)) {
+        const message = err?.response?.data?.error
+        toast({ title: 'Error', description: message || 'Failed to request review' })
+      }
     } finally {
       setSaving(false)
     }
@@ -241,6 +262,17 @@ export default function EmployeeCellWorkflow() {
         />
 
         <div className="admin-projects-cell-page-body admin-projects-cell-page-body--employee">
+          {!checkedIn && cell.status !== 'completed' ? (
+            <div className="admin-projects-employee-checkin-banner">
+              <LogIn className="admin-projects-employee-checkin-banner-icon" aria-hidden />
+              <span>
+                Check in to track work time and update workflow stages.{' '}
+                <Link to={ROUTES.EMPLOYEE_TIMESHEET} className="admin-projects-employee-checkin-banner-link">
+                  Go to Timesheet
+                </Link>
+              </span>
+            </div>
+          ) : null}
           {isTeamLead && !cell.isAssignedToMe ? (
             <p className="admin-projects-employee-cell-role-note">
               Managing on behalf of {cell.assignedEmployeeName?.trim() || 'assignee'}. Update workflow stages,

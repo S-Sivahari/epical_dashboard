@@ -2,7 +2,7 @@ import { BarChart3 } from 'lucide-react'
 import { cn } from '@pages/employee/lib/utils'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 import { LeaveSectionHeader } from './LeaveSectionHeader'
-import { LeaveBalanceTile } from './LeaveBalanceTile'
+import { LeaveCard } from '@components/employee/shared/LeaveCard'
 
 const CARD_CLASS = portalCardClass({ className: 'emp-leave-card' })
 
@@ -28,11 +28,14 @@ export function LeaveBalancePanel({ balances, selectedLeaveType }) {
       />
       <div className="emp-leave-balance-panel-list">
         {balances.map((balance) => (
-          <LeaveBalanceTile
+          <LeaveCard
             key={balance.key}
-            balance={balance}
-            isSelected={selectedKey === balance.key}
-            variant="sidebar"
+            compact
+            type={balance.type}
+            used={balance.used}
+            total={balance.total}
+            remaining={balance.remaining}
+            selected={selectedKey === balance.key}
           />
         ))}
       </div>

@@ -46,7 +46,6 @@ import { portalGuideRoutes } from './routes/portalGuideRoutes';
 import { employeeDashboardRoutes } from './routes/employeeDashboardRoutes';
 import { pdkMetalRoutingRoutes } from './routes/pdkMetalRoutingRoutes';
 import { notesRoutes } from './routes/notesRoutes';
-import { projectMgmtRoutes } from './routes/projectMgmtRoutes';
 import { activityRoutes } from './routes/activityRoutes';
 
 // Seed helpers
@@ -195,7 +194,6 @@ app.use('/api/activity', activityRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/metal-routing', pdkMetalRoutingRoutes);
 app.use('/api/notes', notesRoutes);
-app.use('/api/project-mgmt', projectMgmtRoutes);
 app.use('/api/checklists', checklistRoutes);
 app.use('/api/payslips', payslipRoutes);
 app.use('/api/compensation', compensationRoutes);

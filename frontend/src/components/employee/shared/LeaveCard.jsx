@@ -3,6 +3,18 @@ import { Progress } from '@components/employee/ui/progress'
 import { cn } from '@pages/employee/lib/utils'
 import { portalCardClass } from '@components/employee/shared/interactiveCard'
 
+const LEAVE_CARD_CLASS = {
+  'Casual Leave': 'admin-leaves-balance-card--casual',
+  'Sick Leave': 'admin-leaves-balance-card--sick',
+  'Earned Leave': 'admin-leaves-balance-card--earned',
+  'Compensation Leave': 'admin-leaves-balance-card--comp',
+  'LOP Days': 'admin-leaves-balance-card--lop',
+}
+
+function dayLabel(count) {
+  return count === 1 ? 'day' : 'days'
+}
+
 export function LeaveCard({
   type,
   used,
@@ -12,6 +24,7 @@ export function LeaveCard({
   embedded = false,
   compact = false,
   tintClass,
+  selected = false,
   className,
 }) {
   const remaining =
@@ -21,21 +34,45 @@ export function LeaveCard({
         ? Math.max(0, total - used)
         : 0
   const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0
-  const shortType = type.replace(' Leave', '').replace(' Days', '')
+  const isLop = type === 'LOP Days'
 
   if (compact) {
     return (
       <div
         className={cn(
-          'flex h-full min-h-0 items-center justify-between gap-2 rounded-lg border border-border/70 bg-white/90 px-2.5 py-2',
-          tintClass,
+          'admin-leaves-balance-card',
+          LEAVE_CARD_CLASS[type],
+          selected && 'admin-leaves-balance-card--selected',
           className,
         )}
       >
-        <span className="truncate text-xs font-medium text-foreground">{shortType}</span>
-        <span className="shrink-0 text-sm font-bold tabular-nums" style={{ color }}>
-          {remaining}
-        </span>
+        <p className="admin-leaves-balance-card__title">{type}</p>
+        <div className="admin-leaves-balance-card__controls admin-leaves-balance-card__controls--static">
+          <span
+            className={cn(
+              'admin-leaves-balance-card__value',
+              isLop && 'admin-leaves-balance-card__value--lop',
+            )}
+          >
+            {isLop ? used : remaining}
+          </span>
+        </div>
+        <ul className="admin-leaves-balance-card__meta">
+          {isLop ? (
+            <li>
+              <span>Taken:</span> <strong>{used}</strong> {dayLabel(used)}
+            </li>
+          ) : (
+            <>
+              <li>
+                <span>Used:</span> <strong>{used}</strong> {dayLabel(used)}
+              </li>
+              <li>
+                <span>Total:</span> <strong>{total}</strong> {dayLabel(total)}
+              </li>
+            </>
+          )}
+        </ul>
       </div>
     )
   }

@@ -52,6 +52,7 @@ import {
   CELL_TYPE_LABELS,
   STATUS_LABELS,
   WORKFLOW_STATUS_LABELS,
+  cellActualEffortHours,
   cellDisplayStatus,
   cellTypeLabel,
   normalizeCellType,
@@ -59,7 +60,7 @@ import {
   projectCellProgressPercent,
 } from './projectWorkspaceUi'
 import { calculateEstimatedHours, CELL_COMPLEXITY_OPTIONS, DEFAULT_BASE_HOURS, formatComplexityFactor } from '@/utils/effortEstimationUtils'
-import { buildEmployeeFullName } from '@/utils/employeeDisplayName'
+import { buildEmployeeFullName, findEmployeeByAssigneeId, resolveAssigneeSelectValue } from '@/utils/employeeDisplayName'
 import { WorkspaceLibraryCard, WorkspaceLibraryToolbar } from './WorkspaceLibraryCard'
 import './adminProjects.css'
 
@@ -845,7 +846,7 @@ export function ProjectWorkspace() {
                             {cell.estimatedEffort ?? 0}h
                           </td>
                           <td className="admin-projects-table-col-act-hours tabular-nums">
-                            {cell.actualEffort ?? 0}h
+                            {cellActualEffortHours(cell)}h
                           </td>
                           <td className="admin-projects-table-col-workflow" onClick={(e) => e.stopPropagation()}>
                             <CellWorkflowPanel projectId={projectId} cell={cell} compact />
@@ -1219,12 +1220,13 @@ export function ProjectWorkspace() {
               <label className="text-sm font-medium">Assign employee
                 <select
                   className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  value={cellForm.assignedEmployeeId || ''}
+                  value={resolveAssigneeSelectValue(employees, cellForm.assignedEmployeeId)}
                   onChange={(e) => {
-                    const emp = employees.find((x) => x.id === e.target.value)
+                    const emp = findEmployeeByAssigneeId(employees, e.target.value)
+                      ?? employees.find((x) => x.id === e.target.value)
                     setCellForm((f) => f && {
                       ...f,
-                      assignedEmployeeId: e.target.value,
+                      assignedEmployeeId: emp?.id ?? e.target.value,
                       assignedEmployeeName: emp ? buildEmployeeFullName(emp) : '',
                     })
                   }}

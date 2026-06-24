@@ -17,6 +17,7 @@ const LEAVE_CARD_CLASS: Record<string, string> = {
   'Sick Leave': 'admin-leaves-balance-card--sick',
   'Earned Leave': 'admin-leaves-balance-card--earned',
   'Compensation Leave': 'admin-leaves-balance-card--comp',
+  LOP: 'admin-leaves-balance-card--lop',
 }
 
 type YearLeaveBalancesPanelProps = {
@@ -47,29 +48,35 @@ function LeaveBalanceCard({
       )}
     >
       <p className="admin-leaves-balance-card__title">{balance.type}</p>
-      <div className="admin-leaves-balance-card__controls">
-        <button
-          type="button"
-          className="admin-leaves-balance-card__btn"
-          aria-label={`Decrease ${balance.type} total`}
-          disabled={!canDecrease || saving}
-          onClick={() => onAdjustTotal(-1)}
-        >
-          <Minus className="h-3.5 w-3.5" />
-        </button>
-        <span className="admin-leaves-balance-card__value">
-          {balance.total}
-        </span>
-        <button
-          type="button"
-          className="admin-leaves-balance-card__btn"
-          aria-label={`Increase ${balance.type} total`}
-          disabled={!canIncrease}
-          onClick={() => onAdjustTotal(1)}
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </button>
-      </div>
+      {canEditTotal ? (
+        <div className="admin-leaves-balance-card__controls">
+          <button
+            type="button"
+            className="admin-leaves-balance-card__btn"
+            aria-label={`Decrease ${balance.type} total`}
+            disabled={!canDecrease || saving}
+            onClick={() => onAdjustTotal(-1)}
+          >
+            <Minus className="h-3.5 w-3.5" />
+          </button>
+          <span className="admin-leaves-balance-card__value">
+            {balance.total}
+          </span>
+          <button
+            type="button"
+            className="admin-leaves-balance-card__btn"
+            aria-label={`Increase ${balance.type} total`}
+            disabled={!canIncrease}
+            onClick={() => onAdjustTotal(1)}
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      ) : (
+        <div className="admin-leaves-balance-card__controls admin-leaves-balance-card__controls--static">
+          <span className="admin-leaves-balance-card__value">{balance.total}</span>
+        </div>
+      )}
       <ul className="admin-leaves-balance-card__meta">
         <li>
           <span>Used:</span> <strong>{balance.used}</strong>{' '}
@@ -178,10 +185,6 @@ export function YearLeaveBalancesPanel({
 
   return (
     <div className="admin-leaves-year-balances-panel">
-      <div className="admin-leaves-year-balances-toolbar">
-        <h3 className="admin-leaves-year-balances-title">View Balance</h3>
-      </div>
-
       <div className="admin-leaves-year-balances-search-wrap">
         <Search className="admin-leaves-year-balances-search-icon" />
         <input
@@ -230,16 +233,25 @@ export function YearLeaveBalancesPanel({
                     />
                   )
                 })}
-              </div>
 
-              <div className="admin-leaves-year-balances-lop" aria-label="LOP days">
-                <p className="admin-leaves-year-balances-lop__title">LOP days</p>
-                <p className="admin-leaves-year-balances-lop__value">{row.lopDays ?? 0}</p>
-                <ul className="admin-leaves-year-balances-lop__meta">
-                  <li>
-                    <span>Approved:</span> <strong>{row.lopApproved ?? 0}</strong>
-                  </li>
-                </ul>
+                <div
+                  className={cn('admin-leaves-balance-card', LEAVE_CARD_CLASS.LOP)}
+                  aria-label="LOP days"
+                >
+                  <p className="admin-leaves-balance-card__title">LOP</p>
+                  <div className="admin-leaves-balance-card__controls admin-leaves-balance-card__controls--static">
+                    <span className="admin-leaves-balance-card__value admin-leaves-balance-card__value--lop">
+                      {row.lopDays ?? 0}
+                    </span>
+                  </div>
+                  <ul className="admin-leaves-balance-card__meta">
+                    <li className="admin-leaves-balance-card__meta-month">
+                      <span>Used this month:</span>{' '}
+                      <strong>{row.lopThisMonth ?? 0}</strong>{' '}
+                      {(row.lopThisMonth ?? 0) === 1 ? 'day' : 'days'}
+                    </li>
+                  </ul>
+                </div>
               </div>
 
               <div className="admin-leaves-year-balances-actions">

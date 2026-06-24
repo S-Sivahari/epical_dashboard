@@ -62,8 +62,8 @@ export async function propagateEmployeeProfileChanges(
 
   if (nameDirty) {
     await Promise.all([
-      db.collection('document_requests').updateMany(
-        { $or: [{ employeeUserId: dbId }, { employeeId: dbId }] },
+      db.collection('documentRequests').updateMany(
+        { $or: [{ employeeUserId: dbId }, { employeeId: dbId } ] },
         { $set: { employeeName: displayName } },
       ),
       db.collection('leaves').updateMany({ employeeId: dbId }, { $set: { employeeName: displayName } }),
@@ -90,7 +90,7 @@ export async function propagateEmployeeProfileChanges(
   }
 
   if (idDirty) {
-    await db.collection('document_requests').updateMany(
+    await db.collection('documentRequests').updateMany(
       { employeeUserId: dbId },
       { $set: { employeeId: String(after.employeeId || dbId) } },
     );

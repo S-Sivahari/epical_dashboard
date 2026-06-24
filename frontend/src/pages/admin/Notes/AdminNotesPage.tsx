@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useLocation, useParams, useSearchParams } from 'react-router-dom'
-import { parseISO } from 'date-fns'
+import { format, parseISO, subDays } from 'date-fns'
 import { NotebookPen, Plus } from 'lucide-react'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
@@ -13,6 +13,7 @@ import { ROUTES } from '@/constants/routes'
 import { isProjectAnalysisAdminPath } from '@pages/admin/Projects/projectPortal'
 import { NotesDelegationPanel } from '@components/notes/NotesDelegationPanel'
 import {
+  deleteDailyBlock,
   getOrCreateDailyBlock,
   getNotesAccess,
   listDailyBlocksInRange,
@@ -34,14 +35,15 @@ import {
   type NotesSearchFilters,
 } from '@/utils/notesSearchParams'
 import {
-  buildWeekDays,
   formatWeekRangeLabel,
   getMondayOfWeek,
   getWorkingWeekdays,
   isCurrentWorkingWeek,
+  isPastNotesDay,
   shiftWeek,
   toDateKey,
 } from '@/utils/notesWeek'
+import { cn } from '@/utils/cn'
 import './admin-notes.css'
 
 type DailyNotesPageProps = {
@@ -62,7 +64,7 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<TopNotice | null>(null)
-  const [editingDateKey, setEditingDateKey] = useState<string | null>(null)
+  const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null)
   const [highlightDateKey, setHighlightDateKey] = useState<string | null>(null)
   const [emailBlock, setEmailBlock] = useState<DailyNoteBlock | null>(null)
 
@@ -86,6 +88,16 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
   const weekLabel = useMemo(() => formatWeekRangeLabel(weekMonday), [weekMonday])
   const isCurrentWeek = useMemo(() => isCurrentWorkingWeek(weekMonday), [weekMonday])
 
+  // Last 10 calendar days ending today (no future dates)
+  const last10Days = useMemo(() => {
+    const days: Date[] = []
+    const today = new Date()
+    for (let i = 9; i >= 0; i--) {
+      days.push(subDays(today, i))
+    }
+    return days
+  }, [])
+
   const syncUrl = useCallback(
     (filters: NotesSearchFilters, weekView: Date) => {
       setSearchParams((current) => {
@@ -97,9 +109,9 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
     [setSearchParams],
   )
 
-  const loadWeek = useCallback(async () => {
-    const from = toDateKey(weekdays[0])
-    const to = toDateKey(weekdays[weekdays.length - 1])
+  const loadDays = useCallback(async () => {
+    const from = toDateKey(last10Days[0])
+    const to = toDateKey(last10Days[last10Days.length - 1])
     setLoading(true)
     try {
       const items = await listDailyBlocksInRange(from, to)
@@ -112,12 +124,12 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
       setNotice({
         kind: 'error',
         title: 'Failed to load notes',
-        details: ['Could not load notes for this week.'],
+        details: ['Could not load notes for the past 10 days.'],
       })
     } finally {
       setLoading(false)
     }
-  }, [weekdays])
+  }, [last10Days])
 
   const runSearch = useCallback(async (filters: NotesSearchFilters, page: number) => {
     if (!hasActiveNotesSearch(filters)) {
@@ -148,17 +160,17 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
   }, [])
 
   useEffect(() => {
-    void loadWeek()
-  }, [loadWeek])
+    void loadDays()
+  }, [loadDays])
 
   useEffect(() => {
     if (!isEmployeeView) return
-    const from = toDateKey(weekdays[0])
-    const to = toDateKey(weekdays[weekdays.length - 1])
+    const from = toDateKey(last10Days[0])
+    const to = toDateKey(last10Days[last10Days.length - 1])
     void getNotesAccess({ from, to })
       .then((access) => setDelegatedDateKeys(new Set(access.delegatedDates)))
       .catch(() => setDelegatedDateKeys(new Set()))
-  }, [isEmployeeView, weekdays])
+  }, [isEmployeeView, last10Days])
 
   useEffect(() => {
     if (loading || normalizingBlocks) return
@@ -238,21 +250,35 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
 
   const handleWeekChange = (nextMonday: Date) => {
     setWeekMonday(nextMonday)
-    setEditingDateKey(null)
+    setSelectedDateKey(null)
   }
+
+  const canEditDate = useCallback(
+    (dateKey: string) => !isEmployeeView || delegatedDateKeys.has(dateKey),
+    [delegatedDateKeys, isEmployeeView],
+  )
 
   const handleOpenSearchResult = (result: NoteSearchResult) => {
     const monday = getMondayOfWeek(new Date(result.date))
     setWeekMonday(monday)
+    setSelectedDateKey(result.date)
     setHighlightDateKey(result.date)
     setSearchFilters(EMPTY_NOTES_SEARCH)
     setSearchPage(1)
-    window.setTimeout(() => {
-      document.getElementById(`notes-day-${result.date}`)?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      })
-    }, 350)
+  }
+
+  const handleSelectDate = async (dateKey: string) => {
+    setSelectedDateKey(dateKey)
+    setHighlightDateKey(dateKey)
+    if (blocksByDate[dateKey] || !canEditDate(dateKey) || isPastNotesDay(dateKey)) return
+    try {
+      const block = await getOrCreateDailyBlock(dateKey)
+      setBlocksByDate((prev) => ({ ...prev, [dateKey]: block }))
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } }
+      const message = axiosErr.response?.data?.error || 'Failed to open notepad for this day'
+      setNotice({ kind: 'error', title: 'Could not open notes', details: [message] })
+    }
   }
 
   const handleBlockChange = (dateKey: string, block: DailyNoteBlock) => {
@@ -269,7 +295,7 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
 
       const block = await getOrCreateDailyBlock(todayDateKey)
       setBlocksByDate((prev) => ({ ...prev, [todayDateKey]: block }))
-      setEditingDateKey(todayDateKey)
+      setSelectedDateKey(todayDateKey)
       setHighlightDateKey(todayDateKey)
       setNotice({
         kind: 'success',
@@ -295,21 +321,47 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
     }
   }
 
-  const weekDays = useMemo(
-    () => buildWeekDays(weekMonday, blocksByDate),
-    [weekMonday, blocksByDate],
-  )
+  useEffect(() => {
+    const keys = last10Days.map((day) => toDateKey(day))
+    if (selectedDateKey && keys.includes(selectedDateKey)) return
+
+    const todayKey = toDateKey(new Date())
+    if (highlightDateKey && keys.includes(highlightDateKey)) {
+      setSelectedDateKey(highlightDateKey)
+      return
+    }
+    // Default to today (always the last entry in last10Days)
+    setSelectedDateKey(todayKey)
+  }, [last10Days, selectedDateKey, highlightDateKey])
+
+  const selectedDay = useMemo(() => {
+    if (!selectedDateKey) return null
+    return {
+      date: last10Days.find((d) => toDateKey(d) === selectedDateKey) ?? new Date(selectedDateKey),
+      dateKey: selectedDateKey,
+      block: blocksByDate[selectedDateKey] ?? null,
+    }
+  }, [last10Days, selectedDateKey, blocksByDate])
 
   const todayDateKey = toDateKey(new Date())
   const canAddToday =
-    isCurrentWeek &&
     !busy &&
     (!isEmployeeView || delegatedDateKeys.has(todayDateKey))
 
-  const canEditDate = useCallback(
-    (dateKey: string) => !isEmployeeView || delegatedDateKeys.has(dateKey),
-    [delegatedDateKeys, isEmployeeView],
-  )
+  const handleDeleteBlock = useCallback(async (dateKey: string, blockId: string) => {
+    try {
+      await deleteDailyBlock(blockId)
+      setBlocksByDate((prev) => {
+        const next = { ...prev }
+        delete next[dateKey]
+        return next
+      })
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } }
+      const message = axiosErr.response?.data?.error || 'Could not delete notes for this day'
+      setNotice({ kind: 'error', title: 'Delete failed', details: [message] })
+    }
+  }, [])
 
   return (
     <PageWrapper
@@ -397,31 +449,63 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
             <section className="notes-week-board" aria-label={`Notes for ${weekLabel}`}>
               {loading ? (
                 <div className="notes-week-feed__loading" aria-busy="true">
-                  {Array.from({ length: 5 }).map((_, index) => (
-                    <div key={index} className="admin-notes-skeleton admin-notes-skeleton--panel notes-notepad-skeleton" />
-                  ))}
+                  <div className="admin-notes-skeleton admin-notes-skeleton--panel notes-notepad-skeleton" />
                 </div>
               ) : (
-                <div className="notes-week-feed">
-                  {weekDays.map(({ date, dateKey, block }) => (
-                  <DailyNotesNotepad
-                    key={dateKey}
-                    date={date}
-                    dateKey={dateKey}
-                    block={block}
-                    projects={projects}
-                    employees={employees}
-                    highlighted={highlightDateKey === dateKey}
-                    busy={busy}
-                    canEdit={canEditDate(dateKey)}
-                    defaultExpanded={editingDateKey === dateKey || highlightDateKey === dateKey}
-                    onBlockChange={(updated) => handleBlockChange(dateKey, updated)}
-                    onSendEmail={setEmailBlock}
-                    onError={(message) => {
-                      setNotice({ kind: 'error', title: 'Could not save note', details: [message] })
-                    }}
-                  />
-                  ))}
+                <div className="notes-date-bar-layout">
+                  <nav className="notes-date-bar" aria-label="Select day">
+                    {last10Days.map((date) => {
+                      const dateKey = toDateKey(date)
+                      const block = blocksByDate[dateKey] ?? null
+                      const noteCount = block?.childBlocks.filter((child) => !child.archived).length ?? 0
+                      const isActive = selectedDateKey === dateKey
+                      return (
+                        <button
+                          key={dateKey}
+                          type="button"
+                          className={cn('notes-date-bar__chip', isActive && 'is-active')}
+                          aria-pressed={isActive}
+                          onClick={() => void handleSelectDate(dateKey)}
+                        >
+                          <span className="notes-date-bar__weekday">{format(date, 'EEE')}</span>
+                          <span className="notes-date-bar__date">{format(date, 'dd MMM')}</span>
+                          <span className="notes-date-bar__status">
+                            {noteCount > 0 ? `${noteCount} note${noteCount === 1 ? '' : 's'}` : 'No notes'}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </nav>
+
+                  <div className="notes-day-panel">
+                    {selectedDay ? (
+                      <DailyNotesNotepad
+                        key={selectedDay.dateKey}
+                        layout="panel"
+                        date={selectedDay.date}
+                        dateKey={selectedDay.dateKey}
+                        block={selectedDay.block}
+                        projects={projects}
+                        employees={employees}
+                        highlighted={highlightDateKey === selectedDay.dateKey}
+                        busy={busy}
+                        canEdit={canEditDate(selectedDay.dateKey)}
+                        defaultExpanded
+                        onBlockChange={(updated) => handleBlockChange(selectedDay.dateKey, updated)}
+                        onSendEmail={setEmailBlock}
+                        onDelete={
+                          selectedDay.block
+                            ? () => void handleDeleteBlock(selectedDay.dateKey, selectedDay.block!._id)
+                            : undefined
+                        }
+                        onError={(message) => {
+                          setNotice({ kind: 'error', title: 'Could not save note', details: [message] })
+                        }}
+                      />
+                    ) : (
+                      <p className="notes-notepad-pad__no-block">Select a day to view notes.</p>
+                    )}
+                  </div>
                 </div>
               )}
             </section>
