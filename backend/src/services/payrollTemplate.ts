@@ -1,4 +1,7 @@
 import ExcelJS from 'exceljs'
+import { getDB } from '../config/db'
+import type { Employee } from '../models/Employee'
+import { getLeaveBalances } from './leaveService'
 
 /** Brand colors matching the payroll master template */
 const GREEN_DK = 'FF0E5E4E'
@@ -39,11 +42,106 @@ function styleValueCell(cell: ExcelJS.Cell) {
   cell.border = thinBorder()
 }
 
+/**
+ * Fetch all active employees from the database
+ */
+async function fetchActiveEmployees(): Promise<Employee[]> {
+  try {
+    const db = getDB()
+    const employees = await db
+      .collection<Employee>('employees')
+      .find({ status: { $ne: 'Deactivated' } })
+      .sort({ employeeId: 1 })
+      .toArray()
+    return employees
+  } catch (error) {
+    console.error('Failed to fetch employees for payroll template:', error)
+    return []
+  }
+}
+
+/**
+ * Map employee DB record to Excel row format
+ */
+async function mapEmployeeToRow(
+  employee: Employee,
+  workingDays: number,
+  leaveBalances?: Record<string, { total: number; used: number; remaining: number }>
+): Promise<(string | number)[]> {
+  const fullName = [employee.firstName, employee.middleName, employee.lastName]
+    .filter(Boolean)
+    .join(' ')
+  
+  // Extract leave balances
+  const elBalance = leaveBalances?.['Earned Leave']?.remaining ?? ''
+  const clBalance = leaveBalances?.['Casual Leave']?.remaining ?? ''
+  const slBalance = leaveBalances?.['Sick Leave']?.remaining ?? ''
+  const compOff = leaveBalances?.['Compensation Leave']?.remaining ?? ''
+  const lopDays = leaveBalances?.['LOP Days']?.used ?? 0
+  
+  return [
+    employee.employeeId || '',
+    fullName,
+    employee.designation || '',
+    '', // Department - not in current schema
+    '', // Location - not in current schema
+    '', // Branch - not in current schema
+    employee.dob || '',
+    employee.salaryGrade || '',
+    '', // Cost Centre - not in current schema
+    employee.joinedAt || '',
+    '', // Reporting To - could map managerId but leaving empty
+    employee.employmentType || '',
+    workingDays, // Paid Days = Working Days
+    lopDays, // LOP Days from leave balance
+    '', // Basic Salary - leave empty as per user requirement
+    '', // HRA
+    '', // Conveyance
+    '', // Sundry Medical
+    '', // LTA
+    '', // Variable Allowance
+    '', // Personal Allowance
+    '', // Special Allowance
+    '', // Reimbursements
+    '', // PT
+    '', // TDS
+    '', // Loan Recovery
+    elBalance, // EL Balance
+    clBalance, // CL Balance
+    slBalance, // SL Balance
+    compOff, // Comp Off
+  ]
+}
+
 /** Demo payroll Excel: employee, company, salary structure, readme */
-export async function generatePayrollTemplateBuffer(): Promise<Buffer> {
+export async function generatePayrollTemplateBuffer(options?: { includeEmployeeData?: boolean }): Promise<Buffer> {
   const wb = new ExcelJS.Workbook()
   wb.creator = 'EPICAL HRMS'
   wb.created = new Date()
+
+  // Define company fields first to extract working days
+  const companyFields: [string, string | number][] = [
+    ['Company Name', 'Epical Layouts Pvt Ltd'],
+    ['CIN', ''],
+    ['GSTIN', '33AAFCE7686L1Z3'],
+    ['Company PAN', 'AAFCE7686L'],
+    ['Address Line 1', '15, 2nd Bhajanai Koil St, Sembakkam'],
+    ['Address Line 2', 'Rajakilpakkam'],
+    ['City', 'Chennai'],
+    ['State', 'Tamil Nadu'],
+    ['PIN', '600073'],
+    ['Phone', ''],
+    ['Email', 'info@epicallayouts.com'],
+    ['Website', ''],
+    ['Pay Month', 'April 2026'],
+    ['Pay Date', '30-Apr-2026'],
+    ['Working Days', 26],
+    ['Default Tax Regime', 'New'],
+  ]
+  
+  // Extract working days for use in employee sheet
+  const workingDaysEntry = companyFields.find(([label]) => label === 'Working Days')
+  const workingDays = (workingDaysEntry?.[1] as number) ?? 26
 
   // ── Sheet 1: employee ─────────────────────────────────────────
   const empSheet = wb.addWorksheet('employee', {
@@ -133,73 +231,98 @@ export async function generatePayrollTemplateBuffer(): Promise<Buffer> {
   })
   styleHeaderRow(headerRow, empHeaders.length)
 
-  const sampleEmployees = [
-    [
-      'E-1001',
-      'Ravi Kumar',
-      'Software Engineer',
-      'Engineering',
-      'Chennai',
-      'HQ',
-      '15-Mar-1995',
-      'L2',
-      'CC-ENG-01',
-      '01-Jun-2022',
-      'Tech Lead',
-      'Full Time',
-      26,
-      0,
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      18,
-      7,
-      7,
-      2,
-    ],
-    [
-      'E-1002',
-      'Priya Sharma',
-      'HR Executive',
-      'Human Resources',
-      'Chennai',
-      'HQ',
-      '22-Jul-1998',
-      'L1',
-      'CC-HR-01',
-      '10-Jan-2023',
-      'HR Manager',
-      'Full Time',
-      26,
-      0,
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      12,
-      5,
-      5,
-      0,
-    ],
-  ]
-  sampleEmployees.forEach((row, idx) => {
+  // Determine which employee data to use
+  let employeeRows: (string | number)[][] = []
+  
+  if (options?.includeEmployeeData) {
+    // Fetch real employee data from database
+    const employees = await fetchActiveEmployees()
+    
+    // Fetch leave balances for all employees
+    const employeeRowsPromises = employees.map(async (employee) => {
+      try {
+        // Fetch leave balances for this employee
+        const balances = await getLeaveBalances(employee.id)
+        return await mapEmployeeToRow(employee, workingDays, balances)
+      } catch (error) {
+        console.error(`Failed to fetch leave balances for ${employee.employeeId}:`, error)
+        // Fallback without balances
+        return await mapEmployeeToRow(employee, workingDays)
+      }
+    })
+    
+    employeeRows = await Promise.all(employeeRowsPromises)
+  } else {
+    // Use sample employees for demo
+    employeeRows = [
+      [
+        'E-1001',
+        'Ravi Kumar',
+        'Software Engineer',
+        'Engineering',
+        'Chennai',
+        'HQ',
+        '15-Mar-1995',
+        'L2',
+        'CC-ENG-01',
+        '01-Jun-2022',
+        'Tech Lead',
+        'Full Time',
+        26,
+        0,
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        18,
+        7,
+        7,
+        2,
+      ],
+      [
+        'E-1002',
+        'Priya Sharma',
+        'HR Executive',
+        'Human Resources',
+        'Chennai',
+        'HQ',
+        '22-Jul-1998',
+        'L1',
+        'CC-HR-01',
+        '10-Jan-2023',
+        'HR Manager',
+        'Full Time',
+        26,
+        0,
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        12,
+        5,
+        5,
+        0,
+      ],
+    ]
+  }
+
+  employeeRows.forEach((row, idx) => {
     const r = empSheet.getRow(5 + idx)
     row.forEach((val, i) => {
       const cell = r.getCell(i + 1)
@@ -223,25 +346,6 @@ export async function generatePayrollTemplateBuffer(): Promise<Buffer> {
   coTitle.font = { bold: true, color: { argb: WHITE }, size: 12 }
   coTitle.alignment = { horizontal: 'center', vertical: 'middle' }
   coSheet.getRow(1).height = 24
-
-  const companyFields: [string, string | number][] = [
-    ['Company Name', 'Epical Layouts Pvt Ltd'],
-    ['CIN', ''],
-    ['GSTIN', '33AAFCE7686L1Z3'],
-    ['Company PAN', 'AAFCE7686L'],
-    ['Address Line 1', '15, 2nd Bhajanai Koil St, Sembakkam'],
-    ['Address Line 2', 'Rajakilpakkam'],
-    ['City', 'Chennai'],
-    ['State', 'Tamil Nadu'],
-    ['PIN', '600073'],
-    ['Phone', ''],
-    ['Email', 'info@epicallayouts.com'],
-    ['Website', ''],
-    ['Pay Month', 'April 2026'],
-    ['Pay Date', '30-Apr-2026'],
-    ['Working Days', 26],
-    ['Default Tax Regime', 'New'],
-  ]
 
   companyFields.forEach(([label, value], i) => {
     const r = coSheet.getRow(i + 2)

@@ -557,7 +557,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
 
   const handleDownloadTemplate = async () => {
     try {
-      await downloadPayrollTemplate()
+      await downloadPayrollTemplate(undefined, true)
     } catch {
       toast.error('Failed to download template')
     }
