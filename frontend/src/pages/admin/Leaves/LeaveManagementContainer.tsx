@@ -12,6 +12,7 @@ import { cn } from '@/utils/cn'
 import { Button } from '@components/ui/Button'
 import { Modal } from '@components/ui/Modal'
 import { LeaveRequests } from './LeaveRequests'
+import { LeaveStatusTabsBar } from './LeaveStatusTabsBar'
 import { CompensationManagement } from './CompensationManagement'
 import { EmployeeLeaveProfileModal } from './EmployeeLeaveProfileModal'
 import { YearLeaveBalancesPanel } from './YearLeaveBalancesPanel'
@@ -722,8 +723,20 @@ export function LeaveManagementContainer() {
 
         {/* ── Requests tab: 2-column layout ────────────────────────── */}
         {activeTab === 'requests' && (
-          <div className="admin-leaves-body-grid admin-leaves-two-col">
+          <div className="admin-leaves-requests-layout">
+            <div className="admin-leaves-requests-headers">
+              <LeaveStatusTabsBar
+                filters={leaveFilters}
+                onFiltersChange={setLeaveFilters}
+                monthLabel={monthLabel}
+                className="admin-leaves-requests-header-left"
+              />
+              <div className="admin-leaves-status-tabs admin-leaves-status-tabs--hub admin-leaves-requests-header-right">
+                <h3 className="admin-leaves-activity-head-title">Recent Activity</h3>
+              </div>
+            </div>
 
+            <div className="admin-leaves-body-grid admin-leaves-two-col admin-leaves-requests-bodies">
             <div className="admin-leaves-panel admin-leaves-col-panel flex min-h-0 flex-col">
               {searched && (filterEmployees.length > 0 || filterType || filterFrom || filterTo) && (
                 <div className="admin-leaves-filter-chips flex shrink-0 flex-wrap items-center gap-2 px-2 py-1.5">
@@ -739,13 +752,15 @@ export function LeaveManagementContainer() {
                   </button>
                 </div>
               )}
-              <LeaveRequests filters={leaveFilters} onFiltersChange={setLeaveFilters} monthLabel={monthLabel} />
+              <LeaveRequests
+                filters={leaveFilters}
+                onFiltersChange={setLeaveFilters}
+                monthLabel={monthLabel}
+                hideStatusBar
+              />
             </div>
 
             <div className="admin-leaves-panel admin-leaves-activity-feed admin-leaves-feed-panel admin-leaves-bb-panel admin-leaves-col-panel">
-              <div className="admin-leaves-col-panel-head">
-                <h3 className="admin-leaves-col-panel-title">Recent Activity</h3>
-              </div>
               <div className="admin-leaves-scroll">
                 {loading ? (
                   <div className="admin-leaves-feed-empty">
@@ -892,6 +907,7 @@ export function LeaveManagementContainer() {
               </div>
             </div>
 
+          </div>
           </div>
         )}
 

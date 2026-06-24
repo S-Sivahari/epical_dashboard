@@ -42,10 +42,12 @@ export function LeaveRequests({
   filters,
   onFiltersChange,
   monthLabel: monthLabelProp,
+  hideStatusBar = false,
 }: {
   filters: LeaveFilters
   onFiltersChange: (f: LeaveFilters) => void
   monthLabel?: string
+  hideStatusBar?: boolean
 }) {
   const { leaves, loading, approveLeave, rejectLeave, revokeApprovedLeave } = useLeaves()
 
@@ -310,30 +312,32 @@ export function LeaveRequests({
   return (
     <Tooltip.Provider delayDuration={300}>
       <div className="admin-leaves-center-panel">
-        <div className="admin-leaves-status-tabs admin-leaves-status-tabs--hub">
-          <nav className="admin-leaves-status-tab-rail admin-leaves-tab-rail" aria-label="Leave status">
-            {(['Pending', 'Approved', 'Rejected'] as StatusType[]).map((status) => {
-              const count = statusCounts[status]
-              const active = filters.status === status
-              return (
-                <button
-                  key={status}
-                  type="button"
-                  data-status={status}
-                  onClick={() => setFilters({ ...filters, status })}
-                  className={cn(
-                    'admin-leaves-tab-btn admin-leaves-status-tab-btn',
-                    active ? 'admin-leaves-tab-btn--active' : 'admin-leaves-tab-btn--inactive',
-                  )}
-                >
-                  <span>{status}</span>
-                  <span className="admin-leaves-status-tab-count">{count}</span>
-                </button>
-              )
-            })}
-          </nav>
-          <span className="admin-leaves-status-month-label">{monthLabel}</span>
-        </div>
+        {!hideStatusBar ? (
+          <div className="admin-leaves-status-tabs admin-leaves-status-tabs--hub">
+            <nav className="admin-leaves-status-tab-rail admin-leaves-tab-rail" aria-label="Leave status">
+              {(['Pending', 'Approved', 'Rejected'] as StatusType[]).map((status) => {
+                const count = statusCounts[status]
+                const active = filters.status === status
+                return (
+                  <button
+                    key={status}
+                    type="button"
+                    data-status={status}
+                    onClick={() => setFilters({ ...filters, status })}
+                    className={cn(
+                      'admin-leaves-tab-btn admin-leaves-status-tab-btn',
+                      active ? 'admin-leaves-tab-btn--active' : 'admin-leaves-tab-btn--inactive',
+                    )}
+                  >
+                    <span>{status}</span>
+                    <span className="admin-leaves-status-tab-count">{count}</span>
+                  </button>
+                )
+              })}
+            </nav>
+            <span className="admin-leaves-status-month-label">{monthLabel}</span>
+          </div>
+        ) : null}
 
         <div className="admin-leaves-scroll flex-1 min-h-0">
           {loading ? (

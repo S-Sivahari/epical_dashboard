@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { History, Minus, Plus, RefreshCw, Search } from 'lucide-react'
-import { Button } from '@components/ui/Button'
+import { History, Minus, Plus, Search } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import * as leaveService from '@services/leaveService'
 import type { LeaveTypeBalanceSummary, YearLeaveBalanceRow } from '@/types'
@@ -91,19 +90,10 @@ export function YearLeaveBalancesPanel({
   onAllocationUpdated,
 }: YearLeaveBalancesPanelProps) {
   const currentYear = new Date().getFullYear()
-  const [year, setYear] = useState(currentYear)
   const [rows, setRows] = useState<YearLeaveBalanceRow[]>([])
   const [loading, setLoading] = useState(false)
   const [savingKey, setSavingKey] = useState<string | null>(null)
   const [search, setSearch] = useState('')
-
-  const yearOptions = useMemo(() => {
-    const options: number[] = []
-    for (let y = currentYear + 1; y >= currentYear - 4; y--) {
-      options.push(y)
-    }
-    return options
-  }, [currentYear])
 
   const loadBalances = useCallback(async (selectedYear: number) => {
     setLoading(true)
@@ -121,8 +111,8 @@ export function YearLeaveBalancesPanel({
 
   useEffect(() => {
     if (!active) return
-    void loadBalances(year)
-  }, [active, year, loadBalances])
+    void loadBalances(currentYear)
+  }, [active, currentYear, loadBalances])
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -136,7 +126,7 @@ export function YearLeaveBalancesPanel({
   }, [rows, search])
 
   const canEditTotal = (type: string) =>
-    year === currentYear && type !== 'Compensation Leave'
+    type !== 'Compensation Leave'
 
   const handleAdjustTotal = async (
     row: YearLeaveBalanceRow,
@@ -160,7 +150,7 @@ export function YearLeaveBalancesPanel({
     const saveKey = `${row.internalId}:${type}`
     setSavingKey(saveKey)
     try {
-      const updated = await leaveService.updateEmployeeYearLeaveBalances(row.internalId, year, [
+      const updated = await leaveService.updateEmployeeYearLeaveBalances(row.internalId, currentYear, [
         { type, total: nextTotal },
       ])
       setRows((prev) =>
@@ -185,33 +175,6 @@ export function YearLeaveBalancesPanel({
     <div className="admin-leaves-year-balances-panel">
       <div className="admin-leaves-year-balances-toolbar">
         <h3 className="admin-leaves-year-balances-title">View Balance</h3>
-        <div className="admin-leaves-year-balances-toolbar-actions">
-          <label className="admin-leaves-year-balances-year">
-            <span>Year</span>
-            <select
-              value={year}
-              onChange={(e) => setYear(Number(e.target.value))}
-              className="admin-leaves-year-balances-year-select"
-            >
-              {yearOptions.map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-          </label>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => void loadBalances(year)}
-            disabled={loading}
-            className="admin-leaves-secondary-btn gap-1.5 font-semibold"
-          >
-            <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
-            Refresh
-          </Button>
-        </div>
       </div>
 
       <div className="admin-leaves-year-balances-search-wrap">
