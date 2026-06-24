@@ -32,6 +32,7 @@ body,
 }
 
 /* Viewport-fit pages — internal panel scroll only (cmd-main does not scroll) */
+.admin-portal.cmd-portal .cmd-main:has([data-admin-dashboard]),
 .admin-portal.cmd-portal .cmd-main:has([data-admin-calendar]),
 .admin-portal.cmd-portal .cmd-main:has([data-metal-routing]),
 .employee-portal.cmd-portal .cmd-main:has([data-employee-calendar]),
@@ -2516,27 +2517,26 @@ body,
   }
 }
 
-/* Admin dashboard — page scroll via cmd-main; internal scroll only when contribution history has many rows */
+/* Admin dashboard — viewport-fit; internal panel scroll (see @media min-width 1024px in index.css) */
 .admin-portal main > .relative:has([data-admin-dashboard]) {
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   flex-direction: column;
   min-height: 0;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .admin-dashboard-view[data-admin-dashboard] {
-  flex: 1 1 auto;
-  max-height: none;
-  min-height: var(--viewport-page-h);
-  overflow: visible;
+  flex: 1 1 0;
+  max-height: var(--viewport-page-h);
+  min-height: 0;
+  overflow: hidden;
 }
 
 .admin-portal.cmd-portal .cmd-main:has([data-admin-dashboard]) {
   overflow-x: hidden;
-  overflow-y: auto;
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
+  overflow-y: hidden;
+  min-height: 0;
 }
 
 /* Employee portal — dashboard/timesheet scroll via cmd-main; calendar stays viewport-fit */

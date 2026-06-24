@@ -2865,10 +2865,6 @@ export function ProjectManagement() {
             </div>
           </div>
 
-          {activeTab !== 'analytics' && activeTab !== 'archived' && (
-            <div className="my-3 border-t border-slate-100" />
-          )}
-
           {activeTab === 'projects' ? (
             <div className="projects-sidebar-stats">
               <div className="projects-hero-stat-card projects-sidebar-stat-card">

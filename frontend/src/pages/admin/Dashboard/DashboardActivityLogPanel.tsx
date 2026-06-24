@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { addDays, format, parseISO } from 'date-fns'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import api from '@/services/api'
@@ -6,11 +6,13 @@ import { DateInput } from '@components/shared/DateInput'
 import { cn } from '@/utils/cn'
 import { formatDateKey } from './dashboardChartUtils'
 
-export type DailyActivityEntry = {
+export type DailyActivitySession = {
   id: string
   userName: string
-  message: string
-  time: string
+  checkInTime: string
+  checkOutTime: string | null
+  worked: string | null
+  checkOutType: 'manual' | 'auto' | null
 }
 
 type DashboardActivityLogPanelProps = {
@@ -33,10 +35,27 @@ function shiftDateKey(isoDate: string, deltaDays: number): string {
   }
 }
 
+function formatCheckOutLabel(
+  checkOutTime: string | null,
+  checkOutType: DailyActivitySession['checkOutType'],
+): ReactNode {
+  if (!checkOutTime) return 'In progress'
+  const time = formatActivityTime(checkOutTime)
+  if (checkOutType === 'auto') {
+    return (
+      <span className="dashboard-activity-session-checkout">
+        {time}
+        <span className="dashboard-activity-session-auto"> (auto)</span>
+      </span>
+    )
+  }
+  return <span className="dashboard-activity-session-checkout">{time}</span>
+}
+
 export function DashboardActivityLogPanel({ className }: DashboardActivityLogPanelProps) {
   const todayKey = useMemo(() => formatDateKey(new Date()), [])
   const [selectedDate, setSelectedDate] = useState(todayKey)
-  const [entries, setEntries] = useState<DailyActivityEntry[]>([])
+  const [entries, setEntries] = useState<DailyActivitySession[]>([])
   const [loading, setLoading] = useState(true)
 
   const maxDate = todayKey
@@ -50,7 +69,7 @@ export function DashboardActivityLogPanel({ className }: DashboardActivityLogPan
     const load = async () => {
       setLoading(true)
       try {
-        const { data } = await api.get<{ date: string; entries: DailyActivityEntry[] }>(
+        const { data } = await api.get<{ date: string; entries: DailyActivitySession[] }>(
           '/employees/daily-activity',
           { params: { date: selectedDate } },
         )
@@ -158,6 +177,7 @@ export function DashboardActivityLogPanel({ className }: DashboardActivityLogPan
           <ul className="dashboard-activity-timeline" role="list">
             {entries.map((entry, index) => {
               const isLast = index === entries.length - 1
+              const sessionEndTime = entry.checkOutTime ?? entry.checkInTime
               return (
                 <li
                   key={entry.id}
@@ -166,9 +186,30 @@ export function DashboardActivityLogPanel({ className }: DashboardActivityLogPan
                   <span className="dashboard-activity-dot" aria-hidden />
                   <div className="dashboard-activity-content">
                     <p className="dashboard-activity-user">{entry.userName}</p>
-                    <p className="dashboard-activity-message">{entry.message}</p>
+                    <dl className="dashboard-activity-session">
+                      <div className="dashboard-activity-session-row">
+                        <dt>Checked in</dt>
+                        <dd>{formatActivityTime(entry.checkInTime)}</dd>
+                      </div>
+                      <div className="dashboard-activity-session-row">
+                        <dt>Checked out</dt>
+                        <dd
+                          className={cn(
+                            !entry.checkOutTime && 'dashboard-activity-session-value--pending',
+                          )}
+                        >
+                          {formatCheckOutLabel(entry.checkOutTime, entry.checkOutType)}
+                        </dd>
+                      </div>
+                      <div className="dashboard-activity-session-row">
+                        <dt>Worked</dt>
+                        <dd>{entry.worked ?? '—'}</dd>
+                      </div>
+                    </dl>
                   </div>
-                  <time className="dashboard-activity-time">{formatActivityTime(entry.time)}</time>
+                  <time className="dashboard-activity-time" dateTime={sessionEndTime}>
+                    {formatActivityTime(sessionEndTime)}
+                  </time>
                 </li>
               )
             })}
